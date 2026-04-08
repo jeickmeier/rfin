@@ -59,7 +59,16 @@ use tracing::debug;
 /// Version choice controls the registry-backed risk weights, correlations, and
 /// concentration thresholds used by the calculator.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[non_exhaustive]
 pub enum SimmVersion {

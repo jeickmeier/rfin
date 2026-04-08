@@ -10,7 +10,12 @@ use time::macros::date;
 
 /// Cliquet option instrument.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct CliquetOption {
@@ -19,8 +24,10 @@ pub struct CliquetOption {
     /// Underlying asset ticker symbol
     pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Reset dates for periodic return locking
+    #[schemars(with = "Vec<String>")]
     pub reset_dates: Vec<Date>,
     /// Explicit terminal expiry date for the structure.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Local cap on individual period returns
     pub local_cap: f64,
@@ -53,7 +60,17 @@ pub struct CliquetOption {
 }
 
 /// Cliquet payoff aggregation type.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub enum CliquetPayoffType {
     /// Additive: Sum of period returns
     #[default]

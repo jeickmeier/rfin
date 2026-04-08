@@ -9,7 +9,9 @@ use finstack_core::money::Money;
 /// Instruments in the same netting set can offset each other for margin
 /// calculation purposes. The netting set is typically defined by the
 /// CSA agreement or CCP membership.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct NettingSetId {
     /// Counterparty identifier
     pub counterparty_id: String,
@@ -61,11 +63,12 @@ impl std::fmt::Display for NettingSetId {
 }
 
 /// Result of calculating margin for an instrument.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct InstrumentMarginResult {
     /// Instrument identifier
     pub instrument_id: String,
     /// Calculation date
+    #[schemars(with = "String")]
     pub as_of: Date,
     /// Initial margin requirement
     pub initial_margin: Money,

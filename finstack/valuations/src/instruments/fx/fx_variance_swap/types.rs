@@ -22,7 +22,12 @@ pub use crate::instruments::common_impl::parameters::PayReceive;
 ///
 /// Payoff: Notional * (Realized Variance - Strike Variance)
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxVarianceSwap {
@@ -40,8 +45,10 @@ pub struct FxVarianceSwap {
     /// Strike variance (annualized)
     pub strike_variance: f64,
     /// Start date of observation period
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Maturity/settlement date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Observation frequency
     pub observation_freq: Tenor,

@@ -24,7 +24,9 @@ use super::parameters::InflationLinkedBondParams;
 use crate::impl_instrument_base;
 
 /// Indexation method for inflation adjustment
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum IndexationMethod {
     /// Canadian model (real yield, indexed principal and coupons)
     Canadian,
@@ -136,7 +138,9 @@ impl IndexationMethod {
 }
 
 /// Deflation protection type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum DeflationProtection {
     /// No deflation protection
     None,
@@ -196,7 +200,12 @@ impl InflationSource {
 
 /// Inflation-Linked Bond instrument
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct InflationLinkedBond {
@@ -211,12 +220,15 @@ pub struct InflationLinkedBond {
     /// Day count convention
     pub day_count: DayCount,
     /// Issue date
+    #[schemars(with = "String")]
     pub issue_date: Date,
     /// Maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Base CPI/index value at issue
     pub base_index: f64,
     /// Base date for index (may differ from issue date)
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Indexation method
     pub indexation_method: IndexationMethod,

@@ -54,7 +54,13 @@ const MAX_REASONABLE_RATE: f64 = 0.50;
 ///
 /// Use `side` to indicate the fixed leg direction. If omitted in JSON,
 /// deserialization defaults to `PayFixed`.
-#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
+#[derive(
+    Debug,
+    Clone,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardRateAgreement {
     /// Unique identifier
@@ -64,10 +70,13 @@ pub struct ForwardRateAgreement {
     /// Rate fixing date. If `None`, inferred from `start_date - reset_lag` business days.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub fixing_date: Option<Date>,
     /// Interest period start date
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Interest period end date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Fixed rate (decimal, e.g., 0.05 for 5%)
     pub fixed_rate: Decimal,

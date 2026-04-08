@@ -126,7 +126,7 @@ pub trait RecoveryModel: Send + Sync + std::fmt::Debug {
 /// Recovery model specification for configuration and serialization.
 ///
 /// Allows recovery model selection without constructing the full model.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", deny_unknown_fields)]
 #[non_exhaustive]
 pub enum RecoverySpec {

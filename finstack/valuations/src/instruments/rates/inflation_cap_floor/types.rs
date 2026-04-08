@@ -46,7 +46,9 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 /// Inflation option type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InflationCapFloorType {
@@ -104,7 +106,12 @@ impl std::str::FromStr for InflationCapFloorType {
 
 /// YoY inflation cap/floor instrument.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct InflationCapFloor {
@@ -117,8 +124,10 @@ pub struct InflationCapFloor {
     /// Strike (annualized, decimal).
     pub strike: Decimal,
     /// Start date of the first inflation period.
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// End date of the final inflation period.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Payment frequency (ignored for caplet/floorlet).
     pub frequency: Tenor,

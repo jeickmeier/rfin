@@ -47,7 +47,12 @@ use time::macros::date;
 /// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct EquityTotalReturnSwap {
@@ -94,6 +99,7 @@ pub struct EquityTotalReturnSwap {
     /// not add continuous-yield dividend return to avoid double counting.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[builder(default)]
+    #[schemars(with = "Vec<(String, f64)>")]
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Attributes for scenario selection and tagging.
     #[serde(default)]

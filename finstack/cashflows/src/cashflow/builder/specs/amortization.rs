@@ -10,7 +10,9 @@ use finstack_core::money::Money;
 ///
 /// Describes how principal amortizes or is exchanged during the life of the contract.
 /// Used by instruments (e.g., bonds) and cashflow legs for consistent behavior.
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum AmortizationSpec {
     /// No amortization – principal remains constant until final redemption.
     #[default]
@@ -24,6 +26,7 @@ pub enum AmortizationSpec {
     /// Each pair stores `(date, remaining_principal_after_date)`.
     StepRemaining {
         /// Ordered list of `(date, remaining_principal_after_date)`.
+        #[schemars(with = "Vec<(String, Money)>")]
         schedule: Vec<(Date, Money)>,
     },
     /// Fixed percentage of **original** notional paid each period (capped by remaining outstanding).
@@ -39,6 +42,7 @@ pub enum AmortizationSpec {
     /// Positive amounts reduce outstanding (i.e., principal paid by issuer).
     CustomPrincipal {
         /// List of `(date, principal_amount)` exchanges; amounts are absolute cashflows.
+        #[schemars(with = "Vec<(String, Money)>")]
         items: Vec<(Date, Money)>,
     },
 }
@@ -47,7 +51,7 @@ pub enum AmortizationSpec {
 ///
 /// Combines initial principal with amortization behavior for complete
 /// notional lifecycle management.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Notional {
     /// Initial principal amount outstanding at leg inception.
     pub initial: Money,

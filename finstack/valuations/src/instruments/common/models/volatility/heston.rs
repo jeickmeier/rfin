@@ -32,7 +32,7 @@ const HESTON_G_DENOM_EPS: f64 = 1e-8;
 const HESTON_EXPONENT_REAL_LIMIT: f64 = 700.0;
 
 /// Heston model parameters.
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct HestonParameters {
     /// Initial variance ($v_0$)
     pub v0: f64,

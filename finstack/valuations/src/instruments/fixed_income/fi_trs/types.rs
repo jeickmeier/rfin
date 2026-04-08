@@ -46,7 +46,12 @@ use rust_decimal::Decimal;
 /// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FIIndexTotalReturnSwap {

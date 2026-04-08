@@ -13,8 +13,7 @@ macro_rules! test_roundtrip {
                 instrument: InstrumentJson::$variant($expr),
             };
             let json = serde_json::to_string(&envelope).expect("serialize");
-            let parsed: InstrumentEnvelope =
-                serde_json::from_str(&json).expect("deserialize");
+            let parsed: InstrumentEnvelope = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(parsed.schema, "finstack.instrument/1");
             // Re-serialize and verify stability
             let json2 = serde_json::to_string(&parsed).expect("re-serialize");
@@ -30,8 +29,7 @@ macro_rules! test_roundtrip {
                 instrument: InstrumentJson::$variant(Box::new($expr)),
             };
             let json = serde_json::to_string(&envelope).expect("serialize");
-            let parsed: InstrumentEnvelope =
-                serde_json::from_str(&json).expect("deserialize");
+            let parsed: InstrumentEnvelope = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(parsed.schema, "finstack.instrument/1");
             let json2 = serde_json::to_string(&parsed).expect("re-serialize");
             assert_eq!(json, json2, "roundtrip should be stable");
@@ -92,13 +90,13 @@ mod schema_roundtrip {
     test_roundtrip!(plain: volatility_index_option, VolatilityIndexOption, VolatilityIndexOption::example().expect("vio"));
     test_roundtrip!(plain: trs_equity, TrsEquity, EquityTotalReturnSwap::example().expect("etrs"));
     test_roundtrip!(plain: private_markets_fund, PrivateMarketsFund, PrivateMarketsFund::example().expect("pmf"));
-    test_roundtrip!(plain: real_estate_asset, RealEstateAsset, RealEstateAsset::example());
-    test_roundtrip!(plain: discounted_cash_flow, DiscountedCashFlow, DiscountedCashFlow::example());
+    test_roundtrip!(plain: real_estate_asset, RealEstateAsset, RealEstateAsset::example().expect("rea"));
+    test_roundtrip!(plain: discounted_cash_flow, DiscountedCashFlow, DiscountedCashFlow::example().expect("dcf"));
     test_roundtrip!(boxed: levered_real_estate_equity, LeveredRealEstateEquity,
-        finstack_valuations::instruments::equity::real_estate::LeveredRealEstateEquity::example());
+        finstack_valuations::instruments::equity::real_estate::LeveredRealEstateEquity::example().expect("lre"));
 
     // FX
-    test_roundtrip!(plain: fx_spot, FxSpot, FxSpot::example());
+    test_roundtrip!(plain: fx_spot, FxSpot, FxSpot::example().expect("fxs"));
     test_roundtrip!(plain: fx_swap, FxSwap, FxSwap::example());
     test_roundtrip!(plain: fx_forward, FxForward, FxForward::example().expect("fxf"));
     test_roundtrip!(plain: ndf, Ndf, Ndf::example());
@@ -115,7 +113,7 @@ mod schema_roundtrip {
     test_roundtrip!(plain: commodity_forward, CommodityForward, CommodityForward::example());
     test_roundtrip!(plain: commodity_swap, CommoditySwap, CommoditySwap::example());
     test_roundtrip!(plain: commodity_swaption, CommoditySwaption, CommoditySwaption::example());
-    test_roundtrip!(plain: commodity_spread_option, CommoditySpreadOption, CommoditySpreadOption::example());
+    test_roundtrip!(plain: commodity_spread_option, CommoditySpreadOption, CommoditySpreadOption::example().expect("cso"));
 
     // Exotics
     test_roundtrip!(plain: asian_option, AsianOption, AsianOption::example().expect("ao"));

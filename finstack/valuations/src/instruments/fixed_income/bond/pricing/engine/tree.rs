@@ -69,7 +69,7 @@ use finstack_core::money::Money;
 /// `HoLee` model is a simple parallel-shift tree appropriate for quick estimates.
 /// For production callable bond OAS, prefer `HullWhite` with calibrated parameters
 /// or `HullWhiteCalibratedToSwaptions` for automatic calibration.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type")]
 #[derive(Default)]
 pub enum TreeModelChoice {

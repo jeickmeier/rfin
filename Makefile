@@ -324,6 +324,12 @@ check-schemas: ## Verify JSON schemas match Rust types
 	@$(call py_run,python scripts/sync_instrument_schema_overrides.py)
 	cargo nextest run -p finstack-valuations schema_parity --no-fail-fast
 	cargo test -p finstack-valuations test_instrument_schema_enum_parity --no-fail-fast
+	cargo test -p finstack-valuations --test schema_audit --no-fail-fast
+
+.PHONY: gen-schemas
+gen-schemas: ## Regenerate typed JSON schemas from Rust types via schemars
+	@$(call py_run,python scripts/sync_instrument_schema_overrides.py)
+	cargo run -p finstack-valuations --bin gen_schemas
 
 .PHONY: sync-versions
 sync-versions: ## Sync sub-package versions from root Cargo.toml

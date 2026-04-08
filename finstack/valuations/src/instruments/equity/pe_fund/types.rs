@@ -19,7 +19,12 @@ use time::macros::date;
 /// discounting when a `discount_curve_id` is provided, or falls back to
 /// last-event date for IRR-only workflows.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct PrivateMarketsFund {

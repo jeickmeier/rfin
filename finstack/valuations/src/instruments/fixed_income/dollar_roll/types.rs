@@ -59,7 +59,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 ///     .expect("Valid dollar roll");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct DollarRoll {
@@ -92,12 +97,14 @@ pub struct DollarRoll {
     /// When set, bypasses the SIFMA calendar lookup for the front leg.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub front_settlement_date: Option<Date>,
     /// Explicit back-month settlement date override.
     ///
     /// When set, bypasses the SIFMA calendar lookup for the back leg.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub back_settlement_date: Option<Date>,
     /// Front-month price (sell price).
     pub front_price: f64,
@@ -106,6 +113,7 @@ pub struct DollarRoll {
     /// Trade date.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub trade_date: Option<Date>,
     /// Discount curve identifier.
     pub discount_curve_id: CurveId,

@@ -9,7 +9,7 @@ use ts_rs::TS;
 use serde::{Deserialize, Serialize};
 
 /// Option type for pricing
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
@@ -42,7 +42,9 @@ impl std::str::FromStr for OptionType {
 }
 
 /// Exercise style for options
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseStyle {
     /// European exercise (only at expiry)
@@ -78,7 +80,7 @@ impl std::str::FromStr for ExerciseStyle {
 }
 
 /// Settlement type for options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SettlementType {
     /// Physical delivery
@@ -90,7 +92,9 @@ pub enum SettlementType {
 /// Position direction for futures and forwards.
 ///
 /// Indicates whether the holder is long (buyer) or short (seller) of the contract.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Position {
     /// Long position (buyer of futures/forward contract).
@@ -158,11 +162,12 @@ impl std::str::FromStr for SettlementType {
 }
 
 /// Market parameters for equity options
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct EquityOptionParams {
     /// Option strike price
     pub strike: f64,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Option type (Call/Put)
     pub option_type: OptionType,
@@ -211,11 +216,12 @@ impl EquityOptionParams {
 }
 
 /// Market parameters for FX options
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FxOptionParams {
     /// Strike rate (FX rate)
     pub strike: f64,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Option type (Call/Put)
     pub option_type: OptionType,
@@ -264,7 +270,7 @@ impl FxOptionParams {
 }
 
 /// Credit parameters for CDS instruments
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CreditParams {
     /// Reference entity (issuer being protected)
     pub reference_entity: String,
@@ -319,11 +325,12 @@ impl CreditParams {
 }
 
 /// Interest rate option parameters (caps/floors)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct InterestRateOptionParams {
     /// Strike rate for the option
     pub strike: f64,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Option type (Cap/Floor)
     pub option_type: OptionType,

@@ -40,7 +40,17 @@ use crate::impl_instrument_base;
 ///
 /// Always verify the vol convention with your data provider as using
 /// the wrong type will produce materially incorrect prices.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum CapFloorVolType {
@@ -121,7 +131,9 @@ impl std::str::FromStr for CapFloorVolType {
 const MIN_VOL_LOOKUP_TIME: f64 = 1e-6;
 
 /// Type of interest rate option
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum RateOptionType {
@@ -166,7 +178,12 @@ impl std::str::FromStr for RateOptionType {
 
 /// Interest rate option instrument
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct InterestRateOption {
@@ -179,8 +196,10 @@ pub struct InterestRateOption {
     /// Strike (as decimal, e.g., 0.05 for 5%)
     pub strike: Decimal,
     /// Start date of underlying period
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// End date of underlying period
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Payment frequency for caps/floors
     pub frequency: Tenor,

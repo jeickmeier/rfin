@@ -87,7 +87,12 @@ use finstack_core::Result;
 ///
 /// See module-level documentation for comprehensive FX quoting conventions.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields, try_from = "FxSpotUnchecked")]
 pub struct FxSpot {
@@ -99,6 +104,7 @@ pub struct FxSpot {
     pub quote_currency: Currency,
     /// Optional settlement date (T+2 typically for spot)
     #[builder(optional)]
+    #[schemars(with = "Option<String>")]
     pub settlement: Option<Date>,
     /// Optional settlement lag in business days when `settlement` is not provided (default: 2)
     #[builder(optional)]
@@ -135,12 +141,13 @@ pub struct FxSpot {
     pub attributes: Attributes,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct FxSpotUnchecked {
     id: InstrumentId,
     base_currency: Currency,
     quote_currency: Currency,
+    #[schemars(with = "Option<String>")]
     settlement: Option<Date>,
     settlement_lag_days: Option<i32>,
     spot_rate: Option<f64>,
@@ -385,13 +392,13 @@ impl FxSpot {
     /// Create a representative EUR/USD spot example with 1M EUR notional.
     ///
     /// Useful for tests, demos, and documentation examples.
-    pub fn example() -> Self {
-        Self::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-            .with_notional(Money::new(1_000_000.0, Currency::EUR))
-            .expect("valid EUR notional")
-            .with_rate(1.10)
-            .expect("valid rate")
-            .with_settlement_lag_days(2)
+    pub fn example() -> Result<Self> {
+        Ok(
+            Self::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+                .with_notional(Money::new(1_000_000.0, Currency::EUR))?
+                .with_rate(1.10)?
+                .with_settlement_lag_days(2),
+        )
     }
 
     /// Standard FX pair name (e.g., "EURUSD")

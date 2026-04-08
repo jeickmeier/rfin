@@ -10,7 +10,17 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, PriceId, Rate};
 
 /// Specifies how the range bounds are interpreted.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BoundsType {
@@ -65,7 +75,12 @@ impl std::str::FromStr for BoundsType {
 /// For mid-life valuations, use `past_fixings_in_range` to specify how many past
 /// observations were in range. The pricer will add this to expected future fixings.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct RangeAccrual {
@@ -74,6 +89,7 @@ pub struct RangeAccrual {
     /// Underlying asset ticker symbol
     pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Observation dates for range checking (must be sorted ascending)
+    #[schemars(with = "Vec<String>")]
     pub observation_dates: Vec<Date>,
     /// Lower bound of accrual range (interpretation depends on bounds_type)
     pub lower_bound: f64,
@@ -108,6 +124,7 @@ pub struct RangeAccrual {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quanto: Option<QuantoSpec>,
     /// Optional payment date (defaults to last observation date)
+    #[schemars(with = "Option<String>")]
     pub payment_date: Option<Date>,
     /// Number of past observations that were in range (for mid-life valuations).
     /// If None, past observations are not included in the accrual calculation.

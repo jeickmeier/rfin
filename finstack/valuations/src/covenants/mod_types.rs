@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Covenant check result.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CovenantReport {
     /// Type of covenant being checked
     pub covenant_type: String,

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Contract size information for derivatives
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ContractSpec {
     /// Number of units per contract
     pub contract_size: f64,
@@ -39,11 +39,13 @@ impl Default for ContractSpec {
 }
 
 /// Schedule specification for payment periods
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ScheduleSpec {
     /// Start date for the schedule
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date for the schedule
+    #[schemars(with = "String")]
     pub end: Date,
     /// Payment frequency
     pub frequency: Tenor,

@@ -61,7 +61,12 @@ pub use crate::instruments::common_impl::parameters::PayReceive;
 /// - Demeterfi, K. et al. (1999). "More Than You Ever Wanted to Know About Volatility Swaps."
 /// - Carr, P. & Madan, D. (1998). "Towards a Theory of Volatility Trading."
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct VarianceSwap {
@@ -74,8 +79,10 @@ pub struct VarianceSwap {
     /// Strike variance (annualized)
     pub strike_variance: f64,
     /// Start date of observation period
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Maturity/settlement date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Observation frequency
     pub observation_freq: Tenor,

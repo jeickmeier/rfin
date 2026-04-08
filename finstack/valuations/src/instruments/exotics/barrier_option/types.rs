@@ -9,7 +9,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// Barrier type for barrier options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum BarrierType {
     /// Up-and-out: option knocked out if S >= B
@@ -49,7 +51,12 @@ fn default_gobet_miri() -> bool {
 /// - Broadie, Glasserman & Kou (1997), "A Continuity Correction for Discrete Barrier Options"
 /// - Gobet (2000), "Weak Approximation of Killed Diffusion Using Euler Schemes"
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct BarrierOption {
@@ -68,6 +75,7 @@ pub struct BarrierOption {
     /// Barrier type (up/down, in/out)
     pub barrier_type: BarrierType,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Observed barrier state for expired options.
     ///

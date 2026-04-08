@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Recipient of waterfall payments
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum RecipientType {
     /// Service provider (trustee, admin, rating agency, etc.)
@@ -38,7 +38,7 @@ pub enum RecipientType {
 }
 
 /// Type of management fee
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum ManagementFeeType {
     /// Senior variant.
@@ -50,7 +50,9 @@ pub enum ManagementFeeType {
 }
 
 /// Rounding convention for payments
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum RoundingConvention {
     /// Round to nearest precision
@@ -63,7 +65,7 @@ pub enum RoundingConvention {
 }
 
 /// How to calculate payment amount
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum PaymentCalculation {
     /// Fixed amount
@@ -113,7 +115,7 @@ pub enum PaymentCalculation {
 }
 
 /// Allocation mode within a tier
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum AllocationMode {
     /// Pay recipients sequentially in order until tier allocation exhausted
@@ -123,7 +125,7 @@ pub enum AllocationMode {
 }
 
 /// Payment type classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum PaymentType {
     /// Fee payment
@@ -137,7 +139,7 @@ pub enum PaymentType {
 }
 
 /// Individual payment recipient within a tier
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Recipient {
     /// Unique identifier
     pub id: String,
@@ -219,7 +221,7 @@ impl Recipient {
 }
 
 /// Waterfall tier with multiple recipients
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WaterfallTier {
     /// Unique tier identifier
     pub id: String,
@@ -276,9 +278,10 @@ impl WaterfallTier {
 // ============================================================================
 
 /// Result of waterfall distribution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WaterfallDistribution {
     /// Payment date
+    #[schemars(with = "String")]
     pub payment_date: Date,
     /// Total available cash at start
     pub total_available: Money,
@@ -323,7 +326,7 @@ impl WaterfallDistribution {
 }
 
 /// Record of a diverted payment from one tier to another recipient.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DiversionRecord {
     /// Source tier where cash originated.
     pub source_tier: String,
@@ -336,7 +339,7 @@ pub struct DiversionRecord {
 }
 
 /// Record of individual payment
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PaymentRecord {
     /// Tier id
     pub tier_id: String,
@@ -361,7 +364,7 @@ pub struct PaymentRecord {
 // ============================================================================
 
 /// Simple OC/IC trigger for diversion
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CoverageTestRules {
     /// Haircuts applied by collateral rating
     pub haircuts: HashMap<CreditRating, f64>,
@@ -402,7 +405,7 @@ impl From<&super::setup::CoverageTestConfig> for CoverageTestRules {
 }
 
 /// Coverage trigger definition used for diversion logic (OC/IC thresholds).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CoverageTrigger {
     /// Tranche where test applies
     pub tranche_id: String,
@@ -413,7 +416,7 @@ pub struct CoverageTrigger {
 }
 
 /// Type of coverage test (simplified to OC/IC only)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum CoverageTestType {
     /// Overcollateralization test
@@ -496,7 +499,7 @@ impl Default for WaterfallWorkspace {
 // ============================================================================
 
 /// Main waterfall engine with tier-based distribution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Waterfall {
     /// Ordered payment tiers
     pub tiers: Vec<WaterfallTier>,

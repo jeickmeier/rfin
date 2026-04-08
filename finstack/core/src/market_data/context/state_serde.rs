@@ -159,7 +159,7 @@ fn default_market_context_state_version() -> u32 {
 ///
 /// Provides a stable, versioned snapshot of all market data that can be
 /// persisted to JSON and reconstructed deterministically.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MarketContextState {
     /// Schema version for format evolution.
@@ -169,28 +169,38 @@ pub struct MarketContextState {
     #[serde(default = "default_market_context_state_version")]
     pub version: u32,
     /// All curves (discount, forward, hazard, inflation, base correlation)
+    #[schemars(with = "serde_json::Value")]
     pub curves: Vec<CurveState>,
     /// FX matrix state (optional)
+    #[schemars(with = "serde_json::Value")]
     pub fx: Option<FxMatrixState>,
     /// Volatility surfaces
+    #[schemars(with = "serde_json::Value")]
     pub surfaces: Vec<VolSurface>,
     /// Market scalars and prices
+    #[schemars(with = "serde_json::Value")]
     pub prices: std::collections::BTreeMap<String, MarketScalar>,
     /// Generic time series
+    #[schemars(with = "serde_json::Value")]
     pub series: Vec<ScalarTimeSeries>,
     /// Inflation indices
+    #[schemars(with = "serde_json::Value")]
     pub inflation_indices: Vec<InflationIndex>,
     /// Dividend schedules
+    #[schemars(with = "serde_json::Value")]
     pub dividends: Vec<DividendSchedule>,
     /// Credit index aggregates (references curves by ID)
+    #[schemars(with = "serde_json::Value")]
     pub credit_indices: Vec<CreditIndexState>,
     /// FX delta-quoted volatility surfaces
     #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
     pub fx_delta_vol_surfaces: Vec<FxDeltaVolSurface>,
     /// Collateral CSA mappings
     pub collateral: std::collections::BTreeMap<String, String>,
     /// Optional market data hierarchy snapshot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "serde_json::Value")]
     pub hierarchy: Option<MarketDataHierarchy>,
 }
 

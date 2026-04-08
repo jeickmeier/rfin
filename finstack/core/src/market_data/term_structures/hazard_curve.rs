@@ -1034,7 +1034,17 @@ mod tests {
 // -----------------------------------------------------------------------------
 
 /// Seniority level for credit exposures.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Seniority {
     /// Senior secured debt
@@ -1074,7 +1084,17 @@ impl core::str::FromStr for Seniority {
 }
 
 /// Interpolation method for reporting par spreads stored on the curve.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub enum ParInterp {
     /// Linear interpolation in spread space
     #[default]

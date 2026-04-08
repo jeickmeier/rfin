@@ -21,7 +21,12 @@ use crate::impl_instrument_base;
 
 /// FX Swap instrument definition
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxSwap {
@@ -32,8 +37,10 @@ pub struct FxSwap {
     /// Quote currency (domestic)
     pub quote_currency: Currency,
     /// Near leg settlement date (spot leg)
+    #[schemars(with = "String")]
     pub near_date: Date,
     /// Far leg settlement date (forward leg)
+    #[schemars(with = "String")]
     pub far_date: Date,
     /// Notional amount in base currency (exchanged on near, reversed on far)
     pub base_notional: Money,

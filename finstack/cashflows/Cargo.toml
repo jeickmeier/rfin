@@ -12,6 +12,7 @@ description = "Cashflow schedule construction, projection, and aggregation for s
 finstack-core = { path = "../core" }
 indexmap = { workspace = true, features = ["serde"] }
 rust_decimal = { workspace = true }
+schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 time = { workspace = true }

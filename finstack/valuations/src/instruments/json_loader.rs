@@ -15,10 +15,8 @@ use std::io::Read;
 ///
 /// This wrapper allows for future schema evolution while maintaining
 /// compatibility with existing JSON files.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-// Note: JsonSchema derive requires finstack-core types to implement JsonSchema
-// #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct InstrumentEnvelope {
     /// Schema version (e.g., "finstack.instrument/1")
     pub schema: String,
@@ -44,9 +42,7 @@ pub struct InstrumentEnvelope {
 ///   }
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize)]
-// Note: JsonSchema derive requires finstack-core types to implement JsonSchema
-// #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
 #[serde(tag = "type", content = "spec", rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InstrumentJson {

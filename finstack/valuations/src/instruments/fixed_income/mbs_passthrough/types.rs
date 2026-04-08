@@ -29,7 +29,17 @@ use time::Month;
 ///
 /// Use `GnmaI` or `GnmaII` to select the appropriate convention. The legacy `Gnma`
 /// variant maps to GNMA II (the larger and more actively traded program).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AgencyProgram {
     /// Fannie Mae (Federal National Mortgage Association)
@@ -179,7 +189,16 @@ impl CashflowProvider for AgencyMbsPassthrough {
 /// Distinguishes between generic (TBA-eligible) pools and specified pools
 /// with known characteristics.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum PoolType {
@@ -245,7 +264,12 @@ pub enum PoolType {
 ///     .expect("Valid MBS");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct AgencyMbsPassthrough {
@@ -284,8 +308,10 @@ pub struct AgencyMbsPassthrough {
     /// Weighted average maturity in months.
     pub wam: u32,
     /// Issue date of the pool.
+    #[schemars(with = "String")]
     pub issue_date: Date,
     /// Legal maturity date.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Optional custom payment delay (overrides agency default).
     #[builder(optional)]

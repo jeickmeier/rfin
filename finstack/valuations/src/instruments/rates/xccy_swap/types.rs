@@ -34,7 +34,9 @@ use rust_decimal::Decimal;
 const EXTREME_NEGATIVE_RATE_THRESHOLD: f64 = -0.05;
 
 /// Whether the holder pays or receives a leg.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum LegSide {
@@ -86,7 +88,17 @@ impl LegSide {
 }
 
 /// Notional exchange convention for XCCY swaps.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts_export", ts(export, rename_all = "snake_case"))]
@@ -105,7 +117,7 @@ pub enum NotionalExchange {
 ///
 /// Each leg owns its own dates, discount curve, calendar, and stub conventions,
 /// following the IRS leg-centric pattern.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct XccySwapLeg {
     /// Leg currency.
@@ -119,8 +131,10 @@ pub struct XccySwapLeg {
     /// Discount curve for PV in leg currency.
     pub discount_curve_id: CurveId,
     /// Start date of the leg.
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date of the leg.
+    #[schemars(with = "String")]
     pub end: Date,
     /// Coupon frequency.
     pub frequency: Tenor,
@@ -156,7 +170,12 @@ pub struct XccySwapLeg {
 /// Each leg owns its own dates, stub conventions, and calendar. The parent struct
 /// only holds the instrument identity, notional exchange mode, and reporting currency.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct XccySwap {
@@ -203,10 +222,8 @@ impl XccySwap {
     pub fn example() -> Self {
         use time::Month;
 
-        let start =
-            Date::from_calendar_date(2024, Month::January, 3).expect("Valid example date");
-        let end =
-            Date::from_calendar_date(2029, Month::January, 3).expect("Valid example date");
+        let start = Date::from_calendar_date(2024, Month::January, 3).expect("Valid example date");
+        let end = Date::from_calendar_date(2029, Month::January, 3).expect("Valid example date");
 
         let usd_leg = XccySwapLeg {
             currency: Currency::USD,

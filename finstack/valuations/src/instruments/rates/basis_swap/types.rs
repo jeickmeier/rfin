@@ -105,7 +105,12 @@ pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 /// );
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct BasisSwap {
@@ -277,14 +282,12 @@ impl BasisSwap {
         use finstack_core::types::CurveId;
         use time::Month;
 
-        let start =
-            Date::from_calendar_date(2024, Month::January, 3).map_err(|e| {
-                finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
-            })?;
-        let end =
-            Date::from_calendar_date(2029, Month::January, 3).map_err(|e| {
-                finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
-            })?;
+        let start = Date::from_calendar_date(2024, Month::January, 3).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
+        })?;
+        let end = Date::from_calendar_date(2029, Month::January, 3).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
+        })?;
 
         let primary_leg = BasisSwapLeg {
             forward_curve_id: CurveId::new("USD-SOFR-3M"),

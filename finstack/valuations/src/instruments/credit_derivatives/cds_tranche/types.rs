@@ -13,7 +13,9 @@ use super::pricer;
 use crate::impl_instrument_base;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum TrancheSide {
     /// Buy protection on the tranche (pay running, receive protection)
@@ -46,7 +48,12 @@ impl std::str::FromStr for TrancheSide {
 
 /// CDS Tranche instrument definition (boilerplate)
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct CDSTranche {
@@ -63,6 +70,7 @@ pub struct CDSTranche {
     /// Notional amount of the tranche
     pub notional: Money,
     /// Maturity date of the tranche
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Running coupon in basis points (e.g., 100 = 1.00%)
     pub running_coupon_bp: f64,
@@ -83,6 +91,7 @@ pub struct CDSTranche {
     /// Tranche side (buy/sell protection)
     pub side: TrancheSide,
     /// Optional effective date for schedule anchoring (if None, uses as_of date)
+    #[schemars(with = "Option<String>")]
     pub effective_date: Option<Date>,
     /// Accumulated realized loss as fraction of original portfolio notional
     pub accumulated_loss: f64,
@@ -90,6 +99,7 @@ pub struct CDSTranche {
     pub standard_imm_dates: bool,
     /// Optional upfront payment (date, amount). Positive means paid by protection buyer.
     #[serde(default)]
+    #[schemars(with = "Option<(String, Money)>")]
     pub upfront: Option<(Date, Money)>,
     /// Attributes for tagging and selection
     #[serde(default)]

@@ -15,6 +15,7 @@ use strum_macros::{EnumIter, EnumString, Display};
     Display,
     serde::Serialize,
     serde::Deserialize,
+    schemars::JsonSchema,
 )]
 /// ISO 4217 currency enumeration
 #[strum(ascii_case_insensitive)]

@@ -21,7 +21,7 @@ use std::sync::Arc;
 ///
 /// Represents the clearing-house rulebook used to source conservative fallback
 /// parameters such as MPOR and the decimal conservative-rate proxy.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum CcpMethodology {
     /// LCH SwapClear (VaR-based for IRS)

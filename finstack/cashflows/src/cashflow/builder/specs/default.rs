@@ -3,7 +3,7 @@
 use finstack_core::dates::{BusinessDayConvention, Date};
 
 /// Default curve shape.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "curve", rename_all = "snake_case")]
 pub enum DefaultCurve {
     /// Constant CDR (no seasoning effect)
@@ -16,7 +16,7 @@ pub enum DefaultCurve {
 }
 
 /// Default model specification.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DefaultModelSpec {
     /// CDR: Constant Default Rate (annual, e.g., 0.02 for 2%)
     pub cdr: f64,
@@ -108,9 +108,10 @@ impl DefaultModelSpec {
 }
 
 /// Default event specification.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DefaultEvent {
     /// Date when default occurs
+    #[schemars(with = "String")]
     pub default_date: Date,
     /// Amount that defaults
     pub defaulted_amount: f64,

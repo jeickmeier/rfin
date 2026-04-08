@@ -99,7 +99,9 @@ impl Default for MertonMcCalibrationSpec {
 /// Determines how each coupon payment is handled: paid in cash, accreted
 /// to notional (PIK), split between cash and PIK, or decided dynamically
 /// by a [`ToggleExerciseModel`].
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum PikMode {
     /// Coupon paid in cash.
     Cash,
@@ -136,7 +138,7 @@ pub enum PikMode {
 /// // Toggle for 3 years, then mandatory cash
 /// let toggle_window = PikSchedule::Stepped(vec![(0.0, PikMode::Toggle), (3.0, PikMode::Cash)]);
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum PikSchedule {
     /// Same mode for all coupon dates.
     Uniform(PikMode),

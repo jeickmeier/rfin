@@ -51,7 +51,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// Lookback option type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum LookbackType {
     /// Fixed strike lookback: payoff depends on max/min relative to fixed strike
@@ -78,7 +80,12 @@ pub enum LookbackType {
 ///
 /// If not provided, the current spot is used as the starting extremum.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct LookbackOption {
@@ -93,6 +100,7 @@ pub struct LookbackOption {
     /// Lookback type (fixed or floating strike)
     pub lookback_type: LookbackType,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Notional amount
     pub notional: Money,

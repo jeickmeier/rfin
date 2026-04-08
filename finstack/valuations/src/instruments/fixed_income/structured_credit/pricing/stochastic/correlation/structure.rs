@@ -24,7 +24,7 @@
 ///
 /// Captures the various correlation parameters needed for
 /// stochastic structured credit modeling.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "structure", deny_unknown_fields)]
 #[non_exhaustive]
 pub enum CorrelationStructure {

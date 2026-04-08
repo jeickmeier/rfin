@@ -86,7 +86,12 @@ pub use crate::instruments::common_impl::parameters::Position;
 ///     .expect("Valid forward");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct CommodityForward {
     /// Unique instrument identifier.
@@ -101,6 +106,7 @@ pub struct CommodityForward {
     #[builder(default = 1.0)]
     pub multiplier: f64,
     /// Settlement/delivery date.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Settlement type (physical or cash).
     ///

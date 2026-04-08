@@ -203,7 +203,17 @@ pub fn moment_match(samples: &mut [f64], target_mean: f64, target_std: f64) {
 // ====== Realized Variance Calculations ======
 
 /// Methods for calculating realized variance from price series.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub enum RealizedVarMethod {
     /// Standard close-to-close returns (market standard default)
     #[default]

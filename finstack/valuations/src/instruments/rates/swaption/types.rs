@@ -31,7 +31,17 @@ use crate::impl_instrument_base;
 use crate::instruments::common_impl::validation;
 
 /// Volatility model for pricing
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum VolatilityModel {
@@ -43,7 +53,7 @@ pub enum VolatilityModel {
 }
 
 /// Public SABR parameters for swaption volatility modeling.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct SABRParameters {
     /// Initial volatility (alpha)
     pub alpha: f64,
@@ -166,7 +176,9 @@ impl std::str::FromStr for VolatilityModel {
 }
 
 /// Swaption settlement method
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum SwaptionSettlement {
@@ -209,7 +221,17 @@ pub enum SwaptionSettlement {
 /// - ISDA 2006 Definitions, Section 18.2
 /// - "Interest Rate Models" by Brigo & Mercurio, Chapter 6
 /// - Bloomberg VCUB/SWPM: Uses ISDA Par-Par for production
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum CashSettlementMethod {
@@ -308,7 +330,17 @@ impl std::str::FromStr for SwaptionSettlement {
 }
 
 /// Swaption exercise style
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum SwaptionExercise {
@@ -353,11 +385,13 @@ impl std::str::FromStr for SwaptionExercise {
 ///
 /// Defines the exercise dates and constraints for a Bermudan swaption.
 /// Exercise dates are typically aligned with swap coupon dates.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct BermudanSchedule {
     /// Exercise dates (must be sorted, typically on swap coupon dates)
+    #[schemars(with = "Vec<String>")]
     pub exercise_dates: Vec<Date>,
     /// Lockout period end (no exercise before this date)
+    #[schemars(with = "Option<String>")]
     pub lockout_end: Option<Date>,
     /// Notice period in business days before exercise
     pub notice_days: u32,
@@ -461,7 +495,17 @@ impl BermudanSchedule {
 /// This distinction affects pricing methodology and calibration:
 /// - Co-terminal: All exercise dates lead to the same swap end date
 /// - Non-co-terminal: Each exercise date may have a different remaining swap tenor
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum BermudanType {
     /// All exercise dates lead to same swap end date (most common)
@@ -498,7 +542,12 @@ impl std::str::FromStr for BermudanType {
 
 /// Swaption instrument
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Swaption {
@@ -511,10 +560,13 @@ pub struct Swaption {
     /// Strike (fixed rate on underlying swap)
     pub strike: Decimal,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Underlying swap start date
+    #[schemars(with = "String")]
     pub swap_start: Date,
     /// Underlying swap end date
+    #[schemars(with = "String")]
     pub swap_end: Date,
     /// Fixed leg payment frequency
     pub fixed_freq: Tenor,
@@ -633,6 +685,51 @@ impl Swaption {
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
+            attributes: Attributes::new(),
+        }
+    }
+
+    /// Create a Bermudan-style swaption example for testing and documentation.
+    ///
+    /// Returns a 5NC1 payer swaption (5-year swap, Bermudan exercise after 1 year)
+    /// with physical settlement, Normal vol model, and SABR parameters populated.
+    /// Exercise dates are semi-annual, aligned with swap coupon dates.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example_bermudan() -> Self {
+        let swap_start =
+            Date::from_calendar_date(2027, time::Month::January, 17).expect("Valid example date");
+        let swap_end =
+            Date::from_calendar_date(2032, time::Month::January, 17).expect("Valid example date");
+        // First exercise 1 year after swap start
+        let first_exercise =
+            Date::from_calendar_date(2028, time::Month::January, 17).expect("Valid example date");
+        Self {
+            id: InstrumentId::new("SWPN-5NC1-BERM-USD"),
+            option_type: OptionType::Call,
+            notional: Money::new(10_000_000.0, Currency::USD),
+            strike: Decimal::try_from(0.035).expect("valid decimal"),
+            expiry: first_exercise,
+            swap_start,
+            swap_end,
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            exercise_style: SwaptionExercise::Bermudan,
+            settlement: SwaptionSettlement::Physical,
+            cash_settlement_method: CashSettlementMethod::default(),
+            vol_model: VolatilityModel::Normal,
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-OIS"),
+            vol_surface_id: CurveId::new("USD-SWPNVOL"),
+            calendar_id: None,
+            pricing_overrides: PricingOverrides::default(),
+            sabr_params: Some(SABRParameters {
+                alpha: 0.025,
+                beta: 0.5,
+                nu: 0.40,
+                rho: -0.30,
+                shift: None,
+            }),
             attributes: Attributes::new(),
         }
     }
@@ -1362,7 +1459,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Swaption {
 /// // Create a 10NC2 (10-year swap, callable after 2 years)
 /// let swaption = BermudanSwaption::example();
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BermudanSwaption {
     /// Unique instrument identifier
@@ -1374,8 +1471,10 @@ pub struct BermudanSwaption {
     /// Strike (fixed rate on underlying swap)
     pub strike: Decimal,
     /// Underlying swap start date (first accrual start)
+    #[schemars(with = "String")]
     pub swap_start: Date,
     /// Underlying swap end date (final payment)
+    #[schemars(with = "String")]
     pub swap_end: Date,
     /// Fixed leg payment frequency
     pub fixed_freq: Tenor,

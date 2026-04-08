@@ -129,7 +129,12 @@ impl IrsLegConventions {
 /// - "Interest Rate Swaps and Their Derivatives" by Amir Sadr
 /// - Bloomberg SWPM function documentation
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct InterestRateSwap {
@@ -531,6 +536,71 @@ impl InterestRateSwap {
         // Validate the swap parameters
         swap.validate()?;
 
+        Ok(swap)
+    }
+
+    /// Create a SOFR OIS swap with compounded-in-arrears floating leg.
+    ///
+    /// Returns a 5-year pay-fixed SOFR OIS swap with overnight compounding
+    /// per ISDA 2021 and ARRC conventions:
+    /// - **Fixed leg:** Annual, ACT/360, 3.5% coupon
+    /// - **Float leg:** Annual, ACT/360, SOFR compounded-in-arrears (2-day lookback)
+    /// - **Notional:** $10M USD
+    /// - **Calendar:** USNY
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example_sofr_ois() -> finstack_core::Result<Self> {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+
+        let start = Date::from_calendar_date(2024, time::Month::March, 1).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
+        })?;
+        let end = Date::from_calendar_date(2029, time::Month::March, 1).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
+        })?;
+
+        let swap = Self::builder()
+            .id(InstrumentId::new("OIS-5Y-SOFR"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: Decimal::try_from(0.035_f64).expect("valid literal"),
+                frequency: Tenor::annual(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: Some("usny".to_string()),
+                stub: StubKind::ShortFront,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_lag_days: 2,
+                end_of_month: false,
+            })
+            .float(crate::instruments::common_impl::parameters::FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR"),
+                spread_bp: Decimal::ZERO,
+                frequency: Tenor::annual(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: Some("usny".to_string()),
+                stub: StubKind::ShortFront,
+                reset_lag_days: 0,
+                fixing_calendar_id: Some("usny".to_string()),
+                start,
+                end,
+                compounding:
+                    crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
+                        lookback_days: 2,
+                        observation_shift: None,
+                    },
+                payment_lag_days: 2,
+                end_of_month: false,
+            })
+            .build()?;
+
+        swap.validate()?;
         Ok(swap)
     }
 

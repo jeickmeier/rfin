@@ -17,7 +17,7 @@ struct SABRDerivParams {
 }
 
 /// Market data for SABR calibration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct SABRMarketData {
     /// Forward price
     pub forward: f64,

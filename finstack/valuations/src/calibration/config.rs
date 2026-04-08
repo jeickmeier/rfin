@@ -36,7 +36,7 @@ use ts_rs::TS;
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum CalibrationMethod {
     /// Traditional sequential bootstrap (default).
     #[default]
@@ -376,10 +376,11 @@ impl Default for DiscountCurveSolveConfig {
 /// - Curve interpolation context: `docs/REFERENCES.md#hagan-west-monotone-convex`
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct CalibrationConfig {
     /// Solver configuration including numerical method (e.g., Brent) and parameters (tolerance, iterations).
+    #[schemars(with = "serde_json::Value")]
     pub solver: SolverConfig,
     /// Use parallel processing when available (e.g., for independent curves).
     pub use_parallel: bool,
@@ -388,18 +389,23 @@ pub struct CalibrationConfig {
     /// Explanation options (opt-in detailed trace for debugging).
     #[serde(skip)]
     #[cfg_attr(feature = "ts_export", ts(skip))]
+    #[schemars(with = "serde_json::Value")]
     pub explain: ExplainOpts,
     /// Runtime validation mode (warnings vs errors).
+    #[schemars(with = "serde_json::Value")]
     pub validation_mode: ValidationMode,
     /// Validation configuration with thresholds and quality checks.
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown>"))]
+    #[schemars(with = "serde_json::Value")]
     pub validation: crate::calibration::validation::ValidationConfig,
     /// Policy for selecting rate bounds (explicit vs currency-derived).
     #[serde(default = "crate::calibration::validation::default_rate_bounds_policy_for_serde")]
+    #[schemars(with = "serde_json::Value")]
     pub rate_bounds_policy: RateBoundsPolicy,
     /// Rate bounds for forward/zero rate calibration (when policy is `Explicit`).
     #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
     pub rate_bounds: RateBounds,
     /// High-level calibration method (bootstrap vs global solve).
     ///
@@ -425,14 +431,17 @@ pub struct CalibrationConfig {
 
     /// Discount-curve specific solver configuration.
     #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
     pub discount_curve: DiscountCurveSolveConfig,
 
     /// Hazard-curve specific solver configuration.
     #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
     pub hazard_curve: HazardCurveSolveConfig,
 
     /// Inflation-curve specific solver configuration.
     #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
     pub inflation_curve: InflationCurveSolveConfig,
 }
 
@@ -742,7 +751,7 @@ impl CalibrationConfig {
 /// *step-level* conventions (e.g., curve time-axis day count).
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RatesStepConventions {
     /// Day count used to map dates to year fractions for curve knot times.

@@ -75,7 +75,12 @@ use time::macros::date;
 ///     .expect("Valid future");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct VolatilityIndexFuture {
@@ -86,8 +91,10 @@ pub struct VolatilityIndexFuture {
     /// the number of contracts.
     pub notional: Money,
     /// Future expiry date (typically 30 days before VIX settlement).
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Settlement date (SOQ calculation date).
+    #[schemars(with = "String")]
     pub settlement_date: Date,
     /// Quoted future price (index points, e.g., 21.50).
     pub quoted_price: f64,
@@ -115,7 +122,7 @@ pub struct VolatilityIndexFuture {
 /// - Standard multiplier: $1,000 per index point
 /// - Minimum tick: 0.05 index points ($50)
 /// - Weekly and monthly expiries available
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct VolIndexContractSpecs {
     /// Contract multiplier (USD per index point).
     /// VIX standard: 1000 (each point = $1,000)

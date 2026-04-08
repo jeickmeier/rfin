@@ -46,7 +46,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// Priced using Black-76 on the futures price. The underlying is the futures
 /// price itself (100 - rate), so no convexity adjustment is needed.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct IrFutureOption {
@@ -57,6 +62,7 @@ pub struct IrFutureOption {
     /// Option strike price (in futures price terms, e.g., 95.00)
     pub strike: f64,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Call or Put
     pub option_type: OptionType,

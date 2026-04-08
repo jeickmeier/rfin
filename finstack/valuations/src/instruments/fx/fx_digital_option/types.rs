@@ -11,7 +11,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Payout type for digital (binary) options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum DigitalPayoutType {
@@ -43,7 +45,12 @@ pub enum DigitalPayoutType {
 ///   *Risk Magazine*, 4(9), 75-83.
 /// - Wystup, U. (2006). *FX Options and Structured Products*. Wiley.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxDigitalOption {
@@ -63,6 +70,7 @@ pub struct FxDigitalOption {
     /// is the notional of foreign currency delivered)
     pub payout_amount: Money,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Day count convention
     pub day_count: DayCount,

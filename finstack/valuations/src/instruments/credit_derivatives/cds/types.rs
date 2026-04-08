@@ -62,7 +62,17 @@ use std::sync::OnceLock;
 pub use crate::instruments::common_impl::parameters::legs::PayReceive;
 
 /// ISDA CDS conventions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum CDSConvention {
     /// Standard North American convention (quarterly, Act/360)
@@ -451,7 +461,12 @@ fn resolve_doc_clause(clause: CdsDocClause) -> CdsDocClause {
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
@@ -479,6 +494,7 @@ pub struct CreditDefaultSwap {
     /// - If positive: Buyer pays Seller.
     /// - If negative: Seller pays Buyer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<(String, Money)>")]
     pub upfront: Option<(Date, Money)>,
     /// ISDA documentation clause for restructuring credit events.
     ///
@@ -507,6 +523,7 @@ pub struct CreditDefaultSwap {
     ///
     /// When `None`, protection starts on the premium leg start date (standard CDS).
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub protection_effective_date: Option<Date>,
     /// Optional OTC margin specification for VM/IM.
     ///
@@ -589,6 +606,68 @@ impl CreditDefaultSwap {
 
         cds.validate()
             .expect("Example CDS validation should not fail");
+
+        cds
+    }
+
+    /// Create a forward-starting CDS example with explicit doc clause.
+    ///
+    /// Returns a 5-year CDS with ISDA EU conventions, Modified-Modified
+    /// Restructuring (MM14) doc clause, deferred protection start (3 months
+    /// after premium start), and a 2% upfront payment.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example_forward_start() -> Self {
+        let convention = CDSConvention::IsdaEu;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        let premium_start = date!(2024 - 06 - 20);
+        let premium_end = date!(2029 - 06 - 20);
+        // Protection starts 3 months after premium start
+        let protection_effective = date!(2024 - 09 - 20);
+        // Upfront payment date (T+1 for EU)
+        let upfront_date = date!(2024 - 06 - 21);
+        let notional = Money::new(10_000_000.0, Currency::EUR);
+
+        let spread_bp_decimal = Decimal::try_from(150.0)
+            .expect("Example CDS spread 150bp should always be representable as Decimal");
+
+        let cds = CreditDefaultSwap::builder()
+            .id(InstrumentId::new("CDS-FWD-EU-5Y"))
+            .notional(notional)
+            .side(PayReceive::PayFixed)
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start: premium_start,
+                end: premium_end,
+                frequency: freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                day_count: dc,
+                spread_bp: spread_bp_decimal,
+                discount_curve_id: finstack_core::types::CurveId::new("EUR-OIS"),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: finstack_core::types::CurveId::new("EU-CORP-HAZARD"),
+                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .upfront_opt(Some((
+                upfront_date,
+                Money::new(200_000.0, Currency::EUR), // 2% of 10M notional
+            )))
+            .doc_clause_opt(Some(CdsDocClause::Mm14))
+            .protection_effective_date_opt(Some(protection_effective))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example forward-start CDS construction should not fail");
+
+        cds.validate()
+            .expect("Example forward-start CDS validation should not fail");
 
         cds
     }

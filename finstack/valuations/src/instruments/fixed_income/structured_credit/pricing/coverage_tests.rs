@@ -14,7 +14,7 @@ use finstack_core::{Error as CoreError, InputError};
 use serde::{Deserialize, Serialize};
 
 /// Coverage test type (OC/IC).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum CoverageTest {
     /// Overcollateralization test.
@@ -344,7 +344,7 @@ pub struct TestContext<'a> {
 }
 
 /// Result of a coverage test calculation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TestResult {
     /// Test identifier.
     pub test_id: String,

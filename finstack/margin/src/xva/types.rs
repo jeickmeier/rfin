@@ -13,7 +13,7 @@
 ///
 /// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
 /// - Green XVA: `docs/REFERENCES.md#green-xva`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FundingConfig {
     /// Funding spread in basis points (cost on positive exposure).
     ///
@@ -59,7 +59,7 @@ impl FundingConfig {
 ///
 /// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
 /// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct XvaConfig {
     /// Time grid for exposure simulation (years from today).
     ///
@@ -187,7 +187,7 @@ impl XvaConfig {
 ///
 /// Each profile entry is a `(time, value)` pair where time is in years
 /// from the valuation date and value is in the portfolio's base currency.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct XvaResult {
     /// Unilateral CVA (positive = cost to the desk).
     ///
@@ -279,7 +279,7 @@ pub struct XvaResult {
 ///
 /// Populated by [`compute_exposure_profile`](super::exposure::compute_exposure_profile)
 /// to let callers distinguish genuine zero exposure from missing data.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ExposureDiagnostics {
     /// Number of time grid points where market data could not be rolled forward.
     pub market_roll_failures: usize,
@@ -299,7 +299,7 @@ pub struct ExposureDiagnostics {
 /// All vectors are expressed in the netting set's reporting currency when one
 /// is configured; otherwise they use the natural single-currency portfolio
 /// currency inferred by the exposure engine.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ExposureProfile {
     /// Time points in years from valuation date.
     pub times: Vec<f64>,
@@ -392,7 +392,7 @@ impl ExposureProfile {
 /// `pfe_quantile` is a decimal probability, so `0.975` means the 97.5th
 /// percentile of positive exposure.
 #[cfg(feature = "mc")]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct StochasticExposureConfig {
     /// Number of Monte Carlo paths to simulate.
     pub num_paths: usize,
@@ -455,7 +455,7 @@ impl StochasticExposureConfig {
 /// integration, while `pfe_profile` preserves the chosen tail quantile of the simulated
 /// positive exposure distribution.
 #[cfg(feature = "mc")]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct StochasticExposureProfile {
     /// Average MtM/EPE/ENE profile used by the XVA calculators.
     pub profile: ExposureProfile,
@@ -521,7 +521,7 @@ impl StochasticExposureProfile {
 ///
 /// - ISDA 2002 Master Agreement: `docs/REFERENCES.md#isda-2002-master-agreement`
 /// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct NettingSet {
     /// Unique identifier for this netting set.
     pub id: String,
@@ -563,7 +563,7 @@ pub struct NettingSet {
 ///
 /// - ISDA 2016 VM CSA: `docs/REFERENCES.md#isda-vm-csa-2016`
 /// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CsaTerms {
     /// Threshold below which no collateral is required.
     ///

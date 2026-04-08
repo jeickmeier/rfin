@@ -10,7 +10,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Touch type: one-touch (pays if barrier is hit) or no-touch (pays if not hit).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum TouchType {
@@ -21,7 +23,9 @@ pub enum TouchType {
 }
 
 /// Barrier direction for touch options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BarrierDirection {
@@ -32,7 +36,9 @@ pub enum BarrierDirection {
 }
 
 /// Payout timing for touch options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum PayoutTiming {
@@ -73,7 +79,12 @@ pub enum PayoutTiming {
 ///   *Risk Magazine*, 4(9), 75-83.
 /// - Wystup, U. (2006). *FX Options and Structured Products*. Wiley.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxTouchOption {
@@ -94,6 +105,7 @@ pub struct FxTouchOption {
     /// Payout timing (at hit or at expiry)
     pub payout_timing: PayoutTiming,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Day count convention
     pub day_count: DayCount,

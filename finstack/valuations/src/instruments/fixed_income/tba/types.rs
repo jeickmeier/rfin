@@ -15,7 +15,17 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// TBA term enumeration (original loan term).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum TbaTerm {
@@ -54,11 +64,13 @@ impl std::fmt::Display for TbaTerm {
 }
 
 /// TBA settlement information.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct TbaSettlement {
     /// Good delivery (settlement) date
+    #[schemars(with = "String")]
     pub settlement_date: Date,
     /// Last trading day (48 hours before settlement)
+    #[schemars(with = "String")]
     pub notification_date: Date,
 }
 
@@ -107,7 +119,12 @@ pub struct TbaSettlement {
 ///     .expect("Valid TBA");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct AgencyTba {
@@ -137,6 +154,7 @@ pub struct AgencyTba {
     /// Trade date.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub trade_date: Option<Date>,
     /// Expected pool factor for valuation.
     /// Defaults to 1.0 (newly issued) if not specified.

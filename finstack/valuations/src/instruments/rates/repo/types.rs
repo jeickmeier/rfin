@@ -14,7 +14,17 @@ use rust_decimal::Decimal;
 use crate::impl_instrument_base;
 
 /// Type of repurchase agreement.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum RepoType {
     /// Term repo with fixed maturity date
@@ -50,7 +60,9 @@ impl std::str::FromStr for RepoType {
 }
 
 /// Classification of collateral for repos.
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum CollateralType {
     /// General collateral (standard market rates)
@@ -85,7 +97,7 @@ impl std::str::FromStr for CollateralType {
 }
 
 /// Specification of collateral backing a repo.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CollateralSpec {
     /// Type of collateral (general vs special)
     pub collateral_type: CollateralType,
@@ -172,7 +184,12 @@ impl CollateralSpec {
 
 /// Repurchase Agreement instrument.
 #[derive(
-    Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Repo {
@@ -185,8 +202,10 @@ pub struct Repo {
     /// Repo rate (annual, as decimal)
     pub repo_rate: Decimal,
     /// Start date of the repo
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Maturity date of the repo
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Haircut percentage (as decimal, e.g., 0.02 = 2%)
     pub haircut: f64,

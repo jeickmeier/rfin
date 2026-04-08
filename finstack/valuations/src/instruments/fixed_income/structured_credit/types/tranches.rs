@@ -15,7 +15,7 @@ use super::enums::{TrancheSeniority, TriggerConsequence};
 use finstack_core::types::CreditRating;
 
 /// Tranche behavioral types (simplified to standard only)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum TrancheBehaviorType {
     /// Standard bond (pays interest and principal)
@@ -27,13 +27,14 @@ fn default_behavior_type() -> TrancheBehaviorType {
 }
 
 /// Coverage test trigger specification
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CoverageTrigger {
     /// Trigger threshold level (e.g., 1.20 for 120% OC)
     pub trigger_level: f64,
     /// Higher level required to cure breach
     pub cure_level: Option<f64>,
     /// Date when breach occurred (if any)
+    #[schemars(with = "Option<String>")]
     pub breach_date: Option<Date>,
     /// What happens when triggered
     pub consequence: TriggerConsequence,
@@ -72,7 +73,7 @@ impl CoverageTrigger {
 }
 
 /// Credit enhancement mechanisms for a tranche
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CreditEnhancement {
     /// Subordination amount (sum of junior tranches)
     pub subordination: Money,
@@ -101,7 +102,7 @@ impl Default for CreditEnhancement {
 /// Tranche coupon specification
 ///
 /// Supports fixed and floating rate coupons used in standard structured credit instruments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 #[allow(clippy::large_enum_variant)]
 pub enum TrancheCoupon {
@@ -204,7 +205,7 @@ impl TrancheCoupon {
 }
 
 /// Structured credit tranche with attachment/detachment points
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Tranche {
     /// Unique tranche identifier
@@ -264,8 +265,10 @@ pub struct Tranche {
     /// Whether reinvestment of principal is permitted
     pub can_reinvest: bool,
     /// Legal final maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Expected maturity date (may be earlier than legal maturity for CLOs)
+    #[schemars(with = "Option<String>")]
     pub expected_maturity: Option<Date>,
 
     /// Payment priority (1 = highest)
@@ -588,7 +591,7 @@ impl Default for TrancheBuilder {
 }
 
 /// Collection of tranches forming the capital structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TrancheStructure {
     /// Ordered tranches (typically sorted by payment priority)
     pub tranches: Vec<Tranche>,

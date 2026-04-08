@@ -30,7 +30,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// - Interim equity CFs: `(NOI - CapEx) - debt_service_cash`
 /// - Exit: `(sale_proceeds - financing_payoff)` at `exit_date`
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct LeveredRealEstateEquity {
@@ -49,6 +54,7 @@ pub struct LeveredRealEstateEquity {
     /// Optional explicit exit/sale date. Defaults to the last NOI date on/after `as_of`.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub exit_date: Option<Date>,
     /// Discount curve identifier for equity PV attribution (typically same as asset curve).
     ///
@@ -70,8 +76,8 @@ impl LeveredRealEstateEquity {
     ///
     /// Uses [`RealEstateAsset::example()`] as the underlying asset with no
     /// embedded financing for simplicity.
-    pub fn example() -> Self {
-        let asset = RealEstateAsset::example();
+    pub fn example() -> finstack_core::Result<Self> {
+        let asset = RealEstateAsset::example()?;
         Self::builder()
             .id(InstrumentId::new("RE-LEVERED-OFFICE"))
             .currency(Currency::USD)
@@ -79,7 +85,6 @@ impl LeveredRealEstateEquity {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::default())
             .build()
-            .expect("Example levered real estate equity construction should not fail")
     }
 
     pub(crate) fn resolve_exit_date(&self, as_of: Date) -> finstack_core::Result<Date> {

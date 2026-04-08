@@ -224,7 +224,9 @@ impl<'a> From<DayCountCtx<'a>> for DayCountCtxState {
 ///
 /// assert!(yf_360 > yf_30360); // Act/360 has larger denominator
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "PascalCase")]
 #[non_exhaustive]
 pub enum DayCount {

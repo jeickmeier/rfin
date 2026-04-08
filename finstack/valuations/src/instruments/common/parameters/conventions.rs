@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// | UK Gilt | ACT/ACT ICMA | Semi-annual | T+1 | DMO |
 /// | French OAT | ACT/ACT ICMA | Annual | T+2 | AFT |
 /// | JGB | ACT/365F | Semi-annual | T+2 | JSCC (cross-border) |
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BondConvention {
@@ -234,7 +234,7 @@ impl std::str::FromStr for BondConvention {
 /// - ISDA 2021 IBOR Fallbacks Protocol
 /// - Bloomberg SWDF function
 /// - QuantLib OvernightIndexedSwap conventions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum IRSConvention {
@@ -519,7 +519,7 @@ impl std::str::FromStr for IRSConvention {
 /// - CME Group rulebooks
 /// - ICE Futures exchange rules
 /// - LME trading procedures
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum CommodityConvention {

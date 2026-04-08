@@ -3,7 +3,7 @@
 use finstack_core::types::Percentage;
 
 /// Prepayment curve shape.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "curve", rename_all = "snake_case")]
 pub enum PrepaymentCurve {
     /// Constant CPR (no seasoning effect)
@@ -25,7 +25,7 @@ pub enum PrepaymentCurve {
 }
 
 /// Prepayment model specification.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct PrepaymentModelSpec {
     /// CPR: Constant Prepayment Rate (annual, e.g., 0.06 for 6%)
     pub cpr: f64,

@@ -42,7 +42,9 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
 use time::macros::date;
 
 /// Final payoff type for autocallable products.
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum FinalPayoffType {
     /// Capital protection: max(floor, participation * min(S_T/S_0, cap))
     CapitalProtection {
@@ -63,7 +65,12 @@ pub enum FinalPayoffType {
 
 /// Autocallable structured product instrument.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Autocallable {
@@ -75,8 +82,10 @@ pub struct Autocallable {
     ///
     /// Barriers are monitored **discretely** at these exact dates only.
     /// The Monte Carlo time grid is constructed to include these dates precisely.
+    #[schemars(with = "Vec<String>")]
     pub observation_dates: Vec<Date>,
     /// Explicit terminal expiry date for the structure.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%).
     ///

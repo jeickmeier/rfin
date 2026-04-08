@@ -18,7 +18,7 @@ pub(crate) use super::cashflow_spec::CashflowSpec;
 pub use crate::cashflow::builder::AmortizationSpec;
 
 /// Bond settlement and ex-coupon conventions.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct BondSettlementConvention {
     /// Number of settlement days after trade date (e.g., 2 for T+2).
     #[serde(default)]
@@ -43,17 +43,23 @@ pub struct BondSettlementConvention {
 /// Supports call/put schedules, quoted prices for yield-to-maturity calculations,
 /// and custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps
 /// the canonical builder coupon specs for maximum flexibility and parity.
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
-// Note: JsonSchema derive requires finstack-core types to implement JsonSchema
-// #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    schemars::JsonSchema,
+)]
 pub struct Bond {
     /// Unique identifier for the bond.
     pub id: InstrumentId,
     /// Principal amount of the bond.
     pub notional: Money,
     /// Issue date of the bond.
+    #[schemars(with = "String")]
     pub issue_date: Date,
     /// Maturity date of the bond.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Cashflow specification (fixed, floating, or amortizing).
     pub cashflow_spec: CashflowSpec,
@@ -194,9 +200,10 @@ impl<'de> serde::Deserialize<'de> for Bond {
 ///     make_whole: None,
 /// };
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CallPut {
     /// Exercise date of the option (or start of exercise period).
+    #[schemars(with = "String")]
     pub date: Date,
     /// Redemption price as percentage of par amount.
     pub price_pct_of_par: f64,
@@ -210,6 +217,7 @@ pub struct CallPut {
     /// time after year 3 at 102% of par"). Set `date` to the first exercise date
     /// and `end_date` to the last exercise date for such provisions.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub end_date: Option<Date>,
     /// Optional make-whole call specification.
     ///
@@ -233,7 +241,7 @@ pub struct CallPut {
 /// - Investment-grade corporates: typically Treasury + 25-50 bps
 /// - High-yield: typically Treasury + 50-100 bps
 /// - Convertibles: typically Treasury + 50 bps
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct MakeWholeSpec {
     /// Reference curve identifier (e.g., "USD-TREASURY").
     pub reference_curve_id: CurveId,
@@ -261,7 +269,7 @@ pub struct MakeWholeSpec {
 ///     make_whole: None,
 /// });
 /// ```
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CallPutSchedule {
     /// Call options (issuer can redeem early).
     pub calls: Vec<CallPut>,
@@ -1281,6 +1289,175 @@ impl Bond {
             }
             _ => false,
         }
+    }
+
+    /// Create an example floating-rate note (FRN) for testing and documentation.
+    ///
+    /// Returns a 5-year USD SOFR-linked FRN with:
+    /// - $1M notional
+    /// - SOFR + 150bps spread
+    /// - Quarterly payments, Act/360
+    /// - 0% index floor
+    /// - T-2 reset lag
+    #[allow(clippy::expect_used)]
+    pub fn example_floating() -> finstack_core::Result<Self> {
+        use crate::cashflow::builder::specs::{CouponType, FloatingCouponSpec, FloatingRateSpec};
+        use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
+        use rust_decimal::Decimal;
+
+        let cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
+            rate_spec: FloatingRateSpec {
+                index_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: Decimal::new(150, 0),
+                gearing: Decimal::ONE,
+                gearing_includes_spread: true,
+                floor_bp: Some(Decimal::ZERO),
+                all_in_floor_bp: None,
+                cap_bp: None,
+                index_cap_bp: None,
+                reset_freq: Tenor::quarterly(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: "weekends_only".to_string(),
+                fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
+                overnight_compounding: None,
+                fallback: Default::default(),
+            },
+            coupon_type: CouponType::Cash,
+            freq: Tenor::quarterly(),
+            stub: StubKind::ShortFront,
+        });
+
+        let bond = Self::builder()
+            .id(InstrumentId::new("FRN-USD-SOFR-5Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(date!(2024 - 01 - 15))
+            .maturity(date!(2029 - 01 - 15))
+            .cashflow_spec(cashflow_spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
+            .build()?;
+
+        bond.validate()?;
+        Ok(bond)
+    }
+
+    /// Create an example callable fixed-rate bond for testing and documentation.
+    ///
+    /// Returns a 10-year USD corporate bond with:
+    /// - $1M notional, 5% semi-annual coupon, 30/360
+    /// - Call schedule at years 3, 5, and 7 with declining premiums (103, 101, 100)
+    #[allow(clippy::expect_used)]
+    pub fn example_callable() -> finstack_core::Result<Self> {
+        let cashflow_spec = CashflowSpec::fixed(
+            0.05,
+            finstack_core::dates::Tenor::semi_annual(),
+            DayCount::Thirty360,
+        );
+
+        let call_put = CallPutSchedule {
+            calls: vec![
+                CallPut {
+                    date: date!(2027 - 01 - 15),
+                    price_pct_of_par: 103.0,
+                    end_date: None,
+                    make_whole: None,
+                },
+                CallPut {
+                    date: date!(2029 - 01 - 15),
+                    price_pct_of_par: 101.0,
+                    end_date: None,
+                    make_whole: None,
+                },
+                CallPut {
+                    date: date!(2031 - 01 - 15),
+                    price_pct_of_par: 100.0,
+                    end_date: None,
+                    make_whole: None,
+                },
+            ],
+            puts: vec![],
+        };
+
+        let bond = Self::builder()
+            .id(InstrumentId::new("CALLABLE-USD-10Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(date!(2024 - 01 - 15))
+            .maturity(date!(2034 - 01 - 15))
+            .cashflow_spec(cashflow_spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .call_put_opt(Some(call_put))
+            .attributes(Attributes::new())
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
+            .build()?;
+
+        bond.validate()?;
+        Ok(bond)
+    }
+
+    /// Create an example amortizing fixed-rate bond for testing and documentation.
+    ///
+    /// Returns a 5-year USD amortizing bond with:
+    /// - $1M notional, 4% semi-annual coupon, 30/360
+    /// - Linear amortization to $200K final notional
+    #[allow(clippy::expect_used)]
+    pub fn example_amortizing() -> finstack_core::Result<Self> {
+        use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+        use crate::cashflow::builder::AmortizationSpec;
+        use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
+        use rust_decimal::Decimal;
+
+        let base = CashflowSpec::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: Decimal::new(4, 2),
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
+        });
+
+        let cashflow_spec = CashflowSpec::Amortizing {
+            base: Box::new(base),
+            schedule: AmortizationSpec::LinearTo {
+                final_notional: Money::new(200_000.0, Currency::USD),
+            },
+        };
+
+        let bond = Self::builder()
+            .id(InstrumentId::new("AMORT-USD-5Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(date!(2024 - 01 - 15))
+            .maturity(date!(2029 - 01 - 15))
+            .cashflow_spec(cashflow_spec)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .settlement_convention_opt(Some(BondSettlementConvention {
+                settlement_days: 2,
+                ..Default::default()
+            }))
+            .build()?;
+
+        bond.validate()?;
+        Ok(bond)
     }
 
     /// Recursively validate that fixed coupon rates are non-negative.

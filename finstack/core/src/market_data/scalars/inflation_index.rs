@@ -71,6 +71,7 @@ use crate::currency::Currency;
 use crate::dates::{Date, DateExt};
 use crate::{Error, Result};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Interpolation method for CPI/RPI values between monthly observations.
@@ -92,7 +93,7 @@ use serde::{Deserialize, Serialize};
 /// let linear = InflationInterpolation::Linear; // TIPS standard
 /// let step = InflationInterpolation::Step;     // Conservative approach
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InflationInterpolation {
@@ -159,7 +160,7 @@ impl core::str::FromStr for InflationInterpolation {
 /// let gilt_lag = InflationLag::Months(3);  // UK modern gilts
 /// let no_lag = InflationLag::None;         // Inflation swaps (forecast-based)
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InflationLag {
@@ -442,7 +443,7 @@ impl InflationIndex {
 }
 
 /// Raw serializable state of an InflationIndex
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct RawInflationIndex {
     /// Unique identifier
@@ -450,6 +451,7 @@ struct RawInflationIndex {
     /// Currency
     pub currency: Currency,
     /// Observations as (date, value) pairs
+    #[schemars(with = "Vec<(String, f64)>")]
     pub observations: Vec<(Date, f64)>,
     /// Interpolation method
     pub interpolation: InflationInterpolation,
@@ -457,6 +459,16 @@ struct RawInflationIndex {
     pub lag: InflationLag,
     /// Optional seasonality factors
     pub seasonality: Option<[f64; 12]>,
+}
+
+impl JsonSchema for InflationIndex {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "InflationIndex".into()
+    }
+
+    fn json_schema(gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        RawInflationIndex::json_schema(gen)
+    }
 }
 
 impl From<InflationIndex> for RawInflationIndex {

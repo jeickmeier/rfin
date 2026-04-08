@@ -10,6 +10,7 @@ description = "Copula models, factor models, and recovery models for credit corr
 
 [dependencies]
 finstack-core = { path = "../core" }
+schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tracing = { version = "0.1", default-features = false }

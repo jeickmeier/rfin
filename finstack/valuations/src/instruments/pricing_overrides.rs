@@ -16,7 +16,17 @@ use finstack_core::types::{Bps, Percentage};
 /// - **Clamp**: Simple flat extrapolation; common for quick prototyping.
 /// - **LinearInVariance**: Market-standard for equity/FX; preserves no-arbitrage conditions
 ///   better than linear-in-vol by extrapolating in total variance space (σ²T).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum VolSurfaceExtrapolation {
@@ -55,7 +65,7 @@ pub enum VolSurfaceExtrapolation {
 // ---------------------------------------------------------------------------
 
 /// Overrides for market-quoted values (prices, vols, spreads, upfront payments).
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct MarketQuoteOverrides {
     /// Quoted clean price for bond yield calculations
@@ -113,7 +123,7 @@ impl MarketQuoteOverrides {
 // ---------------------------------------------------------------------------
 
 /// Bump sizes for finite-difference sensitivity calculations.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct BumpConfig {
     /// Rho bump size in **decimal rate** units (default `0.0001 = 1bp`).
@@ -215,7 +225,7 @@ pub struct MertonMcOverride(
 );
 
 /// Model selection and tree pricing parameters.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct ModelConfig {
     /// Volatility surface extrapolation policy when `implied_volatility` is not set.
@@ -317,7 +327,7 @@ impl ModelConfig {
 // ---------------------------------------------------------------------------
 
 /// Instrument-owned pricing inputs that can materially change valuation.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct InstrumentPricingOverrides {
     /// Market-quoted values (prices, implied vol, spreads, upfront payments).
@@ -354,7 +364,7 @@ impl InstrumentPricingOverrides {
 // ---------------------------------------------------------------------------
 
 /// Metric-time overrides derived from an instrument's pricing metadata.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct MetricPricingOverrides {
     /// Bump sizes for finite-difference sensitivities.
@@ -437,7 +447,7 @@ impl MetricPricingOverrides {
 // ---------------------------------------------------------------------------
 
 /// Scenario-only valuation adjustments.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct ScenarioPricingOverrides {
     /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
@@ -502,7 +512,7 @@ impl ScenarioPricingOverrides {
 ///
 /// Sub-struct fields are flattened so existing JSON payloads with flat field names
 /// continue to round-trip correctly.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct PricingOverrides {
     /// Market-quoted values (prices, implied vol, spreads).
@@ -806,16 +816,20 @@ impl PricingOverrides {
 }
 
 /// Term loan specific overrides for covenants and schedule adjustments.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TermLoanOverrides {
     /// Additional margin step-ups by date (bps)
+    #[schemars(with = "Vec<(String, i32)>")]
     pub margin_add_bp_by_date: Vec<(Date, i32)>,
     /// Force PIK toggles by date
+    #[schemars(with = "Vec<(String, bool)>")]
     pub pik_toggle_by_date: Vec<(Date, bool)>,
     /// Extra cash sweeps by date
+    #[schemars(with = "Vec<(String, Money)>")]
     pub extra_cash_sweeps: Vec<(Date, Money)>,
     /// Draw stop date (earliest date after which draws are blocked)
+    #[schemars(with = "Option<String>")]
     pub draw_stop_date: Option<Date>,
 }
 

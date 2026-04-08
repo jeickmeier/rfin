@@ -36,7 +36,9 @@ use finstack_core::math::random::{poisson_inverse_cdf, RandomNumberGenerator};
 /// Asset dynamics specification for the Merton model.
 ///
 /// Controls the stochastic process assumed for the firm's asset value.
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum AssetDynamics {
     /// Standard geometric Brownian motion (lognormal diffusion).
     GeometricBrownian,
@@ -66,7 +68,9 @@ pub enum AssetDynamics {
 }
 
 /// Barrier monitoring type for default determination.
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum BarrierType {
     /// Default only assessed at maturity (classic Merton).
     Terminal,
@@ -91,7 +95,7 @@ pub enum BarrierType {
 /// - `payout_rate` (q): Continuous dividend / payout yield on assets.
 /// - `barrier_type`: Terminal or first-passage barrier monitoring.
 /// - `dynamics`: Asset return dynamics specification.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct MertonModel {
     asset_value: f64,
     asset_vol: f64,

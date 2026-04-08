@@ -12,21 +12,26 @@ use finstack_core::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Result containing tranche-specific cashflows and metadata.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TrancheCashflows {
     /// Tranche identifier.
     pub tranche_id: String,
     /// Cashflow schedule for this tranche (simple dated flows).
+    #[schemars(with = "String")]
     pub cashflows: DatedFlows,
     /// Detailed cashflows with proper classification using CFKind.
     pub detailed_flows: Vec<CashFlow>,
     /// Interest cashflows (component of total).
+    #[schemars(with = "String")]
     pub interest_flows: DatedFlows,
     /// Principal cashflows (component of total).
+    #[schemars(with = "String")]
     pub principal_flows: DatedFlows,
     /// PIK capitalization flows.
+    #[schemars(with = "String")]
     pub pik_flows: DatedFlows,
     /// Write-down flows (loss allocation reducing tranche balance).
+    #[schemars(with = "String")]
     pub writedown_flows: DatedFlows,
     /// Final tranche balance after all payments.
     pub final_balance: Money,
@@ -41,7 +46,7 @@ pub struct TrancheCashflows {
 }
 
 /// Tranche-specific valuation result.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TrancheValuation {
     /// Tranche identifier.
     pub tranche_id: String,

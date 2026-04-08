@@ -4,7 +4,7 @@ use finstack_core::types::CurveId;
 
 /// Quanto adjustment parameters for instruments where payoff currency differs from
 /// underlying currency.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct QuantoSpec {
     /// Correlation between the underlying asset and the FX rate.
     /// Must be in [-1, 1].

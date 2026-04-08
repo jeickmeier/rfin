@@ -102,7 +102,17 @@ pub(crate) fn finalize_flows(
 }
 
 /// Meaning of the emitted schedule relative to pricing and waterfall policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum CashflowRepresentation {
     /// Fixed or contractually scheduled future dated cash amounts.
@@ -120,7 +130,7 @@ pub enum CashflowRepresentation {
 ///
 /// Tracks referenced calendar IDs, optional facility limits, and the instrument's
 /// issue date for use by downstream engines (e.g., accrual calculation).
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CashFlowMeta {
     /// Meaning of the schedule relative to waterfall policy.
     #[serde(default)]
@@ -135,6 +145,7 @@ pub struct CashFlowMeta {
     /// date precisely, avoiding the inverse day count approximation that can
     /// be off by 1-2 days.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub issue_date: Option<Date>,
 }
 
@@ -142,7 +153,7 @@ pub struct CashFlowMeta {
 ///
 /// Contains ordered cashflows plus notional and a representative `DayCount`.
 /// Methods provide convenient accessors commonly used by pricing and analysis.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CashFlowSchedule {
     /// Ordered cashflows (coupons, principal payments, fees)
     pub flows: Vec<CashFlow>,

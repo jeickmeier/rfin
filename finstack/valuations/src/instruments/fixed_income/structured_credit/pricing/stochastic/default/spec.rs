@@ -12,7 +12,7 @@ use finstack_core::market_data::term_structures::HazardCurve;
 ///
 /// Allows default model selection and configuration without
 /// constructing the full model.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "model", deny_unknown_fields)]
 #[non_exhaustive]
 pub enum StochasticDefaultSpec {

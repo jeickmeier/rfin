@@ -89,7 +89,7 @@ fn validate_fx_rate(from: Currency, to: Currency, rate: f64) -> crate::Result<f6
 /// The policy tells a provider *how* the rate will be applied so it can decide
 /// between spot, forward, or averaged sources.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum FxConversionPolicy {
@@ -152,7 +152,7 @@ impl FxQuery {
 /// Attach [`FxPolicyMeta`] to valuation results so auditors can understand how
 /// FX conversions were sourced.
 ///
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FxPolicyMeta {
     /// Strategy applied for the conversion.

@@ -23,6 +23,7 @@ parking_lot = "0.12"
 lru = "0.16"
 indexmap = { workspace = true, features = ["serde"] }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
+schemars = { workspace = true }
 statrs = { version = "0.18", default-features = false }
 nalgebra = { version = "0.34", features = ["serde-serialize"] }
 num-complex = "0.4"

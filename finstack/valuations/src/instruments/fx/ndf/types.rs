@@ -45,7 +45,17 @@ use finstack_core::Result;
 ///
 /// This is less common but may be used in some markets or for consistency with
 /// other FX instruments that quote in this direction.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum NdfQuoteConvention {
@@ -127,7 +137,17 @@ impl std::str::FromStr for NdfQuoteConvention {
 ///     .build()
 ///     .expect("Valid NDF");
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum NdfFixingSource {
@@ -291,7 +311,12 @@ impl std::str::FromStr for NdfFixingSource {
 ///     .expect("Valid NDF");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Ndf {
@@ -302,8 +327,10 @@ pub struct Ndf {
     /// Settlement currency (freely convertible, typically USD, denominator and PV currency).
     pub settlement_currency: Currency,
     /// Fixing date (rate observation date, typically T-2 before maturity).
+    #[schemars(with = "String")]
     pub fixing_date: Date,
     /// Maturity/settlement date.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Notional amount in base currency.
     pub notional: Money,

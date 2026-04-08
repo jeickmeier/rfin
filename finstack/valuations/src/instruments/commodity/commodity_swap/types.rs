@@ -58,7 +58,13 @@ use rust_decimal::Decimal;
 ///     .build()
 ///     .expect("Valid swap");
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
+#[derive(
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    schemars::JsonSchema,
+)]
 pub struct CommoditySwap {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -75,8 +81,10 @@ pub struct CommoditySwap {
     /// ReceiveFixed means receiving the fixed price leg.
     pub side: PayReceive,
     /// Start date of the swap.
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// End date of the swap.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Payment frequency as a Tenor.
     pub frequency: Tenor,

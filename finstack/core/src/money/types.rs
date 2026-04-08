@@ -78,7 +78,9 @@ fn format_with_separators(int_str: &str) -> String {
 /// assert_eq!(notional.currency(), Currency::EUR);
 /// assert_eq!(notional.amount(), 1_000_000.0);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Money {
     amount: AmountRepr,

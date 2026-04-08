@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Complete deal configuration for structured credit instruments
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DealConfig {
     /// Key deal dates
     pub dates: DealDates,
@@ -34,15 +34,19 @@ pub struct DealConfig {
 }
 
 /// Key dates for a structured credit deal
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DealDates {
     /// Deal closing date
+    #[schemars(with = "String")]
     pub closing_date: Date,
     /// First payment date
+    #[schemars(with = "String")]
     pub first_payment_date: Date,
     /// End of reinvestment period (if applicable)
+    #[schemars(with = "Option<String>")]
     pub reinvestment_end_date: Option<Date>,
     /// Legal final maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Payment frequency
     pub frequency: Tenor,
@@ -73,7 +77,7 @@ impl DealDates {
 }
 
 /// Fee structure for structured credit deals
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DealFees {
     /// Annual trustee fee (fixed amount)
     pub trustee_fee_annual: Money,
@@ -140,7 +144,7 @@ impl DealFees {
 }
 
 /// Coverage test configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CoverageTestConfig {
     /// OC trigger levels by tranche ID
     pub oc_triggers: HashMap<String, f64>,
@@ -206,7 +210,7 @@ impl Default for CoverageTestConfig {
 }
 
 /// Default assumptions for structured credit modeling
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DefaultAssumptions {
     /// Base annual CDR (Constant Default Rate)
     pub base_cdr_annual: f64,

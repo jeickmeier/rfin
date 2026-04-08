@@ -16,7 +16,7 @@ use crate::instruments::fixed_income::structured_credit::types::constants::BASIS
 use finstack_core::types::CreditRating;
 
 /// Individual asset in the structured credit pool
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PoolAsset {
     /// Unique asset identifier
     pub id: InstrumentId,
@@ -32,6 +32,7 @@ pub struct PoolAsset {
     /// Reference index for floating rate (e.g., "SOFR-3M", "LIBOR-3M")
     pub index_id: Option<String>,
     /// Maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Credit quality
     pub credit_quality: Option<CreditRating>,
@@ -46,6 +47,7 @@ pub struct PoolAsset {
     /// Purchase price (for trading gain/loss)
     pub purchase_price: Option<Money>,
     /// Acquisition date
+    #[schemars(with = "Option<String>")]
     pub acquisition_date: Option<Date>,
     /// Day count convention for interest calculation
     pub day_count: DayCount,
@@ -297,9 +299,10 @@ impl PoolAsset {
 }
 
 /// Reinvestment period and rules
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReinvestmentPeriod {
     /// End date of reinvestment period
+    #[schemars(with = "String")]
     pub end_date: Date,
     /// Whether reinvestment is currently active
     pub is_active: bool,
@@ -308,7 +311,7 @@ pub struct ReinvestmentPeriod {
 }
 
 /// Criteria for reinvestment during revolving period
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReinvestmentCriteria {
     /// Maximum purchase price (% of par)
     pub max_price: f64,
@@ -335,7 +338,7 @@ impl Default for ReinvestmentCriteria {
 }
 
 /// Pool-level performance statistics
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PoolStats {
     /// Weighted average coupon
     pub weighted_avg_coupon: f64,
@@ -364,7 +367,7 @@ pub struct PoolStats {
 }
 
 /// Main asset pool structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AssetPool {
     /// Pool identifier
@@ -406,7 +409,7 @@ pub struct AssetPool {
 }
 
 /// Representative line for aggregated pool modeling
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RepLine {
     /// Unique identifier for the rep line
     pub id: String,
@@ -419,6 +422,7 @@ pub struct RepLine {
     /// Reference index (if floating)
     pub index_id: Option<String>,
     /// Weighted average maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Weighted average seasoning in months
     pub seasoning_months: u32,

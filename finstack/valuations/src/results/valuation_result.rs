@@ -133,12 +133,13 @@ use std::ops::Index;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValuationResult {
     /// Unique identifier for the priced instrument.
     pub instrument_id: String,
 
     /// Valuation date (T+0) for the calculation.
+    #[schemars(with = "String")]
     pub as_of: Date,
 
     /// Present value in the instrument's native currency.

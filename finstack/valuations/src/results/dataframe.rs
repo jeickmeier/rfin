@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// This structure flattens the nested ValuationResult into a single row
 /// with selected measures promoted to top-level columns.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ValuationRow {
     /// Instrument identifier
     pub instrument_id: String,

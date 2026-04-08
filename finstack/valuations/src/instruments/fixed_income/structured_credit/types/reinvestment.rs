@@ -12,9 +12,10 @@ use super::pool::{AssetPool, PoolAsset};
 use serde::{Deserialize, Serialize};
 
 /// Manages reinvestment during the reinvestment period (price-only selection)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReinvestmentManager {
     /// End date of reinvestment period
+    #[schemars(with = "String")]
     pub end_date: Date,
     /// Whether reinvestment is currently allowed
     pub reinvestment_allowed: bool,

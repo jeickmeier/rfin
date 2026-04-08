@@ -56,7 +56,7 @@ fn cashflow_kind_rank(kind: &CFKind) -> usize {
 ///
 /// Contains the full trajectory of utilization, interest rates, and credit spreads
 /// at each payment date, enabling cashflow generation and survival probability computation.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ThreeFactorPathData {
     /// Utilization trajectory at each payment date [0, 1]
     pub utilization_path: Vec<f64>,
@@ -67,6 +67,7 @@ pub struct ThreeFactorPathData {
     /// Time points corresponding to each value (years from commitment)
     pub time_points: Vec<f64>,
     /// Payment dates aligned with trajectories
+    #[schemars(with = "Vec<String>")]
     pub payment_dates: Vec<Date>,
 }
 

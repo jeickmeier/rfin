@@ -13,7 +13,12 @@ use rust_decimal::Decimal;
 
 /// CMS option instrument (cap/floor on CMS rates).
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct CmsOption {
@@ -24,8 +29,10 @@ pub struct CmsOption {
     /// Tenor of the CMS swap in years (e.g., 10.0 for 10Y)
     pub cms_tenor: f64,
     /// Observation/fixing dates for CMS rate
+    #[schemars(with = "Vec<String>")]
     pub fixing_dates: Vec<Date>,
     /// Payment dates for each period (usually fixing date + lag or period end)
+    #[schemars(with = "Vec<String>")]
     pub payment_dates: Vec<Date>,
     /// Accrual fractions for each period
     pub accrual_fractions: Vec<f64>,

@@ -59,6 +59,8 @@ time = { version = "0.3" }
 indexmap = "2"
 # Decimal arithmetic
 rust_decimal = "1.40.0"
+# JSON Schema generation
+schemars = { version = "1.2", features = ["rust_decimal1", "indexmap2"] }
 rust_decimal_macros = "1.40.0"
 # Benchmarking
 criterion = { version = "0.8", features = ["html_reports"] }

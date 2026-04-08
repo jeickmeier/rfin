@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Primary structured credit deal classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum DealType {
     /// Collateralized Loan Obligation
@@ -47,7 +47,19 @@ impl core::fmt::Display for DealType {
 }
 
 /// Tranche seniority levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum TrancheSeniority {
     /// Most senior debt tranche
@@ -76,7 +88,7 @@ impl core::fmt::Display for TrancheSeniority {
 // ============================================================================
 
 /// Asset type classification for pool composition (flattened hierarchy)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type")]
 #[non_exhaustive]
 pub enum AssetType {
@@ -235,7 +247,7 @@ pub enum AssetType {
 // ============================================================================
 
 /// Payment distribution modes
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "mode")]
 #[non_exhaustive]
 pub enum PaymentMode {
@@ -246,6 +258,7 @@ pub enum PaymentMode {
         /// Triggered by.
         triggered_by: String,
         /// Trigger date.
+        #[schemars(with = "String")]
         trigger_date: Date,
     },
     /// Hybrid mode with custom rules
@@ -285,7 +298,7 @@ impl AssetType {
 }
 
 /// Consequences when triggers are breached
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum TriggerConsequence {
     /// Divert Cash Flow variant.

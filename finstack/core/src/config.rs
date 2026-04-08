@@ -52,7 +52,9 @@ use std::collections::BTreeMap;
 /// cfg.rounding.mode = RoundingMode::TowardZero;
 /// assert!(matches!(cfg.rounding.mode, RoundingMode::TowardZero));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum RoundingMode {
     /// Banker's rounding (ties to even).
@@ -179,7 +181,7 @@ pub struct RoundingPolicy {
 /// // Customize for stricter rate comparisons
 /// tol.rate_epsilon = 1e-14;
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ToleranceConfig {
     /// Epsilon for rate comparisons (default: 1e-12).
     ///
@@ -239,7 +241,7 @@ impl Default for ToleranceConfig {
 ///
 /// Instances are typically produced via [`rounding_context_from`] and persisted
 /// alongside valuation results.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RoundingContext {
     /// Active rounding mode.
     pub mode: RoundingMode,
@@ -315,7 +317,7 @@ impl RoundingContext {
 /// Numeric engine mode compiled into the crate.
 ///
 /// Currently single-variant (F64); exists as `#[non_exhaustive]` for forward-compatible extension.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[non_exhaustive]
 pub enum NumericMode {
     /// Floating-point f64 engine.
@@ -335,7 +337,7 @@ pub enum NumericMode {
 /// assert_eq!(meta.numeric_mode, NumericMode::F64);
 /// assert!(meta.timestamp.is_none()); // deterministic by default
 /// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ResultsMeta {
     /// Numeric engine mode used to produce the results.
     pub numeric_mode: NumericMode,
@@ -351,6 +353,7 @@ pub struct ResultsMeta {
         default,
         with = "time::serde::iso8601::option"
     )]
+    #[schemars(with = "Option<String>")]
     pub timestamp: Option<time::OffsetDateTime>,
     /// Finstack library version used to produce the result.
     #[serde(skip_serializing_if = "Option::is_none", default)]

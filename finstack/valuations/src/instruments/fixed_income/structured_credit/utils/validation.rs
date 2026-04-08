@@ -22,7 +22,15 @@ use finstack_core::Result;
 // ============================================================================
 
 /// Validation error details.
-#[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum ValidationError {
     /// Duplicate tier ID.

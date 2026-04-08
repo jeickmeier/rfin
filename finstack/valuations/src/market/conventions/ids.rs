@@ -100,7 +100,7 @@ define_convention_id!(
 ///
 /// let clause = CdsDocClause::Cr14; // Cum-Restructuring 2014
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CdsDocClause {
     /// Cum-Restructuring 2014 (CR14)

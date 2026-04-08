@@ -52,7 +52,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// ```
 /// where the sum includes both realized fixings and projected forwards.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct CommodityAsianOption {
     /// Unique instrument identifier.
@@ -69,14 +74,17 @@ pub struct CommodityAsianOption {
     /// Dates on which the commodity price is observed for averaging.
     ///
     /// **Note**: These dates should be pre-adjusted for business day conventions.
+    #[schemars(with = "Vec<String>")]
     pub fixing_dates: Vec<Date>,
     /// Already observed fixings for seasoned options (ex-date, price pairs).
     #[builder(default)]
     #[serde(default)]
+    #[schemars(with = "Vec<(String, f64)>")]
     pub realized_fixings: Vec<(Date, f64)>,
     /// Contract quantity in commodity units.
     pub quantity: f64,
     /// Option expiry/settlement date for the payoff.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Forward/futures price curve ID.
     pub forward_curve_id: CurveId,

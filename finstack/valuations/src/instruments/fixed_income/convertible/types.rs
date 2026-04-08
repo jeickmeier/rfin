@@ -31,7 +31,7 @@ use crate::impl_instrument_base;
 /// - **Observation period**: 20 of 30 consecutive trading days
 ///
 /// Some issuances use 120% or 150% thresholds.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct SoftCallTrigger {
     /// Threshold as a percentage of conversion price (e.g., 130.0 = 130%).
     ///
@@ -84,7 +84,12 @@ impl SoftCallTrigger {
 /// with equity optionality (conversion rights). Uses the `CashFlowBuilder` for
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct ConvertibleBond {
@@ -93,8 +98,10 @@ pub struct ConvertibleBond {
     /// Principal amount.
     pub notional: Money,
     /// Issue date.
+    #[schemars(with = "String")]
     pub issue_date: Date,
     /// Maturity date.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Discount curve identifier for the debt component (risk-free or funding).
     pub discount_curve_id: CurveId,
@@ -166,7 +173,7 @@ pub struct ConvertibleBond {
 /// - **Vega**: Per 1% absolute volatility move (dPV for +1 vol point)
 /// - **Theta**: Per calendar day (P(t+1d) - P(t), typically negative for long positions)
 /// - **Rho**: Per 1 basis point parallel rate shift (dPV for +1bp)
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ConvertibleGreeks {
     /// Instrument price
     pub price: f64,
@@ -196,17 +203,19 @@ impl From<crate::instruments::common_impl::models::TreeGreeks> for ConvertibleGr
 }
 
 /// Defines how and when conversion can occur.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum ConversionPolicy {
     /// Holder may convert at any time (subject to window, if any).
     Voluntary,
     /// Bond will mandatorily convert on the specified date.
-    MandatoryOn(Date),
+    MandatoryOn(#[schemars(with = "String")] Date),
     /// Holder may convert within a window.
     Window {
         /// Start.
+        #[schemars(with = "String")]
         start: Date,
         /// End.
+        #[schemars(with = "String")]
         end: Date,
     },
     /// Conversion tied to an external event or condition.
@@ -225,6 +234,7 @@ pub enum ConversionPolicy {
     /// ACES (Automatically Convertible Equity Securities) are similar to DECS.
     MandatoryVariable {
         /// Date of mandatory conversion.
+        #[schemars(with = "String")]
         conversion_date: Date,
         /// Upper conversion price (above this, holder receives min shares).
         upper_conversion_price: f64,
@@ -234,7 +244,7 @@ pub enum ConversionPolicy {
 }
 
 /// Events that may trigger conversion.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum ConversionEvent {
     /// Qualified Ipo variant.
     QualifiedIpo,
@@ -260,7 +270,7 @@ pub enum ConversionEvent {
 /// Most convertible bonds use **Weighted Average** anti-dilution, which is
 /// less protective but more issuer-friendly. **Full Ratchet** is mainly seen
 /// in private placements and venture-style convertibles.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum AntiDilutionPolicy {
     /// No anti-dilution protection.
     None,
@@ -282,7 +292,7 @@ pub enum AntiDilutionPolicy {
 }
 
 /// How dividends affect conversion terms.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum DividendAdjustment {
     /// No dividend adjustment.
     None,
@@ -296,9 +306,10 @@ pub enum DividendAdjustment {
 ///
 /// Records details of an equity issuance or corporate action that may
 /// affect the conversion ratio under the bond's anti-dilution provisions.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DilutionEvent {
     /// Date of the dilutive event.
+    #[schemars(with = "String")]
     pub date: Date,
     /// New issue price per share (for below-market issuances).
     pub new_issue_price: f64,
@@ -309,7 +320,7 @@ pub struct DilutionEvent {
 }
 
 /// Conversion specification for the instrument.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ConversionSpec {
     /// Conversion ratio (shares per bond). If not provided, derive from price.
     pub ratio: Option<f64>,
@@ -437,6 +448,86 @@ impl ConvertibleBond {
             })
             .underlying_equity_id_opt(Some("TECH".to_string()))
             .call_put_opt(None)
+            .fixed_coupon_opt(Some(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: coupon_rate,
+                freq: Tenor::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: "weekends_only".to_string(),
+                stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
+            }))
+            .floating_coupon_opt(None)
+            .attributes(Attributes::new())
+            .build()
+    }
+
+    /// Create a mandatory convertible bond example (PERCS/DECS style).
+    ///
+    /// Returns a 3-year mandatory convertible with variable delivery ratio,
+    /// soft-call trigger, and a call/put schedule:
+    /// - **Notional:** $1M USD
+    /// - **Coupon:** 5.0% semi-annual (higher coupon compensates for capped upside)
+    /// - **Conversion:** Mandatory variable at maturity (DECS-style)
+    ///   - Upper conversion price: $60 (above this, min shares delivered)
+    ///   - Lower conversion price: $40 (below this, max shares delivered)
+    /// - **Soft call:** 130% trigger, 20 of 30 trading days
+    /// - **Call schedule:** Issuer can call at 101% after year 2
+    /// - **Put schedule:** Holder can put at 100% after year 1
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example_mandatory() -> finstack_core::Result<Self> {
+        use crate::cashflow::builder::specs::FixedCouponSpec;
+        use crate::cashflow::builder::CouponType;
+        use crate::instruments::fixed_income::bond::CallPut;
+        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+        use time::macros::date;
+
+        let issue = date!(2024 - 03 - 15);
+        let maturity = date!(2027 - 03 - 15);
+        let coupon_rate = crate::utils::decimal::f64_to_decimal(0.05, "coupon_rate")?;
+
+        ConvertibleBond::builder()
+            .id(InstrumentId::new("CB-MAND-DECS-3Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue_date(issue)
+            .maturity(maturity)
+            .discount_curve_id(CurveId::new("USD-IG"))
+            .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT-BBB")))
+            .conversion(ConversionSpec {
+                ratio: None,
+                price: Some(50.0), // reference price for base conversion ratio
+                policy: ConversionPolicy::MandatoryVariable {
+                    conversion_date: maturity,
+                    upper_conversion_price: 60.0,
+                    lower_conversion_price: 40.0,
+                },
+                anti_dilution: AntiDilutionPolicy::WeightedAverage,
+                dividend_adjustment: DividendAdjustment::AdjustRatio,
+                dilution_events: Vec::new(),
+            })
+            .underlying_equity_id_opt(Some("INDU".to_string()))
+            .call_put_opt(Some(CallPutSchedule {
+                calls: vec![CallPut {
+                    date: date!(2026 - 03 - 15),
+                    price_pct_of_par: 101.0,
+                    end_date: Some(maturity),
+                    make_whole: None,
+                }],
+                puts: vec![CallPut {
+                    date: date!(2025 - 03 - 15),
+                    price_pct_of_par: 100.0,
+                    end_date: None,
+                    make_whole: None,
+                }],
+            }))
+            .soft_call_trigger_opt(Some(SoftCallTrigger {
+                threshold_pct: 130.0,
+                observation_days: 30,
+                required_days_above: 20,
+            }))
+            .recovery_rate_opt(Some(0.35))
             .fixed_coupon_opt(Some(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate: coupon_rate,

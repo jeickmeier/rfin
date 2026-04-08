@@ -8,7 +8,17 @@ use finstack_core::currency::Currency;
 use finstack_core::HashMap;
 
 /// Risk classes for SIMM categorization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum SimmRiskClass {
     /// Interest rate risk
@@ -29,7 +39,17 @@ pub enum SimmRiskClass {
 ///
 /// Maps reference entities to ISDA SIMM credit qualifying buckets.
 /// See ISDA SIMM v2.6 Table 2.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum SimmCreditSector {
     /// Bucket 1: Sovereigns including central banks
@@ -105,7 +125,7 @@ impl std::fmt::Display for SimmRiskClass {
 /// # References
 ///
 /// - ISDA SIMM: `docs/REFERENCES.md#isda-simm`
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct SimmSensitivities {
     /// Base currency for the sensitivities.
     ///

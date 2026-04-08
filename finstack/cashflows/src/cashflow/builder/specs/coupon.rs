@@ -10,7 +10,9 @@ use rust_decimal::Decimal;
 /// - `Cash`: 100% paid in cash.
 /// - `PIK`: 100% capitalized into principal.
 /// - `Split { cash_pct, pik_pct }`: percentages applied to the coupon amount.
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum CouponType {
     /// Cash variant.
     Cash,
@@ -66,7 +68,7 @@ impl CouponType {
 ///
 /// This type combines the coupon quote, payment behavior, and schedule
 /// conventions required to emit a fixed-rate leg.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FixedCouponSpec {
     /// Coupon settlement behavior: cash, PIK, or an explicit split of the
     /// coupon amount.
@@ -117,7 +119,17 @@ pub struct FixedCouponSpec {
 /// - ARRC (2020). "SOFR: A User's Guide." Federal Reserve Bank of New York.
 /// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
 /// - `docs/REFERENCES.md#isda-2006-definitions`
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub enum OvernightCompoundingMethod {
     /// Simple average of daily rates (non-standard, for reference only).
     SimpleAverage,
@@ -178,7 +190,9 @@ fn default_reset_lag() -> i32 {
 ///
 /// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
 /// - `docs/REFERENCES.md#hull-options-futures`
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum FloatingRateFallback {
     /// Return an error with curve ID and reset date (strictest, safest).
     #[default]
@@ -257,7 +271,7 @@ impl FloatingRateFallback {
 ///     fallback: Default::default(),
 /// };
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FloatingRateSpec {
     /// Forward curve identifier (e.g., "USD-SOFR-3M", "EUR-EURIBOR-6M").
     pub index_id: CurveId,
@@ -393,7 +407,7 @@ fn default_gearing_includes_spread() -> bool {
 /// Used by the cashflow builder for instruments with floating rate coupons.
 /// Embeds the canonical `FloatingRateSpec` for rate projection and adds
 /// coupon-specific settings like payment frequency and PIK behavior.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FloatingCouponSpec {
     /// Floating rate specification (contains index, spread, floor, cap, etc).
     pub rate_spec: FloatingRateSpec,
@@ -443,7 +457,7 @@ pub struct FloatingCouponSpec {
 ///     payment_lag_days: 0,
 /// };
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct StepUpCouponSpec {
     /// Coupon type (Cash/PIK/Split).
     pub coupon_type: CouponType,
@@ -451,6 +465,7 @@ pub struct StepUpCouponSpec {
     pub initial_rate: Decimal,
     /// Step schedule: (effective_date, new_rate). Must be sorted by date.
     /// Each entry sets the rate from that date forward until the next step.
+    #[schemars(with = "Vec<(String, Decimal)>")]
     pub step_schedule: Vec<(Date, Decimal)>,
     /// Payment frequency.
     pub freq: Tenor,

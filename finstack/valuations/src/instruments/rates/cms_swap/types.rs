@@ -38,7 +38,12 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
 /// *Wilmott Magazine*, March, 38-44.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct CmsSwap {
@@ -53,8 +58,10 @@ pub struct CmsSwap {
     /// CMS tenor in years (e.g., 10.0 for 10Y swap rate).
     pub cms_tenor: f64,
     /// Fixing dates for CMS rate observations.
+    #[schemars(with = "Vec<String>")]
     pub cms_fixing_dates: Vec<Date>,
     /// Payment dates for the CMS leg.
+    #[schemars(with = "Vec<String>")]
     pub cms_payment_dates: Vec<Date>,
     /// Accrual fractions for each CMS period.
     pub cms_accrual_fractions: Vec<f64>,
@@ -118,7 +125,7 @@ pub struct CmsSwap {
 }
 
 /// Funding leg specification for a CMS swap.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type")]
 pub enum FundingLeg {
     /// Fixed rate funding leg.
@@ -126,6 +133,7 @@ pub enum FundingLeg {
         /// Fixed coupon rate (decimal, e.g., 0.03 = 3%).
         rate: f64,
         /// Payment dates for each period.
+        #[schemars(with = "Vec<String>")]
         payment_dates: Vec<Date>,
         /// Accrual fractions for each period.
         accrual_fractions: Vec<f64>,
@@ -137,6 +145,7 @@ pub enum FundingLeg {
         /// Spread over the floating index (decimal, e.g., 0.001 = 10bp).
         spread: f64,
         /// Payment dates for each period.
+        #[schemars(with = "Vec<String>")]
         payment_dates: Vec<Date>,
         /// Accrual fractions for each period.
         accrual_fractions: Vec<f64>,

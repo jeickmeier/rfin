@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// For interest rate swaps: Pay = pay fixed/receive floating, Receive = receive fixed/pay floating
 /// For credit default swaps: Pay = buy protection (pay premium), Receive = sell protection (receive premium)
 /// For variance swaps: Pay = short variance, Receive = long variance
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS, short variance)
@@ -75,7 +75,7 @@ impl std::str::FromStr for PayReceive {
 }
 
 /// Method for calculating par rates in swaps
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ParRateMethod {
@@ -111,7 +111,7 @@ impl std::str::FromStr for ParRateMethod {
 }
 
 /// Specification for fixed rate legs in interest rate swaps
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FixedLegSpec {
     /// Discount curve identifier for pricing
     pub discount_curve_id: CurveId,
@@ -130,8 +130,10 @@ pub struct FixedLegSpec {
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Start date of the fixed leg
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date of the fixed leg
+    #[schemars(with = "String")]
     pub end: Date,
     /// Optional par-rate calculation method override
     pub par_method: Option<ParRateMethod>,
@@ -160,7 +162,7 @@ pub struct FixedLegSpec {
 }
 
 /// Specification for floating rate legs in interest rate swaps
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FloatLegSpec {
     /// Discount curve identifier for pricing
     pub discount_curve_id: CurveId,
@@ -191,8 +193,10 @@ pub struct FloatLegSpec {
     #[serde(default)]
     pub fixing_calendar_id: Option<String>,
     /// Start date of the floating leg
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date of the floating leg
+    #[schemars(with = "String")]
     pub end: Date,
     /// Compounding method for floating coupons.
     ///
@@ -238,15 +242,17 @@ pub struct FloatLegSpec {
 ///
 /// Each leg owns its own dates, discount curve, schedule conventions, and calendar,
 /// following the IRS leg-centric pattern used by `FixedLegSpec` and `FloatLegSpec`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct BasisSwapLeg {
     /// Forward curve identifier for this leg
     pub forward_curve_id: CurveId,
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: CurveId,
     /// Start date of the leg
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date of the leg
+    #[schemars(with = "String")]
     pub end: Date,
     /// Payment frequency for the leg
     pub frequency: Tenor,
@@ -293,11 +299,13 @@ pub struct BasisSwapLeg {
 }
 
 /// Specification for CDS premium legs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PremiumLegSpec {
     /// Start date of protection
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date of protection
+    #[schemars(with = "String")]
     pub end: Date,
     /// Payment frequency
     pub frequency: Tenor,
@@ -318,7 +326,7 @@ pub struct PremiumLegSpec {
 }
 
 /// Specification for CDS protection legs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ProtectionLegSpec {
     /// Credit curve identifier for default probabilities
     pub credit_curve_id: CurveId,
@@ -391,7 +399,7 @@ impl ProtectionLegSpec {
 // instrument `Attributes`.
 
 /// Specification for TRS financing legs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FinancingLegSpec {
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: CurveId,
@@ -421,7 +429,7 @@ impl FinancingLegSpec {
 }
 
 /// Specification for TRS total return legs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TotalReturnLegSpec {
     /// Reference index or asset identifier
     pub reference_id: String,

@@ -75,7 +75,12 @@ use finstack_core::Result;
 ///     .expect("Valid spread option");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct CommoditySpreadOption {
     /// Unique instrument identifier.
@@ -85,6 +90,7 @@ pub struct CommoditySpreadOption {
     /// Option type (call or put on the spread S1 - S2).
     pub option_type: OptionType,
     /// Option expiry date.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Spread strike price K in the payoff max(S1 - S2 - K, 0).
     pub strike: f64,
@@ -120,15 +126,12 @@ impl CommoditySpreadOption {
     /// Create a representative WTI-RBOB crack spread call option example.
     ///
     /// $5 strike, 10,000 bbl notional, 0.85 correlation, European-style.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new("WTI-RBOB-CRACK-SPREAD"))
             .currency(Currency::USD)
             .option_type(OptionType::Call)
-            .expiry(
-                Date::from_calendar_date(2025, time::Month::September, 15)
-                    .expect("valid example date"),
-            )
+            .expiry(time::macros::date!(2025 - 09 - 15))
             .strike(5.0)
             .notional(10_000.0)
             .leg1_forward_curve_id(CurveId::new("RBOB-FORWARD"))
@@ -141,7 +144,6 @@ impl CommoditySpreadOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .expect("Example commodity spread option construction should not fail")
     }
 
     /// Time to expiry in year fractions.

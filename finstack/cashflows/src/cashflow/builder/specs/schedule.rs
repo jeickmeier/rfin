@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 /// This type controls how accrual boundaries and payment dates are generated.
 /// The fields describe schedule construction conventions, not discounting or
 /// valuation conventions.
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug, Clone)]
 pub struct ScheduleParams {
     /// Accrual and payment frequency used to generate the schedule boundaries.
     pub freq: Tenor,

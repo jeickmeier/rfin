@@ -58,7 +58,7 @@ use time::macros::date;
 /// assert_eq!(es_specs.tick_size, 0.25);
 /// assert_eq!(es_specs.tick_value, 12.50);
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct EquityFutureSpecs {
     /// Contract multiplier (USD per index point).
     /// E-mini S&P 500: 50.0 (each point = $50)
@@ -220,7 +220,12 @@ impl EquityFutureSpecs {
 ///     .expect("Valid future");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct EquityIndexFuture {
@@ -231,8 +236,10 @@ pub struct EquityIndexFuture {
     /// Notional exposure in settlement currency.
     pub notional: Money,
     /// Future expiry/settlement date.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Last trading date (typically one day before expiry).
+    #[schemars(with = "String")]
     pub last_trading_date: Date,
     /// Entry price at trade inception (optional for new trades).
     #[builder(optional)]
@@ -262,6 +269,7 @@ pub struct EquityIndexFuture {
     /// continuous dividend yield as zero to avoid double counting.
     #[builder(default)]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(with = "Vec<(String, f64)>")]
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Attributes for tagging and selection.
     #[builder(default)]

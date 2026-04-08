@@ -82,7 +82,12 @@ use time::macros::date;
 ///     .expect("Valid option");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct VolatilityIndexOption {
@@ -99,10 +104,12 @@ pub struct VolatilityIndexOption {
     #[serde(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Settlement date (typically same as expiry for cash-settled).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub settlement_date: Option<Date>,
     /// Contract specifications.
     #[builder(default)]
@@ -127,7 +134,7 @@ pub struct VolatilityIndexOption {
 }
 
 /// Contract specifications for volatility index options.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct VolIndexOptionSpecs {
     /// Contract multiplier (USD per index point).
     /// VIX options standard: 100 (each point = $100)

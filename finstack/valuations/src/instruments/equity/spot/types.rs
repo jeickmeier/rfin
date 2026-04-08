@@ -26,7 +26,12 @@ pub type Ticker = String;
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 // Note: JsonSchema derive requires finstack-core types to implement JsonSchema
@@ -49,6 +54,7 @@ pub struct Equity {
     /// Optional discrete cash dividends `(ex_date, amount)` for single-name forwards.
     #[serde(default)]
     #[builder(default)]
+    #[schemars(with = "Vec<(String, f64)>")]
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Discount curve ID for pricing
     pub discount_curve_id: CurveId,

@@ -59,7 +59,12 @@ use time::macros::date;
 ///     .expect("Valid forward");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxForward {
@@ -70,6 +75,7 @@ pub struct FxForward {
     /// Quote currency (domestic currency, denominator of the pair, PV currency).
     pub quote_currency: Currency,
     /// Maturity/settlement date.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Notional amount in base currency.
     pub notional: Money,

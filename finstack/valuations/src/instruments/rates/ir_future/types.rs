@@ -47,7 +47,12 @@ use time::macros::date;
 
 /// Interest Rate Future instrument.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct InterestRateFuture {
@@ -58,24 +63,28 @@ pub struct InterestRateFuture {
     /// multiples of the standard contract.
     pub notional: Money,
     /// Future expiry/delivery date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Underlying rate fixing date.
     ///
     /// Defaults to `expiry` when omitted.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub fixing_date: Option<Date>,
     /// Rate period start date.
     ///
     /// Defaults to 2 calendar days after fixing date when omitted.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub period_start: Option<Date>,
     /// Rate period end date.
     ///
     /// Defaults to `period_start + contract_specs.delivery_months` months when omitted.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub period_end: Option<Date>,
     /// Quoted future price (e.g., 99.25)
     pub quoted_price: f64,
@@ -103,7 +112,7 @@ pub struct InterestRateFuture {
 ///
 /// Encapsulates exchange-defined contract parameters and optional convexity
 /// adjustment for pricing.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FutureContractSpecs {
     /// Face value of contract (e.g., $1,000,000 for Eurodollar/SOFR futures)
     pub face_value: f64,
@@ -147,7 +156,9 @@ impl Default for FutureContractSpecs {
 }
 
 /// Position side for futures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Position {

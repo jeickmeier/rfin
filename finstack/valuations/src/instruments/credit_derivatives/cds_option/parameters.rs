@@ -36,13 +36,15 @@ pub(crate) const MAX_STRIKE: f64 = 1.0;
 /// - `strike`: Must be in (0, 1.0] as a decimal rate
 /// - `expiry`: Must be before `cds_maturity`
 /// - `index_factor`: Must be in (0, 1] when specified
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CDSOptionParams {
     /// Strike spread as a decimal rate (e.g., 0.01 = 100bp)
     pub strike: Decimal,
     /// Option expiry date (must be before cds_maturity)
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Underlying CDS maturity date
+    #[schemars(with = "String")]
     pub cds_maturity: Date,
     /// Notional amount
     pub notional: Money,

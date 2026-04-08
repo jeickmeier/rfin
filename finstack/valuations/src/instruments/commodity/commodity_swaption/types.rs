@@ -71,7 +71,12 @@ use finstack_core::Result;
 ///     .expect("Valid swaption");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct CommoditySwaption {
     /// Unique instrument identifier.
@@ -82,10 +87,13 @@ pub struct CommoditySwaption {
     /// Option type (call = right to enter pay-fixed swap, put = right to enter receive-fixed swap).
     pub option_type: OptionType,
     /// Option expiry date.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Underlying swap start date.
+    #[schemars(with = "String")]
     pub swap_start: Date,
     /// Underlying swap end date.
+    #[schemars(with = "String")]
     pub swap_end: Date,
     /// Underlying swap payment frequency.
     pub swap_frequency: Tenor,

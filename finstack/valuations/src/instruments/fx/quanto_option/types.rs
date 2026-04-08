@@ -14,7 +14,12 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
 /// Quanto options have payoffs that depend on an underlying asset in one currency
 /// but are settled in another currency, creating FX exposure.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct QuantoOption {
@@ -27,6 +32,7 @@ pub struct QuantoOption {
     /// Option type (call or put)
     pub option_type: OptionType,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Notional amount (in domestic currency)
     pub notional: Money,

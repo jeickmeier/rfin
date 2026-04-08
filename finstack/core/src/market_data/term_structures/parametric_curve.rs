@@ -47,7 +47,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 /// Nelson-Siegel model variant selector.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NsVariant {
     /// Four-parameter Nelson-Siegel model.
@@ -59,7 +59,7 @@ pub enum NsVariant {
 /// Nelson-Siegel model parameters.
 ///
 /// Stores either the 4-parameter NS or 6-parameter NSS specification.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "variant", rename_all = "snake_case")]
 pub enum NelsonSiegelModel {
     /// Four-parameter Nelson-Siegel.

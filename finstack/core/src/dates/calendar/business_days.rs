@@ -135,7 +135,9 @@ pub trait HolidayCalendar {
 }
 
 /// Basic metadata describing a holiday calendar.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct CalendarMetadata {
     /// Lowercase identifier (stable code).
     pub id: &'static str,
@@ -176,7 +178,9 @@ pub struct CalendarMetadata {
 /// assert_eq!(adj.day(), 3);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BusinessDayConvention {

@@ -27,7 +27,7 @@ pub const ATTRIBUTION_SCHEMA_V1: &str = "finstack.attribution/1";
 ///
 /// Mirrors the calibration and instrument envelope patterns with schema versioning
 /// and strict field validation for long-term JSON stability.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionEnvelope {
     /// Schema version identifier (currently "finstack.attribution/1")
@@ -72,18 +72,22 @@ impl JsonEnvelope for AttributionEnvelope {
 ///
 /// Contains all data needed to perform attribution: instrument, market snapshots,
 /// dates, and methodology.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionSpec {
     /// Instrument to attribute (as JSON envelope)
     pub instrument: InstrumentJson,
     /// Market context at T₀
+    #[schemars(with = "serde_json::Value")]
     pub market_t0: MarketContextState,
     /// Market context at T₁
+    #[schemars(with = "serde_json::Value")]
     pub market_t1: MarketContextState,
     /// Valuation date at T₀
+    #[schemars(with = "String")]
     pub as_of_t0: Date,
     /// Valuation date at T₁
+    #[schemars(with = "String")]
     pub as_of_t1: Date,
     /// Attribution methodology
     pub method: AttributionMethod,
@@ -98,7 +102,7 @@ pub struct AttributionSpec {
 /// Optional configuration for attribution runs.
 ///
 /// Allows overriding default tolerances and metrics for attribution calculations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionConfig {
     /// Absolute tolerance for residual validation (optional)
@@ -290,7 +294,7 @@ pub fn default_attribution_metrics() -> Vec<MetricId> {
 }
 
 /// Complete attribution result with P&L attribution and metadata.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionResult {
     /// P&L attribution with factor decomposition
@@ -300,7 +304,7 @@ pub struct AttributionResult {
 }
 
 /// Top-level envelope for attribution results.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributionResultEnvelope {
     /// Schema version identifier

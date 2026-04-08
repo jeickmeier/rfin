@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Observable credit state at a point in time.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CreditState {
     /// Current hazard rate (annualised instantaneous default intensity).
     pub hazard_rate: f64,
@@ -50,7 +50,7 @@ pub struct CreditState {
 }
 
 /// Which credit metric drives the toggle decision.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum CreditStateVariable {
     /// Use the hazard rate.
     HazardRate,
@@ -61,7 +61,7 @@ pub enum CreditStateVariable {
 }
 
 /// Direction for threshold comparison.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum ThresholdDirection {
     /// PIK when state > threshold (e.g., hazard rate above limit).
     Above,
@@ -70,7 +70,7 @@ pub enum ThresholdDirection {
 }
 
 /// Toggle exercise model for PIK/cash decision.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum ToggleExerciseModel {
     /// Hard threshold: PIK when credit metric crosses boundary.
     Threshold(ThresholdToggle),
@@ -81,7 +81,7 @@ pub enum ToggleExerciseModel {
 }
 
 /// Hard threshold toggle configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ThresholdToggle {
     /// Credit metric to observe.
     pub state_variable: CreditStateVariable,
@@ -92,7 +92,7 @@ pub struct ThresholdToggle {
 }
 
 /// Stochastic (sigmoid) toggle configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StochasticToggle {
     /// Credit metric to observe.
     pub state_variable: CreditStateVariable,
@@ -116,7 +116,7 @@ pub struct StochasticToggle {
 /// PIK is elected when the estimated equity value under PIK exceeds
 /// that under cash.  The nested simulation uses a simple GBM forward
 /// evolution of asset value with a first-passage barrier check.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct OptimalToggle {
     /// Number of nested Monte Carlo paths for continuation value estimation.
     /// Recommended range: 100–500.

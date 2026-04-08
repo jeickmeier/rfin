@@ -19,7 +19,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
 
 /// Terminal value calculation method for DCF.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TerminalValueSpec {
     /// Gordon Growth Model: TV = FCF_terminal × (1 + g) / (WACC - g)
@@ -65,7 +65,7 @@ pub enum TerminalValueSpec {
 ///
 /// When attached to a [`DiscountedCashFlow`], this takes precedence over the
 /// flat `net_debt` scalar.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct EquityBridge {
     /// Total interest-bearing debt.
     #[serde(default)]
@@ -107,7 +107,7 @@ impl EquityBridge {
 /// ```text
 /// FMV = Equity Value × (1 - DLOC) × (1 - DLOM) × (1 - other_discount)
 /// ```
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValuationDiscounts {
     /// Discount for Lack of Marketability (0.0–1.0, e.g., 0.25 for 25%).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -162,7 +162,7 @@ impl ValuationDiscounts {
 ///
 /// Used to compute diluted shares outstanding from options, warrants,
 /// RSUs, or convertible instruments.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DilutionSecurity {
     /// Descriptive name (e.g., "Employee Stock Options").
     pub name: String,
@@ -193,7 +193,12 @@ pub struct DilutionSecurity {
 /// Private company valuations can apply DLOM, DLOC, and other discounts via
 /// [`valuation_discounts`](Self::valuation_discounts).
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct DiscountedCashFlow {
@@ -202,6 +207,7 @@ pub struct DiscountedCashFlow {
     /// Currency for all cashflows.
     pub currency: Currency,
     /// Explicit period free cash flows (date, amount pairs).
+    #[schemars(with = "Vec<(String, f64)>")]
     pub flows: Vec<(Date, f64)>,
     /// Weighted Average Cost of Capital (discount rate).
     pub wacc: f64,
@@ -212,6 +218,7 @@ pub struct DiscountedCashFlow {
     /// Ignored when [`equity_bridge`](Self::equity_bridge) is `Some`.
     pub net_debt: f64,
     /// Valuation date (as-of date for the DCF).
+    #[schemars(with = "String")]
     pub valuation_date: Date,
     /// Discount curve identifier for pricing.
     pub discount_curve_id: CurveId,
@@ -254,33 +261,15 @@ impl DiscountedCashFlow {
     ///
     /// 5-year FCF projections ($5M-$8M), 10% WACC, Gordon Growth terminal
     /// value at 2% growth, $15M net debt, mid-year convention enabled.
-    pub fn example() -> Self {
-        use time::Month;
-
-        let valuation_date =
-            Date::from_calendar_date(2025, Month::January, 1).expect("valid example date");
+    pub fn example() -> finstack_core::Result<Self> {
+        let valuation_date = time::macros::date!(2025 - 01 - 01);
 
         let flows: Vec<(Date, f64)> = vec![
-            (
-                Date::from_calendar_date(2026, Month::January, 1).expect("valid date"),
-                5_000_000.0,
-            ),
-            (
-                Date::from_calendar_date(2027, Month::January, 1).expect("valid date"),
-                5_750_000.0,
-            ),
-            (
-                Date::from_calendar_date(2028, Month::January, 1).expect("valid date"),
-                6_500_000.0,
-            ),
-            (
-                Date::from_calendar_date(2029, Month::January, 1).expect("valid date"),
-                7_250_000.0,
-            ),
-            (
-                Date::from_calendar_date(2030, Month::January, 1).expect("valid date"),
-                8_000_000.0,
-            ),
+            (time::macros::date!(2026 - 01 - 01), 5_000_000.0),
+            (time::macros::date!(2027 - 01 - 01), 5_750_000.0),
+            (time::macros::date!(2028 - 01 - 01), 6_500_000.0),
+            (time::macros::date!(2029 - 01 - 01), 7_250_000.0),
+            (time::macros::date!(2030 - 01 - 01), 8_000_000.0),
         ];
 
         Self::builder()
@@ -296,7 +285,6 @@ impl DiscountedCashFlow {
             .shares_outstanding_opt(Some(10_000_000.0))
             .attributes(Attributes::default())
             .build()
-            .expect("Example DCF construction should not fail")
     }
 
     /// Calculate present value of explicit period cash flows using WACC.

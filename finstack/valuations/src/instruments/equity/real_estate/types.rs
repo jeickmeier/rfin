@@ -13,7 +13,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Broad property classification for reporting / tagging.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum RealEstatePropertyType {
     /// Office (CBD/suburban, single-tenant or multi-tenant).
@@ -33,7 +35,9 @@ pub enum RealEstatePropertyType {
 }
 
 /// Valuation method for a real estate asset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum RealEstateValuationMethod {
     /// Discounted cashflow using an explicit NOI schedule and discount rate.
@@ -46,7 +50,12 @@ pub enum RealEstateValuationMethod {
 ///
 /// Supports DCF (explicit NOI schedule) and direct capitalization valuation.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct RealEstateAsset {
@@ -55,6 +64,7 @@ pub struct RealEstateAsset {
     /// Currency for valuation.
     pub currency: Currency,
     /// Valuation date (base date for discounting).
+    #[schemars(with = "String")]
     pub valuation_date: Date,
     /// Valuation method (DCF or DirectCap).
     pub valuation_method: RealEstateValuationMethod,
@@ -63,12 +73,14 @@ pub struct RealEstateAsset {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub property_type: Option<RealEstatePropertyType>,
     /// Net operating income schedule (date, amount).
+    #[schemars(with = "Vec<(String, f64)>")]
     pub noi_schedule: Vec<(Date, f64)>,
     /// Capital expenditure schedule (date, amount). Values are treated as **positive outflows**.
     ///
     /// When present, cashflows are valued as `NOI - CapEx` (unlevered net cash flow).
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<Vec<(String, f64)>>")]
     pub capex_schedule: Option<Vec<(Date, f64)>>,
     /// Discount rate for DCF (annualized).
     #[builder(optional)]
@@ -100,6 +112,7 @@ pub struct RealEstateAsset {
     /// Terminal proceeds (if configured) are realized on `sale_date`.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
     pub sale_date: Option<Date>,
     /// Optional explicit gross sale price (terminal proceeds), before disposition costs.
     ///
@@ -154,19 +167,17 @@ impl RealEstateAsset {
     ///
     /// 5-year NOI schedule at $100K/year, 8% discount rate, 5.5% terminal
     /// cap rate, Act/365F day count convention.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::dates::DayCount;
-        use time::Month;
 
-        let valuation_date =
-            Date::from_calendar_date(2025, Month::January, 1).expect("valid example date");
+        let valuation_date = time::macros::date!(2025 - 01 - 01);
         let noi_schedule: Vec<(Date, f64)> = (1..=5)
             .map(|y| {
-                let date =
-                    Date::from_calendar_date(2025 + y, Month::January, 1).expect("valid noi date");
-                (date, 100_000.0)
+                Date::from_calendar_date(2025 + y, time::Month::January, 1)
+                    .map(|date| (date, 100_000.0))
+                    .map_err(|error| finstack_core::Error::Validation(error.to_string()))
             })
-            .collect();
+            .collect::<finstack_core::Result<Vec<_>>>()?;
 
         Self::builder()
             .id(InstrumentId::new("RE-OFFICE-DCF"))
@@ -181,7 +192,6 @@ impl RealEstateAsset {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::default())
             .build()
-            .expect("Example real estate asset construction should not fail")
     }
 
     pub(crate) fn acquisition_cost_total(&self) -> finstack_core::Result<f64> {

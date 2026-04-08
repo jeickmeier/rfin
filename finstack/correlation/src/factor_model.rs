@@ -232,7 +232,7 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
 }
 
 /// Factor model specification for configuration and serialization.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", deny_unknown_fields)]
 #[allow(clippy::enum_variant_names)]
 #[non_exhaustive]

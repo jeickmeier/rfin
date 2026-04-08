@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Configuration for Taylor-based P&L attribution.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TaylorAttributionConfig {
     /// Include second-order (gamma/convexity) terms.
     #[serde(default)]
@@ -74,7 +74,7 @@ impl Default for TaylorAttributionConfig {
 }
 
 /// Per-factor result from Taylor attribution.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TaylorFactorResult {
     /// Human-readable factor name (e.g. "Rates:USD-OIS").
     pub factor_name: String,
@@ -90,7 +90,7 @@ pub struct TaylorFactorResult {
 }
 
 /// Complete result of Taylor-based attribution.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TaylorAttributionResult {
     /// Actual P&L (PV_T1 - PV_T0).
     pub actual_pnl: f64,

@@ -39,7 +39,7 @@ use finstack_core::Result;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct OtcMarginSpec {
     /// Full CSA specification (for bilateral trades)
     ///

@@ -215,7 +215,17 @@ use crate::dates::Tenor;
 /// # See Also
 ///
 /// - [`ScheduleBuilder::stub_rule`] to configure stub behavior
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum StubKind {
     /// No special stub handling.
@@ -287,7 +297,9 @@ impl std::str::FromStr for StubKind {
 /// assert!(result.is_err()); // new() validates start <= end
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum ScheduleWarning {
     /// Schedule generation failed but graceful fallback returned an empty schedule.
@@ -309,7 +321,17 @@ pub enum ScheduleWarning {
 }
 
 /// Explicit policy for how schedule construction should respond to recoverable issues.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ScheduleErrorPolicy {
     /// Strict production mode: propagate all errors.
@@ -380,9 +402,12 @@ impl std::fmt::Display for ScheduleWarning {
 ///
 /// - [`ScheduleBuilder`] for constructing schedules
 /// - [`ScheduleWarning`] for warning types
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct Schedule {
     /// The generated sequence of dates, monotonically increasing.
+    #[schemars(with = "Vec<String>")]
     pub dates: Vec<Date>,
     /// Warnings generated during schedule construction.
     ///
@@ -961,7 +986,7 @@ impl<'a> ScheduleBuilder<'a> {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 /// Serializable specification for building a schedule.
 ///
 /// This struct captures all parameters needed to generate a schedule of dates
@@ -969,8 +994,10 @@ impl<'a> ScheduleBuilder<'a> {
 /// from configuration files and converted to a runtime [`ScheduleBuilder`].
 pub struct ScheduleSpec {
     /// Start date of the schedule.
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date (maturity) of the schedule.
+    #[schemars(with = "String")]
     pub end: Date,
     /// Payment frequency (e.g., quarterly, monthly).
     pub frequency: Tenor,

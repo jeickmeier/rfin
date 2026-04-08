@@ -66,7 +66,9 @@ pub enum ValidationPolicy {
 }
 
 /// Extrapolation policy for evaluation outside the knot range.
-#[derive(Copy, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ExtrapolationPolicy {
@@ -96,7 +98,17 @@ pub enum ExtrapolationPolicy {
 }
 
 /// Enum of supported interpolation styles. The default is `Linear`.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InterpStyle {

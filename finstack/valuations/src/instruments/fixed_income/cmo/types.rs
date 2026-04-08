@@ -15,7 +15,17 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, DealId, InstrumentId};
 
 /// CMO tranche type enumeration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum CmoTrancheType {
     /// Sequential pay - receives principal in order
@@ -43,7 +53,7 @@ impl std::fmt::Display for CmoTrancheType {
 }
 
 /// PAC collar boundaries.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct PacCollar {
     /// Lower PSA bound
     pub lower_psa: f64,
@@ -67,7 +77,7 @@ impl PacCollar {
 }
 
 /// CMO tranche definition.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CmoTranche {
     /// Tranche identifier (e.g., "A", "B", "IO")
     pub id: String,
@@ -169,7 +179,7 @@ impl CmoTranche {
 }
 
 /// CMO waterfall configuration.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CmoWaterfall {
     /// Tranches in the deal (ordered by priority for sequential)
     pub tranches: Vec<CmoTranche>,
@@ -220,7 +230,12 @@ impl CmoWaterfall {
 /// Represents a CMO deal backed by agency MBS collateral with multiple
 /// tranches that receive cashflows according to waterfall rules.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct AgencyCmo {
@@ -231,6 +246,7 @@ pub struct AgencyCmo {
     /// Agency program
     pub agency: AgencyProgram,
     /// Issue date
+    #[schemars(with = "String")]
     pub issue_date: Date,
     /// Waterfall configuration with tranches
     pub waterfall: CmoWaterfall,

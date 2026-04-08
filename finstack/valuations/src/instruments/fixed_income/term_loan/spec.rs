@@ -119,7 +119,7 @@ use super::types::RateSpec;
 /// // $50,000 fixed OID
 /// let oid_fixed = OidPolicy::WithheldAmount(Money::new(50_000.0, Currency::USD));
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub enum OidPolicy {
@@ -149,7 +149,7 @@ impl OidPolicy {
 ///
 /// When enabled, EIR amortization schedules are computed for reporting using
 /// the loan's full cashflow schedule (including OID effects).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields, default)]
 pub struct OidEirSpec {
     /// Include fee cashflows (upfront, commitment, usage) in the EIR schedule.
@@ -168,10 +168,11 @@ impl Default for OidEirSpec {
 ///
 /// Represents a scheduled or actual draw against the commitment, reducing
 /// available capacity and increasing outstanding principal.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DrawEvent {
     /// Date of the draw
+    #[schemars(with = "String")]
     pub date: Date,
     /// Amount drawn from available commitment
     pub amount: Money,
@@ -181,10 +182,11 @@ pub struct DrawEvent {
 ///
 /// Reduces the total commitment limit at a specified date, typically used
 /// to match construction completion or covenant requirements.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CommitmentStepDown {
     /// Effective date of the step-down
+    #[schemars(with = "String")]
     pub date: Date,
     /// New (lower) commitment limit after step-down
     pub new_limit: Money,
@@ -194,7 +196,7 @@ pub struct CommitmentStepDown {
 ///
 /// Determines the denominator for commitment fee calculations on
 /// revolving or delayed-draw facilities.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub enum CommitmentFeeBase {
@@ -252,14 +254,16 @@ pub enum CommitmentFeeBase {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DdtlSpec {
     /// Total commitment limit available for draws
     pub commitment_limit: Money,
     /// First date draws are permitted
+    #[schemars(with = "String")]
     pub availability_start: Date,
     /// Last date draws are permitted (commitment expiry)
+    #[schemars(with = "String")]
     pub availability_end: Date,
     /// Scheduled or actual draw events
     pub draws: Vec<DrawEvent>,
@@ -293,10 +297,11 @@ impl DdtlSpec {
 ///
 /// Increases the interest margin by a fixed amount at a specified date,
 /// typically triggered by covenant breach or scheduled rating migration.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MarginStepUp {
     /// Effective date of margin increase
+    #[schemars(with = "String")]
     pub date: Date,
     /// Increase in margin (basis points)
     pub delta_bp: i32,
@@ -316,10 +321,11 @@ impl MarginStepUp {
 ///
 /// Enables or disables PIK interest at a specified date. When enabled,
 /// a portion of interest may be capitalized rather than paid in cash.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PikToggle {
     /// Date PIK feature is toggled
+    #[schemars(with = "String")]
     pub date: Date,
     /// True to enable PIK, false to disable
     pub enable_pik: bool,
@@ -329,10 +335,11 @@ pub struct PikToggle {
 ///
 /// Represents scheduled or covenant-triggered prepayment from borrower's
 /// excess cash flow, reducing outstanding principal.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CashSweepEvent {
     /// Date of cash sweep prepayment
+    #[schemars(with = "String")]
     pub date: Date,
     /// Amount of mandatory prepayment
     pub amount: Money,
@@ -343,7 +350,7 @@ pub struct CashSweepEvent {
 /// Aggregates all covenant-triggered or scheduled events that modify
 /// loan terms, including margin increases, PIK toggles, cash sweeps,
 /// and draw restrictions.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CovenantSpec {
     /// Margin step-up schedule
@@ -353,6 +360,7 @@ pub struct CovenantSpec {
     /// Cash sweep (mandatory prepayment) schedule
     pub cash_sweeps: Vec<CashSweepEvent>,
     /// Dates on which draws are prohibited (covenant breach or scheduled)
+    #[schemars(with = "Vec<String>")]
     pub draw_stop_dates: Vec<Date>,
 }
 
@@ -360,7 +368,7 @@ pub struct CovenantSpec {
 ///
 /// Defines how the loan principal is amortized over its life,
 /// from no amortization (bullet) to custom schedules.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub enum AmortizationSpec {
@@ -369,8 +377,10 @@ pub enum AmortizationSpec {
     /// Linear amortization between start and end dates
     Linear {
         /// Amortization start date
+        #[schemars(with = "String")]
         start: Date,
         /// Amortization end date (full repayment)
+        #[schemars(with = "String")]
         end: Date,
     },
     /// Percentage of current outstanding principal per period (geometric decay).
@@ -406,7 +416,7 @@ pub enum AmortizationSpec {
         bp: i32,
     },
     /// Custom amortization schedule with explicit principal payments
-    Custom(Vec<(Date, Money)>),
+    Custom(#[schemars(with = "Vec<(String, Money)>")] Vec<(Date, Money)>),
 }
 
 impl AmortizationSpec {
@@ -488,7 +498,7 @@ impl AmortizationSpec {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TermLoanSpec {
     /// Unique instrument identifier
@@ -507,8 +517,10 @@ pub struct TermLoanSpec {
     /// Required for non-DDTL term loans.
     pub notional_limit: Option<Money>,
     /// Loan issue/origination date
+    #[schemars(with = "String")]
     pub issue: Date,
     /// Final maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Interest rate specification (fixed or floating)
     pub rate: RateSpec,
@@ -573,7 +585,7 @@ fn default_settlement_days() -> u32 {
 /// (101% of par, sometimes called "soft call 101"), after which they become
 /// callable at par. Make-whole provisions are more common in investment-grade
 /// term loans and private placements.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 #[derive(Default)]
@@ -609,10 +621,11 @@ pub enum LoanCallType {
 /// For `MakeWhole` calls, `price_pct_of_par` serves as the minimum
 /// (floor) redemption price. The actual price is the greater of
 /// `price_pct_of_par` and the make-whole amount.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LoanCall {
     /// Call date (earliest prepayment date for this call provision)
+    #[schemars(with = "String")]
     pub date: Date,
     /// Redemption price as percentage of par (e.g., 102.0 = 102% of par).
     /// For make-whole calls, this is the minimum (floor) price.
@@ -654,7 +667,7 @@ pub struct LoanCall {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LoanCallSchedule {
     /// Ordered call provisions (typically sorted by date with descending premiums)

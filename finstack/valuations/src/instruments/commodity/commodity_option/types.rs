@@ -25,7 +25,7 @@ use finstack_core::Result;
 /// When provided, enables simulation-based pricing using the specified
 /// stochastic model instead of the default Black-76 analytical formula.
 #[cfg(feature = "mc")]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CommodityMcParams {
     /// Pricing model to use for simulation.
     pub model: CommodityPricingModel,
@@ -42,7 +42,7 @@ pub struct CommodityMcParams {
 ///
 /// Determines the stochastic dynamics used for Monte Carlo simulation.
 #[cfg(feature = "mc")]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum CommodityPricingModel {
     /// Analytical Black-76 (no MC needed; included for completeness).
     BlackScholes,
@@ -97,7 +97,12 @@ pub enum CommodityPricingModel {
 /// The curve must be added via `MarketContext::insert_price_curve()`.
 /// If `quoted_forward` is provided, it overrides the curve lookup.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct CommodityOption {
     /// Unique instrument identifier.
@@ -118,8 +123,10 @@ pub struct CommodityOption {
     /// Required when `exercise_style == ExerciseStyle::Bermudan`.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<Vec<String>>")]
     pub exercise_schedule: Option<Vec<Date>>,
     /// Option expiry date.
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Contract quantity in units.
     pub quantity: f64,

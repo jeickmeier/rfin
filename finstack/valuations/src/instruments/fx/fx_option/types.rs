@@ -65,7 +65,12 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxOption {
@@ -89,6 +94,7 @@ pub struct FxOption {
     #[builder(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Day count convention
     #[serde(default = "crate::serde_defaults::day_count_act365f")]
@@ -126,7 +132,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxOption {
 }
 
 /// Delta conventions relevant for FX ATM DNS strikes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum FxAtmDeltaConvention {
     /// Unadjusted spot delta convention.

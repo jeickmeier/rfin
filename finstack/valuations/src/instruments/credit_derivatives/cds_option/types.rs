@@ -49,7 +49,12 @@ pub(crate) const MAX_IMPLIED_VOL: f64 = 5.0;
 /// time so deserialized instruments cannot silently fall through to the
 /// Black-on-spreads engine.
 #[derive(
-    Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct CDSOption {
@@ -62,8 +67,10 @@ pub struct CDSOption {
     /// Exercise style
     pub exercise_style: ExerciseStyle,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Underlying CDS maturity date
+    #[schemars(with = "String")]
     pub cds_maturity: Date,
     /// Day count convention for time calculations
     pub day_count: DayCount,

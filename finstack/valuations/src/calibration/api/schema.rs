@@ -16,27 +16,31 @@ use finstack_core::market_data::term_structures::{
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::{CurveId, IndexId};
 use finstack_core::HashMap;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Schema version identifier for calibration API.
 pub const CALIBRATION_SCHEMA: &str = "finstack.calibration";
 
 /// Complete calibration result with market snapshot and diagnostics.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResult {
     /// Final calibrated market context (all curves, surfaces, scalars, etc.)
+    #[schemars(with = "serde_json::Value")]
     pub final_market: MarketContextState,
     /// Merged plan-level calibration report.
+    #[schemars(with = "serde_json::Value")]
     pub report: CalibrationReport,
     /// Per-step calibration reports keyed by step id.
+    #[schemars(with = "std::collections::BTreeMap<String, serde_json::Value>")]
     pub step_reports: std::collections::BTreeMap<String, CalibrationReport>,
     /// Results metadata (timestamp, version, rounding context, etc.).
     pub results_meta: ResultsMeta,
 }
 
 /// Top-level envelope for calibration results.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResultEnvelope {
     /// Schema version identifier (must be "finstack.calibration").
@@ -60,7 +64,7 @@ impl CalibrationResultEnvelope {
 /// This is the outer-most structure for a calibration request. It includes
 /// the schema version, the plan to execute, and an optional initial market state
 /// to build upon.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationEnvelope {
     /// Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
@@ -69,6 +73,7 @@ pub struct CalibrationEnvelope {
     pub plan: CalibrationPlan,
     /// Optional initial market context (e.g., existing curves) to use as a baseline.
     #[serde(default)]
+    #[schemars(with = "Option<serde_json::Value>")]
     pub initial_market: Option<MarketContextState>,
 }
 
@@ -76,7 +81,7 @@ pub struct CalibrationEnvelope {
 ///
 /// A plan organizes market data into named sets and defines a sequence of
 /// [`CalibrationStep`] to be executed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationPlan {
     /// Unique identifier for the calibration plan.
@@ -85,6 +90,7 @@ pub struct CalibrationPlan {
     #[serde(default)]
     pub description: Option<String>,
     /// Market data organized by set name (referenced by steps).
+    #[schemars(with = "HashMap<String, Vec<serde_json::Value>>")]
     pub quote_sets: HashMap<String, Vec<MarketQuote>>,
     /// Sequence of calibration steps to execute.
     pub steps: Vec<CalibrationStep>,
@@ -97,7 +103,7 @@ pub struct CalibrationPlan {
 ///
 /// Each step targets the construction or update of a specific market object
 /// (e.g., a yield curve) using a specified set of quotes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CalibrationStep {
     /// Unique identifier for the object being calibrated in this step.
     pub id: String,
@@ -109,7 +115,7 @@ pub struct CalibrationStep {
 }
 
 /// Polymorphic parameters for different calibration step types.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StepParams {
     /// Discount curve calibration.
@@ -154,7 +160,7 @@ pub enum StepParams {
 // =============================================================================
 
 /// Parameters for discount curve calibration step.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiscountCurveParams {
     /// Identifier for the discount curve being built.
@@ -162,6 +168,7 @@ pub struct DiscountCurveParams {
     /// Currency of the curve.
     pub currency: Currency,
     /// Base date for the curve.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Calibration method to use.
     #[serde(default)]
@@ -185,7 +192,7 @@ pub struct DiscountCurveParams {
 }
 
 /// Parameters for forward curve calibration step.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardCurveParams {
     /// Identifier for the forward curve being built.
@@ -193,6 +200,7 @@ pub struct ForwardCurveParams {
     /// Currency of the curve.
     pub currency: Currency,
     /// Base date for the curve.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Tenor in years for the forward curve.
     pub tenor_years: f64,
@@ -211,7 +219,7 @@ pub struct ForwardCurveParams {
 }
 
 /// Parameters for hazard curve calibration step.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HazardCurveParams {
     /// Identifier for the hazard curve being built.
@@ -223,6 +231,7 @@ pub struct HazardCurveParams {
     /// Currency of the curve.
     pub currency: Currency,
     /// Base date for the curve.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Identifier for the discount curve to use.
     pub discount_curve_id: CurveId,
@@ -264,7 +273,7 @@ pub struct HazardCurveParams {
 }
 
 /// Parameters for inflation curve calibration step.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InflationCurveParams {
     /// Identifier for the inflation curve being built.
@@ -272,6 +281,7 @@ pub struct InflationCurveParams {
     /// Currency of the curve.
     pub currency: Currency,
     /// Base date for the curve.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Identifier for the discount curve to use.
     pub discount_curve_id: CurveId,
@@ -318,7 +328,7 @@ pub struct InflationCurveParams {
 /// Used to deseasonalize CPI observations before fitting a smooth
 /// zero-coupon inflation curve, then reseasonalize the output.
 /// Monthly adjustments should approximately sum to zero.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SeasonalFactors {
     /// Monthly adjustment factors (Jan=index 0 through Dec=index 11).
@@ -327,12 +337,13 @@ pub struct SeasonalFactors {
 }
 
 /// Parameters for volatility surface calibration step.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct VolSurfaceParams {
     /// Identifier for the volatility surface being built.
     pub surface_id: String,
     /// Base date for the surface.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Identifier for the underlying instrument.
     pub underlying_ticker: String,
@@ -370,12 +381,13 @@ pub struct VolSurfaceParams {
 ///
 /// Defines the structure and conventions for building a volatility surface
 /// from swaption quotes using the SABR model.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SwaptionVolParams {
     /// Identifier for the volatility surface.
     pub surface_id: String,
     /// Base date for the calibration.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Discount curve identifier for pricing.
     pub discount_curve_id: CurveId,
@@ -446,7 +458,7 @@ pub struct SwaptionVolParams {
 }
 
 /// Extrapolation policy for volatility surface construction.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SurfaceExtrapolationPolicy {
     /// Reject out-of-bounds targets with an explicit error (vendor-matching).
@@ -460,7 +472,7 @@ pub enum SurfaceExtrapolationPolicy {
 ///
 /// Defines the structure for building a base correlation curve from
 /// CDS tranche quotes with different detachment points.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BaseCorrelationParams {
     /// Credit index identifier (e.g., CDX, iTraxx).
@@ -470,6 +482,7 @@ pub struct BaseCorrelationParams {
     /// Maturity of the tranches in years.
     pub maturity_years: f64,
     /// Base date for the calibration.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Discount curve identifier for pricing.
     pub discount_curve_id: CurveId,
@@ -516,7 +529,7 @@ pub struct BaseCorrelationParams {
 /// - `initial_df`: Starting guess for the degrees of freedom (e.g., 5.0).
 /// - `df_bounds`: Feasible domain for `df` as `(lo, hi)`, e.g., `(2.1, 50.0)`.
 /// - `correlation`: Market-implied flat correlation for the tranche.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudentTParams {
     /// Identifier for the reference tranche instrument.
@@ -558,7 +571,7 @@ fn default_student_t_correlation() -> f64 {
 ///
 /// Calibrates κ (mean reversion) and σ (short rate volatility) by fitting
 /// European swaption market prices using Jamshidian decomposition.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HullWhiteStepParams {
     /// Discount curve ID (must already exist in market context).
@@ -566,6 +579,7 @@ pub struct HullWhiteStepParams {
     /// Currency for conventions.
     pub currency: Currency,
     /// Base date for the calibration.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Optional initial guess for mean reversion κ.
     #[serde(default)]
@@ -579,12 +593,13 @@ pub struct HullWhiteStepParams {
 ///
 /// Fits a Stochastic Volatility Inspired (SVI) parameterization per-expiry
 /// to market-implied volatilities.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SviSurfaceParams {
     /// Identifier for the volatility surface being built.
     pub surface_id: String,
     /// Base date for the surface.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Underlying instrument ticker.
     pub underlying_ticker: String,
@@ -603,7 +618,7 @@ pub struct SviSurfaceParams {
 }
 
 /// Volatility quoting convention for swaptions.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SwaptionVolConvention {
     /// Normal (absolute) volatility quoted in **basis points**.
@@ -625,7 +640,7 @@ pub enum SwaptionVolConvention {
 }
 
 /// ATM strike convention for swaptions.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AtmStrikeConvention {
     /// ATM = forward swap rate (standard market convention)
@@ -636,7 +651,7 @@ pub enum AtmStrikeConvention {
 }
 
 /// Interpolation method for SABR parameters across the expiry–tenor grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SabrInterpolationMethod {
     /// Bilinear interpolation in (expiry, tenor) over SABR parameters.
@@ -677,7 +692,7 @@ fn default_sabr_beta() -> f64 {
 ///
 /// Derives a foreign-currency discount curve from a domestic OIS curve,
 /// FX spot rate, and cross-currency basis swap or FX forward quotes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct XccyBasisParams {
     /// Identifier for the foreign discount curve being built.
@@ -685,6 +700,7 @@ pub struct XccyBasisParams {
     /// Foreign currency being calibrated.
     pub currency: Currency,
     /// Base date for the curve.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// FX spot rate (domestic per foreign).
     pub fx_spot: f64,
@@ -715,12 +731,13 @@ pub struct XccyBasisParams {
 ///
 /// Fits a Nelson-Siegel or Nelson-Siegel-Svensson yield curve model to
 /// rate instrument quotes using global (Levenberg-Marquardt) optimization.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ParametricCurveParams {
     /// Identifier for the parametric curve being built.
     pub curve_id: CurveId,
     /// Base date for the curve.
+    #[schemars(with = "String")]
     pub base_date: Date,
     /// Nelson-Siegel variant (NS or NSS).
     pub model: NsVariant,

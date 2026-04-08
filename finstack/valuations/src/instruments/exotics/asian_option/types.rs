@@ -9,7 +9,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// Averaging method for Asian options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum AveragingMethod {
     /// Arithmetic average: (1/n) Σ S_i
@@ -67,7 +69,12 @@ pub enum AveragingMethod {
 ///     .collect();
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct AsianOption {
@@ -82,12 +89,14 @@ pub struct AsianOption {
     /// Averaging method (arithmetic or geometric)
     pub averaging_method: AveragingMethod,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Dates on which underlying is observed for averaging.
     ///
     /// **Note**: These dates should be pre-adjusted for business day conventions.
     /// The pricer uses these dates directly without further adjustment.
     /// See struct-level documentation for business day convention guidance.
+    #[schemars(with = "Vec<String>")]
     pub fixing_dates: Vec<Date>,
     /// Notional amount
     pub notional: Money,
@@ -112,6 +121,7 @@ pub struct AsianOption {
     /// `fixing_dates` and are on or before the valuation date are considered.
     #[builder(default)]
     #[serde(default)]
+    #[schemars(with = "Vec<(String, f64)>")]
     pub past_fixings: Vec<(Date, f64)>,
 }
 

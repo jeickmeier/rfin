@@ -6,11 +6,12 @@ use finstack_core::types::Bps;
 use rust_decimal::Decimal;
 
 /// Fee specification for fixed-fee and periodic-basis-point programs.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum FeeSpec {
     /// Fixed fee paid once on a specified date.
     Fixed {
         /// Payment date of the fixed fee.
+        #[schemars(with = "String")]
         date: Date,
         /// Fee amount in currency units.
         amount: Money,
@@ -41,7 +42,9 @@ pub enum FeeSpec {
 }
 
 /// Controls how the outstanding balance is sampled during fee accrual.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum FeeAccrualBasis {
     /// Use outstanding at a single point in time (period start). Current behavior.
     #[default]
@@ -58,7 +61,7 @@ impl FeeAccrualBasis {
 }
 
 /// Fee base for periodic bps fees.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum FeeBase {
     /// Fee base is the drawn outstanding after amortization and PIK updates.
     Drawn,
@@ -73,7 +76,7 @@ pub enum FeeBase {
 ///
 /// Tiers are evaluated in order: the first tier where utilization >= threshold applies.
 /// Tiers should be sorted by threshold (ascending).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FeeTier {
     /// Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold.
     pub threshold: Decimal,

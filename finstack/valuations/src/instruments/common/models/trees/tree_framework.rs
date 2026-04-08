@@ -23,7 +23,7 @@
 //!
 //! If a future requirement emerges (e.g., scenario storage, calibration persistence),
 //! add serde support **only to configuration structs** (e.g., `TreeParameters`,
-//! `EvolutionParams`) using `#[derive(Serialize, Deserialize)]`.
+//! `EvolutionParams`) using `#[derive(Serialize, Deserialize, schemars::JsonSchema)]`.
 //! Keep runtime engine types (`BinomialTree`, etc.) non-serializable.
 //!
 //! See `docs/TREE_PARAMS_SERIALIZATION_AUDIT.md` for audit results and extension pattern.

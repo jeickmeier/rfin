@@ -239,7 +239,17 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
 /// SIFMA publishes distinct settlement dates for four classes of agency MBS.
 /// The class determines which specific settlement date applies within a given
 /// month. See <https://www.sifma.org/resources/general/mbs-notification-and-settlement-dates/>.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum SifmaSettlementClass {

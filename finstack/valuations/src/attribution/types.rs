@@ -29,7 +29,7 @@ use crate::attribution::taylor::TaylorAttributionConfig;
 /// - **Waterfall**: Sequential application (guarantees sum = total, order matters)
 /// - **MetricsBased**: Linear approximation using existing metrics (fast but approximate)
 /// - **Taylor**: Sensitivity-based Taylor expansion (first/second order via bump-and-reprice)
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum AttributionMethod {
     /// Independent factor isolation (may not sum due to cross-effects).
     ///
@@ -70,7 +70,7 @@ pub enum AttributionMethod {
 /// - **Fx**: FxMatrix
 /// - **Volatility**: surfaces (VolSurface)
 /// - **MarketScalars**: prices, series, inflation_indices, dividends
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum AttributionFactor {
     /// Time decay and accruals (Theta).
     Carry,
@@ -208,7 +208,7 @@ pub struct AttributionInput<'a> {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PnlAttribution {
     /// Total P&L (val_t1 - val_t0).
     pub total_pnl: Money,
@@ -285,7 +285,7 @@ pub struct PnlAttribution {
 ///
 /// Provides aggregate and per-curve/per-tenor breakdown for discount
 /// and forward curves.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RatesCurvesAttribution {
     /// P&L by curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -303,7 +303,7 @@ pub struct RatesCurvesAttribution {
 /// Detailed attribution for credit hazard curves.
 ///
 /// Provides per-curve and per-tenor breakdown for credit spread risk.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CreditCurvesAttribution {
     /// P&L by curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -316,7 +316,7 @@ pub struct CreditCurvesAttribution {
 ///
 /// Provides per-curve breakdown with optional tenor detail for
 /// term-structured inflation curves.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct InflationCurvesAttribution {
     /// P&L by curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -328,7 +328,7 @@ pub struct InflationCurvesAttribution {
 /// Detailed attribution for base correlation curves.
 ///
 /// Used for structured credit products (CDO tranches, synthetic credit).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CorrelationsAttribution {
     /// P&L by correlation curve ID.
     pub by_curve: IndexMap<CurveId, Money>,
@@ -337,7 +337,7 @@ pub struct CorrelationsAttribution {
 /// Detailed attribution for FX rate changes.
 ///
 /// Provides per-currency-pair breakdown.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FxAttribution {
     /// P&L by (from_currency, to_currency) pair.
     pub by_pair: IndexMap<(Currency, Currency), Money>,
@@ -346,14 +346,14 @@ pub struct FxAttribution {
 /// Detailed attribution for implied volatility changes.
 ///
 /// Provides per-surface breakdown.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct VolAttribution {
     /// P&L by volatility surface ID.
     pub by_surface: IndexMap<CurveId, Money>,
 }
 
 /// Detailed attribution for cross-factor interaction terms.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CrossFactorDetail {
     /// Total cross-factor P&L across all populated pairs.
     pub total: Money,
@@ -367,7 +367,7 @@ pub struct CrossFactorDetail {
 ///
 /// Extensible structure for instrument-specific model parameters
 /// (prepayment speeds, default rates, recovery rates, etc.).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ModelParamsAttribution {
     /// Prepayment speed changes (for MBS/ABS).
     pub prepayment: Option<Money>,
@@ -403,7 +403,7 @@ pub struct ModelParamsAttribution {
 ///
 /// Bloomberg PORT decomposes carry into Carry (coupon/funding), Curve Roll-Down,
 /// and Shift as distinct P&L components.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CarryDetail {
     /// Total carry P&L (sum of all components).
     pub total: Money,
@@ -434,7 +434,7 @@ pub struct CarryDetail {
 /// Detailed attribution for market scalars.
 ///
 /// Includes dividends, equity/commodity prices, inflation indices, etc.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ScalarsAttribution {
     /// Dividend changes by equity ID.
     #[serde(default)]
@@ -456,15 +456,17 @@ pub struct ScalarsAttribution {
 /// Attribution metadata.
 ///
 /// Records methodology, dates, repricing count, and residual statistics.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct AttributionMeta {
     /// Attribution method used.
     pub method: AttributionMethod,
 
     /// Start date (T₀).
+    #[schemars(with = "String")]
     pub t0: Date,
 
     /// End date (T₁).
+    #[schemars(with = "String")]
     pub t1: Date,
 
     /// Instrument identifier.

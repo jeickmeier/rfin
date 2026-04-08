@@ -19,7 +19,7 @@ use crate::impl_instrument_base;
 use serde::{Deserialize, Serialize};
 
 /// Type of asset in the basket
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetType {
     /// Equity security
@@ -51,6 +51,18 @@ pub enum ConstituentReference {
 }
 
 // Debug is now derived automatically on ConstituentReference
+
+impl schemars::JsonSchema for ConstituentReference {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("ConstituentReference")
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "object"
+        })
+    }
+}
 
 impl Serialize for ConstituentReference {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -122,7 +134,7 @@ impl<'de> Deserialize<'de> for ConstituentReference {
 }
 
 /// Individual constituent in a basket
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct BasketConstituent {
     /// Unique identifier for the constituent
     pub id: String,
@@ -137,7 +149,7 @@ pub struct BasketConstituent {
 }
 
 /// Configuration for basket pricing behaviour.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct BasketPricingConfig {
     /// Day basis used for fee accrual (e.g., 365.0 or 365.25). Avoid hardcoding in logic.
     pub days_in_year: f64,
@@ -159,7 +171,14 @@ impl Default for BasketPricingConfig {
 /// This basket represents a collection of financial instruments or market data references
 /// that can be valued as a portfolio. It focuses purely on pricing functionality without
 /// ETF-specific operational features like creation/redemption mechanics.
-#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    finstack_valuations_macros::FinancialBuilder,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Basket {
     /// Unique instrument identifier

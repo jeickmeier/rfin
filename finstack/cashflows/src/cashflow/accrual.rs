@@ -122,7 +122,9 @@ fn advance_business_days<C: HolidayCalendar + ?Sized>(cal: &C, mut date: Date, d
 /// This mirrors the semantics of bond accrual methods but is defined at the
 /// cashflow layer so it can be reused by any instrument that exposes a
 /// `CashFlowSchedule`.
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum AccrualMethod {
     /// Linear accrual (simple interest interpolation).

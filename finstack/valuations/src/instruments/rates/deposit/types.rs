@@ -50,7 +50,12 @@ use crate::market::conventions::ConventionRegistry;
 /// `start + spot_lag` adjusted by the business day convention. In this case,
 /// `start` is treated as the trade date; otherwise it is the accrual start date.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Deposit {
@@ -59,8 +64,10 @@ pub struct Deposit {
     /// Principal amount of the deposit.
     pub notional: Money,
     /// Start date of the deposit period.
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Maturity date of the deposit period.
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Day count convention for interest accrual.
     pub day_count: DayCount,

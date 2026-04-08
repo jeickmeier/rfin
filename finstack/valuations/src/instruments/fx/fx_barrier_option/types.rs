@@ -16,7 +16,12 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// FX barrier option instrument.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct FxBarrierOption {
@@ -33,6 +38,7 @@ pub struct FxBarrierOption {
     /// Barrier type (up/down, in/out)
     pub barrier_type: BarrierType,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Observed barrier state for expired options.
     ///

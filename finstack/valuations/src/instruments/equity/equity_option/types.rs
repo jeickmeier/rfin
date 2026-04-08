@@ -82,7 +82,12 @@ use crate::instruments::common_impl::validation;
 
 /// Equity option instrument
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct EquityOption {
@@ -99,6 +104,7 @@ pub struct EquityOption {
     #[builder(default)]
     pub exercise_style: ExerciseStyle,
     /// Option expiry date
+    #[schemars(with = "String")]
     pub expiry: Date,
     /// Notional amount for valuation scaling.
     pub notional: Money,
@@ -148,6 +154,7 @@ pub struct EquityOption {
     ///   discrete dividend problem"
     #[builder(default)]
     #[serde(default)]
+    #[schemars(with = "Vec<(String, f64)>")]
     pub discrete_dividends: Vec<(Date, f64)>,
     /// Exercise schedule for Bermudan options.
     ///
@@ -156,6 +163,7 @@ pub struct EquityOption {
     /// are filtered out automatically.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<Vec<String>>")]
     pub exercise_schedule: Option<Vec<Date>>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,

@@ -35,7 +35,12 @@ use rust_decimal::Decimal;
 ///
 /// Call [`validate()`](Self::validate) to check structural invariants before pricing.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct InflationSwap {
@@ -44,8 +49,10 @@ pub struct InflationSwap {
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of indexation
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Fixed real rate (as decimal)
     pub fixed_rate: Decimal,
@@ -547,7 +554,12 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InflationSwa
 ///
 /// Pays periodic inflation rates (CPI ratios over each period) versus a fixed rate.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct YoYInflationSwap {
@@ -556,8 +568,10 @@ pub struct YoYInflationSwap {
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of the first accrual period
+    #[schemars(with = "String")]
     pub start_date: Date,
     /// Maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
     /// Fixed rate (decimal)
     pub fixed_rate: Decimal,

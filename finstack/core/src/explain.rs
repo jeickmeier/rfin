@@ -92,7 +92,7 @@ impl Default for ExplainOpts {
 /// Traces are organized by type (calibration, pricing, waterfall) and contain
 /// a sequence of domain-specific entries. Traces can be serialized to JSON for
 /// inspection, debugging, or audit purposes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ExplanationTrace {
     /// Type of trace (e.g., "calibration", "pricing", "waterfall")
     #[serde(rename = "type")]
@@ -148,7 +148,7 @@ impl ExplanationTrace {
 /// - Calibration: iteration details, convergence status
 /// - Pricing: cashflow-level PV breakdowns
 /// - Waterfall: step-by-step payment allocations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind")]
 pub enum TraceEntry {
     /// Calibration solver iteration details

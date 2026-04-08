@@ -21,7 +21,9 @@ use finstack_core::dates::{Date, DateExt, Schedule, ScheduleBuilder};
 /// let side = TrsSide::PayTotalReturn;
 /// assert_eq!(side.sign(), -1.0);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum TrsSide {
     /// Receive total return, pay financing.
@@ -91,12 +93,14 @@ impl TrsSide {
 ///     },
 /// );
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrsScheduleSpec {
     /// Start date for the TRS leg.
+    #[schemars(with = "String")]
     pub start: Date,
     /// End date for the TRS leg.
+    #[schemars(with = "String")]
     pub end: Date,
     /// Schedule parameters (frequency, day count, bdc, calendar, stub).
     pub params: ScheduleParams,

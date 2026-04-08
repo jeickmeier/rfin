@@ -107,7 +107,7 @@ fn default_settlement_days() -> u32 {
 ///     fallback: Default::default(),
 /// });
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[allow(clippy::large_enum_variant)]
 #[non_exhaustive]
 pub enum RateSpec {
@@ -194,7 +194,12 @@ impl RateSpec {
 ///
 /// This type is `Send + Sync` as all fields are thread-safe.
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct TermLoan {
@@ -208,9 +213,11 @@ pub struct TermLoan {
     pub notional_limit: Money,
 
     /// Issue (effective) date
+    #[schemars(with = "String")]
     pub issue_date: Date,
 
     /// Maturity date
+    #[schemars(with = "String")]
     pub maturity: Date,
 
     /// Rate specification (fixed or floating)
@@ -323,6 +330,227 @@ impl TermLoan {
             .pricing_overrides(PricingOverrides::default())
             .oid_eir_opt(None)
             .call_schedule_opt(None)
+            .attributes(Attributes::new())
+            .build()
+    }
+
+    /// Create an example floating-rate term loan with delayed-draw for testing and documentation.
+    ///
+    /// Returns a 7-year USD leveraged term loan with:
+    /// - $50M notional, SOFR + 400bps
+    /// - Quarterly payments, Act/360
+    /// - $20M DDTL commitment with 12-month availability
+    /// - 1% per-period amortization (of original notional)
+    /// - 0% SOFR floor
+    #[allow(clippy::expect_used)]
+    pub fn example_floating_with_ddtl() -> finstack_core::Result<Self> {
+        use finstack_core::dates::BusinessDayConvention;
+        use finstack_core::dates::StubKind;
+        use rust_decimal::Decimal;
+        use time::macros::date;
+
+        let floating_rate = FloatingRateSpec {
+            index_id: CurveId::new("USD-SOFR-3M"),
+            spread_bp: Decimal::new(400, 0),
+            gearing: Decimal::ONE,
+            gearing_includes_spread: true,
+            floor_bp: Some(Decimal::ZERO),
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+            fallback: Default::default(),
+        };
+
+        let ddtl = DdtlSpec {
+            commitment_limit: Money::new(20_000_000.0, Currency::USD),
+            availability_start: date!(2024 - 01 - 15),
+            availability_end: date!(2025 - 01 - 15),
+            draws: vec![
+                super::spec::DrawEvent {
+                    date: date!(2024 - 04 - 15),
+                    amount: Money::new(10_000_000.0, Currency::USD),
+                },
+                super::spec::DrawEvent {
+                    date: date!(2024 - 07 - 15),
+                    amount: Money::new(5_000_000.0, Currency::USD),
+                },
+            ],
+            commitment_step_downs: vec![super::spec::CommitmentStepDown {
+                date: date!(2024 - 10 - 15),
+                new_limit: Money::new(15_000_000.0, Currency::USD),
+            }],
+            usage_fee_bp: 25,
+            commitment_fee_bp: 50,
+            fee_base: super::spec::CommitmentFeeBase::Undrawn,
+            oid_policy: None,
+        };
+
+        TermLoan::builder()
+            .id(InstrumentId::new("TL-FLOAT-DDTL-7Y"))
+            .currency(Currency::USD)
+            .notional_limit(Money::new(50_000_000.0, Currency::USD))
+            .issue_date(date!(2024 - 01 - 15))
+            .maturity(date!(2031 - 01 - 15))
+            .rate(RateSpec::Floating(floating_rate))
+            .frequency(Tenor::quarterly())
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(None)
+            .stub(StubKind::ShortFront)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .amortization(AmortizationSpec::PercentOfOriginalNotional { bp: 100 })
+            .coupon_type(CouponType::Cash)
+            .upfront_fee_opt(None)
+            .ddtl_opt(Some(ddtl))
+            .covenants_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .oid_eir_opt(None)
+            .call_schedule_opt(None)
+            .attributes(Attributes::new())
+            .build()
+    }
+
+    /// Create an example term loan with covenants and call schedule for testing and documentation.
+    ///
+    /// Returns a 5-year USD fixed-rate term loan with:
+    /// - $25M notional, 6% fixed rate
+    /// - Quarterly payments, Act/360
+    /// - Margin step-ups at years 2 and 3 (+25bp each)
+    /// - Cash sweep at year 3
+    /// - Soft call at 102, hard call at 101
+    #[allow(clippy::expect_used)]
+    pub fn example_with_covenants() -> finstack_core::Result<Self> {
+        use finstack_core::dates::BusinessDayConvention;
+        use finstack_core::dates::StubKind;
+        use time::macros::date;
+
+        let covenants = CovenantSpec {
+            margin_stepups: vec![
+                super::spec::MarginStepUp {
+                    date: date!(2026 - 01 - 15),
+                    delta_bp: 25,
+                },
+                super::spec::MarginStepUp {
+                    date: date!(2027 - 01 - 15),
+                    delta_bp: 25,
+                },
+            ],
+            pik_toggles: vec![],
+            cash_sweeps: vec![super::spec::CashSweepEvent {
+                date: date!(2027 - 01 - 15),
+                amount: Money::new(2_500_000.0, Currency::USD),
+            }],
+            draw_stop_dates: vec![],
+        };
+
+        let call_schedule = LoanCallSchedule {
+            calls: vec![
+                super::spec::LoanCall {
+                    date: date!(2025 - 07 - 15),
+                    price_pct_of_par: 102.0,
+                    call_type: super::spec::LoanCallType::Soft,
+                },
+                super::spec::LoanCall {
+                    date: date!(2026 - 07 - 15),
+                    price_pct_of_par: 101.0,
+                    call_type: super::spec::LoanCallType::Hard,
+                },
+            ],
+        };
+
+        TermLoan::builder()
+            .id(InstrumentId::new("TL-COVENANT-5Y"))
+            .currency(Currency::USD)
+            .notional_limit(Money::new(25_000_000.0, Currency::USD))
+            .issue_date(date!(2024 - 01 - 15))
+            .maturity(date!(2029 - 01 - 15))
+            .rate(RateSpec::Fixed { rate_bp: 600 })
+            .frequency(Tenor::quarterly())
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .amortization(AmortizationSpec::None)
+            .coupon_type(CouponType::Cash)
+            .upfront_fee_opt(None)
+            .ddtl_opt(None)
+            .covenants_opt(Some(covenants))
+            .pricing_overrides(PricingOverrides::default())
+            .oid_eir_opt(None)
+            .call_schedule_opt(Some(call_schedule))
+            .attributes(Attributes::new())
+            .build()
+    }
+
+    /// Callable investment-grade term loan with make-whole and hard call schedule.
+    ///
+    /// $30M fixed 4.5%, 7Y, with:
+    /// - Make-whole call at T+50bp for years 1-3
+    /// - Soft call at 102% for years 3-5
+    /// - Hard call at par from year 5
+    #[allow(clippy::expect_used)]
+    pub fn example_callable() -> finstack_core::Result<Self> {
+        use finstack_core::dates::BusinessDayConvention;
+        use finstack_core::dates::StubKind;
+        use time::macros::date;
+
+        let call_schedule = LoanCallSchedule {
+            calls: vec![
+                super::spec::LoanCall {
+                    date: date!(2025 - 01 - 15),
+                    price_pct_of_par: 100.0,
+                    call_type: super::spec::LoanCallType::MakeWhole {
+                        treasury_spread_bp: 50,
+                    },
+                },
+                super::spec::LoanCall {
+                    date: date!(2027 - 01 - 15),
+                    price_pct_of_par: 102.0,
+                    call_type: super::spec::LoanCallType::Soft,
+                },
+                super::spec::LoanCall {
+                    date: date!(2029 - 01 - 15),
+                    price_pct_of_par: 100.0,
+                    call_type: super::spec::LoanCallType::Hard,
+                },
+            ],
+        };
+
+        TermLoan::builder()
+            .id(InstrumentId::new("TL-CALLABLE-IG-7Y"))
+            .currency(Currency::USD)
+            .notional_limit(Money::new(30_000_000.0, Currency::USD))
+            .issue_date(date!(2024 - 01 - 15))
+            .maturity(date!(2031 - 01 - 15))
+            .rate(RateSpec::Fixed { rate_bp: 450 })
+            .frequency(Tenor::semi_annual())
+            .day_count(DayCount::Thirty360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(Some(CurveId::new("USD-CREDIT-IG")))
+            .amortization(AmortizationSpec::None)
+            .coupon_type(CouponType::Cash)
+            .upfront_fee_opt(None)
+            .ddtl_opt(None)
+            .covenants_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .oid_eir_opt(None)
+            .call_schedule_opt(Some(call_schedule))
+            .settlement_days(2)
             .attributes(Attributes::new())
             .build()
     }

@@ -1,78 +1,88 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://finstack.dev/schemas/cashflow/1/prepayment_model_spec.schema.json",
-  "title": "Prepayment Model Specification",
-  "description": "Prepayment model specifications for credit instruments. Rust types: PrepaymentCurve, PrepaymentModelSpec from finstack_valuations::cashflow::builder::specs::prepayment",
-  "definitions": {
+  "$defs": {
     "PrepaymentCurve": {
-      "description": "Prepayment curve shape",
-      "type": "object",
-      "required": ["curve"],
+      "description": "Prepayment curve shape.",
       "oneOf": [
         {
+          "description": "Constant CPR (no seasoning effect)",
           "properties": {
             "curve": {
-              "type": "string",
-              "const": "constant"
+              "const": "constant",
+              "type": "string"
             }
           },
-          "additionalProperties": false,
-          "description": "Constant CPR (no seasoning effect)"
+          "required": [
+            "curve"
+          ],
+          "type": "object"
         },
         {
+          "description": "PSA standard curve: ramps to 6% CPR over 30 months",
           "properties": {
             "curve": {
-              "type": "string",
-              "const": "psa"
+              "const": "psa",
+              "type": "string"
             },
             "speed_multiplier": {
-              "type": "number",
-              "description": "Speed multiplier (1.0 = 100% PSA)"
+              "description": "Speed multiplier (1.0 = 100% PSA)",
+              "format": "double",
+              "type": "number"
             }
           },
-          "required": ["curve", "speed_multiplier"],
-          "additionalProperties": false,
-          "description": "PSA standard curve: ramps to 6% CPR over 30 months"
+          "required": [
+            "curve",
+            "speed_multiplier"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "CMBS-style lockout: zero prepayment for an initial period, then constant CPR.\n\nCommercial mortgage-backed securities typically have prepayment lockout\nperiods (defeasance/yield maintenance) lasting 5-10 years, after which\nvoluntary prepayment resumes at the specified CPR.",
+          "properties": {
+            "curve": {
+              "const": "cmbs_lockout",
+              "type": "string"
+            },
+            "lockout_months": {
+              "description": "Number of months with zero prepayment (e.g., 60 for 5-year lockout)",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "curve",
+            "lockout_months"
+          ],
+          "type": "object"
         }
       ]
-    },
-    "PrepaymentModelSpec": {
-      "type": "object",
-      "required": ["cpr"],
-      "additionalProperties": false,
-      "description": "Prepayment model specification",
-      "properties": {
-        "cpr": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 1.0,
-          "description": "CPR: Constant Prepayment Rate (annual, e.g., 0.06 for 6%)"
-        },
-        "curve": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/PrepaymentCurve"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Optional curve shape (default: constant)"
-        }
-      }
     }
   },
-  "type": "object",
-  "required": ["schema", "prepayment_model_spec"],
-  "additionalProperties": false,
+  "$id": "https://finstack.dev/schemas/cashflow/1/prepayment_model_spec.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Prepayment model specifications for credit instruments. Rust types: PrepaymentCurve, PrepaymentModelSpec from finstack_valuations::cashflow::builder::specs::prepayment",
   "properties": {
-    "schema": {
-      "type": "string",
-      "const": "finstack.cashflow/1",
-      "description": "Schema version identifier"
+    "cpr": {
+      "description": "CPR: Constant Prepayment Rate (annual, e.g., 0.06 for 6%)",
+      "format": "double",
+      "type": "number"
     },
-    "prepayment_model_spec": {
-      "$ref": "#/definitions/PrepaymentModelSpec"
+    "curve": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PrepaymentCurve"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional curve shape (default: constant)"
     }
-  }
+  },
+  "required": [
+    "cpr"
+  ],
+  "title": "Prepayment Model Specification",
+  "type": "object"
 }

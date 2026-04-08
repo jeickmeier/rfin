@@ -60,6 +60,18 @@ impl CollateralAssetClass {
     }
 }
 
+impl schemars::JsonSchema for CollateralAssetClass {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("CollateralAssetClass")
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "string"
+        })
+    }
+}
+
 impl Serialize for CollateralAssetClass {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -158,7 +170,9 @@ impl CollateralAssetClass {
 ///
 /// Some CSAs restrict collateral based on remaining maturity to limit
 /// duration risk in the collateral portfolio.
-#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct MaturityConstraints {
     /// Minimum remaining years to maturity (if any)
     pub min_remaining_years: Option<f64>,
@@ -196,7 +210,7 @@ impl MaturityConstraints {
 /// Single collateral eligibility entry.
 ///
 /// Defines eligibility criteria and haircut for a specific type of collateral.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CollateralEligibility {
     /// Asset class
     pub asset_class: CollateralAssetClass,
@@ -297,7 +311,7 @@ impl CollateralEligibility {
 /// # let _ = schedule;
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct EligibleCollateralSchedule {
     /// List of eligible collateral types with haircuts
     pub eligible: Vec<CollateralEligibility>,

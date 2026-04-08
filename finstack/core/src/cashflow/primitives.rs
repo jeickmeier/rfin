@@ -47,7 +47,17 @@ use crate::money::Money;
 /// - **Credit Events**: `DefaultedNotional`, `Recovery`
 /// - **Margin/Collateral**: `InitialMarginPost`, `VariationMarginPay`, etc.
 #[non_exhaustive]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub enum CFKind {
     /// Fixed-rate coupon cash-flow.
     ///
@@ -224,11 +234,15 @@ impl CFKind {
 ///
 /// Represents a monetary flow at a specific date with metadata
 /// for proper classification and risk calculation.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct CashFlow {
     /// Payment date (or payment date for principal/fee, or reset date for `CFKind::FloatReset`).
+    #[schemars(with = "String")]
     pub date: Date,
     /// Optional index reset date (for floating coupons).
+    #[schemars(with = "Option<String>")]
     pub reset_date: Option<Date>,
     /// Monetary amount including its currency.
     pub amount: Money,

@@ -20,7 +20,7 @@ pub trait UnderlyingParams {
 ///
 /// This struct encapsulates the market data curve identifiers and
 /// currency pair information needed for pricing FX-related instruments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FxUnderlyingParams {
     /// Base currency (being priced)
     pub base_currency: Currency,
@@ -75,7 +75,7 @@ impl UnderlyingParams for FxUnderlyingParams {
 }
 
 /// Equity underlying parameters for options and equity-linked swaps.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct EquityUnderlyingParams {
     /// Underlying ticker/identifier
     pub ticker: String,
@@ -135,7 +135,7 @@ impl UnderlyingParams for EquityUnderlyingParams {
 }
 
 /// Commodity underlying parameters for forwards, swaps, and options.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CommodityUnderlyingParams {
     /// Commodity type (e.g., "Energy", "Metal", "Agricultural")
     pub commodity_type: String,
@@ -183,7 +183,7 @@ impl UnderlyingParams for CommodityUnderlyingParams {
 }
 
 /// Index underlying parameters for total return swaps and index-linked instruments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct IndexUnderlyingParams {
     /// Index identifier (e.g., "CDX.IG", "HY.BOND.INDEX")
     pub index_id: IndexId,

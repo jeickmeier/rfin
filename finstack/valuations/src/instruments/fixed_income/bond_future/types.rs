@@ -17,7 +17,9 @@ use finstack_core::types::{CurveId, InstrumentId};
 pub use crate::instruments::rates::ir_future::Position;
 
 /// Day-count basis used to annualize implied repo rates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum RepoDayCountBasis {
     /// ACT/360 convention (common in USD and EUR money markets)
@@ -68,7 +70,7 @@ impl RepoDayCountBasis {
 ///     conversion_factor: 0.8234,  // Must match CME-published value
 /// };
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DeliverableBond {
     /// Identifier of the deliverable bond
     pub bond_id: InstrumentId,
@@ -95,7 +97,7 @@ pub struct DeliverableBond {
 /// assert_eq!(specs.contract_size, 100_000.0);
 /// assert_eq!(specs.standard_coupon, 0.06);
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct BondFutureSpecs {
     /// Face value of a single contract (e.g., $100,000 for UST)
     pub contract_size: f64,
@@ -406,7 +408,12 @@ impl BondFutureSpecs {
 ///     .expect("Valid bond future");
 /// ```
 #[derive(
-    Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
+    Clone,
+    Debug,
+    finstack_valuations_macros::FinancialBuilder,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct BondFuture {
@@ -418,12 +425,15 @@ pub struct BondFuture {
     pub notional: Money,
 
     /// Future expiry date (last trading day)
+    #[schemars(with = "String")]
     pub expiry: Date,
 
     /// First delivery date
+    #[schemars(with = "String")]
     pub delivery_start: Date,
 
     /// Last delivery date
+    #[schemars(with = "String")]
     pub delivery_end: Date,
 
     /// Quoted futures price (e.g., 125.50 for 125-16/32)
@@ -515,14 +525,10 @@ impl BondFuture {
     /// with published conversion factors.
     pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
-        use time::Month;
 
-        let expiry =
-            Date::from_calendar_date(2025, Month::September, 19).expect("valid example date");
-        let delivery_start =
-            Date::from_calendar_date(2025, Month::September, 22).expect("valid example date");
-        let delivery_end =
-            Date::from_calendar_date(2025, Month::September, 30).expect("valid example date");
+        let expiry = time::macros::date!(2025 - 09 - 19);
+        let delivery_start = time::macros::date!(2025 - 09 - 22);
+        let delivery_end = time::macros::date!(2025 - 09 - 30);
 
         let bond1_id = InstrumentId::new("US91282CJL54");
         let bond2_id = InstrumentId::new("US91282CHT18");

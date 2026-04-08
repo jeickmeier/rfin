@@ -7,7 +7,16 @@ use std::fmt;
 /// Determines how often margin calls are made and collateral is exchanged.
 /// Industry standard for OTC derivatives is daily under BCBS-IOSCO rules.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[non_exhaustive]
 pub enum MarginTenor {
@@ -58,7 +67,16 @@ impl std::str::FromStr for MarginTenor {
 /// schedule approach may be used. SIMM is the industry standard for large
 /// dealers due to its risk-sensitivity.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[non_exhaustive]
 pub enum ImMethodology {
@@ -134,7 +152,17 @@ impl std::str::FromStr for ImMethodology {
 ///
 /// Determines whether a trade is cleared through a CCP or remains bilateral
 /// under a CSA agreement.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[non_exhaustive]
 pub enum ClearingStatus {
     /// Bilateral (uncleared) trade governed by CSA

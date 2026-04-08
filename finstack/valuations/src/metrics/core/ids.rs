@@ -26,7 +26,7 @@ use std::sync::OnceLock;
 /// when metric names change. Covers bond, IRS, deposit, and risk metrics.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct MetricId(Cow<'static, str>);
 
 #[allow(non_upper_case_globals)] // PascalCase names for metric ID constants

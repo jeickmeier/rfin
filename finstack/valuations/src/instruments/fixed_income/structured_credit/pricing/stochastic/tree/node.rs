@@ -8,7 +8,17 @@
 use std::fmt;
 
 /// Unique identifier for a scenario node.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub(crate) struct ScenarioNodeId(pub usize);
 
 impl ScenarioNodeId {
@@ -28,7 +38,7 @@ impl fmt::Display for ScenarioNodeId {
 ///
 /// Contains all state information needed for structured credit valuation
 /// at this point in time and scenario.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub(crate) struct ScenarioNode {
     /// Unique node identifier
     pub id: ScenarioNodeId,
