@@ -53,7 +53,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RateQuote {
     /// Money market deposit rate.
@@ -97,6 +97,7 @@ pub enum RateQuote {
         contract: IrFutureContractId,
         /// Expiry date of the future.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
         expiry: Date,
         /// Price of the future (e.g. 98.50).
         price: f64,

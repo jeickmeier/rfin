@@ -86,8 +86,19 @@
 
 pub(crate) mod metrics;
 pub(crate) mod parameters;
+pub(crate) mod pde2d_pricer;
+pub(crate) mod pde_pricer;
 pub(crate) mod pricer;
 mod types;
+
+#[cfg(feature = "mc")]
+pub(crate) mod heston_mc_pricer;
+#[cfg(feature = "mc")]
+pub(crate) mod rough_bergomi_mc_pricer;
+#[cfg(feature = "mc")]
+pub(crate) mod rough_heston_fourier_pricer;
+#[cfg(feature = "mc")]
+pub(crate) mod rough_heston_mc_pricer;
 
 pub use parameters::{EquityOptionMarketData, EquityOptionParams};
 pub use types::EquityOption;

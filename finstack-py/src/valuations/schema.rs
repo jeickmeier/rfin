@@ -67,6 +67,58 @@ fn valuation_result_schema(py: Python<'_>) -> PyResult<Py<PyAny>> {
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
+/// Validate an instrument JSON dict against the envelope schema.
+///
+/// Parameters:
+///     instrument_json: dict representing an instrument envelope
+///         (e.g., ``{"schema": "finstack.instrument/1", "instrument": {"type": "bond", "spec": {...}}}``)
+///
+/// Returns:
+///     None if valid.
+///
+/// Raises:
+///     ValidationError: If the JSON does not conform to the schema, with details.
+///
+/// Example:
+///     >>> from finstack.valuations.schema import validate_instrument_json
+///     >>> validate_instrument_json({
+///     ...     "schema": "finstack.instrument/1",
+///     ...     "instrument": {"type": "bond", "spec": {}}
+///     ... })
+#[pyfunction]
+fn validate_instrument_json(py: Python<'_>, instrument_json: Py<PyAny>) -> PyResult<()> {
+    let json_value: serde_json::Value =
+        pythonize::depythonize(instrument_json.bind(py)).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to convert dict to JSON: {e}"))
+        })?;
+    finstack_valuations::schema::validate_instrument_json(&json_value).map_err(core_to_py)
+}
+
+/// Validate an instrument JSON dict against a specific instrument type's schema.
+///
+/// Parameters:
+///     instrument_type: Canonical instrument type (e.g., "bond", "interest_rate_swap")
+///     instrument_json: dict representing the instrument envelope
+///
+/// Returns:
+///     None if valid.
+///
+/// Raises:
+///     ValidationError: If the JSON does not conform to the schema, with details.
+#[pyfunction]
+fn validate_instrument_type_json(
+    py: Python<'_>,
+    instrument_type: &str,
+    instrument_json: Py<PyAny>,
+) -> PyResult<()> {
+    let json_value: serde_json::Value =
+        pythonize::depythonize(instrument_json.bind(py)).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to convert dict to JSON: {e}"))
+        })?;
+    finstack_valuations::schema::validate_instrument_type_json(instrument_type, &json_value)
+        .map_err(core_to_py)
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -74,19 +126,24 @@ pub(crate) fn register<'py>(
     let module = PyModule::new(py, "schema")?;
     module.setattr(
         "__doc__",
-        "JSON Schema helpers for Finstack instrument and result types.",
+        "JSON Schema helpers for Finstack instrument and result types.\n\n\
+         Provides schema access and validation for instrument JSON payloads.",
     )?;
 
     module.add_function(wrap_pyfunction!(bond_schema, &module)?)?;
     module.add_function(wrap_pyfunction!(instrument_schema, &module)?)?;
     module.add_function(wrap_pyfunction!(instrument_types, &module)?)?;
     module.add_function(wrap_pyfunction!(valuation_result_schema, &module)?)?;
+    module.add_function(wrap_pyfunction!(validate_instrument_json, &module)?)?;
+    module.add_function(wrap_pyfunction!(validate_instrument_type_json, &module)?)?;
 
     let exports = vec![
         "bond_schema",
         "instrument_schema",
         "instrument_types",
         "valuation_result_schema",
+        "validate_instrument_json",
+        "validate_instrument_type_json",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;

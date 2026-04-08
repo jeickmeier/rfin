@@ -55,7 +55,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]
 pub enum VolQuote {
@@ -66,6 +66,7 @@ pub enum VolQuote {
         underlying: UnderlyingId,
         /// Option expiry
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
         expiry: Date,
         /// Strike
         strike: f64,
@@ -81,9 +82,11 @@ pub enum VolQuote {
     SwaptionVol {
         /// Option expiry
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
         expiry: Date,
         /// Underlying swap maturity date
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
         maturity: Date,
         /// Strike rate
         strike: f64,

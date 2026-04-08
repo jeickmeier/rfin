@@ -57,3 +57,23 @@ pub fn valuation_result_schema() -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(schema_val)
         .map_err(|e| js_error(format!("Schema serialization failed: {}", e)))
 }
+
+/// Validate an instrument JSON object against the envelope schema.
+///
+/// Returns `null` if valid, or throws an error with detailed validation messages.
+#[wasm_bindgen(js_name = validateInstrumentJson)]
+pub fn validate_instrument_json(value: JsValue) -> Result<(), JsValue> {
+    let json_value: serde_json::Value = serde_wasm_bindgen::from_value(value)
+        .map_err(|e| js_error(format!("Invalid JSON: {e}")))?;
+    schema::validate_instrument_json(&json_value).map_err(core_to_js)
+}
+
+/// Validate an instrument JSON object against a specific instrument type's schema.
+///
+/// Returns `null` if valid, or throws an error with detailed validation messages.
+#[wasm_bindgen(js_name = validateInstrumentTypeJson)]
+pub fn validate_instrument_type_json(instrument_type: &str, value: JsValue) -> Result<(), JsValue> {
+    let json_value: serde_json::Value = serde_wasm_bindgen::from_value(value)
+        .map_err(|e| js_error(format!("Invalid JSON: {e}")))?;
+    schema::validate_instrument_type_json(instrument_type, &json_value).map_err(core_to_js)
+}

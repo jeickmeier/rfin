@@ -299,12 +299,12 @@
               "oneOf": [
                 {
                   "const": "Linear",
-                  "description": "Linear accrual (simple interest interpolation).\n\n`Accrued = Coupon \u00d7 (elapsed / period)`",
+                  "description": "Linear accrual (simple interest interpolation).\n\n`Accrued = Coupon × (elapsed / period)`",
                   "type": "string"
                 },
                 {
                   "const": "Compounded",
-                  "description": "Compounded accrual (ICMA-style).\n\n`Accrued = Notional \u00d7 [(1 + period_rate)^(elapsed/period) - 1]`\nwhere `period_rate = coupon_amount / notional`.",
+                  "description": "Compounded accrual (ICMA-style).\n\n`Accrued = Notional × [(1 + period_rate)^(elapsed/period) - 1]`\nwhere `period_rate = coupon_amount / notional`.",
                   "type": "string"
                 }
               ]
@@ -314,7 +314,7 @@
               "oneOf": [
                 {
                   "const": "None",
-                  "description": "No amortization \u2013 principal remains constant until final redemption.",
+                  "description": "No amortization – principal remains constant until final redemption.",
                   "type": "string"
                 },
                 {
@@ -491,7 +491,7 @@
               "oneOf": [
                 {
                   "const": "Fixed",
-                  "description": "Fixed-rate coupon cash-flow.\n\nPeriodic interest payment calculated as: `notional \u00d7 rate \u00d7 accrual_factor`.\nThe `rate` field on [`CashFlow`] stores the coupon rate used.",
+                  "description": "Fixed-rate coupon cash-flow.\n\nPeriodic interest payment calculated as: `notional × rate × accrual_factor`.\nThe `rate` field on [`CashFlow`] stores the coupon rate used.",
                   "type": "string"
                 },
                 {
@@ -561,7 +561,7 @@
                 },
                 {
                   "const": "Recovery",
-                  "description": "Recovery cashflow from defaulted principal.\n\nAmount recovered through workout, liquidation, or settlement of defaulted\ndebt. Typically expressed as a percentage of defaulted notional\n(recovery rate \u00d7 defaulted amount).",
+                  "description": "Recovery cashflow from defaulted principal.\n\nAmount recovered through workout, liquidation, or settlement of defaulted\ndebt. Typically expressed as a percentage of defaulted notional\n(recovery rate × defaulted amount).",
                   "type": "string"
                 },
                 {
@@ -1657,12 +1657,12 @@
                 },
                 {
                   "const": "VED",
-                  "description": "Bol\u00edvar Soberano (926)",
+                  "description": "Bolívar Soberano (926)",
                   "type": "string"
                 },
                 {
                   "const": "VES",
-                  "description": "Bol\u00edvar Soberano (928)",
+                  "description": "Bolívar Soberano (928)",
                   "type": "string"
                 },
                 {
@@ -1727,7 +1727,7 @@
               "oneOf": [
                 {
                   "const": "Act360",
-                  "description": "Actual/360 day count convention.\n\nYear fraction = (actual days between dates) / 360\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(d)\n- **ISO 20022**: Day Count Fraction Code \"Actual/360\" (A004)\n- **Also known as**: Act/360, A/360, French\n\n# Usage\n\nStandard for:\n- USD money market deposits\n- EUR money market instruments\n- Short-term rate derivatives (SOFR, \u20acSTR)\n- FX swaps and forwards\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 1).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::April, 1).expect(\"Valid date\"); // 90 days\n\nlet yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\nassert_eq!(yf, 90.0 / 360.0);\n```",
+                  "description": "Actual/360 day count convention.\n\nYear fraction = (actual days between dates) / 360\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(d)\n- **ISO 20022**: Day Count Fraction Code \"Actual/360\" (A004)\n- **Also known as**: Act/360, A/360, French\n\n# Usage\n\nStandard for:\n- USD money market deposits\n- EUR money market instruments\n- Short-term rate derivatives (SOFR, €STR)\n- FX swaps and forwards\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 1).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::April, 1).expect(\"Valid date\"); // 90 days\n\nlet yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\nassert_eq!(yf, 90.0 / 360.0);\n```",
                   "type": "string"
                 },
                 {
@@ -1737,17 +1737,17 @@
                 },
                 {
                   "const": "Act365L",
-                  "description": "Actual/365 Leap day count convention (Actual/365L or AFB).\n\nYear fraction = (actual days) / (366 if Feb 29 in period else 365)\n\n# Standards Reference\n\n- **AFB**: Association Fran\u00e7aise des Banques (French Bankers Association)\n- **ISO 20022**: Day Count Fraction Code \"Actual/365L\" (A008)\n- **Also known as**: Act/365L, AFB, ISMA-Year\n\n# Usage\n\nUsed in:\n- French government bonds (OATs)\n- Some European bond markets\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\n// Period containing Feb 29, 2024 (leap year)\nlet start = Date::from_calendar_date(2024, Month::February, 1).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2024, Month::March, 1).expect(\"Valid date\");\n\nlet yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// 29 days / 366 (leap year denominator)\nassert_eq!(yf, 29.0 / 366.0);\n```",
+                  "description": "Actual/365 Leap day count convention (Actual/365L or AFB).\n\nYear fraction = (actual days) / (366 if Feb 29 in period else 365)\n\n# Standards Reference\n\n- **AFB**: Association Française des Banques (French Bankers Association)\n- **ISO 20022**: Day Count Fraction Code \"Actual/365L\" (A008)\n- **Also known as**: Act/365L, AFB, ISMA-Year\n\n# Usage\n\nUsed in:\n- French government bonds (OATs)\n- Some European bond markets\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\n// Period containing Feb 29, 2024 (leap year)\nlet start = Date::from_calendar_date(2024, Month::February, 1).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2024, Month::March, 1).expect(\"Valid date\");\n\nlet yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// 29 days / 366 (leap year denominator)\nassert_eq!(yf, 29.0 / 366.0);\n```",
                   "type": "string"
                 },
                 {
                   "const": "Thirty360",
-                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(f) - \"30/360\"\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis\n\n# Formula\n\n```text\nDays = 360(Y\u2082 - Y\u2081) + 30(M\u2082 - M\u2081) + (D\u2082' - D\u2081')\n\nwhere:\n  D\u2081' = min(D\u2081, 30)\n  D\u2082' = min(D\u2082, 30) if D\u2081' = 30, else D\u2082\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
+                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(f) - \"30/360\"\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere:\n  D₁' = min(D₁, 30)\n  D₂' = min(D₂, 30) if D₁' = 30, else D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
                   "type": "string"
                 },
                 {
                   "const": "ThirtyE360",
-                  "description": "30E/360 (Eurobond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with European adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(g) - \"30E/360\"\n- **ISO 20022**: Day Count Fraction Code \"30E/360\" (A002)\n- **Also known as**: 30/360 ISDA, 30/360 European, Eurobond Basis\n\n# Formula\n\n```text\nDays = 360(Y\u2082 - Y\u2081) + 30(M\u2082 - M\u2081) + (D\u2082' - D\u2081')\n\nwhere:\n  D\u2081' = min(D\u2081, 30)\n  D\u2082' = min(D\u2082, 30)\n```\n\n# Usage\n\nStandard for:\n- Eurobonds\n- International bonds\n- Some interest rate swaps\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::March, 31).expect(\"Valid date\");\n\nlet yf = DayCount::ThirtyE360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats both 31st as day 30: 60 days / 360\nassert_eq!(yf, 60.0 / 360.0);\n```",
+                  "description": "30E/360 (Eurobond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with European adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(g) - \"30E/360\"\n- **ISO 20022**: Day Count Fraction Code \"30E/360\" (A002)\n- **Also known as**: 30/360 ISDA, 30/360 European, Eurobond Basis\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere:\n  D₁' = min(D₁, 30)\n  D₂' = min(D₂, 30)\n```\n\n# Usage\n\nStandard for:\n- Eurobonds\n- International bonds\n- Some interest rate swaps\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::March, 31).expect(\"Valid date\");\n\nlet yf = DayCount::ThirtyE360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats both 31st as day 30: 60 days / 360\nassert_eq!(yf, 60.0 / 360.0);\n```",
                   "type": "string"
                 },
                 {
@@ -2084,7 +2084,7 @@
               "type": "object"
             },
             "OvernightCompoundingMethod": {
-              "description": "Compounding method for overnight rate indices (SOFR, ESTR, SONIA).\n\nControls how daily overnight fixings are aggregated into a period rate\nfor floating rate coupons. The choice of compounding method affects both\nthe accrued amount and the payment timing/certainty.\n\n# Market Conventions\n\n| Index | Standard Method | Lookback | Reference |\n|-------|----------------|----------|-----------|\n| USD SOFR | CompoundedInArrears | 2 BD | ISDA 2021 |\n| EUR \u20acSTR | CompoundedWithObservationShift | 2 BD | ECB |\n| GBP SONIA | CompoundedWithObservationShift | 5 BD | BoE |\n| JPY TONA | CompoundedInArrears | 2 BD | BoJ |\n\n# Reference\n\n- ISDA (2021). \"IBOR Fallbacks Supplement.\" Section 7.\n- ARRC (2020). \"SOFR: A User's Guide.\" Federal Reserve Bank of New York.\n- `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`\n- `docs/REFERENCES.md#isda-2006-definitions`",
+              "description": "Compounding method for overnight rate indices (SOFR, ESTR, SONIA).\n\nControls how daily overnight fixings are aggregated into a period rate\nfor floating rate coupons. The choice of compounding method affects both\nthe accrued amount and the payment timing/certainty.\n\n# Market Conventions\n\n| Index | Standard Method | Lookback | Reference |\n|-------|----------------|----------|-----------|\n| USD SOFR | CompoundedInArrears | 2 BD | ISDA 2021 |\n| EUR €STR | CompoundedWithObservationShift | 2 BD | ECB |\n| GBP SONIA | CompoundedWithObservationShift | 5 BD | BoE |\n| JPY TONA | CompoundedInArrears | 2 BD | BoJ |\n\n# Reference\n\n- ISDA (2021). \"IBOR Fallbacks Supplement.\" Section 7.\n- ARRC (2020). \"SOFR: A User's Guide.\" Federal Reserve Bank of New York.\n- `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`\n- `docs/REFERENCES.md#isda-2006-definitions`",
               "oneOf": [
                 {
                   "const": "SimpleAverage",
@@ -2093,7 +2093,7 @@
                 },
                 {
                   "const": "CompoundedInArrears",
-                  "description": "Compounded in arrears with daily compounding (ISDA 2021 standard).\n\n```text\nRate = [\u220f(1 + r_i \u00d7 d_i/360) - 1] \u00d7 360/D\n```",
+                  "description": "Compounded in arrears with daily compounding (ISDA 2021 standard).\n\n```text\nRate = [∏(1 + r_i × d_i/360) - 1] × 360/D\n```",
                   "type": "string"
                 },
                 {
@@ -2146,7 +2146,7 @@
                 },
                 {
                   "additionalProperties": false,
-                  "description": "Compounded in arrears with observation shift.\n\nBoth observation dates AND weights are shifted back by `shift_days`\nbusiness days. This is the ISDA 2021 recommended convention for SOFR\nand the standard for GBP SONIA and EUR \u20acSTR.",
+                  "description": "Compounded in arrears with observation shift.\n\nBoth observation dates AND weights are shifted back by `shift_days`\nbusiness days. This is the ISDA 2021 recommended convention for SOFR\nand the standard for GBP SONIA and EUR €STR.",
                   "properties": {
                     "CompoundedWithObservationShift": {
                       "properties": {
@@ -2175,7 +2175,7 @@
               "properties": {
                 "adaptive_bumps": {
                   "default": false,
-                  "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol \u2192 larger bumps)\n- Time to expiry (longer dated \u2192 larger bumps)\n- Moneyness (deep ITM/OTM \u2192 smaller bumps)\n\nDefault: false (use fixed bump sizes)",
+                  "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol → larger bumps)\n- Time to expiry (longer dated → larger bumps)\n- Moneyness (deep ITM/OTM → smaller bumps)\n\nDefault: false (use fixed bump sizes)",
                   "type": "boolean"
                 },
                 "call_friction_cents": {
@@ -2206,7 +2206,7 @@
                   ]
                 },
                 "mc_paths": {
-                  "description": "Optional Monte Carlo path count for path-dependent GBM pricers (Asians, lookbacks, autocallables, etc.).\n\nWhen set, overrides the default simulation size (typically 100,000 paths). Intended for tests,\nbenchmarks, and controlled revaluation\u2014not a market quote.",
+                  "description": "Optional Monte Carlo path count for path-dependent GBM pricers (Asians, lookbacks, autocallables, etc.).\n\nWhen set, overrides the default simulation size (typically 100,000 paths). Intended for tests,\nbenchmarks, and controlled revaluation—not a market quote.",
                   "format": "uint",
                   "minimum": 0,
                   "type": [
@@ -2671,7 +2671,7 @@
               "type": "object"
             },
             "VolSurfaceExtrapolation": {
-              "description": "Policy for evaluating volatility surfaces outside their calibrated grid.\n\nMarket-standard production systems typically make this choice explicit because\nextrapolation can materially affect PV and greeks.\n\n# Market Standards\n\n- **Error**: Conservative approach for production systems; forces explicit handling.\n- **Clamp**: Simple flat extrapolation; common for quick prototyping.\n- **LinearInVariance**: Market-standard for equity/FX; preserves no-arbitrage conditions\n  better than linear-in-vol by extrapolating in total variance space (\u03c3\u00b2T).",
+              "description": "Policy for evaluating volatility surfaces outside their calibrated grid.\n\nMarket-standard production systems typically make this choice explicit because\nextrapolation can materially affect PV and greeks.\n\n# Market Standards\n\n- **Error**: Conservative approach for production systems; forces explicit handling.\n- **Clamp**: Simple flat extrapolation; common for quick prototyping.\n- **LinearInVariance**: Market-standard for equity/FX; preserves no-arbitrage conditions\n  better than linear-in-vol by extrapolating in total variance space (σ²T).",
               "oneOf": [
                 {
                   "const": "error",
@@ -2685,7 +2685,7 @@
                 },
                 {
                   "const": "linear_in_variance",
-                  "description": "Linear extrapolation in total variance space (\u03c3\u00b2T).\n\nThis is the market-standard approach for equity and FX volatility surfaces\nbecause it preserves the no-arbitrage condition that total variance must\nincrease with time. The extrapolated volatility is computed as:\n\n```text\n\u03c3(T_extrap) = sqrt(\u03c3\u00b2(T_edge) * T_edge / T_extrap + slope * (T_extrap - T_edge) / T_extrap)\n```\n\nwhere `slope` is derived from the variance gradient at the edge.\n\n# When to Use\n\n- Long-dated option pricing where expiries exceed the calibrated grid\n- Scenario analysis requiring extrapolation to extreme tenors\n- Bootstrapping procedures that need consistent variance behavior\n\n# References\n\n- Gatheral, J. (2006). *The Volatility Surface*. Chapter 3.\n- Fengler, M. R. (2009). \"Arbitrage-free smoothing of the implied volatility surface.\"",
+                  "description": "Linear extrapolation in total variance space (σ²T).\n\nThis is the market-standard approach for equity and FX volatility surfaces\nbecause it preserves the no-arbitrage condition that total variance must\nincrease with time. The extrapolated volatility is computed as:\n\n```text\nσ(T_extrap) = sqrt(σ²(T_edge) * T_edge / T_extrap + slope * (T_extrap - T_edge) / T_extrap)\n```\n\nwhere `slope` is derived from the variance gradient at the edge.\n\n# When to Use\n\n- Long-dated option pricing where expiries exceed the calibrated grid\n- Scenario analysis requiring extrapolation to extreme tenors\n- Bootstrapping procedures that need consistent variance behavior\n\n# References\n\n- Gatheral, J. (2006). *The Volatility Surface*. Chapter 3.\n- Fengler, M. R. (2009). \"Arbitrage-free smoothing of the implied volatility surface.\"",
                   "type": "string"
                 }
               ]

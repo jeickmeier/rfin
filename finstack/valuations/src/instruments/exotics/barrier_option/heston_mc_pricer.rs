@@ -1,0 +1,296 @@
+//! Barrier option Heston Monte Carlo pricer.
+//!
+//! Prices barrier options under the Heston stochastic volatility model
+//! using Monte Carlo simulation with QE discretization and Brownian bridge
+//! barrier correction.
+
+#[cfg(feature = "mc")]
+use crate::instruments::common_impl::traits::Instrument;
+#[cfg(feature = "mc")]
+use crate::instruments::exotics::barrier_option::types::BarrierOption;
+#[cfg(feature = "mc")]
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
+#[cfg(feature = "mc")]
+use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
+use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
+use finstack_core::market_data::context::MarketContext;
+#[cfg(feature = "mc")]
+use finstack_core::money::Money;
+
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::discretization::qe_heston::QeHeston;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::engine::McEngine;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::payoff::barrier::BarrierOptionPayoff;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::payoff::barrier::{BarrierType as McBarrierType, OptionKind};
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::process::heston::{HestonParams, HestonProcess};
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::seed;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::time_grid::TimeGrid;
+
+/// Barrier option Heston Monte Carlo pricer.
+///
+/// Prices barrier options under the Heston stochastic volatility model using
+/// QE discretization. The barrier is monitored on the spot component (state[0])
+/// of the Heston path. Heston parameters are sourced from market scalars with
+/// sensible defaults.
+#[cfg(feature = "mc")]
+pub(crate) struct BarrierOptionHestonMcPricer {
+    num_paths: usize,
+    steps_per_year: f64,
+}
+
+#[cfg(feature = "mc")]
+impl BarrierOptionHestonMcPricer {
+    /// Create a new barrier option Heston MC pricer with default configuration.
+    pub(crate) fn new() -> Self {
+        Self {
+            num_paths: 100_000,
+            steps_per_year: 252.0,
+        }
+    }
+
+    /// Extract a Heston parameter from market scalars with a fallback default.
+    fn heston_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
+        crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
+    }
+
+    fn convert_barrier_type(
+        bt: crate::instruments::exotics::barrier_option::types::BarrierType,
+    ) -> McBarrierType {
+        match bt {
+            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndOut => {
+                McBarrierType::UpAndOut
+            }
+            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndIn => {
+                McBarrierType::UpAndIn
+            }
+            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndOut => {
+                McBarrierType::DownAndOut
+            }
+            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndIn => {
+                McBarrierType::DownAndIn
+            }
+        }
+    }
+
+    fn convert_option_kind(option_type: crate::instruments::OptionType) -> OptionKind {
+        match option_type {
+            crate::instruments::OptionType::Call => OptionKind::Call,
+            crate::instruments::OptionType::Put => OptionKind::Put,
+        }
+    }
+
+    /// Price a barrier option using Heston Monte Carlo.
+    fn price_internal(
+        &self,
+        inst: &BarrierOption,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<(Money, f64)> {
+        // Time to maturity
+        let t = inst
+            .day_count
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
+        if t <= 0.0 {
+            return price_expired_barrier(inst, market).map(|m| (m, 0.0));
+        }
+
+        // Get discount curve and factor
+        let disc_curve = market.get_discount(inst.discount_curve_id.as_str())?;
+        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
+        let r = if t > 0.0 && discount_factor > 0.0 {
+            -discount_factor.ln() / t
+        } else {
+            0.0
+        };
+
+        // Get spot
+        let spot_scalar = market.get_price(&inst.spot_id)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+
+        // Get dividend yield
+        let q = crate::instruments::common_impl::helpers::resolve_optional_dividend_yield(
+            market,
+            inst.div_yield_id.as_ref(),
+        )?;
+
+        // Get volatility (used for barrier bridge correction sigma)
+        let vol_surface = market.get_surface(inst.vol_surface_id.as_str())?;
+        let sigma = vol_surface.value_clamped(t, inst.strike);
+
+        // Fetch Heston parameters
+        let kappa = Self::heston_scalar(market, "HESTON_KAPPA", 2.0);
+        let theta = Self::heston_scalar(market, "HESTON_THETA", 0.04);
+        let sigma_v = Self::heston_scalar(market, "HESTON_SIGMA_V", 0.3);
+        let rho = Self::heston_scalar(market, "HESTON_RHO", -0.7);
+        let v0 = Self::heston_scalar(market, "HESTON_V0", 0.04);
+
+        let heston_params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0)?;
+        let process = HestonProcess::new(heston_params);
+        let discretization = QeHeston::new();
+
+        // Build time grid
+        let num_steps = ((t * self.steps_per_year).round() as usize).max(10);
+        let time_grid = TimeGrid::uniform(t, num_steps)?;
+        let maturity_step = time_grid.num_steps();
+
+        // Create barrier payoff (uses vol-surface sigma for bridge correction)
+        let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
+        let payoff = BarrierOptionPayoff::new(
+            inst.strike,
+            inst.barrier.amount(),
+            mc_barrier_type,
+            Self::convert_option_kind(inst.option_type),
+            inst.rebate.map(|m| m.amount()),
+            inst.notional.amount(),
+            maturity_step,
+            sigma,
+            &time_grid,
+            inst.use_gobet_miri,
+        );
+
+        let num_paths = inst
+            .pricing_overrides
+            .model_config
+            .mc_paths
+            .filter(|&n| n > 0)
+            .unwrap_or(self.num_paths);
+
+        // Derive deterministic seed
+        let seed_val = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
+            seed::derive_seed(&inst.id, scenario)
+        } else {
+            seed::derive_seed(&inst.id, "base")
+        };
+
+        let engine = McEngine::builder()
+            .num_paths(num_paths)
+            .seed(seed_val)
+            .time_grid(time_grid)
+            .build()?;
+
+        let rng = PhiloxRng::new(seed_val);
+
+        // Initial state: [spot, v0]
+        let initial_state = [spot, v0];
+
+        let result = engine.price(
+            &rng,
+            &process,
+            &discretization,
+            &initial_state,
+            &payoff,
+            inst.notional.currency(),
+            discount_factor,
+        )?;
+
+        Ok((result.mean, result.stderr))
+    }
+}
+
+#[cfg(feature = "mc")]
+impl Default for BarrierOptionHestonMcPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "mc")]
+impl Pricer for BarrierOptionHestonMcPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloHeston)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<ValuationResult> {
+        let barrier = instrument
+            .as_any()
+            .downcast_ref::<BarrierOption>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::BarrierOption, instrument.key())
+            })?;
+
+        let (pv, stderr) = self.price_internal(barrier, market, as_of).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+
+        let mut result = ValuationResult::stamped(barrier.id(), as_of, pv);
+        if stderr > 0.0 {
+            result
+                .measures
+                .insert(crate::metrics::MetricId::custom("mc_stderr"), stderr);
+        }
+        Ok(result)
+    }
+}
+
+/// Price an expired barrier option using explicit observed barrier state.
+#[cfg(feature = "mc")]
+fn price_expired_barrier(
+    inst: &BarrierOption,
+    curves: &MarketContext,
+) -> finstack_core::Result<Money> {
+    use crate::instruments::exotics::barrier_option::types::BarrierType;
+
+    let spot_scalar = curves.get_price(&inst.spot_id)?;
+    let spot = match spot_scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+    };
+
+    let ccy = inst.notional.currency();
+    let notional = inst.notional.amount();
+    let is_knock_out = matches!(
+        inst.barrier_type,
+        BarrierType::UpAndOut | BarrierType::DownAndOut
+    );
+
+    let barrier_breached = inst.observed_barrier_breached.ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "Expired barrier option requires `observed_barrier_breached` to determine realized payoff"
+                .to_string(),
+        )
+    })?;
+
+    let intrinsic = match inst.option_type {
+        crate::instruments::OptionType::Call => (spot - inst.strike).max(0.0) * notional,
+        crate::instruments::OptionType::Put => (inst.strike - spot).max(0.0) * notional,
+    };
+    let rebate = inst.rebate.map(|m| m.amount()).unwrap_or(0.0);
+
+    let pv = if is_knock_out {
+        if barrier_breached {
+            rebate
+        } else {
+            intrinsic
+        }
+    } else {
+        // Knock-in
+        if barrier_breached {
+            intrinsic
+        } else {
+            rebate
+        }
+    };
+
+    Ok(Money::new(pv, ccy))
+}

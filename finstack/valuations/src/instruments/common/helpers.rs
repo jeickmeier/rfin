@@ -142,6 +142,22 @@ pub fn resolve_optional_dividend_yield(
     }
 }
 
+/// Extract a unitless market scalar with a fallback default.
+///
+/// Commonly used to fetch model parameters (e.g. Heston kappa, rough vol Hurst
+/// exponent) from the market context. Returns the `default` when the scalar is
+/// absent or has a non-unitless type.
+pub fn get_unitless_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
+    market
+        .get_price(key)
+        .ok()
+        .and_then(|s| match s {
+            MarketScalar::Unitless(v) => Some(*v),
+            _ => None,
+        })
+        .unwrap_or(default)
+}
+
 /// Shared helper to build a ValuationResult with a set of metrics.
 ///
 /// Centralizes the repeated pattern across instruments to compute base value,

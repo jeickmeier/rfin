@@ -104,7 +104,7 @@ pub(crate) fn compute_pv(
     Ok(Money::new(unit_price * inst.notional.amount(), ccy))
 }
 
-fn option_currency(inst: &EquityOption) -> Currency {
+pub(crate) fn option_currency(inst: &EquityOption) -> Currency {
     inst.notional.currency()
 }
 

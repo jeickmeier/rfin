@@ -18,9 +18,6 @@
 //! - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*,
 //!   Ch. 8, Springer.
 
-// Public API not yet wired to pricer registry
-#![allow(dead_code)]
-
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use finstack_monte_carlo::discretization::lmm_predictor_corrector::LmmPredictorCorrector;

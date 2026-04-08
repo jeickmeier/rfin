@@ -46,7 +46,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CDSTrancheQuote {
     /// CDS Index Tranche.
@@ -63,6 +63,7 @@ pub enum CDSTrancheQuote {
         detachment: f64,
         /// Maturity date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
         maturity: finstack_core::dates::Date,
         /// Upfront payment as a decimal fraction of tranche notional (e.g., -0.025 for -2.5%).
         upfront_pct: f64,

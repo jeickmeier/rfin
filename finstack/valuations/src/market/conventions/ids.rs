@@ -14,7 +14,7 @@ pub type IndexId = finstack_core::types::IndexId;
 macro_rules! define_convention_id {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, schemars::JsonSchema)]
         pub struct $name(String);
 
         impl $name {
@@ -162,7 +162,7 @@ impl std::str::FromStr for CdsDocClause {
 ///     doc_clause: CdsDocClause::Cr14,
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CdsConventionKey {
     /// The currency of the CDS.
     pub currency: Currency,

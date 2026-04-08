@@ -403,6 +403,14 @@ fn main() {
         "recovery_model_spec"
     );
 
+    // Market quotes
+    gen_standalone_schema!(
+        "market_quote",
+        finstack_valuations::market::quotes::market_quote::MarketQuote,
+        "market/1",
+        "market_quote"
+    );
+
     // Margin
     gen_standalone_schema!(
         "margin",

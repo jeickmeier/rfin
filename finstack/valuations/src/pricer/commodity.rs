@@ -59,4 +59,26 @@ pub(crate) fn register_commodity_pricers(registry: &mut PricerRegistry) {
         ModelKey::Black76,
         crate::instruments::commodity::commodity_spread_option::pricer::CommoditySpreadOptionKirkPricer::default(),
     );
+
+    // Commodity Option - Monte Carlo Schwartz-Smith
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::CommodityOption,
+        ModelKey::MonteCarloSchwartzSmith,
+        crate::instruments::commodity::commodity_option::pricer::CommodityOptionMcPricer::new(
+            crate::instruments::commodity::commodity_option::CommodityMcParams {
+                model: crate::instruments::commodity::commodity_option::CommodityPricingModel::SchwartzSmith {
+                    kappa: 1.0,
+                    sigma_x: 0.3,
+                    sigma_y: 0.15,
+                    rho_xy: 0.3,
+                    mu_y: 0.0,
+                    lambda_x: 0.0,
+                },
+                n_paths: 100_000,
+                n_steps: 252,
+                seed: None,
+            },
+        ),
+    );
 }

@@ -34,5 +34,8 @@ pub(crate) mod pricer;
 pub(crate) mod traits;
 pub(crate) mod types;
 
+#[cfg(feature = "mc")]
+pub(crate) mod heston_mc_pricer;
+
 pub use pricer::{AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer};
 pub use types::{AsianOption, AsianOptionBuilder, AveragingMethod};

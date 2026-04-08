@@ -77,6 +77,7 @@
 //! - [`RateOptionType`] for cap vs floor distinction
 //! - cap/floor metrics module for risk metrics (DV01, vega)
 
+pub(crate) mod hw_pricer;
 pub(crate) mod metrics;
 pub(crate) mod parameters;
 pub(crate) mod pricing;

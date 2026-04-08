@@ -251,6 +251,78 @@ pub fn valuation_result_schema() -> finstack_core::Result<&'static Value> {
         .map_err(|e| finstack_core::Error::Validation(e.clone()))
 }
 
+/// Validate an instrument JSON value against the envelope schema.
+///
+/// Returns `Ok(())` if the JSON conforms to the instrument envelope schema,
+/// or a detailed `Error::Validation` listing all schema violations.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use finstack_valuations::schema::validate_instrument_json;
+///
+/// let json: serde_json::Value = serde_json::json!({
+///     "schema": "finstack.instrument/1",
+///     "instrument": { "type": "bond", "spec": {} }
+/// });
+/// if let Err(e) = validate_instrument_json(&json) {
+///     eprintln!("Validation errors: {e}");
+/// }
+/// ```
+///
+/// # Errors
+///
+/// Returns `Error::Validation` if the JSON does not conform to the schema.
+pub fn validate_instrument_json(instance: &Value) -> finstack_core::Result<()> {
+    let schema = instrument_envelope_schema()?;
+    validate_against_schema(instance, schema, "instrument envelope")
+}
+
+/// Validate a JSON value against a specific instrument type's schema.
+///
+/// # Errors
+///
+/// Returns `Error::Validation` if the JSON does not conform to the schema.
+pub fn validate_instrument_type_json(
+    instrument_type: &str,
+    instance: &Value,
+) -> finstack_core::Result<()> {
+    let schema = instrument_schema(instrument_type)?;
+    validate_against_schema(instance, &schema, instrument_type)
+}
+
+/// Validate a JSON value against an arbitrary schema.
+fn validate_against_schema(
+    instance: &Value,
+    schema: &Value,
+    context: &str,
+) -> finstack_core::Result<()> {
+    let validator = jsonschema::validator_for(schema)
+        .map_err(|e| finstack_core::Error::Validation(format!("Invalid {context} schema: {e}")))?;
+
+    let errors: Vec<String> = validator
+        .iter_errors(instance)
+        .map(|e| {
+            let path = e.instance_path.to_string();
+            if path.is_empty() {
+                e.to_string()
+            } else {
+                format!("{path}: {e}")
+            }
+        })
+        .collect();
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(finstack_core::Error::Validation(format!(
+            "{context} validation failed with {} error(s):\n  {}",
+            errors.len(),
+            errors.join("\n  ")
+        )))
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -335,5 +407,44 @@ mod tests {
         assert_eq!(bond["title"], "Bond");
         let swap = instrument_schema("interest_rate_swap").expect("irs");
         assert_eq!(swap["title"], "Interest Rate Swap");
+    }
+
+    #[test]
+    fn test_validate_instrument_json_accepts_valid_envelope() {
+        let valid = serde_json::json!({
+            "schema": "finstack.instrument/1",
+            "instrument": {
+                "type": "bond",
+                "spec": {}
+            }
+        });
+        assert!(
+            validate_instrument_json(&valid).is_ok(),
+            "valid envelope should pass validation"
+        );
+    }
+
+    #[test]
+    fn test_validate_instrument_json_rejects_missing_schema() {
+        let invalid = serde_json::json!({
+            "instrument": { "type": "bond", "spec": {} }
+        });
+        let msg = validate_instrument_json(&invalid)
+            .expect_err("missing 'schema' field should fail")
+            .to_string();
+        assert!(
+            msg.contains("validation failed"),
+            "error should mention validation: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_validate_instrument_json_rejects_unknown_type() {
+        let invalid = serde_json::json!({
+            "schema": "finstack.instrument/1",
+            "instrument": { "type": "not_real", "spec": {} }
+        });
+        let err = validate_instrument_json(&invalid);
+        assert!(err.is_err(), "unknown instrument type should fail");
     }
 }

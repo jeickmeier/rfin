@@ -19,7 +19,9 @@ use time::Date;
 /// let id = QuoteId::new("USD-SOFR-DEP-1M");
 /// assert_eq!(id.as_str(), "USD-SOFR-DEP-1M");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, schemars::JsonSchema,
+)]
 pub struct QuoteId(String);
 
 impl QuoteId {
@@ -107,7 +109,7 @@ impl From<String> for QuoteId {
 ///
 /// let pillar = Pillar::Date(Date::from_calendar_date(2029, time::Month::June, 20).unwrap());
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Pillar {
     /// A relative tenor (e.g., 5Y, 3M).
@@ -119,7 +121,7 @@ pub enum Pillar {
     ///
     /// The maturity is fixed to a specific date, regardless of the valuation date. This is
     /// typically used for futures contracts or bespoke instruments with fixed maturities.
-    Date(Date),
+    Date(#[schemars(with = "String")] Date),
 }
 
 impl fmt::Display for Pillar {

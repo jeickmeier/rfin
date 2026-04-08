@@ -137,4 +137,18 @@ pub(crate) fn register_rates_pricers(registry: &mut PricerRegistry) {
         ModelKey::Discounting,
         crate::instruments::equity::dcf_equity::pricer::DcfPricer,
     );
+
+    // Swaption - Hull-White 1F Tree
+    registry.register(
+        InstrumentType::Swaption,
+        ModelKey::HullWhite1F,
+        crate::instruments::rates::swaption::hw_pricer::SwaptionHullWhitePricer::default(),
+    );
+
+    // Cap/Floor - Hull-White 1F
+    registry.register(
+        InstrumentType::CapFloor,
+        ModelKey::HullWhite1F,
+        crate::instruments::rates::cap_floor::hw_pricer::CapFloorHullWhitePricer::default(),
+    );
 }

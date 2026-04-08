@@ -624,8 +624,9 @@ impl InstrumentEnvelope {
             return Self::finalize_loaded_instrument(envelope.instrument.into_boxed()?);
         }
 
-        let instrument_json: InstrumentJson =
-            serde_json::from_value(value).map_err(|_| finstack_core::InputError::Invalid)?;
+        let instrument_json: InstrumentJson = serde_json::from_value(value).map_err(|e| {
+            finstack_core::Error::Validation(format!("Failed to parse instrument JSON: {e}"))
+        })?;
         Self::finalize_loaded_instrument(instrument_json.into_boxed()?)
     }
 
@@ -648,8 +649,8 @@ impl InstrumentEnvelope {
     /// - Unknown fields are present (strict mode)
     /// - Spec validation fails
     pub fn from_reader<R: Read>(reader: R) -> Result<Box<DynInstrument>> {
-        let value =
-            serde_json::from_reader(reader).map_err(|_| finstack_core::InputError::Invalid)?;
+        let value = serde_json::from_reader(reader)
+            .map_err(|e| finstack_core::Error::Validation(format!("Failed to parse JSON: {e}")))?;
         Self::from_value(value)
     }
 
@@ -671,8 +672,13 @@ impl InstrumentEnvelope {
     ///
     /// A boxed instrument trait object ready for pricing.
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Box<DynInstrument>> {
-        let file =
-            std::fs::File::open(path.as_ref()).map_err(|_| finstack_core::InputError::Invalid)?;
+        let path = path.as_ref();
+        let file = std::fs::File::open(path).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "Failed to open instrument JSON file '{}': {e}",
+                path.display()
+            ))
+        })?;
         Self::from_reader(file)
     }
 }

@@ -90,6 +90,13 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         ),
     );
 
+    // CMS Option - Static Replication (Andersen-Piterbarg)
+    registry.register(
+        InstrumentType::CmsOption,
+        ModelKey::StaticReplication,
+        crate::instruments::rates::cms_option::replication_pricer::CmsReplicationPricer::new(),
+    );
+
     // CMS Swap
     registry.register(
         InstrumentType::CmsSwap,
@@ -121,5 +128,53 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::lsmc_pricer(
             crate::instruments::rates::swaption::pricer::HullWhiteParams::default(),
         ),
+    );
+
+    // Bermudan Swaption - Hull-White 1F Tree
+    registry.register(
+        InstrumentType::BermudanSwaption,
+        ModelKey::HullWhite1F,
+        crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::tree_pricer(
+            crate::instruments::rates::swaption::pricer::HullWhiteParams::default(),
+        ),
+    );
+
+    // Barrier Option - PDE Crank-Nicolson 1D
+    registry.register(
+        InstrumentType::BarrierOption,
+        ModelKey::PdeCrankNicolson1D,
+        crate::instruments::exotics::barrier_option::pde_pricer::BarrierOptionPdePricer::default(),
+    );
+
+    // Barrier Option - Monte Carlo Heston
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::BarrierOption,
+        ModelKey::MonteCarloHeston,
+        crate::instruments::exotics::barrier_option::heston_mc_pricer::BarrierOptionHestonMcPricer::default(),
+    );
+
+    // Asian Option - Monte Carlo Heston
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::AsianOption,
+        ModelKey::MonteCarloHeston,
+        crate::instruments::exotics::asian_option::heston_mc_pricer::AsianOptionHestonMcPricer::default(),
+    );
+
+    // Bermudan Swaption - LMM Monte Carlo
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::BermudanSwaption,
+        ModelKey::LmmMonteCarlo,
+        crate::instruments::rates::swaption::lmm_pricer::BermudanSwaptionLmmPricer::default(),
+    );
+
+    // Bermudan Swaption - Cheyette Rough Vol Monte Carlo
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::BermudanSwaption,
+        ModelKey::MonteCarloCheyetteRoughVol,
+        crate::instruments::rates::swaption::cheyette_rough_pricer::BermudanSwaptionCheyetteRoughPricer::default(),
     );
 }

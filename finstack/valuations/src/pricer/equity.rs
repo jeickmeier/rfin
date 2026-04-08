@@ -98,4 +98,50 @@ pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
         ModelKey::Discounting,
         crate::instruments::equity::pe_fund::pricer::PrivateMarketsFundDiscountingPricer,
     );
+
+    // Equity Option - PDE Crank-Nicolson 1D (Black-Scholes)
+    registry.register(
+        InstrumentType::EquityOption,
+        ModelKey::PdeCrankNicolson1D,
+        crate::instruments::equity::equity_option::pde_pricer::EquityOptionPdePricer::default(),
+    );
+
+    // Equity Option - PDE ADI 2D (Heston)
+    registry.register(
+        InstrumentType::EquityOption,
+        ModelKey::PdeAdi2D,
+        crate::instruments::equity::equity_option::pde2d_pricer::EquityOptionHestonPdePricer::default(),
+    );
+
+    // Equity Option - Monte Carlo Heston
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::EquityOption,
+        ModelKey::MonteCarloHeston,
+        crate::instruments::equity::equity_option::heston_mc_pricer::EquityOptionHestonMcPricer::default(),
+    );
+
+    // Equity Option - Rough Heston Fourier
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::EquityOption,
+        ModelKey::RoughHestonFourier,
+        crate::instruments::equity::equity_option::rough_heston_fourier_pricer::EquityOptionRoughHestonFourierPricer,
+    );
+
+    // Equity Option - Monte Carlo Rough Heston
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::EquityOption,
+        ModelKey::MonteCarloRoughHeston,
+        crate::instruments::equity::equity_option::rough_heston_mc_pricer::EquityOptionRoughHestonMcPricer::default(),
+    );
+
+    // Equity Option - Monte Carlo Rough Bergomi
+    #[cfg(feature = "mc")]
+    registry.register(
+        InstrumentType::EquityOption,
+        ModelKey::MonteCarloRoughBergomi,
+        crate::instruments::equity::equity_option::rough_bergomi_mc_pricer::EquityOptionRoughBergomiMcPricer::default(),
+    );
 }

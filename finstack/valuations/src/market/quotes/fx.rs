@@ -13,7 +13,7 @@ use ts_rs::TS;
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FxQuote {
     /// Outright FX forward quote quoted as quote-currency per base-currency.
@@ -56,6 +56,7 @@ pub enum FxQuote {
         convention: FxOptionConventionId,
         /// Option expiry date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
         expiry: Date,
         /// Strike exchange rate quoted as quote-currency per base-currency.
         strike: f64,
