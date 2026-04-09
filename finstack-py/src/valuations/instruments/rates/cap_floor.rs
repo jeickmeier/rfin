@@ -526,11 +526,19 @@ impl PyInterestRateOption {
 
     /// Strike rate in decimal form.
     ///
-    /// Returns:
-    ///     float: Strike rate of the instrument.
+    /// Returns
+    /// -------
+    /// float
+    ///     Strike rate of the cap/floor.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
+    fn strike(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike)
+            .ok_or_else(|| PyValueError::new_err("strike: decimal to f64 conversion failed"))
     }
 
     /// Start date for accrual.

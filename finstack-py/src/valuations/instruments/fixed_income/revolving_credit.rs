@@ -727,14 +727,44 @@ impl PyFeeTier {
         })
     }
 
+    /// Utilization threshold for this fee tier.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Threshold as a decimal number.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn threshold(&self) -> f64 {
-        self.inner.threshold.to_string().parse().unwrap_or(0.0)
+    fn threshold(&self) -> PyResult<f64> {
+        self.inner
+            .threshold
+            .to_string()
+            .parse()
+            .map_err(|_| PyValueError::new_err("threshold: decimal to f64 conversion failed"))
     }
 
+    /// Fee rate in basis points for this tier.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Fee rate in basis points.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn bps(&self) -> f64 {
-        self.inner.bps.to_string().parse().unwrap_or(0.0)
+    fn bps(&self) -> PyResult<f64> {
+        self.inner
+            .bps
+            .to_string()
+            .parse()
+            .map_err(|_| PyValueError::new_err("bps: decimal to f64 conversion failed"))
     }
 
     fn __repr__(&self) -> String {

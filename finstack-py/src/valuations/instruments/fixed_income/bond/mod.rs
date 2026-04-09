@@ -77,14 +77,17 @@ impl PyBondSettlementConvention {
         }
     }
 
+    /// Settlement lag in business days (e.g., 2 = T+2 standard settlement).
     #[getter]
     fn settlement_days(&self) -> u32 {
         self.inner.settlement_days
     }
+    /// Number of business days before a coupon date when the bond trades ex-coupon.
     #[getter]
     fn ex_coupon_days(&self) -> u32 {
         self.inner.ex_coupon_days
     }
+    /// Holiday calendar identifier used for ex-coupon day counting.
     #[getter]
     fn ex_coupon_calendar_id(&self) -> Option<String> {
         self.inner.ex_coupon_calendar_id.clone()
@@ -155,10 +158,13 @@ impl PyMakeWholeSpec {
         }
     }
 
+    /// Reference treasury curve identifier for make-whole calculation.
     #[getter]
     fn reference_curve_id(&self) -> String {
         self.inner.reference_curve_id.as_str().to_string()
     }
+    /// Make-whole spread in basis points added to the reference curve
+    /// (e.g., 50.0 = 50bps = 0.50%).
     #[getter]
     fn spread_bps(&self) -> f64 {
         self.inner.spread_bps
@@ -204,14 +210,17 @@ impl PyCallPut {
         })
     }
 
+    /// First date the call/put option becomes exercisable.
     #[getter]
     fn date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.date)
     }
+    /// Exercise price as percentage of par (e.g., 102.0 = 102% of par).
     #[getter]
     fn price_pct_of_par(&self) -> f64 {
         self.inner.price_pct_of_par
     }
+    /// Last date the call/put option is exercisable (if a range is specified).
     #[getter]
     fn end_date(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         self.inner.end_date.map(|d| date_to_py(py, d)).transpose()
@@ -878,7 +887,30 @@ impl PyBondBuilder {
 impl PyBond {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
-    /// Start a fluent builder (``Bond.builder(\"ID\")``).
+    /// Start a fluent builder for a bond instrument.
+    ///
+    /// The builder applies market-standard defaults that can be overridden:
+    ///
+    /// - ``day_count``: 30/360 -- US corporate and government bond convention
+    /// - ``frequency``: semi-annual (6M) -- US market standard
+    /// - ``bdc``: Following -- adjusts coupon dates forward to the next business day
+    /// - ``coupon_rate``: 0.0 -- defaults to zero-coupon; override for coupon bonds
+    /// - ``float_reset_lag_days``: 2 (T+2) -- standard settlement lag for FRNs
+    /// - ``float_gearing``: 1.0 -- no leverage on the floating index
+    /// - ``stub``: None -- no stub periods
+    ///
+    /// Examples
+    /// --------
+    /// >>> from datetime import date
+    /// >>> bond = (Bond.builder("us-corp-5y")
+    /// ...     .notional(1_000_000)
+    /// ...     .currency("USD")
+    /// ...     .coupon_rate(0.05)
+    /// ...     .frequency("6m")
+    /// ...     .issue(date(2024, 1, 15))
+    /// ...     .maturity(date(2029, 1, 15))
+    /// ...     .disc_id("USD-OIS")
+    /// ...     .build())
     fn builder<'py>(cls: &Bound<'py, PyType>, instrument_id: &str) -> PyResult<Py<PyBondBuilder>> {
         let py = cls.py();
         let builder = PyBondBuilder::new_with_id(InstrumentId::new(instrument_id));
@@ -908,20 +940,34 @@ impl PyBond {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Annual coupon rate in decimal form (for fixed bonds only).
+    /// Annual coupon rate as decimal (e.g., 0.05 = 5%) for fixed-rate bonds.
     ///
-    /// Returns:
-    ///     float: Annual coupon rate, or 0.0 for non-fixed bonds.
+    /// Returns 0.0 for floating-rate or zero-coupon bonds.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Annual coupon rate as a decimal fraction.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn coupon(&self) -> f64 {
+    fn coupon(&self) -> PyResult<f64> {
         use rust_decimal::prelude::ToPrimitive;
         match &self.inner.cashflow_spec {
-            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
+            CashflowSpec::Fixed(spec) => spec
+                .rate
+                .to_f64()
+                .ok_or_else(|| PyValueError::new_err("coupon: decimal to f64 conversion failed")),
             CashflowSpec::Amortizing { base, .. } => match &**base {
-                CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
-                _ => 0.0,
+                CashflowSpec::Fixed(spec) => spec.rate.to_f64().ok_or_else(|| {
+                    PyValueError::new_err("coupon: decimal to f64 conversion failed")
+                }),
+                _ => Ok(0.0),
             },
-            _ => 0.0,
+            _ => Ok(0.0),
         }
     }
 
@@ -973,25 +1019,39 @@ impl PyBond {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Bond)
     }
 
-    /// Number of settlement days (T+n), if a settlement convention is set.
+    /// Number of settlement business days (e.g., 2 = T+2), if a settlement
+    /// convention is set.
+    ///
+    /// Returns:
+    ///     int | None: Settlement lag in business days, or ``None``.
     #[getter]
     fn settlement_days(&self) -> Option<u32> {
         self.inner.settlement_days()
     }
 
-    /// Number of ex-coupon days before a coupon date, if set.
+    /// Number of business days before a coupon date when the bond trades
+    /// ex-coupon, if set.
+    ///
+    /// Returns:
+    ///     int | None: Ex-coupon period in business days, or ``None``.
     #[getter]
     fn ex_coupon_days(&self) -> Option<u32> {
         self.inner.ex_coupon_days()
     }
 
-    /// Calendar identifier used for ex-coupon day counting, if set.
+    /// Holiday calendar identifier used for ex-coupon day counting, if set.
+    ///
+    /// Returns:
+    ///     str | None: Calendar identifier, or ``None``.
     #[getter]
     fn ex_coupon_calendar_id(&self) -> Option<String> {
         self.inner.ex_coupon_calendar_id().map(|s| s.to_string())
     }
 
-    /// Accrual method ("linear" or "compounded").
+    /// Accrual method (``"linear"`` or ``"compounded"``).
+    ///
+    /// Returns:
+    ///     str: Accrual method label.
     #[getter]
     fn accrual_method(&self) -> &'static str {
         match &self.inner.accrual_method {

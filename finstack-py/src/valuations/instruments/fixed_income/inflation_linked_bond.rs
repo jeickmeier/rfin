@@ -318,13 +318,21 @@ impl PyInflationLinkedBond {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Real coupon rate in decimal form.
+    /// Real coupon rate in decimal form (e.g., 0.02 for 2%).
     ///
-    /// Returns:
-    ///     float: Real coupon rate.
+    /// Returns
+    /// -------
+    /// float
+    ///     Real coupon rate before inflation adjustment.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn real_coupon(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.real_coupon).unwrap_or_default()
+    fn real_coupon(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.real_coupon)
+            .ok_or_else(|| PyValueError::new_err("real_coupon: decimal to f64 conversion failed"))
     }
 
     /// Maturity date of the bond.

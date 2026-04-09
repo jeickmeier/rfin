@@ -421,7 +421,31 @@ impl PyCDSTrancheBuilder {
 impl PyCDSTranche {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
-    /// Start a fluent builder (builder-only API).
+    /// Start a fluent builder for a CDS tranche.
+    ///
+    /// The builder applies market-standard defaults that can be overridden:
+    ///
+    /// - ``side``: BuyProtection -- default protection buyer perspective
+    /// - ``payments_per_year``: 4 (quarterly) -- CDS index standard coupon frequency
+    /// - ``day_count``: Act/360 -- ISDA CDS standard
+    /// - ``business_day_convention``: Following -- ISDA CDS standard
+    /// - ``standard_imm_dates``: true -- enforce IMM date schedule (Mar/Jun/Sep/Dec 20th)
+    /// - ``accumulated_loss``: 0.0 -- no prior realized losses
+    ///
+    /// Examples
+    /// --------
+    /// >>> from datetime import date
+    /// >>> tranche = (CDSTranche.builder("itraxx-3-7")
+    /// ...     .index_name("iTraxx Europe")
+    /// ...     .series(38)
+    /// ...     .attach_pct(3.0)
+    /// ...     .detach_pct(7.0)
+    /// ...     .notional(Money(10_000_000, "EUR"))
+    /// ...     .maturity(date(2029, 3, 20))
+    /// ...     .running_coupon_bp(500.0)
+    /// ...     .discount_curve("EUR-ESTR")
+    /// ...     .credit_index_curve("ITRAXX-EUR-MAIN")
+    /// ...     .build())
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
@@ -449,7 +473,9 @@ impl PyCDSTranche {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Attachment point percentage.
+    /// Attachment point as percentage of index portfolio notional (e.g., 3.0 = 3%).
+    ///
+    /// Losses below the attachment point are absorbed by more junior tranches.
     ///
     /// Returns:
     ///     float: Attachment level in percent.
@@ -458,7 +484,9 @@ impl PyCDSTranche {
         self.inner.attach_pct
     }
 
-    /// Detachment point percentage.
+    /// Detachment point as percentage of index portfolio notional (e.g., 7.0 = 7%).
+    ///
+    /// Losses above the detachment point are absorbed by more senior tranches.
     ///
     /// Returns:
     ///     float: Detachment level in percent.
@@ -467,10 +495,12 @@ impl PyCDSTranche {
         self.inner.detach_pct
     }
 
-    /// Running coupon in basis points.
+    /// Running coupon in basis points (e.g., 500.0 = 500bps = 5%).
+    ///
+    /// Periodic spread paid on the outstanding (non-defaulted) tranche balance.
     ///
     /// Returns:
-    ///     float: Running spread paid on outstanding tranche balance.
+    ///     float: Running spread in basis points.
     #[getter]
     fn running_coupon_bp(&self) -> f64 {
         self.inner.running_coupon_bp
@@ -554,7 +584,11 @@ impl PyCDSTranche {
         }
     }
 
-    /// Accumulated realized loss as fraction of original portfolio notional.
+    /// Accumulated realized loss as a fraction of original portfolio notional
+    /// (e.g., 0.02 = 2% of portfolio has defaulted).
+    ///
+    /// Returns:
+    ///     float: Accumulated loss as a decimal fraction.
     #[getter]
     fn accumulated_loss(&self) -> f64 {
         self.inner.accumulated_loss
@@ -575,7 +609,20 @@ impl PyCDSTranche {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSTranche)
     }
 
-    /// Calculate upfront amount.
+    /// Calculate upfront fee as a fraction of tranche notional
+    /// (e.g., 0.03 = 3% upfront).
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount and credit curves.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Upfront fee as a decimal fraction of notional.
     #[pyo3(signature = (market, as_of))]
     fn upfront(
         &self,
@@ -588,7 +635,20 @@ impl PyCDSTranche {
             .map_err(core_to_py)
     }
 
-    /// Calculate spread DV01 (sensitivity to 1bp running coupon change).
+    /// Spread DV01: present value change per 1 basis point parallel widening
+    /// of the credit spread curve.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount and credit curves.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Spread DV01 in currency units.
     #[pyo3(signature = (market, as_of))]
     fn spread_dv01(
         &self,
@@ -601,7 +661,13 @@ impl PyCDSTranche {
             .map_err(core_to_py)
     }
 
-    /// Calculate par spread (running coupon in basis points).
+    /// Par spread: the running coupon in basis points that makes the
+    /// tranche mark-to-market equal to zero.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Par spread in basis points.
     #[pyo3(signature = (market, as_of))]
     fn par_spread(
         &self,
@@ -614,14 +680,25 @@ impl PyCDSTranche {
             .map_err(core_to_py)
     }
 
-    /// Calculate expected loss.
+    /// Expected loss as a fraction of tranche notional over the remaining life.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Expected loss as a decimal fraction (e.g., 0.05 = 5%).
     #[pyo3(signature = (market,))]
     fn expected_loss(&self, py: Python<'_>, market: &PyMarketContext) -> PyResult<f64> {
         py.detach(|| self.inner.expected_loss(&market.inner))
             .map_err(core_to_py)
     }
 
-    /// Calculate jump-to-default metric.
+    /// Jump-to-default risk: PV impact of an immediate single-name default
+    /// in the index portfolio, as a fraction of tranche notional.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Jump-to-default loss as a decimal fraction.
     #[pyo3(signature = (market, as_of))]
     fn jump_to_default(
         &self,
@@ -634,7 +711,22 @@ impl PyCDSTranche {
             .map_err(core_to_py)
     }
 
-    /// Calculate correlation delta (sensitivity to correlation changes).
+    /// Sensitivity of tranche value to a parallel shift in base correlation.
+    ///
+    /// A positive correlation delta means the tranche value increases when
+    /// default correlation rises (typical for senior tranches).
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount and credit curves.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Correlation delta in currency units per unit correlation shift.
     #[pyo3(signature = (market, as_of))]
     fn correlation_delta(
         &self,
@@ -647,7 +739,13 @@ impl PyCDSTranche {
             .map_err(core_to_py)
     }
 
-    /// Calculate accrued premium.
+    /// Accrued premium from the last coupon date to the valuation date,
+    /// in currency units (absolute amount, not as a fraction of notional).
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Accrued premium in currency units.
     #[pyo3(signature = (market, as_of))]
     fn accrued_premium(
         &self,

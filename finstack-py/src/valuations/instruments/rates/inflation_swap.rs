@@ -324,11 +324,19 @@ impl PyInflationSwap {
 
     /// Fixed leg rate in decimal form.
     ///
-    /// Returns:
-    ///     float: Fixed rate of the swap.
+    /// Returns
+    /// -------
+    /// float
+    ///     Fixed rate of the zero-coupon inflation swap.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn fixed_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
+    fn fixed_rate(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate)
+            .ok_or_else(|| PyValueError::new_err("fixed_rate: decimal to f64 conversion failed"))
     }
 
     /// Maturity date of the swap.
@@ -656,9 +664,21 @@ impl PyYoYInflationSwap {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Fixed leg rate in decimal form.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Fixed rate of the year-on-year inflation swap.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn fixed_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
+    fn fixed_rate(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate)
+            .ok_or_else(|| PyValueError::new_err("fixed_rate: decimal to f64 conversion failed"))
     }
 
     #[getter]

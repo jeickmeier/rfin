@@ -435,10 +435,21 @@ impl PyCommoditySwap {
         self.inner.quantity
     }
 
-    /// Fixed price per unit.
+    /// Fixed price per unit in the swap contract.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Fixed price as a decimal number.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn fixed_price(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_price).unwrap_or_default()
+    fn fixed_price(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_price)
+            .ok_or_else(|| PyValueError::new_err("fixed_price: decimal to f64 conversion failed"))
     }
 
     /// Whether paying fixed (receiving floating).
@@ -471,7 +482,12 @@ impl PyCommoditySwap {
         self.inner.discount_curve_id.as_str()
     }
 
-    /// Payment frequency as a string (e.g., "1M", "3M").
+    /// Payment frequency as a tenor string (e.g., "1M", "3M").
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Tenor string combining count and unit (D/W/M/Y).
     #[getter]
     fn payment_frequency(&self) -> String {
         format!(
@@ -492,13 +508,23 @@ impl PyCommoditySwap {
         self.inner.calendar_id.as_deref()
     }
 
-    /// Business day convention.
+    /// Business day convention for payment date adjustment.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Convention label such as "ModifiedFollowing" or "Following".
     #[getter]
     fn bdc(&self) -> &str {
         business_day_convention_label(self.inner.bdc)
     }
 
-    /// Index lag in days, if set.
+    /// Number of business days between observation and payment, if set.
+    ///
+    /// Returns
+    /// -------
+    /// int or None
+    ///     Index lag in business days, or None if not specified.
     #[getter]
     fn index_lag_days(&self) -> Option<i32> {
         self.inner.index_lag_days

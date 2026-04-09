@@ -409,11 +409,20 @@ impl PyCdsIndex {
 
     /// Fixed coupon in basis points.
     ///
-    /// Returns:
-    ///     float: Coupon spread applied to premium leg.
+    /// Returns
+    /// -------
+    /// float
+    ///     Coupon spread applied to premium leg in basis points.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn fixed_coupon_bp(&self) -> f64 {
-        self.inner.premium.spread_bp.to_f64().unwrap_or(0.0)
+    fn fixed_coupon_bp(&self) -> PyResult<f64> {
+        self.inner.premium.spread_bp.to_f64().ok_or_else(|| {
+            PyValueError::new_err("fixed_coupon_bp: decimal to f64 conversion failed")
+        })
     }
 
     /// Pay/receive direction for protection.

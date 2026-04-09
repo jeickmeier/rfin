@@ -452,24 +452,46 @@ impl PyInterestRateSwapBuilder {
         Ok(slf)
     }
 
+    /// Set the discount curve used for present-value discounting.
+    ///
+    /// Parameters
+    /// ----------
+    /// curve_id : str
+    ///     Identifier of the discount curve in the MarketContext
+    ///     (e.g., ``"USD-OIS"``, ``"EUR-ESTR"``).
     #[pyo3(text_signature = "($self, curve_id)")]
     fn discount_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Set the discount curve identifier.
+    ///
+    /// .. deprecated::
+    ///     Use :meth:`discount_curve` instead. This alias will be removed in a future release.
     #[pyo3(text_signature = "($self, curve_id)")]
     fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.discount_curve = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Set the forward projection curve used for floating-rate resets.
+    ///
+    /// Parameters
+    /// ----------
+    /// curve_id : str
+    ///     Identifier of the forward curve in the MarketContext
+    ///     (e.g., ``"USD-SOFR-3M"``, ``"EUR-EURIBOR-6M"``).
     #[pyo3(text_signature = "($self, curve_id)")]
     fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve = Some(CurveId::new(curve_id.as_str()));
         slf
     }
 
+    /// Set the forward curve identifier.
+    ///
+    /// .. deprecated::
+    ///     Use :meth:`forward_curve` instead. This alias will be removed in a future release.
     #[pyo3(text_signature = "($self, curve_id)")]
     fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve = Some(CurveId::new(curve_id.as_str()));
@@ -715,7 +737,30 @@ impl PyInterestRateSwapBuilder {
 impl PyInterestRateSwap {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
-    /// Start a fluent builder (builder-only API).
+    /// Start a fluent builder for an interest rate swap.
+    ///
+    /// The builder applies market-standard defaults that can be overridden:
+    ///
+    /// - ``fixed_frequency``: semi-annual (6M) -- standard for USD/EUR/GBP fixed legs
+    /// - ``float_frequency``: quarterly (3M) -- standard for SOFR/EURIBOR floating legs
+    /// - ``fixed_day_count``: 30/360 -- ISDA standard for fixed legs
+    /// - ``float_day_count``: Act/360 -- ISDA standard for SOFR-linked floating legs
+    /// - ``business_day_convention``: Modified Following -- ISDA standard
+    /// - ``reset_lag_days``: 2 -- T+2 standard settlement lag
+    /// - ``float_spread_bp``: 0.0 -- no spread over the index
+    /// - ``stub``: None -- no stub periods
+    ///
+    /// Examples
+    /// --------
+    /// >>> swap = (InterestRateSwap.builder("usd-5y")
+    /// ...     .notional(10_000_000).currency("USD")
+    /// ...     .side("pay_fixed")
+    /// ...     .fixed_rate(0.04)
+    /// ...     .start(date(2024, 3, 15))
+    /// ...     .maturity(date(2029, 3, 15))
+    /// ...     .forward_curve("USD-SOFR-3M")
+    /// ...     .discount_curve("USD-OIS")
+    /// ...     .build())
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
@@ -743,10 +788,10 @@ impl PyInterestRateSwap {
         self.inner.id.as_str()
     }
 
-    /// Notional amount shared by both legs.
+    /// Notional principal amount shared by both legs.
     ///
     /// Returns:
-    ///     Any: Notional amount shared by both legs.
+    ///     Money: Notional principal in the swap currency.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
@@ -755,45 +800,65 @@ impl PyInterestRateSwap {
     /// Pay/receive direction of the fixed leg.
     ///
     /// Returns:
-    ///     Any: Pay/receive direction of the fixed leg.
+    ///     PayReceive: ``PAY_FIXED`` or ``RECEIVE_FIXED``.
     #[getter]
     fn side(&self) -> PyPayReceive {
         PyPayReceive::new(self.inner.side)
     }
 
-    /// Fixed leg coupon rate.
+    /// Fixed leg coupon rate as decimal (e.g., 0.045 = 4.5%).
     ///
-    /// Returns:
-    ///     Any: Fixed leg coupon rate.
+    /// Returns
+    /// -------
+    /// float
+    ///     Fixed coupon rate as a decimal fraction.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn fixed_rate(&self) -> f64 {
+    fn fixed_rate(&self) -> PyResult<f64> {
         use rust_decimal::prelude::ToPrimitive;
-        self.inner.fixed.rate.to_f64().unwrap_or(0.0)
+        self.inner
+            .fixed
+            .rate
+            .to_f64()
+            .ok_or_else(|| PyValueError::new_err("fixed_rate: decimal to f64 conversion failed"))
     }
 
-    /// Floating leg spread in basis points.
+    /// Floating leg spread in basis points (e.g., 25.0 = 0.25%).
     ///
-    /// Returns:
-    ///     Any: Floating leg spread in basis points.
+    /// Returns
+    /// -------
+    /// float
+    ///     Spread added to the floating index rate, in basis points.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn float_spread_bp(&self) -> f64 {
+    fn float_spread_bp(&self) -> PyResult<f64> {
         use rust_decimal::prelude::ToPrimitive;
-        self.inner.float.spread_bp.to_f64().unwrap_or(0.0)
+        self.inner.float.spread_bp.to_f64().ok_or_else(|| {
+            PyValueError::new_err("float_spread_bp: decimal to f64 conversion failed")
+        })
     }
 
     /// Effective start date (from fixed leg spec).
     ///
     /// Returns:
-    ///     Any: Effective start date (from fixed leg spec).
+    ///     datetime.date: Effective start date of the swap.
     #[getter]
     fn start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.fixed.start)
     }
 
-    /// Effective end date (from fixed leg spec).
+    /// Effective end date (maturity) from fixed leg spec.
     ///
     /// Returns:
-    ///     Any: Effective end date (from fixed leg spec).
+    ///     datetime.date: Maturity date of the swap.
     #[getter]
     fn end(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.fixed.end)
@@ -802,36 +867,54 @@ impl PyInterestRateSwap {
     /// Discount curve identifier used by the fixed leg.
     ///
     /// Returns:
-    ///     Any: Discount curve identifier used by the fixed leg.
+    ///     str: Discount curve identifier used for present-value calculations.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.fixed.discount_curve_id.as_str().to_string()
     }
 
-    /// Floating forward curve identifier.
+    /// Floating leg forward projection curve identifier.
     ///
     /// Returns:
-    ///     Any: Floating forward curve identifier.
+    ///     str: Forward curve identifier used for floating rate projection.
     #[getter]
     fn forward_curve(&self) -> String {
         self.inner.float.forward_curve_id.as_str().to_string()
     }
 
+    /// Floating leg compounding convention (e.g., SOFR, SONIA, SIMPLE).
+    ///
+    /// Returns:
+    ///     FloatingLegCompounding: Compounding method for the floating leg.
     #[getter]
     fn compounding(&self) -> PyFloatingLegCompounding {
         PyFloatingLegCompounding::new(self.inner.float.compounding.clone())
     }
 
+    /// Payment lag in business days applied after each period end date.
+    ///
+    /// A value of ``-1`` means "same as period end" (no separate lag).
+    ///
+    /// Returns:
+    ///     int: Payment lag in business days.
     #[getter]
     fn payment_lag_days(&self) -> i32 {
         self.inner.fixed.payment_lag_days
     }
 
+    /// Whether schedule generation uses end-of-month roll convention.
+    ///
+    /// Returns:
+    ///     bool: ``True`` if end-of-month adjustment is active.
     #[getter]
     fn end_of_month(&self) -> bool {
         self.inner.fixed.end_of_month
     }
 
+    /// Holiday calendar identifier for floating-leg rate fixings.
+    ///
+    /// Returns:
+    ///     str | None: Calendar identifier, or ``None`` if unset.
     #[getter]
     fn fixing_calendar(&self) -> Option<String> {
         self.inner.float.fixing_calendar_id.clone()
@@ -840,7 +923,7 @@ impl PyInterestRateSwap {
     /// Instrument type enum (``InstrumentType.IRS``).
     ///
     /// Returns:
-    ///     Any: Instrument type enum (``InstrumentType.IRS``).
+    ///     InstrumentType: Enumeration value identifying the instrument family.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::IRS)
@@ -883,6 +966,21 @@ impl PyInterestRateSwap {
     /// -------
     /// InterestRateSwap
     ///     Swap constructed with standard conventions.
+    ///
+    /// Examples
+    /// --------
+    /// >>> from datetime import date
+    /// >>> swap = InterestRateSwap.from_conventions(
+    /// ...     "usd-5y-swap",
+    /// ...     Money(10_000_000, "USD"),
+    /// ...     "pay_fixed",
+    /// ...     0.045,
+    /// ...     date(2024, 3, 15),
+    /// ...     date(2029, 3, 15),
+    /// ...     "USD-SOFR-3M",
+    /// ...     "USD-OIS",
+    /// ...     "USD-SOFR-3M",
+    /// ... )
     #[classmethod]
     #[pyo3(
         signature = (instrument_id, notional, side, fixed_rate, start, end, index_id, discount_curve_id, forward_curve_id),

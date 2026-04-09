@@ -63,26 +63,54 @@ pub struct PyEquityOptionGreeks {
 
 #[pymethods]
 impl PyEquityOptionGreeks {
+    /// Rate of change of option value with respect to underlying price (dV/dS).
+    ///
+    /// Dimensionless ratio: a delta of 0.55 means the option gains ~$0.55
+    /// for a $1 move in the underlying.
+    ///
+    /// Returns:
+    ///     float: Delta as a unitless ratio in [-1, 1].
     #[getter]
     fn delta(&self) -> f64 {
         self.delta_val
     }
 
+    /// Rate of change of delta with respect to underlying price (d2V/dS2).
+    ///
+    /// Returns:
+    ///     float: Gamma per unit move in the underlying price.
     #[getter]
     fn gamma(&self) -> f64 {
         self.gamma_val
     }
 
+    /// Sensitivity of option value to a 1-percentage-point change in implied volatility.
+    ///
+    /// A vega of 0.25 means the option gains ~$0.25 per notional unit when
+    /// volatility rises by 1 absolute percentage point (e.g., 20% to 21%).
+    ///
+    /// Returns:
+    ///     float: Vega per 1pp volatility shift, in currency units per notional.
     #[getter]
     fn vega(&self) -> f64 {
         self.vega_val
     }
 
+    /// Time decay: sensitivity of option value to the passage of one calendar day.
+    ///
+    /// Typically negative for long option positions.
+    ///
+    /// Returns:
+    ///     float: Theta in currency units per day per notional.
     #[getter]
     fn theta(&self) -> f64 {
         self.theta_val
     }
 
+    /// Sensitivity of option value to a 1-percentage-point change in the risk-free rate.
+    ///
+    /// Returns:
+    ///     float: Rho per 1pp rate shift, in currency units per notional.
     #[getter]
     fn rho(&self) -> f64 {
         self.rho_val
@@ -402,7 +430,28 @@ impl PyEquityOptionBuilder {
 impl PyEquityOption {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id)")]
-    /// Start a fluent builder (builder-only API).
+    /// Start a fluent builder for an equity option.
+    ///
+    /// The builder applies sensible defaults that can be overridden:
+    ///
+    /// - ``option_type``: Call -- most commonly traded direction
+    /// - ``exercise_style``: European -- standard for listed equity options
+    /// - ``settlement``: Cash -- OTC convention; exchange-listed options are typically physical
+    /// - ``day_count``: Act/365F -- equity option market convention
+    ///
+    /// Examples
+    /// --------
+    /// >>> from datetime import date
+    /// >>> opt = (EquityOption.builder("aapl-call-180")
+    /// ...     .ticker("AAPL")
+    /// ...     .option_type("call")
+    /// ...     .strike(180.0)
+    /// ...     .expiry(date(2024, 12, 20))
+    /// ...     .notional(Money(100_000, "USD"))
+    /// ...     .spot_id("AAPL")
+    /// ...     .vol_surface("AAPL-VOL")
+    /// ...     .disc_id("USD-OIS")
+    /// ...     .build())
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
@@ -430,10 +479,10 @@ impl PyEquityOption {
         &self.inner.underlying_ticker
     }
 
-    /// Strike price as scalar.
+    /// Strike price in currency units per share.
     ///
     /// Returns:
-    ///     float: Strike price in underlying price units.
+    ///     float: Strike price in the same currency as the underlying (e.g., 180.0 for $180).
     #[getter]
     fn strike(&self) -> f64 {
         self.inner.strike
@@ -572,6 +621,19 @@ impl PyEquityOption {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::EquityOption)
     }
 
+    /// Option present value in notional currency.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, discount curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Present value in the notional currency.
     #[pyo3(signature = (market, as_of))]
     fn value(
         &self,
@@ -586,6 +648,33 @@ impl PyEquityOption {
         Ok(PyMoney::new(value))
     }
 
+    /// Compute all Black-Scholes Greeks in a single valuation pass.
+    ///
+    /// Returns
+    /// -------
+    /// EquityOptionGreeks
+    ///     Container with delta, gamma, vega, theta, and rho.
+    /// Compute option Greeks (sensitivities to market parameters).
+    ///
+    /// Returns an object with:
+    ///
+    /// - ``delta``: PV change per $1 move in the underlying spot price
+    /// - ``gamma``: change in delta per $1 move in spot (convexity)
+    /// - ``vega``: PV change per 1 percentage point increase in implied volatility
+    /// - ``theta``: PV change per one calendar day (time decay)
+    /// - ``rho``: PV change per 1 percentage point increase in the risk-free rate
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// EquityOptionGreeks
+    ///     Greeks object with delta, gamma, vega, theta, rho attributes.
     #[pyo3(signature = (market, as_of))]
     fn greeks(
         &self,
@@ -606,6 +695,19 @@ impl PyEquityOption {
         })
     }
 
+    /// Option delta: PV change per $1 move in the underlying spot price.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Delta sensitivity value.
     #[pyo3(signature = (market, as_of))]
     fn delta(
         &self,
@@ -618,6 +720,19 @@ impl PyEquityOption {
             .map_err(core_to_py)
     }
 
+    /// Option gamma: change in delta per $1 move in spot (convexity).
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Gamma sensitivity value.
     #[pyo3(signature = (market, as_of))]
     fn gamma(
         &self,
@@ -630,6 +745,19 @@ impl PyEquityOption {
             .map_err(core_to_py)
     }
 
+    /// Option vega: PV change per 1 percentage point increase in implied volatility.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Vega sensitivity value.
     #[pyo3(signature = (market, as_of))]
     fn vega(
         &self,
@@ -642,6 +770,19 @@ impl PyEquityOption {
             .map_err(core_to_py)
     }
 
+    /// Option theta: PV change per one calendar day (time decay).
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Theta sensitivity value.
     #[pyo3(signature = (market, as_of))]
     fn theta(
         &self,
@@ -654,6 +795,19 @@ impl PyEquityOption {
             .map_err(core_to_py)
     }
 
+    /// Option rho: PV change per 1 percentage point increase in the risk-free rate.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including spot prices, curves, and vol surfaces.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Rho sensitivity value.
     #[pyo3(signature = (market, as_of))]
     fn rho(
         &self,
@@ -666,6 +820,21 @@ impl PyEquityOption {
             .map_err(core_to_py)
     }
 
+    /// Solve for implied volatility as decimal (e.g., 0.25 = 25%).
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data context.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    /// market_price : float
+    ///     Observed option market price in currency units to calibrate against.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Implied volatility as decimal (e.g., 0.25 = 25%).
     #[pyo3(signature = (market, as_of, market_price))]
     fn implied_vol(
         &self,

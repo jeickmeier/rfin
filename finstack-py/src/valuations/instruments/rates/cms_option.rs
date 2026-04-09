@@ -7,6 +7,7 @@ use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::cms_option::CmsOption;
 use finstack_valuations::instruments::OptionType;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
@@ -277,10 +278,21 @@ impl PyCmsOption {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CmsOption)
     }
 
-    /// Strike rate.
+    /// Strike rate as a decimal.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Strike rate of the CMS option.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
+    fn strike(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike)
+            .ok_or_else(|| PyValueError::new_err("strike: decimal to f64 conversion failed"))
     }
 
     /// CMS tenor.

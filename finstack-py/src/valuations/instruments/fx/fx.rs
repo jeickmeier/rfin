@@ -211,7 +211,12 @@ impl PyFxSpotBuilder {
 #[pymethods]
 impl PyFxSpot {
     #[classmethod]
-    /// Start a fluent builder (builder-only API).
+    /// Start a fluent builder for an FX spot trade.
+    ///
+    /// All fields default to ``None`` (must be set explicitly):
+    /// ``base_currency``, ``quote_currency`` are required.
+    /// Optional: ``spot_rate``, ``settlement``, ``settlement_lag_days``,
+    /// ``notional``, ``bdc``, ``base_calendar``, ``quote_calendar``.
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
@@ -257,10 +262,11 @@ impl PyFxSpot {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Explicit spot rate if provided.
+    /// Explicit spot FX rate as quote currency per unit of base currency
+    /// (e.g., 1.095 for EUR/USD meaning 1 EUR = 1.095 USD), if provided.
     ///
     /// Returns:
-    ///     float | None: Spot rate override.
+    ///     float | None: Spot rate override, or ``None`` if resolved from market data.
     #[getter]
     fn spot_rate(&self) -> Option<f64> {
         self.inner.spot_rate
@@ -278,10 +284,11 @@ impl PyFxSpot {
         })
     }
 
-    /// Settlement lag in business days when settlement date is inferred.
+    /// Settlement lag in business days when settlement date is inferred
+    /// (e.g., 2 = T+2 standard FX settlement; 1 for USD/CAD, USD/TRY).
     ///
     /// Returns:
-    ///     int | None: Settlement lag applied if settlement date omitted.
+    ///     int | None: Settlement lag in business days, or ``None`` if using explicit date.
     #[getter]
     fn settlement_lag_days(&self) -> Option<i32> {
         self.inner.settlement_lag_days
@@ -683,7 +690,14 @@ impl PyFxOptionBuilder {
 #[pymethods]
 impl PyFxOption {
     #[classmethod]
-    /// Start a fluent builder (builder-only API).
+    /// Start a fluent builder for an FX option (Garman-Kohlhagen).
+    ///
+    /// The builder applies sensible defaults that can be overridden:
+    ///
+    /// - ``option_type``: Call -- most commonly traded direction
+    /// - ``exercise_style``: European -- standard for OTC FX options
+    /// - ``settlement``: Cash -- OTC FX option convention
+    /// - ``day_count``: Act/365F -- FX option market convention
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
@@ -729,10 +743,11 @@ impl PyFxOption {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Strike rate expressed as quote per unit of base.
+    /// Strike rate in quote currency per unit of base currency
+    /// (e.g., 1.10 for a EUR/USD option struck at 1.10).
     ///
     /// Returns:
-    ///     float: Strike rate of the option.
+    ///     float: Strike FX rate.
     #[getter]
     fn strike(&self) -> f64 {
         self.inner.strike
@@ -1206,7 +1221,13 @@ impl PyFxSwapBuilder {
 #[pymethods]
 impl PyFxSwap {
     #[classmethod]
-    /// Start a fluent builder (builder-only API).
+    /// Start a fluent builder for an FX swap (near + far exchange).
+    ///
+    /// All fields default to ``None`` (must be set explicitly):
+    /// ``base_currency``, ``quote_currency``, ``notional``, ``near_date``,
+    /// ``far_date``, ``domestic_discount_curve``, and ``foreign_discount_curve``
+    /// are required. ``near_rate`` and ``far_rate`` are optional contractual
+    /// overrides; when omitted, rates are derived from interest rate parity.
     fn builder<'py>(
         cls: &Bound<'py, PyType>,
         instrument_id: &str,
@@ -1228,7 +1249,7 @@ impl PyFxSwap {
     /// Base currency exchanged on the swap.
     ///
     /// Returns:
-    ///     Any: Base currency exchanged on the swap.
+    ///     Currency: Base currency wrapper.
     #[getter]
     fn base_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.base_currency)
@@ -1237,16 +1258,16 @@ impl PyFxSwap {
     /// Quote currency exchanged on the swap.
     ///
     /// Returns:
-    ///     Any: Quote currency exchanged on the swap.
+    ///     Currency: Quote currency wrapper.
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.quote_currency)
     }
 
-    /// Base notional in the base currency.
+    /// Base notional amount in the base currency.
     ///
     /// Returns:
-    ///     Any: Base notional in the base currency.
+    ///     Money: Base notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn base_notional(&self) -> PyMoney {
         PyMoney::new(self.inner.base_notional)
@@ -1255,7 +1276,7 @@ impl PyFxSwap {
     /// Near leg settlement date.
     ///
     /// Returns:
-    ///     Any: Near leg settlement date.
+    ///     datetime.date: Near-leg value date.
     #[getter]
     fn near_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.near_date)
@@ -1264,25 +1285,32 @@ impl PyFxSwap {
     /// Far leg settlement date.
     ///
     /// Returns:
-    ///     Any: Far leg settlement date.
+    ///     datetime.date: Far-leg value date.
     #[getter]
     fn far_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         date_to_py(py, self.inner.far_date)
     }
 
-    /// Optional contractual near FX rate.
+    /// Contractual near-leg FX rate in quote currency per unit of base
+    /// (e.g., 1.0950 for EURUSD), if specified.
+    ///
+    /// When ``None``, the rate is derived from market data at valuation time.
     ///
     /// Returns:
-    ///     Any: Optional contractual near FX rate.
+    ///     float | None: Near-leg exchange rate, or ``None``.
     #[getter]
     fn near_rate(&self) -> Option<f64> {
         self.inner.near_rate
     }
 
-    /// Optional contractual far FX rate.
+    /// Contractual far-leg FX rate in quote currency per unit of base
+    /// (e.g., 1.0970 = spot + forward points), if specified.
+    ///
+    /// When ``None``, the rate is derived from interest rate parity via
+    /// domestic and foreign discount curves.
     ///
     /// Returns:
-    ///     Any: Optional contractual far FX rate.
+    ///     float | None: Far-leg exchange rate, or ``None``.
     #[getter]
     fn far_rate(&self) -> Option<f64> {
         self.inner.far_rate

@@ -634,9 +634,21 @@ impl PyRepo {
         PyMoney::new(self.inner.cash_amount)
     }
 
+    /// Repo rate as a decimal (e.g., 0.05 for 5%).
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Annualized repo rate.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn repo_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.repo_rate).unwrap_or_default()
+    fn repo_rate(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.repo_rate)
+            .ok_or_else(|| PyValueError::new_err("repo_rate: decimal to f64 conversion failed"))
     }
 
     #[getter]

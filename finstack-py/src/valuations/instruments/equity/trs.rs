@@ -128,9 +128,23 @@ impl PyFinancingLegSpec {
         self.inner.forward_curve_id.as_str().to_string()
     }
 
+    /// Funding spread in basis points.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Spread over the funding rate in basis points.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn spread_bp(&self) -> f64 {
-        self.inner.spread_bp.to_f64().unwrap_or(0.0)
+    fn spread_bp(&self) -> PyResult<f64> {
+        self.inner
+            .spread_bp
+            .to_f64()
+            .ok_or_else(|| PyValueError::new_err("spread_bp: decimal to f64 conversion failed"))
     }
 
     #[getter]

@@ -372,11 +372,21 @@ impl PyCDSOption {
 
     /// Strike spread as a decimal rate (e.g., 0.015 for 150bp).
     ///
-    /// Returns:
-    ///     float: Strike spread as decimal rate.
+    /// Returns
+    /// -------
+    /// float
+    ///     Strike spread as decimal rate.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn strike(&self) -> f64 {
-        self.inner.strike.to_f64().unwrap_or(0.0)
+    fn strike(&self) -> PyResult<f64> {
+        self.inner
+            .strike
+            .to_f64()
+            .ok_or_else(|| PyValueError::new_err("strike: decimal to f64 conversion failed"))
     }
 
     /// Option expiry date.
@@ -458,9 +468,21 @@ impl PyCDSOption {
     }
 
     /// Forward spread adjustment as decimal rate.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Adjustment to the forward CDS spread.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn forward_spread_adjust(&self) -> f64 {
-        self.inner.forward_spread_adjust.to_f64().unwrap_or(0.0)
+    fn forward_spread_adjust(&self) -> PyResult<f64> {
+        self.inner.forward_spread_adjust.to_f64().ok_or_else(|| {
+            PyValueError::new_err("forward_spread_adjust: decimal to f64 conversion failed")
+        })
     }
 
     /// Day count convention for time calculations.

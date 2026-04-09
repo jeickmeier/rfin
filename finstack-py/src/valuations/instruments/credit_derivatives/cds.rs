@@ -453,11 +453,22 @@ impl PyCreditDefaultSwap {
 
     /// Premium spread in basis points.
     ///
-    /// Returns:
-    ///     float: Premium spread for the CDS.
+    /// Returns
+    /// -------
+    /// float
+    ///     Premium spread for the CDS in basis points.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the internal decimal value cannot be represented as float.
     #[getter]
-    fn spread_bp(&self) -> f64 {
-        self.inner.premium.spread_bp.to_f64().unwrap_or(0.0)
+    fn spread_bp(&self) -> PyResult<f64> {
+        self.inner
+            .premium
+            .spread_bp
+            .to_f64()
+            .ok_or_else(|| PyValueError::new_err("spread_bp: decimal to f64 conversion failed"))
     }
 
     /// Discount curve identifier.
