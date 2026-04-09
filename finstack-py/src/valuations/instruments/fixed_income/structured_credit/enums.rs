@@ -388,7 +388,8 @@ impl PyAssetType {
             AssetType::ConsolidationStudentLoan => 28,
             AssetType::Equipment { .. } => 29,
             AssetType::Generic { .. } => 30,
-            _ => -1,
+            // Non-exhaustive catch-all: update when new core variants are added
+            _ => isize::MIN,
         }
     }
 
@@ -487,7 +488,8 @@ impl PyPaymentMode {
             PaymentMode::ProRata => 0,
             PaymentMode::Sequential { .. } => 1,
             PaymentMode::Hybrid { .. } => 2,
-            _ => -1,
+            // Non-exhaustive catch-all: update when new core variants are added
+            _ => isize::MIN,
         }
     }
 
@@ -606,7 +608,8 @@ impl PyTriggerConsequence {
             TriggerConsequence::StopReinvestment => 3,
             TriggerConsequence::ReduceManagerFee => 4,
             TriggerConsequence::Custom(_) => 5,
-            _ => -1,
+            // Non-exhaustive catch-all: update when new core variants are added
+            _ => isize::MIN,
         }
     }
 
@@ -757,7 +760,8 @@ impl PyTrancheCoupon {
         match &self.inner {
             TrancheCoupon::Fixed { .. } => 0,
             TrancheCoupon::Floating(_) => 1,
-            _ => -1,
+            // Non-exhaustive catch-all: update when new core variants are added
+            _ => isize::MIN,
         }
     }
 
@@ -1113,7 +1117,8 @@ impl PyDiversionCondition {
             DiversionCondition::CoverageTestFailed { .. } => 0,
             DiversionCondition::CustomExpression { .. } => 1,
             DiversionCondition::Always => 2,
-            _ => -1,
+            // Non-exhaustive catch-all: update when new core variants are added
+            _ => isize::MIN,
         }
     }
 
@@ -1361,7 +1366,8 @@ impl PyPaymentCalculation {
             PaymentCalculation::TranchePrincipal { .. } => 3,
             PaymentCalculation::ResidualCash => 4,
             PaymentCalculation::ReserveReplenishment { .. } => 5,
-            _ => -1,
+            // Non-exhaustive catch-all: update when new core variants are added
+            _ => isize::MIN,
         }
     }
 

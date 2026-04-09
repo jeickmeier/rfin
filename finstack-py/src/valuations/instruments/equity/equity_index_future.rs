@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
@@ -18,6 +17,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Position side (Long or Short) for futures contracts.
@@ -73,16 +73,8 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PositionArg {
         }
 
         if let Ok(label) = obj.extract::<&str>() {
-            let normalized = normalize_label(label);
-            let position = match normalized.as_str() {
-                "long" | "buy" => Position::Long,
-                "short" | "sell" => Position::Short,
-                other => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown position: {other}. Expected 'long' or 'short'"
-                    )))
-                }
-            };
+            let position =
+                Position::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()))?;
             return Ok(PositionArg(PyPosition::new(position)));
         }
 
@@ -249,8 +241,7 @@ impl PyEquityIndexFuture {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "EquityIndexFutureBuilder",
-    unsendable
+    name = "EquityIndexFutureBuilder"
 )]
 pub struct PyEquityIndexFutureBuilder {
     instrument_id: InstrumentId,

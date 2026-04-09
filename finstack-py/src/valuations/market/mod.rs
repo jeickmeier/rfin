@@ -228,11 +228,7 @@ impl PyBuildCtx {
 ///
 /// This wraps a Rust `Box<dyn Instrument>` and is accepted anywhere an instrument is expected
 /// (pricer, portfolio, etc.) via the Python bindings.
-#[pyclass(
-    module = "finstack.valuations.market",
-    name = "BuiltInstrument",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.market", name = "BuiltInstrument")]
 pub struct PyBuiltInstrument {
     pub(crate) inner: Box<dyn Instrument>,
 }

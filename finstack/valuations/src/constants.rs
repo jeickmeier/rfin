@@ -238,3 +238,24 @@ pub mod credit {
     /// Re-exported from `finstack_core::dates::CALENDAR_DAYS_PER_YEAR` (ACT/365 Fixed).
     pub use finstack_core::dates::CALENDAR_DAYS_PER_YEAR;
 }
+
+/// Standard number of trading/business days per year (US equity markets).
+///
+/// Alias for [`time::BUSINESS_DAYS_PER_YEAR_US`] (252). This is the conventional
+/// denominator for annualizing daily equity and FX option statistics (realized vol,
+/// Sharpe ratio, theta decay, etc.).
+pub const TRADING_DAYS_PER_YEAR: f64 = time::BUSINESS_DAYS_PER_YEAR_US;
+
+/// Default day count convention for equity/FX options (ACT/365 Fixed).
+///
+/// Most equity and FX option models express time-to-expiry using ACT/365 Fixed,
+/// which divides actual calendar days by 365 regardless of leap years.
+pub const DEFAULT_OPTION_DAY_COUNT: finstack_core::dates::DayCount =
+    finstack_core::dates::DayCount::Act365F;
+
+/// Default RNG seed for reproducible Monte Carlo simulations.
+///
+/// Use this seed when deterministic results are required (regression tests,
+/// golden-file comparisons, debugging). Production runs should use a
+/// high-entropy seed instead.
+pub const DEFAULT_SEED: u64 = 42;

@@ -103,11 +103,7 @@ impl PyScenarioDefinition {
 }
 
 /// Python wrapper for [`ScenarioSet`].
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "ScenarioSet",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "ScenarioSet")]
 pub struct PyScenarioSet {
     pub(crate) inner: ScenarioSet,
 }

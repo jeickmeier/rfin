@@ -1,9 +1,9 @@
-use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::utils::json::to_js_value;
 use finstack_core::dates::{DayCount, DayCountCtx, DayCountCtxState, Tenor, TenorUnit};
+use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -352,7 +352,7 @@ impl JsDayCount {
     /// @returns `true` if the string can be parsed as a valid day count, `false` otherwise.
     #[wasm_bindgen(js_name = isValid)]
     pub fn is_valid(name: &str) -> bool {
-        DayCount::parse_from_string(name).is_ok()
+        DayCount::from_str(name).is_ok()
     }
 
     #[wasm_bindgen(js_name = act360)]
@@ -397,23 +397,14 @@ impl JsDayCount {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsDayCount, JsValue> {
-        DayCount::parse_from_string(name).map(JsDayCount::new)
+        DayCount::from_str(name)
+            .map(JsDayCount::new)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(getter)]
     pub fn name(&self) -> String {
-        match self.inner {
-            DayCount::Act360 => "act_360",
-            DayCount::Act365F => "act_365f",
-            DayCount::Act365L => "act_365l",
-            DayCount::Thirty360 => "thirty_360",
-            DayCount::ThirtyE360 => "thirty_e_360",
-            DayCount::ActAct => "act_act",
-            DayCount::ActActIsma => "act_act_isma",
-            DayCount::Bus252 => "bus_252",
-            _ => "custom",
-        }
-        .to_string()
+        self.inner.to_string()
     }
 
     /// Compute the year fraction between two dates using this day count convention.

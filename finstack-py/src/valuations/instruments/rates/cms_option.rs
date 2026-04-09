@@ -1,5 +1,4 @@
 use crate::core::common::args::DayCountArg;
-use crate::core::common::labels::normalize_label;
 use crate::core::dates::schedule::PyFrequency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -11,6 +10,7 @@ use finstack_valuations::instruments::OptionType;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// CMS option instrument.
@@ -109,15 +109,8 @@ impl PyCmsOption {
             accrual_fractions_vec.push(item.extract::<f64>().context("accrual_fractions")?);
         }
 
-        let opt_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
+        let opt_type = OptionType::from_str(option_type)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
         // Parse swap conventions
         let fixed_freq = if let Some(f) = swap_fixed_freq {
@@ -226,15 +219,8 @@ impl PyCmsOption {
             CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
-        let opt_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
+        let opt_type = OptionType::from_str(option_type)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
         let option_dc = if let Some(dc) = day_count {
             let DayCountArg(d) = dc.extract()?;

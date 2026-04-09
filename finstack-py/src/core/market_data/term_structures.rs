@@ -23,6 +23,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::{Bound, PyRef};
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn parse_day_count(
@@ -115,6 +116,7 @@ impl PyDiscountCurve {
     #[new]
     #[pyo3(signature = (id, base_date, knots, day_count=None, interp=None, extrapolation=None, require_monotonic=true))]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         base_date: Bound<'_, PyAny>,
         knots: Bound<'_, PyAny>,
@@ -143,7 +145,7 @@ impl PyDiscountCurve {
         if !require_monotonic {
             builder = builder.allow_non_monotonic();
         }
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -517,6 +519,7 @@ impl PyForwardCurve {
     #[new]
     #[pyo3(signature = (id, tenor_years, knots, base_date=None, reset_lag=None, day_count=None, interp=None))]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         tenor_years: f64,
         knots: Bound<'_, PyAny>,
@@ -546,7 +549,7 @@ impl PyForwardCurve {
             let style = parse_interp_style(Some(&obj), InterpStyle::Linear)?;
             builder = builder.interp(style);
         }
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -703,13 +706,9 @@ impl PyHazardCurve {
 fn parse_seniority(value: Option<&str>) -> PyResult<Option<Seniority>> {
     match value {
         None => Ok(None),
-        Some(name) => match name.to_ascii_lowercase().as_str() {
-            "senior_secured" | "senior-secured" => Ok(Some(Seniority::SeniorSecured)),
-            "senior" => Ok(Some(Seniority::Senior)),
-            "subordinated" => Ok(Some(Seniority::Subordinated)),
-            "junior" => Ok(Some(Seniority::Junior)),
-            other => Err(PyValueError::new_err(format!("Unknown seniority: {other}"))),
-        },
+        Some(name) => Seniority::from_str(name)
+            .map(Some)
+            .map_err(|e| PyValueError::new_err(e.to_string())),
     }
 }
 
@@ -720,6 +719,7 @@ impl PyHazardCurve {
     #[pyo3(signature = (id, base_date, knots, recovery_rate=None, day_count=None, issuer=None, seniority=None, currency=None, par_points=None))]
     #[allow(clippy::too_many_arguments)]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         base_date: Bound<'_, PyAny>,
         knots: Bound<'_, PyAny>,
@@ -756,7 +756,7 @@ impl PyHazardCurve {
         if let Some(points) = par_points {
             builder = builder.par_spreads(points);
         }
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -902,6 +902,7 @@ impl PyInflationCurve {
     #[new]
     #[pyo3(signature = (id, base_date, base_cpi, knots, interp=None))]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         base_date: Bound<'_, PyAny>,
         base_cpi: f64,
@@ -919,7 +920,7 @@ impl PyInflationCurve {
             .base_cpi(base_cpi)
             .knots(knots_vec)
             .interp(style);
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -1029,21 +1030,16 @@ impl PyBaseCorrelationCurve {
 impl PyBaseCorrelationCurve {
     /// Instantiate a base correlation curve from `(detachment, correlation)` points.
     #[new]
-    fn ctor(id: &str, points: Bound<'_, PyAny>) -> PyResult<Self> {
+    fn ctor(py: Python<'_>, id: &str, points: Bound<'_, PyAny>) -> PyResult<Self> {
         let points_vec = extract_float_pairs(&points)?;
         if points_vec.len() < 2 {
             return Err(PyValueError::new_err(
                 "points must contain at least two entries",
             ));
         }
-        let curve = Python::attach(|py| {
-            py.detach(|| {
-                BaseCorrelationCurve::builder(id)
-                    .knots(points_vec)
-                    .build()
-                    .map_err(core_to_py)
-            })
-        })?;
+        let curve = py
+            .detach(|| BaseCorrelationCurve::builder(id).knots(points_vec).build())
+            .map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -1312,6 +1308,7 @@ impl PyVolatilityIndexCurve {
     #[new]
     #[pyo3(signature = (id, base_date, knots, spot_level=None, day_count=None, interp=None, extrapolation=None))]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         base_date: Bound<'_, PyAny>,
         knots: Bound<'_, PyAny>,
@@ -1341,7 +1338,7 @@ impl PyVolatilityIndexCurve {
         if let Some(spot) = spot_level {
             builder = builder.spot_level(spot);
         }
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -1466,6 +1463,7 @@ impl PyPriceCurve {
     #[new]
     #[pyo3(signature = (id, base_date, knots, spot_price=None, day_count=None, interp=None, extrapolation=None))]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         base_date: Bound<'_, PyAny>,
         knots: Bound<'_, PyAny>,
@@ -1494,7 +1492,7 @@ impl PyPriceCurve {
         if let Some(spot) = spot_price {
             builder = builder.spot_price(spot);
         }
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -1790,6 +1788,7 @@ impl PyBasisSpreadCurve {
     #[new]
     #[pyo3(signature = (id, base_date, knots, spreads, day_count=None, interp=None, extrapolation=None))]
     fn ctor(
+        py: Python<'_>,
         id: &str,
         base_date: Bound<'_, PyAny>,
         knots: Vec<f64>,
@@ -1820,7 +1819,7 @@ impl PyBasisSpreadCurve {
         if let Some(dc) = parse_day_count(day_count)? {
             builder = builder.day_count(dc);
         }
-        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        let curve = py.detach(|| builder.build()).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 

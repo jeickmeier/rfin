@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 
 /// Unique identifier for a risk factor.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -46,9 +47,59 @@ pub enum FactorType {
     Custom(String),
 }
 
+impl fmt::Display for FactorType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rates => write!(f, "rates"),
+            Self::Credit => write!(f, "credit"),
+            Self::Equity => write!(f, "equity"),
+            Self::FX => write!(f, "fx"),
+            Self::Volatility => write!(f, "volatility"),
+            Self::Commodity => write!(f, "commodity"),
+            Self::Inflation => write!(f, "inflation"),
+            Self::Custom(name) => write!(f, "custom:{name}"),
+        }
+    }
+}
+
+/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
+fn normalize_label(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+}
+
+impl FromStr for FactorType {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = normalize_label(s);
+        if n.starts_with("custom:") || n.starts_with("custom_") {
+            let name = s
+                .split_once(':')
+                .or_else(|| s.split_once('_'))
+                .map(|(_, v)| v.trim())
+                .unwrap_or("");
+            return Ok(Self::Custom(name.to_string()));
+        }
+        match n.as_str() {
+            "rates" | "rate" | "ir" => Ok(Self::Rates),
+            "credit" => Ok(Self::Credit),
+            "equity" => Ok(Self::Equity),
+            "fx" => Ok(Self::FX),
+            "volatility" | "vol" => Ok(Self::Volatility),
+            "commodity" => Ok(Self::Commodity),
+            "inflation" => Ok(Self::Inflation),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_parses_to(label: &str, expected: FactorType) {
+        assert!(matches!(label.parse::<FactorType>(), Ok(value) if value == expected));
+    }
 
     #[test]
     fn test_factor_id_from_string() {
@@ -119,5 +170,49 @@ mod tests {
             return;
         };
         assert_eq!(ft, back);
+    }
+
+    #[test]
+    fn test_factor_type_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("rates", FactorType::Rates),
+            ("rate", FactorType::Rates),
+            ("ir", FactorType::Rates),
+            ("credit", FactorType::Credit),
+            ("equity", FactorType::Equity),
+            ("fx", FactorType::FX),
+            ("volatility", FactorType::Volatility),
+            ("vol", FactorType::Volatility),
+            ("commodity", FactorType::Commodity),
+            ("inflation", FactorType::Inflation),
+            ("custom:Weather", FactorType::Custom("Weather".into())),
+        ] {
+            assert_parses_to(input, expected);
+        }
+
+        // Display -> FromStr roundtrip for non-Custom variants
+        for variant in [
+            FactorType::Rates,
+            FactorType::Credit,
+            FactorType::Equity,
+            FactorType::FX,
+            FactorType::Volatility,
+            FactorType::Commodity,
+            FactorType::Inflation,
+        ] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<FactorType>(), Ok(value) if value == variant));
+        }
+
+        // Custom roundtrip
+        let custom = FactorType::Custom("Weather".into());
+        let display = custom.to_string();
+        assert_eq!(display, "custom:Weather");
+        assert!(matches!(display.parse::<FactorType>(), Ok(value) if value == custom));
+    }
+
+    #[test]
+    fn test_factor_type_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<FactorType>().is_err());
     }
 }

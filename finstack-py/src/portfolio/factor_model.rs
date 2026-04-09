@@ -28,6 +28,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule, PyString};
 use pyo3::Bound;
 use pythonize::depythonize;
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn normalized_name(value: &str) -> String {
@@ -39,25 +40,11 @@ fn normalized_name(value: &str) -> String {
 }
 
 fn parse_factor_type(value: &str) -> PyResult<FactorType> {
-    let lower = normalized_name(value);
-    match lower.as_str() {
-        "rates" => Ok(FactorType::Rates),
-        "credit" => Ok(FactorType::Credit),
-        "equity" => Ok(FactorType::Equity),
-        "fx" => Ok(FactorType::FX),
-        "volatility" | "vol" => Ok(FactorType::Volatility),
-        "commodity" => Ok(FactorType::Commodity),
-        "inflation" => Ok(FactorType::Inflation),
-        _ if lower.starts_with("custom:") => Ok(FactorType::Custom(
-            value
-                .split_once(':')
-                .map(|(_, tail)| tail.trim().to_string())
-                .unwrap_or_default(),
-        )),
-        _ => Err(PyValueError::new_err(format!(
+    FactorType::from_str(value).map_err(|_| {
+        PyValueError::new_err(format!(
             "Unsupported factor_type '{value}'. Expected Rates, Credit, Equity, FX, Volatility, Commodity, Inflation, or custom:<name>"
-        ))),
-    }
+        ))
+    })
 }
 
 fn factor_type_to_string(value: &FactorType) -> String {
@@ -74,13 +61,11 @@ fn factor_type_to_string(value: &FactorType) -> String {
 }
 
 fn parse_pricing_mode(value: &str) -> PyResult<PricingMode> {
-    match normalized_name(value).as_str() {
-        "deltabased" => Ok(PricingMode::DeltaBased),
-        "fullrepricing" => Ok(PricingMode::FullRepricing),
-        _ => Err(PyValueError::new_err(format!(
+    PricingMode::from_str(value).map_err(|_| {
+        PyValueError::new_err(format!(
             "Unsupported pricing_mode '{value}'. Expected DeltaBased or FullRepricing"
-        ))),
-    }
+        ))
+    })
 }
 
 fn pricing_mode_to_string(value: PricingMode) -> String {
@@ -91,14 +76,11 @@ fn pricing_mode_to_string(value: PricingMode) -> String {
 }
 
 fn parse_unmatched_policy(value: &str) -> PyResult<UnmatchedPolicy> {
-    match normalized_name(value).as_str() {
-        "strict" => Ok(UnmatchedPolicy::Strict),
-        "residual" => Ok(UnmatchedPolicy::Residual),
-        "warn" => Ok(UnmatchedPolicy::Warn),
-        _ => Err(PyValueError::new_err(format!(
+    UnmatchedPolicy::from_str(value).map_err(|_| {
+        PyValueError::new_err(format!(
             "Unsupported unmatched_policy '{value}'. Expected Strict, Residual, or Warn"
-        ))),
-    }
+        ))
+    })
 }
 
 fn unmatched_policy_to_string(value: UnmatchedPolicy) -> String {
@@ -110,21 +92,15 @@ fn unmatched_policy_to_string(value: UnmatchedPolicy) -> String {
 }
 
 fn parse_dependency_type(value: &str) -> PyResult<DependencyType> {
-    match normalized_name(value).as_str() {
-        "discount" => Ok(DependencyType::Discount),
-        "forward" => Ok(DependencyType::Forward),
-        "credit" => Ok(DependencyType::Credit),
-        "spot" => Ok(DependencyType::Spot),
-        "vol" | "volsurface" | "volatility" => Ok(DependencyType::Vol),
-        "fx" => Ok(DependencyType::Fx),
-        "series" => Ok(DependencyType::Series),
-        "hazard" => Err(PyValueError::new_err(
+    // "hazard" is a CurveType, not a DependencyType — reject with a helpful message
+    // before delegating to core FromStr.
+    if normalized_name(value) == "hazard" {
+        return Err(PyValueError::new_err(
             "Hazard is a CurveType, not a DependencyType. Use dependency_type='Credit' and curve_type='Hazard'",
-        )),
-        _ => Err(PyValueError::new_err(format!(
-            "Unsupported dependency_type '{value}'"
-        ))),
+        ));
     }
+    DependencyType::from_str(value)
+        .map_err(|_| PyValueError::new_err(format!("Unsupported dependency_type '{value}'")))
 }
 
 fn dependency_type_to_string(value: DependencyType) -> String {
@@ -140,16 +116,8 @@ fn dependency_type_to_string(value: DependencyType) -> String {
 }
 
 fn parse_curve_type(value: &str) -> PyResult<CurveType> {
-    match normalized_name(value).as_str() {
-        "discount" => Ok(CurveType::Discount),
-        "forward" => Ok(CurveType::Forward),
-        "hazard" | "credit" => Ok(CurveType::Hazard),
-        "inflation" => Ok(CurveType::Inflation),
-        "basecorrelation" => Ok(CurveType::BaseCorrelation),
-        _ => Err(PyValueError::new_err(format!(
-            "Unsupported curve_type '{value}'"
-        ))),
-    }
+    CurveType::from_str(value)
+        .map_err(|_| PyValueError::new_err(format!("Unsupported curve_type '{value}'")))
 }
 
 fn curve_type_to_string(value: CurveType) -> String {

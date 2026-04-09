@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -19,6 +18,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, FromPyObject, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Variance direction (pay or receive variance).
@@ -72,16 +72,8 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FxPayReceiveArg {
         }
 
         if let Ok(label) = obj.extract::<&str>() {
-            let normalized = normalize_label(label);
-            let direction = match normalized.as_str() {
-                "pay" | "payer" | "short" => PayReceive::Pay,
-                "receive" | "receiver" | "long" => PayReceive::Receive,
-                other => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown variance direction: {other}"
-                    )))
-                }
-            };
+            let direction = PayReceive::from_str(label)
+                .map_err(|e| PyValueError::new_err(format!("Unknown variance direction: {e}")))?;
             return Ok(FxPayReceiveArg(PyFxPayReceive::new(direction)));
         }
 
@@ -148,19 +140,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FxRealizedVarMethodArg {
         }
 
         if let Ok(label) = obj.extract::<&str>() {
-            let normalized = normalize_label(label);
-            let method = match normalized.as_str() {
-                "closetoclose" | "close_to_close" => RealizedVarMethod::CloseToClose,
-                "parkinson" => RealizedVarMethod::Parkinson,
-                "garmanklass" | "garman_klass" => RealizedVarMethod::GarmanKlass,
-                "rogerssatchell" | "rogers_satchell" => RealizedVarMethod::RogersSatchell,
-                "yangzhang" | "yang_zhang" => RealizedVarMethod::YangZhang,
-                other => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown realized variance method: {other}"
-                    )))
-                }
-            };
+            let method = RealizedVarMethod::from_str(label).map_err(|e| {
+                PyValueError::new_err(format!("Unknown realized variance method: {e}"))
+            })?;
             return Ok(FxRealizedVarMethodArg(PyFxRealizedVarMethod::new(method)));
         }
 
@@ -235,8 +217,7 @@ impl PyFxVarianceSwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "FxVarianceSwapBuilder",
-    unsendable
+    name = "FxVarianceSwapBuilder"
 )]
 pub struct PyFxVarianceSwapBuilder {
     instrument_id: InstrumentId,
@@ -423,8 +404,9 @@ impl PyFxVarianceSwapBuilder {
         mut slf: PyRefMut<'py, Self>,
         freq: &str,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        let normalized = normalize_label(freq);
-        let tenor = match normalized.as_str() {
+        // Frequency labels map to Tenor constructors; Tenor::from_str
+        // expects "1D"/"3M" style strings, not "daily"/"quarterly".
+        let tenor = match freq.to_ascii_lowercase().as_str() {
             "daily" => Tenor::daily(),
             "weekly" => Tenor::weekly(),
             "monthly" => Tenor::monthly(),

@@ -5,11 +5,11 @@
 //! configure curve/surface behavior between and beyond known knots.
 //!
 //! This is the canonical location for interpolation types.
-use crate::core::common::labels::normalize_label;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
+use std::str::FromStr;
 
 /// Enumerate interpolation styles available to term structures.
 ///
@@ -96,17 +96,9 @@ impl PyInterpStyle {
     /// InterpStyle
     ///     Enum value corresponding to ``name``.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "linear" => Ok(Self::new(InterpStyle::Linear)),
-            "log_linear" => Ok(Self::new(InterpStyle::LogLinear)),
-            "monotone_convex" => Ok(Self::new(InterpStyle::MonotoneConvex)),
-            "cubic_hermite" => Ok(Self::new(InterpStyle::CubicHermite)),
-            "piecewise_quadratic_forward" => Ok(Self::new(InterpStyle::PiecewiseQuadraticForward)),
-            "flat_fwd" => Ok(Self::new(InterpStyle::LogLinear)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown interpolation style: {other}"
-            ))),
-        }
+        InterpStyle::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -185,13 +177,9 @@ impl PyExtrapolationPolicy {
     /// ExtrapolationPolicy
     ///     Enum value corresponding to ``name``.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "flat_zero" => Ok(Self::new(ExtrapolationPolicy::FlatZero)),
-            "flat_forward" => Ok(Self::new(ExtrapolationPolicy::FlatForward)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown extrapolation policy: {other}"
-            ))),
-        }
+        ExtrapolationPolicy::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -227,33 +215,17 @@ pub(crate) fn register<'py>(
 }
 
 pub(crate) fn parse_interp(style: Option<&str>, default: InterpStyle) -> PyResult<InterpStyle> {
-    // Helper used by bindings to parse interpolation labels.
     match style {
-        Some(name) => match normalize_label(name).as_str() {
-            "linear" => Ok(InterpStyle::Linear),
-            "log_linear" => Ok(InterpStyle::LogLinear),
-            "monotone_convex" => Ok(InterpStyle::MonotoneConvex),
-            "cubic_hermite" => Ok(InterpStyle::CubicHermite),
-            "piecewise_quadratic_forward" => Ok(InterpStyle::PiecewiseQuadraticForward),
-            "flat_fwd" => Ok(InterpStyle::LogLinear),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown interpolation style: {other}"
-            ))),
-        },
+        Some(name) => InterpStyle::from_str(name).map_err(|e| PyValueError::new_err(e.to_string())),
         None => Ok(default),
     }
 }
 
 pub(crate) fn parse_extrapolation(policy: Option<&str>) -> PyResult<ExtrapolationPolicy> {
-    // Helper used by bindings to parse extrapolation policy labels.
     match policy {
-        Some(name) => match normalize_label(name).as_str() {
-            "flat_zero" => Ok(ExtrapolationPolicy::FlatZero),
-            "flat_forward" => Ok(ExtrapolationPolicy::FlatForward),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown extrapolation policy: {other}"
-            ))),
-        },
+        Some(name) => {
+            ExtrapolationPolicy::from_str(name).map_err(|e| PyValueError::new_err(e.to_string()))
+        }
         None => Ok(ExtrapolationPolicy::FlatZero),
     }
 }

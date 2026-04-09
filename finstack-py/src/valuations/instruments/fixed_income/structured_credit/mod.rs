@@ -559,7 +559,6 @@ fn extract_json_str(value: &Bound<'_, PyAny>) -> PyResult<String> {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "StructuredCreditBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyStructuredCreditBuilder {

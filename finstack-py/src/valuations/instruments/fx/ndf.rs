@@ -77,11 +77,7 @@ impl PyNdf {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "NdfBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "NdfBuilder")]
 pub struct PyNdfBuilder {
     instrument_id: InstrumentId,
     base_currency: Option<Currency>,

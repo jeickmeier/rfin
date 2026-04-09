@@ -184,6 +184,53 @@ pub fn create_date(year: i32, month: time::Month, day: u8) -> crate::Result<Date
         .map_err(Into::into)
 }
 
+// ----------------------------------------------------------------------------------
+// Epoch conversion utilities
+// ----------------------------------------------------------------------------------
+
+/// Julian day number of the Unix epoch (1970-01-01).
+const UNIX_EPOCH_JULIAN_DAY: i32 = 2_440_588;
+
+/// Convert a date to days since Unix epoch (1970-01-01).
+///
+/// Returns a signed integer: dates before the epoch are negative.
+///
+/// # Examples
+/// ```
+/// use finstack_core::dates::{days_since_epoch, Date};
+/// use time::Month;
+///
+/// let epoch = Date::from_calendar_date(1970, Month::January, 1).expect("valid");
+/// assert_eq!(days_since_epoch(epoch), 0);
+///
+/// let day_after = Date::from_calendar_date(1970, Month::January, 2).expect("valid");
+/// assert_eq!(days_since_epoch(day_after), 1);
+/// ```
+pub fn days_since_epoch(date: Date) -> i32 {
+    date.to_julian_day() - UNIX_EPOCH_JULIAN_DAY
+}
+
+/// Convert days since Unix epoch (1970-01-01) to a [`Date`].
+///
+/// Returns `None` if the resulting date is outside the range supported by the
+/// `time` crate.
+///
+/// # Examples
+/// ```
+/// use finstack_core::dates::{date_from_epoch_days, Date};
+/// use time::Month;
+///
+/// let date = date_from_epoch_days(0);
+/// assert_eq!(date, Some(Date::from_calendar_date(1970, Month::January, 1).expect("valid")));
+///
+/// let y2k = date_from_epoch_days(10957);
+/// assert_eq!(y2k, Some(Date::from_calendar_date(2000, Month::January, 1).expect("valid")));
+/// ```
+pub fn date_from_epoch_days(days: i32) -> Option<Date> {
+    let julian_day = days.checked_add(UNIX_EPOCH_JULIAN_DAY)?;
+    Date::from_julian_day(julian_day).ok()
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {

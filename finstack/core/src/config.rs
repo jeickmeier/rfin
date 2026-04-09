@@ -72,6 +72,39 @@ pub enum RoundingMode {
 
 // Default derived above
 
+// ---------------------------------------------------------------------------
+// Display + FromStr
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Display for RoundingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            RoundingMode::Bankers => "bankers",
+            RoundingMode::AwayFromZero => "away_from_zero",
+            RoundingMode::TowardZero => "toward_zero",
+            RoundingMode::Floor => "floor",
+            RoundingMode::Ceil => "ceil",
+        };
+        f.write_str(label)
+    }
+}
+
+impl std::str::FromStr for RoundingMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = crate::parse::normalize_label(s);
+        match n.as_str() {
+            "bankers" | "banker" => Ok(RoundingMode::Bankers),
+            "away_from_zero" | "awayfromzero" => Ok(RoundingMode::AwayFromZero),
+            "toward_zero" | "towards_zero" => Ok(RoundingMode::TowardZero),
+            "floor" => Ok(RoundingMode::Floor),
+            "ceil" | "ceiling" => Ok(RoundingMode::Ceil),
+            other => Err(format!("unknown RoundingMode: {other}")),
+        }
+    }
+}
+
 /// Global numeric configuration supplied to valuation components.
 ///
 /// The configuration owns two [`CurrencyScalePolicy`] maps (ingest/output) and
@@ -479,4 +512,48 @@ pub fn results_meta_with_timestamp(
     }
 }
 
-// No unit tests here rely on global configuration anymore.
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
+mod tests {
+    use super::RoundingMode;
+
+    fn assert_parses_to(label: &str, expected: RoundingMode) {
+        assert!(matches!(label.parse::<RoundingMode>(), Ok(value) if value == expected));
+    }
+
+    #[test]
+    fn rounding_mode_display_roundtrip() {
+        let all = [
+            RoundingMode::Bankers,
+            RoundingMode::AwayFromZero,
+            RoundingMode::TowardZero,
+            RoundingMode::Floor,
+            RoundingMode::Ceil,
+        ];
+
+        for mode in &all {
+            let label = mode.to_string();
+            assert!(
+                matches!(label.parse::<RoundingMode>(), Ok(value) if value == *mode),
+                "roundtrip failed for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn rounding_mode_from_str_aliases() {
+        assert_parses_to("banker", RoundingMode::Bankers);
+        assert_parses_to("awayfromzero", RoundingMode::AwayFromZero);
+        assert_parses_to("towards_zero", RoundingMode::TowardZero);
+        assert_parses_to("ceiling", RoundingMode::Ceil);
+    }
+
+    #[test]
+    fn rounding_mode_from_str_unknown() {
+        assert!("garbage".parse::<RoundingMode>().is_err());
+    }
+}

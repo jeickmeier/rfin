@@ -103,6 +103,36 @@ pub enum FxConversionPolicy {
     Custom,
 }
 
+/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
+fn normalize_label(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+}
+
+impl std::fmt::Display for FxConversionPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CashflowDate => write!(f, "cashflow_date"),
+            Self::PeriodEnd => write!(f, "period_end"),
+            Self::PeriodAverage => write!(f, "period_average"),
+            Self::Custom => write!(f, "custom"),
+        }
+    }
+}
+
+impl std::str::FromStr for FxConversionPolicy {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match normalize_label(s).as_str() {
+            "cashflow_date" | "cashflow" => Ok(Self::CashflowDate),
+            "period_end" | "end" => Ok(Self::PeriodEnd),
+            "period_average" | "average" => Ok(Self::PeriodAverage),
+            "custom" => Ok(Self::Custom),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
+}
+
 /// Simple FX rate query.
 ///
 /// Contains only the essential parameters for currency conversion.
@@ -975,6 +1005,10 @@ impl FxMatrix {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+
+    fn assert_parses_to(label: &str, expected: FxConversionPolicy) {
+        assert!(matches!(label.parse::<FxConversionPolicy>(), Ok(value) if value == expected));
+    }
     use time::macros::date;
 
     #[test]
@@ -987,5 +1021,35 @@ mod tests {
             matrix.with_bumped_rate(Currency::EUR, Currency::USD, -1.0, date!(2025 - 01 - 01));
 
         assert!(result.is_err(), "100% negative bump should be rejected");
+    }
+
+    #[test]
+    fn test_fx_conversion_policy_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("cashflow_date", FxConversionPolicy::CashflowDate),
+            ("cashflow", FxConversionPolicy::CashflowDate),
+            ("period_end", FxConversionPolicy::PeriodEnd),
+            ("end", FxConversionPolicy::PeriodEnd),
+            ("period_average", FxConversionPolicy::PeriodAverage),
+            ("average", FxConversionPolicy::PeriodAverage),
+            ("custom", FxConversionPolicy::Custom),
+        ] {
+            assert_parses_to(input, expected);
+        }
+
+        for variant in [
+            FxConversionPolicy::CashflowDate,
+            FxConversionPolicy::PeriodEnd,
+            FxConversionPolicy::PeriodAverage,
+            FxConversionPolicy::Custom,
+        ] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<FxConversionPolicy>(), Ok(value) if value == variant));
+        }
+    }
+
+    #[test]
+    fn test_fx_conversion_policy_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<FxConversionPolicy>().is_err());
     }
 }

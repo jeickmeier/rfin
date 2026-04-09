@@ -1,4 +1,3 @@
-use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsBusinessDayConvention, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsTenor;
@@ -6,6 +5,7 @@ use crate::core::error::js_error;
 use crate::utils::json::to_js_value;
 use finstack_core::dates::Date as CoreDate;
 use finstack_core::dates::{ScheduleBuilder as CoreScheduleBuilder, ScheduleSpec, StubKind};
+use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -59,20 +59,14 @@ impl JsStubKind {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsStubKind, JsValue> {
-        StubKind::parse_from_string(name).map(JsStubKind::new)
+        StubKind::from_str(name)
+            .map(JsStubKind::new)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = name)]
     pub fn name(&self) -> String {
-        match self.inner {
-            StubKind::None => "none",
-            StubKind::ShortFront => "short_front",
-            StubKind::ShortBack => "short_back",
-            StubKind::LongFront => "long_front",
-            StubKind::LongBack => "long_back",
-            _ => "custom",
-        }
-        .to_string()
+        self.inner.to_string()
     }
 }
 

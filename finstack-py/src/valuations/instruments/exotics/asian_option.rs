@@ -8,6 +8,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Averaging method for Asian options.
@@ -52,13 +53,9 @@ impl PyAveragingMethod {
     /// Returns:
     ///     AveragingMethod: Enum value corresponding to ``name``.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match name.to_lowercase().as_str() {
-            "arithmetic" => Ok(Self::new(AveragingMethod::Arithmetic)),
-            "geometric" => Ok(Self::new(AveragingMethod::Geometric)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown averaging method: {other}"
-            ))),
-        }
+        AveragingMethod::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -142,7 +139,6 @@ impl PyAsianOption {
         div_yield_id: Option<&str>,
         past_fixings: Option<Bound<'_, PyList>>,
     ) -> PyResult<Self> {
-        use crate::core::common::labels::normalize_label;
         use crate::errors::PyContext;
         use finstack_core::dates::DayCount;
 
@@ -158,24 +154,16 @@ impl PyAsianOption {
             fixing_dates_vec.push(py_to_date(&item).context("fixing_dates")?);
         }
 
-        let avg_method = match averaging_method.map(normalize_label).as_deref() {
-            None | Some("arithmetic") => AveragingMethod::Arithmetic,
-            Some("geometric") => AveragingMethod::Geometric,
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown averaging method: {other}"
-                )))
+        let avg_method = match averaging_method {
+            Some(m) => {
+                AveragingMethod::from_str(m).map_err(|e| PyValueError::new_err(e.to_string()))?
             }
+            None => AveragingMethod::Arithmetic,
         };
 
-        let opt_type = match option_type.map(normalize_label).as_deref() {
-            None | Some("call") => OptionType::Call,
-            Some("put") => OptionType::Put,
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
+        let opt_type = match option_type {
+            Some(t) => OptionType::from_str(t).map_err(|e| PyValueError::new_err(e.to_string()))?,
+            None => OptionType::Call,
         };
 
         let mut past_fixings_vec = Vec::new();

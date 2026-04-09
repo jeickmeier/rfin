@@ -1069,16 +1069,20 @@ impl core::fmt::Display for Seniority {
 }
 
 impl core::str::FromStr for Seniority {
-    type Err = String;
+    type Err = crate::error::Error;
 
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
-        let normalized = s.to_ascii_lowercase().replace('-', "_");
-        match normalized.as_str() {
+        /// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
+        fn normalize_label(s: &str) -> String {
+            s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+        }
+
+        match normalize_label(s).as_str() {
             "senior_secured" => Ok(Seniority::SeniorSecured),
             "senior" => Ok(Seniority::Senior),
-            "subordinated" => Ok(Seniority::Subordinated),
+            "subordinated" | "sub" => Ok(Seniority::Subordinated),
             "junior" => Ok(Seniority::Junior),
-            other => Err(format!("Unknown seniority: {}", other)),
+            _ => Err(crate::error::InputError::Invalid.into()),
         }
     }
 }
@@ -1101,4 +1105,42 @@ pub enum ParInterp {
     Linear,
     /// Log-linear interpolation when spreads are strictly positive
     LogLinear,
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod seniority_tests {
+    use super::Seniority;
+
+    fn assert_parses_to(label: &str, expected: Seniority) {
+        assert!(matches!(label.parse::<Seniority>(), Ok(value) if value == expected));
+    }
+
+    #[test]
+    fn test_seniority_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("senior_secured", Seniority::SeniorSecured),
+            ("senior", Seniority::Senior),
+            ("subordinated", Seniority::Subordinated),
+            ("sub", Seniority::Subordinated),
+            ("junior", Seniority::Junior),
+        ] {
+            assert_parses_to(input, expected);
+        }
+
+        for variant in [
+            Seniority::SeniorSecured,
+            Seniority::Senior,
+            Seniority::Subordinated,
+            Seniority::Junior,
+        ] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<Seniority>(), Ok(value) if value == variant));
+        }
+    }
+
+    #[test]
+    fn test_seniority_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<Seniority>().is_err());
+    }
 }

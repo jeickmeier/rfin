@@ -1,5 +1,4 @@
 use crate::core::common::args::CurrencyArg;
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -16,6 +15,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[pyclass(
@@ -39,8 +39,7 @@ impl PyQuantoOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "QuantoOptionBuilder",
-    unsendable
+    name = "QuantoOptionBuilder"
 )]
 pub struct PyQuantoOptionBuilder {
     instrument_id: InstrumentId,
@@ -124,15 +123,8 @@ impl PyQuantoOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         option_type: &str,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.option_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
+        slf.option_type =
+            OptionType::from_str(option_type).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 

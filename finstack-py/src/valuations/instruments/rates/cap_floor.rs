@@ -1,4 +1,4 @@
-use crate::core::common::args::{BusinessDayConventionArg, DayCountArg, StubKindArg};
+use crate::core::common::args::{parse_day_count, BusinessDayConventionArg, StubKindArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::PyMoney;
@@ -19,15 +19,6 @@ use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-
-fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
-    if let Some(bound) = dc {
-        let DayCountArg(inner) = bound.extract()?;
-        Ok(inner)
-    } else {
-        Ok(DayCount::Act360)
-    }
-}
 
 // ============================================================================
 // RateOptionType wrapper
@@ -132,8 +123,7 @@ impl PyInterestRateOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "InterestRateOptionBuilder",
-    unsendable
+    name = "InterestRateOptionBuilder"
 )]
 pub struct PyInterestRateOptionBuilder {
     instrument_id: InstrumentId,
@@ -334,8 +324,7 @@ impl PyInterestRateOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         day_count: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        let dc = extract_day_count(Some(day_count))?;
-        slf.day_count = dc;
+        slf.day_count = parse_day_count(&day_count)?;
         Ok(slf)
     }
 

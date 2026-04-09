@@ -1,6 +1,5 @@
 use super::calendar::PyCalendar;
 use super::schedule::PyFrequency;
-use crate::core::common::labels::normalize_label;
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{calendar_not_found, core_to_py, PyContext};
 use finstack_core::dates::CalendarRegistry;
@@ -9,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
 use std::fmt;
+use std::str::FromStr;
 
 /// Wrap finstack day-count conventions for year-fraction calculations.
 ///
@@ -37,18 +37,8 @@ impl PyDayCount {
         Self { inner }
     }
 
-    fn label(&self) -> &'static str {
-        match self.inner {
-            DayCount::Act360 => "act_360",
-            DayCount::Act365F => "act_365f",
-            DayCount::Act365L => "act_365l",
-            DayCount::Thirty360 => "thirty_360",
-            DayCount::ThirtyE360 => "thirty_e_360",
-            DayCount::ActAct => "act_act",
-            DayCount::ActActIsma => "act_act_isma",
-            DayCount::Bus252 => "bus_252",
-            _ => "custom",
-        }
+    fn label(&self) -> String {
+        self.inner.to_string()
     }
 }
 
@@ -91,35 +81,14 @@ impl PyDayCount {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a day-count convention from a common alias (e.g. ``"act/365f"``).
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        let normalized = normalize_label(name);
-        match normalized.as_str() {
-            "act/360" | "act_360" | "actual/360" => Ok(Self::new(DayCount::Act360)),
-            "act/365f" | "act_365f" | "actual/365f" => Ok(Self::new(DayCount::Act365F)),
-            "act/365l" | "act_365l" | "actual/365l" | "act/365afb" => {
-                Ok(Self::new(DayCount::Act365L))
-            }
-            "30/360" | "30_360" | "thirty/360" | "30u/360" | "bond_basis" | "30/360_bond_basis" => {
-                Ok(Self::new(DayCount::Thirty360))
-            }
-            "30e/360" | "30e_360" | "30/360e" | "eurobond_basis" => {
-                Ok(Self::new(DayCount::ThirtyE360))
-            }
-            "act/act" | "act_act" | "actual/actual" | "act/act_isda" | "isda" => {
-                Ok(Self::new(DayCount::ActAct))
-            }
-            "act/act_isma" | "act_act_isma" | "icma" | "act/act_icma" => {
-                Ok(Self::new(DayCount::ActActIsma))
-            }
-            "bus/252" | "bus_252" | "business/252" => Ok(Self::new(DayCount::Bus252)),
-            other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Unknown day-count convention: {other}"
-            ))),
-        }
+        DayCount::from_str(name)
+            .map(Self::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Snake-case identifier of the convention.
     #[getter]
-    fn name(&self) -> &'static str {
+    fn name(&self) -> String {
         self.label()
     }
 
@@ -165,21 +134,21 @@ impl PyDayCount {
     ) -> PyResult<i64> {
         let start_date = py_to_date(&start).context("start")?;
         let end_date = py_to_date(&end).context("end")?;
-        Ok((end_date - start_date).whole_days())
+        Ok(DayCount::calendar_days(start_date, end_date))
     }
 
     fn __repr__(&self) -> String {
         format!("DayCount('{}')", self.label())
     }
 
-    fn __str__(&self) -> &'static str {
+    fn __str__(&self) -> String {
         self.label()
     }
 }
 
 impl fmt::Display for PyDayCount {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.label())
+        write!(f, "{}", self.inner)
     }
 }
 
@@ -452,6 +421,14 @@ impl PyThirty360Convention {
 
     fn __str__(&self) -> &'static str {
         self.label()
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
     }
 }
 

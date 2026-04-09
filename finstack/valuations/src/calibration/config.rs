@@ -49,6 +49,33 @@ pub enum CalibrationMethod {
     },
 }
 
+impl std::fmt::Display for CalibrationMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bootstrap => write!(f, "bootstrap"),
+            Self::GlobalSolve { .. } => write!(f, "global_solve"),
+        }
+    }
+}
+
+impl std::str::FromStr for CalibrationMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "bootstrap" => Ok(Self::Bootstrap),
+            "global_solve" | "globalsolve" => Ok(Self::GlobalSolve {
+                use_analytical_jacobian: false,
+            }),
+            other => Err(format!(
+                "Unknown calibration method: '{}'. Valid: bootstrap, global_solve",
+                other
+            )),
+        }
+    }
+}
+
 /// Policy for weighting residuals in global solve calibration.
 ///
 /// Determines how the objective function weights individual instrument fitting
@@ -72,6 +99,35 @@ pub enum ResidualWeightingScheme {
     SqrtTime,
     /// Weight by inverse duration (1/DV01 approximation).
     InverseDuration,
+}
+
+impl std::fmt::Display for ResidualWeightingScheme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Equal => write!(f, "equal"),
+            Self::LinearTime => write!(f, "linear_time"),
+            Self::SqrtTime => write!(f, "sqrt_time"),
+            Self::InverseDuration => write!(f, "inverse_duration"),
+        }
+    }
+}
+
+impl std::str::FromStr for ResidualWeightingScheme {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "equal" => Ok(Self::Equal),
+            "linear_time" | "lineartime" => Ok(Self::LinearTime),
+            "sqrt_time" | "sqrttime" => Ok(Self::SqrtTime),
+            "inverse_duration" | "inverseduration" => Ok(Self::InverseDuration),
+            other => Err(format!(
+                "Unknown residual weighting scheme: '{}'. Valid: equal, linear_time, sqrt_time, inverse_duration",
+                other
+            )),
+        }
+    }
 }
 
 /// Hazard-curve specific numerical solver configuration.
@@ -762,3 +818,67 @@ pub struct RatesStepConventions {
 
 // =============================================================================
 // End of configuration module
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn residual_weighting_scheme_fromstr_display_roundtrip() {
+        fn assert_residual_weighting_scheme(label: &str, expected: ResidualWeightingScheme) {
+            assert!(
+                matches!(ResidualWeightingScheme::from_str(label), Ok(value) if value == expected)
+            );
+        }
+
+        let variants = [
+            ResidualWeightingScheme::Equal,
+            ResidualWeightingScheme::LinearTime,
+            ResidualWeightingScheme::SqrtTime,
+            ResidualWeightingScheme::InverseDuration,
+        ];
+        for v in variants {
+            let s = v.to_string();
+            let parsed =
+                ResidualWeightingScheme::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_residual_weighting_scheme("lineartime", ResidualWeightingScheme::LinearTime);
+        assert_residual_weighting_scheme("sqrttime", ResidualWeightingScheme::SqrtTime);
+        assert!(ResidualWeightingScheme::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn calibration_method_fromstr_display_roundtrip() {
+        fn assert_calibration_method(label: &str, matcher: fn(&CalibrationMethod) -> bool) {
+            let parsed = CalibrationMethod::from_str(label);
+            assert!(matches!(parsed.as_ref(), Ok(value) if matcher(value)));
+        }
+
+        // Bootstrap roundtrips exactly
+        let bootstrap = CalibrationMethod::Bootstrap;
+        let s = bootstrap.to_string();
+        let parsed = CalibrationMethod::from_str(&s).expect("roundtrip parse should succeed");
+        assert_eq!(bootstrap, parsed);
+
+        // GlobalSolve parses to default (use_analytical_jacobian = false)
+        assert_calibration_method("global_solve", |value| {
+            matches!(
+                value,
+                CalibrationMethod::GlobalSolve {
+                    use_analytical_jacobian: false
+                }
+            )
+        });
+
+        // Alias
+        assert_calibration_method("globalsolve", |value| {
+            matches!(value, CalibrationMethod::GlobalSolve { .. })
+        });
+
+        assert!(CalibrationMethod::from_str("invalid").is_err());
+    }
+}

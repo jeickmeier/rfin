@@ -244,9 +244,10 @@ pub fn xirr_detailed_wasm(
     day_count: &str,
     guess: Option<f64>,
 ) -> Result<JsIrrResult, JsValue> {
-    use crate::core::common::parse::ParseFromString;
+    use std::str::FromStr;
 
-    let dc = finstack_core::dates::DayCount::parse_from_string(day_count)?;
+    let dc = finstack_core::dates::DayCount::from_str(day_count)
+        .map_err(|e| crate::core::error::js_error(e.to_string()))?;
 
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::new();
     for item in cash_flows.iter() {

@@ -1,10 +1,9 @@
 //! Parsing utilities for valuations-specific types.
 //!
-//! Delegates to core parsing module for common types (DayCount, Tenor, etc.)
-//! and provides parsing for instrument-specific types.
+//! Delegates to core `FromStr` implementations for common types (DayCount,
+//! Tenor, etc.) and provides parsing for instrument-specific types.
 
 use crate::core::common::labels::normalize_label;
-use crate::core::common::parse::ParseFromString;
 use crate::core::error::js_error;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::math::stats::RealizedVarMethod;
@@ -17,42 +16,43 @@ use finstack_valuations::instruments::rates::repo::RepoType;
 use finstack_valuations::instruments::rates::swaption::{SwaptionExercise, SwaptionSettlement};
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::PayReceive;
+use std::str::FromStr;
 use wasm_bindgen::JsValue;
 
 /// Trait for parsing JavaScript string labels into strongly-typed Rust enums.
 ///
-/// For common types like DayCount, Tenor, etc., use ParseFromString from
-/// crate::core::common::parse instead. This trait is for valuations-specific types.
+/// For common types like DayCount, Tenor, etc., delegates to core `FromStr`.
+/// For valuations-specific types, provides local match blocks.
 pub(crate) trait FromJsLabel: Sized {
     /// Parse a string label into the target type.
     fn from_label(label: &str) -> Result<Self, JsValue>;
 }
 
 // ============================================================================
-// Date/Schedule Types - Delegate to Core
+// Date/Schedule Types - Delegate to Core FromStr
 // ============================================================================
 
 impl FromJsLabel for Tenor {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        Tenor::parse_from_string(label)
+        Tenor::from_str(label).map_err(|e| js_error(e.to_string()))
     }
 }
 
 impl FromJsLabel for DayCount {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        DayCount::parse_from_string(label)
+        DayCount::from_str(label).map_err(|e| js_error(e.to_string()))
     }
 }
 
 impl FromJsLabel for StubKind {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        StubKind::parse_from_string(label)
+        StubKind::from_str(label).map_err(|e| js_error(e.to_string()))
     }
 }
 
 impl FromJsLabel for BusinessDayConvention {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        BusinessDayConvention::parse_from_string(label)
+        BusinessDayConvention::from_str(label).map_err(|e| js_error(e.to_string()))
     }
 }
 
@@ -188,23 +188,12 @@ impl FromJsLabel for DeflationProtection {
 }
 
 // ============================================================================
-// Variance Swaps
+// Variance Swaps - Delegate to Core FromStr
 // ============================================================================
 
 impl FromJsLabel for RealizedVarMethod {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        let normalized = normalize_label(label);
-        match normalized.as_str() {
-            "close_to_close" | "closetoclose" => Ok(RealizedVarMethod::CloseToClose),
-            "parkinson" => Ok(RealizedVarMethod::Parkinson),
-            "garman_klass" | "garmanklass" => Ok(RealizedVarMethod::GarmanKlass),
-            "rogers_satchell" | "rogerssatchell" => Ok(RealizedVarMethod::RogersSatchell),
-            "yang_zhang" | "yangzhang" => Ok(RealizedVarMethod::YangZhang),
-            _ => Err(js_error(format!(
-                "Unknown realized variance method: {}",
-                label
-            ))),
-        }
+        RealizedVarMethod::from_str(label).map_err(|e| js_error(e.to_string()))
     }
 }
 

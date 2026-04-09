@@ -548,11 +548,7 @@ impl PyScorecardConfig {
 /// ...     tolerance=0.01
 /// ... )
 /// >>> extension = CorkscrewExtension.with_config(config)
-#[pyclass(
-    module = "finstack.statements.extensions",
-    name = "CorkscrewExtension",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.extensions", name = "CorkscrewExtension")]
 pub struct PyCorkscrewExtension {
     pub(crate) inner: CorkscrewExtension,
 }
@@ -648,8 +644,7 @@ impl PyCorkscrewExtension {
 /// >>> extension = CreditScorecardExtension.with_config(config)
 #[pyclass(
     module = "finstack.statements.extensions",
-    name = "CreditScorecardExtension",
-    unsendable
+    name = "CreditScorecardExtension"
 )]
 pub struct PyCreditScorecardExtension {
     pub(crate) inner: CreditScorecardExtension,

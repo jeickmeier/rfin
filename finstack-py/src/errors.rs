@@ -402,21 +402,6 @@ pub(crate) fn unknown_currency(code: &str) -> PyErr {
     ParameterError::new_err(format!("Unknown currency code: {code}"))
 }
 
-/// Create a `ValueError` for an unknown rounding mode name.
-///
-/// Parameters
-/// ----------
-/// name : &str
-///     Rounding mode identifier supplied by the user.
-///
-/// Returns
-/// -------
-/// PyErr
-///     `ValueError` describing the invalid rounding mode.
-pub(crate) fn unknown_rounding_mode(name: &str) -> PyErr {
-    ParameterError::new_err(format!("Unknown rounding mode: {name}"))
-}
-
 /// Create a `ValueError` for an unknown business-day convention name.
 ///
 /// Parameters

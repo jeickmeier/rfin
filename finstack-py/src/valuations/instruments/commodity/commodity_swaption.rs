@@ -1,5 +1,4 @@
 use crate::core::common::args::{CurrencyArg, DayCountArg, TenorArg};
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -15,29 +14,16 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn parse_option_type(label: &str) -> PyResult<OptionType> {
-    match normalize_label(label).as_str() {
-        "call" => Ok(OptionType::Call),
-        "put" => Ok(OptionType::Put),
-        other => Err(PyValueError::new_err(format!(
-            "Invalid option_type: '{other}'. Must be 'call' or 'put'"
-        ))),
-    }
+    OptionType::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn parse_bdc(label: &str) -> PyResult<BusinessDayConvention> {
-    match normalize_label(label).as_str() {
-        "following" => Ok(BusinessDayConvention::Following),
-        "modifiedfollowing" => Ok(BusinessDayConvention::ModifiedFollowing),
-        "preceding" => Ok(BusinessDayConvention::Preceding),
-        "modifiedpreceding" => Ok(BusinessDayConvention::ModifiedPreceding),
-        "unadjusted" | "none" => Ok(BusinessDayConvention::Unadjusted),
-        other => Err(PyValueError::new_err(format!(
-            "Invalid bdc: '{other}'. Must be following, modified_following, preceding, modified_preceding, or unadjusted"
-        ))),
-    }
+    BusinessDayConvention::from_str(label)
+        .map_err(|e| PyValueError::new_err(format!("Invalid bdc: {e}")))
 }
 
 /// Option to enter a fixed-for-floating commodity swap.
@@ -62,8 +48,7 @@ impl PyCommoditySwaption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CommoditySwaptionBuilder",
-    unsendable
+    name = "CommoditySwaptionBuilder"
 )]
 pub struct PyCommoditySwaptionBuilder {
     instrument_id: InstrumentId,

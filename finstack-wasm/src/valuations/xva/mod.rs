@@ -107,8 +107,9 @@ impl JsXvaConfig {
         own_recovery_rate: Option<f64>,
         funding: Option<JsFundingConfig>,
     ) -> Result<JsXvaConfig, JsValue> {
-        let recovery_rate = recovery_rate.unwrap_or(0.40);
-        let time_grid = time_grid.unwrap_or_else(|| (1..=120).map(|i| i as f64 * 0.25).collect());
+        let defaults = margin_xva::types::XvaConfig::default();
+        let recovery_rate = recovery_rate.unwrap_or(defaults.recovery_rate);
+        let time_grid = time_grid.unwrap_or_else(|| defaults.time_grid.clone());
         let inner = margin_xva::types::XvaConfig {
             time_grid,
             recovery_rate,

@@ -33,7 +33,7 @@
 //! - `finstack.core.cashflow.xirr` for return calculations
 //! - `finstack.core.cashflow.npv` for present value calculations
 
-use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
+use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
@@ -43,6 +43,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 
 type CashFlowTuple = (Py<PyAny>, PyMoney, PyCFKind, f64, Option<Py<PyAny>>);
 
@@ -113,65 +114,12 @@ impl PyCFKind {
         Self { inner }
     }
 
-    fn label(&self) -> &'static str {
-        match self.inner {
-            CFKind::Fixed => "fixed",
-            CFKind::FloatReset => "float_reset",
-            CFKind::Fee => "fee",
-            CFKind::CommitmentFee => "commitment_fee",
-            CFKind::UsageFee => "usage_fee",
-            CFKind::FacilityFee => "facility_fee",
-            CFKind::Notional => "notional",
-            CFKind::PIK => "pik",
-            CFKind::Amortization => "amortization",
-            CFKind::PrePayment => "prepayment",
-            CFKind::RevolvingDraw => "revolving_draw",
-            CFKind::RevolvingRepayment => "revolving_repayment",
-            CFKind::DefaultedNotional => "defaulted_notional",
-            CFKind::Recovery => "recovery",
-            CFKind::Stub => "stub",
-            CFKind::InitialMarginPost => "initial_margin_post",
-            CFKind::InitialMarginReturn => "initial_margin_return",
-            CFKind::VariationMarginReceive => "variation_margin_receive",
-            CFKind::VariationMarginPay => "variation_margin_pay",
-            CFKind::MarginInterest => "margin_interest",
-            CFKind::CollateralSubstitutionIn => "collateral_substitution_in",
-            CFKind::CollateralSubstitutionOut => "collateral_substitution_out",
-            CFKind::InflationCoupon => "inflation_coupon",
-            CFKind::AccruedOnDefault => "accrued_on_default",
-            _ => "unknown",
-        }
+    fn label(&self) -> String {
+        self.inner.to_string()
     }
 
     fn parse(name: &str) -> Option<CFKind> {
-        let normalized = normalize_label(name);
-        match normalized.as_str() {
-            "fixed" => Some(CFKind::Fixed),
-            "float_reset" => Some(CFKind::FloatReset),
-            "fee" => Some(CFKind::Fee),
-            "commitment_fee" => Some(CFKind::CommitmentFee),
-            "usage_fee" => Some(CFKind::UsageFee),
-            "facility_fee" => Some(CFKind::FacilityFee),
-            "notional" => Some(CFKind::Notional),
-            "pik" => Some(CFKind::PIK),
-            "amortization" | "amort" => Some(CFKind::Amortization),
-            "prepayment" | "pre_payment" => Some(CFKind::PrePayment),
-            "revolving_draw" => Some(CFKind::RevolvingDraw),
-            "revolving_repayment" => Some(CFKind::RevolvingRepayment),
-            "defaulted_notional" => Some(CFKind::DefaultedNotional),
-            "recovery" => Some(CFKind::Recovery),
-            "stub" => Some(CFKind::Stub),
-            "initial_margin_post" => Some(CFKind::InitialMarginPost),
-            "initial_margin_return" => Some(CFKind::InitialMarginReturn),
-            "variation_margin_receive" => Some(CFKind::VariationMarginReceive),
-            "variation_margin_pay" => Some(CFKind::VariationMarginPay),
-            "margin_interest" => Some(CFKind::MarginInterest),
-            "collateral_substitution_in" => Some(CFKind::CollateralSubstitutionIn),
-            "collateral_substitution_out" => Some(CFKind::CollateralSubstitutionOut),
-            "inflation_coupon" => Some(CFKind::InflationCoupon),
-            "accrued_on_default" => Some(CFKind::AccruedOnDefault),
-            _ => None,
-        }
+        CFKind::from_str(name).ok()
     }
 }
 
@@ -250,7 +198,7 @@ impl PyCFKind {
 
     /// Snake-case name of the enumeration value.
     #[getter]
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> String {
         self.label()
     }
 
@@ -264,7 +212,7 @@ impl PyCFKind {
         format!("CFKind('{}')", self.label())
     }
 
-    fn __str__(&self) -> &'static str {
+    fn __str__(&self) -> String {
         self.label()
     }
 

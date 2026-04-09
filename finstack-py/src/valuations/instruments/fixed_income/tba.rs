@@ -134,7 +134,6 @@ impl PyAgencyTba {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyTbaBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyAgencyTbaBuilder {

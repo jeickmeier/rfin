@@ -1004,7 +1004,6 @@ impl PyLoanCallSchedule {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "TermLoanBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyTermLoanBuilder {

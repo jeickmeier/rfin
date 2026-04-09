@@ -215,6 +215,79 @@ pub enum CFKind {
     CollateralSubstitutionOut,
 }
 
+// ---------------------------------------------------------------------------
+// Display + FromStr
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Display for CFKind {
+    #[allow(unreachable_patterns)] // non_exhaustive future-proofing
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            CFKind::Fixed => "fixed",
+            CFKind::FloatReset => "float_reset",
+            CFKind::InflationCoupon => "inflation_coupon",
+            CFKind::Fee => "fee",
+            CFKind::CommitmentFee => "commitment_fee",
+            CFKind::UsageFee => "usage_fee",
+            CFKind::FacilityFee => "facility_fee",
+            CFKind::Notional => "notional",
+            CFKind::PIK => "pik",
+            CFKind::Amortization => "amortization",
+            CFKind::PrePayment => "prepayment",
+            CFKind::RevolvingDraw => "revolving_draw",
+            CFKind::RevolvingRepayment => "revolving_repayment",
+            CFKind::DefaultedNotional => "defaulted_notional",
+            CFKind::Recovery => "recovery",
+            CFKind::AccruedOnDefault => "accrued_on_default",
+            CFKind::Stub => "stub",
+            CFKind::InitialMarginPost => "initial_margin_post",
+            CFKind::InitialMarginReturn => "initial_margin_return",
+            CFKind::VariationMarginReceive => "variation_margin_receive",
+            CFKind::VariationMarginPay => "variation_margin_pay",
+            CFKind::MarginInterest => "margin_interest",
+            CFKind::CollateralSubstitutionIn => "collateral_substitution_in",
+            CFKind::CollateralSubstitutionOut => "collateral_substitution_out",
+            _ => "unknown",
+        };
+        f.write_str(label)
+    }
+}
+
+impl std::str::FromStr for CFKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = crate::parse::normalize_label(s);
+        match n.as_str() {
+            "fixed" => Ok(CFKind::Fixed),
+            "float_reset" => Ok(CFKind::FloatReset),
+            "inflation_coupon" => Ok(CFKind::InflationCoupon),
+            "fee" => Ok(CFKind::Fee),
+            "commitment_fee" => Ok(CFKind::CommitmentFee),
+            "usage_fee" => Ok(CFKind::UsageFee),
+            "facility_fee" => Ok(CFKind::FacilityFee),
+            "notional" => Ok(CFKind::Notional),
+            "pik" => Ok(CFKind::PIK),
+            "amortization" | "amort" => Ok(CFKind::Amortization),
+            "prepayment" | "pre_payment" => Ok(CFKind::PrePayment),
+            "revolving_draw" => Ok(CFKind::RevolvingDraw),
+            "revolving_repayment" => Ok(CFKind::RevolvingRepayment),
+            "defaulted_notional" => Ok(CFKind::DefaultedNotional),
+            "recovery" => Ok(CFKind::Recovery),
+            "accrued_on_default" => Ok(CFKind::AccruedOnDefault),
+            "stub" => Ok(CFKind::Stub),
+            "initial_margin_post" => Ok(CFKind::InitialMarginPost),
+            "initial_margin_return" => Ok(CFKind::InitialMarginReturn),
+            "variation_margin_receive" => Ok(CFKind::VariationMarginReceive),
+            "variation_margin_pay" => Ok(CFKind::VariationMarginPay),
+            "margin_interest" => Ok(CFKind::MarginInterest),
+            "collateral_substitution_in" => Ok(CFKind::CollateralSubstitutionIn),
+            "collateral_substitution_out" => Ok(CFKind::CollateralSubstitutionOut),
+            other => Err(format!("unknown CFKind: {other}")),
+        }
+    }
+}
+
 impl CFKind {
     /// Returns `true` for interest-bearing cashflow kinds.
     ///
@@ -375,6 +448,24 @@ fn non_finite_kind(x: f64) -> NonFiniteKind {
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
+
+    fn assert_parses_to<T>(label: &str, expected: T)
+    where
+        T: std::str::FromStr + PartialEq,
+    {
+        assert!(matches!(label.parse::<T>(), Ok(value) if value == expected));
+    }
+
+    fn assert_roundtrip<T>(value: T)
+    where
+        T: Clone + std::fmt::Display + std::str::FromStr + PartialEq,
+    {
+        let label = value.to_string();
+        assert!(
+            matches!(label.parse::<T>(), Ok(parsed) if parsed == value),
+            "roundtrip failed for {label}"
+        );
+    }
     use crate::currency::Currency;
     use core::mem::size_of;
     use time::Month;
@@ -563,5 +654,63 @@ mod tests {
         };
         assert_eq!(sub_out.kind, CFKind::CollateralSubstitutionOut);
         assert!(sub_out.validate().is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // CFKind FromStr / Display roundtrip tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn cfkind_display_roundtrip() {
+        let all = [
+            CFKind::Fixed,
+            CFKind::FloatReset,
+            CFKind::InflationCoupon,
+            CFKind::Fee,
+            CFKind::CommitmentFee,
+            CFKind::UsageFee,
+            CFKind::FacilityFee,
+            CFKind::Notional,
+            CFKind::PIK,
+            CFKind::Amortization,
+            CFKind::PrePayment,
+            CFKind::RevolvingDraw,
+            CFKind::RevolvingRepayment,
+            CFKind::DefaultedNotional,
+            CFKind::Recovery,
+            CFKind::AccruedOnDefault,
+            CFKind::Stub,
+            CFKind::InitialMarginPost,
+            CFKind::InitialMarginReturn,
+            CFKind::VariationMarginReceive,
+            CFKind::VariationMarginPay,
+            CFKind::MarginInterest,
+            CFKind::CollateralSubstitutionIn,
+            CFKind::CollateralSubstitutionOut,
+        ];
+
+        for kind in &all {
+            assert_roundtrip(*kind);
+        }
+    }
+
+    #[test]
+    fn cfkind_from_str_aliases() {
+        // Amortization aliases
+        assert_parses_to("amort", CFKind::Amortization);
+        assert_parses_to("amortization", CFKind::Amortization);
+
+        // PrePayment aliases
+        assert_parses_to("prepayment", CFKind::PrePayment);
+        assert_parses_to("pre_payment", CFKind::PrePayment);
+
+        // Case-insensitive via normalize_label
+        assert_parses_to("FIXED", CFKind::Fixed);
+        assert_parses_to("Float-Reset", CFKind::FloatReset);
+    }
+
+    #[test]
+    fn cfkind_from_str_unknown() {
+        assert!("garbage".parse::<CFKind>().is_err());
     }
 }

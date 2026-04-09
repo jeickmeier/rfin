@@ -1,6 +1,7 @@
 use super::{FactorId, MarketDependency};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 
 /// Errors produced by factor-model workflows.
 #[derive(Debug)]
@@ -113,9 +114,41 @@ pub enum UnmatchedPolicy {
     Warn,
 }
 
+/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
+fn normalize_label(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+}
+
+impl fmt::Display for UnmatchedPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Strict => write!(f, "strict"),
+            Self::Residual => write!(f, "residual"),
+            Self::Warn => write!(f, "warn"),
+        }
+    }
+}
+
+impl FromStr for UnmatchedPolicy {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match normalize_label(s).as_str() {
+            "strict" | "error" => Ok(Self::Strict),
+            "residual" => Ok(Self::Residual),
+            "warn" | "ignore" => Ok(Self::Warn),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_parses_to(label: &str, expected: UnmatchedPolicy) {
+        assert!(matches!(label.parse::<UnmatchedPolicy>(), Ok(value) if value == expected));
+    }
 
     #[test]
     fn test_error_display_missing_factor() {
@@ -146,5 +179,32 @@ mod tests {
             return;
         };
         assert_eq!(policy, back);
+    }
+
+    #[test]
+    fn test_unmatched_policy_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("strict", UnmatchedPolicy::Strict),
+            ("error", UnmatchedPolicy::Strict),
+            ("residual", UnmatchedPolicy::Residual),
+            ("warn", UnmatchedPolicy::Warn),
+            ("ignore", UnmatchedPolicy::Warn),
+        ] {
+            assert_parses_to(input, expected);
+        }
+
+        for variant in [
+            UnmatchedPolicy::Strict,
+            UnmatchedPolicy::Residual,
+            UnmatchedPolicy::Warn,
+        ] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<UnmatchedPolicy>(), Ok(value) if value == variant));
+        }
+    }
+
+    #[test]
+    fn test_unmatched_policy_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<UnmatchedPolicy>().is_err());
     }
 }

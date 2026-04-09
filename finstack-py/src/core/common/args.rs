@@ -14,7 +14,7 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::schedule::{PyFrequency, PyStubKind};
 use crate::core::dates::PyDayCount;
 use crate::core::math::interp::{PyExtrapolationPolicy, PyInterpStyle};
-use crate::errors::{unknown_business_day_convention, unknown_rounding_mode};
+use crate::errors::unknown_business_day_convention;
 use finstack_core::config::RoundingMode;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
@@ -54,16 +54,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for RoundingModeArg {
             return Ok(RoundingModeArg(mode.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
-            let n = normalize_label(name);
-            let m = match n.as_str() {
-                "bankers" | "banker" => RoundingMode::Bankers,
-                "away_from_zero" | "awayfromzero" => RoundingMode::AwayFromZero,
-                "toward_zero" | "towards_zero" => RoundingMode::TowardZero,
-                "floor" => RoundingMode::Floor,
-                "ceil" | "ceiling" => RoundingMode::Ceil,
-                other => return Err(unknown_rounding_mode(other)),
-            };
-            return Ok(RoundingModeArg(m));
+            return RoundingMode::from_str(name)
+                .map(RoundingModeArg)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()));
         }
         Err(PyTypeError::new_err(
             "Expected RoundingMode or string identifier",
@@ -101,26 +94,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for DayCountArg {
             return Ok(DayCountArg(dc.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
-            let n = normalize_label(name);
-            let v = match n.as_str() {
-                "act/360" | "act_360" | "actual/360" => DayCount::Act360,
-                "act/365f" | "act_365f" | "actual/365f" => DayCount::Act365F,
-                "act/365l" | "act_365l" | "actual/365l" | "act/365afb" => DayCount::Act365L,
-                "30/360" | "30_360" | "thirty/360" | "30u/360" | "bond_basis"
-                | "30/360_bond_basis" => DayCount::Thirty360,
-                "30e/360" | "30e_360" | "30/360e" | "eurobond_basis" => DayCount::ThirtyE360,
-                "act/act" | "act_act" | "actual/actual" | "act/act_isda" | "isda" => {
-                    DayCount::ActAct
-                }
-                "act/act_isma" | "act_act_isma" | "icma" | "act/act_icma" => DayCount::ActActIsma,
-                "bus/252" | "bus_252" | "business/252" => DayCount::Bus252,
-                other => {
-                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unknown day-count convention: {other}"
-                    )))
-                }
-            };
-            return Ok(DayCountArg(v));
+            return DayCount::from_str(name)
+                .map(DayCountArg)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()));
         }
         Err(PyTypeError::new_err(
             "Expected DayCount or string identifier",
@@ -137,21 +113,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for InterpStyleArg {
             return Ok(InterpStyleArg(py.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
-            let n = normalize_label(name);
-            let v = match n.as_str() {
-                "linear" => InterpStyle::Linear,
-                "log_linear" => InterpStyle::LogLinear,
-                "monotone_convex" => InterpStyle::MonotoneConvex,
-                "cubic_hermite" => InterpStyle::CubicHermite,
-                "piecewise_quadratic_forward" => InterpStyle::PiecewiseQuadraticForward,
-                "flat_fwd" => InterpStyle::LogLinear,
-                other => {
-                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unknown interpolation style: {other}"
-                    )))
-                }
-            };
-            return Ok(InterpStyleArg(v));
+            return InterpStyle::from_str(name)
+                .map(InterpStyleArg)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()));
         }
         Err(PyTypeError::new_err(
             "Expected InterpStyle or string identifier",
@@ -168,17 +132,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ExtrapolationPolicyArg {
             return Ok(ExtrapolationPolicyArg(py.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
-            let n = normalize_label(name);
-            let v = match n.as_str() {
-                "flat_zero" => ExtrapolationPolicy::FlatZero,
-                "flat_forward" => ExtrapolationPolicy::FlatForward,
-                other => {
-                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unknown extrapolation policy: {other}"
-                    )))
-                }
-            };
-            return Ok(ExtrapolationPolicyArg(v));
+            return ExtrapolationPolicy::from_str(name)
+                .map(ExtrapolationPolicyArg)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()));
         }
         Err(PyTypeError::new_err(
             "Expected ExtrapolationPolicy or string identifier",
@@ -204,20 +160,26 @@ impl<'a, 'py> FromPyObject<'a, 'py> for TenorArg {
         }
         // Try string parsing
         if let Ok(name) = obj.extract::<&str>() {
-            let normalized = normalize_label(name);
-            if let Ok(payments) = normalized.parse::<u32>() {
+            // Try integer payments-per-year (e.g. "12")
+            if let Ok(payments) = name.trim().parse::<u32>() {
                 return Tenor::from_payments_per_year(payments)
                     .map(TenorArg)
                     .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg.to_string()));
             }
+            // Delegate to core Tenor::from_str which handles "3M", "1Y", etc.
+            if let Ok(tenor) = Tenor::from_str(name) {
+                return Ok(TenorArg(tenor));
+            }
+            // Named-frequency labels not covered by core FromStr
+            let normalized = normalize_label(name);
             let tenor = match normalized.as_str() {
-                "annual" | "1y" | "yearly" => Tenor::annual(),
-                "semiannual" | "semi_annual" | "6m" | "semi" => Tenor::semi_annual(),
-                "quarterly" | "qtr" | "3m" => Tenor::quarterly(),
-                "monthly" | "1m" => Tenor::monthly(),
-                "biweekly" | "2w" => Tenor::biweekly(),
-                "weekly" | "1w" => Tenor::weekly(),
-                "daily" | "1d" => Tenor::daily(),
+                "annual" | "yearly" => Tenor::annual(),
+                "semiannual" | "semi_annual" | "semi" => Tenor::semi_annual(),
+                "quarterly" | "qtr" => Tenor::quarterly(),
+                "monthly" => Tenor::monthly(),
+                "biweekly" => Tenor::biweekly(),
+                "weekly" => Tenor::weekly(),
+                "daily" => Tenor::daily(),
                 other => {
                     return Err(pyo3::exceptions::PyValueError::new_err(format!(
                         "Unknown frequency/tenor: {other}"
@@ -252,22 +214,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for StubKindArg {
         if let Ok(py_stub) = obj.extract::<PyRef<PyStubKind>>() {
             return Ok(StubKindArg(py_stub.inner));
         }
-        // Try string parsing
+        // Try string parsing — delegate to core StubKind::from_str
         if let Ok(name) = obj.extract::<&str>() {
-            let normalized = normalize_label(name);
-            let stub = match normalized.as_str() {
-                "none" => StubKind::None,
-                "short_front" | "shortfront" => StubKind::ShortFront,
-                "short_back" | "shortback" => StubKind::ShortBack,
-                "long_front" | "longfront" => StubKind::LongFront,
-                "long_back" | "longback" => StubKind::LongBack,
-                other => {
-                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unknown stub kind: {other}"
-                    )));
-                }
-            };
-            return Ok(StubKindArg(stub));
+            return StubKind::from_str(name)
+                .map(StubKindArg)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e));
         }
         Err(PyTypeError::new_err(
             "Expected StubKind or string identifier",
@@ -423,6 +374,21 @@ pub(crate) fn parse_extrap_style(
     Err(PyTypeError::new_err(
         "extrapolation must be ExtrapolationPolicy or string",
     ))
+}
+
+/// Return the canonical snake_case label for a [`BusinessDayConvention`].
+///
+/// Centralizes the mapping used by instrument getters that expose the
+/// convention as a plain string to Python callers.
+pub fn business_day_convention_label(bdc: BusinessDayConvention) -> &'static str {
+    match bdc {
+        BusinessDayConvention::Following => "following",
+        BusinessDayConvention::ModifiedFollowing => "modified_following",
+        BusinessDayConvention::Preceding => "preceding",
+        BusinessDayConvention::ModifiedPreceding => "modified_preceding",
+        BusinessDayConvention::Unadjusted => "unadjusted",
+        _ => "unknown",
+    }
 }
 
 /// Parse a day-count convention from Python input.

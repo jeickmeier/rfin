@@ -1,4 +1,3 @@
-use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::core_to_js;
 use crate::core::error::js_error;
@@ -22,7 +21,9 @@ fn parse_day_count_jsvalue(value: &JsValue) -> Result<Option<DayCount>, JsValue>
         return Ok(None);
     }
     if let Some(name) = value.as_string() {
-        DayCount::parse_from_string(&name).map(Some)
+        DayCount::from_str(&name)
+            .map(Some)
+            .map_err(|e| js_error(e.to_string()))
     } else {
         Err(js_error(
             "dayCount must be provided as a string identifier (e.g. 'act_365f')",

@@ -23,6 +23,7 @@ use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -119,13 +120,9 @@ impl PyPricingMode {
     /// Parse from ``"DeltaBased"`` or ``"FullRepricing"``.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalize_label(value).as_str() {
-            "deltabased" | "delta_based" => Ok(Self::from_inner(PricingMode::DeltaBased)),
-            "fullrepricing" | "full_repricing" => Ok(Self::from_inner(PricingMode::FullRepricing)),
-            _ => Err(PyValueError::new_err(format!(
-                "Unsupported pricing mode '{value}'. Expected DeltaBased or FullRepricing"
-            ))),
-        }
+        PricingMode::from_str(value)
+            .map(Self::from_inner)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Central finite differences for linear deltas.
@@ -203,27 +200,9 @@ impl PyFactorType {
     /// Parse from ``"Rates"``, ``"Credit"``, ``"Custom:Weather"``, etc.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        let lower = normalize_label(value);
-        match lower.as_str() {
-            "rates" => Ok(Self::from_inner(FactorType::Rates)),
-            "credit" => Ok(Self::from_inner(FactorType::Credit)),
-            "equity" => Ok(Self::from_inner(FactorType::Equity)),
-            "fx" => Ok(Self::from_inner(FactorType::FX)),
-            "volatility" | "vol" => Ok(Self::from_inner(FactorType::Volatility)),
-            "commodity" => Ok(Self::from_inner(FactorType::Commodity)),
-            "inflation" => Ok(Self::from_inner(FactorType::Inflation)),
-            _ if lower.starts_with("custom:") => {
-                let tail = match value.split_once(':') {
-                    Some((_, t)) => t.trim().to_string(),
-                    None => String::new(),
-                };
-                Ok(Self::from_inner(FactorType::Custom(tail)))
-            }
-            _ => Err(PyValueError::new_err(format!(
-                "Unsupported factor type '{value}'. Expected Rates, Credit, Equity, FX, \
-                 Volatility, Commodity, Inflation, or Custom:<name>"
-            ))),
-        }
+        FactorType::from_str(value)
+            .map(Self::from_inner)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Interest-rate factor.
@@ -336,24 +315,9 @@ impl PyDependencyType {
     /// Parse from ``"Discount"``, ``"Forward"``, ``"Credit"``, etc.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalize_label(value).as_str() {
-            "discount" => Ok(Self::from_inner(DependencyType::Discount)),
-            "forward" => Ok(Self::from_inner(DependencyType::Forward)),
-            "credit" => Ok(Self::from_inner(DependencyType::Credit)),
-            "spot" => Ok(Self::from_inner(DependencyType::Spot)),
-            "vol" | "volsurface" | "vol_surface" | "volatility" => {
-                Ok(Self::from_inner(DependencyType::Vol))
-            }
-            "fx" => Ok(Self::from_inner(DependencyType::Fx)),
-            "series" => Ok(Self::from_inner(DependencyType::Series)),
-            "hazard" => Err(PyValueError::new_err(
-                "Hazard is a CurveType, not a DependencyType. \
-                 Use DependencyType('Credit') and CurveType('Hazard')",
-            )),
-            _ => Err(PyValueError::new_err(format!(
-                "Unsupported dependency type '{value}'"
-            ))),
-        }
+        DependencyType::from_str(value)
+            .map(Self::from_inner)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Discounting curve dependency.
@@ -458,18 +422,9 @@ impl PyCurveType {
     /// Parse from ``"Discount"``, ``"Forward"``, ``"Hazard"``, etc.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalize_label(value).as_str() {
-            "discount" => Ok(Self::from_inner(CurveType::Discount)),
-            "forward" => Ok(Self::from_inner(CurveType::Forward)),
-            "hazard" | "credit" => Ok(Self::from_inner(CurveType::Hazard)),
-            "inflation" => Ok(Self::from_inner(CurveType::Inflation)),
-            "basecorrelation" | "base_correlation" => {
-                Ok(Self::from_inner(CurveType::BaseCorrelation))
-            }
-            _ => Err(PyValueError::new_err(format!(
-                "Unsupported curve type '{value}'"
-            ))),
-        }
+        CurveType::from_str(value)
+            .map(Self::from_inner)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Discounting curve.
@@ -560,14 +515,9 @@ impl PyUnmatchedPolicy {
     /// Parse from ``"Strict"``, ``"Residual"``, or ``"Warn"``.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalize_label(value).as_str() {
-            "strict" => Ok(Self::from_inner(UnmatchedPolicy::Strict)),
-            "residual" => Ok(Self::from_inner(UnmatchedPolicy::Residual)),
-            "warn" => Ok(Self::from_inner(UnmatchedPolicy::Warn)),
-            _ => Err(PyValueError::new_err(format!(
-                "Unsupported unmatched policy '{value}'. Expected Strict, Residual, or Warn"
-            ))),
-        }
+        UnmatchedPolicy::from_str(value)
+            .map(Self::from_inner)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Fail immediately when any dependency is unmatched.

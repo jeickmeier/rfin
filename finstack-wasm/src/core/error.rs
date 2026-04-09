@@ -151,7 +151,7 @@ pub(crate) fn calendar_not_found(id: &str) -> JsValue {
 }
 
 // Note: unknown_business_day_convention and unknown_rounding_mode removed.
-// These were unused - parsing now happens centrally via ParseFromString trait.
+// Parsing now delegates to core FromStr implementations.
 
 /// Unified error creation for JavaScript.
 ///

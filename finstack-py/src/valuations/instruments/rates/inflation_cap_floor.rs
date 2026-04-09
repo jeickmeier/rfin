@@ -1,5 +1,5 @@
+use crate::core::common::args::parse_day_count;
 use crate::core::dates::calendar::PyBusinessDayConvention;
-use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::schedule::PyStubKind;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::PyMoney;
@@ -19,6 +19,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 // ============================================================================
@@ -77,16 +78,7 @@ impl PyInflationCapFloorType {
 
 impl PyInflationCapFloorType {
     fn parse_option_type_static(value: &str) -> PyResult<InflationCapFloorType> {
-        match value.to_lowercase().as_str() {
-            "cap" => Ok(InflationCapFloorType::Cap),
-            "floor" => Ok(InflationCapFloorType::Floor),
-            "caplet" => Ok(InflationCapFloorType::Caplet),
-            "floorlet" => Ok(InflationCapFloorType::Floorlet),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown InflationCapFloorType: '{}'. Valid: cap, floor, caplet, floorlet",
-                other
-            ))),
-        }
+        InflationCapFloorType::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
 
@@ -151,8 +143,7 @@ impl PyInflationCapFloor {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "InflationCapFloorBuilder",
-    unsendable
+    name = "InflationCapFloorBuilder"
 )]
 pub struct PyInflationCapFloorBuilder {
     instrument_id: InstrumentId,
@@ -194,16 +185,7 @@ impl PyInflationCapFloorBuilder {
     }
 
     fn parse_option_type(value: &str) -> PyResult<InflationCapFloorType> {
-        match value.to_lowercase().as_str() {
-            "cap" => Ok(InflationCapFloorType::Cap),
-            "floor" => Ok(InflationCapFloorType::Floor),
-            "caplet" => Ok(InflationCapFloorType::Caplet),
-            "floorlet" => Ok(InflationCapFloorType::Floorlet),
-            other => Err(PyValueError::new_err(format!(
-                "option_type() expects 'cap', 'floor', 'caplet', or 'floorlet', got '{}'",
-                other
-            ))),
-        }
+        InflationCapFloorType::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Tenor> {
@@ -227,25 +209,6 @@ impl PyInflationCapFloorBuilder {
         Err(PyTypeError::new_err(
             "frequency() expects str or int payments_per_year",
         ))
-    }
-
-    fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
-        if let Ok(py_dc) = value.extract::<PyRef<PyDayCount>>() {
-            return Ok(py_dc.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "act_360" | "act/360" => Ok(DayCount::Act360),
-                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported day count '{}'",
-                    other
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("day_count() expects DayCount or str"))
     }
 
     fn parse_bdc(value: &Bound<'_, PyAny>) -> PyResult<BusinessDayConvention> {
@@ -401,7 +364,7 @@ impl PyInflationCapFloorBuilder {
         mut slf: PyRefMut<'py, Self>,
         day_count: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.day_count = Self::parse_day_count(&day_count)?;
+        slf.day_count = parse_day_count(&day_count)?;
         Ok(slf)
     }
 
@@ -582,8 +545,9 @@ impl PyInflationCapFloor {
 
     /// Strike rate (annualized, decimal).
     #[getter]
-    fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
+    fn strike(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike)
+            .ok_or_else(|| PyValueError::new_err("failed to convert strike decimal to f64"))
     }
 
     /// Start date of the first inflation period.

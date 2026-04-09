@@ -23,6 +23,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 // ============================================================================
@@ -57,14 +58,9 @@ impl PyLegSide {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match name.to_lowercase().as_str() {
-            "pay" => Ok(Self::new(LegSide::Pay)),
-            "receive" | "rec" => Ok(Self::new(LegSide::Receive)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown LegSide: '{}'. Valid: pay, receive",
-                other
-            ))),
-        }
+        LegSide::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -125,15 +121,9 @@ impl PyNotionalExchange {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match name.to_lowercase().as_str() {
-            "none" => Ok(Self::new(NotionalExchange::None)),
-            "final" => Ok(Self::new(NotionalExchange::Final)),
-            "initial_and_final" | "both" => Ok(Self::new(NotionalExchange::InitialAndFinal)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown NotionalExchange: '{}'. Valid: none, final, initial_and_final",
-                other
-            ))),
-        }
+        NotionalExchange::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -227,8 +217,7 @@ impl PyCrossCurrencySwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CrossCurrencySwapBuilder",
-    unsendable
+    name = "CrossCurrencySwapBuilder"
 )]
 pub struct PyCrossCurrencySwapBuilder {
     instrument_id: InstrumentId,
@@ -306,26 +295,11 @@ impl PyCrossCurrencySwapBuilder {
     }
 
     fn parse_leg_side(value: &str) -> PyResult<LegSide> {
-        match value.to_lowercase().as_str() {
-            "pay" => Ok(LegSide::Pay),
-            "receive" | "rec" => Ok(LegSide::Receive),
-            other => Err(PyValueError::new_err(format!(
-                "expects 'pay' or 'receive', got '{}'",
-                other
-            ))),
-        }
+        LegSide::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn parse_notional_exchange(value: &str) -> PyResult<NotionalExchange> {
-        match value.to_lowercase().as_str() {
-            "none" => Ok(NotionalExchange::None),
-            "final" => Ok(NotionalExchange::Final),
-            "initial_and_final" | "both" => Ok(NotionalExchange::InitialAndFinal),
-            other => Err(PyValueError::new_err(format!(
-                "notional_exchange() expects 'none', 'final', or 'initial_and_final', got '{}'",
-                other
-            ))),
-        }
+        NotionalExchange::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
 

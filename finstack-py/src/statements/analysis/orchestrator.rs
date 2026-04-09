@@ -126,8 +126,7 @@ impl PyCorporateAnalysis {
 /// StatementResult(...)
 #[pyclass(
     module = "finstack.statements.analysis",
-    name = "CorporateAnalysisBuilder",
-    unsendable
+    name = "CorporateAnalysisBuilder"
 )]
 pub struct PyCorporateAnalysisBuilder {
     inner: Option<CorporateAnalysisBuilder>,

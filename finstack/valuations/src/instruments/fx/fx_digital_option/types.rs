@@ -23,6 +23,31 @@ pub enum DigitalPayoutType {
     AssetOrNothing,
 }
 
+impl std::fmt::Display for DigitalPayoutType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CashOrNothing => write!(f, "cash_or_nothing"),
+            Self::AssetOrNothing => write!(f, "asset_or_nothing"),
+        }
+    }
+}
+
+impl std::str::FromStr for DigitalPayoutType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "cash_or_nothing" | "cashornothing" => Ok(Self::CashOrNothing),
+            "asset_or_nothing" | "assetornothing" => Ok(Self::AssetOrNothing),
+            other => Err(format!(
+                "Unknown digital payout type: '{}'. Valid: cash_or_nothing, asset_or_nothing",
+                other
+            )),
+        }
+    }
+}
+
 /// FX digital (binary) option instrument.
 ///
 /// Pays a fixed cash amount if the option expires in-the-money.
@@ -266,3 +291,31 @@ crate::impl_empty_cashflow_provider!(
     FxDigitalOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn digital_payout_type_fromstr_display_roundtrip() {
+        fn assert_digital_payout_type(label: &str, expected: DigitalPayoutType) {
+            assert!(matches!(DigitalPayoutType::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [
+            DigitalPayoutType::CashOrNothing,
+            DigitalPayoutType::AssetOrNothing,
+        ];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = DigitalPayoutType::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_digital_payout_type("cashornothing", DigitalPayoutType::CashOrNothing);
+        assert_digital_payout_type("assetornothing", DigitalPayoutType::AssetOrNothing);
+        assert!(DigitalPayoutType::from_str("invalid").is_err());
+    }
+}

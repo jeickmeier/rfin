@@ -1174,7 +1174,6 @@ impl PyDrawRepaySpec {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "RevolvingCreditBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyRevolvingCreditBuilder {

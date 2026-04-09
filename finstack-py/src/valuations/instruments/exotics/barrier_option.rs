@@ -8,6 +8,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Barrier type for barrier options.
@@ -52,16 +53,9 @@ impl PyBarrierType {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a barrier type from a string label.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        use crate::core::common::labels::normalize_label;
-        match normalize_label(name).as_str() {
-            "up_and_out" | "upandout" => Ok(Self::new(BarrierType::UpAndOut)),
-            "up_and_in" | "upandin" => Ok(Self::new(BarrierType::UpAndIn)),
-            "down_and_out" | "downandout" => Ok(Self::new(BarrierType::DownAndOut)),
-            "down_and_in" | "downandin" => Ok(Self::new(BarrierType::DownAndIn)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown barrier type: {other}"
-            ))),
-        }
+        BarrierType::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -143,7 +137,6 @@ impl PyBarrierOption {
         rebate: Option<Bound<'_, PyAny>>,
         use_gobet_miri: Option<bool>,
     ) -> PyResult<Self> {
-        use crate::core::common::labels::normalize_label;
         use crate::errors::PyContext;
         use finstack_core::dates::DayCount;
 
@@ -154,27 +147,11 @@ impl PyBarrierOption {
             CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
-        let opt_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
+        let opt_type =
+            OptionType::from_str(option_type).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-        let barrier_type_enum = match normalize_label(barrier_type).as_str() {
-            "up_and_out" | "upandout" => BarrierType::UpAndOut,
-            "up_and_in" | "upandin" => BarrierType::UpAndIn,
-            "down_and_out" | "downandout" => BarrierType::DownAndOut,
-            "down_and_in" | "downandin" => BarrierType::DownAndIn,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown barrier type: {other}"
-                )))
-            }
-        };
+        let barrier_type_enum = BarrierType::from_str(barrier_type)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
         let barrier_money = finstack_core::money::Money::new(barrier, notional_money.currency());
 

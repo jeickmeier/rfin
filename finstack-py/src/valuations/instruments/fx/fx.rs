@@ -18,6 +18,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// FX spot instrument exchanging base currency for quote currency.
@@ -45,11 +46,7 @@ impl PyFxSpot {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "FxSpotBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "FxSpotBuilder")]
 pub struct PyFxSpotBuilder {
     instrument_id: InstrumentId,
     base_currency: Option<finstack_core::currency::Currency>,
@@ -447,11 +444,7 @@ impl PyFxOption {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "FxOptionBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "FxOptionBuilder")]
 pub struct PyFxOptionBuilder {
     instrument_id: InstrumentId,
     base_currency: Option<finstack_core::currency::Currency>,
@@ -595,16 +588,8 @@ impl PyFxOptionBuilder {
         mut slf: PyRefMut<'_, Self>,
         exercise_style: String,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.exercise_style = match exercise_style.to_lowercase().as_str() {
-            "european" => ExerciseStyle::European,
-            "american" => ExerciseStyle::American,
-            "bermudan" => ExerciseStyle::Bermudan,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                "Invalid exercise_style: '{other}'. Must be 'european', 'american', or 'bermudan'",
-            )))
-            }
-        };
+        slf.exercise_style = ExerciseStyle::from_str(&exercise_style)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 
@@ -617,28 +602,14 @@ impl PyFxOptionBuilder {
         mut slf: PyRefMut<'_, Self>,
         option_type: String,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.option_type = match option_type.to_lowercase().as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Invalid option_type: '{other}'. Must be 'call' or 'put'",
-                )))
-            }
-        };
+        slf.option_type =
+            OptionType::from_str(&option_type).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 
     fn settlement(mut slf: PyRefMut<'_, Self>, settlement: String) -> PyResult<PyRefMut<'_, Self>> {
-        slf.settlement = match settlement.to_lowercase().as_str() {
-            "cash" => SettlementType::Cash,
-            "physical" => SettlementType::Physical,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unsupported settlement: {other}",
-                )))
-            }
-        };
+        slf.settlement = SettlementType::from_str(&settlement)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 
@@ -1007,11 +978,7 @@ impl PyFxSwap {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "FxSwapBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "FxSwapBuilder")]
 pub struct PyFxSwapBuilder {
     instrument_id: InstrumentId,
     base_currency: Option<finstack_core::currency::Currency>,

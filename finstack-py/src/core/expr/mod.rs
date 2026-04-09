@@ -303,7 +303,6 @@ impl PyExpr {
     name = "ExecutionPlan",
     module = "finstack.core.expr",
     frozen,
-    unsendable,
     from_py_object
 )]
 #[derive(Clone, Debug)]
@@ -415,12 +414,7 @@ impl PyEvalOpts {
     }
 }
 
-#[pyclass(
-    name = "CompiledExpr",
-    module = "finstack.core.expr",
-    unsendable,
-    from_py_object
-)]
+#[pyclass(name = "CompiledExpr", module = "finstack.core.expr", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyCompiledExpr {
     pub(crate) inner: CoreCompiledExpr,

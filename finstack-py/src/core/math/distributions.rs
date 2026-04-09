@@ -17,10 +17,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
-const DEFAULT_SEED: u64 = 42;
-
 fn make_rng(seed: Option<u64>) -> Pcg64Rng {
-    Pcg64Rng::new(seed.unwrap_or(DEFAULT_SEED))
+    Pcg64Rng::new(seed.unwrap_or(finstack_valuations::constants::DEFAULT_SEED))
 }
 
 fn require_positive(name: &str, value: f64) -> PyResult<()> {

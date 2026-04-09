@@ -7,8 +7,8 @@
 //! ceil, toward/away from zero).
 // use crate::core::currency::extract_currency; // replaced by CurrencyArg
 use crate::core::common::args::{CurrencyArg, RoundingModeArg};
-use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
-use crate::errors::{unknown_currency, unknown_rounding_mode, PyContext};
+use crate::core::common::pycmp::richcmp_eq_ne;
+use crate::errors::{unknown_currency, PyContext};
 use finstack_core::config::{
     results_meta, rounding_context_from, CurrencyScalePolicy, FinstackConfig, NumericMode,
     ResultsMeta, RoundingContext, RoundingMode, RoundingPolicy, ToleranceConfig, ZeroKind,
@@ -460,17 +460,9 @@ impl PyRoundingMode {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a rounding mode from a snake-case string.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        let n = normalize_label(name);
-        match n.as_str() {
-            "bankers" | "banker" => Ok(PyRoundingMode::new(RoundingMode::Bankers)),
-            "away_from_zero" | "awayfromzero" => {
-                Ok(PyRoundingMode::new(RoundingMode::AwayFromZero))
-            }
-            "toward_zero" | "towards_zero" => Ok(PyRoundingMode::new(RoundingMode::TowardZero)),
-            "floor" => Ok(PyRoundingMode::new(RoundingMode::Floor)),
-            "ceil" | "ceiling" => Ok(PyRoundingMode::new(RoundingMode::Ceil)),
-            other => Err(unknown_rounding_mode(other)),
-        }
+        RoundingMode::from_str(name)
+            .map(PyRoundingMode::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Snake-case name of the rounding mode.

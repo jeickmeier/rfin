@@ -151,7 +151,6 @@ impl PyAgencyMbsPassthrough {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyMbsPassthroughBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyAgencyMbsPassthroughBuilder {

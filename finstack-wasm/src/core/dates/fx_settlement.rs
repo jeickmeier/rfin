@@ -1,7 +1,7 @@
-use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
-use crate::core::error::core_to_js;
+use crate::core::error::{core_to_js, js_error};
 use finstack_core::dates::BusinessDayConvention;
+use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 
 /// Adjust a date to be a business day on both base and quote currency calendars.
@@ -18,7 +18,7 @@ pub fn adjust_joint_calendar(
     base_cal_id: Option<String>,
     quote_cal_id: Option<String>,
 ) -> Result<JsDate, JsValue> {
-    let bdc = BusinessDayConvention::parse_from_string(convention)?;
+    let bdc = BusinessDayConvention::from_str(convention).map_err(|e| js_error(e.to_string()))?;
     let result = finstack_core::dates::fx::adjust_joint_calendar(
         date.inner(),
         bdc,
@@ -45,7 +45,7 @@ pub fn add_joint_business_days(
     base_cal_id: Option<String>,
     quote_cal_id: Option<String>,
 ) -> Result<JsDate, JsValue> {
-    let bdc = BusinessDayConvention::parse_from_string(convention)?;
+    let bdc = BusinessDayConvention::from_str(convention).map_err(|e| js_error(e.to_string()))?;
     let result = finstack_core::dates::fx::add_joint_business_days(
         start.inner(),
         n_days,
@@ -73,7 +73,7 @@ pub fn roll_spot_date(
     base_cal_id: Option<String>,
     quote_cal_id: Option<String>,
 ) -> Result<JsDate, JsValue> {
-    let bdc = BusinessDayConvention::parse_from_string(convention)?;
+    let bdc = BusinessDayConvention::from_str(convention).map_err(|e| js_error(e.to_string()))?;
     let result = finstack_core::dates::fx::roll_spot_date(
         trade_date.inner(),
         spot_lag_days,

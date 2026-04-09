@@ -12,7 +12,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDate, PyDateAccess, PyDateTime, PyList, PyModule};
 use pyo3::Bound;
-use time::{Date, Duration, Month};
+use time::{Date, Month};
 
 /// Convert a Python `datetime.date` or `datetime.datetime` into `time::Date`.
 ///
@@ -330,10 +330,7 @@ fn is_leap_year_py(year: i32) -> bool {
 #[pyfunction(name = "date_to_days_since_epoch", text_signature = "(date)")]
 fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
     let d = py_to_date(&date)?;
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to construct epoch date: {e}"))
-    })?;
-    Ok((d - epoch).whole_days() as i32)
+    Ok(finstack_core::dates::days_since_epoch(d))
 }
 
 /// Convert a day-count offset from the Unix epoch back to a date.
@@ -349,11 +346,9 @@ fn date_to_days_since_epoch_py(date: Bound<'_, PyAny>) -> PyResult<i32> {
 ///     Date corresponding to the epoch offset.
 #[pyfunction(name = "days_since_epoch_to_date", text_signature = "(days)")]
 fn days_since_epoch_to_date_py(py: Python<'_>, days: i32) -> PyResult<Py<PyAny>> {
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to construct epoch date: {e}"))
-    })?;
-    let date = epoch + Duration::days(days as i64);
-    date_to_py(py, date)
+    finstack_core::dates::date_from_epoch_days(days)
+        .ok_or_else(|| PyValueError::new_err("days out of range"))
+        .and_then(|d| date_to_py(py, d))
 }
 
 /// Safe helper to construct a :class:`datetime.date` with validation.

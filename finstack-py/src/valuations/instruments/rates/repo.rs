@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
@@ -42,19 +43,16 @@ fn parse_collateral_type(
     }
 
     if let Ok(label) = value.extract::<&str>() {
-        let normalized = crate::core::common::labels::normalize_label(label);
+        let normalized = label.to_ascii_lowercase().replace('-', "_");
         return match normalized.as_str() {
-            "general" | "gc" => Ok(CollateralType::General),
+            // "special" with nested fields cannot use FromStr; handle explicitly
             "special" => Ok(CollateralType::Special {
                 security_id: special_security_id.map(str::to_string).ok_or_else(|| {
                     PyValueError::new_err("special_security_id required for special collateral")
                 })?,
                 rate_adjustment_bp: special_rate_adjust_bp,
             }),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown collateral type: '{}'. Valid: general, special",
-                other
-            ))),
+            _ => CollateralType::from_str(label).map_err(|e| PyValueError::new_err(e)),
         };
     }
 
@@ -154,17 +152,9 @@ impl PyCollateralType {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        let normalized = crate::core::common::labels::normalize_label(name);
-        match normalized.as_str() {
-            "general" | "gc" => Ok(Self::new(CollateralType::General)),
-            "special" => Err(PyValueError::new_err(
-                "CollateralType::special() requires a security_id",
-            )),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown collateral type: '{}'. Valid: general, special",
-                other
-            ))),
-        }
+        CollateralType::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e))
     }
 
     #[classmethod]
@@ -319,11 +309,7 @@ impl PyRepo {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "RepoBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "RepoBuilder")]
 pub struct PyRepoBuilder {
     instrument_id: InstrumentId,
     pending_cash_amount: Option<f64>,

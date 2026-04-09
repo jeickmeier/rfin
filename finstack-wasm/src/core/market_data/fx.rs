@@ -61,24 +61,14 @@ impl JsFxConversionPolicy {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsFxConversionPolicy, JsValue> {
-        match name.to_ascii_lowercase().as_str() {
-            "cashflow_date" | "cashflow" | "spot" => Ok(Self::cashflow_date()),
-            "period_end" | "end" => Ok(Self::period_end()),
-            "period_average" | "average" => Ok(Self::period_average()),
-            "custom" => Ok(Self::custom()),
-            other => Err(js_error(format!("Unknown FX conversion policy: {other}"))),
-        }
+        FxConversionPolicy::from_str(name)
+            .map(Self::new)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = name)]
     pub fn name(&self) -> String {
-        match self.inner {
-            FxConversionPolicy::CashflowDate => "cashflow_date".to_string(),
-            FxConversionPolicy::PeriodEnd => "period_end".to_string(),
-            FxConversionPolicy::PeriodAverage => "period_average".to_string(),
-            FxConversionPolicy::Custom => "custom".to_string(),
-            _ => "custom".to_string(),
-        }
+        self.inner.to_string()
     }
 }
 

@@ -168,11 +168,7 @@ impl PyExplanation {
 }
 
 /// Formula explainer for financial models.
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "FormulaExplainer",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "FormulaExplainer")]
 pub struct PyFormulaExplainer {
     model: PyFinancialModelSpec,
     results: PyStatementResult,
@@ -309,11 +305,7 @@ impl PyDependencyTree {
 }
 
 /// Dependency tracer for financial models.
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "DependencyTracer",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "DependencyTracer")]
 pub struct PyDependencyTracer {
     model: PyFinancialModelSpec,
     graph: Py<PyDependencyGraph>,

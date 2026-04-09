@@ -24,6 +24,35 @@ pub enum BarrierType {
     DownAndIn,
 }
 
+impl std::fmt::Display for BarrierType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UpAndOut => write!(f, "up_and_out"),
+            Self::UpAndIn => write!(f, "up_and_in"),
+            Self::DownAndOut => write!(f, "down_and_out"),
+            Self::DownAndIn => write!(f, "down_and_in"),
+        }
+    }
+}
+
+impl std::str::FromStr for BarrierType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "up_and_out" | "upandout" => Ok(Self::UpAndOut),
+            "up_and_in" | "upandin" => Ok(Self::UpAndIn),
+            "down_and_out" | "downandout" => Ok(Self::DownAndOut),
+            "down_and_in" | "downandin" => Ok(Self::DownAndIn),
+            other => Err(format!(
+                "Unknown barrier type: '{}'. Valid: up_and_in, up_and_out, down_and_in, down_and_out",
+                other
+            )),
+        }
+    }
+}
+
 /// Default for use_gobet_miri field.
 ///
 /// Returns `true` to enable discrete barrier monitoring correction by default.
@@ -348,5 +377,29 @@ mod tests {
             format!("{err}").contains("observed_barrier_breached"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn barrier_type_fromstr_display_roundtrip() {
+        use std::str::FromStr;
+        fn assert_barrier_type(label: &str, expected: super::BarrierType) {
+            assert!(matches!(super::BarrierType::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [
+            super::BarrierType::UpAndOut,
+            super::BarrierType::UpAndIn,
+            super::BarrierType::DownAndOut,
+            super::BarrierType::DownAndIn,
+        ];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = super::BarrierType::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_barrier_type("upandin", super::BarrierType::UpAndIn);
+        assert_barrier_type("downandout", super::BarrierType::DownAndOut);
+        assert!(super::BarrierType::from_str("invalid").is_err());
     }
 }

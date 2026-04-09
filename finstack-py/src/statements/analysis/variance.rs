@@ -275,11 +275,7 @@ impl PyBridgeChart {
 }
 
 /// Variance analyzer between two evaluated StatementResult objects.
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "VarianceAnalyzer",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "VarianceAnalyzer")]
 pub struct PyVarianceAnalyzer {
     baseline: PyStatementResult,
     comparison: PyStatementResult,

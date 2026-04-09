@@ -14,7 +14,7 @@ use pyo3::Bound;
 ///
 /// Allows loading reusable metric definitions from JSON files,
 /// enabling analysts to define standard financial metrics without recompiling.
-#[pyclass(module = "finstack.statements.registry", name = "Registry", unsendable)]
+#[pyclass(module = "finstack.statements.registry", name = "Registry")]
 pub struct PyRegistry {
     inner: Registry,
 }
@@ -148,11 +148,7 @@ impl PyRegistry {
 }
 
 /// Alias registry for normalizing user-facing metric names.
-#[pyclass(
-    module = "finstack.statements.registry",
-    name = "AliasRegistry",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.registry", name = "AliasRegistry")]
 pub struct PyAliasRegistry {
     inner: AliasRegistry,
 }

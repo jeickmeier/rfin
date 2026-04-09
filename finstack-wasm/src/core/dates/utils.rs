@@ -1,7 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use finstack_core::dates::DateExt;
-use time::{Date, Duration, Month};
+use time::Month;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -31,13 +31,11 @@ pub fn is_leap_year(year: i32) -> bool {
 
 #[wasm_bindgen(js_name = dateToDaysSinceEpoch)]
 pub fn date_to_days_since_epoch(date: &JsDate) -> i32 {
-    let d = date.inner();
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap_or(Date::MIN);
-    (d - epoch).whole_days() as i32
+    finstack_core::dates::days_since_epoch(date.inner())
 }
 
 #[wasm_bindgen(js_name = daysSinceEpochToDate)]
 pub fn days_since_epoch_to_date(days: i32) -> JsDate {
-    let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap_or(Date::MIN);
-    JsDate::from_core(epoch + Duration::days(days as i64))
+    let date = finstack_core::dates::date_from_epoch_days(days).unwrap_or(time::Date::MIN);
+    JsDate::from_core(date)
 }

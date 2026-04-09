@@ -51,7 +51,6 @@ impl PyDollarRoll {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "DollarRollBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyDollarRollBuilder {

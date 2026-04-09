@@ -68,7 +68,6 @@ impl PyInflationLinkedBond {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InflationLinkedBondBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyInflationLinkedBondBuilder {

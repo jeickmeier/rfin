@@ -564,7 +564,6 @@ impl PyTranche {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "TrancheBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyTrancheBuilder {

@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
@@ -17,6 +16,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, FromPyObject, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn method_label(method: RealizedVarMethod) -> &'static str {
@@ -58,16 +58,8 @@ impl<'a, 'py> FromPyObject<'a, 'py> for PayReceiveArg {
         }
 
         if let Ok(label) = obj.extract::<&str>() {
-            let normalized = normalize_label(label);
-            let direction = match normalized.as_str() {
-                "pay" | "payer" | "short" => PayReceive::Pay,
-                "receive" | "receiver" | "long" => PayReceive::Receive,
-                other => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown variance direction: {other}"
-                    )))
-                }
-            };
+            let direction = PayReceive::from_str(label)
+                .map_err(|e| PyValueError::new_err(format!("Unknown variance direction: {e}")))?;
             return Ok(PayReceiveArg(PyPayReceive::new(direction)));
         }
 
@@ -164,8 +156,7 @@ impl PyVarianceSwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "VarianceSwapBuilder",
-    unsendable
+    name = "VarianceSwapBuilder"
 )]
 pub struct PyVarianceSwapBuilder {
     instrument_id: InstrumentId,

@@ -343,8 +343,7 @@ impl PyFloatingCouponSpec {
 /// Python wrapper for the composable valuations CashFlowBuilder.
 #[pyclass(
     module = "finstack.valuations.cashflow.builder",
-    name = "CashFlowBuilder",
-    unsendable
+    name = "CashFlowBuilder"
 )]
 pub struct PyCashFlowBuilder {
     inner: val_builder::CashFlowBuilder,

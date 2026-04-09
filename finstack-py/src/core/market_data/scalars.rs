@@ -16,6 +16,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyFloat, PyIterator, PyList, PyModule, PyType};
 use pyo3::Bound;
 use pyo3::Py;
+use std::str::FromStr;
 use std::sync::Arc;
 use time::Date;
 
@@ -131,13 +132,9 @@ impl PySeriesInterpolation {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match name.to_ascii_lowercase().as_str() {
-            "step" => Ok(Self::new(SeriesInterpolation::Step)),
-            "linear" => Ok(Self::new(SeriesInterpolation::Linear)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown interpolation style: {other}"
-            ))),
-        }
+        SeriesInterpolation::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Canonical label for the interpolation style.
@@ -176,7 +173,6 @@ impl PySeriesInterpolation {
 #[pyclass(
     module = "finstack.core.market_data.scalars",
     name = "MarketScalar",
-    unsendable,
     from_py_object
 )]
 #[derive(Clone)]
@@ -293,7 +289,6 @@ impl PyMarketScalar {
 #[pyclass(
     module = "finstack.core.market_data.scalars",
     name = "ScalarTimeSeries",
-    unsendable,
     from_py_object
 )]
 #[derive(Clone)]
@@ -532,15 +527,8 @@ impl PyInflationIndex {
 
     #[pyo3(text_signature = "(self, interpolation)")]
     fn with_interpolation(&self, interpolation: &str) -> PyResult<Self> {
-        let mode = match interpolation.to_ascii_lowercase().as_str() {
-            "step" => InflationInterpolation::Step,
-            "linear" => InflationInterpolation::Linear,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown inflation interpolation: {other}"
-                )))
-            }
-        };
+        let mode = InflationInterpolation::from_str(interpolation)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         let updated = self.inner.as_ref().clone().with_interpolation(mode);
         Ok(Self::new_arc(Arc::new(updated)))
     }

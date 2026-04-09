@@ -54,8 +54,7 @@ impl PyForwardRateAgreement {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "ForwardRateAgreementBuilder",
-    unsendable
+    name = "ForwardRateAgreementBuilder"
 )]
 pub struct PyForwardRateAgreementBuilder {
     instrument_id: InstrumentId,
@@ -384,8 +383,9 @@ impl PyForwardRateAgreement {
     /// Returns:
     ///     float: Fixed rate paid or received on the FRA.
     #[getter]
-    fn fixed_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
+    fn fixed_rate(&self) -> PyResult<f64> {
+        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate)
+            .ok_or_else(|| PyValueError::new_err("failed to convert fixed_rate decimal to f64"))
     }
 
     /// Day-count convention used for accrual.

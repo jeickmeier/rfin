@@ -1,5 +1,4 @@
 use crate::core::common::args::{CurrencyArg, DayCountArg};
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -14,16 +13,11 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn parse_option_type(label: &str) -> PyResult<OptionType> {
-    match normalize_label(label).as_str() {
-        "call" => Ok(OptionType::Call),
-        "put" => Ok(OptionType::Put),
-        other => Err(PyValueError::new_err(format!(
-            "Invalid option_type: '{other}'. Must be 'call' or 'put'"
-        ))),
-    }
+    OptionType::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Option on the spread between two commodity forward prices.
@@ -48,8 +42,7 @@ impl PyCommoditySpreadOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CommoditySpreadOptionBuilder",
-    unsendable
+    name = "CommoditySpreadOptionBuilder"
 )]
 pub struct PyCommoditySpreadOptionBuilder {
     instrument_id: InstrumentId,

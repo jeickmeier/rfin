@@ -438,11 +438,7 @@ fn goal_seek(
 }
 
 /// Sensitivity analyzer for financial models.
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "SensitivityAnalyzer",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "SensitivityAnalyzer")]
 pub struct PySensitivityAnalyzer {
     model: PyFinancialModelSpec,
 }

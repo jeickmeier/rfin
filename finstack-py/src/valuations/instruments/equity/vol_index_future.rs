@@ -74,8 +74,7 @@ impl PyVolatilityIndexFuture {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "VolatilityIndexFutureBuilder",
-    unsendable
+    name = "VolatilityIndexFutureBuilder"
 )]
 pub struct PyVolatilityIndexFutureBuilder {
     instrument_id: InstrumentId,

@@ -78,11 +78,7 @@ impl PyCDSOption {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "CDSOptionBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "CDSOptionBuilder")]
 pub struct PyCDSOptionBuilder {
     instrument_id: InstrumentId,
     notional: Option<finstack_core::money::Money>,

@@ -127,6 +127,8 @@ pub mod market_data;
 pub mod math;
 /// Currency-tagged monetary amounts with safe arithmetic
 pub mod money;
+/// Label normalization for human-entered identifiers.
+pub mod parse;
 /// Convenient re-exports of commonly used types
 pub mod prelude;
 /// JSON Schema helpers for external types.

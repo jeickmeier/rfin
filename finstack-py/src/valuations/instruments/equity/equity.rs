@@ -43,11 +43,7 @@ impl PyEquity {
 }
 
 /// Fluent builder for Equity (builder-only API).
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "EquityBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "EquityBuilder")]
 pub struct PyEquityBuilder {
     instrument_id: InstrumentId,
     ticker: Option<String>,

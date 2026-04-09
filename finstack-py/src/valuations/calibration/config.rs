@@ -14,6 +14,7 @@ use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 
 #[pyclass(
     module = "finstack.valuations.calibration",
@@ -55,6 +56,7 @@ impl PySolverKind {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        // SolverConfig has nested data fields; cannot use FromStr
         match normalize_label(name).as_str() {
             "newton" => Ok(Self::new(SolverConfig::newton_default())),
             "brent" => Ok(Self::new(SolverConfig::brent_default())),
@@ -142,15 +144,9 @@ impl PyResidualWeightingScheme {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "equal" => Ok(Self::EQUAL),
-            "linear_time" => Ok(Self::LINEAR_TIME),
-            "sqrt_time" => Ok(Self::SQRT_TIME),
-            "inverse_duration" => Ok(Self::INVERSE_DURATION),
-            other => Err(PyKeyError::new_err(format!(
-                "Unknown weighting scheme: {other}"
-            ))),
-        }
+        ResidualWeightingScheme::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyKeyError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -229,13 +225,9 @@ impl PyRateBoundsPolicy {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "auto_currency" | "auto" => Ok(Self::AUTO_CURRENCY),
-            "explicit" => Ok(Self::EXPLICIT),
-            other => Err(PyKeyError::new_err(format!(
-                "Unknown rate bounds policy: {other}"
-            ))),
-        }
+        RateBoundsPolicy::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyKeyError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -670,15 +662,15 @@ impl PyCalibrationMethod {
         name: &str,
         use_analytical_jacobian: bool,
     ) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "bootstrap" => Ok(Self::new(CalibrationMethod::Bootstrap)),
-            "global_solve" => Ok(Self::new(CalibrationMethod::GlobalSolve {
-                use_analytical_jacobian,
-            })),
-            other => Err(PyKeyError::new_err(format!(
-                "Unknown calibration method: {other}"
-            ))),
+        let mut method =
+            CalibrationMethod::from_str(name).map_err(|e| PyKeyError::new_err(e.to_string()))?;
+        if let CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: ref mut flag,
+        } = method
+        {
+            *flag = use_analytical_jacobian;
         }
+        Ok(Self::new(method))
     }
 
     #[getter]
@@ -779,13 +771,9 @@ impl PyValidationMode {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "warn" | "warning" => Ok(Self::new(ValidationMode::Warn)),
-            "error" | "strict" => Ok(Self::new(ValidationMode::Error)),
-            other => Err(PyKeyError::new_err(format!(
-                "Unknown validation mode: {other}"
-            ))),
-        }
+        ValidationMode::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyKeyError::new_err(e.to_string()))
     }
 
     #[getter]

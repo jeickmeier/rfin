@@ -272,8 +272,7 @@ impl PyInterestRateSwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "InterestRateSwapBuilder",
-    unsendable
+    name = "InterestRateSwapBuilder"
 )]
 pub struct PyInterestRateSwapBuilder {
     instrument_id: InstrumentId,

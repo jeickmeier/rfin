@@ -1,5 +1,4 @@
 use crate::core::common::args::CurrencyArg;
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -16,6 +15,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn parse_payout_type(value: &Bound<'_, PyAny>) -> PyResult<DigitalPayoutType> {
@@ -23,13 +23,8 @@ fn parse_payout_type(value: &Bound<'_, PyAny>) -> PyResult<DigitalPayoutType> {
         return Ok(typed.inner);
     }
     if let Ok(label) = value.extract::<&str>() {
-        return match normalize_label(label).as_str() {
-            "cash_or_nothing" | "cashornothing" => Ok(DigitalPayoutType::CashOrNothing),
-            "asset_or_nothing" | "assetornothing" => Ok(DigitalPayoutType::AssetOrNothing),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown payout type: {other}"
-            ))),
-        };
+        return DigitalPayoutType::from_str(label)
+            .map_err(|e| PyValueError::new_err(e.to_string()));
     }
     Err(PyTypeError::new_err(
         "payout_type() expects DigitalPayoutType or str",
@@ -63,13 +58,9 @@ impl PyDigitalPayoutType {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "cash_or_nothing" | "cashornothing" => Ok(Self::CASH_OR_NOTHING),
-            "asset_or_nothing" | "assetornothing" => Ok(Self::ASSET_OR_NOTHING),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown payout type: {other}"
-            ))),
-        }
+        DigitalPayoutType::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -111,8 +102,7 @@ impl PyFxDigitalOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "FxDigitalOptionBuilder",
-    unsendable
+    name = "FxDigitalOptionBuilder"
 )]
 pub struct PyFxDigitalOptionBuilder {
     instrument_id: InstrumentId,
@@ -179,15 +169,8 @@ impl PyFxDigitalOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         option_type: &str,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.option_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
+        slf.option_type =
+            OptionType::from_str(option_type).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 

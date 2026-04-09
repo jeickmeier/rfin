@@ -96,8 +96,7 @@ impl PyVolatilityIndexOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "VolatilityIndexOptionBuilder",
-    unsendable
+    name = "VolatilityIndexOptionBuilder"
 )]
 pub struct PyVolatilityIndexOptionBuilder {
     instrument_id: InstrumentId,

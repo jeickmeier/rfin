@@ -48,11 +48,7 @@ impl PyDeposit {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "DepositBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "DepositBuilder")]
 pub struct PyDepositBuilder {
     instrument_id: InstrumentId,
     pending_notional_amount: Option<f64>,

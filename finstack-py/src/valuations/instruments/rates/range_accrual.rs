@@ -90,8 +90,7 @@ impl PyRangeAccrual {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "RangeAccrualBuilder",
-    unsendable
+    name = "RangeAccrualBuilder"
 )]
 pub struct PyRangeAccrualBuilder {
     instrument_id: InstrumentId,

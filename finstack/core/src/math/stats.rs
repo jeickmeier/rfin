@@ -246,6 +246,32 @@ impl RealizedVarMethod {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Display + FromStr
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Display for RealizedVarMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+impl std::str::FromStr for RealizedVarMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = crate::parse::normalize_label(s);
+        match n.as_str() {
+            "close_to_close" | "close" | "closetoclose" => Ok(RealizedVarMethod::CloseToClose),
+            "parkinson" => Ok(RealizedVarMethod::Parkinson),
+            "garman_klass" | "garmanklass" => Ok(RealizedVarMethod::GarmanKlass),
+            "rogers_satchell" | "rogerssatchell" => Ok(RealizedVarMethod::RogersSatchell),
+            "yang_zhang" | "yangzhang" => Ok(RealizedVarMethod::YangZhang),
+            other => Err(format!("unknown RealizedVarMethod: {other}")),
+        }
+    }
+}
+
 /// Calculate log returns from a price series.
 ///
 /// Each element is `ln(p_t / p_{t-1})` when both prices are finite and strictly
@@ -841,6 +867,10 @@ impl OnlineCovariance {
 mod tests {
     use super::*;
 
+    fn assert_parses_to(label: &str, expected: RealizedVarMethod) {
+        assert!(matches!(label.parse::<RealizedVarMethod>(), Ok(value) if value == expected));
+    }
+
     #[test]
     fn test_online_stats_basic() {
         let mut stats = OnlineStats::new();
@@ -1133,5 +1163,44 @@ mod tests {
         let mut data = vec![7.0; 10];
         assert!((super::quantile(&mut data, 0.25) - 7.0).abs() < 1e-12);
         assert!((super::quantile(&mut data, 0.75) - 7.0).abs() < 1e-12);
+    }
+
+    // ── RealizedVarMethod FromStr / Display roundtrip ──
+
+    #[test]
+    fn realized_var_method_display_roundtrip() {
+        use super::RealizedVarMethod;
+
+        let all = [
+            RealizedVarMethod::CloseToClose,
+            RealizedVarMethod::Parkinson,
+            RealizedVarMethod::GarmanKlass,
+            RealizedVarMethod::RogersSatchell,
+            RealizedVarMethod::YangZhang,
+        ];
+
+        for method in &all {
+            let label = method.to_string();
+            assert!(
+                matches!(label.parse::<RealizedVarMethod>(), Ok(value) if value == *method),
+                "roundtrip failed for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn realized_var_method_from_str_aliases() {
+        use super::RealizedVarMethod;
+
+        assert_parses_to("close", RealizedVarMethod::CloseToClose);
+        assert_parses_to("closetoclose", RealizedVarMethod::CloseToClose);
+        assert_parses_to("garmanklass", RealizedVarMethod::GarmanKlass);
+        assert_parses_to("rogerssatchell", RealizedVarMethod::RogersSatchell);
+        assert_parses_to("yangzhang", RealizedVarMethod::YangZhang);
+    }
+
+    #[test]
+    fn realized_var_method_from_str_unknown() {
+        assert!("garbage".parse::<super::RealizedVarMethod>().is_err());
     }
 }

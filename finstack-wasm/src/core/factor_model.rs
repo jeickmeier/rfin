@@ -562,6 +562,7 @@ impl JsFactorModelConfig {
 // ---------------------------------------------------------------------------
 
 fn factor_type_to_string(ft: &FactorType) -> String {
+    // Capitalize for JS convention: "Rates", "Custom:{name}", etc.
     match ft {
         FactorType::Rates => "Rates".to_string(),
         FactorType::Credit => "Credit".to_string(),
@@ -575,29 +576,8 @@ fn factor_type_to_string(ft: &FactorType) -> String {
 }
 
 fn parse_factor_type(value: &str) -> Result<FactorType, JsValue> {
-    let lower: String = value
-        .chars()
-        .filter(|ch| !matches!(ch, '_' | '-' | ' '))
-        .flat_map(char::to_lowercase)
-        .collect();
-    match lower.as_str() {
-        "rates" => Ok(FactorType::Rates),
-        "credit" => Ok(FactorType::Credit),
-        "equity" => Ok(FactorType::Equity),
-        "fx" => Ok(FactorType::FX),
-        "volatility" | "vol" => Ok(FactorType::Volatility),
-        "commodity" => Ok(FactorType::Commodity),
-        "inflation" => Ok(FactorType::Inflation),
-        _ if lower.starts_with("custom:") => Ok(FactorType::Custom(
-            value
-                .split_once(':')
-                .map(|(_, tail)| tail.trim().to_string())
-                .unwrap_or_default(),
-        )),
-        _ => Err(js_error(format!(
-            "Unsupported factor_type '{value}'. Expected Rates, Credit, Equity, FX, Volatility, Commodity, Inflation, or custom:<name>"
-        ))),
-    }
+    use std::str::FromStr;
+    FactorType::from_str(value).map_err(|e| js_error(e.to_string()))
 }
 
 fn parse_bump_units(value: &str) -> Result<BumpUnits, JsValue> {

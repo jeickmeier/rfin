@@ -1,7 +1,6 @@
 //! Python bindings for CommodityForward instrument.
 
-use crate::core::common::args::CurrencyArg;
-use crate::core::common::labels::normalize_label;
+use crate::core::common::args::{business_day_convention_label, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::PyContext;
@@ -19,6 +18,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Commodity forward or futures contract.
@@ -61,8 +61,7 @@ impl PyCommodityForward {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CommodityForwardBuilder",
-    unsendable
+    name = "CommodityForwardBuilder"
 )]
 pub struct PyCommodityForwardBuilder {
     instrument_id: InstrumentId,
@@ -295,21 +294,12 @@ impl PyCommodityForwardBuilder {
         mut slf: PyRefMut<'_, Self>,
         convention: Option<String>,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.convention = match convention.map(|s| normalize_label(&s)).as_deref() {
-            Some("wticrude") | Some("wti") => Some(CommodityConvention::WTICrude),
-            Some("brentcrude") | Some("brent") => Some(CommodityConvention::BrentCrude),
-            Some("naturalgas") | Some("ng") => Some(CommodityConvention::NaturalGas),
-            Some("gold") => Some(CommodityConvention::Gold),
-            Some("silver") => Some(CommodityConvention::Silver),
-            Some("copper") => Some(CommodityConvention::Copper),
-            Some("agricultural") | Some("ag") => Some(CommodityConvention::Agricultural),
-            Some("power") => Some(CommodityConvention::Power),
+        slf.convention = match convention {
+            Some(s) => Some(
+                CommodityConvention::from_str(&s)
+                    .map_err(|e| PyValueError::new_err(format!("Invalid convention: {e}")))?,
+            ),
             None => None,
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Invalid convention: '{other}'. Must be one of: wti, brent, naturalgas, gold, silver, copper, agricultural, power"
-                )))
-            }
         };
         Ok(slf)
     }
@@ -573,7 +563,7 @@ impl PyCommodityForward {
     /// Settlement business day convention, if explicitly set.
     #[getter]
     fn settlement_bdc(&self) -> Option<&str> {
-        self.inner.settlement_bdc.map(bdc_to_str)
+        self.inner.settlement_bdc.map(business_day_convention_label)
     }
 
     /// Instrument type key.
@@ -600,7 +590,7 @@ impl PyCommodityForward {
 
     /// Effective settlement business day convention (resolves convention defaults).
     fn effective_settlement_bdc(&self) -> &str {
-        bdc_to_str(self.inner.effective_settlement_bdc())
+        business_day_convention_label(self.inner.effective_settlement_bdc())
     }
 
     fn __repr__(&self) -> String {
@@ -640,34 +630,12 @@ fn convention_to_str(c: CommodityConvention) -> &'static str {
     }
 }
 
-fn bdc_to_str(bdc: BusinessDayConvention) -> &'static str {
-    match bdc {
-        BusinessDayConvention::Following => "following",
-        BusinessDayConvention::ModifiedFollowing => "modified_following",
-        BusinessDayConvention::Preceding => "preceding",
-        BusinessDayConvention::ModifiedPreceding => "modified_preceding",
-        BusinessDayConvention::Unadjusted => "unadjusted",
-        _ => "unknown",
-    }
-}
-
 fn parse_bdc_option(bdc: Option<&str>) -> PyResult<Option<BusinessDayConvention>> {
     match bdc {
-        Some("following") | Some("Following") => Ok(Some(BusinessDayConvention::Following)),
-        Some("modified_following") | Some("ModifiedFollowing") => {
-            Ok(Some(BusinessDayConvention::ModifiedFollowing))
-        }
-        Some("preceding") | Some("Preceding") => Ok(Some(BusinessDayConvention::Preceding)),
-        Some("modified_preceding") | Some("ModifiedPreceding") => {
-            Ok(Some(BusinessDayConvention::ModifiedPreceding))
-        }
-        Some("unadjusted") | Some("Unadjusted") | Some("none") | Some("None") => {
-            Ok(Some(BusinessDayConvention::Unadjusted))
-        }
+        Some(s) => BusinessDayConvention::from_str(s)
+            .map(Some)
+            .map_err(|e| PyValueError::new_err(format!("Invalid bdc: {e}"))),
         None => Ok(None),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Invalid bdc: '{other}'. Must be 'following', 'modified_following', 'preceding', 'modified_preceding', or 'unadjusted'"
-        ))),
     }
 }
 

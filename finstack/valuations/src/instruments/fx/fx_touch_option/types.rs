@@ -22,6 +22,31 @@ pub enum TouchType {
     NoTouch,
 }
 
+impl std::fmt::Display for TouchType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OneTouch => write!(f, "one_touch"),
+            Self::NoTouch => write!(f, "no_touch"),
+        }
+    }
+}
+
+impl std::str::FromStr for TouchType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "one_touch" | "onetouch" => Ok(Self::OneTouch),
+            "no_touch" | "notouch" => Ok(Self::NoTouch),
+            other => Err(format!(
+                "Unknown touch type: '{}'. Valid: one_touch, no_touch",
+                other
+            )),
+        }
+    }
+}
+
 /// Barrier direction for touch options.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -35,6 +60,31 @@ pub enum BarrierDirection {
     Down,
 }
 
+impl std::fmt::Display for BarrierDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Up => write!(f, "up"),
+            Self::Down => write!(f, "down"),
+        }
+    }
+}
+
+impl std::str::FromStr for BarrierDirection {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "up" => Ok(Self::Up),
+            "down" => Ok(Self::Down),
+            other => Err(format!(
+                "Unknown barrier direction: '{}'. Valid: up, down",
+                other
+            )),
+        }
+    }
+}
+
 /// Payout timing for touch options.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -46,6 +96,31 @@ pub enum PayoutTiming {
     AtHit,
     /// Payout is deferred to expiry regardless of when barrier is hit.
     AtExpiry,
+}
+
+impl std::fmt::Display for PayoutTiming {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AtHit => write!(f, "at_hit"),
+            Self::AtExpiry => write!(f, "at_expiry"),
+        }
+    }
+}
+
+impl std::str::FromStr for PayoutTiming {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "at_hit" | "athit" => Ok(Self::AtHit),
+            "at_expiry" | "atexpiry" => Ok(Self::AtExpiry),
+            other => Err(format!(
+                "Unknown payout timing: '{}'. Valid: at_hit, at_expiry",
+                other
+            )),
+        }
+    }
 }
 
 /// FX touch option (American binary option).
@@ -433,3 +508,57 @@ crate::impl_empty_cashflow_provider!(
     FxTouchOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn touch_type_fromstr_display_roundtrip() {
+        fn assert_touch_type(label: &str, expected: TouchType) {
+            assert!(matches!(TouchType::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [TouchType::OneTouch, TouchType::NoTouch];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = TouchType::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_touch_type("onetouch", TouchType::OneTouch);
+        assert_touch_type("notouch", TouchType::NoTouch);
+        assert!(TouchType::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn barrier_direction_fromstr_display_roundtrip() {
+        let variants = [BarrierDirection::Up, BarrierDirection::Down];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = BarrierDirection::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        assert!(BarrierDirection::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn payout_timing_fromstr_display_roundtrip() {
+        fn assert_payout_timing(label: &str, expected: PayoutTiming) {
+            assert!(matches!(PayoutTiming::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [PayoutTiming::AtHit, PayoutTiming::AtExpiry];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = PayoutTiming::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_payout_timing("athit", PayoutTiming::AtHit);
+        assert_payout_timing("atexpiry", PayoutTiming::AtExpiry);
+        assert!(PayoutTiming::from_str("invalid").is_err());
+    }
+}

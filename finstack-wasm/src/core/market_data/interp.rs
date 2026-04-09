@@ -1,5 +1,6 @@
 use crate::core::error::js_error;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -61,17 +62,9 @@ impl JsInterpStyle {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsInterpStyle, JsValue> {
-        match name.to_ascii_lowercase().as_str() {
-            "linear" => Ok(Self::linear()),
-            "log_linear" | "loglinear" => Ok(Self::log_linear()),
-            "monotone_convex" | "monotoneconvex" => Ok(Self::monotone_convex()),
-            "cubic_hermite" | "cubichermite" => Ok(Self::cubic_hermite()),
-            "flat_fwd" | "flat_forward" | "flatforward" => Ok(Self::flat_fwd()),
-            "piecewise_quadratic_forward" | "piecewise_quadratic" | "pqf" => {
-                Ok(Self::piecewise_quadratic_forward())
-            }
-            other => Err(js_error(format!("Unknown interpolation style: {other}"))),
-        }
+        InterpStyle::from_str(name)
+            .map(Self::new)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
@@ -113,11 +106,9 @@ impl JsExtrapolationPolicy {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsExtrapolationPolicy, JsValue> {
-        match name.to_ascii_lowercase().as_str() {
-            "flat_zero" | "flatzero" => Ok(Self::flat_zero()),
-            "flat_forward" | "flatforward" | "flat_fwd" => Ok(Self::flat_forward()),
-            other => Err(js_error(format!("Unknown extrapolation policy: {other}"))),
-        }
+        ExtrapolationPolicy::from_str(name)
+            .map(Self::new)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 

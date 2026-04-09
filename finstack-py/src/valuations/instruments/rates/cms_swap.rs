@@ -11,6 +11,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn extract_dict_string<'py>(dict: &Bound<'py, PyDict>, key: &str) -> PyResult<String> {
@@ -34,13 +35,7 @@ fn extract_dict_day_count<'py>(dict: &Bound<'py, PyDict>, key: &str) -> PyResult
 }
 
 fn parse_side(label: &str) -> PyResult<PayReceive> {
-    match normalize_label(label).as_str() {
-        "pay" | "payer" => Ok(PayReceive::Pay),
-        "receive" | "receiver" | "rec" => Ok(PayReceive::Receive),
-        other => Err(PyValueError::new_err(format!(
-            "Invalid side: '{other}'. Must be 'pay' or 'receive'"
-        ))),
-    }
+    PayReceive::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn parse_funding_leg(spec: &Bound<'_, PyAny>) -> PyResult<FundingLegSpec> {

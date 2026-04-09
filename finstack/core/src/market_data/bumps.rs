@@ -95,6 +95,35 @@ pub enum BumpUnits {
     Factor,
 }
 
+impl core::fmt::Display for BumpUnits {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::RateBp => write!(f, "rate_bp"),
+            Self::Percent => write!(f, "percent"),
+            Self::Fraction => write!(f, "fraction"),
+            Self::Factor => write!(f, "factor"),
+        }
+    }
+}
+
+impl core::str::FromStr for BumpUnits {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "rate_bp" | "ratebp" | "bp" | "bps" | "basis_points" => Ok(Self::RateBp),
+            "percent" | "pct" => Ok(Self::Percent),
+            "fraction" | "frac" => Ok(Self::Fraction),
+            "factor" => Ok(Self::Factor),
+            other => Err(format!(
+                "Unknown bump units: '{}'. Valid: rate_bp, percent, fraction, factor",
+                other
+            )),
+        }
+    }
+}
+
 /// Unified bump specification capturing mode, units, and value.
 ///
 /// # Examples

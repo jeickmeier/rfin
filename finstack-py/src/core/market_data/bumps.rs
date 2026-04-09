@@ -36,6 +36,14 @@ impl PyBumpMode {
             _ => "BumpMode.UNKNOWN_VARIANT",
         }
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
 }
 
 #[pyclass(
@@ -79,6 +87,14 @@ impl PyBumpUnits {
             BumpUnits::Factor => "BumpUnits.FACTOR",
             _ => "BumpUnits.UNKNOWN_VARIANT",
         }
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
     }
 }
 

@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Commodity Asian option: option on the arithmetic or geometric average of
@@ -63,8 +64,7 @@ impl PyCommodityAsianOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CommodityAsianOptionBuilder",
-    unsendable
+    name = "CommodityAsianOptionBuilder"
 )]
 pub struct PyCommodityAsianOptionBuilder {
     instrument_id: InstrumentId,
@@ -231,17 +231,9 @@ impl PyCommodityAsianOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         option_type: &str,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::core::common::labels::normalize_label;
-        let opt_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
-        slf.option_type = Some(opt_type);
+        slf.option_type = Some(
+            OptionType::from_str(option_type).map_err(|e| PyValueError::new_err(e.to_string()))?,
+        );
         Ok(slf)
     }
 
@@ -249,17 +241,9 @@ impl PyCommodityAsianOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         method: &str,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        use crate::core::common::labels::normalize_label;
-        let avg_method = match normalize_label(method).as_str() {
-            "arithmetic" => AveragingMethod::Arithmetic,
-            "geometric" => AveragingMethod::Geometric,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown averaging method: {other}"
-                )))
-            }
-        };
-        slf.averaging_method = Some(avg_method);
+        slf.averaging_method = Some(
+            AveragingMethod::from_str(method).map_err(|e| PyValueError::new_err(e.to_string()))?,
+        );
         Ok(slf)
     }
 

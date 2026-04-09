@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 use crate::errors::core_to_py;
 use finstack_core::math::stats::{
     correlation as core_correlation, covariance as core_covariance,
@@ -13,6 +12,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 
 #[pyclass(
     name = "RealizedVarMethod",
@@ -31,28 +31,13 @@ impl PyRealizedVarMethod {
         Self { inner }
     }
 
-    fn label(&self) -> &'static str {
-        match self.inner {
-            RealizedVarMethod::CloseToClose => "close_to_close",
-            RealizedVarMethod::Parkinson => "parkinson",
-            RealizedVarMethod::GarmanKlass => "garman_klass",
-            RealizedVarMethod::RogersSatchell => "rogers_satchell",
-            RealizedVarMethod::YangZhang => "yang_zhang",
-        }
+    fn label(&self) -> String {
+        self.inner.to_string()
     }
 }
 
 fn parse_realized_var_method_name(name: &str) -> PyResult<RealizedVarMethod> {
-    match normalize_label(name).as_str() {
-        "close_to_close" | "close" => Ok(RealizedVarMethod::CloseToClose),
-        "parkinson" => Ok(RealizedVarMethod::Parkinson),
-        "garman_klass" | "garmanklass" => Ok(RealizedVarMethod::GarmanKlass),
-        "rogers_satchell" => Ok(RealizedVarMethod::RogersSatchell),
-        "yang_zhang" => Ok(RealizedVarMethod::YangZhang),
-        other => Err(PyValueError::new_err(format!(
-            "Unknown realized variance method: {other}",
-        ))),
-    }
+    RealizedVarMethod::from_str(name).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn parse_realized_var_method(method: Option<Bound<'_, PyAny>>) -> PyResult<RealizedVarMethod> {
@@ -106,7 +91,7 @@ impl PyRealizedVarMethod {
 
     #[getter]
     /// Snake-case label for this method.
-    fn name(&self) -> &'static str {
+    fn name(&self) -> String {
         self.label()
     }
 
@@ -125,7 +110,7 @@ impl PyRealizedVarMethod {
         format!("RealizedVarMethod('{}')", self.label())
     }
 
-    fn __str__(&self) -> &'static str {
+    fn __str__(&self) -> String {
         self.label()
     }
 
@@ -254,7 +239,7 @@ pub fn realized_variance_py(
 ) -> PyResult<f64> {
     use crate::errors::core_to_py;
     let m = parse_realized_var_method(method)?;
-    let af = annualization_factor.unwrap_or(252.0);
+    let af = annualization_factor.unwrap_or(finstack_valuations::constants::TRADING_DAYS_PER_YEAR);
     core_realized_variance(&prices, m, af).map_err(core_to_py)
 }
 
@@ -287,7 +272,7 @@ pub fn realized_variance_ohlc_py(
         ));
     }
     let m = parse_realized_var_method(method)?;
-    let af = annualization_factor.unwrap_or(252.0);
+    let af = annualization_factor.unwrap_or(finstack_valuations::constants::TRADING_DAYS_PER_YEAR);
     core_realized_variance_ohlc(&open, &high, &low, &close, m, af).map_err(core_to_py)
 }
 

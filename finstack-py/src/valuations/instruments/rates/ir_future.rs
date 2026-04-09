@@ -46,8 +46,7 @@ impl PyInterestRateFuture {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "InterestRateFutureBuilder",
-    unsendable
+    name = "InterestRateFutureBuilder"
 )]
 pub struct PyInterestRateFutureBuilder {
     instrument_id: InstrumentId,

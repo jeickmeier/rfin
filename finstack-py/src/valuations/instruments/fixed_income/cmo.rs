@@ -398,7 +398,6 @@ impl PyAgencyCmo {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "AgencyCmoBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyAgencyCmoBuilder {

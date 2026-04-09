@@ -67,7 +67,15 @@ pub enum ValidationPolicy {
 
 /// Extrapolation policy for evaluation outside the knot range.
 #[derive(
-    Copy, Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -123,6 +131,70 @@ pub enum InterpStyle {
     CubicHermite,
     /// Piecewise quadratic forwards (smooth forward curve, C²).
     PiecewiseQuadraticForward,
+}
+
+// ---------------------------------------------------------------------------
+// Display + FromStr for ExtrapolationPolicy
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Display for ExtrapolationPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            ExtrapolationPolicy::FlatZero => "flat_zero",
+            ExtrapolationPolicy::FlatForward => "flat_forward",
+            ExtrapolationPolicy::None => "none",
+        };
+        f.write_str(label)
+    }
+}
+
+impl std::str::FromStr for ExtrapolationPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = crate::parse::normalize_label(s);
+        match n.as_str() {
+            "flat_zero" | "flatzero" => Ok(ExtrapolationPolicy::FlatZero),
+            "flat_forward" | "flatforward" => Ok(ExtrapolationPolicy::FlatForward),
+            "none" => Ok(ExtrapolationPolicy::None),
+            other => Err(format!("unknown ExtrapolationPolicy: {other}")),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Display + FromStr for InterpStyle
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Display for InterpStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            InterpStyle::Linear => "linear",
+            InterpStyle::LogLinear => "log_linear",
+            InterpStyle::MonotoneConvex => "monotone_convex",
+            InterpStyle::CubicHermite => "cubic_hermite",
+            InterpStyle::PiecewiseQuadraticForward => "piecewise_quadratic_forward",
+        };
+        f.write_str(label)
+    }
+}
+
+impl std::str::FromStr for InterpStyle {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = crate::parse::normalize_label(s);
+        match n.as_str() {
+            "linear" => Ok(InterpStyle::Linear),
+            "log_linear" | "loglinear" | "flat_fwd" | "flat_forward" => Ok(InterpStyle::LogLinear),
+            "monotone_convex" | "monotoneconvex" => Ok(InterpStyle::MonotoneConvex),
+            "cubic_hermite" | "cubichermite" => Ok(InterpStyle::CubicHermite),
+            "piecewise_quadratic_forward" | "piecewise_quadratic" | "pqf" => {
+                Ok(InterpStyle::PiecewiseQuadraticForward)
+            }
+            other => Err(format!("unknown InterpStyle: {other}")),
+        }
+    }
 }
 
 /// Crate-private enum enabling static dispatch for interpolation in hot loops.
@@ -314,6 +386,14 @@ impl InterpStyle {
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
+
+    fn assert_interp_style(label: &str, expected: InterpStyle) {
+        assert!(matches!(label.parse::<InterpStyle>(), Ok(value) if value == expected));
+    }
+
+    fn assert_extrapolation_policy(label: &str, expected: ExtrapolationPolicy) {
+        assert!(matches!(label.parse::<ExtrapolationPolicy>(), Ok(value) if value == expected));
+    }
 
     fn standard_knots() -> Box<[f64]> {
         vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice()
@@ -597,5 +677,79 @@ mod tests {
     fn interp_style_inequality() {
         assert_ne!(InterpStyle::Linear, InterpStyle::LogLinear);
         assert_ne!(InterpStyle::LogLinear, InterpStyle::MonotoneConvex);
+    }
+
+    // ========================================================================
+    // InterpStyle FromStr / Display roundtrip tests
+    // ========================================================================
+
+    #[test]
+    fn interp_style_display_roundtrip() {
+        let all = [
+            InterpStyle::Linear,
+            InterpStyle::LogLinear,
+            InterpStyle::MonotoneConvex,
+            InterpStyle::CubicHermite,
+            InterpStyle::PiecewiseQuadraticForward,
+        ];
+
+        for style in &all {
+            let label = style.to_string();
+            assert!(
+                matches!(label.parse::<InterpStyle>(), Ok(value) if value == *style),
+                "roundtrip failed for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn interp_style_from_str_aliases() {
+        assert_interp_style("loglinear", InterpStyle::LogLinear);
+        assert_interp_style("flat_fwd", InterpStyle::LogLinear);
+        assert_interp_style("flat_forward", InterpStyle::LogLinear);
+        assert_interp_style("monotoneconvex", InterpStyle::MonotoneConvex);
+        assert_interp_style("cubichermite", InterpStyle::CubicHermite);
+        assert_interp_style("pqf", InterpStyle::PiecewiseQuadraticForward);
+        assert_interp_style(
+            "piecewise_quadratic",
+            InterpStyle::PiecewiseQuadraticForward,
+        );
+    }
+
+    #[test]
+    fn interp_style_from_str_unknown() {
+        assert!("garbage".parse::<InterpStyle>().is_err());
+    }
+
+    // ========================================================================
+    // ExtrapolationPolicy FromStr / Display roundtrip tests
+    // ========================================================================
+
+    #[test]
+    fn extrap_policy_display_roundtrip() {
+        let all = [
+            ExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatForward,
+            ExtrapolationPolicy::None,
+        ];
+
+        for policy in &all {
+            let label = policy.to_string();
+            assert!(
+                matches!(label.parse::<ExtrapolationPolicy>(), Ok(value) if value == *policy),
+                "roundtrip failed for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn extrap_policy_from_str_aliases() {
+        assert_extrapolation_policy("flatzero", ExtrapolationPolicy::FlatZero);
+        assert_extrapolation_policy("flatforward", ExtrapolationPolicy::FlatForward);
+    }
+
+    #[test]
+    fn extrap_policy_from_str_unknown() {
+        assert!("garbage".parse::<ExtrapolationPolicy>().is_err());
     }
 }

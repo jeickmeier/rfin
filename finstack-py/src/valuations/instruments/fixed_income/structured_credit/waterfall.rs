@@ -752,7 +752,6 @@ impl PyWaterfall {
 #[pyclass(
     module = "finstack.valuations",
     name = "WaterfallBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyWaterfallBuilder {

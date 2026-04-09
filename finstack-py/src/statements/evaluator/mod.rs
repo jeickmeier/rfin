@@ -611,11 +611,7 @@ impl PyPercentileSeries {
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
 /// nodes period-by-period according to precedence rules.
-#[pyclass(
-    module = "finstack.statements.evaluator",
-    name = "Evaluator",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.evaluator", name = "Evaluator")]
 pub struct PyEvaluator {
     inner: Evaluator,
 }
@@ -787,8 +783,7 @@ impl PyEvaluator {
 /// for capital structure evaluation.
 #[pyclass(
     module = "finstack.statements.evaluator",
-    name = "EvaluatorWithContext",
-    unsendable
+    name = "EvaluatorWithContext"
 )]
 pub struct PyEvaluatorWithContext {
     inner: finstack_statements::evaluator::EvaluatorWithContext,

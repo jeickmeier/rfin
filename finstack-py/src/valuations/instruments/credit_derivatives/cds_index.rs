@@ -110,11 +110,7 @@ impl PyCdsIndexConstituent {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "CDSIndexBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "CDSIndexBuilder")]
 pub struct PyCdsIndexBuilder {
     instrument_id: InstrumentId,
     index_name: Option<String>,

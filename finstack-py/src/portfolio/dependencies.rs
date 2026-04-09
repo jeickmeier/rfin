@@ -4,7 +4,6 @@
 //! selective repricing by mapping market factor changes to affected positions.
 
 use crate::core::common::args::CurrencyArg;
-use crate::core::common::labels::normalize_label;
 use crate::portfolio::positions::PyPortfolio;
 use finstack_core::types::CurveId;
 use finstack_portfolio::dependencies::{DependencyIndex, MarketFactorKey};
@@ -13,19 +12,11 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
+use std::str::FromStr;
 
 /// Parse a string into a [`RatesCurveKind`].
 fn parse_curve_kind(s: &str) -> PyResult<RatesCurveKind> {
-    let n = normalize_label(s);
-    match n.as_str() {
-        "discount" => Ok(RatesCurveKind::Discount),
-        "forward" => Ok(RatesCurveKind::Forward),
-        "credit" => Ok(RatesCurveKind::Credit),
-        other => Err(PyValueError::new_err(format!(
-            "Unknown curve kind: '{}'. Expected 'discount', 'forward', or 'credit'",
-            other
-        ))),
-    }
+    RatesCurveKind::from_str(s).map_err(|e| PyValueError::new_err(e))
 }
 
 /// Format a [`RatesCurveKind`] as a lowercase label.

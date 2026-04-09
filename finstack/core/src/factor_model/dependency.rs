@@ -1,6 +1,8 @@
 use crate::currency::Currency;
 use crate::types::CurveId;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
 
 /// Classification of a curve dependency's role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -15,6 +17,38 @@ pub enum CurveType {
     Inflation,
     /// Base-correlation surface-backed curve.
     BaseCorrelation,
+}
+
+/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
+fn normalize_label(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+}
+
+impl fmt::Display for CurveType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Discount => write!(f, "discount"),
+            Self::Forward => write!(f, "forward"),
+            Self::Hazard => write!(f, "hazard"),
+            Self::Inflation => write!(f, "inflation"),
+            Self::BaseCorrelation => write!(f, "base_correlation"),
+        }
+    }
+}
+
+impl FromStr for CurveType {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match normalize_label(s).as_str() {
+            "discount" => Ok(Self::Discount),
+            "forward" => Ok(Self::Forward),
+            "hazard" | "credit" => Ok(Self::Hazard),
+            "inflation" => Ok(Self::Inflation),
+            "base_correlation" | "basecorrelation" => Ok(Self::BaseCorrelation),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
 }
 
 /// Classification used by dependency filters and declarative matching config.
@@ -34,6 +68,37 @@ pub enum DependencyType {
     Fx,
     /// Time-series dependency.
     Series,
+}
+
+impl fmt::Display for DependencyType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Discount => write!(f, "discount"),
+            Self::Forward => write!(f, "forward"),
+            Self::Credit => write!(f, "credit"),
+            Self::Spot => write!(f, "spot"),
+            Self::Vol => write!(f, "vol"),
+            Self::Fx => write!(f, "fx"),
+            Self::Series => write!(f, "series"),
+        }
+    }
+}
+
+impl FromStr for DependencyType {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match normalize_label(s).as_str() {
+            "discount" => Ok(Self::Discount),
+            "forward" => Ok(Self::Forward),
+            "credit" => Ok(Self::Credit),
+            "spot" | "price" | "scalar" => Ok(Self::Spot),
+            "vol" | "volsurface" | "vol_surface" | "volatility" => Ok(Self::Vol),
+            "fx" => Ok(Self::Fx),
+            "series" | "dividend" | "div" => Ok(Self::Series),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
 }
 
 /// A single market dependency extracted from an instrument.
@@ -133,6 +198,14 @@ impl MarketDependency {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_curve_type(label: &str, expected: CurveType) {
+        assert!(matches!(label.parse::<CurveType>(), Ok(value) if value == expected));
+    }
+
+    fn assert_dependency_type(label: &str, expected: DependencyType) {
+        assert!(matches!(label.parse::<DependencyType>(), Ok(value) if value == expected));
+    }
 
     #[test]
     fn test_market_dependency_curve() {
@@ -304,5 +377,76 @@ mod tests {
         assert!(spot.matches_id("AAPL"));
         assert!(fx.matches_id("USD/EUR"));
         assert!(!fx.matches_id("EUR/USD"));
+    }
+
+    #[test]
+    fn test_curve_type_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("discount", CurveType::Discount),
+            ("forward", CurveType::Forward),
+            ("hazard", CurveType::Hazard),
+            ("credit", CurveType::Hazard),
+            ("inflation", CurveType::Inflation),
+            ("base_correlation", CurveType::BaseCorrelation),
+            ("basecorrelation", CurveType::BaseCorrelation),
+        ] {
+            assert_curve_type(input, expected);
+        }
+
+        for variant in [
+            CurveType::Discount,
+            CurveType::Forward,
+            CurveType::Hazard,
+            CurveType::Inflation,
+            CurveType::BaseCorrelation,
+        ] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<CurveType>(), Ok(value) if value == variant));
+        }
+    }
+
+    #[test]
+    fn test_curve_type_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<CurveType>().is_err());
+    }
+
+    #[test]
+    fn test_dependency_type_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("discount", DependencyType::Discount),
+            ("forward", DependencyType::Forward),
+            ("credit", DependencyType::Credit),
+            ("spot", DependencyType::Spot),
+            ("price", DependencyType::Spot),
+            ("scalar", DependencyType::Spot),
+            ("vol", DependencyType::Vol),
+            ("volsurface", DependencyType::Vol),
+            ("vol_surface", DependencyType::Vol),
+            ("volatility", DependencyType::Vol),
+            ("fx", DependencyType::Fx),
+            ("series", DependencyType::Series),
+            ("dividend", DependencyType::Series),
+            ("div", DependencyType::Series),
+        ] {
+            assert_dependency_type(input, expected);
+        }
+
+        for variant in [
+            DependencyType::Discount,
+            DependencyType::Forward,
+            DependencyType::Credit,
+            DependencyType::Spot,
+            DependencyType::Vol,
+            DependencyType::Fx,
+            DependencyType::Series,
+        ] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<DependencyType>(), Ok(value) if value == variant));
+        }
+    }
+
+    #[test]
+    fn test_dependency_type_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<DependencyType>().is_err());
     }
 }

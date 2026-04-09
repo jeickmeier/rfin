@@ -20,6 +20,31 @@ pub enum AveragingMethod {
     Geometric,
 }
 
+impl std::fmt::Display for AveragingMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Arithmetic => write!(f, "arithmetic"),
+            Self::Geometric => write!(f, "geometric"),
+        }
+    }
+}
+
+impl std::str::FromStr for AveragingMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "arithmetic" => Ok(Self::Arithmetic),
+            "geometric" => Ok(Self::Geometric),
+            other => Err(format!(
+                "Unknown averaging method: '{}'. Valid: arithmetic, geometric",
+                other
+            )),
+        }
+    }
+}
+
 /// Asian option instrument.
 ///
 /// Asian options depend on the average price over a period rather than
@@ -318,5 +343,17 @@ mod tests {
         let (sum_early, _, count_early) = asian.accumulated_state(as_of_early);
         assert_eq!(sum_early, 100.0);
         assert_eq!(count_early, 1);
+    }
+
+    #[test]
+    fn averaging_method_fromstr_display_roundtrip() {
+        use std::str::FromStr;
+        let variants = [AveragingMethod::Arithmetic, AveragingMethod::Geometric];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = AveragingMethod::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        assert!(AveragingMethod::from_str("invalid").is_err());
     }
 }

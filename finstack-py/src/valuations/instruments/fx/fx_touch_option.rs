@@ -1,5 +1,4 @@
 use crate::core::common::args::CurrencyArg;
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -17,6 +16,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
+use std::str::FromStr;
 use std::sync::Arc;
 
 fn parse_touch_type(value: &Bound<'_, PyAny>) -> PyResult<TouchType> {
@@ -24,13 +24,7 @@ fn parse_touch_type(value: &Bound<'_, PyAny>) -> PyResult<TouchType> {
         return Ok(typed.inner);
     }
     if let Ok(label) = value.extract::<&str>() {
-        return match normalize_label(label).as_str() {
-            "one_touch" | "onetouch" => Ok(TouchType::OneTouch),
-            "no_touch" | "notouch" => Ok(TouchType::NoTouch),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown touch type: {other}"
-            ))),
-        };
+        return TouchType::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()));
     }
     Err(PyTypeError::new_err(
         "touch_type() expects TouchType or str",
@@ -42,13 +36,7 @@ fn parse_barrier_direction(value: &Bound<'_, PyAny>) -> PyResult<BarrierDirectio
         return Ok(typed.inner);
     }
     if let Ok(label) = value.extract::<&str>() {
-        return match normalize_label(label).as_str() {
-            "up" => Ok(BarrierDirection::Up),
-            "down" => Ok(BarrierDirection::Down),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown barrier direction: {other}"
-            ))),
-        };
+        return BarrierDirection::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()));
     }
     Err(PyTypeError::new_err(
         "barrier_direction() expects BarrierDirection or str",
@@ -60,13 +48,7 @@ fn parse_payout_timing(value: &Bound<'_, PyAny>) -> PyResult<PayoutTiming> {
         return Ok(typed.inner);
     }
     if let Ok(label) = value.extract::<&str>() {
-        return match normalize_label(label).as_str() {
-            "at_hit" | "athit" => Ok(PayoutTiming::AtHit),
-            "at_expiry" | "atexpiry" => Ok(PayoutTiming::AtExpiry),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown payout timing: {other}"
-            ))),
-        };
+        return PayoutTiming::from_str(label).map_err(|e| PyValueError::new_err(e.to_string()));
     }
     Err(PyTypeError::new_err(
         "payout_timing() expects PayoutTiming or str",
@@ -99,13 +81,9 @@ impl PyTouchType {
 
     #[classmethod]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "one_touch" | "onetouch" => Ok(Self::ONE_TOUCH),
-            "no_touch" | "notouch" => Ok(Self::NO_TOUCH),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown touch type: {other}"
-            ))),
-        }
+        TouchType::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -144,13 +122,9 @@ impl PyBarrierDirection {
 
     #[classmethod]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "up" => Ok(Self::UP),
-            "down" => Ok(Self::DOWN),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown barrier direction: {other}"
-            ))),
-        }
+        BarrierDirection::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -189,13 +163,9 @@ impl PyPayoutTiming {
 
     #[classmethod]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match normalize_label(name).as_str() {
-            "at_hit" | "athit" => Ok(Self::AT_HIT),
-            "at_expiry" | "atexpiry" => Ok(Self::AT_EXPIRY),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown payout timing: {other}"
-            ))),
-        }
+        PayoutTiming::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -229,8 +199,7 @@ impl PyFxTouchOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "FxTouchOptionBuilder",
-    unsendable
+    name = "FxTouchOptionBuilder"
 )]
 pub struct PyFxTouchOptionBuilder {
     instrument_id: InstrumentId,

@@ -159,11 +159,7 @@ impl PyCDSTranche {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "CDSTrancheBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "CDSTrancheBuilder")]
 pub struct PyCDSTrancheBuilder {
     instrument_id: InstrumentId,
     index_name: Option<String>,

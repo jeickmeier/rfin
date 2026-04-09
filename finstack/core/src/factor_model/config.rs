@@ -5,6 +5,8 @@ use super::types::{FactorId, FactorType};
 use super::UnmatchedPolicy;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
+use std::fmt;
+use std::str::FromStr;
 
 /// Strategy used when extracting factor sensitivities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +23,32 @@ pub enum PricingMode {
     /// Use this when the portfolio workflow needs richer scenario behavior than
     /// a single small bump can capture, at the cost of more repricing work.
     FullRepricing,
+}
+
+/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
+fn normalize_label(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+}
+
+impl fmt::Display for PricingMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DeltaBased => write!(f, "delta_based"),
+            Self::FullRepricing => write!(f, "full_repricing"),
+        }
+    }
+}
+
+impl FromStr for PricingMode {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match normalize_label(s).as_str() {
+            "delta_based" | "deltabased" => Ok(Self::DeltaBased),
+            "full_repricing" | "fullrepricing" => Ok(Self::FullRepricing),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
 }
 
 /// Risk measure used when aggregating factor exposures.
@@ -196,6 +224,10 @@ pub struct FactorModelConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_parses_to(label: &str, expected: PricingMode) {
+        assert!(matches!(label.parse::<PricingMode>(), Ok(value) if value == expected));
+    }
     use crate::factor_model::{
         FactorCovarianceMatrix, FactorDefinition, MarketMapping, MatchingConfig, UnmatchedPolicy,
     };
@@ -443,5 +475,27 @@ mod tests {
         assert_eq!(config.risk_measure, RiskMeasure::Variance);
         assert_eq!(config.bump_size, None);
         assert_eq!(config.unmatched_policy, None);
+    }
+
+    #[test]
+    fn test_pricing_mode_fromstr_display_roundtrip() {
+        for (input, expected) in [
+            ("delta_based", PricingMode::DeltaBased),
+            ("deltabased", PricingMode::DeltaBased),
+            ("full_repricing", PricingMode::FullRepricing),
+            ("fullrepricing", PricingMode::FullRepricing),
+        ] {
+            assert_parses_to(input, expected);
+        }
+
+        for variant in [PricingMode::DeltaBased, PricingMode::FullRepricing] {
+            let display = variant.to_string();
+            assert!(matches!(display.parse::<PricingMode>(), Ok(value) if value == variant));
+        }
+    }
+
+    #[test]
+    fn test_pricing_mode_fromstr_rejects_unknown() {
+        assert!("unknown".parse::<PricingMode>().is_err());
     }
 }

@@ -46,6 +46,31 @@ pub enum LegSide {
     Pay,
 }
 
+impl std::fmt::Display for LegSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pay => write!(f, "pay"),
+            Self::Receive => write!(f, "receive"),
+        }
+    }
+}
+
+impl std::str::FromStr for LegSide {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "pay" | "payer" => Ok(Self::Pay),
+            "receive" | "rec" | "receiver" => Ok(Self::Receive),
+            other => Err(format!(
+                "Unknown leg side: '{}'. Valid: pay, receive, rec",
+                other
+            )),
+        }
+    }
+}
+
 impl LegSide {
     #[inline]
     fn coupon_sign(self) -> f64 {
@@ -111,6 +136,33 @@ pub enum NotionalExchange {
     /// Exchange principal at start and maturity (typical for XCCY basis swaps).
     #[default]
     InitialAndFinal,
+}
+
+impl std::fmt::Display for NotionalExchange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None => write!(f, "none"),
+            Self::Final => write!(f, "final"),
+            Self::InitialAndFinal => write!(f, "initial_and_final"),
+        }
+    }
+}
+
+impl std::str::FromStr for NotionalExchange {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "none" => Ok(Self::None),
+            "final" | "final_only" => Ok(Self::Final),
+            "initial_and_final" | "initialandfinal" | "both" => Ok(Self::InitialAndFinal),
+            other => Err(format!(
+                "Unknown notional exchange: '{}'. Valid: none, final, initial_and_final, both",
+                other
+            )),
+        }
+    }
 }
 
 /// One floating leg of an XCCY swap.
@@ -771,5 +823,45 @@ mod tests {
         assert!(flows
             .iter()
             .any(|(_, money)| money.currency() == Currency::EUR));
+    }
+
+    #[test]
+    fn leg_side_fromstr_display_roundtrip() {
+        use std::str::FromStr;
+
+        fn assert_leg_side(label: &str, expected: LegSide) {
+            assert!(matches!(LegSide::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [LegSide::Pay, LegSide::Receive];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = LegSide::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        assert_leg_side("rec", LegSide::Receive);
+        assert!(LegSide::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn notional_exchange_fromstr_display_roundtrip() {
+        use std::str::FromStr;
+
+        fn assert_notional_exchange(label: &str, expected: NotionalExchange) {
+            assert!(matches!(NotionalExchange::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [
+            NotionalExchange::None,
+            NotionalExchange::Final,
+            NotionalExchange::InitialAndFinal,
+        ];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = NotionalExchange::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        assert_notional_exchange("both", NotionalExchange::InitialAndFinal);
+        assert!(NotionalExchange::from_str("invalid").is_err());
     }
 }

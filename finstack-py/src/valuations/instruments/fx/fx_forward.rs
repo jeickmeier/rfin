@@ -72,11 +72,7 @@ impl PyFxForward {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "FxForwardBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "FxForwardBuilder")]
 pub struct PyFxForwardBuilder {
     instrument_id: InstrumentId,
     base_currency: Option<Currency>,

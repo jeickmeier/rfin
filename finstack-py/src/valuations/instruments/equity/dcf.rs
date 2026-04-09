@@ -393,8 +393,7 @@ impl PyDiscountedCashFlow {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "DiscountedCashFlowBuilder",
-    unsendable
+    name = "DiscountedCashFlowBuilder"
 )]
 pub struct PyDiscountedCashFlowBuilder {
     instrument_id: InstrumentId,

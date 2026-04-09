@@ -49,6 +49,28 @@ pub enum SeriesInterpolation {
     Linear,
 }
 
+impl std::fmt::Display for SeriesInterpolation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Step => write!(f, "step"),
+            Self::Linear => write!(f, "linear"),
+        }
+    }
+}
+
+impl std::str::FromStr for SeriesInterpolation {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = crate::parse::normalize_label(s);
+        match normalized.as_str() {
+            "step" => Ok(Self::Step),
+            "linear" => Ok(Self::Linear),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
+}
+
 /// Single market observable that doesn't require a full curve.
 ///
 /// Represents point-in-time market data like spot prices, spreads, or unitless
@@ -695,5 +717,17 @@ mod tests {
             result.is_err(),
             "Should fail when no prior observation exists"
         );
+    }
+
+    #[test]
+    fn series_interpolation_fromstr_display_roundtrip() {
+        use std::str::FromStr;
+        let variants = [SeriesInterpolation::Step, SeriesInterpolation::Linear];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = SeriesInterpolation::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        assert!(SeriesInterpolation::from_str("invalid").is_err());
     }
 }

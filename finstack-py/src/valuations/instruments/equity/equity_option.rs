@@ -17,6 +17,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyTuple, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Equity option priced via Black–Scholes style models.
@@ -101,8 +102,7 @@ impl PyEquityOptionGreeks {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "EquityOptionBuilder",
-    unsendable
+    name = "EquityOptionBuilder"
 )]
 pub struct PyEquityOptionBuilder {
     instrument_id: InstrumentId,
@@ -189,34 +189,15 @@ impl PyEquityOptionBuilder {
     }
 
     fn parse_option_type(value: &str) -> PyResult<OptionType> {
-        match value.to_lowercase().as_str() {
-            "call" => Ok(OptionType::Call),
-            "put" => Ok(OptionType::Put),
-            other => Err(PyValueError::new_err(format!(
-                "option_type must be 'call' or 'put' (got '{other}')"
-            ))),
-        }
+        OptionType::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn parse_exercise_style(value: &str) -> PyResult<ExerciseStyle> {
-        match value.to_lowercase().as_str() {
-            "european" => Ok(ExerciseStyle::European),
-            "american" => Ok(ExerciseStyle::American),
-            "bermudan" => Ok(ExerciseStyle::Bermudan),
-            other => Err(PyValueError::new_err(format!(
-                "exercise_style must be 'european', 'american', or 'bermudan' (got '{other}')"
-            ))),
-        }
+        ExerciseStyle::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn parse_settlement(value: &str) -> PyResult<SettlementType> {
-        match value.to_lowercase().as_str() {
-            "cash" => Ok(SettlementType::Cash),
-            "physical" => Ok(SettlementType::Physical),
-            other => Err(PyValueError::new_err(format!(
-                "settlement must be 'cash' or 'physical' (got '{other}')"
-            ))),
-        }
+        SettlementType::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
 

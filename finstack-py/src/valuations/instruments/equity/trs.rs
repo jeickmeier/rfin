@@ -310,8 +310,7 @@ impl PyEquityTotalReturnSwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "EquityTotalReturnSwapBuilder",
-    unsendable
+    name = "EquityTotalReturnSwapBuilder"
 )]
 pub struct PyEquityTotalReturnSwapBuilder {
     instrument_id: InstrumentId,

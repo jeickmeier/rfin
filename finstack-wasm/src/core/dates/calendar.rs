@@ -1,10 +1,10 @@
-use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::calendar_not_found;
 use crate::core::error::js_error;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{adjust as core_adjust, BusinessDayConvention};
 use finstack_core::dates::{CalendarMetadata, HolidayCalendar};
+use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -45,7 +45,9 @@ impl From<BusinessDayConvention> for JsBusinessDayConvention {
 
 #[wasm_bindgen(js_name = businessDayConventionFromName)]
 pub fn business_day_convention_from_name(name: &str) -> Result<JsBusinessDayConvention, JsValue> {
-    BusinessDayConvention::parse_from_string(name).map(Into::into)
+    BusinessDayConvention::from_str(name)
+        .map(Into::into)
+        .map_err(|e| js_error(e.to_string()))
 }
 
 /// Check if a business day convention name is valid without throwing an error.
@@ -57,7 +59,7 @@ pub fn business_day_convention_from_name(name: &str) -> Result<JsBusinessDayConv
 /// `true` if the string can be parsed as a valid convention, `false` otherwise.
 #[wasm_bindgen(js_name = isValidBusinessDayConvention)]
 pub fn is_valid_business_day_convention(name: &str) -> bool {
-    BusinessDayConvention::parse_from_string(name).is_ok()
+    BusinessDayConvention::from_str(name).is_ok()
 }
 
 #[wasm_bindgen(js_name = businessDayConventionName)]

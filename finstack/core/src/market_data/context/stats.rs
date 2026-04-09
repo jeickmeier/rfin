@@ -112,7 +112,7 @@ impl MarketContext {
         }
     }
 
-    /// Check whether any data (curve, surface, price, series, index, or dividend) is registered under the given id.
+    /// Check whether any data (curve, surface, price, series, index, dividend, or collateral mapping) is registered under the given id.
     pub fn contains(&self, id: impl AsRef<str>) -> bool {
         let id = id.as_ref();
         self.curves.contains_key(id)
@@ -123,6 +123,7 @@ impl MarketContext {
             || self.credit_indices.contains_key(id)
             || self.dividends.contains_key(id)
             || self.fx_delta_vol_surfaces.contains_key(id)
+            || self.collateral.contains_key(id)
     }
 
     /// Return `true` when no market data has been inserted.

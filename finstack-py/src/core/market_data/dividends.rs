@@ -163,7 +163,6 @@ impl PyDividendEvent {
 #[pyclass(
     module = "finstack.core.market_data.dividends",
     name = "DividendSchedule",
-    unsendable,
     from_py_object
 )]
 #[derive(Clone)]
@@ -261,8 +260,7 @@ impl PyDividendSchedule {
 ///     Mutable builder that emits :class:`DividendSchedule` via :py:meth:`DividendScheduleBuilder.build`.
 #[pyclass(
     module = "finstack.core.market_data.dividends",
-    name = "DividendScheduleBuilder",
-    unsendable
+    name = "DividendScheduleBuilder"
 )]
 pub struct PyDividendScheduleBuilder {
     inner: Option<DividendScheduleBuilder>,

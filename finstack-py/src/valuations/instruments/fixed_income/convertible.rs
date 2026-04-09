@@ -590,7 +590,6 @@ impl PyConvertibleBond {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "ConvertibleBondBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyConvertibleBondBuilder {

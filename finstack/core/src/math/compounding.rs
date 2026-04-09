@@ -333,6 +333,23 @@ impl Compounding {
     }
 }
 
+impl std::str::FromStr for Compounding {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized = crate::parse::normalize_label(s);
+        match normalized.as_str() {
+            "continuous" => Ok(Self::Continuous),
+            "simple" => Ok(Self::Simple),
+            "annual" => Ok(Self::Annual),
+            "semi_annual" | "semiannual" => Ok(Self::SEMI_ANNUAL),
+            "quarterly" => Ok(Self::QUARTERLY),
+            "monthly" => Ok(Self::MONTHLY),
+            _ => Err(crate::error::InputError::Invalid.into()),
+        }
+    }
+}
+
 impl Default for Compounding {
     /// Default to continuous compounding (most common for quant finance).
     fn default() -> Self {
@@ -343,10 +360,15 @@ impl Default for Compounding {
 impl std::fmt::Display for Compounding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Compounding::Continuous => write!(f, "Continuous"),
-            Compounding::Annual => write!(f, "Annual"),
-            Compounding::Periodic(n) => write!(f, "Periodic({})", n),
-            Compounding::Simple => write!(f, "Simple"),
+            Compounding::Continuous => write!(f, "continuous"),
+            Compounding::Annual => write!(f, "annual"),
+            Compounding::Periodic(n) => match n.get() {
+                2 => write!(f, "semi_annual"),
+                4 => write!(f, "quarterly"),
+                12 => write!(f, "monthly"),
+                other => write!(f, "periodic({})", other),
+            },
+            Compounding::Simple => write!(f, "simple"),
         }
     }
 }
@@ -397,10 +419,12 @@ mod tests {
 
     #[test]
     fn test_display() {
-        assert_eq!(format!("{}", Compounding::Continuous), "Continuous");
-        assert_eq!(format!("{}", Compounding::Annual), "Annual");
-        assert_eq!(format!("{}", Compounding::SEMI_ANNUAL), "Periodic(2)");
-        assert_eq!(format!("{}", Compounding::Simple), "Simple");
+        assert_eq!(format!("{}", Compounding::Continuous), "continuous");
+        assert_eq!(format!("{}", Compounding::Annual), "annual");
+        assert_eq!(format!("{}", Compounding::SEMI_ANNUAL), "semi_annual");
+        assert_eq!(format!("{}", Compounding::QUARTERLY), "quarterly");
+        assert_eq!(format!("{}", Compounding::MONTHLY), "monthly");
+        assert_eq!(format!("{}", Compounding::Simple), "simple");
     }
 
     #[test]
@@ -730,5 +754,32 @@ mod tests {
                 "{conv}: DF mismatch after conversion: {df_conv} vs {df_expected}",
             );
         }
+    }
+
+    #[test]
+    fn compounding_fromstr_display_roundtrip() {
+        use std::str::FromStr;
+
+        fn assert_parses_to(label: &str, expected: Compounding) {
+            assert!(matches!(Compounding::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [
+            Compounding::Continuous,
+            Compounding::Simple,
+            Compounding::Annual,
+            Compounding::SEMI_ANNUAL,
+            Compounding::QUARTERLY,
+            Compounding::MONTHLY,
+        ];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = Compounding::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_parses_to("semiannual", Compounding::SEMI_ANNUAL);
+        assert_parses_to("Semi-Annual", Compounding::SEMI_ANNUAL);
+        assert!(Compounding::from_str("invalid").is_err());
     }
 }

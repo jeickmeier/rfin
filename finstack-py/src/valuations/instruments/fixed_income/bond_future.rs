@@ -235,7 +235,6 @@ impl PyBondFutureSpecs {
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BondFutureBuilder",
-    unsendable,
     skip_from_py_object
 )]
 pub struct PyBondFutureBuilder {

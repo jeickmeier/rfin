@@ -70,6 +70,14 @@ impl PyForecastMethod {
     fn __str__(&self) -> String {
         format!("{:?}", self.inner)
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
+    }
 }
 
 /// Seasonal forecast mode.
@@ -99,6 +107,14 @@ impl PySeasonalMode {
 
     fn __repr__(&self) -> String {
         format!("SeasonalMode.{:?}", self.inner)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+
+    fn __hash__(&self) -> isize {
+        self.inner as isize
     }
 }
 

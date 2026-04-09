@@ -170,6 +170,31 @@ pub enum RateBoundsPolicy {
     Explicit,
 }
 
+impl std::fmt::Display for RateBoundsPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AutoCurrency => write!(f, "auto_currency"),
+            Self::Explicit => write!(f, "explicit"),
+        }
+    }
+}
+
+impl std::str::FromStr for RateBoundsPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "auto_currency" | "autocurrency" | "auto" => Ok(Self::AutoCurrency),
+            "explicit" => Ok(Self::Explicit),
+            other => Err(format!(
+                "Unknown rate bounds policy: '{}'. Valid: auto_currency, auto, explicit",
+                other
+            )),
+        }
+    }
+}
+
 /// Runtime validation behavior for arbitrage/consistency checks.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
@@ -181,6 +206,31 @@ pub enum ValidationMode {
     /// Treat validation failures as hard errors.
     /// Recommended for production and strict pricing.
     Error,
+}
+
+impl std::fmt::Display for ValidationMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Warn => write!(f, "warn"),
+            Self::Error => write!(f, "error"),
+        }
+    }
+}
+
+impl std::str::FromStr for ValidationMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
+            "warn" | "warning" => Ok(Self::Warn),
+            "error" | "strict" => Ok(Self::Error),
+            other => Err(format!(
+                "Unknown validation mode: '{}'. Valid: warn, warning, error, strict",
+                other
+            )),
+        }
+    }
 }
 
 /// Validation configuration for curve and surface sanity checks.
@@ -381,5 +431,47 @@ impl ValidationConfig {
             )));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn validation_mode_fromstr_display_roundtrip() {
+        fn assert_validation_mode(label: &str, expected: ValidationMode) {
+            assert!(matches!(ValidationMode::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [ValidationMode::Warn, ValidationMode::Error];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = ValidationMode::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_validation_mode("warning", ValidationMode::Warn);
+        assert_validation_mode("strict", ValidationMode::Error);
+        assert!(ValidationMode::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn rate_bounds_policy_fromstr_display_roundtrip() {
+        fn assert_rate_bounds_policy(label: &str, expected: RateBoundsPolicy) {
+            assert!(matches!(RateBoundsPolicy::from_str(label), Ok(value) if value == expected));
+        }
+
+        let variants = [RateBoundsPolicy::AutoCurrency, RateBoundsPolicy::Explicit];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = RateBoundsPolicy::from_str(&s).expect("roundtrip parse should succeed");
+            assert_eq!(v, parsed, "roundtrip failed for {s}");
+        }
+        // Test aliases
+        assert_rate_bounds_policy("auto", RateBoundsPolicy::AutoCurrency);
+        assert!(RateBoundsPolicy::from_str("invalid").is_err());
     }
 }

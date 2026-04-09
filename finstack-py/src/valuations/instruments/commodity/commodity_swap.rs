@@ -1,13 +1,13 @@
 //! Python bindings for CommoditySwap instrument.
 
-use crate::core::common::args::CurrencyArg;
+use crate::core::common::args::{business_day_convention_label, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::context::PyMarketContext;
 use crate::errors::PyContext;
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::{f64_to_decimal, PyInstrumentType};
-use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
+use finstack_core::dates::{BusinessDayConvention, Tenor};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::common::parameters::PayReceive;
@@ -18,6 +18,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Commodity swap (fixed-for-floating commodity price exchange).
@@ -63,8 +64,7 @@ impl PyCommoditySwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CommoditySwapBuilder",
-    unsendable
+    name = "CommoditySwapBuilder"
 )]
 pub struct PyCommoditySwapBuilder {
     instrument_id: InstrumentId,
@@ -234,7 +234,7 @@ impl PyCommoditySwapBuilder {
         mut slf: PyRefMut<'_, Self>,
         payment_frequency: String,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.payment_frequency = Some(parse_tenor(&payment_frequency).map_err(|e| {
+        slf.payment_frequency = Some(payment_frequency.parse::<Tenor>().map_err(|e| {
             PyValueError::new_err(format!(
                 "Invalid payment_frequency '{}': {}",
                 payment_frequency, e
@@ -258,23 +258,11 @@ impl PyCommoditySwapBuilder {
     #[pyo3(text_signature = "($self, bdc=None)", signature = (bdc=None))]
     fn bdc(mut slf: PyRefMut<'_, Self>, bdc: Option<String>) -> PyResult<PyRefMut<'_, Self>> {
         slf.bdc = match bdc.as_deref() {
-            Some("following") | Some("Following") => Some(BusinessDayConvention::Following),
-            Some("modified_following") | Some("ModifiedFollowing") => {
-                Some(BusinessDayConvention::ModifiedFollowing)
-            }
-            Some("preceding") | Some("Preceding") => Some(BusinessDayConvention::Preceding),
-            Some("modified_preceding") | Some("ModifiedPreceding") => {
-                Some(BusinessDayConvention::ModifiedPreceding)
-            }
-            Some("unadjusted") | Some("Unadjusted") | Some("none") | Some("None") => {
-                Some(BusinessDayConvention::Unadjusted)
-            }
+            Some(s) => Some(
+                BusinessDayConvention::from_str(s)
+                    .map_err(|e| PyValueError::new_err(format!("Invalid bdc: {e}")))?,
+            ),
             None => None,
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Invalid bdc: '{other}'. Must be 'following', 'modified_following', 'preceding', 'modified_preceding', or 'unadjusted'",
-                )))
-            }
         };
         Ok(slf)
     }
@@ -507,14 +495,7 @@ impl PyCommoditySwap {
     /// Business day convention.
     #[getter]
     fn bdc(&self) -> &str {
-        match self.inner.bdc {
-            BusinessDayConvention::Following => "following",
-            BusinessDayConvention::ModifiedFollowing => "modified_following",
-            BusinessDayConvention::Preceding => "preceding",
-            BusinessDayConvention::ModifiedPreceding => "modified_preceding",
-            BusinessDayConvention::Unadjusted => "unadjusted",
-            _ => "unknown",
-        }
+        business_day_convention_label(self.inner.bdc)
     }
 
     /// Index lag in days, if set.
@@ -604,33 +585,6 @@ impl fmt::Display for PyCommoditySwap {
             self.inner.fixed_price
         )
     }
-}
-
-/// Parse a tenor string like "1M", "3M", "1Y" into a Tenor.
-fn parse_tenor(s: &str) -> Result<Tenor, String> {
-    let s = s.trim().to_uppercase();
-    if s.is_empty() {
-        return Err("Empty tenor string".to_string());
-    }
-
-    // Find the split point between number and unit
-    let unit_start = s.find(|c: char| c.is_alphabetic()).ok_or("No unit found")?;
-    let count_str = &s[..unit_start];
-    let unit_str = &s[unit_start..];
-
-    let count: u32 = count_str
-        .parse()
-        .map_err(|_| format!("Invalid count: {}", count_str))?;
-
-    let unit = match unit_str {
-        "D" => TenorUnit::Days,
-        "W" => TenorUnit::Weeks,
-        "M" => TenorUnit::Months,
-        "Y" => TenorUnit::Years,
-        _ => return Err(format!("Unknown unit: {}", unit_str)),
-    };
-
-    Ok(Tenor::new(count, unit))
 }
 
 /// Export module items for registration.

@@ -28,28 +28,24 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Parse a snake/lower-case label into an FX conversion policy.
 ///
-/// Accepts labels like "cashflow_date", "period_end", "period_average", or "custom".
-/// Returns a `ValueError` if the policy name is unrecognized.
+/// Delegates to core `FxConversionPolicy::from_str` but rejects "spot" with a
+/// domain-specific error to prevent silent economic mismatch.
 fn parse_policy_from_str(value: &str) -> PyResult<FxConversionPolicy> {
-    match value.to_ascii_lowercase().as_str() {
-        "cashflow_date" | "cashflow" => Ok(FxConversionPolicy::CashflowDate),
-        "period_end" | "end" => Ok(FxConversionPolicy::PeriodEnd),
-        "period_average" | "average" => Ok(FxConversionPolicy::PeriodAverage),
-        "custom" => Ok(FxConversionPolicy::Custom),
-        // "spot" is market terminology for FX settlement/value-date conventions (e.g. T+1/T+2),
-        // not a cashflow conversion timing policy. Reject to avoid silent economic mismatch.
-        "spot" => Err(PyValueError::new_err(
+    // "spot" is market terminology for FX settlement/value-date conventions (e.g. T+1/T+2),
+    // not a cashflow conversion timing policy. Reject before delegating to core.
+    if value.to_ascii_lowercase() == "spot" {
+        return Err(PyValueError::new_err(
             "FX conversion policy 'spot' is ambiguous: 'spot' typically refers to settlement/value-date conventions (T+1/T+2). \
 Use 'cashflow_date' for conversion timing, and model spot settlement separately if needed.",
-        )),
-        other => Err(PyValueError::new_err(format!(
-            "Unknown FX conversion policy: {other}"
-        ))),
+        ));
     }
+    FxConversionPolicy::from_str(value)
+        .map_err(|e| PyValueError::new_err(format!("Unknown FX conversion policy: {value} ({e})")))
 }
 
 /// Policy describing how FX conversion is performed for projected cashflows.
@@ -167,7 +163,6 @@ impl PyFxConversionPolicy {
 #[pyclass(
     module = "finstack.core.market_data.fx",
     name = "FxConfig",
-    unsendable,
     from_py_object
 )]
 #[derive(Clone)]
@@ -429,7 +424,6 @@ impl PyFxPolicyMeta {
 #[pyclass(
     module = "finstack.core.market_data.fx",
     name = "FxMatrix",
-    unsendable,
     from_py_object
 )]
 #[derive(Clone)]

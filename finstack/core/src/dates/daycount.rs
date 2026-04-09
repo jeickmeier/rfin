@@ -690,6 +690,29 @@ impl DayCount {
             Ok(-self.year_fraction(end, start, ctx)?)
         }
     }
+
+    /// Calendar days between two dates (signed: negative when `end < start`).
+    ///
+    /// This is a thin convenience wrapper around `(end - start).whole_days()`.
+    /// It counts raw calendar days without regard for any day-count convention,
+    /// business-day calendar, or holiday schedule.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{Date, DayCount};
+    /// use time::Month;
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    /// let end   = Date::from_calendar_date(2025, Month::February, 1).expect("Valid date");
+    /// assert_eq!(DayCount::calendar_days(start, end), 31);
+    ///
+    /// // Negative when end < start
+    /// assert_eq!(DayCount::calendar_days(end, start), -31);
+    /// ```
+    pub fn calendar_days(start: Date, end: Date) -> i64 {
+        (end - start).whole_days()
+    }
 }
 
 const MAX_ACT_ACT_ISMA_RECURSION_DEPTH: usize = 512;
@@ -1147,11 +1170,57 @@ const fn days_in_year(year: i32) -> i32 {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Display + FromStr
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Display for DayCount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label = match self {
+            DayCount::Act360 => "act_360",
+            DayCount::Act365F => "act_365f",
+            DayCount::Act365L => "act_365l",
+            DayCount::Thirty360 => "30_360",
+            DayCount::ThirtyE360 => "30e_360",
+            DayCount::ActAct => "act_act",
+            DayCount::ActActIsma => "act_act_isma",
+            DayCount::Bus252 => "bus_252",
+        };
+        f.write_str(label)
+    }
+}
+
+impl std::str::FromStr for DayCount {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let n = crate::parse::normalize_label(s);
+        match n.as_str() {
+            "act_360" | "act360" | "actual_360" => Ok(DayCount::Act360),
+            "act_365f" | "act365f" | "actual_365f" => Ok(DayCount::Act365F),
+            "act_365l" | "act365l" | "actual_365l" | "act_365afb" => Ok(DayCount::Act365L),
+            "30_360" | "thirty_360" | "thirty360" | "30u_360" | "bond_basis"
+            | "30_360_bond_basis" => Ok(DayCount::Thirty360),
+            "30e_360" | "30e360" | "30_360e" | "eurobond_basis" => Ok(DayCount::ThirtyE360),
+            "act_act" | "actact" | "actual_actual" | "act_act_isda" | "isda" => {
+                Ok(DayCount::ActAct)
+            }
+            "act_act_isma" | "act_act_icma" | "actactisma" | "icma" => Ok(DayCount::ActActIsma),
+            "bus_252" | "bus252" | "business_252" => Ok(DayCount::Bus252),
+            other => Err(format!("unknown DayCount: {other}")),
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::act_act_isma_year_fraction_with_reference_period;
     use time::macros::date;
+
+    fn assert_parses_to(label: &str, expected: super::DayCount) {
+        assert!(matches!(label.parse::<super::DayCount>(), Ok(value) if value == expected));
+    }
 
     #[test]
     fn act_act_isma_reference_period_rejects_excessive_recursion_depth() {
@@ -1166,5 +1235,77 @@ mod tests {
             result.is_err(),
             "far-away reference traversal should be rejected"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // FromStr / Display roundtrip tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn daycount_display_roundtrip() {
+        let all = [
+            super::DayCount::Act360,
+            super::DayCount::Act365F,
+            super::DayCount::Act365L,
+            super::DayCount::Thirty360,
+            super::DayCount::ThirtyE360,
+            super::DayCount::ActAct,
+            super::DayCount::ActActIsma,
+            super::DayCount::Bus252,
+        ];
+
+        for dc in &all {
+            let label = dc.to_string();
+            assert!(
+                matches!(label.parse::<super::DayCount>(), Ok(value) if value == *dc),
+                "roundtrip failed for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn daycount_from_str_aliases() {
+        use super::DayCount;
+
+        // Act360
+        assert_parses_to("act360", DayCount::Act360);
+        assert_parses_to("actual_360", DayCount::Act360);
+        assert_parses_to("ACT/360", DayCount::Act360);
+
+        // Act365F
+        assert_parses_to("act365f", DayCount::Act365F);
+        assert_parses_to("actual_365f", DayCount::Act365F);
+
+        // Act365L
+        assert_parses_to("act_365afb", DayCount::Act365L);
+        assert_parses_to("actual_365l", DayCount::Act365L);
+
+        // Thirty360
+        assert_parses_to("30/360", DayCount::Thirty360);
+        assert_parses_to("thirty360", DayCount::Thirty360);
+        assert_parses_to("bond_basis", DayCount::Thirty360);
+        assert_parses_to("30U/360", DayCount::Thirty360);
+
+        // ThirtyE360
+        assert_parses_to("30E/360", DayCount::ThirtyE360);
+        assert_parses_to("eurobond_basis", DayCount::ThirtyE360);
+
+        // ActAct
+        assert_parses_to("act_act", DayCount::ActAct);
+        assert_parses_to("act/act ISDA", DayCount::ActAct);
+        assert_parses_to("isda", DayCount::ActAct);
+
+        // ActActIsma
+        assert_parses_to("act_act_icma", DayCount::ActActIsma);
+        assert_parses_to("icma", DayCount::ActActIsma);
+
+        // Bus252
+        assert_parses_to("bus252", DayCount::Bus252);
+        assert_parses_to("business_252", DayCount::Bus252);
+    }
+
+    #[test]
+    fn daycount_from_str_unknown() {
+        assert!("garbage".parse::<super::DayCount>().is_err());
     }
 }

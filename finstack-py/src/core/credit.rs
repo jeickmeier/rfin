@@ -682,7 +682,8 @@ impl PyMigrationSimulator {
         n_paths: usize,
         seed: Option<u64>,
     ) -> Vec<PyRatingPath> {
-        let mut rng = Pcg64::seed_from_u64(seed.unwrap_or(42));
+        let mut rng =
+            Pcg64::seed_from_u64(seed.unwrap_or(finstack_valuations::constants::DEFAULT_SEED));
         self.inner
             .simulate(initial_state, n_paths, &mut rng)
             .into_iter()
@@ -708,7 +709,8 @@ impl PyMigrationSimulator {
     ///     Empirical transition matrix estimated from simulation.
     #[pyo3(text_signature = "($self, n_paths_per_state, seed=None)")]
     fn empirical_matrix(&self, n_paths_per_state: usize, seed: Option<u64>) -> PyTransitionMatrix {
-        let mut rng = Pcg64::seed_from_u64(seed.unwrap_or(42));
+        let mut rng =
+            Pcg64::seed_from_u64(seed.unwrap_or(finstack_valuations::constants::DEFAULT_SEED));
         let inner = self.inner.empirical_matrix(n_paths_per_state, &mut rng);
         PyTransitionMatrix { inner }
     }

@@ -1300,6 +1300,33 @@ pub enum RatesCurveKind {
     Credit,
 }
 
+impl core::fmt::Display for RatesCurveKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Discount => write!(f, "discount"),
+            Self::Forward => write!(f, "forward"),
+            Self::Credit => write!(f, "credit"),
+        }
+    }
+}
+
+impl core::str::FromStr for RatesCurveKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized = s.trim().to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "discount" => Ok(Self::Discount),
+            "forward" => Ok(Self::Forward),
+            "credit" => Ok(Self::Credit),
+            other => Err(format!(
+                "Unknown curve kind: '{}'. Valid: discount, forward, credit",
+                other
+            )),
+        }
+    }
+}
+
 // ================================================================================================
 // Equity Market Data Dependencies
 // ================================================================================================

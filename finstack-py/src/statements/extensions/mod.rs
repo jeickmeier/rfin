@@ -292,11 +292,7 @@ impl PyExtensionContext {
 /// Extension registry.
 ///
 /// Manages and executes extensions for financial models.
-#[pyclass(
-    module = "finstack.statements.extensions",
-    name = "ExtensionRegistry",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.extensions", name = "ExtensionRegistry")]
 pub struct PyExtensionRegistry {
     inner: ExtensionRegistry,
 }

@@ -8,6 +8,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Lookback option type.
@@ -46,14 +47,9 @@ impl PyLookbackType {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a lookback type from a string label.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        use crate::core::common::labels::normalize_label;
-        match normalize_label(name).as_str() {
-            "fixed_strike" | "fixedstrike" => Ok(Self::new(LookbackType::FixedStrike)),
-            "floating_strike" | "floatingstrike" => Ok(Self::new(LookbackType::FloatingStrike)),
-            other => Err(PyValueError::new_err(format!(
-                "Unknown lookback type: {other}"
-            ))),
-        }
+        LookbackType::from_str(name)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[getter]
@@ -135,7 +131,6 @@ impl PyLookbackOption {
         observed_max: Option<Bound<'_, PyAny>>,
         use_gobet_miri: Option<bool>,
     ) -> PyResult<Self> {
-        use crate::core::common::labels::normalize_label;
         use crate::errors::PyContext;
         use finstack_core::dates::DayCount;
 
@@ -146,25 +141,11 @@ impl PyLookbackOption {
             CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
         let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
 
-        let opt_type = match normalize_label(option_type).as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown option type: {other}"
-                )))
-            }
-        };
+        let opt_type =
+            OptionType::from_str(option_type).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-        let lookback_type_enum = match normalize_label(lookback_type).as_str() {
-            "fixed_strike" | "fixedstrike" => LookbackType::FixedStrike,
-            "floating_strike" | "floatingstrike" => LookbackType::FloatingStrike,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown lookback type: {other}"
-                )))
-            }
-        };
+        let lookback_type_enum = LookbackType::from_str(lookback_type)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
         let observed_min_money = observed_min
             .map(|m| extract_money(&m).context("observed_min"))

@@ -1,23 +1,10 @@
-use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use finstack_core::cashflow::{CFKind, CashFlow};
+use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
-
-fn kind_label(kind: CFKind) -> &'static str {
-    match kind {
-        CFKind::Fixed => "fixed",
-        CFKind::FloatReset => "float_reset",
-        CFKind::Notional => "notional",
-        CFKind::PIK => "pik",
-        CFKind::Amortization => "amortization",
-        CFKind::Fee => "fee",
-        CFKind::Stub => "stub",
-        _ => "unknown",
-    }
-}
 
 #[wasm_bindgen(js_name = CFKind)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -109,7 +96,9 @@ impl JsCFKind {
     /// ```
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsCFKind, JsValue> {
-        CFKind::parse_from_string(name).map(Into::into)
+        CFKind::from_str(name)
+            .map(Into::into)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     /// String name of this cashflow kind.
@@ -118,7 +107,7 @@ impl JsCFKind {
     /// @readonly
     #[wasm_bindgen(getter, js_name = name)]
     pub fn name(&self) -> String {
-        kind_label(self.inner).to_string()
+        self.inner.to_string()
     }
 
     /// String representation of the cashflow kind.
@@ -127,7 +116,7 @@ impl JsCFKind {
     #[wasm_bindgen(js_name = toString)]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
-        format!("CFKind({})", kind_label(self.inner))
+        format!("CFKind({})", self.inner)
     }
 }
 

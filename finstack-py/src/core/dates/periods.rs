@@ -150,21 +150,8 @@ impl PyPeriodId {
         Self { inner }
     }
 
-    fn kind_label(&self) -> &'static str {
-        let code = self.inner.to_string();
-        if code.contains('D') {
-            "day"
-        } else if code.contains('Q') {
-            "quarter"
-        } else if code.contains('M') {
-            "month"
-        } else if code.contains('W') {
-            "week"
-        } else if code.contains('H') {
-            "half"
-        } else {
-            "year"
-        }
+    fn kind_label(&self) -> String {
+        self.inner.kind().to_string()
     }
 }
 
@@ -259,8 +246,8 @@ impl PyPeriodId {
     }
 
     #[getter]
-    /// Human-readable classification such as ``"quarter"`` or ``"month"``.
-    fn kind(&self) -> &'static str {
+    /// Human-readable classification such as ``"quarterly"`` or ``"monthly"``.
+    fn kind(&self) -> String {
         self.kind_label()
     }
 

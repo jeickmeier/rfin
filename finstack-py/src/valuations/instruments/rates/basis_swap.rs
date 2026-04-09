@@ -195,11 +195,7 @@ impl PyBasisSwap {
     }
 }
 
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "BasisSwapBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "BasisSwapBuilder")]
 pub struct PyBasisSwapBuilder {
     instrument_id: InstrumentId,
     pending_notional_amount: Option<f64>,

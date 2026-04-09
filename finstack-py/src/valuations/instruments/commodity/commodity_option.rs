@@ -1,7 +1,6 @@
 //! Python bindings for CommodityOption instrument.
 
 use crate::core::common::args::CurrencyArg;
-use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -20,6 +19,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Commodity option (call or put on commodity forward/spot).
@@ -67,8 +67,7 @@ impl PyCommodityOption {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "CommodityOptionBuilder",
-    unsendable
+    name = "CommodityOptionBuilder"
 )]
 pub struct PyCommodityOptionBuilder {
     instrument_id: InstrumentId,
@@ -207,15 +206,8 @@ impl PyCommodityOptionBuilder {
         mut slf: PyRefMut<'_, Self>,
         option_type: String,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.option_type = match option_type.to_lowercase().as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Invalid option_type: '{other}'. Must be 'call' or 'put'"
-                )))
-            }
-        };
+        slf.option_type =
+            OptionType::from_str(&option_type).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 
@@ -224,16 +216,8 @@ impl PyCommodityOptionBuilder {
         mut slf: PyRefMut<'_, Self>,
         exercise_style: String,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.exercise_style = match exercise_style.to_lowercase().as_str() {
-            "european" => ExerciseStyle::European,
-            "american" => ExerciseStyle::American,
-            "bermudan" => ExerciseStyle::Bermudan,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                "Invalid exercise_style: '{other}'. Must be 'european', 'american', or 'bermudan'"
-            )))
-            }
-        };
+        slf.exercise_style = ExerciseStyle::from_str(&exercise_style)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 
@@ -300,15 +284,8 @@ impl PyCommodityOptionBuilder {
         mut slf: PyRefMut<'_, Self>,
         settlement_type: String,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.settlement = match settlement_type.to_lowercase().as_str() {
-            "physical" => SettlementType::Physical,
-            "cash" => SettlementType::Cash,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Invalid settlement_type: '{other}'. Must be 'physical' or 'cash'"
-                )))
-            }
-        };
+        slf.settlement = SettlementType::from_str(&settlement_type)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(slf)
     }
 
@@ -359,21 +336,12 @@ impl PyCommodityOptionBuilder {
         mut slf: PyRefMut<'_, Self>,
         convention: Option<String>,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        slf.convention = match convention.map(|s| normalize_label(&s)).as_deref() {
-            Some("wticrude") | Some("wti") => Some(CommodityConvention::WTICrude),
-            Some("brentcrude") | Some("brent") => Some(CommodityConvention::BrentCrude),
-            Some("naturalgas") | Some("ng") => Some(CommodityConvention::NaturalGas),
-            Some("gold") => Some(CommodityConvention::Gold),
-            Some("silver") => Some(CommodityConvention::Silver),
-            Some("copper") => Some(CommodityConvention::Copper),
-            Some("agricultural") | Some("ag") => Some(CommodityConvention::Agricultural),
-            Some("power") => Some(CommodityConvention::Power),
+        slf.convention = match convention {
+            Some(s) => Some(
+                CommodityConvention::from_str(&s)
+                    .map_err(|e| PyValueError::new_err(format!("Invalid convention: {e}")))?,
+            ),
             None => None,
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Invalid convention: '{other}'. Must be one of: wti, brent, naturalgas, gold, silver, copper, agricultural, power"
-                )))
-            }
         };
         Ok(slf)
     }

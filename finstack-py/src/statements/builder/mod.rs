@@ -31,11 +31,7 @@ use std::str::FromStr;
 /// >>> builder = builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100))])
 /// >>> builder = builder.compute("gross_profit", "revenue * 0.4")
 /// >>> model = builder.build()
-#[pyclass(
-    module = "finstack.statements.builder",
-    name = "ModelBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.builder", name = "ModelBuilder")]
 pub struct PyModelBuilder {
     state: BuilderState,
 }
@@ -331,9 +327,9 @@ impl PyModelBuilder {
     /// -------
     /// None
     ///     Mutates the builder in place
-    fn forecast(&mut self, node_id: String, forecast_spec: &PyForecastSpec) -> PyResult<()> {
+    fn forecast(&mut self, node_id: String, forecast_spec: PyForecastSpec) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
-        let builder = builder.forecast(node_id, forecast_spec.inner.clone());
+        let builder = builder.forecast(node_id, forecast_spec.inner);
         self.state = BuilderState::Ready(Some(builder));
         Ok(())
     }
@@ -1108,11 +1104,7 @@ fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, Amo
 }
 
 /// Mixed node builder for creating nodes with values, forecasts, and formulas.
-#[pyclass(
-    module = "finstack.statements.builder",
-    name = "MixedNodeBuilder",
-    unsendable
-)]
+#[pyclass(module = "finstack.statements.builder", name = "MixedNodeBuilder")]
 #[derive(Default)]
 pub struct PyMixedNodeBuilder {
     parent_builder: Option<ModelBuilder<Ready>>,
@@ -1155,8 +1147,8 @@ impl PyMixedNodeBuilder {
     /// -------
     /// None
     ///     Mutates the mixed builder in place
-    fn forecast(&mut self, forecast_spec: &PyForecastSpec) -> PyResult<()> {
-        self.forecast = Some(forecast_spec.inner.clone());
+    fn forecast(&mut self, forecast_spec: PyForecastSpec) -> PyResult<()> {
+        self.forecast = Some(forecast_spec.inner);
         Ok(())
     }
 

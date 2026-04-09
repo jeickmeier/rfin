@@ -58,8 +58,7 @@ impl PyInflationSwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "InflationSwapBuilder",
-    unsendable
+    name = "InflationSwapBuilder"
 )]
 pub struct PyInflationSwapBuilder {
     instrument_id: InstrumentId,
@@ -390,8 +389,7 @@ impl PyYoYInflationSwap {
 
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "YoYInflationSwapBuilder",
-    unsendable
+    name = "YoYInflationSwapBuilder"
 )]
 pub struct PyYoYInflationSwapBuilder {
     instrument_id: InstrumentId,
