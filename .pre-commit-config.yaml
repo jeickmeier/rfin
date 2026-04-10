@@ -47,7 +47,7 @@ repos:
 
       - id: ruff-format
         name: Python format (ruff)
-        entry: uv run ruff format .
+        entry: uv run --no-sync ruff format .
         language: system
         types: [python]
         pass_filenames: false
@@ -85,7 +85,7 @@ repos:
 
       - id: ruff-lint
         name: Python lint (ruff)
-        entry: uv run ruff check . --fix --unsafe-fixes
+        entry: uv run --no-sync ruff check . --fix --unsafe-fixes
         language: system
         types: [python]
         pass_filenames: false
@@ -104,7 +104,7 @@ repos:
     hooks:
       - id: ty
         name: Python typecheck (ty)
-        entry: uv run ty check finstack-py/finstack
+        entry: uv run --no-sync ty check finstack-py/finstack
         language: system
         types: [python]
         pass_filenames: false
@@ -112,7 +112,7 @@ repos:
 
       - id: pyright
         name: Python typecheck (pyright)
-        entry: uv run pyright
+        entry: uv run --no-sync pyright
         language: system
         types: [python]
         pass_filenames: false

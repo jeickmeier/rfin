@@ -1,0 +1,282 @@
+use super::config::CDSTranchePricer;
+use crate::instruments::credit_derivatives::cds_tranche::recovery::RecoveryModel;
+use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
+use finstack_core::dates::Date;
+use finstack_core::market_data::term_structures::CreditIndexData;
+use finstack_core::math::standard_normal_inv_cdf;
+use finstack_core::Result;
+
+impl CDSTranchePricer {
+    /// Calculate expected tranche loss using the base correlation approach.
+    ///
+    /// Decomposes the tranche [A, D] as the difference between two equity
+    /// tranches: EL(0, D) - EL(0, A), using correlations interpolated from
+    /// the base correlation curve with enhanced numerical stability.
+    pub(super) fn calculate_expected_tranche_loss(
+        &self,
+        tranche: &CDSTranche,
+        index_data: &CreditIndexData,
+        maturity: Date,
+    ) -> Result<f64> {
+        let (eff_attach, eff_detach, survival_factor) = self.calculate_effective_structure(tranche);
+
+        // If effective width is zero, no loss
+        if eff_detach <= eff_attach {
+            return Ok(0.0);
+        }
+
+        // Get correlations for ORIGINAL attachment and detachment points
+        // Base correlation is sticky to the original structure
+        let corr_attach = index_data
+            .base_correlation_curve
+            .correlation(tranche.attach_pct);
+        let corr_detach = index_data
+            .base_correlation_curve
+            .correlation(tranche.detach_pct);
+
+        // Apply enhanced correlation boundary handling for numerical stability
+        let corr_attach = self.smooth_correlation_boundary(corr_attach);
+        let corr_detach = self.smooth_correlation_boundary(corr_detach);
+
+        // Calculate expected losses for equity tranches [0, A_eff] and [0, D_eff]
+        // Note: These inputs to calculate_equity_tranche_loss are now in "Effective %" terms
+        // but correlations are from "Original %" terms.
+        let el_to_attach = self.calculate_equity_tranche_loss(
+            eff_attach * 100.0,
+            corr_attach,
+            index_data,
+            maturity,
+        )?;
+
+        let el_to_detach = self.calculate_equity_tranche_loss(
+            eff_detach * 100.0,
+            corr_detach,
+            index_data,
+            maturity,
+        )?;
+
+        // The [A_eff, D_eff] tranche loss as a fraction of CURRENT portfolio
+        let current_portfolio_loss_fraction = (el_to_detach - el_to_attach).max(0.0);
+
+        // Convert to currency amount:
+        // Loss = CurrentPortFrac * CurrentPortNotional
+        // CurrentPortNotional = OrigPortNotional * (1 - L)
+        // OrigPortNotional = TrancheNotional / (D_orig - A_orig)
+
+        let orig_width = (tranche.detach_pct - tranche.attach_pct) / 100.0;
+        if orig_width <= 1e-9 {
+            return Ok(0.0);
+        }
+
+        let orig_port_notional = tranche.notional.amount() / orig_width;
+        let loss_amount = current_portfolio_loss_fraction * orig_port_notional * survival_factor;
+
+        Ok(loss_amount)
+    }
+
+    /// Calculate expected tranche loss fraction at a specific date.
+    ///
+    /// Returns the expected loss as a fraction of the ORIGINAL tranche notional [0, 1].
+    pub(super) fn expected_tranche_loss_fraction_at(
+        &self,
+        tranche: &CDSTranche,
+        index_data: &CreditIndexData,
+        date: Date,
+    ) -> Result<f64> {
+        let (eff_attach, eff_detach, survival_factor) = self.calculate_effective_structure(tranche);
+
+        if eff_detach <= eff_attach {
+            return Ok(0.0);
+        }
+
+        // Get correlations for ORIGINAL points
+        let corr_attach = index_data
+            .base_correlation_curve
+            .correlation(tranche.attach_pct);
+        let corr_detach = index_data
+            .base_correlation_curve
+            .correlation(tranche.detach_pct);
+
+        // Apply enhanced correlation boundary handling
+        let corr_attach = self.smooth_correlation_boundary(corr_attach);
+        let corr_detach = self.smooth_correlation_boundary(corr_detach);
+
+        // Calculate expected losses for equity tranches [0, A_eff] and [0, D_eff]
+        let el_to_attach =
+            self.calculate_equity_tranche_loss(eff_attach * 100.0, corr_attach, index_data, date)?;
+
+        let el_to_detach =
+            self.calculate_equity_tranche_loss(eff_detach * 100.0, corr_detach, index_data, date)?;
+
+        // Loss on current portfolio
+        let current_portfolio_loss_fraction = (el_to_detach - el_to_attach).max(0.0);
+
+        // Scale to original tranche notional fraction
+        // Fraction = (CurrentLossFrac * (1-L)) / OrigWidth
+        let orig_width = (tranche.detach_pct - tranche.attach_pct) / 100.0;
+        if orig_width <= 1e-9 {
+            return Ok(0.0);
+        }
+
+        let tranche_loss_fraction =
+            (current_portfolio_loss_fraction * survival_factor) / orig_width;
+
+        // Add prior realized loss to get Total Cumulative Loss
+        let prior_loss = self.calculate_prior_tranche_loss(tranche);
+
+        Ok((tranche_loss_fraction + prior_loss).clamp(0.0, 1.0))
+    }
+
+    /// Build the expected loss curve for all payment dates.
+    ///
+    /// Returns a vector of (Date, EL_fraction) pairs where EL_fraction
+    /// is the cumulative expected loss as a fraction of tranche notional.
+    ///
+    /// When `enforce_el_monotonicity` is enabled (default), any computed EL
+    /// value that is less than the previous date's EL will be clamped to
+    /// maintain monotonicity. This prevents small arbitrage opportunities
+    /// that can arise from base correlation model inconsistencies.
+    pub(super) fn build_el_curve(
+        &self,
+        tranche: &CDSTranche,
+        index_data: &CreditIndexData,
+        dates: &[Date],
+    ) -> Result<Vec<(Date, f64)>> {
+        let mut el_curve = Vec::with_capacity(dates.len());
+        let mut prev_el = 0.0;
+
+        for &date in dates {
+            let mut el_fraction =
+                self.expected_tranche_loss_fraction_at(tranche, index_data, date)?;
+
+            // Check for non-monotonic EL (indicates numerical issue or model limitation)
+            // This can happen due to base correlation model inconsistencies
+            if el_fraction < prev_el - 1e-6 {
+                tracing::debug!(
+                    "EL decreased from {:.6} to {:.6} at {:?} (Δ={:.6}){}",
+                    prev_el,
+                    el_fraction,
+                    date,
+                    prev_el - el_fraction,
+                    if self.params.enforce_el_monotonicity {
+                        " - enforcing monotonicity"
+                    } else {
+                        ""
+                    }
+                );
+
+                // Enforce monotonicity if configured (default: true)
+                if self.params.enforce_el_monotonicity {
+                    el_fraction = prev_el;
+                }
+            }
+
+            el_curve.push((date, el_fraction));
+            prev_el = el_fraction;
+        }
+
+        Ok(el_curve)
+    }
+
+    /// Calculate expected loss for an equity tranche [0, K] using Gaussian Copula.
+    ///
+    /// Enhanced with adaptive integration for superior numerical stability,
+    /// particularly critical near correlation boundaries (0 and 1) where
+    /// the conditional default probability function exhibits sharp transitions.
+    ///
+    /// # Arguments
+    /// * `detachment_pct` - Detachment point K in percent
+    /// * `correlation` - Asset correlation parameter ρ
+    /// * `index_data` - Credit index market data
+    /// * `maturity` - Maturity date for loss calculation
+    pub(super) fn calculate_equity_tranche_loss(
+        &self,
+        detachment_pct: f64,
+        correlation: f64,
+        index_data: &CreditIndexData,
+        maturity: Date,
+    ) -> Result<f64> {
+        // Heterogeneous path if enabled and issuer curves present
+        if self.params.use_issuer_curves && index_data.has_issuer_curves() {
+            self.calculate_equity_tranche_loss_hetero(
+                detachment_pct,
+                correlation,
+                index_data,
+                maturity,
+            )
+        } else {
+            // Homogeneous: use index marginals
+            let num_constituents = index_data.num_constituents as usize;
+            let base_recovery = index_data.recovery_rate;
+
+            // Build recovery model if configured, otherwise use constant
+            let recovery_model: Option<Box<dyn RecoveryModel>> =
+                self.params.recovery_spec.as_ref().map(|spec| spec.build());
+
+            let detachment_notional = detachment_pct / 100.0;
+            let maturity_years = self.years_from_base(index_data, maturity)?;
+            let default_prob = self.get_default_probability(index_data, maturity_years)?;
+            let correlation = self.smooth_correlation_boundary(correlation);
+
+            if self.params.copula_spec.is_gaussian() {
+                let quad = self.select_quadrature();
+                let default_threshold = standard_normal_inv_cdf(default_prob);
+                let integrand = |z: f64| {
+                    let p = self.conditional_default_probability_enhanced(
+                        default_threshold,
+                        correlation,
+                        z,
+                    );
+
+                    // Use stochastic recovery if configured, otherwise constant
+                    let recovery_rate = match &recovery_model {
+                        Some(model) => model.conditional_recovery(z),
+                        None => base_recovery,
+                    };
+
+                    self.conditional_equity_tranche_loss(
+                        num_constituents,
+                        detachment_notional,
+                        p,
+                        recovery_rate,
+                    )
+                };
+                let expected_loss = if !(self.params.adaptive_integration_low
+                    ..=self.params.adaptive_integration_high)
+                    .contains(&correlation)
+                {
+                    quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+                } else {
+                    quad.integrate(integrand)
+                };
+                Ok(expected_loss)
+            } else {
+                let copula = self.build_copula();
+                let copula_ref = copula.as_ref();
+                let default_threshold = self.default_threshold_for_copula(default_prob);
+                let expected_loss = copula_ref.integrate_fn(&|factors| {
+                    let p = self.conditional_default_prob_copula(
+                        copula_ref,
+                        default_threshold,
+                        factors,
+                        correlation,
+                    );
+
+                    let z = factors.first().copied().unwrap_or(0.0);
+                    let recovery_rate = match &recovery_model {
+                        Some(model) => model.conditional_recovery(z),
+                        None => base_recovery,
+                    };
+
+                    self.conditional_equity_tranche_loss(
+                        num_constituents,
+                        detachment_notional,
+                        p,
+                        recovery_rate,
+                    )
+                });
+                Ok(expected_loss)
+            }
+        }
+    }
+}

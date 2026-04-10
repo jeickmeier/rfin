@@ -25,6 +25,16 @@ else \
 fi
 endef
 
+define py_run_no_sync
+if [ -d "$(VENV_PATH)" ]; then \
+	$(PYTHON_ACTIVATE) && $(1); \
+elif [ -n "$(UV)" ]; then \
+	uv run --no-sync $(1); \
+else \
+	$(1); \
+fi
+endef
+
 # --- Help ---
 
 .PHONY: help
@@ -178,22 +188,22 @@ test-python: ## Run Python tests
 
 .PHONY: fmt-python
 fmt-python: ## Format and fix Python code
-	uv run ruff format .
-	uv run ruff check . --fix --unsafe-fixes
+	uv run --no-sync ruff format .
+	uv run --no-sync ruff check . --fix --unsafe-fixes
 
 .PHONY: lint-python
 lint-python: ## Lint Python code
-	uv run ruff format . --check
-	uv run ruff check . --no-fix
+	uv run --no-sync ruff format . --check
+	uv run --no-sync ruff check . --no-fix
 
 .PHONY: typecheck-python
 typecheck-python:
-	@$(call py_run,ty check finstack-py/finstack)
-	@$(call py_run,pyright)
+	@$(call py_run_no_sync,ty check finstack-py/finstack)
+	@$(call py_run_no_sync,pyright)
 
 .PHONY: verifytypes-python
 verifytypes-python:
-	@$(call py_run,pyright --verifytypes finstack --ignoreexternal)
+	@$(call py_run_no_sync,pyright --verifytypes finstack --ignoreexternal)
 
 .PHONY: examples-python examples-python-scripts examples-python-notebooks
 examples-python: examples-python-scripts examples-python-notebooks ## Run all Python examples
@@ -460,11 +470,11 @@ ci-test: wasm-build pre-commit-run test ## Run all checks exactly as CI does (wa
 # --- Pre-commit ---
 
 .PHONY: pre-commit-install pre-commit-run pre-commit-update
-pre-commit-install:
+pre-commit-install: install-deny
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@$(call py_run,uv pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push)
 
-pre-commit-run:
+pre-commit-run: install-deny
 	@$(call py_run,pre-commit run --all-files)
 	@$(call py_run,pre-commit run --all-files --hook-stage pre-push)
 
@@ -473,7 +483,7 @@ pre-commit-update:
 
 # --- Tooling Installation ---
 
-.PHONY: install-nextest install-mdbook install-bloat
+.PHONY: install-nextest install-mdbook install-bloat install-deny
 install-nextest:
 	@command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 install-mdbook:
@@ -481,6 +491,8 @@ install-mdbook:
 	@command -v mdbook-jupyter >/dev/null 2>&1 || cargo install mdbook-jupyter
 install-bloat:
 	@command -v cargo-bloat >/dev/null 2>&1 || cargo install cargo-bloat --locked
+install-deny:
+	@command -v cargo-deny >/dev/null 2>&1 || cargo install cargo-deny --locked
 
 # --- Cleanup ---
 
