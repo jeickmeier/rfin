@@ -28,11 +28,6 @@ pub struct JsMarketFactorKey {
 }
 
 impl JsMarketFactorKey {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: MarketFactorKey) -> Self {
-        Self { inner }
-    }
-
     pub(crate) fn inner(&self) -> &MarketFactorKey {
         &self.inner
     }
@@ -99,13 +94,6 @@ impl JsMarketFactorKey {
 #[derive(Clone)]
 pub struct JsDependencyIndex {
     inner: DependencyIndex,
-}
-
-impl JsDependencyIndex {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: DependencyIndex) -> Self {
-        Self { inner }
-    }
 }
 
 #[wasm_bindgen(js_class = DependencyIndex)]

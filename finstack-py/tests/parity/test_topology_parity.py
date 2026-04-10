@@ -5,8 +5,8 @@ These tests verify structural placement, not behavioral correctness:
   - test_all_crates_have_python_packages: each crate in the contract has a Python package.
   - test_all_modules_exist: each module in the contract has a Python module.
   - test_no_unexpected_structural_gaps: audit script exits clean (no FAIL-level gaps).
-  - test_alias_paths_resolvable: all alias old-paths are structurally resolvable.
   - test_no_leaked_helpers_in_all: packages with explicit __all__ contain no private names.
+  - test_canonical_path_importable: canonical paths import without deprecation warnings.
 
 Items declared with status="missing" in the contract are roadmap placeholders,
 not current Python API obligations, so they are excluded from this test file.
@@ -148,35 +148,7 @@ def test_no_unexpected_structural_gaps() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 4: alias old-paths are structurally resolvable
-# ---------------------------------------------------------------------------
-
-
-def _alias_cases() -> list[tuple[str, str]]:
-    """Return (old_path, canonical_path) tuples."""
-    contract = _load_contract()
-    return list(contract.get("aliases", {}).items())
-
-
-@pytest.mark.parametrize(("old_path", "canonical_path"), _alias_cases())
-def test_alias_paths_resolvable(old_path: str, canonical_path: str) -> None:
-    """All alias old-paths must resolve to a package or module (structure check)."""
-    # Check the module portion (strip trailing class name if present)
-    parts = old_path.split(".")
-    found = False
-    for length in range(len(parts), 0, -1):
-        candidate = ".".join(parts[:length])
-        if _module_exists(candidate):
-            found = True
-            break
-    assert found, (
-        f"Alias old-path '{old_path}' does not resolve to any existing package or module. "
-        f"Canonical target: '{canonical_path}'"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Test 5: packages with explicit __all__ contain no private names
+# Test 4: packages with explicit __all__ contain no private names
 # ---------------------------------------------------------------------------
 
 _KNOWN_GLOBALS_BASED_PACKAGES = {

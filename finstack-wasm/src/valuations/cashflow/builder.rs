@@ -499,11 +499,6 @@ impl JsCashFlowSchedule {
     pub(crate) fn new(inner: CoreCashFlowSchedule) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &CoreCashFlowSchedule {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = CashFlowSchedule)]

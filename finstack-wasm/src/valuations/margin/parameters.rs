@@ -75,11 +75,6 @@ impl Default for JsMarginCallTiming {
 }
 
 impl JsMarginCallTiming {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> MarginCallTiming {
-        self.inner.clone()
-    }
-
     pub(crate) fn from_inner(inner: MarginCallTiming) -> Self {
         Self { inner }
     }
@@ -221,7 +216,6 @@ impl JsVmParameters {
         self.inner.clone()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: VmParameters) -> Self {
         Self { inner }
     }
@@ -335,7 +329,6 @@ impl JsImParameters {
         self.inner.clone()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: ImParameters) -> Self {
         Self { inner }
     }

@@ -144,10 +144,3 @@ impl JsPortfolioResult {
             .map_err(|e| JsValue::from_str(&format!("Failed to serialize PortfolioResult: {}", e)))
     }
 }
-
-impl JsPortfolioResult {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: PortfolioResult) -> Self {
-        Self { inner }
-    }
-}

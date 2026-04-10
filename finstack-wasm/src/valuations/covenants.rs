@@ -255,13 +255,6 @@ impl JsCovenantReport {
     }
 }
 
-#[allow(dead_code)]
-impl JsCovenantReport {
-    pub(crate) fn from_inner(inner: CovenantReport) -> Self {
-        Self { inner }
-    }
-}
-
 // =============================================================================
 // CovenantBreach
 // =============================================================================
@@ -302,13 +295,6 @@ impl JsCovenantBreach {
     #[wasm_bindgen(getter, js_name = breachDate)]
     pub fn breach_date(&self) -> String {
         self.inner.breach_date.to_string()
-    }
-}
-
-#[allow(dead_code)]
-impl JsCovenantBreach {
-    pub(crate) fn from_inner(inner: CovenantBreach) -> Self {
-        Self { inner }
     }
 }
 

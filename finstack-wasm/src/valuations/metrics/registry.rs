@@ -34,18 +34,6 @@ pub struct JsMetricRegistry {
     inner: MetricRegistry,
 }
 
-impl JsMetricRegistry {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: MetricRegistry) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &MetricRegistry {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = MetricRegistry)]
 impl JsMetricRegistry {
     /// Create a new empty metric registry.

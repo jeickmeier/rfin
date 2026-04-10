@@ -150,9 +150,6 @@ pub(crate) fn calendar_not_found(id: &str) -> JsValue {
     js_error_with_kind(ErrorKind::Input, format!("Calendar not found: {id}"))
 }
 
-// Note: unknown_business_day_convention and unknown_rounding_mode removed.
-// Parsing now delegates to core FromStr implementations.
-
 /// Unified error creation for JavaScript.
 ///
 /// This is the single source of truth for creating JavaScript errors.

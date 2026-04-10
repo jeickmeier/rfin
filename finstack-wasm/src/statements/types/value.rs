@@ -124,10 +124,3 @@ impl JsAmountOrScalar {
         }
     }
 }
-
-impl JsAmountOrScalar {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: AmountOrScalar) -> Self {
-        Self { inner }
-    }
-}

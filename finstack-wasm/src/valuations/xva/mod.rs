@@ -84,14 +84,6 @@ pub struct JsXvaConfig {
     inner: margin_xva::types::XvaConfig,
 }
 
-#[allow(dead_code)]
-impl JsXvaConfig {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: margin_xva::types::XvaConfig) -> Self {
-        Self { inner }
-    }
-}
-
 #[wasm_bindgen(js_class = XvaConfig)]
 impl JsXvaConfig {
     /// Create an XVA configuration with optional overrides.
@@ -164,14 +156,6 @@ pub struct JsXvaCsaTerms {
     inner: margin_xva::types::CsaTerms,
 }
 
-#[allow(dead_code)]
-impl JsXvaCsaTerms {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: margin_xva::types::CsaTerms) -> Self {
-        Self { inner }
-    }
-}
-
 #[wasm_bindgen(js_class = XvaCsaTerms)]
 impl JsXvaCsaTerms {
     /// Create CSA terms.
@@ -233,14 +217,6 @@ pub struct JsXvaNettingSet {
     inner: margin_xva::types::NettingSet,
 }
 
-#[allow(dead_code)]
-impl JsXvaNettingSet {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: margin_xva::types::NettingSet) -> Self {
-        Self { inner }
-    }
-}
-
 #[wasm_bindgen(js_class = XvaNettingSet)]
 impl JsXvaNettingSet {
     /// Create a netting set specification.
@@ -285,13 +261,6 @@ impl JsXvaNettingSet {
 #[derive(Clone)]
 pub struct JsExposureProfile {
     inner: margin_xva::types::ExposureProfile,
-}
-
-#[allow(dead_code)]
-impl JsExposureProfile {
-    pub(crate) fn from_inner(inner: margin_xva::types::ExposureProfile) -> Self {
-        Self { inner }
-    }
 }
 
 #[wasm_bindgen(js_class = ExposureProfile)]

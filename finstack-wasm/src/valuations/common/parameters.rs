@@ -45,20 +45,8 @@ impl JsOptionType {
 }
 
 impl JsOptionType {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: OptionType) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> OptionType {
         self.inner
-    }
-}
-
-impl From<OptionType> for JsOptionType {
-    fn from(value: OptionType) -> Self {
-        Self::from_inner(value)
     }
 }
 
@@ -107,20 +95,8 @@ impl JsExerciseStyle {
 }
 
 impl JsExerciseStyle {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: ExerciseStyle) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> ExerciseStyle {
         self.inner
-    }
-}
-
-impl From<ExerciseStyle> for JsExerciseStyle {
-    fn from(value: ExerciseStyle) -> Self {
-        Self::from_inner(value)
     }
 }
 
@@ -164,12 +140,6 @@ impl JsSettlementType {
 }
 
 impl JsSettlementType {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: SettlementType) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> SettlementType {
         self.inner
     }
@@ -211,24 +181,6 @@ impl JsPayReceive {
     #[wasm_bindgen(js_name = isReceiver)]
     pub fn is_receiver(&self) -> bool {
         self.inner.is_receiver()
-    }
-}
-
-impl JsPayReceive {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: PayReceive) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> PayReceive {
-        self.inner
-    }
-}
-
-impl From<PayReceive> for JsPayReceive {
-    fn from(value: PayReceive) -> Self {
-        Self::from_inner(value)
     }
 }
 
@@ -286,20 +238,8 @@ impl JsBarrierType {
 }
 
 impl JsBarrierType {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: BarrierType) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> BarrierType {
-        self.inner
-    }
-}
-
-impl From<BarrierType> for JsBarrierType {
-    fn from(value: BarrierType) -> Self {
-        Self::from_inner(value)
     }
 }
 
@@ -365,17 +305,6 @@ impl JsFixedLegSpec {
     #[wasm_bindgen(getter)]
     pub fn end(&self) -> String {
         self.inner.end.to_string()
-    }
-}
-
-#[allow(dead_code)]
-impl JsFixedLegSpec {
-    pub(crate) fn from_inner(inner: finstack_valuations::instruments::FixedLegSpec) -> Self {
-        Self { inner }
-    }
-
-    pub(crate) fn inner(&self) -> &finstack_valuations::instruments::FixedLegSpec {
-        &self.inner
     }
 }
 
@@ -447,17 +376,6 @@ impl JsFloatLegSpec {
     #[wasm_bindgen(getter)]
     pub fn end(&self) -> String {
         self.inner.end.to_string()
-    }
-}
-
-#[allow(dead_code)]
-impl JsFloatLegSpec {
-    pub(crate) fn from_inner(inner: finstack_valuations::instruments::FloatLegSpec) -> Self {
-        Self { inner }
-    }
-
-    pub(crate) fn inner(&self) -> &finstack_valuations::instruments::FloatLegSpec {
-        &self.inner
     }
 }
 

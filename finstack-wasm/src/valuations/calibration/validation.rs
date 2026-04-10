@@ -33,11 +33,6 @@ impl JsValidationConfig {
     pub(crate) fn from_inner(inner: ValidationConfig) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> ValidationConfig {
-        self.inner.clone()
-    }
 }
 
 #[wasm_bindgen(js_class = ValidationConfig)]

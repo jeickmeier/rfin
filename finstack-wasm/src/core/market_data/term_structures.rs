@@ -664,22 +664,6 @@ pub struct JsVolatilityIndexCurve {
     inner: Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve>,
 }
 
-impl JsVolatilityIndexCurve {
-    #[allow(dead_code)] // Used when inserted into MarketContext from external callers
-    pub(crate) fn from_arc(
-        inner: Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve>,
-    ) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)] // Used when extracted from MarketContext by external callers
-    pub(crate) fn inner(
-        &self,
-    ) -> Arc<finstack_core::market_data::term_structures::VolatilityIndexCurve> {
-        Arc::clone(&self.inner)
-    }
-}
-
 #[wasm_bindgen(js_class = VolatilityIndexCurve)]
 impl JsVolatilityIndexCurve {
     /// Create a volatility index curve with (time, forward_level) knot points.
@@ -814,13 +798,6 @@ pub struct JsFlatCurve {
     inner: Arc<FlatCurve>,
 }
 
-impl JsFlatCurve {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> Arc<FlatCurve> {
-        Arc::clone(&self.inner)
-    }
-}
-
 #[wasm_bindgen(js_class = FlatCurve)]
 impl JsFlatCurve {
     /// Create a flat curve with a constant rate.
@@ -890,13 +867,6 @@ impl JsFlatCurve {
 #[derive(Clone)]
 pub struct JsPriceCurve {
     inner: Arc<PriceCurve>,
-}
-
-impl JsPriceCurve {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> Arc<PriceCurve> {
-        Arc::clone(&self.inner)
-    }
 }
 
 #[wasm_bindgen(js_class = PriceCurve)]

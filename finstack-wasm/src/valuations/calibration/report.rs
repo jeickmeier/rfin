@@ -17,11 +17,6 @@ impl JsCalibrationReport {
     pub(crate) fn from_inner(inner: CalibrationReport) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CalibrationReport {
-        self.inner.clone()
-    }
 }
 
 #[wasm_bindgen(js_class = CalibrationReport)]

@@ -41,13 +41,6 @@ impl JsDebtInstrumentSpec {
     }
 }
 
-impl JsDebtInstrumentSpec {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: DebtInstrumentSpec) -> Self {
-        Self { inner }
-    }
-}
-
 /// Capital structure specification.
 ///
 /// Defines the debt and equity instruments in an entity's capital structure.
@@ -86,13 +79,6 @@ impl JsCapitalStructureSpec {
         serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
             JsValue::from_str(&format!("Failed to serialize CapitalStructureSpec: {}", e))
         })
-    }
-}
-
-impl JsCapitalStructureSpec {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: CapitalStructureSpec) -> Self {
-        Self { inner }
     }
 }
 

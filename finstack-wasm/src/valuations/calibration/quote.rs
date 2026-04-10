@@ -22,14 +22,8 @@ pub struct JsRatesQuote {
 }
 
 impl JsRatesQuote {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: RateQuote) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> RateQuote {
-        self.inner.clone()
     }
 }
 
@@ -148,14 +142,8 @@ pub struct JsCreditQuote {
 }
 
 impl JsCreditQuote {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: CdsQuote) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CdsQuote {
-        self.inner.clone()
     }
 }
 
@@ -228,14 +216,8 @@ pub struct JsCDSTrancheQuote {
 }
 
 impl JsCDSTrancheQuote {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: CDSTrancheQuote) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CDSTrancheQuote {
-        self.inner.clone()
     }
 }
 
@@ -345,14 +327,8 @@ pub struct JsVolQuote {
 }
 
 impl JsVolQuote {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: VolQuote) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> VolQuote {
-        self.inner.clone()
     }
 }
 
@@ -407,14 +383,8 @@ pub struct JsInflationQuote {
 }
 
 impl JsInflationQuote {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: InflationQuote) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> InflationQuote {
-        self.inner.clone()
     }
 }
 

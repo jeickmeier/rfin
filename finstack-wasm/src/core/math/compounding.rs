@@ -30,18 +30,6 @@ pub struct JsCompounding {
     inner: CoreCompounding,
 }
 
-impl JsCompounding {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CoreCompounding {
-        self.inner
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CoreCompounding) -> Self {
-        Self { inner }
-    }
-}
-
 #[wasm_bindgen(js_class = MathCompounding)]
 impl JsCompounding {
     /// Continuous compounding: DF = exp(-r × t).

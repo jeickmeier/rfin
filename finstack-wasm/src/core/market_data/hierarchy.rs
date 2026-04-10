@@ -366,13 +366,6 @@ pub struct JsMarketDataHierarchy {
     inner: CoreHierarchy,
 }
 
-impl JsMarketDataHierarchy {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &CoreHierarchy {
-        &self.inner
-    }
-}
-
 impl Default for JsMarketDataHierarchy {
     fn default() -> Self {
         Self::new()

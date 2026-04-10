@@ -20,7 +20,6 @@ pub struct JsFrequency {
 }
 
 impl JsFrequency {
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> Tenor {
         self.inner
     }

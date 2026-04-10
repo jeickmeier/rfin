@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Report source files whose effective line count exceeds a limit.
 
 Rust files are counted after removing inline test blocks such as ``#[test]``
@@ -33,6 +32,7 @@ CFG_TEST_RE = re.compile(r"^\s*#\[\s*cfg\s*\([^\]]*\btest\b[^\]]*\)\s*\]\s*$")
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line options for the line-count check."""
     parser = argparse.ArgumentParser(
         description=(
             "List source files whose effective line count exceeds the limit. "
@@ -45,10 +45,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def should_skip_dir(dirname: str) -> bool:
+    """Return whether a directory should be excluded from the scan."""
     return dirname in EXCLUDED_DIRS or dirname.startswith(".")
 
 
 def iter_source_files(root: Path) -> list[Path]:
+    """Collect source files under ``root`` that count toward the limit."""
     files: list[Path] = []
     for current_root, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(name for name in dirnames if not should_skip_dir(name))
@@ -61,14 +63,17 @@ def iter_source_files(root: Path) -> list[Path]:
 
 
 def count_braces(line: str) -> int:
+    """Return the net change in brace depth for a Rust source line."""
     return line.count("{") - line.count("}")
 
 
 def is_rust_test_attribute(line: str) -> bool:
+    """Return whether a line starts a Rust test-only item."""
     return bool(TEST_ATTRIBUTE_RE.match(line) or CFG_TEST_RE.match(line))
 
 
 def count_rust_lines(path: Path) -> int:
+    """Count Rust lines while excluding inline test-only items."""
     effective_lines = 0
     skipping_item = False
     item_started = False
@@ -107,6 +112,7 @@ def count_rust_lines(path: Path) -> int:
 
 
 def count_lines(path: Path) -> int:
+    """Count effective lines for a supported source file."""
     if path.suffix == ".rs":
         return count_rust_lines(path)
 
@@ -115,6 +121,7 @@ def count_lines(path: Path) -> int:
 
 
 def collect_violations(root: Path, limit: int) -> list[tuple[str, int]]:
+    """Return files whose effective line count exceeds ``limit``."""
     violations: list[tuple[str, int]] = []
     for path in iter_source_files(root):
         line_count = count_lines(path)
@@ -125,6 +132,7 @@ def collect_violations(root: Path, limit: int) -> list[tuple[str, int]]:
 
 
 def main() -> int:
+    """Run the line-count check and print a report."""
     args = parse_args()
     root = Path(__file__).resolve().parent.parent
     violations = collect_violations(root, args.limit)

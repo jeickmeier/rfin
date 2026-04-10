@@ -146,11 +146,6 @@ impl JsImMethodology {
 }
 
 impl JsImMethodology {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> ImMethodology {
-        self.inner
-    }
-
     pub(crate) fn from_inner(inner: ImMethodology) -> Self {
         Self { inner }
     }
@@ -214,17 +209,5 @@ impl JsClearingStatus {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         self.inner.to_string()
-    }
-}
-
-impl JsClearingStatus {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> ClearingStatus {
-        self.inner.clone()
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: ClearingStatus) -> Self {
-        Self { inner }
     }
 }

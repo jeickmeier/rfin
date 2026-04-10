@@ -30,18 +30,6 @@ pub struct JsGaussianCopula {
     inner: GaussianCopula,
 }
 
-impl JsGaussianCopula {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: GaussianCopula) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &GaussianCopula {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = GaussianCopula)]
 impl JsGaussianCopula {
     /// Create a Gaussian copula with optional quadrature order.
@@ -115,18 +103,6 @@ impl JsGaussianCopula {
 #[wasm_bindgen(js_name = StudentTCopula)]
 pub struct JsStudentTCopula {
     inner: StudentTCopula,
-}
-
-impl JsStudentTCopula {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: StudentTCopula) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &StudentTCopula {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = StudentTCopula)]
@@ -217,18 +193,6 @@ impl JsStudentTCopula {
 #[wasm_bindgen(js_name = MultiFactorCopula)]
 pub struct JsMultiFactorCopula {
     inner: MultiFactorCopula,
-}
-
-impl JsMultiFactorCopula {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: MultiFactorCopula) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &MultiFactorCopula {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = MultiFactorCopula)]
@@ -340,18 +304,6 @@ pub struct JsRandomFactorLoadingCopula {
     inner: RandomFactorLoadingCopula,
 }
 
-impl JsRandomFactorLoadingCopula {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: RandomFactorLoadingCopula) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &RandomFactorLoadingCopula {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = RandomFactorLoadingCopula)]
 impl JsRandomFactorLoadingCopula {
     /// Create an RFL copula.
@@ -437,18 +389,6 @@ impl JsRandomFactorLoadingCopula {
 #[wasm_bindgen(js_name = CopulaSpec)]
 pub struct JsCopulaSpec {
     inner: CopulaSpec,
-}
-
-impl JsCopulaSpec {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CopulaSpec) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &CopulaSpec {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = CopulaSpec)]

@@ -797,9 +797,7 @@ class TestValuationsRootParity:
         # Price with metrics
         registry = standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm"]
-        result = registry.price_with_metrics(
-            bond, "discounting", market, date(2024, 1, 1), metrics=metric_keys
-        )
+        result = registry.price_with_metrics(bond, "discounting", market, date(2024, 1, 1), metrics=metric_keys)
 
         # Should have base value
         assert result.value.amount > 0
@@ -1072,9 +1070,7 @@ class TestMetricsParity:
 
         registry = standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm", "duration_mod", "dv01"]
-        result = registry.price_with_metrics(
-            bond, "discounting", market, date(2024, 1, 1), metrics=metric_keys
-        )
+        result = registry.price_with_metrics(bond, "discounting", market, date(2024, 1, 1), metrics=metric_keys)
 
         # Should have value
         assert result.value.amount > 0

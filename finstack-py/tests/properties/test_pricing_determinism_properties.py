@@ -306,12 +306,8 @@ class TestMetricsDeterminism:
         registry = standard_registry()
 
         # Compute metrics twice - use metrics applicable to bonds
-        result1 = registry.price_with_metrics(
-            bond, "discounting", market, date(2024, 1, 1), metrics=["accrued", "ytm"]
-        )
-        result2 = registry.price_with_metrics(
-            bond, "discounting", market, date(2024, 1, 1), metrics=["accrued", "ytm"]
-        )
+        result1 = registry.price_with_metrics(bond, "discounting", market, date(2024, 1, 1), metrics=["accrued", "ytm"])
+        result2 = registry.price_with_metrics(bond, "discounting", market, date(2024, 1, 1), metrics=["accrued", "ytm"])
 
         # Present values should be identical
         assert abs(result1.value.amount - result2.value.amount) < 1e-10

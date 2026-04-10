@@ -69,7 +69,6 @@ impl JsSABRModelParams {
         Self { inner }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> SABRModelParamsData {
         self.inner.clone()
     }
@@ -337,12 +336,10 @@ impl JsSABRMarketData {
 /// ```
 #[wasm_bindgen(js_name = SABRCalibrationDerivatives)]
 pub struct JsSABRCalibrationDerivatives {
-    #[allow(dead_code)]
     inner: SABRCalibrationDerivatives,
 }
 
 impl JsSABRCalibrationDerivatives {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: SABRCalibrationDerivatives) -> Self {
         Self { inner }
     }

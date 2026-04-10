@@ -98,14 +98,6 @@ pub struct JsScenarioGrid {
     inner: ScenarioGrid,
 }
 
-#[allow(dead_code)]
-impl JsScenarioGrid {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: ScenarioGrid) -> Self {
-        Self { inner }
-    }
-}
-
 #[wasm_bindgen(js_class = ScenarioGrid)]
 impl JsScenarioGrid {
     /// Create a grid centered on zero with `nPoints` shift levels.
@@ -134,14 +126,6 @@ impl JsScenarioGrid {
 #[derive(Clone)]
 pub struct JsFactorPnlProfile {
     inner: FactorPnlProfile,
-}
-
-#[allow(dead_code)]
-impl JsFactorPnlProfile {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: FactorPnlProfile) -> Self {
-        Self { inner }
-    }
 }
 
 #[wasm_bindgen(js_class = FactorPnlProfile)]

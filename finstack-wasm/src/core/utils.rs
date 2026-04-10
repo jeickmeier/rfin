@@ -11,5 +11,3 @@ where
     }
     array
 }
-
-// Note: js_error is now unified in crate::core::error for consistency

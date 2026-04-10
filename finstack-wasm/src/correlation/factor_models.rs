@@ -29,18 +29,6 @@ pub struct JsSingleFactorModel {
     inner: SingleFactorModel,
 }
 
-impl JsSingleFactorModel {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: SingleFactorModel) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &SingleFactorModel {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = SingleFactorModel)]
 impl JsSingleFactorModel {
     /// Create a single-factor model.
@@ -133,18 +121,6 @@ impl JsSingleFactorModel {
 #[wasm_bindgen(js_name = TwoFactorModel)]
 pub struct JsTwoFactorModel {
     inner: TwoFactorModel,
-}
-
-impl JsTwoFactorModel {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: TwoFactorModel) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &TwoFactorModel {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = TwoFactorModel)]
@@ -278,18 +254,6 @@ pub struct JsMultiFactorModel {
     inner: MultiFactorModel,
 }
 
-impl JsMultiFactorModel {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: MultiFactorModel) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &MultiFactorModel {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = MultiFactorModel)]
 impl JsMultiFactorModel {
     /// Create a multi-factor model with validation.
@@ -402,18 +366,6 @@ impl JsMultiFactorModel {
 #[wasm_bindgen(js_name = FactorSpec)]
 pub struct JsFactorSpec {
     inner: FactorSpec,
-}
-
-impl JsFactorSpec {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: FactorSpec) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &FactorSpec {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = FactorSpec)]

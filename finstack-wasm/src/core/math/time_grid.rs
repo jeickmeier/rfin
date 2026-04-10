@@ -20,13 +20,6 @@ pub struct JsTimeGrid {
     inner: CoreTimeGrid,
 }
 
-impl JsTimeGrid {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &CoreTimeGrid {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = TimeGrid)]
 impl JsTimeGrid {
     /// Create a uniform time grid from 0 to tMax with numSteps steps.

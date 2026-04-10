@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
+
 import finstack
 
 if TYPE_CHECKING:

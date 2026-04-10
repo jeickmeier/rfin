@@ -25,19 +25,6 @@ pub struct JsBookId {
     inner: BookId,
 }
 
-#[allow(dead_code)]
-impl JsBookId {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: BookId) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &BookId {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = BookId)]
 impl JsBookId {
     /// Create a new book identifier.
@@ -82,19 +69,6 @@ impl JsBookId {
 #[derive(Clone)]
 pub struct JsBook {
     inner: Book,
-}
-
-#[allow(dead_code)]
-impl JsBook {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: Book) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &Book {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = Book)]

@@ -41,13 +41,6 @@ impl JsTouchType {
     }
 }
 
-impl JsTouchType {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> TouchType {
-        self.inner
-    }
-}
-
 /// Payout timing for FX touch options: at hit or at expiry.
 #[wasm_bindgen(js_name = PayoutTiming)]
 #[derive(Clone, Debug)]
@@ -77,13 +70,6 @@ impl JsPayoutTiming {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!("{:?}", self.inner)
-    }
-}
-
-impl JsPayoutTiming {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> PayoutTiming {
-        self.inner
     }
 }
 

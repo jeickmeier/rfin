@@ -27,18 +27,6 @@ pub struct JsConstantRecovery {
     inner: ConstantRecovery,
 }
 
-impl JsConstantRecovery {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: ConstantRecovery) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &ConstantRecovery {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = ConstantRecovery)]
 impl JsConstantRecovery {
     /// Create a constant recovery model.
@@ -147,18 +135,6 @@ impl JsConstantRecovery {
 #[wasm_bindgen(js_name = CorrelatedRecovery)]
 pub struct JsCorrelatedRecovery {
     inner: CorrelatedRecovery,
-}
-
-impl JsCorrelatedRecovery {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CorrelatedRecovery) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &CorrelatedRecovery {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = CorrelatedRecovery)]
@@ -307,18 +283,6 @@ impl JsCorrelatedRecovery {
 #[wasm_bindgen(js_name = RecoverySpec)]
 pub struct JsRecoverySpec {
     inner: RecoverySpec,
-}
-
-impl JsRecoverySpec {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: RecoverySpec) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &RecoverySpec {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = RecoverySpec)]

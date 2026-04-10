@@ -33,11 +33,6 @@ impl JsMetricId {
     pub(crate) fn from_inner(inner: MetricId) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> MetricId {
-        self.inner.clone()
-    }
 }
 
 #[wasm_bindgen(js_class = MetricId)]

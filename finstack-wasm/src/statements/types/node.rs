@@ -124,10 +124,3 @@ impl JsNodeSpec {
         self.inner.where_text.clone()
     }
 }
-
-impl JsNodeSpec {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: NodeSpec) -> Self {
-        Self { inner }
-    }
-}

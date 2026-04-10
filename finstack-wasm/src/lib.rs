@@ -294,10 +294,8 @@ pub use valuations::pricer::{
     create_rates_registry_js as createRatesRegistry, standard_registry_js as standardRegistry,
     JsPricerRegistry as PricerRegistry,
 };
-pub use valuations::results::JsValuationResult as ValuationResult;
-// Note: ResultsMeta already exported from statements evaluator
-// Using valuations::results::JsResultsMeta for ValuationResult.meta
 pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
+pub use valuations::results::JsValuationResult as ValuationResult;
 
 // Covenants forecasting
 pub use valuations::covenants::{

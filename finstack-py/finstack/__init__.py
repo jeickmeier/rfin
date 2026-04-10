@@ -9,7 +9,7 @@ re-exports stay discoverable in IDEs.
 from pathlib import Path as _Path
 
 from . import finstack as _finstack
-from ._binding_exports import setup_hybrid_module as _setup_hybrid_module
+from ._binding_exports import register_subpackage as _register_subpackage
 
 _name = None
 _submodule_name = None
@@ -37,7 +37,7 @@ for _submodule_name in (
     "correlation",
     "analytics",
 ):
-    globals()[_submodule_name] = _setup_hybrid_module(
+    globals()[_submodule_name] = _register_subpackage(
         getattr(_finstack, _submodule_name),
         root_package=__name__,
         qualname=_submodule_name,
@@ -48,7 +48,7 @@ del (
     _finstack,
     _name,
     _submodule_name,
-    _setup_hybrid_module,
+    _register_subpackage,
     _Path,
     _pkg_path,
 )

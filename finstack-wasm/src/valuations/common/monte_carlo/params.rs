@@ -78,7 +78,6 @@ impl JsProcessParams {
 }
 
 impl JsProcessParams {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: ProcessParams) -> Self {
         Self { inner }
     }

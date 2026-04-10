@@ -39,13 +39,6 @@ impl JsDigitalPayoutType {
     }
 }
 
-impl JsDigitalPayoutType {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> DigitalPayoutType {
-        self.inner
-    }
-}
-
 /// Builder for FX digital options (JSON-based).
 #[wasm_bindgen(js_name = FxDigitalOptionBuilder)]
 #[derive(Clone, Debug, Default)]

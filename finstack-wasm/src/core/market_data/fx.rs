@@ -287,13 +287,6 @@ pub struct JsFxQuery {
     inner: FxQuery,
 }
 
-impl JsFxQuery {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> FxQuery {
-        self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = FxQuery)]
 impl JsFxQuery {
     /// Create a new FX query with default CashflowDate policy.
@@ -359,13 +352,6 @@ impl JsFxQuery {
 #[derive(Clone, Debug)]
 pub struct JsFxPolicyMeta {
     inner: finstack_core::money::fx::FxPolicyMeta,
-}
-
-impl JsFxPolicyMeta {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &finstack_core::money::fx::FxPolicyMeta {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = FxPolicyMeta)]

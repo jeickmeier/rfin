@@ -4,11 +4,9 @@ Reads finstack-py/parity_contract.toml as the source of truth and checks:
 
 1. Root package parity  — each [crates.*] entry has a Python package at python_package.
 2. Module tree parity   — each [crates.*.modules.*] entry has a Python module.
-3. Alias correctness    — each [aliases] old path is importable (runtime identity
-                          check deferred to test_topology_parity.py).
-4. Symbol diffing (--symbols) — for present modules, compares Python __all__ against
+3. Symbol diffing (--symbols) — for present modules, compares Python __all__ against
                           the corresponding Rust extension module's public names.
-5. No audit command writes tracked repo files — output goes to .audit/ only.
+4. No audit command writes tracked repo files — output goes to .audit/ only.
 
 Exit codes:
   0  — all checks pass (or only expected failures with status="missing")
@@ -70,18 +68,6 @@ def _module_exists(python_module: str, finstack_py_root: Path) -> bool:
     return (parent / f"{leaf}.py").exists() or (parent / f"{leaf}.pyi").exists()
 
 
-def _check_alias_importable(alias_path: str, finstack_py_root: Path) -> bool:
-    """Check whether an alias path resolves to a package or module (structure only)."""
-    # Aliases may point to a class inside a module — check the module portion
-    parts = alias_path.split(".")
-    # Try progressively shorter paths until we find a match
-    for length in range(len(parts), 0, -1):
-        candidate = ".".join(parts[:length])
-        if _module_exists(candidate, finstack_py_root):
-            return True
-    return False
-
-
 def run_audit(
     contract_path: Path,
     finstack_py_root: Path,
@@ -92,8 +78,6 @@ def run_audit(
         contract = tomllib.load(f)
 
     crates = contract.get("crates", {})
-    aliases = contract.get("aliases", {})
-    contract.get("exclusions", {})
 
     results: dict = {
         "meta": {
@@ -104,7 +88,6 @@ def run_audit(
         },
         "root_packages": [],
         "modules": [],
-        "aliases": [],
         "summary": {
             "root_packages_total": 0,
             "root_packages_present": 0,
@@ -112,9 +95,6 @@ def run_audit(
             "modules_total": 0,
             "modules_present": 0,
             "modules_missing": 0,
-            "aliases_total": 0,
-            "aliases_resolvable": 0,
-            "aliases_missing": 0,
             "unexpected_failures": 0,
         },
     }
@@ -169,23 +149,6 @@ def run_audit(
                 if declared_status != "missing":
                     results["summary"]["unexpected_failures"] += 1
 
-    # --- 3. Alias path resolvability ---
-    for old_path, canonical_path in aliases.items():
-        resolvable = _check_alias_importable(old_path, finstack_py_root)
-        entry = {
-            "old_path": old_path,
-            "canonical_path": canonical_path,
-            "resolvable": resolvable,
-            "check": "pass" if resolvable else "FAIL",
-        }
-        results["aliases"].append(entry)
-        results["summary"]["aliases_total"] += 1
-        if resolvable:
-            results["summary"]["aliases_resolvable"] += 1
-        else:
-            results["summary"]["aliases_missing"] += 1
-            results["summary"]["unexpected_failures"] += 1
-
     return results
 
 
@@ -216,15 +179,6 @@ def print_report(report: dict) -> None:
     if fails:
         for entry in fails:
             print(f"  [FAIL] {entry['python_module']}  (crate: {entry['crate']}, key: {entry['module_key']})")
-
-    print()
-    print("Aliases:")
-    print(f"  Total:       {s['aliases_total']}")
-    print(f"  Resolvable:  {s['aliases_resolvable']}")
-    print(f"  Unresolvable:{s['aliases_missing']}")
-    for entry in report["aliases"]:
-        if entry["check"] == "FAIL":
-            print(f"  [FAIL] {entry['old_path']} -> {entry['canonical_path']}")
 
     print()
     unexpected = s["unexpected_failures"]
@@ -398,7 +352,7 @@ def main() -> int:
 
     s = report["summary"]
     if args.strict:
-        return 0 if (s["root_packages_missing"] == 0 and s["modules_missing"] == 0 and s["aliases_missing"] == 0) else 1
+        return 0 if (s["root_packages_missing"] == 0 and s["modules_missing"] == 0) else 1
     return 0 if s["unexpected_failures"] == 0 else 1
 
 

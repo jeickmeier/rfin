@@ -258,10 +258,3 @@ impl JsForecastSpec {
         JsForecastMethod::from(self.inner.method)
     }
 }
-
-impl JsForecastSpec {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: ForecastSpec) -> Self {
-        Self { inner }
-    }
-}

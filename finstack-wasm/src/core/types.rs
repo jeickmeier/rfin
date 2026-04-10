@@ -44,11 +44,6 @@ macro_rules! id_wrapper {
             pub fn to_string(&self) -> String {
                 self.value()
             }
-
-            #[allow(dead_code)]
-            pub(crate) fn inner(&self) -> $inner {
-                self.inner.clone()
-            }
         }
     };
 }
@@ -115,11 +110,6 @@ impl JsRate {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         self.inner.to_string()
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CoreRate {
-        self.inner
     }
 }
 
@@ -347,11 +337,6 @@ impl JsNotchedRating {
     pub fn to_string(&self) -> String {
         self.inner.to_string()
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> NotchedRating {
-        self.inner
-    }
 }
 
 // ======================================================================
@@ -423,18 +408,6 @@ pub fn moodys_warf_factor_js(rating: JsCreditRating) -> Result<f64, JsValue> {
 #[derive(Clone, Debug)]
 pub struct JsAttributes {
     inner: CoreAttributes,
-}
-
-impl JsAttributes {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &CoreAttributes {
-        &self.inner
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CoreAttributes) -> Self {
-        Self { inner }
-    }
 }
 
 impl Default for JsAttributes {

@@ -40,32 +40,25 @@ def set_public_all(
     return exported_names
 
 
-def setup_hybrid_module(
+def register_subpackage(
     rust_mod: Any,
     *,
     root_package: str,
     qualname: str,
     pkg_dir: Path,
 ) -> Any:
-    """Prefer a Python package shim when present, otherwise register the Rust module.
+    """Import the Python subpackage for ``qualname`` and register nested Rust submodules.
 
-    Either way, nested Rust submodules below the top level are registered in
-    ``sys.modules`` so that qualified imports like ``finstack.core.dates.schedule``
-    resolve straight to the compiled extension.
+    Every top-level subpackage under :mod:`finstack` owns a Python ``__init__.py``
+    that is the canonical Python surface. This helper imports that package and
+    then walks the Rust module tree, mapping every nested submodule into
+    ``sys.modules`` so qualified imports like ``finstack.core.dates.schedule``
+    resolve directly to the compiled extension.
     """
-    has_python_shim = pkg_dir.is_dir() and (pkg_dir / "__init__.py").exists()
-    if has_python_shim:
-        py_mod = importlib.import_module(f".{qualname}", root_package)
-    else:
-        sys.modules[f"{root_package}.{qualname}"] = rust_mod
-        py_mod = rust_mod
-
-    _register_nested_rust_modules(
-        rust_mod,
-        root_package=root_package,
-        qualname=qualname,
-        skip_top_level=has_python_shim,
-    )
+    if not (pkg_dir / "__init__.py").exists():
+        raise ModuleNotFoundError(f"missing Python package at {pkg_dir}")
+    py_mod = importlib.import_module(f".{qualname}", root_package)
+    _register_nested_rust_modules(rust_mod, root_package=root_package, qualname=qualname)
     return py_mod
 
 
@@ -74,9 +67,8 @@ def _register_nested_rust_modules(
     *,
     root_package: str,
     qualname: str,
-    skip_top_level: bool,
 ) -> None:
-    """Recursively register nested Rust submodules under ``sys.modules``."""
+    """Recursively register nested Rust submodules (below the top level) under ``sys.modules``."""
     seen: set[int] = set()
 
     def recurse(mod: object, nested_qualname: str, depth: int) -> None:
@@ -92,9 +84,8 @@ def _register_nested_rust_modules(
             except AttributeError:
                 continue
             if isinstance(attr, types.ModuleType):
-                fqname = f"{root_package}.{nested_qualname}.{attr_name}"
-                if not skip_top_level or depth > 0:
-                    sys.modules[fqname] = attr
+                if depth > 0:
+                    sys.modules[f"{root_package}.{nested_qualname}.{attr_name}"] = attr
                 recurse(attr, f"{nested_qualname}.{attr_name}", depth + 1)
 
     recurse(parent_mod, qualname, 0)

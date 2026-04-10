@@ -109,13 +109,6 @@ impl JsStructured2D {
     }
 }
 
-#[allow(dead_code)]
-impl JsStructured2D {
-    pub(crate) fn from_inner(inner: Structured2D) -> Self {
-        Self { inner }
-    }
-}
-
 // =============================================================================
 // Structured3D
 // =============================================================================
@@ -171,13 +164,6 @@ impl JsStructured3D {
         });
         serde_wasm_bindgen::to_value(&obj)
             .map_err(|e| js_error(format!("Serialization failed: {}", e)))
-    }
-}
-
-#[allow(dead_code)]
-impl JsStructured3D {
-    pub(crate) fn from_inner(inner: Structured3D) -> Self {
-        Self { inner }
     }
 }
 

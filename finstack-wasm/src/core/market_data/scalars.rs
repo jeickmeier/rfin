@@ -330,13 +330,6 @@ pub struct JsInflationIndex {
     inner: Arc<InflationIndex>,
 }
 
-impl JsInflationIndex {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> Arc<InflationIndex> {
-        Arc::clone(&self.inner)
-    }
-}
-
 #[wasm_bindgen(js_class = InflationIndex)]
 impl JsInflationIndex {
     /// Create an inflation index from observation data.

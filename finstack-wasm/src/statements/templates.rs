@@ -7,8 +7,8 @@
 use crate::core::error::js_error;
 use finstack_core::dates::PeriodId;
 use finstack_statements_analytics::templates::real_estate::{
-    FreeRentWindowSpec, LeaseGrowthConvention, LeaseSpec, ManagementFeeBase, ManagementFeeSpec,
-    PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec, SimpleLeaseSpec,
+    FreeRentWindowSpec, LeaseSpec, ManagementFeeBase, ManagementFeeSpec, PropertyTemplateNodes,
+    RenewalSpec, RentRollOutputNodes, RentStepSpec, SimpleLeaseSpec,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -281,17 +281,6 @@ pub enum JsLeaseGrowthConvention {
     PerPeriod = "per_period",
     /// Growth applied annually regardless of period frequency.
     AnnualEscalator = "annual_escalator",
-}
-
-impl JsLeaseGrowthConvention {
-    #[allow(dead_code)]
-    fn to_core(&self) -> LeaseGrowthConvention {
-        match self {
-            JsLeaseGrowthConvention::PerPeriod => LeaseGrowthConvention::PerPeriod,
-            JsLeaseGrowthConvention::AnnualEscalator => LeaseGrowthConvention::AnnualEscalator,
-            _ => LeaseGrowthConvention::PerPeriod,
-        }
-    }
 }
 
 /// Base metric for management fee calculation.

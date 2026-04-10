@@ -83,15 +83,9 @@ pub struct JsRiskDecomposition {
     inner: RiskDecomposition,
 }
 
-#[allow(dead_code)]
 impl JsRiskDecomposition {
     pub(crate) fn from_inner(inner: RiskDecomposition) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &RiskDecomposition {
-        &self.inner
     }
 }
 

@@ -32,18 +32,6 @@ pub struct JsFactorId {
     inner: FactorId,
 }
 
-impl JsFactorId {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: FactorId) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &FactorId {
-        &self.inner
-    }
-}
-
 #[wasm_bindgen(js_class = FactorId)]
 impl JsFactorId {
     /// Create a new factor identifier.
@@ -85,18 +73,6 @@ impl JsFactorId {
 #[derive(Clone)]
 pub struct JsMarketDependency {
     inner: MarketDependency,
-}
-
-impl JsMarketDependency {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: MarketDependency) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &MarketDependency {
-        &self.inner
-    }
 }
 
 #[wasm_bindgen(js_class = MarketDependency)]
@@ -162,14 +138,8 @@ pub struct JsFactorDefinition {
 }
 
 impl JsFactorDefinition {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: FactorDefinition) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &FactorDefinition {
-        &self.inner
     }
 }
 
@@ -267,14 +237,8 @@ pub struct JsFactorCovarianceMatrix {
 }
 
 impl JsFactorCovarianceMatrix {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: FactorCovarianceMatrix) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &FactorCovarianceMatrix {
-        &self.inner
     }
 }
 
@@ -358,14 +322,8 @@ pub struct JsBumpSizeConfig {
 }
 
 impl JsBumpSizeConfig {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: BumpSizeConfig) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> &BumpSizeConfig {
-        &self.inner
     }
 }
 
@@ -484,11 +442,6 @@ pub struct JsFactorModelConfig {
 }
 
 impl JsFactorModelConfig {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: FactorModelConfig) -> Self {
-        Self { inner }
-    }
-
     pub(crate) fn inner(&self) -> &FactorModelConfig {
         &self.inner
     }

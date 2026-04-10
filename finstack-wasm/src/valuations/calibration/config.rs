@@ -147,18 +147,6 @@ pub struct JsResidualWeightingScheme {
     inner: ResidualWeightingScheme,
 }
 
-impl JsResidualWeightingScheme {
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: ResidualWeightingScheme) -> Self {
-        Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> ResidualWeightingScheme {
-        self.inner.clone()
-    }
-}
-
 #[wasm_bindgen(js_class = ResidualWeightingScheme)]
 impl JsResidualWeightingScheme {
     /// Equal weighting (1.0 for all quotes).
@@ -330,11 +318,6 @@ impl JsRateBoundsPolicy {
     pub(crate) fn from_inner(inner: RateBoundsPolicy) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> RateBoundsPolicy {
-        self.inner.clone()
-    }
 }
 
 #[wasm_bindgen(js_class = RateBoundsPolicy)]
@@ -456,11 +439,6 @@ pub struct JsCalibrationConfig {
 impl JsCalibrationConfig {
     pub(crate) fn from_inner(inner: CalibrationConfig) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CalibrationConfig {
-        self.inner.clone()
     }
 }
 

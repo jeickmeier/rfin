@@ -72,7 +72,6 @@ impl JsMonteCarloResult {
 }
 
 impl JsMonteCarloResult {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: MonteCarloResult) -> Self {
         Self { inner }
     }

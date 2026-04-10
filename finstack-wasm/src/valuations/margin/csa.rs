@@ -156,9 +156,4 @@ impl JsCsaSpec {
     pub(crate) fn inner(&self) -> CsaSpec {
         self.inner.clone()
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: CsaSpec) -> Self {
-        Self { inner }
-    }
 }
