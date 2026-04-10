@@ -3,143 +3,107 @@ trigger: model_decision
 description: Rust-Wasm Bindings
 globs:
 ---
-# WASM Bindings Code Standards for rfin-wasm
+# WASM Bindings Code Standards for finstack-wasm
 
 ## Core Principles
 
-1. **Web-first API design** - APIs should feel natural to JavaScript/TypeScript developers
-2. **Small bundle size** - Minimize generated WASM size through careful feature selection
-3. **Performance** - Avoid unnecessary allocations and copies between JS and WASM
-4. **Error handling** - Convert Rust errors to JavaScript-friendly error messages
-5. **Cross-platform** - Support both browser and Node.js environments
-6. **Builder entrypoints** - Expose `Type.builder(...)` as the only builder entrypoint; avoid `Builder::new` aliases.
+1. **Rust is canonical** — module tree and type names mirror the Rust umbrella crate; the JS facade owns namespacing only.
+2. **Small bundle size** — minimize generated WASM size through careful feature selection.
+3. **Performance** — avoid unnecessary allocations and copies between JS and WASM.
+4. **Error handling** — convert Rust errors to JavaScript-friendly error messages.
+5. **Cross-platform** — support both browser and Node.js environments.
+6. **Builder entrypoints** — expose `Type.builder(...)` as the only builder entrypoint.
 
 ## Project Structure
 
 ### Organization
 
 ```
-rfin-wasm/
+finstack-wasm/
 ├── src/
-│   ├── lib.rs        # Module initialization and re-exports
-│   ├── currency.rs   # Currency type bindings
-│   ├── money.rs      # Money type bindings
-│   ├── dates.rs      # Date type bindings
-│   ├── calendar.rs   # Calendar bindings
-│   ├── cashflow.rs   # CashFlow bindings
-│   ├── schedule.rs   # Schedule generation
-│   └── utils.rs      # WASM utilities (panic hook, etc.)
-├── pkg/              # Generated web package
-├── pkg-node/         # Generated Node.js package
-└── tests/           # WASM tests
-    └── web.rs
+│   ├── lib.rs            # mod api; pub use api::*;
+│   ├── api/              # NEW: crate-namespaced binding tree
+│   │   ├── mod.rs        # pub mod declarations for each crate domain
+│   │   ├── core_ns/      # core bindings (named core_ns to avoid shadowing std::core)
+│   │   ├── analytics/
+│   │   ├── margin/
+│   │   ├── valuations/
+│   │   ├── statements/
+│   │   ├── statements_analytics/
+│   │   ├── portfolio/
+│   │   ├── scenarios/
+│   │   ├── correlation/
+│   │   └── monte_carlo/
+│   └── utils.rs          # panic hook, etc.
+├── index.js              # hand-written JS facade (public entrypoint)
+├── index.d.ts            # TypeScript declarations for facade
+├── exports/              # per-crate namespace JS files
+│   ├── core.js
+│   ├── analytics.js
+│   ├── ...
+│   └── monte_carlo.js
+├── pkg/                  # generated wasm-bindgen output (INTERNAL, not public)
+├── package.json          # main: ./index.js, types: ./index.d.ts
+└── tests/
+    └── *.test.mjs        # Node test runner facade tests
 ```
 
-### Build Targets
+### Key Architecture Rules
 
-```toml
-# Cargo.toml
-[lib]
-crate-type = ["cdylib"]  # Required for WASM
+- `finstack-wasm/src/lib.rs` exports only the `api` tree. Old flat re-exports are removed.
+- `finstack-wasm/src/api/mod.rs` declares `pub mod` for each crate domain. No `pub use *` glob re-exports (they are unnecessary for wasm-bindgen and `pub use core::*` shadows `std::core`).
+- The `core` Rust module is named `core_ns` on disk to avoid shadowing Rust's `core` prelude.
+- `pkg/finstack_wasm.js` is an internal generated artifact, NOT the public API.
+- The published entrypoint is `index.js`, a hand-written facade that groups raw bindgen exports into crate namespaces.
 
-[dependencies]
-wasm-bindgen = "0.2"
-serde-wasm-bindgen = "0.6"  # For complex object serialization
-```
+### Naming Conventions
+
+- Types: `PascalCase` (matching Rust)
+- Functions: `camelCase` (wasm-bindgen auto-converts snake_case)
+- Namespace keys in facade: `snake_case` (matching Rust crate names)
+- Name exceptions allowed only for host-language collisions (e.g. `FsDate` instead of `Date` to avoid JS built-in collision); documented in `parity_contract.toml`
 
 ## Type Wrapping Patterns
 
-### ⚠️ CRITICAL: Always Use Named Structs with `pub(crate) inner`
-
-**Always use named structs with a `pub(crate) inner` field for WASM bindings.** This is the **required pattern** for all type wrappers.
-
-**Do NOT use tuple structs** (e.g., `pub struct JsBond(Bond)`) as they:
-
-- Prevent safe type extraction from `JsValue`
-- Cause `JsCast` trait bound errors (`E0277`)
-- Are incompatible with `wasm_bindgen`'s type system for structs with private fields
-
-**Why `pub(crate)`?**
-
-- Allows other modules in the same crate to access the inner field for type extraction
-- Required for runtime type checking and safe downcasting from `JsValue`
-- Enables polymorphic functions that extract types from JavaScript values
-
-### Basic Type Wrapper
+### CRITICAL: Always Use Named Structs with `pub(crate) inner`
 
 ```rust
 use wasm_bindgen::prelude::*;
-use rfin_core::TypeName as CoreType;
 
-/// JavaScript-visible documentation
 #[wasm_bindgen(js_name = TypeName)]
 #[derive(Clone, Debug)]
 pub struct JsTypeName {
-    /// The inner Rust core type wrapped for JavaScript interop
-    /// Must be `pub(crate)` to allow access from other modules for type extraction
-    pub(crate) inner: CoreType,
+    pub(crate) inner: finstack_core::TypeName,
 }
 
 #[wasm_bindgen(js_class = TypeName)]
 impl JsTypeName {
-    /// Constructor - always use #[wasm_bindgen(constructor)]
     #[wasm_bindgen(constructor)]
     pub fn new(param: String) -> Result<JsTypeName, JsValue> {
         let inner = param
-            .parse::<CoreType>()
-            .map_err(|e| JsValue::from_str(&format!("Error: {}", e)))?;
+            .parse()
+            .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
         Ok(JsTypeName { inner })
     }
 
-    /// Access the inner type (for use within the crate)
-    pub(crate) fn inner(&self) -> &CoreType {
+    pub(crate) fn inner(&self) -> &finstack_core::TypeName {
         &self.inner
     }
 }
 ```
 
-### Type Extraction Pattern
-
-When extracting types from `JsValue` (e.g., in polymorphic functions), use runtime constructor name checking with `js_sys::Reflect`:
-
-```rust
-use js_sys::Reflect;
-use wasm_bindgen::JsValue;
-
-/// Extract a wrapped type from a JsValue using constructor name matching
-#[allow(unsafe_code)]
-pub(crate) fn extract_type(value: &JsValue) -> Result<&JsTypeName, JsValue> {
-    // Check if the value is an instance of the expected type by checking constructor name
-    let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
-        .ok()
-        .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
-        .and_then(|n| n.as_string())
-        .map(|n| n == "TypeName")
-        .unwrap_or(false);
-
-    if is_instance {
-        // Safe because we've verified the type via constructor name check
-        // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
-        let inst: &JsTypeName = unsafe { &*(value as *const JsValue as *const JsTypeName) };
-        Ok(inst)
-    } else {
-        Err(JsValue::from_str("Expected TypeName instance"))
-    }
-}
-```
+**Do NOT use tuple structs** (e.g., `pub struct JsBond(Bond)`) — they prevent safe type extraction from `JsValue` and cause `JsCast` trait bound errors.
 
 ### Property Getters
 
 ```rust
 #[wasm_bindgen]
-impl TypeName {
-    /// Use getter for properties
+impl JsTypeName {
     #[wasm_bindgen(getter)]
     pub fn property(&self) -> String {
         self.inner.property().to_string()
     }
 
-    /// Use js_name for JavaScript naming conventions
     #[wasm_bindgen(getter, js_name = "numericCode")]
     pub fn numeric_code(&self) -> u32 {
         self.inner.code()
@@ -147,991 +111,103 @@ impl TypeName {
 }
 ```
 
-### Methods
-
-```rust
-#[wasm_bindgen]
-impl TypeName {
-    /// Regular methods
-    #[wasm_bindgen]
-    pub fn calculate(&self, value: f64) -> f64 {
-        self.inner.calculate(value)
-    }
-
-    /// Methods with JS-friendly names
-    #[wasm_bindgen(js_name = "toString")]
-    pub fn to_string_js(&self) -> String {
-        format!("{}", self.inner)
-    }
-
-    /// Equality checks (JavaScript doesn't have operator overloading)
-    #[wasm_bindgen]
-    pub fn equals(&self, other: &TypeName) -> bool {
-        self.inner == other.inner
-    }
-}
-```
-
 ## Error Handling
 
-### Convert Rust Errors to JavaScript
-
 ```rust
-use rfin_core::error::{Error, InputError};
-
-fn convert_error(err: Error) -> JsValue {
-    match err {
-        Error::Input(InputError::InvalidDateRange) => {
-            JsValue::from_str("Invalid date range: start must be before end")
-        }
-        Error::CurrencyMismatch { expected, actual } => {
-            JsValue::from_str(&format!(
-                "Currency mismatch: expected {}, got {}",
-                expected, actual
-            ))
-        }
-        Error::InterpOutOfBounds => {
-            JsValue::from_str("Interpolation input out of bounds")
-        }
-        _ => JsValue::from_str(&format!("Operation failed: {}", err))
-    }
+fn convert_error(err: finstack_core::Error) -> JsValue {
+    JsValue::from_str(&format!("{}", err))
 }
-```
 
-### Method Error Handling
-
-```rust
 #[wasm_bindgen]
-impl Money {
+impl JsMoney {
     #[wasm_bindgen]
-    pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
+    pub fn add(&self, other: &JsMoney) -> Result<JsMoney, JsValue> {
         self.inner
-            .checked_add(other.inner)
-            .map(|result| Money { inner: result })
+            .checked_add(&other.inner)
+            .map(|result| JsMoney { inner: result })
             .map_err(convert_error)
     }
 }
 ```
 
-## Enum Handling
+## JS Facade Pattern
 
-### Simple Enums
+Each `exports/<crate>.js` groups raw bindgen exports into a namespace:
 
-```rust
-use wasm_bindgen::prelude::*;
+```javascript
+import * as raw from "../pkg/finstack_wasm.js";
 
-#[wasm_bindgen]
-#[derive(Clone, Copy, Debug)]
-pub enum Tenor {
-    Annual = "Annual",
-    SemiAnnual = "SemiAnnual",
-    Quarterly = "Quarterly",
-    Monthly = "Monthly",
-}
-
-// Conversion to core enum
-impl Into<CoreTenor> for Tenor {
-    fn into(self) -> CoreTenor {
-        match self {
-            Tenor::Annual => CoreTenor::annual(),
-            Tenor::SemiAnnual => CoreTenor::semi_annual(),
-            Tenor::Quarterly => CoreTenor::quarterly(),
-            Tenor::Monthly => CoreTenor::monthly(),
-        }
-    }
-}
+export const core = {
+  Currency: raw.Currency,
+  Money: raw.Money,
+  dates: {
+    FsDate: raw.FsDate,
+    DayCount: raw.DayCount,
+    buildPeriods: raw.buildPeriods,
+  },
+  market_data: {
+    MarketContext: raw.MarketContext,
+    DiscountCurve: raw.DiscountCurve,
+  },
+};
 ```
 
-### Static Enum Methods
+And `index.js` re-exports all namespaces:
 
-```rust
-#[wasm_bindgen]
-impl DayCount {
-    #[wasm_bindgen(js_name = "Act360")]
-    pub fn act360() -> DayCount {
-        DayCount { inner: CoreDayCount::Act360 }
-    }
+```javascript
+import init from "./pkg/finstack_wasm.js";
 
-    #[wasm_bindgen(js_name = "Act365F")]
-    pub fn act365f() -> DayCount {
-        DayCount { inner: CoreDayCount::Act365F }
-    }
-}
-```
-
-## Complex Type Serialization
-
-### Using Serde for Complex Objects
-
-```rust
-use serde::{Serialize, Deserialize};
-use serde_wasm_bindgen::{to_value, from_value};
-
-#[derive(Serialize, Deserialize)]
-pub struct CashFlowData {
-    date: String,
-    amount: f64,
-    currency: String,
-    kind: String,
-}
-
-#[wasm_bindgen]
-impl FixedRateLeg {
-    /// Return cash flows as JavaScript array
-    #[wasm_bindgen(js_name = "getCashFlows")]
-    pub fn get_cash_flows(&self) -> Result<JsValue, JsValue> {
-        let flows: Vec<CashFlowData> = self.inner
-            .flows()
-            .iter()
-            .map(|cf| CashFlowData {
-                date: cf.date.to_string(),
-                amount: cf.amount.amount(),
-                currency: cf.amount.currency().to_string(),
-                kind: format!("{:?}", cf.kind),
-            })
-            .collect();
-
-        to_value(&flows).map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-}
+export { core } from "./exports/core.js";
+export { analytics } from "./exports/analytics.js";
+// ... one per crate domain
+export default init;
 ```
 
 ## Module Initialization
 
-### lib.rs Pattern
-
 ```rust
 use wasm_bindgen::prelude::*;
 
+mod api;
 mod utils;
 
-/// Initialize panic hook for better error messages
+pub use api::*;
+
 #[wasm_bindgen(start)]
 pub fn init() {
     utils::set_panic_hook();
-}
-
-// Re-export all public types
-pub use currency::Currency;
-pub use money::Money;
-pub use dates::Date;
-
-// Re-export functions with JS-friendly names
-pub use dates::{
-    third_wednesday as thirdWednesday,
-    next_imm as nextImm,
-    next_cds_date as nextCdsDate,
-};
-```
-
-### utils.rs Pattern
-
-```rust
-pub fn set_panic_hook() {
-    // Only include panic hook in debug builds
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-}
-```
-
-## Memory Management
-
-### Avoid Unnecessary Clones
-
-```rust
-#[wasm_bindgen]
-impl Currency {
-    // Good: Return lightweight copy
-    #[wasm_bindgen(getter)]
-    pub fn code(&self) -> String {
-        format!("{}", self.inner)
-    }
-
-    // Avoid: Returning references (not supported by wasm-bindgen)
-    // pub fn code(&self) -> &str { ... }
-}
-```
-
-### Handle Collections Efficiently
-
-```rust
-use js_sys::Array;
-
-#[wasm_bindgen]
-pub fn generate_dates(start: &Date, end: &Date, tenor: Tenor) -> Array {
-    let dates = generate_schedule_internal(start, end, freq);
-
-    let array = Array::new();
-    for date in dates {
-        array.push(&JsValue::from(Date::from_inner(date)));
-    }
-    array
-}
-```
-
-## Testing
-
-### WASM Test Structure
-
-```rust
-// tests/web.rs
-use wasm_bindgen_test::*;
-use rfin_wasm::{Currency, Money};
-
-wasm_bindgen_test_configure!(run_in_browser);
-
-#[wasm_bindgen_test]
-fn test_currency_creation() {
-    let currency = Currency::new("USD".to_string()).unwrap();
-    assert_eq!(currency.code(), "USD");
-    assert_eq!(currency.numeric_code(), 840);
-}
-
-#[wasm_bindgen_test]
-fn test_money_arithmetic() {
-    let usd = Currency::new("USD".to_string()).unwrap();
-    let m1 = Money::new(100.0, usd.clone());
-    let m2 = Money::new(50.0, usd);
-
-    let result = m1.add(&m2).unwrap();
-    assert_eq!(result.amount(), 150.0);
-}
-```
-
-## JavaScript API Design
-
-### Constructor Pattern
-
-```rust
-// Always provide constructors for main types
-#[wasm_bindgen(constructor)]
-pub fn new(/* params */) -> Result<Self, JsValue> {
-    // Implementation
-}
-```
-
-### Method Naming
-
-```rust
-// Use JavaScript conventions
-#[wasm_bindgen(js_name = "toString")]
-pub fn to_string_js(&self) -> String { }
-
-#[wasm_bindgen(js_name = "valueOf")]
-pub fn value_of(&self) -> f64 { }
-
-#[wasm_bindgen(js_name = "toJSON")]
-pub fn to_json(&self) -> Result<JsValue, JsValue> { }
-```
-
-### Optional Parameters
-
-```rust
-use wasm_bindgen::JsValue;
-
-#[wasm_bindgen]
-impl Calculator {
-    #[wasm_bindgen]
-    pub fn calculate(&self, value: f64, options: Option<JsValue>) -> Result<f64, JsValue> {
-        let params = if let Some(opts) = options {
-            // Parse options object
-            parse_options(opts)?
-        } else {
-            // Use defaults
-            Default::default()
-        };
-
-        Ok(self.inner.calculate(value, params))
-    }
-}
-```
-
-## Documentation
-
-### Type Documentation
-
-```rust
-/// Currency representation based on ISO 4217 standards.
-///
-/// A Currency represents a specific currency using the ISO 4217 standard.
-///
-/// @example
-/// ```javascript
-/// const usd = new Currency("USD");
-/// console.log(usd.code); // "USD"
-/// console.log(usd.numericCode); // 840
-/// ```
-#[wasm_bindgen]
-pub struct Currency {
-    // ...
-}
-```
-
-### Method Documentation
-
-```rust
-/// Add two money values.
-///
-/// Both money values must have the same currency.
-///
-/// @param {Money} other - The money value to add
-/// @returns {Money} The sum of the two money values
-/// @throws {Error} If the currencies don't match
-#[wasm_bindgen]
-pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
-    // ...
-}
-```
-
-## Build Configuration
-
-### wasm-pack Settings
-
-```toml
-# Cargo.toml
-[package.metadata.wasm-pack]
-"wasm-pack-plugin" = "0.1"
-
-[features]
-# Include panic hook only in debug builds
-default = ["console_error_panic_hook"]
-console_error_panic_hook = ["dep:console_error_panic_hook"]
-
-# Pass through features to core
-decimal128 = ["rfin-core/decimal128"]
-```
-
-### Build Scripts
-
-```json
-// package.json
-{
-  "scripts": {
-    "build": "wasm-pack build --target web --out-dir pkg",
-    "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
-    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler",
-    "test": "wasm-pack test --chrome --firefox --headless"
-  }
 }
 ```
 
 ## Performance Guidelines
 
-### Minimize Boundary Crossings
-
-```rust
-// Good: Batch operations
-#[wasm_bindgen]
-pub fn calculate_multiple(values: &[f64]) -> Vec<f64> {
-    values.iter().map(|&v| self.calculate(v)).collect()
-}
-
-// Avoid: Multiple individual calls from JavaScript
-```
-
-### Use References Where Possible
-
-```rust
-// Good: Accept references
-#[wasm_bindgen]
-pub fn compare(&self, other: &Money) -> bool {
-    self.inner == other.inner
-}
-
-// Avoid: Unnecessary ownership transfer
-pub fn compare(self, other: Money) -> bool { }
-```
-
-## Debugging Support
-
-### Console Logging
-
-```rust
-use web_sys::console;
-
-#[wasm_bindgen]
-impl Calculator {
-    #[wasm_bindgen]
-    pub fn debug_state(&self) {
-        console::log_1(&format!("State: {:?}", self.inner).into());
-    }
-}
-```
-
-### Development Features
-
-```rust
-#[cfg(debug_assertions)]
-#[wasm_bindgen]
-impl TypeName {
-    #[wasm_bindgen(js_name = "_debug")]
-    pub fn debug(&self) -> String {
-        format!("{:?}", self.inner)
-    }
-}
-``` # WASM Bindings Code Standards for rfin-wasm
-
-## Core Principles
-
-1. **Web-first API design** - APIs should feel natural to JavaScript/TypeScript developers
-2. **Small bundle size** - Minimize generated WASM size through careful feature selection
-3. **Performance** - Avoid unnecessary allocations and copies between JS and WASM
-4. **Error handling** - Convert Rust errors to JavaScript-friendly error messages
-5. **Cross-platform** - Support both browser and Node.js environments
-
-## Project Structure
-
-### Organization
-```
-
-rfin-wasm/
-├── src/
-│   ├── lib.rs        # Module initialization and re-exports
-│   ├── currency.rs   # Currency type bindings
-│   ├── money.rs      # Money type bindings
-│   ├── dates.rs      # Date type bindings
-│   ├── calendar.rs   # Calendar bindings
-│   ├── cashflow.rs   # CashFlow bindings
-│   ├── schedule.rs   # Schedule generation
-│   └── utils.rs      # WASM utilities (panic hook, etc.)
-├── pkg/              # Generated web package
-├── pkg-node/         # Generated Node.js package
-└── tests/           # WASM tests
-    └── web.rs
-
-```
-
-### Build Targets
-```toml
-# Cargo.toml
-[lib]
-crate-type = ["cdylib"]  # Required for WASM
-
-[dependencies]
-wasm-bindgen = "0.2"
-serde-wasm-bindgen = "0.6"  # For complex object serialization
-```
-
-## Type Wrapping Patterns
-
-### ⚠️ CRITICAL: Always Use Named Structs with `pub(crate) inner`
-
-**Always use named structs with a `pub(crate) inner` field for WASM bindings.** This is the **required pattern** for all type wrappers.
-
-**Do NOT use tuple structs** (e.g., `pub struct JsBond(Bond)`) as they:
-
-- Prevent safe type extraction from `JsValue`
-- Cause `JsCast` trait bound errors (`E0277`)
-- Are incompatible with `wasm_bindgen`'s type system for structs with private fields
-
-**Why `pub(crate)`?**
-
-- Allows other modules in the same crate to access the inner field for type extraction
-- Required for runtime type checking and safe downcasting from `JsValue`
-- Enables polymorphic functions that extract types from JavaScript values
-
-### Basic Type Wrapper
-
-```rust
-use wasm_bindgen::prelude::*;
-use rfin_core::TypeName as CoreType;
-
-/// JavaScript-visible documentation
-#[wasm_bindgen(js_name = TypeName)]
-#[derive(Clone, Debug)]
-pub struct JsTypeName {
-    /// The inner Rust core type wrapped for JavaScript interop
-    /// Must be `pub(crate)` to allow access from other modules for type extraction
-    pub(crate) inner: CoreType,
-}
-
-#[wasm_bindgen(js_class = TypeName)]
-impl JsTypeName {
-    /// Constructor - always use #[wasm_bindgen(constructor)]
-    #[wasm_bindgen(constructor)]
-    pub fn new(param: String) -> Result<JsTypeName, JsValue> {
-        let inner = param
-            .parse::<CoreType>()
-            .map_err(|e| JsValue::from_str(&format!("Error: {}", e)))?;
-        Ok(JsTypeName { inner })
-    }
-
-    /// Access the inner type (for use within the crate)
-    pub(crate) fn inner(&self) -> &CoreType {
-        &self.inner
-    }
-}
-```
-
-### Type Extraction Pattern
-
-When extracting types from `JsValue` (e.g., in polymorphic functions), use runtime constructor name checking with `js_sys::Reflect`:
-
-```rust
-use js_sys::Reflect;
-use wasm_bindgen::JsValue;
-
-/// Extract a wrapped type from a JsValue using constructor name matching
-#[allow(unsafe_code)]
-pub(crate) fn extract_type(value: &JsValue) -> Result<&JsTypeName, JsValue> {
-    // Check if the value is an instance of the expected type by checking constructor name
-    let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
-        .ok()
-        .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
-        .and_then(|n| n.as_string())
-        .map(|n| n == "TypeName")
-        .unwrap_or(false);
-
-    if is_instance {
-        // Safe because we've verified the type via constructor name check
-        // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
-        let inst: &JsTypeName = unsafe { &*(value as *const JsValue as *const JsTypeName) };
-        Ok(inst)
-    } else {
-        Err(JsValue::from_str("Expected TypeName instance"))
-    }
-}
-```
-
-### Property Getters
-
-```rust
-#[wasm_bindgen]
-impl TypeName {
-    /// Use getter for properties
-    #[wasm_bindgen(getter)]
-    pub fn property(&self) -> String {
-        self.inner.property().to_string()
-    }
-
-    /// Use js_name for JavaScript naming conventions
-    #[wasm_bindgen(getter, js_name = "numericCode")]
-    pub fn numeric_code(&self) -> u32 {
-        self.inner.code()
-    }
-}
-```
-
-### Methods
-
-```rust
-#[wasm_bindgen]
-impl TypeName {
-    /// Regular methods
-    #[wasm_bindgen]
-    pub fn calculate(&self, value: f64) -> f64 {
-        self.inner.calculate(value)
-    }
-
-    /// Methods with JS-friendly names
-    #[wasm_bindgen(js_name = "toString")]
-    pub fn to_string_js(&self) -> String {
-        format!("{}", self.inner)
-    }
-
-    /// Equality checks (JavaScript doesn't have operator overloading)
-    #[wasm_bindgen]
-    pub fn equals(&self, other: &TypeName) -> bool {
-        self.inner == other.inner
-    }
-}
-```
-
-## Error Handling
-
-### Convert Rust Errors to JavaScript
-
-```rust
-use rfin_core::error::{Error, InputError};
-
-fn convert_error(err: Error) -> JsValue {
-    match err {
-        Error::Input(InputError::InvalidDateRange) => {
-            JsValue::from_str("Invalid date range: start must be before end")
-        }
-        Error::CurrencyMismatch { expected, actual } => {
-            JsValue::from_str(&format!(
-                "Currency mismatch: expected {}, got {}",
-                expected, actual
-            ))
-        }
-        Error::InterpOutOfBounds => {
-            JsValue::from_str("Interpolation input out of bounds")
-        }
-        _ => JsValue::from_str(&format!("Operation failed: {}", err))
-    }
-}
-```
-
-### Method Error Handling
-
-```rust
-#[wasm_bindgen]
-impl Money {
-    #[wasm_bindgen]
-    pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
-        self.inner
-            .checked_add(other.inner)
-            .map(|result| Money { inner: result })
-            .map_err(convert_error)
-    }
-}
-```
-
-## Enum Handling
-
-### Simple Enums
-
-```rust
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-#[derive(Clone, Copy, Debug)]
-pub enum Tenor {
-    Annual = "Annual",
-    SemiAnnual = "SemiAnnual",
-    Quarterly = "Quarterly",
-    Monthly = "Monthly",
-}
-
-// Conversion to core enum
-impl Into<CoreTenor> for Tenor {
-    fn into(self) -> CoreTenor {
-        match self {
-            Tenor::Annual => CoreTenor::annual(),
-            Tenor::SemiAnnual => CoreTenor::semi_annual(),
-            Tenor::Quarterly => CoreTenor::quarterly(),
-            Tenor::Monthly => CoreTenor::monthly(),
-        }
-    }
-}
-```
-
-### Static Enum Methods
-
-```rust
-#[wasm_bindgen]
-impl DayCount {
-    #[wasm_bindgen(js_name = "Act360")]
-    pub fn act360() -> DayCount {
-        DayCount { inner: CoreDayCount::Act360 }
-    }
-
-    #[wasm_bindgen(js_name = "Act365F")]
-    pub fn act365f() -> DayCount {
-        DayCount { inner: CoreDayCount::Act365F }
-    }
-}
-```
-
-## Complex Type Serialization
-
-### Using Serde for Complex Objects
-
-```rust
-use serde::{Serialize, Deserialize};
-use serde_wasm_bindgen::{to_value, from_value};
-
-#[derive(Serialize, Deserialize)]
-pub struct CashFlowData {
-    date: String,
-    amount: f64,
-    currency: String,
-    kind: String,
-}
-
-#[wasm_bindgen]
-impl FixedRateLeg {
-    /// Return cash flows as JavaScript array
-    #[wasm_bindgen(js_name = "getCashFlows")]
-    pub fn get_cash_flows(&self) -> Result<JsValue, JsValue> {
-        let flows: Vec<CashFlowData> = self.inner
-            .flows()
-            .iter()
-            .map(|cf| CashFlowData {
-                date: cf.date.to_string(),
-                amount: cf.amount.amount(),
-                currency: cf.amount.currency().to_string(),
-                kind: format!("{:?}", cf.kind),
-            })
-            .collect();
-
-        to_value(&flows).map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-}
-```
-
-## Module Initialization
-
-### lib.rs Pattern
-
-```rust
-use wasm_bindgen::prelude::*;
-
-mod utils;
-
-/// Initialize panic hook for better error messages
-#[wasm_bindgen(start)]
-pub fn init() {
-    utils::set_panic_hook();
-}
-
-// Re-export all public types
-pub use currency::Currency;
-pub use money::Money;
-pub use dates::Date;
-
-// Re-export functions with JS-friendly names
-pub use dates::{
-    third_wednesday as thirdWednesday,
-    next_imm as nextImm,
-    next_cds_date as nextCdsDate,
-};
-```
-
-### utils.rs Pattern
-
-```rust
-pub fn set_panic_hook() {
-    // Only include panic hook in debug builds
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-}
-```
-
-## Memory Management
-
-### Avoid Unnecessary Clones
-
-```rust
-#[wasm_bindgen]
-impl Currency {
-    // Good: Return lightweight copy
-    #[wasm_bindgen(getter)]
-    pub fn code(&self) -> String {
-        format!("{}", self.inner)
-    }
-
-    // Avoid: Returning references (not supported by wasm-bindgen)
-    // pub fn code(&self) -> &str { ... }
-}
-```
-
-### Handle Collections Efficiently
-
-```rust
-use js_sys::Array;
-
-#[wasm_bindgen]
-pub fn generate_dates(start: &Date, end: &Date, tenor: Tenor) -> Array {
-    let dates = generate_schedule_internal(start, end, freq);
-
-    let array = Array::new();
-    for date in dates {
-        array.push(&JsValue::from(Date::from_inner(date)));
-    }
-    array
-}
-```
+- Minimize boundary crossings: batch operations where possible.
+- Accept references (`&self`, `&JsMoney`) over owned values.
+- Return lightweight copies (String, f64); wasm-bindgen cannot return `&str`.
+- Use `serde_wasm_bindgen::to_value` for complex objects.
 
 ## Testing
 
-### WASM Test Structure
+- Facade tests: `finstack-wasm/tests/*.test.mjs` (Node test runner)
+- Rust-side tests: `wasm_bindgen_test` in `tests/web.rs`
 
-```rust
-// tests/web.rs
-use wasm_bindgen_test::*;
-use rfin_wasm::{Currency, Money};
+```javascript
+import test from "node:test";
+import assert from "node:assert/strict";
+import init, { core, analytics } from "../index.js";
 
-wasm_bindgen_test_configure!(run_in_browser);
+await init();
 
-#[wasm_bindgen_test]
-fn test_currency_creation() {
-    let currency = Currency::new("USD".to_string()).unwrap();
-    assert_eq!(currency.code(), "USD");
-    assert_eq!(currency.numeric_code(), 840);
-}
-
-#[wasm_bindgen_test]
-fn test_money_arithmetic() {
-    let usd = Currency::new("USD".to_string()).unwrap();
-    let m1 = Money::new(100.0, usd.clone());
-    let m2 = Money::new(50.0, usd);
-
-    let result = m1.add(&m2).unwrap();
-    assert_eq!(result.amount(), 150.0);
-}
+test("core namespace exposes Currency", () => {
+  assert.equal(typeof core.Currency, "function");
+});
 ```
 
-## JavaScript API Design
+## Review Checklist
 
-### Constructor Pattern
-
-```rust
-// Always provide constructors for main types
-#[wasm_bindgen(constructor)]
-pub fn new(/* params */) -> Result<Self, JsValue> {
-    // Implementation
-}
-```
-
-### Method Naming
-
-```rust
-// Use JavaScript conventions
-#[wasm_bindgen(js_name = "toString")]
-pub fn to_string_js(&self) -> String { }
-
-#[wasm_bindgen(js_name = "valueOf")]
-pub fn value_of(&self) -> f64 { }
-
-#[wasm_bindgen(js_name = "toJSON")]
-pub fn to_json(&self) -> Result<JsValue, JsValue> { }
-```
-
-### Optional Parameters
-
-```rust
-use wasm_bindgen::JsValue;
-
-#[wasm_bindgen]
-impl Calculator {
-    #[wasm_bindgen]
-    pub fn calculate(&self, value: f64, options: Option<JsValue>) -> Result<f64, JsValue> {
-        let params = if let Some(opts) = options {
-            // Parse options object
-            parse_options(opts)?
-        } else {
-            // Use defaults
-            Default::default()
-        };
-
-        Ok(self.inner.calculate(value, params))
-    }
-}
-```
-
-## Documentation
-
-### Type Documentation
-
-```rust
-/// Currency representation based on ISO 4217 standards.
-///
-/// A Currency represents a specific currency using the ISO 4217 standard.
-///
-/// @example
-/// ```javascript
-/// const usd = new Currency("USD");
-/// console.log(usd.code); // "USD"
-/// console.log(usd.numericCode); // 840
-/// ```
-#[wasm_bindgen]
-pub struct Currency {
-    // ...
-}
-```
-
-### Method Documentation
-
-```rust
-/// Add two money values.
-///
-/// Both money values must have the same currency.
-///
-/// @param {Money} other - The money value to add
-/// @returns {Money} The sum of the two money values
-/// @throws {Error} If the currencies don't match
-#[wasm_bindgen]
-pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
-    // ...
-}
-```
-
-## Build Configuration
-
-### wasm-pack Settings
-
-```toml
-# Cargo.toml
-[package.metadata.wasm-pack]
-"wasm-pack-plugin" = "0.1"
-
-[features]
-# Include panic hook only in debug builds
-default = ["console_error_panic_hook"]
-console_error_panic_hook = ["dep:console_error_panic_hook"]
-
-# Pass through features to core
-decimal128 = ["rfin-core/decimal128"]
-```
-
-### Build Scripts
-
-```json
-// package.json
-{
-  "scripts": {
-    "build": "wasm-pack build --target web --out-dir pkg",
-    "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
-    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler",
-    "test": "wasm-pack test --chrome --firefox --headless"
-  }
-}
-```
-
-## Performance Guidelines
-
-### Minimize Boundary Crossings
-
-```rust
-// Good: Batch operations
-#[wasm_bindgen]
-pub fn calculate_multiple(values: &[f64]) -> Vec<f64> {
-    values.iter().map(|&v| self.calculate(v)).collect()
-}
-
-// Avoid: Multiple individual calls from JavaScript
-```
-
-### Use References Where Possible
-
-```rust
-// Good: Accept references
-#[wasm_bindgen]
-pub fn compare(&self, other: &Money) -> bool {
-    self.inner == other.inner
-}
-
-// Avoid: Unnecessary ownership transfer
-pub fn compare(self, other: Money) -> bool { }
-```
-
-## Debugging Support
-
-### Console Logging
-
-```rust
-use web_sys::console;
-
-#[wasm_bindgen]
-impl Calculator {
-    #[wasm_bindgen]
-    pub fn debug_state(&self) {
-        console::log_1(&format!("State: {:?}", self.inner).into());
-    }
-}
-```
-
-### Development Features
-
-```rust
-#[cfg(debug_assertions)]
-#[wasm_bindgen]
-impl TypeName {
-    #[wasm_bindgen(js_name = "_debug")]
-    pub fn debug(&self) -> String {
-        format!("{:?}", self.inner)
-    }
-}
-```
+- [ ] Wrapper types use named struct with `pub(crate) inner`.
+- [ ] No `pub use *` glob re-exports in `api/mod.rs`.
+- [ ] Type names match Rust; only documented exceptions (e.g. `FsDate`).
+- [ ] Errors converted to `JsValue`; no `.unwrap()` on user inputs.
+- [ ] Facade JS file updated with new exports.
+- [ ] Tests pass: `node --test tests/*.mjs` and `cargo test -p finstack-wasm`.

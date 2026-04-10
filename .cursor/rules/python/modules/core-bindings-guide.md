@@ -6,60 +6,51 @@ globs:
 
 # Core Bindings Guide — Structure and How to Add New Features
 
-This guide explains the structure of the `finstack-py` core bindings and how to add or extend features while honoring Finstack invariants (determinism, currency‑safety, serde stability).
+This guide explains the structure of the `finstack-py` core bindings and how to add or extend features.
 
 ## Directory Structure
 
-- `finstack-py/src/core/`
-  - `currency.rs`: ISO‑4217 currencies and helpers
-  - `money.rs`: Money wrapper, formatting, arithmetic
-  - `config.rs`: Rounding/scale configuration, `RoundingMode`
-  - `dates/`: business calendars, day‑counts, schedules, IMM, periods, utils
-  - `cashflow/`: cash‑flow primitives/types
-  - `market_data/`: term structures, surfaces, scalars, FX, context
-  - `math/`: integration, solvers, distributions
-  - `error.rs`: standard error mapping
-  - `common/`: shared helpers (args, labels, comparisons, reexports)
-  - `utils.rs`: date conversions to/from Python
-- `finstack-py/src/lib.rs`: registers `core` and other top-level modules
+All core bindings live under `finstack-py/src/bindings/core/`:
+
+```
+finstack-py/src/bindings/core/
+  mod.rs          # register() — registers all core submodules
+  currency.rs     # ISO‑4217 currencies and helpers
+  money.rs        # Money wrapper, formatting, arithmetic
+  dates/          # business calendars, day‑counts, schedules, IMM, periods
+  market_data/    # term structures, surfaces, scalars, FX, context
+  math/           # integration, solvers, distributions
+```
+
+The root entrypoint `finstack-py/src/lib.rs` delegates to `bindings::register_root` which calls `core::register`.
 
 ## Registration Pattern
 
-- Each leaf module defines a `register(py, parent)` function that:
-  - Creates a submodule with `PyModule::new`
-  - Adds classes/functions with docstrings
-  - Returns a list of exported names for re‑export into the parent
-- Aggregator modules (e.g., `dates/mod.rs`, `market_data/mod.rs`) call submodule `register` functions and re‑export symbols onto the parent via a small helper.
+Each leaf module defines a `register(py, parent)` function that:
+- Creates a submodule with `PyModule::new`
+- Adds classes/functions with docstrings
+- Sets `__all__` via `PyList`
+
+Parent modules call submodule `register` functions.
 
 ## Adding a New Core Feature
 
 1. Identify the existing Rust core API (in `finstack/core/...`) you need to expose.
-2. Create a new bindings file under the closest matching module path (e.g., `src/core/market_data/new_feature.rs`).
+2. Create a new bindings file under `src/bindings/core/<matching_module_path>.rs`.
 3. Define Python‑exposed types using PyO3:
    - Use `#[pyclass(module = "finstack.core.<subpath>", name = "PublicName")]` for classes
    - Use `#[pymethods]` and `#[pyfunction]` for methods and free functions
    - Provide `#[pyo3(text_signature = "...")]` for public callables
-4. Parse inputs using shared helpers (`core/common/args.rs`), `normalize_label`, and `py_to_date`.
-5. Map errors using `core_to_py`.
-6. Add a `register` function to create and attach the submodule; return exports for re‑export.
-7. Update the parent `mod.rs` to include the new submodule and re‑export its names.
-8. Add examples to `finstack-py/examples/` and, if appropriate, a notebook cell.
-
-## Conventions and Do/Don’t
-
-- Do mirror core types; avoid inventing Python‑only types unless necessary for ergonomics.
-- Don’t duplicate business logic; call into core and surface results.
-- Do accept ergonomic inputs (e.g., `Currency` or `str` code; enums or snake/kebab labels).
-- Don’t silently coerce incompatible types; raise `TypeError` or `ValueError`.
-- Do keep containers immutable; provide builders (`*Builder`) for fluent mutation.
+   - **Type and function names must match Rust exactly** (e.g. Rust `Date` → Python `Date`, not `FsDate`)
+4. Map errors using `core_to_py` from `errors.rs`.
+5. Add a `register` function to create and attach the submodule.
+6. Update the parent `mod.rs` to include the new submodule and call its `register`.
 
 ## Example Template
 
-Use this minimal template when adding a class wrapper around a core type:
-
 ```rust
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
+use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
 #[pyclass(module = "finstack.core.market_data", name = "NewType", frozen)]
@@ -71,163 +62,39 @@ pub struct PyNewType {
 #[pymethods]
 impl PyNewType {
     #[new]
-    #[pyo3(text_signature = "(id, ...)" )]
-    fn ctor(id: &str /*, ... */) -> PyResult<Self> {
-        // parse args, construct core type; map errors
-        Ok(Self { inner: finstack_core::market_data::NewType::new(id /*, ... */) })
+    #[pyo3(text_signature = "(id)")]
+    fn new(id: &str) -> PyResult<Self> {
+        let inner = finstack_core::market_data::NewType::new(id).map_err(crate::errors::core_to_py)?;
+        Ok(Self { inner })
     }
 
     #[getter]
     fn id(&self) -> String { self.inner.id().to_string() }
 }
 
-pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "new_feature")?;
     module.setattr("__doc__", "New feature from finstack_core::market_data")?;
     module.add_class::<PyNewType>()?;
-    let exports = ["NewType"];
-    module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
+    module.setattr("__all__", PyList::new(py, ["NewType"])?)?;
     parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.setattr("new_feature", &module)?;
+    Ok(())
 }
 ```
 
-## Error Handling and Types
+## Conventions
 
-- Always return `PyResult<...>` and use `?` with `core_to_py(err)`.
-- Use wrapper newtypes to keep core enums/structs private; expose only Python‑friendly views.
-- When returning dates, convert to `datetime.date` with `date_to_py`.
-
-## Documentation
-
-- Add a module `__doc__` string summarizing purpose and provenance.
-- Provide google-style docstrings with Parameters/Returns/Raises/Examples for public APIs.
-- Keep examples small and deterministic; prefer literal values to random data.
-
-## Testing and Verification
-
-- Build locally: `uv run maturin develop --release`.
-- Smoke‑test examples in `finstack-py/examples/scripts/` using `uv run python ...`.
-- If types must round‑trip (`to_tuple`/`from_tuple`), add quick tests in examples.
+- Do mirror Rust types and names exactly; avoid inventing Python‑only types.
+- Don't duplicate business logic; call into Rust crates and surface results.
+- Do accept ergonomic inputs (e.g., `Currency` or `str` code).
+- Don't silently coerce incompatible types; raise `TypeError` or `ValueError`.
+- Do keep containers immutable; provide builders for fluent mutation.
 
 ## Review Checklist
 
 - [ ] Mirrors an existing core API (no new business logic).
-- [ ] Parses inputs via shared helpers; accepts ergonomic labels.
 - [ ] `text_signature` present; docstrings complete.
 - [ ] Errors mapped via `core_to_py`.
-- [ ] Registered and re‑exported under the correct parent.
-- [ ] Examples added and runnable.# Core Bindings Guide — Structure and How to Add New Features
-
-This guide explains the structure of the `finstack-py` core bindings and how to add or extend features while honoring Finstack invariants (determinism, currency‑safety, serde stability).
-
-## Directory Structure
-
-- `finstack-py/src/core/`
-  - `currency.rs`: ISO‑4217 currencies and helpers
-  - `money.rs`: Money wrapper, formatting, arithmetic
-  - `config.rs`: Rounding/scale configuration, `RoundingMode`
-  - `dates/`: business calendars, day‑counts, schedules, IMM, periods, utils
-  - `cashflow/`: cash‑flow primitives/types
-  - `market_data/`: term structures, surfaces, scalars, FX, context
-  - `math/`: integration, solvers, distributions
-  - `error.rs`: standard error mapping
-  - `common/`: shared helpers (args, labels, comparisons, reexports)
-  - `utils.rs`: date conversions to/from Python
-- `finstack-py/src/lib.rs`: registers `core` and other top-level modules
-
-## Registration Pattern
-
-- Each leaf module defines a `register(py, parent)` function that:
-  - Creates a submodule with `PyModule::new`
-  - Adds classes/functions with docstrings
-  - Returns a list of exported names for re‑export into the parent
-- Aggregator modules (e.g., `dates/mod.rs`, `market_data/mod.rs`) call submodule `register` functions and re‑export symbols onto the parent via a small helper.
-
-## Adding a New Core Feature
-
-1. Identify the existing Rust core API (in `finstack/core/...`) you need to expose.
-2. Create a new bindings file under the closest matching module path (e.g., `src/core/market_data/new_feature.rs`).
-3. Define Python‑exposed types using PyO3:
-   - Use `#[pyclass(module = "finstack.core.<subpath>", name = "PublicName")]` for classes
-   - Use `#[pymethods]` and `#[pyfunction]` for methods and free functions
-   - Provide `#[pyo3(text_signature = "...")]` for public callables
-4. Parse inputs using shared helpers (`core/common/args.rs`), `normalize_label`, and `py_to_date`.
-5. Map errors using `core_to_py`.
-6. Add a `register` function to create and attach the submodule; return exports for re‑export.
-7. Update the parent `mod.rs` to include the new submodule and re‑export its names.
-8. Add examples to `finstack-py/examples/` and, if appropriate, a notebook cell.
-
-## Conventions and Do/Don’t
-
-- Do mirror core types; avoid inventing Python‑only types unless necessary for ergonomics.
-- Don’t duplicate business logic; call into core and surface results.
-- Do accept ergonomic inputs (e.g., `Currency` or `str` code; enums or snake/kebab labels).
-- Don’t silently coerce incompatible types; raise `TypeError` or `ValueError`.
-- Do keep containers immutable; provide builders (`*Builder`) for fluent mutation.
-
-## Example Template
-
-Use this minimal template when adding a class wrapper around a core type:
-
-```rust
-use pyo3::prelude::*;
-use pyo3::types::PyModule;
-use pyo3::Bound;
-
-#[pyclass(module = "finstack.core.market_data", name = "NewType", frozen)]
-#[derive(Clone)]
-pub struct PyNewType {
-    pub(crate) inner: finstack_core::market_data::NewType,
-}
-
-#[pymethods]
-impl PyNewType {
-    #[new]
-    #[pyo3(text_signature = "(id, ...)" )]
-    fn ctor(id: &str /*, ... */) -> PyResult<Self> {
-        // parse args, construct core type; map errors
-        Ok(Self { inner: finstack_core::market_data::NewType::new(id /*, ... */) })
-    }
-
-    #[getter]
-    fn id(&self) -> String { self.inner.id().to_string() }
-}
-
-pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "new_feature")?;
-    module.setattr("__doc__", "New feature from finstack_core::market_data")?;
-    module.add_class::<PyNewType>()?;
-    let exports = ["NewType"];
-    module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
-}
-```
-
-## Error Handling and Types
-
-- Always return `PyResult<...>` and use `?` with `core_to_py(err)`.
-- Use wrapper newtypes to keep core enums/structs private; expose only Python‑friendly views.
-- When returning dates, convert to `datetime.date` with `date_to_py`.
-
-## Documentation
-
-- Add a module `__doc__` string summarizing purpose and provenance.
-- Provide docstrings with Parameters/Returns/Raises/Examples for public APIs.
-- Keep examples small and deterministic; prefer literal values to random data.
-
-## Testing and Verification
-
-- Build locally: `uv run maturin develop --release`.
-- Smoke‑test examples in `finstack-py/examples/scripts/` using `uv run python ...`.
-- If types must round‑trip (`to_tuple`/`from_tuple`), add quick tests in examples.
-
-## Review Checklist
-
-- [ ] Mirrors an existing core API (no new business logic).
-- [ ] Parses inputs via shared helpers; accepts ergonomic labels.
-- [ ] `text_signature` present; docstrings complete.
-- [ ] Errors mapped via `core_to_py`.
-- [ ] Registered and re‑exported under the correct parent.
-- [ ] Examples added and runnable.
+- [ ] Registered under `finstack-py/src/bindings/core/`.
+- [ ] Type/function names match Rust exactly.

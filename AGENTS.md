@@ -2,10 +2,12 @@
 
 ## Project Structure
 
-- Multi-crate Rust workspace: `finstack/core`, `finstack/valuations`, `finstack/statements`, `finstack/scenarios`, `finstack/portfolio`
+- Multi-crate Rust workspace: `finstack/core`, `finstack/analytics`, `finstack/valuations`, `finstack/statements`, `finstack/statements-analytics`, `finstack/scenarios`, `finstack/portfolio`, `finstack/margin`, `finstack/correlation`, `finstack/monte_carlo`
 - Python bindings in `finstack-py/` (PyO3); WASM bindings in `finstack-wasm/` (wasm-bindgen)
-- `finstack/core/src` is ~43K lines of Rust; `finstack-py/src` has ~234 Rust binding files
-- `.pyi` stubs in `finstack-py/finstack/` are manually maintained; parity tests under `finstack-py/tests/parity`
+- Python binding Rust code lives under `finstack-py/src/bindings/` (one subdirectory per crate domain)
+- WASM binding Rust code lives under `finstack-wasm/src/api/` with a hand-written JS facade at `finstack-wasm/index.js`
+- `.pyi` stubs in `finstack-py/finstack/` are derived from contract and binding code; parity tests under `finstack-py/tests/parity`
+- Parity contract at repo root: `parity_contract.toml`; design spec at `docs/superpowers/specs/2026-04-10-rust-canonical-api-alignment-design.md`
 - Example notebooks in `finstack-py/examples/notebooks/`; runner script: `run_all_notebooks.py`
 
 ## Build and Tooling
@@ -26,12 +28,14 @@
 
 ## Architecture: Binding Layer
 
-- All logic stays in Rust core crates; Python bindings do only type conversion, wrapper construction, error mapping, and ergonomic helpers
-- WASM bindings must expose identical functionality; any logic in Python must be reimplementable in WASM
+- Rust is the canonical API design. Type and function names in Python/WASM must match Rust exactly (exceptions only for host-language collisions, e.g. WASM `FsDate` for JS `Date`)
+- All logic stays in Rust crates; bindings do only type conversion, wrapper construction, error mapping
+- Python binding tree: `finstack-py/src/bindings/{core,analytics,margin,...}/`; `lib.rs` delegates to `bindings::register_root`
+- WASM binding tree: `finstack-wasm/src/api/{core_ns,analytics,margin,...}/`; public API via `index.js` facade, not raw pkg/
 - Wrapper pattern: `pub(crate) inner: RustType` with `from_inner()` constructor
-- Error handling: centralized `map_error()` / `core_to_py()` in `errors.rs`; never use `.unwrap()` or `.expect()` in non-test binding code
-- Module registration: every submodule sets `__all__` and `__doc__`; uses consistent `register()` function pattern
-- Builder pattern: fluent chaining (e.g., `Builder.builder(id).field(val).build()`)
+- Error handling: centralized `core_to_py()` in `errors.rs` (Python), `JsValue::from_str` (WASM); never use `.unwrap()` or `.expect()` in non-test binding code
+- Module registration: every submodule sets `__all__` via `PyList` in `register()`; no dynamic export discovery
+- Builder pattern: fluent chaining (e.g., `Type.builder(id).field(val).build()`)
 
 ## API Conventions
 

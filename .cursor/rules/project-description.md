@@ -23,23 +23,29 @@ Finstack aims to provide:
 
 ```
 Workspace (meta‑crate: finstack)
-┌────────────────────┐
-│   finstack (meta)  │  -> re‑exports subcrates via features
-└─────────┬──────────┘
-          │
- ┌────────┴───────────────────────────────────────────────────────────────────────────────────────┐
- │ Subcrates                                                                                      │
- │                                                                                                │
- │  core              ← primitives: types, money/fx, time (periods/calendars/day‑count),          │
- │                       expression engine, validation, config, errors; Polars re‑exports         │
- │  statements        ← model graph (Value > Forecast > Formula), vectorized evaluation           │
- │  valuations        ← cashflows, pricing, risk, period aggregation (currency‑preserving)        │
- │  scenarios         ← deterministic DSL + preview; adapters for market/statements/valuations    │
- │  portfolio         ← entities/positions/books; base‑currency rollups with explicit FX          │
- │  io                ← CSV/Parquet/Arrow interop (optional; schema‑stable)                       │
- │  py                ← Python bindings (PyO3 + Pydantic v2)                                      │
- │  wasm              ← WASM bindings (wasm‑bindgen + serde_wasm_bindgen)                         │
- └────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────┐
+│    finstack (meta)   │  -> re‑exports subcrates via features
+└──────────┬───────────┘
+           │
+ ┌─────────┴──────────────────────────────────────────────────────────────────────────────────┐
+ │ Subcrates (10 canonical crate domains)                                                      │
+ │                                                                                             │
+ │  core                 ← primitives: types, money/fx, time, expression engine, config        │
+ │  analytics            ← risk metrics (sharpe, drawdown), portfolio analytics                 │
+ │  valuations           ← cashflows, pricing, risk, period aggregation                        │
+ │  statements           ← model graph (Value > Forecast > Formula), vectorized evaluation     │
+ │  statements‑analytics ← credit covenants, alignment, reporting                              │
+ │  scenarios            ← deterministic DSL + preview; adapters for market/statements         │
+ │  portfolio            ← entities/positions/books; base‑currency rollups with FX             │
+ │  margin               ← CSA specs, VM/IM calculators, netting                               │
+ │  correlation          ← copulas, correlation matrices, factor structures                    │
+ │  monte_carlo          ← simulation engine, time grids, RNG, path capture                    │
+ │                                                                                             │
+ │ Supporting crates                                                                           │
+ │  io                   ← CSV/Parquet/Arrow interop (optional; schema‑stable)                 │
+ │  finstack‑py          ← Python bindings (PyO3); src/bindings/ mirrors crate tree            │
+ │  finstack‑wasm        ← WASM bindings (wasm‑bindgen); src/api/ + JS facade                  │
+ └─────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Cross‑Cutting Invariants
@@ -54,20 +60,29 @@ Workspace (meta‑crate: finstack)
 ## Core Responsibilities (by crate)
 
 - **core**: `Amount`, `Currency`, `Rate`; FX interfaces (`FxProvider`, `FxMatrix`); periods/calendars/day‑count; expression engine (with Polars lowering); validation; config (rounding/scale); errors; Polars re‑exports.
+- **analytics**: Risk metrics (`sharpe`, `max_drawdown`), portfolio analytics functions.
+- **valuations**: Instrument cashflows, pricing, risk; currency‑preserving period aggregation; explicit FX collapse with policy stamping; private‑credit and real‑estate readiness.
 - **statements**: Deterministic period evaluation with precedence: **Value > Forecast > Formula**; corkscrew schedules; optional balance‑sheet articulation; long/wide DataFrame exports.
-- **valuations**: Instrument cashflows, pricing, risk; currency‑preserving period aggregation; explicit FX collapse with policy stamping; private‑credit and real‑estate readiness (fees, covenants, construction loans, equity waterfalls).
+- **statements‑analytics**: Credit covenant forecasting, alignment analysis, reporting utilities.
 - **scenarios**: DSL with quoting, selectors, and globs; deterministic preview/composition; phase‑ordered execution with precise cache invalidation.
 - **portfolio**: Positions/books, period alignment, and deterministic aggregation to base currency with explicit FX.
+- **margin**: CSA specifications, VM/IM calculators, netting sets, ISDA SIMM.
+- **correlation**: Gaussian copula, correlation matrices, factor model structures.
+- **monte_carlo**: Simulation engine, time grids, PhiloxRng, path capture, pricing evaluation.
 
 ## Language Bindings
 
 ### Python (finstack‑py)
 
-- Wheels for major OSes; Pydantic v2 models mirror serde shapes; heavy compute releases the GIL; DataFrame‑friendly outputs.
+- Wheels for major OSes; heavy compute releases the GIL; DataFrame‑friendly outputs.
+- Binding Rust code under `finstack-py/src/bindings/` mirrors the 10 crate domains exactly.
+- Names match Rust (e.g. `Date`, `sharpe`); no legacy aliases.
 
 ### WebAssembly (finstack‑wasm)
 
 - Browser/Node support; JSON IO parity with serde; feature flags for tree‑shaking and small bundles.
+- Binding Rust code under `finstack-wasm/src/api/` with a hand-written JS facade at `index.js`.
+- Public API is accessed via crate-domain namespaces (e.g. `core.Currency`, `analytics.sharpe`).
 
 ## Key Features
 
