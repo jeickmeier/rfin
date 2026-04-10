@@ -12,7 +12,7 @@ def test_instrument_schema_returns_dedicated_schema_when_available() -> None:
     schema = instrument_schema("bond")
 
     assert schema["title"] == "Bond"
-    assert schema["$id"] == "https://finstack.dev/schemas/instrument/1/bond.schema.json"
+    assert schema["$id"] == "https://finstack.dev/schemas/instrument/1/fixed_income/bond.schema.json"
     assert schema == bond_schema()
 
 
@@ -20,7 +20,8 @@ def test_instrument_schema_returns_fallback_for_missing_dedicated_schema() -> No
     schema = instrument_schema("cms_swap")
 
     assert schema["properties"]["instrument"]["properties"]["type"]["const"] == "cms_swap"
-    assert "Dedicated schema is not yet available" in schema["description"]
+    assert schema["$id"] == "https://finstack.dev/schemas/instrument/1/rates/cms_swap.schema.json"
+    assert "Constant maturity swap" in schema["description"]
 
 
 def test_instrument_schema_without_argument_returns_envelope() -> None:

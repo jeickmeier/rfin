@@ -31,10 +31,10 @@ def build_fund_definition() -> str:
         "id": "PMF-CORE-EQ",
         "currency": "USD",
         "discount_curve_id": "USD-OIS",
-        "spec": {
+        "waterfall_spec": {
             "style": "european",
             "catchup_mode": "full",
-            "irr_basis": "act_365f",
+            "irr_basis": "Act365F",
             "tranches": [
                 "return_of_capital",
                 {"preferred_irr": {"irr": 0.08}},
@@ -78,7 +78,7 @@ def build_fund_definition() -> str:
             },
         ],
     }
-    return json.dumps(fund)
+    return json.dumps({"type": "private_markets_fund", "spec": fund})
 
 
 def main() -> None:

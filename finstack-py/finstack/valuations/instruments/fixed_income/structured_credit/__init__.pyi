@@ -74,6 +74,7 @@ class StructuredCredit:
 
         >>> from finstack.valuations.instruments import StructuredCredit
         >>> import json
+        >>> # ... more code: see examples/structured_credit_capabilities.py for a fully validated tagged payload
         >>> # StructuredCredit requires complex JSON - see examples/structured_credit_capabilities.py
         >>> # for complete examples. Minimal example:
         >>> json_data = {
@@ -175,7 +176,8 @@ class StructuredCredit:
         ...         "recovery_by_asset_type": {},
         ...     },
         ... }
-        >>> structured_credit = StructuredCredit.from_json(json.dumps(json_data))
+        >>> tagged_payload = {"type": "structured_credit", "spec": json_data}
+        >>> structured_credit = StructuredCredit.from_json(json.dumps(tagged_payload))
 
     Notes
     -----
@@ -233,8 +235,9 @@ class StructuredCredit:
 
         Examples
         --------
-            >>> json_str = '{"deal_type": "CLO", "tranches": [...]}'
-            >>> structured_credit = StructuredCredit.from_json(json_str)
+            >>> # ... more code: see the class-level example for a complete tagged payload
+            >>> tagged_payload = {"type": "structured_credit", "spec": full_structured_credit_spec}
+            >>> structured_credit = StructuredCredit.from_json(tagged_payload)
             >>> structured_credit.deal_type
             'CLO'
         """

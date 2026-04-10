@@ -250,7 +250,7 @@ class TestCalibrationRoundtrips:
                 "currency": "USD",
                 "base_date": "2024-01-02",
                 "conventions": {
-                    "curve_day_count": "act365f",
+                    "curve_day_count": "Act365F",
                 },
             }
         ]

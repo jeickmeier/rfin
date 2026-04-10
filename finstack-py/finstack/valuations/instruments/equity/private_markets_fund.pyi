@@ -25,6 +25,7 @@ class PrivateMarketsFund:
 
         >>> from finstack.valuations.instruments import PrivateMarketsFund
         >>> import json
+        >>> # ... more code: see the integration examples for a fully validated tagged payload
         >>> # PrivateMarketsFund requires complex JSON with spec and events
         >>> # Minimal example (may need additional fields):
         >>> json_data = {
@@ -53,7 +54,8 @@ class PrivateMarketsFund:
         ...     ],
         ...     "attributes": {"tags": [], "meta": {}},
         ... }
-        >>> fund = PrivateMarketsFund.from_json(json.dumps(json_data))
+        >>> tagged_payload = {"type": "private_markets_fund", "spec": json_data}
+        >>> fund = PrivateMarketsFund.from_json(json.dumps(tagged_payload))
         >>> schedule = fund.cashflow_schedule(market, date(2024, 1, 2))
 
     Notes

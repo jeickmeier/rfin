@@ -69,7 +69,7 @@ def build_basket_definition() -> str:
         },
         "attributes": {"meta": {}, "tags": []},
     }
-    return json.dumps(basket)
+    return json.dumps({"type": "basket", "spec": basket})
 
 
 def main() -> None:

@@ -155,9 +155,9 @@ def test_matching_config_supports_mapping_cascade_and_hierarchical() -> None:
         )
     )
 
-    assert "mapping_table" in mapping.to_json()
-    assert "cascade" in cascade.to_json()
-    assert "hierarchical" in hierarchical.to_json()
+    assert "MappingTable" in mapping.to_json()
+    assert "Cascade" in cascade.to_json()
+    assert "Hierarchical" in hierarchical.to_json()
 
 
 def test_factor_model_analysis_and_assignment_flow() -> None:

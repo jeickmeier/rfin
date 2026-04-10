@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
+import finstack
 
 if TYPE_CHECKING:
     from finstack.analytics import Performance
@@ -84,7 +85,7 @@ class TestPerformanceConstruction:
             "date": [date(2024, 1, 1), date(2024, 1, 2)],
             "A": [-100.0, -90.0],
         }).with_columns(pl.col("date").cast(pl.Date))
-        with pytest.raises(ValueError, match="Invalid input data"):
+        with pytest.raises((ValueError, finstack.ParameterError), match="Invalid input data"):
             Performance(df, freq="daily", log_returns=False)
 
     def test_non_finite_simple_return_prices_rejected(self) -> None:
@@ -94,7 +95,7 @@ class TestPerformanceConstruction:
             "date": [date(2024, 1, 1), date(2024, 1, 2)],
             "A": [float("inf"), 101.0],
         }).with_columns(pl.col("date").cast(pl.Date))
-        with pytest.raises(ValueError, match="Invalid input data"):
+        with pytest.raises((ValueError, finstack.ParameterError), match="Invalid input data"):
             Performance(df, freq="daily", log_returns=False)
 
 

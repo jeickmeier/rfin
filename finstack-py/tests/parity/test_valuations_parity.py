@@ -185,7 +185,7 @@ class TestCalibrationDiagnosticsParity:
                 "currency": "USD",
                 "base_date": "2024-01-02",
                 "conventions": {
-                    "curve_day_count": "act365f",
+                    "curve_day_count": "Act365F",
                 },
             }
         ]
@@ -262,7 +262,7 @@ class TestDiscountedCashFlowParity:
             )
         )
 
-        result = standard_registry().get_price(dcf, "discounting", market, date(2025, 1, 1))
+        result = standard_registry().price(dcf, "discounting", market, date(2025, 1, 1))
 
         assert dcf.instrument_id == "DCF-001"
         assert dcf.terminal_value.name == "gordon_growth"
@@ -797,7 +797,9 @@ class TestValuationsRootParity:
         # Price with metrics
         registry = standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm"]
-        result = registry.price_with_metrics(bond, "discounting", market, metric_keys, date(2024, 1, 1))
+        result = registry.price_with_metrics(
+            bond, "discounting", market, date(2024, 1, 1), metrics=metric_keys
+        )
 
         # Should have base value
         assert result.value.amount > 0
@@ -1070,7 +1072,9 @@ class TestMetricsParity:
 
         registry = standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm", "duration_mod", "dv01"]
-        result = registry.price_with_metrics(bond, "discounting", market, metric_keys, date(2024, 1, 1))
+        result = registry.price_with_metrics(
+            bond, "discounting", market, date(2024, 1, 1), metrics=metric_keys
+        )
 
         # Should have value
         assert result.value.amount > 0

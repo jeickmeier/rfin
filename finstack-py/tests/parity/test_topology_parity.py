@@ -8,8 +8,8 @@ These tests verify structural placement, not behavioral correctness:
   - test_alias_paths_resolvable: all alias old-paths are structurally resolvable.
   - test_no_leaked_helpers_in_all: packages with explicit __all__ contain no private names.
 
-Items declared with status="missing" in the contract are expected to fail (xfail).
-They will progressively be removed as Waves 2-4 land.
+Items declared with status="missing" in the contract are roadmap placeholders,
+not current Python API obligations, so they are excluded from this test file.
 """
 
 from __future__ import annotations
@@ -62,23 +62,23 @@ def _module_exists(python_module: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _root_package_cases() -> list[tuple[str, str, str]]:
-    """Return (crate_key, python_package, declared_status) tuples."""
+def _root_package_cases() -> list[tuple[str, str]]:
+    """Return (crate_key, python_package) tuples for current packages only."""
     contract = _load_contract()
     cases = []
     for crate_key, crate_cfg in contract.get("crates", {}).items():
         python_package = crate_cfg.get("python_package", "")
         status = crate_cfg.get("status", "unknown")
-        cases.append((crate_key, python_package, status))
+        if status == "missing":
+            continue
+        cases.append((crate_key, python_package))
     return cases
 
 
-@pytest.mark.parametrize(("crate_key", "python_package", "declared_status"), _root_package_cases())
-def test_all_crates_have_python_packages(crate_key: str, python_package: str, declared_status: str) -> None:
+@pytest.mark.parametrize(("crate_key", "python_package"), _root_package_cases())
+def test_all_crates_have_python_packages(crate_key: str, python_package: str) -> None:
     """Each crate in the contract must have a corresponding Python package."""
     present = _package_exists(python_package)
-    if declared_status == "missing":
-        pytest.xfail(reason=f"Wave 2: {python_package} (crate: {crate_key}) is a planned new package")
     assert present, (
         f"Python package '{python_package}' (crate: {crate_key}) does not exist. "
         f"Expected one of: {python_package.replace('.', '/')}/__init__.py or __init__.pyi"
@@ -90,24 +90,24 @@ def test_all_crates_have_python_packages(crate_key: str, python_package: str, de
 # ---------------------------------------------------------------------------
 
 
-def _module_cases() -> list[tuple[str, str, str, str]]:
-    """Return (crate_key, module_key, python_module, declared_status) tuples."""
+def _module_cases() -> list[tuple[str, str, str]]:
+    """Return (crate_key, module_key, python_module) tuples for current modules only."""
     contract = _load_contract()
     cases = []
     for crate_key, crate_cfg in contract.get("crates", {}).items():
         for mod_key, mod_cfg in crate_cfg.get("modules", {}).items():
             python_module = mod_cfg.get("python", "")
             status = mod_cfg.get("status", "unknown")
-            cases.append((crate_key, mod_key, python_module, status))
+            if status == "missing":
+                continue
+            cases.append((crate_key, mod_key, python_module))
     return cases
 
 
-@pytest.mark.parametrize(("crate_key", "module_key", "python_module", "declared_status"), _module_cases())
-def test_all_modules_exist(crate_key: str, module_key: str, python_module: str, declared_status: str) -> None:
+@pytest.mark.parametrize(("crate_key", "module_key", "python_module"), _module_cases())
+def test_all_modules_exist(crate_key: str, module_key: str, python_module: str) -> None:
     """Each module listed in the contract must exist as a Python package or module file."""
     present = _module_exists(python_module)
-    if declared_status == "missing":
-        pytest.xfail(reason=f"Wave 2/3: {python_module} (crate: {crate_key}, key: {module_key}) is a planned module")
     assert present, f"Python module '{python_module}' (crate: {crate_key}, key: {module_key}) does not exist."
 
 

@@ -18,7 +18,7 @@ def test_attribution_from_json_minimal() -> None:
                 "spec": {
                     "id": "TEST-BOND",
                     "notional": {"amount": "1000000", "currency": "USD"},
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2029-01-01",
                     "cashflow_spec": {
                         "Fixed": {
@@ -90,7 +90,7 @@ def test_attribution_from_json_with_waterfall() -> None:
                 "spec": {
                     "id": "WATERFALL-BOND",
                     "notional": {"amount": "1000000", "currency": "USD"},
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2029-01-01",
                     "cashflow_spec": {
                         "Fixed": {
@@ -159,7 +159,7 @@ def test_attribution_from_json_with_config() -> None:
                 "spec": {
                     "id": "CONFIG-BOND",
                     "notional": {"amount": "1000000", "currency": "USD"},
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2029-01-01",
                     "cashflow_spec": {
                         "Fixed": {

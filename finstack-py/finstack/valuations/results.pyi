@@ -311,7 +311,7 @@ class ValuationResult:
         ...     .disc_id("USD")
         ...     .build()
         ... )
-        >>> result = registry.price_with_metrics(bond, "discounting", market_ctx, ["dv01", "ytm"], date(2024, 1, 1))
+        >>> result = registry.price_with_metrics(bond, "discounting", market_ctx, date(2024, 1, 1), metrics=["dv01", "ytm"])
         >>> sorted(result.measures.keys())
         ['dv01', 'ytm']
 
@@ -593,7 +593,7 @@ class ValuationResult:
             ...         .disc_id("USD")
             ...         .build()
             ...     )
-            ...     return registry.price_with_metrics(bond, "discounting", ctx, ["dv01", "ytm"], date(2024, 1, 1))
+            ...     return registry.price_with_metrics(bond, "discounting", ctx, date(2024, 1, 1), metrics=["dv01", "ytm"])
             >>> sorted(_metrics_result().measures.keys())
             ['dv01', 'ytm']
 

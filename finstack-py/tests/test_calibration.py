@@ -200,7 +200,7 @@ def test_simple_calibration_flow_and_report() -> None:
             "currency": "USD",
             "base_date": "2024-01-02",
             "conventions": {
-                "curve_day_count": "act365f",
+                "curve_day_count": "Act365F",
             },
         }
     ]
@@ -261,7 +261,7 @@ def test_calibration_forward_step() -> None:
             "tenor_years": 0.25,
             "discount_curve_id": "USD-OIS",
             "conventions": {
-                "curve_day_count": "act365f",
+                "curve_day_count": "Act365F",
             },
         }
     ]
@@ -458,7 +458,7 @@ def test_calibration_vol_surface_step() -> None:
             "currency": "USD",
             "base_date": "2024-01-02",
             "discount_curve_id": "USD-OIS",
-            "fixed_day_count": "act_365f",
+            "fixed_day_count": "Act365F",
         }
     ]
 

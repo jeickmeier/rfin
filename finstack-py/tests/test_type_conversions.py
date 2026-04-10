@@ -171,7 +171,7 @@ class TestInterpolationConversions:
 
     def test_invalid_interp_raises_error(self) -> None:
         """Invalid interpolation style should raise ValueError."""
-        with pytest.raises(ValueError, match="Unknown interpolation"):
+        with pytest.raises(ValueError, match="unknown InterpStyle"):
             DiscountCurve(
                 "INVALID",
                 dt.date(2024, 1, 2),
@@ -258,7 +258,7 @@ class TestNoneAndOptionalHandling:
                 "currency": "USD",
                 "base_date": "2024-01-02",
                 "conventions": {
-                    "curve_day_count": "act365f",
+                    "curve_day_count": "Act365F",
                 },
             }
         ]

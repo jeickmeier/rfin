@@ -178,6 +178,7 @@ class RevolvingCredit:
     Create a revolving credit from JSON:
 
         >>> from finstack.valuations.instruments import RevolvingCredit
+        >>> # ... more code: see the integration examples for a fully validated tagged payload
         >>> json_str = '''
         ... {
         ...     "id": "REVOLVER-001",
@@ -194,7 +195,8 @@ class RevolvingCredit:
         ...     "attributes": {"tags": [], "meta": {}}
         ... }
         ... '''
-        >>> revolver = RevolvingCredit.from_json(json_str)
+        >>> tagged_payload = {"type": "revolving_credit", "spec": json.loads(json_str)}
+        >>> revolver = RevolvingCredit.from_json(json.dumps(tagged_payload))
         >>> revolver.utilization_rate()  # 0.4 (20M / 50M)
 
     Create using the typed builder:
