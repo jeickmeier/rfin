@@ -1,0 +1,812 @@
+use super::*;
+use crate::paths::{CashflowType, ProcessParams};
+use crate::results::MonteCarloResult;
+use crate::time_grid::TimeGrid;
+use crate::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
+
+// Dummy implementations for testing
+#[derive(Clone)]
+struct DummyRng;
+impl RandomStream for DummyRng {
+    fn split(&self, _id: u64) -> Self {
+        DummyRng
+    }
+    fn fill_u01(&mut self, out: &mut [f64]) {
+        for x in out {
+            *x = 0.5;
+        }
+    }
+    fn fill_std_normals(&mut self, out: &mut [f64]) {
+        for x in out {
+            *x = 0.0;
+        }
+    }
+}
+
+#[derive(Clone)]
+struct PathIndexedRng {
+    path_id: u64,
+}
+
+impl PathIndexedRng {
+    fn root() -> Self {
+        Self { path_id: 0 }
+    }
+}
+
+impl RandomStream for PathIndexedRng {
+    fn split(&self, stream_id: u64) -> Self {
+        Self { path_id: stream_id }
+    }
+
+    fn fill_u01(&mut self, out: &mut [f64]) {
+        let value = (self.path_id + 1) as f64 / 8.0;
+        for x in out {
+            *x = value;
+        }
+    }
+
+    fn fill_std_normals(&mut self, out: &mut [f64]) {
+        for x in out {
+            *x = 0.0;
+        }
+    }
+}
+
+struct DummyProcess;
+impl StochasticProcess for DummyProcess {
+    fn dim(&self) -> usize {
+        1
+    }
+    fn drift(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
+        out[0] = 0.0;
+    }
+    fn diffusion(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
+        out[0] = 0.1;
+    }
+}
+
+struct DummyDisc;
+impl Discretization<DummyProcess> for DummyDisc {
+    fn step(
+        &self,
+        _process: &DummyProcess,
+        _t: f64,
+        _dt: f64,
+        _x: &mut [f64],
+        _z: &[f64],
+        _work: &mut [f64],
+    ) {
+        // Just keep state constant
+    }
+}
+
+#[derive(Clone)]
+struct DummyPayoff;
+impl Payoff for DummyPayoff {
+    fn on_event(&mut self, _state: &mut PathState) {}
+    fn value(&self, currency: Currency) -> Money {
+        Money::new(100.0, currency)
+    }
+    fn reset(&mut self) {}
+}
+
+#[derive(Clone, Default)]
+struct PathStartPayoff {
+    start_uniform: Option<f64>,
+}
+
+impl Payoff for PathStartPayoff {
+    fn on_path_start<R: RandomStream>(&mut self, rng: &mut R) {
+        self.start_uniform = Some(rng.next_u01());
+    }
+
+    fn on_event(&mut self, _state: &mut PathState) {}
+
+    fn value(&self, currency: Currency) -> Money {
+        Money::new(self.start_uniform.unwrap_or(-1.0), currency)
+    }
+
+    fn reset(&mut self) {
+        self.start_uniform = None;
+    }
+}
+
+#[derive(Clone, Default)]
+struct CapturedValuePayoff {
+    value: Option<f64>,
+}
+
+impl Payoff for CapturedValuePayoff {
+    fn on_path_start<R: RandomStream>(&mut self, rng: &mut R) {
+        self.value = Some(rng.next_u01());
+    }
+
+    fn on_event(&mut self, _state: &mut PathState) {}
+
+    fn value(&self, currency: Currency) -> Money {
+        Money::new(self.value.unwrap_or_default(), currency)
+    }
+
+    fn reset(&mut self) {
+        self.value = None;
+    }
+}
+
+#[derive(Clone)]
+struct InitialCashflowPayoff {
+    value: f64,
+}
+
+impl Payoff for InitialCashflowPayoff {
+    fn on_event(&mut self, state: &mut PathState) {
+        if state.step == 0 {
+            state.add_cashflow(state.time, self.value);
+        }
+    }
+
+    fn value(&self, currency: Currency) -> Money {
+        Money::new(self.value, currency)
+    }
+
+    fn reset(&mut self) {}
+}
+
+#[derive(Clone, Default)]
+struct RecurringCashflowPayoff;
+
+impl Payoff for RecurringCashflowPayoff {
+    fn on_event(&mut self, state: &mut PathState) {
+        state.add_typed_cashflow(state.time, state.step as f64 + 1.0, CashflowType::Interest);
+    }
+
+    fn value(&self, currency: Currency) -> Money {
+        Money::new(0.0, currency)
+    }
+
+    fn reset(&mut self) {}
+}
+
+#[test]
+fn test_engine_builder() {
+    let engine = McEngine::builder()
+        .num_paths(1000)
+        .seed(42)
+        .uniform_grid(1.0, 100)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    assert_eq!(engine.config().num_paths, 1000);
+    assert_eq!(engine.config().seed, 42);
+}
+
+#[test]
+fn test_basic_pricing() {
+    let engine = McEngine::builder()
+        .num_paths(100)
+        .uniform_grid(1.0, 10)
+        .parallel(false)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let rng = DummyRng;
+    let process = DummyProcess;
+    let disc = DummyDisc;
+    let initial_state = vec![100.0];
+    let payoff = DummyPayoff;
+
+    let result = engine
+        .price(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect("should succeed");
+
+    assert_eq!(result.mean.amount(), 100.0);
+    assert_eq!(result.num_paths, 100);
+}
+
+#[test]
+#[cfg(feature = "parallel")]
+fn test_parallel_execution_error_propagation() {
+    // Test that parallel execution properly propagates errors instead of panicking.
+    // The key change is that we replaced .expect() with ? operator, which ensures
+    // errors are propagated via Result rather than panicking.
+    //
+    // This test verifies that:
+    // 1. Parallel execution works correctly for valid inputs
+    // 2. Error handling mechanism is in place (verified by compilation - ? operator
+    //    requires Result return type)
+
+    let engine = McEngine::builder()
+        .num_paths(100)
+        .uniform_grid(1.0, 10)
+        .parallel(true)
+        .chunk_size(50)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let rng = DummyRng;
+    let process = DummyProcess;
+    let disc = DummyDisc;
+    let initial_state = vec![100.0];
+    let payoff = DummyPayoff;
+
+    // Valid input should work
+    let result = engine.price(
+        &rng,
+        &process,
+        &disc,
+        &initial_state,
+        &payoff,
+        Currency::USD,
+        1.0,
+    );
+
+    assert!(result.is_ok());
+    let estimate = result.expect("MC pricing should succeed in test");
+    assert_eq!(estimate.num_paths, 100);
+
+    // Note: Testing actual error scenarios would require extensive mocking
+    // of simulate_path. The important change is that errors are now propagated
+    // via Result instead of panicking (verified by ? operator usage).
+}
+
+#[test]
+fn test_serial_vs_parallel_consistency() {
+    // Test that serial and parallel paths produce consistent results
+    let engine_serial = McEngine::builder()
+        .num_paths(1000)
+        .uniform_grid(1.0, 10)
+        .seed(42)
+        .parallel(false)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    #[cfg(feature = "parallel")]
+    let engine_parallel = McEngine::builder()
+        .num_paths(1000)
+        .uniform_grid(1.0, 10)
+        .seed(42)
+        .parallel(true)
+        .chunk_size(200)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let rng_serial = DummyRng;
+    #[cfg(feature = "parallel")]
+    let rng_parallel = DummyRng;
+    let process = DummyProcess;
+    let disc = DummyDisc;
+    let initial_state = vec![100.0];
+    let payoff = DummyPayoff;
+
+    let serial_result = engine_serial
+        .price(
+            &rng_serial,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect("should succeed");
+
+    #[cfg(feature = "parallel")]
+    let parallel_result = engine_parallel
+        .price(
+            &rng_parallel,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect("should succeed");
+
+    // Both should succeed and produce same results (deterministic RNG)
+    assert_eq!(serial_result.num_paths, 1000);
+    #[cfg(feature = "parallel")]
+    assert_eq!(parallel_result.num_paths, 1000);
+    #[cfg(feature = "parallel")]
+    assert_eq!(serial_result.mean.amount(), parallel_result.mean.amount());
+}
+
+/// A minimal RNG that declares it does not support splitting (mimicking SobolRng).
+#[derive(Clone)]
+struct NonSplittableRng;
+impl RandomStream for NonSplittableRng {
+    fn split(&self, _id: u64) -> Self {
+        NonSplittableRng
+    }
+    fn fill_u01(&mut self, out: &mut [f64]) {
+        for x in out {
+            *x = 0.5;
+        }
+    }
+    fn fill_std_normals(&mut self, out: &mut [f64]) {
+        for x in out {
+            *x = 0.0;
+        }
+    }
+    fn supports_splitting(&self) -> bool {
+        false
+    }
+}
+
+#[test]
+fn test_parallel_with_non_splittable_rng_returns_error() {
+    // Guard: McEngine::price() must return Err when use_parallel=true and
+    // rng.supports_splitting() == false.
+    let engine = McEngine::builder()
+        .num_paths(100)
+        .uniform_grid(1.0, 10)
+        .parallel(true)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let rng = NonSplittableRng;
+    let process = DummyProcess;
+    let disc = DummyDisc;
+    let initial_state = vec![100.0];
+    let payoff = DummyPayoff;
+
+    let result = engine.price(
+        &rng,
+        &process,
+        &disc,
+        &initial_state,
+        &payoff,
+        Currency::USD,
+        1.0,
+    );
+
+    // When the parallel feature is enabled this must be an Err; when it is
+    // disabled the engine falls back to serial, so the guard is never
+    // reached and the call succeeds.
+    #[cfg(feature = "parallel")]
+    {
+        assert!(
+            result.is_err(),
+            "Expected Err for parallel + non-splittable RNG, got Ok"
+        );
+        let err = result.expect_err("parallel + non-splittable RNG should return an error");
+        let err_str = err.to_string();
+        assert!(
+            err_str.contains("splittable RNG"),
+            "Error message should mention splittable RNG, got: {err_str}"
+        );
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        // Serial fallback — guard never fires
+        assert!(result.is_ok());
+    }
+}
+
+#[test]
+fn test_price_with_capture_parallel_non_splittable_returns_error() {
+    // Same guard must fire in price_with_capture().
+    let engine = McEngine::builder()
+        .num_paths(100)
+        .uniform_grid(1.0, 10)
+        .parallel(true)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let rng = NonSplittableRng;
+    let process = DummyProcess;
+    let disc = DummyDisc;
+    let initial_state = vec![100.0];
+    let payoff = DummyPayoff;
+    let params = ProcessParams::new("test");
+
+    let result = engine.price_with_capture(
+        &rng,
+        &process,
+        &disc,
+        &initial_state,
+        &payoff,
+        Currency::USD,
+        1.0,
+        params,
+    );
+
+    #[cfg(feature = "parallel")]
+    {
+        assert!(
+            result.is_err(),
+            "Expected Err for parallel + non-splittable RNG in price_with_capture, got Ok"
+        );
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        assert!(result.is_ok());
+    }
+}
+
+#[test]
+fn test_on_path_start_state_survives_into_simulation() {
+    let engine = McEngine::builder()
+        .num_paths(1)
+        .uniform_grid(1.0, 1)
+        .parallel(false)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let result = engine
+        .price(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &PathStartPayoff::default(),
+            Currency::USD,
+            1.0,
+        )
+        .expect("pricing should succeed");
+
+    assert_eq!(result.mean.amount(), 0.5);
+}
+
+#[test]
+fn test_price_rejects_zero_paths() {
+    let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 0,
+        seed: 42,
+        time_grid,
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1,
+        path_capture: PathCaptureConfig::disabled(),
+        antithetic: false,
+    });
+
+    let err = engine
+        .price(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect_err("zero-path configuration should be rejected");
+
+    assert!(err.to_string().contains("num_paths"));
+}
+
+#[test]
+fn test_price_rejects_zero_chunk_size() {
+    let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 10,
+        seed: 42,
+        time_grid,
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 0,
+        path_capture: PathCaptureConfig::disabled(),
+        antithetic: false,
+    });
+
+    let err = engine
+        .price(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect_err("zero chunk size should be rejected");
+
+    assert!(err.to_string().contains("chunk_size"));
+}
+
+#[test]
+fn test_price_rejects_initial_state_dimension_mismatch() {
+    let engine = McEngine::builder()
+        .num_paths(10)
+        .uniform_grid(1.0, 1)
+        .parallel(false)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let err = engine
+        .price(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect_err("state dimension mismatch should be rejected");
+
+    assert!(err.to_string().contains("initial_state"));
+}
+
+#[test]
+fn test_price_with_capture_rejects_invalid_sample_count() {
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 10,
+        seed: 42,
+        time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1,
+        path_capture: PathCaptureConfig::sample(0, 99),
+        antithetic: false,
+    });
+
+    let err = engine
+        .price_with_capture(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect_err("zero sample count should be rejected");
+
+    assert!(err.to_string().contains("sample"));
+}
+
+#[test]
+fn test_price_with_capture_rejects_antithetic_capture_combination() {
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 10,
+        seed: 42,
+        time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1,
+        path_capture: PathCaptureConfig::all(),
+        antithetic: true,
+    });
+
+    let err = engine
+        .price_with_capture(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect_err("antithetic + path capture should be rejected");
+
+    assert!(err.to_string().contains("antithetic"));
+}
+
+#[test]
+fn test_price_rejects_parallel_auto_stop_configuration() {
+    let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 10,
+        seed: 42,
+        time_grid,
+        target_ci_half_width: Some(0.01),
+        use_parallel: true,
+        chunk_size: 2,
+        path_capture: PathCaptureConfig::disabled(),
+        antithetic: false,
+    });
+
+    let result = engine.price(
+        &DummyRng,
+        &DummyProcess,
+        &DummyDisc,
+        &[100.0],
+        &DummyPayoff,
+        Currency::USD,
+        1.0,
+    );
+
+    #[cfg(feature = "parallel")]
+    {
+        let err = result.expect_err("parallel auto-stop should be rejected");
+        assert!(err.to_string().contains("target_ci_half_width"));
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        assert!(result.is_ok());
+    }
+}
+
+#[test]
+fn test_price_with_capture_captures_initial_event_cashflows_and_payoff() {
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 1,
+        seed: 42,
+        time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1,
+        path_capture: PathCaptureConfig::all().with_payoffs(),
+        antithetic: false,
+    });
+
+    let result = engine
+        .price_with_capture(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &InitialCashflowPayoff { value: 7.0 },
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect("capture should succeed");
+
+    let path = result
+        .paths()
+        .and_then(|dataset| dataset.path(0))
+        .expect("captured path should exist");
+    let initial_point = path.initial_point().expect("initial point should exist");
+    assert_eq!(initial_point.payoff_value, Some(7.0));
+    assert_eq!(
+        initial_point.cashflows,
+        vec![(0.0, 7.0, CashflowType::Other)]
+    );
+}
+
+#[test]
+fn test_price_with_capture_preserves_cashflows_across_multiple_timesteps() {
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 1,
+        seed: 42,
+        time_grid: TimeGrid::uniform(1.0, 2).expect("grid should build"),
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1000,
+        path_capture: PathCaptureConfig::all(),
+        antithetic: false,
+    });
+
+    let result = engine
+        .price_with_capture(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &RecurringCashflowPayoff,
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect("captured pricing should succeed");
+
+    let path = result
+        .paths
+        .as_ref()
+        .and_then(|dataset| dataset.paths.first())
+        .expect("captured path should exist");
+    assert_eq!(path.points.len(), 3);
+    assert_eq!(
+        path.points[0].cashflows,
+        vec![(0.0, 1.0, CashflowType::Interest)]
+    );
+    assert_eq!(
+        path.points[1].cashflows,
+        vec![(0.5, 2.0, CashflowType::Interest)]
+    );
+    assert_eq!(
+        path.points[2].cashflows,
+        vec![(1.0, 3.0, CashflowType::Interest)]
+    );
+}
+
+#[test]
+fn test_price_with_capture_uses_actual_path_count_after_auto_stop() {
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 5_000,
+        seed: 42,
+        time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+        target_ci_half_width: Some(0.01),
+        use_parallel: false,
+        chunk_size: 100,
+        path_capture: PathCaptureConfig::all(),
+        antithetic: false,
+    });
+
+    let result = engine
+        .price_with_capture(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect("pricing should succeed");
+
+    let captured = result.paths().expect("captured paths should exist");
+    assert_eq!(result.estimate.num_paths, 1001);
+    assert_eq!(captured.num_paths_total, 1001);
+    assert_eq!(captured.num_captured(), 1001);
+}
+
+fn assert_captured_path_statistics(result: &MonteCarloResult) {
+    assert_eq!(result.estimate.median, Some(0.375));
+    assert_eq!(result.estimate.percentile_25, Some(0.25));
+    assert_eq!(result.estimate.percentile_75, Some(0.5));
+    assert_eq!(result.estimate.min, Some(0.125));
+    assert_eq!(result.estimate.max, Some(0.625));
+}
+
+#[test]
+fn test_price_with_capture_serial_populates_captured_path_statistics() {
+    let engine = McEngine::builder()
+        .num_paths(5)
+        .uniform_grid(1.0, 1)
+        .parallel(false)
+        .capture_all_paths()
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let result = engine
+        .price_with_capture(
+            &PathIndexedRng::root(),
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &CapturedValuePayoff::default(),
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect("captured pricing should succeed");
+
+    assert_captured_path_statistics(&result);
+}
+
+#[cfg(feature = "parallel")]
+#[test]
+fn test_price_with_capture_parallel_populates_captured_path_statistics() {
+    let engine = McEngine::builder()
+        .num_paths(5)
+        .uniform_grid(1.0, 1)
+        .parallel(true)
+        .chunk_size(2)
+        .capture_all_paths()
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let result = engine
+        .price_with_capture(
+            &PathIndexedRng::root(),
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &CapturedValuePayoff::default(),
+            Currency::USD,
+            1.0,
+            ProcessParams::new("test"),
+        )
+        .expect("captured pricing should succeed");
+
+    assert_captured_path_statistics(&result);
+}

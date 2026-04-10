@@ -1,0 +1,570 @@
+use super::super::super::super::types::Bond;
+use super::TreePricer;
+use crate::instruments::common_impl::models::trees::hull_white_tree::HullWhiteTree;
+use crate::instruments::common_impl::models::{NodeState, TreeValuator};
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::Result;
+
+/// Bond valuator for tree-based pricing of callable/putable bonds.
+///
+/// Implements [`TreeValuator`] trait for backward induction pricing with embedded options.
+/// Maps bond cashflows and call/put schedules to tree time steps and handles
+/// exercise decisions during backward induction.
+///
+/// # Call/Put Redemption Convention
+///
+/// Call/put redemption prices are computed as `outstanding_principal × (price_pct_of_par / 100)`,
+/// where `outstanding_principal` is the remaining principal at the exercise date after
+/// any amortization. This correctly handles amortizing callable bonds.
+///
+/// # Performance
+///
+/// Uses `Vec` instead of `HashMap` for step-indexed lookups to eliminate hashing
+/// overhead in the backward induction hot path. For a 200-step tree, this provides
+/// significant speedup over hash-based lookups.
+///
+/// # Thread Safety
+///
+/// `BondValuator` is `Send + Sync` (all fields are owned data or primitives),
+/// making it safe to share across threads for parallel portfolio pricing.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::BondValuator;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_core::dates::Date;
+///
+/// # let bond = Bond::example().unwrap();
+/// # let market = MarketContext::new();
+/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+/// let valuator = BondValuator::new(bond, &market, as_of, 5.0, 100)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub struct BondValuator {
+    bond: Bond,
+    /// Holder-view cashflow amounts indexed by time step (dense vector for O(1) access).
+    /// Includes coupons, amortization, and final redemption — all positive receipts
+    /// from the holder's perspective. Index `i` corresponds to time step `i`.
+    /// Default value is 0.0.
+    pub(super) cashflow_vec: Vec<f64>,
+    /// Call prices indexed by time step (sparse via Option for memory efficiency).
+    /// `Some(price)` indicates a call option is exercisable at that step.
+    /// Price is computed as `outstanding_principal × (price_pct / 100)`.
+    pub(super) call_vec: Vec<Option<f64>>,
+    /// Put prices indexed by time step (sparse via Option for memory efficiency).
+    /// `Some(price)` indicates a put option is exercisable at that step.
+    /// Price is computed as `outstanding_principal × (price_pct / 100)`.
+    pub(super) put_vec: Vec<Option<f64>>,
+    /// Outstanding principal indexed by time step for amortizing bonds.
+    /// Used for call/put redemption and recovery calculations.
+    pub(super) outstanding_principal_vec: Vec<f64>,
+    /// Time steps for tree pricing
+    time_steps: Vec<f64>,
+    /// Optional recovery rate sourced from a hazard curve in MarketContext
+    recovery_rate: Option<f64>,
+    /// Issuer call exercise friction in **cents per 100** of outstanding principal.
+    ///
+    /// This raises the exercise threshold (issuer calls only when continuation exceeds
+    /// `call_price + friction_amount`), but redemption still occurs at `call_price`.
+    call_friction_cents: f64,
+}
+
+impl BondValuator {
+    fn make_whole_call_price(
+        call: &crate::instruments::fixed_income::bond::CallPut,
+        reference_curve: &dyn finstack_core::market_data::traits::Discounting,
+        time_steps: &[f64],
+        cashflow_vec: &[f64],
+        step: usize,
+        floor_price: f64,
+    ) -> f64 {
+        let call_time = *time_steps.get(step).unwrap_or(&0.0);
+        let spread = call
+            .make_whole
+            .as_ref()
+            .map(|spec| spec.spread_bps / 10_000.0)
+            .unwrap_or(0.0);
+
+        let mut pv_remaining = 0.0;
+        for (future_step, amount) in cashflow_vec.iter().enumerate().skip(step + 1) {
+            let amount = *amount;
+            if amount.abs() <= f64::EPSILON {
+                continue;
+            }
+            let future_time = *time_steps.get(future_step).unwrap_or(&call_time);
+            if future_time <= call_time {
+                continue;
+            }
+
+            let tau = future_time - call_time;
+            let df_ratio = reference_curve.df(future_time) / reference_curve.df(call_time);
+            pv_remaining += amount * df_ratio * (-spread * tau).exp();
+        }
+
+        floor_price.max(pv_remaining)
+    }
+
+    /// Create a new bond valuator for tree pricing.
+    ///
+    /// Builds maps of coupons, call prices, and put prices indexed by tree step.
+    /// Cashflows and option exercise dates are mapped to the nearest tree step
+    /// using the discount curve's day-count convention.
+    ///
+    /// # Arguments
+    ///
+    /// * `bond` - The bond to value
+    /// * `market_context` - Market data including curves
+    /// * `as_of` - Valuation date (time origin for the tree)
+    /// * `time_to_maturity` - Time from `as_of` to maturity in years
+    /// * `tree_steps` - Number of tree steps
+    ///
+    /// # Returns
+    ///
+    /// A `BondValuator` instance ready for tree-based pricing.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - Discount curve is not found
+    /// - Cashflow schedule building fails
+    /// - Time fraction calculations fail
+    ///
+    /// # Time Axis Consistency
+    ///
+    /// The `as_of` date defines the time origin (t=0) for the tree. All cashflow
+    /// times and option exercise times are measured from `as_of` using the discount
+    /// curve's day-count convention to ensure consistency with tree calibration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::BondValuator;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// # let bond = Bond::example().unwrap();
+    /// # let market = MarketContext::new();
+    /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
+    /// let valuator = BondValuator::new(bond, &market, as_of, 5.0, 100)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn new(
+        bond: Bond,
+        market_context: &MarketContext,
+        as_of: Date,
+        time_to_maturity: f64,
+        tree_steps: usize,
+    ) -> Result<Self> {
+        use crate::cashflow::primitives::CFKind;
+
+        let dt = time_to_maturity / tree_steps as f64;
+        let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
+        let num_steps = tree_steps + 1; // Include step 0
+
+        let curves = market_context;
+        let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
+        let dc_curve = discount_curve.day_count();
+        let flows = bond.pricing_dated_cashflows(curves, as_of)?;
+
+        // Build outstanding principal schedule from the full cashflow schedule.
+        // This tracks notional minus cumulative amortization at each step for
+        // correct call/put redemption pricing on amortizing bonds.
+        let full_schedule = bond.full_cashflow_schedule(market_context)?;
+        let mut outstanding_principal_vec = vec![bond.notional.amount(); num_steps];
+
+        // Collect amortization events sorted by date
+        let mut amort_events: Vec<(Date, f64)> = full_schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Amortization | CFKind::Notional))
+            .filter(|cf| cf.date > as_of && cf.amount.amount() > 0.0)
+            .map(|cf| (cf.date, cf.amount.amount()))
+            .collect();
+        amort_events.sort_by_key(|(d, _)| *d);
+
+        // Track cumulative amortization and map to time steps
+        let mut cumulative_amort = 0.0;
+        let initial_notional = bond.notional.amount();
+        let mut amort_idx = 0;
+
+        for step in 0..num_steps {
+            let step_time = time_steps[step];
+
+            // Process any amortization events that occur at or before this step time
+            while amort_idx < amort_events.len() {
+                let (amort_date, amort_amt) = amort_events[amort_idx];
+                let amort_time = dc_curve
+                    .year_fraction(
+                        as_of,
+                        amort_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+
+                if amort_time <= step_time + dt / 2.0 {
+                    // This amortization has occurred by this step
+                    cumulative_amort += amort_amt;
+                    amort_idx += 1;
+                } else {
+                    break;
+                }
+            }
+
+            outstanding_principal_vec[step] = (initial_notional - cumulative_amort).max(0.0);
+        }
+
+        // Collect exercise dates so we can snap coincident coupons to the same
+        // tree step used for the call/put (ceil mapping), preventing timing
+        // mismatches between coupon receipt and exercise decision.
+        let mut exercise_dates = std::collections::HashSet::new();
+        if let Some(ref call_put) = bond.call_put {
+            for call in &call_put.calls {
+                if call.date > as_of && call.date <= bond.maturity {
+                    exercise_dates.insert(call.date);
+                }
+            }
+            for put in &call_put.puts {
+                if put.date > as_of && put.date <= bond.maturity {
+                    exercise_dates.insert(put.date);
+                }
+            }
+        }
+
+        // Pre-allocate vectors for O(1) access during backward induction
+        let mut cashflow_vec = vec![0.0; num_steps];
+        for (date, amount) in &flows {
+            if *date > as_of {
+                let time_frac = dc_curve.year_fraction(
+                    as_of,
+                    *date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                let raw = (time_frac / time_to_maturity) * tree_steps as f64;
+
+                // Ensure we don't go out of bounds
+                let raw_clamped = raw.clamp(0.0, tree_steps as f64);
+
+                // When a cashflow date matches an exercise date, snap to the
+                // exercise step (ceil) to prevent timing mismatches between
+                // coupon receipt and exercise decision.
+                if exercise_dates.contains(date) {
+                    let mut step = raw_clamped.ceil() as usize;
+                    if step == 0 {
+                        step = 1;
+                    }
+                    if step >= num_steps {
+                        step = num_steps - 1;
+                    }
+                    cashflow_vec[step] += amount.amount();
+                } else {
+                    // Distributed mapping: spread cashflow between two nearest time steps
+                    // to reduce discretization error and improve convergence.
+
+                    // Lower step index
+                    let step_idx = raw_clamped.floor() as usize;
+
+                    // Weight for the upper step (fractional part)
+                    let weight = raw_clamped - step_idx as f64;
+
+                    // Distribute to step_idx (weight: 1.0 - weight)
+                    if step_idx > 0 && step_idx < num_steps {
+                        cashflow_vec[step_idx] += amount.amount() * (1.0 - weight);
+                    }
+
+                    // Distribute to step_idx + 1 (weight: weight)
+                    if step_idx + 1 < num_steps {
+                        cashflow_vec[step_idx + 1] += amount.amount() * weight;
+                    }
+                }
+            }
+        }
+
+        // Sparse vectors for call/put (most steps have no option)
+        // Call/put redemption uses outstanding principal at exercise date, not original notional.
+        let mut call_vec: Vec<Option<f64>> = vec![None; num_steps];
+        let mut put_vec: Vec<Option<f64>> = vec![None; num_steps];
+        if let Some(ref call_put) = bond.call_put {
+            for call in &call_put.calls {
+                if call.date > as_of && call.date <= bond.maturity {
+                    let time_frac = dc_curve.year_fraction(
+                        as_of,
+                        call.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
+                    let raw = (time_frac / time_to_maturity) * tree_steps as f64;
+                    let mut step = raw.ceil() as usize;
+                    if step == 0 {
+                        step = 1;
+                    }
+                    if step >= num_steps {
+                        step = num_steps - 1;
+                    }
+                    let outstanding = outstanding_principal_vec[step];
+                    let floor_price = outstanding * (call.price_pct_of_par / 100.0);
+                    let call_price = if let Some(spec) = &call.make_whole {
+                        let reference_curve =
+                            market_context.get_discount(&spec.reference_curve_id)?;
+                        Self::make_whole_call_price(
+                            call,
+                            reference_curve.as_ref(),
+                            &time_steps,
+                            &cashflow_vec,
+                            step,
+                            floor_price,
+                        )
+                    } else {
+                        floor_price
+                    };
+                    call_vec[step] = Some(call_price);
+                }
+            }
+            for put in &call_put.puts {
+                if put.date > as_of && put.date <= bond.maturity {
+                    let time_frac = dc_curve.year_fraction(
+                        as_of,
+                        put.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
+                    let raw = (time_frac / time_to_maturity) * tree_steps as f64;
+                    let mut step = raw.ceil() as usize;
+                    if step == 0 {
+                        step = 1;
+                    }
+                    if step >= num_steps {
+                        step = num_steps - 1;
+                    }
+                    // Use outstanding principal at exercise step, not original notional
+                    let outstanding = outstanding_principal_vec[step];
+                    let put_price = outstanding * (put.price_pct_of_par / 100.0);
+                    put_vec[step] = Some(put_price);
+                }
+            }
+        }
+
+        // Source recovery rate from hazard curve using the same precedence as
+        // HazardBondEngine and TreePricer::calculate_oas:
+        // 1. credit_curve_id (if present)
+        // 2. discount_curve_id
+        // 3. discount_curve_id with "-CREDIT" suffix
+        // This ensures consistency across all credit-aware pricing paths.
+        let recovery_rate = Self::resolve_recovery_rate(&bond, market_context);
+        let call_friction_cents = bond
+            .pricing_overrides
+            .model_config
+            .call_friction_cents
+            .unwrap_or(0.0);
+
+        Ok(Self {
+            bond,
+            cashflow_vec,
+            call_vec,
+            put_vec,
+            outstanding_principal_vec,
+            time_steps,
+            recovery_rate,
+            call_friction_cents,
+        })
+    }
+
+    /// Get the total holder-view cashflow amount at this time step.
+    ///
+    /// This includes coupons, amortization, and final redemption — all positive
+    /// receipts from the holder's perspective.
+    #[inline]
+    fn cashflow_at(&self, step: usize) -> f64 {
+        self.cashflow_vec.get(step).copied().unwrap_or(0.0)
+    }
+
+    /// Check if there's a call option at this time step.
+    #[inline]
+    fn call_at(&self, step: usize) -> Option<f64> {
+        self.call_vec.get(step).copied().flatten()
+    }
+
+    /// Check if there's a put option at this time step.
+    #[inline]
+    fn put_at(&self, step: usize) -> Option<f64> {
+        self.put_vec.get(step).copied().flatten()
+    }
+
+    /// Get outstanding principal at this time step.
+    ///
+    /// For bullet bonds, this returns the original notional.
+    /// For amortizing bonds, this returns the remaining principal after amortization.
+    #[inline]
+    fn outstanding_principal_at(&self, step: usize) -> f64 {
+        self.outstanding_principal_vec
+            .get(step)
+            .copied()
+            .unwrap_or(self.bond.notional.amount())
+    }
+
+    /// Price the bond using a calibrated Hull-White trinomial tree with OAS.
+    ///
+    /// Uses `HullWhiteTree::backward_induction` with the bond's cashflow and
+    /// call/put schedules applied at each node. The OAS is applied as an
+    /// additional parallel shift to the short rate when discounting.
+    ///
+    /// # Arguments
+    ///
+    /// * `hw_tree` - Calibrated Hull-White tree
+    /// * `oas_bp` - Option-adjusted spread in basis points
+    ///
+    /// # Returns
+    ///
+    /// Model dirty price of the bond.
+    pub(crate) fn price_with_hw_tree(&self, hw_tree: &HullWhiteTree, oas_bp: f64) -> f64 {
+        let dt = hw_tree.dt();
+        let final_step = hw_tree.num_steps();
+
+        // Pre-compute OAS discount factor (constant across entire tree)
+        let oas_discount = (-(oas_bp / 10_000.0) * dt).exp();
+
+        let terminal_cf = self.cashflow_at(final_step);
+        let terminal_values = vec![terminal_cf; hw_tree.num_nodes(final_step)];
+
+        hw_tree.backward_induction(&terminal_values, |step, _node_idx, continuation| {
+            // The HW tree's backward_induction already discounts by the short
+            // rate r(step, node). Apply the OAS as additional discounting.
+            let oas_adjusted = continuation * oas_discount;
+
+            let coupon = self.cashflow_at(step);
+            let mut principal_value = oas_adjusted;
+
+            if let Some(put_price) = self.put_at(step) {
+                principal_value = principal_value.max(put_price);
+            }
+
+            if let Some(call_price) = self.call_at(step) {
+                let outstanding = self.outstanding_principal_at(step);
+                let friction_amount = outstanding * (self.call_friction_cents / 10_000.0);
+                let threshold = call_price + friction_amount;
+                if principal_value > threshold {
+                    principal_value = principal_value.min(call_price);
+                }
+            }
+
+            coupon + principal_value
+        })
+    }
+
+    /// Resolve recovery rate from hazard curve using the same precedence as
+    /// HazardBondEngine and TreePricer::calculate_oas.
+    ///
+    /// Precedence:
+    /// 1. `credit_curve_id` if present
+    /// 2. `discount_curve_id`
+    /// 3. `discount_curve_id` with "-CREDIT" suffix
+    ///
+    /// Returns `None` if no hazard curve can be resolved.
+    fn resolve_recovery_rate(bond: &Bond, market: &MarketContext) -> Option<f64> {
+        // Try credit_curve_id first
+        if let Some(ref credit_id) = bond.credit_curve_id {
+            if let Ok(hc) = market.get_hazard(credit_id.as_str()) {
+                return Some(hc.recovery_rate());
+            }
+        }
+
+        // Try discount_curve_id
+        if let Ok(hc) = market.get_hazard(bond.discount_curve_id.as_str()) {
+            return Some(hc.recovery_rate());
+        }
+
+        // Try discount_curve_id with "-CREDIT" suffix
+        let credit_id = format!("{}-CREDIT", bond.discount_curve_id.as_str());
+        if let Ok(hc) = market.get_hazard(&credit_id) {
+            return Some(hc.recovery_rate());
+        }
+
+        None
+    }
+}
+
+impl TreeValuator for BondValuator {
+    fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
+        let final_step = self.time_steps.len() - 1;
+        let cashflow = self.cashflow_at(final_step);
+        Ok(cashflow)
+    }
+
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64, dt: f64) -> Result<f64> {
+        let step = state.step;
+        let coupon = self.cashflow_at(step);
+
+        // Call/put exercise logic:
+        // - Coupon is ALWAYS paid on coupon dates regardless of exercise decision
+        // - Call/put redemption is principal-only (price_pct_of_par × outstanding)
+        // - Exercise decision compares continuation vs redemption value
+        //
+        // Formula: value = coupon + min(max(continuation, put_redemption), call_redemption)
+        //
+        // This ensures:
+        // 1. Coupon is received regardless of exercise
+        // 2. Put floor: holder can demand redemption if continuation < put_price
+        // 3. Call cap: issuer can redeem if continuation > call_price
+
+        // Start with continuation value (principal path if not exercised)
+        let mut principal_value = continuation_value;
+
+        // Put option: holder can exercise if redemption > continuation
+        if let Some(put_price) = self.put_at(step) {
+            principal_value = principal_value.max(put_price);
+        }
+
+        // Call option: issuer can exercise if redemption < continuation, subject to friction.
+        //
+        // With friction, the issuer only calls when continuation exceeds:
+        //   call_price + (outstanding_principal × call_friction_cents / 10_000)
+        //
+        // (because 1 cent per 100 of par = 0.0001 of notional).
+        if let Some(call_price) = self.call_at(step) {
+            let outstanding = self.outstanding_principal_at(step);
+            let friction_amount = outstanding * (self.call_friction_cents / 10_000.0);
+            let threshold = call_price + friction_amount;
+            if principal_value > threshold {
+                principal_value = principal_value.min(call_price);
+            }
+        }
+
+        // Coupon is added after exercise decision (coupon is paid regardless)
+        let alive_value = coupon + principal_value;
+
+        // Default handling: if hazard rate is present, compute survival/default weighting.
+        // Use cached fields instead of hash lookups for performance.
+        //
+        // Recovery convention: recovery is received at the *current* node upon
+        // default (standard Hull/Brigo-Mercurio convention). No additional one-
+        // period discounting is applied — `alive_value` and `recovery` are both
+        // in PV-at-this-node terms.
+        if let Some(hazard) = state.hazard_rate {
+            let p_surv = (-hazard.max(0.0) * dt).exp();
+            let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
+            // Use outstanding principal at this step for recovery (FRP convention)
+            let outstanding = self.outstanding_principal_at(step);
+            let recovery = self
+                .recovery_rate
+                .map(|rr| rr.clamp(0.0, 1.0) * outstanding)
+                .unwrap_or(0.0);
+            let node_value = p_surv * alive_value + default_prob * recovery;
+            Ok(node_value)
+        } else {
+            // No hazard info at this node; return alive path value
+            Ok(alive_value)
+        }
+    }
+}
+
+const _: () = {
+    fn _assert_send<T: Send>() {}
+    fn _assert_sync<T: Sync>() {}
+    fn _assertions() {
+        _assert_send::<BondValuator>();
+        _assert_sync::<BondValuator>();
+        _assert_send::<TreePricer>();
+        _assert_sync::<TreePricer>();
+    }
+};
