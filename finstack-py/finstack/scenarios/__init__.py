@@ -7,10 +7,15 @@ logic runs in Rust; this package is a thin Python surface over
 
 from __future__ import annotations
 
-from finstack import finstack as _finstack
+from typing import Any
+
+from finstack import FinstackError, finstack as _finstack
 from finstack.valuations.common import InstrumentType
 
 _rust = _finstack.scenarios
+
+Error = FinstackError
+Result = Any
 
 ApplicationReport = _rust.ApplicationReport
 Compounding = _rust.Compounding
@@ -29,10 +34,12 @@ __all__ = [
     "ApplicationReport",
     "Compounding",
     "CurveKind",
+    "Error",
     "ExecutionContext",
     "InstrumentType",
     "OperationSpec",
     "RateBindingSpec",
+    "Result",
     "RollForwardReport",
     "ScenarioEngine",
     "ScenarioSpec",

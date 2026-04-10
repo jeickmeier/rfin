@@ -466,6 +466,7 @@ pre-commit-install:
 
 pre-commit-run:
 	@$(call py_run,pre-commit run --all-files)
+	@$(call py_run,pre-commit run --all-files --hook-stage pre-push)
 
 pre-commit-update:
 	@$(call py_run,pre-commit autoupdate)
