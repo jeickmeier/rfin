@@ -1,3 +1,7 @@
+use super::common::{
+    default_attributes, ensure_distinct_currencies, ensure_notional_currency, ensure_positive,
+    required_clone, required_value,
+};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
@@ -8,9 +12,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_forward::FxForward;
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::prelude::Instrument;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
@@ -105,51 +107,32 @@ impl PyFxForwardBuilder {
     }
 
     fn validate_and_build(&self) -> PyResult<FxForward> {
-        let base_currency = self
-            .base_currency
-            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
+        let base_currency = required_value(self.base_currency, "base_currency is required")?;
+        let quote_currency = required_value(self.quote_currency, "quote_currency is required")?;
+        ensure_distinct_currencies(
+            base_currency,
+            quote_currency,
+            "base_currency must differ from quote_currency",
+        )?;
 
-        let quote_currency = self
-            .quote_currency
-            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
-
-        if base_currency == quote_currency {
-            return Err(PyValueError::new_err(
-                "base_currency must differ from quote_currency",
-            ));
-        }
-
-        let maturity = self
-            .maturity
-            .ok_or_else(|| PyValueError::new_err("maturity is required"))?;
-
-        let notional = self
-            .notional
-            .ok_or_else(|| PyValueError::new_err("notional is required"))?;
-
-        if notional.currency() != base_currency {
-            return Err(PyValueError::new_err(format!(
-                "notional currency ({}) must match base_currency ({})",
-                notional.currency(),
-                base_currency
-            )));
-        }
-
-        let domestic_discount_curve_id = self
-            .domestic_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
-
-        let foreign_discount_curve_id = self
-            .foreign_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
-
-        if let Some(rate) = self.contract_rate {
-            if rate <= 0.0 {
-                return Err(PyValueError::new_err("contract_rate must be positive"));
-            }
-        }
+        let maturity = required_value(self.maturity, "maturity is required")?;
+        let notional = ensure_notional_currency(
+            required_value(self.notional, "notional is required")?,
+            base_currency,
+            "notional currency",
+        )?;
+        let domestic_discount_curve_id = required_clone(
+            self.domestic_discount_curve_id.as_ref(),
+            "domestic_discount_curve is required",
+        )?;
+        let foreign_discount_curve_id = required_clone(
+            self.foreign_discount_curve_id.as_ref(),
+            "foreign_discount_curve is required",
+        )?;
+        let contract_rate = self
+            .contract_rate
+            .map(|rate| ensure_positive(rate, "contract_rate must be positive"))
+            .transpose()?;
 
         FxForward::builder()
             .id(self.instrument_id.clone())
@@ -159,11 +142,11 @@ impl PyFxForwardBuilder {
             .notional(notional)
             .domestic_discount_curve_id(domestic_discount_curve_id)
             .foreign_discount_curve_id(foreign_discount_curve_id)
-            .contract_rate_opt(self.contract_rate)
+            .contract_rate_opt(contract_rate)
             .spot_rate_override_opt(self.spot_rate_override)
             .base_calendar_id_opt(self.base_calendar_id.clone())
             .quote_calendar_id_opt(self.quote_calendar_id.clone())
-            .attributes(Attributes::new())
+            .attributes(default_attributes())
             .build()
             .map_err(core_to_py)
     }

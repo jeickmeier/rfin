@@ -182,15 +182,11 @@ def test_no_stdlib_leakage_in_all(crate: str, python_package: str) -> None:
     [
         (crate, key, mod)
         for crate, key, mod in _iter_present_modules()
-        # Only test modules where the Rust layer is the source of truth
-        # (not pure-Python alias packages like statements_analytics.*)
-        if not mod.startswith("finstack.statements_analytics") and not mod.startswith("finstack.analytics")
+        # finstack.analytics is a curated Python facade over Rust, so skip
+        # symbol-level parity (its __all__ is a hand-picked subset).
+        if not mod.startswith("finstack.analytics")
     ],
-    ids=[
-        m[2]
-        for m in _iter_present_modules()
-        if not m[2].startswith("finstack.statements_analytics") and not m[2].startswith("finstack.analytics")
-    ],
+    ids=[m[2] for m in _iter_present_modules() if not m[2].startswith("finstack.analytics")],
 )
 def test_rust_symbols_accessible_from_python(crate: str, mod_key: str, python_module: str) -> None:
     """Symbols exposed by the Rust layer should be importable from the Python module.

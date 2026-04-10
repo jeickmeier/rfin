@@ -349,4 +349,140 @@ impl MarketContext {
         self.collateral.insert(csa_code.into(), discount_id);
         self
     }
+
+    // -----------------------------------------------------------------------------
+    // Insert methods (mutable variants for binding layers)
+    //
+    // These `&mut self` variants mirror the consuming `insert_*` methods above but
+    // mutate in place. They exist primarily so that Python/WASM binding wrappers
+    // can avoid the `self.inner = std::mem::take(&mut self.inner).insert(..)` dance
+    // that is required to bridge a fluent builder API across an FFI boundary.
+    //
+    // The behaviour is identical to the fluent variants — same storage layout,
+    // same credit-index rebinding — just with `&mut self` instead of `mut self`.
+    // -----------------------------------------------------------------------------
+
+    /// Insert a generic curve storage entry, mutating in place.
+    ///
+    /// Mirrors [`Self::insert`] but takes `&mut self`.
+    pub fn insert_mut<C>(&mut self, curve: C) -> &mut Self
+    where
+        C: Into<CurveStorage>,
+    {
+        let curve: CurveStorage = curve.into();
+        let id = curve.id().to_owned();
+        self.curves.insert(id, curve);
+        if !self.credit_indices.is_empty() {
+            let _invalidated = self.rebind_all_credit_indices();
+        }
+        self
+    }
+
+    /// Insert a volatility surface, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_surface`] but takes `&mut self`.
+    pub fn insert_surface_mut(&mut self, surface: impl Into<Arc<VolSurface>>) -> &mut Self {
+        let arc_surface = surface.into();
+        let id = arc_surface.id().to_owned();
+        self.surfaces.insert(id, arc_surface);
+        self
+    }
+
+    /// Insert an FX delta-quoted volatility surface, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_fx_delta_vol_surface`] but takes `&mut self`.
+    pub fn insert_fx_delta_vol_surface_mut(
+        &mut self,
+        surface: impl Into<Arc<FxDeltaVolSurface>>,
+    ) -> &mut Self {
+        let arc_surface = surface.into();
+        let id = arc_surface.id().to_owned();
+        self.fx_delta_vol_surfaces.insert(id, arc_surface);
+        self
+    }
+
+    /// Insert a dividend schedule, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_dividends`] but takes `&mut self`.
+    pub fn insert_dividends_mut(
+        &mut self,
+        schedule: impl Into<Arc<DividendSchedule>>,
+    ) -> &mut Self {
+        let arc_schedule = schedule.into();
+        let id = arc_schedule.id.to_owned();
+        self.dividends.insert(id, arc_schedule);
+        self
+    }
+
+    /// Insert a market scalar/price, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_price`] but takes `&mut self`.
+    pub fn insert_price_mut(&mut self, id: impl AsRef<str>, price: MarketScalar) -> &mut Self {
+        self.prices.insert(CurveId::from(id.as_ref()), price);
+        self
+    }
+
+    /// Insert a scalar time series, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_series`] but takes `&mut self`.
+    pub fn insert_series_mut(&mut self, series: ScalarTimeSeries) -> &mut Self {
+        let id = series.id().to_owned();
+        self.series.insert(id, series);
+        self
+    }
+
+    /// Insert an inflation index, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_inflation_index`] but takes `&mut self`.
+    pub fn insert_inflation_index_mut(
+        &mut self,
+        id: impl AsRef<str>,
+        index: impl Into<Arc<InflationIndex>>,
+    ) -> &mut Self {
+        let index = index.into();
+        let key = Self::inflation_index_key_for_insert(id, index.as_ref());
+        self.inflation_indices.insert(key, index);
+        self
+    }
+
+    /// Insert a credit index aggregate, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_credit_index`] but takes `&mut self`.
+    pub fn insert_credit_index_mut(
+        &mut self,
+        id: impl AsRef<str>,
+        data: CreditIndexData,
+    ) -> &mut Self {
+        let key = CurveId::from(id.as_ref());
+        self.credit_indices.insert(key, Arc::new(data));
+        self
+    }
+
+    /// Insert an FX matrix, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_fx`] but takes `&mut self`.
+    pub fn insert_fx_mut(&mut self, fx: impl Into<Arc<FxMatrix>>) -> &mut Self {
+        self.fx = Some(fx.into());
+        self
+    }
+
+    /// Clear the FX matrix, mutating in place.
+    ///
+    /// Mirrors [`Self::clear_fx`] but takes `&mut self`.
+    pub fn clear_fx_mut(&mut self) -> &mut Self {
+        self.fx = None;
+        self
+    }
+
+    /// Map collateral CSA code to a discount curve identifier, mutating in place.
+    ///
+    /// Mirrors [`Self::map_collateral`] but takes `&mut self`.
+    pub fn map_collateral_mut(
+        &mut self,
+        csa_code: impl Into<String>,
+        discount_id: CurveId,
+    ) -> &mut Self {
+        self.collateral.insert(csa_code.into(), discount_id);
+        self
+    }
 }

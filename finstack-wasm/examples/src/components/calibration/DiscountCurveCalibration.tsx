@@ -1,23 +1,15 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-  CalibrationConfig,
-  executeCalibration,
-  FsDate,
-  Frequency,
-  MarketContext,
-  RatesQuote,
-  SolverKind,
-} from 'finstack-wasm';
+import React, { useState, useCallback, useMemo } from 'react';
+import { executeCalibration, FsDate, MarketContext, RatesQuote } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
+import { CalibrationResultPanel, StatusBadge } from './CurveChart';
 import {
   DiscountQuoteEditor,
   generateDefaultDiscountQuotes,
   type DiscountQuoteData,
 } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type { FrequencyType } from './CurrencyConventions';
-import type { DiscountCurveCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
+import type { DiscountCurveCalibrationState } from './state-types';
+import { buildWasmConfig, isoDate, toFsDate, useEffectiveQuotes } from './shared';
 
 interface CalibratedCurve {
   df: (t: number) => number;
@@ -36,67 +28,22 @@ interface DiscountCurveCalibrationProps {
   className?: string;
 }
 
-/** Map frequency type string to WASM Frequency object */
-const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> => {
-  switch (freq) {
-    case 'annual':
-      return Frequency.annual();
-    case 'semi_annual':
-      return Frequency.semiAnnual();
-    case 'quarterly':
-      return Frequency.quarterly();
-    case 'monthly':
-      return Frequency.monthly();
-    default:
-      return Frequency.quarterly();
-  }
-};
-
-/** Convert JSON config to WASM CalibrationConfig */
-const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
-  let wasmConfig = new CalibrationConfig();
-  switch (config.solverKind) {
-    case 'Brent':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
-      break;
-    case 'Newton':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
-      break;
-  }
-  return wasmConfig
-    .withMaxIterations(config.maxIterations)
-    .withTolerance(config.tolerance)
-    .withVerbose(config.verbose);
-};
-
-/** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
-
-const isoDate = (date: FsDate): string => {
-  const y = String(date.year).padStart(4, '0');
-  const m = String(date.month).padStart(2, '0');
-  const d = String(date.day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
 /** Convert quote data to WASM RatesQuote objects */
 const buildWasmQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
   return quotes.map((q) => {
     if (q.type === 'deposit') {
       return RatesQuote.deposit(
+        `dep-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
+        'USD-OIS',
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-        q.rate,
-        q.dayCount
+        q.rate
       );
     } else {
       return RatesQuote.swap(
+        `swap-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
+        q.index,
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-        q.rate,
-        mapFrequency(q.fixedFrequency),
-        mapFrequency(q.floatFrequency),
-        q.fixedDayCount,
-        q.floatDayCount,
-        q.index
+        q.rate
       );
     }
   });
@@ -117,31 +64,15 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
     [baseDate, currency]
   );
 
-  // Local quotes state (synced with state.quotes)
-  const [localQuotes, setLocalQuotes] = useState<DiscountQuoteData[]>(
-    state.quotes.length > 0 ? state.quotes : defaultQuotes
-  );
+  const [quotes, setLocalQuotes] = useEffectiveQuotes(state.quotes, defaultQuotes);
 
-  // Sync quotes from state prop
-  useEffect(() => {
-    if (state.quotes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalQuotes(state.quotes);
+  const handleQuotesChange = (newQuotes: DiscountQuoteData[]) => {
+    if (onStateChange) {
+      onStateChange({ ...state, quotes: newQuotes });
+    } else {
+      setLocalQuotes(newQuotes);
     }
-  }, [state.quotes]);
-
-  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
-
-  const handleQuotesChange = useCallback(
-    (newQuotes: DiscountQuoteData[]) => {
-      if (onStateChange) {
-        onStateChange({ ...state, quotes: newQuotes });
-      } else {
-        setLocalQuotes(newQuotes);
-      }
-    },
-    [onStateChange, state]
-  );
+  };
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -267,28 +198,19 @@ export const DiscountCurveCalibration: React.FC<DiscountCurveCalibrationProps> =
           </div>
         )}
 
-        {result && (
-          <CalibrationMetrics
-            iterations={result.iterations}
-            maxResidual={result.maxResidual}
-            success={result.success}
-          />
-        )}
-
-        {showChart && result && result.sampleValues.length > 0 && (
-          <CurveChart
-            data={result.sampleValues}
-            config={{
-              title: 'Discount Factors',
-              xLabel: 'Maturity',
-              yLabel: 'DF',
-              color: 'hsl(var(--chart-1))',
-              yFormatter: (v) => v.toFixed(4),
-            }}
-            showArea
-            referenceLines={[{ y: 1, label: 'Par', stroke: 'hsl(var(--muted-foreground))' }]}
-          />
-        )}
+        <CalibrationResultPanel
+          result={result}
+          showChart={showChart}
+          chartConfig={{
+            title: 'Discount Factors',
+            xLabel: 'Maturity',
+            yLabel: 'DF',
+            color: 'hsl(var(--chart-1))',
+            yFormatter: (v) => v.toFixed(4),
+          }}
+          showArea
+          referenceLines={[{ y: 1, label: 'Par', stroke: 'hsl(var(--muted-foreground))' }]}
+        />
 
         {curve && result?.success && (
           <div className="grid grid-cols-2 gap-2 text-sm">

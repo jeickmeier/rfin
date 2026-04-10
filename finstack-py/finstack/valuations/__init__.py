@@ -1,36 +1,28 @@
 """Valuations bindings (Rust).
 
-This package is a thin re-export of the Rust extension module.
+Thin re-export of the ``finstack.valuations`` Rust extension module. The
+``instruments`` and ``calibration`` subpackages have their own Python
+``__init__.py`` shims (so IDEs pick up the ``.pyi`` stubs) and are imported
+explicitly here.
 """
 
 from __future__ import annotations
 
-import importlib as _importlib
-import sys as _sys
-import types as _types
+from importlib import import_module as _import_module
 
 from finstack import finstack as _finstack
+from finstack._binding_exports import export_rust_members, set_public_all
 
-_rust_valuations = _finstack.valuations
+# Export everything except the subpackages that have Python shims; those are
+# loaded below via Python's import machinery.
+export_rust_members(
+    globals(),
+    _finstack.valuations,
+    package_name=__name__,
+    excluded={"instruments", "calibration"},
+)
 
-for _name in dir(_rust_valuations):
-    if _name.startswith("_"):
-        continue
-    _attr = getattr(_rust_valuations, _name)
-    globals()[_name] = _attr
-    if isinstance(_attr, _types.ModuleType):
-        _sys.modules[f"{__name__}.{_name}"] = _attr
+calibration = _import_module(f"{__name__}.calibration")
+instruments = _import_module(f"{__name__}.instruments")
 
-_sys.modules.pop(f"{__name__}.instruments", None)
-instruments = _importlib.import_module(f"{__name__}.instruments")
-globals()["instruments"] = instruments
-
-_sys.modules.pop(f"{__name__}.calibration", None)
-calibration = _importlib.import_module(f"{__name__}.calibration")
-globals()["calibration"] = calibration
-
-_HELPER_NAMES = frozenset({"annotations"})  # __future__ annotations feature flag
-__all__ = [  # pyright: ignore[reportUnsupportedDunderAll]
-    name for name in globals() if not name.startswith("_") and name not in _HELPER_NAMES
-]
-del _HELPER_NAMES
+set_public_all(globals(), helper_names={"annotations"})

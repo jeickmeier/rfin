@@ -6,6 +6,9 @@
 //! This module only handles type conversion and builder ergonomics - no business logic
 //! or financial calculations belong here.
 
+use super::common::{
+    meta_attributes, require_builder_clone, require_builder_field, require_notional_money,
+};
 use crate::core::common::args::{
     BusinessDayConventionArg, CurrencyArg, DayCountArg, StubKindArg, TenorArg,
 };
@@ -21,7 +24,6 @@ use finstack_valuations::instruments::common::parameters::legs::ParRateMethod;
 use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, PayReceive,
 };
-use finstack_valuations::instruments::Attributes;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -626,44 +628,29 @@ impl PyInterestRateSwapBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateSwap> {
         slf.ensure_ready()?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing notional after validation",
-            )
-        })?;
+        let notional = require_notional_money(
+            "InterestRateSwapBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
         if notional.amount() <= 0.0 {
             return Err(PyValueError::new_err("notional must be positive"));
         }
-        let side = slf.side.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing side after validation",
-            )
-        })?;
-        let fixed_rate = slf.fixed_rate.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing fixed_rate after validation",
-            )
-        })?;
-        let start = slf.start.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing start date after validation",
-            )
-        })?;
-        let end = slf.end.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing end date after validation",
-            )
-        })?;
-        let discount = slf.discount_curve.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing discount curve after validation",
-            )
-        })?;
-        let forward = slf.forward_curve.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateSwapBuilder internal error: missing forward curve after validation",
-            )
-        })?;
+        let side = require_builder_field("InterestRateSwapBuilder", "side", slf.side)?;
+        let fixed_rate =
+            require_builder_field("InterestRateSwapBuilder", "fixed_rate", slf.fixed_rate)?;
+        let start = require_builder_field("InterestRateSwapBuilder", "start date", slf.start)?;
+        let end = require_builder_field("InterestRateSwapBuilder", "end date", slf.end)?;
+        let discount = require_builder_clone(
+            "InterestRateSwapBuilder",
+            "discount curve",
+            slf.discount_curve.as_ref(),
+        )?;
+        let forward = require_builder_clone(
+            "InterestRateSwapBuilder",
+            "forward curve",
+            slf.forward_curve.as_ref(),
+        )?;
         let calendar = slf.calendar_id.clone();
 
         let fixed_leg = FixedLegSpec {
@@ -709,12 +696,7 @@ impl PyInterestRateSwapBuilder {
             end_of_month: slf.end_of_month.unwrap_or(false),
         };
 
-        let mut attrs = Attributes::new();
-        if let Some(ref pending) = slf.pending_attributes {
-            for (k, v) in pending {
-                attrs.meta.insert(k.clone(), v.clone());
-            }
-        }
+        let attrs = meta_attributes(slf.pending_attributes.as_ref());
 
         InterestRateSwap::builder()
             .id(slf.instrument_id.clone())

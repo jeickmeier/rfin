@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Autocallable,
-  Basket,
+  AutocallableBuilder,
+  BasketBuilder,
   FsDate,
   DiscountCurve,
   MarketContext,
   MarketScalar,
   Money,
-  PrivateMarketsFund,
+  PrivateMarketsFundBuilder,
   VolSurface,
   standardRegistry,
 } from 'finstack-wasm';
@@ -70,7 +70,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
         for (const spot of market.spotPrices) {
           marketCtx.insertPrice(
             spot.id,
-            MarketScalar.get_price(Money.fromCode(spot.price.amount, spot.price.currency))
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
           );
         }
 
@@ -105,7 +105,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
                 fx_policy: 'cashflow_date',
               },
             });
-            const basket = Basket.fromJson(basketJson);
+            const basket = new BasketBuilder().jsonString(basketJson).build();
             const result = registry.priceInstrument(basket, 'discounting', marketCtx, asOf, null);
 
             results.push({
@@ -133,7 +133,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
                 kind: e.kind,
               })),
             });
-            const fund = PrivateMarketsFund.fromJson(fundJson);
+            const fund = new PrivateMarketsFundBuilder().jsonString(fundJson).build();
             const result = registry.priceInstrument(fund, 'discounting', marketCtx, asOf, null);
 
             // Find preferred IRR from spec
@@ -190,7 +190,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
               },
               attributes: { tags: [], meta: {} },
             });
-            const autocallable = Autocallable.fromJson(autocallableJson);
+            const autocallable = new AutocallableBuilder().jsonString(autocallableJson).build();
             const result = registry.priceInstrument(
               autocallable,
               'monte_carlo_gbm',
@@ -280,7 +280,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
         <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>JSON-Based Instruments</h3>
         <p style={{ color: '#aaa', margin: 0 }}>
           Structured products (ABS, CLO, CMBS, RMBS, Basket, PrivateMarketsFund) use JSON
-          definitions for maximum flexibility. Create instruments using <code>fromJson()</code> and
+          definitions for maximum flexibility. Create instruments with the JSON builders and
           serialize with <code>toJson()</code> for storage or transmission.
         </p>
       </div>

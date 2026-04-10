@@ -3,8 +3,7 @@
 from __future__ import annotations
 from finstack.core.config import FinstackConfig
 from finstack.core.market_data.context import MarketContext
-from finstack.scenarios.reports import ApplicationReport
-from finstack.scenarios.spec import ScenarioSpec
+from finstack.scenarios import ApplicationReport, ScenarioSpec
 from .portfolio import Portfolio
 from .valuation import PortfolioValuation
 

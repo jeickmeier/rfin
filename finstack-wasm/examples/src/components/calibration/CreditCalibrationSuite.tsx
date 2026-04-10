@@ -14,17 +14,14 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   BaseCorrelationCurve,
-  CalibrationConfig,
   CreditIndexData,
   DiscountCurve,
   executeCalibration,
   FsDate,
-  Frequency,
   HazardCurve,
   MarketContext,
   RatesQuote,
   CreditQuote,
-  SolverKind,
   VolSurface,
 } from 'finstack-wasm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -47,10 +44,10 @@ import {
   type TrancheQuoteData,
   type CdsVolQuoteData,
 } from './QuoteEditor';
-import { CurveChart, CalibrationMetrics } from './CurveChart';
+import { CalibrationResultPanel } from './CurveChart';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
 import type { CalibrationConfigJson, DateJson } from './state-types';
-import type { FrequencyType } from './CurrencyConventions';
+import { buildWasmConfig, isoDate, toFsDate } from './shared';
 
 // ============================================================================
 // Types
@@ -98,6 +95,28 @@ interface CalibrationStepResult {
   correlation: CalibrationResult | null;
   vol: CalibrationResult | null;
 }
+
+type CalibrationStep = keyof CalibrationStepStatus;
+
+const INITIAL_STEP_STATUS: CalibrationStepStatus = {
+  discount: 'idle',
+  hazard: 'idle',
+  correlation: 'idle',
+  vol: 'idle',
+};
+
+const INITIAL_STEP_RESULTS: CalibrationStepResult = {
+  discount: null,
+  hazard: null,
+  correlation: null,
+  vol: null,
+};
+
+const NEXT_STEP: Partial<Record<CalibrationStep, CalibrationStep>> = {
+  discount: 'hazard',
+  hazard: 'correlation',
+  correlation: 'vol',
+};
 
 export interface CreditMarketInfo {
   market: MarketContext;
@@ -182,63 +201,21 @@ export function createDefaultCreditCalibrationState(
 // Helpers
 // ============================================================================
 
-const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
-
-const isoDate = (date: FsDate): string => {
-  const y = String(date.year).padStart(4, '0');
-  const m = String(date.month).padStart(2, '0');
-  const d = String(date.day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
-const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> => {
-  switch (freq) {
-    case 'annual':
-      return Frequency.annual();
-    case 'semi_annual':
-      return Frequency.semiAnnual();
-    case 'quarterly':
-      return Frequency.quarterly();
-    case 'monthly':
-      return Frequency.monthly();
-    default:
-      return Frequency.quarterly();
-  }
-};
-
-const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
-  let wasmConfig = new CalibrationConfig();
-  switch (config.solverKind) {
-    case 'Brent':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
-      break;
-    case 'Newton':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
-      break;
-  }
-  return wasmConfig
-    .withMaxIterations(config.maxIterations)
-    .withTolerance(config.tolerance)
-    .withVerbose(config.verbose);
-};
-
 const buildDiscountQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
   return quotes.map((q) => {
     if (q.type === 'deposit') {
       return RatesQuote.deposit(
+        `dep-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
+        'USD-OIS',
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-        q.rate,
-        q.dayCount
+        q.rate
       );
     } else {
       return RatesQuote.swap(
+        `swap-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
+        q.index,
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-        q.rate,
-        mapFrequency(q.fixedFrequency),
-        mapFrequency(q.floatFrequency),
-        q.fixedDayCount,
-        q.floatDayCount,
-        q.index
+        q.rate
       );
     }
   });
@@ -246,12 +223,14 @@ const buildDiscountQuotes = (quotes: DiscountQuoteData[]): RatesQuote[] => {
 
 const buildCreditQuotes = (quotes: CdsQuoteData[]): CreditQuote[] => {
   return quotes.map((q) =>
-    CreditQuote.cds(
+    CreditQuote.cdsParSpread(
+      `${q.entity}-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
       q.entity,
       new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
       q.spreadBps,
       q.recoveryRate,
-      q.currency
+      q.currency,
+      'CR14'
     )
   );
 };
@@ -318,21 +297,9 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
   const [state, setState] = useState<CreditCalibrationSuiteState>(() =>
     createDefaultCreditCalibrationState(initialState)
   );
-  const [activeStep, setActiveStep] = useState<'discount' | 'hazard' | 'correlation' | 'vol'>(
-    'discount'
-  );
-  const [stepStatus, setStepStatus] = useState<CalibrationStepStatus>({
-    discount: 'idle',
-    hazard: 'idle',
-    correlation: 'idle',
-    vol: 'idle',
-  });
-  const [stepResults, setStepResults] = useState<CalibrationStepResult>({
-    discount: null,
-    hazard: null,
-    correlation: null,
-    vol: null,
-  });
+  const [activeStep, setActiveStep] = useState<CalibrationStep>('discount');
+  const [stepStatus, setStepStatus] = useState<CalibrationStepStatus>(INITIAL_STEP_STATUS);
+  const [stepResults, setStepResults] = useState<CalibrationStepResult>(INITIAL_STEP_RESULTS);
   const [error, setError] = useState<string | null>(null);
 
   // Calibrated objects
@@ -355,6 +322,38 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
     []
   );
 
+  const beginStep = useCallback((step: CalibrationStep) => {
+    setStepStatus((prev) => ({ ...prev, [step]: 'running' }));
+    setError(null);
+  }, []);
+
+  const completeStep = useCallback(
+    (
+      step: CalibrationStep,
+      result: CalibrationResult,
+      status: Extract<CalibrationStatus, 'success' | 'failed'> = result.success
+        ? 'success'
+        : 'failed'
+    ) => {
+      setStepResults((prev) => ({ ...prev, [step]: result }));
+      setStepStatus((prev) => ({ ...prev, [step]: status }));
+
+      if (status === 'success') {
+        const nextStep = NEXT_STEP[step];
+        if (nextStep) {
+          setActiveStep((current) => (current === step ? nextStep : current));
+        }
+      }
+    },
+    []
+  );
+
+  const failStep = useCallback((step: CalibrationStep, err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err) || 'Unknown calibration error';
+    setError(message);
+    setStepStatus((prev) => ({ ...prev, [step]: 'failed' }));
+  }, []);
+
   // ============================================================================
   // Calibration Functions
   // ============================================================================
@@ -365,8 +364,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       return;
     }
 
-    setStepStatus((prev) => ({ ...prev, discount: 'running' }));
-    setError(null);
+    beginStep('discount');
 
     try {
       const config = buildWasmConfig(state.config);
@@ -418,15 +416,12 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       };
 
       setDiscountCurve(curve);
-      setStepResults((prev) => ({ ...prev, discount: result }));
-      setStepStatus((prev) => ({ ...prev, discount: report.success ? 'success' : 'failed' }));
-
+      completeStep('discount', result);
       setMarket(marketCtx);
     } catch (err) {
-      setError((err as Error).message);
-      setStepStatus((prev) => ({ ...prev, discount: 'failed' }));
+      failStep('discount', err);
     }
-  }, [state, baseDate]);
+  }, [state, baseDate, beginStep, completeStep, failStep]);
 
   const calibrateHazard = useCallback(() => {
     if (!discountCurve || !market) {
@@ -438,8 +433,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       return;
     }
 
-    setStepStatus((prev) => ({ ...prev, hazard: 'running' }));
-    setError(null);
+    beginStep('hazard');
 
     try {
       const config = buildWasmConfig(state.config);
@@ -449,7 +443,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
       const envelope = {
         schema: 'finstack.calibration/2',
-        initial_market: market.toState(),
+        initial_market: market.toJson(),
         plan: {
           id: `hazard:${curveId}`,
           quote_sets: { cds: quoteSet },
@@ -497,15 +491,12 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       };
 
       setHazardCurve(curve);
-      setStepResults((prev) => ({ ...prev, hazard: result }));
-      setStepStatus((prev) => ({ ...prev, hazard: report.success ? 'success' : 'failed' }));
-
+      completeStep('hazard', result);
       setMarket(marketCtx);
     } catch (err) {
-      setError((err as Error).message);
-      setStepStatus((prev) => ({ ...prev, hazard: 'failed' }));
+      failStep('hazard', err);
     }
-  }, [state, baseDate, discountCurve, market]);
+  }, [state, baseDate, discountCurve, market, beginStep, completeStep, failStep]);
 
   const calibrateCorrelation = useCallback(() => {
     if (!hazardCurve || !market) {
@@ -517,8 +508,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       return;
     }
 
-    setStepStatus((prev) => ({ ...prev, correlation: 'running' }));
-    setError(null);
+    beginStep('correlation');
 
     try {
       // Build base correlation from tranche quotes
@@ -559,8 +549,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       };
 
       setBaseCorrelation(baseCorrCurve);
-      setStepResults((prev) => ({ ...prev, correlation: result }));
-      setStepStatus((prev) => ({ ...prev, correlation: 'success' }));
+      completeStep('correlation', result, 'success');
 
       // Create credit index data and insert into market
       const creditIndexData = new CreditIndexData(
@@ -574,10 +563,9 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       market.insertCreditIndex(state.indexId, creditIndexData);
       setMarket(market);
     } catch (err) {
-      setError((err as Error).message);
-      setStepStatus((prev) => ({ ...prev, correlation: 'failed' }));
+      failStep('correlation', err);
     }
-  }, [state, hazardCurve, market]);
+  }, [state, hazardCurve, market, beginStep, completeStep, failStep]);
 
   const calibrateVol = useCallback(() => {
     if (!market) {
@@ -589,8 +577,7 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       return;
     }
 
-    setStepStatus((prev) => ({ ...prev, vol: 'running' }));
-    setError(null);
+    beginStep('vol');
 
     try {
       // Build vol surface from quotes
@@ -638,17 +625,15 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
       };
 
       setVolSurface(surface);
-      setStepResults((prev) => ({ ...prev, vol: result }));
-      setStepStatus((prev) => ({ ...prev, vol: 'success' }));
+      completeStep('vol', result, 'success');
 
       // Insert into market
       market.insertSurface(surface);
       setMarket(market);
     } catch (err) {
-      setError((err as Error).message);
-      setStepStatus((prev) => ({ ...prev, vol: 'failed' }));
+      failStep('vol', err);
     }
-  }, [state, market]);
+  }, [state, market, beginStep, completeStep, failStep]);
 
   // Notify when market is ready (after hazard curve calibration for CDS pricing)
   useEffect(() => {
@@ -673,22 +658,10 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
     state.discountCurveId,
   ]);
 
-  // Auto-advance to next step after successful calibration
-  useEffect(() => {
-    if (stepStatus.discount === 'success' && stepStatus.hazard === 'idle') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveStep('hazard');
-    } else if (stepStatus.hazard === 'success' && stepStatus.correlation === 'idle') {
-      setActiveStep('correlation');
-    } else if (stepStatus.correlation === 'success' && stepStatus.vol === 'idle') {
-      setActiveStep('vol');
-    }
-  }, [stepStatus]);
-
   // Reset all calibrations
   const resetAll = useCallback(() => {
-    setStepStatus({ discount: 'idle', hazard: 'idle', correlation: 'idle', vol: 'idle' });
-    setStepResults({ discount: null, hazard: null, correlation: null, vol: null });
+    setStepStatus(INITIAL_STEP_STATUS);
+    setStepResults(INITIAL_STEP_RESULTS);
     setDiscountCurve(null);
     setHazardCurve(null);
     setBaseCorrelation(null);
@@ -846,28 +819,17 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
               currency={state.currency}
             />
 
-            {stepResults.discount && (
-              <>
-                <CalibrationMetrics
-                  iterations={stepResults.discount.iterations}
-                  maxResidual={stepResults.discount.maxResidual}
-                  success={stepResults.discount.success}
-                />
-                {stepResults.discount.sampleValues.length > 0 && (
-                  <CurveChart
-                    data={stepResults.discount.sampleValues}
-                    config={{
-                      title: 'Discount Factors',
-                      xLabel: 'Maturity (Y)',
-                      yLabel: 'DF',
-                      color: 'hsl(var(--chart-1))',
-                      yFormatter: (v) => v.toFixed(4),
-                    }}
-                    showArea
-                  />
-                )}
-              </>
-            )}
+            <CalibrationResultPanel
+              result={stepResults.discount}
+              chartConfig={{
+                title: 'Discount Factors',
+                xLabel: 'Maturity (Y)',
+                yLabel: 'DF',
+                color: 'hsl(var(--chart-1))',
+                yFormatter: (v) => v.toFixed(4),
+              }}
+              showArea
+            />
           </TabsContent>
 
           {/* Hazard Curve Tab */}
@@ -915,29 +877,18 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
               entity={state.entity}
             />
 
-            {stepResults.hazard && (
-              <>
-                <CalibrationMetrics
-                  iterations={stepResults.hazard.iterations}
-                  maxResidual={stepResults.hazard.maxResidual}
-                  success={stepResults.hazard.success}
-                />
-                {stepResults.hazard.sampleValues.length > 0 && (
-                  <CurveChart
-                    data={stepResults.hazard.sampleValues}
-                    config={{
-                      title: 'Survival Probability',
-                      xLabel: 'Time (Y)',
-                      yLabel: 'SP',
-                      color: 'hsl(var(--chart-4))',
-                      yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
-                    }}
-                    showArea
-                    referenceLines={[{ y: 0.5, label: '50%', stroke: 'hsl(var(--destructive))' }]}
-                  />
-                )}
-              </>
-            )}
+            <CalibrationResultPanel
+              result={stepResults.hazard}
+              chartConfig={{
+                title: 'Survival Probability',
+                xLabel: 'Time (Y)',
+                yLabel: 'SP',
+                color: 'hsl(var(--chart-4))',
+                yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
+              }}
+              showArea
+              referenceLines={[{ y: 0.5, label: '50%', stroke: 'hsl(var(--destructive))' }]}
+            />
           </TabsContent>
 
           {/* Base Correlation Tab */}
@@ -989,29 +940,18 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
               indexId={`${state.indexId}.${state.series}`}
             />
 
-            {stepResults.correlation && (
-              <>
-                <CalibrationMetrics
-                  iterations={stepResults.correlation.iterations}
-                  maxResidual={stepResults.correlation.maxResidual}
-                  success={stepResults.correlation.success}
-                />
-                {stepResults.correlation.sampleValues.length > 0 && (
-                  <CurveChart
-                    data={stepResults.correlation.sampleValues}
-                    config={{
-                      title: 'Base Correlation Curve',
-                      xLabel: 'Detachment (%)',
-                      yLabel: 'Correlation',
-                      color: 'hsl(var(--chart-5))',
-                      yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
-                      xFormatter: (v) => `${v}%`,
-                    }}
-                    showArea
-                  />
-                )}
-              </>
-            )}
+            <CalibrationResultPanel
+              result={stepResults.correlation}
+              chartConfig={{
+                title: 'Base Correlation Curve',
+                xLabel: 'Detachment (%)',
+                yLabel: 'Correlation',
+                color: 'hsl(var(--chart-5))',
+                yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
+                xFormatter: (v) => `${v}%`,
+              }}
+              showArea
+            />
           </TabsContent>
 
           {/* CDS Vol Surface Tab */}
@@ -1035,28 +975,16 @@ export const CreditCalibrationSuite: React.FC<CreditCalibrationSuiteProps> = ({
               disabled={stepStatus.vol === 'running' || stepStatus.discount !== 'success'}
             />
 
-            {stepResults.vol && (
-              <>
-                <CalibrationMetrics
-                  iterations={stepResults.vol.iterations}
-                  maxResidual={stepResults.vol.maxResidual}
-                  success={stepResults.vol.success}
-                />
-                {stepResults.vol.sampleValues.length > 0 && (
-                  <CurveChart
-                    data={stepResults.vol.sampleValues}
-                    config={{
-                      title: 'CDS Implied Volatility',
-                      xLabel: 'Expiry (Y)',
-                      yLabel: 'Vol',
-                      color: 'hsl(var(--chart-3))',
-                      yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
-                    }}
-                    showArea={false}
-                  />
-                )}
-              </>
-            )}
+            <CalibrationResultPanel
+              result={stepResults.vol}
+              chartConfig={{
+                title: 'CDS Implied Volatility',
+                xLabel: 'Expiry (Y)',
+                yLabel: 'Vol',
+                color: 'hsl(var(--chart-3))',
+                yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
+              }}
+            />
           </TabsContent>
         </Tabs>
 

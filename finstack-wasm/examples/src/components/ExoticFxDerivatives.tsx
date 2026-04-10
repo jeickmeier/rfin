@@ -3,8 +3,8 @@ import {
   Currency,
   FsDate,
   DiscountCurve,
-  FxBarrierOption,
-  QuantoOption,
+  FxBarrierOptionBuilder,
+  QuantoOptionBuilder,
   FxMatrix,
   MarketContext,
   MarketScalar,
@@ -105,7 +105,7 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
         for (const spot of market.spotPrices) {
           marketCtx.insertPrice(
             spot.id,
-            MarketScalar.get_price(Money.fromCode(spot.price.amount, spot.price.currency))
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
           );
         }
 
@@ -117,8 +117,8 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
           try {
             const fxBarrierJson = JSON.stringify({
               id: opt.id,
-              quote_currency: opt.quote_currency,
-              base_currency: opt.base_currency,
+              quote_currency: opt.domestic_currency,
+              base_currency: opt.foreign_currency,
               strike: { amount: opt.strike.amount, currency: opt.strike.currency },
               barrier: { amount: opt.barrier.amount, currency: opt.barrier.currency },
               option_type: opt.option_type,
@@ -134,7 +134,7 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
               pricing_overrides: { adaptive_bumps: false },
               attributes: { tags: [], meta: {} },
             });
-            const fxBarrierOption = FxBarrierOption.fromJson(fxBarrierJson);
+            const fxBarrierOption = new FxBarrierOptionBuilder().jsonString(fxBarrierJson).build();
             const result = registry.priceInstrument(
               fxBarrierOption,
               'monte_carlo_gbm',
@@ -186,7 +186,7 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
               pricing_overrides: { adaptive_bumps: false },
               attributes: { tags: [], meta: {} },
             });
-            const quantoOption = QuantoOption.fromJson(quantoJson);
+            const quantoOption = new QuantoOptionBuilder().jsonString(quantoJson).build();
             const result = registry.priceInstrument(
               quantoOption,
               'monte_carlo_gbm',

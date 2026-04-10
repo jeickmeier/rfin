@@ -39,6 +39,12 @@ time = { workspace = true }
 rust_decimal = { workspace = true }
 web-sys = { version = "0.3.83", features = ["Window", "Performance", "console"] }
 
+[target.'cfg(all(target_arch = "wasm32", any(target_os = "unknown", target_os = "none")))'.dependencies]
+# `jsonschema` pulls in `ahash` -> `getrandom` 0.3 on wasm. Enabling the `wasm_js`
+# feature here unifies features for that transitive version so `wasm-pack build`
+# can produce the JS/WASM package consumed by the TSX examples.
+getrandom_03 = { package = "getrandom", version = "0.3.4", features = ["wasm_js"] }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 

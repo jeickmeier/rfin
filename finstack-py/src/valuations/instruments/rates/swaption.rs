@@ -20,6 +20,42 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+fn extract_optional_tenor(
+    value: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<finstack_core::dates::Tenor>> {
+    value
+        .map(|arg| {
+            let TenorArg(tenor) = arg.extract()?;
+            Ok(tenor)
+        })
+        .transpose()
+}
+
+fn extract_optional_day_count(
+    value: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<finstack_core::dates::DayCount>> {
+    value
+        .map(|arg| {
+            let DayCountArg(day_count) = arg.extract()?;
+            Ok(day_count)
+        })
+        .transpose()
+}
+
+fn apply_common_option_overrides(
+    pricing_overrides: &mut finstack_valuations::instruments::PricingOverrides,
+    attributes: &mut finstack_valuations::instruments::Attributes,
+    implied_volatility: Option<f64>,
+    pending_attributes: Option<HashMap<String, String>>,
+) {
+    if let Some(vol) = implied_volatility {
+        pricing_overrides.market_quotes.implied_volatility = Some(vol);
+    }
+    if let Some(pending) = pending_attributes {
+        attributes.meta.extend(pending);
+    }
+}
+
 fn parse_settlement(label: Option<&str>) -> PyResult<SwaptionSettlement> {
     match label {
         None => Ok(SwaptionSettlement::Physical),
@@ -895,17 +931,14 @@ fn construct_swaption(
         swaption = swaption.with_option_type(OptionType::Put);
     }
 
-    if let Some(ff) = fixed_freq {
-        let TenorArg(t) = ff.extract()?;
-        swaption.fixed_freq = t;
+    if let Some(freq) = extract_optional_tenor(fixed_freq)? {
+        swaption.fixed_freq = freq;
     }
-    if let Some(ff) = float_freq {
-        let TenorArg(t) = ff.extract()?;
-        swaption.float_freq = t;
+    if let Some(freq) = extract_optional_tenor(float_freq)? {
+        swaption.float_freq = freq;
     }
-    if let Some(dc) = day_count {
-        let DayCountArg(d) = dc.extract()?;
-        swaption.day_count = d;
+    if let Some(count) = extract_optional_day_count(day_count)? {
+        swaption.day_count = count;
     }
     if let Some(vm) = vol_model {
         if let Ok(v) = vm.extract::<PyRef<PyVolatilityModel>>() {
@@ -928,14 +961,12 @@ fn construct_swaption(
     if let Some(sabr) = sabr_params {
         swaption = swaption.with_sabr(sabr.inner);
     }
-    if let Some(vol) = implied_volatility {
-        swaption.pricing_overrides.market_quotes.implied_volatility = Some(vol);
-    }
-    if let Some(attrs) = attributes {
-        for (k, v) in attrs {
-            swaption.attributes.meta.insert(k, v);
-        }
-    }
+    apply_common_option_overrides(
+        &mut swaption.pricing_overrides,
+        &mut swaption.attributes,
+        implied_volatility,
+        attributes,
+    );
 
     Ok(PySwaption::new(swaption))
 }
@@ -1249,17 +1280,14 @@ fn construct_bermudan(
         .map_err(|e| PyValueError::new_err(e.to_string()))?
     };
 
-    if let Some(ff) = fixed_freq {
-        let TenorArg(t) = ff.extract()?;
-        berm = berm.with_fixed_freq(t);
+    if let Some(freq) = extract_optional_tenor(fixed_freq)? {
+        berm = berm.with_fixed_freq(freq);
     }
-    if let Some(ff) = float_freq {
-        let TenorArg(t) = ff.extract()?;
-        berm = berm.with_float_freq(t);
+    if let Some(freq) = extract_optional_tenor(float_freq)? {
+        berm = berm.with_float_freq(freq);
     }
-    if let Some(dc) = day_count {
-        let DayCountArg(d) = dc.extract()?;
-        berm = berm.with_day_count(d);
+    if let Some(count) = extract_optional_day_count(day_count)? {
+        berm = berm.with_day_count(count);
     }
     if let Some(s) = settlement {
         berm = berm.with_settlement(s.parse().map_err(|e: String| PyValueError::new_err(e))?);
@@ -1275,14 +1303,12 @@ fn construct_bermudan(
     if let Some(cal) = calendar {
         berm = berm.with_calendar(cal);
     }
-    if let Some(vol) = implied_volatility {
-        berm.pricing_overrides.market_quotes.implied_volatility = Some(vol);
-    }
-    if let Some(attrs) = attributes {
-        for (k, v) in attrs {
-            berm.attributes.meta.insert(k, v);
-        }
-    }
+    apply_common_option_overrides(
+        &mut berm.pricing_overrides,
+        &mut berm.attributes,
+        implied_volatility,
+        attributes,
+    );
 
     Ok(PyBermudanSwaption::new(berm))
 }

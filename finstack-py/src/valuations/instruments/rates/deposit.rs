@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_builder_field, require_notional_money};
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -232,26 +233,18 @@ impl PyDepositBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyDeposit> {
         slf.ensure_ready()?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "DepositBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let start = slf.start.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "DepositBuilder internal error: missing start after validation",
-            )
-        })?;
-        let maturity = slf.maturity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "DepositBuilder internal error: missing maturity after validation",
-            )
-        })?;
-        let discount = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "DepositBuilder internal error: missing discount curve after validation",
-            )
-        })?;
+        let notional = require_notional_money(
+            "DepositBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
+        let start = require_builder_field("DepositBuilder", "start", slf.start)?;
+        let maturity = require_builder_field("DepositBuilder", "maturity", slf.maturity)?;
+        let discount = require_builder_clone(
+            "DepositBuilder",
+            "discount curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
 
         Deposit::builder()
             .id(slf.instrument_id.clone())

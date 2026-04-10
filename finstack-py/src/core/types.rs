@@ -295,24 +295,17 @@ impl PyRate {
     /// >>> f"{Rate.from_decimal(0.05):.4f}"
     /// '0.0500'
     fn __format__(&self, spec: &str) -> PyResult<String> {
+        use crate::core::common::fmt::{precision_for, unsupported_spec};
+
         if spec.is_empty() {
             return Ok(self.inner.to_string());
         }
-        if spec.ends_with('%') {
-            // Format as percentage
-            let num_part = spec.trim_start_matches('.').trim_end_matches('%');
-            let precision = num_part.parse::<usize>().unwrap_or(4);
+        if let Some(precision) = precision_for(spec, '%', 4) {
             Ok(format!("{:.*}%", precision, self.inner.as_percent()))
-        } else if spec.ends_with('f') {
-            // Format as decimal
-            let num_part = spec.trim_start_matches('.').trim_end_matches('f');
-            let precision = num_part.parse::<usize>().unwrap_or(6);
+        } else if let Some(precision) = precision_for(spec, 'f', 6) {
             Ok(format!("{:.*}", precision, self.inner.as_decimal()))
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Unsupported format spec for Rate: '{}'",
-                spec
-            )))
+            Err(unsupported_spec("Rate", spec))
         }
     }
 

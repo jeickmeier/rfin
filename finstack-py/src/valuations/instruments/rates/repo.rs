@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_builder_field, require_money};
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -526,36 +527,22 @@ impl PyRepoBuilder {
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyRepo> {
         slf.ensure_ready()?;
 
-        let cash = slf.cash_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "RepoBuilder internal error: missing cash amount after validation",
-            )
-        })?;
-        let collateral = slf.collateral.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "RepoBuilder internal error: missing collateral after validation",
-            )
-        })?;
-        let repo_rate = slf.repo_rate.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "RepoBuilder internal error: missing repo_rate after validation",
-            )
-        })?;
-        let start = slf.start_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "RepoBuilder internal error: missing start_date after validation",
-            )
-        })?;
-        let maturity = slf.maturity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "RepoBuilder internal error: missing maturity after validation",
-            )
-        })?;
-        let discount = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "RepoBuilder internal error: missing discount curve after validation",
-            )
-        })?;
+        let cash = require_money(
+            "RepoBuilder",
+            "cash amount",
+            slf.pending_cash_amount,
+            slf.pending_currency,
+        )?;
+        let collateral =
+            require_builder_clone("RepoBuilder", "collateral", slf.collateral.as_ref())?;
+        let repo_rate = require_builder_field("RepoBuilder", "repo_rate", slf.repo_rate)?;
+        let start = require_builder_field("RepoBuilder", "start_date", slf.start_date)?;
+        let maturity = require_builder_field("RepoBuilder", "maturity", slf.maturity)?;
+        let discount = require_builder_clone(
+            "RepoBuilder",
+            "discount curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
 
         Repo::builder()
             .id(slf.instrument_id.clone())

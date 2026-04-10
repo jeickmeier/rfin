@@ -1,6 +1,9 @@
 //! Python bindings for CommodityOption instrument.
 
-use crate::core::common::args::CurrencyArg;
+use super::common::{
+    default_attributes, option_pricing_overrides, validated_clone, validated_field,
+};
+use crate::core::common::args::{parse_day_count, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -11,10 +14,8 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::common::parameters::CommodityConvention;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
-use finstack_valuations::instruments::{
-    Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
-};
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
@@ -155,24 +156,6 @@ impl PyCommodityOptionBuilder {
         }
         Ok(())
     }
-
-    fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<DayCount> {
-        if let Ok(py_dc) = dc.extract::<pyo3::PyRef<PyDayCount>>() {
-            return Ok(py_dc.inner);
-        }
-        if let Ok(name) = dc.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "act_360" | "act/360" => Ok(DayCount::Act360),
-                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported day count '{other}'"
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("day_count expects DayCount or str"))
-    }
 }
 
 #[pymethods]
@@ -294,7 +277,7 @@ impl PyCommodityOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         day_count: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.day_count = Self::parse_day_count(day_count)?;
+        slf.day_count = parse_day_count(&day_count)?;
         Ok(slf)
     }
 
@@ -358,64 +341,33 @@ impl PyCommodityOptionBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityOption> {
         slf.ensure_ready()?;
-        let commodity_type = slf.commodity_type.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing commodity_type after validation",
-            )
-        })?;
-        let ticker = slf.ticker.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing ticker after validation",
-            )
-        })?;
-        let strike = slf.strike.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing strike after validation",
-            )
-        })?;
-        let expiry = slf.expiry.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing expiry after validation",
-            )
-        })?;
-        let quantity = slf.quantity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing quantity after validation",
-            )
-        })?;
-        let unit = slf.unit.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing unit after validation",
-            )
-        })?;
-        let currency = slf.currency.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing currency after validation",
-            )
-        })?;
-        let forward_curve_id = slf.forward_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing forward_curve_id after validation",
-            )
-        })?;
-        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing discount_curve_id after validation",
-            )
-        })?;
-        let vol_surface_id = slf.vol_surface_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "CommodityOptionBuilder internal error: missing vol_surface_id after validation",
-            )
-        })?;
-
-        let mut pricing_overrides = PricingOverrides::default();
-        if let Some(vol) = slf.implied_volatility {
-            pricing_overrides.market_quotes.implied_volatility = Some(vol);
-        }
-        if let Some(steps) = slf.tree_steps {
-            pricing_overrides.model_config.tree_steps = Some(steps);
-        }
+        let commodity_type = validated_clone(
+            "CommodityOptionBuilder",
+            "commodity_type",
+            slf.commodity_type.as_ref(),
+        )?;
+        let ticker = validated_clone("CommodityOptionBuilder", "ticker", slf.ticker.as_ref())?;
+        let strike = validated_field("CommodityOptionBuilder", "strike", slf.strike)?;
+        let expiry = validated_field("CommodityOptionBuilder", "expiry", slf.expiry)?;
+        let quantity = validated_field("CommodityOptionBuilder", "quantity", slf.quantity)?;
+        let unit = validated_clone("CommodityOptionBuilder", "unit", slf.unit.as_ref())?;
+        let currency = validated_field("CommodityOptionBuilder", "currency", slf.currency)?;
+        let forward_curve_id = validated_clone(
+            "CommodityOptionBuilder",
+            "forward_curve_id",
+            slf.forward_curve_id.as_ref(),
+        )?;
+        let discount_curve_id = validated_clone(
+            "CommodityOptionBuilder",
+            "discount_curve_id",
+            slf.discount_curve_id.as_ref(),
+        )?;
+        let vol_surface_id = validated_clone(
+            "CommodityOptionBuilder",
+            "vol_surface_id",
+            slf.vol_surface_id.as_ref(),
+        )?;
+        let pricing_overrides = option_pricing_overrides(slf.implied_volatility, slf.tree_steps);
 
         let mut builder = CommodityOption::builder()
             .id(slf.instrument_id.clone())
@@ -437,7 +389,7 @@ impl PyCommodityOptionBuilder {
             .vol_surface_id(vol_surface_id)
             .day_count(slf.day_count)
             .pricing_overrides(pricing_overrides)
-            .attributes(Attributes::new());
+            .attributes(default_attributes());
 
         if let Some(sp_id) = slf.spot_id.clone() {
             builder = builder.spot_id_opt(Some(sp_id));

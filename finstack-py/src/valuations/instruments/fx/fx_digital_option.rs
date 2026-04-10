@@ -1,3 +1,4 @@
+use super::common::{default_attributes, default_pricing_overrides, validated_option_context};
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
@@ -233,12 +234,6 @@ impl PyFxDigitalOptionBuilder {
     }
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxDigitalOption> {
-        let base = slf
-            .base_currency
-            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
-        let quote = slf
-            .quote_currency
-            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
         let strike = slf
             .strike
             .ok_or_else(|| PyValueError::new_err("strike is required"))?;
@@ -248,41 +243,37 @@ impl PyFxDigitalOptionBuilder {
         let payout_amount = slf
             .payout_amount
             .ok_or_else(|| PyValueError::new_err("payout_amount is required"))?;
-        let expiry = slf
-            .expiry
-            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
         let notional = slf
             .notional
             .ok_or_else(|| PyValueError::new_err("notional is required"))?;
-        let domestic = slf
-            .domestic_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
-        let foreign = slf
-            .foreign_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
-        let vol = slf
-            .vol_surface_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface is required"))?;
+        let context = validated_option_context(
+            "FxDigitalOptionBuilder",
+            &slf.instrument_id,
+            slf.base_currency,
+            slf.quote_currency,
+            slf.expiry,
+            slf.domestic_discount_curve_id.clone(),
+            slf.foreign_discount_curve_id.clone(),
+            slf.vol_surface_id.clone(),
+            slf.day_count,
+        )?;
 
         let option = FxDigitalOption::builder()
-            .id(slf.instrument_id.clone())
-            .base_currency(base)
-            .quote_currency(quote)
+            .id(context.instrument_id)
+            .base_currency(context.base_currency)
+            .quote_currency(context.quote_currency)
             .strike(strike)
             .option_type(slf.option_type)
             .payout_type(payout_type)
             .payout_amount(payout_amount)
-            .expiry(expiry)
-            .day_count(slf.day_count)
+            .expiry(context.expiry)
+            .day_count(context.day_count)
             .notional(notional)
-            .domestic_discount_curve_id(domestic)
-            .foreign_discount_curve_id(foreign)
-            .vol_surface_id(vol)
-            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-            .attributes(finstack_valuations::instruments::Attributes::new())
+            .domestic_discount_curve_id(context.domestic_discount_curve_id)
+            .foreign_discount_curve_id(context.foreign_discount_curve_id)
+            .vol_surface_id(context.vol_surface_id)
+            .pricing_overrides(default_pricing_overrides())
+            .attributes(default_attributes())
             .build()
             .map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!(

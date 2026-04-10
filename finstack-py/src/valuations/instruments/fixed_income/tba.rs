@@ -1,13 +1,12 @@
 //! Python bindings for Agency TBA instruments.
 
+use super::common::validated_agency_trade_context;
 use crate::core::common::args::CurrencyArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::PyContext;
-use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 use finstack_valuations::instruments::fixed_income::tba::{AgencyTba, TbaSettlement, TbaTerm};
-use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -270,23 +269,40 @@ impl PyAgencyTbaBuilder {
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyAgencyTba> {
         slf.ensure_ready()?;
-        let ccy = slf.currency.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "AgencyTbaBuilder internal error: missing currency after validation",
-            )
-        })?;
+        let context = validated_agency_trade_context(
+            "AgencyTbaBuilder",
+            &slf.instrument_id,
+            slf.agency,
+            slf.coupon,
+            slf.term,
+            slf.notional,
+            slf.currency,
+            slf.discount_curve_id.as_deref(),
+        )?;
 
         let mut builder = AgencyTba::builder()
-            .id(slf.instrument_id.clone())
-            .agency(slf.agency.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing agency after validation"))?)
-            .coupon(slf.coupon.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing coupon after validation"))?)
-            .term(slf.term.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing term after validation"))?)
-            .settlement_year(slf.settlement_year.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing settlement_year after validation"))?)
-            .settlement_month(slf.settlement_month.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing settlement_month after validation"))?)
-            .notional(Money::new(slf.notional.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing notional after validation"))?, ccy))
-            .trade_price(slf.trade_price.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing trade_price after validation"))?)
-            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing discount_curve_id after validation"))?))
-            .attributes(Attributes::new());
+            .id(context.instrument_id)
+            .agency(context.agency)
+            .coupon(context.coupon)
+            .term(context.term)
+            .settlement_year(slf.settlement_year.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "AgencyTbaBuilder internal error: missing settlement_year after validation",
+                )
+            })?)
+            .settlement_month(slf.settlement_month.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "AgencyTbaBuilder internal error: missing settlement_month after validation",
+                )
+            })?)
+            .notional(context.notional)
+            .trade_price(slf.trade_price.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "AgencyTbaBuilder internal error: missing trade_price after validation",
+                )
+            })?)
+            .discount_curve_id(context.discount_curve_id)
+            .attributes(context.attributes);
 
         if let Some(td) = slf.trade_date {
             builder = builder.trade_date_opt(Some(td));

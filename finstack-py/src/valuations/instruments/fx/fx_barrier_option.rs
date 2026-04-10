@@ -1,3 +1,4 @@
+use super::common::{default_attributes, default_pricing_overrides, validated_option_context};
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
@@ -192,12 +193,6 @@ impl PyFxBarrierOptionBuilder {
     }
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxBarrierOption> {
-        let base = slf
-            .base_currency
-            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
-        let quote = slf
-            .quote_currency
-            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
         let strike = slf
             .strike
             .ok_or_else(|| PyValueError::new_err("strike is required"))?;
@@ -207,44 +202,39 @@ impl PyFxBarrierOptionBuilder {
         let barrier_type = slf
             .barrier_type
             .ok_or_else(|| PyValueError::new_err("barrier_type is required"))?;
-        let expiry = slf
-            .expiry
-            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
         let notional = slf
             .notional
             .ok_or_else(|| PyValueError::new_err("notional is required"))?;
-        let domestic = slf
-            .domestic_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
-        let foreign = slf
-            .foreign_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
-        let vol = slf
-            .vol_surface_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface is required"))?;
+        let context = validated_option_context(
+            "FxBarrierOptionBuilder",
+            &slf.instrument_id,
+            slf.base_currency,
+            slf.quote_currency,
+            slf.expiry,
+            slf.domestic_discount_curve_id.clone(),
+            slf.foreign_discount_curve_id.clone(),
+            slf.vol_surface_id.clone(),
+            slf.day_count,
+        )?;
 
-        let mut builder = FxBarrierOption::builder();
-        builder = builder.id(slf.instrument_id.clone());
-        builder = builder.strike(strike);
-        builder = builder.barrier(barrier);
-        builder = builder.option_type(slf.option_type);
-        builder = builder.barrier_type(barrier_type);
-        builder = builder.expiry(expiry);
-        builder = builder.notional(notional);
-        builder = builder.base_currency(base);
-        builder = builder.quote_currency(quote);
-        builder = builder.day_count(slf.day_count);
-        builder = builder.use_gobet_miri(slf.use_gobet_miri);
-        builder = builder.domestic_discount_curve_id(domestic);
-        builder = builder.foreign_discount_curve_id(foreign);
-        builder = builder.fx_spot_id_opt(slf.fx_spot_id.as_ref().map(|s| s.clone().into()));
-        builder = builder.vol_surface_id(vol);
-        builder = builder
-            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
+        let mut builder = FxBarrierOption::builder()
+            .id(context.instrument_id)
+            .strike(strike)
+            .barrier(barrier)
+            .option_type(slf.option_type)
+            .barrier_type(barrier_type)
+            .expiry(context.expiry)
+            .notional(notional)
+            .base_currency(context.base_currency)
+            .quote_currency(context.quote_currency)
+            .day_count(context.day_count)
+            .use_gobet_miri(slf.use_gobet_miri)
+            .domestic_discount_curve_id(context.domestic_discount_curve_id)
+            .foreign_discount_curve_id(context.foreign_discount_curve_id)
+            .fx_spot_id_opt(slf.fx_spot_id.as_ref().map(|s| s.clone().into()))
+            .vol_surface_id(context.vol_surface_id)
+            .pricing_overrides(default_pricing_overrides())
+            .attributes(default_attributes());
         if let Some(rebate) = slf.rebate {
             builder = builder.rebate_opt(Some(rebate));
         }

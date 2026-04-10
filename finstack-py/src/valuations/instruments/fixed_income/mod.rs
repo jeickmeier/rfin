@@ -1,6 +1,7 @@
 pub(crate) mod bond;
 pub(crate) mod bond_future;
 pub(crate) mod cmo;
+pub(crate) mod common;
 pub(crate) mod convertible;
 pub(crate) mod dollar_roll;
 pub(crate) mod fi_trs;

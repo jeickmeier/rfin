@@ -2,7 +2,14 @@
  * CDS Tranche instrument component with interactive form.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { CdsTranche, FsDate, MarketContext, Money, standardRegistry } from 'finstack-wasm';
+import {
+  CdsTrancheBuilder,
+  DayCount,
+  FsDate,
+  MarketContext,
+  Money,
+  standardRegistry,
+} from 'finstack-wasm';
 import type { CdsTrancheData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +52,26 @@ interface CDSTrancheFormState {
   indexFamily: string;
 }
 
+type RuntimeCdsTrancheBuilder = {
+  indexName(indexName: string): RuntimeCdsTrancheBuilder;
+  series(series: number): RuntimeCdsTrancheBuilder;
+  attachPct(attachPct: number): RuntimeCdsTrancheBuilder;
+  detachPct(detachPct: number): RuntimeCdsTrancheBuilder;
+  money(notional: Money): RuntimeCdsTrancheBuilder;
+  maturity(maturity: FsDate): RuntimeCdsTrancheBuilder;
+  runningCouponBp(couponBp: number): RuntimeCdsTrancheBuilder;
+  discountCurve(curveId: string): RuntimeCdsTrancheBuilder;
+  creditIndexCurve(curveId: string): RuntimeCdsTrancheBuilder;
+  side(side: string): RuntimeCdsTrancheBuilder;
+  paymentsPerYear(paymentsPerYear: number): RuntimeCdsTrancheBuilder;
+  dayCount(dayCount: DayCount): RuntimeCdsTrancheBuilder;
+  build(): unknown;
+};
+
+const CdsTrancheBuilderCtor = CdsTrancheBuilder as unknown as {
+  new (instrumentId: string): RuntimeCdsTrancheBuilder;
+};
+
 export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
   cdsTranches,
   market,
@@ -73,21 +100,20 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
       const notional = Money.fromCode(formState.notional, formState.currency);
       const maturityDate = new FsDate(asOf.year + 5, asOf.month, asOf.day);
 
-      const tranche = new CdsTranche(
-        'interactive_tranche',
-        formState.indexFamily,
-        formState.series,
-        formState.attachmentPoint,
-        formState.detachmentPoint,
-        notional,
-        maturityDate,
-        formState.spreadBps,
-        initialTranche?.discountCurveId ?? 'USD-OIS',
-        formState.indexFamily, // creditIndexId - must match the key in market.insertCreditIndex()
-        formState.direction,
-        initialTranche?.frequency ?? 4,
-        null
-      );
+      const tranche = new CdsTrancheBuilderCtor('interactive_tranche')
+        .indexName(formState.indexFamily)
+        .series(formState.series)
+        .attachPct(formState.attachmentPoint)
+        .detachPct(formState.detachmentPoint)
+        .money(notional)
+        .maturity(maturityDate)
+        .runningCouponBp(formState.spreadBps)
+        .discountCurve(initialTranche?.discountCurveId ?? 'USD-OIS')
+        .creditIndexCurve(formState.indexFamily)
+        .side(formState.direction)
+        .paymentsPerYear(initialTranche?.frequency ?? 4)
+        .dayCount(DayCount.act360())
+        .build();
 
       const trancheResult = registry.priceInstrument(tranche, 'discounting', market, asOf, null);
 
@@ -136,21 +162,20 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
           );
 
           try {
-            const tranche = new CdsTranche(
-              trancheData.id,
-              trancheData.indexFamily,
-              trancheData.series,
-              trancheData.attachmentPoint,
-              trancheData.detachmentPoint,
-              notional,
-              maturityDate,
-              trancheData.spreadBps,
-              trancheData.discountCurveId,
-              trancheData.creditIndexId,
-              trancheData.direction,
-              trancheData.frequency,
-              null
-            );
+            const tranche = new CdsTrancheBuilderCtor(trancheData.id)
+              .indexName(trancheData.indexFamily)
+              .series(trancheData.series)
+              .attachPct(trancheData.attachmentPoint)
+              .detachPct(trancheData.detachmentPoint)
+              .money(notional)
+              .maturity(maturityDate)
+              .runningCouponBp(trancheData.spreadBps)
+              .discountCurve(trancheData.discountCurveId)
+              .creditIndexCurve(trancheData.creditIndexId)
+              .side(trancheData.direction)
+              .paymentsPerYear(trancheData.frequency)
+              .dayCount(DayCount.act360())
+              .build();
             const trancheResult = registry.priceInstrument(
               tranche,
               'discounting',

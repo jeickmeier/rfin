@@ -1,37 +1,14 @@
 /**
- * Calibration State Types - Shared Primitives and Wire Format Types
+ * Calibration State Types - Shared Primitives for the examples app
  *
  * This module provides:
- * 1. **Wire Format Types** (re-exported from `finstack-wasm/types`)
- *    - Match the JSON accepted/returned by finstack-wasm `fromJSON`/`toJSON` methods
- *    - Generated from Rust via ts-rs; do not edit manually
- *
- * 2. **Shared UI Primitives**
+ * 1. **Shared UI Primitives**
  *    - DateJson, SolverKindJson, CalibrationConfigJson, CalibrationTab
  *    - Consumed by component state types in `components/calibration/state-types.ts`
  *
  * For component-specific state types (with QuoteEditor integration),
  * see `components/calibration/state-types.ts`.
  */
-
-// ============================================================================
-// Wire Format Types (generated from Rust - canonical JSON shapes)
-// ============================================================================
-
-export type {
-  // Config types
-  CalibrationConfig,
-  RateBounds,
-  SolverKind,
-  ValidationMode,
-  // Quote types (wire format)
-  RatesQuote,
-  CreditQuote,
-  VolQuote,
-  InflationQuote,
-  MarketQuote,
-  FutureSpecs,
-} from 'finstack-wasm/types';
 
 // ============================================================================
 // Shared UI Primitives (used by component state types)

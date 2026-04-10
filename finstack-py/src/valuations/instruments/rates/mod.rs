@@ -2,6 +2,7 @@ pub(crate) mod basis_swap;
 pub(crate) mod cap_floor;
 pub(crate) mod cms_option;
 pub(crate) mod cms_swap;
+pub(crate) mod common;
 pub(crate) mod deposit;
 pub(crate) mod fra;
 pub(crate) mod inflation_cap_floor;

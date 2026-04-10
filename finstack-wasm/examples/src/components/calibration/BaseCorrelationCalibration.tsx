@@ -1,21 +1,11 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import {
-  CalibrationConfig,
-  CreditQuote,
-  FsDate,
-  MarketContext,
-  executeCalibration,
-  SolverKind,
-} from 'finstack-wasm';
+import React, { useState, useCallback, useMemo } from 'react';
+import { CreditQuote, MarketContext, executeCalibration } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
+import { CalibrationResultPanel, StatusBadge } from './CurveChart';
 import { TrancheQuoteEditor, DEFAULT_TRANCHE_QUOTES, type TrancheQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type {
-  BaseCorrelationCalibrationState,
-  CalibrationConfigJson,
-  DateJson,
-} from './state-types';
+import type { BaseCorrelationCalibrationState } from './state-types';
+import { buildWasmConfig, isoDate, toFsDate, useEffectiveQuotes } from './shared';
 
 interface CalibratedBaseCorrelationCurve {
   correlation: (detachment: number) => number;
@@ -35,44 +25,20 @@ interface BaseCorrelationCalibrationProps {
   className?: string;
 }
 
-/** Convert JSON config to WASM CalibrationConfig */
-const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
-  let wasmConfig = new CalibrationConfig();
-  switch (config.solverKind) {
-    case 'Brent':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
-      break;
-    case 'Newton':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
-      break;
-  }
-  return wasmConfig
-    .withMaxIterations(config.maxIterations)
-    .withTolerance(config.tolerance)
-    .withVerbose(config.verbose);
-};
-
-/** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
-
-const isoDate = (date: FsDate): string => {
-  const y = String(date.year).padStart(4, '0');
-  const m = String(date.month).padStart(2, '0');
-  const d = String(date.day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
 /** Convert quote data to WASM CreditQuote objects */
-const buildWasmQuotes = (quotes: TrancheQuoteData[]): CreditQuote[] => {
+const buildWasmQuotes = (quotes: TrancheQuoteData[]): ReturnType<CreditQuote['toJSON']>[] => {
   return quotes.map((q) =>
-    CreditQuote.cdsTranche(
-      q.index,
-      q.attachment,
-      q.detachment,
-      new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-      q.upfrontPct,
-      q.runningSpreadBp
-    )
+    CreditQuote.fromJSON({
+      type: 'cds_tranche',
+      id: `${q.index}-${q.attachment}-${q.detachment}`,
+      index: q.index,
+      attachment: q.attachment / 100,
+      detachment: q.detachment / 100,
+      maturity: `${q.maturityYear}-${String(q.maturityMonth).padStart(2, '0')}-${String(q.maturityDay).padStart(2, '0')}`,
+      upfront_pct: q.upfrontPct / 100,
+      running_spread_bp: q.runningSpreadBp,
+      convention: 'USD-CR14',
+    }).toJSON()
   );
 };
 
@@ -86,29 +52,15 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
   const { curveId, indexId, series, maturityYears, discountCurveId, showChart, config } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  const [localQuotes, setLocalQuotes] = useState<TrancheQuoteData[]>(
-    state.quotes.length > 0 ? state.quotes : DEFAULT_TRANCHE_QUOTES
-  );
+  const [quotes, setLocalQuotes] = useEffectiveQuotes(state.quotes, DEFAULT_TRANCHE_QUOTES);
 
-  useEffect(() => {
-    if (state.quotes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalQuotes(state.quotes);
+  const handleQuotesChange = (newQuotes: TrancheQuoteData[]) => {
+    if (onStateChange) {
+      onStateChange({ ...state, quotes: newQuotes });
+    } else {
+      setLocalQuotes(newQuotes);
     }
-  }, [state.quotes]);
-
-  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
-
-  const handleQuotesChange = useCallback(
-    (newQuotes: TrancheQuoteData[]) => {
-      if (onStateChange) {
-        onStateChange({ ...state, quotes: newQuotes });
-      } else {
-        setLocalQuotes(newQuotes);
-      }
-    },
-    [onStateChange, state]
-  );
+  };
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -133,10 +85,10 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
       const wasmQuotes = buildWasmQuotes(quotes);
 
       const detachmentPoints = quotes.map((q) => q.detachment).sort((a, b) => a - b);
-      const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
+      const quoteSet = wasmQuotes;
       const envelope = {
         schema: 'finstack.calibration/2',
-        initial_market: market.toState(),
+        initial_market: market.toJson(),
         plan: {
           id: `base_correlation:${indexId}`,
           quote_sets: {
@@ -152,7 +104,7 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
               maturity_years: maturityYears,
               base_date: isoDate(baseDate),
               discount_curve_id: discountCurveId,
-              detachment_points: detachmentPoints,
+              detachment_points: detachmentPoints.map((point) => point / 100),
               use_imm_dates: false,
             },
           ],
@@ -264,29 +216,20 @@ export const BaseCorrelationCalibration: React.FC<BaseCorrelationCalibrationProp
           </div>
         )}
 
-        {result && (
-          <CalibrationMetrics
-            iterations={result.iterations}
-            maxResidual={result.maxResidual}
-            success={result.success}
-          />
-        )}
-
-        {showChart && result && result.sampleValues.length > 0 && (
-          <CurveChart
-            data={result.sampleValues}
-            config={{
-              title: 'Base Correlation Curve',
-              xLabel: 'Detachment (%)',
-              yLabel: 'Correlation',
-              color: 'hsl(var(--chart-5))',
-              yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
-              xFormatter: (v) => `${v}%`,
-            }}
-            showArea
-            referenceLines={[{ y: 0.5, label: '50%', stroke: 'hsl(var(--muted-foreground))' }]}
-          />
-        )}
+        <CalibrationResultPanel
+          result={result}
+          showChart={showChart}
+          chartConfig={{
+            title: 'Base Correlation Curve',
+            xLabel: 'Detachment (%)',
+            yLabel: 'Correlation',
+            color: 'hsl(var(--chart-5))',
+            yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
+            xFormatter: (v) => `${v}%`,
+          }}
+          showArea
+          referenceLines={[{ y: 0.5, label: '50%', stroke: 'hsl(var(--muted-foreground))' }]}
+        />
 
         {curve && result?.success && (
           <div className="grid grid-cols-5 gap-2 text-sm">

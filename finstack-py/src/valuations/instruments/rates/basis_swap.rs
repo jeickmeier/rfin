@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_notional_money};
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
@@ -313,21 +314,18 @@ impl PyBasisSwapBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyBasisSwap> {
         slf.ensure_ready()?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BasisSwapBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let primary_leg = slf.primary_leg.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BasisSwapBuilder internal error: missing primary leg after validation",
-            )
-        })?;
-        let reference_leg = slf.reference_leg.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BasisSwapBuilder internal error: missing reference leg after validation",
-            )
-        })?;
+        let notional = require_notional_money(
+            "BasisSwapBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
+        let primary_leg =
+            require_builder_clone("BasisSwapBuilder", "primary leg", slf.primary_leg.as_ref())?;
+        let reference_leg = require_builder_clone(
+            "BasisSwapBuilder",
+            "reference leg",
+            slf.reference_leg.as_ref(),
+        )?;
 
         let swap = BasisSwap::new(
             slf.instrument_id.as_str(),

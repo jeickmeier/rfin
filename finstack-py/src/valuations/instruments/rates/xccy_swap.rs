@@ -6,6 +6,7 @@
 //! This module only handles type conversion and builder ergonomics - no business logic
 //! or financial calculations belong here.
 
+use super::common::{require_builder_clone, require_builder_field};
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg, DayCountArg, TenorArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
@@ -254,6 +255,45 @@ pub struct PyCrossCurrencySwapBuilder {
     leg2_payment_lag_days: i32,
     leg2_calendar_id: Option<String>,
     allow_calendar_fallback: bool,
+}
+
+struct XccySwapLegBuildArgs {
+    currency: Currency,
+    notional_amount: f64,
+    side: LegSide,
+    forward_curve_id: CurveId,
+    discount_curve_id: CurveId,
+    start: time::Date,
+    end: time::Date,
+    frequency: Tenor,
+    day_count: DayCount,
+    bdc: BusinessDayConvention,
+    stub: StubKind,
+    spread_bp: f64,
+    payment_lag_days: i32,
+    calendar_id: Option<String>,
+    allow_calendar_fallback: bool,
+}
+
+fn build_xccy_leg(args: XccySwapLegBuildArgs, spread_field_name: &str) -> PyResult<XccySwapLeg> {
+    Ok(XccySwapLeg {
+        currency: args.currency,
+        notional: Money::new(args.notional_amount, args.currency),
+        side: args.side,
+        forward_curve_id: args.forward_curve_id,
+        discount_curve_id: args.discount_curve_id,
+        start: args.start,
+        end: args.end,
+        frequency: args.frequency,
+        day_count: args.day_count,
+        bdc: args.bdc,
+        stub: args.stub,
+        spread_bp: f64_to_decimal(args.spread_bp, spread_field_name)?,
+        payment_lag_days: args.payment_lag_days,
+        calendar_id: args.calendar_id,
+        reset_lag_days: None,
+        allow_calendar_fallback: args.allow_calendar_fallback,
+    })
 }
 
 impl PyCrossCurrencySwapBuilder {
@@ -634,91 +674,93 @@ impl PyCrossCurrencySwapBuilder {
     /// Build the CrossCurrencySwap instrument.
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCrossCurrencySwap> {
-        let reporting_currency = slf
-            .reporting_currency
-            .ok_or_else(|| PyValueError::new_err("reporting_currency() must be provided"))?;
+        let reporting_currency = require_builder_field(
+            "CrossCurrencySwapBuilder",
+            "reporting_currency",
+            slf.reporting_currency,
+        )?;
 
-        // Build leg 1
-        let leg1_currency = slf
-            .leg1_currency
-            .ok_or_else(|| PyValueError::new_err("leg1_currency() must be provided"))?;
-        let leg1_notional_amount = slf
-            .leg1_notional_amount
-            .ok_or_else(|| PyValueError::new_err("leg1_notional() must be provided"))?;
-        let leg1_forward_curve = slf
-            .leg1_forward_curve
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("leg1_forward_curve() must be provided"))?;
-        let leg1_discount_curve = slf
-            .leg1_discount_curve
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("leg1_discount_curve() must be provided"))?;
-        let leg1_start = slf
-            .leg1_start
-            .ok_or_else(|| PyValueError::new_err("leg1_start() must be provided"))?;
-        let leg1_end = slf
-            .leg1_end
-            .ok_or_else(|| PyValueError::new_err("leg1_end() must be provided"))?;
+        let leg1 = build_xccy_leg(
+            XccySwapLegBuildArgs {
+                currency: require_builder_field(
+                    "CrossCurrencySwapBuilder",
+                    "leg1_currency",
+                    slf.leg1_currency,
+                )?,
+                notional_amount: require_builder_field(
+                    "CrossCurrencySwapBuilder",
+                    "leg1_notional",
+                    slf.leg1_notional_amount,
+                )?,
+                side: slf.leg1_side,
+                forward_curve_id: require_builder_clone(
+                    "CrossCurrencySwapBuilder",
+                    "leg1_forward_curve",
+                    slf.leg1_forward_curve.as_ref(),
+                )?,
+                discount_curve_id: require_builder_clone(
+                    "CrossCurrencySwapBuilder",
+                    "leg1_discount_curve",
+                    slf.leg1_discount_curve.as_ref(),
+                )?,
+                start: require_builder_field(
+                    "CrossCurrencySwapBuilder",
+                    "leg1_start",
+                    slf.leg1_start,
+                )?,
+                end: require_builder_field("CrossCurrencySwapBuilder", "leg1_end", slf.leg1_end)?,
+                frequency: slf.leg1_frequency,
+                day_count: slf.leg1_day_count,
+                bdc: slf.leg1_bdc,
+                stub: slf.leg1_stub,
+                spread_bp: slf.leg1_spread,
+                payment_lag_days: slf.leg1_payment_lag_days,
+                calendar_id: slf.leg1_calendar_id.clone(),
+                allow_calendar_fallback: slf.allow_calendar_fallback,
+            },
+            "leg1_spread",
+        )?;
 
-        let leg1 = XccySwapLeg {
-            currency: leg1_currency,
-            notional: Money::new(leg1_notional_amount, leg1_currency),
-            side: slf.leg1_side,
-            forward_curve_id: leg1_forward_curve,
-            discount_curve_id: leg1_discount_curve,
-            start: leg1_start,
-            end: leg1_end,
-            frequency: slf.leg1_frequency,
-            day_count: slf.leg1_day_count,
-            bdc: slf.leg1_bdc,
-            stub: slf.leg1_stub,
-            spread_bp: f64_to_decimal(slf.leg1_spread, "leg1_spread")?,
-            payment_lag_days: slf.leg1_payment_lag_days,
-            calendar_id: slf.leg1_calendar_id.clone(),
-            reset_lag_days: None,
-            allow_calendar_fallback: slf.allow_calendar_fallback,
-        };
-
-        // Build leg 2
-        let leg2_currency = slf
-            .leg2_currency
-            .ok_or_else(|| PyValueError::new_err("leg2_currency() must be provided"))?;
-        let leg2_notional_amount = slf
-            .leg2_notional_amount
-            .ok_or_else(|| PyValueError::new_err("leg2_notional() must be provided"))?;
-        let leg2_forward_curve = slf
-            .leg2_forward_curve
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("leg2_forward_curve() must be provided"))?;
-        let leg2_discount_curve = slf
-            .leg2_discount_curve
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("leg2_discount_curve() must be provided"))?;
-        let leg2_start = slf
-            .leg2_start
-            .ok_or_else(|| PyValueError::new_err("leg2_start() must be provided"))?;
-        let leg2_end = slf
-            .leg2_end
-            .ok_or_else(|| PyValueError::new_err("leg2_end() must be provided"))?;
-
-        let leg2 = XccySwapLeg {
-            currency: leg2_currency,
-            notional: Money::new(leg2_notional_amount, leg2_currency),
-            side: slf.leg2_side,
-            forward_curve_id: leg2_forward_curve,
-            discount_curve_id: leg2_discount_curve,
-            start: leg2_start,
-            end: leg2_end,
-            frequency: slf.leg2_frequency,
-            day_count: slf.leg2_day_count,
-            bdc: slf.leg2_bdc,
-            stub: slf.leg2_stub,
-            spread_bp: f64_to_decimal(slf.leg2_spread, "leg2_spread")?,
-            payment_lag_days: slf.leg2_payment_lag_days,
-            calendar_id: slf.leg2_calendar_id.clone(),
-            reset_lag_days: None,
-            allow_calendar_fallback: slf.allow_calendar_fallback,
-        };
+        let leg2 = build_xccy_leg(
+            XccySwapLegBuildArgs {
+                currency: require_builder_field(
+                    "CrossCurrencySwapBuilder",
+                    "leg2_currency",
+                    slf.leg2_currency,
+                )?,
+                notional_amount: require_builder_field(
+                    "CrossCurrencySwapBuilder",
+                    "leg2_notional",
+                    slf.leg2_notional_amount,
+                )?,
+                side: slf.leg2_side,
+                forward_curve_id: require_builder_clone(
+                    "CrossCurrencySwapBuilder",
+                    "leg2_forward_curve",
+                    slf.leg2_forward_curve.as_ref(),
+                )?,
+                discount_curve_id: require_builder_clone(
+                    "CrossCurrencySwapBuilder",
+                    "leg2_discount_curve",
+                    slf.leg2_discount_curve.as_ref(),
+                )?,
+                start: require_builder_field(
+                    "CrossCurrencySwapBuilder",
+                    "leg2_start",
+                    slf.leg2_start,
+                )?,
+                end: require_builder_field("CrossCurrencySwapBuilder", "leg2_end", slf.leg2_end)?,
+                frequency: slf.leg2_frequency,
+                day_count: slf.leg2_day_count,
+                bdc: slf.leg2_bdc,
+                stub: slf.leg2_stub,
+                spread_bp: slf.leg2_spread,
+                payment_lag_days: slf.leg2_payment_lag_days,
+                calendar_id: slf.leg2_calendar_id.clone(),
+                allow_calendar_fallback: slf.allow_calendar_fallback,
+            },
+            "leg2_spread",
+        )?;
 
         let swap = XccySwap::new(slf.instrument_id.as_str(), leg1, leg2, reporting_currency)
             .with_notional_exchange(slf.notional_exchange);

@@ -95,26 +95,31 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
       // Create deposits
       const depositMap = new Map<string, finstack.Deposit>();
       for (const depositData of deposits) {
-        const deposit = new finstack.Deposit(
-          depositData.id,
-          new finstack.Money(
-            depositData.notional.amount,
-            new finstack.Currency(depositData.notional.currency)
-          ),
-          new finstack.FsDate(
-            depositData.startDate.year,
-            depositData.startDate.month,
-            depositData.startDate.day
-          ),
-          new finstack.FsDate(
-            depositData.maturity.year,
-            depositData.maturity.month,
-            depositData.maturity.day
-          ),
-          finstack.DayCount.act360(),
-          depositData.discountCurveId,
-          depositData.quoteRate
-        );
+        const deposit = new finstack.DepositBuilder(depositData.id)
+          .money(
+            new finstack.Money(
+              depositData.notional.amount,
+              new finstack.Currency(depositData.notional.currency)
+            )
+          )
+          .start(
+            new finstack.FsDate(
+              depositData.startDate.year,
+              depositData.startDate.month,
+              depositData.startDate.day
+            )
+          )
+          .maturity(
+            new finstack.FsDate(
+              depositData.maturity.year,
+              depositData.maturity.month,
+              depositData.maturity.day
+            )
+          )
+          .dayCount(finstack.DayCount.act360())
+          .discountCurve(depositData.discountCurveId)
+          .quoteRate(depositData.quoteRate)
+          .build();
         depositMap.set(depositData.id, deposit);
         addLog(`  Created deposit: ${depositData.id}`);
       }
@@ -256,7 +261,7 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
 
       // 7. Aggregate metrics
       addLog('\n7. Aggregating Metrics');
-      const metrics = finstack.aggregateMetrics(valuation);
+      const metrics = finstack.aggregateMetrics(valuation, portfolio.baseCurrency, market);
 
       const dv01 = metrics.getTotal('dv01');
       const cs01 = metrics.getTotal('cs01');

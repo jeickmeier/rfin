@@ -3,8 +3,8 @@ import {
   FsDate,
   DiscountCurve,
   ForwardCurve,
-  CmsOption,
-  RangeAccrual,
+  CmsOptionBuilder,
+  RangeAccrualBuilder,
   MarketContext,
   MarketScalar,
   Money,
@@ -95,7 +95,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
         for (const spot of market.spotPrices) {
           marketCtx.insertPrice(
             spot.id,
-            MarketScalar.get_price(Money.fromCode(spot.price.amount, spot.price.currency))
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
           );
         }
 
@@ -124,7 +124,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
               pricing_overrides: { adaptive_bumps: false },
               attributes: { tags: [], meta: {} },
             });
-            const cmsOption = CmsOption.fromJson(cmsJson);
+            const cmsOption = new CmsOptionBuilder().jsonString(cmsJson).build();
             const result = registry.priceInstrument(
               cmsOption,
               'monte_carlo_hull_white_1f',
@@ -164,7 +164,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
               pricing_overrides: { adaptive_bumps: false },
               attributes: { tags: [], meta: {} },
             });
-            const rangeAccrual = RangeAccrual.fromJson(rangeAccrualJson);
+            const rangeAccrual = new RangeAccrualBuilder().jsonString(rangeAccrualJson).build();
             const result = registry.priceInstrument(
               rangeAccrual,
               'monte_carlo_gbm',

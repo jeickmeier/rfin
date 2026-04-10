@@ -1,16 +1,14 @@
-"""Canonical alias for analytics performance type stubs."""
+"""Performance analytics type stubs."""
 
 from __future__ import annotations
 
-from ..core.analytics.performance import (
-    BetaResult,
-    DrawdownEpisodeDict,
-    GreeksResult,
-    LookbackResult,
-    MultiFactorResult,
-    Performance,
-    PeriodStatsResult,
-)
+class BetaResult: ...
+class DrawdownEpisodeDict: ...
+class GreeksResult: ...
+class LookbackResult: ...
+class MultiFactorResult: ...
+class PeriodStatsResult: ...
+class Performance: ...
 
 __all__ = [
     "BetaResult",

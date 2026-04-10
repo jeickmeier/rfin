@@ -89,17 +89,6 @@ class TestScenarioModuleShapeParity:
 
         assert hasattr(scenarios, "InstrumentType")
 
-    def test_runtime_submodules_import(self) -> None:
-        """The documented scenarios submodules should be importable."""
-        for name in [
-            "finstack.scenarios.engine",
-            "finstack.scenarios.spec",
-            "finstack.scenarios.reports",
-            "finstack.scenarios.enums",
-            "finstack.scenarios.error",
-        ]:
-            assert importlib.util.find_spec(name) is not None, f"missing runtime submodule {name}"
-
     def test_error_and_result_exports(self) -> None:
         """Scenarios should expose the crate-level Error and Result names."""
         assert Error is not None

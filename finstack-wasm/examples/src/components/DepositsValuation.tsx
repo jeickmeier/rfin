@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   FsDate,
   DayCount,
-  Deposit,
+  DepositBuilder,
   DiscountCurve,
   MarketContext,
   Money,
@@ -100,15 +100,14 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
 
         const notional = Money.fromCode(deposit.notional.amount, deposit.notional.currency);
 
-        const depositInst = new Deposit(
-          deposit.id,
-          notional,
-          start,
-          maturity,
-          DayCount.act360(),
-          deposit.discountCurveId,
-          quoteRate
-        );
+        const depositInst = new DepositBuilder(deposit.id)
+          .money(notional)
+          .start(start)
+          .maturity(maturity)
+          .dayCount(DayCount.act360())
+          .discountCurve(deposit.discountCurveId)
+          .quoteRate(quoteRate)
+          .build();
 
         const registry = standardRegistry();
         const result = registry.priceInstrument(depositInst, 'discounting', market, valDate, null);

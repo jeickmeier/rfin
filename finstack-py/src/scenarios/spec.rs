@@ -11,9 +11,14 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 
-fn json_eq<T: serde::Serialize>(a: &T, b: &T) -> bool {
-    match (serde_json::to_value(a), serde_json::to_value(b)) {
-        (Ok(va), Ok(vb)) => va == vb,
+/// Helper to implement `__richcmp__` for wrapper types whose inner
+/// Rust type implements `PartialEq`. Returns `false` for ordering ops
+/// (Python falls back to `NotImplemented` semantics via pyo3).
+#[inline]
+fn richcmp_eq<T: PartialEq>(a: &T, b: &T, op: CompareOp) -> bool {
+    match op {
+        CompareOp::Eq => a == b,
+        CompareOp::Ne => a != b,
         _ => false,
     }
 }
@@ -294,11 +299,7 @@ impl PyRateBindingSpec {
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
-        match op {
-            CompareOp::Eq => json_eq(&self.inner, &other.inner),
-            CompareOp::Ne => !json_eq(&self.inner, &other.inner),
-            _ => false,
-        }
+        richcmp_eq(&self.inner, &other.inner, op)
     }
 
     fn __repr__(&self) -> String {
@@ -846,11 +847,7 @@ impl PyOperationSpec {
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
-        match op {
-            CompareOp::Eq => json_eq(&self.inner, &other.inner),
-            CompareOp::Ne => !json_eq(&self.inner, &other.inner),
-            _ => false,
-        }
+        richcmp_eq(&self.inner, &other.inner, op)
     }
 
     fn __repr__(&self) -> String {
@@ -1076,11 +1073,7 @@ impl PyScenarioSpec {
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
-        match op {
-            CompareOp::Eq => json_eq(&self.inner, &other.inner),
-            CompareOp::Ne => !json_eq(&self.inner, &other.inner),
-            _ => false,
-        }
+        richcmp_eq(&self.inner, &other.inner, op)
     }
 
     fn __repr__(&self) -> String {

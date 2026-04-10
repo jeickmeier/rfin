@@ -2,7 +2,7 @@
  * Revolving Credit instrument component with interactive form.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { FsDate, MarketContext, RevolvingCredit, standardRegistry } from 'finstack-wasm';
+import { FsDate, MarketContext, RevolvingCreditBuilder, standardRegistry } from 'finstack-wasm';
 import type { RevolvingCreditData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,7 +87,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
         attributes: { tags: [], meta: {} },
       });
 
-      const revolvingCredit = RevolvingCredit.fromJson(revolvingCreditJson);
+      const revolvingCredit = new RevolvingCreditBuilder().jsonString(revolvingCreditJson).build();
       const rcResult = registry.priceInstrument(revolvingCredit, 'discounting', market, asOf, null);
       const utilization = (formState.drawnAmount / formState.commitmentAmount) * 100;
 
@@ -155,7 +155,9 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
               discount_curve_id: rcData.discountCurveId,
               attributes: { tags: [], meta: {} },
             });
-            const revolvingCredit = RevolvingCredit.fromJson(revolvingCreditJson);
+            const revolvingCredit = new RevolvingCreditBuilder()
+              .jsonString(revolvingCreditJson)
+              .build();
             const rcResult = registry.priceInstrument(
               revolvingCredit,
               'discounting',

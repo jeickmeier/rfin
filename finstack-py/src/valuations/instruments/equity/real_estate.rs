@@ -1,6 +1,6 @@
 //! Python bindings for RealEstateAsset instrument.
 
-use crate::core::common::args::CurrencyArg;
+use crate::core::common::args::{parse_day_count as parse_day_count_arg, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -662,28 +662,7 @@ impl PyRealEstateAsset {
 
 impl PyRealEstateAsset {
     fn parse_day_count(day_count: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
-        if let Some(dc_arg) = day_count {
-            if let Ok(py_dc) = dc_arg.extract::<pyo3::PyRef<PyDayCount>>() {
-                Ok(py_dc.inner)
-            } else if let Ok(name) = dc_arg.extract::<&str>() {
-                match name.to_lowercase().as_str() {
-                    "act_360" | "act/360" => Ok(DayCount::Act360),
-                    "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-                    "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-                    "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-                    other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unsupported day count '{}'",
-                        other
-                    ))),
-                }
-            } else {
-                Err(pyo3::exceptions::PyTypeError::new_err(
-                    "day_count expects DayCount or str",
-                ))
-            }
-        } else {
-            Ok(DayCount::Act365F)
-        }
+        day_count.map_or(Ok(DayCount::Act365F), |dc_arg| parse_day_count_arg(&dc_arg))
     }
 }
 

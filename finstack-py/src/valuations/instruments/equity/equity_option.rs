@@ -1,3 +1,4 @@
+use crate::core::common::args::parse_day_count;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
@@ -12,7 +13,7 @@ use finstack_valuations::instruments::{
     Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
 use finstack_valuations::prelude::Instrument;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyTuple, PyType};
 use pyo3::Bound;
@@ -198,24 +199,6 @@ impl PyEquityOptionBuilder {
         Ok(())
     }
 
-    fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
-        if let Ok(py_dc) = value.extract::<PyRef<PyDayCount>>() {
-            return Ok(py_dc.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "act_360" | "act/360" => Ok(DayCount::Act360),
-                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported day count '{other}'"
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("day_count() expects DayCount or str"))
-    }
-
     fn parse_option_type(value: &str) -> PyResult<OptionType> {
         OptionType::from_str(value).map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -293,7 +276,7 @@ impl PyEquityOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         day_count: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.day_count = Self::parse_day_count(&day_count)?;
+        slf.day_count = parse_day_count(&day_count)?;
         Ok(slf)
     }
 

@@ -1,17 +1,11 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-  CalibrationConfig,
-  CreditQuote,
-  FsDate,
-  MarketContext,
-  executeCalibration,
-  SolverKind,
-} from 'finstack-wasm';
+import React, { useState, useCallback, useMemo } from 'react';
+import { CreditQuote, FsDate, MarketContext, executeCalibration } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
+import { CalibrationResultPanel, StatusBadge } from './CurveChart';
 import { CreditQuoteEditor, DEFAULT_CREDIT_QUOTES, type CdsQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type { HazardCurveCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
+import type { HazardCurveCalibrationState } from './state-types';
+import { buildWasmConfig, isoDate, toFsDate, useEffectiveQuotes } from './shared';
 
 interface CalibratedHazardCurve {
   sp: (t: number) => number;
@@ -32,42 +26,17 @@ interface HazardCurveCalibrationProps {
   className?: string;
 }
 
-/** Convert JSON config to WASM CalibrationConfig */
-const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
-  let wasmConfig = new CalibrationConfig();
-  switch (config.solverKind) {
-    case 'Brent':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
-      break;
-    case 'Newton':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
-      break;
-  }
-  return wasmConfig
-    .withMaxIterations(config.maxIterations)
-    .withTolerance(config.tolerance)
-    .withVerbose(config.verbose);
-};
-
-/** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
-
-const isoDate = (date: FsDate): string => {
-  const y = String(date.year).padStart(4, '0');
-  const m = String(date.month).padStart(2, '0');
-  const d = String(date.day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
 /** Convert quote data to WASM CreditQuote objects */
 const buildWasmQuotes = (quotes: CdsQuoteData[]): CreditQuote[] => {
   return quotes.map((q) =>
-    CreditQuote.cds(
+    CreditQuote.cdsParSpread(
+      `${q.entity}-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
       q.entity,
       new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
       q.spreadBps,
       q.recoveryRate,
-      q.currency
+      q.currency,
+      'CR14'
     )
   );
 };
@@ -91,29 +60,15 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
   } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  const [localQuotes, setLocalQuotes] = useState<CdsQuoteData[]>(
-    state.quotes.length > 0 ? state.quotes : DEFAULT_CREDIT_QUOTES
-  );
+  const [quotes, setLocalQuotes] = useEffectiveQuotes(state.quotes, DEFAULT_CREDIT_QUOTES);
 
-  useEffect(() => {
-    if (state.quotes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalQuotes(state.quotes);
+  const handleQuotesChange = (newQuotes: CdsQuoteData[]) => {
+    if (onStateChange) {
+      onStateChange({ ...state, quotes: newQuotes });
+    } else {
+      setLocalQuotes(newQuotes);
     }
-  }, [state.quotes]);
-
-  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
-
-  const handleQuotesChange = useCallback(
-    (newQuotes: CdsQuoteData[]) => {
-      if (onStateChange) {
-        onStateChange({ ...state, quotes: newQuotes });
-      } else {
-        setLocalQuotes(newQuotes);
-      }
-    },
-    [onStateChange, state]
-  );
+  };
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -141,7 +96,7 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
       const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
       const envelope = {
         schema: 'finstack.calibration/2',
-        initial_market: market.toState(),
+        initial_market: market.toJson(),
         plan: {
           id: `hazard:${curveId}`,
           quote_sets: {
@@ -263,31 +218,22 @@ export const HazardCurveCalibration: React.FC<HazardCurveCalibrationProps> = ({
           </div>
         )}
 
-        {result && (
-          <CalibrationMetrics
-            iterations={result.iterations}
-            maxResidual={result.maxResidual}
-            success={result.success}
-          />
-        )}
-
-        {showChart && result && result.sampleValues.length > 0 && (
-          <CurveChart
-            data={result.sampleValues}
-            config={{
-              title: 'Survival Probability',
-              xLabel: 'Time',
-              yLabel: 'SP',
-              color: 'hsl(var(--chart-4))',
-              yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
-            }}
-            showArea
-            referenceLines={[
-              { y: 1, label: '100%', stroke: 'hsl(var(--muted-foreground))' },
-              { y: 0.5, label: '50%', stroke: 'hsl(var(--destructive))' },
-            ]}
-          />
-        )}
+        <CalibrationResultPanel
+          result={result}
+          showChart={showChart}
+          chartConfig={{
+            title: 'Survival Probability',
+            xLabel: 'Time',
+            yLabel: 'SP',
+            color: 'hsl(var(--chart-4))',
+            yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
+          }}
+          showArea
+          referenceLines={[
+            { y: 1, label: '100%', stroke: 'hsl(var(--muted-foreground))' },
+            { y: 0.5, label: '50%', stroke: 'hsl(var(--destructive))' },
+          ]}
+        />
 
         {curve && result?.success && (
           <div className="grid grid-cols-4 gap-2 text-sm">

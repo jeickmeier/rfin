@@ -1,3 +1,7 @@
+use super::common::{
+    meta_attributes, option_pricing_overrides, require_builder_clone, require_builder_field,
+    require_notional_money,
+};
 use crate::core::common::args::{parse_day_count, BusinessDayConventionArg, StubKindArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -11,7 +15,6 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::cap_floor::{
     CapFloorVolType, InterestRateOption, RateOptionType,
 };
-use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -405,58 +408,35 @@ impl PyInterestRateOptionBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateOption> {
         slf.ensure_ready()?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let strike = slf.strike.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing strike after validation",
-            )
-        })?;
-        let start = slf.start_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing start_date after validation",
-            )
-        })?;
-        let end = slf.end_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing end_date after validation",
-            )
-        })?;
-        let disc = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing discount curve after validation",
-            )
-        })?;
-        let fwd = slf.forward_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing forward curve after validation",
-            )
-        })?;
-        let vol_surface_id = slf.vol_surface_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateOptionBuilder internal error: missing vol surface after validation",
-            )
-        })?;
+        let notional = require_notional_money(
+            "InterestRateOptionBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
+        let strike = require_builder_field("InterestRateOptionBuilder", "strike", slf.strike)?;
+        let start =
+            require_builder_field("InterestRateOptionBuilder", "start_date", slf.start_date)?;
+        let end = require_builder_field("InterestRateOptionBuilder", "end_date", slf.end_date)?;
+        let disc = require_builder_clone(
+            "InterestRateOptionBuilder",
+            "discount curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
+        let fwd = require_builder_clone(
+            "InterestRateOptionBuilder",
+            "forward curve",
+            slf.forward_curve_id.as_ref(),
+        )?;
+        let vol_surface_id = require_builder_clone(
+            "InterestRateOptionBuilder",
+            "vol surface",
+            slf.vol_surface_id.as_ref(),
+        )?;
         let freq = frequency_from_payments_per_year(Some(slf.payments_per_year))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-        let mut pricing_overrides = PricingOverrides::default();
-        if let Some(vol) = slf.implied_volatility {
-            pricing_overrides.market_quotes.implied_volatility = Some(vol);
-        }
-        if let Some(steps) = slf.tree_steps {
-            pricing_overrides.model_config.tree_steps = Some(steps);
-        }
-
-        let mut attrs = Attributes::new();
-        if let Some(ref pending) = slf.pending_attributes {
-            for (k, v) in pending {
-                attrs.meta.insert(k.clone(), v.clone());
-            }
-        }
+        let pricing_overrides = option_pricing_overrides(slf.implied_volatility, slf.tree_steps);
+        let attrs = meta_attributes(slf.pending_attributes.as_ref());
 
         let option = InterestRateOption::builder()
             .id(slf.instrument_id.clone())

@@ -4,6 +4,7 @@ pub(crate) mod commodity_option;
 pub(crate) mod commodity_spread_option;
 pub(crate) mod commodity_swap;
 pub(crate) mod commodity_swaption;
+pub(crate) mod common;
 
 use pyo3::prelude::*;
 use pyo3::types::PyModule;

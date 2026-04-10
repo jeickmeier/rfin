@@ -8,7 +8,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import {
-  CreditDefaultSwap,
+  CreditDefaultSwapBuilder,
   FsDate,
   MarketContext,
   Money,
@@ -58,17 +58,16 @@ export const CreditCalibrationExample: React.FC = () => {
         const notional = Money.fromCode(10_000_000, 'USD');
         const maturity = new FsDate(newAsOf.year + tenor, newAsOf.month, newAsOf.day);
 
-        const cds = new CreditDefaultSwap(
-          `CDS_${tenor}Y`,
-          notional,
-          100, // 100 bps spread
-          newAsOf,
-          maturity,
-          discountCurveId,
-          hazardCurveId, // Use the actual hazard curve ID from calibration
-          'buy_protection',
-          null
-        );
+        const cds = new CreditDefaultSwapBuilder(`CDS_${tenor}Y`)
+          .money(notional)
+          .spreadBp(100)
+          .startDate(newAsOf)
+          .maturity(maturity)
+          .discountCurve(discountCurveId)
+          .creditCurve(hazardCurveId)
+          .side('buy_protection')
+          .recoveryRate(0.4)
+          .build();
 
         try {
           const request = new PricingRequest().withMetrics(['par_spread', 'pv01']);

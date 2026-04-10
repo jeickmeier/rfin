@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_builder_field};
 use crate::core::common::args::parse_day_count;
 use crate::core::dates::calendar::PyBusinessDayConvention;
 use crate::core::dates::schedule::PyStubKind;
@@ -12,8 +13,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::inflation_cap_floor::{
     InflationCapFloor, InflationCapFloorType,
 };
-use finstack_valuations::instruments::Attributes;
-use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -453,32 +453,26 @@ impl PyInflationCapFloorBuilder {
     ///     If required fields are missing or validation fails
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInflationCapFloor> {
-        let notional = slf
-            .pending_notional
-            .ok_or_else(|| PyValueError::new_err("notional() must be provided"))?;
-
-        let start_date = slf
-            .start_date
-            .ok_or_else(|| PyValueError::new_err("start_date() must be provided"))?;
-
-        let end_date = slf
-            .end_date
-            .ok_or_else(|| PyValueError::new_err("end_date() must be provided"))?;
-
-        let inflation_index_id = slf
-            .inflation_index_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("inflation_index_id() must be provided"))?;
-
-        let discount_curve_id = slf
-            .discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("discount_curve() must be provided"))?;
-
-        let vol_surface_id = slf
-            .vol_surface_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface_id() must be provided"))?;
+        let notional =
+            require_builder_field("InflationCapFloorBuilder", "notional", slf.pending_notional)?;
+        let start_date =
+            require_builder_field("InflationCapFloorBuilder", "start_date", slf.start_date)?;
+        let end_date = require_builder_field("InflationCapFloorBuilder", "end_date", slf.end_date)?;
+        let inflation_index_id = require_builder_clone(
+            "InflationCapFloorBuilder",
+            "inflation_index_id",
+            slf.inflation_index_id.as_ref(),
+        )?;
+        let discount_curve_id = require_builder_clone(
+            "InflationCapFloorBuilder",
+            "discount_curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
+        let vol_surface_id = require_builder_clone(
+            "InflationCapFloorBuilder",
+            "vol_surface_id",
+            slf.vol_surface_id.as_ref(),
+        )?;
 
         let instrument = InflationCapFloor {
             id: slf.instrument_id.clone(),

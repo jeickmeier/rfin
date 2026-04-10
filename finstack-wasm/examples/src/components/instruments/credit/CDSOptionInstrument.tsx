@@ -2,7 +2,7 @@
  * CDS Option instrument component with interactive form.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { CdsOption, FsDate, MarketContext, Money, standardRegistry } from 'finstack-wasm';
+import { CdsOptionBuilder, FsDate, MarketContext, Money, standardRegistry } from 'finstack-wasm';
 import type { CdsOptionData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +46,23 @@ interface CDSOptionFormState {
   currency: string;
 }
 
+type RuntimeCdsOptionBuilder = {
+  money(notional: Money): RuntimeCdsOptionBuilder;
+  strike(strike: number): RuntimeCdsOptionBuilder;
+  expiry(expiry: FsDate): RuntimeCdsOptionBuilder;
+  cdsMaturity(maturity: FsDate): RuntimeCdsOptionBuilder;
+  discountCurve(curveId: string): RuntimeCdsOptionBuilder;
+  creditCurve(curveId: string): RuntimeCdsOptionBuilder;
+  volSurface(surfaceId: string): RuntimeCdsOptionBuilder;
+  optionType(optionType: string): RuntimeCdsOptionBuilder;
+  recoveryRate(recoveryRate: number): RuntimeCdsOptionBuilder;
+  build(): unknown;
+};
+
+const CdsOptionBuilderCtor = CdsOptionBuilder as unknown as {
+  new (instrumentId: string): RuntimeCdsOptionBuilder;
+};
+
 export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
   cdsOptions,
   market,
@@ -88,20 +105,19 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
         asOf.day
       );
 
-      const option = new CdsOption(
-        'interactive_option',
-        notional,
-        formState.strikeBps,
-        expiryDate,
-        underlyingMaturity,
-        initialOption?.discountCurveId ?? 'USD-OIS',
-        initialOption?.hazardCurveId ?? 'ACME-HZD',
-        initialOption?.volSurfaceId ?? 'CDS-VOL',
-        formState.optionType,
-        formState.recoveryRate,
-        formState.knockedOut,
-        null
-      );
+      const option = CdsOptionBuilderCtor
+        ? new CdsOptionBuilderCtor('interactive_option')
+            .money(notional)
+            .strike(formState.strikeBps / 10000)
+            .expiry(expiryDate)
+            .cdsMaturity(underlyingMaturity)
+            .discountCurve(initialOption?.discountCurveId ?? 'USD-OIS')
+            .creditCurve(initialOption?.hazardCurveId ?? 'ACME-HZD')
+            .volSurface(initialOption?.volSurfaceId ?? 'CDS-VOL')
+            .optionType(formState.optionType)
+            .recoveryRate(formState.recoveryRate)
+            .build()
+        : null;
 
       const optionResult = registry.priceInstrument(option, 'discounting', market, asOf, null);
 
@@ -152,20 +168,17 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
           );
 
           try {
-            const option = new CdsOption(
-              optionData.id,
-              notional,
-              optionData.strikeBps,
-              expiryDate,
-              underlyingMaturity,
-              optionData.discountCurveId,
-              optionData.hazardCurveId,
-              optionData.volSurfaceId,
-              optionData.optionType,
-              optionData.recoveryRate,
-              optionData.knockedOut,
-              null
-            );
+            const option = new CdsOptionBuilderCtor(optionData.id)
+              .money(notional)
+              .strike(optionData.strikeBps / 10000)
+              .expiry(expiryDate)
+              .cdsMaturity(underlyingMaturity)
+              .discountCurve(optionData.discountCurveId)
+              .creditCurve(optionData.hazardCurveId)
+              .volSurface(optionData.volSurfaceId)
+              .optionType(optionData.optionType)
+              .recoveryRate(optionData.recoveryRate)
+              .build();
             const optionResult = registry.priceInstrument(
               option,
               'discounting',

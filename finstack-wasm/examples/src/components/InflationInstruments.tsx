@@ -3,8 +3,8 @@ import {
   FsDate,
   DiscountCurve,
   InflationCurve,
-  InflationLinkedBond,
-  InflationSwap,
+  InflationLinkedBondBuilder,
+  InflationSwapBuilder,
   MarketContext,
   Money,
   standardRegistry,
@@ -100,20 +100,17 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
           );
           const notional = Money.fromCode(bond.notional.amount, bond.notional.currency);
 
-          const ilb = new InflationLinkedBond(
-            bond.id,
-            notional,
-            bond.realCoupon,
-            issueDate,
-            maturityDate,
-            bond.baseIndex,
-            bond.discountCurveId,
-            bond.inflationCurveId,
-            bond.bondType,
-            bond.frequency,
-            null,
-            null
-          );
+          const ilb = new InflationLinkedBondBuilder(bond.id)
+            .money(notional)
+            .realCoupon(bond.realCoupon)
+            .issue(issueDate)
+            .maturity(maturityDate)
+            .baseIndex(bond.baseIndex)
+            .discountCurve(bond.discountCurveId)
+            .inflationCurve(bond.inflationCurveId)
+            .indexation(bond.bondType)
+            .frequency(bond.frequency)
+            .build();
           const ilbResult = registry.priceInstrument(ilb, 'discounting', market, asOf);
           results.push({
             name: `US TIPS ${bond.maturityDate.year}`,
@@ -134,17 +131,16 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
 
           const tenorYears = swap.endDate.year - swap.startDate.year;
 
-          const infSwap = new InflationSwap(
-            swap.id,
-            notional,
-            swap.fixedRate,
-            startDate,
-            endDate,
-            swap.discountCurveId,
-            swap.inflationCurveId,
-            swap.direction,
-            swap.dayCount
-          );
+          const infSwap = new InflationSwapBuilder(swap.id)
+            .money(notional)
+            .fixedRate(swap.fixedRate)
+            .startDate(startDate)
+            .maturity(endDate)
+            .discountCurve(swap.discountCurveId)
+            .inflationCurve(swap.inflationCurveId)
+            .side(swap.direction)
+            .dayCount(swap.dayCount)
+            .build();
           const swapResult = registry.priceInstrument(infSwap, 'discounting', market, asOf);
           results.push({
             name: `ZC Inflation Swap (${tenorYears}Y)`,

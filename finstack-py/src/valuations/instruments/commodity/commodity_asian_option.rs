@@ -1,4 +1,8 @@
-use crate::core::common::args::CurrencyArg;
+use super::common::{
+    default_attributes, default_pricing_overrides, ensure_non_empty, ensure_positive,
+    required_value, validated_clone,
+};
+use crate::core::common::args::{parse_day_count, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -10,7 +14,7 @@ use finstack_valuations::instruments::commodity::commodity_asian_option::Commodi
 use finstack_valuations::instruments::exotics::asian_option::AveragingMethod;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use finstack_valuations::instruments::OptionType;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
 use pyo3::{Bound, Py, PyRefMut};
@@ -108,60 +112,49 @@ impl PyCommodityAsianOptionBuilder {
     }
 
     fn validate_and_build(&self) -> PyResult<CommodityAsianOption> {
-        let commodity_type = self
-            .commodity_type
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("commodity_type is required"))?;
-        let ticker = self
-            .ticker
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("ticker is required"))?;
-        let unit = self
-            .unit
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("unit is required"))?;
-        let currency = self
-            .currency
-            .ok_or_else(|| PyValueError::new_err("currency is required"))?;
-        let strike = self
-            .strike
-            .ok_or_else(|| PyValueError::new_err("strike is required"))?;
-        let option_type = self
-            .option_type
-            .ok_or_else(|| PyValueError::new_err("option_type is required"))?;
-        let averaging_method = self
-            .averaging_method
-            .ok_or_else(|| PyValueError::new_err("averaging_method is required"))?;
-        let fixing_dates = self
-            .fixing_dates
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("fixing_dates is required"))?;
-        let quantity = self
-            .quantity
-            .ok_or_else(|| PyValueError::new_err("quantity is required"))?;
-        let expiry = self
-            .expiry
-            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
-        let forward_curve_id = self
-            .forward_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("forward_curve_id is required"))?;
-        let discount_curve_id = self
-            .discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("discount_curve_id is required"))?;
-        let vol_surface_id = self
-            .vol_surface_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface_id is required"))?;
+        let commodity_type = validated_clone(
+            "CommodityAsianOptionBuilder",
+            "commodity_type",
+            self.commodity_type.as_ref(),
+        )?;
+        let ticker = validated_clone(
+            "CommodityAsianOptionBuilder",
+            "ticker",
+            self.ticker.as_ref(),
+        )?;
+        let unit = validated_clone("CommodityAsianOptionBuilder", "unit", self.unit.as_ref())?;
+        let currency = required_value(self.currency, "currency is required")?;
+        let strike = required_value(self.strike, "strike is required")?;
+        let option_type = required_value(self.option_type, "option_type is required")?;
+        let averaging_method =
+            required_value(self.averaging_method, "averaging_method is required")?;
+        let fixing_dates = validated_clone(
+            "CommodityAsianOptionBuilder",
+            "fixing_dates",
+            self.fixing_dates.as_ref(),
+        )?;
+        let quantity = ensure_positive(
+            required_value(self.quantity, "quantity is required")?,
+            "quantity must be positive",
+        )?;
+        let expiry = required_value(self.expiry, "expiry is required")?;
+        let forward_curve_id = validated_clone(
+            "CommodityAsianOptionBuilder",
+            "forward_curve_id",
+            self.forward_curve_id.as_ref(),
+        )?;
+        let discount_curve_id = validated_clone(
+            "CommodityAsianOptionBuilder",
+            "discount_curve_id",
+            self.discount_curve_id.as_ref(),
+        )?;
+        let vol_surface_id = validated_clone(
+            "CommodityAsianOptionBuilder",
+            "vol_surface_id",
+            self.vol_surface_id.as_ref(),
+        )?;
 
-        if fixing_dates.is_empty() {
-            return Err(PyValueError::new_err("fixing_dates must not be empty"));
-        }
-
-        if quantity <= 0.0 {
-            return Err(PyValueError::new_err("quantity must be positive"));
-        }
+        ensure_non_empty(&fixing_dates, "fixing_dates must not be empty")?;
 
         let mut builder = CommodityAsianOption::builder()
             .id(self.instrument_id.clone())
@@ -181,8 +174,8 @@ impl PyCommodityAsianOptionBuilder {
             .discount_curve_id(discount_curve_id)
             .vol_surface_id(vol_surface_id)
             .day_count(self.day_count)
-            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-            .attributes(finstack_valuations::instruments::Attributes::new());
+            .pricing_overrides(default_pricing_overrides())
+            .attributes(default_attributes());
 
         if !self.realized_fixings.is_empty() {
             builder = builder.realized_fixings(self.realized_fixings.clone());
@@ -305,7 +298,7 @@ impl PyCommodityAsianOptionBuilder {
         mut slf: PyRefMut<'py, Self>,
         day_count: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.day_count = parse_day_count(day_count)?;
+        slf.day_count = parse_day_count(&day_count)?;
         Ok(slf)
     }
 
@@ -505,24 +498,6 @@ impl fmt::Display for PyCommodityAsianOption {
             self.inner.quantity
         )
     }
-}
-
-fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<DayCount> {
-    if let Ok(py_dc) = dc.extract::<pyo3::PyRef<PyDayCount>>() {
-        return Ok(py_dc.inner);
-    }
-    if let Ok(name) = dc.extract::<&str>() {
-        return match name.to_lowercase().as_str() {
-            "act_360" | "act/360" => Ok(DayCount::Act360),
-            "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-            "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-            "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-            other => Err(PyValueError::new_err(format!(
-                "Unsupported day count '{other}'"
-            ))),
-        };
-    }
-    Err(PyTypeError::new_err("day_count expects DayCount or str"))
 }
 
 pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {

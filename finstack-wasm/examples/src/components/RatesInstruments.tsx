@@ -4,14 +4,15 @@ import {
   DayCount,
   DiscountCurve,
   ForwardCurve,
-  ForwardRateAgreement,
-  InterestRateFuture,
-  InterestRateOption,
-  InterestRateSwap,
+  ForwardRateAgreementBuilder,
+  InterestRateFutureBuilder,
+  InterestRateOptionBuilder,
+  InterestRateSwapBuilder,
   MarketContext,
   Money,
   PricingRequest,
-  Swaption,
+  SwaptionBuilder,
+  Tenor,
   VolSurface,
   standardRegistry,
 } from 'finstack-wasm';
@@ -120,38 +121,36 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
         // Process Interest Rate Swaps
         for (const swapData of swaps) {
-          const notional = Money.fromCode(swapData.notional.amount, swapData.notional.currency);
-          const startDate = new FsDate(
-            swapData.startDate.year,
-            swapData.startDate.month,
-            swapData.startDate.day
-          );
-          const endDate = new FsDate(
-            swapData.endDate.year,
-            swapData.endDate.month,
-            swapData.endDate.day
-          );
-
-          const swap = new InterestRateSwap(
-            swapData.id,
-            notional,
-            swapData.fixedRate,
-            startDate,
-            endDate,
-            swapData.discountCurveId,
-            swapData.forwardCurveId,
-            swapData.direction,
-            null,
-            swapData.fixedDayCount === 'thirty360' ? DayCount.thirty360() : DayCount.act360(),
-            null,
-            swapData.floatDayCount === 'act360' ? DayCount.act360() : DayCount.thirty360(),
-            null,
-            null,
-            null,
-            swapData.fixedFrequency
-          );
           const swapOpts = new PricingRequest().withMetrics(['dv01', 'annuity', 'par_rate']);
           try {
+            const notional = Money.fromCode(swapData.notional.amount, swapData.notional.currency);
+            const startDate = new FsDate(
+              swapData.startDate.year,
+              swapData.startDate.month,
+              swapData.startDate.day
+            );
+            const endDate = new FsDate(
+              swapData.endDate.year,
+              swapData.endDate.month,
+              swapData.endDate.day
+            );
+            const swap = new InterestRateSwapBuilder(swapData.id)
+              .money(notional)
+              .fixedRate(swapData.fixedRate)
+              .start(startDate)
+              .end(endDate)
+              .discountCurve(swapData.discountCurveId)
+              .forwardCurve(swapData.forwardCurveId)
+              .side(swapData.direction)
+              .fixedFrequency(Tenor.fromPaymentsPerYear(swapData.fixedFrequency))
+              .floatFrequency(Tenor.quarterly())
+              .fixedDayCount(
+                swapData.fixedDayCount === 'thirty360' ? DayCount.thirty360() : DayCount.act360()
+              )
+              .floatDayCount(
+                swapData.floatDayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
+              )
+              .build();
             const swapResult = registry.priceInstrument(
               swap,
               'discounting',
@@ -174,38 +173,34 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
         // Process FRAs
         for (const fraData of fras) {
-          const notional = Money.fromCode(fraData.notional.amount, fraData.notional.currency);
-          const fixingDate = new FsDate(
-            fraData.fixingDate.year,
-            fraData.fixingDate.month,
-            fraData.fixingDate.day
-          );
-          const settlementDate = new FsDate(
-            fraData.settlementDate.year,
-            fraData.settlementDate.month,
-            fraData.settlementDate.day
-          );
-          const maturityDate = new FsDate(
-            fraData.maturityDate.year,
-            fraData.maturityDate.month,
-            fraData.maturityDate.day
-          );
-
-          const fra = new ForwardRateAgreement(
-            fraData.id,
-            notional,
-            fraData.fixedRate,
-            fixingDate,
-            settlementDate,
-            maturityDate,
-            fraData.discountCurveId,
-            fraData.forwardCurveId,
-            fraData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360(),
-            fraData.compounding,
-            fraData.payAtMaturity
-          );
           const fraOpts = new PricingRequest().withMetrics(['par_rate']);
           try {
+            const notional = Money.fromCode(fraData.notional.amount, fraData.notional.currency);
+            const fixingDate = new FsDate(
+              fraData.fixingDate.year,
+              fraData.fixingDate.month,
+              fraData.fixingDate.day
+            );
+            const settlementDate = new FsDate(
+              fraData.settlementDate.year,
+              fraData.settlementDate.month,
+              fraData.settlementDate.day
+            );
+            const maturityDate = new FsDate(
+              fraData.maturityDate.year,
+              fraData.maturityDate.month,
+              fraData.maturityDate.day
+            );
+            const fra = new ForwardRateAgreementBuilder(fraData.id)
+              .money(notional)
+              .fixedRate(fraData.fixedRate)
+              .fixingDate(fixingDate)
+              .startDate(settlementDate)
+              .endDate(maturityDate)
+              .discountCurve(fraData.discountCurveId)
+              .forwardCurve(fraData.forwardCurveId)
+              .dayCount(fraData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360())
+              .build();
             const fraResult = registry.priceInstrument(fra, 'discounting', market, asOf, fraOpts);
             results.push({
               name: '3x6 FRA',
@@ -224,63 +219,37 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
         // Process Swaptions
         for (const swaptionData of swaptions) {
-          const notional = Money.fromCode(
-            swaptionData.notional.amount,
-            swaptionData.notional.currency
-          );
-          const optionExpiry = new FsDate(
-            swaptionData.optionExpiry.year,
-            swaptionData.optionExpiry.month,
-            swaptionData.optionExpiry.day
-          );
-          const swapStart = new FsDate(
-            swaptionData.swapStart.year,
-            swaptionData.swapStart.month,
-            swaptionData.swapStart.day
-          );
-          const swapEnd = new FsDate(
-            swaptionData.swapEnd.year,
-            swaptionData.swapEnd.month,
-            swaptionData.swapEnd.day
-          );
-
-          const swaption =
-            swaptionData.optionType === 'payer'
-              ? new Swaption(
-                  swaptionData.id,
-                  notional,
-                  swaptionData.strike,
-                  'payer',
-                  optionExpiry,
-                  swapStart,
-                  swapEnd,
-                  swaptionData.discountCurveId,
-                  swaptionData.forwardCurveId,
-                  swaptionData.volSurfaceId,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                )
-              : new Swaption(
-                  swaptionData.id,
-                  notional,
-                  swaptionData.strike,
-                  'receiver',
-                  optionExpiry,
-                  swapStart,
-                  swapEnd,
-                  swaptionData.discountCurveId,
-                  swaptionData.forwardCurveId,
-                  swaptionData.volSurfaceId,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                );
           try {
+            const notional = Money.fromCode(
+              swaptionData.notional.amount,
+              swaptionData.notional.currency
+            );
+            const optionExpiry = new FsDate(
+              swaptionData.optionExpiry.year,
+              swaptionData.optionExpiry.month,
+              swaptionData.optionExpiry.day
+            );
+            const swapStart = new FsDate(
+              swaptionData.swapStart.year,
+              swaptionData.swapStart.month,
+              swaptionData.swapStart.day
+            );
+            const swapEnd = new FsDate(
+              swaptionData.swapEnd.year,
+              swaptionData.swapEnd.month,
+              swaptionData.swapEnd.day
+            );
+            const swaption = new SwaptionBuilder(swaptionData.id)
+              .money(notional)
+              .strike(swaptionData.strike)
+              .swaptionType(swaptionData.optionType)
+              .expiry(optionExpiry)
+              .swapStart(swapStart)
+              .swapEnd(swapEnd)
+              .discountCurve(swaptionData.discountCurveId)
+              .forwardCurve(swaptionData.forwardCurveId)
+              .volSurface(swaptionData.volSurfaceId)
+              .build();
             const swaptionResult = registry.priceInstrument(
               swaption,
               'discounting',
@@ -303,48 +272,35 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
         // Process Caps/Floors
         for (const capFloorData of capsFloors) {
-          const notional = Money.fromCode(
-            capFloorData.notional.amount,
-            capFloorData.notional.currency
-          );
-          const startDate = new FsDate(
-            capFloorData.startDate.year,
-            capFloorData.startDate.month,
-            capFloorData.startDate.day
-          );
-          const endDate = new FsDate(
-            capFloorData.endDate.year,
-            capFloorData.endDate.month,
-            capFloorData.endDate.day
-          );
-
-          const capFloor =
-            capFloorData.capOrFloor === 'cap'
-              ? InterestRateOption.cap(
-                  capFloorData.id,
-                  notional,
-                  capFloorData.strike,
-                  startDate,
-                  endDate,
-                  capFloorData.discountCurveId,
-                  capFloorData.forwardCurveId,
-                  capFloorData.volSurfaceId,
-                  capFloorData.frequency,
-                  capFloorData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
-                )
-              : InterestRateOption.floor(
-                  capFloorData.id,
-                  notional,
-                  capFloorData.strike,
-                  startDate,
-                  endDate,
-                  capFloorData.discountCurveId,
-                  capFloorData.forwardCurveId,
-                  capFloorData.volSurfaceId,
-                  capFloorData.frequency,
-                  capFloorData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
-                );
           try {
+            const notional = Money.fromCode(
+              capFloorData.notional.amount,
+              capFloorData.notional.currency
+            );
+            const startDate = new FsDate(
+              capFloorData.startDate.year,
+              capFloorData.startDate.month,
+              capFloorData.startDate.day
+            );
+            const endDate = new FsDate(
+              capFloorData.endDate.year,
+              capFloorData.endDate.month,
+              capFloorData.endDate.day
+            );
+            const capFloor = new InterestRateOptionBuilder(capFloorData.id)
+              .kind(capFloorData.capOrFloor)
+              .money(notional)
+              .strike(capFloorData.strike)
+              .startDate(startDate)
+              .endDate(endDate)
+              .discountCurve(capFloorData.discountCurveId)
+              .forwardCurve(capFloorData.forwardCurveId)
+              .volSurface(capFloorData.volSurfaceId)
+              .paymentsPerYear(capFloorData.frequency)
+              .dayCount(
+                capFloorData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
+              )
+              .build();
             const capFloorResult = registry.priceInstrument(
               capFloor,
               'discounting',
@@ -366,42 +322,43 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
         // Process Futures
         for (const futureData of futures) {
-          const notional = Money.fromCode(futureData.notional.amount, futureData.notional.currency);
-          const lastTradeDate = new FsDate(
-            futureData.lastTradeDate.year,
-            futureData.lastTradeDate.month,
-            futureData.lastTradeDate.day
-          );
-          const settlementDate = new FsDate(
-            futureData.settlementDate.year,
-            futureData.settlementDate.month,
-            futureData.settlementDate.day
-          );
-          const accrualStart = new FsDate(
-            futureData.accrualStart.year,
-            futureData.accrualStart.month,
-            futureData.accrualStart.day
-          );
-          const accrualEnd = new FsDate(
-            futureData.accrualEnd.year,
-            futureData.accrualEnd.month,
-            futureData.accrualEnd.day
-          );
-
-          const future = new InterestRateFuture(
-            futureData.id,
-            notional,
-            futureData.price,
-            lastTradeDate,
-            settlementDate,
-            accrualStart,
-            accrualEnd,
-            futureData.discountCurveId,
-            futureData.forwardCurveId,
-            futureData.direction,
-            futureData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
-          );
           try {
+            const notional = Money.fromCode(
+              futureData.notional.amount,
+              futureData.notional.currency
+            );
+            const lastTradeDate = new FsDate(
+              futureData.lastTradeDate.year,
+              futureData.lastTradeDate.month,
+              futureData.lastTradeDate.day
+            );
+            const settlementDate = new FsDate(
+              futureData.settlementDate.year,
+              futureData.settlementDate.month,
+              futureData.settlementDate.day
+            );
+            const accrualStart = new FsDate(
+              futureData.accrualStart.year,
+              futureData.accrualStart.month,
+              futureData.accrualStart.day
+            );
+            const accrualEnd = new FsDate(
+              futureData.accrualEnd.year,
+              futureData.accrualEnd.month,
+              futureData.accrualEnd.day
+            );
+            const future = new InterestRateFutureBuilder(futureData.id)
+              .money(notional)
+              .quotedPrice(futureData.price)
+              .expiry(lastTradeDate)
+              .fixingDate(settlementDate)
+              .periodStart(accrualStart)
+              .periodEnd(accrualEnd)
+              .discountCurve(futureData.discountCurveId)
+              .forwardCurve(futureData.forwardCurveId)
+              .position(futureData.direction)
+              .dayCount(futureData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360())
+              .build();
             const futureResult = registry.priceInstrument(
               future,
               'discounting',

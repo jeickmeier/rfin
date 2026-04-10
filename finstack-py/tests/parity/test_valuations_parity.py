@@ -53,15 +53,13 @@ class TestNoPythonOnlyValuationHelpers:
 class TestValuationEnumParity:
     """Valuation enum-like Rust types should be exposed as Python wrappers."""
 
-    def test_rates_and_commodity_packages_expose_new_wrapper_types(self) -> None:
-        """Category packages should re-export the newly added enum and instrument types."""
-        from finstack.valuations.instruments.commodity import (
-            CommoditySpreadOption,
-            CommoditySwaption,
-        )
-        from finstack.valuations.instruments.rates import (
+    def test_new_wrapper_types_exposed(self) -> None:
+        """Newly added enum and instrument types should be on the flat instruments surface."""
+        from finstack.valuations.instruments import (
             CmsSwap,
             CollateralType,
+            CommoditySpreadOption,
+            CommoditySwaption,
             IrFutureOption,
         )
 
@@ -143,12 +141,10 @@ class TestCalibrationDiagnosticsParity:
         """Calibration diagnostics should round-trip through runtime report surfaces."""
         from finstack.valuations.calibration import (
             CalibrationConfig,
-            RatesQuote,
-            execute_calibration,
-        )
-        from finstack.valuations.calibration.report import (
             CalibrationDiagnostics as ReportCalibrationDiagnostics,
             QuoteQuality as ReportQuoteQuality,
+            RatesQuote,
+            execute_calibration,
         )
 
         from finstack.valuations import CalibrationDiagnostics, QuoteQuality
@@ -218,23 +214,12 @@ class TestCalibrationDiagnosticsParity:
 class TestDiscountedCashFlowParity:
     """DiscountedCashFlow should be a first-class Rust-backed instrument."""
 
-    def test_equity_package_imports_discounted_cash_flow_symbols(self) -> None:
-        """The `instruments.equity` package should be importable at runtime."""
-        from finstack.valuations.instruments import (
-            DiscountedCashFlow as RootDiscountedCashFlow,
-            TerminalValueSpec as RootTerminalValueSpec,
-        )
-        from finstack.valuations.instruments.equity import (
-            DiscountedCashFlow,
-            TerminalValueSpec,
-        )
-        from finstack.valuations.instruments.equity.dcf import (
-            DiscountedCashFlow as SubmoduleDiscountedCashFlow,
-        )
+    def test_dcf_symbols_exposed_flat(self) -> None:
+        """DCF symbols must be importable from the flat instruments surface."""
+        from finstack.valuations.instruments import DiscountedCashFlow, TerminalValueSpec
 
-        assert DiscountedCashFlow is RootDiscountedCashFlow
-        assert SubmoduleDiscountedCashFlow is RootDiscountedCashFlow
-        assert TerminalValueSpec is RootTerminalValueSpec
+        assert DiscountedCashFlow is not None
+        assert TerminalValueSpec is not None
 
     def test_discounted_cash_flow_builder_constructs_real_instrument(self) -> None:
         """The DCF binding should expose the Rust instrument and builder surface."""

@@ -1,15 +1,15 @@
 //! Python bindings for Agency CMO instruments.
 
+use super::common::validated_agency_cmo_context;
 use crate::core::common::args::CurrencyArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::PyContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::fixed_income::cmo::{
     AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall, PacCollar,
 };
 use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
-use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -525,16 +525,26 @@ impl PyAgencyCmoBuilder {
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyAgencyCmo> {
         slf.ensure_ready()?;
+        let context = validated_agency_cmo_context(
+            "AgencyCmoBuilder",
+            &slf.instrument_id,
+            slf.deal_name.as_deref(),
+            slf.agency,
+            slf.issue_date,
+            slf.waterfall.clone(),
+            slf.reference_tranche_id.as_deref(),
+            slf.discount_curve_id.as_deref(),
+        )?;
 
         let mut builder = AgencyCmo::builder()
-            .id(slf.instrument_id.clone())
-            .deal_name(slf.deal_name.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing deal_name after validation"))?.into())
-            .agency(slf.agency.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing agency after validation"))?)
-            .issue_date(slf.issue_date.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing issue_date after validation"))?)
-            .waterfall(slf.waterfall.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing waterfall after validation"))?)
-            .reference_tranche_id(slf.reference_tranche_id.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing reference_tranche_id after validation"))?)
-            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing discount_curve_id after validation"))?))
-            .attributes(Attributes::new());
+            .id(context.instrument_id)
+            .deal_name(context.deal_name.into())
+            .agency(context.agency)
+            .issue_date(context.issue_date)
+            .waterfall(context.waterfall)
+            .reference_tranche_id(context.reference_tranche_id)
+            .discount_curve_id(context.discount_curve_id)
+            .attributes(context.attributes);
 
         if let Some(wac) = slf.collateral_wac {
             builder = builder.collateral_wac_opt(Some(wac));

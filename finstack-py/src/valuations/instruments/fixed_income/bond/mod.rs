@@ -38,6 +38,7 @@ use finstack_valuations::instruments::fixed_income::bond::{
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -378,6 +379,19 @@ pub struct PyBondBuilder {
     tree_model: Option<finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreeModelChoice>,
 }
 
+struct StandardBondBuildArgs {
+    instrument_id: InstrumentId,
+    money: Money,
+    maturity: time::Date,
+    discount_curve: CurveId,
+    cashflow_spec: CashflowSpec,
+    pricing_overrides: PricingOverrides,
+    settlement_convention: Option<BondSettlementConvention>,
+    issue: Option<time::Date>,
+    credit_curve: Option<CurveId>,
+    call_put: Option<CallPutSchedule>,
+}
+
 impl PyBondBuilder {
     fn new_with_id(id: InstrumentId) -> Self {
         Self {
@@ -468,6 +482,110 @@ impl PyBondBuilder {
 
     fn call_put_mut(&mut self) -> &mut CallPutSchedule {
         self.call_put.get_or_insert_with(CallPutSchedule::default)
+    }
+
+    fn internal_missing(field_name: &str) -> PyErr {
+        PyRuntimeError::new_err(format!(
+            "BondBuilder internal error: missing {field_name} after validation"
+        ))
+    }
+
+    fn validated_discount_curve(&self) -> PyResult<CurveId> {
+        self.discount_curve
+            .clone()
+            .ok_or_else(|| Self::internal_missing("discount curve"))
+    }
+
+    fn validated_notional_money(&self) -> PyResult<Money> {
+        self.notional_money()
+            .ok_or_else(|| Self::internal_missing("notional"))
+    }
+
+    fn validated_maturity(&self) -> PyResult<time::Date> {
+        self.maturity
+            .ok_or_else(|| Self::internal_missing("maturity date"))
+    }
+
+    fn call_put_if_any(&self) -> Option<CallPutSchedule> {
+        self.call_put.clone().filter(CallPutSchedule::has_options)
+    }
+
+    fn pricing_overrides(&self) -> PricingOverrides {
+        let mut overrides = PricingOverrides::default();
+        if let Some(mc_config) = self.merton_mc_config.clone() {
+            overrides = overrides.with_merton_mc(mc_config);
+        }
+        if let Some(px) = self.quoted_clean_price {
+            overrides = overrides.with_clean_price(px);
+        }
+        if let Some(steps) = self.tree_steps {
+            overrides = overrides.with_tree_steps(steps);
+        }
+        if let Some(vol) = self.tree_volatility {
+            overrides = overrides.with_tree_volatility(vol);
+        }
+        if let Some(mr) = self.mean_reversion {
+            overrides.model_config.mean_reversion = Some(mr);
+        }
+        if let Some(fc) = self.call_friction_cents {
+            overrides = overrides.with_call_friction_cents(fc);
+        }
+        overrides
+    }
+
+    fn standard_build_args(&self) -> PyResult<StandardBondBuildArgs> {
+        Ok(StandardBondBuildArgs {
+            instrument_id: self.instrument_id.clone(),
+            money: self.validated_notional_money()?,
+            maturity: self.validated_maturity()?,
+            discount_curve: self.validated_discount_curve()?,
+            cashflow_spec: self.make_cashflow_spec()?,
+            pricing_overrides: self.pricing_overrides(),
+            settlement_convention: self.settlement_convention.clone(),
+            issue: self.issue,
+            credit_curve: self.credit_curve.clone(),
+            call_put: self.call_put_if_any(),
+        })
+    }
+
+    fn build_custom_cashflow_bond(&self, schedule: CashFlowSchedule) -> PyResult<Bond> {
+        let discount = self.validated_discount_curve()?;
+        let mut bond = Bond::from_cashflows(
+            self.instrument_id.clone(),
+            schedule,
+            discount,
+            self.quoted_clean_price,
+        )
+        .map_err(core_to_py)?;
+
+        if let Some(credit) = self.credit_curve.clone() {
+            bond.credit_curve_id = Some(credit);
+        }
+
+        if let Some(call_put) = self.call_put_if_any() {
+            bond.call_put = Some(call_put);
+        }
+
+        if let Some(fwd) = self.forward_curve.clone() {
+            use crate::valuations::common::f64_to_decimal;
+            let freq = bond.cashflow_spec.frequency();
+            let dc = bond.cashflow_spec.day_count();
+            bond.cashflow_spec =
+                CashflowSpec::floating_with_conventions(FloatingConventionParams {
+                    index_id: fwd,
+                    spread_bp: f64_to_decimal(self.float_margin_bp, "float_margin_bp")?,
+                    gearing: f64_to_decimal(self.float_gearing, "float_gearing")?,
+                    reset_lag_days: self.float_reset_lag_days,
+                    coupon_type: CouponType::Cash,
+                    freq,
+                    dc,
+                    bdc: BusinessDayConvention::Following,
+                    calendar_id: "weekends_only".to_string(),
+                    stub: StubKind::None,
+                });
+        }
+
+        Ok(bond)
     }
 }
 
@@ -769,110 +887,31 @@ impl PyBondBuilder {
         slf.ensure_ready()?;
 
         if let Some(schedule) = slf.custom_cashflows.clone() {
-            let discount = slf.discount_curve.clone().ok_or_else(|| {
-                pyo3::exceptions::PyRuntimeError::new_err(
-                    "BondBuilder internal error: missing discount curve after validation",
-                )
-            })?;
-
-            let mut bond = Bond::from_cashflows(
-                slf.instrument_id.clone(),
-                schedule,
-                discount,
-                slf.quoted_clean_price,
-            )
-            .map_err(core_to_py)?;
-
-            if let Some(credit) = slf.credit_curve.clone() {
-                bond.credit_curve_id = Some(credit);
-            }
-
-            if let Some(call_put) = slf.call_put.clone() {
-                if call_put.has_options() {
-                    bond.call_put = Some(call_put);
-                }
-            }
-
-            if let Some(fwd) = slf.forward_curve.clone() {
-                use crate::valuations::common::f64_to_decimal;
-                let freq = bond.cashflow_spec.frequency();
-                let dc = bond.cashflow_spec.day_count();
-                bond.cashflow_spec =
-                    CashflowSpec::floating_with_conventions(FloatingConventionParams {
-                        index_id: fwd,
-                        spread_bp: f64_to_decimal(slf.float_margin_bp, "float_margin_bp")?,
-                        gearing: f64_to_decimal(slf.float_gearing, "float_gearing")?,
-                        reset_lag_days: slf.float_reset_lag_days,
-                        coupon_type: CouponType::Cash,
-                        freq,
-                        dc,
-                        bdc: BusinessDayConvention::Following,
-                        calendar_id: "weekends_only".to_string(),
-                        stub: StubKind::None,
-                    });
-            }
-
-            return Ok(PyBond::new(bond));
+            return slf.build_custom_cashflow_bond(schedule).map(PyBond::new);
         }
 
-        let money = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BondBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let maturity = slf.maturity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BondBuilder internal error: missing maturity date after validation",
-            )
-        })?;
-        let discount = slf.discount_curve.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BondBuilder internal error: missing discount curve after validation",
-            )
-        })?;
-
-        let mut overrides = PricingOverrides::default();
-        if let Some(mc_config) = slf.merton_mc_config.clone() {
-            overrides = overrides.with_merton_mc(mc_config);
-        }
-        if let Some(px) = slf.quoted_clean_price {
-            overrides = overrides.with_clean_price(px);
-        }
-        if let Some(steps) = slf.tree_steps {
-            overrides = overrides.with_tree_steps(steps);
-        }
-        if let Some(vol) = slf.tree_volatility {
-            overrides = overrides.with_tree_volatility(vol);
-        }
-        if let Some(mr) = slf.mean_reversion {
-            overrides.model_config.mean_reversion = Some(mr);
-        }
-        if let Some(fc) = slf.call_friction_cents {
-            overrides = overrides.with_call_friction_cents(fc);
-        }
+        let args = slf.standard_build_args()?;
 
         let mut builder = Bond::builder()
-            .id(slf.instrument_id.clone())
-            .notional(money)
-            .maturity(maturity)
-            .discount_curve_id(discount)
-            .cashflow_spec(slf.make_cashflow_spec()?)
-            .pricing_overrides(overrides)
+            .id(args.instrument_id)
+            .notional(args.money)
+            .maturity(args.maturity)
+            .discount_curve_id(args.discount_curve)
+            .cashflow_spec(args.cashflow_spec)
+            .pricing_overrides(args.pricing_overrides)
             .attributes(Attributes::new())
-            .settlement_convention_opt(slf.settlement_convention.clone());
+            .settlement_convention_opt(args.settlement_convention);
 
-        if let Some(issue) = slf.issue {
+        if let Some(issue) = args.issue {
             builder = builder.issue_date(issue);
         }
 
-        if let Some(credit) = slf.credit_curve.clone() {
+        if let Some(credit) = args.credit_curve {
             builder = builder.credit_curve_id_opt(Some(credit));
         }
 
-        if let Some(schedule) = slf.call_put.clone() {
-            if schedule.has_options() {
-                builder = builder.call_put_opt(Some(schedule));
-            }
+        if let Some(schedule) = args.call_put {
+            builder = builder.call_put_opt(Some(schedule));
         }
 
         builder.build().map(PyBond::new).map_err(core_to_py)

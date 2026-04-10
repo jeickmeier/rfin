@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_builder_field, require_notional_money};
 use crate::core::common::args::DayCountArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
@@ -300,31 +301,27 @@ impl PyInterestRateFutureBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateFuture> {
         slf.ensure_ready()?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let quoted_price = slf.quoted_price.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing quoted_price after validation",
-            )
-        })?;
-        let expiry = slf.expiry.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing expiry after validation",
-            )
-        })?;
-        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing discount curve after validation",
-            )
-        })?;
-        let forward_curve_id = slf.forward_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InterestRateFutureBuilder internal error: missing forward curve after validation",
-            )
-        })?;
+        let notional = require_notional_money(
+            "InterestRateFutureBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
+        let quoted_price = require_builder_field(
+            "InterestRateFutureBuilder",
+            "quoted_price",
+            slf.quoted_price,
+        )?;
+        let expiry = require_builder_field("InterestRateFutureBuilder", "expiry", slf.expiry)?;
+        let discount_curve_id = require_builder_clone(
+            "InterestRateFutureBuilder",
+            "discount curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
+        let forward_curve_id = require_builder_clone(
+            "InterestRateFutureBuilder",
+            "forward curve",
+            slf.forward_curve_id.as_ref(),
+        )?;
 
         let mut specs = FutureContractSpecs {
             face_value: slf.face_value,

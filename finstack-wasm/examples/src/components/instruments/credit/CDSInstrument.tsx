@@ -3,7 +3,7 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  CreditDefaultSwap,
+  CreditDefaultSwapBuilder,
   FsDate,
   MarketContext,
   Money,
@@ -73,30 +73,15 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
       const effectiveDate = asOf;
       const maturityDate = new FsDate(asOf.year + formState.tenorYears, asOf.month, asOf.day);
 
-      const cds =
-        formState.direction === 'buy_protection'
-          ? new CreditDefaultSwap(
-              'interactive_cds',
-              notional,
-              formState.spreadBps,
-              effectiveDate,
-              maturityDate,
-              initialCds?.discountCurveId ?? 'USD-OIS',
-              initialCds?.hazardCurveId ?? 'ACME-HZD',
-              'buy_protection',
-              null
-            )
-          : new CreditDefaultSwap(
-              'interactive_cds',
-              notional,
-              formState.spreadBps,
-              effectiveDate,
-              maturityDate,
-              initialCds?.discountCurveId ?? 'USD-OIS',
-              initialCds?.hazardCurveId ?? 'ACME-HZD',
-              'sell_protection',
-              null
-            );
+      const cds = new CreditDefaultSwapBuilder('interactive_cds')
+        .money(notional)
+        .spreadBp(formState.spreadBps)
+        .startDate(effectiveDate)
+        .maturity(maturityDate)
+        .discountCurve(initialCds?.discountCurveId ?? 'USD-OIS')
+        .creditCurve(initialCds?.hazardCurveId ?? 'ACME-HZD')
+        .side(formState.direction)
+        .build();
 
       const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
       const cdsResult = registry.priceInstrument(cds, 'discounting', market, asOf, cdsOpts);
@@ -155,30 +140,15 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
             cdsData.maturityDate.day
           );
 
-          const cds =
-            cdsData.direction === 'buy_protection'
-              ? new CreditDefaultSwap(
-                  cdsData.id,
-                  notional,
-                  cdsData.spreadBps,
-                  effectiveDate,
-                  maturityDate,
-                  cdsData.discountCurveId,
-                  cdsData.hazardCurveId,
-                  'buy_protection',
-                  null
-                )
-              : new CreditDefaultSwap(
-                  cdsData.id,
-                  notional,
-                  cdsData.spreadBps,
-                  effectiveDate,
-                  maturityDate,
-                  cdsData.discountCurveId,
-                  cdsData.hazardCurveId,
-                  'sell_protection',
-                  null
-                );
+          const cds = new CreditDefaultSwapBuilder(cdsData.id)
+            .money(notional)
+            .spreadBp(cdsData.spreadBps)
+            .startDate(effectiveDate)
+            .maturity(maturityDate)
+            .discountCurve(cdsData.discountCurveId)
+            .creditCurve(cdsData.hazardCurveId)
+            .side(cdsData.direction)
+            .build();
 
           const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
           try {

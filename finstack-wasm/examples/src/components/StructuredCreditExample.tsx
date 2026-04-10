@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  StructuredCredit,
+  StructuredCreditBuilder,
   FsDate,
   DiscountCurve,
   HazardCurve,
@@ -39,6 +39,9 @@ type StructuredCreditRow = {
   poolWal: number; // Pool weighted average life
   poolWac: number; // Pool weighted average coupon
 };
+
+const buildStructuredCredit = (json: string) =>
+  new StructuredCreditBuilder().jsonString(json).build();
 
 export const StructuredCreditExample: React.FC = () => {
   const [rows, setRows] = useState<StructuredCreditRow[]>([]);
@@ -332,9 +335,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        let clo: StructuredCredit;
+        let clo;
         try {
-          clo = StructuredCredit.fromJson(cloJson);
+          clo = buildStructuredCredit(cloJson);
         } catch (err) {
           console.error('CLO fromJson failed', err);
           results.push({
@@ -348,7 +351,7 @@ export const StructuredCreditExample: React.FC = () => {
             poolWal: 5.5,
             poolWac: 7.6,
           });
-          clo = null as unknown as StructuredCredit;
+          clo = null;
         }
         if (clo) {
           try {
@@ -600,9 +603,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        let abs: StructuredCredit;
+        let abs;
         try {
-          abs = StructuredCredit.fromJson(absJson);
+          abs = buildStructuredCredit(absJson);
         } catch (err) {
           console.error('ABS fromJson failed', err);
           throw err;
@@ -880,9 +883,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        let rmbs: StructuredCredit;
+        let rmbs;
         try {
-          rmbs = StructuredCredit.fromJson(rmbsJson);
+          rmbs = buildStructuredCredit(rmbsJson);
         } catch (err) {
           console.error('RMBS fromJson failed', err);
           throw err;
@@ -1160,9 +1163,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        let cmbs: StructuredCredit;
+        let cmbs;
         try {
-          cmbs = StructuredCredit.fromJson(cmbsJson);
+          cmbs = buildStructuredCredit(cmbsJson);
         } catch (err) {
           console.error('CMBS fromJson failed', err);
           throw err;

@@ -5,7 +5,7 @@ from typing import Any, List, Tuple
 from datetime import date
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve, InflationCurve
-from finstack.valuations.calibration.quote import RatesQuote
+from finstack.valuations.calibration import RatesQuote
 
 class BumpRequest:
     """Request for a curve bump operation.

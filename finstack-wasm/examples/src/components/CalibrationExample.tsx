@@ -221,21 +221,21 @@ export const CalibrationExample: React.FC = () => {
         const indexHazardCurve = new HazardCurve(
           'CDX.NA.IG.42',
           baseDate,
-          [1.0, 3.0, 5.0, 7.0, 10.0],
-          [0.01, 0.012, 0.015, 0.018, 0.02],
+          new Float64Array([1.0, 3.0, 5.0, 7.0, 10.0]),
+          new Float64Array([0.01, 0.012, 0.015, 0.018, 0.02]),
           0.4,
           'act_360',
           null,
           null,
           'USD',
-          [1.0, 3.0, 5.0, 7.0, 10.0],
-          [50, 60, 75, 90, 110]
+          new Float64Array([1.0, 3.0, 5.0, 7.0, 10.0]),
+          new Float64Array([50, 60, 75, 90, 110])
         );
 
         const placeholderBaseCorr = new BaseCorrelationCurve(
           'CDX.NA.IG.42_5Y',
-          [3.0, 7.0, 10.0, 15.0, 30.0],
-          [0.2, 0.35, 0.45, 0.55, 0.7]
+          new Float64Array([3.0, 7.0, 10.0, 15.0, 30.0]),
+          new Float64Array([0.2, 0.35, 0.45, 0.55, 0.7])
         );
 
         const creditIndexData = new CreditIndexData(

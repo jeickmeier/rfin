@@ -96,9 +96,3 @@ impl PyProcessParams {
         )
     }
 }
-
-impl PyProcessParams {
-    pub fn new(inner: ProcessParams) -> Self {
-        Self { inner }
-    }
-}

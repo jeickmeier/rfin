@@ -88,7 +88,7 @@ export const MarketDataExample: React.FC<MarketDataExampleProps> = (props) => {
         context.insertSeries(series);
 
         const priceMoney = Money.fromCode(equityPrice.price.amount, equityPrice.price.currency);
-        const equitySpot = MarketScalar.get_price(priceMoney);
+        const equitySpot = MarketScalar.price(priceMoney);
         context.insertPrice(equityPrice.symbol, equitySpot);
 
         const fetchedCurve = context.discount(discountCurve.id);

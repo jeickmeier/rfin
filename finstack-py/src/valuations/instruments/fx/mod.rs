@@ -1,3 +1,4 @@
+pub(crate) mod common;
 #[allow(clippy::module_inception)]
 pub(crate) mod fx;
 pub(crate) mod fx_barrier_option;

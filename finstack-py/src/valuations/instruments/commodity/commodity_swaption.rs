@@ -1,3 +1,4 @@
+use super::common::{option_pricing_overrides, validated_clone, validated_field};
 use crate::core::common::args::{CurrencyArg, DayCountArg, TenorArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
@@ -298,66 +299,35 @@ impl PyCommoditySwaptionBuilder {
                 "CommoditySwaptionBuilder internal error: missing commodity_type after validation",
             )
         })?;
-        let ticker = slf.ticker.clone().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing ticker after validation",
-            )
-        })?;
-        let unit = slf.unit.clone().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing unit after validation",
-            )
-        })?;
-        let currency = slf.currency.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing currency after validation",
-            )
-        })?;
-        let expiry = slf.expiry.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing expiry after validation",
-            )
-        })?;
-        let swap_start = slf.swap_start.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing swap_start after validation",
-            )
-        })?;
-        let swap_end = slf.swap_end.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing swap_end after validation",
-            )
-        })?;
-        let swap_frequency = slf.swap_frequency.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing swap_frequency after validation",
-            )
-        })?;
-        let fixed_price = slf.fixed_price.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing fixed_price after validation",
-            )
-        })?;
-        let notional = slf.notional.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let forward_curve_id = slf.forward_curve_id.clone().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing forward_curve_id after validation",
-            )
-        })?;
-        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing discount_curve_id after validation",
-            )
-        })?;
-        let vol_surface_id = slf.vol_surface_id.clone().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "CommoditySwaptionBuilder internal error: missing vol_surface_id after validation",
-            )
-        })?;
+        let ticker = validated_clone("CommoditySwaptionBuilder", "ticker", slf.ticker.as_ref())?;
+        let unit = validated_clone("CommoditySwaptionBuilder", "unit", slf.unit.as_ref())?;
+        let currency = validated_field("CommoditySwaptionBuilder", "currency", slf.currency)?;
+        let expiry = validated_field("CommoditySwaptionBuilder", "expiry", slf.expiry)?;
+        let swap_start = validated_field("CommoditySwaptionBuilder", "swap_start", slf.swap_start)?;
+        let swap_end = validated_field("CommoditySwaptionBuilder", "swap_end", slf.swap_end)?;
+        let swap_frequency = validated_field(
+            "CommoditySwaptionBuilder",
+            "swap_frequency",
+            slf.swap_frequency,
+        )?;
+        let fixed_price =
+            validated_field("CommoditySwaptionBuilder", "fixed_price", slf.fixed_price)?;
+        let notional = validated_field("CommoditySwaptionBuilder", "notional", slf.notional)?;
+        let forward_curve_id = validated_clone(
+            "CommoditySwaptionBuilder",
+            "forward_curve_id",
+            slf.forward_curve_id.as_ref(),
+        )?;
+        let discount_curve_id = validated_clone(
+            "CommoditySwaptionBuilder",
+            "discount_curve_id",
+            slf.discount_curve_id.as_ref(),
+        )?;
+        let vol_surface_id = validated_clone(
+            "CommoditySwaptionBuilder",
+            "vol_surface_id",
+            slf.vol_surface_id.as_ref(),
+        )?;
 
         let mut builder = CommoditySwaption::builder()
             .id(slf.instrument_id.clone())
@@ -384,10 +354,8 @@ impl PyCommoditySwaptionBuilder {
             builder = builder.calendar_id_opt(Some(calendar_id));
         }
         if let Some(implied_volatility) = slf.implied_volatility {
-            let mut pricing_overrides =
-                finstack_valuations::instruments::PricingOverrides::default();
-            pricing_overrides.market_quotes.implied_volatility = Some(implied_volatility);
-            builder = builder.pricing_overrides(pricing_overrides);
+            builder =
+                builder.pricing_overrides(option_pricing_overrides(Some(implied_volatility), None));
         }
 
         builder

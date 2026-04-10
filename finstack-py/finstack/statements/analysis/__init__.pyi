@@ -17,7 +17,7 @@ from ...core.dates.periods import Period, PeriodId
 from ...core.money import Money
 from ...core.market_data.context import MarketContext
 from ...valuations.covenants import CovenantSpec, CovenantForecast, CovenantForecastConfig, FutureBreach
-from ...valuations.instruments.equity.dcf import TerminalValueSpec
+from ...valuations.instruments import TerminalValueSpec
 
 # =============================================================================
 # Sensitivity Analysis

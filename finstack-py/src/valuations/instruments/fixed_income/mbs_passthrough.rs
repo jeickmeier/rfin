@@ -1,17 +1,16 @@
 //! Python bindings for Agency MBS passthrough instruments.
 
+use super::common::validated_agency_mbs_context;
 use crate::core::common::args::CurrencyArg;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::PyContext;
 use finstack_core::dates::DayCount;
-use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;
 use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
     AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
-use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -357,40 +356,44 @@ impl PyAgencyMbsPassthroughBuilder {
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyAgencyMbsPassthrough> {
         slf.ensure_ready()?;
+        let context = validated_agency_mbs_context(
+            "AgencyMbsPassthroughBuilder",
+            &slf.instrument_id,
+            slf.pool_id.as_deref(),
+            slf.agency,
+            slf.original_face,
+            slf.current_face,
+            slf.current_factor,
+            slf.currency,
+            slf.wac,
+            slf.pass_through_rate,
+            slf.wam,
+            slf.issue_date,
+            slf.maturity_date,
+            slf.discount_curve_id.as_deref(),
+            slf.day_count,
+        )?;
 
-        let original_face = slf.original_face.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing original_face after validation"))?;
-        let current_face = slf.current_face.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "AgencyMbsPassthroughBuilder internal error: missing current_face after validation",
-            )
-        })?;
-        let factor = slf.current_factor.unwrap_or(current_face / original_face);
         let prepay = PrepaymentModelSpec::psa(slf.psa_speed);
-
-        let ccy = slf.currency.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "AgencyMbsPassthroughBuilder internal error: missing currency after validation",
-            )
-        })?;
         let mbs = AgencyMbsPassthrough::builder()
-            .id(slf.instrument_id.clone())
-            .pool_id(slf.pool_id.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing pool_id after validation"))?.into())
-            .agency(slf.agency.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing agency after validation"))?)
+            .id(context.instrument_id)
+            .pool_id(context.pool_id.into())
+            .agency(context.agency)
             .pool_type(slf.pool_type)
-            .original_face(Money::new(original_face, ccy))
-            .current_face(Money::new(current_face, ccy))
-            .current_factor(factor)
-            .wac(slf.wac.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing wac after validation"))?)
-            .pass_through_rate(slf.pass_through_rate.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing pass_through_rate after validation"))?)
+            .original_face(context.original_face)
+            .current_face(context.current_face)
+            .current_factor(context.current_factor)
+            .wac(context.wac)
+            .pass_through_rate(context.pass_through_rate)
             .servicing_fee_rate(slf.servicing_fee_rate)
             .guarantee_fee_rate(slf.guarantee_fee_rate)
-            .wam(slf.wam.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing wam after validation"))?)
-            .issue_date(slf.issue_date.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing issue_date after validation"))?)
-            .maturity(slf.maturity_date.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing maturity_date after validation"))?)
+            .wam(context.wam)
+            .issue_date(context.issue_date)
+            .maturity(context.maturity_date)
             .prepayment_model(prepay)
-            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyMbsPassthroughBuilder internal error: missing discount_curve_id after validation"))?))
-            .day_count(slf.day_count)
-            .attributes(Attributes::new())
+            .discount_curve_id(context.discount_curve_id)
+            .day_count(context.day_count)
+            .attributes(context.attributes)
             .build()
             .map_err(|e| PyValueError::new_err(format!("{e}")))?;
 

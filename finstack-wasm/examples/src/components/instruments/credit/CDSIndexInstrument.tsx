@@ -3,7 +3,7 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  CDSIndex,
+  CDSIndexBuilder,
   FsDate,
   MarketContext,
   Money,
@@ -82,21 +82,19 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
       const effectiveDate = asOf;
       const maturityDate = new FsDate(asOf.year + 5, asOf.month, asOf.day);
 
-      const index = new CDSIndex(
-        'interactive_index',
-        formState.indexFamily,
-        formState.series,
-        formState.version,
-        notional,
-        formState.spreadBps,
-        effectiveDate,
-        maturityDate,
-        initialIndex?.discountCurveId ?? 'USD-OIS',
-        initialIndex?.hazardCurveId ?? 'CDX-IG-HZD',
-        formState.direction,
-        formState.recoveryRate,
-        null
-      );
+      const index = new CDSIndexBuilder('interactive_index')
+        .indexName(formState.indexFamily)
+        .series(formState.series)
+        .version(formState.version)
+        .money(notional)
+        .fixedCouponBp(formState.spreadBps)
+        .startDate(effectiveDate)
+        .maturity(maturityDate)
+        .discountCurve(initialIndex?.discountCurveId ?? 'USD-OIS')
+        .creditCurve(initialIndex?.hazardCurveId ?? 'CDX-IG-HZD')
+        .side(formState.direction)
+        .recoveryRate(formState.recoveryRate)
+        .build();
 
       const indexOpts = new PricingRequest().withMetrics(['par_spread']);
       const indexResult = registry.priceInstrument(index, 'discounting', market, asOf, indexOpts);
@@ -157,21 +155,19 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
             indexInstrData.maturityDate.day
           );
 
-          const index = new CDSIndex(
-            indexInstrData.id,
-            indexInstrData.indexFamily,
-            indexInstrData.series,
-            indexInstrData.version,
-            notional,
-            indexInstrData.spreadBps,
-            effectiveDate,
-            maturityDate,
-            indexInstrData.discountCurveId,
-            indexInstrData.hazardCurveId,
-            indexInstrData.direction,
-            indexInstrData.recoveryRate,
-            null
-          );
+          const index = new CDSIndexBuilder(indexInstrData.id)
+            .indexName(indexInstrData.indexFamily)
+            .series(indexInstrData.series)
+            .version(indexInstrData.version)
+            .money(notional)
+            .fixedCouponBp(indexInstrData.spreadBps)
+            .startDate(effectiveDate)
+            .maturity(maturityDate)
+            .discountCurve(indexInstrData.discountCurveId)
+            .creditCurve(indexInstrData.hazardCurveId)
+            .side(indexInstrData.direction)
+            .recoveryRate(indexInstrData.recoveryRate)
+            .build();
 
           const indexOpts = new PricingRequest().withMetrics(['par_spread']);
           try {

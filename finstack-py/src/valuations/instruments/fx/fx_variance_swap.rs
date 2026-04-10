@@ -1,3 +1,6 @@
+use super::common::{
+    default_attributes, default_pricing_overrides, ensure_after, required_clone, required_value,
+};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
@@ -11,7 +14,6 @@ use finstack_core::math::stats::RealizedVarMethod;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -267,21 +269,10 @@ impl PyFxVarianceSwapBuilder {
     }
 
     fn validate_and_build(&self) -> PyResult<FxVarianceSwap> {
-        let base_currency = self
-            .base_currency
-            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
-
-        let quote_currency = self
-            .quote_currency
-            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
-
-        let notional = self
-            .notional
-            .ok_or_else(|| PyValueError::new_err("notional is required"))?;
-
-        let strike_variance = self
-            .strike_variance
-            .ok_or_else(|| PyValueError::new_err("strike_variance is required"))?;
+        let base_currency = required_value(self.base_currency, "base_currency is required")?;
+        let quote_currency = required_value(self.quote_currency, "quote_currency is required")?;
+        let notional = required_value(self.notional, "notional is required")?;
+        let strike_variance = required_value(self.strike_variance, "strike_variance is required")?;
 
         if strike_variance < 0.0 {
             return Err(PyValueError::new_err(
@@ -289,36 +280,24 @@ impl PyFxVarianceSwapBuilder {
             ));
         }
 
-        let start_date = self
-            .start_date
-            .ok_or_else(|| PyValueError::new_err("start_date is required"))?;
-
-        let maturity = self
-            .maturity
-            .ok_or_else(|| PyValueError::new_err("maturity is required"))?;
-
-        if maturity <= start_date {
-            return Err(PyValueError::new_err("maturity must be after start_date"));
-        }
-
-        let observation_freq = self
-            .observation_freq
-            .ok_or_else(|| PyValueError::new_err("observation_freq is required"))?;
-
-        let domestic_discount_curve_id = self
-            .domestic_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve_id is required"))?;
-
-        let foreign_discount_curve_id = self
-            .foreign_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve_id is required"))?;
-
-        let vol_surface_id = self
-            .vol_surface_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface_id is required"))?;
+        let start_date = required_value(self.start_date, "start_date is required")?;
+        let maturity = ensure_after(
+            required_value(self.maturity, "maturity is required")?,
+            start_date,
+            "maturity must be after start_date",
+        )?;
+        let observation_freq =
+            required_value(self.observation_freq, "observation_freq is required")?;
+        let domestic_discount_curve_id = required_clone(
+            self.domestic_discount_curve_id.as_ref(),
+            "domestic_discount_curve_id is required",
+        )?;
+        let foreign_discount_curve_id = required_clone(
+            self.foreign_discount_curve_id.as_ref(),
+            "foreign_discount_curve_id is required",
+        )?;
+        let vol_surface_id =
+            required_clone(self.vol_surface_id.as_ref(), "vol_surface_id is required")?;
 
         Ok(FxVarianceSwap {
             id: self.instrument_id.clone(),
@@ -340,8 +319,8 @@ impl PyFxVarianceSwapBuilder {
             foreign_discount_curve_id,
             vol_surface_id,
             day_count: self.day_count,
-            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
-            attributes: Attributes::new(),
+            pricing_overrides: default_pricing_overrides(),
+            attributes: default_attributes(),
         })
     }
 }

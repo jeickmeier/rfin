@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   FsDate,
   DiscountCurve,
-  BarrierOption,
-  AsianOption,
-  LookbackOption,
-  CliquetOption,
+  BarrierOptionBuilder,
+  AsianOptionBuilder,
+  LookbackOptionBuilder,
+  CliquetOptionBuilder,
   MarketContext,
   MarketScalar,
   Money,
@@ -80,7 +80,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
         for (const spot of market.spotPrices) {
           marketCtx.insertPrice(
             spot.id,
-            MarketScalar.get_price(Money.fromCode(spot.price.amount, spot.price.currency))
+            MarketScalar.price(Money.fromCode(spot.price.amount, spot.price.currency))
           );
         }
 
@@ -96,21 +96,20 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
         for (const opt of barrierOptions) {
           try {
             const expiry = new FsDate(opt.expiry.year, opt.expiry.month, opt.expiry.day);
-            const barrierOption = new BarrierOption(
-              opt.id,
-              opt.underlyingTicker,
-              opt.strike,
-              opt.barrier,
-              opt.optionType,
-              opt.barrierType,
-              expiry,
-              Money.fromCode(opt.notional.amount, opt.notional.currency),
-              opt.discountCurveId,
-              opt.spotId,
-              opt.volId,
-              opt.divYieldId,
-              opt.useGobetMiri ?? false
-            );
+            const barrierOption = new BarrierOptionBuilder(opt.id)
+              .ticker(opt.underlyingTicker)
+              .strike(opt.strike)
+              .barrier(opt.barrier)
+              .optionType(opt.optionType)
+              .barrierType(opt.barrierType)
+              .expiry(expiry)
+              .money(Money.fromCode(opt.notional.amount, opt.notional.currency))
+              .discountCurve(opt.discountCurveId)
+              .spotId(opt.spotId)
+              .volSurface(opt.volId)
+              .divYieldId(opt.divYieldId)
+              .useGobetMiri(opt.useGobetMiri ?? false)
+              .build();
             const pricingOpts = new PricingRequest().withMetrics(['delta', 'gamma']);
             const result = registry.priceInstrument(
               barrierOption,
@@ -142,20 +141,19 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
                 `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`
             );
 
-            const asianOption = new AsianOption(
-              opt.id,
-              opt.underlyingTicker,
-              opt.strike,
-              expiry,
-              fixingDates,
-              Money.fromCode(opt.notional.amount, opt.notional.currency),
-              opt.discountCurveId,
-              opt.spotId,
-              opt.volId,
-              opt.averagingMethod,
-              opt.optionType,
-              opt.divYieldId
-            );
+            const asianOption = new AsianOptionBuilder(opt.id)
+              .ticker(opt.underlyingTicker)
+              .strike(opt.strike)
+              .expiry(expiry)
+              .fixingDates(fixingDates)
+              .money(Money.fromCode(opt.notional.amount, opt.notional.currency))
+              .discountCurve(opt.discountCurveId)
+              .spotId(opt.spotId)
+              .volSurface(opt.volId)
+              .averagingMethod(opt.averagingMethod)
+              .optionType(opt.optionType)
+              .divYieldId(opt.divYieldId)
+              .build();
             const result = registry.priceInstrument(
               asianOption,
               'monte_carlo_gbm',
@@ -196,7 +194,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               pricing_overrides: {},
               attributes: { tags: [], meta: {} },
             });
-            const lookbackOption = LookbackOption.fromJson(lookbackJson);
+            const lookbackOption = new LookbackOptionBuilder().jsonString(lookbackJson).build();
             const result = registry.priceInstrument(
               lookbackOption,
               'monte_carlo_gbm',
@@ -236,7 +234,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               pricing_overrides: {},
               attributes: { tags: [], meta: {} },
             });
-            const cliquetOption = CliquetOption.fromJson(cliquetJson);
+            const cliquetOption = new CliquetOptionBuilder().jsonString(cliquetJson).build();
             const result = registry.priceInstrument(
               cliquetOption,
               'monte_carlo_gbm',

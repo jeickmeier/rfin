@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { MonteCarloPathGenerator, SimulatedPath } from 'finstack-wasm';
 import { MonteCarloPathProps, DEFAULT_MONTE_CARLO_PROPS } from './data/monte-carlo';
 
 type RequiredMonteCarloPathProps = Required<MonteCarloPathProps>;
@@ -21,6 +20,25 @@ type PathDataRow = {
   steps: number;
 };
 
+const normalFrom = (nextUniform: () => number) => {
+  let u1 = 0;
+  while (u1 <= Number.EPSILON) {
+    u1 = nextUniform();
+  }
+  const u2 = nextUniform();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+};
+
+const createRng = (seed: bigint) => {
+  let state = Number(seed % BigInt(2 ** 32)) >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
 export const MonteCarloPathExample: React.FC<MonteCarloPathProps> = (props) => {
   const defaults = DEFAULT_MONTE_CARLO_PROPS as RequiredMonteCarloPathProps;
   const { gbmParams = defaults.gbmParams, maxRowsToDisplay = defaults.maxRowsToDisplay } = props;
@@ -35,43 +53,33 @@ export const MonteCarloPathExample: React.FC<MonteCarloPathProps> = (props) => {
     (async () => {
       try {
         setLoading(true);
-
-        // Generate GBM paths
-        const generator = new MonteCarloPathGenerator();
-        const paths = generator.generateGbmPaths(
-          gbmParams.initialSpot,
-          gbmParams.riskFreeRate,
-          gbmParams.dividendYield,
-          gbmParams.volatility,
-          gbmParams.timeToMaturity,
-          gbmParams.numSteps,
-          gbmParams.numPaths,
-          gbmParams.captureMode,
-          gbmParams.sampleCount,
-          gbmParams.seed
-        );
-
-        // Extract statistics
-        const numPaths = paths.numPaths;
-        const capturedPaths: SimulatedPath[] = [];
+        const nextUniform = createRng(gbmParams.seed);
+        const dt = gbmParams.timeToMaturity / gbmParams.numSteps;
+        const drift =
+          (gbmParams.riskFreeRate - gbmParams.dividendYield - 0.5 * gbmParams.volatility ** 2) * dt;
+        const diffusion = gbmParams.volatility * Math.sqrt(dt);
+        const numPathsCaptured =
+          gbmParams.captureMode === 'all'
+            ? gbmParams.numPaths
+            : Math.min(gbmParams.sampleCount, gbmParams.numPaths);
         const terminalValues: number[] = [];
+        const rows: PathDataRow[] = [];
 
-        // Iterate through captured paths
-        for (let i = 0; i < numPaths; i++) {
-          const path = paths.getPath(i);
-          if (path) {
-            capturedPaths.push(path);
-            const terminal = path.terminalPoint();
-            if (terminal) {
-              const terminalSpot = terminal.spot();
-              if (terminalSpot !== null && terminalSpot !== undefined) {
-                terminalValues.push(terminalSpot);
-              }
-            }
+        for (let pathId = 0; pathId < gbmParams.numPaths; pathId++) {
+          let spot = gbmParams.initialSpot;
+          for (let step = 0; step < gbmParams.numSteps; step++) {
+            spot *= Math.exp(drift + diffusion * normalFrom(nextUniform));
+          }
+          terminalValues.push(spot);
+          if (pathId < numPathsCaptured) {
+            rows.push({
+              pathId,
+              terminalValue: spot,
+              steps: gbmParams.numSteps,
+            });
           }
         }
 
-        // Calculate statistics
         const meanTerminal = terminalValues.reduce((a, b) => a + b, 0) / terminalValues.length;
         const variance =
           terminalValues.reduce((sum, val) => sum + Math.pow(val - meanTerminal, 2), 0) /
@@ -80,21 +88,18 @@ export const MonteCarloPathExample: React.FC<MonteCarloPathProps> = (props) => {
         const minTerminal = Math.min(...terminalValues);
         const maxTerminal = Math.max(...terminalValues);
 
-        // Get process parameters
-        const processParams = paths.processParams();
-
-        // Build path data rows
-        const rows: PathDataRow[] = capturedPaths.map((path) => ({
-          pathId: path.pathId,
-          terminalValue: path.finalValue,
-          steps: path.numSteps(),
-        }));
+        const processParams = {
+          processType: 'GBM',
+          captureMode: gbmParams.captureMode,
+          dt,
+          seed: gbmParams.seed.toString(),
+        };
 
         if (!cancelled) {
           setStats({
             numPathsTotal: gbmParams.numPaths,
-            numPathsCaptured: numPaths,
-            samplingRatio: numPaths / gbmParams.numPaths,
+            numPathsCaptured,
+            samplingRatio: numPathsCaptured / gbmParams.numPaths,
             meanTerminalValue: meanTerminal,
             stdTerminalValue: stdTerminal,
             minTerminalValue: minTerminal,

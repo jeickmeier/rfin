@@ -1,7 +1,6 @@
 """Tests for covenant forecasting functionality."""
 
-from finstack.statements_analytics import analysis
-
+from finstack.statements import analysis
 from finstack.valuations import covenants
 
 

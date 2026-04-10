@@ -1,19 +1,11 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-  CalibrationConfig,
-  FsDate,
-  MarketContext,
-  MarketScalar,
-  Money,
-  SolverKind,
-  VolQuote,
-  executeCalibration,
-} from 'finstack-wasm';
+import React, { useState, useCallback, useMemo } from 'react';
+import { MarketContext, MarketScalar, Money, VolQuote, executeCalibration } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
+import { CalibrationResultPanel, StatusBadge } from './CurveChart';
 import { VolQuoteEditor, DEFAULT_VOL_QUOTES, type VolQuoteData } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type { VolSurfaceCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
+import type { VolSurfaceCalibrationState } from './state-types';
+import { buildWasmConfig, isoDate, toFsDate, useEffectiveQuotes } from './shared';
 
 interface CalibratedVolSurface {
   value: (t: number, k: number) => number;
@@ -35,43 +27,18 @@ interface VolSurfaceCalibrationProps {
   className?: string;
 }
 
-/** Convert JSON config to WASM CalibrationConfig */
-const buildWasmConfig = (config: CalibrationConfigJson, tolerance: number): CalibrationConfig => {
-  let wasmConfig = new CalibrationConfig();
-  switch (config.solverKind) {
-    case 'Brent':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
-      break;
-    case 'Newton':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
-      break;
-  }
-  return wasmConfig
-    .withMaxIterations(config.maxIterations)
-    .withTolerance(tolerance)
-    .withVerbose(config.verbose);
-};
-
-/** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
-
-const isoDate = (date: FsDate): string => {
-  const y = String(date.year).padStart(4, '0');
-  const m = String(date.month).padStart(2, '0');
-  const d = String(date.day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
 /** Convert quote data to WASM VolQuote objects */
 const buildWasmQuotes = (quotes: VolQuoteData[]): VolQuote[] => {
   return quotes.map((q) =>
-    VolQuote.optionVol(
-      q.underlying,
-      new FsDate(q.expiryYear, q.expiryMonth, q.expiryDay),
-      q.strike,
-      q.vol,
-      q.optionType
-    )
+    VolQuote.fromJSON({
+      type: 'option_vol',
+      underlying: q.underlying,
+      expiry: `${q.expiryYear}-${String(q.expiryMonth).padStart(2, '0')}-${String(q.expiryDay).padStart(2, '0')}`,
+      strike: q.strike,
+      vol: q.vol,
+      option_type: q.optionType.toLowerCase(),
+      convention: 'USD-EQUITY',
+    })
   );
 };
 
@@ -96,29 +63,15 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
   } = state;
   const baseDate = useMemo(() => toFsDate(state.baseDate), [state.baseDate]);
 
-  const [localQuotes, setLocalQuotes] = useState<VolQuoteData[]>(
-    state.quotes.length > 0 ? state.quotes : DEFAULT_VOL_QUOTES
-  );
+  const [quotes, setLocalQuotes] = useEffectiveQuotes(state.quotes, DEFAULT_VOL_QUOTES);
 
-  useEffect(() => {
-    if (state.quotes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalQuotes(state.quotes);
+  const handleQuotesChange = (newQuotes: VolQuoteData[]) => {
+    if (onStateChange) {
+      onStateChange({ ...state, quotes: newQuotes });
+    } else {
+      setLocalQuotes(newQuotes);
     }
-  }, [state.quotes]);
-
-  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
-
-  const handleQuotesChange = useCallback(
-    (newQuotes: VolQuoteData[]) => {
-      if (onStateChange) {
-        onStateChange({ ...state, quotes: newQuotes });
-      } else {
-        setLocalQuotes(newQuotes);
-      }
-    },
-    [onStateChange, state]
-  );
+  };
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -141,7 +94,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
     setError(null);
 
     try {
-      market.insertPrice(underlying, MarketScalar.get_price(Money.fromCode(spotPrice, currency)));
+      market.insertPrice(underlying, MarketScalar.price(Money.fromCode(spotPrice, currency)));
       market.insertPrice(`${underlying}-DIVYIELD`, MarketScalar.unitless(0.015));
 
       const calibrationConfig = buildWasmConfig(config, effectiveTolerance);
@@ -150,7 +103,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
       const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
       const envelope = {
         schema: 'finstack.calibration/2',
-        initial_market: market.toState(),
+        initial_market: market.toJson(),
         plan: {
           id: `vol_surface:${curveId}`,
           quote_sets: {
@@ -163,7 +116,7 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
               kind: 'vol_surface',
               surface_id: curveId,
               base_date: isoDate(baseDate),
-              underlying_id: underlying,
+              underlying_ticker: underlying,
               model: 'SABR',
               discount_curve_id: discountCurveId,
               target_expiries: expiries,
@@ -278,26 +231,17 @@ export const VolSurfaceCalibration: React.FC<VolSurfaceCalibrationProps> = ({
           </div>
         )}
 
-        {result && (
-          <CalibrationMetrics
-            iterations={result.iterations}
-            maxResidual={result.maxResidual}
-            success={result.success}
-          />
-        )}
-
-        {showChart && result && result.sampleValues.length > 0 && (
-          <CurveChart
-            data={result.sampleValues}
-            config={{
-              title: 'ATM Vol Term Structure',
-              xLabel: 'Expiry',
-              yLabel: 'Implied Vol',
-              color: 'hsl(var(--chart-5))',
-              yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
-            }}
-          />
-        )}
+        <CalibrationResultPanel
+          result={result}
+          showChart={showChart}
+          chartConfig={{
+            title: 'ATM Vol Term Structure',
+            xLabel: 'Expiry',
+            yLabel: 'Implied Vol',
+            color: 'hsl(var(--chart-5))',
+            yFormatter: (v) => `${(v * 100).toFixed(1)}%`,
+          }}
+        />
 
         {surface && result?.success && (
           <>

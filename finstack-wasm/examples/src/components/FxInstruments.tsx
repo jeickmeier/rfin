@@ -4,9 +4,9 @@ import {
   FsDate,
   DiscountCurve,
   FxMatrix,
-  FxOption,
-  FxSpot,
-  FxSwap,
+  FxOptionBuilder,
+  FxSpotBuilder,
+  FxSwapBuilder,
   MarketContext,
   Money,
   PricingRequest,
@@ -112,14 +112,13 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           );
           const notional = Money.fromCode(spot.notional.amount, spot.notional.currency);
 
-          const fxSpot = new FxSpot(
-            spot.id,
-            baseCcy,
-            quoteCcy,
-            settlementDate,
-            spot.rate,
-            notional
-          );
+          const fxSpot = new FxSpotBuilder(spot.id)
+            .baseCurrency(baseCcy)
+            .quoteCurrency(quoteCcy)
+            .settlement(settlementDate)
+            .spotRate(spot.rate)
+            .notional(notional)
+            .build();
           const spotResult = registry.priceInstrument(fxSpot, 'discounting', market, asOf);
           results.push({
             name: `${spot.baseCurrency}/${spot.quoteCurrency} Spot`,
@@ -139,32 +138,17 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           );
           const notional = Money.fromCode(opt.notional.amount, opt.notional.currency);
 
-          const option =
-            opt.optionType === 'call'
-              ? new FxOption(
-                  opt.id,
-                  baseCcy,
-                  quoteCcy,
-                  opt.strike,
-                  'call',
-                  expiryDate,
-                  notional,
-                  opt.domesticCurveId,
-                  opt.foreignCurveId,
-                  opt.volSurfaceId
-                )
-              : new FxOption(
-                  opt.id,
-                  baseCcy,
-                  quoteCcy,
-                  opt.strike,
-                  'put',
-                  expiryDate,
-                  notional,
-                  opt.domesticCurveId,
-                  opt.foreignCurveId,
-                  opt.volSurfaceId
-                );
+          const option = new FxOptionBuilder(opt.id)
+            .baseCurrency(baseCcy)
+            .quoteCurrency(quoteCcy)
+            .strike(opt.strike)
+            .optionType(opt.optionType)
+            .expiry(expiryDate)
+            .money(notional)
+            .domesticCurve(opt.domesticCurveId)
+            .foreignCurve(opt.foreignCurveId)
+            .volSurface(opt.volSurfaceId)
+            .build();
 
           const isCall = opt.optionType === 'call';
           const optReq = isCall ? new PricingRequest().withMetrics(['delta']) : null;
@@ -199,18 +183,17 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
           const nearDate = new FsDate(swap.nearDate.year, swap.nearDate.month, swap.nearDate.day);
           const farDate = new FsDate(swap.farDate.year, swap.farDate.month, swap.farDate.day);
 
-          const fxSwap = new FxSwap(
-            swap.id,
-            baseCcy,
-            quoteCcy,
-            notional,
-            nearDate,
-            farDate,
-            swap.domesticCurveId,
-            swap.foreignCurveId,
-            swap.nearRate,
-            swap.farRate
-          );
+          const fxSwap = new FxSwapBuilder(swap.id)
+            .baseCurrency(baseCcy)
+            .quoteCurrency(quoteCcy)
+            .notional(notional)
+            .nearDate(nearDate)
+            .farDate(farDate)
+            .domesticCurve(swap.domesticCurveId)
+            .foreignCurve(swap.foreignCurveId)
+            .nearRate(swap.nearRate)
+            .farRate(swap.farRate)
+            .build();
           const swapResult = registry.priceInstrument(fxSwap, 'discounting', market, asOf);
 
           const tenorMonths =

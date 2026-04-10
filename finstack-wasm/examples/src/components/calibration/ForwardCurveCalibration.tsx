@@ -1,23 +1,15 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-  CalibrationConfig,
-  Frequency,
-  FsDate,
-  MarketContext,
-  RatesQuote,
-  executeCalibration,
-  SolverKind,
-} from 'finstack-wasm';
+import React, { useState, useCallback, useMemo } from 'react';
+import { FsDate, MarketContext, RatesQuote, executeCalibration } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CurveChart, StatusBadge, CalibrationMetrics } from './CurveChart';
+import { CalibrationResultPanel, StatusBadge } from './CurveChart';
 import {
   ForwardQuoteEditor,
   generateDefaultForwardQuotes,
   type ForwardQuoteData,
 } from './QuoteEditor';
 import type { CalibrationResult, CalibrationStatus, CurveDataPoint } from './types';
-import type { FrequencyType } from './CurrencyConventions';
-import type { ForwardCurveCalibrationState, CalibrationConfigJson, DateJson } from './state-types';
+import type { ForwardCurveCalibrationState } from './state-types';
+import { buildWasmConfig, isoDate, toFsDate, useEffectiveQuotes } from './shared';
 
 interface CalibratedForwardCurve {
   rate: (t: number) => number;
@@ -37,74 +29,30 @@ interface ForwardCurveCalibrationProps {
   className?: string;
 }
 
-/** Map frequency type string to WASM Frequency object */
-const mapFrequency = (freq: FrequencyType): ReturnType<typeof Frequency.annual> => {
-  switch (freq) {
-    case 'annual':
-      return Frequency.annual();
-    case 'semi_annual':
-      return Frequency.semiAnnual();
-    case 'quarterly':
-      return Frequency.quarterly();
-    case 'monthly':
-      return Frequency.monthly();
-    default:
-      return Frequency.quarterly();
-  }
-};
-
-/** Convert JSON config to WASM CalibrationConfig */
-const buildWasmConfig = (config: CalibrationConfigJson): CalibrationConfig => {
-  let wasmConfig = new CalibrationConfig();
-  switch (config.solverKind) {
-    case 'Brent':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Brent());
-      break;
-    case 'Newton':
-      wasmConfig = wasmConfig.withSolverKind(SolverKind.Newton());
-      break;
-  }
-  return wasmConfig
-    .withMaxIterations(config.maxIterations)
-    .withTolerance(config.tolerance)
-    .withVerbose(config.verbose);
-};
-
-/** Convert DateJson to FsDate */
-const toFsDate = (date: DateJson): FsDate => new FsDate(date.year, date.month, date.day);
-
-const isoDate = (date: FsDate): string => {
-  const y = String(date.year).padStart(4, '0');
-  const m = String(date.month).padStart(2, '0');
-  const d = String(date.day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
 /** Convert quote data to WASM RatesQuote objects */
 const buildWasmQuotes = (quotes: ForwardQuoteData[]): RatesQuote[] => {
   return quotes.map((q) => {
     if (q.type === 'deposit') {
       return RatesQuote.deposit(
+        `dep-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
+        'USD-OIS',
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-        q.rate,
-        q.dayCount
+        q.rate
       );
     } else if (q.type === 'swap') {
       return RatesQuote.swap(
+        `swap-${q.maturityYear}-${q.maturityMonth}-${q.maturityDay}`,
+        q.index,
         new FsDate(q.maturityYear, q.maturityMonth, q.maturityDay),
-        q.rate,
-        mapFrequency(q.fixedFrequency),
-        mapFrequency(q.floatFrequency),
-        q.fixedDayCount,
-        q.floatDayCount,
-        q.index
+        q.rate
       );
     } else {
       return RatesQuote.fra(
+        `fra-${q.startYear}-${q.startMonth}-${q.startDay}-${q.endYear}-${q.endMonth}-${q.endDay}`,
+        'USD-SOFR-3M',
         new FsDate(q.startYear, q.startMonth, q.startDay),
         new FsDate(q.endYear, q.endMonth, q.endDay),
-        q.rate,
-        q.dayCount
+        q.rate
       );
     }
   });
@@ -125,29 +73,15 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
     [baseDate, currency]
   );
 
-  const [localQuotes, setLocalQuotes] = useState<ForwardQuoteData[]>(
-    state.quotes.length > 0 ? state.quotes : defaultQuotes
-  );
+  const [quotes, setLocalQuotes] = useEffectiveQuotes(state.quotes, defaultQuotes);
 
-  useEffect(() => {
-    if (state.quotes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalQuotes(state.quotes);
+  const handleQuotesChange = (newQuotes: ForwardQuoteData[]) => {
+    if (onStateChange) {
+      onStateChange({ ...state, quotes: newQuotes });
+    } else {
+      setLocalQuotes(newQuotes);
     }
-  }, [state.quotes]);
-
-  const quotes = state.quotes.length > 0 ? state.quotes : localQuotes;
-
-  const handleQuotesChange = useCallback(
-    (newQuotes: ForwardQuoteData[]) => {
-      if (onStateChange) {
-        onStateChange({ ...state, quotes: newQuotes });
-      } else {
-        setLocalQuotes(newQuotes);
-      }
-    },
-    [onStateChange, state]
-  );
+  };
 
   const [status, setStatus] = useState<CalibrationStatus>('idle');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -174,7 +108,7 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
       const quoteSet = wasmQuotes.map((q) => q.toMarketQuote().toJSON());
       const envelope = {
         schema: 'finstack.calibration/2',
-        initial_market: market.toState(),
+        initial_market: market.toJson(),
         plan: {
           id: `forward:${curveId}`,
           quote_sets: {
@@ -291,26 +225,17 @@ export const ForwardCurveCalibration: React.FC<ForwardCurveCalibrationProps> = (
           </div>
         )}
 
-        {result && (
-          <CalibrationMetrics
-            iterations={result.iterations}
-            maxResidual={result.maxResidual}
-            success={result.success}
-          />
-        )}
-
-        {showChart && result && result.sampleValues.length > 0 && (
-          <CurveChart
-            data={result.sampleValues}
-            config={{
-              title: 'Forward Rates',
-              xLabel: 'Maturity',
-              yLabel: 'Rate',
-              color: 'hsl(var(--chart-2))',
-              yFormatter: (v) => `${(v * 100).toFixed(2)}%`,
-            }}
-          />
-        )}
+        <CalibrationResultPanel
+          result={result}
+          showChart={showChart}
+          chartConfig={{
+            title: 'Forward Rates',
+            xLabel: 'Maturity',
+            yLabel: 'Rate',
+            color: 'hsl(var(--chart-2))',
+            yFormatter: (v) => `${(v * 100).toFixed(2)}%`,
+          }}
+        />
 
         {curve && result?.success && (
           <div className="grid grid-cols-3 gap-2 text-sm">

@@ -71,7 +71,7 @@ export default function ScenariosExample() {
 
       // 4. Define scenario with +50bp parallel shift
       const operations = [
-        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 50.0).toJSON(),
+        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', null, 50.0).toJSON(),
       ];
 
       const scenario = JsScenarioSpec.fromJSON({
@@ -142,7 +142,7 @@ export default function ScenariosExample() {
 
       // Add equity price
       const usd = new Currency('USD');
-      const spyPrice = MarketScalar.get_price(new Money(450.0, usd));
+      const spyPrice = MarketScalar.price(new Money(450.0, usd));
       market.insertPrice('SPY', spyPrice);
       log.push('✓ Inserted SPY price: $450');
 
@@ -176,7 +176,7 @@ export default function ScenariosExample() {
       // 3. Define comprehensive scenario
       const operations = [
         // Curve shock
-        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 75.0).toJSON(),
+        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', null, 75.0).toJSON(),
         // Equity shock
         JsOperationSpec.equityPricePct(['SPY'], -15.0).toJSON(),
         // Vol shock
@@ -425,7 +425,7 @@ export default function ScenariosExample() {
       market.insertDiscount(curve);
 
       const usd = new Currency('USD');
-      market.insertPrice('SPY', MarketScalar.get_price(new Money(450.0, usd)));
+      market.insertPrice('SPY', MarketScalar.price(new Money(450.0, usd)));
 
       const builder = new ModelBuilder('composed_model');
       const model = builder.periods('2025Q1..Q4', null)?.build();
@@ -438,7 +438,7 @@ export default function ScenariosExample() {
         id: 'base_case',
         name: 'Base Case',
         operations: [
-          JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 25.0).toJSON(),
+          JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', null, 25.0).toJSON(),
         ],
         priority: 0, // Higher priority (runs first)
       });
@@ -510,8 +510,8 @@ export default function ScenariosExample() {
 
       // Equity price
       const usd = new Currency('USD');
-      market.insertPrice('SPY', MarketScalar.get_price(new Money(450.0, usd)));
-      market.insertPrice('QQQ', MarketScalar.get_price(new Money(380.0, usd)));
+      market.insertPrice('SPY', MarketScalar.price(new Money(450.0, usd)));
+      market.insertPrice('QQQ', MarketScalar.price(new Money(380.0, usd)));
 
       // Vol surface
       const volSurface = new VolSurface(
@@ -550,7 +550,7 @@ export default function ScenariosExample() {
       // 3. Define comprehensive scenario
       const operations = [
         // Market shocks
-        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', 100.0).toJSON(),
+        JsOperationSpec.curveParallelBp(JsCurveKind.DISCOUNT, 'USD_SOFR', null, 100.0).toJSON(),
         JsOperationSpec.equityPricePct(['SPY', 'QQQ'], -20.0).toJSON(),
         JsOperationSpec.volSurfaceParallelPct(JsVolSurfaceKind.EQUITY, 'SPX_VOL', 30.0).toJSON(),
 

@@ -3,8 +3,8 @@ import {
   Currency,
   FsDate,
   DiscountCurve,
-  Equity,
-  EquityOption,
+  EquityBuilder,
+  EquityOptionBuilder,
   MarketContext,
   MarketScalar,
   Money,
@@ -91,9 +91,9 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
 
         for (const data of marketData) {
           const spotPrice = Money.fromCode(data.spotPrice.amount, data.spotPrice.currency);
-          market.insertPrice(data.ticker, MarketScalar.get_price(spotPrice));
-          market.insertPrice(`${data.ticker}-SPOT`, MarketScalar.get_price(spotPrice));
-          market.insertPrice('EQUITY-SPOT', MarketScalar.get_price(spotPrice));
+          market.insertPrice(data.ticker, MarketScalar.price(spotPrice));
+          market.insertPrice(`${data.ticker}-SPOT`, MarketScalar.price(spotPrice));
+          market.insertPrice('EQUITY-SPOT', MarketScalar.price(spotPrice));
           market.insertPrice(`${data.ticker}-DIVYIELD`, MarketScalar.unitless(data.dividendYield));
           market.insertPrice('EQUITY-DIVYIELD', MarketScalar.unitless(data.dividendYield));
         }
@@ -102,7 +102,16 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
         const results: InstrumentRow[] = [];
 
         for (const pos of positions) {
-          const equity = new Equity(pos.id, pos.ticker, usd, pos.quantity, pos.costBasis);
+          const quotedPrice =
+            marketData.find((data) => data.ticker === pos.ticker)?.spotPrice.amount ??
+            pos.costBasis ??
+            0;
+          const equity = new EquityBuilder(pos.id)
+            .ticker(pos.ticker)
+            .currency(usd)
+            .shares(pos.quantity)
+            .price(quotedPrice)
+            .build();
           const equityResult = registry.priceInstrument(equity, 'discounting', market, asOf);
           results.push({
             name: `${pos.ticker} Stock (${pos.quantity} shares)`,
@@ -120,26 +129,20 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
           );
           const spotPrice = Money.fromCode(opt.spotPrice.amount, opt.spotPrice.currency);
 
-          const option =
-            opt.optionType === 'call'
-              ? new EquityOption(
-                  opt.id,
-                  opt.ticker,
-                  opt.strike,
-                  'call',
-                  expiryDate,
-                  spotPrice,
-                  opt.quantity
-                )
-              : new EquityOption(
-                  opt.id,
-                  opt.ticker,
-                  opt.strike,
-                  'put',
-                  expiryDate,
-                  spotPrice,
-                  opt.quantity
-                );
+          const option = new EquityOptionBuilder(opt.id)
+            .ticker(opt.ticker)
+            .strike(opt.strike)
+            .expiry(expiryDate)
+            .money(spotPrice)
+            .notionalAmount(opt.quantity)
+            .optionType(opt.optionType)
+            .exerciseStyle('european')
+            .settlement('cash')
+            .discountCurve(discountCurve.id)
+            .spotId(`${opt.ticker}-SPOT`)
+            .divYieldId(`${opt.ticker}-DIVYIELD`)
+            .volSurface(volSurface.id)
+            .build();
 
           const isCall = opt.optionType === 'call';
           const opts = isCall ? new PricingRequest().withMetrics(['delta', 'gamma']) : null;

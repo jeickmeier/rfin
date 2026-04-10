@@ -24,6 +24,28 @@ fn migration_to_py(err: MigrationError) -> PyErr {
     PyValueError::new_err(err.to_string())
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Flatten an `n x n` matrix into a row-major `Vec<f64>`.
+///
+/// Shared helper for migration matrix wrappers that expose `as_list()` to
+/// Python. Accepts any indexer via closure so that we don't need a direct
+/// dependency on `nalgebra` from the binding crate.
+fn flatten_square_matrix_row_major<F>(n: usize, at: F) -> Vec<f64>
+where
+    F: Fn(usize, usize) -> f64,
+{
+    let mut out = Vec::with_capacity(n * n);
+    for i in 0..n {
+        for j in 0..n {
+            out.push(at(i, j));
+        }
+    }
+    out
+}
+
 // ===================================================================
 // PyRatingScale
 // ===================================================================
@@ -315,14 +337,7 @@ impl PyTransitionMatrix {
     #[pyo3(text_signature = "($self)")]
     fn as_list(&self) -> Vec<f64> {
         let m = self.inner.as_matrix();
-        let n = m.nrows();
-        let mut out = Vec::with_capacity(n * n);
-        for i in 0..n {
-            for j in 0..n {
-                out.push(m[(i, j)]);
-            }
-        }
-        out
+        flatten_square_matrix_row_major(m.nrows(), |i, j| m[(i, j)])
     }
 
     fn __repr__(&self) -> String {
@@ -481,14 +496,7 @@ impl PyGeneratorMatrix {
     #[pyo3(text_signature = "($self)")]
     fn as_list(&self) -> Vec<f64> {
         let m = self.inner.as_matrix();
-        let n = m.nrows();
-        let mut out = Vec::with_capacity(n * n);
-        for i in 0..n {
-            for j in 0..n {
-                out.push(m[(i, j)]);
-            }
-        }
-        out
+        flatten_square_matrix_row_major(m.nrows(), |i, j| m[(i, j)])
     }
 
     fn __repr__(&self) -> String {

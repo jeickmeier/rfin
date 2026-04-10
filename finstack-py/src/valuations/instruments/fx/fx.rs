@@ -1,3 +1,4 @@
+use super::common::{default_attributes, default_pricing_overrides, validated_option_context};
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
@@ -622,24 +623,9 @@ impl PyFxOptionBuilder {
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxOption> {
         slf.ensure_ready()?;
-        let base = slf.base_currency.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "FxOptionBuilder internal error: missing base_currency after validation",
-            )
-        })?;
-        let quote = slf.quote_currency.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "FxOptionBuilder internal error: missing quote_currency after validation",
-            )
-        })?;
         let strike = slf.strike.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "FxOptionBuilder internal error: missing strike after validation",
-            )
-        })?;
-        let expiry = slf.expiry.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "FxOptionBuilder internal error: missing expiry after validation",
             )
         })?;
         let notional = slf.notional.ok_or_else(|| {
@@ -647,39 +633,38 @@ impl PyFxOptionBuilder {
                 "FxOptionBuilder internal error: missing notional after validation",
             )
         })?;
+        let context = validated_option_context(
+            "FxOptionBuilder",
+            &slf.instrument_id,
+            slf.base_currency,
+            slf.quote_currency,
+            slf.expiry,
+            slf.domestic_curve.clone(),
+            slf.foreign_curve.clone(),
+            slf.vol_surface.clone(),
+            slf.day_count,
+        )?;
 
-        let mut builder = FxOption::builder();
-        builder = builder.id(slf.instrument_id.clone());
-        builder = builder.base_currency(base);
-        builder = builder.quote_currency(quote);
-        builder = builder.strike(strike);
-        builder = builder.option_type(slf.option_type);
-        builder = builder.exercise_style(slf.exercise_style);
-        builder = builder.expiry(expiry);
-        builder = builder.day_count(slf.day_count);
-        builder = builder.notional(notional);
-        builder = builder.settlement(slf.settlement);
-        builder =
-            builder.domestic_discount_curve_id(slf.domestic_curve.clone().ok_or_else(|| {
-                pyo3::exceptions::PyRuntimeError::new_err(
-                    "FxOptionBuilder internal error: missing domestic curve after validation",
-                )
-            })?);
-        builder =
-            builder.foreign_discount_curve_id(slf.foreign_curve.clone().ok_or_else(|| {
-                pyo3::exceptions::PyRuntimeError::new_err(
-                    "FxOptionBuilder internal error: missing foreign curve after validation",
-                )
-            })?);
-        builder = builder.vol_surface_id(slf.vol_surface.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "FxOptionBuilder internal error: missing vol surface after validation",
-            )
-        })?);
-        builder = builder
-            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
-        Ok(PyFxOption::new(builder.build().map_err(core_to_py)?))
+        Ok(PyFxOption::new(
+            FxOption::builder()
+                .id(context.instrument_id)
+                .base_currency(context.base_currency)
+                .quote_currency(context.quote_currency)
+                .strike(strike)
+                .option_type(slf.option_type)
+                .exercise_style(slf.exercise_style)
+                .expiry(context.expiry)
+                .day_count(context.day_count)
+                .notional(notional)
+                .settlement(slf.settlement)
+                .domestic_discount_curve_id(context.domestic_discount_curve_id)
+                .foreign_discount_curve_id(context.foreign_discount_curve_id)
+                .vol_surface_id(context.vol_surface_id)
+                .pricing_overrides(default_pricing_overrides())
+                .attributes(default_attributes())
+                .build()
+                .map_err(core_to_py)?,
+        ))
     }
 
     fn __repr__(&self) -> String {

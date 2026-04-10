@@ -5,13 +5,16 @@ use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::dates::Tenor;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::market_data::scalars::InflationLag;
+use finstack_core::money::Money;
+use finstack_core::types::{CalendarId, CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, YoYInflationSwap};
 use finstack_valuations::instruments::PayReceive;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
+use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -19,6 +22,96 @@ fn parse_side(label: Option<&str>) -> PyResult<PayReceive> {
     match label {
         None => Ok(PayReceive::PayFixed),
         Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
+    }
+}
+
+fn parse_lag_override_label(lag_override: Option<String>) -> PyResult<Option<InflationLag>> {
+    lag_override
+        .map(|lag| {
+            let normalized = crate::core::common::labels::normalize_label(&lag);
+            match normalized.as_str() {
+                "none" => Ok(InflationLag::None),
+                "3m" | "three_months" => Ok(InflationLag::Months(3)),
+                "8m" | "eight_months" => Ok(InflationLag::Months(8)),
+                other => Err(PyValueError::new_err(format!(
+                    "Unsupported lag override: {other}",
+                ))),
+            }
+        })
+        .transpose()
+}
+
+struct InflationSwapBuildArgs {
+    instrument_id: InstrumentId,
+    notional: Money,
+    fixed_rate: Decimal,
+    start_date: time::Date,
+    maturity: time::Date,
+    discount_curve: CurveId,
+    inflation_index_id: String,
+    side: PayReceive,
+    day_count: DayCount,
+    lag_override: Option<InflationLag>,
+    calendar_id: Option<CalendarId>,
+}
+
+impl InflationSwapBuildArgs {
+    #[allow(clippy::too_many_arguments)]
+    fn from_builder_state(
+        builder_name: &str,
+        instrument_id: &InstrumentId,
+        notional: Option<Money>,
+        fixed_rate: Option<f64>,
+        start_date: Option<time::Date>,
+        maturity: Option<time::Date>,
+        discount_curve: Option<CurveId>,
+        inflation_index_id: Option<String>,
+        side: PayReceive,
+        day_count: DayCount,
+        lag_override: Option<InflationLag>,
+        calendar_id: Option<String>,
+    ) -> PyResult<Self> {
+        let fixed_rate_val = fixed_rate.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "{builder_name} internal error: missing fixed_rate after validation"
+            ))
+        })?;
+
+        Ok(Self {
+            instrument_id: instrument_id.clone(),
+            notional: notional.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "{builder_name} internal error: missing notional after validation"
+                ))
+            })?,
+            fixed_rate: Decimal::try_from(fixed_rate_val).map_err(|_| {
+                PyValueError::new_err(format!("Cannot convert {} to decimal", fixed_rate_val))
+            })?,
+            start_date: start_date.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "{builder_name} internal error: missing start_date after validation"
+                ))
+            })?,
+            maturity: maturity.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "{builder_name} internal error: missing maturity after validation"
+                ))
+            })?,
+            discount_curve: discount_curve.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "{builder_name} internal error: missing discount_curve after validation"
+                ))
+            })?,
+            inflation_index_id: inflation_index_id.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "{builder_name} internal error: missing inflation_index_id after validation"
+                ))
+            })?,
+            side,
+            day_count,
+            lag_override,
+            calendar_id: calendar_id.map(CalendarId::new),
+        })
     }
 }
 
@@ -204,22 +297,7 @@ impl PyInflationSwapBuilder {
         mut slf: PyRefMut<'_, Self>,
         lag_override: Option<String>,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        if let Some(lag) = lag_override {
-            let normalized = crate::core::common::labels::normalize_label(&lag);
-            use finstack_core::market_data::scalars::InflationLag;
-            slf.lag_override = Some(match normalized.as_str() {
-                "none" => InflationLag::None,
-                "3m" | "three_months" => InflationLag::Months(3),
-                "8m" | "eight_months" => InflationLag::Months(8),
-                other => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unsupported lag override: {other}",
-                    )))
-                }
-            });
-        } else {
-            slf.lag_override = None;
-        }
+        slf.lag_override = parse_lag_override_label(lag_override)?;
         Ok(slf)
     }
 
@@ -238,50 +316,37 @@ impl PyInflationSwapBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInflationSwap> {
         slf.ensure_ready()?;
+        let args = InflationSwapBuildArgs::from_builder_state(
+            "InflationSwapBuilder",
+            &slf.instrument_id,
+            slf.notional,
+            slf.fixed_rate,
+            slf.start_date,
+            slf.maturity,
+            slf.discount_curve.clone(),
+            slf.inflation_index_id.clone(),
+            slf.side,
+            slf.day_count,
+            slf.lag_override,
+            slf.calendar_id.clone(),
+        )?;
 
-        let mut builder = InflationSwap::builder();
-        builder = builder.id(slf.instrument_id.clone());
-        let fixed_rate_val = slf.fixed_rate.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InflationSwapBuilder internal error: missing fixed_rate after validation",
-            )
-        })?;
-        builder = builder.notional(slf.notional.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InflationSwapBuilder internal error: missing notional after validation",
-            )
-        })?);
-        builder = builder.fixed_rate(rust_decimal::Decimal::try_from(fixed_rate_val).map_err(
-            |_| PyValueError::new_err(format!("Cannot convert {} to decimal", fixed_rate_val)),
-        )?);
-        builder = builder.start_date(slf.start_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InflationSwapBuilder internal error: missing start_date after validation",
-            )
-        })?);
-        builder = builder.maturity(slf.maturity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InflationSwapBuilder internal error: missing maturity after validation",
-            )
-        })?);
-        builder = builder.discount_curve_id(slf.discount_curve.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "InflationSwapBuilder internal error: missing discount_curve after validation",
-            )
-        })?);
-        builder = builder.inflation_index_id(slf.inflation_index_id.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationSwapBuilder internal error: missing inflation_index_id after validation"))?.into());
-        builder = builder.day_count(slf.day_count);
-        builder = builder.side(slf.side);
-        builder = builder.lag_override_opt(slf.lag_override);
-        builder = builder.base_cpi_opt(slf.base_cpi);
-        builder = builder.calendar_id_opt(
-            slf.calendar_id
-                .clone()
-                .map(finstack_core::types::CalendarId::new),
-        );
-        builder = builder.attributes(Default::default());
-
-        let swap = builder.build().map_err(core_to_py)?;
+        let swap = InflationSwap::builder()
+            .id(args.instrument_id)
+            .notional(args.notional)
+            .fixed_rate(args.fixed_rate)
+            .start_date(args.start_date)
+            .maturity(args.maturity)
+            .discount_curve_id(args.discount_curve)
+            .inflation_index_id(args.inflation_index_id.into())
+            .day_count(args.day_count)
+            .side(args.side)
+            .lag_override_opt(args.lag_override)
+            .base_cpi_opt(slf.base_cpi)
+            .calendar_id_opt(args.calendar_id)
+            .attributes(Default::default())
+            .build()
+            .map_err(core_to_py)?;
         Ok(PyInflationSwap::new(swap))
     }
 
@@ -561,22 +626,7 @@ impl PyYoYInflationSwapBuilder {
         mut slf: PyRefMut<'_, Self>,
         lag_override: Option<String>,
     ) -> PyResult<PyRefMut<'_, Self>> {
-        if let Some(lag) = lag_override {
-            let normalized = crate::core::common::labels::normalize_label(&lag);
-            use finstack_core::market_data::scalars::InflationLag;
-            slf.lag_override = Some(match normalized.as_str() {
-                "none" => InflationLag::None,
-                "3m" | "three_months" => InflationLag::Months(3),
-                "8m" | "eight_months" => InflationLag::Months(8),
-                other => {
-                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                        "Unsupported lag override: {other}",
-                    )))
-                }
-            });
-        } else {
-            slf.lag_override = None;
-        }
+        slf.lag_override = parse_lag_override_label(lag_override)?;
         Ok(slf)
     }
 
@@ -589,50 +639,37 @@ impl PyYoYInflationSwapBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyYoYInflationSwap> {
         slf.ensure_ready()?;
+        let args = InflationSwapBuildArgs::from_builder_state(
+            "YoYInflationSwapBuilder",
+            &slf.instrument_id,
+            slf.notional,
+            slf.fixed_rate,
+            slf.start_date,
+            slf.maturity,
+            slf.discount_curve.clone(),
+            slf.inflation_index_id.clone(),
+            slf.side,
+            slf.day_count,
+            slf.lag_override,
+            slf.calendar_id.clone(),
+        )?;
 
-        let mut builder = YoYInflationSwap::builder();
-        builder = builder.id(slf.instrument_id.clone());
-        let fixed_rate_val = slf.fixed_rate.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "YoYInflationSwapBuilder internal error: missing fixed_rate after validation",
-            )
-        })?;
-        builder = builder.notional(slf.notional.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "YoYInflationSwapBuilder internal error: missing notional after validation",
-            )
-        })?);
-        builder = builder.fixed_rate(rust_decimal::Decimal::try_from(fixed_rate_val).map_err(
-            |_| PyValueError::new_err(format!("Cannot convert {} to decimal", fixed_rate_val)),
-        )?);
-        builder = builder.start_date(slf.start_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "YoYInflationSwapBuilder internal error: missing start_date after validation",
-            )
-        })?);
-        builder = builder.maturity(slf.maturity.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "YoYInflationSwapBuilder internal error: missing maturity after validation",
-            )
-        })?);
-        builder = builder.frequency(slf.frequency);
-        builder = builder.discount_curve_id(slf.discount_curve.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "YoYInflationSwapBuilder internal error: missing discount_curve after validation",
-            )
-        })?);
-        builder = builder.inflation_index_id(slf.inflation_index_id.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("YoYInflationSwapBuilder internal error: missing inflation_index_id after validation"))?.into());
-        builder = builder.day_count(slf.day_count);
-        builder = builder.side(slf.side);
-        builder = builder.lag_override_opt(slf.lag_override);
-        builder = builder.calendar_id_opt(
-            slf.calendar_id
-                .clone()
-                .map(finstack_core::types::CalendarId::new),
-        );
-        builder = builder.attributes(Default::default());
-
-        let swap = builder.build().map_err(core_to_py)?;
+        let swap = YoYInflationSwap::builder()
+            .id(args.instrument_id)
+            .notional(args.notional)
+            .fixed_rate(args.fixed_rate)
+            .start_date(args.start_date)
+            .maturity(args.maturity)
+            .frequency(slf.frequency)
+            .discount_curve_id(args.discount_curve)
+            .inflation_index_id(args.inflation_index_id.into())
+            .day_count(args.day_count)
+            .side(args.side)
+            .lag_override_opt(args.lag_override)
+            .calendar_id_opt(args.calendar_id)
+            .attributes(Default::default())
+            .build()
+            .map_err(core_to_py)?;
         Ok(PyYoYInflationSwap::new(swap))
     }
 

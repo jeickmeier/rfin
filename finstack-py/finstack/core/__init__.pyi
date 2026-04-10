@@ -14,7 +14,6 @@ This module provides the fundamental building blocks for financial computations:
 """
 
 from __future__ import annotations
-from . import analytics
 from . import cashflow
 from . import config
 from . import currency
@@ -65,7 +64,6 @@ def require_or(condition: bool, message: str) -> None:
     ...
 
 __all__ = [
-    "analytics",
     "cashflow",
     "config",
     "currency",

@@ -307,10 +307,10 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 namespace["AmountOrScalar"] = finstack.statements.types.model.AmountOrScalar
                 namespace["ForecastSpec"] = finstack.statements.types.forecast.ForecastSpec
                 namespace["ForecastMethod"] = finstack.statements.types.forecast.ForecastMethod
-                namespace["ScenarioSpec"] = finstack.scenarios.spec.ScenarioSpec
-                namespace["OperationSpec"] = finstack.scenarios.spec.OperationSpec
-                namespace["ScenarioEngine"] = finstack.scenarios.engine.ScenarioEngine
-                namespace["ExecutionContext"] = finstack.scenarios.engine.ExecutionContext
+                namespace["ScenarioSpec"] = finstack.scenarios.ScenarioSpec
+                namespace["OperationSpec"] = finstack.scenarios.OperationSpec
+                namespace["ScenarioEngine"] = finstack.scenarios.ScenarioEngine
+                namespace["ExecutionContext"] = finstack.scenarios.ExecutionContext
                 namespace["Portfolio"] = finstack.portfolio.portfolio.Portfolio
                 namespace["PortfolioBuilder"] = finstack.portfolio.PortfolioBuilder
                 namespace["Entity"] = finstack.portfolio.types.Entity

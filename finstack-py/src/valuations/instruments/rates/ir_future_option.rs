@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_builder_field, require_notional_money};
 use crate::core::common::args::CurrencyArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -6,7 +7,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::ir_future_option::IrFutureOption;
 use finstack_valuations::instruments::OptionType;
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
@@ -208,46 +209,25 @@ impl PyIrFutureOptionBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyIrFutureOption> {
         slf.ensure_ready()?;
-        let futures_price = slf.futures_price.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing futures_price after validation",
-            )
-        })?;
-        let strike = slf.strike.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing strike after validation",
-            )
-        })?;
-        let expiry = slf.expiry.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing expiry after validation",
-            )
-        })?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let tick_size = slf.tick_size.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing tick_size after validation",
-            )
-        })?;
-        let tick_value = slf.tick_value.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing tick_value after validation",
-            )
-        })?;
-        let volatility = slf.volatility.ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing volatility after validation",
-            )
-        })?;
-        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
-            PyRuntimeError::new_err(
-                "IrFutureOptionBuilder internal error: missing discount_curve after validation",
-            )
-        })?;
+        let futures_price =
+            require_builder_field("IrFutureOptionBuilder", "futures_price", slf.futures_price)?;
+        let strike = require_builder_field("IrFutureOptionBuilder", "strike", slf.strike)?;
+        let expiry = require_builder_field("IrFutureOptionBuilder", "expiry", slf.expiry)?;
+        let notional = require_notional_money(
+            "IrFutureOptionBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
+        let tick_size = require_builder_field("IrFutureOptionBuilder", "tick_size", slf.tick_size)?;
+        let tick_value =
+            require_builder_field("IrFutureOptionBuilder", "tick_value", slf.tick_value)?;
+        let volatility =
+            require_builder_field("IrFutureOptionBuilder", "volatility", slf.volatility)?;
+        let discount_curve_id = require_builder_clone(
+            "IrFutureOptionBuilder",
+            "discount_curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
 
         IrFutureOption::builder()
             .id(slf.instrument_id.clone())

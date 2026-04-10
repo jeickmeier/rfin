@@ -1,3 +1,4 @@
+use super::common::{default_attributes, default_pricing_overrides, validated_option_context};
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
@@ -329,12 +330,6 @@ impl PyFxTouchOptionBuilder {
     }
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxTouchOption> {
-        let base = slf
-            .base_currency
-            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
-        let quote = slf
-            .quote_currency
-            .ok_or_else(|| PyValueError::new_err("quote_currency is required"))?;
         let barrier_level = slf
             .barrier_level
             .ok_or_else(|| PyValueError::new_err("barrier_level is required"))?;
@@ -347,38 +342,34 @@ impl PyFxTouchOptionBuilder {
         let payout_amount = slf
             .payout_amount
             .ok_or_else(|| PyValueError::new_err("payout_amount is required"))?;
-        let expiry = slf
-            .expiry
-            .ok_or_else(|| PyValueError::new_err("expiry is required"))?;
-        let domestic = slf
-            .domestic_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("domestic_discount_curve is required"))?;
-        let foreign = slf
-            .foreign_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("foreign_discount_curve is required"))?;
-        let vol = slf
-            .vol_surface_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface is required"))?;
+        let context = validated_option_context(
+            "FxTouchOptionBuilder",
+            &slf.instrument_id,
+            slf.base_currency,
+            slf.quote_currency,
+            slf.expiry,
+            slf.domestic_discount_curve_id.clone(),
+            slf.foreign_discount_curve_id.clone(),
+            slf.vol_surface_id.clone(),
+            slf.day_count,
+        )?;
 
         let option = FxTouchOption::builder()
-            .id(slf.instrument_id.clone())
-            .base_currency(base)
-            .quote_currency(quote)
+            .id(context.instrument_id)
+            .base_currency(context.base_currency)
+            .quote_currency(context.quote_currency)
             .barrier_level(barrier_level)
             .touch_type(touch_type)
             .barrier_direction(barrier_direction)
             .payout_amount(payout_amount)
             .payout_timing(slf.payout_timing)
-            .expiry(expiry)
-            .day_count(slf.day_count)
-            .domestic_discount_curve_id(domestic)
-            .foreign_discount_curve_id(foreign)
-            .vol_surface_id(vol)
-            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-            .attributes(finstack_valuations::instruments::Attributes::new())
+            .expiry(context.expiry)
+            .day_count(context.day_count)
+            .domestic_discount_curve_id(context.domestic_discount_curve_id)
+            .foreign_discount_curve_id(context.foreign_discount_curve_id)
+            .vol_surface_id(context.vol_surface_id)
+            .pricing_overrides(default_pricing_overrides())
+            .attributes(default_attributes())
             .build()
             .map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!(

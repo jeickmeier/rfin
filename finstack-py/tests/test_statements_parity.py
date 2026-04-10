@@ -1073,7 +1073,7 @@ def test_statement_result_cs_cashflows_none() -> None:
 
 def test_backtest_forecast() -> None:
     """Test forecast backtesting metrics."""
-    from finstack.statements_analytics.analysis import backtest_forecast
+    from finstack.statements.analysis import backtest_forecast
 
     actual = [100.0, 110.0, 105.0, 115.0]
     forecast = [98.0, 112.0, 104.0, 116.0]
@@ -1092,7 +1092,7 @@ def test_backtest_forecast() -> None:
 
 def test_backtest_forecast_perfect() -> None:
     """Test perfect forecast has zero errors."""
-    from finstack.statements_analytics.analysis import backtest_forecast
+    from finstack.statements.analysis import backtest_forecast
 
     actual = [100.0, 110.0, 120.0]
     metrics = backtest_forecast(actual, actual)
@@ -1102,7 +1102,7 @@ def test_backtest_forecast_perfect() -> None:
 
 def test_backtest_forecast_mismatched_lengths() -> None:
     """Test error on mismatched array lengths."""
-    from finstack.statements_analytics.analysis import backtest_forecast
+    from finstack.statements.analysis import backtest_forecast
 
     with pytest.raises(finstack.CalibrationError, match="same length"):
         backtest_forecast([1.0, 2.0], [1.0])
@@ -1110,7 +1110,7 @@ def test_backtest_forecast_mismatched_lengths() -> None:
 
 def test_credit_context_metrics_import() -> None:
     """Test CreditContextMetrics struct is importable."""
-    from finstack.statements_analytics.analysis import CreditContextMetrics, compute_credit_context
+    from finstack.statements.analysis import CreditContextMetrics, compute_credit_context
 
     assert CreditContextMetrics is not None
     assert compute_credit_context is not None
@@ -1121,7 +1121,7 @@ class TestDcfCorporateValuation:
 
     def test_dcf_options(self) -> None:
         """Test DcfOptions construction."""
-        from finstack.statements_analytics.analysis import DcfOptions
+        from finstack.statements.analysis import DcfOptions
 
         opts = DcfOptions(mid_year_convention=True, shares_outstanding=1000000.0)
         assert opts.mid_year_convention is True
@@ -1129,7 +1129,7 @@ class TestDcfCorporateValuation:
 
     def test_dcf_types_import(self) -> None:
         """Test DCF types are importable."""
-        from finstack.statements_analytics.analysis import (
+        from finstack.statements.analysis import (
             CorporateValuationResult,
             DcfOptions,
             evaluate_dcf,
@@ -1145,15 +1145,15 @@ class TestDcfCorporateValuation:
 
 
 def test_goal_seek_function_import() -> None:
-    """goal_seek should be importable from finstack.statements_analytics.analysis."""
-    from finstack.statements_analytics.analysis import goal_seek
+    """goal_seek should be importable from finstack.statements.analysis."""
+    from finstack.statements.analysis import goal_seek
 
     assert goal_seek is not None
 
 
 def test_monte_carlo_config() -> None:
     """Test MonteCarloConfig construction."""
-    from finstack.statements_analytics.analysis import MonteCarloConfig
+    from finstack.statements.analysis import MonteCarloConfig
 
     config = MonteCarloConfig(n_paths=1000, seed=42)
     assert config.n_paths == 1000
@@ -1165,7 +1165,7 @@ def test_monte_carlo_config() -> None:
 
 def test_monte_carlo_config_defaults() -> None:
     """Test MonteCarloConfig default percentiles."""
-    from finstack.statements_analytics.analysis import MonteCarloConfig
+    from finstack.statements.analysis import MonteCarloConfig
 
     config = MonteCarloConfig(n_paths=500, seed=123)
     # Default percentiles are [0.05, 0.5, 0.95]
@@ -1175,7 +1175,7 @@ def test_monte_carlo_config_defaults() -> None:
 
 def test_monte_carlo_config_repr() -> None:
     """Test MonteCarloConfig __repr__."""
-    from finstack.statements_analytics.analysis import MonteCarloConfig
+    from finstack.statements.analysis import MonteCarloConfig
 
     config = MonteCarloConfig(n_paths=1000, seed=42)
     assert "MonteCarloConfig" in repr(config)
@@ -1185,7 +1185,7 @@ def test_monte_carlo_config_repr() -> None:
 
 def test_forecast_covenant_import() -> None:
     """Test covenant analysis functions are importable."""
-    from finstack.statements_analytics.analysis import forecast_breaches, forecast_covenant, forecast_covenants
+    from finstack.statements.analysis import forecast_breaches, forecast_covenant, forecast_covenants
 
     assert forecast_breaches is not None
     assert forecast_covenant is not None
@@ -1194,7 +1194,7 @@ def test_forecast_covenant_import() -> None:
 
 def test_corporate_analysis_builder_import() -> None:
     """Test CorporateAnalysisBuilder and related types are importable."""
-    from finstack.statements_analytics.analysis import (
+    from finstack.statements.analysis import (
         CorporateAnalysis,
         CorporateAnalysisBuilder,
         CreditInstrumentAnalysis,
@@ -1208,7 +1208,7 @@ def test_corporate_analysis_builder_import() -> None:
 def test_corporate_analysis_builder_basic() -> None:
     """Test CorporateAnalysisBuilder basic pipeline."""
     from finstack.core.dates import PeriodId
-    from finstack.statements_analytics.analysis import CorporateAnalysisBuilder
+    from finstack.statements.analysis import CorporateAnalysisBuilder
 
     from finstack.statements import AmountOrScalar, ModelBuilder
 
@@ -1235,9 +1235,7 @@ def test_corporate_analysis_builder_basic() -> None:
 
 def test_report_import_and_virtual_subclassing() -> None:
     """Concrete statement report types should satisfy the shared Report surface."""
-    from finstack.statements_analytics import analysis
-
-    from finstack.statements import PLSummaryReport, Report
+    from finstack.statements import PLSummaryReport, Report, analysis
 
     assert Report is not None
     assert issubclass(PLSummaryReport, Report)

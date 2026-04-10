@@ -11,7 +11,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import type { CurveDataPoint, ChartConfig } from './types';
+import type { CalibrationResult, CurveDataPoint, ChartConfig } from './types';
 
 interface CurveChartProps {
   data: CurveDataPoint[];
@@ -200,5 +200,43 @@ export const CalibrationMetrics: React.FC<CalibrationMetricsProps> = ({
         <span className="font-mono">{maxResidual.toExponential(3)}</span>
       </div>
     </div>
+  );
+};
+
+interface CalibrationResultPanelProps {
+  result: CalibrationResult | null;
+  chartConfig: ChartConfig;
+  showChart?: boolean;
+  showArea?: boolean;
+  referenceLines?: { y: number; label: string; stroke?: string }[];
+}
+
+export const CalibrationResultPanel: React.FC<CalibrationResultPanelProps> = ({
+  result,
+  chartConfig,
+  showChart = true,
+  showArea = false,
+  referenceLines = [],
+}) => {
+  if (!result) {
+    return null;
+  }
+
+  return (
+    <>
+      <CalibrationMetrics
+        iterations={result.iterations}
+        maxResidual={result.maxResidual}
+        success={result.success}
+      />
+      {showChart && result.sampleValues.length > 0 && (
+        <CurveChart
+          data={result.sampleValues}
+          config={chartConfig}
+          showArea={showArea}
+          referenceLines={referenceLines}
+        />
+      )}
+    </>
   );
 };

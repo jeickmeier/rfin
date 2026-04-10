@@ -1,9 +1,11 @@
+use super::common::{
+    meta_attributes, option_pricing_overrides, require_builder_clone, require_builder_field,
+};
 use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::range_accrual::{BoundsType, RangeAccrual};
-use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
@@ -309,49 +311,26 @@ impl PyRangeAccrualBuilder {
 
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyRangeAccrual> {
-        let ticker = slf
-            .ticker
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("ticker() is required"))?;
-        let notional = slf
-            .notional
-            .ok_or_else(|| PyValueError::new_err("notional() is required"))?;
-        let discount_curve = slf
-            .discount_curve
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("discount_curve() is required"))?;
-        let spot_id = slf
-            .spot_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("spot_id() is required"))?;
-        let vol_surface = slf
-            .vol_surface
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("vol_surface() is required"))?;
-        let lower = slf
-            .lower_bound
-            .ok_or_else(|| PyValueError::new_err("lower_bound() is required"))?;
-        let upper = slf
-            .upper_bound
-            .ok_or_else(|| PyValueError::new_err("upper_bound() is required"))?;
-        let coupon = slf
-            .coupon_rate
-            .ok_or_else(|| PyValueError::new_err("coupon_rate() is required"))?;
+        let ticker = require_builder_clone("RangeAccrualBuilder", "ticker", slf.ticker.as_ref())?;
+        let notional = require_builder_field("RangeAccrualBuilder", "notional", slf.notional)?;
+        let discount_curve = require_builder_clone(
+            "RangeAccrualBuilder",
+            "discount_curve",
+            slf.discount_curve.as_ref(),
+        )?;
+        let spot_id =
+            require_builder_clone("RangeAccrualBuilder", "spot_id", slf.spot_id.as_ref())?;
+        let vol_surface = require_builder_clone(
+            "RangeAccrualBuilder",
+            "vol_surface",
+            slf.vol_surface.as_ref(),
+        )?;
+        let lower = require_builder_field("RangeAccrualBuilder", "lower_bound", slf.lower_bound)?;
+        let upper = require_builder_field("RangeAccrualBuilder", "upper_bound", slf.upper_bound)?;
+        let coupon = require_builder_field("RangeAccrualBuilder", "coupon_rate", slf.coupon_rate)?;
 
-        let mut pricing_overrides = PricingOverrides::default();
-        if let Some(vol) = slf.implied_volatility {
-            pricing_overrides.market_quotes.implied_volatility = Some(vol);
-        }
-        if let Some(steps) = slf.tree_steps {
-            pricing_overrides.model_config.tree_steps = Some(steps);
-        }
-
-        let mut attrs = Attributes::new();
-        if let Some(ref pending) = slf.pending_attributes {
-            for (k, v) in pending {
-                attrs.meta.insert(k.clone(), v.clone());
-            }
-        }
+        let pricing_overrides = option_pricing_overrides(slf.implied_volatility, slf.tree_steps);
+        let attrs = meta_attributes(slf.pending_attributes.as_ref());
 
         let mut builder = RangeAccrual::builder();
         builder = builder.id(slf.instrument_id.clone());

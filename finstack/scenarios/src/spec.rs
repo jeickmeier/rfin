@@ -69,7 +69,7 @@ pub use finstack_statements::NodeId;
 ///     resolution_mode: ResolutionMode::default(),
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScenarioSpec {
     /// Unique identifier for this scenario.
@@ -121,7 +121,7 @@ impl ScenarioSpec {
 /// Hierarchy-targeted variants are resolved into direct identifiers during
 /// [`crate::engine::ScenarioEngine::apply`] using the market hierarchy attached
 /// to the execution context.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OperationSpec {
     /// FX rate percent shift.
@@ -819,7 +819,7 @@ pub enum TimeRollMode {
 ///     day_count: None, // Use curve's day count
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RateBindingSpec {
     /// Statement node ID to receive the rate.

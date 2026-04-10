@@ -1,3 +1,7 @@
+use super::common::{
+    default_attributes, ensure_after, ensure_notional_currency, ensure_positive, required_clone,
+    required_value,
+};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
@@ -8,7 +12,6 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource, NdfQuoteConvention};
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -120,56 +123,32 @@ impl PyNdfBuilder {
     fn validate_and_build(&self) -> PyResult<Ndf> {
         use crate::errors::core_to_py;
 
-        let base_currency = self
-            .base_currency
-            .ok_or_else(|| PyValueError::new_err("base_currency is required"))?;
-
-        let settlement_currency = self
-            .settlement_currency
-            .ok_or_else(|| PyValueError::new_err("settlement_currency is required"))?;
-
-        let fixing_date = self
-            .fixing_date
-            .ok_or_else(|| PyValueError::new_err("fixing_date is required"))?;
-
-        let maturity_date = self
-            .maturity_date
-            .ok_or_else(|| PyValueError::new_err("maturity_date is required"))?;
-
-        if maturity_date <= fixing_date {
-            return Err(PyValueError::new_err(
-                "maturity_date must be after fixing_date",
-            ));
-        }
-
-        let notional = self
-            .notional
-            .ok_or_else(|| PyValueError::new_err("notional is required"))?;
-
-        if notional.currency() != base_currency {
-            return Err(PyValueError::new_err(format!(
-                "notional currency ({}) must match base_currency ({})",
-                notional.currency(),
-                base_currency
-            )));
-        }
-
-        let contract_rate = self
-            .contract_rate
-            .ok_or_else(|| PyValueError::new_err("contract_rate is required"))?;
-
-        if contract_rate <= 0.0 {
-            return Err(PyValueError::new_err("contract_rate must be positive"));
-        }
-
-        let settlement_curve_id = self
-            .domestic_discount_curve_id
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("settlement_curve_id is required"))?;
-
-        let quote_convention = self.quote_convention.ok_or_else(|| {
-            PyValueError::new_err("quote_convention is required (e.g. 'base_per_settlement')")
-        })?;
+        let base_currency = required_value(self.base_currency, "base_currency is required")?;
+        let settlement_currency =
+            required_value(self.settlement_currency, "settlement_currency is required")?;
+        let fixing_date = required_value(self.fixing_date, "fixing_date is required")?;
+        let maturity_date = ensure_after(
+            required_value(self.maturity_date, "maturity_date is required")?,
+            fixing_date,
+            "maturity_date must be after fixing_date",
+        )?;
+        let notional = ensure_notional_currency(
+            required_value(self.notional, "notional is required")?,
+            base_currency,
+            "notional currency",
+        )?;
+        let contract_rate = ensure_positive(
+            required_value(self.contract_rate, "contract_rate is required")?,
+            "contract_rate must be positive",
+        )?;
+        let settlement_curve_id = required_clone(
+            self.domestic_discount_curve_id.as_ref(),
+            "settlement_curve_id is required",
+        )?;
+        let quote_convention = required_value(
+            self.quote_convention,
+            "quote_convention is required (e.g. 'base_per_settlement')",
+        )?;
 
         Ndf::builder()
             .id(self.instrument_id.clone())
@@ -187,7 +166,7 @@ impl PyNdfBuilder {
             .spot_rate_override_opt(self.spot_rate_override)
             .base_calendar_id_opt(self.base_calendar_id.clone())
             .quote_calendar_id_opt(self.quote_calendar_id.clone())
-            .attributes(Attributes::new())
+            .attributes(default_attributes())
             .build()
             .map_err(core_to_py)
     }

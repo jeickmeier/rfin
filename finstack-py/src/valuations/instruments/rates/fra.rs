@@ -1,3 +1,4 @@
+use super::common::{require_builder_clone, require_builder_field, require_notional_money};
 use crate::core::common::args::BusinessDayConventionArg;
 use crate::core::common::args::DayCountArg;
 use crate::core::currency::PyCurrency;
@@ -289,36 +290,27 @@ impl PyForwardRateAgreementBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyForwardRateAgreement> {
         slf.ensure_ready()?;
-        let notional = slf.notional_money().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let fixed_rate = slf.fixed_rate.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing fixed_rate after validation",
-            )
-        })?;
-        let start_date = slf.start_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing start_date after validation",
-            )
-        })?;
-        let end_date = slf.end_date.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing end_date after validation",
-            )
-        })?;
-        let discount = slf.discount_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing discount curve after validation",
-            )
-        })?;
-        let forward = slf.forward_curve_id.clone().ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "ForwardRateAgreementBuilder internal error: missing forward curve after validation",
-            )
-        })?;
+        let notional = require_notional_money(
+            "ForwardRateAgreementBuilder",
+            slf.pending_notional_amount,
+            slf.pending_currency,
+        )?;
+        let fixed_rate =
+            require_builder_field("ForwardRateAgreementBuilder", "fixed_rate", slf.fixed_rate)?;
+        let start_date =
+            require_builder_field("ForwardRateAgreementBuilder", "start_date", slf.start_date)?;
+        let end_date =
+            require_builder_field("ForwardRateAgreementBuilder", "end_date", slf.end_date)?;
+        let discount = require_builder_clone(
+            "ForwardRateAgreementBuilder",
+            "discount curve",
+            slf.discount_curve_id.as_ref(),
+        )?;
+        let forward = require_builder_clone(
+            "ForwardRateAgreementBuilder",
+            "forward curve",
+            slf.forward_curve_id.as_ref(),
+        )?;
 
         ForwardRateAgreement::builder()
             .id(slf.instrument_id.clone())
