@@ -3,9 +3,12 @@
   "version": "0.4.1",
   "type": "module",
   "description": "WebAssembly bindings for Finstack - high-performance financial computation library for bonds, derivatives, and portfolio analytics",
-  "main": "./pkg/finstack_wasm.js",
-  "types": "./pkg/finstack_wasm.d.ts",
+  "main": "./index.js",
+  "types": "./index.d.ts",
   "files": [
+    "index.js",
+    "index.d.ts",
+    "exports/**",
     "pkg/**",
     "pkg-node/**",
     "snippets/**",
@@ -13,8 +16,8 @@
   ],
   "exports": {
     ".": {
-      "types": "./pkg/finstack_wasm.d.ts",
-      "default": "./pkg/finstack_wasm.js"
+      "types": "./index.d.ts",
+      "default": "./index.js"
     },
     "./types": {
       "types": "./types/generated/index.ts"

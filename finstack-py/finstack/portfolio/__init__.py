@@ -1,15 +1,8 @@
-"""Portfolio bindings (Rust).
+"""Portfolio construction, valuation, attribution, and optimization.
 
-This package is a thin re-export of the Rust extension module.
+Bindings for the ``finstack-portfolio`` Rust crate.
 """
 
 from __future__ import annotations
 
-from finstack import finstack as _finstack
-from finstack._binding_exports import export_rust_members, set_public_all
-
-_rust_portfolio = _finstack.portfolio
-
-export_rust_members(globals(), _rust_portfolio, package_name=__name__)
-
-set_public_all(globals(), helper_names={"annotations"})
+__all__: list[str] = []

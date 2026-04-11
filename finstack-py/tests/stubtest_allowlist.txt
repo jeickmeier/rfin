@@ -1,8 +1,0 @@
-# mypy.stubtest allowlist for finstack (PyO3 extension)
-#
-# Add entries here when stubtest reports expected runtime/stub mismatches due to:
-# - intentionally-dynamic attributes
-# - platform-specific availability
-# - PyO3/Python runtime signature limitations
-#
-# Keep this list small and justified.

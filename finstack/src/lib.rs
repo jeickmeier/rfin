@@ -13,15 +13,17 @@
 //! Re-exports each sub-crate behind a Cargo feature flag so downstream
 //! consumers can pull in only the pieces they need:
 //!
-//! | Feature       | Sub-crate              |
-//! |---------------|------------------------|
-//! | `core`        | [`finstack-core`]      |
-//! | `analytics`   | [`finstack-analytics`] |
-//! | `margin`      | [`finstack-margin`]    |
-//! | `valuations`  | [`finstack-valuations`]|
-//! | `statements`  | [`finstack-statements`]|
-//! | `portfolio`   | [`finstack-portfolio`] |
-//! | `scenarios`   | [`finstack-scenarios`] |
+//! | Feature       | Sub-crate                      |
+//! |---------------|--------------------------------|
+//! | `core`        | [`finstack-core`]              |
+//! | `analytics`   | [`finstack-analytics`]         |
+//! | `correlation` | [`finstack-correlation`]       |
+//! | `margin`      | [`finstack-margin`]            |
+//! | `monte_carlo` | [`finstack-monte-carlo`]       |
+//! | `valuations`  | [`finstack-valuations`]        |
+//! | `statements`  | [`finstack-statements`]        |
+//! | `portfolio`   | [`finstack-portfolio`]         |
+//! | `scenarios`   | [`finstack-scenarios`]         |
 //!
 //! Enable `all` to pull in every sub-crate at once.
 
@@ -48,6 +50,12 @@ pub use finstack_portfolio as portfolio;
 
 #[cfg(feature = "scenarios")]
 pub use finstack_scenarios as scenarios;
+
+#[cfg(feature = "correlation")]
+pub use finstack_correlation as correlation;
+
+#[cfg(feature = "monte_carlo")]
+pub use finstack_monte_carlo as monte_carlo;
 
 // Bridge modules that wire multiple subcrates together
 #[cfg(all(feature = "valuations", feature = "statements"))]
