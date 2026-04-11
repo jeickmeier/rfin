@@ -138,11 +138,9 @@ impl PyMarketContext {
     /// Access the FX matrix (returns ``None`` if not set).
     #[getter]
     fn fx(&self) -> Option<PyFxMatrix> {
-        self.inner
-            .fx()
-            .map(|arc_fx| PyFxMatrix {
-                inner: Arc::clone(arc_fx),
-            })
+        self.inner.fx().map(|arc_fx| PyFxMatrix {
+            inner: Arc::clone(arc_fx),
+        })
     }
 
     /// Deserialize a market context from a JSON string.

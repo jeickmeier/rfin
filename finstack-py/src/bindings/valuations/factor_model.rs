@@ -244,11 +244,7 @@ impl PyFactorPnlProfile {
         }
         let data = PyDict::new(py);
         for (pi, pid) in position_ids.iter().enumerate() {
-            let column: Vec<f64> = self
-                .position_pnls
-                .iter()
-                .map(|row| row[pi])
-                .collect();
+            let column: Vec<f64> = self.position_pnls.iter().map(|row| row[pi]).collect();
             data.set_item(pid, column)?;
         }
         let index = PyList::new(py, &self.shifts)?;

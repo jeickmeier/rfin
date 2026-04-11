@@ -386,6 +386,7 @@ where
 - [ ] **Step 3: Update `portfolio.rs` — `positions_with_tag` method**
 
 Replace:
+
 ```rust
 pub fn positions_with_tag(&self, key: &str, value: &str) -> Vec<&Position> {
     self.positions
@@ -394,7 +395,9 @@ pub fn positions_with_tag(&self, key: &str, value: &str) -> Vec<&Position> {
         .collect()
 }
 ```
+
 With:
+
 ```rust
 pub fn positions_with_attribute(&self, key: &str, value: &AttributeValue) -> Vec<&Position> {
     self.positions
@@ -411,6 +414,7 @@ Add `use crate::types::AttributeValue;` import.
 The grouping functions access `position.tags.get(attr_key)` which returns `Option<&String>`. After migration it returns `Option<&AttributeValue>`. Update to extract text representation:
 
 Replace `position.tags.get(attr_key)` usages with:
+
 ```rust
 position.attributes.get(attr_key).and_then(|v| v.as_text()).map(|s| s.to_string())
 ```
@@ -420,6 +424,7 @@ Update the `group_by_attribute` function to group by the display form of `Attrib
 - [ ] **Step 5: Update tests in `position.rs`**
 
 Replace `.with_tag("type", "cash").with_tag("rating", "AAA")` with:
+
 ```rust
 .with_text_attribute("type", "cash")
 .with_text_attribute("rating", "AAA")
@@ -521,11 +526,13 @@ Grep for `ByTag` across the crate and replace each occurrence. The main spots ar
 - Any test files using `ByTag`
 
 Replace each `PositionFilter::ByTag { key, value }` match arm with:
+
 ```rust
 PositionFilter::ByAttribute(test) => test.evaluate(&position.attributes),
 ```
 
 Add the new `And`/`Or` arms:
+
 ```rust
 PositionFilter::And(filters) => filters.iter().all(|f| matches_filter(position, f)),
 PositionFilter::Or(filters) => filters.iter().any(|f| matches_filter(position, f)),
@@ -568,10 +575,13 @@ Add import: `use crate::types::AttributeValue;`
 - [ ] **Step 3: Update `.with_tags(candidate.tags.clone())` call**
 
 In the candidate pricing section where a temporary `Position` is built for candidates, replace:
+
 ```rust
 .with_tags(candidate.tags.clone())
 ```
+
 With iteration that converts `AttributeValue` back or use the new method:
+
 ```rust
 .with_text_attributes(
     candidate.attributes.iter()
@@ -645,6 +655,7 @@ Add import: `use crate::types::AttributeTest;`
 - [ ] **Step 2: Update `per_position_metric_value` in `lp_solver.rs`**
 
 Replace the `TagEquals` match arm:
+
 ```rust
 PerPositionMetric::TagEquals { key, value } => {
     let matches = feat.tags.get(key) == Some(value);
@@ -653,6 +664,7 @@ PerPositionMetric::TagEquals { key, value } => {
 ```
 
 With:
+
 ```rust
 PerPositionMetric::Attribute(key) => {
     feat.attributes.get(key).and_then(|v| v.as_number())
@@ -988,6 +1000,7 @@ Also remove re-exports of deleted constraint variants. The `pub use constraints:
 - [ ] **Step 3: Update `lib.rs` re-exports**
 
 Change:
+
 ```rust
 pub use optimization::{
     optimize_from_spec, optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult,
@@ -997,6 +1010,7 @@ pub use optimization::{
 ```
 
 To:
+
 ```rust
 pub use optimization::{
     optimize_from_spec, PortfolioOptimizationProblem, PortfolioOptimizationResult,
@@ -1121,6 +1135,7 @@ Remove the `#[wasm_bindgen(js_name = optimizeMaxYield)]` function from `finstack
 - [ ] **Step 2: Remove from JS exports**
 
 In `finstack-wasm/exports/portfolio.js`, remove:
+
 ```js
 optimizeMaxYield: wasm.optimizeMaxYield,
 ```
@@ -1180,6 +1195,7 @@ Rewrite the example notebook to demonstrate the new generic optimization API.
 The notebook should demonstrate:
 
 1. **Basic setup** — portfolio with positions carrying both text and numeric attributes:
+
    ```python
    "attributes": {
        "rating": "CCC",
@@ -1189,6 +1205,7 @@ The notebook should demonstrate:
    ```
 
 2. **Maximize YTM** — objective using `ValueWeightedAverage`:
+
    ```python
    "objective": {
        "Maximize": {
@@ -1201,6 +1218,7 @@ The notebook should demonstrate:
    ```
 
 3. **Exposure limit** — CCC limit via `MetricBound`:
+
    ```python
    {
        "MetricBound": {
@@ -1225,6 +1243,7 @@ The notebook should demonstrate:
 4. **Duration band** — two `MetricBound` constraints (Ge and Le).
 
 5. **Numeric attribute constraint** — ESG score example:
+
    ```python
    {
        "MetricBound": {
