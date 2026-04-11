@@ -42,7 +42,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "aggregate_cashflows",
         "apply_scenario_and_revalue",
         "optimize_portfolio",
-        "optimize_max_yield",
     ];
 
     let all = PyList::new(py, exports)?;

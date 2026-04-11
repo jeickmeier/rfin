@@ -7,7 +7,6 @@ __all__ = [
     "aggregate_metrics",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",
-    "optimize_max_yield",
     "optimize_portfolio",
     "parse_portfolio_spec",
     "portfolio_result_get_metric",
@@ -196,38 +195,6 @@ def optimize_portfolio(spec_json: str, market_json: str) -> str:
         >>> import json
         >>> from finstack.portfolio import optimize_portfolio
         >>> result = json.loads(optimize_portfolio(spec_json, market_json))
-        >>> result["status"]
-        'Optimal'
-    """
-    ...
-
-def optimize_max_yield(
-    spec_json: str,
-    market_json: str,
-    ccc_limit: float = 0.10,
-    strict_risk: bool = False,
-) -> str:
-    """Maximize portfolio YTM subject to a CCC rating exposure cap.
-
-    A convenience wrapper for the common fixed-income use case of maximizing
-    value-weighted yield-to-maturity while limiting exposure to CCC-rated
-    positions (identified by the ``rating`` tag).
-
-    Args:
-        spec_json: JSON-serialized ``PortfolioSpec``.
-        market_json: JSON-serialized ``MarketContext``.
-        ccc_limit: Maximum weight in CCC-tagged positions, in ``[0, 1]``.
-        strict_risk: When ``True``, fail if any required risk metric is missing.
-
-    Returns:
-        JSON-serialized ``MaxYieldWithCccLimitResult`` with ``status``,
-        ``objective_value``, ``ccc_weight``, ``optimal_weights``,
-        ``current_weights``, and ``weight_deltas``.
-
-    Example:
-        >>> import json
-        >>> from finstack.portfolio import optimize_max_yield
-        >>> result = json.loads(optimize_max_yield(spec_json, market_json, ccc_limit=0.15))
         >>> result["status"]
         'Optimal'
     """
