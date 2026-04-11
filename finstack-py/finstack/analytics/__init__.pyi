@@ -228,6 +228,10 @@ class RollingGreeks:
     def betas(self) -> list[float]:
         """Rolling beta values."""
 
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert to a pandas DataFrame with date index and alpha/beta columns."""
+        ...
+
     def __repr__(self) -> str: ...
 
 class MultiFactorResult:
@@ -300,6 +304,13 @@ class LookbackReturns:
     def fytd(self) -> list[float] | None:
         """Fiscal-year-to-date returns (``None`` if no fiscal config)."""
 
+    def to_dataframe(self, ticker_names: list[str]) -> pd.DataFrame:
+        """Convert to a pandas DataFrame with ticker names as index.
+
+        Columns: mtd, qtd, ytd (and fytd when available).
+        """
+        ...
+
     def __repr__(self) -> str: ...
 
 class RollingSharpe:
@@ -311,6 +322,10 @@ class RollingSharpe:
 
     def dates(self) -> list[datetime.date]:
         """Corresponding dates."""
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert to a pandas DataFrame with date index and a ``sharpe`` column."""
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -324,6 +339,10 @@ class RollingSortino:
     def dates(self) -> list[datetime.date]:
         """Corresponding dates."""
 
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert to a pandas DataFrame with date index and a ``sortino`` column."""
+        ...
+
     def __repr__(self) -> str: ...
 
 class RollingVolatility:
@@ -335,6 +354,10 @@ class RollingVolatility:
 
     def dates(self) -> list[datetime.date]:
         """Corresponding dates."""
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert to a pandas DataFrame with date index and a ``volatility`` column."""
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -799,6 +822,63 @@ class Performance:
         fiscal_year_start_month: int | None = None,
     ) -> PeriodStats:
         """Period statistics for one ticker at a given aggregation frequency."""
+
+    def summary_to_dataframe(
+        self,
+        risk_free_rate: float = 0.0,
+        confidence: float = 0.95,
+    ) -> pd.DataFrame:
+        """Summary statistics for all tickers as a pandas DataFrame.
+
+        One row per ticker, columns for each scalar metric (CAGR, volatility,
+        Sharpe, max drawdown, etc.).
+        """
+        ...
+
+    def cumulative_returns_to_dataframe(self) -> pd.DataFrame:
+        """Cumulative returns for all tickers as a pandas DataFrame.
+
+        Date index, one column per ticker.
+        """
+        ...
+
+    def drawdown_series_to_dataframe(self) -> pd.DataFrame:
+        """Drawdown series for all tickers as a pandas DataFrame.
+
+        Date index, one column per ticker.
+        """
+        ...
+
+    def correlation_to_dataframe(self) -> pd.DataFrame:
+        """Correlation matrix as a pandas DataFrame.
+
+        Ticker x ticker matrix with ticker names as index and columns.
+        """
+        ...
+
+    def drawdown_details_to_dataframe(
+        self,
+        ticker_idx: int,
+        n: int = 5,
+    ) -> pd.DataFrame:
+        """Top-N drawdown episodes for a ticker as a pandas DataFrame.
+
+        Columns: start, valley, end, duration_days, max_drawdown,
+        near_recovery_threshold.
+        """
+        ...
+
+    def lookback_returns_to_dataframe(
+        self,
+        ref_date: object,
+        fiscal_year_start_month: int | None = None,
+    ) -> pd.DataFrame:
+        """Period-to-date lookback returns as a pandas DataFrame.
+
+        Ticker names as index, columns: mtd, qtd, ytd (and fytd when
+        a fiscal config is given).
+        """
+        ...
 
 # ---------------------------------------------------------------------------
 # Standalone functions

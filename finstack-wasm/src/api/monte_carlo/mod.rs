@@ -121,7 +121,7 @@ pub fn black_scholes_call(
     expiry: f64,
 ) -> f64 {
     finstack_monte_carlo::variance_reduction::control_variate::black_scholes_call(
-        spot, strike, rate, div_yield, vol, expiry,
+        spot, strike, expiry, rate, div_yield, vol,
     )
 }
 
@@ -136,7 +136,7 @@ pub fn black_scholes_put(
     expiry: f64,
 ) -> f64 {
     finstack_monte_carlo::variance_reduction::control_variate::black_scholes_put(
-        spot, strike, rate, div_yield, vol, expiry,
+        spot, strike, expiry, rate, div_yield, vol,
     )
 }
 

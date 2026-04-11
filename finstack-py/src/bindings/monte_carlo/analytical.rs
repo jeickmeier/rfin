@@ -13,8 +13,9 @@ fn black_scholes_call(
     vol: f64,
     expiry: f64,
 ) -> f64 {
+    // Rust crate order: (spot, strike, time_to_maturity, rate, dividend_yield, volatility)
     finstack_monte_carlo::variance_reduction::control_variate::black_scholes_call(
-        spot, strike, rate, div_yield, vol, expiry,
+        spot, strike, expiry, rate, div_yield, vol,
     )
 }
 
@@ -30,7 +31,7 @@ fn black_scholes_put(
     expiry: f64,
 ) -> f64 {
     finstack_monte_carlo::variance_reduction::control_variate::black_scholes_put(
-        spot, strike, rate, div_yield, vol, expiry,
+        spot, strike, expiry, rate, div_yield, vol,
     )
 }
 

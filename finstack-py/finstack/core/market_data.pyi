@@ -893,4 +893,38 @@ class MarketContext:
         """
         ...
 
+    @staticmethod
+    def from_json(json: str) -> MarketContext:
+        """Deserialize a market context from a JSON string.
+
+        Accepts the same JSON format produced by :meth:`to_json` and by the
+        calibration and pricing pipelines.
+
+        Parameters
+        ----------
+        json : str
+            JSON-serialized ``MarketContext``.
+
+        Returns
+        -------
+        MarketContext
+            Deserialized market context.
+
+        Raises
+        ------
+        ValueError
+            If the JSON is not a valid market context.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Serialize this context to pretty-printed JSON (compatible with pricing APIs).
+
+        Returns
+        -------
+        str
+            JSON string accepted by ``price_instrument`` / ``price_instrument_with_metrics``.
+        """
+        ...
+
     def __repr__(self) -> str: ...

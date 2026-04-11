@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
+
 __all__ = [
     "ForecastMethod",
     "NodeType",
@@ -684,6 +686,30 @@ class StatementResult:
         >>> # df = r.to_polars_wide()  # doctest: +SKIP
         >>> NumericMode.float64()  # doctest: +ELLIPSIS
         NumericMode(...)
+        """
+        ...
+
+    def to_pandas_long(self) -> pd.DataFrame:
+        """Export results as a pandas DataFrame in long (tidy) form.
+
+        Columns: ``node_id``, ``period``, ``value``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Long-format frame with one row per (node, period) pair.
+        """
+        ...
+
+    def to_pandas_wide(self) -> pd.DataFrame:
+        """Export results as a pandas DataFrame in wide form.
+
+        Rows are node identifiers, columns are period identifiers.
+
+        Returns
+        -------
+        pd.DataFrame
+            Wide-format frame with node ids as index.
         """
         ...
 

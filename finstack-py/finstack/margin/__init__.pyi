@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Final
 
+import pandas as pd
+
 __all__ = [
     "ImMethodology",
     "MarginTenor",
@@ -1893,6 +1895,18 @@ class ExposureProfile:
         """
         ...
 
+    def to_dataframe(self) -> pd.DataFrame:
+        """Export as a pandas DataFrame with time (years) as index.
+
+        Columns: ``mtm_values``, ``epe``, ``ene``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Exposure profile as a DataFrame.
+        """
+        ...
+
     def __repr__(self) -> str: ...
 
 class XvaResult:
@@ -2104,6 +2118,19 @@ class XvaResult:
         Examples
         --------
         >>> # Instance field
+        """
+        ...
+
+    def profiles_to_dataframe(self) -> pd.DataFrame:
+        """Export exposure profiles as a pandas DataFrame.
+
+        Columns: ``epe``, ``ene``, ``pfe``, ``effective_epe`` -- indexed
+        by time in years.
+
+        Returns
+        -------
+        pd.DataFrame
+            Profile DataFrame.
         """
         ...
 

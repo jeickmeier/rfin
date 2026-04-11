@@ -6,4 +6,12 @@ export const valuations = {
   priceInstrument: wasm.priceInstrument,
   priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,
   listStandardMetrics: wasm.listStandardMetrics,
+  attributePnl: wasm.attributePnl,
+  attributePnlFromSpec: wasm.attributePnlFromSpec,
+  validateAttributionJson: wasm.validateAttributionJson,
+  defaultWaterfallOrder: wasm.defaultWaterfallOrder,
+  defaultAttributionMetrics: wasm.defaultAttributionMetrics,
+  computeFactorSensitivities: wasm.computeFactorSensitivities,
+  computePnlProfiles: wasm.computePnlProfiles,
+  decomposeFactorRisk: wasm.decomposeFactorRisk,
 };

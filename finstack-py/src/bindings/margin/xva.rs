@@ -1,9 +1,11 @@
 //! Python wrappers for XVA types (CVA/DVA/FVA configuration and results).
 
+use crate::bindings::pandas_utils::dict_to_dataframe;
 use crate::errors::core_to_py;
 use finstack_margin::xva::types as xva;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 // ---------------------------------------------------------------------------
 // FundingConfig
@@ -268,6 +270,18 @@ impl PyExposureProfile {
         self.inner.times.len()
     }
 
+    /// Export as a pandas ``DataFrame`` with time (years) as index.
+    ///
+    /// Columns: ``mtm_values``, ``epe``, ``ene``.
+    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("mtm_values", &self.inner.mtm_values)?;
+        data.set_item("epe", &self.inner.epe)?;
+        data.set_item("ene", &self.inner.ene)?;
+        let idx = self.inner.times.clone().into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
         format!("ExposureProfile(points={})", self.inner.times.len())
     }
@@ -358,6 +372,27 @@ impl PyXvaResult {
     #[getter]
     fn effective_epe_profile(&self) -> Vec<(f64, f64)> {
         self.inner.effective_epe_profile.clone()
+    }
+
+    /// Export exposure profiles as a pandas ``DataFrame``.
+    ///
+    /// Columns: ``epe``, ``ene``, ``pfe``, ``effective_epe`` — indexed by
+    /// time in years.  Time values are taken from the EPE profile.
+    fn profiles_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        let (times, epe_vals): (Vec<f64>, Vec<f64>) =
+            self.inner.epe_profile.iter().copied().unzip();
+        let (_, ene_vals): (Vec<f64>, Vec<f64>) = self.inner.ene_profile.iter().copied().unzip();
+        let (_, pfe_vals): (Vec<f64>, Vec<f64>) = self.inner.pfe_profile.iter().copied().unzip();
+        let (_, eff_epe_vals): (Vec<f64>, Vec<f64>) =
+            self.inner.effective_epe_profile.iter().copied().unzip();
+
+        data.set_item("epe", epe_vals)?;
+        data.set_item("ene", ene_vals)?;
+        data.set_item("pfe", pfe_vals)?;
+        data.set_item("effective_epe", eff_epe_vals)?;
+        let idx = times.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
     }
 
     fn __repr__(&self) -> String {

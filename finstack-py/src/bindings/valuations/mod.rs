@@ -1,13 +1,18 @@
 //! Python bindings for the `finstack-valuations` crate.
 //!
 //! Exposes the [`PyValuationResult`] envelope for pricing output,
-//! JSON-based instrument loading, and the standard pricer pipeline.
+//! JSON-based instrument loading, the standard pricer pipeline, and
+//! P&L attribution across multiple methodologies.
 
+mod attribution;
+mod calibration;
+mod factor_model;
 mod pricing;
 
+use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyList;
+use pyo3::types::{PyDict, PyList};
 
 /// Parse an ISO 8601 date string into a `time::Date`.
 fn parse_date(s: &str) -> PyResult<time::Date> {
@@ -82,6 +87,22 @@ impl PyValuationResult {
             .collect()
     }
 
+    /// Export as a single-row pandas ``DataFrame``.
+    ///
+    /// Columns include ``instrument_id``, ``price``, ``currency``, plus one
+    /// column per metric key.  Useful for stacking multiple results with
+    /// ``pd.concat``.
+    fn metrics_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("instrument_id", vec![&self.inner.instrument_id])?;
+        data.set_item("price", vec![self.inner.value.amount()])?;
+        data.set_item("currency", vec![self.inner.value.currency().to_string()])?;
+        for (key, &val) in &self.inner.measures {
+            data.set_item(key.to_string(), vec![val])?;
+        }
+        dict_to_dataframe(py, &data, None)
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "ValuationResult(id={:?}, price={:.4}, currency={}, metrics={})",
@@ -118,6 +139,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyValuationResult>()?;
     m.add_function(wrap_pyfunction!(validate_instrument_json, &m)?)?;
     pricing::register(py, &m)?;
+    attribution::register(py, &m)?;
+    factor_model::register(py, &m)?;
+    calibration::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -127,6 +151,22 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "price_instrument",
             "price_instrument_with_metrics",
             "list_standard_metrics",
+            "PnlAttribution",
+            "attribute_pnl",
+            "attribute_pnl_from_spec",
+            "validate_attribution_json",
+            "default_waterfall_order",
+            "default_attribution_metrics",
+            "SensitivityMatrix",
+            "FactorPnlProfile",
+            "compute_factor_sensitivities",
+            "compute_pnl_profiles",
+            "RiskDecomposition",
+            "decompose_factor_risk",
+            "CalibrationResult",
+            "validate_calibration_json",
+            "calibrate",
+            "calibrate_to_market",
         ],
     )?;
     m.setattr("__all__", all)?;

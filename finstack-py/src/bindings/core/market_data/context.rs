@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use finstack_core::market_data::context::MarketContext;
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 
@@ -30,7 +30,14 @@ use super::fx::PyFxMatrix;
 #[derive(Clone)]
 pub struct PyMarketContext {
     /// Underlying Rust context.
-    inner: MarketContext,
+    pub(crate) inner: MarketContext,
+}
+
+impl PyMarketContext {
+    /// Construct from a Rust [`MarketContext`] (used by calibration and other bindings).
+    pub(crate) fn from_inner(inner: MarketContext) -> Self {
+        Self { inner }
+    }
 }
 
 #[pymethods]
@@ -138,6 +145,24 @@ impl PyMarketContext {
                 inner: Arc::clone(arc_fx),
             }
         })
+    }
+
+    /// Deserialize a market context from a JSON string.
+    ///
+    /// Accepts the same JSON format produced by :meth:`to_json` and by the
+    /// calibration and pricing pipelines.
+    #[staticmethod]
+    fn from_json(json: &str) -> PyResult<Self> {
+        let ctx: MarketContext = serde_json::from_str(json)
+            .map_err(|e| PyValueError::new_err(format!("invalid MarketContext JSON: {e}")))?;
+        Ok(Self { inner: ctx })
+    }
+
+    /// Serialize this market context to pretty-printed JSON (round-trips with pricers).
+    #[pyo3(text_signature = "(self)")]
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("failed to serialize MarketContext: {e}")))
     }
 
     fn __repr__(&self) -> String {

@@ -1,6 +1,7 @@
 //! Python wrappers for the statement evaluator and results.
 
 use super::types::PyFinancialModelSpec;
+use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -111,6 +112,56 @@ impl PyStatementResult {
         let df = self.inner.to_polars_wide().map_err(stmts_to_py)?;
         let polars_df = pyo3_polars::PyDataFrame(df);
         polars_df.into_pyobject(py).map(Bound::into_any)
+    }
+
+    /// Export to pandas long-format ``DataFrame``.
+    ///
+    /// Columns: ``node_id``, ``period``, ``value``.
+    fn to_pandas_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let mut node_ids: Vec<String> = Vec::new();
+        let mut periods: Vec<String> = Vec::new();
+        let mut values: Vec<f64> = Vec::new();
+
+        for (node_id, period_map) in &self.inner.nodes {
+            for (pid, &val) in period_map {
+                node_ids.push(node_id.clone());
+                periods.push(pid.to_string());
+                values.push(val);
+            }
+        }
+
+        let data = PyDict::new(py);
+        data.set_item("node_id", node_ids)?;
+        data.set_item("period", periods)?;
+        data.set_item("value", values)?;
+        dict_to_dataframe(py, &data, None)
+    }
+
+    /// Export to pandas wide-format ``DataFrame``.
+    ///
+    /// Rows are node identifiers, columns are period identifiers.
+    fn to_pandas_wide<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let mut all_periods = indexmap::IndexSet::new();
+        for period_map in self.inner.nodes.values() {
+            for pid in period_map.keys() {
+                all_periods.insert(*pid);
+            }
+        }
+
+        let data = PyDict::new(py);
+        for pid in &all_periods {
+            let col: Vec<Option<f64>> = self
+                .inner
+                .nodes
+                .values()
+                .map(|pm| pm.get(pid).copied())
+                .collect();
+            data.set_item(pid.to_string(), col)?;
+        }
+
+        let node_ids: Vec<&str> = self.inner.nodes.keys().map(|s| s.as_str()).collect();
+        let idx = node_ids.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
     }
 
     fn __repr__(&self) -> String {

@@ -1,9 +1,10 @@
 //! Result structs and enums for the analytics domain.
 
 use crate::bindings::core::dates::utils::date_to_py;
+use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use finstack_analytics as fa;
 use pyo3::prelude::*;
-use pyo3::types::PyType;
+use pyo3::types::{PyDict, PyType};
 
 // ---------------------------------------------------------------------------
 // PeriodStats
@@ -199,6 +200,16 @@ impl PyRollingGreeks {
         self.inner.betas.clone()
     }
 
+    /// Convert to a pandas ``DataFrame`` with date index and alpha/beta columns.
+    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("alpha", &self.inner.alphas)?;
+        data.set_item("beta", &self.inner.betas)?;
+        let dates = dates_to_pylist(py, &self.inner.dates)?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
         format!("RollingGreeks(len={})", self.inner.dates.len())
     }
@@ -334,6 +345,25 @@ impl PyLookbackReturns {
         self.inner.fytd.clone()
     }
 
+    /// Convert to a pandas ``DataFrame`` with ticker names as index.
+    ///
+    /// Columns: mtd, qtd, ytd (and fytd when available).
+    fn to_dataframe<'py>(
+        &self,
+        py: Python<'py>,
+        ticker_names: Vec<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("mtd", &self.inner.mtd)?;
+        data.set_item("qtd", &self.inner.qtd)?;
+        data.set_item("ytd", &self.inner.ytd)?;
+        if let Some(ref fytd) = self.inner.fytd {
+            data.set_item("fytd", fytd)?;
+        }
+        let idx = ticker_names.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "LookbackReturns(mtd_len={}, has_fytd={})",
@@ -368,6 +398,16 @@ impl PyRollingSharpe {
             .map(|&d| date_to_py(py, d))
             .collect()
     }
+
+    /// Convert to a pandas ``DataFrame`` with date index and a ``sharpe`` column.
+    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("sharpe", &self.inner.values)?;
+        let dates = dates_to_pylist(py, &self.inner.dates)?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
         format!("RollingSharpe(len={})", self.inner.values.len())
     }
@@ -394,6 +434,16 @@ impl PyRollingSortino {
             .map(|&d| date_to_py(py, d))
             .collect()
     }
+
+    /// Convert to a pandas ``DataFrame`` with date index and a ``sortino`` column.
+    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("sortino", &self.inner.values)?;
+        let dates = dates_to_pylist(py, &self.inner.dates)?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
         format!("RollingSortino(len={})", self.inner.values.len())
     }
@@ -420,6 +470,16 @@ impl PyRollingVolatility {
             .map(|&d| date_to_py(py, d))
             .collect()
     }
+
+    /// Convert to a pandas ``DataFrame`` with date index and a ``volatility`` column.
+    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("volatility", &self.inner.values)?;
+        let dates = dates_to_pylist(py, &self.inner.dates)?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
         format!("RollingVolatility(len={})", self.inner.values.len())
     }

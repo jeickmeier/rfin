@@ -2,11 +2,13 @@
 
 use super::types::*;
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
+use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use crate::errors::core_to_py;
 use finstack_analytics as fa;
 use finstack_core::dates::PeriodKind;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 /// Convert an optional fiscal-year-start month into a FiscalConfig.
 fn make_fiscal_config(month: Option<u8>) -> Option<finstack_core::dates::FiscalConfig> {
@@ -567,6 +569,171 @@ impl PyPerformance {
         Ok(PyPeriodStats {
             inner: self.inner.period_stats(ticker_idx, pk, fc),
         })
+    }
+
+    // -- DataFrame export methods --
+
+    /// Summary statistics for all tickers as a pandas ``DataFrame``.
+    ///
+    /// Returns a DataFrame with one row per ticker and columns for each
+    /// scalar metric (CAGR, volatility, Sharpe, max drawdown, etc.).
+    #[pyo3(signature = (risk_free_rate = 0.0, confidence = 0.95))]
+    fn summary_to_dataframe<'py>(
+        &self,
+        py: Python<'py>,
+        risk_free_rate: f64,
+        confidence: f64,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("cagr", self.inner.cagr())?;
+        data.set_item("mean_return", self.inner.mean_return(true))?;
+        data.set_item("volatility", self.inner.volatility(true))?;
+        data.set_item("sharpe", self.inner.sharpe(risk_free_rate))?;
+        data.set_item("sortino", self.inner.sortino())?;
+        data.set_item("calmar", self.inner.calmar())?;
+        data.set_item("max_drawdown", self.inner.max_drawdown())?;
+        data.set_item("value_at_risk", self.inner.value_at_risk(confidence))?;
+        data.set_item(
+            "expected_shortfall",
+            self.inner.expected_shortfall(confidence),
+        )?;
+        data.set_item("tracking_error", self.inner.tracking_error())?;
+        data.set_item("information_ratio", self.inner.information_ratio())?;
+        data.set_item("skewness", self.inner.skewness())?;
+        data.set_item("kurtosis", self.inner.kurtosis())?;
+        data.set_item("geometric_mean", self.inner.geometric_mean())?;
+        data.set_item("downside_deviation", self.inner.downside_deviation(0.0))?;
+        data.set_item("omega_ratio", self.inner.omega_ratio(0.0))?;
+        data.set_item("gain_to_pain", self.inner.gain_to_pain())?;
+        data.set_item("ulcer_index", self.inner.ulcer_index())?;
+        data.set_item("pain_index", self.inner.pain_index())?;
+        data.set_item("recovery_factor", self.inner.recovery_factor())?;
+        data.set_item("tail_ratio", self.inner.tail_ratio(confidence))?;
+        data.set_item("r_squared", self.inner.r_squared())?;
+
+        let names = self.inner.ticker_names();
+        let index: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        let idx = index.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
+    /// Cumulative returns for all tickers as a pandas ``DataFrame``.
+    ///
+    /// Returns a DataFrame with a date index and one column per ticker.
+    fn cumulative_returns_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        let names = self.inner.ticker_names();
+        let cum_rets = self.inner.cumulative_returns();
+        for (name, series) in names.iter().zip(cum_rets.iter()) {
+            data.set_item(name, series)?;
+        }
+        let dates = dates_to_pylist(py, self.inner.active_dates())?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
+    /// Drawdown series for all tickers as a pandas ``DataFrame``.
+    ///
+    /// Returns a DataFrame with a date index and one column per ticker.
+    fn drawdown_series_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        let names = self.inner.ticker_names();
+        let dd = self.inner.drawdown_series();
+        for (name, series) in names.iter().zip(dd.iter()) {
+            data.set_item(name, series)?;
+        }
+        let dates = dates_to_pylist(py, self.inner.active_dates())?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
+    /// Correlation matrix as a pandas ``DataFrame``.
+    ///
+    /// Returns a ticker × ticker matrix with ticker names as index and columns.
+    fn correlation_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let names = self.inner.ticker_names();
+        let matrix = self.inner.correlation_matrix();
+
+        let pd = py.import("pandas")?;
+        let kwargs = PyDict::new(py);
+        let idx: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        let cols: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        kwargs.set_item("index", idx)?;
+        kwargs.set_item("columns", cols)?;
+        pd.call_method("DataFrame", (matrix,), Some(&kwargs))
+    }
+
+    /// Top-N drawdown episodes for a ticker as a pandas ``DataFrame``.
+    ///
+    /// Columns: start, valley, end, duration_days, max_drawdown,
+    /// near_recovery_threshold.
+    #[pyo3(signature = (ticker_idx, n = 5))]
+    fn drawdown_details_to_dataframe<'py>(
+        &self,
+        py: Python<'py>,
+        ticker_idx: usize,
+        n: usize,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let episodes = self.inner.drawdown_details(ticker_idx, n);
+        let data = PyDict::new(py);
+        let starts: PyResult<Vec<_>> = episodes.iter().map(|e| date_to_py(py, e.start)).collect();
+        let valleys: PyResult<Vec<_>> = episodes.iter().map(|e| date_to_py(py, e.valley)).collect();
+        let ends: PyResult<Vec<_>> = episodes
+            .iter()
+            .map(|e| match e.end {
+                Some(d) => date_to_py(py, d).map(|v| v.into_any()),
+                None => Ok(py.None().into_bound(py)),
+            })
+            .collect();
+
+        data.set_item("start", starts?)?;
+        data.set_item("valley", valleys?)?;
+        data.set_item("end", ends?)?;
+        data.set_item(
+            "duration_days",
+            episodes.iter().map(|e| e.duration_days).collect::<Vec<_>>(),
+        )?;
+        data.set_item(
+            "max_drawdown",
+            episodes.iter().map(|e| e.max_drawdown).collect::<Vec<_>>(),
+        )?;
+        data.set_item(
+            "near_recovery_threshold",
+            episodes
+                .iter()
+                .map(|e| e.near_recovery_threshold)
+                .collect::<Vec<_>>(),
+        )?;
+        dict_to_dataframe(py, &data, None)
+    }
+
+    /// Period-to-date lookback returns as a pandas ``DataFrame``.
+    ///
+    /// Returns a DataFrame with ticker names as index and columns:
+    /// mtd, qtd, ytd (and fytd when a fiscal config is given).
+    #[pyo3(signature = (ref_date, fiscal_year_start_month = None))]
+    fn lookback_returns_to_dataframe<'py>(
+        &self,
+        py: Python<'py>,
+        ref_date: Bound<'_, PyAny>,
+        fiscal_year_start_month: Option<u8>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let d = py_to_date(&ref_date)?;
+        let fc = make_fiscal_config(fiscal_year_start_month);
+        let lb = self.inner.lookback_returns(d, fc);
+
+        let data = PyDict::new(py);
+        data.set_item("mtd", &lb.mtd)?;
+        data.set_item("qtd", &lb.qtd)?;
+        data.set_item("ytd", &lb.ytd)?;
+        if let Some(ref fytd) = lb.fytd {
+            data.set_item("fytd", fytd)?;
+        }
+
+        let names = self.inner.ticker_names();
+        let index: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        let idx = index.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
     }
 }
 

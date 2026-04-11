@@ -11,6 +11,7 @@ pub mod core;
 pub mod correlation;
 pub mod margin;
 pub mod monte_carlo;
+pub(crate) mod pandas_utils;
 pub mod portfolio;
 pub mod scenarios;
 pub mod statements;
