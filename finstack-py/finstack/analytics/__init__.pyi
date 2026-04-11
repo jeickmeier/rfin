@@ -813,7 +813,11 @@ class Performance:
         ref_date: object,
         fiscal_year_start_month: int | None = None,
     ) -> LookbackReturns:
-        """Period-to-date lookback returns."""
+        """Period-to-date lookback returns.
+
+        Raises:
+            ValueError: If *fiscal_year_start_month* is not in ``1..=12``.
+        """
 
     def period_stats(
         self,
@@ -821,7 +825,11 @@ class Performance:
         agg_freq: str = "monthly",
         fiscal_year_start_month: int | None = None,
     ) -> PeriodStats:
-        """Period statistics for one ticker at a given aggregation frequency."""
+        """Period statistics for one ticker at a given aggregation frequency.
+
+        Raises:
+            ValueError: If *fiscal_year_start_month* is not in ``1..=12``.
+        """
 
     def summary_to_dataframe(
         self,
@@ -877,6 +885,9 @@ class Performance:
 
         Ticker names as index, columns: mtd, qtd, ytd (and fytd when
         a fiscal config is given).
+
+        Raises:
+            ValueError: If *fiscal_year_start_month* is not in ``1..=12``.
         """
         ...
 

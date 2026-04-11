@@ -5,6 +5,7 @@
 //! result extraction via serde round-trips, and end-to-end pipeline functions
 //! that build the runtime portfolio internally.
 
+mod optimization;
 mod pipeline;
 mod spec;
 
@@ -29,6 +30,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
 
     spec::register(py, &m)?;
     pipeline::register(py, &m)?;
+    optimization::register(py, &m)?;
 
     let exports = vec![
         "parse_portfolio_spec",
@@ -39,6 +41,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "value_portfolio",
         "aggregate_cashflows",
         "apply_scenario_and_revalue",
+        "optimize_portfolio",
+        "optimize_max_yield",
     ];
 
     let all = PyList::new(py, exports)?;

@@ -442,6 +442,47 @@ export interface ValuationsNamespace {
     metrics: string[]
   ): string;
   listStandardMetrics(): string[];
+  /** Run P&L attribution for a single instrument. */
+  attributePnl(
+    instrumentJson: string,
+    marketT0Json: string,
+    marketT1Json: string,
+    asOfT0: string,
+    asOfT1: string,
+    methodJson: string,
+    configJson?: string
+  ): string;
+  /** Run attribution from a full JSON AttributionEnvelope. */
+  attributePnlFromSpec(specJson: string): string;
+  /** Validate an attribution specification JSON. */
+  validateAttributionJson(json: string): string;
+  /** Return the default waterfall factor ordering. */
+  defaultWaterfallOrder(): string[];
+  /** Return the default metric IDs used by metrics-based attribution. */
+  defaultAttributionMetrics(): string[];
+  /** Compute first-order factor sensitivities. */
+  computeFactorSensitivities(
+    positionsJson: string,
+    factorsJson: string,
+    marketJson: string,
+    asOf: string,
+    bumpConfigJson?: string
+  ): string;
+  /** Compute scenario P&L profiles via full repricing. */
+  computePnlProfiles(
+    positionsJson: string,
+    factorsJson: string,
+    marketJson: string,
+    asOf: string,
+    bumpConfigJson?: string,
+    nScenarioPoints?: number
+  ): string;
+  /** Decompose portfolio risk into factor and position contributions. */
+  decomposeFactorRisk(
+    sensitivitiesJson: string,
+    covarianceJson: string,
+    riskMeasureJson?: string
+  ): string;
 }
 
 export declare const valuations: ValuationsNamespace;
@@ -541,6 +582,15 @@ export interface PortfolioNamespace {
     scenarioJson: string,
     marketJson: string
   ): ScenarioRevalueResult;
+  /** Optimize portfolio weights using the LP-based optimizer. */
+  optimizePortfolio(specJson: string, marketJson: string): string;
+  /** Maximize portfolio YTM with a CCC exposure cap. */
+  optimizeMaxYield(
+    specJson: string,
+    marketJson: string,
+    cccLimit: number,
+    strictRisk: boolean
+  ): string;
 }
 
 export declare const portfolio: PortfolioNamespace;

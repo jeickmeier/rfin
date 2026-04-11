@@ -56,7 +56,10 @@ mod types;
 mod universe;
 
 pub use constraints::{Constraint, ConstraintValidationError, Inequality};
-pub use helpers::{optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult};
+pub use helpers::{
+    optimize_from_spec, optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult,
+    PortfolioOptimizationResultJson, PortfolioOptimizationSpec,
+};
 pub use lp_solver::DefaultLpOptimizer;
 pub use problem::PortfolioOptimizationProblem;
 pub use result::{

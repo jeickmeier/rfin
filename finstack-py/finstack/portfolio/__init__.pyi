@@ -1,16 +1,18 @@
-"""Portfolio construction, valuation, cashflows, scenarios, and metrics."""
+"""Portfolio construction, valuation, optimization, cashflows, scenarios, and metrics."""
 
 from __future__ import annotations
 
 __all__ = [
-    "parse_portfolio_spec",
-    "build_portfolio_from_spec",
-    "portfolio_result_total_value",
-    "portfolio_result_get_metric",
-    "aggregate_metrics",
-    "value_portfolio",
     "aggregate_cashflows",
+    "aggregate_metrics",
     "apply_scenario_and_revalue",
+    "build_portfolio_from_spec",
+    "optimize_max_yield",
+    "optimize_portfolio",
+    "parse_portfolio_spec",
+    "portfolio_result_get_metric",
+    "portfolio_result_total_value",
+    "value_portfolio",
 ]
 
 def parse_portfolio_spec(json_str: str) -> str:
@@ -156,5 +158,77 @@ def apply_scenario_and_revalue(
     Example:
         >>> from finstack.portfolio import apply_scenario_and_revalue
         >>> val_j, rep_j = apply_scenario_and_revalue(spec_json, scen_json, mkt_json)
+    """
+    ...
+
+def optimize_portfolio(spec_json: str, market_json: str) -> str:
+    """Optimize portfolio weights using the LP-based optimizer.
+
+    Accepts a ``PortfolioOptimizationSpec`` JSON that combines the portfolio
+    specification with an objective function, constraints, and weighting scheme.
+
+    The spec JSON structure::
+
+        {
+            "portfolio": { ... },          // PortfolioSpec
+            "objective": {                 // Maximize or Minimize a MetricExpr
+                "Maximize": { "ValueWeightedAverage": { "metric": { "Metric": "Ytm" } } }
+            },
+            "constraints": [               // Array of Constraint objects
+                { "TagExposureLimit": { "tag_key": "rating", "tag_value": "CCC", "max_share": 0.10 } },
+                { "MaxTurnover": { "max_turnover": 0.30 } }
+            ],
+            "weighting": "ValueWeight",    // ValueWeight | NotionalWeight | UnitScaling
+            "missing_metric_policy": "Zero" // Zero | Exclude | Strict
+        }
+
+    Result JSON includes ``status``, ``optimal_weights``, ``trades``,
+    ``dual_values``, ``binding_constraints``, and ``turnover``.
+
+    Args:
+        spec_json: JSON-serialized ``PortfolioOptimizationSpec``.
+        market_json: JSON-serialized ``MarketContext``.
+
+    Returns:
+        JSON-serialized ``PortfolioOptimizationResultJson``.
+
+    Example:
+        >>> import json
+        >>> from finstack.portfolio import optimize_portfolio
+        >>> result = json.loads(optimize_portfolio(spec_json, market_json))
+        >>> result["status"]
+        'Optimal'
+    """
+    ...
+
+def optimize_max_yield(
+    spec_json: str,
+    market_json: str,
+    ccc_limit: float = 0.10,
+    strict_risk: bool = False,
+) -> str:
+    """Maximize portfolio YTM subject to a CCC rating exposure cap.
+
+    A convenience wrapper for the common fixed-income use case of maximizing
+    value-weighted yield-to-maturity while limiting exposure to CCC-rated
+    positions (identified by the ``rating`` tag).
+
+    Args:
+        spec_json: JSON-serialized ``PortfolioSpec``.
+        market_json: JSON-serialized ``MarketContext``.
+        ccc_limit: Maximum weight in CCC-tagged positions, in ``[0, 1]``.
+        strict_risk: When ``True``, fail if any required risk metric is missing.
+
+    Returns:
+        JSON-serialized ``MaxYieldWithCccLimitResult`` with ``status``,
+        ``objective_value``, ``ccc_weight``, ``optimal_weights``,
+        ``current_weights``, and ``weight_deltas``.
+
+    Example:
+        >>> import json
+        >>> from finstack.portfolio import optimize_max_yield
+        >>> result = json.loads(optimize_max_yield(spec_json, market_json, ccc_limit=0.15))
+        >>> result["status"]
+        'Optimal'
     """
     ...

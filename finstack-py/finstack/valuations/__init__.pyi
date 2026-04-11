@@ -709,10 +709,14 @@ class FactorPnlProfile:
         """Export as a pandas DataFrame with shifts as rows and positions as columns.
 
         Args:
-            position_ids: Position identifiers to use as column names.
+            position_ids: Position identifiers to use as column names.  Must
+                match the number of positions in the profile.
 
         Returns:
             DataFrame indexed by shift values with position IDs as column names.
+
+        Raises:
+            ValueError: If ``len(position_ids)`` does not match the profile width.
         """
         ...
 
@@ -858,7 +862,7 @@ class RiskDecomposition:
 def decompose_factor_risk(
     sensitivities: SensitivityMatrix,
     covariance_json: str,
-    risk_measure: str | None = None,
+    risk_measure: str | dict | None = None,
 ) -> RiskDecomposition:
     """Decompose portfolio risk into factor and position contributions.
 
@@ -870,10 +874,10 @@ def decompose_factor_risk(
             returned by :func:`compute_factor_sensitivities`.
         covariance_json: JSON-serialized ``FactorCovarianceMatrix``.  Must use
             the same factor IDs and ordering as the sensitivity matrix.
-        risk_measure: JSON-serialized ``RiskMeasure``.  Defaults to
-            ``"variance"``.  Examples: ``"variance"``, ``"volatility"``,
-            ``'{"var": {"confidence": 0.99}}'``,
-            ``'{"expected_shortfall": {"confidence": 0.975}}'``.
+        risk_measure: Risk measure.  Defaults to ``"variance"``.
+            Accepts Python strings (``"variance"``, ``"volatility"``) or dicts
+            (``{"var": {"confidence": 0.99}}``,
+            ``{"expected_shortfall": {"confidence": 0.975}}``).
 
     Returns:
         Portfolio-level risk decomposition with factor and position detail.
@@ -885,7 +889,7 @@ def decompose_factor_risk(
     Example:
         >>> from finstack.valuations import compute_factor_sensitivities, decompose_factor_risk
         >>> sens = compute_factor_sensitivities(pos, fac, mkt, "2025-01-15")  # doctest: +SKIP
-        >>> result = decompose_factor_risk(sens, cov_json, '"volatility"')  # doctest: +SKIP
+        >>> result = decompose_factor_risk(sens, cov_json, "volatility")  # doctest: +SKIP
         >>> result.to_factor_dataframe()  # doctest: +SKIP
     """
     ...

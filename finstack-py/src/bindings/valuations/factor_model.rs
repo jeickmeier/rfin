@@ -10,6 +10,18 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use serde::Deserialize;
 
+/// Serialize a Python object to JSON via `json.dumps`, then deserialize into `T`.
+fn py_to_serde<'py, T: serde::de::DeserializeOwned>(
+    py: Python<'py>,
+    obj: &Bound<'py, PyAny>,
+    label: &str,
+) -> PyResult<T> {
+    let json_mod = py.import("json")?;
+    let json_str: String = json_mod.call_method1("dumps", (obj,))?.extract()?;
+    serde_json::from_str(&json_str)
+        .map_err(|e| PyValueError::new_err(format!("invalid {label}: {e}")))
+}
+
 fn fm_to_py(e: impl std::fmt::Display) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
@@ -210,18 +222,32 @@ impl PyFactorPnlProfile {
     /// Parameters
     /// ----------
     /// position_ids : list[str]
-    ///     Position identifiers to use as column names.
+    ///     Position identifiers to use as column names.  Must match the
+    ///     number of positions in the profile.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If ``len(position_ids)`` does not match the profile width.
     fn to_dataframe<'py>(
         &self,
         py: Python<'py>,
         position_ids: Vec<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
+        let expected_width = self.position_pnls.first().map_or(0, Vec::len);
+        if position_ids.len() != expected_width {
+            return Err(PyValueError::new_err(format!(
+                "position_ids length ({}) does not match profile width ({})",
+                position_ids.len(),
+                expected_width,
+            )));
+        }
         let data = PyDict::new(py);
         for (pi, pid) in position_ids.iter().enumerate() {
             let column: Vec<f64> = self
                 .position_pnls
                 .iter()
-                .map(|row| row.get(pi).copied().unwrap_or(0.0))
+                .map(|row| row[pi])
                 .collect();
             data.set_item(pid, column)?;
         }
@@ -603,11 +629,11 @@ impl PyRiskDecomposition {
 /// covariance_json : str
 ///     JSON-serialized ``FactorCovarianceMatrix``.  Must use the same factor
 ///     IDs and ordering as the sensitivity matrix.
-/// risk_measure : str, optional
-///     JSON-serialized ``RiskMeasure``.  Defaults to ``"variance"``.
-///     Examples: ``"variance"``, ``"volatility"``,
-///     ``{"var": {"confidence": 0.99}}``,
-///     ``{"expected_shortfall": {"confidence": 0.975}}``.
+/// risk_measure : str | dict, optional
+///     Risk measure.  Defaults to ``"variance"``.
+///     Accepts Python strings (``"variance"``, ``"volatility"``) or dicts
+///     (``{"var": {"confidence": 0.99}}``,
+///     ``{"expected_shortfall": {"confidence": 0.975}}``).
 ///
 /// Returns
 /// -------
@@ -616,9 +642,10 @@ impl PyRiskDecomposition {
 #[pyfunction]
 #[pyo3(signature = (sensitivities, covariance_json, risk_measure=None))]
 fn decompose_factor_risk(
+    py: Python<'_>,
     sensitivities: &PySensitivityMatrix,
     covariance_json: &str,
-    risk_measure: Option<&str>,
+    risk_measure: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyRiskDecomposition> {
     let factor_ids: Vec<finstack_core::factor_model::FactorId> = sensitivities
         .factor_ids
@@ -644,7 +671,7 @@ fn decompose_factor_risk(
         serde_json::from_str(covariance_json).map_err(fm_to_py)?;
 
     let measure: finstack_core::factor_model::RiskMeasure = match risk_measure {
-        Some(json) => serde_json::from_str(json).map_err(fm_to_py)?,
+        Some(obj) => py_to_serde(py, obj, "risk_measure")?,
         None => finstack_core::factor_model::RiskMeasure::Variance,
     };
 

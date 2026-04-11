@@ -135,16 +135,15 @@ impl PyFxRateResult {
 
 /// Foreign-exchange rate matrix for currency conversion.
 ///
-/// Wraps [`FxMatrix`] from `finstack-core` with an underlying
-/// [`SimpleFxProvider`] for explicit quote management.
+/// Wraps [`FxMatrix`] from `finstack-core`. Quote mutations go through
+/// `FxMatrix::set_quote` (interior mutability) so that matrices obtained
+/// from a `MarketContext` share state with the underlying context.
 #[pyclass(
     name = "FxMatrix",
     module = "finstack.core.market_data.fx",
     skip_from_py_object
 )]
 pub struct PyFxMatrix {
-    /// The underlying provider stores the mutable quote set.
-    pub(crate) provider: Arc<SimpleFxProvider>,
     /// The matrix used for rate lookups (includes triangulation / caching).
     pub(crate) inner: Arc<FxMatrix>,
 }
@@ -155,9 +154,8 @@ impl PyFxMatrix {
     #[new]
     fn new() -> Self {
         let provider = Arc::new(SimpleFxProvider::new());
-        let matrix = FxMatrix::new(provider.clone());
+        let matrix = FxMatrix::new(provider);
         Self {
-            provider,
             inner: Arc::new(matrix),
         }
     }
@@ -174,17 +172,16 @@ impl PyFxMatrix {
     ///     The conversion rate ``1 base = rate quote``.
     #[pyo3(text_signature = "(self, base, quote, rate)")]
     fn set_quote(
-        &mut self,
+        &self,
         base: &Bound<'_, PyAny>,
         quote: &Bound<'_, PyAny>,
         rate: f64,
     ) -> PyResult<()> {
         let base_ccy = extract_currency(base)?;
         let quote_ccy = extract_currency(quote)?;
-        self.provider
+        self.inner
             .set_quote(base_ccy, quote_ccy, rate)
             .map_err(core_to_py)?;
-        self.inner = Arc::new(FxMatrix::new(self.provider.clone()));
         Ok(())
     }
 

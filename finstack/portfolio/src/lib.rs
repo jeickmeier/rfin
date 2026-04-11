@@ -130,8 +130,9 @@ pub use margin::{
 };
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics, SkippedMetric};
 pub use optimization::{
-    optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult, PortfolioOptimizationProblem,
-    PortfolioOptimizationResult,
+    optimize_from_spec, optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult,
+    PortfolioOptimizationProblem, PortfolioOptimizationResult, PortfolioOptimizationResultJson,
+    PortfolioOptimizationSpec,
 };
 pub use portfolio::Portfolio;
 pub use portfolio::PortfolioSpec;

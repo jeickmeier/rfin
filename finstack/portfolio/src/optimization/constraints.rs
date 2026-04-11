@@ -1,8 +1,9 @@
 use super::types::MetricExpr;
 use super::universe::PositionFilter;
+use serde::{Deserialize, Serialize};
 
 /// Inequality/equality operator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Inequality {
     /// Less‑than or equal: `lhs <= rhs`.
     Le,
@@ -13,7 +14,7 @@ pub enum Inequality {
 }
 
 /// Declarative constraint specification.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Constraint {
     /// General metric bound, e.g. duration `<= 4.0`.
     MetricBound {

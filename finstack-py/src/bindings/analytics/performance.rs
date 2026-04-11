@@ -10,9 +10,15 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-/// Convert an optional fiscal-year-start month into a FiscalConfig.
-fn make_fiscal_config(month: Option<u8>) -> Option<finstack_core::dates::FiscalConfig> {
-    month.and_then(|m| finstack_core::dates::FiscalConfig::new(m, 1).ok())
+/// Convert an optional fiscal-year-start month into a FiscalConfig,
+/// propagating validation errors instead of silently swallowing them.
+fn make_fiscal_config(month: Option<u8>) -> PyResult<Option<finstack_core::dates::FiscalConfig>> {
+    match month {
+        None => Ok(None),
+        Some(m) => finstack_core::dates::FiscalConfig::new(m, 1)
+            .map(Some)
+            .map_err(core_to_py),
+    }
 }
 
 /// Parse a frequency string into a [`PeriodKind`].
@@ -550,7 +556,7 @@ impl PyPerformance {
         fiscal_year_start_month: Option<u8>,
     ) -> PyResult<PyLookbackReturns> {
         let d = py_to_date(&ref_date)?;
-        let fc = make_fiscal_config(fiscal_year_start_month);
+        let fc = make_fiscal_config(fiscal_year_start_month)?;
         Ok(PyLookbackReturns {
             inner: self.inner.lookback_returns(d, fc),
         })
@@ -565,7 +571,7 @@ impl PyPerformance {
         fiscal_year_start_month: Option<u8>,
     ) -> PyResult<PyPeriodStats> {
         let pk = parse_freq(agg_freq)?;
-        let fc = make_fiscal_config(fiscal_year_start_month);
+        let fc = make_fiscal_config(fiscal_year_start_month)?;
         Ok(PyPeriodStats {
             inner: self.inner.period_stats(ticker_idx, pk, fc),
         })
@@ -719,7 +725,7 @@ impl PyPerformance {
         fiscal_year_start_month: Option<u8>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let d = py_to_date(&ref_date)?;
-        let fc = make_fiscal_config(fiscal_year_start_month);
+        let fc = make_fiscal_config(fiscal_year_start_month)?;
         let lb = self.inner.lookback_returns(d, fc);
 
         let data = PyDict::new(py);

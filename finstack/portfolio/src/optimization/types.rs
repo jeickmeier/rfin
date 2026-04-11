@@ -27,7 +27,7 @@ pub enum WeightingScheme {
 }
 
 /// Where a per‑position scalar metric comes from.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PerPositionMetric {
     /// Directly from `ValuationResult::measures` using a standard `MetricId`.
     ///
@@ -88,7 +88,7 @@ pub enum MissingMetricPolicy {
 ///
 /// These expressions are intentionally restricted to linear or linearized forms
 /// so they can be represented by the LP-based optimizer.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MetricExpr {
     /// `sum_i w_i * m_i`, where `m_i` comes from a `PerPositionMetric`.
     WeightedSum {
@@ -114,7 +114,7 @@ pub enum MetricExpr {
 }
 
 /// Optimization direction and target.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Objective {
     /// Maximize a portfolio‑level metric.
     Maximize(MetricExpr),

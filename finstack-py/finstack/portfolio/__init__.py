@@ -1,4 +1,4 @@
-"""Portfolio construction, valuation, cashflows, scenarios, and metrics.
+"""Portfolio construction, valuation, optimization, cashflows, scenarios, and metrics.
 
 Bindings for the ``finstack-portfolio`` Rust crate.
 """
@@ -15,12 +15,16 @@ aggregate_metrics = _portfolio.aggregate_metrics
 value_portfolio = _portfolio.value_portfolio
 aggregate_cashflows = _portfolio.aggregate_cashflows
 apply_scenario_and_revalue = _portfolio.apply_scenario_and_revalue
+optimize_portfolio = _portfolio.optimize_portfolio
+optimize_max_yield = _portfolio.optimize_max_yield
 
 __all__: list[str] = [
     "aggregate_cashflows",
     "aggregate_metrics",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",
+    "optimize_max_yield",
+    "optimize_portfolio",
     "parse_portfolio_spec",
     "portfolio_result_get_metric",
     "portfolio_result_total_value",
