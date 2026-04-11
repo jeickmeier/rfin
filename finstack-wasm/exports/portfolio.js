@@ -10,5 +10,4 @@ export const portfolio = {
   aggregateCashflows: wasm.aggregateCashflows,
   applyScenarioAndRevalue: wasm.applyScenarioAndRevalue,
   optimizePortfolio: wasm.optimizePortfolio,
-  optimizeMaxYield: wasm.optimizeMaxYield,
 };

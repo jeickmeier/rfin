@@ -584,13 +584,6 @@ export interface PortfolioNamespace {
   ): ScenarioRevalueResult;
   /** Optimize portfolio weights using the LP-based optimizer. */
   optimizePortfolio(specJson: string, marketJson: string): string;
-  /** Maximize portfolio YTM with a CCC exposure cap. */
-  optimizeMaxYield(
-    specJson: string,
-    marketJson: string,
-    cccLimit: number,
-    strictRisk: boolean
-  ): string;
 }
 
 export declare const portfolio: PortfolioNamespace;

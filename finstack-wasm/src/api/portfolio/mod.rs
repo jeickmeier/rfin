@@ -155,31 +155,6 @@ pub fn optimize_portfolio(spec_json: &str, market_json: &str) -> Result<String, 
     serde_json::to_string_pretty(&result).map_err(to_js_err)
 }
 
-/// Maximize portfolio YTM with a CCC exposure cap.
-#[wasm_bindgen(js_name = optimizeMaxYield)]
-pub fn optimize_max_yield(
-    spec_json: &str,
-    market_json: &str,
-    ccc_limit: f64,
-    strict_risk: bool,
-) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
-        serde_json::from_str(spec_json).map_err(to_js_err)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(to_js_err)?;
-    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
-    let config = finstack_core::config::FinstackConfig::default();
-    let result = finstack_portfolio::optimize_max_yield_with_ccc_limit(
-        &portfolio,
-        &market,
-        &config,
-        ccc_limit,
-        strict_risk,
-    )
-    .map_err(to_js_err)?;
-    serde_json::to_string_pretty(&result).map_err(to_js_err)
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
