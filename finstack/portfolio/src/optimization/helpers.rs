@@ -200,7 +200,7 @@ pub fn optimize_max_yield_with_ccc_limit(
     let portfolio_ref = &result.problem.portfolio;
     for (pos_id, &w) in &result.optimal_weights {
         if let Some(position) = portfolio_ref.get_position(pos_id.as_str()) {
-            if position.tags.get("rating").map(String::as_str) == Some("CCC") {
+            if position.attributes.get("rating").and_then(|v| v.as_text()) == Some("CCC") {
                 ccc_weight += w;
             }
         }

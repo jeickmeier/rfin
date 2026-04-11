@@ -47,8 +47,8 @@ pub struct CandidatePosition {
     /// Unit type for quantity interpretation.
     pub unit: PositionUnit,
 
-    /// Tags for the candidate (used in constraints like `TagExposureLimit`).
-    pub tags: IndexMap<String, String>,
+    /// Attributes for the candidate (used in constraints like `TagExposureLimit`).
+    pub attributes: IndexMap<String, String>,
 
     /// Maximum weight this candidate can receive (default: 1.0 = no limit).
     /// Useful for limiting exposure to any single new position.
@@ -83,24 +83,24 @@ impl CandidatePosition {
             entity_id: entity_id.into(),
             instrument,
             unit,
-            tags: IndexMap::new(),
+            attributes: IndexMap::new(),
             max_weight: 1.0,
             min_weight: 0.0,
         }
     }
 
-    /// Add a tag to the candidate.
+    /// Add a text attribute to the candidate.
     ///
     /// # Arguments
     ///
-    /// * `key` - Tag key.
-    /// * `value` - Tag value.
+    /// * `key` - Attribute key.
+    /// * `value` - Attribute value.
     ///
     /// # Returns
     ///
     /// The updated candidate for fluent chaining.
-    pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.tags.insert(key.into(), value.into());
+    pub fn with_text_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes.insert(key.into(), value.into());
         self
     }
 
@@ -260,7 +260,7 @@ impl std::fmt::Debug for CandidatePosition {
             .field("id", &self.id)
             .field("entity_id", &self.entity_id)
             .field("unit", &self.unit)
-            .field("tags", &self.tags)
+            .field("attributes", &self.attributes)
             .field("max_weight", &self.max_weight)
             .field("min_weight", &self.min_weight)
             .finish()

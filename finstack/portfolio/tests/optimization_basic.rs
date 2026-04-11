@@ -242,7 +242,7 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
         PositionUnit::FaceValue,
     )
     .expect("AAA position should build")
-    .with_tag("rating", "AAA");
+    .with_text_attribute("rating", "AAA");
 
     let pos_bbb = Position::new(
         "POS_BBB",
@@ -253,7 +253,7 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
         PositionUnit::FaceValue,
     )
     .expect("BBB position should build")
-    .with_tag("rating", "BBB");
+    .with_text_attribute("rating", "BBB");
 
     let pos_ccc = Position::new(
         "POS_CCC",
@@ -264,7 +264,7 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
         PositionUnit::FaceValue,
     )
     .expect("CCC position should build")
-    .with_tag("rating", "CCC");
+    .with_text_attribute("rating", "CCC");
 
     PortfolioBuilder::new("BOND_FUND")
         .base_ccy(Currency::USD)
@@ -328,7 +328,7 @@ fn optimize_max_yield_with_ccc_limit() {
     let mut ccc_weight = 0.0_f64;
     for (pos_id, &w) in &result.optimal_weights {
         if let Some(position) = portfolio_ref.get_position(pos_id.as_str()) {
-            if position.tags.get("rating").map(String::as_str) == Some("CCC") {
+            if position.attributes.get("rating").and_then(|v| v.as_text()) == Some("CCC") {
                 ccc_weight += w;
             }
         }

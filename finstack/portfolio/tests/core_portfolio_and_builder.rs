@@ -4,7 +4,9 @@ use common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
-use finstack_portfolio::{Error, Portfolio, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::{
+    AttributeValue, Error, Portfolio, PortfolioBuilder, Position, PositionUnit,
+};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 
@@ -25,7 +27,7 @@ fn getters_and_tag_filters() {
 
     let p = Position::new("P", "E", "D", Arc::new(dep), 1.0, PositionUnit::Units)
         .unwrap()
-        .with_tag("sector", "Tech");
+        .with_text_attribute("sector", "Tech");
 
     let portfolio = PortfolioBuilder::new("P")
         .base_ccy(Currency::USD)
@@ -37,7 +39,12 @@ fn getters_and_tag_filters() {
 
     assert!(portfolio.get_position("P").is_some());
     assert_eq!(portfolio.positions_for_entity("E").len(), 1);
-    assert_eq!(portfolio.positions_with_tag("sector", "Tech").len(), 1);
+    assert_eq!(
+        portfolio
+            .positions_with_attribute("sector", &AttributeValue::Text("Tech".to_string()))
+            .len(),
+        1
+    );
 }
 
 #[test]

@@ -35,8 +35,13 @@ pub fn group_by_attribute<'a>(
     let mut groups: IndexMap<String, Vec<&'a Position>> = IndexMap::new();
 
     for position in positions {
-        if let Some(attr_value) = position.tags.get(attr_key) {
-            groups.entry(attr_value.clone()).or_default().push(position);
+        if let Some(attr_value) = position
+            .attributes
+            .get(attr_key)
+            .and_then(|v| v.as_text())
+            .map(|s| s.to_string())
+        {
+            groups.entry(attr_value).or_default().push(position);
         } else {
             // Positions without this attribute go into "untagged"
             groups
@@ -73,9 +78,10 @@ pub fn aggregate_by_attribute(
 
     for position in positions {
         let attr_value = position
-            .tags
+            .attributes
             .get(attr_key)
-            .cloned()
+            .and_then(|v| v.as_text())
+            .map(|s| s.to_string())
             .unwrap_or_else(|| "_untagged".to_string());
 
         if let Some(position_value) = valuation.position_values.get(&position.position_id) {
@@ -119,9 +125,10 @@ pub fn aggregate_by_multiple_attributes(
             .iter()
             .map(|&attr_key| {
                 position
-                    .tags
+                    .attributes
                     .get(attr_key)
-                    .cloned()
+                    .and_then(|v| v.as_text())
+                    .map(|s| s.to_string())
                     .unwrap_or_else(|| "_untagged".to_string())
             })
             .collect();
@@ -329,8 +336,8 @@ mod tests {
             PositionUnit::Units,
         )
         .expect("test should succeed")
-        .with_tag("rating", "AAA")
-        .with_tag("sector", "Banking");
+        .with_text_attribute("rating", "AAA")
+        .with_text_attribute("sector", "Banking");
 
         let pos2 = Position::new(
             "POS_002",
@@ -341,8 +348,8 @@ mod tests {
             PositionUnit::Units,
         )
         .expect("test should succeed")
-        .with_tag("rating", "AA")
-        .with_tag("sector", "Banking");
+        .with_text_attribute("rating", "AA")
+        .with_text_attribute("sector", "Banking");
 
         let positions = vec![pos1, pos2];
 
@@ -394,7 +401,7 @@ mod tests {
             PositionUnit::Units,
         )
         .expect("test should succeed")
-        .with_tag("rating", "AAA");
+        .with_text_attribute("rating", "AAA");
 
         let pos2 = Position::new(
             "POS_002",
@@ -405,7 +412,7 @@ mod tests {
             PositionUnit::Units,
         )
         .expect("test should succeed")
-        .with_tag("rating", "AAA");
+        .with_text_attribute("rating", "AAA");
 
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)

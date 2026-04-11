@@ -45,11 +45,11 @@ fn grouping_and_multi_attribute_aggregation() {
 
     let p1 = Position::new("P1", "E", "D1", Arc::new(dep1), 1.0, PositionUnit::Units)
         .unwrap()
-        .with_tag("rating", "AAA")
-        .with_tag("sector", "Banking");
+        .with_text_attribute("rating", "AAA")
+        .with_text_attribute("sector", "Banking");
     let p2 = Position::new("P2", "E", "D2", Arc::new(dep2), 1.0, PositionUnit::Units)
         .unwrap()
-        .with_tag("rating", "AA");
+        .with_text_attribute("rating", "AA");
 
     let portfolio = PortfolioBuilder::new("P")
         .base_ccy(Currency::USD)

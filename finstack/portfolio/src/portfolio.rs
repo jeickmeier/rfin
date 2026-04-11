@@ -8,7 +8,7 @@ use crate::book::{Book, BookId};
 use crate::dependencies::DependencyIndex;
 use crate::error::{Error, Result};
 use crate::position::Position;
-use crate::types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
+use crate::types::{AttributeValue, Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::HashMap;
@@ -235,20 +235,22 @@ impl Portfolio {
             .collect()
     }
 
-    /// Get all positions with a specific tag value.
+    /// Filter positions whose attribute matches the supplied key/value.
+    ///
+    /// All positions whose attribute matches the supplied key/value pair.
     ///
     /// # Arguments
     ///
-    /// * `key` - Tag key to inspect.
-    /// * `value` - Desired tag value.
+    /// * `key` - Attribute key to inspect.
+    /// * `value` - Desired attribute value.
     ///
     /// # Returns
     ///
-    /// All positions whose tag matches the supplied key/value pair.
-    pub fn positions_with_tag(&self, key: &str, value: &str) -> Vec<&Position> {
+    /// All positions whose attribute matches the supplied key/value pair.
+    pub fn positions_with_attribute(&self, key: &str, value: &AttributeValue) -> Vec<&Position> {
         self.positions
             .iter()
-            .filter(|p| p.tags.get(key).map(|v| v.as_str()) == Some(value))
+            .filter(|p| p.attributes.get(key) == Some(value))
             .collect()
     }
 

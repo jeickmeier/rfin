@@ -73,7 +73,9 @@ fn matches_filter(position: &Position, filter: &PositionFilter) -> bool {
     match filter {
         PositionFilter::All => true,
         PositionFilter::ByEntityId(id) => position.entity_id == *id,
-        PositionFilter::ByTag { key, value } => position.tags.get(key) == Some(value),
+        PositionFilter::ByTag { key, value } => {
+            position.attributes.get(key).and_then(|v| v.as_text()) == Some(value.as_str())
+        }
         PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
         PositionFilter::Not(inner) => !matches_filter(position, inner),
     }
@@ -176,7 +178,11 @@ pub(crate) fn build_decision_space(
                 0.0
             },
             measures,
-            tags: position.tags.clone(),
+            tags: position
+                .attributes
+                .iter()
+                .filter_map(|(k, v)| v.as_text().map(|s| (k.clone(), s.to_string())))
+                .collect(),
             min_weight: 0.0,
             max_weight: 1.0,
         });
@@ -201,7 +207,7 @@ pub(crate) fn build_decision_space(
                 candidate.unit,
             )
             .map_err(|e| Error::invalid_input(e.to_string()))?
-            .with_tags(candidate.tags.clone());
+            .with_text_attributes(candidate.attributes.clone());
 
             builder = builder.position(pos);
         }
@@ -268,7 +274,7 @@ pub(crate) fn build_decision_space(
             pv_native: val_entry.value_native.amount(),
             pv_per_unit: pv_unit,
             measures,
-            tags: candidate.tags.clone(),
+            tags: candidate.attributes.clone(),
             min_weight: candidate_min_weight,
             max_weight: candidate.max_weight, // Respect candidate constraints
         });

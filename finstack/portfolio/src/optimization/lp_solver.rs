@@ -130,7 +130,9 @@ impl DefaultLpOptimizer {
         match filter {
             PositionFilter::All => true,
             PositionFilter::ByEntityId(id) => position.entity_id == *id,
-            PositionFilter::ByTag { key, value } => position.tags.get(key) == Some(value),
+            PositionFilter::ByTag { key, value } => {
+                position.attributes.get(key).and_then(|v| v.as_text()) == Some(value.as_str())
+            }
             PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
             PositionFilter::Not(inner) => !Self::matches_filter(position, inner),
         }
@@ -143,7 +145,9 @@ impl DefaultLpOptimizer {
         match filter {
             PositionFilter::All => true,
             PositionFilter::ByEntityId(id) => candidate.entity_id == *id,
-            PositionFilter::ByTag { key, value } => candidate.tags.get(key) == Some(value),
+            PositionFilter::ByTag { key, value } => {
+                candidate.attributes.get(key).map(String::as_str) == Some(value.as_str())
+            }
             PositionFilter::ByPositionIds(ids) => ids.contains(&candidate.id),
             PositionFilter::Not(inner) => !Self::matches_candidate_filter(candidate, inner),
         }
@@ -210,7 +214,8 @@ impl DefaultLpOptimizer {
                     // Also consider portfolio‑level tags if any
                     if !matches {
                         if let Some(position) = portfolio.get_position(item.position_id.as_str()) {
-                            matches = position.tags.get(tag_key) == Some(tag_value);
+                            matches = position.attributes.get(tag_key).and_then(|v| v.as_text())
+                                == Some(tag_value.as_str());
                         }
                     }
                     // Candidates already have tags in `feat.tags`

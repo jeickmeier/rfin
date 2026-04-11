@@ -7,7 +7,7 @@ use finstack_portfolio::book::BookId;
 use finstack_portfolio::portfolio::PortfolioSpec;
 use finstack_portfolio::position::PositionSpec;
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{Portfolio, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::{AttributeValue, Portfolio, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::InstrumentJson;
@@ -40,8 +40,8 @@ fn test_position_spec_roundtrip() {
         PositionUnit::Units,
     )
     .unwrap()
-    .with_tag("rating", "AAA")
-    .with_tag("sector", "Banking");
+    .with_text_attribute("rating", "AAA")
+    .with_text_attribute("sector", "Banking");
 
     // Convert to spec
     let spec = position.to_spec();
@@ -52,8 +52,14 @@ fn test_position_spec_roundtrip() {
     assert_eq!(spec.instrument_id, "DEP_1M");
     assert_eq!(spec.quantity, 1.5);
     assert_eq!(spec.unit, PositionUnit::Units);
-    assert_eq!(spec.tags.get("rating"), Some(&"AAA".to_string()));
-    assert_eq!(spec.tags.get("sector"), Some(&"Banking".to_string()));
+    assert_eq!(
+        spec.attributes.get("rating"),
+        Some(&AttributeValue::Text("AAA".to_string()))
+    );
+    assert_eq!(
+        spec.attributes.get("sector"),
+        Some(&AttributeValue::Text("Banking".to_string()))
+    );
 
     // Note: instrument_spec may be None if Deposit doesn't implement to_instrument_json()
     // This is expected until we implement the conversion for all instrument types
@@ -93,7 +99,7 @@ fn test_portfolio_spec_serialization() {
         PositionUnit::Units,
     )
     .unwrap()
-    .with_tag("rating", "AAA");
+    .with_text_attribute("rating", "AAA");
 
     let pos2 = Position::new(
         "POS_002",
@@ -104,7 +110,7 @@ fn test_portfolio_spec_serialization() {
         PositionUnit::Units,
     )
     .unwrap()
-    .with_tag("rating", "AA");
+    .with_text_attribute("rating", "AA");
 
     let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
         .name("Test Portfolio")
@@ -188,8 +194,11 @@ fn test_portfolio_spec_json_roundtrip() {
 
 #[test]
 fn test_position_from_spec_preserves_book_tags_and_meta() {
-    let mut tags = IndexMap::new();
-    tags.insert("rating".to_string(), "AAA".to_string());
+    let mut attributes = IndexMap::new();
+    attributes.insert(
+        "rating".to_string(),
+        AttributeValue::Text("AAA".to_string()),
+    );
     let mut meta = IndexMap::new();
     meta.insert("desk".to_string(), json!("credit"));
 
@@ -203,14 +212,17 @@ fn test_position_from_spec_preserves_book_tags_and_meta() {
         quantity: 1.0,
         unit: PositionUnit::Units,
         book_id: Some(BookId::new("ig")),
-        tags,
+        attributes,
         meta,
     };
 
     let reconstructed = Position::from_spec(spec).expect("position should reconstruct from spec");
 
     assert_eq!(reconstructed.book_id, Some(BookId::new("ig")));
-    assert_eq!(reconstructed.tags.get("rating"), Some(&"AAA".to_string()));
+    assert_eq!(
+        reconstructed.attributes.get("rating"),
+        Some(&AttributeValue::Text("AAA".to_string()))
+    );
     assert_eq!(reconstructed.meta.get("desk"), Some(&json!("credit")));
 }
 
@@ -221,8 +233,11 @@ fn test_portfolio_from_spec_preserves_position_metadata() {
     let entity = Entity::new("ENTITY_A");
     entities.insert(entity.id.clone(), entity);
 
-    let mut tags = IndexMap::new();
-    tags.insert("rating".to_string(), "AAA".to_string());
+    let mut attributes = IndexMap::new();
+    attributes.insert(
+        "rating".to_string(),
+        AttributeValue::Text("AAA".to_string()),
+    );
     let mut meta = IndexMap::new();
     meta.insert("desk".to_string(), json!("credit"));
 
@@ -242,7 +257,7 @@ fn test_portfolio_from_spec_preserves_position_metadata() {
             quantity: 1.0,
             unit: PositionUnit::Units,
             book_id: Some(BookId::new("ig")),
-            tags,
+            attributes,
             meta,
         }],
         books: IndexMap::new(),
@@ -256,7 +271,10 @@ fn test_portfolio_from_spec_preserves_position_metadata() {
         .expect("position should exist after round-trip");
 
     assert_eq!(restored.book_id, Some(BookId::new("ig")));
-    assert_eq!(restored.tags.get("rating"), Some(&"AAA".to_string()));
+    assert_eq!(
+        restored.attributes.get("rating"),
+        Some(&AttributeValue::Text("AAA".to_string()))
+    );
     assert_eq!(restored.meta.get("desk"), Some(&json!("credit")));
 }
 

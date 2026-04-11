@@ -51,7 +51,7 @@
 //!     1.0,
 //!     PositionUnit::Units,
 //! ).expect("test should succeed")
-//!  .with_tag("asset_class", "cash");
+//!  .with_text_attribute("asset_class", "cash");
 //!
 //! // Build the portfolio with the entity and position
 //! let portfolio = Portfolio::builder("MY_FUND")

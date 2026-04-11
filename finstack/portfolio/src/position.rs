@@ -2,7 +2,7 @@
 
 use crate::book::BookId;
 use crate::error::{Error, Result};
-use crate::types::{EntityId, PositionId};
+use crate::types::{AttributeValue, EntityId, PositionId};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::{DynInstrument, InstrumentJson};
@@ -63,8 +63,8 @@ pub struct Position {
     /// Optional book identifier for hierarchical organization
     pub book_id: Option<BookId>,
 
-    /// Position-level tags for attribute-based grouping
-    pub tags: IndexMap<String, String>,
+    /// Position-level attributes for grouping, filtering, and constraints
+    pub attributes: IndexMap<String, AttributeValue>,
 
     /// Additional metadata
     pub meta: IndexMap<String, serde_json::Value>,
@@ -94,9 +94,9 @@ pub struct PositionSpec {
     /// Optional book identifier
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub book_id: Option<BookId>,
-    /// Position-level tags
+    /// Position-level attributes for grouping, filtering, and constraints
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub tags: IndexMap<String, String>,
+    pub attributes: IndexMap<String, AttributeValue>,
     /// Additional metadata
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub meta: IndexMap<String, serde_json::Value>,
@@ -200,7 +200,7 @@ impl Position {
             quantity,
             unit,
             book_id: None,
-            tags: IndexMap::new(),
+            attributes: IndexMap::new(),
             meta: IndexMap::new(),
         })
     }
@@ -219,28 +219,62 @@ impl Position {
         self
     }
 
-    /// Add a tag to the position.
-    ///
-    /// Tags are stored in an [`indexmap::IndexMap`] to preserve insertion order.
+    /// Add a text attribute to the position.
     ///
     /// # Arguments
     ///
-    /// * `key` - Tag key.
-    /// * `value` - Tag value.
+    /// * `key` - Attribute key.
+    /// * `value` - Text attribute value.
     ///
     /// # Returns
     ///
     /// The updated position for fluent chaining.
-    pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.tags.insert(key.into(), value.into());
+    pub fn with_text_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes
+            .insert(key.into(), AttributeValue::Text(value.into()));
         self
     }
 
-    /// Add multiple tags at once.
+    /// Add a numeric attribute to the position.
     ///
     /// # Arguments
     ///
-    /// * `tags` - Iterator of (key, value) pairs.
+    /// * `key` - Attribute key.
+    /// * `value` - Numeric attribute value.
+    ///
+    /// # Returns
+    ///
+    /// The updated position for fluent chaining.
+    pub fn with_numeric_attribute(mut self, key: impl Into<String>, value: f64) -> Self {
+        self.attributes
+            .insert(key.into(), AttributeValue::Number(value));
+        self
+    }
+
+    /// Add an attribute to the position.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Attribute key.
+    /// * `value` - Attribute value (text or numeric).
+    ///
+    /// # Returns
+    ///
+    /// The updated position for fluent chaining.
+    pub fn with_attribute(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<AttributeValue>,
+    ) -> Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+
+    /// Add multiple text attributes at once.
+    ///
+    /// # Arguments
+    ///
+    /// * `attrs` - Iterator of (key, value) string pairs.
     ///
     /// # Returns
     ///
@@ -278,20 +312,21 @@ impl Position {
     ///     1.0,
     ///     PositionUnit::Units,
     /// )?
-    /// .with_tags([("sector", "Technology"), ("region", "US")]);
+    /// .with_text_attributes([("sector", "Technology"), ("region", "US")]);
     ///
-    /// assert_eq!(position.tags.get("sector"), Some(&"Technology".to_string()));
+    /// assert_eq!(position.attributes.get("sector"), Some(&finstack_portfolio::AttributeValue::Text("Technology".to_string())));
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_tags<K, V, I>(mut self, tags: I) -> Self
+    pub fn with_text_attributes<K, V, I>(mut self, attrs: I) -> Self
     where
         K: Into<String>,
         V: Into<String>,
         I: IntoIterator<Item = (K, V)>,
     {
-        for (k, v) in tags {
-            self.tags.insert(k.into(), v.into());
+        for (k, v) in attrs {
+            self.attributes
+                .insert(k.into(), AttributeValue::Text(v.into()));
         }
         self
     }
@@ -427,7 +462,7 @@ impl Position {
             quantity: self.quantity,
             unit: self.unit,
             book_id: self.book_id.clone(),
-            tags: self.tags.clone(),
+            attributes: self.attributes.clone(),
             meta: self.meta.clone(),
         }
     }
@@ -456,7 +491,7 @@ impl Position {
             quantity,
             unit,
             book_id,
-            tags,
+            attributes,
             meta,
         } = spec;
 
@@ -479,7 +514,7 @@ impl Position {
             unit,
         )?;
         position.book_id = book_id;
-        position.tags = tags;
+        position.attributes = attributes;
         position.meta = meta;
         Ok(position)
     }
@@ -493,7 +528,7 @@ impl std::fmt::Debug for Position {
             .field("instrument_id", &self.instrument_id)
             .field("quantity", &self.quantity)
             .field("unit", &self.unit)
-            .field("tags", &self.tags)
+            .field("attributes", &self.attributes)
             .field("meta", &self.meta)
             .finish_non_exhaustive()
     }
@@ -535,15 +570,18 @@ mod tests {
             PositionUnit::Units,
         )
         .expect("test should succeed")
-        .with_tag("type", "cash")
-        .with_tag("rating", "AAA");
+        .with_text_attribute("type", "cash")
+        .with_text_attribute("rating", "AAA");
 
         assert_eq!(position.position_id, "POS_001");
         assert_eq!(position.entity_id, "FUND_A");
         assert_eq!(position.instrument_id, "DEP_1M");
         assert!(position.is_long());
         assert!(!position.is_short());
-        assert_eq!(position.tags.get("type"), Some(&"cash".to_string()));
+        assert_eq!(
+            position.attributes.get("type"),
+            Some(&AttributeValue::Text("cash".to_string()))
+        );
     }
 
     #[test]
