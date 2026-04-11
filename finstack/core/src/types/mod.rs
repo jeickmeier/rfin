@@ -41,6 +41,4 @@ pub use id::{
     CalendarId, CurveId, DealId, Id, IndexId, InstrumentId, PoolId, PriceId, UnderlyingId,
 };
 pub use rates::{Bps, Percentage, Rate};
-pub use ratings::{
-    moodys_warf_factor, CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,
-};
+pub use ratings::{moodys_warf_factor, CreditRating, RatingFactorTable, RatingLabel};

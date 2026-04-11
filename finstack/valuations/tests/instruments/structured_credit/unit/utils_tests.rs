@@ -9,7 +9,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{moodys_warf_factor, CreditRating, RatingFactorTable, RatingNotch};
+use finstack_core::types::{moodys_warf_factor, CreditRating, RatingFactorTable};
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     AssetType, DealType, Pool, PoolAsset, ReinvestmentManager,
 };
@@ -83,12 +83,7 @@ fn test_rating_factor_table_creation() {
     assert_eq!(table.methodology(), "IDEALIZED DEFAULT RATES");
     assert_eq!(table.get_factor(CreditRating::AAA).unwrap(), 1.0);
     assert_eq!(table.get_factor(CreditRating::BB).unwrap(), 1350.0);
-    assert_eq!(
-        table
-            .get_factor(CreditRating::AA.with_notch(RatingNotch::Plus))
-            .unwrap(),
-        10.0
-    );
+    assert_eq!(table.get_factor(CreditRating::AAPlus).unwrap(), 10.0);
 }
 
 #[test]
@@ -121,18 +116,9 @@ fn test_rating_factor_monotonicity() {
 
 #[test]
 fn test_moodys_warf_factor_notches() {
-    assert_eq!(
-        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Plus)).unwrap(),
-        940.0
-    );
-    assert_eq!(
-        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Minus)).unwrap(),
-        1760.0
-    );
-    assert_eq!(
-        moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Flat)).unwrap(),
-        360.0
-    );
+    assert_eq!(moodys_warf_factor(CreditRating::BBPlus).unwrap(), 940.0);
+    assert_eq!(moodys_warf_factor(CreditRating::BBMinus).unwrap(), 1760.0);
+    assert_eq!(moodys_warf_factor(CreditRating::BBB).unwrap(), 360.0);
 }
 
 // ============================================================================

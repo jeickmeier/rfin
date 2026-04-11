@@ -74,6 +74,79 @@ mod scale_tests {
             RatingScale::custom_with_default(vec!["A".to_string(), "B".to_string()], "DEFAULT");
         assert!(matches!(err, Err(MigrationError::UnknownState { .. })));
     }
+
+    #[test]
+    fn warf_standard_scale() {
+        let scale = RatingScale::standard();
+        assert_eq!(scale.warf("AAA").unwrap(), 1.0);
+        assert_eq!(scale.warf("BBB").unwrap(), 360.0);
+        assert_eq!(scale.warf("B").unwrap(), 2720.0);
+        assert_eq!(scale.warf("D").unwrap(), 10000.0);
+    }
+
+    #[test]
+    fn warf_notched_scale() {
+        let scale = RatingScale::notched();
+        assert_eq!(scale.warf("AA+").unwrap(), 10.0);
+        assert_eq!(scale.warf("BBB-").unwrap(), 610.0);
+        assert_eq!(scale.warf("B+").unwrap(), 2220.0);
+        assert_eq!(scale.warf("CCC-").unwrap(), 8070.0);
+    }
+
+    #[test]
+    fn warf_unknown_label() {
+        let scale = RatingScale::standard();
+        assert!(matches!(
+            scale.warf("XYZ"),
+            Err(MigrationError::UnknownState { .. })
+        ));
+    }
+
+    #[test]
+    fn warf_unparseable_label() {
+        let scale =
+            RatingScale::custom(vec!["IG".to_string(), "HY".to_string(), "D".to_string()])
+                .unwrap();
+        assert!(matches!(
+            scale.warf("IG"),
+            Err(MigrationError::NoWarfFactor { .. })
+        ));
+        assert_eq!(scale.warf("D").unwrap(), 10000.0);
+    }
+
+    #[test]
+    fn rating_from_warf_exact() {
+        let scale = RatingScale::standard();
+        assert_eq!(scale.rating_from_warf(1.0).unwrap(), "AAA");
+        assert_eq!(scale.rating_from_warf(360.0).unwrap(), "BBB");
+        assert_eq!(scale.rating_from_warf(2720.0).unwrap(), "B");
+    }
+
+    #[test]
+    fn rating_from_warf_nearest() {
+        let scale = RatingScale::standard();
+        // 400 is between BBB (360) and BB (1350) — closer to BBB
+        assert_eq!(scale.rating_from_warf(400.0).unwrap(), "BBB");
+        // 1000 is between BBB (360) and BB (1350) — closer to BB
+        assert_eq!(scale.rating_from_warf(1000.0).unwrap(), "BB");
+    }
+
+    #[test]
+    fn rating_from_warf_notched() {
+        let scale = RatingScale::notched();
+        assert_eq!(scale.rating_from_warf(260.0).unwrap(), "BBB+");
+        assert_eq!(scale.rating_from_warf(500.0).unwrap(), "BBB-");
+    }
+
+    #[test]
+    fn rating_from_warf_no_valid_labels() {
+        let scale =
+            RatingScale::custom(vec!["IG".to_string(), "HY".to_string()]).unwrap();
+        assert!(matches!(
+            scale.rating_from_warf(100.0),
+            Err(MigrationError::NoWarfMapping)
+        ));
+    }
 }
 
 #[cfg(test)]

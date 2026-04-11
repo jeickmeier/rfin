@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::error::MigrationError;
+use crate::types::{moodys_warf_factor, CreditRating};
 
 /// An ordered set of states defining a transition matrix's row/column layout.
 ///
@@ -141,6 +142,90 @@ impl RatingScale {
     #[must_use]
     pub fn labels(&self) -> &[String] {
         &self.labels
+    }
+
+    /// Returns the Moody's WARF (Weighted Average Rating Factor) for a label
+    /// in this scale.
+    ///
+    /// The label must belong to the scale and must be parseable as a credit
+    /// rating (S&P/Fitch or Moody's notation).
+    ///
+    /// # Errors
+    ///
+    /// - [`MigrationError::UnknownState`] if `label` is not in the scale.
+    /// - [`MigrationError::NoWarfFactor`] if the label cannot be mapped to a WARF.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_core::credit::migration::RatingScale;
+    ///
+    /// let scale = RatingScale::standard();
+    /// assert_eq!(scale.warf("AAA").unwrap(), 1.0);
+    /// assert_eq!(scale.warf("B").unwrap(), 2720.0);
+    /// ```
+    pub fn warf(&self, label: &str) -> Result<f64, MigrationError> {
+        if !self.index_map.contains_key(label) {
+            return Err(MigrationError::UnknownState {
+                label: label.to_owned(),
+            });
+        }
+        label
+            .parse::<CreditRating>()
+            .ok()
+            .and_then(|r| moodys_warf_factor(r).ok())
+            .ok_or_else(|| MigrationError::NoWarfFactor {
+                label: label.to_owned(),
+            })
+    }
+
+    /// Returns the scale label whose Moody's WARF factor is closest to the
+    /// given value.
+    ///
+    /// Only labels that can be parsed as credit ratings participate in the
+    /// lookup. When a WARF falls exactly between two ratings, the lower-quality
+    /// (higher WARF) rating is returned (conservative rounding).
+    ///
+    /// # Errors
+    ///
+    /// - [`MigrationError::NoWarfMapping`] if no label in the scale maps to a
+    ///   known WARF factor.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_core::credit::migration::RatingScale;
+    ///
+    /// let scale = RatingScale::standard();
+    /// assert_eq!(scale.rating_from_warf(360.0).unwrap(), "BBB");
+    /// assert_eq!(scale.rating_from_warf(400.0).unwrap(), "BBB");
+    /// ```
+    pub fn rating_from_warf(&self, warf: f64) -> Result<&str, MigrationError> {
+        let mut best: Option<(f64, f64, usize)> = None; // (abs_distance, factor, index)
+        for (i, label) in self.labels.iter().enumerate() {
+            if let Ok(r) = label.parse::<CreditRating>() {
+                if let Ok(factor) = moodys_warf_factor(r) {
+                    let dist = (factor - warf).abs();
+                    let is_better = match best {
+                        None => true,
+                        Some((best_dist, best_factor, _)) => {
+                            dist < best_dist
+                                || ((dist - best_dist).abs() < f64::EPSILON
+                                    && factor > best_factor)
+                        }
+                    };
+                    if is_better {
+                        best = Some((dist, factor, i));
+                    }
+                }
+            }
+        }
+        match best {
+            Some((_, _, idx)) => self.labels.get(idx).map(String::as_str).ok_or(
+                MigrationError::NoWarfMapping,
+            ),
+            None => Err(MigrationError::NoWarfMapping),
+        }
     }
 
     // -------------------------------------------------------------------------

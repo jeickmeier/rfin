@@ -324,63 +324,79 @@ impl PyCreditRating {
 
 #[pymethods]
 impl PyCreditRating {
-    /// Highest quality rating.
+    /// AAA / Aaa
     #[classattr]
-    const AAA: PyCreditRating = PyCreditRating {
-        inner: CreditRating::AAA,
-    };
-    /// AA category.
+    const AAA: PyCreditRating = PyCreditRating { inner: CreditRating::AAA };
+    /// AA+ / Aa1
     #[classattr]
-    const AA: PyCreditRating = PyCreditRating {
-        inner: CreditRating::AA,
-    };
-    /// Single-A category.
+    const AA_PLUS: PyCreditRating = PyCreditRating { inner: CreditRating::AAPlus };
+    /// AA / Aa2
     #[classattr]
-    const A: PyCreditRating = PyCreditRating {
-        inner: CreditRating::A,
-    };
-    /// BBB category.
+    const AA: PyCreditRating = PyCreditRating { inner: CreditRating::AA };
+    /// AA- / Aa3
     #[classattr]
-    const BBB: PyCreditRating = PyCreditRating {
-        inner: CreditRating::BBB,
-    };
-    /// BB category.
+    const AA_MINUS: PyCreditRating = PyCreditRating { inner: CreditRating::AAMinus };
+    /// A+ / A1
     #[classattr]
-    const BB: PyCreditRating = PyCreditRating {
-        inner: CreditRating::BB,
-    };
-    /// B category.
+    const A_PLUS: PyCreditRating = PyCreditRating { inner: CreditRating::APlus };
+    /// A / A2
     #[classattr]
-    const B: PyCreditRating = PyCreditRating {
-        inner: CreditRating::B,
-    };
-    /// CCC category.
+    const A: PyCreditRating = PyCreditRating { inner: CreditRating::A };
+    /// A- / A3
     #[classattr]
-    const CCC: PyCreditRating = PyCreditRating {
-        inner: CreditRating::CCC,
-    };
-    /// CC category.
+    const A_MINUS: PyCreditRating = PyCreditRating { inner: CreditRating::AMinus };
+    /// BBB+ / Baa1
     #[classattr]
-    const CC: PyCreditRating = PyCreditRating {
-        inner: CreditRating::CC,
-    };
-    /// C category.
+    const BBB_PLUS: PyCreditRating = PyCreditRating { inner: CreditRating::BBBPlus };
+    /// BBB / Baa2
     #[classattr]
-    const C: PyCreditRating = PyCreditRating {
-        inner: CreditRating::C,
-    };
+    const BBB: PyCreditRating = PyCreditRating { inner: CreditRating::BBB };
+    /// BBB- / Baa3
+    #[classattr]
+    const BBB_MINUS: PyCreditRating = PyCreditRating { inner: CreditRating::BBBMinus };
+    /// BB+ / Ba1
+    #[classattr]
+    const BB_PLUS: PyCreditRating = PyCreditRating { inner: CreditRating::BBPlus };
+    /// BB / Ba2
+    #[classattr]
+    const BB: PyCreditRating = PyCreditRating { inner: CreditRating::BB };
+    /// BB- / Ba3
+    #[classattr]
+    const BB_MINUS: PyCreditRating = PyCreditRating { inner: CreditRating::BBMinus };
+    /// B+ / B1
+    #[classattr]
+    const B_PLUS: PyCreditRating = PyCreditRating { inner: CreditRating::BPlus };
+    /// B / B2
+    #[classattr]
+    const B: PyCreditRating = PyCreditRating { inner: CreditRating::B };
+    /// B- / B3
+    #[classattr]
+    const B_MINUS: PyCreditRating = PyCreditRating { inner: CreditRating::BMinus };
+    /// CCC+ / Caa1
+    #[classattr]
+    const CCC_PLUS: PyCreditRating = PyCreditRating { inner: CreditRating::CCCPlus };
+    /// CCC / Caa2
+    #[classattr]
+    const CCC: PyCreditRating = PyCreditRating { inner: CreditRating::CCC };
+    /// CCC- / Caa3
+    #[classattr]
+    const CCC_MINUS: PyCreditRating = PyCreditRating { inner: CreditRating::CCCMinus };
+    /// CC / Ca
+    #[classattr]
+    const CC: PyCreditRating = PyCreditRating { inner: CreditRating::CC };
+    /// C
+    #[classattr]
+    const C: PyCreditRating = PyCreditRating { inner: CreditRating::C };
     /// Default rating.
     #[classattr]
-    const D: PyCreditRating = PyCreditRating {
-        inner: CreditRating::D,
-    };
+    const D: PyCreditRating = PyCreditRating { inner: CreditRating::D };
     /// Not rated.
     #[classattr]
-    const NR: PyCreditRating = PyCreditRating {
-        inner: CreditRating::NR,
-    };
+    const NR: PyCreditRating = PyCreditRating { inner: CreditRating::NR };
 
-    /// Parse a rating string (case-insensitive; notches map to the base letter).
+    /// Parse a rating string (case-insensitive, accepts S&P/Fitch and Moody's notation).
+    ///
+    /// Examples: ``"BBB"``, ``"BBB-"``, ``"Baa3"``, ``"B+"``, ``"B1"``
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
@@ -389,10 +405,16 @@ impl PyCreditRating {
             .map_err(core_to_py)
     }
 
-    /// Canonical rating name (e.g. ``"BBB"``).
+    /// Canonical rating name in S&P/Fitch notation (e.g. ``"BBB-"``).
     #[getter]
     fn name(&self) -> String {
         self.inner.to_string()
+    }
+
+    /// Moody's WARF factor for this rating.
+    #[getter]
+    fn warf(&self) -> PyResult<f64> {
+        self.inner.warf().map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {

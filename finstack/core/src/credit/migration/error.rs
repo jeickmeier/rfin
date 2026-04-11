@@ -105,6 +105,17 @@ pub enum MigrationError {
     #[error("horizon must be positive, got {0}")]
     InvalidHorizon(f64),
 
+    /// Label could not be resolved to a Moody's WARF factor.
+    #[error("no WARF factor for label '{label}'")]
+    NoWarfFactor {
+        /// The unresolved label.
+        label: String,
+    },
+
+    /// Scale contains no labels that map to known WARF factors.
+    #[error("scale contains no labels with known WARF factors")]
+    NoWarfMapping,
+
     /// Scales do not match for a binary matrix operation.
     #[error("scale mismatch: matrices have different rating scales")]
     ScaleMismatch,

@@ -17,7 +17,7 @@ From `types/mod.rs`, the current public exports are:
 
 - IDs: `Id`, `TypeTag`, `CalendarId`, `CurveId`, `DealId`, `IndexId`, `InstrumentId`, `PoolId`, `PriceId`, `UnderlyingId`
 - Rates: `Rate`, `Bps`, `Percentage`
-- Ratings: `CreditRating`, `NotchedRating`, `RatingLabel`, `RatingNotch`, `RatingFactorTable`, `moodys_warf_factor`
+- Ratings: `CreditRating`, `RatingLabel`, `RatingFactorTable`, `moodys_warf_factor`
 
 ## Module Notes
 
@@ -69,15 +69,15 @@ assert_eq!(pct.as_decimal(), 0.125);
 ### Credit Ratings
 
 ```rust
-use finstack_core::types::{CreditRating, NotchedRating, RatingLabel, moodys_warf_factor};
+use finstack_core::types::{CreditRating, RatingLabel, moodys_warf_factor};
 
-let rating: NotchedRating = "Baa3".parse().expect("valid rating");
-assert_eq!(rating.base(), CreditRating::BBB);
+let rating: CreditRating = "Baa3".parse().expect("valid rating");
+assert_eq!(rating, CreditRating::BBBMinus);
 
-let label = RatingLabel::moodys(rating);
+let label = RatingLabel::moodys(CreditRating::BBBMinus);
 assert_eq!(label.as_str(), "Baa3");
 
-let factor = moodys_warf_factor(CreditRating::B);
+let factor = moodys_warf_factor(CreditRating::B).unwrap();
 assert_eq!(factor, 2720.0);
 ```
 

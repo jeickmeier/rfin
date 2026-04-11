@@ -15,7 +15,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{moodys_warf_factor, CreditRating, RatingNotch};
+use finstack_core::types::{moodys_warf_factor, CreditRating};
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, DealType, Pool, PoolAsset,
 };
@@ -206,32 +206,32 @@ fn test_warf_golden_moody_standard() {
     // Source: Moody's CLO Methodology
 
     let test_cases = [
-        (CreditRating::AAA, RatingNotch::Flat, 1.0, "AAA / Aaa"),
-        (CreditRating::AA, RatingNotch::Plus, 10.0, "AA+ / Aa1"),
-        (CreditRating::AA, RatingNotch::Flat, 20.0, "AA / Aa2"),
-        (CreditRating::AA, RatingNotch::Minus, 40.0, "AA- / Aa3"),
-        (CreditRating::A, RatingNotch::Plus, 70.0, "A+ / A1"),
-        (CreditRating::A, RatingNotch::Flat, 120.0, "A / A2"),
-        (CreditRating::A, RatingNotch::Minus, 180.0, "A- / A3"),
-        (CreditRating::BBB, RatingNotch::Plus, 260.0, "BBB+ / Baa1"),
-        (CreditRating::BBB, RatingNotch::Flat, 360.0, "BBB / Baa2"),
-        (CreditRating::BBB, RatingNotch::Minus, 610.0, "BBB- / Baa3"),
-        (CreditRating::BB, RatingNotch::Plus, 940.0, "BB+ / Ba1"),
-        (CreditRating::BB, RatingNotch::Flat, 1350.0, "BB / Ba2"),
-        (CreditRating::BB, RatingNotch::Minus, 1760.0, "BB- / Ba3"),
-        (CreditRating::B, RatingNotch::Plus, 2220.0, "B+ / B1"),
-        (CreditRating::B, RatingNotch::Flat, 2720.0, "B / B2"),
-        (CreditRating::B, RatingNotch::Minus, 3490.0, "B- / B3"),
-        (CreditRating::CCC, RatingNotch::Plus, 4770.0, "CCC+ / Caa1"),
-        (CreditRating::CCC, RatingNotch::Flat, 6500.0, "CCC / Caa2"),
-        (CreditRating::CCC, RatingNotch::Minus, 8070.0, "CCC- / Caa3"),
-        (CreditRating::CC, RatingNotch::Flat, 9550.0, "CC / Ca"),
-        (CreditRating::C, RatingNotch::Flat, 10000.0, "C"),
-        (CreditRating::D, RatingNotch::Flat, 10000.0, "D"),
+        (CreditRating::AAA, 1.0, "AAA / Aaa"),
+        (CreditRating::AAPlus, 10.0, "AA+ / Aa1"),
+        (CreditRating::AA, 20.0, "AA / Aa2"),
+        (CreditRating::AAMinus, 40.0, "AA- / Aa3"),
+        (CreditRating::APlus, 70.0, "A+ / A1"),
+        (CreditRating::A, 120.0, "A / A2"),
+        (CreditRating::AMinus, 180.0, "A- / A3"),
+        (CreditRating::BBBPlus, 260.0, "BBB+ / Baa1"),
+        (CreditRating::BBB, 360.0, "BBB / Baa2"),
+        (CreditRating::BBBMinus, 610.0, "BBB- / Baa3"),
+        (CreditRating::BBPlus, 940.0, "BB+ / Ba1"),
+        (CreditRating::BB, 1350.0, "BB / Ba2"),
+        (CreditRating::BBMinus, 1760.0, "BB- / Ba3"),
+        (CreditRating::BPlus, 2220.0, "B+ / B1"),
+        (CreditRating::B, 2720.0, "B / B2"),
+        (CreditRating::BMinus, 3490.0, "B- / B3"),
+        (CreditRating::CCCPlus, 4770.0, "CCC+ / Caa1"),
+        (CreditRating::CCC, 6500.0, "CCC / Caa2"),
+        (CreditRating::CCCMinus, 8070.0, "CCC- / Caa3"),
+        (CreditRating::CC, 9550.0, "CC / Ca"),
+        (CreditRating::C, 10000.0, "C"),
+        (CreditRating::D, 10000.0, "D"),
     ];
 
-    for (rating, notch, expected_factor, label) in test_cases {
-        let actual_factor = moodys_warf_factor(rating.with_notch(notch)).unwrap();
+    for (rating, expected_factor, label) in test_cases {
+        let actual_factor = moodys_warf_factor(rating).unwrap();
 
         assert_eq!(
             actual_factor, expected_factor,
