@@ -229,3 +229,80 @@ pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> Vec<f64> {
     let (p11, p10, p01, p00) = corr::joint_probabilities(p1, p2, correlation);
     vec![p11, p10, p01, p00]
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::math::standard_normal_inv_cdf;
+
+    #[test]
+    fn wasm_copula_spec_gaussian_and_student_t() {
+        let g = WasmCopulaSpec::gaussian();
+        assert!(g.is_gaussian());
+        assert!(!g.is_student_t());
+
+        let Ok(t) = WasmCopulaSpec::student_t(5.0) else {
+            panic!("student_t(5.0) should succeed");
+        };
+        assert!(t.is_student_t());
+        assert!(!t.is_gaussian());
+    }
+
+    #[test]
+    fn wasm_copula_spec_random_factor_loading_and_multi_factor_build() {
+        let rfl = WasmCopulaSpec::random_factor_loading(0.5);
+        assert!(!rfl.is_gaussian());
+        assert!(!rfl.is_student_t());
+        let rfl_copula = rfl.build();
+        assert_eq!(rfl_copula.num_factors(), 2);
+
+        let mf = WasmCopulaSpec::multi_factor(2);
+        let mf_copula = mf.build();
+        assert_eq!(mf_copula.num_factors(), 2);
+    }
+
+    #[test]
+    fn wasm_copula_from_gaussian_spec() {
+        let copula = WasmCopulaSpec::gaussian().build();
+        assert_eq!(copula.num_factors(), 1);
+        assert_eq!(copula.model_name(), "One-Factor Gaussian Copula");
+        assert_eq!(copula.tail_dependence(0.3), 0.0);
+
+        let pd = 0.05_f64;
+        let threshold = standard_normal_inv_cdf(pd);
+        let correlation = 0.3_f64;
+        let cond = copula.conditional_default_prob(threshold, &[0.0], correlation);
+        assert!(cond > 0.0 && cond < 1.0);
+    }
+
+    #[test]
+    fn wasm_recovery_spec_and_model() {
+        let c = WasmRecoverySpec::constant(0.4);
+        assert!((c.expected_recovery() - 0.4).abs() < 1e-12);
+        let m = c.build();
+        assert!((m.expected_recovery() - 0.4).abs() < 1e-12);
+        assert!((m.conditional_recovery(0.0) - 0.4).abs() < 1e-12);
+        assert!((m.lgd() - 0.6).abs() < 1e-12);
+        assert!(!m.is_stochastic());
+        assert!(!m.model_name().is_empty());
+
+        let mc = WasmRecoverySpec::market_correlated(0.4, 0.1, 0.3).build();
+        assert!(mc.is_stochastic());
+    }
+
+    #[test]
+    fn correlation_bounds_ordered() {
+        let b = correlation_bounds(0.05, 0.10);
+        assert_eq!(b.len(), 2);
+        assert!(b[0] <= b[1]);
+    }
+
+    #[test]
+    fn joint_probabilities_sum_to_one() {
+        let j = joint_probabilities(0.05, 0.10, 0.3);
+        assert_eq!(j.len(), 4);
+        let sum: f64 = j.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-9);
+    }
+}

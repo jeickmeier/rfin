@@ -85,9 +85,7 @@ fn cholesky_solve(chol: Vec<Vec<f64>>, b: Vec<f64>) -> PyResult<Vec<f64>> {
     }
     let mut x = vec![0.0; n];
     linalg::cholesky_solve(&flat, &b, &mut x).map_err(|_| {
-        PyValueError::new_err(
-            "Cholesky solve failed: zero or near-singular diagonal in factor",
-        )
+        PyValueError::new_err("Cholesky solve failed: zero or near-singular diagonal in factor")
     })?;
     Ok(x)
 }

@@ -179,3 +179,49 @@ fn flatten_matrix(rows: &[Vec<f64>], n: usize) -> Result<Vec<f64>, JsValue> {
 fn unflatten_matrix(flat: &[f64], n: usize) -> Vec<Vec<f64>> {
     flat.chunks(n).map(|c| c.to_vec()).collect()
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    const TOL: f64 = 1e-4;
+
+    #[test]
+    fn norm_cdf_reference_values() {
+        assert!((norm_cdf(0.0) - 0.5).abs() < TOL);
+        assert!((norm_cdf(3.0) - 0.9987).abs() < 1e-3);
+    }
+
+    #[test]
+    fn norm_pdf_at_zero() {
+        assert!((norm_pdf(0.0) - 0.3989).abs() < TOL);
+    }
+
+    #[test]
+    fn standard_normal_inv_cdf_reference_values() {
+        assert!(standard_normal_inv_cdf(0.5).abs() < TOL);
+        assert!((standard_normal_inv_cdf(0.975) - 1.96).abs() < 1e-2);
+    }
+
+    #[test]
+    fn erf_reference_values() {
+        assert_eq!(erf(0.0), 0.0);
+        assert!((erf(1.0) - 0.8427).abs() < TOL);
+    }
+
+    #[test]
+    fn ln_gamma_reference_values() {
+        assert!(ln_gamma(1.0).abs() < TOL);
+        assert!((ln_gamma(5.0) - 24f64.ln()).abs() < TOL);
+    }
+
+    #[test]
+    fn flatten_unflatten_matrix_identity() {
+        let rows = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let flat = flatten_matrix(&rows, 2).expect("square 2x2 matrix");
+        assert_eq!(flat, vec![1.0, 0.0, 0.0, 1.0]);
+        let back = unflatten_matrix(&flat, 2);
+        assert_eq!(back, rows);
+    }
+}

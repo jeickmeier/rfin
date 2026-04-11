@@ -216,3 +216,79 @@ pub fn apply_scenario_to_market(
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_builtin_template_metadata_is_non_empty_json_array() {
+        let json = list_builtin_template_metadata().expect("metadata");
+        let v: serde_json::Value = serde_json::from_str(&json).expect("parse metadata");
+        let arr = v.as_array().expect("array");
+        assert!(!arr.is_empty());
+    }
+
+    #[test]
+    fn build_from_template_and_build_template_component_succeed_for_builtin() {
+        let meta = list_builtin_template_metadata().expect("metadata");
+        let items: Vec<serde_json::Value> = serde_json::from_str(&meta).expect("parse");
+        let first_id = items[0]["id"].as_str().expect("template id");
+        let built = build_from_template(first_id).expect("build_from_template");
+        assert!(!built.is_empty());
+
+        let component_json =
+            build_template_component("gfc_2008", "gfc_2008_rates").expect("component");
+        assert!(!component_json.is_empty());
+    }
+
+    #[test]
+    fn build_validate_parse_compose_roundtrip_empty_operations() {
+        let spec_json = build_scenario_spec("test_id", "[]", Some("Test".to_string()), None, 0)
+            .expect("build_scenario_spec");
+        assert!(validate_scenario_spec(&spec_json).expect("validate"));
+        let parsed = parse_scenario_spec(&spec_json).expect("parse");
+        let before: serde_json::Value = serde_json::from_str(&spec_json).expect("before");
+        let after: serde_json::Value = serde_json::from_str(&parsed).expect("after");
+        assert_eq!(before, after);
+
+        let composed = compose_scenarios("[]").expect("compose");
+        assert!(validate_scenario_spec(&composed).expect("composed valid"));
+    }
+
+    #[test]
+    fn build_scenario_with_name_and_description() {
+        let spec_json = build_scenario_spec(
+            "stress_1",
+            "[]",
+            Some("Stress scenario".to_string()),
+            Some("A description".to_string()),
+            10,
+        )
+        .expect("build");
+        let parsed: serde_json::Value = serde_json::from_str(&spec_json).expect("json");
+        assert_eq!(parsed["id"], "stress_1");
+        assert_eq!(parsed["priority"], 10);
+    }
+
+    #[test]
+    fn compose_multiple_scenarios() {
+        let s1 = build_scenario_spec("s1", "[]", None, None, 0).expect("s1");
+        let s2 = build_scenario_spec("s2", "[]", None, None, 1).expect("s2");
+        let arr = format!("[{s1},{s2}]");
+        let composed = compose_scenarios(&arr).expect("compose");
+        assert!(validate_scenario_spec(&composed).expect("valid"));
+    }
+
+    #[test]
+    fn build_all_builtin_templates() {
+        let meta = list_builtin_template_metadata().expect("metadata");
+        let items: Vec<serde_json::Value> = serde_json::from_str(&meta).expect("parse");
+        for item in &items {
+            let id = item["id"].as_str().expect("id");
+            let built = build_from_template(id).expect("build");
+            assert!(!built.is_empty(), "template {id} produced empty output");
+        }
+    }
+}

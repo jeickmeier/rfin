@@ -138,3 +138,95 @@ pub fn apply_scenario_and_revalue(
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn minimal_portfolio_spec_json() -> String {
+        serde_json::json!({
+            "id": "test_portfolio",
+            "name": "Test",
+            "base_ccy": "USD",
+            "as_of": "2024-01-15",
+            "entities": {},
+            "positions": []
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn parse_portfolio_spec_roundtrip() {
+        let json = minimal_portfolio_spec_json();
+        let result = parse_portfolio_spec(&json).expect("parse");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("valid json");
+        assert_eq!(parsed["id"], "test_portfolio");
+    }
+
+    #[test]
+    fn build_portfolio_from_spec_empty() {
+        let json = minimal_portfolio_spec_json();
+        let result = build_portfolio_from_spec(&json).expect("build");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("valid json");
+        assert_eq!(parsed["id"], "test_portfolio");
+    }
+
+    #[test]
+    fn parse_and_rebuild_roundtrip() {
+        let json = minimal_portfolio_spec_json();
+        let canonical = parse_portfolio_spec(&json).expect("parse");
+        let rebuilt = build_portfolio_from_spec(&canonical).expect("rebuild");
+        let a: serde_json::Value = serde_json::from_str(&canonical).expect("a");
+        let b: serde_json::Value = serde_json::from_str(&rebuilt).expect("b");
+        assert_eq!(a["id"], b["id"]);
+    }
+
+    fn empty_market_json() -> String {
+        let ctx = finstack_core::market_data::context::MarketContext::new();
+        serde_json::to_string(&ctx).expect("serialize")
+    }
+
+    #[test]
+    fn value_empty_portfolio() {
+        let spec = minimal_portfolio_spec_json();
+        let market = empty_market_json();
+        let result = value_portfolio(&spec, &market, false).expect("value");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn aggregate_cashflows_empty_portfolio() {
+        let spec = minimal_portfolio_spec_json();
+        let market = empty_market_json();
+        let result = aggregate_cashflows(&spec, &market).expect("aggregate");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(parsed.is_object() || parsed.is_array());
+    }
+
+    #[test]
+    fn portfolio_result_total_value_from_valuation() {
+        let spec = minimal_portfolio_spec_json();
+        let market = empty_market_json();
+        let valuation_json = value_portfolio(&spec, &market, false).expect("value");
+        let result = finstack_portfolio::PortfolioResult {
+            valuation: serde_json::from_str(&valuation_json).expect("deser"),
+            metrics: Default::default(),
+            meta: Default::default(),
+        };
+        let result_json = serde_json::to_string(&result).expect("ser");
+        let total = portfolio_result_total_value(&result_json).expect("total");
+        assert!(total.is_finite());
+    }
+
+    #[test]
+    fn aggregate_metrics_empty_portfolio() {
+        let spec = minimal_portfolio_spec_json();
+        let market = empty_market_json();
+        let valuation_json = value_portfolio(&spec, &market, false).expect("value");
+        let result = aggregate_metrics(&valuation_json, "USD", &market, "2024-01-15").expect("agg");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(parsed.is_object());
+    }
+}

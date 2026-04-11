@@ -111,3 +111,92 @@ fn parse_model_key(s: &str) -> Result<finstack_valuations::pricer::ModelKey, JsV
         ))),
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_valuations::pricer::ModelKey;
+
+    #[test]
+    fn parse_model_key_recognizes_standard_keys() {
+        assert_eq!(
+            parse_model_key("discounting").expect("ok"),
+            ModelKey::Discounting
+        );
+        assert_eq!(parse_model_key("tree").expect("ok"), ModelKey::Tree);
+        assert_eq!(parse_model_key("black76").expect("ok"), ModelKey::Black76);
+        assert_eq!(
+            parse_model_key("hull_white_1f").expect("ok"),
+            ModelKey::HullWhite1F
+        );
+        assert_eq!(
+            parse_model_key("hazard_rate").expect("ok"),
+            ModelKey::HazardRate
+        );
+        assert_eq!(parse_model_key("normal").expect("ok"), ModelKey::Normal);
+        assert_eq!(
+            parse_model_key("monte_carlo_gbm").expect("ok"),
+            ModelKey::MonteCarloGBM
+        );
+    }
+
+    fn bond_instrument_json() -> String {
+        use finstack_core::currency::Currency;
+        use finstack_core::money::Money;
+        use finstack_valuations::instruments::fixed_income::bond::Bond;
+        use finstack_valuations::instruments::InstrumentJson;
+
+        let bond = Bond::fixed(
+            "TEST-BOND",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            time::Date::from_calendar_date(2024, time::Month::January, 1).expect("date"),
+            time::Date::from_calendar_date(2034, time::Month::January, 1).expect("date"),
+            "USD-OIS",
+        )
+        .expect("bond");
+        serde_json::to_string(&InstrumentJson::Bond(bond)).expect("serialize")
+    }
+
+    fn market_context_json() -> String {
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::term_structures::DiscountCurve;
+        let base = time::Date::from_calendar_date(2024, time::Month::January, 1).expect("date");
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.5, 0.99), (1.0, 0.98), (5.0, 0.90), (10.0, 0.80)])
+            .build()
+            .expect("curve");
+        let ctx = MarketContext::new().insert(disc);
+        serde_json::to_string(&ctx).expect("serialize")
+    }
+
+    #[test]
+    fn validate_instrument_json_bond() {
+        let json = bond_instrument_json();
+        let canonical = validate_instrument_json(&json).expect("validate");
+        assert!(!canonical.is_empty());
+    }
+
+    #[test]
+    fn price_instrument_bond() {
+        let inst = bond_instrument_json();
+        let mkt = market_context_json();
+        let result = price_instrument(&inst, &mkt, "2024-01-01", "discounting").expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn validate_valuation_result_json_roundtrip() {
+        let inst = bond_instrument_json();
+        let mkt = market_context_json();
+        let result_json =
+            price_instrument(&inst, &mkt, "2024-01-01", "discounting").expect("price");
+        let canonical = validate_valuation_result_json(&result_json).expect("validate");
+        assert!(!canonical.is_empty());
+        let parsed: serde_json::Value = serde_json::from_str(&canonical).expect("json");
+        assert!(parsed.is_object());
+    }
+}

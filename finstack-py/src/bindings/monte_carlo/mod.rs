@@ -87,14 +87,14 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.setattr("__all__", all)?;
     parent.add_submodule(&m)?;
 
-    let pkg: String = match parent.getattr("__package__") {
+    let parent_name: String = match parent.getattr("__name__") {
         Ok(attr) => match attr.extract::<String>() {
             Ok(s) => s,
-            Err(_) => "finstack".to_string(),
+            Err(_) => "finstack.finstack".to_string(),
         },
-        Err(_) => "finstack".to_string(),
+        Err(_) => "finstack.finstack".to_string(),
     };
-    let qual = format!("{pkg}.monte_carlo");
+    let qual = format!("{parent_name}.monte_carlo");
     m.setattr("__package__", &qual)?;
     let sys = PyModule::import(py, "sys")?;
     let modules = sys.getattr("modules")?;

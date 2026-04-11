@@ -197,6 +197,7 @@ finstack-py/examples/notebooks/
 ### Level 1 Deep Dives: `market_data/`
 
 #### `discount_curves.ipynb`
+
 - Construction from tenor/DF pillar pairs
 - `get_discount(date)` at arbitrary dates, interpolation behavior
 - Implied forward rates between two dates
@@ -204,38 +205,45 @@ finstack-py/examples/notebooks/
 - Practical: build USD OIS and EUR ESTR curves
 
 #### `forward_curves.ipynb`
+
 - Construction from forward rate pillars
 - Extracting projected rates at future dates
 - Relationship to discount curves
 - Use cases: commodity forwards, projected floating rates
 
 #### `hazard_curves.ipynb`
+
 - Construction from survival probability pillars
 - Survival probability extraction, implied hazard rates
 - Credit term structure (flat vs upward-sloping)
 - Practical: IG vs HY issuer curves
 
 #### `price_curves.ipynb`
+
 - Construction from price/date pillars
 - Commodity and equity forward price extraction
 
 #### `volatility_index_curves.ipynb`
+
 - Construction from vol/date pillars
 - Term structure of implied vol
 
 #### `vol_surfaces.ipynb`
+
 - Strike/expiry grid construction
 - Smile and skew interpretation
 - Vol extraction at arbitrary strike/expiry
 - Equity vs rate vs FX vol surfaces
 
 #### `fx_matrix.ipynb`
+
 - `FxMatrix` with `set_quote()`, direct/indirect quotes
 - Triangulation via vehicle currency
 - `FxConversionPolicy`, `FxRateResult`
 - Multi-currency setup: USD, EUR, GBP, JPY
 
 #### `inflation_curves.ipynb`
+
 - InflationCurve construction
 - Breakeven inflation rates
 - Seasonal patterns
@@ -244,17 +252,20 @@ finstack-py/examples/notebooks/
 ### Level 1 Deep Dives: `dates/`
 
 #### `day_count_conventions.ipynb`
+
 - All DayCount conventions with year fraction comparison table
 - When to use which: ACT/360 for money markets, 30/360 for corporate bonds, etc.
 - `DayCountContext` for managing state
 
 #### `holiday_calendars.ipynb`
+
 - `available_calendars()` listing
 - `HolidayCalendar` construction, `CalendarMetadata`
 - `adjust(date, calendar, convention)` with all `BusinessDayConvention` variants
 - Multi-calendar adjustment chains
 
 #### `schedule_building.ipynb`
+
 - `ScheduleBuilder` fluent API deep dive
 - Stub handling: short/long front/back stubs
 - CDS IMM date schedules
@@ -305,39 +316,51 @@ Cross-references to `instruments/` sub-directory for depth on each.
 Each instrument notebook follows: **Instrument JSON schema → MarketContext setup → Available pricing models → Full metric set → Comparison/sensitivity**.
 
 #### `complex_cashflows.ipynb`
+
 Foundation for bonds/loans. CashFlowBuilder: ScheduleParams, fixed/float, amortization (bullet, linear, custom), PIK (full/split/toggle), step-up coupons, caps/floors, floating rate mechanics (index, spread, resets), callability/puttability, custom programs. Polars display.
 
 #### `bonds_and_fixed_income.ipynb`
+
 Vanilla fixed, FRN, amortizing, PIK, step-up, callable/puttable. DV01, duration, convexity, Z-spread, OAS. Side-by-side metric table.
 
 #### `loans_and_credit_facilities.ipynb`
+
 Term loan A/B, revolving credit (draws, commitment fees, utilization), delayed-draw, PIK toggle from liquidity, covenant-linked spread step-ups, IRR analysis.
 
 #### `rates_derivatives.ipynb`
+
 Deposits, FRA, IRS (vanilla, basis, cross-ccy), futures, swaptions (payer/receiver), caps/floors. PV01, bucketed DV01.
 
 #### `credit_derivatives.ipynb`
+
 Single-name CDS (HazardCurve, CS01, survival), CDS index, CDS tranche (base correlation, attachment/detachment), CDS options. Par spread repricing.
 
 #### `equity_and_options.ipynb`
+
 Equity + MarketScalar. European options (BS, VolSurface, Greeks). Exotics: barrier, Asian, lookback, cliquet, CMS, quanto, range accrual, autocallable. MC vs analytical comparison.
 
 #### `fx_instruments.ipynb`
+
 FxSpot, FxForward/FxSwap (points, CIP), FxOption (Garman-Kohlhagen, smile). Multi-currency exposure.
 
 #### `inflation_linked.ipynb`
+
 InflationCurve setup. Inflation-linked bonds (real yield, breakeven, index ratio). Inflation swaps (zero-coupon, year-on-year).
 
 #### `structured_credit.ipynb`
+
 ABS, CLO, CMBS, RMBS via JSON `StructuredCredit`. Pool-level cashflows, prepayment/default/loss. Tranche waterfall, OC/IC tests. Tranche metrics.
 
 #### `convertible_bonds.ipynb`
+
 ConvertibleBond JSON: conversion specs, ratio/price. Equity + vol inputs alongside credit/rates. Conversion premium, parity, delta, bond floor.
 
 #### `repo_and_financing.ipynb`
+
 Repo JSON: collateral spec, haircuts, term vs overnight. Implied repo rate, financing cost.
 
 #### `total_return_and_variance_swaps.ipynb`
+
 Equity TRS (reference asset, financing leg, schedule). FI index TRS. Variance swaps (realized vs implied, vega notional).
 
 ---
@@ -432,24 +455,31 @@ Equity TRS (reference asset, financing leg, schedule). FI index TRS. Variance sw
 ### Level 4 Deep Dives: `models/`
 
 #### `three_statement_model.ipynb`
+
 Full linked P&L, BS, CF. Revenue → COGS → OpEx → D&A → interest → taxes. Working capital (AR, AP, inventory). CapEx, debt, equity. Cross-statement linkages via DSL. Forecast methods. `to_polars_wide` output.
 
 #### `lbo_analysis.ipynb`
+
 Sources/uses, entry EV/EBITDA. Debt schedule (TL, revolver, mezz/PIK). Operating model. Amort + ECF sweep (`WaterfallSpec`, `EcfSweepSpec`). PIK toggle (`PikToggleSpec`). Exit IRR/MOIC. Sensitivity tables.
 
 #### `dcf_valuation.ipynb`
+
 UFCF projection model. `evaluate_dcf` with MarketContext discount curve. Terminal value (perpetuity growth vs exit multiple). WACC construction. EV-to-equity bridge. Sensitivity: WACC vs terminal growth.
 
 #### `credit_analysis.ipynb`
+
 `run_corporate_analysis` end-to-end. Leverage (Debt/EBITDA), coverage (IC, FCCR, DSCR), liquidity. `credit_assessment_report`, `pl_summary_report`. Scenario overlays via `evaluate_scenario_set`.
 
 #### `covenant_monitoring.ipynb`
+
 Covenant definition (maintenance vs incurrence). Springing conditions. Basket headroom. `forecast_covenant` with `CovenantForecastConfig`. Multi-scenario projection.
 
 #### `normalization_and_adjustments.ipynb`
+
 `NormalizationConfig`, `normalize`, `normalize_to_dicts`. Add-backs, percentage fees, capped items. Raw → adjusted EBITDA audit trail.
 
 #### `debt_waterfall.ipynb`
+
 Capital structure priority. `WaterfallSpec`, `EcfSweepSpec`, `PikToggleSpec`. `Evaluator.evaluate_with_market_context`. Period-by-period allocation. Stress testing.
 
 ---
@@ -492,15 +522,19 @@ Capital structure priority. `WaterfallSpec`, `EcfSweepSpec`, `PikToggleSpec`. `E
 ### Level 5 Deep Dives: `scenarios/`
 
 #### `rate_scenarios.ipynb`
+
 Parallel shift, steepener, flattener, inversion. Build from templates and custom operations. Apply to market and show curve changes.
 
 #### `credit_scenarios.ipynb`
+
 Spread widening (uniform, sector-specific). Rating migration. HazardCurve shocks. Apply and show survival probability changes.
 
 #### `composite_stress_tests.ipynb`
+
 Compose rate + credit + FX shocks. Historical replay templates. Priority ordering. Multi-step scenario application.
 
 #### `scenario_impact_analysis.ipynb`
+
 `apply_scenario_and_revalue` workflow. P&L decomposition: rates contribution vs credit contribution vs FX. Report JSON parsing.
 
 ---
@@ -566,28 +600,35 @@ Compose rate + credit + FX shocks. Historical replay templates. Priority orderin
 ### Level 6 Deep Dives: `monte_carlo/`
 
 #### `stochastic_processes.ipynb`
+
 All processes side-by-side: `GbmProcess`, `BrownianProcess`, `HestonProcess` (Feller condition), `CirProcess`, `MertonJumpProcess`, `BatesProcess`, `SchwartzSmithProcess`, `MultiGbmProcess`. Parameter interpretation, when to use which.
 
 #### `discretization_schemes.ipynb`
+
 `ExactGbm`, `ExactMultiGbm`, `EulerMaruyama`, `LogEuler`, `Milstein`. Convergence comparison, accuracy vs speed tradeoffs, matching scheme to process.
 
 #### `exotic_payoffs_and_pricers.ipynb`
+
 All payoffs: `EuropeanCall/Put`, `DigitalCall/Put`, `ForwardLong/Short`, `AsianCall/Put`, `BarrierOption`, `BasketCall/Put`, `AmericanCall/Put`.
 All pricers: `EuropeanPricer`, `PathDependentPricer` (`.price_asian_call/put`), `LsmcPricer` (`.price_american_call/put`).
 Choosing the right pricer for each payoff.
 
 #### `black_scholes_benchmarks.ipynb`
+
 `black_scholes_call/put` analytical. MC convergence study: how num_paths affects accuracy. Put-call parity verification. Greeks by finite difference bumping.
 
 ### Level 6 Deep Dives: `correlation/`
 
 #### `portfolio_default_simulation.ipynb`
+
 Full pipeline: individual PDs → copula → correlated defaults → portfolio loss distribution. Compare Gaussian/Student-t/RFL loss tails.
 
 #### `clo_tranche_modeling.ipynb`
+
 `TwoFactorModel.clo_standard()`. Base correlation. Tranche attachment/detachment. Expected tranche loss across scenarios.
 
 #### `recovery_modeling.ipynb`
+
 `RecoverySpec.constant()` vs `.market_correlated()` vs `.market_standard_stochastic()`. Conditional recovery/LGD across market states. Impact on portfolio loss.
 
 ---

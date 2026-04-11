@@ -60,3 +60,46 @@ impl Currency {
         Ok(Currency { inner })
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn construct_usd() {
+        let c = Currency::new("USD").expect("valid");
+        assert_eq!(c.code(), "USD");
+        assert_eq!(c.to_string(), "USD");
+        assert_eq!(c.decimals(), 2);
+    }
+
+    #[test]
+    fn numeric_code() {
+        let c = Currency::new("EUR").expect("valid");
+        assert_eq!(c.numeric(), 978);
+    }
+
+    #[test]
+    fn json_roundtrip() {
+        let c = Currency::new("GBP").expect("valid");
+        let json = c.to_json().expect("serialize");
+        let c2 = Currency::from_json(&json).expect("deserialize");
+        assert_eq!(c2.code(), "GBP");
+    }
+
+    #[test]
+    fn case_insensitive() {
+        let c = Currency::new("usd").expect("valid");
+        assert_eq!(c.code(), "USD");
+    }
+
+    #[test]
+    fn multiple_currencies() {
+        for code in &["USD", "EUR", "GBP", "JPY", "CHF"] {
+            let c = Currency::new(code).expect("valid");
+            assert_eq!(c.code(), *code);
+            assert_eq!(c.to_string(), *code);
+        }
+    }
+}

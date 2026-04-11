@@ -154,7 +154,7 @@ impl std::str::FromStr for ExtrapolationPolicy {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let n = crate::parse::normalize_label(s);
         match n.as_str() {
-            "flat_zero" | "flatzero" => Ok(ExtrapolationPolicy::FlatZero),
+            "flat_zero" | "flatzero" | "flat" => Ok(ExtrapolationPolicy::FlatZero),
             "flat_forward" | "flatforward" => Ok(ExtrapolationPolicy::FlatForward),
             "none" => Ok(ExtrapolationPolicy::None),
             other => Err(format!("unknown ExtrapolationPolicy: {other}")),
@@ -745,6 +745,7 @@ mod tests {
     #[test]
     fn extrap_policy_from_str_aliases() {
         assert_extrapolation_policy("flatzero", ExtrapolationPolicy::FlatZero);
+        assert_extrapolation_policy("flat", ExtrapolationPolicy::FlatZero);
         assert_extrapolation_policy("flatforward", ExtrapolationPolicy::FlatForward);
     }
 

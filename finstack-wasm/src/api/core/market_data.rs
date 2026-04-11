@@ -306,3 +306,108 @@ impl FxMatrix {
         Ok(result.rate)
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::{DayCount, Month};
+    use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+
+    #[test]
+    fn parse_iso_date_components_and_roundtrip() {
+        let d = parse_iso_date("2024-01-15").expect("valid ISO date");
+        assert_eq!(d.year(), 2024);
+        assert_eq!(d.month(), Month::January);
+        assert_eq!(d.day(), 15);
+        assert_eq!(date_to_iso(d), "2024-01-15");
+    }
+
+    #[test]
+    fn date_to_iso_roundtrips_parse() {
+        let s = "2024-06-30";
+        let d = parse_iso_date(s).expect("valid ISO date");
+        assert_eq!(date_to_iso(d), s);
+    }
+
+    #[test]
+    fn parse_day_count_act_variants() {
+        assert_eq!(
+            parse_day_count("act_365f").expect("act_365f"),
+            DayCount::Act365F
+        );
+        assert_eq!(
+            parse_day_count("act_360").expect("act_360"),
+            DayCount::Act360
+        );
+    }
+
+    #[test]
+    fn parse_interp_style_variants() {
+        assert_eq!(
+            parse_interp_style("linear").expect("linear"),
+            InterpStyle::Linear
+        );
+        assert_eq!(
+            parse_interp_style("monotone_convex").expect("monotone_convex"),
+            InterpStyle::MonotoneConvex
+        );
+    }
+
+    #[test]
+    fn parse_extrapolation_variants() {
+        assert_eq!(
+            parse_extrapolation("flat_forward").expect("flat_forward"),
+            ExtrapolationPolicy::FlatForward
+        );
+        assert_eq!(
+            parse_extrapolation("flat").expect("flat"),
+            ExtrapolationPolicy::FlatZero
+        );
+    }
+
+    #[test]
+    fn discount_curve_new_and_accessors() {
+        let curve = DiscountCurve::new(
+            "USD-OIS",
+            "2024-01-15",
+            &[0.5, 0.99, 1.0, 0.98, 2.0, 0.96],
+            None,
+            None,
+            None,
+        )
+        .expect("discount curve");
+        assert_eq!(curve.id(), "USD-OIS");
+        assert_eq!(curve.base_date(), "2024-01-15");
+        assert!((curve.df(0.5) - 0.99).abs() < 1e-6);
+        assert!((curve.df(1.0) - 0.98).abs() < 1e-6);
+        assert!(curve.zero(1.0) > 0.0);
+        let f = curve.forward_rate(0.5, 1.0).expect("forward rate");
+        assert!(f > 0.0);
+    }
+
+    #[test]
+    fn forward_curve_new_and_accessors() {
+        let curve = ForwardCurve::new(
+            "USD-3M",
+            0.25,
+            "2024-01-15",
+            &[0.5, 0.04, 1.0, 0.045, 2.0, 0.05],
+            None,
+            None,
+            None,
+        )
+        .expect("forward curve");
+        assert_eq!(curve.id(), "USD-3M");
+        assert_eq!(curve.base_date(), "2024-01-15");
+        assert!((curve.rate(1.0) - 0.045).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fx_matrix_quote_and_rate() {
+        let mut m = FxMatrix::new();
+        m.set_quote("USD", "EUR", 0.92).expect("set quote");
+        let r = m.rate("USD", "EUR", "2024-01-15", None).expect("fx rate");
+        assert!((r - 0.92).abs() < 1e-9);
+    }
+}

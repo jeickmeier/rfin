@@ -833,14 +833,14 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
 
     parent.add_submodule(&m)?;
 
-    let pkg: String = match parent.getattr("__package__") {
+    let parent_name: String = match parent.getattr("__name__") {
         Ok(attr) => match attr.extract::<String>() {
             Ok(s) => s,
-            Err(_) => "finstack".to_string(),
+            Err(_) => "finstack.finstack".to_string(),
         },
-        Err(_) => "finstack".to_string(),
+        Err(_) => "finstack.finstack".to_string(),
     };
-    let qual = format!("{pkg}.correlation");
+    let qual = format!("{parent_name}.correlation");
     m.setattr("__package__", &qual)?;
     let sys = PyModule::import(py, "sys")?;
     let modules = sys.getattr("modules")?;

@@ -60,7 +60,8 @@ help: ## Display this help message
 	@printf "  \033[36mtest-python\033[0m         Run Python tests\n"
 	@printf "  \033[36mtest-python-cov\033[0m     Run Python tests with coverage report\n"
 	@printf "  \033[36mexamples-python\033[0m     Run all Python examples (scripts & notebooks)\n"
-	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n\n"
+	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n"
+	@printf "  \033[36mtest-wasm-cov\033[0m       Run WASM binding tests with coverage report\n\n"
 	@printf "Setup & Maintenance:\n"
 	@printf "  \033[36msetup-python\033[0m        Initialize Python environment with uv\n"
 	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings (release)\n"
@@ -235,6 +236,19 @@ wasm-examples-dev: wasm-build
 .PHONY: test-wasm
 test-wasm:
 	cd finstack-wasm && npm run test
+
+WASM_COV_OUTPUT_DIR := target/wasm-cov
+WASM_COV_PROFILE_DIR := $(abspath $(WASM_COV_OUTPUT_DIR))/profraw
+WASM_COV_PROFILE_PATTERN := $(WASM_COV_PROFILE_DIR)/default_%m_%p.profraw
+WASM_COV_IGNORE := '(tests?/|target/|\.cargo/)'
+WASM_COV_BASE := LLVM_PROFILE_FILE="$(WASM_COV_PROFILE_PATTERN)" CARGO_INCREMENTAL=1 cargo llvm-cov -p finstack-wasm --lib --ignore-filename-regex $(WASM_COV_IGNORE)
+
+.PHONY: test-wasm-cov
+test-wasm-cov: ## Run WASM binding tests with coverage report
+	@printf "Running WASM binding coverage...\n"
+	@mkdir -p $(WASM_COV_PROFILE_DIR)
+	$(WASM_COV_BASE) --html --output-dir $(WASM_COV_OUTPUT_DIR)
+	@printf "HTML report: $(WASM_COV_OUTPUT_DIR)/html/index.html\n"
 
 .PHONY: fmt-wasm
 fmt-wasm: ## Format and fix WASM/TS code

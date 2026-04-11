@@ -26,3 +26,26 @@ pub fn model_node_ids(json: &str) -> Result<JsValue, JsValue> {
     let ids: Vec<&str> = model.nodes.keys().map(|k| k.as_str()).collect();
     serde_wasm_bindgen::to_value(&ids).map_err(to_js_err)
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_financial_model_json_accepts_minimal_model() {
+        let model = finstack_statements::FinancialModelSpec::new("test", vec![]);
+        let Ok(json) = serde_json::to_string(&model) else {
+            panic!("model should serialize to JSON");
+        };
+        let Ok(out) = validate_financial_model_json(&json) else {
+            panic!("validate_financial_model_json should accept minimal model");
+        };
+        let Ok(round_trip) = serde_json::from_str::<finstack_statements::FinancialModelSpec>(&out)
+        else {
+            panic!("validated JSON should deserialize");
+        };
+        assert_eq!(round_trip.id, "test");
+        assert!(round_trip.nodes.is_empty());
+    }
+}

@@ -327,15 +327,18 @@
 ## Phase 4: Cross-Cutting
 
 ### 4A — Update Parity Contract
+
 - [ ] Update `parity_contract.toml` with per-domain export counts
 - [ ] Add audit script that reads contract + binding `__all__` and flags gaps
 
 ### 4B — Full Test Suite
+
 - [ ] Expand Python tests per domain (target: parity test per crate-root export)
 - [ ] WASM namespace tests (Node.js based)
 - [ ] Performance benchmarks for new heavy paths
 
 ### 4C — Final Verification
+
 - [ ] `cargo clippy -p finstack-py -- -D warnings` clean
 - [ ] `cargo clippy -p finstack-wasm --target wasm32-unknown-unknown -- -D warnings` clean
 - [ ] All Python tests pass

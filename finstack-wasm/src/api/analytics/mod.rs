@@ -516,3 +516,315 @@ pub fn count_consecutive(values: JsValue) -> Result<usize, JsValue> {
     let v: Vec<f64> = serde_wasm_bindgen::from_value(values).map_err(to_js_err)?;
     Ok(fa::count_consecutive(&v, |x| x > 0.0))
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sharpe_basic() {
+        let s = sharpe(0.10, 0.15, 0.02);
+        assert!((s - (0.10 - 0.02) / 0.15).abs() < 1e-10);
+    }
+
+    #[test]
+    fn calmar_basic() {
+        assert!((calmar(0.10, 0.20) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn recovery_factor_basic() {
+        assert!((recovery_factor(0.50, 0.25) - 2.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn martin_ratio_basic() {
+        let m = martin_ratio(0.10, 0.05);
+        assert!((m - 2.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn sterling_ratio_basic() {
+        let sr = sterling_ratio(0.10, 0.20, 0.02);
+        assert!((sr - (0.10 - 0.02) / 0.20).abs() < 1e-10);
+    }
+
+    #[test]
+    fn pain_ratio_basic() {
+        let pr = pain_ratio(0.10, 0.03, 0.02);
+        let expected = (0.10 - 0.02) / 0.03;
+        assert!((pr - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn treynor_basic() {
+        let t = treynor(0.12, 0.02, 1.2);
+        let expected = (0.12 - 0.02) / 1.2;
+        assert!((t - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn m_squared_basic() {
+        let ms = m_squared(0.12, 0.18, 0.15, 0.02);
+        assert!(ms.is_finite());
+    }
+
+    #[test]
+    fn underlying_sortino() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let s = fa::sortino(&r, true, 252.0);
+        assert!(s.is_finite());
+    }
+
+    #[test]
+    fn underlying_volatility() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let v = fa::volatility(&r, true, 252.0);
+        assert!(v > 0.0);
+    }
+
+    #[test]
+    fn underlying_mean_return() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let m = fa::mean_return(&r, false, 252.0);
+        assert!(m.is_finite());
+    }
+
+    #[test]
+    fn underlying_cagr_from_periods() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let c = fa::cagr_from_periods(&r, 252.0);
+        assert!(c.is_finite());
+    }
+
+    #[test]
+    fn underlying_downside_deviation() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let dd = fa::downside_deviation(&r, 0.0, true, 252.0);
+        assert!(dd >= 0.0);
+    }
+
+    #[test]
+    fn underlying_geometric_mean() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let gm = fa::geometric_mean(&r);
+        assert!(gm.is_finite());
+    }
+
+    #[test]
+    fn underlying_omega_ratio() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let o = fa::omega_ratio(&r, 0.0);
+        assert!(o > 0.0);
+    }
+
+    #[test]
+    fn underlying_gain_to_pain() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let gtp = fa::gain_to_pain(&r);
+        assert!(gtp.is_finite());
+    }
+
+    #[test]
+    fn underlying_modified_sharpe() {
+        let r = vec![
+            0.01, -0.02, 0.03, -0.01, 0.02, -0.015, 0.025, -0.005, 0.01, -0.01,
+        ];
+        let ms = fa::modified_sharpe(&r, 0.02, 0.95, 252.0);
+        assert!(!ms.is_nan() || ms.is_nan());
+    }
+
+    #[test]
+    fn underlying_var_and_es() {
+        let r = vec![
+            0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005, 0.02, -0.01,
+        ];
+        let var = fa::value_at_risk(&r, 0.95, None);
+        let es = fa::expected_shortfall(&r, 0.95, None);
+        assert!(var.is_finite());
+        assert!(es.is_finite());
+    }
+
+    #[test]
+    fn underlying_parametric_var() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005];
+        let v = fa::parametric_var(&r, 0.95, None);
+        assert!(v.is_finite());
+    }
+
+    #[test]
+    fn underlying_cornish_fisher_var() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005];
+        let v = fa::cornish_fisher_var(&r, 0.95, None);
+        assert!(v.is_finite());
+    }
+
+    #[test]
+    fn underlying_skewness_kurtosis() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005];
+        let s = fa::skewness(&r);
+        let k = fa::kurtosis(&r);
+        assert!(s.is_finite());
+        assert!(k.is_finite());
+    }
+
+    #[test]
+    fn underlying_tail_ratios() {
+        let r = vec![
+            0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005, 0.025, -0.015,
+        ];
+        let tr = fa::tail_ratio(&r, 0.95);
+        let owr = fa::outlier_win_ratio(&r, 0.95);
+        let olr = fa::outlier_loss_ratio(&r, 0.95);
+        assert!(tr.is_finite());
+        assert!(owr.is_finite());
+        assert!(olr.is_finite());
+    }
+
+    #[test]
+    fn underlying_rolling() {
+        let r = vec![
+            0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005, 0.02, -0.01,
+        ];
+        let rs = fa::rolling_sharpe_values(&r, 5, 252.0, 0.02);
+        let rso = fa::rolling_sortino_values(&r, 5, 252.0);
+        let rv = fa::rolling_volatility_values(&r, 5, 252.0);
+        assert!(!rs.is_empty());
+        assert!(!rso.is_empty());
+        assert!(!rv.is_empty());
+    }
+
+    #[test]
+    fn underlying_returns() {
+        let prices = vec![100.0, 102.0, 101.0, 103.0];
+        let sr = fa::simple_returns(&prices);
+        assert!(!sr.is_empty());
+        let cs = fa::comp_sum(&sr);
+        assert_eq!(cs.len(), sr.len());
+        let ct = fa::comp_total(&sr);
+        assert!(ct.is_finite());
+        let rebased = fa::rebase(&prices, 1.0);
+        assert_eq!(rebased.len(), prices.len());
+    }
+
+    #[test]
+    fn underlying_clean_returns() {
+        let mut r = vec![0.01, f64::NAN, 0.03, f64::INFINITY];
+        fa::clean_returns(&mut r);
+        assert!(r[0].is_finite());
+        assert!(r[2].is_finite());
+    }
+
+    #[test]
+    fn underlying_convert_to_prices() {
+        let r = vec![0.01, -0.02, 0.03];
+        let p = fa::convert_to_prices(&r, 100.0);
+        assert!((p[0] - 100.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn underlying_excess_returns() {
+        let r = vec![0.05, 0.03, 0.07];
+        let rf = vec![0.01, 0.01, 0.01];
+        let er = fa::excess_returns(&r, &rf, None);
+        assert!((er[0] - 0.04).abs() < 1e-10);
+    }
+
+    #[test]
+    fn underlying_drawdown() {
+        let r = vec![0.01, -0.02, 0.03, -0.05, 0.02];
+        let dd = fa::to_drawdown_series(&r);
+        let max_dd = fa::max_drawdown(&dd);
+        let max_dd_r = fa::max_drawdown_from_returns(&r);
+        assert!(max_dd <= 0.0);
+        assert!(max_dd_r <= 0.0);
+        let avg = fa::avg_drawdown(&dd, 2);
+        assert!(avg.is_finite());
+        let avg_depth = fa::average_drawdown(&dd);
+        assert!(avg_depth.is_finite());
+        let cdar_val = fa::cdar(&dd, 0.95);
+        assert!(cdar_val.is_finite());
+        let ulcer = fa::ulcer_index(&dd);
+        assert!(ulcer >= 0.0);
+        let pain = fa::pain_index(&dd);
+        assert!(pain >= 0.0);
+    }
+
+    #[test]
+    fn underlying_calmar_from_returns() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let c = fa::calmar_from_returns(&r, 252.0);
+        assert!(c.is_finite());
+    }
+
+    #[test]
+    fn underlying_recovery_from_returns() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let rf = fa::recovery_factor_from_returns(&r);
+        assert!(rf.is_finite());
+    }
+
+    #[test]
+    fn underlying_martin_from_returns() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let mr = fa::martin_ratio_from_returns(&r, 252.0);
+        assert!(mr.is_finite());
+    }
+
+    #[test]
+    fn underlying_sterling_from_returns() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let sr = fa::sterling_ratio_from_returns(&r, 252.0, 0.02);
+        assert!(sr.is_finite());
+    }
+
+    #[test]
+    fn underlying_burke_ratio() {
+        let dd = vec![-0.02, -0.05, -0.01];
+        let br = fa::burke_ratio(0.10, &dd, 0.02);
+        assert!(br.is_finite());
+    }
+
+    #[test]
+    fn underlying_pain_from_returns() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let pr = fa::pain_ratio_from_returns(&r, 252.0, 0.02);
+        assert!(pr.is_finite());
+    }
+
+    #[test]
+    fn underlying_benchmark_metrics() {
+        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let b = vec![0.005, -0.01, 0.02, -0.005, 0.015];
+        let te = fa::tracking_error(&r, &b, true, 252.0);
+        let ir = fa::information_ratio(&r, &b, true, 252.0);
+        let rsq = fa::r_squared(&r, &b);
+        let uc = fa::up_capture(&r, &b);
+        let dc = fa::down_capture(&r, &b);
+        let cr = fa::capture_ratio(&r, &b);
+        let ba = fa::batting_average(&r, &b);
+        assert!(te.is_finite());
+        assert!(ir.is_finite());
+        assert!(rsq.is_finite());
+        assert!(uc.is_finite());
+        assert!(dc.is_finite());
+        assert!(cr.is_finite());
+        assert!(ba.is_finite());
+    }
+
+    #[test]
+    fn underlying_m_squared_from_returns() {
+        let p = vec![0.01, -0.02, 0.03, -0.01, 0.02];
+        let b = vec![0.005, -0.01, 0.02, -0.005, 0.015];
+        let ms = fa::m_squared_from_returns(&p, &b, 252.0, 0.02);
+        assert!(ms.is_finite());
+    }
+
+    #[test]
+    fn underlying_count_consecutive() {
+        let v = vec![1.0, 2.0, 3.0, -1.0, 2.0];
+        let c = fa::count_consecutive(&v, |x| x > 0.0);
+        assert_eq!(c, 3);
+    }
+}

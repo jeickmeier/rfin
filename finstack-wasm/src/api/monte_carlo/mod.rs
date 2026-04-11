@@ -299,3 +299,88 @@ fn run_pricer(
         )
         .map_err(to_js_err)
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+    use finstack_monte_carlo::payoff::vanilla::EuropeanCall;
+
+    #[test]
+    fn black_scholes_call_atm_reasonable() {
+        let price = black_scholes_call(100.0, 100.0, 0.05, 0.0, 0.2, 1.0);
+        assert!(price > 5.0 && price < 15.0, "ATM call price={price}");
+    }
+
+    #[test]
+    fn black_scholes_put_atm_positive() {
+        let price = black_scholes_put(100.0, 100.0, 0.05, 0.0, 0.2, 1.0);
+        assert!(price > 0.0);
+    }
+
+    #[test]
+    fn resolve_currency_defaults_and_parses_eur() {
+        let Ok(usd) = resolve_currency(None) else {
+            panic!("resolve_currency(None) should default to USD");
+        };
+        assert_eq!(usd, Currency::USD);
+
+        let Ok(eur) = resolve_currency(Some("EUR")) else {
+            panic!("resolve_currency EUR should succeed");
+        };
+        assert_eq!(eur, Currency::EUR);
+    }
+
+    #[test]
+    fn mc_result_js_from_estimate_maps_fields() {
+        let est = MoneyEstimate {
+            mean: Money::new(10.0, Currency::USD),
+            stderr: 0.25,
+            ci_95: (
+                Money::new(9.0, Currency::USD),
+                Money::new(11.0, Currency::USD),
+            ),
+            num_paths: 1000,
+            std_dev: Some(5.0),
+            median: None,
+            percentile_25: None,
+            percentile_75: None,
+            min: None,
+            max: None,
+        };
+        let js = McResultJs::from_estimate(&est);
+        assert!((js.mean - 10.0).abs() < 1e-12);
+        assert_eq!(js.currency, "USD");
+        assert!((js.stderr - 0.25).abs() < 1e-12);
+        assert_eq!(js.std_dev, Some(5.0));
+        assert!((js.ci_lower - 9.0).abs() < 1e-12);
+        assert!((js.ci_upper - 11.0).abs() < 1e-12);
+        assert_eq!(js.num_paths, 1000);
+    }
+
+    #[test]
+    fn run_pricer_european_call_positive_mean() {
+        let payoff = EuropeanCall::new(100.0, 1.0, 252);
+        let process = GbmProcess::with_params(0.05, 0.0, 0.2);
+        assert!((process.volatility() - 0.2).abs() < 1e-12);
+        let df = (-0.05_f64 * 1.0_f64).exp();
+        let Ok(est) = run_pricer(
+            100.0,
+            0.05,
+            0.0,
+            0.2,
+            1.0,
+            1000,
+            42,
+            252,
+            Currency::USD,
+            &payoff,
+            df,
+        ) else {
+            panic!("run_pricer should succeed");
+        };
+        assert!(est.mean.amount() > 0.0);
+    }
+}

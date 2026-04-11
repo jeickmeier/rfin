@@ -9,3 +9,7 @@ use wasm_bindgen::JsValue;
 pub fn to_js_err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
+
+// Unit tests for `to_js_err` are not feasible on native targets because
+// `JsValue::from_str` panics outside wasm32.  The function is exercised
+// indirectly by every error-path wasm-bindgen-test.

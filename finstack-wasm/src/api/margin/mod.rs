@@ -76,3 +76,62 @@ pub fn calculate_vm(
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn assert_csa_json_shape(json: &str, expected_base_ccy: &str) {
+        let Ok(v) = serde_json::from_str::<Value>(json) else {
+            panic!("CSA JSON should parse");
+        };
+        let Some(obj) = v.as_object() else {
+            panic!("CSA JSON should be an object");
+        };
+        assert!(obj.contains_key("id"));
+        assert!(obj.contains_key("base_currency"));
+        assert!(obj.contains_key("vm_params"));
+        assert!(obj.contains_key("eligible_collateral"));
+        assert!(obj.contains_key("call_timing"));
+        assert!(obj.contains_key("collateral_curve_id"));
+        assert_eq!(
+            obj.get("base_currency").and_then(Value::as_str),
+            Some(expected_base_ccy)
+        );
+    }
+
+    #[test]
+    fn csa_usd_regulatory_json_shape() {
+        let Ok(json) = csa_usd_regulatory() else {
+            panic!("csa_usd_regulatory should succeed");
+        };
+        assert_csa_json_shape(&json, "USD");
+    }
+
+    #[test]
+    fn csa_eur_regulatory_json_shape() {
+        let Ok(json) = csa_eur_regulatory() else {
+            panic!("csa_eur_regulatory should succeed");
+        };
+        assert_csa_json_shape(&json, "EUR");
+    }
+
+    #[test]
+    fn validate_csa_json_round_trips_usd_regulatory() {
+        let Ok(original) = csa_usd_regulatory() else {
+            panic!("csa_usd_regulatory should succeed");
+        };
+        let Ok(parsed_once) = serde_json::from_str::<finstack_margin::CsaSpec>(&original) else {
+            panic!("original JSON should deserialize to CsaSpec");
+        };
+        let Ok(canonical) = validate_csa_json(&original) else {
+            panic!("validate_csa_json should succeed on regulatory CSA JSON");
+        };
+        let Ok(parsed_twice) = serde_json::from_str::<finstack_margin::CsaSpec>(&canonical) else {
+            panic!("canonical JSON should deserialize to CsaSpec");
+        };
+        assert_eq!(parsed_once, parsed_twice);
+    }
+}

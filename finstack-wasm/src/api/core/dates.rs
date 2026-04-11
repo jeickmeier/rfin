@@ -270,3 +270,161 @@ fn epoch_to_date(days: i32) -> Result<time::Date, JsValue> {
     finstack_core::dates::date_from_epoch_days(days)
         .ok_or_else(|| JsValue::from_str("epoch days out of valid date range"))
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn epoch(y: i32, m: u8, d: u8) -> i32 {
+        let month = time::Month::try_from(m).expect("valid month");
+        let date = finstack_core::dates::create_date(y, month, d).expect("valid date");
+        finstack_core::dates::days_since_epoch(date)
+    }
+
+    fn jan15() -> i32 {
+        epoch(2024, 1, 15)
+    }
+
+    fn jul15() -> i32 {
+        epoch(2024, 7, 15)
+    }
+
+    // -- DayCount -----------------------------------------------------------
+
+    #[test]
+    fn daycount_constructors() {
+        let dc = DayCount::act360();
+        assert_eq!(dc.to_string(), "act_360");
+        let dc = DayCount::act365f();
+        assert_eq!(dc.to_string(), "act_365f");
+        let dc = DayCount::thirty360();
+        assert_eq!(dc.to_string(), "30_360");
+        let dc = DayCount::thirty_e360();
+        assert_eq!(dc.to_string(), "30e_360");
+        let dc = DayCount::act_act();
+        assert_eq!(dc.to_string(), "act_act");
+        let dc = DayCount::act_act_isma();
+        assert_eq!(dc.to_string(), "act_act_isma");
+        let dc = DayCount::bus252();
+        assert_eq!(dc.to_string(), "bus_252");
+    }
+
+    #[test]
+    fn daycount_from_string() {
+        let dc = DayCount::new("act_360").expect("valid");
+        assert_eq!(dc.to_string(), "act_360");
+    }
+
+    #[test]
+    fn year_fraction_act365f() {
+        let dc = DayCount::act365f();
+        let yf = dc.year_fraction(jan15(), jul15()).expect("valid");
+        assert!(yf > 0.49 && yf < 0.51, "yf={yf}");
+    }
+
+    #[test]
+    fn calendar_days() {
+        let dc = DayCount::act365f();
+        let days = dc.calendar_days(jan15(), jul15()).expect("valid");
+        assert_eq!(days, (jul15() - jan15()) as i64);
+    }
+
+    // -- Tenor --------------------------------------------------------------
+
+    #[test]
+    fn tenor_factories() {
+        assert_eq!(Tenor::daily().count(), 1);
+        assert_eq!(Tenor::weekly().count(), 1);
+        assert_eq!(Tenor::monthly().count(), 1);
+        assert_eq!(Tenor::quarterly().count(), 3);
+        assert_eq!(Tenor::semi_annual().count(), 6);
+        assert_eq!(Tenor::annual().count(), 1);
+    }
+
+    #[test]
+    fn tenor_parse() {
+        let t = Tenor::new("3M").expect("valid");
+        assert_eq!(t.count(), 3);
+        assert!(t.to_years_simple() > 0.24 && t.to_years_simple() < 0.26);
+    }
+
+    #[test]
+    fn tenor_parse_year() {
+        let t = Tenor::new("1Y").expect("valid");
+        assert!((t.to_years_simple() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn tenor_to_string() {
+        let t = Tenor::quarterly();
+        let s = t.to_string();
+        assert!(s.contains('M') || s.contains('Q'), "got: {s}");
+    }
+
+    // -- Free functions -----------------------------------------------------
+
+    #[test]
+    fn create_date_valid() {
+        let e = create_date(2024, 1, 15).expect("valid");
+        assert_eq!(e, jan15());
+    }
+
+    #[test]
+    fn date_from_epoch_days_roundtrip() {
+        let parts = date_from_epoch_days(jan15()).expect("valid");
+        assert_eq!(parts, vec![2024, 1, 15]);
+    }
+
+    #[test]
+    fn available_calendars_not_empty() {
+        let cals = available_calendars();
+        assert!(!cals.is_empty());
+    }
+
+    #[test]
+    fn epoch_to_date_via_core() {
+        let d = finstack_core::dates::date_from_epoch_days(jan15()).expect("valid");
+        assert_eq!(d.year(), 2024);
+    }
+
+    #[test]
+    fn year_fraction_act360() {
+        let dc = DayCount::act360();
+        let yf = dc.year_fraction(jan15(), jul15()).expect("valid");
+        let days = (jul15() - jan15()) as f64;
+        assert!((yf - days / 360.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn year_fraction_thirty360() {
+        let dc = DayCount::thirty360();
+        let yf = dc.year_fraction(jan15(), jul15()).expect("valid");
+        assert!(yf > 0.0);
+    }
+
+    #[test]
+    fn tenor_weekly_to_string() {
+        let t = Tenor::weekly();
+        let s = t.to_string();
+        assert!(!s.is_empty());
+    }
+
+    #[test]
+    fn tenor_semi_annual_years() {
+        let t = Tenor::semi_annual();
+        assert!((t.to_years_simple() - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn tenor_annual_years() {
+        let t = Tenor::annual();
+        assert!((t.to_years_simple() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn tenor_daily_years() {
+        let t = Tenor::daily();
+        assert!(t.to_years_simple() < 0.01);
+    }
+}

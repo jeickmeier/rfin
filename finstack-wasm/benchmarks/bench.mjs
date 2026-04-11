@@ -698,11 +698,7 @@ async function main() {
   });
 
   benchTry('statements_analytics', 'runVariance', 800, () => {
-    w.runVariance(
-      STATEMENT_RESULT_BASE_JSON,
-      STATEMENT_RESULT_CMP_JSON,
-      VARIANCE_CONFIG_JSON,
-    );
+    w.runVariance(STATEMENT_RESULT_BASE_JSON, STATEMENT_RESULT_CMP_JSON, VARIANCE_CONFIG_JSON);
   });
 
   benchTry('statements_analytics', 'evaluateScenarioSet', 200, () => {
@@ -716,7 +712,7 @@ async function main() {
     console.warn(
       `[bench skip] statements_analytics / generateTornadoEntries (no sensitivity result): ${
         e instanceof Error ? e.message : e
-      }`,
+      }`
     );
   }
   if (sensitivityResultJson) {
@@ -741,7 +737,7 @@ async function main() {
       '2025Q1',
       false,
       undefined,
-      undefined,
+      undefined
     );
   });
 
@@ -785,12 +781,10 @@ async function main() {
       INSTRUMENT_JSON,
       MARKET_CONTEXT_JSON,
       '2024-01-02',
-      'discounting',
+      'discounting'
     );
   } catch (e) {
-    console.warn(
-      `[bench skip] valuations / price paths: ${e instanceof Error ? e.message : e}`,
-    );
+    console.warn(`[bench skip] valuations / price paths: ${e instanceof Error ? e.message : e}`);
   }
 
   if (sampleValuationJson) {
@@ -804,7 +798,7 @@ async function main() {
         MARKET_CONTEXT_JSON,
         '2024-01-02',
         'discounting',
-        [firstStandardMetric],
+        [firstStandardMetric]
       );
     });
 

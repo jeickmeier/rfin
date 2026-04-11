@@ -117,3 +117,70 @@ impl Percentage {
         self.inner.as_percent()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rate_new_roundtrip() {
+        let r = Rate::new(0.05).expect("valid");
+        assert!((r.as_decimal() - 0.05).abs() < 1e-12);
+        assert!((r.as_percent() - 5.0).abs() < 1e-10);
+        assert_eq!(r.as_bps(), 500);
+    }
+
+    #[test]
+    fn rate_from_percent() {
+        let r = Rate::from_percent(5.0).expect("valid");
+        assert!((r.as_decimal() - 0.05).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rate_from_bps() {
+        let r = Rate::from_bps(250.0).expect("valid");
+        assert!((r.as_decimal() - 0.025).abs() < 1e-10);
+        assert_eq!(r.as_bps(), 250);
+    }
+
+    #[test]
+    fn bps_roundtrip() {
+        let b = Bps::new(25.0).expect("valid");
+        assert!((b.as_decimal() - 0.0025).abs() < 1e-10);
+        assert_eq!(b.as_bps(), 25);
+    }
+
+    #[test]
+    fn percentage_roundtrip() {
+        let p = Percentage::new(5.0).expect("valid");
+        assert!((p.as_decimal() - 0.05).abs() < 1e-12);
+        assert!((p.as_percent() - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rate_zero() {
+        let r = Rate::new(0.0).expect("valid");
+        assert_eq!(r.as_decimal(), 0.0);
+        assert_eq!(r.as_percent(), 0.0);
+        assert_eq!(r.as_bps(), 0);
+    }
+
+    #[test]
+    fn bps_large_value() {
+        let b = Bps::new(10_000.0).expect("valid");
+        assert!((b.as_decimal() - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn percentage_zero() {
+        let p = Percentage::new(0.0).expect("valid");
+        assert_eq!(p.as_decimal(), 0.0);
+    }
+
+    #[test]
+    fn rate_negative() {
+        let r = Rate::new(-0.01).expect("valid");
+        assert!((r.as_decimal() - (-0.01)).abs() < 1e-12);
+    }
+}

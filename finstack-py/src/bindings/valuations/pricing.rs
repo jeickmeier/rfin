@@ -127,7 +127,7 @@ fn parse_model_key(s: &str) -> PyResult<finstack_valuations::pricer::ModelKey> {
     use finstack_valuations::pricer::ModelKey;
     match s {
         "discounting" => Ok(ModelKey::Discounting),
-        "hazard_rate" => Ok(ModelKey::HazardRate),        
+        "hazard_rate" => Ok(ModelKey::HazardRate),
         "tree" => Ok(ModelKey::Tree),
         "black76" => Ok(ModelKey::Black76),
         "hull_white_1f" => Ok(ModelKey::HullWhite1F),

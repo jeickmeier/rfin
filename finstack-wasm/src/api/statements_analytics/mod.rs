@@ -232,3 +232,175 @@ pub fn credit_assessment_report(results_json: &str, as_of: &str) -> Result<Strin
         finstack_statements_analytics::analysis::CreditAssessmentReport::new(&results, period);
     Ok(report.to_string())
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::PeriodId;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::evaluator::StatementResult;
+    use finstack_statements::types::AmountOrScalar;
+
+    fn test_model_json() -> String {
+        let q1 = PeriodId::quarter(2024, 1);
+        let model = ModelBuilder::new("test_model")
+            .periods("2024Q1..Q2", None)
+            .expect("periods")
+            .value(
+                "revenue",
+                &[
+                    (q1, AmountOrScalar::scalar(100_000.0)),
+                    (
+                        PeriodId::quarter(2024, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                ],
+            )
+            .value(
+                "cogs",
+                &[
+                    (q1, AmountOrScalar::scalar(40_000.0)),
+                    (PeriodId::quarter(2024, 2), AmountOrScalar::scalar(44_000.0)),
+                ],
+            )
+            .compute("gross_profit", "revenue - cogs")
+            .expect("compute")
+            .build()
+            .expect("build");
+        serde_json::to_string(&model).expect("serialize")
+    }
+
+    fn evaluated_results() -> (String, String) {
+        let model_json = test_model_json();
+        let model: finstack_statements::FinancialModelSpec =
+            serde_json::from_str(&model_json).expect("parse");
+        let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+        let results = evaluator.evaluate(&model).expect("evaluate");
+        let results_json = serde_json::to_string(&results).expect("serialize results");
+        (model_json, results_json)
+    }
+
+    #[test]
+    fn credit_assessment_report_accepts_minimal_results() {
+        let results = StatementResult::default();
+        let results_json = serde_json::to_string(&results).expect("serialize results");
+        let text = credit_assessment_report(&results_json, "2024").expect("report");
+        assert!(text.contains("Credit Assessment"));
+    }
+
+    #[test]
+    fn trace_dependencies_renders_for_simple_model() {
+        let model_json = test_model_json();
+        let tree = trace_dependencies(&model_json, "gross_profit").expect("trace");
+        assert!(!tree.is_empty());
+        assert!(tree.contains("revenue") || tree.contains("gross_profit"));
+    }
+
+    #[test]
+    fn explain_formula_succeeds() {
+        let (model_json, results_json) = evaluated_results();
+        let explanation =
+            explain_formula(&model_json, &results_json, "gross_profit", "2024Q1").expect("explain");
+        assert!(!explanation.is_empty());
+    }
+
+    #[test]
+    fn credit_assessment_report_with_data() {
+        let (_, results_json) = evaluated_results();
+        let text = credit_assessment_report(&results_json, "2024Q1").expect("report");
+        assert!(text.contains("Credit Assessment"));
+    }
+
+    #[test]
+    fn run_sensitivity_diagonal() {
+        let model_json = test_model_json();
+        let config = finstack_statements_analytics::analysis::SensitivityConfig {
+            mode: finstack_statements_analytics::analysis::SensitivityMode::Diagonal,
+            parameters: vec![finstack_statements_analytics::analysis::ParameterSpec {
+                node_id: "revenue".to_string(),
+                period_id: PeriodId::quarter(2024, 1),
+                base_value: 100_000.0,
+                perturbations: vec![-0.1, 0.0, 0.1],
+            }],
+            target_metrics: vec!["gross_profit".to_string()],
+        };
+        let config_json = serde_json::to_string(&config).expect("config");
+        let result = run_sensitivity(&model_json, &config_json).expect("sensitivity");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("parse");
+        assert!(parsed.is_object() || parsed.is_array());
+    }
+
+    #[test]
+    fn generate_tornado_from_sensitivity() {
+        let model_json = test_model_json();
+        let config = finstack_statements_analytics::analysis::SensitivityConfig {
+            mode: finstack_statements_analytics::analysis::SensitivityMode::Tornado,
+            parameters: vec![finstack_statements_analytics::analysis::ParameterSpec {
+                node_id: "revenue".to_string(),
+                period_id: PeriodId::quarter(2024, 1),
+                base_value: 100_000.0,
+                perturbations: vec![-0.1, 0.1],
+            }],
+            target_metrics: vec!["gross_profit".to_string()],
+        };
+        let config_json = serde_json::to_string(&config).expect("config");
+        let result_str = run_sensitivity(&model_json, &config_json).expect("sensitivity");
+        let entries = generate_tornado_entries(&result_str, "gross_profit", None).expect("tornado");
+        let parsed: serde_json::Value = serde_json::from_str(&entries).expect("parse");
+        assert!(parsed.is_array());
+    }
+
+    #[test]
+    fn run_variance_between_two_results() {
+        let (model_json, _) = evaluated_results();
+        let model: finstack_statements::FinancialModelSpec =
+            serde_json::from_str(&model_json).expect("parse model");
+        let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+        let base = evaluator.evaluate(&model).expect("eval base");
+        let comparison = evaluator.evaluate(&model).expect("eval comparison");
+        let base_json = serde_json::to_string(&base).expect("ser base");
+        let comparison_json = serde_json::to_string(&comparison).expect("ser comparison");
+        let config = finstack_statements_analytics::analysis::VarianceConfig {
+            baseline_label: "base".to_string(),
+            comparison_label: "comp".to_string(),
+            metrics: vec!["revenue".to_string(), "gross_profit".to_string()],
+            periods: vec![PeriodId::quarter(2024, 1)],
+        };
+        let config_json = serde_json::to_string(&config).expect("ser config");
+        let result = run_variance(&base_json, &comparison_json, &config_json).expect("variance");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("parse");
+        assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn evaluate_scenario_set_with_override() {
+        let model_json = test_model_json();
+        let mut overrides = indexmap::IndexMap::new();
+        overrides.insert("revenue".to_string(), 200_000.0);
+        let scenario_set = finstack_statements_analytics::analysis::ScenarioSet {
+            scenarios: indexmap::indexmap! {
+                "upside".to_string() => finstack_statements_analytics::analysis::ScenarioDefinition {
+                    model_id: None,
+                    parent: None,
+                    overrides,
+                },
+            },
+        };
+        let scenario_set_json = serde_json::to_string(&scenario_set).expect("ser");
+        let result = evaluate_scenario_set(&model_json, &scenario_set_json).expect("eval");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("parse");
+        assert!(parsed.is_object());
+        assert!(parsed.get("upside").is_some());
+    }
+
+    #[test]
+    fn run_monte_carlo_on_model() {
+        let model_json = test_model_json();
+        let config = finstack_statements::evaluator::MonteCarloConfig::new(10, 42);
+        let config_json = serde_json::to_string(&config).expect("ser config");
+        let result = run_monte_carlo(&model_json, &config_json).expect("mc");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("parse");
+        assert!(parsed.is_object());
+    }
+}
