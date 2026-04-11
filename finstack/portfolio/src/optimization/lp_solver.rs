@@ -94,11 +94,10 @@ impl DefaultLpOptimizer {
         match &problem.objective {
             super::types::Objective::Maximize(expr) | super::types::Objective::Minimize(expr) => {
                 match expr {
-                    MetricExpr::WeightedSum { metric }
-                    | MetricExpr::ValueWeightedAverage { metric } => {
+                    MetricExpr::WeightedSum { metric, .. }
+                    | MetricExpr::ValueWeightedAverage { metric, .. } => {
                         add_metric(metric);
                     }
-                    MetricExpr::TagExposureShare { .. } => {}
                 }
             }
         }
@@ -107,18 +106,14 @@ impl DefaultLpOptimizer {
         for constraint in &problem.constraints {
             match constraint {
                 Constraint::MetricBound { metric, .. } => match metric {
-                    MetricExpr::WeightedSum { metric }
-                    | MetricExpr::ValueWeightedAverage { metric } => {
+                    MetricExpr::WeightedSum { metric, .. }
+                    | MetricExpr::ValueWeightedAverage { metric, .. } => {
                         add_metric(metric);
                     }
-                    MetricExpr::TagExposureShare { .. } => {}
                 },
-                Constraint::TagExposureLimit { .. } => {}
-                Constraint::TagExposureMinimum { .. } => {}
-                Constraint::WeightBounds { .. } => {}
-                Constraint::MaxTurnover { .. } => {}
-                Constraint::MaxPositionDelta { .. } => {}
-                Constraint::Budget { .. } => {}
+                Constraint::WeightBounds { .. }
+                | Constraint::MaxTurnover { .. }
+                | Constraint::Budget { .. } => {}
             }
         }
 
@@ -130,11 +125,15 @@ impl DefaultLpOptimizer {
         match filter {
             PositionFilter::All => true,
             PositionFilter::ByEntityId(id) => position.entity_id == *id,
-            PositionFilter::ByTag { key, value } => {
-                position.attributes.get(key).and_then(|v| v.as_text()) == Some(value.as_str())
-            }
+            PositionFilter::ByAttribute(test) => test.evaluate(&position.attributes),
             PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
             PositionFilter::Not(inner) => !Self::matches_filter(position, inner),
+            PositionFilter::And(filters) => {
+                filters.iter().all(|f| Self::matches_filter(position, f))
+            }
+            PositionFilter::Or(filters) => {
+                filters.iter().any(|f| Self::matches_filter(position, f))
+            }
         }
     }
 
@@ -145,11 +144,47 @@ impl DefaultLpOptimizer {
         match filter {
             PositionFilter::All => true,
             PositionFilter::ByEntityId(id) => candidate.entity_id == *id,
-            PositionFilter::ByTag { key, value } => {
-                candidate.attributes.get(key).map(String::as_str) == Some(value.as_str())
-            }
+            PositionFilter::ByAttribute(test) => test.evaluate(&candidate.attributes),
             PositionFilter::ByPositionIds(ids) => ids.contains(&candidate.id),
             PositionFilter::Not(inner) => !Self::matches_candidate_filter(candidate, inner),
+            PositionFilter::And(filters) => filters
+                .iter()
+                .all(|f| Self::matches_candidate_filter(candidate, f)),
+            PositionFilter::Or(filters) => filters
+                .iter()
+                .any(|f| Self::matches_candidate_filter(candidate, f)),
+        }
+    }
+
+    /// Evaluate a `PositionFilter` against a `DecisionItem` + `DecisionFeatures`.
+    fn matches_decision_filter(
+        item: &DecisionItem,
+        feat: &DecisionFeatures,
+        filter: &PositionFilter,
+        portfolio: &Portfolio,
+    ) -> bool {
+        match filter {
+            PositionFilter::All => true,
+            PositionFilter::ByEntityId(id) => {
+                if item.is_existing {
+                    portfolio
+                        .get_position(item.position_id.as_str())
+                        .is_some_and(|p| p.entity_id == *id)
+                } else {
+                    false
+                }
+            }
+            PositionFilter::ByAttribute(test) => test.evaluate(&feat.attributes),
+            PositionFilter::ByPositionIds(ids) => ids.contains(&item.position_id),
+            PositionFilter::Not(inner) => {
+                !Self::matches_decision_filter(item, feat, inner, portfolio)
+            }
+            PositionFilter::And(filters) => filters
+                .iter()
+                .all(|f| Self::matches_decision_filter(item, feat, f, portfolio)),
+            PositionFilter::Or(filters) => filters
+                .iter()
+                .any(|f| Self::matches_decision_filter(item, feat, f, portfolio)),
         }
     }
 
@@ -164,9 +199,15 @@ impl DefaultLpOptimizer {
             PerPositionMetric::CustomKey(key) => feat.measures.get(key).copied(),
             PerPositionMetric::PvBase => Some(feat.pv_base),
             PerPositionMetric::PvNative => Some(feat.pv_native),
-            PerPositionMetric::TagEquals { key, value } => {
-                let matches = feat.tags.get(key) == Some(value);
-                Some(if matches { 1.0 } else { 0.0 })
+            PerPositionMetric::Attribute(key) => {
+                feat.attributes.get(key).and_then(|v| v.as_number())
+            }
+            PerPositionMetric::AttributeIndicator(test) => {
+                Some(if test.evaluate(&feat.attributes) {
+                    1.0
+                } else {
+                    0.0
+                })
             }
             PerPositionMetric::Constant(c) => Some(*c),
         };
@@ -192,11 +233,16 @@ impl DefaultLpOptimizer {
     ) -> Result<Vec<f64>> {
         let mut coeffs = Vec::with_capacity(feats.len());
         match expr {
-            MetricExpr::WeightedSum { metric } | MetricExpr::ValueWeightedAverage { metric } => {
-                for feat in feats {
+            MetricExpr::WeightedSum { metric, filter }
+            | MetricExpr::ValueWeightedAverage { metric, filter } => {
+                for (item, feat) in items.iter().zip(feats) {
+                    if let Some(f) = filter {
+                        if !Self::matches_decision_filter(item, feat, f, portfolio) {
+                            coeffs.push(0.0);
+                            continue;
+                        }
+                    }
                     let m_i = match metric {
-                        // Native PV is only comparable across positions after FX
-                        // normalization into the portfolio base currency.
                         PerPositionMetric::PvNative => {
                             tracing::info!(
                                 "PvNative substituted with PvBase for cross-currency comparability"
@@ -208,24 +254,8 @@ impl DefaultLpOptimizer {
                     coeffs.push(m_i);
                 }
             }
-            MetricExpr::TagExposureShare { tag_key, tag_value } => {
-                for (item, feat) in items.iter().zip(feats) {
-                    let mut matches = feat.tags.get(tag_key) == Some(tag_value);
-                    // Also consider portfolio‑level tags if any
-                    if !matches {
-                        if let Some(position) = portfolio.get_position(item.position_id.as_str()) {
-                            matches = position.attributes.get(tag_key).and_then(|v| v.as_text())
-                                == Some(tag_value.as_str());
-                        }
-                    }
-                    // Candidates already have tags in `feat.tags`
-                    let weight = if matches { 1.0 } else { 0.0 };
-                    coeffs.push(weight);
-                }
-            }
         }
 
-        // For `MissingMetricPolicy::Exclude`, zero out coefficients for limits (not implemented explicitly yet)
         let _ = trade_universe;
 
         Ok(coeffs)
@@ -290,63 +320,37 @@ impl DefaultLpOptimizer {
 
         let n_vars = decision_items.len();
 
-        // Step 3: Apply weight bounds from WeightBounds / MaxPositionDelta constraints.
+        // Step 3: Apply weight bounds from WeightBounds constraints.
         for constraint in &problem.constraints {
-            match constraint {
-                Constraint::WeightBounds {
-                    filter, min, max, ..
-                } => {
-                    for (item, feat) in decision_items.iter().zip(decision_features.iter_mut()) {
-                        // Reuse matches_filter logic.
-                        let is_match = if item.is_existing {
-                            if let Some(position) =
-                                problem.portfolio.get_position(item.position_id.as_str())
-                            {
-                                Self::matches_filter(position, filter)
-                            } else {
-                                false
-                            }
-                        } else {
-                            problem
-                                .trade_universe
-                                .candidates
-                                .iter()
-                                .find(|candidate| candidate.id == item.position_id)
-                                .is_some_and(|candidate| {
-                                    Self::matches_candidate_filter(candidate, filter)
-                                })
-                        };
-
-                        if is_match {
-                            feat.min_weight = feat.min_weight.max(*min);
-                            feat.max_weight = feat.max_weight.min(*max);
-                        }
-                    }
-                }
-                Constraint::MaxPositionDelta {
-                    filter, max_delta, ..
-                } => {
-                    for (item, feat) in decision_items.iter().zip(decision_features.iter_mut()) {
-                        if !item.is_existing {
-                            continue;
-                        }
-                        let Some(position) =
+            if let Constraint::WeightBounds {
+                filter, min, max, ..
+            } = constraint
+            {
+                for (item, feat) in decision_items.iter().zip(decision_features.iter_mut()) {
+                    let is_match = if item.is_existing {
+                        if let Some(position) =
                             problem.portfolio.get_position(item.position_id.as_str())
-                        else {
-                            continue;
-                        };
-                        if !Self::matches_filter(position, filter) {
-                            continue;
+                        {
+                            Self::matches_filter(position, filter)
+                        } else {
+                            false
                         }
-                        let current_weight = current_weights
-                            .get(&item.position_id)
-                            .copied()
-                            .unwrap_or(0.0);
-                        feat.min_weight = feat.min_weight.max(current_weight - *max_delta);
-                        feat.max_weight = feat.max_weight.min(current_weight + *max_delta);
+                    } else {
+                        problem
+                            .trade_universe
+                            .candidates
+                            .iter()
+                            .find(|candidate| candidate.id == item.position_id)
+                            .is_some_and(|candidate| {
+                                Self::matches_candidate_filter(candidate, filter)
+                            })
+                    };
+
+                    if is_match {
+                        feat.min_weight = feat.min_weight.max(*min);
+                        feat.max_weight = feat.max_weight.min(*max);
                     }
                 }
-                _ => {}
             }
         }
 
@@ -396,56 +400,6 @@ impl DefaultLpOptimizer {
                         name: label.clone(),
                     });
                 }
-                Constraint::TagExposureLimit {
-                    label,
-                    tag_key,
-                    tag_value,
-                    max_share,
-                } => {
-                    let metric = MetricExpr::TagExposureShare {
-                        tag_key: tag_key.clone(),
-                        tag_value: tag_value.clone(),
-                    };
-                    let a = Self::build_metric_coefficients(
-                        &metric,
-                        &decision_features,
-                        problem.missing_metric_policy,
-                        &problem.trade_universe,
-                        &decision_items,
-                        &problem.portfolio,
-                    )?;
-                    lp_constraints.push(LpConstraint {
-                        coefficients: a,
-                        relation: LpRelation::Le,
-                        rhs: *max_share,
-                        name: label.clone(),
-                    });
-                }
-                Constraint::TagExposureMinimum {
-                    label,
-                    tag_key,
-                    tag_value,
-                    min_share,
-                } => {
-                    let metric = MetricExpr::TagExposureShare {
-                        tag_key: tag_key.clone(),
-                        tag_value: tag_value.clone(),
-                    };
-                    let a = Self::build_metric_coefficients(
-                        &metric,
-                        &decision_features,
-                        problem.missing_metric_policy,
-                        &problem.trade_universe,
-                        &decision_items,
-                        &problem.portfolio,
-                    )?;
-                    lp_constraints.push(LpConstraint {
-                        coefficients: a,
-                        relation: LpRelation::Ge,
-                        rhs: *min_share,
-                        name: label.clone(),
-                    });
-                }
                 Constraint::WeightBounds { .. } => {
                     // Already applied to `DecisionFeatures::min_weight/max_weight`.
                 }
@@ -453,23 +407,14 @@ impl DefaultLpOptimizer {
                     label: _,
                     max_turnover,
                 } => {
-                    // Turnover handled later via auxiliary variables.
-                    // We record a placeholder constraint row that will be skipped in
-                    // the primary constraint loop. The actual turnover constraint is
-                    // built with auxiliary variables |w_i - w0_i| below.
                     lp_constraints.push(LpConstraint {
                         coefficients: vec![0.0; n_vars], // placeholder; not used
                         relation: LpRelation::Le,
                         rhs: *max_turnover,
-                        // Use internal marker name to identify this placeholder
                         name: Some("__turnover_placeholder__".to_string()),
                     });
                 }
-                Constraint::MaxPositionDelta { .. } => {
-                    // Implemented later by additional bounds around current weights.
-                }
                 Constraint::Budget { rhs } => {
-                    // Budget: sum_i w_i == rhs
                     let coefficients = vec![1.0; n_vars];
                     lp_constraints.push(LpConstraint {
                         coefficients,
@@ -482,7 +427,6 @@ impl DefaultLpOptimizer {
         }
 
         if !has_budget {
-            // Add implicit budget constraint sum_i w_i == 1.0 if none was provided.
             lp_constraints.push(LpConstraint {
                 coefficients: vec![1.0; n_vars],
                 relation: LpRelation::Eq,
@@ -502,7 +446,6 @@ impl DefaultLpOptimizer {
                 .get(&item.position_id)
                 .copied()
                 .unwrap_or(0.0);
-            // Held positions: lock weight at current value by min = max = current_weight.
             let (min_w, max_w) = if item.is_held {
                 (current_weight, current_weight)
             } else {
@@ -573,8 +516,6 @@ impl DefaultLpOptimizer {
 
         // Add primary constraints
         for lc in &lp_constraints {
-            // Skip placeholder turnover row; actual turnover constraint is
-            // built below with auxiliary variables for |w_i - w0_i|.
             if matches!(lc.name.as_deref(), Some("__turnover_placeholder__")) {
                 continue;
             }
@@ -600,7 +541,6 @@ impl DefaultLpOptimizer {
             .iter()
             .find(|c| matches!(c, Constraint::MaxTurnover { .. }))
         {
-            // For each i: t_i >= w_i - w0_i and t_i >= w0_i - w_i
             for (idx, w_var) in w_vars.iter().enumerate() {
                 let t_var = match t_vars[idx] {
                     Some(v) => v,
@@ -611,16 +551,13 @@ impl DefaultLpOptimizer {
                     .copied()
                     .unwrap_or(0.0);
 
-                // t_i >= w_i - w0  ->  t_i - w_i >= -w0
                 let lhs1: Expression = t_var - w_var.var;
                 problem_model = problem_model.with(constraint!(lhs1 >= w_var.offset - w0));
 
-                // t_i >= w0 - w_i  ->  t_i + w_i >= w0
                 let lhs2: Expression = t_var + w_var.var;
                 problem_model = problem_model.with(constraint!(lhs2 >= w0 - w_var.offset));
             }
 
-            // Sum t_i <= max_turnover
             let mut lhs_turnover: Expression = 0.0.into();
             for tv in t_vars.iter().flatten() {
                 lhs_turnover += *tv;
@@ -706,14 +643,10 @@ impl DefaultLpOptimizer {
             }
         }
 
-        // Dual values are backend-specific and good_lp typically doesn't expose them
-        // in the generic interface. We leave them empty for now.
         let dual_values: IndexMap<String, f64> = IndexMap::new();
 
-        // Optimization status – assume optimal if solve() succeeded.
         let status = OptimizationStatus::Optimal;
 
-        // Reuse results_meta from config.
         let meta = finstack_core::config::results_meta_now(config);
 
         Ok(PortfolioOptimizationResult {
@@ -736,6 +669,7 @@ impl DefaultLpOptimizer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::types::AttributeValue;
 
     #[test]
     fn pv_native_metric_uses_native_value_not_base_value() {
@@ -744,7 +678,7 @@ mod tests {
             pv_native: 100.0,
             pv_per_unit: 125.0,
             measures: IndexMap::new(),
-            tags: IndexMap::new(),
+            attributes: IndexMap::new(),
             min_weight: 0.0,
             max_weight: 1.0,
         };
@@ -757,5 +691,66 @@ mod tests {
         .expect("native PV should be available");
 
         assert_eq!(value, 100.0);
+    }
+
+    #[test]
+    fn attribute_indicator_metric_evaluates_correctly() {
+        let mut attributes = IndexMap::new();
+        attributes.insert(
+            "rating".to_string(),
+            AttributeValue::Text("CCC".to_string()),
+        );
+        let feat = DecisionFeatures {
+            pv_base: 100.0,
+            pv_native: 100.0,
+            pv_per_unit: 100.0,
+            measures: IndexMap::new(),
+            attributes,
+            min_weight: 0.0,
+            max_weight: 1.0,
+        };
+
+        let matching = DefaultLpOptimizer::per_position_metric_value(
+            &PerPositionMetric::AttributeIndicator(crate::types::AttributeTest::text_eq(
+                "rating", "CCC",
+            )),
+            &feat,
+            MissingMetricPolicy::Zero,
+        )
+        .expect("should resolve");
+        assert_eq!(matching, 1.0);
+
+        let non_matching = DefaultLpOptimizer::per_position_metric_value(
+            &PerPositionMetric::AttributeIndicator(crate::types::AttributeTest::text_eq(
+                "rating", "BBB",
+            )),
+            &feat,
+            MissingMetricPolicy::Zero,
+        )
+        .expect("should resolve");
+        assert_eq!(non_matching, 0.0);
+    }
+
+    #[test]
+    fn numeric_attribute_metric_resolves() {
+        let mut attributes = IndexMap::new();
+        attributes.insert("score".to_string(), AttributeValue::Number(650.0));
+        let feat = DecisionFeatures {
+            pv_base: 100.0,
+            pv_native: 100.0,
+            pv_per_unit: 100.0,
+            measures: IndexMap::new(),
+            attributes,
+            min_weight: 0.0,
+            max_weight: 1.0,
+        };
+
+        let value = DefaultLpOptimizer::per_position_metric_value(
+            &PerPositionMetric::Attribute("score".to_string()),
+            &feat,
+            MissingMetricPolicy::Zero,
+        )
+        .expect("should resolve");
+        assert_eq!(value, 650.0);
     }
 }

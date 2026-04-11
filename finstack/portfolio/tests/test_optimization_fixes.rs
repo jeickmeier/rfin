@@ -210,6 +210,7 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::Constant(1.0),
+            filter: None,
         }),
     );
     problem.weighting = WeightingScheme::NotionalWeight;
@@ -248,6 +249,7 @@ fn test_candidate_batching() -> Result<(), Box<dyn std::error::Error>> {
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::PvBase,
+            filter: None,
         }),
     );
 
@@ -334,6 +336,7 @@ fn test_missing_metric_exclude_freezes_position_at_current_weight() {
         portfolio,
         Objective::Maximize(MetricExpr::ValueWeightedAverage {
             metric: PerPositionMetric::Metric(MetricId::Ytm),
+            filter: None,
         }),
     );
     problem.missing_metric_policy = MissingMetricPolicy::Exclude;
@@ -394,6 +397,7 @@ fn test_pv_native_objective_aggregates_via_fx_conversion() {
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::PvNative,
+            filter: None,
         }),
     )
     .with_constraint(finstack_portfolio::optimization::Constraint::WeightBounds {
@@ -455,6 +459,7 @@ fn test_short_candidates_can_take_negative_weights() {
         portfolio,
         Objective::Minimize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::Constant(1.0),
+            filter: None,
         }),
     );
     problem.weighting = WeightingScheme::UnitScaling;
@@ -524,6 +529,7 @@ fn test_notional_weighting_implied_quantities_use_notional_denominator() {
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::Constant(1.0),
+            filter: None,
         }),
     );
     problem.weighting = WeightingScheme::NotionalWeight;

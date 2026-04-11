@@ -28,30 +28,6 @@ pub enum Constraint {
         rhs: f64,
     },
 
-    /// Tag exposure limit, e.g. rating=CCC weight `<= 0.10`.
-    TagExposureLimit {
-        /// Human‑readable label for debugging/diagnostics.
-        label: Option<String>,
-        /// Tag key to match (e.g., "rating").
-        tag_key: String,
-        /// Tag value to match (e.g., "CCC").
-        tag_value: String,
-        /// Maximum share in `[0, 1]`.
-        max_share: f64,
-    },
-
-    /// Minimum tag exposure, e.g. rating=IG weight `>= 0.50`.
-    TagExposureMinimum {
-        /// Human‑readable label for debugging/diagnostics.
-        label: Option<String>,
-        /// Tag key to match (e.g., "rating").
-        tag_key: String,
-        /// Tag value to match (e.g., "IG").
-        tag_value: String,
-        /// Minimum share in `[0, 1]`.
-        min_share: f64,
-    },
-
     /// Weight bounds for all positions matching the filter.
     WeightBounds {
         /// Human‑readable label for debugging/diagnostics.
@@ -70,16 +46,6 @@ pub enum Constraint {
         label: Option<String>,
         /// Maximum allowed turnover (sum of absolute weight changes).
         max_turnover: f64,
-    },
-
-    /// Maximum single position weight change: `|w_new - w_current| <= max_delta`.
-    MaxPositionDelta {
-        /// Human‑readable label for debugging/diagnostics.
-        label: Option<String>,
-        /// Filter to select positions for this constraint.
-        filter: PositionFilter,
-        /// Maximum allowed absolute weight change per position.
-        max_delta: f64,
     },
 
     /// Budget/normalization constraint: usually `∑ w_i == 1.0`.
@@ -110,100 +76,93 @@ impl Constraint {
     pub fn label(&self) -> Option<&str> {
         match self {
             Self::MetricBound { label, .. } => label.as_deref(),
-            Self::TagExposureLimit { label, .. } => label.as_deref(),
-            Self::TagExposureMinimum { label, .. } => label.as_deref(),
             Self::WeightBounds { label, .. } => label.as_deref(),
             Self::MaxTurnover { label, .. } => label.as_deref(),
-            Self::MaxPositionDelta { label, .. } => label.as_deref(),
             Self::Budget { .. } => Some("budget"),
         }
     }
 
-    /// Create a tag exposure limit constraint with validation.
-    ///
-    /// # Arguments
-    ///
-    /// * `tag_key` - Tag key to match (e.g., "rating")
-    /// * `tag_value` - Tag value to match (e.g., "CCC")
-    /// * `max_share` - Maximum share in `[0, 1]`
+    /// Shorthand for attribute exposure limit: `sum w_i * I[attr == value] <= max_share`.
     ///
     /// # Errors
     ///
     /// Returns [`ConstraintValidationError`] if `max_share` is not in `[0, 1]`.
-    pub fn tag_exposure_limit(
-        tag_key: impl Into<String>,
-        tag_value: impl Into<String>,
+    pub fn exposure_limit(
+        key: impl Into<String>,
+        value: impl Into<String>,
         max_share: f64,
     ) -> Result<Self, ConstraintValidationError> {
-        Self::tag_exposure_limit_with_label(None, tag_key, tag_value, max_share)
+        Self::exposure_limit_with_label(None, key, value, max_share)
     }
 
-    /// Create a tag exposure limit constraint with a label and validation.
+    /// Shorthand for attribute exposure limit with a label.
     ///
     /// # Errors
     ///
     /// Returns [`ConstraintValidationError`] if `max_share` is not in `[0, 1]`.
-    pub fn tag_exposure_limit_with_label(
+    pub fn exposure_limit_with_label(
         label: Option<String>,
-        tag_key: impl Into<String>,
-        tag_value: impl Into<String>,
+        key: impl Into<String>,
+        value: impl Into<String>,
         max_share: f64,
     ) -> Result<Self, ConstraintValidationError> {
         if !(0.0..=1.0).contains(&max_share) {
             return Err(ConstraintValidationError {
-                message: format!("max_share must be in [0, 1], got {}", max_share),
+                message: format!("max_share must be in [0, 1], got {max_share}"),
             });
         }
-
-        Ok(Self::TagExposureLimit {
+        Ok(Self::MetricBound {
             label,
-            tag_key: tag_key.into(),
-            tag_value: tag_value.into(),
-            max_share,
+            metric: super::types::MetricExpr::WeightedSum {
+                metric: super::types::PerPositionMetric::AttributeIndicator(
+                    crate::types::AttributeTest::text_eq(key, value),
+                ),
+                filter: None,
+            },
+            op: Inequality::Le,
+            rhs: max_share,
         })
     }
 
-    /// Create a tag exposure minimum constraint with validation.
-    ///
-    /// # Arguments
-    ///
-    /// * `tag_key` - Tag key to match (e.g., "rating")
-    /// * `tag_value` - Tag value to match (e.g., "IG")
-    /// * `min_share` - Minimum share in `[0, 1]`
+    /// Shorthand for attribute exposure minimum: `sum w_i * I[attr == value] >= min_share`.
     ///
     /// # Errors
     ///
     /// Returns [`ConstraintValidationError`] if `min_share` is not in `[0, 1]`.
-    pub fn tag_exposure_minimum(
-        tag_key: impl Into<String>,
-        tag_value: impl Into<String>,
+    pub fn exposure_minimum(
+        key: impl Into<String>,
+        value: impl Into<String>,
         min_share: f64,
     ) -> Result<Self, ConstraintValidationError> {
-        Self::tag_exposure_minimum_with_label(None, tag_key, tag_value, min_share)
+        Self::exposure_minimum_with_label(None, key, value, min_share)
     }
 
-    /// Create a tag exposure minimum constraint with a label and validation.
+    /// Shorthand for attribute exposure minimum with a label.
     ///
     /// # Errors
     ///
     /// Returns [`ConstraintValidationError`] if `min_share` is not in `[0, 1]`.
-    pub fn tag_exposure_minimum_with_label(
+    pub fn exposure_minimum_with_label(
         label: Option<String>,
-        tag_key: impl Into<String>,
-        tag_value: impl Into<String>,
+        key: impl Into<String>,
+        value: impl Into<String>,
         min_share: f64,
     ) -> Result<Self, ConstraintValidationError> {
         if !(0.0..=1.0).contains(&min_share) {
             return Err(ConstraintValidationError {
-                message: format!("min_share must be in [0, 1], got {}", min_share),
+                message: format!("min_share must be in [0, 1], got {min_share}"),
             });
         }
-
-        Ok(Self::TagExposureMinimum {
+        Ok(Self::MetricBound {
             label,
-            tag_key: tag_key.into(),
-            tag_value: tag_value.into(),
-            min_share,
+            metric: super::types::MetricExpr::WeightedSum {
+                metric: super::types::PerPositionMetric::AttributeIndicator(
+                    crate::types::AttributeTest::text_eq(key, value),
+                ),
+                filter: None,
+            },
+            op: Inequality::Ge,
+            rhs: min_share,
         })
     }
 
@@ -292,37 +251,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tag_exposure_limit_validation() {
+    fn test_exposure_limit_validation() {
         // Valid: 0.0
-        assert!(Constraint::tag_exposure_limit("rating", "CCC", 0.0).is_ok());
+        assert!(Constraint::exposure_limit("rating", "CCC", 0.0).is_ok());
 
         // Valid: 1.0
-        assert!(Constraint::tag_exposure_limit("rating", "CCC", 1.0).is_ok());
+        assert!(Constraint::exposure_limit("rating", "CCC", 1.0).is_ok());
 
         // Valid: 0.5
-        assert!(Constraint::tag_exposure_limit("rating", "CCC", 0.5).is_ok());
+        assert!(Constraint::exposure_limit("rating", "CCC", 0.5).is_ok());
 
         // Invalid: negative
-        let result = Constraint::tag_exposure_limit("rating", "CCC", -0.1);
+        let result = Constraint::exposure_limit("rating", "CCC", -0.1);
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("max_share"));
 
         // Invalid: > 1.0
-        let result = Constraint::tag_exposure_limit("rating", "CCC", 1.5);
+        let result = Constraint::exposure_limit("rating", "CCC", 1.5);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_tag_exposure_minimum_validation() {
+    fn test_exposure_minimum_validation() {
         // Valid
-        assert!(Constraint::tag_exposure_minimum("rating", "IG", 0.5).is_ok());
+        assert!(Constraint::exposure_minimum("rating", "IG", 0.5).is_ok());
 
         // Invalid: negative
-        let result = Constraint::tag_exposure_minimum("rating", "IG", -0.1);
+        let result = Constraint::exposure_minimum("rating", "IG", -0.1);
         assert!(result.is_err());
 
         // Invalid: > 1.0
-        let result = Constraint::tag_exposure_minimum("rating", "IG", 1.1);
+        let result = Constraint::exposure_minimum("rating", "IG", 1.1);
         assert!(result.is_err());
     }
 

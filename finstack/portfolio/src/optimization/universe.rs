@@ -1,5 +1,5 @@
 use crate::position::PositionUnit;
-use crate::types::{EntityId, PositionId};
+use crate::types::{AttributeTest, AttributeValue, EntityId, PositionId};
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -14,19 +14,20 @@ pub enum PositionFilter {
     /// Filter by entity ID.
     ByEntityId(EntityId),
 
-    /// Filter by tag key/value (e.g. rating = "HY").
-    ByTag {
-        /// Tag key to match.
-        key: String,
-        /// Tag value to match.
-        value: String,
-    },
+    /// Filter by attribute test (text equality, numeric comparison, etc.).
+    ByAttribute(AttributeTest),
 
     /// Filter by multiple position IDs.
     ByPositionIds(Vec<PositionId>),
 
     /// Exclude positions matching the inner filter.
     Not(Box<PositionFilter>),
+
+    /// Conjunction: positions matching ALL inner filters.
+    And(Vec<PositionFilter>),
+
+    /// Disjunction: positions matching ANY inner filter.
+    Or(Vec<PositionFilter>),
 }
 
 /// A candidate instrument that could be added to the portfolio.
@@ -47,8 +48,8 @@ pub struct CandidatePosition {
     /// Unit type for quantity interpretation.
     pub unit: PositionUnit,
 
-    /// Attributes for the candidate (used in constraints like `TagExposureLimit`).
-    pub attributes: IndexMap<String, String>,
+    /// Attributes for the candidate (used in constraints like exposure limits).
+    pub attributes: IndexMap<String, AttributeValue>,
 
     /// Maximum weight this candidate can receive (default: 1.0 = no limit).
     /// Useful for limiting exposure to any single new position.
@@ -71,7 +72,7 @@ impl CandidatePosition {
     ///
     /// # Returns
     ///
-    /// Candidate with empty tags, `max_weight = 1.0`, and `min_weight = 0.0`.
+    /// Candidate with empty attributes, `max_weight = 1.0`, and `min_weight = 0.0`.
     pub fn new(
         id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
@@ -100,6 +101,42 @@ impl CandidatePosition {
     ///
     /// The updated candidate for fluent chaining.
     pub fn with_text_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.attributes
+            .insert(key.into(), AttributeValue::Text(value.into()));
+        self
+    }
+
+    /// Add a numeric attribute to the candidate.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Attribute key.
+    /// * `value` - Numeric value.
+    ///
+    /// # Returns
+    ///
+    /// The updated candidate for fluent chaining.
+    pub fn with_numeric_attribute(mut self, key: impl Into<String>, value: f64) -> Self {
+        self.attributes
+            .insert(key.into(), AttributeValue::Number(value));
+        self
+    }
+
+    /// Add an attribute to the candidate.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Attribute key.
+    /// * `value` - Attribute value (text or numeric).
+    ///
+    /// # Returns
+    ///
+    /// The updated candidate for fluent chaining.
+    pub fn with_attribute(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<AttributeValue>,
+    ) -> Self {
         self.attributes.insert(key.into(), value.into());
         self
     }

@@ -167,6 +167,7 @@ fn optimize_simple_value_weighted_portfolio() {
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::PvBase,
+            filter: None,
         }),
     );
 
@@ -288,18 +289,17 @@ fn optimize_max_yield_with_ccc_limit() {
     // Objective: maximize value‑weighted average yield.
     let objective = Objective::Maximize(MetricExpr::ValueWeightedAverage {
         metric: PerPositionMetric::Metric(MetricId::Ytm),
+        filter: None,
     });
 
     let mut problem = PortfolioOptimizationProblem::new(portfolio, objective);
     problem.weighting = WeightingScheme::ValueWeight;
 
     // Constraint: CCC exposure <= 20% of portfolio.
-    problem = problem.with_constraint(Constraint::TagExposureLimit {
-        label: Some("ccc_limit".to_string()),
-        tag_key: "rating".to_string(),
-        tag_value: "CCC".to_string(),
-        max_share: 0.20,
-    });
+    problem = problem.with_constraint(
+        Constraint::exposure_limit_with_label(Some("ccc_limit".to_string()), "rating", "CCC", 0.20)
+            .expect("valid constraint"),
+    );
 
     let optimizer = DefaultLpOptimizer::default();
     let result = optimizer
@@ -338,38 +338,6 @@ fn optimize_max_yield_with_ccc_limit() {
         "CCC weight should be <= 20%, got {}",
         ccc_weight
     );
-}
-
-#[test]
-fn optimize_respects_max_position_delta() {
-    let portfolio = build_deposit_portfolio();
-    let market = market_with_usd();
-    let config = FinstackConfig::default();
-
-    let mut problem = PortfolioOptimizationProblem::new(
-        portfolio,
-        Objective::Maximize(MetricExpr::WeightedSum {
-            metric: PerPositionMetric::PvBase,
-        }),
-    );
-    problem = problem.with_constraint(Constraint::MaxPositionDelta {
-        label: Some("cap_single_name_change".to_string()),
-        filter: PositionFilter::All,
-        max_delta: 0.10,
-    });
-
-    let optimizer = DefaultLpOptimizer::default();
-    let result = optimizer
-        .optimize(&problem, &market, &config)
-        .expect("optimization should succeed");
-
-    for delta in result.weight_deltas.values() {
-        assert!(
-            delta.abs() <= 0.10 + 1.0e-9,
-            "weight delta should be bounded by max_position_delta, got {}",
-            delta
-        );
-    }
 }
 
 #[test]
@@ -426,6 +394,7 @@ fn optimize_partial_trade_universe_keeps_excluded_positions_fixed() {
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::PvBase,
+            filter: None,
         }),
     )
     .with_constraint(Constraint::WeightBounds {

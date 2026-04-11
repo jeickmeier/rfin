@@ -3,7 +3,7 @@ use super::types::{MissingMetricPolicy, WeightingScheme};
 use super::universe::PositionFilter;
 use crate::error::{Error, Result};
 use crate::position::Position;
-use crate::types::PositionId;
+use crate::types::{AttributeValue, PositionId};
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::metrics::MetricId;
@@ -51,8 +51,8 @@ pub(crate) struct DecisionFeatures {
     pub pv_per_unit: f64,
     /// Metric measures by string key (as in `ValuationResult::measures`).
     pub measures: IndexMap<String, f64>,
-    /// Tags used by tag‑based constraints.
-    pub tags: IndexMap<String, String>,
+    /// Attributes used by attribute‑based constraints and filters.
+    pub attributes: IndexMap<String, AttributeValue>,
     /// Minimum weight bound.
     pub min_weight: f64,
     /// Maximum weight bound.
@@ -73,11 +73,11 @@ fn matches_filter(position: &Position, filter: &PositionFilter) -> bool {
     match filter {
         PositionFilter::All => true,
         PositionFilter::ByEntityId(id) => position.entity_id == *id,
-        PositionFilter::ByTag { key, value } => {
-            position.attributes.get(key).and_then(|v| v.as_text()) == Some(value.as_str())
-        }
+        PositionFilter::ByAttribute(test) => test.evaluate(&position.attributes),
         PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
         PositionFilter::Not(inner) => !matches_filter(position, inner),
+        PositionFilter::And(filters) => filters.iter().all(|f| matches_filter(position, f)),
+        PositionFilter::Or(filters) => filters.iter().any(|f| matches_filter(position, f)),
     }
 }
 
@@ -103,7 +103,7 @@ pub(crate) fn build_decision_space(
     let mut features = Vec::new();
     let mut current_weights = IndexMap::new();
 
-    // Map position id -> (pv_base, measures, tags, quantity)
+    // Map position id -> (pv_base, measures, attributes, quantity)
     let mut _total_pv_base = 0.0_f64;
     // Gross market value: sum of absolute PVs (for weight calculation with hedged portfolios)
     let mut gross_pv_base = 0.0_f64;
@@ -178,11 +178,7 @@ pub(crate) fn build_decision_space(
                 0.0
             },
             measures,
-            tags: position
-                .attributes
-                .iter()
-                .filter_map(|(k, v)| v.as_text().map(|s| (k.clone(), s.to_string())))
-                .collect(),
+            attributes: position.attributes.clone(),
             min_weight: 0.0,
             max_weight: 1.0,
         });
@@ -198,7 +194,7 @@ pub(crate) fn build_decision_space(
         builder = builder.entity(crate::types::Entity::new("CANDIDATE_POOL"));
 
         for candidate in &problem.trade_universe.candidates {
-            let pos = crate::position::Position::new(
+            let mut pos = crate::position::Position::new(
                 candidate.id.clone(),
                 "CANDIDATE_POOL",
                 candidate.instrument.id(),
@@ -206,8 +202,12 @@ pub(crate) fn build_decision_space(
                 1.0, // Quantity 1.0 for unit pricing
                 candidate.unit,
             )
-            .map_err(|e| Error::invalid_input(e.to_string()))?
-            .with_text_attributes(candidate.attributes.clone());
+            .map_err(|e| Error::invalid_input(e.to_string()))?;
+
+            // Copy attributes directly from candidate
+            for (k, v) in &candidate.attributes {
+                pos.attributes.insert(k.clone(), v.clone());
+            }
 
             builder = builder.position(pos);
         }
@@ -274,7 +274,7 @@ pub(crate) fn build_decision_space(
             pv_native: val_entry.value_native.amount(),
             pv_per_unit: pv_unit,
             measures,
-            tags: candidate.attributes.clone(),
+            attributes: candidate.attributes.clone(),
             min_weight: candidate_min_weight,
             max_weight: candidate.max_weight, // Respect candidate constraints
         });

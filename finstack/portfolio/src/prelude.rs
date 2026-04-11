@@ -28,10 +28,7 @@ pub use crate::margin::{
     PortfolioMarginResult,
 };
 pub use crate::metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
-pub use crate::optimization::{
-    optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult, PortfolioOptimizationProblem,
-    PortfolioOptimizationResult,
-};
+pub use crate::optimization::{PortfolioOptimizationProblem, PortfolioOptimizationResult};
 pub use crate::portfolio::{Portfolio, PortfolioSpec};
 pub use crate::position::{Position, PositionUnit};
 pub use crate::results::PortfolioResult;

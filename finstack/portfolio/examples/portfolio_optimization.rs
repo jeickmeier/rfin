@@ -142,6 +142,7 @@ fn main() -> finstack_portfolio::Result<()> {
     // Objective: maximize value‑weighted average yield (YTM).
     let objective = Objective::Maximize(MetricExpr::ValueWeightedAverage {
         metric: PerPositionMetric::Metric(MetricId::Ytm),
+        filter: None,
     });
 
     let mut problem = PortfolioOptimizationProblem::new(portfolio, objective);
@@ -150,12 +151,10 @@ fn main() -> finstack_portfolio::Result<()> {
     problem.label = Some("max_yield_with_ccc_limit".to_string());
 
     // Constraint: CCC exposure <= 20% of the portfolio.
-    problem = problem.with_constraint(Constraint::TagExposureLimit {
-        label: Some("ccc_limit".to_string()),
-        tag_key: "rating".to_string(),
-        tag_value: "CCC".to_string(),
-        max_share: 0.20,
-    });
+    problem = problem.with_constraint(
+        Constraint::exposure_limit_with_label(Some("ccc_limit".to_string()), "rating", "CCC", 0.20)
+            .expect("valid constraint"),
+    );
 
     let optimizer = DefaultLpOptimizer::default();
     let result = optimizer.optimize(&problem, &market, &config)?;

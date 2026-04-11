@@ -1,3 +1,4 @@
+use crate::types::AttributeTest;
 use finstack_valuations::metrics::MetricId;
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +47,7 @@ pub enum PerPositionMetric {
 
     /// Use the native‑currency PV of the position (after scaling).
     ///
-    /// **Two behaviors** (historical naming: “native” refers to the stored native PV field):
+    /// **Two behaviors** (historical naming: "native" refers to the stored native PV field):
     ///
     /// - When lowering a scalar through the generic per-metric path, this resolves to the
     ///   **native-currency** PV.
@@ -58,13 +59,11 @@ pub enum PerPositionMetric {
     /// Use [`PerPositionMetric::PvBase`] when you need base-currency PV in every context.
     PvNative,
 
-    /// Tag‑based 0/1 indicator: 1.0 if tag matches, else 0.0.
-    TagEquals {
-        /// Tag key to match.
-        key: String,
-        /// Tag value to match.
-        value: String,
-    },
+    /// Numeric attribute value from position attributes.
+    Attribute(String),
+
+    /// 1.0 if the attribute test passes, 0.0 otherwise.
+    AttributeIndicator(AttributeTest),
 
     /// Constant scalar for all positions.
     Constant(f64),
@@ -94,6 +93,9 @@ pub enum MetricExpr {
     WeightedSum {
         /// Per‑position metric to aggregate.
         metric: PerPositionMetric,
+        /// Optional filter restricting which positions contribute.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<super::universe::PositionFilter>,
     },
 
     /// Value‑weighted average: `sum_i w_i * m_i`, with implicit `sum_i w_i == 1`.
@@ -101,15 +103,9 @@ pub enum MetricExpr {
     ValueWeightedAverage {
         /// Per‑position metric to average.
         metric: PerPositionMetric,
-    },
-
-    /// Exposure share for a tag bucket: `sum_i w_i * I[tag == value]`.
-    /// Assumes weights are already normalized (e.g. `ValueWeight`).
-    TagExposureShare {
-        /// Tag key to match.
-        tag_key: String,
-        /// Tag value to match.
-        tag_value: String,
+        /// Optional filter restricting which positions contribute.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<super::universe::PositionFilter>,
     },
 }
 
