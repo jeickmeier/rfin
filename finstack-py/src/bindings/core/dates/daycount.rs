@@ -1,0 +1,404 @@
+//! Python bindings for day-count conventions from [`finstack_core::dates`].
+
+use crate::bindings::core::dates::tenor::PyTenor;
+use crate::bindings::core::dates::utils::py_to_date;
+use crate::errors::core_to_py;
+use finstack_core::dates::{
+    CalendarRegistry, DayCount, DayCountCtx, DayCountCtxState, Tenor, Thirty360Convention,
+};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::{PyModule, PyType};
+
+/// Wrapper for [`DayCount`] exposed to Python as `finstack.core.dates.DayCount`.
+#[pyclass(
+    name = "DayCount",
+    module = "finstack.core.dates",
+    frozen,
+    eq,
+    skip_from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyDayCount {
+    /// Inner day-count convention.
+    pub(crate) inner: DayCount,
+}
+
+impl PyDayCount {
+    /// Build from an existing Rust [`DayCount`].
+    pub(crate) const fn from_inner(inner: DayCount) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyDayCount {
+    /// Actual/360 (money market).
+    #[classattr]
+    const ACT_360: PyDayCount = PyDayCount {
+        inner: DayCount::Act360,
+    };
+    /// Actual/365 Fixed.
+    #[classattr]
+    const ACT_365F: PyDayCount = PyDayCount {
+        inner: DayCount::Act365F,
+    };
+    /// Actual/365 Leap (AFB).
+    #[classattr]
+    const ACT_365L: PyDayCount = PyDayCount {
+        inner: DayCount::Act365L,
+    };
+    /// 30/360 US (Bond Basis).
+    #[classattr]
+    const THIRTY_360: PyDayCount = PyDayCount {
+        inner: DayCount::Thirty360,
+    };
+    /// 30E/360 (Eurobond Basis).
+    #[classattr]
+    const THIRTY_E_360: PyDayCount = PyDayCount {
+        inner: DayCount::ThirtyE360,
+    };
+    /// Actual/Actual (ISDA).
+    #[classattr]
+    const ACT_ACT: PyDayCount = PyDayCount {
+        inner: DayCount::ActAct,
+    };
+    /// Actual/Actual (ICMA/ISMA).
+    #[classattr]
+    const ACT_ACT_ISMA: PyDayCount = PyDayCount {
+        inner: DayCount::ActActIsma,
+    };
+    /// Business/252 (Brazilian market convention).
+    #[classattr]
+    const BUS_252: PyDayCount = PyDayCount {
+        inner: DayCount::Bus252,
+    };
+
+    /// Parse a day-count convention from its string name (e.g. ``"act_360"``).
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        name.parse::<DayCount>()
+            .map(Self::from_inner)
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Compute the year fraction between two dates under this convention.
+    ///
+    /// Dates are Python ``datetime.date`` objects.
+    #[pyo3(signature = (start, end, ctx=None))]
+    fn year_fraction(
+        &self,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+        ctx: Option<&PyDayCountContext>,
+    ) -> PyResult<f64> {
+        let s = py_to_date(start)?;
+        let e = py_to_date(end)?;
+        let context = match ctx {
+            Some(c) => c.to_rust_ctx(),
+            None => DayCountCtx::default(),
+        };
+        self.inner.year_fraction(s, e, context).map_err(core_to_py)
+    }
+
+    /// Compute the signed year fraction (negative when ``start > end``).
+    #[pyo3(signature = (start, end, ctx=None))]
+    fn signed_year_fraction(
+        &self,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+        ctx: Option<&PyDayCountContext>,
+    ) -> PyResult<f64> {
+        let s = py_to_date(start)?;
+        let e = py_to_date(end)?;
+        let context = match ctx {
+            Some(c) => c.to_rust_ctx(),
+            None => DayCountCtx::default(),
+        };
+        self.inner
+            .signed_year_fraction(s, e, context)
+            .map_err(core_to_py)
+    }
+
+    /// Count the calendar days between two dates.
+    #[staticmethod]
+    #[pyo3(text_signature = "(start, end)")]
+    fn calendar_days(start: &Bound<'_, PyAny>, end: &Bound<'_, PyAny>) -> PyResult<i64> {
+        let s = py_to_date(start)?;
+        let e = py_to_date(end)?;
+        Ok(DayCount::calendar_days(s, e))
+    }
+
+    /// Hash based on the discriminant.
+    fn __hash__(&self) -> isize {
+        self.discriminant() as isize
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DayCount('{}')", self.inner)
+    }
+
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+impl PyDayCount {
+    fn discriminant(&self) -> u8 {
+        match self.inner {
+            DayCount::Act360 => 0,
+            DayCount::Act365F => 1,
+            DayCount::Act365L => 2,
+            DayCount::Thirty360 => 3,
+            DayCount::ThirtyE360 => 4,
+            DayCount::ActAct => 5,
+            DayCount::ActActIsma => 6,
+            DayCount::Bus252 => 7,
+            #[allow(unreachable_patterns)]
+            _ => 255,
+        }
+    }
+}
+
+/// Optional context for day-count calculations.
+///
+/// Certain conventions require additional information:
+/// - ``Bus/252`` requires a holiday calendar (resolved by ``calendar_id``).
+/// - ``Act/Act (ISMA)`` requires the coupon ``frequency``.
+#[pyclass(
+    name = "DayCountContext",
+    module = "finstack.core.dates",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyDayCountContext {
+    /// Calendar identifier (e.g. ``"target2"``).
+    calendar_id: Option<String>,
+    /// Coupon frequency for ISMA conventions.
+    frequency: Option<Tenor>,
+    /// Custom business-day divisor (defaults to 252 when omitted).
+    bus_basis: Option<u16>,
+}
+
+impl PyDayCountContext {
+    /// Resolve to a runtime [`DayCountCtx`] using the global calendar registry.
+    fn to_rust_ctx(&self) -> DayCountCtx<'static> {
+        let registry = CalendarRegistry::global();
+        let calendar = self
+            .calendar_id
+            .as_deref()
+            .and_then(|code| registry.resolve_str(code));
+        DayCountCtx {
+            calendar,
+            frequency: self.frequency,
+            bus_basis: self.bus_basis,
+        }
+    }
+}
+
+#[pymethods]
+impl PyDayCountContext {
+    /// Create a day-count context.
+    #[new]
+    #[pyo3(signature = (calendar_id=None, frequency=None, bus_basis=None))]
+    fn new(
+        calendar_id: Option<String>,
+        frequency: Option<PyRef<PyTenor>>,
+        bus_basis: Option<u16>,
+    ) -> Self {
+        Self {
+            calendar_id,
+            frequency: frequency.map(|f| f.inner),
+            bus_basis,
+        }
+    }
+
+    /// Optional calendar identifier.
+    #[getter]
+    fn calendar_id(&self) -> Option<&str> {
+        self.calendar_id.as_deref()
+    }
+
+    /// Optional coupon frequency.
+    #[getter]
+    fn frequency(&self) -> Option<PyTenor> {
+        self.frequency.map(PyTenor::from_inner)
+    }
+
+    /// Optional custom business-day divisor.
+    #[getter]
+    fn bus_basis(&self) -> Option<u16> {
+        self.bus_basis
+    }
+
+    /// Convert to a serializable state snapshot.
+    fn to_state(&self) -> PyDayCountContextState {
+        PyDayCountContextState {
+            inner: DayCountCtxState {
+                calendar_id: self.calendar_id.clone(),
+                frequency: self.frequency,
+                bus_basis: self.bus_basis,
+            },
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DayCountContext(calendar_id={:?}, frequency={:?}, bus_basis={:?})",
+            self.calendar_id, self.frequency, self.bus_basis,
+        )
+    }
+}
+
+/// Serializable snapshot of [`DayCountContext`] for persistence.
+#[pyclass(
+    name = "DayCountContextState",
+    module = "finstack.core.dates",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyDayCountContextState {
+    /// Inner serializable state.
+    pub(crate) inner: DayCountCtxState,
+}
+
+impl PyDayCountContextState {
+    /// Build from an existing Rust [`DayCountCtxState`].
+    #[allow(dead_code)]
+    pub(crate) fn from_inner(inner: DayCountCtxState) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyDayCountContextState {
+    /// Create a context state.
+    #[new]
+    #[pyo3(signature = (calendar_id=None, frequency=None, bus_basis=None))]
+    fn new(
+        calendar_id: Option<String>,
+        frequency: Option<PyRef<PyTenor>>,
+        bus_basis: Option<u16>,
+    ) -> Self {
+        Self {
+            inner: DayCountCtxState {
+                calendar_id,
+                frequency: frequency.map(|f| f.inner),
+                bus_basis,
+            },
+        }
+    }
+
+    /// Reconstruct a live [`DayCountContext`] from this state.
+    fn to_context(&self) -> PyDayCountContext {
+        PyDayCountContext {
+            calendar_id: self.inner.calendar_id.clone(),
+            frequency: self.inner.frequency,
+            bus_basis: self.inner.bus_basis,
+        }
+    }
+
+    /// Optional calendar identifier.
+    #[getter]
+    fn calendar_id(&self) -> Option<&str> {
+        self.inner.calendar_id.as_deref()
+    }
+
+    /// Optional coupon frequency.
+    #[getter]
+    fn frequency(&self) -> Option<PyTenor> {
+        self.inner.frequency.map(PyTenor::from_inner)
+    }
+
+    /// Optional custom business-day divisor.
+    #[getter]
+    fn bus_basis(&self) -> Option<u16> {
+        self.inner.bus_basis
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DayCountContextState(calendar_id={:?}, frequency={:?}, bus_basis={:?})",
+            self.inner.calendar_id, self.inner.frequency, self.inner.bus_basis,
+        )
+    }
+}
+
+/// 30/360 sub-convention (US vs European).
+#[pyclass(
+    name = "Thirty360Convention",
+    module = "finstack.core.dates",
+    frozen,
+    eq,
+    skip_from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyThirty360Convention {
+    /// Inner convention variant.
+    pub(crate) inner: Thirty360Convention,
+}
+
+impl PyThirty360Convention {
+    /// Build from an existing Rust [`Thirty360Convention`].
+    #[allow(dead_code)]
+    pub(crate) const fn from_inner(inner: Thirty360Convention) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyThirty360Convention {
+    /// US 30/360 convention.
+    #[classattr]
+    const US: PyThirty360Convention = PyThirty360Convention {
+        inner: Thirty360Convention::Us,
+    };
+    /// European 30E/360 convention.
+    #[classattr]
+    const EUROPEAN: PyThirty360Convention = PyThirty360Convention {
+        inner: Thirty360Convention::European,
+    };
+
+    /// Hash based on the discriminant.
+    fn __hash__(&self) -> isize {
+        match self.inner {
+            Thirty360Convention::Us => 0,
+            Thirty360Convention::European => 1,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        let label = match self.inner {
+            Thirty360Convention::Us => "US",
+            Thirty360Convention::European => "EUROPEAN",
+        };
+        format!("Thirty360Convention.{label}")
+    }
+
+    fn __str__(&self) -> String {
+        match self.inner {
+            Thirty360Convention::Us => "us".to_string(),
+            Thirty360Convention::European => "european".to_string(),
+        }
+    }
+}
+
+/// Register day-count types on the `finstack.core.dates` module.
+pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyDayCount>()?;
+    m.add_class::<PyDayCountContext>()?;
+    m.add_class::<PyDayCountContextState>()?;
+    m.add_class::<PyThirty360Convention>()?;
+    Ok(())
+}
+
+/// Names exported from this submodule.
+pub const EXPORTS: &[&str] = &[
+    "DayCount",
+    "DayCountContext",
+    "DayCountContextState",
+    "Thirty360Convention",
+];

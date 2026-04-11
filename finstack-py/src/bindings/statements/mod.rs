@@ -1,4 +1,13 @@
 //! Python bindings for the `finstack-statements` crate.
+//!
+//! Exposes the financial model specification types, builder, evaluator,
+//! DSL parser, and EBITDA normalization engine.
+
+mod adjustments;
+mod builder;
+mod dsl;
+mod evaluator;
+mod types;
 
 use pyo3::prelude::*;
 use pyo3::types::PyList;
@@ -6,10 +15,55 @@ use pyo3::types::PyList;
 /// Register the `statements` submodule on the parent module.
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "statements")?;
-    m.setattr("__doc__", "Bindings for the finstack-statements crate.")?;
+    m.setattr(
+        "__doc__",
+        "Financial statement modeling: builders, evaluators, forecasts, DSL, adjustments.",
+    )?;
 
-    let all = PyList::empty(py);
+    types::register(py, &m)?;
+    builder::register(py, &m)?;
+    evaluator::register(py, &m)?;
+    dsl::register(py, &m)?;
+    adjustments::register(py, &m)?;
+
+    let all = PyList::new(
+        py,
+        [
+            // Types
+            "ForecastMethod",
+            "NodeType",
+            "NodeId",
+            "NumericMode",
+            "FinancialModelSpec",
+            // Builder
+            "ModelBuilder",
+            // Evaluator
+            "StatementResult",
+            "Evaluator",
+            // DSL
+            "parse_formula",
+            "validate_formula",
+            // Adjustments
+            "NormalizationConfig",
+            "normalize",
+            "normalize_to_dicts",
+        ],
+    )?;
     m.setattr("__all__", all)?;
     parent.add_submodule(&m)?;
+
+    let pkg: String = match parent.getattr("__package__") {
+        Ok(attr) => match attr.extract::<String>() {
+            Ok(s) => s,
+            Err(_) => "finstack".to_string(),
+        },
+        Err(_) => "finstack".to_string(),
+    };
+    let qual = format!("{pkg}.statements");
+    m.setattr("__package__", &qual)?;
+    let sys = PyModule::import(py, "sys")?;
+    let modules = sys.getattr("modules")?;
+    modules.set_item(&qual, &m)?;
+
     Ok(())
 }

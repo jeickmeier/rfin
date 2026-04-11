@@ -1,3 +1,6 @@
-// Namespace exports for the statements domain.
-// Populated as bindings are rebuilt.
-export const statements = {};
+import * as wasm from '../pkg/finstack_wasm.js';
+
+export const statements = {
+  validateFinancialModelJson: wasm.validateFinancialModelJson,
+  modelNodeIds: wasm.modelNodeIds,
+};

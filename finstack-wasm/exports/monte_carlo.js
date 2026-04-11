@@ -1,3 +1,15 @@
-// Namespace exports for the monte_carlo domain.
-// Populated as bindings are rebuilt.
-export const monte_carlo = {};
+import * as wasm from '../pkg/finstack_wasm.js';
+
+export const monte_carlo = {
+  // European pricing — MC
+  priceEuropeanCall: wasm.priceEuropeanCall,
+  priceEuropeanPut: wasm.priceEuropeanPut,
+  // Path-dependent pricing — MC
+  priceAsianCall: wasm.priceAsianCall,
+  priceAsianPut: wasm.priceAsianPut,
+  // LSMC pricing
+  priceAmericanPut: wasm.priceAmericanPut,
+  // Analytical
+  blackScholesCall: wasm.blackScholesCall,
+  blackScholesPut: wasm.blackScholesPut,
+};

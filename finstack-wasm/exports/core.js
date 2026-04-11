@@ -1,3 +1,34 @@
-// Namespace exports for the core domain.
-// Populated as bindings are rebuilt.
-export const core = {};
+import * as wasm from '../pkg/finstack_wasm.js';
+
+export const core = {
+  Currency: wasm.Currency,
+  Money: wasm.Money,
+  Rate: wasm.Rate,
+  Bps: wasm.Bps,
+  Percentage: wasm.Percentage,
+  DayCount: wasm.DayCount,
+  Tenor: wasm.Tenor,
+  createDate: wasm.createDate,
+  dateFromEpochDays: wasm.dateFromEpochDays,
+  adjustBusinessDay: wasm.adjustBusinessDay,
+  availableCalendars: wasm.availableCalendars,
+  DiscountCurve: wasm.DiscountCurve,
+  ForwardCurve: wasm.ForwardCurve,
+  FxMatrix: wasm.FxMatrix,
+  choleskyDecomposition: wasm.choleskyDecomposition,
+  choleskySolve: wasm.choleskySolve,
+  validateCorrelationMatrix: wasm.validateCorrelationMatrix,
+  mean: wasm.mean,
+  variance: wasm.variance,
+  populationVariance: wasm.populationVariance,
+  correlation: wasm.correlation,
+  covariance: wasm.covariance,
+  quantile: wasm.quantile,
+  normCdf: wasm.normCdf,
+  normPdf: wasm.normPdf,
+  standardNormalInvCdf: wasm.standardNormalInvCdf,
+  erf: wasm.erf,
+  lnGamma: wasm.lnGamma,
+  kahanSum: wasm.kahanSum,
+  neumaierSum: wasm.neumaierSum,
+};

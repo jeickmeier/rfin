@@ -1,0 +1,181 @@
+//! WASM bindings for `finstack_core::math` — linear algebra, statistics,
+//! special functions, and compensated summation.
+
+use crate::utils::to_js_err;
+use finstack_core::math::{linalg, special_functions, stats, summation};
+use wasm_bindgen::prelude::*;
+
+// ---------------------------------------------------------------------------
+// Linear algebra
+// ---------------------------------------------------------------------------
+
+/// Cholesky decomposition of a symmetric positive-definite matrix.
+///
+/// Accepts a square matrix as a nested JS array (`number[][]`, row-major)
+/// and returns the lower-triangular factor L such that A = L L^T.
+#[wasm_bindgen(js_name = choleskyDecomposition)]
+pub fn cholesky_decomposition(matrix: JsValue) -> Result<JsValue, JsValue> {
+    let rows: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(matrix).map_err(to_js_err)?;
+    let n = rows.len();
+    let flat = flatten_matrix(&rows, n)?;
+    let result = linalg::cholesky_decomposition(&flat, n).map_err(to_js_err)?;
+    let nested = unflatten_matrix(&result, n);
+    serde_wasm_bindgen::to_value(&nested).map_err(to_js_err)
+}
+
+/// Solve a symmetric positive-definite linear system A x = b given the
+/// Cholesky factor L (where A = L L^T).
+///
+/// Accepts L as `number[][]` and b as `number[]`. Returns x as `number[]`.
+#[wasm_bindgen(js_name = choleskySolve)]
+pub fn cholesky_solve(chol: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
+    let rows: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(chol).map_err(to_js_err)?;
+    let n = rows.len();
+    let flat = flatten_matrix(&rows, n)?;
+    let b_vec: Vec<f64> = serde_wasm_bindgen::from_value(b).map_err(to_js_err)?;
+    if b_vec.len() != n {
+        return Err(to_js_err(format!(
+            "Right-hand side has length {} but Cholesky factor is {n}x{n}",
+            b_vec.len()
+        )));
+    }
+    let mut x = vec![0.0; n];
+    linalg::cholesky_solve(&flat, &b_vec, &mut x).map_err(to_js_err)?;
+    serde_wasm_bindgen::to_value(&x).map_err(to_js_err)
+}
+
+/// Validate that a matrix is a valid correlation matrix.
+///
+/// Checks diagonal = 1, off-diagonal in [-1, 1], symmetry, and
+/// positive semi-definiteness.
+#[wasm_bindgen(js_name = validateCorrelationMatrix)]
+pub fn validate_correlation_matrix(matrix: JsValue) -> Result<(), JsValue> {
+    let rows: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(matrix).map_err(to_js_err)?;
+    let n = rows.len();
+    let flat = flatten_matrix(&rows, n)?;
+    linalg::validate_correlation_matrix(&flat, n).map_err(to_js_err)
+}
+
+// ---------------------------------------------------------------------------
+// Statistics
+// ---------------------------------------------------------------------------
+
+/// Arithmetic mean.
+#[wasm_bindgen(js_name = mean)]
+pub fn mean(data: JsValue) -> Result<f64, JsValue> {
+    let v: Vec<f64> = serde_wasm_bindgen::from_value(data).map_err(to_js_err)?;
+    Ok(stats::mean(&v))
+}
+
+/// Sample variance (unbiased, n-1 denominator).
+#[wasm_bindgen(js_name = variance)]
+pub fn variance(data: JsValue) -> Result<f64, JsValue> {
+    let v: Vec<f64> = serde_wasm_bindgen::from_value(data).map_err(to_js_err)?;
+    Ok(stats::variance(&v))
+}
+
+/// Population variance (n denominator).
+#[wasm_bindgen(js_name = populationVariance)]
+pub fn population_variance(data: JsValue) -> Result<f64, JsValue> {
+    let v: Vec<f64> = serde_wasm_bindgen::from_value(data).map_err(to_js_err)?;
+    Ok(stats::population_variance(&v))
+}
+
+/// Pearson correlation coefficient.
+#[wasm_bindgen(js_name = correlation)]
+pub fn correlation(x: JsValue, y: JsValue) -> Result<f64, JsValue> {
+    let xv: Vec<f64> = serde_wasm_bindgen::from_value(x).map_err(to_js_err)?;
+    let yv: Vec<f64> = serde_wasm_bindgen::from_value(y).map_err(to_js_err)?;
+    Ok(stats::correlation(&xv, &yv))
+}
+
+/// Sample covariance (unbiased, n-1 denominator).
+#[wasm_bindgen(js_name = covariance)]
+pub fn covariance(x: JsValue, y: JsValue) -> Result<f64, JsValue> {
+    let xv: Vec<f64> = serde_wasm_bindgen::from_value(x).map_err(to_js_err)?;
+    let yv: Vec<f64> = serde_wasm_bindgen::from_value(y).map_err(to_js_err)?;
+    Ok(stats::covariance(&xv, &yv))
+}
+
+/// Empirical quantile (R-7 / NumPy default) with linear interpolation.
+#[wasm_bindgen(js_name = quantile)]
+pub fn quantile(data: JsValue, q: f64) -> Result<f64, JsValue> {
+    let mut v: Vec<f64> = serde_wasm_bindgen::from_value(data).map_err(to_js_err)?;
+    Ok(stats::quantile(&mut v, q))
+}
+
+// ---------------------------------------------------------------------------
+// Special functions
+// ---------------------------------------------------------------------------
+
+/// Standard normal CDF Φ(x).
+#[wasm_bindgen(js_name = normCdf)]
+pub fn norm_cdf(x: f64) -> f64 {
+    special_functions::norm_cdf(x)
+}
+
+/// Standard normal PDF φ(x).
+#[wasm_bindgen(js_name = normPdf)]
+pub fn norm_pdf(x: f64) -> f64 {
+    special_functions::norm_pdf(x)
+}
+
+/// Inverse standard normal CDF Φ⁻¹(p).
+#[wasm_bindgen(js_name = standardNormalInvCdf)]
+pub fn standard_normal_inv_cdf(p: f64) -> f64 {
+    special_functions::standard_normal_inv_cdf(p)
+}
+
+/// Error function erf(x).
+#[wasm_bindgen(js_name = erf)]
+pub fn erf(x: f64) -> f64 {
+    special_functions::erf(x)
+}
+
+/// Natural logarithm of the Gamma function ln(Γ(x)).
+#[wasm_bindgen(js_name = lnGamma)]
+pub fn ln_gamma(x: f64) -> f64 {
+    special_functions::ln_gamma(x)
+}
+
+// ---------------------------------------------------------------------------
+// Summation
+// ---------------------------------------------------------------------------
+
+/// Kahan compensated summation.
+#[wasm_bindgen(js_name = kahanSum)]
+pub fn kahan_sum(values: JsValue) -> Result<f64, JsValue> {
+    let v: Vec<f64> = serde_wasm_bindgen::from_value(values).map_err(to_js_err)?;
+    Ok(summation::kahan_sum(v))
+}
+
+/// Neumaier compensated summation — handles mixed-sign values.
+#[wasm_bindgen(js_name = neumaierSum)]
+pub fn neumaier_sum(values: JsValue) -> Result<f64, JsValue> {
+    let v: Vec<f64> = serde_wasm_bindgen::from_value(values).map_err(to_js_err)?;
+    Ok(summation::neumaier_sum(v))
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/// Flatten nested rows into a row-major `Vec<f64>`, validating squareness.
+fn flatten_matrix(rows: &[Vec<f64>], n: usize) -> Result<Vec<f64>, JsValue> {
+    let mut flat = Vec::with_capacity(n * n);
+    for (i, row) in rows.iter().enumerate() {
+        if row.len() != n {
+            return Err(to_js_err(format!(
+                "Row {i} has length {} but expected {n} for a square matrix",
+                row.len()
+            )));
+        }
+        flat.extend_from_slice(row);
+    }
+    Ok(flat)
+}
+
+/// Unflatten a row-major `Vec<f64>` of length `n*n` into nested rows.
+fn unflatten_matrix(flat: &[f64], n: usize) -> Vec<Vec<f64>> {
+    flat.chunks(n).map(|c| c.to_vec()).collect()
+}

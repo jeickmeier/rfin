@@ -1,8 +1,38 @@
-"""Financial statement modeling: builders, evaluators, forecasts, DSL.
+"""Financial statement modeling: builders, evaluators, forecasts, DSL, adjustments.
 
 Bindings for the ``finstack-statements`` Rust crate.
 """
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from finstack.finstack import statements as _statements
+
+ForecastMethod = _statements.ForecastMethod
+NodeType = _statements.NodeType
+NodeId = _statements.NodeId
+NumericMode = _statements.NumericMode
+FinancialModelSpec = _statements.FinancialModelSpec
+ModelBuilder = _statements.ModelBuilder
+StatementResult = _statements.StatementResult
+Evaluator = _statements.Evaluator
+parse_formula = _statements.parse_formula
+validate_formula = _statements.validate_formula
+NormalizationConfig = _statements.NormalizationConfig
+normalize = _statements.normalize
+normalize_to_dicts = _statements.normalize_to_dicts
+
+__all__: list[str] = [
+    "Evaluator",
+    "FinancialModelSpec",
+    "ForecastMethod",
+    "ModelBuilder",
+    "NodeId",
+    "NodeType",
+    "NormalizationConfig",
+    "NumericMode",
+    "StatementResult",
+    "normalize",
+    "normalize_to_dicts",
+    "parse_formula",
+    "validate_formula",
+]

@@ -1,0 +1,56 @@
+//! Python wrappers for the statement DSL (parser + compiler).
+
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+
+fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
+    PyValueError::new_err(e.to_string())
+}
+
+/// Parse a DSL formula string and return its string representation.
+///
+/// Useful for validating formula syntax without compiling.
+///
+/// Parameters
+/// ----------
+/// formula : str
+///     DSL expression to parse (e.g. ``"revenue - cogs"``).
+///
+/// Returns
+/// -------
+/// str
+///     String representation of the parsed AST.
+#[pyfunction]
+fn parse_formula(formula: &str) -> PyResult<String> {
+    let ast = finstack_statements::dsl::parse_formula(formula).map_err(stmts_to_py)?;
+    Ok(format!("{ast:?}"))
+}
+
+/// Validate that a formula parses and compiles successfully.
+///
+/// Parameters
+/// ----------
+/// formula : str
+///     DSL expression to validate.
+///
+/// Returns
+/// -------
+/// bool
+///     ``True`` if the formula is valid.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If the formula fails to parse or compile.
+#[pyfunction]
+fn validate_formula(formula: &str) -> PyResult<bool> {
+    finstack_statements::dsl::parse_and_compile(formula).map_err(stmts_to_py)?;
+    Ok(true)
+}
+
+/// Register DSL functions.
+pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(pyo3::wrap_pyfunction!(parse_formula, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(validate_formula, m)?)?;
+    Ok(())
+}

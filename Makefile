@@ -58,6 +58,7 @@ help: ## Display this help message
 	@printf "Component Specifics:\n"
 	@printf "  \033[36mtest-rust\033[0m           Run Rust tests (cargo-nextest)\n"
 	@printf "  \033[36mtest-python\033[0m         Run Python tests\n"
+	@printf "  \033[36mtest-python-cov\033[0m     Run Python tests with coverage report\n"
 	@printf "  \033[36mexamples-python\033[0m     Run all Python examples (scripts & notebooks)\n"
 	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n\n"
 	@printf "Setup & Maintenance:\n"
@@ -185,6 +186,11 @@ python-dev-debug: ## Install dependencies and build bindings (debug mode, fast c
 .PHONY: test-python
 test-python: ## Run Python tests
 	@$(call py_run,pytest -v)
+
+.PHONY: test-python-cov
+test-python-cov: ## Run Python tests with coverage report
+	@$(call py_run,pytest -v --cov=finstack-py/finstack --cov-report=term-missing --cov-report=html:target/python-cov)
+	@printf "HTML report: target/python-cov/index.html\n"
 
 .PHONY: fmt-python
 fmt-python: ## Format and fix Python code
@@ -319,7 +325,7 @@ coverage-rust-gate:
 
 coverage-python:
 	@printf "Running Python code coverage...\n"
-	@$(call py_run,pytest --cov=finstack-py --cov-report=html)
+	@$(call py_run,pytest --cov=finstack-py/finstack --cov-report=html)
 
 coverage-html: ## Generate Rust HTML coverage report (pass OPEN=1 to auto-open)
 	@mkdir -p $(COV_PROFILE_DIR)

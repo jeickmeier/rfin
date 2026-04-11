@@ -1,1 +1,78 @@
 //! WASM bindings for the `finstack-margin` crate.
+//!
+//! Exposes CSA specification loading and variation margin calculation
+//! via JSON-based interfaces for JavaScript/TypeScript consumers.
+
+use crate::utils::to_js_err;
+use wasm_bindgen::prelude::*;
+
+/// Create a standard USD regulatory CSA specification as JSON.
+///
+/// Returns the canonical ISDA-compliant CSA for USD OTC derivatives.
+#[wasm_bindgen(js_name = csaUsdRegulatory)]
+pub fn csa_usd_regulatory() -> Result<String, JsValue> {
+    let csa = finstack_margin::CsaSpec::usd_regulatory().map_err(to_js_err)?;
+    serde_json::to_string(&csa).map_err(to_js_err)
+}
+
+/// Create a standard EUR regulatory CSA specification as JSON.
+#[wasm_bindgen(js_name = csaEurRegulatory)]
+pub fn csa_eur_regulatory() -> Result<String, JsValue> {
+    let csa = finstack_margin::CsaSpec::eur_regulatory().map_err(to_js_err)?;
+    serde_json::to_string(&csa).map_err(to_js_err)
+}
+
+/// Validate a CSA specification JSON string.
+///
+/// Deserializes and re-serializes the input to verify it conforms
+/// to the `CsaSpec` schema. Returns the canonical JSON on success.
+#[wasm_bindgen(js_name = validateCsaJson)]
+pub fn validate_csa_json(json: &str) -> Result<String, JsValue> {
+    let csa: finstack_margin::CsaSpec = serde_json::from_str(json).map_err(to_js_err)?;
+    serde_json::to_string(&csa).map_err(to_js_err)
+}
+
+/// Calculate variation margin given exposure, posted collateral, and CSA JSON.
+///
+/// Returns a JSON object with delivery_amount, return_amount, net_exposure,
+/// and requires_call fields.
+///
+/// # Arguments
+///
+/// * `csa_json` - CSA specification as JSON string
+/// * `exposure` - Current mark-to-market exposure amount
+/// * `posted_collateral` - Currently posted collateral amount
+/// * `currency` - ISO currency code (e.g. "USD")
+/// * `year` - Calculation year
+/// * `month` - Calculation month (1-12)
+/// * `day` - Calculation day
+#[wasm_bindgen(js_name = calculateVm)]
+pub fn calculate_vm(
+    csa_json: &str,
+    exposure: f64,
+    posted_collateral: f64,
+    currency: &str,
+    year: i32,
+    month: u8,
+    day: u8,
+) -> Result<JsValue, JsValue> {
+    let csa: finstack_margin::CsaSpec = serde_json::from_str(csa_json).map_err(to_js_err)?;
+    let ccy: finstack_core::currency::Currency = currency.parse().map_err(to_js_err)?;
+    let exp = finstack_core::money::Money::new(exposure, ccy);
+    let posted = finstack_core::money::Money::new(posted_collateral, ccy);
+    let m = time::Month::try_from(month).map_err(to_js_err)?;
+    let as_of = finstack_core::dates::Date::from_calendar_date(year, m, day).map_err(to_js_err)?;
+
+    let calc = finstack_margin::VmCalculator::new(csa);
+    let result = calc.calculate(exp, posted, as_of).map_err(to_js_err)?;
+
+    let out = serde_json::json!({
+        "gross_exposure": result.gross_exposure.amount(),
+        "net_exposure": result.net_exposure.amount(),
+        "delivery_amount": result.delivery_amount.amount(),
+        "return_amount": result.return_amount.amount(),
+        "net_margin": result.net_margin().amount(),
+        "requires_call": result.requires_call(),
+    });
+    serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
+}

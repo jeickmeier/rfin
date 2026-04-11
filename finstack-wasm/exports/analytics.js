@@ -1,3 +1,70 @@
-// Namespace exports for the analytics domain.
-// Populated as bindings are rebuilt.
-export const analytics = {};
+import * as wasm from '../pkg/finstack_wasm.js';
+
+export const analytics = {
+  // Risk metrics — return-based
+  sharpe: wasm.sharpe,
+  sortino: wasm.sortino,
+  volatility: wasm.volatility,
+  meanReturn: wasm.meanReturn,
+  cagrFromPeriods: wasm.cagrFromPeriods,
+  downsideDeviation: wasm.downsideDeviation,
+  geometricMean: wasm.geometricMean,
+  omegaRatio: wasm.omegaRatio,
+  gainToPain: wasm.gainToPain,
+  modifiedSharpe: wasm.modifiedSharpe,
+  // Risk metrics — tail
+  valueAtRisk: wasm.valueAtRisk,
+  expectedShortfall: wasm.expectedShortfall,
+  parametricVar: wasm.parametricVar,
+  cornishFisherVar: wasm.cornishFisherVar,
+  skewness: wasm.skewness,
+  kurtosis: wasm.kurtosis,
+  tailRatio: wasm.tailRatio,
+  outlierWinRatio: wasm.outlierWinRatio,
+  outlierLossRatio: wasm.outlierLossRatio,
+  // Risk metrics — rolling
+  rollingSharpeValues: wasm.rollingSharpeValues,
+  rollingSortinoValues: wasm.rollingSortinoValues,
+  rollingVolatilityValues: wasm.rollingVolatilityValues,
+  // Returns
+  simpleReturns: wasm.simpleReturns,
+  compSum: wasm.compSum,
+  compTotal: wasm.compTotal,
+  cleanReturns: wasm.cleanReturns,
+  convertToPrices: wasm.convertToPrices,
+  rebase: wasm.rebase,
+  excessReturns: wasm.excessReturns,
+  // Drawdown
+  toDrawdownSeries: wasm.toDrawdownSeries,
+  maxDrawdown: wasm.maxDrawdown,
+  maxDrawdownFromReturns: wasm.maxDrawdownFromReturns,
+  avgDrawdown: wasm.avgDrawdown,
+  averageDrawdown: wasm.averageDrawdown,
+  cdar: wasm.cdar,
+  ulcerIndex: wasm.ulcerIndex,
+  painIndex: wasm.painIndex,
+  calmar: wasm.calmar,
+  calmarFromReturns: wasm.calmarFromReturns,
+  recoveryFactor: wasm.recoveryFactor,
+  recoveryFactorFromReturns: wasm.recoveryFactorFromReturns,
+  martinRatio: wasm.martinRatio,
+  martinRatioFromReturns: wasm.martinRatioFromReturns,
+  sterlingRatio: wasm.sterlingRatio,
+  sterlingRatioFromReturns: wasm.sterlingRatioFromReturns,
+  burkeRatio: wasm.burkeRatio,
+  painRatio: wasm.painRatio,
+  painRatioFromReturns: wasm.painRatioFromReturns,
+  // Benchmark
+  trackingError: wasm.trackingError,
+  informationRatio: wasm.informationRatio,
+  rSquared: wasm.rSquared,
+  upCapture: wasm.upCapture,
+  downCapture: wasm.downCapture,
+  captureRatio: wasm.captureRatio,
+  battingAverage: wasm.battingAverage,
+  treynor: wasm.treynor,
+  mSquared: wasm.mSquared,
+  mSquaredFromReturns: wasm.mSquaredFromReturns,
+  // Consecutive
+  countConsecutive: wasm.countConsecutive,
+};

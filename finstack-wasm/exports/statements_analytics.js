@@ -1,3 +1,15 @@
-// Namespace exports for the statements_analytics domain.
-// Populated as bindings are rebuilt.
-export const statements_analytics = {};
+import * as wasm from '../pkg/finstack_wasm.js';
+
+export const statements_analytics = {
+  runSensitivity: wasm.runSensitivity,
+  runVariance: wasm.runVariance,
+  evaluateScenarioSet: wasm.evaluateScenarioSet,
+  backtestForecast: wasm.backtestForecast,
+  generateTornadoEntries: wasm.generateTornadoEntries,
+  runMonteCarlo: wasm.runMonteCarlo,
+  goalSeek: wasm.goalSeek,
+  traceDependencies: wasm.traceDependencies,
+  explainFormula: wasm.explainFormula,
+  plSummaryReport: wasm.plSummaryReport,
+  creditAssessmentReport: wasm.creditAssessmentReport,
+};

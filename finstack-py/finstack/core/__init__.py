@@ -5,4 +5,39 @@ Bindings for the ``finstack-core`` Rust crate.
 
 from __future__ import annotations
 
-__all__: list[str] = []
+import sys
+
+from finstack.finstack import core as _core
+
+currency = _core.currency
+money = _core.money
+config = _core.config
+types = _core.types
+dates = _core.dates
+math = _core.math
+market_data = _core.market_data
+
+_submodules = {
+    "currency": currency,
+    "money": money,
+    "config": config,
+    "types": types,
+    "dates": dates,
+    "math": math,
+    "market_data": market_data,
+}
+
+for _name, _mod in _submodules.items():
+    _key = f"finstack.core.{_name}"
+    if _key not in sys.modules:
+        sys.modules[_key] = _mod
+
+__all__: list[str] = [
+    "config",
+    "currency",
+    "dates",
+    "market_data",
+    "math",
+    "money",
+    "types",
+]

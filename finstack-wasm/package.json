@@ -41,7 +41,8 @@
     "format:check": "npm run format",
     "examples:install": "cd examples && npm install",
     "examples:dev": "cd examples && npm run dev",
-    "examples:build": "cd examples && npm run build"
+    "examples:build": "cd examples && npm run build",
+    "bench": "node benchmarks/bench.mjs"
   },
   "repository": {
     "type": "git",
@@ -75,15 +76,15 @@
   "author": "RustFin Contributors",
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
+    "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.2",
     "react": "^19.2.1",
     "typescript": "^5.9.3"
   }

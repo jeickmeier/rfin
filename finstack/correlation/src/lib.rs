@@ -10,13 +10,15 @@
 //! - [`copula`]: Copula models for default correlation (Gaussian, Student-t, RFL, Multi-factor)
 //! - [`recovery`]: Recovery rate models (constant, market-correlated)
 //! - [`factor_model`]: Factor models for correlated behavior
-//! - [`joint_probability`]: Joint probability utilities for correlated events
+//!
+//! Joint probability utilities ([`CorrelatedBernoulli`], [`correlation_bounds`],
+//! [`joint_probabilities`]) are re-exported from [`finstack_core::math::probability`].
 //!
 //! # Utilities
 //!
 //! - [`factor_model::validate_correlation_matrix`]: Validate correlation matrices
 //! - [`factor_model::cholesky_decompose`]: Cholesky decomposition for correlated factor generation
-//! - [`joint_probability::correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
+//! - [`correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
 //!
 //! # Conventions
 //!
@@ -37,7 +39,6 @@
 pub mod copula;
 pub mod error;
 pub mod factor_model;
-pub mod joint_probability;
 pub mod recovery;
 
 // Re-export commonly used types
@@ -50,5 +51,7 @@ pub use factor_model::{
     cholesky_decompose, validate_correlation_matrix, FactorModel, FactorSpec, MultiFactorModel,
     SingleFactorModel, TwoFactorModel,
 };
-pub use joint_probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
+pub use finstack_core::math::probability::{
+    correlation_bounds, joint_probabilities, CorrelatedBernoulli,
+};
 pub use recovery::{ConstantRecovery, CorrelatedRecovery, RecoveryModel, RecoverySpec};

@@ -1,3 +1,8 @@
-// Namespace exports for the margin domain.
-// Populated as bindings are rebuilt.
-export const margin = {};
+import * as wasm from '../pkg/finstack_wasm.js';
+
+export const margin = {
+  csaUsdRegulatory: wasm.csaUsdRegulatory,
+  csaEurRegulatory: wasm.csaEurRegulatory,
+  validateCsaJson: wasm.validateCsaJson,
+  calculateVm: wasm.calculateVm,
+};
