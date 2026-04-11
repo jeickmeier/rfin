@@ -138,7 +138,9 @@ pub use portfolio::Portfolio;
 pub use portfolio::PortfolioSpec;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResult;
-pub use types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
+pub use types::{
+    AttributeTest, AttributeValue, ComparisonOp, Entity, EntityId, PositionId, DUMMY_ENTITY_ID,
+};
 pub use valuation::{
     revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };

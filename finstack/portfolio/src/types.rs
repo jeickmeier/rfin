@@ -290,8 +290,152 @@ impl Entity {
     }
 }
 
+/// Value stored in a position or candidate attribute.
+///
+/// Positions carry key/value attributes for grouping, filtering, and
+/// optimization constraints.  Text values represent categorical data
+/// (rating, sector), while numeric values represent continuous data
+/// (credit score, ESG score) usable in metric expressions.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AttributeValue {
+    /// Categorical / string attribute (e.g., rating = "CCC", sector = "Energy").
+    Text(String),
+    /// Numeric attribute (e.g., credit_score = 650.0, esg_score = 72.5).
+    Number(f64),
+}
+
+impl AttributeValue {
+    /// Return the text value if this is a `Text` variant.
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Self::Text(s) => Some(s),
+            Self::Number(_) => None,
+        }
+    }
+
+    /// Return the numeric value if this is a `Number` variant.
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            Self::Number(n) => Some(*n),
+            Self::Text(_) => None,
+        }
+    }
+}
+
+impl fmt::Display for AttributeValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Text(s) => write!(f, "{s}"),
+            Self::Number(n) => write!(f, "{n}"),
+        }
+    }
+}
+
+impl From<&str> for AttributeValue {
+    fn from(s: &str) -> Self {
+        Self::Text(s.to_string())
+    }
+}
+
+impl From<String> for AttributeValue {
+    fn from(s: String) -> Self {
+        Self::Text(s)
+    }
+}
+
+impl From<f64> for AttributeValue {
+    fn from(n: f64) -> Self {
+        Self::Number(n)
+    }
+}
+
+/// Comparison operator for attribute-based filtering.
+///
+/// For [`AttributeValue::Text`] attributes, only [`ComparisonOp::Eq`] and
+/// [`ComparisonOp::Ne`] are meaningful; ordering comparisons on text return
+/// `false`.  For [`AttributeValue::Number`] attributes, all six operators
+/// apply.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ComparisonOp {
+    /// Equal.
+    Eq,
+    /// Not equal.
+    Ne,
+    /// Less than (numeric only).
+    Lt,
+    /// Less than or equal (numeric only).
+    Le,
+    /// Greater than (numeric only).
+    Gt,
+    /// Greater than or equal (numeric only).
+    Ge,
+}
+
+/// Predicate that tests a single position attribute against a value.
+///
+/// Reusable building block for [`crate::optimization::PositionFilter::ByAttribute`]
+/// and [`crate::optimization::PerPositionMetric::AttributeIndicator`].
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AttributeTest {
+    /// Attribute key to test.
+    pub key: String,
+    /// Comparison operator.
+    pub op: ComparisonOp,
+    /// Value to compare against.
+    pub value: AttributeValue,
+}
+
+impl AttributeTest {
+    /// Create a new attribute test.
+    pub fn new(key: impl Into<String>, op: ComparisonOp, value: impl Into<AttributeValue>) -> Self {
+        Self {
+            key: key.into(),
+            op,
+            value: value.into(),
+        }
+    }
+
+    /// Convenience: text equality test.
+    pub fn text_eq(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::new(key, ComparisonOp::Eq, AttributeValue::Text(value.into()))
+    }
+
+    /// Convenience: numeric comparison test.
+    pub fn numeric(key: impl Into<String>, op: ComparisonOp, value: f64) -> Self {
+        Self::new(key, op, AttributeValue::Number(value))
+    }
+
+    /// Evaluate this test against a set of attributes.
+    ///
+    /// Returns `false` if the key is absent or types are incompatible
+    /// (e.g., ordering comparison on text).
+    pub fn evaluate(&self, attributes: &IndexMap<String, AttributeValue>) -> bool {
+        let Some(attr) = attributes.get(&self.key) else {
+            return false;
+        };
+        match (&self.op, attr, &self.value) {
+            (ComparisonOp::Eq, AttributeValue::Text(a), AttributeValue::Text(b)) => a == b,
+            (ComparisonOp::Ne, AttributeValue::Text(a), AttributeValue::Text(b)) => a != b,
+            (ComparisonOp::Eq, AttributeValue::Number(a), AttributeValue::Number(b)) => {
+                (a - b).abs() < f64::EPSILON
+            }
+            (ComparisonOp::Ne, AttributeValue::Number(a), AttributeValue::Number(b)) => {
+                (a - b).abs() >= f64::EPSILON
+            }
+            (ComparisonOp::Lt, AttributeValue::Number(a), AttributeValue::Number(b)) => a < b,
+            (ComparisonOp::Le, AttributeValue::Number(a), AttributeValue::Number(b)) => a <= b,
+            (ComparisonOp::Gt, AttributeValue::Number(a), AttributeValue::Number(b)) => a > b,
+            (ComparisonOp::Ge, AttributeValue::Number(a), AttributeValue::Number(b)) => a >= b,
+            _ => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
 
     #[test]
@@ -344,5 +488,78 @@ mod tests {
         assert_eq!(entity.tags.len(), 2);
         assert_eq!(entity.tags.get("sector"), Some(&"Tech".to_string()));
         assert_eq!(entity.tags.get("region"), Some(&"NA".to_string()));
+    }
+
+    #[test]
+    fn test_attribute_value_text() {
+        let v = AttributeValue::Text("CCC".to_string());
+        assert_eq!(v.as_text(), Some("CCC"));
+        assert_eq!(v.as_number(), None);
+        assert_eq!(format!("{v}"), "CCC");
+    }
+
+    #[test]
+    fn test_attribute_value_number() {
+        let v = AttributeValue::Number(72.5);
+        assert_eq!(v.as_text(), None);
+        assert_eq!(v.as_number(), Some(72.5));
+        assert_eq!(format!("{v}"), "72.5");
+    }
+
+    #[test]
+    fn test_attribute_value_from() {
+        let t: AttributeValue = "hello".into();
+        assert!(matches!(t, AttributeValue::Text(_)));
+        let n: AttributeValue = 42.0_f64.into();
+        assert!(matches!(n, AttributeValue::Number(_)));
+    }
+
+    #[test]
+    fn test_attribute_value_serde_text() {
+        let v = AttributeValue::Text("CCC".to_string());
+        let json = serde_json::to_string(&v).unwrap();
+        assert_eq!(json, "\"CCC\"");
+        let round: AttributeValue = serde_json::from_str(&json).unwrap();
+        assert_eq!(round, v);
+    }
+
+    #[test]
+    fn test_attribute_value_serde_number() {
+        let v = AttributeValue::Number(72.5);
+        let json = serde_json::to_string(&v).unwrap();
+        assert_eq!(json, "72.5");
+        let round: AttributeValue = serde_json::from_str(&json).unwrap();
+        assert_eq!(round, v);
+    }
+
+    #[test]
+    fn test_attribute_test_text_eq() {
+        let attrs = IndexMap::from([(
+            "rating".to_string(),
+            AttributeValue::Text("CCC".to_string()),
+        )]);
+        assert!(AttributeTest::text_eq("rating", "CCC").evaluate(&attrs));
+        assert!(!AttributeTest::text_eq("rating", "BB").evaluate(&attrs));
+        assert!(!AttributeTest::text_eq("missing", "CCC").evaluate(&attrs));
+    }
+
+    #[test]
+    fn test_attribute_test_numeric_comparisons() {
+        let attrs = IndexMap::from([("score".to_string(), AttributeValue::Number(650.0))]);
+        assert!(AttributeTest::numeric("score", ComparisonOp::Ge, 600.0).evaluate(&attrs));
+        assert!(!AttributeTest::numeric("score", ComparisonOp::Lt, 600.0).evaluate(&attrs));
+        assert!(AttributeTest::numeric("score", ComparisonOp::Le, 650.0).evaluate(&attrs));
+        assert!(AttributeTest::numeric("score", ComparisonOp::Eq, 650.0).evaluate(&attrs));
+        assert!(!AttributeTest::numeric("score", ComparisonOp::Ne, 650.0).evaluate(&attrs));
+        assert!(AttributeTest::numeric("score", ComparisonOp::Gt, 600.0).evaluate(&attrs));
+    }
+
+    #[test]
+    fn test_attribute_test_type_mismatch() {
+        let attrs = IndexMap::from([(
+            "rating".to_string(),
+            AttributeValue::Text("CCC".to_string()),
+        )]);
+        assert!(!AttributeTest::numeric("rating", ComparisonOp::Gt, 5.0).evaluate(&attrs));
     }
 }
