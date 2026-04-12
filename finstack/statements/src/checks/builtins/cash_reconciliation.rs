@@ -1,0 +1,151 @@
+//! Cash balance reconciliation check.
+
+use serde::{Deserialize, Serialize};
+
+use super::get_node_value;
+use crate::checks::{
+    Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Materiality, Severity,
+};
+use crate::types::NodeId;
+use crate::Result;
+
+/// Checks Cash(t) = Cash(t−1) + TotalCF(t) and optionally
+/// TotalCF = CFO + CFI + CFF.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CashReconciliation {
+    /// Node for cash balance.
+    pub cash_balance_node: NodeId,
+    /// Node for total cash flow.
+    pub total_cash_flow_node: NodeId,
+    /// Optional node for cash from operations.
+    pub cfo_node: Option<NodeId>,
+    /// Optional node for cash from investing.
+    pub cfi_node: Option<NodeId>,
+    /// Optional node for cash from financing.
+    pub cff_node: Option<NodeId>,
+    /// Tolerance override; falls back to [`crate::CheckConfig::default_tolerance`].
+    pub tolerance: Option<f64>,
+}
+
+impl Check for CashReconciliation {
+    fn id(&self) -> &str {
+        "cash_reconciliation"
+    }
+
+    fn name(&self) -> &str {
+        "Cash Reconciliation"
+    }
+
+    fn category(&self) -> CheckCategory {
+        CheckCategory::AccountingIdentity
+    }
+
+    fn execute(&self, context: &CheckContext) -> Result<CheckResult> {
+        let tolerance = self.tolerance.unwrap_or(context.config.default_tolerance);
+        let mut findings = Vec::new();
+        let periods = &context.model.periods;
+
+        for i in 1..periods.len() {
+            let prev_pid = &periods[i - 1].id;
+            let curr_pid = &periods[i].id;
+
+            let Some(cash_prev) =
+                get_node_value(context.results, &self.cash_balance_node, prev_pid)
+            else {
+                continue;
+            };
+            let Some(cash_curr) =
+                get_node_value(context.results, &self.cash_balance_node, curr_pid)
+            else {
+                continue;
+            };
+            let Some(total_cf) =
+                get_node_value(context.results, &self.total_cash_flow_node, curr_pid)
+            else {
+                continue;
+            };
+
+            let expected_cash = cash_prev + total_cf;
+            let diff = cash_curr - expected_cash;
+
+            if diff.abs() > tolerance {
+                let reference = cash_prev.abs().max(1.0);
+                let relative = (diff / reference).abs() * 100.0;
+
+                findings.push(CheckFinding {
+                    check_id: self.id().to_string(),
+                    severity: Severity::Error,
+                    message: format!(
+                        "Cash does not reconcile in {curr_pid}: \
+                         actual ({cash_curr:.2}) != prior ({cash_prev:.2}) + \
+                         total CF ({total_cf:.2}), difference = {diff:.2}"
+                    ),
+                    period: Some(*curr_pid),
+                    materiality: Some(Materiality {
+                        absolute: diff.abs(),
+                        relative_pct: relative,
+                        reference_value: cash_prev,
+                        reference_label: "prior_cash_balance".to_string(),
+                    }),
+                    nodes: vec![
+                        self.cash_balance_node.clone(),
+                        self.total_cash_flow_node.clone(),
+                    ],
+                });
+            }
+
+            // Component check: CFO + CFI + CFF = TotalCF
+            if let (Some(cfo_node), Some(cfi_node), Some(cff_node)) =
+                (&self.cfo_node, &self.cfi_node, &self.cff_node)
+            {
+                let cfo = get_node_value(context.results, cfo_node, curr_pid);
+                let cfi = get_node_value(context.results, cfi_node, curr_pid);
+                let cff = get_node_value(context.results, cff_node, curr_pid);
+
+                if let (Some(cfo_val), Some(cfi_val), Some(cff_val)) = (cfo, cfi, cff) {
+                    let component_sum = cfo_val + cfi_val + cff_val;
+                    let component_diff = total_cf - component_sum;
+
+                    if component_diff.abs() > tolerance {
+                        let reference = total_cf.abs().max(1.0);
+                        let relative = (component_diff / reference).abs() * 100.0;
+
+                        findings.push(CheckFinding {
+                            check_id: self.id().to_string(),
+                            severity: Severity::Error,
+                            message: format!(
+                                "Cash flow components do not sum to total in {curr_pid}: \
+                                 CFO ({cfo_val:.2}) + CFI ({cfi_val:.2}) + CFF ({cff_val:.2}) \
+                                 = {component_sum:.2} != total CF ({total_cf:.2}), \
+                                 difference = {component_diff:.2}"
+                            ),
+                            period: Some(*curr_pid),
+                            materiality: Some(Materiality {
+                                absolute: component_diff.abs(),
+                                relative_pct: relative,
+                                reference_value: total_cf,
+                                reference_label: "total_cash_flow".to_string(),
+                            }),
+                            nodes: vec![
+                                self.total_cash_flow_node.clone(),
+                                cfo_node.clone(),
+                                cfi_node.clone(),
+                                cff_node.clone(),
+                            ],
+                        });
+                    }
+                }
+            }
+        }
+
+        let passed = !findings.iter().any(|f| f.severity == Severity::Error);
+
+        Ok(CheckResult {
+            check_id: self.id().to_string(),
+            check_name: self.name().to_string(),
+            category: self.category(),
+            passed,
+            findings,
+        })
+    }
+}
