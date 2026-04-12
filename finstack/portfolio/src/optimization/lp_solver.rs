@@ -5,10 +5,9 @@ use super::decision::{
 use super::problem::PortfolioOptimizationProblem;
 use super::result::{OptimizationStatus, PortfolioOptimizationResult};
 use super::types::{MetricExpr, MissingMetricPolicy, PerPositionMetric, WeightingScheme};
-use super::universe::{PositionFilter, TradeUniverse};
 use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
-use crate::types::PositionId;
+use crate::types::{EntityId, PositionId};
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
@@ -17,21 +16,8 @@ use good_lp::{constraint, default_solver, variable, Expression, Solution, Solver
 use indexmap::IndexMap;
 
 /// LP‑based optimizer using the `good_lp` crate as backend.
-pub struct DefaultLpOptimizer {
-    /// Solver tolerance for optimality.
-    pub tolerance: f64,
-    /// Maximum iterations (backend‑specific meaning).
-    pub max_iterations: usize,
-}
-
-impl Default for DefaultLpOptimizer {
-    fn default() -> Self {
-        Self {
-            tolerance: 1.0e-8,
-            max_iterations: 10_000,
-        }
-    }
-}
+#[derive(Default)]
+pub struct DefaultLpOptimizer;
 
 /// Relation for LP constraints.
 #[derive(Clone, Copy, Debug)]
@@ -52,6 +38,8 @@ struct LpConstraint {
     rhs: f64,
     /// Optional name (constraint label) for diagnostics.
     name: Option<String>,
+    /// Whether this is a turnover placeholder to be expanded with auxiliary variables.
+    is_turnover_placeholder: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -63,10 +51,6 @@ struct WeightVarSpec {
 }
 
 impl DefaultLpOptimizer {
-    fn validate_supported_problem(_problem: &PortfolioOptimizationProblem) -> Result<()> {
-        Ok(())
-    }
-
     fn reconstruction_denominator(
         weighting: WeightingScheme,
         denominators: OptimizationDenominators,
@@ -120,71 +104,15 @@ impl DefaultLpOptimizer {
         metrics
     }
 
-    /// Check if a position matches a filter.
-    fn matches_filter(position: &crate::position::Position, filter: &PositionFilter) -> bool {
-        match filter {
-            PositionFilter::All => true,
-            PositionFilter::ByEntityId(id) => position.entity_id == *id,
-            PositionFilter::ByAttribute(test) => test.evaluate(&position.attributes),
-            PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
-            PositionFilter::Not(inner) => !Self::matches_filter(position, inner),
-            PositionFilter::And(filters) => {
-                filters.iter().all(|f| Self::matches_filter(position, f))
-            }
-            PositionFilter::Or(filters) => {
-                filters.iter().any(|f| Self::matches_filter(position, f))
-            }
-        }
-    }
-
-    fn matches_candidate_filter(
-        candidate: &super::universe::CandidatePosition,
-        filter: &PositionFilter,
-    ) -> bool {
-        match filter {
-            PositionFilter::All => true,
-            PositionFilter::ByEntityId(id) => candidate.entity_id == *id,
-            PositionFilter::ByAttribute(test) => test.evaluate(&candidate.attributes),
-            PositionFilter::ByPositionIds(ids) => ids.contains(&candidate.id),
-            PositionFilter::Not(inner) => !Self::matches_candidate_filter(candidate, inner),
-            PositionFilter::And(filters) => filters
-                .iter()
-                .all(|f| Self::matches_candidate_filter(candidate, f)),
-            PositionFilter::Or(filters) => filters
-                .iter()
-                .any(|f| Self::matches_candidate_filter(candidate, f)),
-        }
-    }
-
-    /// Evaluate a `PositionFilter` against a `DecisionItem` + `DecisionFeatures`.
-    fn matches_decision_filter(
-        item: &DecisionItem,
-        feat: &DecisionFeatures,
-        filter: &PositionFilter,
-        portfolio: &Portfolio,
-    ) -> bool {
-        match filter {
-            PositionFilter::All => true,
-            PositionFilter::ByEntityId(id) => {
-                if item.is_existing {
-                    portfolio
-                        .get_position(item.position_id.as_str())
-                        .is_some_and(|p| p.entity_id == *id)
-                } else {
-                    false
-                }
-            }
-            PositionFilter::ByAttribute(test) => test.evaluate(&feat.attributes),
-            PositionFilter::ByPositionIds(ids) => ids.contains(&item.position_id),
-            PositionFilter::Not(inner) => {
-                !Self::matches_decision_filter(item, feat, inner, portfolio)
-            }
-            PositionFilter::And(filters) => filters
-                .iter()
-                .all(|f| Self::matches_decision_filter(item, feat, f, portfolio)),
-            PositionFilter::Or(filters) => filters
-                .iter()
-                .any(|f| Self::matches_decision_filter(item, feat, f, portfolio)),
+    /// Resolve the entity ID for a decision item, falling back to empty for candidates.
+    fn decision_entity_id(item: &DecisionItem, portfolio: &Portfolio) -> EntityId {
+        if item.is_existing {
+            portfolio
+                .get_position(item.position_id.as_str())
+                .map(|p| p.entity_id.clone())
+                .unwrap_or_else(|| EntityId::new(""))
+        } else {
+            EntityId::new("")
         }
     }
 
@@ -227,7 +155,6 @@ impl DefaultLpOptimizer {
         expr: &MetricExpr,
         feats: &[DecisionFeatures],
         missing_policy: MissingMetricPolicy,
-        trade_universe: &TradeUniverse,
         items: &[DecisionItem],
         portfolio: &Portfolio,
     ) -> Result<Vec<f64>> {
@@ -237,14 +164,18 @@ impl DefaultLpOptimizer {
             | MetricExpr::ValueWeightedAverage { metric, filter } => {
                 for (item, feat) in items.iter().zip(feats) {
                     if let Some(f) = filter {
-                        if !Self::matches_decision_filter(item, feat, f, portfolio) {
+                        if !f.matches(
+                            &Self::decision_entity_id(item, portfolio),
+                            &item.position_id,
+                            &feat.attributes,
+                        ) {
                             coeffs.push(0.0);
                             continue;
                         }
                     }
                     let m_i = match metric {
                         PerPositionMetric::PvNative => {
-                            tracing::info!(
+                            tracing::debug!(
                                 "PvNative substituted with PvBase for cross-currency comparability"
                             );
                             feat.pv_base
@@ -255,8 +186,6 @@ impl DefaultLpOptimizer {
                 }
             }
         }
-
-        let _ = trade_universe;
 
         Ok(coeffs)
     }
@@ -279,7 +208,6 @@ impl DefaultLpOptimizer {
     ) -> Result<PortfolioOptimizationResult> {
         // Step 0: Validate portfolio and problem basics.
         problem.portfolio.validate()?;
-        Self::validate_supported_problem(problem)?;
 
         match problem.weighting {
             WeightingScheme::ValueWeight
@@ -331,7 +259,11 @@ impl DefaultLpOptimizer {
                         if let Some(position) =
                             problem.portfolio.get_position(item.position_id.as_str())
                         {
-                            Self::matches_filter(position, filter)
+                            filter.matches(
+                                &position.entity_id,
+                                &position.position_id,
+                                &position.attributes,
+                            )
                         } else {
                             false
                         }
@@ -342,7 +274,11 @@ impl DefaultLpOptimizer {
                             .iter()
                             .find(|candidate| candidate.id == item.position_id)
                             .is_some_and(|candidate| {
-                                Self::matches_candidate_filter(candidate, filter)
+                                filter.matches(
+                                    &candidate.entity_id,
+                                    &candidate.id,
+                                    &candidate.attributes,
+                                )
                             })
                     };
 
@@ -362,7 +298,6 @@ impl DefaultLpOptimizer {
                     expr,
                     &decision_features,
                     problem.missing_metric_policy,
-                    &problem.trade_universe,
                     &decision_items,
                     &problem.portfolio,
                 )?
@@ -384,7 +319,6 @@ impl DefaultLpOptimizer {
                         metric,
                         &decision_features,
                         problem.missing_metric_policy,
-                        &problem.trade_universe,
                         &decision_items,
                         &problem.portfolio,
                     )?;
@@ -398,20 +332,22 @@ impl DefaultLpOptimizer {
                         relation,
                         rhs: *rhs,
                         name: label.clone(),
+                        is_turnover_placeholder: false,
                     });
                 }
                 Constraint::WeightBounds { .. } => {
                     // Already applied to `DecisionFeatures::min_weight/max_weight`.
                 }
                 Constraint::MaxTurnover {
-                    label: _,
+                    label,
                     max_turnover,
                 } => {
                     lp_constraints.push(LpConstraint {
-                        coefficients: vec![0.0; n_vars], // placeholder; not used
+                        coefficients: vec![0.0; n_vars],
                         relation: LpRelation::Le,
                         rhs: *max_turnover,
-                        name: Some("__turnover_placeholder__".to_string()),
+                        name: label.clone().or_else(|| Some("turnover".to_string())),
+                        is_turnover_placeholder: true,
                     });
                 }
                 Constraint::Budget { rhs } => {
@@ -421,6 +357,7 @@ impl DefaultLpOptimizer {
                         relation: LpRelation::Eq,
                         rhs: *rhs,
                         name: Some("budget".to_string()),
+                        is_turnover_placeholder: false,
                     });
                 }
             }
@@ -432,6 +369,7 @@ impl DefaultLpOptimizer {
                 relation: LpRelation::Eq,
                 rhs: 1.0,
                 name: Some("budget".to_string()),
+                is_turnover_placeholder: false,
             });
         }
 
@@ -516,7 +454,7 @@ impl DefaultLpOptimizer {
 
         // Add primary constraints
         for lc in &lp_constraints {
-            if matches!(lc.name.as_deref(), Some("__turnover_placeholder__")) {
+            if lc.is_turnover_placeholder {
                 continue;
             }
 

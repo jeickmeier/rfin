@@ -243,6 +243,24 @@ impl Constraint {
             max_turnover,
         })
     }
+
+    /// Create a budget (normalization) constraint with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - Weight sum target (typically 1.0 for fully-invested portfolios).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `rhs` is NaN, infinite, or negative.
+    pub fn budget(rhs: f64) -> Result<Self, ConstraintValidationError> {
+        if !rhs.is_finite() || rhs < 0.0 {
+            return Err(ConstraintValidationError {
+                message: format!("budget rhs must be finite and non-negative, got {rhs}"),
+            });
+        }
+        Ok(Self::Budget { rhs })
+    }
 }
 
 #[cfg(test)]

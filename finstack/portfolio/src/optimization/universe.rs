@@ -30,6 +30,33 @@ pub enum PositionFilter {
     Or(Vec<PositionFilter>),
 }
 
+impl PositionFilter {
+    /// Evaluate this filter against a position-like item.
+    ///
+    /// The caller provides the item's entity ID, position ID, and attributes.
+    /// This avoids duplicating the recursive filter logic for every position-like type.
+    pub fn matches(
+        &self,
+        entity_id: &EntityId,
+        position_id: &PositionId,
+        attributes: &IndexMap<String, AttributeValue>,
+    ) -> bool {
+        match self {
+            Self::All => true,
+            Self::ByEntityId(id) => entity_id == id,
+            Self::ByAttribute(test) => test.evaluate(attributes),
+            Self::ByPositionIds(ids) => ids.contains(position_id),
+            Self::Not(inner) => !inner.matches(entity_id, position_id, attributes),
+            Self::And(filters) => filters
+                .iter()
+                .all(|f| f.matches(entity_id, position_id, attributes)),
+            Self::Or(filters) => filters
+                .iter()
+                .any(|f| f.matches(entity_id, position_id, attributes)),
+        }
+    }
+}
+
 /// A candidate instrument that could be added to the portfolio.
 ///
 /// This represents an instrument not currently held but available for trading.

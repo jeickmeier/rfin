@@ -156,7 +156,7 @@ fn main() -> finstack_portfolio::Result<()> {
             .expect("valid constraint"),
     );
 
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer.optimize(&problem, &market, &config)?;
 
     println!("=== Portfolio Optimization Example ===");

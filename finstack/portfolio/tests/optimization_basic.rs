@@ -171,7 +171,7 @@ fn optimize_simple_value_weighted_portfolio() {
         }),
     );
 
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer
         .optimize(&problem, &market, &config)
         .expect("optimization should succeed");
@@ -301,7 +301,7 @@ fn optimize_max_yield_with_ccc_limit() {
             .expect("valid constraint"),
     );
 
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer
         .optimize(&problem, &market, &config)
         .expect("optimization should succeed");
@@ -408,7 +408,7 @@ fn optimize_partial_trade_universe_keeps_excluded_positions_fixed() {
             .with_candidate(candidate),
     );
 
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer
         .optimize(&problem, &market, &config)
         .expect("partial universe with fixed sleeves should succeed");

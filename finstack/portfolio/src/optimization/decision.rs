@@ -1,8 +1,6 @@
 use super::problem::PortfolioOptimizationProblem;
 use super::types::{MissingMetricPolicy, WeightingScheme};
-use super::universe::PositionFilter;
 use crate::error::{Error, Result};
-use crate::position::Position;
 use crate::types::{AttributeValue, PositionId};
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
@@ -68,19 +66,6 @@ fn metrics_to_strings(
         .collect()
 }
 
-/// Check if a position matches a filter.
-fn matches_filter(position: &Position, filter: &PositionFilter) -> bool {
-    match filter {
-        PositionFilter::All => true,
-        PositionFilter::ByEntityId(id) => position.entity_id == *id,
-        PositionFilter::ByAttribute(test) => test.evaluate(&position.attributes),
-        PositionFilter::ByPositionIds(ids) => ids.contains(&position.position_id),
-        PositionFilter::Not(inner) => !matches_filter(position, inner),
-        PositionFilter::And(filters) => filters.iter().all(|f| matches_filter(position, f)),
-        PositionFilter::Or(filters) => filters.iter().any(|f| matches_filter(position, f)),
-    }
-}
-
 fn is_missing_required_metrics(
     measures: &IndexMap<String, f64>,
     required_metrics: &[MetricId],
@@ -103,8 +88,6 @@ pub(crate) fn build_decision_space(
     let mut features = Vec::new();
     let mut current_weights = IndexMap::new();
 
-    // Map position id -> (pv_base, measures, attributes, quantity)
-    let mut _total_pv_base = 0.0_f64;
     // Gross market value: sum of absolute PVs (for weight calculation with hedged portfolios)
     let mut gross_pv_base = 0.0_f64;
     // Track notional values for NotionalWeight scheme
@@ -125,7 +108,6 @@ pub(crate) fn build_decision_space(
 
         let pv_base = pv_entry.value_base.amount();
         let pv_native = pv_entry.value_native.amount();
-        _total_pv_base += pv_base;
         gross_pv_base += pv_base.abs();
         // For NotionalWeight: use signed quantity as notional proxy
         position_notionals.insert(position.position_id.clone(), position.quantity);
@@ -149,12 +131,20 @@ pub(crate) fn build_decision_space(
 
         // Decide if position is held / tradeable
         let explicit_hold = if let Some(ref held) = problem.trade_universe.held_filter {
-            matches_filter(position, held)
+            held.matches(
+                &position.entity_id,
+                &position.position_id,
+                &position.attributes,
+            )
         } else {
             false
         };
 
-        let is_tradeable = matches_filter(position, &problem.trade_universe.tradeable_filter);
+        let is_tradeable = problem.trade_universe.tradeable_filter.matches(
+            &position.entity_id,
+            &position.position_id,
+            &position.attributes,
+        );
         let is_excluded = !is_tradeable && !explicit_hold;
         let freeze_for_missing_metrics = missing_required_metrics
             && matches!(problem.missing_metric_policy, MissingMetricPolicy::Exclude);

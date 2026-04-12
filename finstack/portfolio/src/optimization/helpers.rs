@@ -107,7 +107,7 @@ pub fn optimize_from_spec(
     problem.label = spec.label.clone();
     problem = problem.with_constraints(spec.constraints.clone());
 
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer.optimize(&problem, market, config)?;
 
     let binding = result

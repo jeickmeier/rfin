@@ -217,7 +217,7 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
 
     let market = build_mock_market();
     let config = FinstackConfig::default();
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
 
     let result = optimizer.optimize(&problem, &market, &config)?;
 
@@ -280,7 +280,7 @@ fn test_candidate_batching() -> Result<(), Box<dyn std::error::Error>> {
 
     let market = build_mock_market();
     let config = FinstackConfig::default();
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
 
     let result = optimizer.optimize(&problem, &market, &config)?;
 
@@ -343,7 +343,7 @@ fn test_missing_metric_exclude_freezes_position_at_current_weight() {
 
     let market = build_mock_market();
     let config = FinstackConfig::default();
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer
         .optimize(&problem, &market, &config)
         .expect("Exclude policy should freeze missing-metric positions");
@@ -415,7 +415,7 @@ fn test_pv_native_objective_aggregates_via_fx_conversion() {
 
     let market = build_multi_currency_market();
     let config = FinstackConfig::default();
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer.optimize(&problem, &market, &config).unwrap();
 
     assert_eq!(result.optimal_weights.get("POS_USD"), Some(&0.25));
@@ -473,7 +473,7 @@ fn test_short_candidates_can_take_negative_weights() {
 
     let market = build_mock_market();
     let config = FinstackConfig::default();
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer.optimize(&problem, &market, &config).unwrap();
 
     assert_eq!(result.optimal_weights.get("SHORT_CANDIDATE"), Some(&-0.4));
@@ -553,7 +553,7 @@ fn test_notional_weighting_implied_quantities_use_notional_denominator() {
 
     let market = build_mock_market();
     let config = FinstackConfig::default();
-    let optimizer = DefaultLpOptimizer::default();
+    let optimizer = DefaultLpOptimizer;
     let result = optimizer.optimize(&problem, &market, &config).unwrap();
 
     assert_eq!(result.implied_quantities.get("POS_1"), Some(&1.0));

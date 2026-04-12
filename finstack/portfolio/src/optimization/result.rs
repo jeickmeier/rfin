@@ -125,6 +125,10 @@ pub struct PortfolioOptimizationResult {
 
     /// Shadow prices / dual values for constraints (how much objective improves
     /// per unit relaxation). Key is constraint label or auto‑generated identifier.
+    ///
+    /// **Note:** The current LP backend (`good_lp` / `minilp`) does not expose
+    /// dual information, so this map is always empty. It is retained for forward
+    /// compatibility with solvers that do support duals.
     pub dual_values: IndexMap<String, f64>,
 
     /// Constraint slack values (positive = slack, zero ≈ binding).

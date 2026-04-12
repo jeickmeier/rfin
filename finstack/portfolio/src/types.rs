@@ -418,10 +418,14 @@ impl AttributeTest {
             (ComparisonOp::Eq, AttributeValue::Text(a), AttributeValue::Text(b)) => a == b,
             (ComparisonOp::Ne, AttributeValue::Text(a), AttributeValue::Text(b)) => a != b,
             (ComparisonOp::Eq, AttributeValue::Number(a), AttributeValue::Number(b)) => {
-                (a - b).abs() < f64::EPSILON
+                let abs_tol = 1e-12;
+                let rel_tol = 1e-9;
+                (a - b).abs() <= f64::max(abs_tol, rel_tol * f64::max(a.abs(), b.abs()))
             }
             (ComparisonOp::Ne, AttributeValue::Number(a), AttributeValue::Number(b)) => {
-                (a - b).abs() >= f64::EPSILON
+                let abs_tol = 1e-12;
+                let rel_tol = 1e-9;
+                (a - b).abs() > f64::max(abs_tol, rel_tol * f64::max(a.abs(), b.abs()))
             }
             (ComparisonOp::Lt, AttributeValue::Number(a), AttributeValue::Number(b)) => a < b,
             (ComparisonOp::Le, AttributeValue::Number(a), AttributeValue::Number(b)) => a <= b,
