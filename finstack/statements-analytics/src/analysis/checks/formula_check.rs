@@ -1,50 +1,55 @@
-//! User-defined formula check using a simple expression evaluator.
+//! User-defined formula check backed by the full statements DSL parser.
 //!
-//! [`FormulaCheck`] lets users define custom validation rules as arithmetic
-//! expressions over node values. A non-zero result is treated as *pass*;
-//! zero means *fail*.
+//! [`FormulaCheck`] lets users define custom validation rules as arbitrary
+//! expressions over node values. The formula is parsed using the statements
+//! DSL parser ([`finstack_statements::dsl::parse_formula`]) and evaluated
+//! recursively against each period's node values.
+//!
+//! Convention: result `!= 0.0` → pass, result `== 0.0` → fail.
 //!
 //! # Example (JSON)
 //!
 //! ```json
 //! {
-//!   "id": "revenue_positive",
-//!   "name": "Revenue must be positive",
+//!   "id": "gross_margin_floor",
+//!   "name": "Gross margin >= 20%",
 //!   "category": "internal_consistency",
 //!   "severity": "error",
-//!   "formula": "revenue > 0",
-//!   "message_template": "Revenue was non-positive in {period}",
+//!   "formula": "(revenue - cogs) / revenue >= 0.20",
+//!   "message_template": "Gross margin below 20% in {period}",
 //!   "tolerance": null
 //! }
 //! ```
 //!
 //! ## Supported syntax
 //!
-//! The built-in evaluator handles simple binary expressions:
+//! All DSL constructs are supported including:
 //!
-//! - `lhs > rhs`, `lhs < rhs`, `lhs >= rhs`, `lhs <= rhs`, `lhs == rhs`,
-//!   `lhs != rhs`
-//! - `lhs + rhs`, `lhs - rhs`, `lhs * rhs`, `lhs / rhs`
-//!
-//! Operands are either node identifiers (resolved per period) or numeric
-//! literals. Full DSL integration via
-//! `finstack_statements::dsl::compiler::compile_formula` is planned as a
-//! follow-up enhancement.
+//! - Arithmetic: `+`, `-`, `*`, `/`, `%`
+//! - Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
+//! - Logical: `and`, `or`, `not`
+//! - Functions: `abs()`, `min()`, `max()`
+//! - Parenthesized sub-expressions
+//! - Conditionals: `if(cond, then, else)`
+//! - Nested/compound expressions: `(revenue - cogs) / revenue >= 0.20`
 
 use serde::{Deserialize, Serialize};
 
 use finstack_statements::checks::{
     Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Severity,
 };
+use finstack_statements::dsl::ast::{BinOp, StmtExpr, UnaryOp};
+use finstack_statements::dsl::parse_formula;
 use finstack_statements::Result;
 
 use super::get_node_value;
 
-/// A user-defined check that evaluates a formula expression per period.
+/// A user-defined check that evaluates a DSL formula expression per period.
+///
+/// The formula is parsed once per `execute()` call using the full statements
+/// DSL parser and then evaluated recursively for each period.
 ///
 /// Convention: result `!= 0.0` → pass, result `== 0.0` → fail.
-///
-/// See the [module-level docs](self) for supported syntax.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormulaCheck {
     /// Unique identifier for this check instance.
@@ -55,7 +60,7 @@ pub struct FormulaCheck {
     pub category: CheckCategory,
     /// Severity assigned to findings when the formula fails.
     pub severity: Severity,
-    /// Expression to evaluate (e.g. `"revenue > 0"`).
+    /// DSL expression to evaluate (e.g. `"(revenue - cogs) / revenue >= 0.20"`).
     pub formula: String,
     /// Template for the finding message. `{period}` is replaced with the
     /// period identifier.
@@ -79,12 +84,13 @@ impl Check for FormulaCheck {
     }
 
     fn execute(&self, context: &CheckContext) -> Result<CheckResult> {
+        let ast = parse_formula(&self.formula)?;
         let mut findings = Vec::new();
 
         for period_spec in &context.model.periods {
             let pid = &period_spec.id;
 
-            match eval_formula(&self.formula, context, pid) {
+            match eval_ast(&ast, context, pid) {
                 Ok(value) => {
                     let passes = if let Some(tol) = self.tolerance {
                         value.abs() > tol
@@ -124,102 +130,163 @@ impl Check for FormulaCheck {
 }
 
 // ---------------------------------------------------------------------------
-// Simple expression evaluator
+// Recursive AST evaluator
 // ---------------------------------------------------------------------------
 
-/// Evaluate a simple binary expression against node values for a period.
-///
-/// Returns `1.0` for truthy comparison results, `0.0` for falsy, or the
-/// raw arithmetic result for `+`, `-`, `*`, `/`.
-fn eval_formula(
-    formula: &str,
-    context: &CheckContext,
-    period: &finstack_core::dates::PeriodId,
-) -> std::result::Result<f64, FormulaError> {
-    let formula = formula.trim();
-
-    // Try to split on comparison operators (longest first to avoid ambiguity).
-    for (op, f) in &COMPARISON_OPS {
-        if let Some((lhs, rhs)) = split_once_op(formula, op) {
-            let l = resolve_operand(lhs.trim(), context, period)?;
-            let r = resolve_operand(rhs.trim(), context, period)?;
-            return Ok(if f(l, r) { 1.0 } else { 0.0 });
-        }
-    }
-
-    // Try arithmetic operators (lowest precedence first: +/-, then *//).
-    for (op, f) in &ARITHMETIC_OPS {
-        if let Some((lhs, rhs)) = split_once_op(formula, op) {
-            let l = resolve_operand(lhs.trim(), context, period)?;
-            let r = resolve_operand(rhs.trim(), context, period)?;
-            return Ok(f(l, r));
-        }
-    }
-
-    // Single operand — return its value directly.
-    resolve_operand(formula, context, period)
+/// Internal error type for AST evaluation failures.
+#[derive(Debug)]
+enum EvalError {
+    /// A referenced node was not found in the results for this period.
+    MissingNode,
+    /// An unsupported AST construct was encountered.
+    Unsupported(String),
 }
 
-type CmpFn = fn(f64, f64) -> bool;
-type ArithFn = fn(f64, f64) -> f64;
-
-const COMPARISON_OPS: [(&str, CmpFn); 6] = [
-    (">=", |a, b| a >= b),
-    ("<=", |a, b| a <= b),
-    ("!=", |a, b| (a - b).abs() > f64::EPSILON),
-    ("==", |a, b| (a - b).abs() <= f64::EPSILON),
-    (">", |a, b| a > b),
-    ("<", |a, b| a < b),
-];
-
-const ARITHMETIC_OPS: [(&str, ArithFn); 4] = [
-    ("+", |a, b| a + b),
-    ("-", |a, b| a - b),
-    ("*", |a, b| a * b),
-    ("/", |a, b| if b.abs() > f64::EPSILON { a / b } else { 0.0 }),
-];
-
-/// Split `s` on the *last* occurrence of `op` that is not inside an identifier.
-fn split_once_op<'a>(s: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
-    // For multi-char ops (>=, <=, !=, ==) search directly.
-    // For single-char ops (+, -, *, /, >, <) avoid matching inside >=, <= etc.
-    let idx = s.find(op)?;
-
-    // Guard: make sure we don't split on a prefix of a longer operator.
-    if op.len() == 1 {
-        let after = idx + 1;
-        if after < s.len() {
-            let next_char = s.as_bytes()[after];
-            if next_char == b'=' {
-                return None;
+impl From<EvalError> for finstack_statements::error::Error {
+    fn from(e: EvalError) -> Self {
+        match e {
+            EvalError::MissingNode => {
+                finstack_statements::error::Error::eval("missing node value".to_string())
+            }
+            EvalError::Unsupported(msg) => {
+                finstack_statements::error::Error::eval(format!("unsupported: {msg}"))
             }
         }
-        // Avoid splitting a negative sign at the very start.
-        if op == "-" && idx == 0 {
-            return None;
-        }
     }
-
-    Some((&s[..idx], &s[idx + op.len()..]))
 }
 
-/// Resolve a token as either a numeric literal or a node value lookup.
-fn resolve_operand(
-    token: &str,
+/// Recursively evaluate a [`StmtExpr`] AST node, looking up node values from
+/// the check context for the given period.
+fn eval_ast(
+    ast: &StmtExpr,
     context: &CheckContext,
     period: &finstack_core::dates::PeriodId,
-) -> std::result::Result<f64, FormulaError> {
-    let token = token.trim();
-    if let Ok(v) = token.parse::<f64>() {
-        return Ok(v);
+) -> std::result::Result<f64, EvalError> {
+    match ast {
+        StmtExpr::Literal(n) => Ok(*n),
+
+        StmtExpr::NodeRef(node_id) => {
+            get_node_value(context.results, node_id, period).ok_or(EvalError::MissingNode)
+        }
+
+        StmtExpr::BinOp { op, left, right } => {
+            let l = eval_ast(left, context, period)?;
+            let r = eval_ast(right, context, period)?;
+            Ok(eval_binop(*op, l, r))
+        }
+
+        StmtExpr::UnaryOp { op, operand } => {
+            let v = eval_ast(operand, context, period)?;
+            Ok(eval_unaryop(*op, v))
+        }
+
+        StmtExpr::Call { func, args } => eval_call(func, args, context, period),
+
+        StmtExpr::IfThenElse {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            let cond = eval_ast(condition, context, period)?;
+            if cond != 0.0 {
+                eval_ast(then_expr, context, period)
+            } else {
+                eval_ast(else_expr, context, period)
+            }
+        }
+
+        StmtExpr::CSRef { .. } => Err(EvalError::Unsupported(
+            "capital structure references in formula checks".into(),
+        )),
     }
-    let nid = finstack_statements::types::NodeId::new(token);
-    get_node_value(context.results, &nid, period).ok_or(FormulaError::MissingNode)
 }
 
-/// Internal error type for formula evaluation.
-#[derive(Debug)]
-enum FormulaError {
-    /// A referenced node was not found in the results.
-    MissingNode,
+/// Evaluate a binary operator.
+fn eval_binop(op: BinOp, l: f64, r: f64) -> f64 {
+    match op {
+        BinOp::Add => l + r,
+        BinOp::Sub => l - r,
+        BinOp::Mul => l * r,
+        BinOp::Div => {
+            if r.abs() > f64::EPSILON {
+                l / r
+            } else {
+                0.0
+            }
+        }
+        BinOp::Mod => {
+            if r.abs() > f64::EPSILON {
+                l % r
+            } else {
+                0.0
+            }
+        }
+        BinOp::Eq => bool_to_f64((l - r).abs() <= f64::EPSILON),
+        BinOp::Ne => bool_to_f64((l - r).abs() > f64::EPSILON),
+        BinOp::Lt => bool_to_f64(l < r),
+        BinOp::Le => bool_to_f64(l <= r),
+        BinOp::Gt => bool_to_f64(l > r),
+        BinOp::Ge => bool_to_f64(l >= r),
+        BinOp::And => bool_to_f64(l != 0.0 && r != 0.0),
+        BinOp::Or => bool_to_f64(l != 0.0 || r != 0.0),
+    }
+}
+
+/// Evaluate a unary operator.
+fn eval_unaryop(op: UnaryOp, v: f64) -> f64 {
+    match op {
+        UnaryOp::Neg => -v,
+        UnaryOp::Not => bool_to_f64(v == 0.0),
+    }
+}
+
+/// Evaluate a built-in function call.
+fn eval_call(
+    func: &str,
+    args: &[StmtExpr],
+    context: &CheckContext,
+    period: &finstack_core::dates::PeriodId,
+) -> std::result::Result<f64, EvalError> {
+    match func {
+        "abs" => {
+            if args.len() != 1 {
+                return Err(EvalError::Unsupported("abs() requires 1 argument".into()));
+            }
+            Ok(eval_ast(&args[0], context, period)?.abs())
+        }
+        "min" => {
+            if args.len() != 2 {
+                return Err(EvalError::Unsupported("min() requires 2 arguments".into()));
+            }
+            let a = eval_ast(&args[0], context, period)?;
+            let b = eval_ast(&args[1], context, period)?;
+            Ok(a.min(b))
+        }
+        "max" => {
+            if args.len() != 2 {
+                return Err(EvalError::Unsupported("max() requires 2 arguments".into()));
+            }
+            let a = eval_ast(&args[0], context, period)?;
+            let b = eval_ast(&args[1], context, period)?;
+            Ok(a.max(b))
+        }
+        "sign" => {
+            if args.len() != 1 {
+                return Err(EvalError::Unsupported("sign() requires 1 argument".into()));
+            }
+            let v = eval_ast(&args[0], context, period)?;
+            Ok(v.signum())
+        }
+        other => Err(EvalError::Unsupported(format!(
+            "function '{other}' not supported in formula checks"
+        ))),
+    }
+}
+
+fn bool_to_f64(b: bool) -> f64 {
+    if b {
+        1.0
+    } else {
+        0.0
+    }
 }

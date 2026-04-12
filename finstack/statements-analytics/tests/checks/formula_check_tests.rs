@@ -208,3 +208,251 @@ fn missing_node_skips_period() {
     assert!(result.passed);
     assert!(result.findings.is_empty());
 }
+
+// ============================================================================
+// Complex nested expression with parentheses
+// ============================================================================
+
+#[test]
+fn nested_expression_gross_margin() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("revenue", &[(q(1), s(1000.0))])
+        .value("cogs", &[(q(1), s(700.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // (1000 - 700) / 1000 = 0.30 >= 0.20 → pass
+    let check = FormulaCheck {
+        id: "gross_margin_floor".into(),
+        name: "Gross margin >= 20%".into(),
+        category: CheckCategory::InternalConsistency,
+        severity: Severity::Error,
+        formula: "(revenue - cogs) / revenue >= 0.20".into(),
+        message_template: "Gross margin below 20% in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+
+    assert!(result.passed);
+    assert!(result.findings.is_empty());
+}
+
+#[test]
+fn nested_expression_gross_margin_fails() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("revenue", &[(q(1), s(1000.0))])
+        .value("cogs", &[(q(1), s(850.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // (1000 - 850) / 1000 = 0.15 < 0.20 → fail
+    let check = FormulaCheck {
+        id: "gross_margin_floor".into(),
+        name: "Gross margin >= 20%".into(),
+        category: CheckCategory::InternalConsistency,
+        severity: Severity::Error,
+        formula: "(revenue - cogs) / revenue >= 0.20".into(),
+        message_template: "Gross margin below 20% in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+
+    assert!(!result.passed);
+    assert_eq!(result.findings.len(), 1);
+}
+
+// ============================================================================
+// abs() function
+// ============================================================================
+
+#[test]
+fn abs_function_in_formula() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("total_assets", &[(q(1), s(1000.0))])
+        .value("total_liabilities", &[(q(1), s(600.0))])
+        .value("total_equity", &[(q(1), s(400.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // abs(1000 - 600 - 400) = 0.0 < 0.01 → 1.0 (truthy) → pass
+    let check = FormulaCheck {
+        id: "bs_identity".into(),
+        name: "BS identity via abs".into(),
+        category: CheckCategory::AccountingIdentity,
+        severity: Severity::Error,
+        formula: "abs(total_assets - total_liabilities - total_equity) < 0.01".into(),
+        message_template: "BS does not balance in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+
+    assert!(result.passed);
+}
+
+#[test]
+fn abs_function_detects_imbalance() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("total_assets", &[(q(1), s(1000.0))])
+        .value("total_liabilities", &[(q(1), s(600.0))])
+        .value("total_equity", &[(q(1), s(300.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // abs(1000 - 600 - 300) = 100.0, NOT < 0.01 → 0.0 (falsy) → fail
+    let check = FormulaCheck {
+        id: "bs_identity".into(),
+        name: "BS identity via abs".into(),
+        category: CheckCategory::AccountingIdentity,
+        severity: Severity::Error,
+        formula: "abs(total_assets - total_liabilities - total_equity) < 0.01".into(),
+        message_template: "BS does not balance in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+
+    assert!(!result.passed);
+    assert_eq!(result.findings.len(), 1);
+}
+
+// ============================================================================
+// Multi-operator expressions
+// ============================================================================
+
+#[test]
+fn multi_operator_addition() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("a", &[(q(1), s(10.0))])
+        .value("b", &[(q(1), s(20.0))])
+        .value("c", &[(q(1), s(30.0))])
+        .value("total", &[(q(1), s(60.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // a + b + c == total → 60 == 60 → 1.0 → pass
+    let check = FormulaCheck {
+        id: "sum_check".into(),
+        name: "Sum matches total".into(),
+        category: CheckCategory::AccountingIdentity,
+        severity: Severity::Error,
+        formula: "a + b + c == total".into(),
+        message_template: "Sum mismatch in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+
+    assert!(result.passed);
+}
+
+// ============================================================================
+// max() / min() functions
+// ============================================================================
+
+#[test]
+fn max_min_functions() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("x", &[(q(1), s(5.0))])
+        .value("y", &[(q(1), s(10.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // max(5, 10) == 10 → pass
+    let check = FormulaCheck {
+        id: "max_check".into(),
+        name: "Max check".into(),
+        category: CheckCategory::DataQuality,
+        severity: Severity::Error,
+        formula: "max(x, y) == 10".into(),
+        message_template: "Max failed in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+    assert!(result.passed);
+
+    // min(5, 10) == 5 → pass
+    let check_min = FormulaCheck {
+        id: "min_check".into(),
+        name: "Min check".into(),
+        category: CheckCategory::DataQuality,
+        severity: Severity::Error,
+        formula: "min(x, y) == 5".into(),
+        message_template: "Min failed in {period}".into(),
+        tolerance: None,
+    };
+
+    let result_min = check_min.execute(&ctx).unwrap();
+    assert!(result_min.passed);
+}
+
+// ============================================================================
+// if() conditional
+// ============================================================================
+
+#[test]
+fn if_conditional_formula() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value("revenue", &[(q(1), s(1000.0))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    // if(revenue > 500, 1, 0) → 1.0 → pass
+    let check = FormulaCheck {
+        id: "cond_check".into(),
+        name: "Conditional check".into(),
+        category: CheckCategory::InternalConsistency,
+        severity: Severity::Error,
+        formula: "if(revenue > 500, 1, 0)".into(),
+        message_template: "Condition failed in {period}".into(),
+        tolerance: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+    assert!(result.passed);
+}
