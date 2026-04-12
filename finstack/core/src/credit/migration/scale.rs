@@ -210,8 +210,7 @@ impl RatingScale {
                         None => true,
                         Some((best_dist, best_factor, _)) => {
                             dist < best_dist
-                                || ((dist - best_dist).abs() < f64::EPSILON
-                                    && factor > best_factor)
+                                || ((dist - best_dist).abs() < f64::EPSILON && factor > best_factor)
                         }
                     };
                     if is_better {
@@ -221,9 +220,11 @@ impl RatingScale {
             }
         }
         match best {
-            Some((_, _, idx)) => self.labels.get(idx).map(String::as_str).ok_or(
-                MigrationError::NoWarfMapping,
-            ),
+            Some((_, _, idx)) => self
+                .labels
+                .get(idx)
+                .map(String::as_str)
+                .ok_or(MigrationError::NoWarfMapping),
             None => Err(MigrationError::NoWarfMapping),
         }
     }

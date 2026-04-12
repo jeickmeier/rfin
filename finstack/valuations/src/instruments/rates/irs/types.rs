@@ -441,6 +441,17 @@ impl InterestRateSwap {
             },
         )?;
 
+        // Only single-curve (CSA OIS) discounting is supported: both legs must
+        // use the same discount curve. Dual-curve discounting is not implemented.
+        if self.float.discount_curve_id != self.fixed.discount_curve_id {
+            return Err(finstack_core::Error::Validation(format!(
+                "Dual-curve discounting is not supported: fixed leg discount curve '{}' \
+                 differs from floating leg discount curve '{}'. \
+                 Use the same CSA OIS curve for both legs.",
+                self.fixed.discount_curve_id, self.float.discount_curve_id
+            )));
+        }
+
         // Validate notional is positive
         validation::validate_money_gt_with(self.notional, NOTIONAL_EPSILON, |amount| {
             format!(

@@ -382,8 +382,9 @@ impl CDSPricer {
     ///
     /// 2. **PV adjustment** (`cds.pricing_overrides.market_quotes.upfront_payment: Option<Money>`):
     ///    An already-discounted adjustment to the PV at `as_of`.
-    ///    - Added directly without further discounting
-    ///    - Positive = increases NPV, negative = decreases NPV (for both sides)
+    ///    - Applied without further discounting
+    ///    - Positive = paid by buyer (reduces buyer NPV, increases seller NPV)
+    ///    - Sign convention matches the dated upfront and `Instrument::value()`
     ///
     /// Both can be set simultaneously without double-counting.
     pub(crate) fn npv_with_upfront(
@@ -408,9 +409,14 @@ impl CDSPricer {
             }
         }
 
-        // 2. Handle PV adjustment upfront (added directly without discounting)
+        // 2. Handle PV adjustment upfront (signed per side, no further discounting).
+        //    Positive = paid by protection buyer, matching the dated upfront convention
+        //    and Instrument::value() semantics.
         if let Some(upfront) = cds.pricing_overrides.market_quotes.upfront_payment {
-            pv = pv.checked_add(upfront)?;
+            pv = match cds.side {
+                PayReceive::PayFixed => pv.checked_sub(upfront)?,
+                PayReceive::ReceiveFixed => pv.checked_add(upfront)?,
+            };
         }
 
         Ok(pv)

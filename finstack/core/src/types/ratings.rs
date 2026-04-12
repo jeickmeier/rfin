@@ -430,7 +430,10 @@ fn parse_credit_rating(value: &str) -> Result<CreditRating, crate::Error> {
     }
 
     // Ratings that don't support notches always resolve to the flat variant
-    let supports_notches = matches!(base_slice, "AA" | "A" | "BBB" | "BAA" | "BB" | "BA" | "B" | "CCC" | "CAA");
+    let supports_notches = matches!(
+        base_slice,
+        "AA" | "A" | "BBB" | "BAA" | "BB" | "BA" | "B" | "CCC" | "CAA"
+    );
 
     let rating = match (base_slice, supports_notches) {
         ("AAA", _) => CreditRating::AAA,
@@ -567,14 +570,11 @@ impl RatingFactorTable {
     /// If no entry exists, returns an error instead of silently substituting
     /// the table default.
     pub fn get_factor(&self, rating: CreditRating) -> crate::Result<f64> {
-        self.factors
-            .get(&rating)
-            .copied()
-            .ok_or_else(|| {
-                crate::Error::Input(crate::error::InputError::NotFound {
-                    id: format!("rating factor for {}", rating),
-                })
+        self.factors.get(&rating).copied().ok_or_else(|| {
+            crate::Error::Input(crate::error::InputError::NotFound {
+                id: format!("rating factor for {}", rating),
             })
+        })
     }
 
     /// Get factor for a specific rating, falling back to the table default when missing.
@@ -694,18 +694,45 @@ mod tests {
 
     #[test]
     fn test_credit_rating_from_str() {
-        assert_eq!("AAA".parse::<CreditRating>().expect("AAA"), CreditRating::AAA);
-        assert_eq!("aaa".parse::<CreditRating>().expect("aaa"), CreditRating::AAA);
-        assert_eq!("BB+".parse::<CreditRating>().expect("BB+"), CreditRating::BBPlus);
+        assert_eq!(
+            "AAA".parse::<CreditRating>().expect("AAA"),
+            CreditRating::AAA
+        );
+        assert_eq!(
+            "aaa".parse::<CreditRating>().expect("aaa"),
+            CreditRating::AAA
+        );
+        assert_eq!(
+            "BB+".parse::<CreditRating>().expect("BB+"),
+            CreditRating::BBPlus
+        );
         assert_eq!("BB".parse::<CreditRating>().expect("BB"), CreditRating::BB);
-        assert_eq!("BB-".parse::<CreditRating>().expect("BB-"), CreditRating::BBMinus);
-        assert_eq!("B1".parse::<CreditRating>().expect("B1"), CreditRating::BPlus);
+        assert_eq!(
+            "BB-".parse::<CreditRating>().expect("BB-"),
+            CreditRating::BBMinus
+        );
+        assert_eq!(
+            "B1".parse::<CreditRating>().expect("B1"),
+            CreditRating::BPlus
+        );
         assert_eq!("B2".parse::<CreditRating>().expect("B2"), CreditRating::B);
-        assert_eq!("B3".parse::<CreditRating>().expect("B3"), CreditRating::BMinus);
-        assert_eq!("Ba2".parse::<CreditRating>().expect("Ba2"), CreditRating::BB);
-        assert_eq!("Baa3".parse::<CreditRating>().expect("Baa3"), CreditRating::BBBMinus);
+        assert_eq!(
+            "B3".parse::<CreditRating>().expect("B3"),
+            CreditRating::BMinus
+        );
+        assert_eq!(
+            "Ba2".parse::<CreditRating>().expect("Ba2"),
+            CreditRating::BB
+        );
+        assert_eq!(
+            "Baa3".parse::<CreditRating>().expect("Baa3"),
+            CreditRating::BBBMinus
+        );
         assert_eq!("NR".parse::<CreditRating>().expect("NR"), CreditRating::NR);
-        assert_eq!("Not Rated".parse::<CreditRating>().expect("Not Rated"), CreditRating::NR);
+        assert_eq!(
+            "Not Rated".parse::<CreditRating>().expect("Not Rated"),
+            CreditRating::NR
+        );
         assert!("XYZ".parse::<CreditRating>().is_err());
     }
 

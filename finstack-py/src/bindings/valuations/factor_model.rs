@@ -548,7 +548,7 @@ impl PyRiskDecomposition {
                 Ok(d)
             })
             .collect::<PyResult<Vec<_>>>()?;
-        Ok(PyList::new(py, items)?)
+        PyList::new(py, items)
     }
 
     /// Position × factor contributions as a list of dicts.
@@ -565,7 +565,7 @@ impl PyRiskDecomposition {
                 Ok(d)
             })
             .collect::<PyResult<Vec<_>>>()?;
-        Ok(PyList::new(py, items)?)
+        PyList::new(py, items)
     }
 
     /// Export factor contributions as a pandas ``DataFrame``.
@@ -646,7 +646,7 @@ fn decompose_factor_risk(
     let factor_ids: Vec<finstack_core::factor_model::FactorId> = sensitivities
         .factor_ids
         .iter()
-        .map(|s| finstack_core::factor_model::FactorId::new(s))
+        .map(finstack_core::factor_model::FactorId::new)
         .collect();
 
     let mut matrix = finstack_valuations::factor_model::SensitivityMatrix::zeros(

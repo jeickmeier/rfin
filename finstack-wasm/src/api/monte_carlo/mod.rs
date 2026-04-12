@@ -239,7 +239,6 @@ pub fn price_american_put(
     let config = LsmcConfig::new(num_paths, exercise_dates).with_seed(seed);
     let pricer = LsmcPricer::new(config);
     let process = GbmProcess::with_params(rate, div_yield, vol);
-    let df = (-rate * expiry).exp();
     let est = pricer
         .price(
             &process,
@@ -249,7 +248,7 @@ pub fn price_american_put(
             &exercise,
             &LaguerreBasis::new(3, strike),
             ccy,
-            df,
+            rate,
         )
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);

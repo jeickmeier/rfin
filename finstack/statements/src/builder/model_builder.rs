@@ -886,9 +886,19 @@ impl ModelBuilder<Ready> {
         spec.meta = self.meta;
         spec.capital_structure = self.capital_structure;
 
-        // Detect circular dependencies at build time
-        if let Ok(graph) = crate::evaluator::DependencyGraph::from_model(&spec) {
-            graph.detect_cycles()?;
+        // Detect circular dependencies at build time.
+        // Graph construction may fail if formula references are not
+        // yet defined (partial models) — that is allowed, but if it
+        // succeeds we *must* verify no cycles exist.
+        match crate::evaluator::DependencyGraph::from_model(&spec) {
+            Ok(graph) => graph.detect_cycles()?,
+            Err(e) => {
+                tracing::debug!(
+                    model_id = %spec.id,
+                    error = %e,
+                    "Skipping cycle detection: dependency graph could not be built"
+                );
+            }
         }
 
         Ok(spec)

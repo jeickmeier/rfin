@@ -347,7 +347,7 @@ pub fn decompose_factor_risk(
     let factor_ids: Vec<finstack_core::factor_model::FactorId> = input
         .factor_ids
         .iter()
-        .map(|s| finstack_core::factor_model::FactorId::new(s))
+        .map(finstack_core::factor_model::FactorId::new)
         .collect();
 
     let mut matrix =
@@ -435,19 +435,8 @@ fn build_attribution_spec(
 }
 
 fn parse_model_key(s: &str) -> Result<finstack_valuations::pricer::ModelKey, JsValue> {
-    use finstack_valuations::pricer::ModelKey;
-    match s {
-        "discounting" => Ok(ModelKey::Discounting),
-        "tree" => Ok(ModelKey::Tree),
-        "black76" => Ok(ModelKey::Black76),
-        "hull_white_1f" => Ok(ModelKey::HullWhite1F),
-        "hazard_rate" => Ok(ModelKey::HazardRate),
-        "normal" => Ok(ModelKey::Normal),
-        "monte_carlo_gbm" => Ok(ModelKey::MonteCarloGBM),
-        other => Err(to_js_err(format!(
-            "Unknown model key: '{other}'. Use one of: discounting, tree, black76, hull_white_1f, hazard_rate, normal, monte_carlo_gbm"
-        ))),
-    }
+    s.parse::<finstack_valuations::pricer::ModelKey>()
+        .map_err(|e| to_js_err(format!("Unknown model key: '{s}'. {e}")))
 }
 
 #[cfg(test)]

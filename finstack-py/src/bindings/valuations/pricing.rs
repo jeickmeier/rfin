@@ -124,19 +124,8 @@ fn list_standard_metrics() -> Vec<String> {
 }
 
 fn parse_model_key(s: &str) -> PyResult<finstack_valuations::pricer::ModelKey> {
-    use finstack_valuations::pricer::ModelKey;
-    match s {
-        "discounting" => Ok(ModelKey::Discounting),
-        "hazard_rate" => Ok(ModelKey::HazardRate),
-        "tree" => Ok(ModelKey::Tree),
-        "black76" => Ok(ModelKey::Black76),
-        "hull_white_1f" => Ok(ModelKey::HullWhite1F),
-        "normal" => Ok(ModelKey::Normal),
-        "monte_carlo_gbm" => Ok(ModelKey::MonteCarloGBM),
-        other => Err(PyValueError::new_err(format!(
-            "Unknown model key: '{other}'. Use one of: discounting, tree, black76, hull_white_1f, hazard_rate, normal, monte_carlo_gbm"
-        ))),
-    }
+    s.parse::<finstack_valuations::pricer::ModelKey>()
+        .map_err(|e| PyValueError::new_err(format!("Unknown model key: '{s}'. {e}")))
 }
 
 /// Register pricing functions on the valuations submodule.

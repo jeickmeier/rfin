@@ -159,6 +159,11 @@ impl NettingSetManager {
                 .entry(id.clone())
                 .or_insert_with(|| NettingSet::new(id));
             ns.add_position(position.position_id.clone());
+        } else {
+            tracing::warn!(
+                position_id = %position.position_id,
+                "Position has no netting set ID and no default set configured — excluded from margin calculation"
+            );
         }
     }
 

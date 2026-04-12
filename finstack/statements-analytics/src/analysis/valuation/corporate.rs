@@ -204,8 +204,11 @@ pub(crate) fn evaluate_dcf_from_results_impl(
             continue;
         }
         if let Some(ufcf_value) = results.get(ufcf_node, &period.id) {
-            // Use period end date for the cashflow
-            let date = period.end;
+            // Use the last inclusive day of the period.  Periods use
+            // half-open semantics [start, end), so `end` is the first
+            // day of the *next* period.  Subtracting one day gives the
+            // correct economic period-end for discounting.
+            let date = period.end - time::Duration::days(1);
             flows.push((date, ufcf_value));
 
             // Record UFCF contribution in the explanation trace

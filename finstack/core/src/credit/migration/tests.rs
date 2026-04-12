@@ -105,8 +105,7 @@ mod scale_tests {
     #[test]
     fn warf_unparseable_label() {
         let scale =
-            RatingScale::custom(vec!["IG".to_string(), "HY".to_string(), "D".to_string()])
-                .unwrap();
+            RatingScale::custom(vec!["IG".to_string(), "HY".to_string(), "D".to_string()]).unwrap();
         assert!(matches!(
             scale.warf("IG"),
             Err(MigrationError::NoWarfFactor { .. })
@@ -140,8 +139,7 @@ mod scale_tests {
 
     #[test]
     fn rating_from_warf_no_valid_labels() {
-        let scale =
-            RatingScale::custom(vec!["IG".to_string(), "HY".to_string()]).unwrap();
+        let scale = RatingScale::custom(vec!["IG".to_string(), "HY".to_string()]).unwrap();
         assert!(matches!(
             scale.rating_from_warf(100.0),
             Err(MigrationError::NoWarfMapping)

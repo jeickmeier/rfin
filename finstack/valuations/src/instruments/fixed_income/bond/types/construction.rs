@@ -657,6 +657,7 @@ impl Bond {
                         .and_then(|c| c.ex_coupon_calendar_id.clone()),
                 }),
             include_pik: true,
+            frequency: Some(self.cashflow_spec.frequency()),
         }
     }
 

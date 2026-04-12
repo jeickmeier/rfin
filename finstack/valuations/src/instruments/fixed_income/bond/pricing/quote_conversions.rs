@@ -746,7 +746,7 @@ pub fn price_from_z_spread(
 
     let mut pv = NeumaierAccumulator::new();
     for (d, a) in &flows {
-        if *d <= as_of {
+        if *d < as_of {
             continue;
         }
         // Time from as_of used for the exponential z-spread term is measured

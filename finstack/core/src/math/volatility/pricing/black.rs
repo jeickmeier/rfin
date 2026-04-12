@@ -193,8 +193,14 @@ pub fn black_gamma(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
 }
 
 /// Black-76 d1: `(ln(F/K) + 0.5 * σ² * T) / (σ * √T)`.
+///
+/// Returns `0.0` for degenerate inputs (σ ≤ 0, T ≤ 0, F ≤ 0, or K ≤ 0)
+/// to match the guarded `black_state` behaviour used by all pricer functions.
 #[inline]
 pub fn d1_black76(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
+    if t <= 0.0 || sigma <= 0.0 || forward <= 0.0 || strike <= 0.0 {
+        return 0.0;
+    }
     let sqrt_t = t.sqrt();
     ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * sqrt_t)
 }

@@ -755,13 +755,16 @@ where
             })?;
             series.value_on_exact(reset_date)?
         } else {
-            // Future reset: project from forward curve
+            // Future reset: project from forward curve using the accrual period
+            // (reset_date is only used for the fixing decision above; the rate
+            // should span the actual accrual interval to avoid systematic bias
+            // when reset lag places the reset before accrual_start).
             let fwd_dc = fwd.day_count();
             let fwd_base = fwd.base_date();
-            let t0 = if reset_date <= fwd_base {
+            let t0 = if period.accrual_start <= fwd_base {
                 0.0
             } else {
-                fwd_dc.year_fraction(fwd_base, reset_date, DayCountCtx::default())?
+                fwd_dc.year_fraction(fwd_base, period.accrual_start, DayCountCtx::default())?
             };
             let t1 = if period.accrual_end <= fwd_base {
                 0.0

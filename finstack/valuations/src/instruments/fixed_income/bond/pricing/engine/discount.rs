@@ -148,7 +148,14 @@ impl BondEngine {
         let flows = bond.pricing_dated_cashflows(context, as_of)?;
         let disc = context.get_discount(bond.discount_curve_id.as_str())?;
         if flows.is_empty() {
-            return Err(finstack_core::InputError::TooFewPoints.into());
+            return Ok((
+                Money::new(0.0, bond.notional.currency()),
+                if explain.enabled {
+                    Some(ExplanationTrace::new("pricing"))
+                } else {
+                    None
+                },
+            ));
         }
         let ccy = flows[0].1.currency();
 

@@ -314,7 +314,7 @@ pub fn attribute_pnl_taylor_standard(
         let pnl_amount = factor.explained_pnl + factor.gamma_pnl.unwrap_or(0.0);
         let factor_money = Money::new(pnl_amount, ccy);
 
-        if factor.factor_name.starts_with("Rates:") {
+        if factor.factor_name.starts_with("Rates:") || factor.factor_name.starts_with("Forward:") {
             attribution.rates_curves_pnl = Money::new(
                 attribution.rates_curves_pnl.amount() + factor_money.amount(),
                 ccy,

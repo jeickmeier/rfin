@@ -210,8 +210,19 @@ fn expand_hierarchy_operations(
         None => return operations.to_vec(),
     };
 
-    let mut non_hierarchy_ops: Vec<OperationSpec> = Vec::new();
-    let mut hierarchy_expansions: Vec<HierarchyExpansion> = Vec::new();
+    // Expand hierarchy ops in-place so non-hierarchy ops retain their
+    // original position relative to hierarchy-expanded ops.  This avoids
+    // re-ordering that would, e.g., move a TimeRollForward before shocks
+    // that were originally specified first.
+    //
+    // Phase 1: collect per-position expansions and record which indices
+    //          are hierarchy ops vs pass-through.
+    enum Slot {
+        Direct(OperationSpec),
+        Expanded(Vec<HierarchyExpansion>),
+    }
+
+    let mut slots: Vec<Slot> = Vec::with_capacity(operations.len());
 
     for op in operations {
         match op {
@@ -222,8 +233,9 @@ fn expand_hierarchy_operations(
                 discount_curve_id,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                for matched in matches {
-                    hierarchy_expansions.push(HierarchyExpansion {
+                let exps: Vec<HierarchyExpansion> = matches
+                    .into_iter()
+                    .map(|matched| HierarchyExpansion {
                         matched_depth: matched.matched_depth,
                         key: HierarchyExpansionKey::Curve {
                             curve_kind: *curve_kind,
@@ -235,8 +247,9 @@ fn expand_hierarchy_operations(
                             discount_curve_id: discount_curve_id.clone(),
                             bp: *bp,
                         },
-                    });
-                }
+                    })
+                    .collect();
+                slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyVolSurfaceParallelPct {
                 surface_kind,
@@ -244,8 +257,9 @@ fn expand_hierarchy_operations(
                 pct,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                for matched in matches {
-                    hierarchy_expansions.push(HierarchyExpansion {
+                let exps: Vec<HierarchyExpansion> = matches
+                    .into_iter()
+                    .map(|matched| HierarchyExpansion {
                         matched_depth: matched.matched_depth,
                         key: HierarchyExpansionKey::VolSurface {
                             surface_kind: *surface_kind,
@@ -256,13 +270,15 @@ fn expand_hierarchy_operations(
                             surface_id: matched.curve_id.as_str().to_string(),
                             pct: *pct,
                         },
-                    });
-                }
+                    })
+                    .collect();
+                slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyEquityPricePct { target, pct } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                for matched in matches {
-                    hierarchy_expansions.push(HierarchyExpansion {
+                let exps: Vec<HierarchyExpansion> = matches
+                    .into_iter()
+                    .map(|matched| HierarchyExpansion {
                         matched_depth: matched.matched_depth,
                         key: HierarchyExpansionKey::EquityPrice {
                             price_id: matched.curve_id.clone(),
@@ -271,13 +287,15 @@ fn expand_hierarchy_operations(
                             ids: vec![matched.curve_id.as_str().to_string()],
                             pct: *pct,
                         },
-                    });
-                }
+                    })
+                    .collect();
+                slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                for matched in matches {
-                    hierarchy_expansions.push(HierarchyExpansion {
+                let exps: Vec<HierarchyExpansion> = matches
+                    .into_iter()
+                    .map(|matched| HierarchyExpansion {
                         matched_depth: matched.matched_depth,
                         key: HierarchyExpansionKey::BaseCorrelation {
                             surface_id: matched.curve_id.clone(),
@@ -286,46 +304,59 @@ fn expand_hierarchy_operations(
                             surface_id: matched.curve_id.as_str().to_string(),
                             points: *points,
                         },
-                    });
-                }
+                    })
+                    .collect();
+                slots.push(Slot::Expanded(exps));
             }
-            other => non_hierarchy_ops.push(other.clone()),
+            other => slots.push(Slot::Direct(other.clone())),
         }
     }
 
-    // Apply resolution mode for deduplication
-    let resolved_hierarchy_ops: Vec<OperationSpec> = match mode {
-        ResolutionMode::Cumulative => {
-            // All expansions pass through
-            hierarchy_expansions
-                .into_iter()
-                .map(|e| e.operation)
-                .collect()
-        }
-        ResolutionMode::MostSpecificWins => {
-            // For each operation family + identifier, keep only the operations from
-            // the deepest matching hierarchy node.
-            let mut max_depth: HashMap<HierarchyExpansionKey, usize> = HashMap::default();
-            for exp in &hierarchy_expansions {
-                max_depth
-                    .entry(exp.key.clone())
+    // Phase 2: apply resolution mode for deduplication across ALL
+    //          hierarchy expansions, then flatten in original order.
+    let all_expansions: Vec<&HierarchyExpansion> = slots
+        .iter()
+        .filter_map(|s| match s {
+            Slot::Expanded(exps) => Some(exps.iter()),
+            Slot::Direct(_) => None,
+        })
+        .flatten()
+        .collect();
+
+    let max_depth: HashMap<HierarchyExpansionKey, usize> =
+        if matches!(mode, ResolutionMode::MostSpecificWins) {
+            let mut md: HashMap<HierarchyExpansionKey, usize> = HashMap::default();
+            for exp in &all_expansions {
+                md.entry(exp.key.clone())
                     .and_modify(|best| *best = (*best).max(exp.matched_depth))
                     .or_insert(exp.matched_depth);
             }
-            hierarchy_expansions
-                .into_iter()
-                .filter(|exp| {
-                    max_depth
-                        .get(&exp.key)
-                        .is_some_and(|&max| exp.matched_depth == max)
-                })
-                .map(|e| e.operation)
-                .collect()
-        }
-    };
+            md
+        } else {
+            HashMap::default()
+        };
 
-    non_hierarchy_ops.extend(resolved_hierarchy_ops);
-    non_hierarchy_ops
+    let mut result = Vec::with_capacity(operations.len());
+    for slot in slots {
+        match slot {
+            Slot::Direct(op) => result.push(op),
+            Slot::Expanded(exps) => {
+                for exp in exps {
+                    let keep = match mode {
+                        ResolutionMode::Cumulative => true,
+                        ResolutionMode::MostSpecificWins => max_depth
+                            .get(&exp.key)
+                            .is_some_and(|&max| exp.matched_depth == max),
+                    };
+                    if keep {
+                        result.push(exp.operation);
+                    }
+                }
+            }
+        }
+    }
+
+    result
 }
 
 /// Orchestrates the deterministic application of a [`ScenarioSpec`].
@@ -551,14 +582,11 @@ impl ScenarioEngine {
             .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
             .count();
         if time_roll_count > 1 {
-            tracing::warn!(
-                count = time_roll_count,
-                "Scenario contains multiple TimeRollForward operations; stacking time rolls may produce unexpected results"
-            );
-            warnings.push(format!(
-                "Multiple TimeRollForward operations detected ({}); consider using validate()",
+            return Err(crate::error::Error::validation(format!(
+                "Scenario contains {} TimeRollForward operations; only one is allowed per scenario. \
+                 Compose multiple rolls into separate scenario specs.",
                 time_roll_count,
-            ));
+            )));
         }
 
         for op in &expanded_ops {

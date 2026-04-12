@@ -2944,7 +2944,6 @@ class LsmcPricer:
     Args:
         num_paths: Paths (default ``100_000``).
         seed: RNG seed (default ``42``).
-        use_parallel: Reserved flag (default ``False``).
 
     Returns:
         N/A (instance type).
@@ -2959,21 +2958,19 @@ class LsmcPricer:
         self,
         num_paths: int = 100_000,
         seed: int = 42,
-        use_parallel: bool = False,
     ) -> None:
         """See class docstring for parameters.
 
         Args:
             num_paths: Path count.
             seed: Seed.
-            use_parallel: Parallel flag (currently unused in repr-only fields).
 
         Returns:
             None
 
         Example:
             >>> from finstack.monte_carlo import LsmcPricer
-            >>> LsmcPricer(50, 3, use_parallel=True).num_paths
+            >>> LsmcPricer(50, 3).num_paths
             50
         """
         ...

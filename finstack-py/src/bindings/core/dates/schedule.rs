@@ -232,7 +232,7 @@ impl PyScheduleBuilder {
             spec: ScheduleSpec {
                 start: s,
                 end: e,
-                frequency: finstack_core::dates::Tenor::quarterly(),
+                frequency: finstack_core::dates::Tenor::monthly(),
                 stub: StubKind::None,
                 business_day_convention: None,
                 calendar_id: None,

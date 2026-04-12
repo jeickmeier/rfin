@@ -31,8 +31,10 @@ impl WasmCopulaSpec {
     /// Student-t copula with specified degrees of freedom (must be > 2).
     #[wasm_bindgen(js_name = studentT)]
     pub fn student_t(df: f64) -> Result<WasmCopulaSpec, JsValue> {
-        if df <= 2.0 {
-            return Err(to_js_err("Student-t degrees of freedom must be > 2"));
+        if !df.is_finite() || df <= 2.0 {
+            return Err(to_js_err(
+                "Student-t degrees of freedom must be a finite number > 2",
+            ));
         }
         Ok(Self {
             inner: CopulaSpec::student_t(df),

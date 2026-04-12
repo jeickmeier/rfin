@@ -461,7 +461,7 @@ fn reprice_corner(
 ) -> Result<f64> {
     let bumped_a = bumper_a.bump_market(market, as_of, direction_a)?;
     let bumped_ab = bumper_b.bump_market(&bumped_a, as_of, direction_b)?;
-    Ok(context.reprice_money(&bumped_ab, as_of)?.amount())
+    context.reprice_raw(&bumped_ab, as_of)
 }
 
 #[cfg(test)]

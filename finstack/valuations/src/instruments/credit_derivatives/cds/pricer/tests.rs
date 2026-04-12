@@ -937,7 +937,7 @@ fn test_npv_with_upfront_combines_dated_and_market_quote_adjustments() {
     let dated_df = disc
         .df_between_dates(as_of, dated_upfront_date)
         .expect("discount factor");
-    let expected = base_npv - dated_upfront_amount * dated_df + quote_adjustment.amount();
+    let expected = base_npv - dated_upfront_amount * dated_df - quote_adjustment.amount();
     let npv_with_upfront = pricer
         .npv_with_upfront(&cds, &disc, &credit, as_of)
         .expect("npv with upfront")

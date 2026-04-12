@@ -967,10 +967,14 @@ impl CovenantEngine {
             }
         };
 
-        let passed = match covenant_type.bound_kind() {
-            Some(BoundKind::AtMost) => metric_value <= threshold,
-            Some(BoundKind::AtLeast) => metric_value >= threshold,
-            None => true,
+        let passed = if !metric_value.is_finite() {
+            false
+        } else {
+            match covenant_type.bound_kind() {
+                Some(BoundKind::AtMost) => metric_value <= threshold,
+                Some(BoundKind::AtLeast) => metric_value >= threshold,
+                None => true,
+            }
         };
 
         let headroom = Some(headroom_for(
@@ -1098,6 +1102,10 @@ struct SpecEvaluation {
 }
 
 pub(crate) fn headroom_for(bound: Option<BoundKind>, value: f64, threshold: f64) -> f64 {
+    if !value.is_finite() || !threshold.is_finite() {
+        return f64::NAN;
+    }
+
     let denom = if threshold.abs() < f64::EPSILON {
         1.0
     } else {

@@ -22,7 +22,7 @@ use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::HolidayCalendar;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::money::Money;
 use tracing::warn;
 
@@ -161,6 +161,12 @@ pub struct AccrualConfig {
     pub ex_coupon: Option<ExCouponRule>,
     /// Whether to include PIK interest in the accrued amount.
     pub include_pik: bool,
+    /// Coupon frequency — required for ACT/ACT ISMA day count.
+    ///
+    /// When `None` and the schedule uses ACT/ACT ISMA, the year fraction
+    /// falls back to ACT/ACT ISDA semantics, which gives incorrect accrued
+    /// interest for most government bonds.
+    pub frequency: Option<Tenor>,
 }
 
 impl Default for AccrualConfig {
@@ -169,6 +175,7 @@ impl Default for AccrualConfig {
             method: AccrualMethod::Linear,
             ex_coupon: None,
             include_pik: true,
+            frequency: None,
         }
     }
 }
@@ -236,7 +243,7 @@ pub fn accrued_interest_amount(
 
     // Build outstanding path including notional draws/repays and PIK.
     let outstanding_path = schedule.outstanding_by_date()?;
-    let period_inputs = build_period_inputs(schedule, &periods, &outstanding_path)?;
+    let period_inputs = build_period_inputs(schedule, &periods, &outstanding_path, cfg.frequency)?;
 
     // Locate active period and compute accrued in that period.
     if let Some((inputs, elapsed_yf)) =
@@ -428,6 +435,7 @@ fn build_period_inputs(
     schedule: &CashFlowSchedule,
     periods: &[Period],
     outstanding_path: &[(Date, Money)],
+    frequency: Option<Tenor>,
 ) -> finstack_core::Result<Vec<PeriodInputs>> {
     let mut result = Vec::with_capacity(periods.len());
 
@@ -456,7 +464,11 @@ fn build_period_inputs(
         let total_yf = if p.bucket.accrual_factor > 0.0 {
             p.bucket.accrual_factor
         } else {
-            p.dc.year_fraction(p.start, p.end, DayCountCtx::default())?
+            let ctx = DayCountCtx {
+                frequency,
+                ..Default::default()
+            };
+            p.dc.year_fraction(p.start, p.end, ctx)?
         };
 
         if total_yf <= 0.0 {
@@ -516,9 +528,11 @@ fn find_active_period_and_elapsed<'a>(
                 }
             }
 
-            let elapsed = dc
-                .year_fraction(inputs.start, as_of, DayCountCtx::default())?
-                .max(0.0);
+            let dc_ctx = DayCountCtx {
+                frequency: cfg.frequency,
+                ..Default::default()
+            };
+            let elapsed = dc.year_fraction(inputs.start, as_of, dc_ctx)?.max(0.0);
 
             return Ok(Some((inputs, elapsed)));
         }

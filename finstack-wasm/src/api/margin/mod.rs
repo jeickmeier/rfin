@@ -58,8 +58,10 @@ pub fn calculate_vm(
 ) -> Result<JsValue, JsValue> {
     let csa: finstack_margin::CsaSpec = serde_json::from_str(csa_json).map_err(to_js_err)?;
     let ccy: finstack_core::currency::Currency = currency.parse().map_err(to_js_err)?;
-    let exp = finstack_core::money::Money::new(exposure, ccy);
-    let posted = finstack_core::money::Money::new(posted_collateral, ccy);
+    let exp = finstack_core::money::Money::try_new(exposure, ccy)
+        .map_err(|e| to_js_err(format!("invalid exposure: {e}")))?;
+    let posted = finstack_core::money::Money::try_new(posted_collateral, ccy)
+        .map_err(|e| to_js_err(format!("invalid posted_collateral: {e}")))?;
     let m = time::Month::try_from(month).map_err(to_js_err)?;
     let as_of = finstack_core::dates::Date::from_calendar_date(year, m, day).map_err(to_js_err)?;
 

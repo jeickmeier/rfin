@@ -11,6 +11,8 @@ use finstack_core::{Error, Result};
 use std::cell::RefCell;
 
 impl CDSPricer {
+    #[allow(dead_code)]
+    #[deprecated(note = "Use protection_leg_midpoint_cond which handles date/time axis correctly")]
     fn protection_leg_midpoint(
         &self,
         t_start: f64,
@@ -37,6 +39,8 @@ impl CDSPricer {
         Ok(protection_pv)
     }
 
+    #[allow(dead_code)]
+    #[deprecated(note = "Use protection_leg_gaussian_quadrature_cond")]
     fn protection_leg_gaussian_quadrature(
         &self,
         t_start: f64,
@@ -63,6 +67,8 @@ impl CDSPricer {
         gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())
     }
 
+    #[allow(dead_code)]
+    #[deprecated(note = "Use protection_leg_adaptive_simpson_cond")]
     fn protection_leg_adaptive_simpson(
         &self,
         t_start: f64,
@@ -95,6 +101,8 @@ impl CDSPricer {
         )
     }
 
+    #[allow(dead_code)]
+    #[deprecated(note = "Use protection_leg_isda_exact_cond")]
     fn protection_leg_isda_exact(
         &self,
         t_start: f64,
@@ -136,6 +144,8 @@ impl CDSPricer {
         Ok(integral * lgd)
     }
 
+    #[allow(dead_code)]
+    #[deprecated(note = "Use protection_leg_isda_standard_model_cond")]
     fn protection_leg_isda_standard_model(
         &self,
         t_start: f64,

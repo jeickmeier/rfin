@@ -565,10 +565,36 @@ impl DefaultLpOptimizer {
             problem_model = problem_model.with(constraint!(lhs_turnover <= *max_turnover));
         }
 
-        // Solve LP
-        let solution = problem_model
-            .solve()
-            .map_err(|e| Error::optimization_error(e.to_string()))?;
+        // Solve LP — map solver failures to structured OptimizationStatus
+        // rather than opaque errors so callers can inspect the reason.
+        let solution = match problem_model.solve() {
+            Ok(sol) => sol,
+            Err(e) => {
+                let status = match &e {
+                    good_lp::ResolutionError::Infeasible => OptimizationStatus::Infeasible {
+                        conflicting_constraints: Vec::new(),
+                    },
+                    good_lp::ResolutionError::Unbounded => OptimizationStatus::Unbounded,
+                    _ => OptimizationStatus::Error {
+                        message: e.to_string(),
+                    },
+                };
+                let meta = finstack_core::config::results_meta_now(config);
+                return Ok(PortfolioOptimizationResult {
+                    problem: problem.clone(),
+                    current_weights,
+                    optimal_weights: IndexMap::new(),
+                    weight_deltas: IndexMap::new(),
+                    implied_quantities: IndexMap::new(),
+                    objective_value: f64::NAN,
+                    metric_values: IndexMap::new(),
+                    status,
+                    dual_values: IndexMap::new(),
+                    constraint_slacks: IndexMap::new(),
+                    meta,
+                });
+            }
+        };
 
         // Extract weights
         let mut optimal_weights: IndexMap<PositionId, f64> = IndexMap::new();

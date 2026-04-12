@@ -303,12 +303,14 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         )
     })?;
 
-    // Total P&L
-    let total_pnl = compute_pnl(
+    // Total P&L — use date-specific FX to stay consistent with factor decomposition
+    let total_pnl = compute_pnl_with_fx(
         val_t0.value,
         val_t1.value,
         val_t1.value.currency(),
+        market_t0,
         market_t1,
+        as_of_t0,
         as_of_t1,
     )?;
 

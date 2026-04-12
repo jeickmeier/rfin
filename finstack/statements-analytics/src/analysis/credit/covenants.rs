@@ -45,7 +45,11 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
         if let Some(model) = self.model {
             for p in &model.periods {
                 if p.id == *period {
-                    return p.end;
+                    // Periods use half-open [start, end) semantics —
+                    // return the last inclusive day, consistent with
+                    // approximate_period_end which returns calendar
+                    // month-end / year-end dates.
+                    return p.end - time::Duration::days(1);
                 }
             }
         }

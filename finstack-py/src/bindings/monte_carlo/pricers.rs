@@ -254,20 +254,14 @@ impl PyPathDependentPricer {
 pub struct PyLsmcPricer {
     num_paths: usize,
     seed: u64,
-    #[allow(dead_code)]
-    use_parallel: bool,
 }
 
 #[pymethods]
 impl PyLsmcPricer {
     #[new]
-    #[pyo3(signature = (num_paths=100_000, seed=42, use_parallel=false))]
-    fn new(num_paths: usize, seed: u64, use_parallel: bool) -> Self {
-        Self {
-            num_paths,
-            seed,
-            use_parallel,
-        }
+    #[pyo3(signature = (num_paths=100_000, seed=42))]
+    fn new(num_paths: usize, seed: u64) -> Self {
+        Self { num_paths, seed }
     }
 
     /// Price an American put under GBM dynamics.
@@ -294,7 +288,6 @@ impl PyLsmcPricer {
         let config = LsmcConfig::new(self.num_paths, exercise_dates).with_seed(self.seed);
         let pricer = LsmcPricer::new(config);
         let process = GbmProcess::with_params(rate, div_yield, vol);
-        let df = (-rate * expiry).exp();
 
         pricer
             .price(
@@ -305,7 +298,7 @@ impl PyLsmcPricer {
                 &exercise,
                 &finstack_monte_carlo::pricer::basis::LaguerreBasis::new(3, strike),
                 ccy,
-                df,
+                rate,
             )
             .map(PyMonteCarloResult::from_inner)
             .map_err(core_to_py)
@@ -335,7 +328,6 @@ impl PyLsmcPricer {
         let config = LsmcConfig::new(self.num_paths, exercise_dates).with_seed(self.seed);
         let pricer = LsmcPricer::new(config);
         let process = GbmProcess::with_params(rate, div_yield, vol);
-        let df = (-rate * expiry).exp();
 
         pricer
             .price(
@@ -346,7 +338,7 @@ impl PyLsmcPricer {
                 &exercise,
                 &finstack_monte_carlo::pricer::basis::LaguerreBasis::new(3, strike),
                 ccy,
-                df,
+                rate,
             )
             .map(PyMonteCarloResult::from_inner)
             .map_err(core_to_py)

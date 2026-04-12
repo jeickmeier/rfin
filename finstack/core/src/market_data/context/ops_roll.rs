@@ -78,10 +78,14 @@ impl MarketContext {
             credit_index_count = self.credit_indices.len(),
             "rolling MarketContext forward"
         );
-        // NOTE: Non-curve fields (surfaces, fx, credit_indices, etc.) are
-        // shallow-cloned and retain references to pre-roll state. This is
-        // intentional for performance — callers needing fully consistent
-        // rolled state should rebuild dependent structures from rolled curves.
+        // NOTE: Non-curve fields are shallow-cloned and retain pre-roll state:
+        //  - Vol surfaces: no base-date axis; expiry tenors remain relative
+        //  - FX matrices: spot rates; no temporal dimension to roll
+        //  - Prices: contain a time axis but are cloned for performance
+        //  - Series: historical fixings; unchanged by a forward roll
+        //
+        // Callers that need fully consistent rolled prices or surfaces
+        // should rebuild them from rolled curves after this call.
         let mut new_ctx = Self {
             curves: {
                 let mut m = HashMap::default();

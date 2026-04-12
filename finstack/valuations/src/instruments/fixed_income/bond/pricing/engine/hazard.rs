@@ -107,9 +107,6 @@ impl HazardBondEngine {
         as_of: Date,
     ) -> Result<(Vec<(Date, Money)>, CashFlowSchedule)> {
         let flows = bond.pricing_dated_cashflows(market, as_of)?;
-        if flows.is_empty() {
-            return Err(InputError::TooFewPoints.into());
-        }
         let schedule = bond.full_cashflow_schedule(market)?;
         Ok((flows, schedule))
     }

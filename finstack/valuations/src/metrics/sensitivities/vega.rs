@@ -128,7 +128,6 @@ where
             .vol_surface_id
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
-        let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
         let vol_surface = base_ctx.get_surface(vol_surface_id.as_str())?;
 
@@ -140,11 +139,14 @@ where
         let target_total = if let Some(existing) = context.computed.get(&MetricId::Vega) {
             *existing
         } else {
-            // Additive parallel bump (consistent with bucketed approach and standard vega definition)
-            let parallel_ctx =
+            // Central difference O(h²) — consistent with bucketed approach
+            let parallel_up =
                 bump_surface_vol_absolute(base_ctx, vol_surface_id.as_str(), bump_pct)?;
-            let pv_parallel = context.reprice_money(&parallel_ctx, as_of)?;
-            (pv_parallel.amount() - base_pv.amount()) / bump_pct
+            let parallel_down =
+                bump_surface_vol_absolute(base_ctx, vol_surface_id.as_str(), -bump_pct)?;
+            let pv_up = context.reprice_money(&parallel_up, as_of)?;
+            let pv_down = context.reprice_money(&parallel_down, as_of)?;
+            (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct)
         };
 
         let mut raw_matrix = Vec::new();
