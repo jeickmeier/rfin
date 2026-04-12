@@ -3,6 +3,7 @@
 //! Wraps `finstack_valuations::factor_model` to expose delta-based and
 //! full-repricing factor sensitivities from Python, with DataFrame export.
 
+use crate::bindings::extract::extract_market;
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use finstack_valuations::factor_model::FactorSensitivityEngine;
 use pyo3::exceptions::PyValueError;
@@ -309,11 +310,11 @@ fn parse_positions(
 /// SensitivityMatrix
 ///     Positions × factors delta matrix.
 #[pyfunction]
-#[pyo3(signature = (positions_json, factors_json, market_json, as_of, bump_config_json=None))]
+#[pyo3(signature = (positions_json, factors_json, market, as_of, bump_config_json=None))]
 fn compute_factor_sensitivities(
     positions_json: &str,
     factors_json: &str,
-    market_json: &str,
+    market: &Bound<'_, PyAny>,
     as_of: &str,
     bump_config_json: Option<&str>,
 ) -> PyResult<PySensitivityMatrix> {
@@ -336,8 +337,7 @@ fn compute_factor_sensitivities(
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
         serde_json::from_str(factors_json).map_err(fm_to_py)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(fm_to_py)?;
+    let market = extract_market(market)?;
     let date = super::parse_date(as_of)?;
     let bump_config: finstack_core::factor_model::BumpSizeConfig = match bump_config_json {
         Some(json) => serde_json::from_str(json).map_err(fm_to_py)?,
@@ -379,11 +379,11 @@ fn compute_factor_sensitivities(
 /// list[FactorPnlProfile]
 ///     One profile per factor, each containing scenario P&L for every position.
 #[pyfunction]
-#[pyo3(signature = (positions_json, factors_json, market_json, as_of, bump_config_json=None, n_scenario_points=5))]
+#[pyo3(signature = (positions_json, factors_json, market, as_of, bump_config_json=None, n_scenario_points=5))]
 fn compute_pnl_profiles(
     positions_json: &str,
     factors_json: &str,
-    market_json: &str,
+    market: &Bound<'_, PyAny>,
     as_of: &str,
     bump_config_json: Option<&str>,
     n_scenario_points: usize,
@@ -407,8 +407,7 @@ fn compute_pnl_profiles(
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
         serde_json::from_str(factors_json).map_err(fm_to_py)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(fm_to_py)?;
+    let market = extract_market(market)?;
     let date = super::parse_date(as_of)?;
     let bump_config: finstack_core::factor_model::BumpSizeConfig = match bump_config_json {
         Some(json) => serde_json::from_str(json).map_err(fm_to_py)?,

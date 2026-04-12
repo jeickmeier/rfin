@@ -3,6 +3,7 @@
 //! Each function takes a portfolio spec + market context as JSON, builds the
 //! runtime portfolio internally, performs the computation, and returns JSON.
 
+use crate::bindings::extract::extract_market;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -16,8 +17,8 @@ fn port_to_py(e: impl std::fmt::Display) -> PyErr {
 /// ----------
 /// spec_json : str
 ///     JSON-serialized ``PortfolioSpec``.
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
 /// strict_risk : bool
 ///     If ``True``, any risk metric failure aborts the entire valuation.
 ///
@@ -26,12 +27,15 @@ fn port_to_py(e: impl std::fmt::Display) -> PyErr {
 /// str
 ///     JSON-serialized ``PortfolioValuation``.
 #[pyfunction]
-#[pyo3(signature = (spec_json, market_json, strict_risk=false))]
-fn value_portfolio(spec_json: &str, market_json: &str, strict_risk: bool) -> PyResult<String> {
+#[pyo3(signature = (spec_json, market, strict_risk=false))]
+fn value_portfolio(
+    spec_json: &str,
+    market: &Bound<'_, PyAny>,
+    strict_risk: bool,
+) -> PyResult<String> {
     let spec: finstack_portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(port_to_py)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(port_to_py)?;
+    let market = extract_market(market)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(port_to_py)?;
     let config = finstack_core::config::FinstackConfig::default();
     let options = finstack_portfolio::PortfolioValuationOptions {
@@ -49,19 +53,18 @@ fn value_portfolio(spec_json: &str, market_json: &str, strict_risk: bool) -> PyR
 /// ----------
 /// spec_json : str
 ///     JSON-serialized ``PortfolioSpec``.
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
 ///
 /// Returns
 /// -------
 /// str
 ///     JSON-serialized ``PortfolioCashflows`` ladder.
 #[pyfunction]
-fn aggregate_cashflows(spec_json: &str, market_json: &str) -> PyResult<String> {
+fn aggregate_cashflows(spec_json: &str, market: &Bound<'_, PyAny>) -> PyResult<String> {
     let spec: finstack_portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(port_to_py)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(port_to_py)?;
+    let market = extract_market(market)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(port_to_py)?;
     let cashflows =
         finstack_portfolio::aggregate_cashflows(&portfolio, &market).map_err(port_to_py)?;
@@ -76,8 +79,8 @@ fn aggregate_cashflows(spec_json: &str, market_json: &str) -> PyResult<String> {
 ///     JSON-serialized ``PortfolioSpec``.
 /// scenario_json : str
 ///     JSON-serialized ``ScenarioSpec``.
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
 ///
 /// Returns
 /// -------
@@ -88,14 +91,13 @@ fn aggregate_cashflows(spec_json: &str, market_json: &str) -> PyResult<String> {
 fn apply_scenario_and_revalue(
     spec_json: &str,
     scenario_json: &str,
-    market_json: &str,
+    market: &Bound<'_, PyAny>,
 ) -> PyResult<(String, String)> {
     let spec: finstack_portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(port_to_py)?;
     let scenario: finstack_scenarios::ScenarioSpec =
         serde_json::from_str(scenario_json).map_err(port_to_py)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(port_to_py)?;
+    let market = extract_market(market)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(port_to_py)?;
     let config = finstack_core::config::FinstackConfig::default();
     let (valuation, report) =

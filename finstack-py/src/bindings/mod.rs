@@ -9,6 +9,7 @@ use pyo3::types::PyList;
 pub mod analytics;
 pub mod core;
 pub mod correlation;
+pub(crate) mod extract;
 pub mod margin;
 pub mod monte_carlo;
 pub(crate) mod pandas_utils;

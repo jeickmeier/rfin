@@ -1,5 +1,6 @@
 //! Python wrappers for scenario engine application.
 
+use crate::bindings::extract::{extract_market, extract_model};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -14,10 +15,10 @@ fn scn_to_py(e: impl std::fmt::Display) -> PyErr {
 /// ----------
 /// scenario_json : str
 ///     JSON-serialized ``ScenarioSpec``.
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
-/// model_json : str
-///     JSON-serialized ``FinancialModelSpec``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
+/// model : FinancialModelSpec | str
+///     A ``FinancialModelSpec`` object or a JSON string.
 /// as_of : str
 ///     Valuation date in ISO 8601 format.
 ///
@@ -30,16 +31,14 @@ fn scn_to_py(e: impl std::fmt::Display) -> PyErr {
 fn apply_scenario<'py>(
     py: Python<'py>,
     scenario_json: &str,
-    market_json: &str,
-    model_json: &str,
+    market: &Bound<'py, PyAny>,
+    model: &Bound<'py, PyAny>,
     as_of: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
     let spec: finstack_scenarios::ScenarioSpec =
         serde_json::from_str(scenario_json).map_err(scn_to_py)?;
-    let mut market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(scn_to_py)?;
-    let mut model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(scn_to_py)?;
+    let mut market = extract_market(market)?;
+    let mut model = extract_model(model)?;
     let date = super::parse_date(as_of)?;
 
     let engine = finstack_scenarios::ScenarioEngine::new();
@@ -75,8 +74,8 @@ fn apply_scenario<'py>(
 /// ----------
 /// scenario_json : str
 ///     JSON-serialized ``ScenarioSpec``.
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
 /// as_of : str
 ///     Valuation date in ISO 8601 format.
 ///
@@ -89,13 +88,12 @@ fn apply_scenario<'py>(
 fn apply_scenario_to_market<'py>(
     py: Python<'py>,
     scenario_json: &str,
-    market_json: &str,
+    market: &Bound<'py, PyAny>,
     as_of: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
     let spec: finstack_scenarios::ScenarioSpec =
         serde_json::from_str(scenario_json).map_err(scn_to_py)?;
-    let mut market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(scn_to_py)?;
+    let mut market = extract_market(market)?;
     let mut model = finstack_statements::FinancialModelSpec::new("__scenario_temp__", vec![]);
     let date = super::parse_date(as_of)?;
 

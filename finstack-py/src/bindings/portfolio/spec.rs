@@ -42,18 +42,29 @@ pub fn portfolio_result_get_metric(result_json: &str, metric_id: &str) -> PyResu
 }
 
 /// Aggregate portfolio metrics from a valuation JSON.
+///
+/// Parameters
+/// ----------
+/// valuation_json : str
+///     JSON-serialized ``PortfolioValuation``.
+/// base_ccy : str
+///     Base currency code.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
+/// as_of : str
+///     Valuation date in ISO 8601 format.
 #[pyfunction]
 pub fn aggregate_metrics(
     valuation_json: &str,
     base_ccy: &str,
-    market_json: &str,
+    market: &Bound<'_, PyAny>,
     as_of: &str,
 ) -> PyResult<String> {
+    use crate::bindings::extract::extract_market;
     let valuation: finstack_portfolio::valuation::PortfolioValuation =
         serde_json::from_str(valuation_json).map_err(port_to_py)?;
     let ccy: finstack_core::currency::Currency = base_ccy.parse().map_err(port_to_py)?;
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(port_to_py)?;
+    let market = extract_market(market)?;
     let date = super::parse_date(as_of)?;
     let metrics = finstack_portfolio::aggregate_metrics(&valuation, ccy, &market, date)
         .map_err(port_to_py)?;

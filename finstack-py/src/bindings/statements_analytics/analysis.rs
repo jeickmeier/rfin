@@ -3,7 +3,13 @@
 //! Covers: sensitivity, variance, scenario sets, backtesting, goal seek,
 //! introspection (dependency tracing, formula explanation), DCF valuation,
 //! credit analysis, Monte Carlo, and reports.
+//!
+//! All functions that accept a financial model or statement result support
+//! both JSON strings and typed Python objects (`FinancialModelSpec`,
+//! `StatementResult`) for zero-overhead calls when the caller already has
+//! a parsed object.
 
+use crate::bindings::extract::{extract_market_opt, extract_model_ref, extract_results_ref};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -16,11 +22,22 @@ fn sa_to_py(e: impl std::fmt::Display) -> PyErr {
 // Sensitivity analysis
 // ---------------------------------------------------------------------------
 
-/// Run sensitivity analysis on a financial model (JSON in/out).
+/// Run sensitivity analysis on a financial model.
+///
+/// Parameters
+/// ----------
+/// model : FinancialModelSpec | str
+///     A ``FinancialModelSpec`` object or a JSON string.
+/// config_json : str
+///     JSON-serialized ``SensitivityConfig``.
+///
+/// Returns
+/// -------
+/// str
+///     JSON-serialized ``SensitivityResult``.
 #[pyfunction]
-fn run_sensitivity(model_json: &str, config_json: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn run_sensitivity(model: &Bound<'_, PyAny>, config_json: &str) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let config: finstack_statements_analytics::analysis::SensitivityConfig =
         serde_json::from_str(config_json).map_err(sa_to_py)?;
     let analyzer = finstack_statements_analytics::analysis::SensitivityAnalyzer::new(&model);
@@ -66,13 +83,24 @@ fn generate_tornado_entries(
 // Variance analysis
 // ---------------------------------------------------------------------------
 
-/// Run variance analysis comparing two statement results (JSON in/out).
+/// Run variance analysis comparing two statement results.
+///
+/// Parameters
+/// ----------
+/// base : StatementResult | str
+///     A ``StatementResult`` object or a JSON string.
+/// comparison : StatementResult | str
+///     A ``StatementResult`` object or a JSON string.
+/// config_json : str
+///     JSON-serialized ``VarianceConfig``.
 #[pyfunction]
-fn run_variance(base_json: &str, comparison_json: &str, config_json: &str) -> PyResult<String> {
-    let base: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(base_json).map_err(sa_to_py)?;
-    let comparison: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(comparison_json).map_err(sa_to_py)?;
+fn run_variance(
+    base: &Bound<'_, PyAny>,
+    comparison: &Bound<'_, PyAny>,
+    config_json: &str,
+) -> PyResult<String> {
+    let base = extract_results_ref(base)?;
+    let comparison = extract_results_ref(comparison)?;
     let config: finstack_statements_analytics::analysis::VarianceConfig =
         serde_json::from_str(config_json).map_err(sa_to_py)?;
     let analyzer =
@@ -85,13 +113,22 @@ fn run_variance(base_json: &str, comparison_json: &str, config_json: &str) -> Py
 // Scenario set
 // ---------------------------------------------------------------------------
 
-/// Evaluate all scenarios in a scenario set (JSON in/out).
+/// Evaluate all scenarios in a scenario set.
 ///
-/// Returns a JSON object mapping scenario name to its ``StatementResult`` JSON.
+/// Parameters
+/// ----------
+/// model : FinancialModelSpec | str
+///     A ``FinancialModelSpec`` object or a JSON string.
+/// scenario_set_json : str
+///     JSON-serialized ``ScenarioSet``.
+///
+/// Returns
+/// -------
+/// str
+///     JSON object mapping scenario name to its ``StatementResult`` JSON.
 #[pyfunction]
-fn evaluate_scenario_set(model_json: &str, scenario_set_json: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn evaluate_scenario_set(model: &Bound<'_, PyAny>, scenario_set_json: &str) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let scenario_set: finstack_statements_analytics::analysis::ScenarioSet =
         serde_json::from_str(scenario_set_json).map_err(sa_to_py)?;
     let results = scenario_set.evaluate_all(&model).map_err(sa_to_py)?;
@@ -119,9 +156,8 @@ fn evaluate_scenario_set(model_json: &str, scenario_set_json: &str) -> PyResult<
 /// str
 ///     JSON-serialized ``MonteCarloResults``.
 #[pyfunction]
-fn run_monte_carlo(model_json: &str, config_json: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn run_monte_carlo(model: &Bound<'_, PyAny>, config_json: &str) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let config: finstack_statements::evaluator::MonteCarloConfig =
         serde_json::from_str(config_json).map_err(sa_to_py)?;
     let mut evaluator = finstack_statements::evaluator::Evaluator::new();
@@ -182,10 +218,10 @@ fn backtest_forecast<'py>(
 /// tuple[float, str]
 ///     (solved_driver_value, updated_model_json).
 #[pyfunction]
-#[pyo3(signature = (model_json, target_node, target_period, target_value, driver_node, driver_period, update_model=true, bounds=None))]
+#[pyo3(signature = (model, target_node, target_period, target_value, driver_node, driver_period, update_model=true, bounds=None))]
 #[allow(clippy::too_many_arguments)]
 fn goal_seek(
-    model_json: &str,
+    model: &Bound<'_, PyAny>,
     target_node: &str,
     target_period: &str,
     target_value: f64,
@@ -194,8 +230,7 @@ fn goal_seek(
     update_model: bool,
     bounds: Option<(f64, f64)>,
 ) -> PyResult<(f64, String)> {
-    let mut model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+    let mut model = extract_model_ref(model)?.into_owned();
     let tp: finstack_core::dates::PeriodId = target_period.parse().map_err(sa_to_py)?;
     let dp: finstack_core::dates::PeriodId = driver_period.parse().map_err(sa_to_py)?;
 
@@ -211,7 +246,11 @@ fn goal_seek(
     )
     .map_err(sa_to_py)?;
 
-    let updated_json = serde_json::to_string_pretty(&model).map_err(sa_to_py)?;
+    let updated_json = if update_model {
+        serde_json::to_string(&model).map_err(sa_to_py)?
+    } else {
+        String::new()
+    };
     Ok((result, updated_json))
 }
 
@@ -254,7 +293,7 @@ fn goal_seek(
 ///     ``diluted_shares`` (all floats, in model currency).
 #[pyfunction]
 #[pyo3(signature = (
-    model_json,
+    model,
     wacc,
     terminal_value_json,
     ufcf_node="ufcf",
@@ -263,12 +302,12 @@ fn goal_seek(
     shares_outstanding=None,
     equity_bridge_json=None,
     valuation_discounts_json=None,
-    market_json=None,
+    market=None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn evaluate_dcf<'py>(
     py: Python<'py>,
-    model_json: &str,
+    model: &Bound<'py, PyAny>,
     wacc: f64,
     terminal_value_json: &str,
     ufcf_node: &str,
@@ -277,12 +316,11 @@ fn evaluate_dcf<'py>(
     shares_outstanding: Option<f64>,
     equity_bridge_json: Option<&str>,
     valuation_discounts_json: Option<&str>,
-    market_json: Option<&str>,
+    market: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyDict>> {
     use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+    let model = extract_model_ref(model)?;
     let terminal_value: TerminalValueSpec =
         serde_json::from_str(terminal_value_json).map_err(sa_to_py)?;
 
@@ -300,9 +338,7 @@ fn evaluate_dcf<'py>(
         valuation_discounts,
     };
 
-    let market: Option<finstack_core::market_data::context::MarketContext> = market_json
-        .map(|j| serde_json::from_str(j).map_err(sa_to_py))
-        .transpose()?;
+    let market = extract_market_opt(market)?;
 
     let result = finstack_statements_analytics::analysis::evaluate_dcf_with_market(
         &model,
@@ -363,29 +399,28 @@ fn evaluate_dcf<'py>(
 ///     credit metrics JSON).
 #[pyfunction]
 #[pyo3(signature = (
-    model_json,
+    model,
     wacc=None,
     terminal_value_json=None,
     net_debt_override=None,
     coverage_node="ebitda",
-    market_json=None,
+    market=None,
     as_of=None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_corporate_analysis<'py>(
     py: Python<'py>,
-    model_json: &str,
+    model: &Bound<'py, PyAny>,
     wacc: Option<f64>,
     terminal_value_json: Option<&str>,
     net_debt_override: Option<f64>,
     coverage_node: &str,
-    market_json: Option<&str>,
+    market: Option<&Bound<'py, PyAny>>,
     as_of: Option<&str>,
 ) -> PyResult<Bound<'py, PyDict>> {
     use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+    let model = extract_model_ref(model)?.into_owned();
 
     let mut builder = finstack_statements_analytics::analysis::CorporateAnalysisBuilder::new(model)
         .coverage_node(coverage_node);
@@ -401,10 +436,8 @@ fn run_corporate_analysis<'py>(
         }
     }
 
-    if let Some(mkt_json) = market_json {
-        let market: finstack_core::market_data::context::MarketContext =
-            serde_json::from_str(mkt_json).map_err(sa_to_py)?;
-        builder = builder.market(market);
+    if let Some(mkt) = extract_market_opt(market)? {
+        builder = builder.market(mkt);
     }
 
     if let Some(date_str) = as_of {
@@ -466,14 +499,13 @@ fn run_corporate_analysis<'py>(
 ///     Formatted P&L summary report text.
 #[pyfunction]
 fn pl_summary_report(
-    results_json: &str,
+    results: &Bound<'_, PyAny>,
     line_items: Vec<String>,
     periods: Vec<String>,
 ) -> PyResult<String> {
     use finstack_statements_analytics::analysis::Report;
 
-    let results: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(results_json).map_err(sa_to_py)?;
+    let results = extract_results_ref(results)?;
     let period_ids: Vec<finstack_core::dates::PeriodId> = periods
         .iter()
         .map(|p| p.parse().map_err(sa_to_py))
@@ -498,11 +530,10 @@ fn pl_summary_report(
 /// str
 ///     Formatted credit assessment report text.
 #[pyfunction]
-fn credit_assessment_report(results_json: &str, as_of: &str) -> PyResult<String> {
+fn credit_assessment_report(results: &Bound<'_, PyAny>, as_of: &str) -> PyResult<String> {
     use finstack_statements_analytics::analysis::Report;
 
-    let results: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(results_json).map_err(sa_to_py)?;
+    let results = extract_results_ref(results)?;
     let period: finstack_core::dates::PeriodId = as_of.parse().map_err(sa_to_py)?;
     let report =
         finstack_statements_analytics::analysis::CreditAssessmentReport::new(&results, period);
@@ -510,7 +541,108 @@ fn credit_assessment_report(results_json: &str, as_of: &str) -> PyResult<String>
 }
 
 // ---------------------------------------------------------------------------
-// Introspection — DependencyTracer
+// Introspection — DependencyTracer (class)
+// ---------------------------------------------------------------------------
+
+/// Cached dependency tracer that builds the model graph once.
+///
+/// Construct from a ``FinancialModelSpec`` (or JSON string) and reuse for
+/// multiple introspection queries without rebuilding the dependency graph.
+///
+/// Examples
+/// --------
+/// ::
+///
+///     tracer = DependencyTracer(model)
+///     tree = tracer.dependency_tree("gross_profit")
+///     deps = tracer.direct_dependencies("gross_profit")
+///     all_ = tracer.all_dependencies("gross_profit")
+#[pyclass(
+    name = "DependencyTracer",
+    module = "finstack.statements_analytics",
+    skip_from_py_object
+)]
+struct PyDependencyTracer {
+    model: finstack_statements::FinancialModelSpec,
+    graph: finstack_statements::evaluator::DependencyGraph,
+}
+
+#[pymethods]
+impl PyDependencyTracer {
+    /// Build a tracer from a model (typed object or JSON string).
+    #[new]
+    fn new(model: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let model = extract_model_ref(model)?.into_owned();
+        let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
+            .map_err(sa_to_py)?;
+        Ok(Self { model, graph })
+    }
+
+    /// ASCII-formatted dependency tree for a node.
+    fn dependency_tree(&self, node_id: &str) -> PyResult<String> {
+        let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(
+            &self.model,
+            &self.graph,
+        );
+        let tree = tracer.dependency_tree(node_id).map_err(sa_to_py)?;
+        Ok(finstack_statements_analytics::analysis::render_tree_ascii(
+            &tree,
+        ))
+    }
+
+    /// ASCII tree with node values for a given period.
+    fn dependency_tree_detailed(
+        &self,
+        results: &Bound<'_, PyAny>,
+        node_id: &str,
+        period: &str,
+    ) -> PyResult<String> {
+        let results = extract_results_ref(results)?;
+        let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
+        let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(
+            &self.model,
+            &self.graph,
+        );
+        let tree = tracer.dependency_tree(node_id).map_err(sa_to_py)?;
+        Ok(finstack_statements_analytics::analysis::render_tree_detailed(&tree, &results, &pid))
+    }
+
+    /// Direct dependency node IDs.
+    fn direct_dependencies(&self, node_id: &str) -> PyResult<Vec<String>> {
+        let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(
+            &self.model,
+            &self.graph,
+        );
+        let deps = tracer.direct_dependencies(node_id).map_err(sa_to_py)?;
+        Ok(deps.into_iter().map(String::from).collect())
+    }
+
+    /// All transitive dependency node IDs in dependency order.
+    fn all_dependencies(&self, node_id: &str) -> PyResult<Vec<String>> {
+        let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(
+            &self.model,
+            &self.graph,
+        );
+        tracer.all_dependencies(node_id).map_err(sa_to_py)
+    }
+
+    /// Node IDs that depend on this node.
+    fn dependents(&self, node_id: &str) -> PyResult<Vec<String>> {
+        let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(
+            &self.model,
+            &self.graph,
+        );
+        let deps = tracer.dependents(node_id).map_err(sa_to_py)?;
+        Ok(deps.into_iter().map(String::from).collect())
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DependencyTracer(nodes={})", self.model.nodes.len())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Introspection — free functions (kept for backward compatibility)
 // ---------------------------------------------------------------------------
 
 /// Trace dependencies for a node and return ASCII tree.
@@ -527,9 +659,8 @@ fn credit_assessment_report(results_json: &str, as_of: &str) -> PyResult<String>
 /// str
 ///     ASCII-formatted dependency tree.
 #[pyfunction]
-fn trace_dependencies(model_json: &str, node_id: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn trace_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let graph =
         finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
@@ -558,15 +689,13 @@ fn trace_dependencies(model_json: &str, node_id: &str) -> PyResult<String> {
 ///     ASCII tree with node values for the given period.
 #[pyfunction]
 fn trace_dependencies_detailed(
-    model_json: &str,
-    results_json: &str,
+    model: &Bound<'_, PyAny>,
+    results: &Bound<'_, PyAny>,
     node_id: &str,
     period: &str,
 ) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
-    let results: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(results_json).map_err(sa_to_py)?;
+    let model = extract_model_ref(model)?;
+    let results = extract_results_ref(results)?;
     let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
     let graph =
         finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
@@ -589,9 +718,8 @@ fn trace_dependencies_detailed(
 /// list[str]
 ///     Direct dependency node IDs.
 #[pyfunction]
-fn direct_dependencies(model_json: &str, node_id: &str) -> PyResult<Vec<String>> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn direct_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<String>> {
+    let model = extract_model_ref(model)?;
     let graph =
         finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
@@ -613,9 +741,8 @@ fn direct_dependencies(model_json: &str, node_id: &str) -> PyResult<Vec<String>>
 /// list[str]
 ///     All transitive dependency node IDs in dependency order.
 #[pyfunction]
-fn all_dependencies(model_json: &str, node_id: &str) -> PyResult<Vec<String>> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn all_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<String>> {
+    let model = extract_model_ref(model)?;
     let graph =
         finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
@@ -636,9 +763,8 @@ fn all_dependencies(model_json: &str, node_id: &str) -> PyResult<Vec<String>> {
 /// list[str]
 ///     Node IDs that depend on this node.
 #[pyfunction]
-fn dependents(model_json: &str, node_id: &str) -> PyResult<Vec<String>> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+fn dependents(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<String>> {
+    let model = extract_model_ref(model)?;
     let graph =
         finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
@@ -671,15 +797,13 @@ fn dependents(model_json: &str, node_id: &str) -> PyResult<Vec<String>> {
 #[pyfunction]
 fn explain_formula<'py>(
     py: Python<'py>,
-    model_json: &str,
-    results_json: &str,
+    model: &Bound<'py, PyAny>,
+    results: &Bound<'py, PyAny>,
     node_id: &str,
     period: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
-    let results: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(results_json).map_err(sa_to_py)?;
+    let model = extract_model_ref(model)?;
+    let results = extract_results_ref(results)?;
     let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
 
     let explainer =
@@ -728,15 +852,13 @@ fn explain_formula<'py>(
 ///     Human-readable multi-line explanation.
 #[pyfunction]
 fn explain_formula_text(
-    model_json: &str,
-    results_json: &str,
+    model: &Bound<'_, PyAny>,
+    results: &Bound<'_, PyAny>,
     node_id: &str,
     period: &str,
 ) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
-    let results: finstack_statements::evaluator::StatementResult =
-        serde_json::from_str(results_json).map_err(sa_to_py)?;
+    let model = extract_model_ref(model)?;
+    let results = extract_results_ref(results)?;
     let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
 
     let explainer =
@@ -756,19 +878,26 @@ fn explain_formula_text(
 ///
 /// Parameters
 /// ----------
-/// model_json : str
-///   JSON-serialized ``FinancialModelSpec``.
+/// model : FinancialModelSpec | str
+///   A ``FinancialModelSpec`` object or a JSON string.
 /// suite_spec_json : str
 ///   JSON-serialized ``CheckSuiteSpec``.
+/// results : StatementResult | str | None
+///   Pre-computed evaluation results.  When provided the model is not
+///   re-evaluated, avoiding redundant work.
 ///
 /// Returns
 /// -------
 /// str
 ///   JSON-serialized ``CheckReport``.
 #[pyfunction]
-fn run_checks(model_json: &str, suite_spec_json: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+#[pyo3(signature = (model, suite_spec_json, results=None))]
+fn run_checks(
+    model: &Bound<'_, PyAny>,
+    suite_spec_json: &str,
+    results: Option<&Bound<'_, PyAny>>,
+) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let spec: finstack_statements::checks::CheckSuiteSpec =
         serde_json::from_str(suite_spec_json).map_err(sa_to_py)?;
 
@@ -791,9 +920,21 @@ fn run_checks(model_json: &str, suite_spec_json: &str) -> PyResult<String> {
         suite = suite.merge(fc_builder.build());
     }
 
-    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-    let results = evaluator.evaluate(&model).map_err(sa_to_py)?;
-    let report = suite.run(&model, &results).map_err(sa_to_py)?;
+    let eval_result;
+    let results_ref: &finstack_statements::evaluator::StatementResult = match results {
+        Some(r) => {
+            eval_result = extract_results_ref(r)?;
+            &eval_result
+        }
+        None => {
+            let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+            eval_result = crate::bindings::extract::ResultAccess::Owned(
+                evaluator.evaluate(&model).map_err(sa_to_py)?,
+            );
+            &eval_result
+        }
+    };
+    let report = suite.run(&model, results_ref).map_err(sa_to_py)?;
     serde_json::to_string(&report).map_err(sa_to_py)
 }
 
@@ -801,25 +942,44 @@ fn run_checks(model_json: &str, suite_spec_json: &str) -> PyResult<String> {
 ///
 /// Parameters
 /// ----------
-/// model_json : str
-///   JSON-serialized ``FinancialModelSpec``.
+/// model : FinancialModelSpec | str
+///   A ``FinancialModelSpec`` object or a JSON string.
 /// mapping_json : str
 ///   JSON-serialized ``ThreeStatementMapping``.
+/// results : StatementResult | str | None
+///   Pre-computed evaluation results.  Skips re-evaluation when provided.
 ///
 /// Returns
 /// -------
 /// str
 ///   JSON-serialized ``CheckReport``.
 #[pyfunction]
-fn run_three_statement_checks(model_json: &str, mapping_json: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+#[pyo3(signature = (model, mapping_json, results=None))]
+fn run_three_statement_checks(
+    model: &Bound<'_, PyAny>,
+    mapping_json: &str,
+    results: Option<&Bound<'_, PyAny>>,
+) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let mapping: finstack_statements_analytics::analysis::ThreeStatementMapping =
         serde_json::from_str(mapping_json).map_err(sa_to_py)?;
     let suite = finstack_statements_analytics::analysis::three_statement_checks(mapping);
-    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-    let results = evaluator.evaluate(&model).map_err(sa_to_py)?;
-    let report = suite.run(&model, &results).map_err(sa_to_py)?;
+
+    let eval_result;
+    let results_ref: &finstack_statements::evaluator::StatementResult = match results {
+        Some(r) => {
+            eval_result = extract_results_ref(r)?;
+            &eval_result
+        }
+        None => {
+            let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+            eval_result = crate::bindings::extract::ResultAccess::Owned(
+                evaluator.evaluate(&model).map_err(sa_to_py)?,
+            );
+            &eval_result
+        }
+    };
+    let report = suite.run(&model, results_ref).map_err(sa_to_py)?;
     serde_json::to_string(&report).map_err(sa_to_py)
 }
 
@@ -827,25 +987,44 @@ fn run_three_statement_checks(model_json: &str, mapping_json: &str) -> PyResult<
 ///
 /// Parameters
 /// ----------
-/// model_json : str
-///   JSON-serialized ``FinancialModelSpec``.
+/// model : FinancialModelSpec | str
+///   A ``FinancialModelSpec`` object or a JSON string.
 /// mapping_json : str
 ///   JSON-serialized ``CreditMapping``.
+/// results : StatementResult | str | None
+///   Pre-computed evaluation results.  Skips re-evaluation when provided.
 ///
 /// Returns
 /// -------
 /// str
 ///   JSON-serialized ``CheckReport``.
 #[pyfunction]
-fn run_credit_underwriting_checks(model_json: &str, mapping_json: &str) -> PyResult<String> {
-    let model: finstack_statements::FinancialModelSpec =
-        serde_json::from_str(model_json).map_err(sa_to_py)?;
+#[pyo3(signature = (model, mapping_json, results=None))]
+fn run_credit_underwriting_checks(
+    model: &Bound<'_, PyAny>,
+    mapping_json: &str,
+    results: Option<&Bound<'_, PyAny>>,
+) -> PyResult<String> {
+    let model = extract_model_ref(model)?;
     let mapping: finstack_statements_analytics::analysis::CreditMapping =
         serde_json::from_str(mapping_json).map_err(sa_to_py)?;
     let suite = finstack_statements_analytics::analysis::credit_underwriting_checks(mapping);
-    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-    let results = evaluator.evaluate(&model).map_err(sa_to_py)?;
-    let report = suite.run(&model, &results).map_err(sa_to_py)?;
+
+    let eval_result;
+    let results_ref: &finstack_statements::evaluator::StatementResult = match results {
+        Some(r) => {
+            eval_result = extract_results_ref(r)?;
+            &eval_result
+        }
+        None => {
+            let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+            eval_result = crate::bindings::extract::ResultAccess::Owned(
+                evaluator.evaluate(&model).map_err(sa_to_py)?,
+            );
+            &eval_result
+        }
+    };
+    let report = suite.run(&model, results_ref).map_err(sa_to_py)?;
     serde_json::to_string(&report).map_err(sa_to_py)
 }
 
@@ -885,8 +1064,9 @@ fn render_check_report_html(report_json: &str) -> PyResult<String> {
     Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_html(&report))
 }
 
-/// Register analysis functions.
+/// Register analysis functions and classes.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyDependencyTracer>()?;
     m.add_function(pyo3::wrap_pyfunction!(run_sensitivity, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(generate_tornado_entries, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(run_variance, m)?)?;

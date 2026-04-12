@@ -22,7 +22,7 @@ fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
 )]
 #[derive(Clone)]
 pub struct PyStatementResult {
-    pub(super) inner: finstack_statements::evaluator::StatementResult,
+    pub(crate) inner: finstack_statements::evaluator::StatementResult,
 }
 
 #[pymethods]
@@ -37,7 +37,7 @@ impl PyStatementResult {
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Get the value for a node at a specific period.
@@ -118,9 +118,10 @@ impl PyStatementResult {
     ///
     /// Columns: ``node_id``, ``period``, ``value``.
     fn to_pandas_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let mut node_ids: Vec<String> = Vec::new();
-        let mut periods: Vec<String> = Vec::new();
-        let mut values: Vec<f64> = Vec::new();
+        let total: usize = self.inner.nodes.values().map(|pm| pm.len()).sum();
+        let mut node_ids: Vec<String> = Vec::with_capacity(total);
+        let mut periods: Vec<String> = Vec::with_capacity(total);
+        let mut values: Vec<f64> = Vec::with_capacity(total);
 
         for (node_id, period_map) in &self.inner.nodes {
             for (pid, &val) in period_map {

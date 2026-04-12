@@ -201,7 +201,7 @@ impl PyNumericMode {
 )]
 #[derive(Clone)]
 pub struct PyFinancialModelSpec {
-    pub(super) inner: finstack_statements::FinancialModelSpec,
+    pub(crate) inner: finstack_statements::FinancialModelSpec,
 }
 
 #[pymethods]
@@ -216,7 +216,7 @@ impl PyFinancialModelSpec {
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Model identifier.

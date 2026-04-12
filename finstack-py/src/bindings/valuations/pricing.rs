@@ -1,5 +1,6 @@
 //! Instrument pricing pipeline: JSON instrument + market → ValuationResult.
 
+use crate::bindings::extract::extract_market;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -13,8 +14,8 @@ fn val_to_py(e: impl std::fmt::Display) -> PyErr {
 /// ----------
 /// instrument_json : str
 ///     Tagged instrument JSON (``{"type": "bond", ...}``).
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
 /// as_of : str
 ///     Valuation date in ISO 8601 format (``"YYYY-MM-DD"``).
 /// model : str
@@ -26,10 +27,10 @@ fn val_to_py(e: impl std::fmt::Display) -> PyErr {
 /// str
 ///     JSON-serialized ``ValuationResult``.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market_json, as_of, model="discounting"))]
+#[pyo3(signature = (instrument_json, market, as_of, model="discounting"))]
 fn price_instrument(
     instrument_json: &str,
-    market_json: &str,
+    market: &Bound<'_, PyAny>,
     as_of: &str,
     model: &str,
 ) -> PyResult<String> {
@@ -37,8 +38,7 @@ fn price_instrument(
         serde_json::from_str(instrument_json).map_err(val_to_py)?;
     let boxed = inst.into_boxed().map_err(val_to_py)?;
 
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(val_to_py)?;
+    let market = extract_market(market)?;
 
     let date = super::parse_date(as_of)?;
     let model_key = parse_model_key(model)?;
@@ -57,8 +57,8 @@ fn price_instrument(
 /// ----------
 /// instrument_json : str
 ///     Tagged instrument JSON.
-/// market_json : str
-///     JSON-serialized ``MarketContext``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
 /// as_of : str
 ///     Valuation date.
 /// model : str
@@ -71,10 +71,10 @@ fn price_instrument(
 /// str
 ///     JSON-serialized ``ValuationResult`` including requested metrics.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market_json, as_of, model="discounting", metrics=vec![]))]
+#[pyo3(signature = (instrument_json, market, as_of, model="discounting", metrics=vec![]))]
 fn price_instrument_with_metrics(
     instrument_json: &str,
-    market_json: &str,
+    market: &Bound<'_, PyAny>,
     as_of: &str,
     model: &str,
     metrics: Vec<String>,
@@ -83,8 +83,7 @@ fn price_instrument_with_metrics(
         serde_json::from_str(instrument_json).map_err(val_to_py)?;
     let boxed = inst.into_boxed().map_err(val_to_py)?;
 
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(val_to_py)?;
+    let market = extract_market(market)?;
 
     let date = super::parse_date(as_of)?;
     let model_key = parse_model_key(model)?;

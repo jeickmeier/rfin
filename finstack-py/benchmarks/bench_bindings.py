@@ -16,6 +16,7 @@ Compare against a saved baseline::
 from __future__ import annotations
 
 from datetime import date, timedelta
+from itertools import accumulate
 import json
 
 from finstack.core.currency import Currency
@@ -116,9 +117,7 @@ from finstack.valuations import list_standard_metrics, validate_instrument_json
 
 RETURNS_10K: list[float] = [0.0004 + (i % 17) * 1e-5 for i in range(10_000)]
 RETURNS_10K_ALT: list[float] = [0.0003 + (i % 13) * 1.2e-5 for i in range(10_000)]
-PRICES_10K: list[float] = [100.0]
-for _r in RETURNS_10K:
-    PRICES_10K.append(PRICES_10K[-1] * (1.0 + _r))
+PRICES_10K: list[float] = list(accumulate(RETURNS_10K, lambda p, r: p * (1.0 + r), initial=100.0))
 
 DATES_252 = [date(2024, 1, 1) + timedelta(days=i) for i in range(252)]
 
@@ -651,10 +650,18 @@ class TestStatementsBenchmarks:
 class TestStatementsAnalyticsBenchmarks:
     """Sensitivity analysis and forecast backtesting."""
 
-    def test_run_sensitivity(self, benchmark) -> None:
+    def test_run_sensitivity_json(self, benchmark) -> None:
         benchmark.pedantic(
             run_sensitivity,
             args=(_MODEL_JSON, SENSITIVITY_CONFIG_JSON),
+            rounds=20,
+            warmup_rounds=2,
+        )
+
+    def test_run_sensitivity_typed(self, benchmark) -> None:
+        benchmark.pedantic(
+            run_sensitivity,
+            args=(_MODEL_SPEC, SENSITIVITY_CONFIG_JSON),
             rounds=20,
             warmup_rounds=2,
         )
@@ -664,7 +671,7 @@ class TestStatementsAnalyticsBenchmarks:
         forecast = [float(i) + 0.5 for i in range(100)]
         benchmark(backtest_forecast, actual, forecast)
 
-    def test_run_variance(self, benchmark) -> None:
+    def test_run_variance_json(self, benchmark) -> None:
         benchmark.pedantic(
             run_variance,
             args=(_EVAL_RESULT_JSON, _COMPARISON_RESULT_JSON, VARIANCE_CONFIG_JSON),
@@ -672,7 +679,15 @@ class TestStatementsAnalyticsBenchmarks:
             warmup_rounds=2,
         )
 
-    def test_evaluate_scenario_set(self, benchmark) -> None:
+    def test_run_variance_typed(self, benchmark) -> None:
+        benchmark.pedantic(
+            run_variance,
+            args=(_EVAL_RESULT, _COMPARISON_RESULT, VARIANCE_CONFIG_JSON),
+            rounds=20,
+            warmup_rounds=2,
+        )
+
+    def test_evaluate_scenario_set_json(self, benchmark) -> None:
         benchmark.pedantic(
             evaluate_scenario_set,
             args=(_MODEL_JSON, SCENARIO_SET_JSON),
@@ -680,7 +695,15 @@ class TestStatementsAnalyticsBenchmarks:
             warmup_rounds=2,
         )
 
-    def test_goal_seek(self, benchmark) -> None:
+    def test_evaluate_scenario_set_typed(self, benchmark) -> None:
+        benchmark.pedantic(
+            evaluate_scenario_set,
+            args=(_MODEL_SPEC, SCENARIO_SET_JSON),
+            rounds=20,
+            warmup_rounds=2,
+        )
+
+    def test_goal_seek_json(self, benchmark) -> None:
         def _seek():
             return goal_seek(
                 _MODEL_JSON,
@@ -694,7 +717,21 @@ class TestStatementsAnalyticsBenchmarks:
 
         benchmark.pedantic(_seek, rounds=10, warmup_rounds=1)
 
-    def test_trace_dependencies(self, benchmark) -> None:
+    def test_goal_seek_typed(self, benchmark) -> None:
+        def _seek():
+            return goal_seek(
+                _MODEL_SPEC,
+                target_node="gross_profit",
+                target_period="2025Q1",
+                target_value=50.0,
+                driver_node="revenue",
+                driver_period="2025Q1",
+                update_model=False,
+            )
+
+        benchmark.pedantic(_seek, rounds=10, warmup_rounds=1)
+
+    def test_trace_dependencies_json(self, benchmark) -> None:
         def _trace():
             tree = trace_dependencies(_MODEL_JSON, "gross_profit")
             deps = direct_dependencies(_MODEL_JSON, "gross_profit")
@@ -702,8 +739,19 @@ class TestStatementsAnalyticsBenchmarks:
 
         benchmark(_trace)
 
-    def test_explain_formula(self, benchmark) -> None:
+    def test_trace_dependencies_typed(self, benchmark) -> None:
+        def _trace():
+            tree = trace_dependencies(_MODEL_SPEC, "gross_profit")
+            deps = direct_dependencies(_MODEL_SPEC, "gross_profit")
+            return tree, deps
+
+        benchmark(_trace)
+
+    def test_explain_formula_json(self, benchmark) -> None:
         benchmark(explain_formula, _MODEL_JSON, _EVAL_RESULT_JSON, "gross_profit", "2025Q1")
+
+    def test_explain_formula_typed(self, benchmark) -> None:
+        benchmark(explain_formula, _MODEL_SPEC, _EVAL_RESULT, "gross_profit", "2025Q1")
 
 
 # ===================================================================

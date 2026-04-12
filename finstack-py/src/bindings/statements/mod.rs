@@ -7,8 +7,8 @@ mod adjustments;
 mod builder;
 mod checks;
 mod dsl;
-mod evaluator;
-mod types;
+pub(crate) mod evaluator;
+pub(crate) mod types;
 
 use pyo3::prelude::*;
 use pyo3::types::PyList;
