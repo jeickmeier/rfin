@@ -89,3 +89,10 @@ pub use types::{
 pub use variance::{
     BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
 };
+
+// ---- Check-framework re-exports ----
+
+pub use checks::{
+    corkscrew_as_checks, credit_underwriting_checks, lbo_model_checks, three_statement_checks,
+    CheckReportRenderer, CreditMapping, FormulaCheck, ThreeStatementMapping, TrendDirection,
+};
