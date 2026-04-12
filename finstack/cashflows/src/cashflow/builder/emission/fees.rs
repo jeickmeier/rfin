@@ -37,7 +37,7 @@ fn emit_fee_generic(
     year_fraction: f64,
     ccy: Currency,
     kind: CFKind,
-) -> Vec<CashFlow> {
+) -> Option<CashFlow> {
     // Catch non-finite inputs in debug builds so tests surface the problem.
     debug_assert!(
         base_amount.is_finite(),
@@ -54,7 +54,7 @@ fn emit_fee_generic(
 
     // Guard: non-finite inputs produce no cashflow rather than a silent zero fee.
     if !base_amount.is_finite() || !fee_bp.is_finite() || !year_fraction.is_finite() {
-        return vec![];
+        return None;
     }
 
     // Use Decimal for consistent precision with emit_fees_on
@@ -67,16 +67,16 @@ fn emit_fee_generic(
     let rate = (fee_bp_dec * BP_TO_RATE).to_f64().unwrap_or(0.0);
 
     if fee_amt > 0.0 {
-        vec![CashFlow {
+        Some(CashFlow {
             date: d,
             reset_date: None,
             amount: Money::new(fee_amt, ccy),
             kind,
             accrual_factor: year_fraction,
             rate: Some(rate),
-        }]
+        })
     } else {
-        vec![]
+        None
     }
 }
 
@@ -95,14 +95,14 @@ fn emit_fee_generic(
 ///
 /// # Returns
 ///
-/// Vector containing zero or one cashflow (empty if fee amount is zero)
+/// Optional cashflow (`None` if fee amount is zero)
 pub fn emit_commitment_fee_on(
     d: Date,
     undrawn_balance: f64,
     commitment_fee_bp: f64,
     year_fraction: f64,
     ccy: Currency,
-) -> Vec<CashFlow> {
+) -> Option<CashFlow> {
     emit_fee_generic(
         d,
         undrawn_balance,
@@ -128,14 +128,14 @@ pub fn emit_commitment_fee_on(
 ///
 /// # Returns
 ///
-/// Vector containing zero or one cashflow (empty if fee amount is zero)
+/// Optional cashflow (`None` if fee amount is zero)
 pub fn emit_usage_fee_on(
     d: Date,
     drawn_balance: f64,
     usage_fee_bp: f64,
     year_fraction: f64,
     ccy: Currency,
-) -> Vec<CashFlow> {
+) -> Option<CashFlow> {
     emit_fee_generic(
         d,
         drawn_balance,
@@ -161,14 +161,14 @@ pub fn emit_usage_fee_on(
 ///
 /// # Returns
 ///
-/// Vector containing zero or one cashflow (empty if fee amount is zero)
+/// Optional cashflow (`None` if fee amount is zero)
 pub fn emit_facility_fee_on(
     d: Date,
     commitment_amount: f64,
     facility_fee_bp: f64,
     year_fraction: f64,
     ccy: Currency,
-) -> Vec<CashFlow> {
+) -> Option<CashFlow> {
     emit_fee_generic(
         d,
         commitment_amount,
@@ -197,20 +197,24 @@ fn compute_time_weighted_average(
     accrual_start: Date,
     accrual_end: Date,
     fallback: f64,
+    entries_buf: &mut Vec<(Date, f64)>,
 ) -> f64 {
     // Collect entries that are relevant to the accrual period:
     // any date < accrual_end (we need entries before start to carry forward).
-    let mut entries: Vec<(Date, f64)> = outstanding_history
-        .iter()
-        .filter(|(date, _)| **date < accrual_end)
-        .map(|(date, val)| (*date, *val))
-        .collect();
+    entries_buf.clear();
+    entries_buf.extend(
+        outstanding_history
+            .iter()
+            .filter(|(date, _)| **date < accrual_end)
+            .map(|(date, val)| (*date, *val)),
+    );
 
-    if entries.is_empty() {
+    if entries_buf.is_empty() {
         return fallback;
     }
 
-    entries.sort_by_key(|(d, _)| *d);
+    entries_buf.sort_by_key(|(d, _)| *d);
+    let entries = entries_buf;
 
     // Find the outstanding at accrual_start: the most recent entry at or before accrual_start
     let start_idx = match entries.binary_search_by_key(&accrual_start, |(d, _)| *d) {
@@ -282,6 +286,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
 ) -> finstack_core::Result<()> {
     // Conversion factor from basis points to rate (1 bp = 0.0001)
     let bp_to_rate = Decimal::new(1, 4); // 0.0001
+    let mut twa_buf: Vec<(Date, f64)> = Vec::new();
 
     for pf in periodic_fees {
         if let Some(period) = pf.prev.get(&d) {
@@ -307,6 +312,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                     period.accrual_start,
                     period.accrual_end,
                     outstanding,
+                    &mut twa_buf,
                 ),
             };
 
@@ -597,7 +603,8 @@ mod tests {
         let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let history = finstack_core::HashMap::default();
-        let result = compute_time_weighted_average(&history, start, end, 42.0);
+        let mut buf = Vec::new();
+        let result = compute_time_weighted_average(&history, start, end, 42.0, &mut buf);
         assert!((result - 42.0).abs() < 1e-10);
     }
 
@@ -607,7 +614,8 @@ mod tests {
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let mut history = finstack_core::HashMap::default();
         history.insert(start, 1_000_000.0);
-        let result = compute_time_weighted_average(&history, start, end, 0.0);
+        let mut buf = Vec::new();
+        let result = compute_time_weighted_average(&history, start, end, 0.0, &mut buf);
         assert!(
             (result - 1_000_000.0).abs() < 1e-10,
             "Expected 1M, got {}",
@@ -622,7 +630,8 @@ mod tests {
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let mut history = finstack_core::HashMap::default();
         history.insert(before, 1_000_000.0);
-        let result = compute_time_weighted_average(&history, start, end, 0.0);
+        let mut buf = Vec::new();
+        let result = compute_time_weighted_average(&history, start, end, 0.0, &mut buf);
         assert!(
             (result - 1_000_000.0).abs() < 1e-10,
             "Expected 1M, got {}",

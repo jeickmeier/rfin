@@ -138,15 +138,14 @@ pub(crate) fn evaluate_non_negative_integer_arg(
             format!("{func_name}() requires an integer argument"),
         ));
     }
-
-    let integer = value as i32;
-    if integer < 0 {
+    if value < 0.0 || value > i32::MAX as f64 {
         return Err(eval_error(
             node_id,
-            format!("{func_name}() argument must be non-negative"),
+            format!("{func_name}() argument must be a non-negative integer within i32 range"),
         ));
     }
-    Ok(integer)
+
+    Ok(value as i32)
 }
 
 #[inline]
@@ -167,6 +166,12 @@ fn evaluate_integer_arg(
         return Err(eval_error(
             node_id,
             format!("{func_name}() requires an integer argument"),
+        ));
+    }
+    if value < i32::MIN as f64 || value > i32::MAX as f64 {
+        return Err(eval_error(
+            node_id,
+            format!("{func_name}() argument value is out of i32 range"),
         ));
     }
     Ok(value as i32)
@@ -214,6 +219,7 @@ fn build_context_for_period(
         std::sync::Arc::clone(&context.node_to_column),
         std::sync::Arc::clone(&context.historical_results),
     );
+    period_context.period_kind = context.period_kind;
     period_context.historical_capital_structure_cashflows =
         std::sync::Arc::clone(&context.historical_capital_structure_cashflows);
     period_context.node_value_types = std::sync::Arc::clone(&context.node_value_types);
@@ -575,7 +581,7 @@ fn evaluate_function(
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
 
             if let ExprNode::Column(node_name) = &args[0].node {
-                let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
+                let current_value = context.get_value(node_name)?;
                 if current_value.is_nan() {
                     return Ok(f64::NAN);
                 }
@@ -619,7 +625,7 @@ fn evaluate_function(
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
 
             let (current_value, lagged_value) = if let ExprNode::Column(node_name) = &args[0].node {
-                let current = context.get_value(node_name).unwrap_or(f64::NAN);
+                let current = context.get_value(node_name)?;
                 let lagged = get_historical_column_value(context, node_name, &target_period)
                     .unwrap_or(f64::NAN);
                 (current, lagged)
@@ -685,7 +691,7 @@ fn evaluate_function(
             let periods = periods_raw as i32;
 
             if let ExprNode::Column(node_name) = &args[0].node {
-                let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
+                let current_value = context.get_value(node_name)?;
                 if current_value.is_nan() {
                     return Ok(f64::NAN);
                 }
@@ -787,14 +793,15 @@ fn evaluate_function(
         Function::Rank => {
             require_min_args("rank", args, 1, node_id)?;
 
-            // Get the value to rank
             let current_value = evaluate_expr(&args[0], context, node_id)?;
 
-            // Collect all values (historical + current)
             let node_name = if let ExprNode::Column(name) = &args[0].node {
                 name
             } else {
-                return Ok(1.0); // Non-column expressions get rank 1
+                return Err(eval_error(
+                    node_id,
+                    "rank() requires a column reference as its argument",
+                ));
             };
 
             let mut all_values = collect_all_historical_values(node_name, context)?;

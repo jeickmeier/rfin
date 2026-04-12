@@ -34,7 +34,7 @@ pub use rolling::{
     RollingVolatility,
 };
 pub use tail_risk::{
-    cornish_fisher_var, expected_shortfall, expected_shortfall_with_scratch, kurtosis,
+    cornish_fisher_var, expected_shortfall, expected_shortfall_with_scratch, kurtosis, moments4,
     outlier_loss_ratio, outlier_loss_ratio_with_scratch, outlier_win_ratio,
     outlier_win_ratio_with_scratch, parametric_var, skewness, tail_ratio, tail_ratio_with_scratch,
     value_at_risk, value_at_risk_with_scratch,

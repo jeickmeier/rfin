@@ -427,8 +427,9 @@ fn accrued_on_default_emission() {
     };
 
     let mut outstanding = 1_000_000.0;
-    let flows =
-        emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+    let mut flows = Vec::new();
+    emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
+        .expect("should succeed");
 
     // Should produce 3 cashflows
     assert_eq!(
@@ -477,8 +478,9 @@ fn accrued_on_default_none_no_extra_flow() {
     };
 
     let mut outstanding = 1_000_000.0;
-    let flows =
-        emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+    let mut flows = Vec::new();
+    emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
+        .expect("should succeed");
 
     assert_eq!(
         flows.len(),
@@ -511,8 +513,9 @@ fn accrued_on_default_zero_no_extra_flow() {
     };
 
     let mut outstanding = 1_000_000.0;
-    let flows =
-        emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+    let mut flows = Vec::new();
+    emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
+        .expect("should succeed");
 
     assert_eq!(
         flows.len(),

@@ -557,7 +557,7 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
 /// Uses a one-pass algorithm accumulating central moments (Pebay 2008, Terriberry 2007).
 /// Returns `(mean, std_dev, skewness, excess_kurtosis)` matching the bias-corrected
 /// formulas used by `skewness()` and `kurtosis()`.
-pub(super) fn moments4(returns: &[f64]) -> (f64, f64, f64, f64) {
+pub fn moments4(returns: &[f64]) -> (f64, f64, f64, f64) {
     let n = returns.len();
     if n == 0 {
         return (0.0, 0.0, 0.0, 0.0);

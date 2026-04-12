@@ -84,7 +84,18 @@ impl<'a> SensitivityAnalyzer<'a> {
                     *perturbation,
                 )?;
 
-                let results = evaluator.evaluate_prepared(&model_clone, &prepared)?;
+                let results = match evaluator.evaluate_prepared(&model_clone, &prepared) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        // Restore model state before propagating the error
+                        let _ = self.restore_parameter(
+                            &mut model_clone,
+                            &param.node_id,
+                            param.period_id,
+                        );
+                        return Err(e);
+                    }
+                };
 
                 self.restore_parameter(&mut model_clone, &param.node_id, param.period_id)?;
 
@@ -122,12 +133,12 @@ impl<'a> SensitivityAnalyzer<'a> {
         let mut current = Vec::new();
         build_parameter_grid(&config.parameters, 0, &mut current, &mut combinations);
 
+        let mut model_clone = self.model.clone();
         let mut scenarios = Vec::with_capacity(combinations.len());
-        for combination in combinations {
-            let mut model_clone = self.model.clone();
+        for combination in &combinations {
             let mut parameter_values = IndexMap::new();
 
-            for (param_idx, perturbation) in combination.into_iter().enumerate() {
+            for (param_idx, &perturbation) in combination.iter().enumerate() {
                 let param = &config.parameters[param_idx];
                 self.apply_parameter_override(
                     &mut model_clone,
@@ -142,6 +153,12 @@ impl<'a> SensitivityAnalyzer<'a> {
             }
 
             let results = evaluator.evaluate_prepared(&model_clone, &prepared)?;
+
+            for (param_idx, _) in combination.iter().enumerate().rev() {
+                let param = &config.parameters[param_idx];
+                self.restore_parameter(&mut model_clone, &param.node_id, param.period_id)?;
+            }
+
             scenarios.push(SensitivityScenario {
                 parameter_values,
                 results,

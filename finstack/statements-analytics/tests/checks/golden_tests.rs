@@ -160,7 +160,8 @@ fn build_and_check_model() -> finstack_statements::checks::CheckReport {
     let mut ev = Evaluator::new();
     let results = ev.evaluate(&model).unwrap();
 
-    let suite = three_statement_checks(ts_mapping()).merge(credit_underwriting_checks(credit_mapping()));
+    let suite =
+        three_statement_checks(ts_mapping()).merge(credit_underwriting_checks(credit_mapping()));
     suite.run(&model, &results).unwrap()
 }
 

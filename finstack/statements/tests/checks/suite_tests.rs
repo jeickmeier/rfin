@@ -219,10 +219,7 @@ fn resolved_suite_runs_against_model() {
         .periods("2025Q1..Q2", None)
         .unwrap()
         .value("total_assets", &[(q(1), s(1000.0)), (q(2), s(1100.0))])
-        .value(
-            "total_liabilities",
-            &[(q(1), s(600.0)), (q(2), s(700.0))],
-        )
+        .value("total_liabilities", &[(q(1), s(600.0)), (q(2), s(700.0))])
         .value("total_equity", &[(q(1), s(400.0)), (q(2), s(400.0))])
         .build()
         .unwrap();

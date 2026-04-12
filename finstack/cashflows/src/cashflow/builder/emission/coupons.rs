@@ -157,6 +157,9 @@ pub(crate) fn emit_fixed_coupons_on(
     let mut pik_to_add = 0.0;
 
     for (spec, dates, prev_map, first_last) in fixed_schedules {
+        // Resolve calendar once per schedule (constant per spec.calendar_id)
+        let calendar = resolve_calendar_strict(&spec.calendar_id)?;
+
         // Early exit: skip schedules where `d` is outside the date range.
         // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
         if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
@@ -172,8 +175,6 @@ pub(crate) fn emit_fixed_coupons_on(
                 .get(&accrual_start)
                 .unwrap_or(&outstanding_fallback);
 
-            // Resolve calendar for Bus/252 and similar conventions
-            let calendar = resolve_calendar_strict(&spec.calendar_id)?;
             let yf = spec.dc.year_fraction(
                 accrual_start,
                 accrual_end,
@@ -327,6 +328,9 @@ pub(crate) fn emit_float_coupons_on(
     for ((spec, dates, prev_map), resolved_curve) in
         float_schedules.iter().zip(resolved_curves.iter())
     {
+        // Resolve calendar once per schedule (constant per spec.rate_spec.calendar_id)
+        let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
+
         // Early exit: skip schedules where `d` is outside the date range.
         // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
         if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
@@ -342,8 +346,6 @@ pub(crate) fn emit_float_coupons_on(
                 .get(&accrual_start)
                 .unwrap_or(&outstanding_fallback);
 
-            // Resolve calendar for Bus/252 and similar conventions
-            let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
             let yf = spec.rate_spec.dc.year_fraction(
                 accrual_start,
                 accrual_end,

@@ -247,7 +247,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding: f64 = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default");
 
         // Outstanding is reduced by the full defaulted amount.
@@ -321,11 +322,13 @@ mod credit_emission_tests {
         };
 
         let mut outstanding: f64 = 1_000_000.0;
-        let _ = emit_default_on(
+        let mut _default_flows = Vec::new();
+        emit_default_on(
             default_date,
             &[default_event],
             &mut outstanding,
             Currency::USD,
+            &mut _default_flows,
         )
         .expect("should emit default");
 
@@ -376,7 +379,8 @@ mod credit_emission_tests {
         let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let mut outstanding: f64 = 1_000_000.0;
 
-        let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
+        let mut flows = Vec::new();
+        emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD, &mut flows);
 
         assert_eq!(outstanding, 950_000.0);
         assert_eq!(flows.len(), 1);
@@ -389,7 +393,8 @@ mod credit_emission_tests {
         let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
         let mut outstanding = 30_000.0;
 
-        let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
+        let mut flows = Vec::new();
+        emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD, &mut flows);
 
         // Can only prepay what's outstanding
         assert_eq!(outstanding, 0.0);
@@ -410,7 +415,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default");
 
         // Net loss is 100% of defaulted amount
@@ -432,7 +438,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default");
 
         // Outstanding is reduced by full defaulted amount at default time.
@@ -466,7 +473,8 @@ mod credit_emission_tests {
         ];
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &events, &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit multiple defaults");
 
         // Outstanding is reduced by total defaulted amounts: 50K + 30K = 80K
@@ -491,7 +499,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default");
 
         assert_eq!(outstanding, 1_000_000.0); // Unchanged
@@ -512,7 +521,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default");
 
         let expected_recovery_date = d.add_months(6);
@@ -573,7 +583,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
+        let mut flows = Vec::new();
+        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows);
         assert!(result.is_err(), "Should reject recovery_rate > 1.0");
     }
 
@@ -591,7 +602,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
+        let mut flows = Vec::new();
+        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows);
         assert!(result.is_err(), "Should reject recovery_rate < 0.0");
     }
 
@@ -609,7 +621,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD);
+        let mut flows = Vec::new();
+        let result = emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows);
         assert!(result.is_err(), "Should reject negative defaulted_amount");
     }
 
@@ -629,7 +642,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit clamped default");
 
         // Outstanding should be 0 (clamped to not go negative)
@@ -672,7 +686,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding: f64 = 0.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should succeed but emit no flows");
 
         // No flows should be emitted when nothing to default
@@ -699,7 +714,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default with accrued");
 
         // Outstanding reduced by defaulted amount
@@ -746,7 +762,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default without accrued");
 
         // Should produce only 2 flows: DefaultedNotional + Recovery (no AccruedOnDefault)
@@ -776,7 +793,8 @@ mod credit_emission_tests {
         };
 
         let mut outstanding = 1_000_000.0;
-        let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
+        let mut flows = Vec::new();
+        emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
             .expect("should emit default without accrued for zero amount");
 
         // Should produce only 2 flows: no AccruedOnDefault for zero amount

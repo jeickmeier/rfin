@@ -61,7 +61,7 @@ impl ThreeStatementMapping {
         out.push(self.cash_node.clone());
         out.push(self.retained_earnings_node.clone());
         out.push(self.net_income_node.clone());
-        for opt in [
+        for n in [
             &self.ppe_node,
             &self.depreciation_node,
             &self.interest_expense_node,
@@ -73,10 +73,11 @@ impl ThreeStatementMapping {
             &self.total_cf_node,
             &self.capex_node,
             &self.dividends_node,
-        ] {
-            if let Some(n) = opt {
-                out.push(n.clone());
-            }
+        ]
+        .into_iter()
+        .flatten()
+        {
+            out.push(n.clone());
         }
         out
     }

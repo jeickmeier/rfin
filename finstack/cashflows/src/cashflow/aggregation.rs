@@ -170,10 +170,14 @@ pub fn aggregate_by_period(
     flows: &[crate::cashflow::DatedFlow],
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
-    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
-    if sorted.is_empty() || periods.is_empty() {
+    if flows.is_empty() || periods.is_empty() {
         return IndexMap::new();
     }
+    let is_sorted = flows.windows(2).all(|w| w[0].0 <= w[1].0);
+    if is_sorted {
+        return aggregate_by_period_sorted(flows, periods);
+    }
+    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
     sorted.sort_unstable_by_key(|(d, _)| *d);
     aggregate_by_period_sorted(&sorted, periods)
 }
@@ -481,6 +485,41 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
             id: "hazard curve".to_string(),
         })
     })?;
+    let is_sorted = flows.windows(2).all(|w| w[0].date <= w[1].date);
+    if is_sorted {
+        return pv_by_period_generic(
+            flows,
+            periods,
+            disc,
+            Some(hazard),
+            &date_ctx,
+            |cf, df, sp| {
+                if cf.kind == CFKind::DefaultedNotional {
+                    return Money::new(0.0, cf.amount.currency());
+                }
+
+                if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
+                    return Money::new(cf.amount.amount() * df, cf.amount.currency());
+                }
+
+                let recovery_term = if let Some(r) = recovery_rate {
+                    match cf.kind {
+                        CFKind::Amortization | CFKind::Notional | CFKind::PrePayment => {
+                            r * (1.0 - sp)
+                        }
+                        _ => 0.0,
+                    }
+                } else {
+                    0.0
+                };
+
+                let pv_factor = df * (sp + recovery_term);
+                let m = cf.amount;
+                let pv_amount = m.amount() * pv_factor;
+                Money::new(pv_amount, m.currency())
+            },
+        );
+    }
     let mut sorted: Vec<CashFlow> = flows.to_vec();
     sorted.sort_unstable_by_key(|cf| cf.date);
     pv_by_period_generic(

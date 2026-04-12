@@ -135,20 +135,23 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
         .sum::<f64>()
         / n as f64;
 
-    // Mean Absolute Percentage Error
-    let mape = actual
-        .iter()
-        .zip(forecast.iter())
-        .map(|(a, f)| {
-            if a.abs() < ZERO_TOLERANCE {
-                // Skip near-zero actuals to avoid division by zero
-                0.0
-            } else {
-                ((a - f).abs() / a.abs()) * 100.0
-            }
-        })
-        .sum::<f64>()
-        / n as f64;
+    // Mean Absolute Percentage Error (excludes near-zero actuals from count)
+    let (mape_sum, mape_count) =
+        actual
+            .iter()
+            .zip(forecast.iter())
+            .fold((0.0_f64, 0_usize), |(sum, count), (a, f)| {
+                if a.abs() < ZERO_TOLERANCE {
+                    (sum, count)
+                } else {
+                    (sum + ((a - f).abs() / a.abs()) * 100.0, count + 1)
+                }
+            });
+    let mape = if mape_count > 0 {
+        mape_sum / mape_count as f64
+    } else {
+        f64::NAN
+    };
 
     // Root Mean Squared Error
     let mse = actual

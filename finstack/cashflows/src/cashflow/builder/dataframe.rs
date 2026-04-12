@@ -440,12 +440,29 @@ impl CashFlowSchedule {
         // Identify the first date in the schedule (issue date) for initial funding detection
         let first_date = self.flows.first().map(|cf| cf.date);
 
+        // Sort periods by start date for cursor advance
+        let mut sorted_period_indices: Vec<usize> = (0..periods.len()).collect();
+        sorted_period_indices.sort_by_key(|&i| periods[i].start);
+
+        let mut period_cursor = 0;
+
         for cf in &self.flows {
-            // Find containing period (inclusive end)
-            let period_opt = periods
-                .iter()
-                .find(|p| cf.date >= p.start && cf.date <= p.end);
-            let Some(period) = period_opt else {
+            // Advance cursor past periods that end before this cashflow
+            while period_cursor < sorted_period_indices.len()
+                && cf.date > periods[sorted_period_indices[period_cursor]].end
+            {
+                period_cursor += 1;
+            }
+            // Check if current cashflow falls in the current period
+            let period = if period_cursor < sorted_period_indices.len() {
+                let pi = sorted_period_indices[period_cursor];
+                let p = &periods[pi];
+                if cf.date >= p.start && cf.date <= p.end {
+                    p
+                } else {
+                    continue;
+                }
+            } else {
                 continue;
             };
 

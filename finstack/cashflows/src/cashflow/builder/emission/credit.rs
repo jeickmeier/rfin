@@ -52,7 +52,8 @@ use super::super::specs::DefaultEvent;
 ///     accrued_on_default: None,
 /// };
 /// let mut outstanding = 1_000_000.0;
-/// let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD).expect("should succeed");
+/// let mut flows = Vec::new();
+/// emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows).expect("should succeed");
 ///
 /// // Outstanding is reduced by full defaulted amount (recovery is future cash inflow only)
 /// assert_eq!(outstanding, 900_000.0);
@@ -63,9 +64,8 @@ pub fn emit_default_on(
     default_events: &[DefaultEvent],
     outstanding: &mut f64,
     ccy: Currency,
-) -> finstack_core::Result<Vec<CashFlow>> {
-    let mut flows = Vec::new();
-
+    out: &mut Vec<CashFlow>,
+) -> finstack_core::Result<()> {
     for event in default_events.iter().filter(|e| e.default_date == d) {
         // Validate event parameters (recovery_rate in [0,1], defaulted_amount >= 0)
         event.validate()?;
@@ -82,7 +82,7 @@ pub fn emit_default_on(
         }
 
         // Default cashflow
-        flows.push(CashFlow {
+        out.push(CashFlow {
             date: d,
             reset_date: None,
             amount: Money::new(defaulted, ccy),
@@ -115,7 +115,7 @@ pub fn emit_default_on(
             } else {
                 base_recovery_date
             };
-            flows.push(CashFlow {
+            out.push(CashFlow {
                 date: recovery_date,
                 reset_date: None,
                 amount: Money::new(recovery_amt, ccy),
@@ -134,7 +134,7 @@ pub fn emit_default_on(
         // pays accrued premium from last payment date to default date.
         if let Some(accrued_amt) = event.accrued_on_default {
             if accrued_amt > 0.0 {
-                flows.push(CashFlow {
+                out.push(CashFlow {
                     date: d,
                     reset_date: None,
                     amount: Money::new(accrued_amt, ccy),
@@ -146,7 +146,7 @@ pub fn emit_default_on(
         }
     }
 
-    Ok(flows)
+    Ok(())
 }
 
 /// Emit prepayment cashflow on a specific date.
@@ -176,7 +176,8 @@ pub fn emit_default_on(
 ///
 /// let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
 /// let mut outstanding = 1_000_000.0;
-/// let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
+/// let mut flows = Vec::new();
+/// emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD, &mut flows);
 ///
 /// assert_eq!(outstanding, 950_000.0);
 /// assert_eq!(flows.len(), 1);
@@ -186,23 +187,22 @@ pub fn emit_prepayment_on(
     prepayment_amount: f64,
     outstanding: &mut f64,
     ccy: Currency,
-) -> Vec<CashFlow> {
+    out: &mut Vec<CashFlow>,
+) {
     if prepayment_amount <= 0.0 {
-        return vec![];
+        return;
     }
 
     let amount = prepayment_amount.min(*outstanding);
     if amount > 0.0 {
         *outstanding -= amount;
-        vec![CashFlow {
+        out.push(CashFlow {
             date: d,
             reset_date: None,
             amount: Money::new(amount, ccy),
             kind: CFKind::PrePayment,
             accrual_factor: 0.0,
             rate: None,
-        }]
-    } else {
-        vec![]
+        });
     }
 }

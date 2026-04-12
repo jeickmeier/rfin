@@ -636,30 +636,36 @@ impl<'a> CashflowEngine<'a> {
             // calculation above and avoid tier-boundary artifacts.
             let avg_util = (utilization_start + utilization_end) / 2.0;
             let commitment_fee_bp = self.facility.fees.commitment_fee_bps(avg_util);
-            flows.extend(crate::cashflow::builder::emit_commitment_fee_on(
+            if let Some(cf) = crate::cashflow::builder::emit_commitment_fee_on(
                 period_end,
                 undrawn_balance.amount(),
                 commitment_fee_bp,
                 dt,
                 ccy,
-            ));
+            ) {
+                flows.push(cf);
+            }
 
             let usage_fee_bp = self.facility.fees.usage_fee_bps(avg_util);
-            flows.extend(crate::cashflow::builder::emit_usage_fee_on(
+            if let Some(cf) = crate::cashflow::builder::emit_usage_fee_on(
                 period_end,
                 drawn_balance.amount(),
                 usage_fee_bp,
                 dt,
                 ccy,
-            ));
+            ) {
+                flows.push(cf);
+            }
 
-            flows.extend(crate::cashflow::builder::emit_facility_fee_on(
+            if let Some(cf) = crate::cashflow::builder::emit_facility_fee_on(
                 period_end,
                 self.facility.commitment_amount.amount(),
                 self.facility.fees.facility_fee_bp,
                 dt,
                 ccy,
-            ));
+            ) {
+                flows.push(cf);
+            }
 
             // Handle principal flows from utilization changes
             // At period_end, utilization changes from start to end value for use in the next period

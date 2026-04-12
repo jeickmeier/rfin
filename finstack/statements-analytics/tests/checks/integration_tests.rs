@@ -194,11 +194,7 @@ fn integration_imbalanced_model_catches_errors_and_warnings() {
         "BS imbalance should be ~5.0, got {}",
         mat.absolute,
     );
-    assert_eq!(
-        bs_error.period,
-        Some(q(4)),
-        "BS error should be in Q4",
-    );
+    assert_eq!(bs_error.period, Some(q(4)), "BS error should be in Q4",);
 
     // --- Warnings ---
     assert!(report.has_warnings(), "report should have warnings");

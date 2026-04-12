@@ -52,7 +52,10 @@ fn evaluator_with_checks_attaches_report() {
     let mut evaluator = Evaluator::new().with_checks(suite);
     let result = evaluator.evaluate(&model).unwrap();
 
-    let report = result.check_report.as_ref().expect("report should be present");
+    let report = result
+        .check_report
+        .as_ref()
+        .expect("report should be present");
     assert!(report.has_errors());
     assert_eq!(report.summary.total_checks, 1);
     assert_eq!(report.summary.failed, 1);
@@ -118,7 +121,10 @@ fn evaluator_with_checks_balanced_passes() {
     let mut evaluator = Evaluator::new().with_checks(suite);
     let result = evaluator.evaluate(&model).unwrap();
 
-    let report = result.check_report.as_ref().expect("report should be present");
+    let report = result
+        .check_report
+        .as_ref()
+        .expect("report should be present");
     assert!(!report.has_errors());
     assert_eq!(report.summary.passed, 1);
     assert_eq!(report.summary.failed, 0);

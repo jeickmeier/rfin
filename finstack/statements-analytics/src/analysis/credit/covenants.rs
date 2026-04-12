@@ -85,7 +85,25 @@ fn approximate_period_end(period: &PeriodId) -> Date {
             let d = last_day_of_month(period.year, m);
             (m, d)
         }
-        PeriodKind::Annual | PeriodKind::Daily | PeriodKind::Weekly => (Month::December, 31),
+        PeriodKind::Annual => (Month::December, 31),
+        PeriodKind::Daily => {
+            // index is ordinal day 1..=366; convert back to (month, day)
+            let jan1 =
+                Date::from_calendar_date(period.year, Month::January, 1).unwrap_or(time::Date::MIN);
+            let date = jan1.saturating_add(time::Duration::days(period.index as i64 - 1));
+            (date.month(), date.day())
+        }
+        PeriodKind::Weekly => {
+            // index is ISO week 1..=53; approximate end as Sunday of that week
+            let jan4 =
+                Date::from_calendar_date(period.year, Month::January, 4).unwrap_or(time::Date::MIN);
+            let iso_week1_monday = jan4.saturating_sub(time::Duration::days(
+                jan4.weekday().number_days_from_monday() as i64,
+            ));
+            let week_end =
+                iso_week1_monday.saturating_add(time::Duration::days(period.index as i64 * 7 - 1));
+            (week_end.month(), week_end.day())
+        }
     };
     Date::from_calendar_date(period.year, month, day).unwrap_or_else(|_| {
         Date::from_calendar_date(period.year, Month::December, 31).unwrap_or(time::Date::MIN)
@@ -408,6 +426,7 @@ mod tests {
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),
             cs_cashflows: None,
+            check_report: None,
             meta: ResultsMeta::default(),
         };
 

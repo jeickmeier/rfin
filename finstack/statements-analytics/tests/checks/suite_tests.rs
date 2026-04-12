@@ -120,7 +120,11 @@ fn credit_suite_without_fcf_has_fewer() {
     cm.fcf_node = None;
     let suite = credit_underwriting_checks(cm);
     // Leverage, Coverage, TrendEbitda, TrendDebt = 4
-    assert_eq!(suite.len(), 4, "without fcf_node suite should have 4 checks");
+    assert_eq!(
+        suite.len(),
+        4,
+        "without fcf_node suite should have 4 checks"
+    );
 }
 
 #[test]
@@ -142,16 +146,10 @@ fn three_statement_suite_runs_against_balanced_model() {
         .periods("2025Q1..Q2", None)
         .unwrap()
         .value("total_assets", &[(q(1), s(1000.0)), (q(2), s(1100.0))])
-        .value(
-            "total_liabilities",
-            &[(q(1), s(600.0)), (q(2), s(650.0))],
-        )
+        .value("total_liabilities", &[(q(1), s(600.0)), (q(2), s(650.0))])
         .value("total_equity", &[(q(1), s(400.0)), (q(2), s(450.0))])
         .value("cash", &[(q(1), s(200.0)), (q(2), s(220.0))])
-        .value(
-            "retained_earnings",
-            &[(q(1), s(300.0)), (q(2), s(350.0))],
-        )
+        .value("retained_earnings", &[(q(1), s(300.0)), (q(2), s(350.0))])
         .value("net_income", &[(q(1), s(50.0)), (q(2), s(50.0))])
         .build()
         .unwrap();
