@@ -1,0 +1,120 @@
+{
+  "results": [
+    {
+      "check_id": "balance_sheet_articulation",
+      "check_name": "Balance Sheet Articulation",
+      "category": "accounting_identity",
+      "passed": false,
+      "findings": [
+        {
+          "check_id": "balance_sheet_articulation",
+          "severity": "error",
+          "message": "Balance sheet does not articulate in 2025Q4: assets (1150.00) != liabilities (690.00) + equity (455.00), imbalance = 5.00",
+          "period": "2025Q4",
+          "materiality": {
+            "absolute": 5.0,
+            "relative_pct": 0.43478260869565216,
+            "reference_value": 1150.0,
+            "reference_label": "total_assets"
+          },
+          "nodes": [
+            "total_assets",
+            "total_liabilities",
+            "total_equity"
+          ]
+        }
+      ]
+    },
+    {
+      "check_id": "retained_earnings_reconciliation",
+      "check_name": "Retained Earnings Reconciliation",
+      "category": "accounting_identity",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "check_id": "cash_reconciliation",
+      "check_name": "Cash Reconciliation",
+      "category": "accounting_identity",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "check_id": "non_finite",
+      "check_name": "Non-Finite Value",
+      "category": "data_quality",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "check_id": "missing_value",
+      "check_name": "Missing Value",
+      "category": "data_quality",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "check_id": "leverage_range",
+      "check_name": "Leverage Range",
+      "category": "credit_reasonableness",
+      "passed": true,
+      "findings": [
+        {
+          "check_id": "leverage_range",
+          "severity": "warning",
+          "message": "Debt/EBITDA 7.00x in 2025Q4 outside Warning range [0.0x, 6.0x]",
+          "period": "2025Q4",
+          "materiality": {
+            "absolute": 7.0,
+            "relative_pct": 0.0,
+            "reference_value": 65.0,
+            "reference_label": "ebitda"
+          },
+          "nodes": [
+            "total_debt",
+            "ebitda"
+          ]
+        }
+      ]
+    },
+    {
+      "check_id": "coverage_floor",
+      "check_name": "Coverage Floor",
+      "category": "credit_reasonableness",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "check_id": "trend",
+      "check_name": "Trend",
+      "category": "credit_reasonableness",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "check_id": "trend",
+      "check_name": "Trend",
+      "category": "credit_reasonableness",
+      "passed": true,
+      "findings": [
+        {
+          "check_id": "trend",
+          "severity": "warning",
+          "message": "'total_debt' deteriorating for 3 consecutive periods as of 2025Q4 (current = 455.00)",
+          "period": "2025Q4",
+          "nodes": [
+            "total_debt"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_checks": 9,
+    "passed": 8,
+    "failed": 1,
+    "errors": 1,
+    "warnings": 2,
+    "infos": 0
+  }
+}
