@@ -18,7 +18,9 @@ pub mod traits;
 pub mod types;
 
 pub use runner::CheckRunner;
-pub use suite::{CheckSuite, CheckSuiteBuilder};
+pub use suite::{
+    BuiltinCheckSpec, CheckSuite, CheckSuiteBuilder, CheckSuiteSpec, FormulaCheckSpec,
+};
 pub use traits::{Check, CheckContext};
 pub use types::{
     CheckCategory, CheckConfig, CheckFinding, CheckReport, CheckResult, CheckSummary, Materiality,

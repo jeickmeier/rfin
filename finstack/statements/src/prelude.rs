@@ -12,13 +12,14 @@
 //! boundary in libraries or examples aimed at teaching a specific subsystem.
 
 pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
-pub use crate::checks::{
-    Check, CheckCategory, CheckConfig, CheckContext, CheckFinding, CheckReport, CheckResult,
-    CheckRunner, CheckSuite, CheckSuiteBuilder, CheckSummary, Materiality, PeriodScope, Severity,
-};
 pub use crate::checks::builtins::{
     BalanceSheetArticulation, CashReconciliation, MissingValueCheck, NonFiniteCheck,
     RetainedEarningsReconciliation, SignConventionCheck,
+};
+pub use crate::checks::{
+    BuiltinCheckSpec, Check, CheckCategory, CheckConfig, CheckContext, CheckFinding, CheckReport,
+    CheckResult, CheckRunner, CheckSuite, CheckSuiteBuilder, CheckSuiteSpec, CheckSummary,
+    FormulaCheckSpec, Materiality, PeriodScope, Severity,
 };
 pub use crate::error::{Error, Result};
 pub use crate::evaluator::{
