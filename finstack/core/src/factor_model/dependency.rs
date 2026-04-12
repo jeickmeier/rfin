@@ -19,11 +19,6 @@ pub enum CurveType {
     BaseCorrelation,
 }
 
-/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
-fn normalize_label(s: &str) -> String {
-    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
-}
-
 impl fmt::Display for CurveType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -40,7 +35,7 @@ impl FromStr for CurveType {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match normalize_label(s).as_str() {
+        match crate::parse::normalize_label(s).as_str() {
             "discount" => Ok(Self::Discount),
             "forward" => Ok(Self::Forward),
             "hazard" | "credit" => Ok(Self::Hazard),
@@ -88,7 +83,7 @@ impl FromStr for DependencyType {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match normalize_label(s).as_str() {
+        match crate::parse::normalize_label(s).as_str() {
             "discount" => Ok(Self::Discount),
             "forward" => Ok(Self::Forward),
             "credit" => Ok(Self::Credit),

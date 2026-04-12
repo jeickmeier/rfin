@@ -3,7 +3,11 @@ use crate::error::{Error, Result};
 use crate::PositionId;
 use finstack_core::factor_model::FactorId;
 
-/// Declarative factor-aware constraint surface for future optimization support.
+/// Declarative factor-aware constraint surface for optimization.
+///
+/// **Status: planned.** The `WhatIfEngine::optimize` method currently returns
+/// an error for all inputs. These constraint variants are published so
+/// downstream code can build constraint sets ahead of the optimizer landing.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum FactorConstraint {
     /// Cap the absolute portfolio risk attributed to a single factor.
@@ -27,7 +31,10 @@ pub enum FactorConstraint {
     },
 }
 
-/// Placeholder result shape for future factor-constrained optimization.
+/// Placeholder result shape for factor-constrained optimization.
+///
+/// **Status: planned.** Published so downstream code can type-check against
+/// the eventual optimizer return type.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FactorOptimizationResult {
     /// Optimized position quantities keyed by position identifier.

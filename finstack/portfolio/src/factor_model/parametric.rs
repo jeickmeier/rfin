@@ -42,16 +42,24 @@ impl ParametricDecomposer {
             ));
         }
 
-        if covariance.as_slice().iter().any(|entry| !entry.is_finite()) {
+        let n = covariance.n_factors();
+        let data = covariance.as_slice();
+
+        if data.iter().any(|entry| !entry.is_finite()) {
             return Err(finstack_core::Error::Validation(
                 "Covariance matrix entries must be finite".to_string(),
             ));
         }
 
-        let _validated_covariance = FactorCovarianceMatrix::new(
-            covariance.factor_ids().to_vec(),
-            covariance.as_slice().to_vec(),
-        )?;
+        for i in 0..n {
+            for j in (i + 1)..n {
+                if (data[i * n + j] - data[j * n + i]).abs() > Self::VARIANCE_TOLERANCE {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Covariance matrix is not symmetric at ({i}, {j})"
+                    )));
+                }
+            }
+        }
 
         Ok(())
     }

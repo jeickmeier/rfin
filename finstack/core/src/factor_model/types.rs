@@ -62,16 +62,11 @@ impl fmt::Display for FactorType {
     }
 }
 
-/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
-fn normalize_label(s: &str) -> String {
-    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
-}
-
 impl FromStr for FactorType {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = normalize_label(s);
+        let n = crate::parse::normalize_label(s);
         if n.starts_with("custom:") || n.starts_with("custom_") {
             let name = s
                 .split_once(':')

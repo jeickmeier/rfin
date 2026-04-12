@@ -797,4 +797,204 @@ mod tests {
             Ok(self.0.clone())
         }
     }
+
+    /// Returns a sensitivity engine that places known deltas for a single
+    /// position so the downstream `ParametricDecomposer` can be verified.
+    struct KnownDeltaEngine {
+        deltas: Vec<f64>,
+    }
+
+    impl FactorSensitivityEngine for KnownDeltaEngine {
+        fn compute_sensitivities(
+            &self,
+            positions: &[(String, &dyn Instrument, f64)],
+            factors: &[FactorDefinition],
+            _market: &MarketContext,
+            _as_of: finstack_core::dates::Date,
+        ) -> finstack_core::Result<SensitivityMatrix> {
+            let position_ids: Vec<String> = positions.iter().map(|(id, _, _)| id.clone()).collect();
+            let factor_ids: Vec<_> = factors.iter().map(|f| f.id.clone()).collect();
+            let mut matrix = SensitivityMatrix::zeros(position_ids, factor_ids);
+            for (j, &delta) in self.deltas.iter().enumerate() {
+                matrix.set_delta(0, j, delta);
+            }
+            Ok(matrix)
+        }
+    }
+
+    #[test]
+    fn test_analyze_end_to_end_single_factor_with_real_decomposer() {
+        let covariance_result =
+            FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04]);
+        assert!(covariance_result.is_ok());
+        let Ok(covariance) = covariance_result else {
+            return;
+        };
+
+        let model_result = FactorModelBuilder::new()
+            .config(FactorModelConfig {
+                factors: vec![FactorDefinition {
+                    id: FactorId::new("Rates"),
+                    factor_type: FactorType::Rates,
+                    market_mapping: MarketMapping::CurveParallel {
+                        curve_ids: vec![CurveId::new("USD-OIS")],
+                        units: BumpUnits::RateBp,
+                    },
+                    description: None,
+                }],
+                covariance,
+                matching: MatchingConfig::MappingTable(vec![]),
+                pricing_mode: PricingMode::DeltaBased,
+                risk_measure: RiskMeasure::Variance,
+                bump_size: None,
+                unmatched_policy: Some(UnmatchedPolicy::Residual),
+            })
+            .with_custom_sensitivity_engine(KnownDeltaEngine { deltas: vec![10.0] })
+            .build();
+        assert!(model_result.is_ok());
+        let Ok(model) = model_result else {
+            return;
+        };
+
+        let position_result = Position::new(
+            "pos-1",
+            DUMMY_ENTITY_ID,
+            "inst-1",
+            Arc::new(MockInstrument::new("inst-1", "USD-OIS", vec![])),
+            1.0,
+            PositionUnit::Units,
+        );
+        assert!(position_result.is_ok());
+        let Ok(position) = position_result else {
+            return;
+        };
+
+        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
+        portfolio.positions.push(position);
+        portfolio.rebuild_index();
+
+        let result = model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
+        assert!(result.is_ok());
+        let Ok(decomp) = result else {
+            return;
+        };
+
+        // S=[10], Σ=[[0.04]] → variance = 10² × 0.04 = 4.0
+        let expected_variance = 4.0;
+        assert!(
+            (decomp.total_risk - expected_variance).abs() < 1e-12,
+            "total_risk {} != expected {}",
+            decomp.total_risk,
+            expected_variance,
+        );
+        assert_eq!(decomp.measure, RiskMeasure::Variance);
+        assert_eq!(decomp.factor_contributions.len(), 1);
+        assert!(
+            (decomp.factor_contributions[0].absolute_risk - expected_variance).abs() < 1e-12,
+            "factor absolute_risk {} != expected {}",
+            decomp.factor_contributions[0].absolute_risk,
+            expected_variance,
+        );
+    }
+
+    #[test]
+    fn test_analyze_end_to_end_two_factors_with_real_decomposer() {
+        let covariance_result = FactorCovarianceMatrix::new(
+            vec![FactorId::new("Rates"), FactorId::new("Credit")],
+            vec![0.04, 0.03, 0.03, 0.09],
+        );
+        assert!(covariance_result.is_ok());
+        let Ok(covariance) = covariance_result else {
+            return;
+        };
+
+        let model_result = FactorModelBuilder::new()
+            .config(FactorModelConfig {
+                factors: vec![
+                    FactorDefinition {
+                        id: FactorId::new("Rates"),
+                        factor_type: FactorType::Rates,
+                        market_mapping: MarketMapping::CurveParallel {
+                            curve_ids: vec![CurveId::new("USD-OIS")],
+                            units: BumpUnits::RateBp,
+                        },
+                        description: None,
+                    },
+                    FactorDefinition {
+                        id: FactorId::new("Credit"),
+                        factor_type: FactorType::Credit,
+                        market_mapping: MarketMapping::CurveParallel {
+                            curve_ids: vec![CurveId::new("ACME-HAZARD")],
+                            units: BumpUnits::RateBp,
+                        },
+                        description: None,
+                    },
+                ],
+                covariance,
+                matching: MatchingConfig::MappingTable(vec![]),
+                pricing_mode: PricingMode::DeltaBased,
+                risk_measure: RiskMeasure::Variance,
+                bump_size: None,
+                unmatched_policy: Some(UnmatchedPolicy::Residual),
+            })
+            .with_custom_sensitivity_engine(KnownDeltaEngine {
+                deltas: vec![10.0, 5.0],
+            })
+            .build();
+        assert!(model_result.is_ok());
+        let Ok(model) = model_result else {
+            return;
+        };
+
+        let position_result = Position::new(
+            "pos-1",
+            DUMMY_ENTITY_ID,
+            "inst-1",
+            Arc::new(MockInstrument::new("inst-1", "USD-OIS", vec![])),
+            1.0,
+            PositionUnit::Units,
+        );
+        assert!(position_result.is_ok());
+        let Ok(position) = position_result else {
+            return;
+        };
+
+        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
+        portfolio.positions.push(position);
+        portfolio.rebuild_index();
+
+        let result = model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
+        assert!(result.is_ok());
+        let Ok(decomp) = result else {
+            return;
+        };
+
+        // S=[10,5], Σ=[[0.04,0.03],[0.03,0.09]]
+        // Σ*S^T = [0.04*10+0.03*5, 0.03*10+0.09*5] = [0.55, 0.75]
+        // Variance = S * Σ * S^T = 10*0.55 + 5*0.75 = 9.25
+        let expected_variance = 9.25;
+        assert!(
+            (decomp.total_risk - expected_variance).abs() < 1e-12,
+            "total_risk {} != expected {}",
+            decomp.total_risk,
+            expected_variance,
+        );
+        assert_eq!(decomp.factor_contributions.len(), 2);
+
+        // Euler contributions: c_k = S_k * (Σ * S^T)_k = S_k * sum_j Σ_kj * S_j
+        let rates_contrib = 10.0 * 0.55; // 5.5
+        let credit_contrib = 5.0 * 0.75; // 3.75
+        assert!(
+            (decomp.factor_contributions[0].absolute_risk - rates_contrib).abs() < 1e-12,
+            "Rates absolute_risk {} != expected {}",
+            decomp.factor_contributions[0].absolute_risk,
+            rates_contrib,
+        );
+        assert!(
+            (decomp.factor_contributions[1].absolute_risk - credit_contrib).abs() < 1e-12,
+            "Credit absolute_risk {} != expected {}",
+            decomp.factor_contributions[1].absolute_risk,
+            credit_contrib,
+        );
+    }
 }

@@ -1,5 +1,13 @@
 //! Factor models for correlated behavior in credit portfolios.
 //!
+//! **Naming note:** This module's [`FactorModel`] trait is distinct from the
+//! portfolio-risk factor framework in [`finstack_core::factor_model`].
+//! Here, "factor model" refers to *latent-variable models* used to generate
+//! correlated default/prepayment events in Monte Carlo simulations (the
+//! Gaussian copula family). The core/portfolio factor model instead provides
+//! market-risk factor definitions, covariance, and sensitivity-based Euler
+//! risk decomposition.
+//!
 //! Factor models drive the correlation between prepayment and default events
 //! through common systematic factors. This module provides:
 //!

@@ -25,9 +25,23 @@ pub struct ScenarioGrid {
 }
 
 impl ScenarioGrid {
+    /// Minimum number of grid points required for central-difference delta
+    /// extraction (need at least -1, 0, +1).
+    pub const MIN_POINTS: usize = 3;
+
     /// Create a grid centered on zero, e.g. `5 -> [-2, -1, 0, 1, 2]`.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `n_points < 3` because the repricing engine requires
+    /// shifts at -1 and +1 for central-difference delta extraction.
     #[must_use]
     pub fn new(n_points: usize) -> Self {
+        assert!(
+            n_points >= Self::MIN_POINTS,
+            "ScenarioGrid requires at least {} points for central-difference delta extraction, got {n_points}",
+            Self::MIN_POINTS,
+        );
         let half = (n_points / 2) as f64;
         let shifts = (0..n_points).map(|idx| idx as f64 - half).collect();
         Self { shifts }
@@ -243,6 +257,18 @@ mod tests {
         let grid = ScenarioGrid::new(5);
         assert_eq!(grid.shifts().len(), 5);
         assert!((grid.shifts()[2]).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_scenario_grid_minimum_points() {
+        let grid = ScenarioGrid::new(3);
+        assert_eq!(grid.shifts(), &[-1.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "ScenarioGrid requires at least 3 points")]
+    fn test_scenario_grid_rejects_too_few_points() {
+        let _ = ScenarioGrid::new(2);
     }
 
     #[test]

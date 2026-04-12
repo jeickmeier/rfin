@@ -114,11 +114,6 @@ pub enum UnmatchedPolicy {
     Warn,
 }
 
-/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
-fn normalize_label(s: &str) -> String {
-    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
-}
-
 impl fmt::Display for UnmatchedPolicy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -133,7 +128,7 @@ impl FromStr for UnmatchedPolicy {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match normalize_label(s).as_str() {
+        match crate::parse::normalize_label(s).as_str() {
             "strict" | "error" => Ok(Self::Strict),
             "residual" => Ok(Self::Residual),
             "warn" | "ignore" => Ok(Self::Warn),

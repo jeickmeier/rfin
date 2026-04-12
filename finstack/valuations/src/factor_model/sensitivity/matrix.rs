@@ -50,17 +50,42 @@ impl SensitivityMatrix {
     /// Read a matrix element.
     #[must_use]
     pub fn delta(&self, position_idx: usize, factor_idx: usize) -> f64 {
+        debug_assert!(
+            position_idx < self.n_positions(),
+            "position_idx {position_idx} out of bounds for {} positions",
+            self.n_positions()
+        );
+        debug_assert!(
+            factor_idx < self.n_factors,
+            "factor_idx {factor_idx} out of bounds for {} factors",
+            self.n_factors
+        );
         self.data[position_idx * self.n_factors + factor_idx]
     }
 
     /// Set a matrix element.
     pub fn set_delta(&mut self, position_idx: usize, factor_idx: usize, value: f64) {
+        debug_assert!(
+            position_idx < self.n_positions(),
+            "position_idx {position_idx} out of bounds for {} positions",
+            self.n_positions()
+        );
+        debug_assert!(
+            factor_idx < self.n_factors,
+            "factor_idx {factor_idx} out of bounds for {} factors",
+            self.n_factors
+        );
         self.data[position_idx * self.n_factors + factor_idx] = value;
     }
 
     /// Return the contiguous row slice for a position.
     #[must_use]
     pub fn position_deltas(&self, position_idx: usize) -> &[f64] {
+        debug_assert!(
+            position_idx < self.n_positions(),
+            "position_idx {position_idx} out of bounds for {} positions",
+            self.n_positions()
+        );
         let start = position_idx * self.n_factors;
         &self.data[start..start + self.n_factors]
     }

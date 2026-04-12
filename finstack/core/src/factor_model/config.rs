@@ -25,11 +25,6 @@ pub enum PricingMode {
     FullRepricing,
 }
 
-/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
-fn normalize_label(s: &str) -> String {
-    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
-}
-
 impl fmt::Display for PricingMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -43,7 +38,7 @@ impl FromStr for PricingMode {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match normalize_label(s).as_str() {
+        match crate::parse::normalize_label(s).as_str() {
             "delta_based" | "deltabased" => Ok(Self::DeltaBased),
             "full_repricing" | "fullrepricing" => Ok(Self::FullRepricing),
             _ => Err(crate::error::InputError::Invalid.into()),
