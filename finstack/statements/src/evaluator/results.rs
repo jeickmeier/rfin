@@ -59,6 +59,10 @@ pub struct StatementResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cs_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
 
+    /// Check report from inline validation (None if no checks configured)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub check_report: Option<crate::checks::CheckReport>,
+
     /// Metadata about the evaluation
     pub meta: ResultsMeta,
 }

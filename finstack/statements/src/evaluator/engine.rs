@@ -62,6 +62,9 @@ pub struct Evaluator {
 
     /// Cached forecast results: node_id → (period_id → value)
     forecast_cache: IndexMap<NodeId, IndexMap<PeriodId, f64>>,
+
+    /// Optional check suite run after evaluation to produce inline validation
+    check_suite: Option<std::sync::Arc<crate::checks::CheckSuite>>,
 }
 
 impl Evaluator {
@@ -71,7 +74,19 @@ impl Evaluator {
         Self {
             compiled_cache: std::sync::Arc::new(IndexMap::new()),
             forecast_cache: IndexMap::new(),
+            check_suite: None,
         }
+    }
+
+    /// Attach a [`CheckSuite`](crate::checks::CheckSuite) to run after each evaluation.
+    ///
+    /// When set, `evaluate()` and related methods will automatically run the
+    /// suite against the model and results, attaching the report to
+    /// [`StatementResult::check_report`].
+    #[must_use]
+    pub fn with_checks(mut self, suite: crate::checks::CheckSuite) -> Self {
+        self.check_suite = Some(std::sync::Arc::new(suite));
+        self
     }
 
     /// Create a new evaluator with pre-configured market context.
@@ -351,6 +366,10 @@ impl Evaluator {
             warnings: all_warnings,
         };
 
+        if let Some(suite) = &self.check_suite {
+            results.check_report = Some(suite.run(model, &results)?);
+        }
+
         Ok(results)
     }
 
@@ -453,6 +472,10 @@ impl Evaluator {
             parallel: false,
             warnings: all_warnings,
         };
+
+        if let Some(suite) = &self.check_suite {
+            results.check_report = Some(suite.run(model, &results)?);
+        }
 
         Ok(results)
     }
