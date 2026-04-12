@@ -204,6 +204,7 @@ let config = AccrualConfig {
         calendar_id: Some("usny".to_string()),
     }),
     include_pik: false,
+    frequency: None,
 };
 
 let accrued = accrued_interest_amount(schedule, as_of, &config)?;

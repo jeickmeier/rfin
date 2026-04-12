@@ -567,6 +567,13 @@ impl DefaultLpOptimizer {
 
         // Solve LP — map solver failures to structured OptimizationStatus
         // rather than opaque errors so callers can inspect the reason.
+        //
+        // On failure the result carries:
+        //   - `objective_value = NaN` — callers must check `status.is_feasible()`
+        //     before consuming this value.
+        //   - Empty weight/delta/quantity maps — no phantom allocations.
+        //   - `conflicting_constraints = []` for Infeasible — the `good_lp` crate
+        //     does not expose irreducible infeasible set (IIS) information.
         let solution = match problem_model.solve() {
             Ok(sol) => sol,
             Err(e) => {

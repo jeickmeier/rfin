@@ -450,6 +450,11 @@ impl MetricCalculator for CrossFactorCalculator {
     }
 }
 
+/// Reprice after applying two sequential market bumps.
+///
+/// Uses `reprice_raw` (not `reprice_money`) because scenario overrides cancel
+/// in the four-corner finite-difference stencil and avoiding the `Money` wrapper
+/// is consistent with other sensitivity calculators (DV01, CS01).
 fn reprice_corner(
     context: &MetricContext,
     market: &MarketContext,

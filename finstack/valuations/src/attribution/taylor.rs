@@ -293,11 +293,13 @@ pub fn attribute_pnl_taylor_standard(
     let taylor =
         attribute_pnl_taylor(instrument, market_t0, market_t1, as_of_t0, as_of_t1, config)?;
 
-    let total_pnl = compute_pnl(
+    let total_pnl = compute_pnl_with_fx(
         taylor.pv_t0,
         taylor.pv_t1,
         taylor.pv_t1.currency(),
+        market_t0,
         market_t1,
+        as_of_t0,
         as_of_t1,
     )?;
 
