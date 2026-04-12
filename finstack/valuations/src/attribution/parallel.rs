@@ -227,23 +227,34 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let val_carry = reprice_instrument(instrument, &market_frozen, as_of_t1)?;
     num_repricings += 1;
 
-    attribution.carry = compute_pnl(val_t0, val_carry, val_t1.currency(), market_t1, as_of_t1)?;
-    let coupon_income = collect_cashflows_in_period(
+    let theta = compute_pnl(val_t0, val_carry, val_t1.currency(), market_t1, as_of_t1)?;
+
+    // Realized cashflows (coupons paid) during [T0, T1]. On coupon dates the
+    // coupon drops out of PV but the holder receives it as cash — including it
+    // here aligns with GenericThetaAny (carry = PV roll + realized cashflows).
+    let coupon_income_value = collect_cashflows_in_period(
         instrument.as_ref(),
         &market_frozen,
         as_of_t0,
         as_of_t1,
         val_t1.currency(),
     )
-    .ok()
-    .map(|value| Money::new(value, val_t1.currency()));
+    .unwrap_or(0.0);
+    let coupon_income = Money::new(coupon_income_value, val_t1.currency());
+
+    attribution.carry = theta.checked_add(coupon_income)?;
+    // Include cashflows in total_pnl so that residual stays consistent:
+    // total_pnl now represents economic (total-return) P&L.
+    if coupon_income_value.abs() > 0.0 {
+        attribution.total_pnl = attribution.total_pnl.checked_add(coupon_income)?;
+    }
     attribution.carry_detail = Some(CarryDetail {
         total: attribution.carry,
-        coupon_income,
+        coupon_income: Some(coupon_income),
         pull_to_par: None,
         roll_down: None,
         funding_cost: None,
-        theta: Some(attribution.carry),
+        theta: Some(theta),
     });
 
     // Step 3: Rates curves attribution (discount + forward)

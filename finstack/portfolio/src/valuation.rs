@@ -45,8 +45,8 @@ pub struct PositionValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub risk_error: Option<String>,
 
-    /// Full valuation result with metrics
-    #[serde(skip)]
+    /// Full valuation result with metrics (including computed risk measures).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valuation_result: Option<ValuationResult>,
 }
 

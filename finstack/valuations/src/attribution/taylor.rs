@@ -331,11 +331,33 @@ pub fn attribute_pnl_taylor_standard(
                 Money::new(attribution.vol_pnl.amount() + factor_money.amount(), ccy);
         } else if factor.factor_name == "Theta" {
             attribution.carry = factor_money;
+            // Taylor theta already includes cashflows from compute_theta_factor.
+            // Compute the PV-only portion for carry_detail.theta by subtracting
+            // coupon income.
+            let ci = {
+                use crate::metrics::sensitivities::theta::collect_cashflows_in_period;
+                let ci_val = collect_cashflows_in_period(
+                    instrument.as_ref(),
+                    market_t0,
+                    as_of_t0,
+                    as_of_t1,
+                    ccy,
+                )
+                .unwrap_or(0.0);
+                Money::new(ci_val, ccy)
+            };
+            let theta_only = Money::new(factor_money.amount() - ci.amount(), ccy);
+            if ci.amount().abs() > 0.0 {
+                attribution.total_pnl = attribution
+                    .total_pnl
+                    .checked_add(ci)
+                    .unwrap_or(attribution.total_pnl);
+            }
             attribution.carry_detail = Some(CarryDetail {
                 total: factor_money,
-                coupon_income: None,
+                coupon_income: Some(ci),
                 pull_to_par: None,
-                theta: Some(factor_money),
+                theta: Some(theta_only),
                 roll_down: None,
                 funding_cost: None,
             });
@@ -603,7 +625,8 @@ fn compute_vol_factor(
     })
 }
 
-/// Compute theta (time decay) by repricing at T1 date with T0 market.
+/// Compute theta (time decay + realized cashflows) by repricing at T1 date
+/// with T0 market, then adding any coupon payments in the period.
 fn compute_theta_factor(
     instrument: &Arc<dyn Instrument>,
     market_t0: &MarketContext,
@@ -611,10 +634,22 @@ fn compute_theta_factor(
     as_of_t1: Date,
     pv_t0: Money,
 ) -> Result<TaylorFactorResult> {
+    use crate::metrics::sensitivities::theta::collect_cashflows_in_period;
+
     let pv_t0_at_t1 = reprice_instrument(instrument, market_t0, as_of_t1)?;
-    let theta_pnl = pv_t0_at_t1.amount() - pv_t0.amount();
+    let pv_diff = pv_t0_at_t1.amount() - pv_t0.amount();
     let days = (as_of_t1 - as_of_t0).whole_days() as f64;
 
+    let coupon_income = collect_cashflows_in_period(
+        instrument.as_ref(),
+        market_t0,
+        as_of_t0,
+        as_of_t1,
+        pv_t0.currency(),
+    )
+    .unwrap_or(0.0);
+
+    let theta_pnl = pv_diff + coupon_income;
     let theta_per_day = if days.abs() > 0.0 {
         theta_pnl / days
     } else {

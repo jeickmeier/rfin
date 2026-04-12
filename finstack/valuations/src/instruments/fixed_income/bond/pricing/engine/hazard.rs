@@ -40,7 +40,6 @@ use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
-use crate::instruments::common_impl::traits::Instrument;
 
 use super::super::super::types::Bond;
 
@@ -170,10 +169,14 @@ impl HazardBondEngine {
         // Resolve discount curve
         let disc = market.get_discount(&bond.discount_curve_id)?;
 
-        // Resolve hazard curve; if not found, fall back to risk-free pricing.
+        // Resolve hazard curve; if not found, fall back to discount-only pricing.
+        // We call BondEngine::price directly (not bond.value_raw()) to avoid
+        // recursion since Bond::value now routes here when credit_curve_id is set.
         let hazard = match Self::resolve_hazard_curve(bond, market) {
             Some(h) => h,
-            None => return bond.value_raw(market, as_of),
+            None => {
+                return super::discount::BondEngine::price(bond, market, as_of).map(|m| m.amount());
+            }
         };
         let recovery = hazard.recovery_rate().clamp(0.0, 1.0);
 
@@ -506,13 +509,16 @@ mod tests {
             .compute(&metric_ids, &mut ctx)
             .expect("CS01 metrics should compute for bond with hazard curve");
 
-        // Parallel CS01 should be present (may be zero today depending on Bond::value semantics).
-        let _cs01 = ctx.computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
+        // Parallel CS01 should be nonzero since Bond::value now uses the hazard
+        // engine when credit_curve_id is set.
+        let cs01 = ctx.computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
+        assert!(
+            cs01.abs() > 1e-6,
+            "CS01 should be nonzero for bond with hazard curve; got {}",
+            cs01
+        );
 
         // Bucketed CS01 series should be stored with standard bucket count.
-        // Bucketed CS01 series is computed via GenericBucketedCs01. For bonds this
-        // may currently be zero when `Bond::value` does not depend on hazard, but
-        // the series should still be present and match the standard bucket grid.
         if let Some(series) = ctx.get_series(&MetricId::BucketedCs01) {
             let buckets = STANDARD_BUCKETS_YEARS;
             assert_eq!(

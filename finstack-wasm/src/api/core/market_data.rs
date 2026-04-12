@@ -264,6 +264,10 @@ impl FxMatrix {
 
     /// Set an explicit FX quote.
     ///
+    /// **Note:** Each call rebuilds the internal rate matrix.  When setting
+    /// many quotes at once, prefer calling `setQuote` in a batch and
+    /// querying rates only after all quotes are loaded.
+    ///
     /// # Arguments
     /// * `base` - Base (from) currency ISO code.
     /// * `quote` - Quote (to) currency ISO code.

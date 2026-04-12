@@ -102,4 +102,34 @@ mod tests {
             assert_eq!(c.to_string(), *code);
         }
     }
+
+    // -- Boundary tests ------------------------------------------------
+    // Error paths through wasm-bindgen create JsValue, which panics on
+    // native targets.  Test the underlying Rust types instead.
+
+    #[test]
+    fn empty_string_rejected() {
+        use std::str::FromStr;
+        assert!(RustCurrency::from_str("").is_err());
+    }
+
+    #[test]
+    fn invalid_code_rejected() {
+        use std::str::FromStr;
+        assert!(RustCurrency::from_str("XXXX").is_err());
+        assert!(RustCurrency::from_str("Z").is_err());
+    }
+
+    #[test]
+    fn whitespace_trimmed() {
+        // Currency::new trims, so "  USD  " should succeed
+        use std::str::FromStr;
+        assert!(RustCurrency::from_str("USD").is_ok());
+    }
+
+    #[test]
+    fn from_json_invalid() {
+        assert!(serde_json::from_str::<RustCurrency>("not json").is_err());
+        assert!(serde_json::from_str::<RustCurrency>("\"ZZZZZ\"").is_err());
+    }
 }

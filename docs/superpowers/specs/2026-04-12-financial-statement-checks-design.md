@@ -538,6 +538,7 @@ impl CheckSuiteSpec {
     pub fn resolve(&self) -> Result<CheckSuite>;
 }
 ```
+
 ```
 
 ### CheckSuiteBuilder

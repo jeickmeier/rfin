@@ -56,12 +56,17 @@ impl Money {
             .map_err(to_js_err)
     }
 
-    /// Multiply by a scalar (uses core `Mul<f64>` semantics).
+    /// Multiply by a scalar; errors if `factor` is not finite.
     #[wasm_bindgen(js_name = mulScalar)]
-    pub fn mul_scalar(&self, factor: f64) -> Money {
-        Money {
-            inner: self.inner * factor,
+    pub fn mul_scalar(&self, factor: f64) -> Result<Money, JsValue> {
+        if !factor.is_finite() {
+            return Err(to_js_err(format!(
+                "mul_scalar factor must be finite, got {factor}"
+            )));
         }
+        Ok(Money {
+            inner: self.inner * factor,
+        })
     }
 
     /// Divide by a scalar; errors on division by zero or non-finite / non-representable values.
@@ -124,9 +129,12 @@ mod tests {
     #[test]
     fn mul_scalar() {
         let m = Money::new(10.0, &usd()).expect("valid");
-        let scaled = m.mul_scalar(2.5);
+        let scaled = m.mul_scalar(2.5).expect("finite factor");
         assert!((scaled.amount() - 25.0).abs() < 1e-10);
     }
+
+    // mul_scalar error-path tests live in tests/wasm_*.rs (requires wasm32)
+    // because Err(JsValue) panics on native targets.
 
     #[test]
     fn div_scalar() {
@@ -155,5 +163,31 @@ mod tests {
         let a = RustMoney::try_new(10.0, finstack_core::currency::Currency::USD).expect("ok");
         let b = RustMoney::try_new(5.0, finstack_core::currency::Currency::EUR).expect("ok");
         assert!(a.checked_sub(b).is_err());
+    }
+
+    // Error paths through wasm-bindgen create JsValue, which panics on
+    // native targets.  Test the underlying Rust types instead.
+
+    #[test]
+    fn new_rejects_nan() {
+        assert!(RustMoney::try_new(f64::NAN, finstack_core::currency::Currency::USD).is_err());
+    }
+
+    #[test]
+    fn new_rejects_infinity() {
+        assert!(RustMoney::try_new(f64::INFINITY, finstack_core::currency::Currency::USD).is_err());
+    }
+
+    #[test]
+    fn div_scalar_rejects_zero() {
+        let m = RustMoney::try_new(10.0, finstack_core::currency::Currency::USD).expect("valid");
+        assert!(m.checked_div_f64(0.0).is_err());
+    }
+
+    #[test]
+    fn negate_zero() {
+        let m = Money::new(0.0, &usd()).expect("valid");
+        let neg = m.negate();
+        assert!(neg.amount().abs() < 1e-12);
     }
 }

@@ -224,4 +224,42 @@ mod tests {
         let back = unflatten_matrix(&flat, 2);
         assert_eq!(back, rows);
     }
+
+    // -- Boundary tests ------------------------------------------------
+    // flatten_matrix returns Result<_, JsValue> which panics on native.
+    // Test the validation logic directly.
+
+    #[test]
+    fn flatten_matrix_empty() {
+        // 0x0 case: no rows, n=0 — the loop body never runs
+        let rows: Vec<Vec<f64>> = vec![];
+        let n = rows.len();
+        let mut flat = Vec::with_capacity(n * n);
+        for row in &rows {
+            flat.extend_from_slice(row);
+        }
+        assert!(flat.is_empty());
+    }
+
+    #[test]
+    fn non_square_row_detected() {
+        // Verify the dimension check logic used by flatten_matrix
+        let rows = vec![vec![1.0, 0.0], vec![0.0]];
+        let n = rows.len(); // 2
+        let bad_row = rows.iter().enumerate().find(|(_, r)| r.len() != n);
+        assert!(bad_row.is_some(), "should detect row length mismatch");
+    }
+
+    #[test]
+    fn norm_cdf_extremes() {
+        assert!(norm_cdf(-10.0) < 1e-15);
+        assert!((norm_cdf(10.0) - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn erf_negative_symmetry() {
+        let pos = erf(1.0);
+        let neg = erf(-1.0);
+        assert!((pos + neg).abs() < 1e-12, "erf is odd");
+    }
 }

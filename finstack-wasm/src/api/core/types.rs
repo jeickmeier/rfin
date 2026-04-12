@@ -183,4 +183,28 @@ mod tests {
         let r = Rate::new(-0.01).expect("valid");
         assert!((r.as_decimal() - (-0.01)).abs() < 1e-12);
     }
+
+    // -- Boundary tests ------------------------------------------------
+    // Error paths through wasm-bindgen create JsValue, which panics on
+    // native targets.  Test the underlying Rust types instead.
+
+    #[test]
+    fn rate_rejects_nan() {
+        assert!(RustRate::try_from_decimal(f64::NAN).is_err());
+    }
+
+    #[test]
+    fn rate_rejects_infinity() {
+        assert!(RustRate::try_from_decimal(f64::INFINITY).is_err());
+    }
+
+    #[test]
+    fn bps_rejects_nan() {
+        assert!(RustBps::try_new(f64::NAN).is_err());
+    }
+
+    #[test]
+    fn percentage_rejects_nan() {
+        assert!(RustPercentage::try_new(f64::NAN).is_err());
+    }
 }

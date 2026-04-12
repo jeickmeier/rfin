@@ -32,16 +32,6 @@ def run_notebook(
     """Run a single notebook; return (success, message, elapsed_seconds)."""
     start = time.time()
     try:
-        repo_root = Path(__file__).resolve().parents[3]
-        finstack_py_root = repo_root / "finstack-py"
-        extra_paths = [str(finstack_py_root), str(repo_root)]
-        existing = os.environ.get("PYTHONPATH", "")
-        pieces = [p for p in existing.split(os.pathsep) if p]
-        for p in extra_paths:
-            if p not in pieces:
-                pieces.insert(0, p)
-        os.environ["PYTHONPATH"] = os.pathsep.join(pieces)
-
         with open(notebook_path, encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)
 
@@ -83,7 +73,23 @@ def main() -> int:
     parser.add_argument("--directory", help="Only run notebooks in this subdirectory")
     parser.add_argument("--timeout", type=int, default=300, help="Per-notebook timeout in seconds")
     parser.add_argument("--verbose", action="store_true", help="Show detailed output")
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop after the first notebook failure",
+    )
     args = parser.parse_args()
+
+    # One-time PYTHONPATH for nbclient/kernel subprocesses (import finstack from workspace).
+    repo_root = Path(__file__).resolve().parents[3]
+    finstack_py_root = repo_root / "finstack-py"
+    extra_paths = [str(finstack_py_root), str(repo_root)]
+    existing = os.environ.get("PYTHONPATH", "")
+    pieces = [p for p in existing.split(os.pathsep) if p]
+    for p in extra_paths:
+        if p not in pieces:
+            pieces.insert(0, p)
+    os.environ["PYTHONPATH"] = os.pathsep.join(pieces)
 
     base_dir = Path(__file__).parent
     notebooks = find_notebooks(base_dir, args.directory)
@@ -115,10 +121,16 @@ def main() -> int:
         else:
             failed.append(nb_path)
             print(f"FAIL ({_fmt(elapsed)})")
+            if args.fail_fast:
+                print("\nStopped early (--fail-fast).")
+                break
 
     total = time.time() - t0
+    executed = len(successful) + len(failed)
     print("\n" + "=" * 60)
-    print(f"SUMMARY: {len(successful)}/{len(notebooks)} passed in {_fmt(total)}")
+    print(f"SUMMARY: {len(successful)}/{executed} passed in {_fmt(total)}")
+    if executed < len(notebooks):
+        print(f"({len(notebooks) - executed} notebook(s) not run)")
     print("=" * 60)
 
     if successful:
@@ -139,7 +151,7 @@ def main() -> int:
         print("\n" + "=" * 60)
         print("DETAILED OUTPUT")
         print("=" * 60)
-        for nb_path in notebooks:
+        for nb_path in results:
             ok, msg, elapsed = results[nb_path]
             status = "PASS" if ok else "FAIL"
             print(f"\n{status} {nb_path.relative_to(base_dir)} ({_fmt(elapsed)}):")

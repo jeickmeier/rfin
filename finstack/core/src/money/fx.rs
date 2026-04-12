@@ -365,6 +365,15 @@ pub trait FxProvider: Send + Sync {
         on: Date,
         policy: FxConversionPolicy,
     ) -> crate::Result<FxRate>;
+
+    /// Return all stored quotes for serialization.
+    ///
+    /// The default implementation returns an empty vec (appropriate for
+    /// providers that compute rates on-the-fly). Providers that hold a
+    /// quote map should override this to enable full FxMatrix round-trips.
+    fn snapshot_quotes(&self) -> Vec<(Currency, Currency, f64)> {
+        Vec::new()
+    }
 }
 
 /// Simplified FX matrix that stores quotes and computes cross rates on demand.
@@ -698,11 +707,26 @@ impl FxMatrix {
     /// assert!(state.quotes.is_empty());
     /// ```
     pub fn get_serializable_state(&self) -> FxMatrixState {
-        let quotes = self.quotes.lock();
-        let mut quote_vec: Vec<(Currency, Currency, FxRate)> = quotes
-            .iter()
-            .map(|(pair, rate)| (pair.0, pair.1, *rate))
-            .collect();
+        let mut seen = std::collections::HashSet::new();
+        let mut quote_vec: Vec<(Currency, Currency, FxRate)> = Vec::new();
+
+        // Explicit LRU quotes take precedence.
+        {
+            let quotes = self.quotes.lock();
+            for (pair, rate) in quotes.iter() {
+                seen.insert((pair.0, pair.1));
+                quote_vec.push((pair.0, pair.1, *rate));
+            }
+        }
+
+        // Merge quotes from the underlying provider that were not already
+        // present in the LRU cache (e.g. SimpleFxProvider's own store).
+        for (from, to, rate) in self.provider.snapshot_quotes() {
+            if seen.insert((from, to)) {
+                quote_vec.push((from, to, rate));
+            }
+        }
+
         // Deterministic snapshots: sort by pair key, not by LRU order.
         quote_vec.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
         FxMatrixState {

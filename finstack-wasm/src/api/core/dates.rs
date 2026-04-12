@@ -427,4 +427,36 @@ mod tests {
         let t = Tenor::daily();
         assert!(t.to_years_simple() < 0.01);
     }
+
+    // -- Boundary tests ------------------------------------------------
+    // Error paths through wasm-bindgen create JsValue, which panics on
+    // native targets.  Test the underlying Rust types instead.
+
+    #[test]
+    fn create_date_invalid_month() {
+        assert!(time::Month::try_from(13_u8).is_err());
+        assert!(time::Month::try_from(0_u8).is_err());
+    }
+
+    #[test]
+    fn create_date_invalid_day() {
+        assert!(finstack_core::dates::create_date(2024, time::Month::February, 30).is_err());
+    }
+
+    #[test]
+    fn date_from_epoch_days_extreme() {
+        assert!(finstack_core::dates::date_from_epoch_days(i32::MAX).is_none());
+        assert!(finstack_core::dates::date_from_epoch_days(i32::MIN).is_none());
+    }
+
+    #[test]
+    fn daycount_invalid_string() {
+        assert!("not_a_daycount".parse::<RustDayCount>().is_err());
+    }
+
+    #[test]
+    fn tenor_invalid_string() {
+        assert!(RustTenor::parse("").is_err());
+        assert!(RustTenor::parse("XYZ").is_err());
+    }
 }

@@ -22,9 +22,18 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
             }
         }
 
-        // Standard cashflow discounting for straight bonds using bond cashflows
-        // sized under the bond's own day-count and discount factors provided by
-        // the assigned discount curve.
+        // When a credit curve is assigned, use the hazard-rate engine so that PV
+        // incorporates survival probabilities. This makes Bond::value consistent
+        // with CS01 metrics and enables meaningful credit P&L attribution.
+        // The hazard engine falls back to discount-only pricing if the curve is
+        // not found in the market context.
+        if self.credit_curve_id.is_some() {
+            return crate::instruments::fixed_income::bond::pricing::engine::hazard::HazardBondEngine::price(
+                self, curves, as_of,
+            );
+        }
+
+        // Standard cashflow discounting for straight bonds without credit curves.
         crate::instruments::fixed_income::bond::pricing::engine::discount::BondEngine::price(
             self, curves, as_of,
         )

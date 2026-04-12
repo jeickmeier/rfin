@@ -48,7 +48,7 @@ pub fn price_instrument(
     let result = registry
         .price(boxed.as_ref(), model_key, &market, date, None)
         .map_err(to_js_err)?;
-    serde_json::to_string_pretty(&result).map_err(to_js_err)
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 /// Price an instrument with explicit metric requests.
@@ -84,7 +84,7 @@ pub fn price_instrument_with_metrics(
             Default::default(),
         )
         .map_err(to_js_err)?;
-    serde_json::to_string_pretty(&result).map_err(to_js_err)
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 /// List all metric IDs in the standard metric registry.
@@ -126,7 +126,7 @@ pub fn attribute_pnl(
         config_json.as_deref(),
     )?;
     let result = spec.execute().map_err(to_js_err)?;
-    serde_json::to_string_pretty(&result.attribution).map_err(to_js_err)
+    serde_json::to_string(&result.attribution).map_err(to_js_err)
 }
 
 /// Run attribution from a full JSON `AttributionEnvelope` and return JSON.
@@ -137,7 +137,7 @@ pub fn attribute_pnl_from_spec(spec_json: &str) -> Result<String, JsValue> {
     let envelope: finstack_valuations::attribution::AttributionEnvelope =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
     let result_envelope = envelope.execute().map_err(to_js_err)?;
-    serde_json::to_string_pretty(&result_envelope).map_err(to_js_err)
+    serde_json::to_string(&result_envelope).map_err(to_js_err)
 }
 
 /// Validate an attribution specification JSON.
@@ -249,7 +249,7 @@ pub fn compute_factor_sensitivities(
             .map(|pi| matrix.position_deltas(pi).to_vec())
             .collect::<Vec<Vec<f64>>>(),
     });
-    serde_json::to_string_pretty(&result).map_err(to_js_err)
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 /// Compute scenario P&L profiles via full repricing and return as JSON.
@@ -318,7 +318,7 @@ pub fn compute_pnl_profiles(
             })
         })
         .collect();
-    serde_json::to_string_pretty(&result).map_err(to_js_err)
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 /// Decompose portfolio risk into factor and position contributions.
@@ -395,7 +395,7 @@ pub fn decompose_factor_risk(
             })
         }).collect::<Vec<_>>(),
     });
-    serde_json::to_string_pretty(&output).map_err(to_js_err)
+    serde_json::to_string(&output).map_err(to_js_err)
 }
 
 fn build_attribution_spec(

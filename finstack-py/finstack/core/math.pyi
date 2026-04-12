@@ -306,6 +306,45 @@ class special_functions:
         """
         ...
 
+    @staticmethod
+    def student_t_cdf(x: float, df: float) -> float:
+        r"""Student-t cumulative distribution function.
+
+        Returns :math:`P(T \le x)` where :math:`T \sim t(\nu)`.
+
+        Parameters
+        ----------
+        x : float
+            Input value.
+        df : float
+            Degrees of freedom (:math:`\nu > 0`).
+
+        Returns
+        -------
+        float
+            Probability in ``[0, 1]``.
+        """
+        ...
+
+    @staticmethod
+    def student_t_inv_cdf(p: float, df: float) -> float:
+        r"""Inverse Student-t CDF (quantile function).
+
+        Returns *x* such that :math:`P(T \le x) = p` where :math:`T \sim t(\nu)`.
+
+        Parameters
+        ----------
+        p : float
+            Probability in ``(0, 1)``.
+        df : float
+            Degrees of freedom (:math:`\nu > 0`).
+
+        Returns
+        -------
+        float
+        """
+        ...
+
 class summation:
     """Numerically stable summation: Kahan and Neumaier compensated sums."""
 

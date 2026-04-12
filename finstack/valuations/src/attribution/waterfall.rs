@@ -250,22 +250,27 @@ fn attribute_pnl_waterfall_impl(
         // Record factor P&L
         match factor {
             AttributionFactor::Carry => {
-                attribution.carry = factor_pnl;
-                let coupon_income = collect_cashflows_in_period(
+                let theta = factor_pnl;
+                let coupon_income_value = collect_cashflows_in_period(
                     ctx.current_instrument.as_ref(),
                     &ctx.current_market,
                     ctx.as_of_t0,
                     ctx.as_of_t1,
                     factor_pnl.currency(),
                 )
-                .map(|value| Money::new(value, factor_pnl.currency()))?;
+                .unwrap_or(0.0);
+                let coupon_income = Money::new(coupon_income_value, factor_pnl.currency());
+                attribution.carry = theta.checked_add(coupon_income)?;
+                if coupon_income_value.abs() > 0.0 {
+                    attribution.total_pnl = attribution.total_pnl.checked_add(coupon_income)?;
+                }
                 attribution.carry_detail = Some(CarryDetail {
-                    total: factor_pnl,
+                    total: attribution.carry,
                     coupon_income: Some(coupon_income),
                     pull_to_par: None,
                     roll_down: None,
                     funding_cost: None,
-                    theta: Some(factor_pnl),
+                    theta: Some(theta),
                 });
             }
             AttributionFactor::RatesCurves => attribution.rates_curves_pnl = factor_pnl,

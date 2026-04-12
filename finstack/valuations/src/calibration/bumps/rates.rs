@@ -159,7 +159,8 @@ pub fn bump_discount_curve_synthetic(
     // while swaps must use the corresponding OIS index conventions.
     let deposit_index_id = match currency {
         Currency::USD => "USD-SOFR-1M",
-        Currency::EUR => "EUR-ESTR-1M",
+        // Align with `rate_index_conventions.json` (there is no `EUR-ESTR-1M` alias today).
+        Currency::EUR => "EUR-ESTR-OIS",
         Currency::GBP => "GBP-SONIA-1M",
         Currency::JPY => "JPY-TONA-1M",
         _ => "USD-SOFR-1M",

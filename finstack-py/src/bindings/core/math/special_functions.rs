@@ -51,6 +51,24 @@ fn ln_gamma(x: f64) -> f64 {
     special_functions::ln_gamma(x)
 }
 
+/// Student-t cumulative distribution function.
+///
+/// Returns P(T ≤ x) where T ~ t(df).
+#[pyfunction]
+#[pyo3(text_signature = "(x, df)")]
+fn student_t_cdf(x: f64, df: f64) -> f64 {
+    special_functions::student_t_cdf(x, df)
+}
+
+/// Inverse Student-t CDF (quantile function).
+///
+/// Returns x such that P(T ≤ x) = p where T ~ t(df).
+#[pyfunction]
+#[pyo3(text_signature = "(p, df)")]
+fn student_t_inv_cdf(p: f64, df: f64) -> f64 {
+    special_functions::student_t_inv_cdf(p, df)
+}
+
 // ---------------------------------------------------------------------------
 // Register
 // ---------------------------------------------------------------------------
@@ -68,6 +86,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(standard_normal_inv_cdf, &m)?)?;
     m.add_function(wrap_pyfunction!(erf, &m)?)?;
     m.add_function(wrap_pyfunction!(ln_gamma, &m)?)?;
+    m.add_function(wrap_pyfunction!(student_t_cdf, &m)?)?;
+    m.add_function(wrap_pyfunction!(student_t_inv_cdf, &m)?)?;
 
     let all = PyList::new(
         py,
@@ -77,6 +97,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "standard_normal_inv_cdf",
             "erf",
             "ln_gamma",
+            "student_t_cdf",
+            "student_t_inv_cdf",
         ],
     )?;
     m.setattr("__all__", all)?;

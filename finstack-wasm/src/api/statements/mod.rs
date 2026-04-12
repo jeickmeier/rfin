@@ -48,4 +48,20 @@ mod tests {
         assert_eq!(round_trip.id, "test");
         assert!(round_trip.nodes.is_empty());
     }
+
+    // -- Boundary tests ------------------------------------------------
+    // Error paths create JsValue, which panics on native targets.
+    // Test the underlying serde deserialization instead.
+
+    #[test]
+    fn validate_rejects_invalid_json() {
+        assert!(
+            serde_json::from_str::<finstack_statements::FinancialModelSpec>("not json").is_err()
+        );
+    }
+
+    #[test]
+    fn validate_rejects_empty_string() {
+        assert!(serde_json::from_str::<finstack_statements::FinancialModelSpec>("").is_err());
+    }
 }

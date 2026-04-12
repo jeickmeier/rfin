@@ -3,8 +3,24 @@
 //! Exposes scenario specification parsing, validation, composition,
 //! and built-in template access via JSON round-trip functions.
 
+use std::sync::OnceLock;
+
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
+
+/// Placeholder model ID used when applying scenarios to market data only.
+const MARKET_ONLY_MODEL_ID: &str = "__scenario_market_only__";
+
+/// Lazily-initialised builtin template registry.  Constructed once on first
+/// access, then reused for the lifetime of the WASM module.
+fn builtin_registry() -> Result<&'static finstack_scenarios::TemplateRegistry, JsValue> {
+    static REGISTRY: OnceLock<Result<finstack_scenarios::TemplateRegistry, String>> =
+        OnceLock::new();
+    let stored = REGISTRY.get_or_init(|| {
+        finstack_scenarios::TemplateRegistry::with_embedded_builtins().map_err(|e| e.to_string())
+    });
+    stored.as_ref().map_err(to_js_err)
+}
 
 /// Parse and validate a scenario specification from JSON.
 ///
@@ -50,9 +66,7 @@ pub fn validate_scenario_spec(json_str: &str) -> Result<bool, JsValue> {
 /// Returns a JSON array of template ID strings.
 #[wasm_bindgen(js_name = listBuiltinTemplates)]
 pub fn list_builtin_templates() -> Result<JsValue, JsValue> {
-    let registry =
-        finstack_scenarios::TemplateRegistry::with_embedded_builtins().map_err(to_js_err)?;
-
+    let registry = builtin_registry()?;
     let ids: Vec<String> = registry.list().iter().map(|m| m.id.clone()).collect();
     serde_wasm_bindgen::to_value(&ids).map_err(to_js_err)
 }
@@ -60,9 +74,7 @@ pub fn list_builtin_templates() -> Result<JsValue, JsValue> {
 /// Get metadata for all built-in templates as a JSON string.
 #[wasm_bindgen(js_name = listBuiltinTemplateMetadata)]
 pub fn list_builtin_template_metadata() -> Result<String, JsValue> {
-    let registry =
-        finstack_scenarios::TemplateRegistry::with_embedded_builtins().map_err(to_js_err)?;
-
+    let registry = builtin_registry()?;
     let metadata: Vec<&finstack_scenarios::TemplateMetadata> = registry.list();
     serde_json::to_string(&metadata).map_err(to_js_err)
 }
@@ -72,9 +84,7 @@ pub fn list_builtin_template_metadata() -> Result<String, JsValue> {
 /// Returns JSON-serialized `ScenarioSpec`.
 #[wasm_bindgen(js_name = buildFromTemplate)]
 pub fn build_from_template(template_id: &str) -> Result<String, JsValue> {
-    let registry =
-        finstack_scenarios::TemplateRegistry::with_embedded_builtins().map_err(to_js_err)?;
-
+    let registry = builtin_registry()?;
     let entry = registry
         .get(template_id)
         .ok_or_else(|| to_js_err(format!("Unknown template: '{template_id}'")))?;
@@ -88,9 +98,7 @@ pub fn build_from_template(template_id: &str) -> Result<String, JsValue> {
 /// Returns a JS array of component ID strings.
 #[wasm_bindgen(js_name = listTemplateComponents)]
 pub fn list_template_components(template_id: &str) -> Result<JsValue, JsValue> {
-    let registry =
-        finstack_scenarios::TemplateRegistry::with_embedded_builtins().map_err(to_js_err)?;
-
+    let registry = builtin_registry()?;
     let entry = registry
         .get(template_id)
         .ok_or_else(|| to_js_err(format!("Unknown template: '{template_id}'")))?;
@@ -106,8 +114,7 @@ pub fn list_template_components(template_id: &str) -> Result<JsValue, JsValue> {
 /// Build a specific component from a built-in composite template.
 #[wasm_bindgen(js_name = buildTemplateComponent)]
 pub fn build_template_component(template_id: &str, component_id: &str) -> Result<String, JsValue> {
-    let registry =
-        finstack_scenarios::TemplateRegistry::with_embedded_builtins().map_err(to_js_err)?;
+    let registry = builtin_registry()?;
     let entry = registry
         .get(template_id)
         .ok_or_else(|| to_js_err(format!("Unknown template: '{template_id}'")))?;
@@ -194,7 +201,7 @@ pub fn apply_scenario_to_market(
         serde_json::from_str(scenario_json).map_err(to_js_err)?;
     let mut market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let mut model = finstack_statements::FinancialModelSpec::new("__scenario_temp__", vec![]);
+    let mut model = finstack_statements::FinancialModelSpec::new(MARKET_ONLY_MODEL_ID, vec![]);
     let format = time::format_description::well_known::Iso8601::DEFAULT;
     let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
 

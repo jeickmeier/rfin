@@ -180,6 +180,14 @@ impl FxProvider for SimpleFxProvider {
         }
         .into())
     }
+
+    fn snapshot_quotes(&self) -> Vec<(Currency, Currency, f64)> {
+        self.quotes
+            .read()
+            .iter()
+            .map(|(&(from, to), &rate)| (from, to, rate))
+            .collect()
+    }
 }
 
 /// Wrapper provider that overrides a specific FX rate while delegating others.
