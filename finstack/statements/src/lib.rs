@@ -70,6 +70,8 @@ pub mod adjustments;
 pub mod builder;
 /// Debt and equity structure modeling.
 pub mod capital_structure;
+/// Financial statement checks framework.
+pub mod checks;
 /// Formula DSL parsing and compilation.
 pub mod dsl;
 /// Error types for statement modeling.
@@ -90,6 +92,10 @@ pub mod types;
 pub mod utils;
 
 // Re-export core types at crate root for ergonomic imports
+pub use checks::{
+    Check, CheckCategory, CheckConfig, CheckContext, CheckFinding, CheckReport, CheckResult,
+    CheckRunner, CheckSuite, CheckSuiteBuilder, CheckSummary, Materiality, PeriodScope, Severity,
+};
 pub use error::{Error, Result};
 pub use evaluator::NumericMode;
 pub use types::{
