@@ -13,6 +13,7 @@ contexts.
 from __future__ import annotations
 
 import importlib as _importlib
+from types import ModuleType
 
 __all__ = [
     "analytics",
@@ -30,7 +31,7 @@ __all__ = [
 _SUBMODULES: frozenset[str] = frozenset(__all__)
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> ModuleType:
     if name in _SUBMODULES:
         mod = _importlib.import_module(f".{name}", __name__)
         globals()[name] = mod
