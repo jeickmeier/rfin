@@ -41,6 +41,9 @@ pub mod credit;
 /// Scenario, sensitivity, variance, and Monte Carlo analysis.
 pub mod scenarios;
 
+/// Domain-level validation checks (reconciliation, consistency, credit).
+pub mod checks;
+
 // ---- Flat submodules ----
 
 pub mod backtesting;
