@@ -12,4 +12,9 @@ export const statements_analytics = {
   explainFormula: wasm.explainFormula,
   plSummaryReport: wasm.plSummaryReport,
   creditAssessmentReport: wasm.creditAssessmentReport,
+  runChecks: wasm.runChecks,
+  runThreeStatementChecks: wasm.runThreeStatementChecks,
+  runCreditUnderwritingChecks: wasm.runCreditUnderwritingChecks,
+  renderCheckReportText: wasm.renderCheckReportText,
+  renderCheckReportHtml: wasm.renderCheckReportHtml,
 };

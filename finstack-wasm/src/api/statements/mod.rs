@@ -27,6 +27,17 @@ pub fn model_node_ids(json: &str) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&ids).map_err(to_js_err)
 }
 
+/// Validate a `CheckSuiteSpec` JSON string.
+///
+/// Deserializes the spec, re-serializes to canonical form, and
+/// returns the JSON string. Useful for client-side validation.
+#[wasm_bindgen(js_name = validateCheckSuiteSpec)]
+pub fn validate_check_suite_spec(json: &str) -> Result<String, JsValue> {
+    let spec: finstack_statements::checks::CheckSuiteSpec =
+        serde_json::from_str(json).map_err(to_js_err)?;
+    serde_json::to_string(&spec).map_err(to_js_err)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -47,6 +58,26 @@ mod tests {
         };
         assert_eq!(round_trip.id, "test");
         assert!(round_trip.nodes.is_empty());
+    }
+
+    #[test]
+    fn validate_check_suite_spec_roundtrip() {
+        let spec = finstack_statements::checks::CheckSuiteSpec {
+            name: "test".to_string(),
+            description: None,
+            builtin_checks: vec![],
+            formula_checks: vec![],
+            config: finstack_statements::checks::CheckConfig::default(),
+        };
+        let json = serde_json::to_string(&spec).expect("serialize");
+        let Ok(out) = validate_check_suite_spec(&json) else {
+            panic!("should accept valid spec");
+        };
+        let Ok(rt) = serde_json::from_str::<finstack_statements::checks::CheckSuiteSpec>(&out)
+        else {
+            panic!("should roundtrip");
+        };
+        assert_eq!(rt.name, "test");
     }
 
     // -- Boundary tests ------------------------------------------------

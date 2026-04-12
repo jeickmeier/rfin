@@ -233,6 +233,73 @@ pub fn credit_assessment_report(results_json: &str, as_of: &str) -> Result<Strin
     Ok(report.to_string())
 }
 
+/// Run checks from a suite spec against a model (JSON in/out).
+///
+/// Evaluates the model, resolves the suite spec into runnable checks,
+/// and returns a JSON check report.
+#[wasm_bindgen(js_name = runChecks)]
+pub fn run_checks(model_json: &str, suite_spec_json: &str) -> Result<String, JsValue> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(to_js_err)?;
+    let spec: finstack_statements::checks::CheckSuiteSpec =
+        serde_json::from_str(suite_spec_json).map_err(to_js_err)?;
+    let suite = spec.resolve().map_err(to_js_err)?;
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator.evaluate(&model).map_err(to_js_err)?;
+    let report = suite.run(&model, &results).map_err(to_js_err)?;
+    serde_json::to_string(&report).map_err(to_js_err)
+}
+
+/// Run three-statement checks using node mappings.
+///
+/// Accepts a model and a mapping JSON, builds the appropriate check
+/// suite, evaluates the model, runs the checks, and returns the report.
+#[wasm_bindgen(js_name = runThreeStatementChecks)]
+pub fn run_three_statement_checks(model_json: &str, mapping_json: &str) -> Result<String, JsValue> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(to_js_err)?;
+    let mapping: finstack_statements_analytics::analysis::ThreeStatementMapping =
+        serde_json::from_str(mapping_json).map_err(to_js_err)?;
+    let suite = finstack_statements_analytics::analysis::three_statement_checks(mapping);
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator.evaluate(&model).map_err(to_js_err)?;
+    let report = suite.run(&model, &results).map_err(to_js_err)?;
+    serde_json::to_string(&report).map_err(to_js_err)
+}
+
+/// Run credit underwriting checks using credit-specific mappings.
+#[wasm_bindgen(js_name = runCreditUnderwritingChecks)]
+pub fn run_credit_underwriting_checks(
+    model_json: &str,
+    mapping_json: &str,
+) -> Result<String, JsValue> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(to_js_err)?;
+    let mapping: finstack_statements_analytics::analysis::CreditMapping =
+        serde_json::from_str(mapping_json).map_err(to_js_err)?;
+    let suite = finstack_statements_analytics::analysis::credit_underwriting_checks(mapping);
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator.evaluate(&model).map_err(to_js_err)?;
+    let report = suite.run(&model, &results).map_err(to_js_err)?;
+    serde_json::to_string(&report).map_err(to_js_err)
+}
+
+/// Render a check report as plain text.
+#[wasm_bindgen(js_name = renderCheckReportText)]
+pub fn render_check_report_text(report_json: &str) -> Result<String, JsValue> {
+    let report: finstack_statements::checks::CheckReport =
+        serde_json::from_str(report_json).map_err(to_js_err)?;
+    Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_text(&report))
+}
+
+/// Render a check report as HTML.
+#[wasm_bindgen(js_name = renderCheckReportHtml)]
+pub fn render_check_report_html(report_json: &str) -> Result<String, JsValue> {
+    let report: finstack_statements::checks::CheckReport =
+        serde_json::from_str(report_json).map_err(to_js_err)?;
+    Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_html(&report))
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
