@@ -23,6 +23,11 @@ __all__ = [
     "dependents",
     "explain_formula",
     "explain_formula_text",
+    "run_checks",
+    "run_three_statement_checks",
+    "run_credit_underwriting_checks",
+    "render_check_report_text",
+    "render_check_report_html",
 ]
 
 def run_sensitivity(model_json: str, config_json: str) -> str:
@@ -394,5 +399,86 @@ def explain_formula_text(
     Example:
         >>> from finstack.statements_analytics import explain_formula_text
         >>> text = explain_formula_text(mj, rj, "rev", "2025Q1")
+    """
+    ...
+
+def run_checks(model_json: str, suite_spec_json: str) -> str:
+    """Run checks from a suite spec against a model (JSON in/out).
+
+    Resolves both built-in and formula checks, evaluates the model,
+    and returns a full check report.
+
+    Args:
+        model_json: JSON-serialized ``FinancialModelSpec``.
+        suite_spec_json: JSON-serialized ``CheckSuiteSpec``.
+
+    Returns:
+        JSON-serialized ``CheckReport``.
+
+    Example:
+        >>> from finstack.statements_analytics import run_checks
+        >>> report_json = run_checks(model_json, suite_spec_json)
+    """
+    ...
+
+def run_three_statement_checks(model_json: str, mapping_json: str) -> str:
+    """Run three-statement checks using a node mapping (JSON in/out).
+
+    Args:
+        model_json: JSON-serialized ``FinancialModelSpec``.
+        mapping_json: JSON-serialized ``ThreeStatementMapping``.
+
+    Returns:
+        JSON-serialized ``CheckReport``.
+
+    Example:
+        >>> from finstack.statements_analytics import run_three_statement_checks
+        >>> report_json = run_three_statement_checks(model_json, mapping_json)
+    """
+    ...
+
+def run_credit_underwriting_checks(model_json: str, mapping_json: str) -> str:
+    """Run credit underwriting checks using a node mapping (JSON in/out).
+
+    Args:
+        model_json: JSON-serialized ``FinancialModelSpec``.
+        mapping_json: JSON-serialized ``CreditMapping``.
+
+    Returns:
+        JSON-serialized ``CheckReport``.
+
+    Example:
+        >>> from finstack.statements_analytics import run_credit_underwriting_checks
+        >>> report_json = run_credit_underwriting_checks(model_json, mapping_json)
+    """
+    ...
+
+def render_check_report_text(report_json: str) -> str:
+    """Render a check report as plain text.
+
+    Args:
+        report_json: JSON-serialized ``CheckReport``.
+
+    Returns:
+        Human-readable plain-text report.
+
+    Example:
+        >>> from finstack.statements_analytics import render_check_report_text
+        >>> text = render_check_report_text(report_json)
+    """
+    ...
+
+def render_check_report_html(report_json: str) -> str:
+    """Render a check report as HTML with inline styles.
+
+    Args:
+        report_json: JSON-serialized ``CheckReport``.
+
+    Returns:
+        HTML-formatted report suitable for Jupyter notebooks.
+
+    Example:
+        >>> from finstack.statements_analytics import render_check_report_html
+        >>> html = render_check_report_html(report_json)
     """
     ...

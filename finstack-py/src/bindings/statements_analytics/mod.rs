@@ -40,6 +40,11 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "dependents",
             "explain_formula",
             "explain_formula_text",
+            "run_checks",
+            "run_three_statement_checks",
+            "run_credit_underwriting_checks",
+            "render_check_report_text",
+            "render_check_report_html",
         ],
     )?;
     m.setattr("__all__", all)?;

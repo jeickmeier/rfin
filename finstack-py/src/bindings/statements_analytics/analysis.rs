@@ -745,6 +745,146 @@ fn explain_formula_text(
     Ok(explanation.to_string_detailed())
 }
 
+// ---------------------------------------------------------------------------
+// Checks
+// ---------------------------------------------------------------------------
+
+/// Run checks from a suite spec against a model (JSON in/out).
+///
+/// Resolves both built-in and formula checks from the spec, evaluates the
+/// model, and returns a full check report.
+///
+/// Parameters
+/// ----------
+/// model_json : str
+///   JSON-serialized ``FinancialModelSpec``.
+/// suite_spec_json : str
+///   JSON-serialized ``CheckSuiteSpec``.
+///
+/// Returns
+/// -------
+/// str
+///   JSON-serialized ``CheckReport``.
+#[pyfunction]
+fn run_checks(model_json: &str, suite_spec_json: &str) -> PyResult<String> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(sa_to_py)?;
+    let spec: finstack_statements::checks::CheckSuiteSpec =
+        serde_json::from_str(suite_spec_json).map_err(sa_to_py)?;
+
+    let mut suite = spec.resolve().map_err(sa_to_py)?;
+
+    if !spec.formula_checks.is_empty() {
+        let mut fc_builder = finstack_statements::checks::CheckSuite::builder("_formula_checks");
+        for fc_spec in &spec.formula_checks {
+            fc_builder =
+                fc_builder.add_check(finstack_statements_analytics::analysis::FormulaCheck {
+                    id: fc_spec.id.clone(),
+                    name: fc_spec.name.clone(),
+                    category: fc_spec.category,
+                    severity: fc_spec.severity,
+                    formula: fc_spec.formula.clone(),
+                    message_template: fc_spec.message_template.clone(),
+                    tolerance: fc_spec.tolerance,
+                });
+        }
+        suite = suite.merge(fc_builder.build());
+    }
+
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator.evaluate(&model).map_err(sa_to_py)?;
+    let report = suite.run(&model, &results).map_err(sa_to_py)?;
+    serde_json::to_string(&report).map_err(sa_to_py)
+}
+
+/// Run three-statement checks using a node mapping (JSON in/out).
+///
+/// Parameters
+/// ----------
+/// model_json : str
+///   JSON-serialized ``FinancialModelSpec``.
+/// mapping_json : str
+///   JSON-serialized ``ThreeStatementMapping``.
+///
+/// Returns
+/// -------
+/// str
+///   JSON-serialized ``CheckReport``.
+#[pyfunction]
+fn run_three_statement_checks(model_json: &str, mapping_json: &str) -> PyResult<String> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(sa_to_py)?;
+    let mapping: finstack_statements_analytics::analysis::ThreeStatementMapping =
+        serde_json::from_str(mapping_json).map_err(sa_to_py)?;
+    let suite = finstack_statements_analytics::analysis::three_statement_checks(mapping);
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator.evaluate(&model).map_err(sa_to_py)?;
+    let report = suite.run(&model, &results).map_err(sa_to_py)?;
+    serde_json::to_string(&report).map_err(sa_to_py)
+}
+
+/// Run credit underwriting checks using a node mapping (JSON in/out).
+///
+/// Parameters
+/// ----------
+/// model_json : str
+///   JSON-serialized ``FinancialModelSpec``.
+/// mapping_json : str
+///   JSON-serialized ``CreditMapping``.
+///
+/// Returns
+/// -------
+/// str
+///   JSON-serialized ``CheckReport``.
+#[pyfunction]
+fn run_credit_underwriting_checks(model_json: &str, mapping_json: &str) -> PyResult<String> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(sa_to_py)?;
+    let mapping: finstack_statements_analytics::analysis::CreditMapping =
+        serde_json::from_str(mapping_json).map_err(sa_to_py)?;
+    let suite = finstack_statements_analytics::analysis::credit_underwriting_checks(mapping);
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator.evaluate(&model).map_err(sa_to_py)?;
+    let report = suite.run(&model, &results).map_err(sa_to_py)?;
+    serde_json::to_string(&report).map_err(sa_to_py)
+}
+
+/// Render a check report as plain text.
+///
+/// Parameters
+/// ----------
+/// report_json : str
+///   JSON-serialized ``CheckReport``.
+///
+/// Returns
+/// -------
+/// str
+///   Human-readable plain-text report.
+#[pyfunction]
+fn render_check_report_text(report_json: &str) -> PyResult<String> {
+    let report: finstack_statements::checks::CheckReport =
+        serde_json::from_str(report_json).map_err(sa_to_py)?;
+    Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_text(&report))
+}
+
+/// Render a check report as HTML with inline styles.
+///
+/// Parameters
+/// ----------
+/// report_json : str
+///   JSON-serialized ``CheckReport``.
+///
+/// Returns
+/// -------
+/// str
+///   HTML-formatted report suitable for Jupyter notebooks.
+#[pyfunction]
+fn render_check_report_html(report_json: &str) -> PyResult<String> {
+    let report: finstack_statements::checks::CheckReport =
+        serde_json::from_str(report_json).map_err(sa_to_py)?;
+    Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_html(&report))
+}
+
 /// Register analysis functions.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(run_sensitivity, m)?)?;
@@ -765,5 +905,10 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(dependents, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(explain_formula, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(explain_formula_text, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(run_checks, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(run_three_statement_checks, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(run_credit_underwriting_checks, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(render_check_report_text, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(render_check_report_html, m)?)?;
     Ok(())
 }

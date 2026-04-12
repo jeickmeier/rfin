@@ -25,6 +25,8 @@ __all__ = [
     "NormalizationConfig",
     "normalize",
     "normalize_to_dicts",
+    "CheckSuiteSpec",
+    "CheckReport",
 ]
 
 class ForecastMethod:
@@ -962,3 +964,153 @@ def normalize_to_dicts(
     'n'
     """
     ...
+
+class CheckSuiteSpec:
+    """A serializable suite specification describing which checks to run.
+
+    Load from JSON (e.g. a team-wide check policy file) and inspect its
+    composition before passing to ``run_checks``.
+
+    Example
+    -------
+    >>> from finstack.statements import CheckSuiteSpec
+    >>> spec = CheckSuiteSpec.from_json('{"name":"basic","builtin_checks":[],"formula_checks":[]}')
+    >>> spec.name
+    'basic'
+    """
+
+    @staticmethod
+    def from_json(json: str) -> CheckSuiteSpec:
+        """Deserialize a suite specification from JSON text.
+
+        Parameters
+        ----------
+        json:
+            JSON document matching the ``CheckSuiteSpec`` schema.
+
+        Returns
+        -------
+        CheckSuiteSpec
+            Parsed specification.
+
+        Raises
+        ------
+        ValueError
+            If ``json`` is not valid or fails schema validation.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Serialize this specification to pretty-printed JSON.
+
+        Returns
+        -------
+        str
+            JSON text.
+
+        Raises
+        ------
+        ValueError
+            If serialization fails.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Suite name."""
+        ...
+
+    @property
+    def builtin_check_count(self) -> int:
+        """Number of built-in checks in the suite spec."""
+        ...
+
+    @property
+    def formula_check_count(self) -> int:
+        """Number of formula checks in the suite spec."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return a concise summary of the suite spec."""
+        ...
+
+class CheckReport:
+    """Validation check report aggregating results and summary statistics.
+
+    Typically produced by ``run_checks`` or similar analytics functions,
+    then inspected via properties or rendered to text/HTML.
+
+    Example
+    -------
+    >>> from finstack.statements import CheckReport
+    >>> report = CheckReport.from_json(
+    ...     '{"results":[],"summary":{"total_checks":0,"passed":0,"failed":0,"errors":0,"warnings":0,"infos":0}}'
+    ... )
+    >>> report.passed
+    True
+    """
+
+    @staticmethod
+    def from_json(json: str) -> CheckReport:
+        """Deserialize a check report from JSON text.
+
+        Parameters
+        ----------
+        json:
+            JSON document matching the ``CheckReport`` schema.
+
+        Returns
+        -------
+        CheckReport
+            Parsed report.
+
+        Raises
+        ------
+        ValueError
+            If ``json`` is not valid or fails schema validation.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Serialize this report to pretty-printed JSON.
+
+        Returns
+        -------
+        str
+            JSON text.
+
+        Raises
+        ------
+        ValueError
+            If serialization fails.
+        """
+        ...
+
+    @property
+    def passed(self) -> bool:
+        """Whether all checks passed (no error-severity findings)."""
+        ...
+
+    @property
+    def total_checks(self) -> int:
+        """Number of individual check results in the report."""
+        ...
+
+    @property
+    def total_findings(self) -> int:
+        """Total number of findings across all checks."""
+        ...
+
+    @property
+    def total_errors(self) -> int:
+        """Number of error-severity findings."""
+        ...
+
+    @property
+    def total_warnings(self) -> int:
+        """Number of warning-severity findings."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return a concise summary of the check report."""
+        ...

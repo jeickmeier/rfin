@@ -5,6 +5,7 @@
 
 mod adjustments;
 mod builder;
+mod checks;
 mod dsl;
 mod evaluator;
 mod types;
@@ -25,6 +26,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     evaluator::register(py, &m)?;
     dsl::register(py, &m)?;
     adjustments::register(py, &m)?;
+    checks::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -47,6 +49,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "NormalizationConfig",
             "normalize",
             "normalize_to_dicts",
+            // Checks
+            "CheckSuiteSpec",
+            "CheckReport",
         ],
     )?;
     m.setattr("__all__", all)?;
