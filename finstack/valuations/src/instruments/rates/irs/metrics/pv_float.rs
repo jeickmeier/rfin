@@ -52,8 +52,7 @@ impl MetricCalculator for FloatLegPvCalculator {
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
         // Look up historical fixings for seasoned swaps
-        let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-        let fixings = context.curves.get_series(&fixings_id).ok();
+        let fixings = finstack_core::market_data::fixings::get_fixing_series(&context.curves, irs.float.forward_curve_id.as_str()).ok();
 
         let pv_money = match irs.float.compounding {
             FloatingLegCompounding::Simple => {

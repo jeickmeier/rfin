@@ -591,7 +591,7 @@ fn resolve_vol_type(
 }
 
 fn cap_floor_fixing_series_id(forward_curve_id: &CurveId) -> String {
-    format!("FIXING:{}", forward_curve_id.as_str())
+    finstack_core::market_data::fixings::fixing_series_id(forward_curve_id.as_str())
 }
 
 fn infer_single_period_frequency(start_date: Date, maturity: Date) -> Tenor {

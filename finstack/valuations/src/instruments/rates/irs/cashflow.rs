@@ -155,14 +155,12 @@ fn projected_overnight_rate(
     inputs: &OvernightProjectionInputs<'_>,
 ) -> Result<f64> {
     if obs_start < inputs.projection_base_date {
-        let series = inputs.fixings.ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "Seasoned compounded swap requires RFR fixings for dates before as_of (missing series). \
-                 Provide ScalarTimeSeries id='FIXING:{}' with business-day observations.",
-                inputs.float.forward_curve_id.as_str()
-            ))
-        })?;
-        return series.value_on(obs_start);
+        return finstack_core::market_data::fixings::require_fixing_value(
+            inputs.fixings,
+            inputs.float.forward_curve_id.as_str(),
+            obs_start,
+            inputs.projection_base_date,
+        );
     }
 
     if let Some(proj) = inputs.proj {
@@ -475,8 +473,7 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
             } else {
                 Some(market.get_forward(float.forward_curve_id.as_str())?)
             };
-            let fixings_id = format!("FIXING:{}", float.forward_curve_id.as_str());
-            let fixings = market.get_series(&fixings_id).ok();
+            let fixings = finstack_core::market_data::fixings::get_fixing_series(market, float.forward_curve_id.as_str()).ok();
             let valuation_date = as_of.unwrap_or_else(|| {
                 proj.as_ref()
                     .map(|c| c.base_date())

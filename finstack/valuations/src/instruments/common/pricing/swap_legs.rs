@@ -745,15 +745,13 @@ where
         // Determine the index rate: use historical fixing if reset is in the past,
         // otherwise project from the forward curve
         let index_rate = if reset_date < as_of {
-            // Past reset: require historical fixing
-            let series = fixings.ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "Seasoned floating leg requires fixings for reset date {} (before as_of {}). \
-                     Provide ScalarTimeSeries with historical index observations.",
-                    reset_date, as_of
-                ))
-            })?;
-            series.value_on_exact(reset_date)?
+            // Past reset: require historical fixing (exact date match for term resets)
+            finstack_core::market_data::fixings::require_fixing_value_exact(
+                fixings,
+                "floating-leg",
+                reset_date,
+                as_of,
+            )?
         } else {
             // Future reset: project from forward curve using the accrual period
             // (reset_date is only used for the fixing decision above; the rate
