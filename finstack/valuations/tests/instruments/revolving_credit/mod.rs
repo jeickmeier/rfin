@@ -25,6 +25,7 @@ pub mod mc;
 mod basic;
 mod cashflows;
 mod construction;
+mod fixings;
 pub mod metrics;
 mod pricing;
 mod revolving_credit_acceptance;

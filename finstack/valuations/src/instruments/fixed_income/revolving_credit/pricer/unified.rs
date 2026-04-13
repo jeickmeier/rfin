@@ -28,8 +28,9 @@ use finstack_monte_carlo::results::{MoneyEstimate, MonteCarloResult};
 use super::super::cashflow_engine::{
     CashflowEngine, PathAwareCashflowSchedule, ThreeFactorPathData,
 };
-use super::super::types::{DrawRepaySpec, RevolvingCredit};
+use super::super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 use super::components::compute_upfront_fee_pv;
+use finstack_core::market_data::scalars::ScalarTimeSeries;
 
 #[cfg(feature = "mc")]
 use super::path_generator::generate_three_factor_paths;
@@ -75,6 +76,23 @@ impl Default for RevolvingCreditPricer {
         Self {
             model: ModelKey::Discounting,
         }
+    }
+}
+
+/// Resolve the fixing series for a floating-rate facility from the market context.
+///
+/// Returns `None` for fixed-rate facilities or when no fixing series is present
+/// (graceful degradation).
+fn resolve_fixings<'a>(
+    facility: &RevolvingCredit,
+    market: &'a MarketContext,
+) -> Option<&'a ScalarTimeSeries> {
+    match &facility.base_rate_spec {
+        BaseRateSpec::Floating(spec) => {
+            finstack_core::market_data::fixings::get_fixing_series(market, spec.index_id.as_ref())
+                .ok()
+        }
+        _ => None,
     }
 }
 
@@ -277,7 +295,8 @@ impl RevolvingCreditPricer {
         match &facility.draw_repay_spec {
             DrawRepaySpec::Deterministic(_) => {
                 // Single deterministic path
-                let engine = CashflowEngine::new(facility, Some(market), as_of)?;
+                let fixings = resolve_fixings(facility, market);
+                let engine = CashflowEngine::new(facility, Some(market), as_of, fixings)?;
                 let schedule = engine.generate_deterministic()?;
                 let result = Self::price_single_path(facility, market, as_of, &schedule)?;
                 Ok(result.pv)
@@ -307,7 +326,8 @@ impl RevolvingCreditPricer {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        let engine = CashflowEngine::new(facility, Some(market), as_of)?;
+        let fixings = resolve_fixings(facility, market);
+        let engine = CashflowEngine::new(facility, Some(market), as_of, fixings)?;
         let schedule = engine.generate_deterministic()?;
         let result = Self::price_single_path(facility, market, as_of, &schedule)?;
         Ok(result.pv)
@@ -395,8 +415,9 @@ impl RevolvingCreditPricer {
             &mc_config_to_use
         };
 
-        // Generate cashflow engine
-        let engine = CashflowEngine::new(facility, Some(market), as_of)?;
+        // Generate cashflow engine (fixings not used for stochastic paths —
+        // the MC short-rate process drives floating rate dynamics)
+        let engine = CashflowEngine::new(facility, Some(market), as_of, None)?;
         let payment_dates = super::super::utils::build_payment_dates(facility, false)?;
 
         // Generate 3-factor paths

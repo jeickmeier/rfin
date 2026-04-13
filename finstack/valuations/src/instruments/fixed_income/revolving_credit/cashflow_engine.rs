@@ -19,6 +19,7 @@
 use finstack_core::config::{RoundingContext, ZeroKind};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
@@ -100,6 +101,10 @@ pub struct CashflowEngine<'a> {
     day_count: DayCount,
     /// Valuation date (cashflows before this are excluded)
     as_of: Date,
+    /// Optional historical fixing series for the floating rate index.
+    /// When present and a reset date falls before `as_of`, the observed
+    /// fixing is used instead of projecting from the forward curve.
+    fixing_series: Option<&'a ScalarTimeSeries>,
 }
 
 impl<'a> CashflowEngine<'a> {
@@ -110,6 +115,9 @@ impl<'a> CashflowEngine<'a> {
     /// * `facility` - The revolving credit facility
     /// * `market` - Optional market context for floating rate projections
     /// * `as_of` - Valuation date
+    /// * `fixing_series` - Optional historical fixings for the floating rate index.
+    ///   When provided and a reset date falls before `as_of`, the observed fixing
+    ///   rate is used instead of projecting from the forward curve.
     ///
     /// # Returns
     ///
@@ -118,6 +126,7 @@ impl<'a> CashflowEngine<'a> {
         facility: &'a RevolvingCredit,
         market: Option<&'a MarketContext>,
         as_of: Date,
+        fixing_series: Option<&'a ScalarTimeSeries>,
     ) -> Result<Self> {
         let payment_dates = super::utils::build_payment_dates(facility, false)?;
         let reset_dates = super::utils::build_reset_dates(facility)?;
@@ -130,6 +139,7 @@ impl<'a> CashflowEngine<'a> {
             reset_dates,
             day_count,
             as_of,
+            fixing_series,
         })
     }
 
@@ -332,21 +342,64 @@ impl<'a> CashflowEngine<'a> {
                     BaseRateSpec::Floating(spec) => {
                         let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
                         let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
-                        // Forward curve is guaranteed to be present (validated above)
-                        let fwd = fwd_curve.as_ref().ok_or_else(|| {
-                            finstack_core::Error::Validation(
-                                "forward curve required for floating rate".into(),
-                            )
-                        })?;
                         let reset_d = sub_reset_date.unwrap_or(period_start);
-                        let coupon_rate = super::utils::project_floating_rate_with_curve(
-                            reset_d,
-                            &spec.reset_freq,
-                            spread_bp_f64,
-                            floor_bp_f64,
-                            fwd.as_ref(),
-                            &self.facility.attributes,
-                        )?;
+
+                        // For past resets, use historical fixings if available;
+                        // otherwise fall back to forward projection for backwards
+                        // compatibility.
+                        let coupon_rate = if reset_d < self.as_of {
+                            if let Some(fixing_rate) =
+                                self.fixing_series.and_then(|series| {
+                                    finstack_core::market_data::fixings::require_fixing_value_exact(
+                                        Some(series),
+                                        spec.index_id.as_ref(),
+                                        reset_d,
+                                        self.as_of,
+                                    )
+                                    .ok()
+                                })
+                            {
+                                // Apply floor (on index rate) and spread, mirroring
+                                // the convention in project_floating_rate.
+                                let mut index_rate = fixing_rate;
+                                if let Some(floor) = floor_bp_f64 {
+                                    index_rate = index_rate.max(floor * 1e-4);
+                                }
+                                index_rate + (spread_bp_f64 * 1e-4)
+                            } else {
+                                // Graceful degradation: no fixings available, use
+                                // forward projection (preserves existing behaviour).
+                                let fwd = fwd_curve.as_ref().ok_or_else(|| {
+                                    finstack_core::Error::Validation(
+                                        "forward curve required for floating rate".into(),
+                                    )
+                                })?;
+                                super::utils::project_floating_rate_with_curve(
+                                    reset_d,
+                                    &spec.reset_freq,
+                                    spread_bp_f64,
+                                    floor_bp_f64,
+                                    fwd.as_ref(),
+                                    &self.facility.attributes,
+                                )?
+                            }
+                        } else {
+                            // Future reset: project from forward curve
+                            let fwd = fwd_curve.as_ref().ok_or_else(|| {
+                                finstack_core::Error::Validation(
+                                    "forward curve required for floating rate".into(),
+                                )
+                            })?;
+                            super::utils::project_floating_rate_with_curve(
+                                reset_d,
+                                &spec.reset_freq,
+                                spread_bp_f64,
+                                floor_bp_f64,
+                                fwd.as_ref(),
+                                &self.facility.attributes,
+                            )?
+                        };
+
                         let interest = current_balance * (coupon_rate * dt);
                         total_interest = total_interest.checked_add(interest)?;
                         coupon_rate
