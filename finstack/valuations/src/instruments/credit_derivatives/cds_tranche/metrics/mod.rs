@@ -15,11 +15,11 @@
 //! - TailDependence (copula tail dependence coefficient)
 
 mod correlation01;
+mod cs01;
 mod expected_loss;
 mod jump_to_default;
 mod par_spread;
 mod recovery01;
-// risk_bucketed_dv01 - now using generic implementation
 mod spread_dv01;
 mod tail_dependence;
 mod upfront;
@@ -64,9 +64,10 @@ pub(crate) fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::CDSTranche,
         metrics: [
-            (Cs01, crate::metrics::GenericParallelCs01::<
-                crate::instruments::CDSTranche,
-            >::default()),
+            (Cs01, cs01::CdsTrancheCs01Calculator),
+            (BucketedCs01, cs01::CdsTrancheBucketedCs01Calculator),
+            (Cs01Hazard, cs01::CdsTrancheCs01HazardCalculator),
+            (BucketedCs01Hazard, cs01::CdsTrancheBucketedCs01HazardCalculator),
             (ParSpread, par_spread::ParSpreadCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),

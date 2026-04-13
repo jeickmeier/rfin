@@ -15,12 +15,14 @@
 ## File Map
 
 ### New files
+
 | File | Purpose |
 |------|---------|
 | `finstack/core/src/market_data/surfaces/vol_cube.rs` | VolCube struct, builder, SABR param interpolation, smile evaluation, materialization |
 | `finstack/core/tests/market_data/surfaces/vol_cube_tests.rs` | Unit tests for VolCube |
 
 ### Modified files
+
 | File | Change |
 |------|--------|
 | `finstack/core/src/math/volatility/sabr.rs` | Add `shift: Option<f64>` to `SabrParams`, update Hagan formulas |
@@ -1310,7 +1312,7 @@ let mut grid = Vec::new(); // keep for ATM vol report
 for &texp in &target_expiries {
     for &tten in &target_tenors {
         // ... existing interpolation logic to get `p` (SABRParameters) ...
-        
+
         let leg_conv = Self::default_leg_conventions(params)?;
         let f = Self::calculate_forward_swap_rate_years(
             params, texp, tten, &leg_conv, context,
@@ -1380,6 +1382,7 @@ git commit -m "feat(calibration): swaption vol calibration now produces VolCube"
 In `finstack/valuations/src/instruments/rates/swaption/pricer.rs`, modify `price_dyn` (around line 216):
 
 Replace:
+
 ```rust
 let vol_surface = market
     .get_surface(swaption.vol_surface_id.as_str())
@@ -1387,6 +1390,7 @@ let vol_surface = market
 ```
 
 With:
+
 ```rust
 let vol_provider = market
     .get_vol_provider(swaption.vol_surface_id.as_str())

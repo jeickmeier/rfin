@@ -195,6 +195,7 @@
 //! - **Zero theta**: No time-dependent value change (rare)
 
 use crate::instruments::common_impl::traits::Instrument;
+use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::Result;
@@ -284,10 +285,20 @@ pub(crate) fn calculate_theta_date(
     Ok(rolled_date)
 }
 
-/// Collect cashflows that occur during a time period.
+/// Collect income cashflows that occur during a time period.
 ///
-/// For instruments implementing CashflowProvider, this extracts all cashflows
-/// with payment dates in (start_date, end_date].
+/// Uses the full `cashflow_schedule()` so that each flow's [`CFKind`] is
+/// available for filtering.  Only flows representing economic income to the
+/// holder are included; negative notional flows (initial draws / funding
+/// legs) are excluded because they are not discounted receipt flows and are
+/// not reflected in the instrument PV.
+///
+/// The half-open interval `[start_date, end_date)` aligns with the PV
+/// boundary convention: `value(as_of)` includes same-day flows
+/// (`date >= as_of`) with DF=1, so a flow at `start_date` is part of
+/// PV(start) but not PV(end), meaning it was "received" during the period.
+/// Conversely, a flow at `end_date` is still inside PV(end), so it has not
+/// yet been received.
 ///
 /// # Returns
 /// Sum of cashflow amounts in the period (converted to base currency)
@@ -298,19 +309,22 @@ pub(crate) fn collect_cashflows_in_period(
     end_date: Date,
     base_currency: Currency,
 ) -> Result<f64> {
-    let flows = instrument.dated_cashflows(curves, start_date)?;
+    let schedule = instrument.cashflow_schedule(curves, start_date)?;
     let mut sum = 0.0;
-    for (d, m) in flows {
-        if d > start_date && d <= end_date {
-            if m.currency() != base_currency {
+    for cf in &schedule.flows {
+        if cf.date >= start_date
+            && cf.date < end_date
+            && !(cf.kind == CFKind::Notional && cf.amount.amount() < 0.0)
+        {
+            if cf.amount.currency() != base_currency {
                 return Err(finstack_core::Error::Validation(format!(
                     "Theta cashflow currency mismatch: base={} but saw cashflow currency={} (instrument_id={})",
                     base_currency,
-                    m.currency(),
+                    cf.amount.currency(),
                     instrument.id(),
                 )));
             }
-            sum += m.amount();
+            sum += cf.amount.amount();
         }
     }
     Ok(sum)

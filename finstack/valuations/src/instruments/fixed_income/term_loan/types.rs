@@ -812,7 +812,6 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
     }
 }
 
-// Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for TermLoan {
     fn curve_dependencies(
         &self,
@@ -821,6 +820,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for TermLoan {
         builder = builder.discount(self.discount_curve_id.clone());
         if let Some(cc) = &self.credit_curve_id {
             builder = builder.credit(cc.clone());
+        }
+        if let RateSpec::Floating(ref spec) = self.rate {
+            builder = builder.forward(spec.index_id.clone());
         }
         builder.build()
     }

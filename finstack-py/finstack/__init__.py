@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib as _importlib
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 __all__ = [
     "analytics",
@@ -29,6 +30,20 @@ __all__ = [
 ]
 
 _SUBMODULES: frozenset[str] = frozenset(__all__)
+
+if TYPE_CHECKING:
+    from . import (
+        analytics as analytics,
+        core as core,
+        correlation as correlation,
+        margin as margin,
+        monte_carlo as monte_carlo,
+        portfolio as portfolio,
+        scenarios as scenarios,
+        statements as statements,
+        statements_analytics as statements_analytics,
+        valuations as valuations,
+    )
 
 
 def __getattr__(name: str) -> ModuleType:

@@ -249,17 +249,21 @@ pub mod fixings;
 - [ ] **Step 3: Run tests to verify they pass**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-core --lib --filter-expr 'test(fixings::)'
 ```
+
 Expected: All 7 tests pass. The module contains both the implementation and the tests, so this is not a red-green-refactor cycle — the utility functions are simple enough to write directly with their tests.
 
 - [ ] **Step 4: Run doc tests**
 
 Run:
+
 ```bash
 cargo test -p finstack-core --doc -- fixings
 ```
+
 Expected: The `fixing_series_id` doc test passes.
 
 - [ ] **Step 5: Commit**
@@ -299,17 +303,21 @@ Also add the `fixings` import if not already present. The function returns `Resu
 - [ ] **Step 2: Run existing IRS tests to verify no regressions**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-valuations --lib --filter-expr 'test(irs::pricer::)'
 ```
+
 Expected: All existing pricer tests pass unchanged.
 
 - [ ] **Step 3: Run the seasoned compounding accuracy tests**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-valuations --test test_compounding_accuracy
 ```
+
 Expected: All tests pass (these exercise the fixing path end-to-end).
 
 - [ ] **Step 4: Commit**
@@ -375,9 +383,11 @@ with:
 - [ ] **Step 3: Run compounding and cashflow tests**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-valuations --lib --filter-expr 'test(irs::)' && cargo nextest run -p finstack-valuations --test test_compounding_accuracy
 ```
+
 Expected: All pass.
 
 - [ ] **Step 4: Commit**
@@ -429,9 +439,11 @@ Note: This callsite doesn't have access to the `forward_curve_id` (it receives a
 - [ ] **Step 2: Run shared swap_legs tests**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-valuations --lib --filter-expr 'test(swap_legs::)'
 ```
+
 Expected: All pass, including `pv_floating_leg_seasoned_requires_fixings` and `pv_floating_leg_seasoned_uses_fixings`. Note the error message assertions in the test at line 1262 check for `"fixings"` or `"Seasoned"` — both strings still appear in the new error message from `require_fixing_value_exact`.
 
 - [ ] **Step 3: Commit**
@@ -482,9 +494,11 @@ with:
 - [ ] **Step 3: Run IRS metric tests**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-valuations --lib --filter-expr 'test(irs::metrics::)' && cargo nextest run -p finstack-valuations --test test_swap_pricing
 ```
+
 Expected: All pass.
 
 - [ ] **Step 4: Commit**
@@ -546,9 +560,11 @@ If used only once, delete the wrapper and replace the callsite directly.
 - [ ] **Step 3: Run basis swap and cap/floor tests**
 
 Run:
+
 ```bash
 cargo nextest run -p finstack-valuations --lib --filter-expr 'test(basis_swap::)' && cargo nextest run -p finstack-valuations --test test_basis_swap && cargo nextest run -p finstack-valuations --lib --filter-expr 'test(cap_floor::)' && cargo nextest run -p finstack-valuations --test pricing
 ```
+
 Expected: All pass.
 
 - [ ] **Step 4: Commit**
@@ -567,33 +583,41 @@ git commit -m "refactor(basis-swap,cap-floor): use fixing helpers"
 - [ ] **Step 1: Run full Rust test suite**
 
 Run:
+
 ```bash
 CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,test-utils --lib --test '*' --no-fail-fast
 ```
+
 Expected: All tests pass. No regressions.
 
 - [ ] **Step 2: Run clippy**
 
 Run:
+
 ```bash
 cargo clippy --workspace --exclude finstack-py --features mc,test-utils -- -D warnings
 ```
+
 Expected: No warnings or errors.
 
 - [ ] **Step 3: Run doc tests**
 
 Run:
+
 ```bash
 cargo test --workspace --exclude finstack-py --doc --features mc
 ```
+
 Expected: All doc tests pass, including the new `fixing_series_id` example.
 
 - [ ] **Step 4: Verify no remaining inline FIXING: format calls in production code**
 
 Run:
+
 ```bash
 grep -rn 'format!("FIXING:' finstack/valuations/src/ finstack/core/src/ --include='*.rs' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests'
 ```
+
 Expected: Only the canonical `fixing_series_id()` in `fixings.rs` should contain the pattern. Any remaining hits in production code need migration.
 
 - [ ] **Step 5: Commit (if any fixups were needed)**

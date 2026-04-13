@@ -8,11 +8,14 @@
 //! z-spread by 1 bp and measuring the PV change:
 //!
 //! ```text
-//! CS01 = -(PV(z + 1bp) - PV(z))
+//! CS01 = PV(z + 1bp) - PV(z)
 //! ```
 //!
 //! where `PV(z) = Σ CF_i · DF_i · exp(-z · t_i)`. This is the market-standard
 //! approach for vanilla bonds without an explicit credit model.
+//!
+//! The result is typically negative for a long bond position since increasing
+//! the z-spread reduces present value.
 
 use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
@@ -71,7 +74,7 @@ impl MetricCalculator for BondCs01Calculator {
             bumped_npv.add(amt * df * (-bumped_spread * t).exp());
         }
 
-        let cs01 = -(bumped_npv.total() - base_npv.total());
+        let cs01 = bumped_npv.total() - base_npv.total();
 
         context
             .computed

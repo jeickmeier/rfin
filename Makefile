@@ -423,15 +423,27 @@ bench-compare:
 # --- Binary Size Analysis ---
 
 .PHONY: size-wasm size-py size-core size-all
-size-wasm: install-bloat
+size-wasm: install-twiggy
 	cd finstack-wasm && wasm-pack build --target web --release
-	cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown
+	@printf "\n=== WASM file sizes ===\n"
+	@wasm_file=$$(ls -1 finstack-wasm/pkg/*.wasm 2>/dev/null | head -1); \
+	if [ -n "$$wasm_file" ]; then \
+		raw=$$(wc -c < "$$wasm_file" | tr -d ' '); \
+		gz=$$(gzip -c "$$wasm_file" | wc -c | tr -d ' '); \
+		printf "  Raw:    %s bytes (%s KiB)\n" "$$raw" "$$(( raw / 1024 ))"; \
+		printf "  Gzipped: %s bytes (%s KiB)\n" "$$gz" "$$(( gz / 1024 ))"; \
+		printf "\n=== Top functions by size ===\n"; \
+		twiggy top -n 20 "$$wasm_file"; \
+	else \
+		printf "  No .wasm file found in finstack-wasm/pkg/\n"; \
+	fi
 size-py: install-bloat
 	cd finstack-py && cargo build --release
 	cargo bloat --release --crates -p finstack-py
-size-core: install-bloat
-	@printf "finstack-core contribution in binaries:\n"
-	@$(MAKE) size-wasm 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || true
+size-core:
+	@printf "finstack-core contribution in WASM binary:\n"
+	@$(MAKE) size-wasm 2>/dev/null | grep -iE "(finstack|Raw|Gzip)" || true
+	@printf "\nfinstack-core contribution in Python binary:\n"
 	@$(MAKE) size-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || true
 size-all: size-wasm size-py
 
@@ -499,7 +511,7 @@ pre-commit-update:
 
 # --- Tooling Installation ---
 
-.PHONY: install-nextest install-mdbook install-bloat install-deny
+.PHONY: install-nextest install-mdbook install-bloat install-twiggy install-deny
 install-nextest:
 	@command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 install-mdbook:
@@ -507,6 +519,8 @@ install-mdbook:
 	@command -v mdbook-jupyter >/dev/null 2>&1 || cargo install mdbook-jupyter
 install-bloat:
 	@command -v cargo-bloat >/dev/null 2>&1 || cargo install cargo-bloat --locked
+install-twiggy:
+	@command -v twiggy >/dev/null 2>&1 || cargo install twiggy
 install-deny:
 	@command -v cargo-deny >/dev/null 2>&1 || cargo install cargo-deny --locked
 

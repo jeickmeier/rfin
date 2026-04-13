@@ -107,7 +107,6 @@ impl RevolvingCreditPricer {
         path_schedule: &PathAwareCashflowSchedule,
     ) -> Result<PathResult> {
         let disc_curve = market.get_discount(&facility.discount_curve_id)?;
-        let disc_dc = disc_curve.day_count();
 
         // Compute survival probabilities
         let survival_probs = if let Some(ref path_data) = path_schedule.path_data {
@@ -143,16 +142,16 @@ impl RevolvingCreditPricer {
             vec![1.0; path_schedule.schedule.flows.len()]
         };
 
-        // Discount cashflows with survival weighting
+        // Discount cashflows with survival weighting.
+        // Anchor PV at `as_of` (not the curve base date) so that rolling the
+        // valuation date forward shortens the discount path and produces
+        // non-zero theta from the time-value of accruing fees/interest.
         let mut total_pv = 0.0;
-        let base_date = disc_curve.base_date();
         for (i, cf) in path_schedule.schedule.flows.iter().enumerate() {
-            let t = disc_dc.year_fraction(
-                base_date,
-                cf.date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let df = disc_curve.df(t);
+            if cf.date < as_of {
+                continue;
+            }
+            let df = disc_curve.df_between_dates(as_of, cf.date)?;
             let survival = survival_probs.get(i).copied().unwrap_or(1.0);
             total_pv += cf.amount.amount() * df * survival;
         }
@@ -218,22 +217,9 @@ impl RevolvingCreditPricer {
 
                     let prob_default = (prev_sp - curr_sp).max(0.0);
 
-                    let t_prev = disc_dc
-                        .year_fraction(
-                            disc_curve.base_date(),
-                            prev_date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let t_curr = disc_dc
-                        .year_fraction(
-                            disc_curve.base_date(),
-                            curr_date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-
-                    let df_avg = (disc_curve.df(t_prev) + disc_curve.df(t_curr)) / 2.0;
+                    let df_prev = disc_curve.df_between_dates(as_of, prev_date).unwrap_or(1.0);
+                    let df_curr = disc_curve.df_between_dates(as_of, curr_date).unwrap_or(1.0);
+                    let df_avg = (df_prev + df_curr) / 2.0;
                     let exposure_avg = (prev_exposure + curr_exposure) / 2.0;
 
                     total_pv += exposure_avg * facility.recovery_rate * df_avg * prob_default;

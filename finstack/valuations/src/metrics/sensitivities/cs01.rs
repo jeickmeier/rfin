@@ -28,7 +28,7 @@ const MIN_BUMP_BP_THRESHOLD: f64 = 1e-10;
 /// Returns 0.0 when `bump_bp` is below [`MIN_BUMP_BP_THRESHOLD`] to avoid
 /// numerically unstable division.
 #[inline]
-fn sensitivity_central_diff(pv_up: f64, pv_down: f64, bump_bp: f64) -> f64 {
+pub(crate) fn sensitivity_central_diff(pv_up: f64, pv_down: f64, bump_bp: f64) -> f64 {
     if bump_bp.abs() <= MIN_BUMP_BP_THRESHOLD {
         return 0.0;
     }

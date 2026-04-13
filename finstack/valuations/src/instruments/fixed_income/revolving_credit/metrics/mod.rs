@@ -4,11 +4,16 @@
 //! facility-specific metrics (utilization rate, available capacity, weighted average cost, IRR).
 
 pub(crate) mod available_capacity;
+mod cs01;
 pub(crate) mod irr;
 pub(crate) mod utilization_rate;
 pub(crate) mod weighted_average_cost;
 
 pub(crate) use available_capacity::AvailableCapacityCalculator;
+pub(crate) use cs01::{
+    RevolvingCreditBucketedCs01Calculator, RevolvingCreditBucketedCs01HazardCalculator,
+    RevolvingCreditCs01Calculator, RevolvingCreditCs01HazardCalculator,
+};
 pub(crate) use utilization_rate::UtilizationRateCalculator;
 pub(crate) use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 
@@ -27,12 +32,10 @@ pub(crate) fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::RevolvingCredit,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (Cs01, crate::metrics::GenericParallelCs01::<
-                crate::instruments::RevolvingCredit,
-            >::default()),
-            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
-                crate::instruments::RevolvingCredit,
-            >::default()),
+            (Cs01, RevolvingCreditCs01Calculator),
+            (BucketedCs01, RevolvingCreditBucketedCs01Calculator),
+            (Cs01Hazard, RevolvingCreditCs01HazardCalculator),
+            (BucketedCs01Hazard, RevolvingCreditBucketedCs01HazardCalculator),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::RevolvingCredit,

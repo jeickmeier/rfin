@@ -63,6 +63,7 @@
 //! - [`AllInRateCalculator`] for borrower cost calculation
 
 mod all_in_rate;
+mod cs01;
 mod discount_margin;
 mod embedded_option_value;
 mod irr_helpers;
@@ -74,6 +75,7 @@ mod ytn;
 mod ytw;
 
 pub(crate) use all_in_rate::AllInRateCalculator;
+pub(crate) use cs01::{TermLoanBucketedCs01Calculator, TermLoanCs01Calculator};
 pub(crate) use discount_margin::DiscountMarginCalculator;
 pub(crate) use embedded_option_value::EmbeddedOptionValueCalculator;
 pub(crate) use oas::OasCalculator;
@@ -122,12 +124,8 @@ pub(crate) fn register_term_loan_metrics(registry: &mut MetricRegistry) {
                 crate::instruments::TermLoan,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
 
-            (Cs01, crate::metrics::GenericParallelCs01::<
-                crate::instruments::TermLoan,
-            >::default()),
-            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
-                crate::instruments::TermLoan,
-            >::default()),
+            (Cs01, TermLoanCs01Calculator),
+            (BucketedCs01, TermLoanBucketedCs01Calculator),
         ]
     }
 

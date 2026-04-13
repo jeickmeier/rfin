@@ -524,23 +524,9 @@ fn register_credit_cs01_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::BucketedCs01,
         std::sync::Arc::new(GenericBucketedCs01::<
-            crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
-        >::default()),
-        &[crate::pricer::InstrumentType::CDSTranche],
-    );
-    registry.register_metric(
-        MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<
             crate::instruments::credit_derivatives::cds_option::CDSOption,
         >::default()),
         &[crate::pricer::InstrumentType::CDSOption],
-    );
-    registry.register_metric(
-        MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<
-            crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
-        >::default()),
-        &[crate::pricer::InstrumentType::RevolvingCredit],
     );
 
     // Cs01Hazard (direct hazard-rate bump, parallel)
@@ -551,20 +537,8 @@ fn register_credit_cs01_metrics(registry: &mut MetricRegistry) {
         >::default()),
         &[crate::pricer::InstrumentType::CDS],
     );
-    registry.register_metric(
-        MetricId::Cs01Hazard,
-        std::sync::Arc::new(GenericParallelCs01Hazard::<
-            crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
-        >::default()),
-        &[crate::pricer::InstrumentType::CDSTranche],
-    );
-    registry.register_metric(
-        MetricId::Cs01Hazard,
-        std::sync::Arc::new(GenericParallelCs01Hazard::<
-            crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
-        >::default()),
-        &[crate::pricer::InstrumentType::RevolvingCredit],
-    );
+    // Cs01Hazard for CDSTranche and RevolvingCredit are registered locally
+    // by their respective metrics modules with custom wrappers.
 
     // BucketedCs01Hazard (direct hazard-rate bump, bucketed)
     registry.register_metric(
@@ -581,25 +555,13 @@ fn register_credit_cs01_metrics(registry: &mut MetricRegistry) {
         >::default()),
         &[crate::pricer::InstrumentType::CDSIndex],
     );
-    registry.register_metric(
-        MetricId::BucketedCs01Hazard,
-        std::sync::Arc::new(GenericBucketedCs01Hazard::<
-            crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
-        >::default()),
-        &[crate::pricer::InstrumentType::CDSTranche],
-    );
+    // BucketedCs01Hazard for CDSTranche and RevolvingCredit are registered
+    // locally by their respective metrics modules with custom wrappers.
     registry.register_metric(
         MetricId::BucketedCs01Hazard,
         std::sync::Arc::new(GenericBucketedCs01Hazard::<
             crate::instruments::credit_derivatives::cds_option::CDSOption,
         >::default()),
         &[crate::pricer::InstrumentType::CDSOption],
-    );
-    registry.register_metric(
-        MetricId::BucketedCs01Hazard,
-        std::sync::Arc::new(GenericBucketedCs01Hazard::<
-            crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
-        >::default()),
-        &[crate::pricer::InstrumentType::RevolvingCredit],
     );
 }

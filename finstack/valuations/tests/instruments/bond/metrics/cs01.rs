@@ -10,7 +10,7 @@ use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
 #[test]
-fn test_cs01_positive() {
+fn test_cs01_negative_for_long_bond() {
     let as_of = date!(2025 - 01 - 01);
     let mut bond = Bond::fixed(
         "CS1",
@@ -22,8 +22,6 @@ fn test_cs01_positive() {
     )
     .unwrap();
 
-    // CS01 requires a hazard curve. For bonds, the credit curve is declared in
-    // curve dependencies when provided.
     bond.credit_curve_id = Some(CurveId::new("USD-CREDIT"));
 
     let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
@@ -52,8 +50,11 @@ fn test_cs01_positive() {
         )
         .unwrap();
     let cs01 = *result.measures.get("cs01").unwrap();
-    // For $100 bond, 5Y maturity, 2% hazard rate: CS01 ≈ dur × LGD × notional × 1bp ≈ $0.024
-    // Upper bound of $1 is generous while still catching gross errors
+    assert!(
+        cs01 < 0.0,
+        "Long bond CS01 should be negative (wider spreads reduce PV), got {}",
+        cs01
+    );
     assert!(
         cs01.abs() < 1.0,
         "Bond CS01 should be small for $100 notional, got {}",

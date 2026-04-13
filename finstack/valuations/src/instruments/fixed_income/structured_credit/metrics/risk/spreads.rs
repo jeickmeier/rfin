@@ -158,7 +158,7 @@ impl MetricCalculator for ZSpreadCalculator {
 ///
 /// # Formula
 ///
-/// CS01 = -(PV_bumped - PV_base) where spread is bumped by 1bp
+/// CS01 = PV(z + 1bp) - PV(z)
 ///
 /// # Market Conventions
 ///
@@ -228,9 +228,7 @@ impl MetricCalculator for Cs01Calculator {
             bumped_npv_acc.add(amt * df_bumped);
         }
 
-        // CS01 = -(PV_bumped - PV_base)
-        // Negative sign because price decreases when spread increases
-        let cs01 = -(bumped_npv_acc.total() - base_npv_acc.total());
+        let cs01 = bumped_npv_acc.total() - base_npv_acc.total();
 
         Ok(cs01)
     }
@@ -247,9 +245,10 @@ impl MetricCalculator for Cs01Calculator {
 ///
 /// # Formula
 ///
-/// Spread Duration = CS01 / (Price × 0.0001)
+/// Spread Duration = -CS01 / (Price × 0.0001)
 ///
-/// Or approximately: CS01 / (NPV × 1bp)
+/// The negation keeps spread duration positive (like modified duration),
+/// since CS01 is negative for a long position.
 ///
 /// # Interpretation
 ///
@@ -288,9 +287,7 @@ impl MetricCalculator for SpreadDurationCalculator {
             return Ok(0.0);
         }
 
-        // Spread duration = CS01 / (Price × 1bp)
-        // This gives duration in years
-        let spread_duration = cs01 / (base_npv * ONE_BASIS_POINT);
+        let spread_duration = -cs01 / (base_npv * ONE_BASIS_POINT);
 
         Ok(spread_duration)
     }
@@ -367,7 +364,8 @@ pub fn calculate_tranche_z_spread(
 ///
 /// # Returns
 ///
-/// CS01 in currency units (dollar value change per 1bp spread increase)
+/// CS01 in currency units (dollar value change per 1bp spread increase).
+/// Typically negative for a long position since wider spreads reduce PV.
 pub fn calculate_tranche_cs01(
     cashflows: &DatedFlows,
     discount_curve: &DiscountCurve,
@@ -401,6 +399,5 @@ pub fn calculate_tranche_cs01(
         bumped_pv.add(amount.amount() * df_bumped);
     }
 
-    // CS01 = -(PV_bumped - PV_base)
-    Ok(-(bumped_pv.total() - base_pv.total()))
+    Ok(bumped_pv.total() - base_pv.total())
 }

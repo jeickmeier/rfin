@@ -185,11 +185,13 @@ The calibrated `sabr_params: BTreeMap<(u64, u64), SABRParameters>` intermediate 
 ### 8. Swaption Pricer Integration
 
 **Current flow:**
+
 ```
 Swaption -> pricer -> market.get_surface(id) -> vol_surface.value_clamped(expiry, strike)
 ```
 
 **New flow:**
+
 ```
 Swaption -> pricer -> market.get_vol_provider(id) -> provider.vol_clamped(expiry, tenor, strike)
 ```
@@ -293,12 +295,14 @@ SABR params flattened to Float64Array (5 values per node: alpha, beta, rho, nu, 
 
 ## Files Changed
 
-### New files:
+### New files
+
 - `finstack/core/src/market_data/surfaces/vol_cube.rs` -- VolCube struct, builder, interpolation, materialization
 - `finstack/core/tests/market_data/surfaces/vol_cube_tests.rs` -- unit tests
 - `finstack-wasm/src/api/core/vol_cube.rs` -- WASM VolCube bindings
 
-### Modified files:
+### Modified files
+
 - `finstack/core/src/math/volatility/sabr.rs` -- add `shift: Option<f64>` to SabrParams, update Hagan formulas
 - `finstack/core/src/market_data/surfaces/mod.rs` -- export VolCube
 - `finstack/core/src/market_data/traits.rs` -- add VolProvider trait

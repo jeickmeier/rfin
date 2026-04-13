@@ -98,11 +98,15 @@ fn test_z_spread_zero_for_curve_pv() {
 }
 
 #[test]
-fn test_cs01_positive_for_spread_bump() {
+fn test_cs01_negative_for_long_position() {
     let as_of = base_date();
     let curve = flat_discount_curve(0.05);
     let flows = sample_cashflows();
 
     let cs01 = calculate_tranche_cs01(&flows, &curve, 0.0, as_of).unwrap();
-    assert!(cs01 > 0.0, "CS01 should be positive for spread bumps");
+    assert!(
+        cs01 < 0.0,
+        "CS01 should be negative for a long position (wider spreads reduce PV), got {}",
+        cs01
+    );
 }
