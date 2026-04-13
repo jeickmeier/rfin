@@ -53,6 +53,7 @@
 
 mod delta_vol_surface;
 pub mod fx_delta_vol_surface;
+mod vol_cube;
 mod vol_surface;
 
 #[inline]
@@ -123,4 +124,5 @@ pub(crate) fn interp_linear_clamp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
 // Re-export for ergonomic access (curated list)
 pub use delta_vol_surface::FxDeltaVolSurfaceBuilder;
 pub use fx_delta_vol_surface::FxDeltaVolSurface;
+pub use vol_cube::{VolCube, VolCubeBuilder};
 pub use vol_surface::{VolInterpolationMode, VolSurface, VolSurfaceAxis, VolSurfaceBuilder};
