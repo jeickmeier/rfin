@@ -1114,8 +1114,30 @@ impl MetricId {
     // ALL_STANDARD Array
     // ========================================================================
 
-    /// All standard (non-custom) metric IDs.
+    /// All standard (non-custom) metric IDs, ordered by group.
     pub const ALL_STANDARD: &'static [MetricId] = &[
+        // -- Pricing --
+        MetricId::DirtyPrice,
+        MetricId::CleanPrice,
+        MetricId::Accrued,
+        MetricId::Ytm,
+        MetricId::Ytw,
+        MetricId::ZSpread,
+        MetricId::Oas,
+        MetricId::ISpread,
+        MetricId::GSpread,
+        MetricId::ASWPar,
+        MetricId::ASWMarket,
+        MetricId::DiscountMargin,
+        MetricId::EmbeddedOptionValue,
+        MetricId::DurationMac,
+        MetricId::DurationMod,
+        MetricId::RealDuration,
+        MetricId::YieldDv01,
+        MetricId::Convexity,
+        MetricId::ImpliedVol,
+        MetricId::TimeToMaturity,
+        // -- Carry --
         MetricId::Theta,
         MetricId::ThetaCarry,
         MetricId::ThetaRollDown,
@@ -1125,128 +1147,102 @@ impl MetricId {
         MetricId::PullToPar,
         MetricId::RollDown,
         MetricId::FundingCost,
+        MetricId::ImpliedFinancingRate,
+        MetricId::RollSpecialness,
+        // -- Sensitivity --
         MetricId::Dv01,
-        MetricId::Cs01,
         MetricId::BucketedDv01,
-        MetricId::BucketedCs01,
-        MetricId::Cs01Hazard,
-        MetricId::BucketedCs01Hazard,
-        MetricId::SpotRate,
-        MetricId::BaseAmount,
-        MetricId::QuoteAmount,
-        MetricId::InverseRate,
-        MetricId::EquityPricePerShare,
-        MetricId::EquityShares,
-        MetricId::EquityDividendYield,
-        MetricId::EquityForwardPrice,
-        MetricId::DirtyPrice,
-        MetricId::CleanPrice,
-        MetricId::Accrued,
-        MetricId::Ytm,
-        MetricId::Ytw,
-        MetricId::DurationMac,
-        MetricId::DurationMod,
-        MetricId::YieldDv01,
-        MetricId::Convexity,
-        MetricId::ZSpread,
-        MetricId::Oas,
-        MetricId::EmbeddedOptionValue,
-        MetricId::ISpread,
-        MetricId::DiscountMargin,
-        MetricId::GSpread,
-        MetricId::ASWPar,
-        MetricId::ASWMarket,
-        MetricId::Annuity,
-        MetricId::ParRate,
+        MetricId::DurationDv01,
         MetricId::Pv01,
-        MetricId::PvFixed,
-        MetricId::PvFloat,
-        MetricId::Yf,
-        MetricId::DfStart,
-        MetricId::DfEnd,
-        MetricId::DepositParRate,
-        MetricId::DfEndFromQuote,
-        MetricId::QuoteRate,
-        MetricId::ParSpread,
-        MetricId::RiskyPv01,
-        MetricId::RiskyAnnuity,
-        MetricId::ProtectionLegPv,
-        MetricId::PremiumLegPv,
-        MetricId::JumpToDefault,
-        MetricId::ExpectedLoss,
-        MetricId::DefaultProbability,
-        MetricId::Recovery01,
+        MetricId::ForwardPv01,
+        MetricId::Npv01,
+        MetricId::Rho,
+        MetricId::ForeignRho,
+        MetricId::Dv01Domestic,
+        MetricId::Dv01Foreign,
+        MetricId::Dv01Primary,
+        MetricId::Dv01Reference,
+        MetricId::Dividend01,
+        MetricId::Inflation01,
+        MetricId::Dm01,
+        MetricId::Conversion01,
+        MetricId::CollateralHaircut01,
+        MetricId::CollateralPrice01,
+        MetricId::ConvexityAdjustmentRisk,
+        // -- Greeks --
         MetricId::Delta,
         MetricId::Gamma,
         MetricId::Vega,
         MetricId::BucketedVega,
-        MetricId::Rho,
-        MetricId::ForeignRho,
-        MetricId::ForwardPv01,
         MetricId::Vanna,
         MetricId::Volga,
         MetricId::Veta,
+        MetricId::Charm,
+        MetricId::Color,
+        MetricId::Speed,
         MetricId::IrConvexity,
         MetricId::IrCrossGamma,
+        MetricId::InflationConvexity,
+        MetricId::CsGamma,
         MetricId::CrossGammaRatesCredit,
         MetricId::CrossGammaRatesVol,
         MetricId::CrossGammaSpotVol,
         MetricId::CrossGammaSpotCredit,
         MetricId::CrossGammaFxVol,
         MetricId::CrossGammaFxRates,
-        MetricId::CsGamma,
-        MetricId::InflationConvexity,
-        MetricId::Charm,
-        MetricId::Color,
-        MetricId::Speed,
-        MetricId::ImpliedVol,
+        MetricId::ThetaGamma,
         MetricId::VarianceVega,
-        MetricId::ExpectedVariance,
-        MetricId::RealizedVariance,
-        MetricId::VarianceNotional,
-        MetricId::VarianceStrikeVol,
-        MetricId::VarianceTimeToMaturity,
-        MetricId::Dividend01,
-        MetricId::Inflation01,
-        MetricId::Prepayment01,
-        MetricId::Default01,
-        MetricId::Severity01,
-        MetricId::Conversion01,
-        MetricId::CollateralHaircut01,
-        MetricId::CollateralPrice01,
-        MetricId::Nav01,
-        MetricId::Carry01,
-        MetricId::Hurdle01,
-        MetricId::Dv01Domestic,
-        MetricId::Dv01Foreign,
-        MetricId::Fx01,
-        MetricId::Npv01,
+        // -- Credit --
+        MetricId::Cs01,
+        MetricId::BucketedCs01,
+        MetricId::Cs01Hazard,
+        MetricId::BucketedCs01Hazard,
+        MetricId::ParSpread,
+        MetricId::RiskyPv01,
+        MetricId::RiskyAnnuity,
         MetricId::SpreadDv01,
         MetricId::Correlation01,
-        MetricId::FxVega,
-        MetricId::FxDelta,
-        MetricId::DeltaVol,
-        MetricId::ConstituentDelta,
-        MetricId::ConvexityAdjustmentRisk,
-        MetricId::FinancingAnnuity,
-        MetricId::IndexDelta,
-        MetricId::DurationDv01,
+        MetricId::Default01,
+        MetricId::ProtectionLegPv,
+        MetricId::PremiumLegPv,
+        MetricId::JumpToDefault,
+        MetricId::ExpectedLoss,
+        MetricId::DefaultProbability,
+        MetricId::Recovery01,
+        // -- Rates --
+        MetricId::Annuity,
+        MetricId::ParRate,
+        MetricId::PvFixed,
+        MetricId::PvFloat,
         MetricId::PvPrimary,
         MetricId::PvReference,
         MetricId::AnnuityPrimary,
         MetricId::AnnuityReference,
-        MetricId::Dv01Primary,
-        MetricId::Dv01Reference,
         MetricId::BasisParSpread,
         MetricId::IncrementalParSpread,
-        MetricId::CollateralValue,
-        MetricId::RequiredCollateral,
-        MetricId::CollateralCoverage,
-        MetricId::RepoInterest,
-        MetricId::FundingRisk,
-        MetricId::EffectiveRate,
-        MetricId::TimeToMaturity,
-        MetricId::ImpliedCollateralReturn,
+        MetricId::FinancingAnnuity,
+        MetricId::IndexDelta,
+        MetricId::Yf,
+        MetricId::DfStart,
+        MetricId::DfEnd,
+        MetricId::DepositParRate,
+        MetricId::DfEndFromQuote,
+        MetricId::QuoteRate,
+        // -- FX --
+        MetricId::SpotRate,
+        MetricId::BaseAmount,
+        MetricId::QuoteAmount,
+        MetricId::InverseRate,
+        MetricId::Fx01,
+        MetricId::FxDelta,
+        MetricId::FxVega,
+        // -- Equity --
+        MetricId::EquityPricePerShare,
+        MetricId::EquityShares,
+        MetricId::EquityDividendYield,
+        MetricId::EquityForwardPrice,
+        MetricId::DeltaVol,
+        MetricId::ConstituentDelta,
         MetricId::Nav,
         MetricId::BasketValue,
         MetricId::ConstituentCount,
@@ -1254,6 +1250,12 @@ impl MetricId {
         MetricId::TrackingError,
         MetricId::Utilization,
         MetricId::PremiumDiscount,
+        MetricId::ExpectedVariance,
+        MetricId::RealizedVariance,
+        MetricId::VarianceNotional,
+        MetricId::VarianceStrikeVol,
+        MetricId::VarianceTimeToMaturity,
+        // -- Structured Credit --
         MetricId::WAL,
         MetricId::WAM,
         MetricId::ExpectedMaturity,
@@ -1263,7 +1265,8 @@ impl MetricId {
         MetricId::CDR,
         MetricId::LossSeverity,
         MetricId::SpreadDuration,
-        MetricId::Dm01,
+        MetricId::Prepayment01,
+        MetricId::Severity01,
         MetricId::AbsDelinquency,
         MetricId::AbsChargeOff,
         MetricId::AbsExcessSpread,
@@ -1282,9 +1285,9 @@ impl MetricId {
         MetricId::RmbsSdaSpeed,
         MetricId::RmbsWaltv,
         MetricId::RmbsWafico,
+        // -- Alternatives --
         MetricId::RealYield,
         MetricId::IndexRatio,
-        MetricId::RealDuration,
         MetricId::BreakevenInflation,
         MetricId::LpIrr,
         MetricId::GpIrr,
@@ -1292,14 +1295,21 @@ impl MetricId {
         MetricId::DpiLp,
         MetricId::TvpiLp,
         MetricId::CarryAccrued,
+        MetricId::Nav01,
+        MetricId::Carry01,
+        MetricId::Hurdle01,
         MetricId::EnterpriseValue,
         MetricId::EquityValue,
         MetricId::TerminalValuePV,
-        MetricId::ThetaGamma,
+        MetricId::CollateralValue,
+        MetricId::RequiredCollateral,
+        MetricId::CollateralCoverage,
+        MetricId::RepoInterest,
+        MetricId::FundingRisk,
+        MetricId::EffectiveRate,
+        MetricId::ImpliedCollateralReturn,
         MetricId::HVar,
         MetricId::ExpectedShortfall,
-        MetricId::ImpliedFinancingRate,
-        MetricId::RollSpecialness,
     ];
 }
 
@@ -1314,34 +1324,36 @@ impl MetricId {
 /// [`MetricGroup::ALL`] to iterate all groups.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum MetricGroup {
-    /// Clean/dirty price, accrued, yields, spreads, duration, convexity, NAV,
-    /// embedded option value.
+    /// Static pricing outputs: prices, yields, spreads, durations, implied
+    /// levels, convexity, embedded option value.
     Pricing,
-    /// Theta variants, carry decomposition (coupon income, pull-to-par,
-    /// roll-down, funding cost).
+    /// Time-driven P&L: theta decomposition, carry components, financing,
+    /// dollar-roll carry.
     Carry,
-    /// DV01, CS01, bucketed variants, Rho, PV01, all *01 sensitivities
-    /// (inflation, prepayment, severity, etc.).
+    /// First-order bump sensitivities to market curves: DV01, PV01,
+    /// bucketed DV01, rho, and other rates-focused "01" metrics.
     Sensitivity,
-    /// Delta, Gamma, Vega, higher-order greeks, cross-gamma, implied vol,
-    /// variance swap greeks.
+    /// Options-style Greeks and all second-order / higher-order
+    /// sensitivities: delta, gamma, vega, cross-gammas, variance vega.
     Greeks,
-    /// CDS: par spread, risky PV01/annuity, protection/premium leg PV,
-    /// jump-to-default, expected loss, default probability, recovery.
+    /// CDS/credit analytics and credit-specific sensitivities: CS01,
+    /// bucketed CS01, par spread, risky PV01/annuity, spread DV01,
+    /// correlation01, default metrics, recovery.
     Credit,
-    /// IRS: annuity, par rate, PV fixed/float, deposit, basis swap,
-    /// TRS, forward PV01.
+    /// Rates instrument decomposition: IRS legs, annuities, par rates,
+    /// basis swap, TRS, deposit/calibration intermediates.
     Rates,
-    /// FX spot, base/quote amounts, inverse rate, FX01, FX delta, FX vega.
+    /// FX instrument pricing and analytics: spot rates, amounts, FX
+    /// sensitivities (FX01, FX delta, FX vega).
     Fx,
-    /// Equity price/shares/dividend/forward, index delta, constituent delta,
-    /// delta vol, basket/ETF metrics.
+    /// Equity/basket/ETF pricing, equity-derivative analytics, and
+    /// variance swap pricing outputs.
     Equity,
-    /// WAL, WAM, CPR, CDR, SMM, pool metrics, ABS/CLO/CMBS/RMBS specifics,
-    /// spread duration.
+    /// Securitization pool and tranche analytics: WAL, WAM, CPR, CDR,
+    /// prepayment/severity sensitivities, ABS/CLO/CMBS/RMBS specifics.
     StructuredCredit,
-    /// PE fund (IRR, MOIC, TVPI), DCF valuation, repo, inflation-linked,
-    /// VaR, dollar roll.
+    /// PE fund metrics, DCF valuation, repo analytics,
+    /// inflation-linked bond metrics, VaR.
     Alternatives,
 }
 
@@ -1407,7 +1419,7 @@ impl fmt::Display for MetricGroup {
 
 // --- Per-group metric arrays ------------------------------------------------
 
-const PRICING_METRICS: [MetricId; 18] = [
+const PRICING_METRICS: [MetricId; 20] = [
     MetricId::DirtyPrice,
     MetricId::CleanPrice,
     MetricId::Accrued,
@@ -1423,12 +1435,14 @@ const PRICING_METRICS: [MetricId; 18] = [
     MetricId::EmbeddedOptionValue,
     MetricId::DurationMac,
     MetricId::DurationMod,
+    MetricId::RealDuration,
     MetricId::YieldDv01,
     MetricId::Convexity,
+    MetricId::ImpliedVol,
     MetricId::TimeToMaturity,
 ];
 
-const CARRY_METRICS: [MetricId; 9] = [
+const CARRY_METRICS: [MetricId; 11] = [
     MetricId::Theta,
     MetricId::ThetaCarry,
     MetricId::ThetaRollDown,
@@ -1438,41 +1452,33 @@ const CARRY_METRICS: [MetricId; 9] = [
     MetricId::PullToPar,
     MetricId::RollDown,
     MetricId::FundingCost,
+    MetricId::ImpliedFinancingRate,
+    MetricId::RollSpecialness,
 ];
 
-const SENSITIVITY_METRICS: [MetricId; 29] = [
+const SENSITIVITY_METRICS: [MetricId; 19] = [
     MetricId::Dv01,
     MetricId::BucketedDv01,
-    MetricId::Cs01,
-    MetricId::BucketedCs01,
-    MetricId::Cs01Hazard,
-    MetricId::BucketedCs01Hazard,
-    MetricId::Rho,
-    MetricId::ForeignRho,
+    MetricId::DurationDv01,
     MetricId::Pv01,
     MetricId::ForwardPv01,
+    MetricId::Npv01,
+    MetricId::Rho,
+    MetricId::ForeignRho,
     MetricId::Dv01Domestic,
     MetricId::Dv01Foreign,
     MetricId::Dv01Primary,
     MetricId::Dv01Reference,
     MetricId::Dividend01,
     MetricId::Inflation01,
-    MetricId::Prepayment01,
-    MetricId::Default01,
-    MetricId::Severity01,
+    MetricId::Dm01,
     MetricId::Conversion01,
     MetricId::CollateralHaircut01,
     MetricId::CollateralPrice01,
-    MetricId::Nav01,
-    MetricId::Carry01,
-    MetricId::Hurdle01,
-    MetricId::Npv01,
-    MetricId::Correlation01,
-    MetricId::Dm01,
     MetricId::ConvexityAdjustmentRisk,
 ];
 
-const GREEKS_METRICS: [MetricId; 28] = [
+const GREEKS_METRICS: [MetricId; 22] = [
     MetricId::Delta,
     MetricId::Gamma,
     MetricId::Vega,
@@ -1483,7 +1489,6 @@ const GREEKS_METRICS: [MetricId; 28] = [
     MetricId::Charm,
     MetricId::Color,
     MetricId::Speed,
-    MetricId::ImpliedVol,
     MetricId::IrConvexity,
     MetricId::IrCrossGamma,
     MetricId::InflationConvexity,
@@ -1496,18 +1501,19 @@ const GREEKS_METRICS: [MetricId; 28] = [
     MetricId::CrossGammaFxRates,
     MetricId::ThetaGamma,
     MetricId::VarianceVega,
-    MetricId::ExpectedVariance,
-    MetricId::RealizedVariance,
-    MetricId::VarianceNotional,
-    MetricId::VarianceStrikeVol,
-    MetricId::VarianceTimeToMaturity,
 ];
 
-const CREDIT_METRICS: [MetricId; 10] = [
+const CREDIT_METRICS: [MetricId; 16] = [
+    MetricId::Cs01,
+    MetricId::BucketedCs01,
+    MetricId::Cs01Hazard,
+    MetricId::BucketedCs01Hazard,
     MetricId::ParSpread,
     MetricId::RiskyPv01,
     MetricId::RiskyAnnuity,
     MetricId::SpreadDv01,
+    MetricId::Correlation01,
+    MetricId::Default01,
     MetricId::ProtectionLegPv,
     MetricId::PremiumLegPv,
     MetricId::JumpToDefault,
@@ -1516,7 +1522,7 @@ const CREDIT_METRICS: [MetricId; 10] = [
     MetricId::Recovery01,
 ];
 
-const RATES_METRICS: [MetricId; 16] = [
+const RATES_METRICS: [MetricId; 18] = [
     MetricId::Annuity,
     MetricId::ParRate,
     MetricId::PvFixed,
@@ -1528,15 +1534,16 @@ const RATES_METRICS: [MetricId; 16] = [
     MetricId::BasisParSpread,
     MetricId::IncrementalParSpread,
     MetricId::FinancingAnnuity,
-    MetricId::DurationDv01,
+    MetricId::IndexDelta,
     MetricId::Yf,
     MetricId::DfStart,
     MetricId::DfEnd,
     MetricId::DepositParRate,
-    // DfEndFromQuote and QuoteRate are calibration inputs, included here
+    MetricId::DfEndFromQuote,
+    MetricId::QuoteRate,
 ];
 
-const FX_METRICS: [MetricId; 8] = [
+const FX_METRICS: [MetricId; 7] = [
     MetricId::SpotRate,
     MetricId::BaseAmount,
     MetricId::QuoteAmount,
@@ -1544,10 +1551,9 @@ const FX_METRICS: [MetricId; 8] = [
     MetricId::Fx01,
     MetricId::FxDelta,
     MetricId::FxVega,
-    MetricId::IndexDelta,
 ];
 
-const EQUITY_METRICS: [MetricId; 14] = [
+const EQUITY_METRICS: [MetricId; 18] = [
     MetricId::EquityPricePerShare,
     MetricId::EquityShares,
     MetricId::EquityDividendYield,
@@ -1561,7 +1567,11 @@ const EQUITY_METRICS: [MetricId; 14] = [
     MetricId::TrackingError,
     MetricId::Utilization,
     MetricId::PremiumDiscount,
-    MetricId::QuoteRate,
+    MetricId::ExpectedVariance,
+    MetricId::RealizedVariance,
+    MetricId::VarianceNotional,
+    MetricId::VarianceStrikeVol,
+    MetricId::VarianceTimeToMaturity,
 ];
 
 const STRUCTURED_CREDIT_METRICS: [MetricId; 29] = [
@@ -1574,6 +1584,8 @@ const STRUCTURED_CREDIT_METRICS: [MetricId; 29] = [
     MetricId::CDR,
     MetricId::LossSeverity,
     MetricId::SpreadDuration,
+    MetricId::Prepayment01,
+    MetricId::Severity01,
     MetricId::AbsDelinquency,
     MetricId::AbsChargeOff,
     MetricId::AbsExcessSpread,
@@ -1592,11 +1604,9 @@ const STRUCTURED_CREDIT_METRICS: [MetricId; 29] = [
     MetricId::RmbsSdaSpeed,
     MetricId::RmbsWaltv,
     MetricId::RmbsWafico,
-    MetricId::DfEndFromQuote,
-    MetricId::RealDuration,
 ];
 
-const ALTERNATIVES_METRICS: [MetricId; 23] = [
+const ALTERNATIVES_METRICS: [MetricId; 24] = [
     // Inflation-linked
     MetricId::RealYield,
     MetricId::IndexRatio,
@@ -1608,6 +1618,9 @@ const ALTERNATIVES_METRICS: [MetricId; 23] = [
     MetricId::DpiLp,
     MetricId::TvpiLp,
     MetricId::CarryAccrued,
+    MetricId::Nav01,
+    MetricId::Carry01,
+    MetricId::Hurdle01,
     // DCF Valuation
     MetricId::EnterpriseValue,
     MetricId::EquityValue,
@@ -1620,9 +1633,6 @@ const ALTERNATIVES_METRICS: [MetricId; 23] = [
     MetricId::FundingRisk,
     MetricId::EffectiveRate,
     MetricId::ImpliedCollateralReturn,
-    // Dollar Roll / TBA
-    MetricId::ImpliedFinancingRate,
-    MetricId::RollSpecialness,
     // VaR
     MetricId::HVar,
     MetricId::ExpectedShortfall,
