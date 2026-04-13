@@ -83,6 +83,10 @@ pub struct SabrParams {
     pub rho: f64,
     /// Nu (ν): vol-of-vol, must be > 0.
     pub nu: f64,
+    /// Shift for negative rate support. When set, the model uses `F+shift` and
+    /// `K+shift` internally, keeping both arguments positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shift: Option<f64>,
 }
 
 /// Warning about negative implied probability density at a specific strike.
@@ -149,7 +153,20 @@ impl SabrParams {
             beta,
             rho,
             nu,
+            shift: None,
         })
+    }
+
+    /// Return a copy of these parameters with the given shift applied.
+    ///
+    /// The shift is used to handle negative rate environments: when evaluating
+    /// implied vol the model internally uses `F+shift` and `K+shift`, keeping
+    /// both arguments positive. A typical value for EUR/JPY is `0.03` (300 bps).
+    pub fn with_shift(self, shift: f64) -> Self {
+        Self {
+            shift: Some(shift),
+            ..self
+        }
     }
 
     /// Lognormal (Black-76) implied volatility using Hagan's approximation.
@@ -177,6 +194,13 @@ impl SabrParams {
         let beta = self.beta;
         let rho = self.rho;
         let nu = self.nu;
+
+        // Apply shift for negative rate support
+        let (f, k) = if let Some(s) = self.shift {
+            (f + s, k + s)
+        } else {
+            (f, k)
+        };
 
         // Guard: both forward and strike must be positive for lognormal model
         if f <= 0.0 || k <= 0.0 || t <= 0.0 {
@@ -253,6 +277,13 @@ impl SabrParams {
         let beta = self.beta;
         let rho = self.rho;
         let nu = self.nu;
+
+        // Apply shift for negative rate support
+        let (f, k) = if let Some(s) = self.shift {
+            (f + s, k + s)
+        } else {
+            (f, k)
+        };
 
         if t <= 0.0 {
             return f64::NAN;
@@ -564,6 +595,7 @@ pub fn calibrate_sabr(
             beta,
             rho,
             nu,
+            shift: None,
         };
 
         for (i, (&k, &mv)) in strikes.iter().zip(market_vols.iter()).enumerate() {
@@ -600,6 +632,7 @@ pub fn calibrate_sabr(
             beta,
             rho,
             nu,
+            shift: None,
         };
         let sse: f64 = strikes
             .iter()
@@ -692,6 +725,7 @@ fn calibrate_sabr_coordinate_descent(
             beta,
             rho,
             nu,
+            shift: None,
         };
         let mut sse = 0.0;
         for (i, (&k, &mv)) in strikes.iter().zip(market_vols.iter()).enumerate() {
@@ -975,6 +1009,7 @@ mod tests {
             beta: 0.5,
             rho: -0.7,
             nu: 2.0,
+            shift: None,
         };
         let forward = 0.05;
         let expiry = 5.0;
@@ -1003,5 +1038,27 @@ mod tests {
             warnings.is_empty(),
             "Normal params should produce no density warnings"
         );
+    }
+
+    #[test]
+    fn test_sabr_params_with_shift() {
+        let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
+        assert!(p.shift.is_none());
+
+        let shifted = p.with_shift(0.03);
+        assert_eq!(shifted.shift, Some(0.03));
+    }
+
+    #[test]
+    fn test_shifted_sabr_implied_vol_lognormal() {
+        // Shifted SABR: evaluate with F+shift, K+shift
+        let p = SabrParams::new(0.035, 0.5, -0.2, 0.4)
+            .unwrap()
+            .with_shift(0.03);
+        let f = -0.005; // negative forward
+        let k = 0.01;
+        let t = 1.0;
+        let vol = p.implied_vol_lognormal(f, k, t);
+        assert!(vol.is_finite() && vol > 0.0, "shifted SABR should handle negative rates");
     }
 }
