@@ -125,7 +125,7 @@ use super::{
     hierarchy::{CompletenessReport, MarketDataHierarchy, SubtreeCoverage},
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::{FxDeltaVolSurface, VolSurface},
+    surfaces::{FxDeltaVolSurface, VolCube, VolSurface},
     term_structures::CreditIndexData,
 };
 
@@ -164,6 +164,9 @@ pub struct MarketContext {
     /// FX delta-quoted volatility surfaces
     fx_delta_vol_surfaces: HashMap<CurveId, Arc<FxDeltaVolSurface>>,
 
+    /// SABR volatility cubes (expiry x tenor x strike)
+    vol_cubes: HashMap<CurveId, Arc<VolCube>>,
+
     /// Collateral CSA code mappings
     collateral: HashMap<String, CurveId>,
 
@@ -183,6 +186,7 @@ impl std::fmt::Debug for MarketContext {
             .field("credit_indices", &self.credit_indices.len())
             .field("dividends", &self.dividends.len())
             .field("fx_delta_vol_surfaces", &self.fx_delta_vol_surfaces.len())
+            .field("vol_cubes", &self.vol_cubes.len())
             .field("collateral", &self.collateral.len())
             .field("hierarchy", &self.hierarchy.is_some())
             .finish()
@@ -279,6 +283,7 @@ impl MarketContext {
         present.extend(self.credit_indices.keys().cloned());
         present.extend(self.dividends.keys().cloned());
         present.extend(self.fx_delta_vol_surfaces.keys().cloned());
+        present.extend(self.vol_cubes.keys().cloned());
 
         // Find missing: declared in hierarchy but absent from all stores.
         let declared = hierarchy.all_curve_ids();

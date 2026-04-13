@@ -18,7 +18,7 @@ use crate::market_data::{
     dividends::DividendSchedule,
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::{FxDeltaVolSurface, VolSurface},
+    surfaces::{FxDeltaVolSurface, VolCube, VolSurface},
     term_structures::{
         BaseCorrelationCurve, BasisSpreadCurve, CreditIndexData, DiscountCurve, ForwardCurve,
         HazardCurve, InflationCurve, ParametricCurve, PriceCurve, VolatilityIndexCurve,
@@ -399,6 +399,39 @@ impl MarketContext {
     /// ```
     pub fn get_credit_index(&self, id: impl AsRef<str>) -> Result<Arc<CreditIndexData>> {
         self.get_cloned(&self.credit_indices, id.as_ref())
+    }
+
+    /// Clone a SABR volatility cube by identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is not present.
+    pub fn get_vol_cube(&self, id: impl AsRef<str>) -> Result<Arc<VolCube>> {
+        self.get_cloned(&self.vol_cubes, id.as_ref())
+    }
+
+    /// Look up a vol provider by identifier.
+    ///
+    /// Checks vol cubes first, then falls back to vol surfaces. This enables
+    /// pricing code to accept either a 3D cube or a 2D surface through the
+    /// [`VolProvider`](crate::market_data::traits::VolProvider) trait.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if neither a vol cube nor a vol surface exists under the
+    /// given identifier.
+    pub fn get_vol_provider(
+        &self,
+        id: impl AsRef<str>,
+    ) -> Result<Arc<dyn crate::market_data::traits::VolProvider>> {
+        let id_str = id.as_ref();
+        if let Some(cube) = self.vol_cubes.get(id_str) {
+            return Ok(Arc::clone(cube) as Arc<dyn crate::market_data::traits::VolProvider>);
+        }
+        if let Some(surface) = self.surfaces.get(id_str) {
+            return Ok(Arc::clone(surface) as Arc<dyn crate::market_data::traits::VolProvider>);
+        }
+        Err(Self::not_found_error(id_str))
     }
 
     /// Resolve a collateral discount curve for a CSA code.

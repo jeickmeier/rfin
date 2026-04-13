@@ -16,7 +16,7 @@ use crate::market_data::{
     dividends::DividendSchedule,
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
-    surfaces::{FxDeltaVolSurface, VolSurface},
+    surfaces::{FxDeltaVolSurface, VolCube, VolSurface},
     term_structures::CreditIndexData,
 };
 
@@ -116,6 +116,21 @@ impl MarketContext {
         let arc_surface = surface.into();
         let id = arc_surface.id().to_owned();
         self.fx_delta_vol_surfaces.insert(id, arc_surface);
+        self
+    }
+
+    /// Insert a SABR volatility cube.
+    ///
+    /// Accepts either an owned [`VolCube`] or an `Arc<VolCube>`.
+    /// When passing an owned value, it will be wrapped in an `Arc` automatically.
+    /// When passing an `Arc`, it is used directly (enabling cube sharing between contexts).
+    ///
+    /// # Parameters
+    /// - `cube`: a [`VolCube`] or `Arc<VolCube>`
+    pub fn insert_vol_cube(mut self, cube: impl Into<Arc<VolCube>>) -> Self {
+        let arc = cube.into();
+        let id = arc.id().to_owned();
+        self.vol_cubes.insert(id, arc);
         self
     }
 
@@ -398,6 +413,16 @@ impl MarketContext {
         let arc_surface = surface.into();
         let id = arc_surface.id().to_owned();
         self.fx_delta_vol_surfaces.insert(id, arc_surface);
+        self
+    }
+
+    /// Insert a SABR volatility cube, mutating in place.
+    ///
+    /// Mirrors [`Self::insert_vol_cube`] but takes `&mut self`.
+    pub fn insert_vol_cube_mut(&mut self, cube: impl Into<Arc<VolCube>>) -> &mut Self {
+        let arc = cube.into();
+        let id = arc.id().to_owned();
+        self.vol_cubes.insert(id, arc);
         self
     }
 

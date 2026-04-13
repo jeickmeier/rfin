@@ -401,6 +401,47 @@ pub trait TermStructure {
     fn id(&self) -> &crate::types::CurveId;
 }
 
+/// Trait for types that supply implied volatility given market coordinates.
+///
+/// Provides a unified interface for looking up implied vol from both 2D surfaces
+/// (where tenor is ignored) and 3D cubes (where all coordinates are used).
+///
+/// # Required Methods
+///
+/// - [`vol`](Self::vol) — Look up implied vol at (expiry, tenor, strike)
+/// - [`vol_clamped`](Self::vol_clamped) — Same as vol but clamps out-of-bounds coordinates
+/// - [`vol_id`](Self::vol_id) — The identifier of this vol source
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::traits::VolProvider;
+/// use finstack_core::market_data::surfaces::VolSurface;
+///
+/// let surface = VolSurface::builder("EQ-VOL")
+///     .expiries(&[1.0, 2.0])
+///     .strikes(&[90.0, 100.0])
+///     .row(&[0.2, 0.2])
+///     .row(&[0.2, 0.2])
+///     .build()
+///     .expect("VolSurface builder should succeed");
+///
+/// let provider: &dyn VolProvider = &surface;
+/// let vol = provider.vol(1.5, 0.0, 95.0).unwrap();
+/// assert!(vol > 0.0);
+/// ```
+pub trait VolProvider: Send + Sync {
+    /// Look up implied vol at (expiry, tenor, strike).
+    /// For 2D surfaces: tenor is ignored.
+    fn vol(&self, expiry: f64, tenor: f64, strike: f64) -> crate::Result<f64>;
+
+    /// Same as vol() but clamps out-of-bounds coordinates.
+    fn vol_clamped(&self, expiry: f64, tenor: f64, strike: f64) -> f64;
+
+    /// The identifier of this vol source.
+    fn vol_id(&self) -> &crate::types::CurveId;
+}
+
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------

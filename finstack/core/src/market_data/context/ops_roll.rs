@@ -100,6 +100,7 @@ impl MarketContext {
             credit_indices: HashMap::default(),
             dividends: self.dividends.clone(),
             fx_delta_vol_surfaces: self.fx_delta_vol_surfaces.clone(),
+            vol_cubes: self.vol_cubes.clone(),
             collateral: self.collateral.clone(),
             hierarchy: self.hierarchy.clone(),
         };

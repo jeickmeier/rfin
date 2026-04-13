@@ -16,7 +16,7 @@ use crate::market_data::{
     dividends::DividendSchedule,
     hierarchy::MarketDataHierarchy,
     scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
-    surfaces::{FxDeltaVolSurface, VolSurface},
+    surfaces::{FxDeltaVolSurface, VolCube, VolSurface},
     term_structures::{
         BaseCorrelationCurve, BasisSpreadCurve, DiscountCurve, ForwardCurve, HazardCurve,
         InflationCurve, ParametricCurve, PriceCurve, VolatilityIndexCurve,
@@ -196,6 +196,10 @@ pub struct MarketContextState {
     #[serde(default)]
     #[schemars(with = "serde_json::Value")]
     pub fx_delta_vol_surfaces: Vec<FxDeltaVolSurface>,
+    /// SABR volatility cubes
+    #[serde(default)]
+    #[schemars(with = "serde_json::Value")]
+    pub vol_cubes: Vec<VolCube>,
     /// Collateral CSA mappings
     pub collateral: std::collections::BTreeMap<String, String>,
     /// Optional market data hierarchy snapshot.
@@ -354,6 +358,15 @@ impl From<&MarketContext> for MarketContextState {
         let fx_delta_vol_surfaces: Vec<_> =
             fx_delta_pairs.into_iter().map(|(_, surf)| surf).collect();
 
+        // Convert vol cubes (sort deterministically by key id).
+        let mut vol_cube_pairs: Vec<(CurveId, VolCube)> = ctx
+            .vol_cubes
+            .iter()
+            .map(|(id, cube)| (id.clone(), (**cube).clone()))
+            .collect();
+        vol_cube_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+        let vol_cubes: Vec<_> = vol_cube_pairs.into_iter().map(|(_, cube)| cube).collect();
+
         // Convert collateral mappings
         let collateral: std::collections::BTreeMap<String, String> = ctx
             .collateral
@@ -372,6 +385,7 @@ impl From<&MarketContext> for MarketContextState {
             dividends,
             credit_indices,
             fx_delta_vol_surfaces,
+            vol_cubes,
             collateral,
             hierarchy: ctx.hierarchy.clone(),
         }
@@ -480,6 +494,12 @@ impl TryFrom<MarketContextState> for MarketContext {
         for surface in state.fx_delta_vol_surfaces {
             let id = surface.id().to_owned();
             ctx.fx_delta_vol_surfaces.insert(id, Arc::new(surface));
+        }
+
+        // Reconstruct vol cubes
+        for cube in state.vol_cubes {
+            let id = cube.id().to_owned();
+            ctx.vol_cubes.insert(id, Arc::new(cube));
         }
 
         // Reconstruct collateral mappings

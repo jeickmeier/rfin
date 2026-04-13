@@ -129,3 +129,84 @@ fn test_vol_cube_materialize_expiry_slice() {
     assert_eq!(surface.expiries(), &[5.0, 10.0]);
     assert_eq!(surface.strikes(), &strikes[..]);
 }
+
+// ---------------------------------------------------------------------------
+// VolProvider trait tests (Task 5)
+// ---------------------------------------------------------------------------
+
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::traits::VolProvider;
+
+#[test]
+fn test_vol_provider_cube() {
+    let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
+    let cube = VolCube::from_grid("TEST", &[1.0, 5.0], &[5.0, 10.0], &[p; 4], &[0.03; 4]).unwrap();
+    let provider: &dyn VolProvider = &cube;
+    let vol = provider.vol(1.0, 5.0, 0.03).unwrap();
+    assert!(vol.is_finite() && vol > 0.0);
+}
+
+#[test]
+fn test_vol_provider_surface_ignores_tenor() {
+    let surface = VolSurface::builder("TEST")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[0.02, 0.03, 0.04])
+        .row(&[0.20, 0.21, 0.22])
+        .row(&[0.19, 0.20, 0.21])
+        .build()
+        .unwrap();
+    let provider: &dyn VolProvider = &surface;
+    let vol_a = provider.vol(1.5, 5.0, 0.03).unwrap();
+    let vol_b = provider.vol(1.5, 999.0, 0.03).unwrap();
+    assert!(
+        (vol_a - vol_b).abs() < 1e-14,
+        "VolSurface should ignore tenor"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// MarketContext integration tests (Task 6)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_market_context_vol_cube_insert_and_get() {
+    let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
+    let cube = VolCube::from_grid("USD-SWPT", &[1.0], &[5.0], &[p], &[0.03]).unwrap();
+    let ctx = MarketContext::new().insert_vol_cube(cube);
+    let retrieved = ctx.get_vol_cube("USD-SWPT").unwrap();
+    assert_eq!(retrieved.id().as_str(), "USD-SWPT");
+}
+
+#[test]
+fn test_market_context_vol_provider_finds_cube() {
+    let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
+    let cube = VolCube::from_grid("USD-SWPT", &[1.0], &[5.0], &[p], &[0.03]).unwrap();
+    let ctx = MarketContext::new().insert_vol_cube(cube);
+    let provider = ctx.get_vol_provider("USD-SWPT").unwrap();
+    let vol = provider.vol(1.0, 5.0, 0.03).unwrap();
+    assert!(vol.is_finite() && vol > 0.0);
+}
+
+#[test]
+fn test_market_context_vol_provider_falls_back_to_surface() {
+    let surface = VolSurface::builder("EQ-VOL")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[90.0, 100.0])
+        .row(&[0.2, 0.2])
+        .row(&[0.2, 0.2])
+        .build()
+        .unwrap();
+    let ctx = MarketContext::new().insert_surface(surface);
+    let provider = ctx.get_vol_provider("EQ-VOL").unwrap();
+    let vol = provider.vol_clamped(1.5, 999.0, 95.0);
+    assert!(vol > 0.0);
+}
+
+#[test]
+fn test_market_context_stats_includes_vol_cubes() {
+    let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
+    let cube = VolCube::from_grid("TEST", &[1.0], &[5.0], &[p], &[0.03]).unwrap();
+    let ctx = MarketContext::new().insert_vol_cube(cube);
+    assert_eq!(ctx.stats().vol_cube_count, 1);
+}

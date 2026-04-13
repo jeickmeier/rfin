@@ -811,6 +811,18 @@ impl TermStructure for VolSurface {
     }
 }
 
+impl crate::market_data::traits::VolProvider for VolSurface {
+    fn vol(&self, expiry: f64, _tenor: f64, strike: f64) -> crate::Result<f64> {
+        self.value_checked(expiry, strike)
+    }
+    fn vol_clamped(&self, expiry: f64, _tenor: f64, strike: f64) -> f64 {
+        self.value_clamped(expiry, strike)
+    }
+    fn vol_id(&self) -> &crate::types::CurveId {
+        self.id()
+    }
+}
+
 /// Fluent builder for [`VolSurface`].
 pub struct VolSurfaceBuilder {
     id: CurveId,

@@ -444,6 +444,22 @@ impl VolCube {
 }
 
 // ---------------------------------------------------------------------------
+// VolProvider impl
+// ---------------------------------------------------------------------------
+
+impl crate::market_data::traits::VolProvider for VolCube {
+    fn vol(&self, expiry: f64, tenor: f64, strike: f64) -> crate::Result<f64> {
+        self.vol(expiry, tenor, strike)
+    }
+    fn vol_clamped(&self, expiry: f64, tenor: f64, strike: f64) -> f64 {
+        self.vol_clamped(expiry, tenor, strike)
+    }
+    fn vol_id(&self) -> &CurveId {
+        self.id()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
 

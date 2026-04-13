@@ -102,6 +102,7 @@ impl MarketContext {
             total_curves: self.curves.len(),
             has_fx: self.fx.is_some(),
             surface_count: self.surfaces.len(),
+            vol_cube_count: self.vol_cubes.len(),
             price_count: self.prices.len(),
             series_count: self.series.len(),
             inflation_index_count: self.inflation_indices.len(),
@@ -117,6 +118,7 @@ impl MarketContext {
         let id = id.as_ref();
         self.curves.contains_key(id)
             || self.surfaces.contains_key(id)
+            || self.vol_cubes.contains_key(id)
             || self.prices.contains_key(id)
             || self.series.contains_key(id)
             || self.inflation_indices.contains_key(id)
@@ -131,6 +133,7 @@ impl MarketContext {
         self.curves.is_empty()
             && self.fx.is_none()
             && self.surfaces.is_empty()
+            && self.vol_cubes.is_empty()
             && self.prices.is_empty()
             && self.series.is_empty()
             && self.inflation_indices.is_empty()
@@ -143,6 +146,7 @@ impl MarketContext {
     pub fn total_objects(&self) -> usize {
         self.curves.len()
             + self.surfaces.len()
+            + self.vol_cubes.len()
             + self.prices.len()
             + self.series.len()
             + self.inflation_indices.len()
@@ -238,6 +242,8 @@ pub struct ContextStats {
     pub has_fx: bool,
     /// Number of volatility surfaces
     pub surface_count: usize,
+    /// Number of SABR volatility cubes
+    pub vol_cube_count: usize,
     /// Number of market prices/scalars
     pub price_count: usize,
     /// Number of time series
@@ -262,6 +268,7 @@ impl core::fmt::Display for ContextStats {
             writeln!(f, "    {}: {}", curve_type, count)?;
         }
         writeln!(f, "  Surfaces: {}", self.surface_count)?;
+        writeln!(f, "  Vol cubes: {}", self.vol_cube_count)?;
         writeln!(f, "  Prices: {}", self.price_count)?;
         writeln!(f, "  Series: {}", self.series_count)?;
         writeln!(f, "  Inflation indices: {}", self.inflation_index_count)?;
