@@ -442,6 +442,9 @@ export interface ValuationsNamespace {
     metrics: string[]
   ): string;
   listStandardMetrics(): string[];
+  /** List all standard metrics organized by group.
+   *  Returns an object mapping group name to sorted metric ID arrays. */
+  listStandardMetricsGrouped(): Record<string, string[]>;
   /** Run P&L attribution for a single instrument. */
   attributePnl(
     instrumentJson: string,

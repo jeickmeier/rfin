@@ -16,7 +16,7 @@ analytics = ["core", "dep:finstack_analytics"]
 correlation = ["core", "dep:finstack_correlation"]
 margin = ["core", "dep:finstack_margin"]
 monte_carlo = ["core", "dep:finstack_monte_carlo"]
-statements = ["core", "dep:finstack_statements", "dep:finstack_statements_analytics", "dep:indexmap"]
+statements = ["core", "dep:finstack_statements", "dep:finstack_statements_analytics"]
 valuations = ["core", "dep:finstack_valuations"]
 scenarios = ["core", "statements", "dep:finstack_scenarios"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
@@ -38,6 +38,5 @@ finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optio
 finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
 finstack_correlation = { package = "finstack-correlation", path = "correlation", optional = true }
 finstack_monte_carlo = { package = "finstack-monte-carlo", path = "monte_carlo", optional = true }
-indexmap = { workspace = true, optional = true }
 
 [dev-dependencies]

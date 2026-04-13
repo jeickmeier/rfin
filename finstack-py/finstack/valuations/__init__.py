@@ -12,6 +12,7 @@ validate_instrument_json = _valuations.validate_instrument_json
 price_instrument = _valuations.price_instrument
 price_instrument_with_metrics = _valuations.price_instrument_with_metrics
 list_standard_metrics = _valuations.list_standard_metrics
+list_standard_metrics_grouped = _valuations.list_standard_metrics_grouped
 PnlAttribution = _valuations.PnlAttribution
 attribute_pnl = _valuations.attribute_pnl
 attribute_pnl_from_spec = _valuations.attribute_pnl_from_spec
@@ -46,6 +47,7 @@ __all__: list[str] = [
     "default_attribution_metrics",
     "default_waterfall_order",
     "list_standard_metrics",
+    "list_standard_metrics_grouped",
     "price_instrument",
     "price_instrument_with_metrics",
     "validate_attribution_json",

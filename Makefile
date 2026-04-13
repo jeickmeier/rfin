@@ -437,7 +437,6 @@ size-all: size-wasm size-py
 
 # --- Package Building ---
 
-MATURIN_FEATURES := scenarios
 WHEEL_DIR := target/wheels
 
 .PHONY: wheel-local wheel-docker wheel-all wasm-pkg wasm-publish-dry
@@ -446,7 +445,6 @@ wheel-local: ## Build wheel for current platform + Python
 	@printf "Building wheel for local platform...\n"
 	@$(call py_run,maturin build --release \
 		--manifest-path finstack-py/Cargo.toml \
-		--features $(MATURIN_FEATURES) \
 		-o $(WHEEL_DIR))
 	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"
 	@ls -lh $(WHEEL_DIR)/finstack-*.whl
@@ -459,7 +457,6 @@ wheel-docker: ## Build manylinux wheel via Docker (current arch)
 		ghcr.io/pyo3/maturin:v1.10 \
 		build --release \
 		--manifest-path finstack-py/Cargo.toml \
-		--features $(MATURIN_FEATURES) \
 		-o /io/$(WHEEL_DIR)
 	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"
 	@ls -lh $(WHEEL_DIR)/finstack-*.whl
@@ -468,7 +465,6 @@ wheel-all: ## Build wheels for all locally-available Python versions
 	@printf "Building wheels for all available Python interpreters...\n"
 	@$(call py_run,maturin build --release \
 		--manifest-path finstack-py/Cargo.toml \
-		--features $(MATURIN_FEATURES) \
 		--find-interpreter \
 		-o $(WHEEL_DIR))
 	@printf "Wheel(s) written to $(WHEEL_DIR)/\n"

@@ -6,6 +6,7 @@ export const valuations = {
   priceInstrument: wasm.priceInstrument,
   priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,
   listStandardMetrics: wasm.listStandardMetrics,
+  listStandardMetricsGrouped: wasm.listStandardMetricsGrouped,
   attributePnl: wasm.attributePnl,
   attributePnlFromSpec: wasm.attributePnlFromSpec,
   validateAttributionJson: wasm.validateAttributionJson,

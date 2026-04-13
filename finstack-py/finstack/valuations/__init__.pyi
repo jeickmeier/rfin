@@ -12,6 +12,7 @@ __all__ = [
     "price_instrument",
     "price_instrument_with_metrics",
     "list_standard_metrics",
+    "list_standard_metrics_grouped",
     "PnlAttribution",
     "attribute_pnl",
     "attribute_pnl_from_spec",
@@ -321,6 +322,26 @@ def list_standard_metrics() -> list[str]:
     Example:
         >>> from finstack.valuations import list_standard_metrics
         >>> isinstance(list_standard_metrics(), list)
+        True
+    """
+    ...
+
+def list_standard_metrics_grouped() -> dict[str, list[str]]:
+    """Return standard metrics organized by group.
+
+    Each key is a human-readable group name (e.g. ``"Pricing"``,
+    ``"Greeks"``, ``"Sensitivity"``).  Values are sorted lists of
+    metric identifier strings belonging to that group.
+
+    Returns:
+        Mapping from group name to metric identifiers.
+
+    Example:
+        >>> from finstack.valuations import list_standard_metrics_grouped
+        >>> grouped = list_standard_metrics_grouped()
+        >>> "Greeks" in grouped
+        True
+        >>> "delta" in grouped["Greeks"]
         True
     """
     ...

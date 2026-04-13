@@ -1440,7 +1440,7 @@ const CARRY_METRICS: [MetricId; 9] = [
     MetricId::FundingCost,
 ];
 
-const SENSITIVITY_METRICS: [MetricId; 30] = [
+const SENSITIVITY_METRICS: [MetricId; 29] = [
     MetricId::Dv01,
     MetricId::BucketedDv01,
     MetricId::Cs01,
@@ -1455,7 +1455,6 @@ const SENSITIVITY_METRICS: [MetricId; 30] = [
     MetricId::Dv01Foreign,
     MetricId::Dv01Primary,
     MetricId::Dv01Reference,
-    MetricId::SpreadDv01,
     MetricId::Dividend01,
     MetricId::Inflation01,
     MetricId::Prepayment01,
@@ -1504,10 +1503,11 @@ const GREEKS_METRICS: [MetricId; 28] = [
     MetricId::VarianceTimeToMaturity,
 ];
 
-const CREDIT_METRICS: [MetricId; 9] = [
+const CREDIT_METRICS: [MetricId; 10] = [
     MetricId::ParSpread,
     MetricId::RiskyPv01,
     MetricId::RiskyAnnuity,
+    MetricId::SpreadDv01,
     MetricId::ProtectionLegPv,
     MetricId::PremiumLegPv,
     MetricId::JumpToDefault,

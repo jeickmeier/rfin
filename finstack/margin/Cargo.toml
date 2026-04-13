@@ -16,11 +16,10 @@ serde = { workspace = true }
 serde_json = { workspace = true, features = ["raw_value"] }
 time = { workspace = true }
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
-nalgebra = { version = "0.34", optional = true }
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }
 
 [features]
 default = []
-mc = ["dep:nalgebra", "dep:finstack-monte-carlo", "finstack-monte-carlo/advanced"]
+mc = ["dep:finstack-monte-carlo", "finstack-monte-carlo/advanced"]
