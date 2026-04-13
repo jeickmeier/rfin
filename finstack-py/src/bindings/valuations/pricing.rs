@@ -122,6 +122,30 @@ fn list_standard_metrics() -> Vec<String> {
         .collect()
 }
 
+/// List all standard metrics organized by group.
+///
+/// Returns a dict `{ group_name: [metric_id, ...], ... }` where each key
+/// is a human-readable group name (e.g. "Pricing", "Greeks", "Sensitivity")
+/// and the value is a sorted list of metric ID strings.
+///
+/// Returns
+/// -------
+/// dict[str, list[str]]
+///     Metrics grouped by category.
+#[pyfunction]
+fn list_standard_metrics_grouped() -> std::collections::HashMap<String, Vec<String>> {
+    finstack_valuations::metrics::standard_registry()
+        .available_metrics_grouped()
+        .into_iter()
+        .map(|(group, metrics)| {
+            (
+                group.display_name().to_string(),
+                metrics.into_iter().map(|m| m.to_string()).collect(),
+            )
+        })
+        .collect()
+}
+
 fn parse_model_key(s: &str) -> PyResult<finstack_valuations::pricer::ModelKey> {
     s.parse::<finstack_valuations::pricer::ModelKey>()
         .map_err(|e| PyValueError::new_err(format!("Unknown model key: '{s}'. {e}")))
@@ -132,5 +156,6 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(price_instrument, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(price_instrument_with_metrics, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(list_standard_metrics, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(list_standard_metrics_grouped, m)?)?;
     Ok(())
 }

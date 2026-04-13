@@ -19,7 +19,7 @@ pub(crate) fn register_vol_index_future_metrics(registry: &mut MetricRegistry) {
 
     // Register custom DeltaVol metric (not a standard MetricId)
     registry.register_metric(
-        MetricId::custom("delta_vol"),
+        MetricId::DeltaVol,
         Arc::new(delta_vol::DeltaVolCalculator),
         &[InstrumentType::VolatilityIndexFuture],
     );

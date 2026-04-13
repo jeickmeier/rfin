@@ -202,6 +202,31 @@ impl MetricRegistry {
             .unwrap_or(false)
     }
 
+    /// Gets registered metrics organized by [`MetricGroup`].
+    ///
+    /// Returns only groups that have at least one registered metric. Within
+    /// each group, metrics are sorted alphabetically. Useful for building
+    /// discovery UIs and documentation.
+    pub fn available_metrics_grouped(&self) -> Vec<(super::ids::MetricGroup, Vec<MetricId>)> {
+        super::ids::MetricGroup::ALL
+            .iter()
+            .filter_map(|group| {
+                let mut members: Vec<MetricId> = group
+                    .metrics()
+                    .iter()
+                    .filter(|m| self.entries.contains_key(*m))
+                    .cloned()
+                    .collect();
+                if members.is_empty() {
+                    None
+                } else {
+                    members.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+                    Some((*group, members))
+                }
+            })
+            .collect()
+    }
+
     /// Computes specific metrics with dependency resolution in strict mode.
     ///
     /// Handles dependency resolution, ordering, caching of intermediate results,

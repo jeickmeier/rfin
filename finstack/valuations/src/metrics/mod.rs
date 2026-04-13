@@ -204,7 +204,7 @@ pub(crate) mod sensitivities;
 mod shared;
 
 // Core surface (supported)
-pub use core::ids::MetricId;
+pub use core::ids::{MetricGroup, MetricId};
 pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
 /// Format a standard risk bucket (years) as a human-readable label.

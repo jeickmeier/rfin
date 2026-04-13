@@ -54,10 +54,7 @@ impl MetricCalculator for ConstituentDeltaCalculator {
         }
 
         // Store as bucketed series
-        context.store_bucketed_series(
-            crate::metrics::MetricId::custom("constituent_delta"),
-            series,
-        );
+        context.store_bucketed_series(crate::metrics::MetricId::ConstituentDelta, series);
 
         Ok(total_delta)
     }
@@ -266,7 +263,7 @@ mod tests {
 
         let series = context
             .computed_series
-            .get(&MetricId::custom("constituent_delta"))
+            .get(&MetricId::ConstituentDelta)
             .expect("bucketed series should be stored");
 
         assert_eq!(series.len(), 2);

@@ -266,6 +266,7 @@ mod tests {
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),
             cs_cashflows: None,
+            check_report: None,
             meta: ResultsMeta::default(),
         }
     }
@@ -391,6 +392,7 @@ mod tests {
             monetary_nodes: IndexMap::new(),
             node_value_types: IndexMap::new(),
             cs_cashflows: None,
+            check_report: None,
             meta: ResultsMeta::default(),
         };
 

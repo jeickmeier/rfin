@@ -1,7 +1,7 @@
 """Market data bindings from ``finstack-core``: curves, FX, and market context.
 
 Provides term-structure curve types (discount, forward, hazard, price,
-volatility index), FX rate matrix, and the unified :class:`MarketContext`
+inflation, volatility surfaces, volatility index), FX rate matrix, and the unified :class:`MarketContext`
 container.
 
 Example::
@@ -29,7 +29,9 @@ __all__ = [
     "DiscountCurve",
     "ForwardCurve",
     "HazardCurve",
+    "InflationCurve",
     "PriceCurve",
+    "VolSurface",
     "VolatilityIndexCurve",
     # fx
     "FxConversionPolicy",
@@ -494,6 +496,127 @@ class PriceCurve:
 
     def __repr__(self) -> str: ...
 
+class InflationCurve:
+    """CPI inflation curve for inflation-linked pricing and breakeven analysis.
+
+    Constructed from ``(time, cpi_level)`` knot pairs.
+
+    Parameters
+    ----------
+    id : str
+        Unique curve identifier (e.g. ``"US-CPI"``).
+    base_date : datetime.date
+        Valuation date.
+    base_cpi : float
+        CPI level at ``t = 0``.
+    knots : list[tuple[float, float]]
+        ``(time_years, cpi_level)`` pairs.
+    day_count : str
+        Day-count convention (default ``"act_365f"``).
+    indexation_lag_months : int
+        Observation lag in months (default ``3``).
+    interp : str
+        Interpolation style (default ``"log_linear"``).
+
+    Raises
+    ------
+    ValueError
+        If the curve cannot be built from the given parameters.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        base_date: datetime.date,
+        base_cpi: float,
+        knots: list[tuple[float, float]],
+        day_count: str = "act_365f",
+        indexation_lag_months: int = 3,
+        interp: str = "log_linear",
+    ) -> None: ...
+    def cpi(self, t: float) -> float:
+        """CPI level at year fraction *t*, without indexation lag."""
+        ...
+
+    def cpi_with_lag(self, t: float) -> float:
+        """CPI level at year fraction *t*, with indexation lag applied."""
+        ...
+
+    def inflation_rate(self, t1: float, t2: float) -> float:
+        """Annualized inflation rate between *t1* and *t2* using CAGR."""
+        ...
+
+    def inflation_rate_simple(self, t1: float, t2: float) -> float:
+        """Simple non-compounded inflation rate between *t1* and *t2*."""
+        ...
+
+    @property
+    def id(self) -> str: ...
+    @property
+    def base_date(self) -> datetime.date: ...
+    @property
+    def day_count(self) -> str: ...
+    @property
+    def indexation_lag_months(self) -> int: ...
+    @property
+    def base_cpi(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+class VolSurface:
+    """Two-dimensional implied volatility surface on an expiry x strike grid.
+
+    Parameters
+    ----------
+    id : str
+        Unique surface identifier.
+    expiries : list[float]
+        Expiry axis in years.
+    strikes : list[float]
+        Strike axis.
+    vols_row_major : list[float]
+        Flat row-major volatility values of length ``len(expiries) * len(strikes)``.
+    secondary_axis : str
+        Semantic meaning of the second axis: ``"strike"`` or ``"tenor"``.
+    interpolation_mode : str
+        Interpolation contract: ``"vol"`` or ``"total_variance"``.
+
+    Raises
+    ------
+    ValueError
+        If the surface cannot be built from the given parameters.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        expiries: list[float],
+        strikes: list[float],
+        vols_row_major: list[float],
+        secondary_axis: str = "strike",
+        interpolation_mode: str = "vol",
+    ) -> None: ...
+    def value_checked(self, expiry: float, strike: float) -> float:
+        """Interpolated surface value with explicit bounds checking."""
+        ...
+
+    def value_clamped(self, expiry: float, strike: float) -> float:
+        """Interpolated surface value with flat extrapolation at the edges."""
+        ...
+
+    @property
+    def id(self) -> str: ...
+    @property
+    def expiries(self) -> list[float]: ...
+    @property
+    def strikes(self) -> list[float]: ...
+    @property
+    def secondary_axis(self) -> str: ...
+    @property
+    def interpolation_mode(self) -> str: ...
+    @property
+    def grid_shape(self) -> tuple[int, int]: ...
+    def __repr__(self) -> str: ...
+
 class VolatilityIndexCurve:
     """Volatility index forward curve (e.g. VIX term structure).
 
@@ -751,19 +874,21 @@ class MarketContext:
             DiscountCurve,
             ForwardCurve,
             HazardCurve,
+            InflationCurve,
             PriceCurve,
+            VolSurface,
             VolatilityIndexCurve,
         ],
     ) -> MarketContext:
         """Insert a curve into the context (fluent, returns ``self``).
 
         Accepts any curve type: :class:`DiscountCurve`, :class:`ForwardCurve`,
-        :class:`HazardCurve`, :class:`PriceCurve`, or
-        :class:`VolatilityIndexCurve`.
+        :class:`HazardCurve`, :class:`InflationCurve`, :class:`PriceCurve`,
+        :class:`VolSurface`, or :class:`VolatilityIndexCurve`.
 
         Parameters
         ----------
-        curve : DiscountCurve | ForwardCurve | HazardCurve | PriceCurve | VolatilityIndexCurve
+        curve : DiscountCurve | ForwardCurve | HazardCurve | InflationCurve | PriceCurve | VolSurface | VolatilityIndexCurve
             The curve to insert.
 
         Returns
@@ -845,6 +970,25 @@ class MarketContext:
         """
         ...
 
+    def get_inflation_curve(self, id: str) -> InflationCurve:
+        """Retrieve an inflation curve by identifier.
+
+        Parameters
+        ----------
+        id : str
+            Curve identifier.
+
+        Returns
+        -------
+        InflationCurve
+
+        Raises
+        ------
+        ValueError
+            If no inflation curve with this *id* exists.
+        """
+        ...
+
     def get_price_curve(self, id: str) -> PriceCurve:
         """Retrieve a price curve by identifier.
 
@@ -861,6 +1005,25 @@ class MarketContext:
         ------
         ValueError
             If no price curve with this *id* exists.
+        """
+        ...
+
+    def get_surface(self, id: str) -> VolSurface:
+        """Retrieve a vol surface by identifier.
+
+        Parameters
+        ----------
+        id : str
+            Surface identifier.
+
+        Returns
+        -------
+        VolSurface
+
+        Raises
+        ------
+        ValueError
+            If no surface with this *id* exists.
         """
         ...
 

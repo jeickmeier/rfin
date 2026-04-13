@@ -32,7 +32,7 @@ pub fn register_basket_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     // Custom metrics for basket-specific risks
     registry.register_metric(
-        MetricId::custom("constituent_delta"),
+        MetricId::ConstituentDelta,
         Arc::new(ConstituentDeltaCalculator),
         &[InstrumentType::Basket],
     );

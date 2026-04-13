@@ -292,7 +292,7 @@ fn test_pv01_alias() {
         .price_with_metrics(
             &market,
             BASE_DATE,
-            &[MetricId::custom("pv01")],
+            &[MetricId::Pv01],
             finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();

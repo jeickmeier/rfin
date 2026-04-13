@@ -28,7 +28,7 @@ pub(crate) fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
 
     // FX Delta (custom metric - FX spot sensitivity per 1%)
     registry.register_metric(
-        MetricId::custom("fx_delta"),
+        MetricId::FxDelta,
         Arc::new(fx_delta::FxDeltaCalculator),
         &[InstrumentType::FxSpot],
     );

@@ -3,8 +3,9 @@
 use std::sync::Arc;
 
 use finstack_core::dates::DayCount;
+use finstack_core::market_data::surfaces::{VolInterpolationMode, VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::term_structures::{
-    DiscountCurve, ForwardCurve, HazardCurve, PriceCurve, VolatilityIndexCurve,
+    DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve, VolatilityIndexCurve,
 };
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyValueError;
@@ -35,6 +36,28 @@ fn parse_interp_style(s: &str) -> PyResult<InterpStyle> {
 fn parse_extrapolation(s: &str) -> PyResult<ExtrapolationPolicy> {
     s.parse::<ExtrapolationPolicy>()
         .map_err(|e| PyValueError::new_err(format!("Invalid extrapolation {s:?}: {e}")))
+}
+
+/// Parse a [`VolSurfaceAxis`] from a Python string.
+fn parse_vol_surface_axis(s: &str) -> PyResult<VolSurfaceAxis> {
+    match s {
+        "strike" => Ok(VolSurfaceAxis::Strike),
+        "tenor" => Ok(VolSurfaceAxis::Tenor),
+        _ => Err(PyValueError::new_err(format!(
+            "Invalid vol surface axis {s:?}: expected 'strike' or 'tenor'",
+        ))),
+    }
+}
+
+/// Parse a [`VolInterpolationMode`] from a Python string.
+fn parse_vol_interpolation_mode(s: &str) -> PyResult<VolInterpolationMode> {
+    match s {
+        "vol" => Ok(VolInterpolationMode::Vol),
+        "total_variance" => Ok(VolInterpolationMode::TotalVariance),
+        _ => Err(PyValueError::new_err(format!(
+            "Invalid vol interpolation mode {s:?}: expected 'vol' or 'total_variance'",
+        ))),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -342,6 +365,124 @@ impl PyHazardCurve {
 }
 
 // ---------------------------------------------------------------------------
+// PyInflationCurve
+// ---------------------------------------------------------------------------
+
+/// CPI inflation curve for inflation-linked pricing and breakeven analysis.
+///
+/// Wraps [`InflationCurve`] from `finstack-core`.
+#[pyclass(
+    name = "InflationCurve",
+    module = "finstack.core.market_data.curves",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Clone)]
+pub struct PyInflationCurve {
+    /// Shared Rust curve.
+    pub(crate) inner: Arc<InflationCurve>,
+}
+
+impl PyInflationCurve {
+    /// Build from an existing `Arc<InflationCurve>`.
+    pub(crate) fn from_inner(inner: Arc<InflationCurve>) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyInflationCurve {
+    /// Construct an inflation curve from CPI knot points.
+    #[new]
+    #[pyo3(signature = (id, base_date, base_cpi, knots, day_count="act_365f", indexation_lag_months=3, interp="log_linear"))]
+    fn new(
+        id: &str,
+        base_date: &Bound<'_, PyAny>,
+        base_cpi: f64,
+        knots: Vec<(f64, f64)>,
+        day_count: &str,
+        indexation_lag_months: u32,
+        interp: &str,
+    ) -> PyResult<Self> {
+        let base = py_to_date(base_date)?;
+        let dc = parse_day_count(day_count)?;
+        let style = parse_interp_style(interp)?;
+
+        let curve = InflationCurve::builder(id)
+            .base_date(base)
+            .base_cpi(base_cpi)
+            .day_count(dc)
+            .indexation_lag_months(indexation_lag_months)
+            .knots(knots)
+            .interp(style)
+            .build()
+            .map_err(core_to_py)?;
+
+        Ok(Self {
+            inner: Arc::new(curve),
+        })
+    }
+
+    /// CPI level at year fraction `t`, without indexation lag.
+    #[pyo3(text_signature = "(self, t)")]
+    fn cpi(&self, t: f64) -> f64 {
+        self.inner.cpi(t)
+    }
+
+    /// CPI level at year fraction `t`, with configured indexation lag applied.
+    #[pyo3(text_signature = "(self, t)")]
+    fn cpi_with_lag(&self, t: f64) -> f64 {
+        self.inner.cpi_with_lag(t)
+    }
+
+    /// Annualized inflation rate between `t1` and `t2` using CAGR.
+    #[pyo3(text_signature = "(self, t1, t2)")]
+    fn inflation_rate(&self, t1: f64, t2: f64) -> f64 {
+        self.inner.inflation_rate(t1, t2)
+    }
+
+    /// Simple non-compounded inflation rate between `t1` and `t2`.
+    #[pyo3(text_signature = "(self, t1, t2)")]
+    fn inflation_rate_simple(&self, t1: f64, t2: f64) -> f64 {
+        self.inner.inflation_rate_simple(t1, t2)
+    }
+
+    /// Curve identifier string.
+    #[getter]
+    fn id(&self) -> &str {
+        self.inner.id().as_str()
+    }
+
+    /// Valuation base date.
+    #[getter]
+    fn base_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        date_to_py(py, self.inner.base_date())
+    }
+
+    /// Day-count convention used by this curve.
+    #[getter]
+    fn day_count(&self) -> String {
+        self.inner.day_count().to_string()
+    }
+
+    /// Indexation lag in months.
+    #[getter]
+    fn indexation_lag_months(&self) -> u32 {
+        self.inner.indexation_lag_months()
+    }
+
+    /// Base CPI level at `t = 0`.
+    #[getter]
+    fn base_cpi(&self) -> f64 {
+        self.inner.base_cpi()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("InflationCurve(id={:?})", self.inner.id().as_str())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // PyPriceCurve
 // ---------------------------------------------------------------------------
 
@@ -434,6 +575,118 @@ impl PyPriceCurve {
 
     fn __repr__(&self) -> String {
         format!("PriceCurve(id={:?})", self.inner.id().as_str())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PyVolSurface
+// ---------------------------------------------------------------------------
+
+/// Two-dimensional implied volatility surface on an expiry x strike grid.
+///
+/// Wraps [`VolSurface`] from `finstack-core`.
+#[pyclass(
+    name = "VolSurface",
+    module = "finstack.core.market_data.curves",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Clone)]
+pub struct PyVolSurface {
+    /// Shared Rust surface.
+    pub(crate) inner: Arc<VolSurface>,
+}
+
+impl PyVolSurface {
+    /// Build from an existing `Arc<VolSurface>`.
+    pub(crate) fn from_inner(inner: Arc<VolSurface>) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyVolSurface {
+    /// Construct a vol surface from row-major grid data.
+    #[new]
+    #[pyo3(signature = (id, expiries, strikes, vols_row_major, secondary_axis="strike", interpolation_mode="vol"))]
+    fn new(
+        id: &str,
+        expiries: Vec<f64>,
+        strikes: Vec<f64>,
+        vols_row_major: Vec<f64>,
+        secondary_axis: &str,
+        interpolation_mode: &str,
+    ) -> PyResult<Self> {
+        let axis = parse_vol_surface_axis(secondary_axis)?;
+        let mode = parse_vol_interpolation_mode(interpolation_mode)?;
+        let surface = VolSurface::from_grid_with_axis_and_mode(
+            id,
+            &expiries,
+            &strikes,
+            &vols_row_major,
+            axis,
+            mode,
+        )
+        .map_err(core_to_py)?;
+
+        Ok(Self {
+            inner: Arc::new(surface),
+        })
+    }
+
+    /// Interpolated surface value with explicit bounds checking.
+    #[pyo3(text_signature = "(self, expiry, strike)")]
+    fn value_checked(&self, expiry: f64, strike: f64) -> PyResult<f64> {
+        self.inner.value_checked(expiry, strike).map_err(core_to_py)
+    }
+
+    /// Interpolated surface value with flat extrapolation at the grid edges.
+    #[pyo3(text_signature = "(self, expiry, strike)")]
+    fn value_clamped(&self, expiry: f64, strike: f64) -> f64 {
+        self.inner.value_clamped(expiry, strike)
+    }
+
+    /// Surface identifier string.
+    #[getter]
+    fn id(&self) -> &str {
+        self.inner.id().as_str()
+    }
+
+    /// Expiry axis in years.
+    #[getter]
+    fn expiries(&self) -> Vec<f64> {
+        self.inner.expiries().to_vec()
+    }
+
+    /// Strike axis.
+    #[getter]
+    fn strikes(&self) -> Vec<f64> {
+        self.inner.strikes().to_vec()
+    }
+
+    /// Secondary-axis semantic meaning.
+    #[getter]
+    fn secondary_axis(&self) -> String {
+        self.inner.secondary_axis().to_string()
+    }
+
+    /// Interpolation contract used between grid points.
+    #[getter]
+    fn interpolation_mode(&self) -> String {
+        match self.inner.interpolation_mode() {
+            VolInterpolationMode::Vol => "vol".to_string(),
+            VolInterpolationMode::TotalVariance => "total_variance".to_string(),
+        }
+    }
+
+    /// Surface grid shape as `(n_expiries, n_strikes)`.
+    #[getter]
+    fn grid_shape(&self) -> (usize, usize) {
+        self.inner.grid_shape()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("VolSurface(id={:?})", self.inner.id().as_str())
     }
 }
 
@@ -542,13 +795,15 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "curves")?;
     m.setattr(
         "__doc__",
-        "Term structure curve bindings: discount, forward, hazard, price, vol-index.",
+        "Market-data bindings: discount, forward, hazard, inflation, price, vol surface, and vol-index.",
     )?;
 
     m.add_class::<PyDiscountCurve>()?;
     m.add_class::<PyForwardCurve>()?;
     m.add_class::<PyHazardCurve>()?;
+    m.add_class::<PyInflationCurve>()?;
     m.add_class::<PyPriceCurve>()?;
+    m.add_class::<PyVolSurface>()?;
     m.add_class::<PyVolatilityIndexCurve>()?;
 
     let all = PyList::new(
@@ -557,7 +812,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "DiscountCurve",
             "ForwardCurve",
             "HazardCurve",
+            "InflationCurve",
             "PriceCurve",
+            "VolSurface",
             "VolatilityIndexCurve",
         ],
     )?;

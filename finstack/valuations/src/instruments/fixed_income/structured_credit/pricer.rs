@@ -161,15 +161,15 @@ impl StructuredCredit {
             let total_npv = base_value.checked_add(hedge_npv)?;
 
             result.measures.insert(
-                crate::metrics::MetricId::custom("HedgeNPV"),
+                crate::metrics::MetricId::custom("hedge_npv"),
                 hedge_npv.amount(),
             );
             result.measures.insert(
-                crate::metrics::MetricId::custom("HedgedNPV"),
+                crate::metrics::MetricId::custom("hedged_npv"),
                 total_npv.amount(),
             );
             result.measures.insert(
-                crate::metrics::MetricId::custom("HedgeCount"),
+                crate::metrics::MetricId::custom("hedge_count"),
                 self.hedge_swaps.len() as f64,
             );
         }

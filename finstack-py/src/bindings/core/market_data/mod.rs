@@ -28,7 +28,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "market_data")?;
     m.setattr(
         "__doc__",
-        "Bindings for finstack-core market data: curves, FX, and market context.",
+        "Bindings for finstack-core market data: curves, vol surfaces, FX, and market context.",
     )?;
 
     let pkg: String = match parent.getattr("__package__") {
@@ -57,7 +57,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "context",
             "DiscountCurve",
             "ForwardCurve",
+            "HazardCurve",
+            "InflationCurve",
             "PriceCurve",
+            "VolSurface",
             "VolatilityIndexCurve",
             "FxMatrix",
             "FxRateResult",

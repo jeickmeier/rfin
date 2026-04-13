@@ -38,7 +38,7 @@ fn to_py(e: impl std::fmt::Display) -> PyErr {
 /// only when ownership is truly needed (e.g. `goal_seek` which mutates).
 pub enum ModelAccess<'py> {
     Borrowed(PyRef<'py, PyFinancialModelSpec>),
-    Owned(finstack_statements::FinancialModelSpec),
+    Owned(Box<finstack_statements::FinancialModelSpec>),
 }
 
 impl std::ops::Deref for ModelAccess<'_> {
@@ -46,7 +46,7 @@ impl std::ops::Deref for ModelAccess<'_> {
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Borrowed(r) => &r.inner,
-            Self::Owned(m) => m,
+            Self::Owned(m) => m.as_ref(),
         }
     }
 }
@@ -58,7 +58,7 @@ impl ModelAccess<'_> {
     pub fn into_owned(self) -> finstack_statements::FinancialModelSpec {
         match self {
             Self::Borrowed(r) => r.inner.clone(),
-            Self::Owned(m) => m,
+            Self::Owned(m) => *m,
         }
     }
 }
@@ -66,7 +66,7 @@ impl ModelAccess<'_> {
 /// Access to a [`StatementResult`] without cloning on the typed fast path.
 pub enum ResultAccess<'py> {
     Borrowed(PyRef<'py, PyStatementResult>),
-    Owned(finstack_statements::evaluator::StatementResult),
+    Owned(Box<finstack_statements::evaluator::StatementResult>),
 }
 
 impl std::ops::Deref for ResultAccess<'_> {
@@ -74,7 +74,7 @@ impl std::ops::Deref for ResultAccess<'_> {
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Borrowed(r) => &r.inner,
-            Self::Owned(r) => r,
+            Self::Owned(r) => r.as_ref(),
         }
     }
 }
@@ -84,7 +84,7 @@ impl ResultAccess<'_> {
     pub fn into_owned(self) -> finstack_statements::evaluator::StatementResult {
         match self {
             Self::Borrowed(r) => r.inner.clone(),
-            Self::Owned(r) => r,
+            Self::Owned(r) => *r,
         }
     }
 }
@@ -100,7 +100,7 @@ pub fn extract_model_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<ModelAccess<'
     let json: String = obj.extract()?;
     let inner: finstack_statements::FinancialModelSpec =
         serde_json::from_str(&json).map_err(to_py)?;
-    Ok(ModelAccess::Owned(inner))
+    Ok(ModelAccess::Owned(Box::new(inner)))
 }
 
 /// Extract a [`StatementResult`] without cloning when a typed Python
@@ -113,7 +113,7 @@ pub fn extract_results_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<ResultAcces
     let json: String = obj.extract()?;
     let inner: finstack_statements::evaluator::StatementResult =
         serde_json::from_str(&json).map_err(to_py)?;
-    Ok(ResultAccess::Owned(inner))
+    Ok(ResultAccess::Owned(Box::new(inner)))
 }
 
 // ---------------------------------------------------------------------------

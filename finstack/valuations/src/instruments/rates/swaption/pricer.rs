@@ -912,7 +912,7 @@ impl BermudanSwaptionPricer {
 
         // Add LSMC diagnostics to measures
         result.measures.insert(
-            crate::metrics::MetricId::custom("lsmc_stderr"),
+            crate::metrics::MetricId::custom("mc_stderr"),
             estimate.stderr,
         );
         result.measures.insert(

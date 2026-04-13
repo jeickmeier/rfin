@@ -646,7 +646,7 @@ fn test_multiple_metrics_simultaneously() {
 }
 
 #[test]
-fn test_pv01_alias_matches_risky_pv01() {
+fn test_risky_pv01_computable() {
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);
 
@@ -657,15 +657,13 @@ fn test_pv01_alias_matches_risky_pv01() {
         .price_with_metrics(
             &market,
             as_of,
-            &[MetricId::RiskyPv01, MetricId::custom("pv01")],
+            &[MetricId::RiskyPv01],
             finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
     let risky_pv01 = *result.measures.get("risky_pv01").unwrap();
-    let pv01 = *result.measures.get("pv01").unwrap();
-
-    assert_eq!(risky_pv01, pv01, "pv01 alias should match risky_pv01");
+    assert!(risky_pv01.abs() > 0.0, "risky_pv01 should be non-zero");
 }
 
 #[test]

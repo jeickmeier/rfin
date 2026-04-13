@@ -395,7 +395,7 @@ fn test_lsmc_vs_tree_sanity() {
 
     // Check that LSMC diagnostics are present
     assert!(
-        lsmc_result.measures.contains_key("lsmc_stderr"),
+        lsmc_result.measures.contains_key("mc_stderr"),
         "LSMC result should contain stderr"
     );
     assert!(
@@ -450,7 +450,7 @@ fn test_lsmc_vs_tree_sanity() {
         lsmc_pv,
         lsmc_result
             .measures
-            .get("lsmc_stderr")
+            .get("mc_stderr")
             .copied()
             .unwrap_or(0.0)
     );

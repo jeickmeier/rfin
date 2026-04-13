@@ -928,9 +928,9 @@ fn run_checks(
         }
         None => {
             let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-            eval_result = crate::bindings::extract::ResultAccess::Owned(
+            eval_result = crate::bindings::extract::ResultAccess::Owned(Box::new(
                 evaluator.evaluate(&model).map_err(sa_to_py)?,
-            );
+            ));
             &eval_result
         }
     };
@@ -973,9 +973,9 @@ fn run_three_statement_checks(
         }
         None => {
             let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-            eval_result = crate::bindings::extract::ResultAccess::Owned(
+            eval_result = crate::bindings::extract::ResultAccess::Owned(Box::new(
                 evaluator.evaluate(&model).map_err(sa_to_py)?,
-            );
+            ));
             &eval_result
         }
     };
@@ -1018,9 +1018,9 @@ fn run_credit_underwriting_checks(
         }
         None => {
             let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-            eval_result = crate::bindings::extract::ResultAccess::Owned(
+            eval_result = crate::bindings::extract::ResultAccess::Owned(Box::new(
                 evaluator.evaluate(&model).map_err(sa_to_py)?,
-            );
+            ));
             &eval_result
         }
     };

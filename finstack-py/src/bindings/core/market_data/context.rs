@@ -10,7 +10,8 @@ use pyo3::types::{PyList, PyModule};
 use crate::errors::core_to_py;
 
 use super::curves::{
-    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyPriceCurve, PyVolatilityIndexCurve,
+    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve, PyPriceCurve, PyVolSurface,
+    PyVolatilityIndexCurve,
 };
 use super::fx::PyFxMatrix;
 
@@ -53,7 +54,8 @@ impl PyMarketContext {
     /// Insert a curve into the context (fluent, returns ``self``).
     ///
     /// Accepts any curve type: ``DiscountCurve``, ``ForwardCurve``,
-    /// ``HazardCurve``, ``PriceCurve``, or ``VolatilityIndexCurve``.
+    /// ``HazardCurve``, ``InflationCurve``, ``PriceCurve``, ``VolSurface``,
+    /// or ``VolatilityIndexCurve``.
     #[pyo3(text_signature = "(self, curve)")]
     fn insert<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -71,8 +73,16 @@ impl PyMarketContext {
             slf.inner = std::mem::take(&mut slf.inner).insert(Arc::clone(&hc.inner));
             return Ok(slf);
         }
+        if let Ok(ic) = curve.extract::<PyRef<'_, PyInflationCurve>>() {
+            slf.inner = std::mem::take(&mut slf.inner).insert(Arc::clone(&ic.inner));
+            return Ok(slf);
+        }
         if let Ok(pc) = curve.extract::<PyRef<'_, PyPriceCurve>>() {
             slf.inner = std::mem::take(&mut slf.inner).insert(Arc::clone(&pc.inner));
+            return Ok(slf);
+        }
+        if let Ok(vs) = curve.extract::<PyRef<'_, PyVolSurface>>() {
+            slf.inner = std::mem::take(&mut slf.inner).insert_surface(Arc::clone(&vs.inner));
             return Ok(slf);
         }
         if let Ok(vc) = curve.extract::<PyRef<'_, PyVolatilityIndexCurve>>() {
@@ -80,7 +90,7 @@ impl PyMarketContext {
             return Ok(slf);
         }
         Err(PyTypeError::new_err(
-            "insert() expects a DiscountCurve, ForwardCurve, HazardCurve, PriceCurve, or VolatilityIndexCurve",
+            "insert() expects a DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve, VolSurface, or VolatilityIndexCurve",
         ))
     }
 
@@ -117,6 +127,15 @@ impl PyMarketContext {
         Ok(PyHazardCurve::from_inner(arc))
     }
 
+    /// Retrieve an inflation curve by identifier.
+    ///
+    /// Raises ``ValueError`` if the curve does not exist or is not an inflation curve.
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_inflation_curve(&self, id: &str) -> PyResult<PyInflationCurve> {
+        let arc = self.inner.get_inflation_curve(id).map_err(core_to_py)?;
+        Ok(PyInflationCurve::from_inner(arc))
+    }
+
     /// Retrieve a price curve by identifier.
     ///
     /// Raises ``ValueError`` if the curve does not exist or is not a price curve.
@@ -124,6 +143,15 @@ impl PyMarketContext {
     fn get_price_curve(&self, id: &str) -> PyResult<PyPriceCurve> {
         let arc = self.inner.get_price_curve(id).map_err(core_to_py)?;
         Ok(PyPriceCurve::from_inner(arc))
+    }
+
+    /// Retrieve a vol surface by identifier.
+    ///
+    /// Raises ``ValueError`` if the surface does not exist.
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_surface(&self, id: &str) -> PyResult<PyVolSurface> {
+        let arc = self.inner.get_surface(id).map_err(core_to_py)?;
+        Ok(PyVolSurface::from_inner(arc))
     }
 
     /// Retrieve a volatility index curve by identifier.

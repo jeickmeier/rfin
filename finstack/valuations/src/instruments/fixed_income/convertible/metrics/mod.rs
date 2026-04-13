@@ -54,12 +54,12 @@ pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
         &[InstrumentType::Convertible],
     );
     registry.register_metric(
-        MetricId::custom("accrued_interest"),
+        MetricId::Accrued,
         Arc::new(accrued_interest::AccruedInterestCalculator),
         &[InstrumentType::Convertible],
     );
     registry.register_metric(
-        MetricId::custom("clean_price"),
+        MetricId::CleanPrice,
         Arc::new(accrued_interest::CleanPriceCalculator),
         &[InstrumentType::Convertible],
     );
@@ -112,7 +112,7 @@ pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
         &[InstrumentType::Convertible],
     );
     registry.register_metric(
-        MetricId::custom("implied_vol"),
+        MetricId::ImpliedVol,
         Arc::new(implied_vol::ImpliedVolCalculator),
         &[InstrumentType::Convertible],
     );

@@ -46,7 +46,7 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
 
         // FX-specific and correlation metrics (using custom MetricIds)
         registry.register_metric(
-            MetricId::custom("fx_delta"),
+            MetricId::FxDelta,
             Arc::new(fx_delta::FxDeltaCalculator),
             &[InstrumentType::QuantoOption],
         );

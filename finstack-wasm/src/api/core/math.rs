@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn non_square_row_detected() {
         // Verify the dimension check logic used by flatten_matrix
-        let rows = vec![vec![1.0, 0.0], vec![0.0]];
+        let rows = [vec![1.0, 0.0], vec![0.0]];
         let n = rows.len(); // 2
         let bad_row = rows.iter().enumerate().find(|(_, r)| r.len() != n);
         assert!(bad_row.is_some(), "should detect row length mismatch");

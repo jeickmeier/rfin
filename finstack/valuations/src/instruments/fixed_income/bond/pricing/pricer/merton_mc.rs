@@ -177,7 +177,7 @@ impl Pricer for SimpleBondMertonMcPricer {
             mc_result.average_pik_fraction,
         );
         measures.insert(
-            crate::metrics::MetricId::custom("mc_standard_error"),
+            crate::metrics::MetricId::custom("mc_stderr"),
             mc_result.standard_error,
         );
         measures.insert(

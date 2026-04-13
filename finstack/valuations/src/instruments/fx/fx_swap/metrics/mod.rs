@@ -43,7 +43,7 @@ pub(crate) fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             &[InstrumentType::FxSwap],
         )
         .register_metric(
-            MetricId::custom("fx_delta"),
+            MetricId::FxDelta,
             Arc::new(fx_delta::FxDeltaCalculator),
             &[InstrumentType::FxSwap],
         )

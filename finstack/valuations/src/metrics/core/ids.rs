@@ -747,6 +747,30 @@ impl MetricId {
     /// FX volatility sensitivity per 1% change (quanto options)
     pub const FxVega: Self = Self(Cow::Borrowed("fx_vega"));
 
+    /// FX spot rate delta (sensitivity to FX rate move, typically per 1%).
+    ///
+    /// Distinct from `Delta` which measures sensitivity to the instrument's
+    /// primary underlying (equity spot, commodity price, etc.). `FxDelta`
+    /// measures sensitivity to the FX rate for FX spot, FX swap, and
+    /// quanto instruments.
+    ///
+    /// Units: currency per 1% FX rate move.
+    pub const FxDelta: Self = Self(Cow::Borrowed("fx_delta"));
+
+    /// Volatility index delta (sensitivity to volatility index level).
+    ///
+    /// Measures PV sensitivity to a 1-point move in a volatility index
+    /// (e.g., VIX). Used for vol index futures and options.
+    ///
+    /// Units: currency per 1 vol point.
+    pub const DeltaVol: Self = Self(Cow::Borrowed("delta_vol"));
+
+    /// Per-constituent delta for basket instruments.
+    ///
+    /// Decomposes basket delta by individual constituent, providing
+    /// per-name or per-asset sensitivity attribution.
+    pub const ConstituentDelta: Self = Self(Cow::Borrowed("constituent_delta"));
+
     /// Convexity adjustment risk (CMS options)
     pub const ConvexityAdjustmentRisk: Self = Self(Cow::Borrowed("convexity_adjustment_risk"));
 
@@ -1200,6 +1224,9 @@ impl MetricId {
         MetricId::SpreadDv01,
         MetricId::Correlation01,
         MetricId::FxVega,
+        MetricId::FxDelta,
+        MetricId::DeltaVol,
+        MetricId::ConstituentDelta,
         MetricId::ConvexityAdjustmentRisk,
         MetricId::FinancingAnnuity,
         MetricId::IndexDelta,
@@ -1275,6 +1302,333 @@ impl MetricId {
         MetricId::RollSpecialness,
     ];
 }
+
+// ============================================================================
+// Metric Groups
+// ============================================================================
+
+/// Logical grouping of standard metrics for discovery and display.
+///
+/// Each standard metric belongs to exactly one group. Use
+/// [`MetricGroup::metrics()`] to list members and
+/// [`MetricGroup::ALL`] to iterate all groups.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
+pub enum MetricGroup {
+    /// Clean/dirty price, accrued, yields, spreads, duration, convexity, NAV,
+    /// embedded option value.
+    Pricing,
+    /// Theta variants, carry decomposition (coupon income, pull-to-par,
+    /// roll-down, funding cost).
+    Carry,
+    /// DV01, CS01, bucketed variants, Rho, PV01, all *01 sensitivities
+    /// (inflation, prepayment, severity, etc.).
+    Sensitivity,
+    /// Delta, Gamma, Vega, higher-order greeks, cross-gamma, implied vol,
+    /// variance swap greeks.
+    Greeks,
+    /// CDS: par spread, risky PV01/annuity, protection/premium leg PV,
+    /// jump-to-default, expected loss, default probability, recovery.
+    Credit,
+    /// IRS: annuity, par rate, PV fixed/float, deposit, basis swap,
+    /// TRS, forward PV01.
+    Rates,
+    /// FX spot, base/quote amounts, inverse rate, FX01, FX delta, FX vega.
+    Fx,
+    /// Equity price/shares/dividend/forward, index delta, constituent delta,
+    /// delta vol, basket/ETF metrics.
+    Equity,
+    /// WAL, WAM, CPR, CDR, SMM, pool metrics, ABS/CLO/CMBS/RMBS specifics,
+    /// spread duration.
+    StructuredCredit,
+    /// PE fund (IRR, MOIC, TVPI), DCF valuation, repo, inflation-linked,
+    /// VaR, dollar roll.
+    Alternatives,
+}
+
+impl MetricGroup {
+    /// All groups in display order.
+    pub const ALL: &'static [MetricGroup] = &[
+        MetricGroup::Pricing,
+        MetricGroup::Carry,
+        MetricGroup::Sensitivity,
+        MetricGroup::Greeks,
+        MetricGroup::Credit,
+        MetricGroup::Rates,
+        MetricGroup::Fx,
+        MetricGroup::Equity,
+        MetricGroup::StructuredCredit,
+        MetricGroup::Alternatives,
+    ];
+
+    /// Human-readable group name.
+    pub const fn display_name(&self) -> &'static str {
+        match self {
+            MetricGroup::Pricing => "Pricing",
+            MetricGroup::Carry => "Carry",
+            MetricGroup::Sensitivity => "Sensitivity",
+            MetricGroup::Greeks => "Greeks",
+            MetricGroup::Credit => "Credit",
+            MetricGroup::Rates => "Rates",
+            MetricGroup::Fx => "FX",
+            MetricGroup::Equity => "Equity",
+            MetricGroup::StructuredCredit => "Structured Credit",
+            MetricGroup::Alternatives => "Alternatives",
+        }
+    }
+
+    /// Standard metrics belonging to this group.
+    pub fn metrics(&self) -> &'static [MetricId] {
+        match self {
+            MetricGroup::Pricing => &PRICING_METRICS,
+            MetricGroup::Carry => &CARRY_METRICS,
+            MetricGroup::Sensitivity => &SENSITIVITY_METRICS,
+            MetricGroup::Greeks => &GREEKS_METRICS,
+            MetricGroup::Credit => &CREDIT_METRICS,
+            MetricGroup::Rates => &RATES_METRICS,
+            MetricGroup::Fx => &FX_METRICS,
+            MetricGroup::Equity => &EQUITY_METRICS,
+            MetricGroup::StructuredCredit => &STRUCTURED_CREDIT_METRICS,
+            MetricGroup::Alternatives => &ALTERNATIVES_METRICS,
+        }
+    }
+
+    /// All groups with their metrics, for iteration.
+    pub fn all_with_metrics() -> &'static [(MetricGroup, &'static [MetricId])] {
+        static DATA: OnceLock<Vec<(MetricGroup, &'static [MetricId])>> = OnceLock::new();
+        DATA.get_or_init(|| MetricGroup::ALL.iter().map(|g| (*g, g.metrics())).collect())
+    }
+}
+
+impl fmt::Display for MetricGroup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.display_name())
+    }
+}
+
+// --- Per-group metric arrays ------------------------------------------------
+
+const PRICING_METRICS: [MetricId; 18] = [
+    MetricId::DirtyPrice,
+    MetricId::CleanPrice,
+    MetricId::Accrued,
+    MetricId::Ytm,
+    MetricId::Ytw,
+    MetricId::ZSpread,
+    MetricId::Oas,
+    MetricId::ISpread,
+    MetricId::GSpread,
+    MetricId::ASWPar,
+    MetricId::ASWMarket,
+    MetricId::DiscountMargin,
+    MetricId::EmbeddedOptionValue,
+    MetricId::DurationMac,
+    MetricId::DurationMod,
+    MetricId::YieldDv01,
+    MetricId::Convexity,
+    MetricId::TimeToMaturity,
+];
+
+const CARRY_METRICS: [MetricId; 9] = [
+    MetricId::Theta,
+    MetricId::ThetaCarry,
+    MetricId::ThetaRollDown,
+    MetricId::ThetaDecay,
+    MetricId::CarryTotal,
+    MetricId::CouponIncome,
+    MetricId::PullToPar,
+    MetricId::RollDown,
+    MetricId::FundingCost,
+];
+
+const SENSITIVITY_METRICS: [MetricId; 30] = [
+    MetricId::Dv01,
+    MetricId::BucketedDv01,
+    MetricId::Cs01,
+    MetricId::BucketedCs01,
+    MetricId::Cs01Hazard,
+    MetricId::BucketedCs01Hazard,
+    MetricId::Rho,
+    MetricId::ForeignRho,
+    MetricId::Pv01,
+    MetricId::ForwardPv01,
+    MetricId::Dv01Domestic,
+    MetricId::Dv01Foreign,
+    MetricId::Dv01Primary,
+    MetricId::Dv01Reference,
+    MetricId::SpreadDv01,
+    MetricId::Dividend01,
+    MetricId::Inflation01,
+    MetricId::Prepayment01,
+    MetricId::Default01,
+    MetricId::Severity01,
+    MetricId::Conversion01,
+    MetricId::CollateralHaircut01,
+    MetricId::CollateralPrice01,
+    MetricId::Nav01,
+    MetricId::Carry01,
+    MetricId::Hurdle01,
+    MetricId::Npv01,
+    MetricId::Correlation01,
+    MetricId::Dm01,
+    MetricId::ConvexityAdjustmentRisk,
+];
+
+const GREEKS_METRICS: [MetricId; 28] = [
+    MetricId::Delta,
+    MetricId::Gamma,
+    MetricId::Vega,
+    MetricId::BucketedVega,
+    MetricId::Vanna,
+    MetricId::Volga,
+    MetricId::Veta,
+    MetricId::Charm,
+    MetricId::Color,
+    MetricId::Speed,
+    MetricId::ImpliedVol,
+    MetricId::IrConvexity,
+    MetricId::IrCrossGamma,
+    MetricId::InflationConvexity,
+    MetricId::CsGamma,
+    MetricId::CrossGammaRatesCredit,
+    MetricId::CrossGammaRatesVol,
+    MetricId::CrossGammaSpotVol,
+    MetricId::CrossGammaSpotCredit,
+    MetricId::CrossGammaFxVol,
+    MetricId::CrossGammaFxRates,
+    MetricId::ThetaGamma,
+    MetricId::VarianceVega,
+    MetricId::ExpectedVariance,
+    MetricId::RealizedVariance,
+    MetricId::VarianceNotional,
+    MetricId::VarianceStrikeVol,
+    MetricId::VarianceTimeToMaturity,
+];
+
+const CREDIT_METRICS: [MetricId; 9] = [
+    MetricId::ParSpread,
+    MetricId::RiskyPv01,
+    MetricId::RiskyAnnuity,
+    MetricId::ProtectionLegPv,
+    MetricId::PremiumLegPv,
+    MetricId::JumpToDefault,
+    MetricId::ExpectedLoss,
+    MetricId::DefaultProbability,
+    MetricId::Recovery01,
+];
+
+const RATES_METRICS: [MetricId; 16] = [
+    MetricId::Annuity,
+    MetricId::ParRate,
+    MetricId::PvFixed,
+    MetricId::PvFloat,
+    MetricId::PvPrimary,
+    MetricId::PvReference,
+    MetricId::AnnuityPrimary,
+    MetricId::AnnuityReference,
+    MetricId::BasisParSpread,
+    MetricId::IncrementalParSpread,
+    MetricId::FinancingAnnuity,
+    MetricId::DurationDv01,
+    MetricId::Yf,
+    MetricId::DfStart,
+    MetricId::DfEnd,
+    MetricId::DepositParRate,
+    // DfEndFromQuote and QuoteRate are calibration inputs, included here
+];
+
+const FX_METRICS: [MetricId; 8] = [
+    MetricId::SpotRate,
+    MetricId::BaseAmount,
+    MetricId::QuoteAmount,
+    MetricId::InverseRate,
+    MetricId::Fx01,
+    MetricId::FxDelta,
+    MetricId::FxVega,
+    MetricId::IndexDelta,
+];
+
+const EQUITY_METRICS: [MetricId; 14] = [
+    MetricId::EquityPricePerShare,
+    MetricId::EquityShares,
+    MetricId::EquityDividendYield,
+    MetricId::EquityForwardPrice,
+    MetricId::DeltaVol,
+    MetricId::ConstituentDelta,
+    MetricId::Nav,
+    MetricId::BasketValue,
+    MetricId::ConstituentCount,
+    MetricId::ExpenseRatio,
+    MetricId::TrackingError,
+    MetricId::Utilization,
+    MetricId::PremiumDiscount,
+    MetricId::QuoteRate,
+];
+
+const STRUCTURED_CREDIT_METRICS: [MetricId; 29] = [
+    MetricId::WAL,
+    MetricId::WAM,
+    MetricId::ExpectedMaturity,
+    MetricId::PoolFactor,
+    MetricId::CPR,
+    MetricId::SMM,
+    MetricId::CDR,
+    MetricId::LossSeverity,
+    MetricId::SpreadDuration,
+    MetricId::AbsDelinquency,
+    MetricId::AbsChargeOff,
+    MetricId::AbsExcessSpread,
+    MetricId::AbsCreditEnhancement,
+    MetricId::CloWarf,
+    MetricId::CloWas,
+    MetricId::CloWac,
+    MetricId::CloDiversity,
+    MetricId::CloOcRatio,
+    MetricId::CloIcRatio,
+    MetricId::CloRecoveryRate,
+    MetricId::CmbsDscr,
+    MetricId::CmbsWaltv,
+    MetricId::CmbsCreditEnhancement,
+    MetricId::RmbsPsaSpeed,
+    MetricId::RmbsSdaSpeed,
+    MetricId::RmbsWaltv,
+    MetricId::RmbsWafico,
+    MetricId::DfEndFromQuote,
+    MetricId::RealDuration,
+];
+
+const ALTERNATIVES_METRICS: [MetricId; 23] = [
+    // Inflation-linked
+    MetricId::RealYield,
+    MetricId::IndexRatio,
+    MetricId::BreakevenInflation,
+    // PE / Private Markets
+    MetricId::LpIrr,
+    MetricId::GpIrr,
+    MetricId::MoicLp,
+    MetricId::DpiLp,
+    MetricId::TvpiLp,
+    MetricId::CarryAccrued,
+    // DCF Valuation
+    MetricId::EnterpriseValue,
+    MetricId::EquityValue,
+    MetricId::TerminalValuePV,
+    // Repo
+    MetricId::CollateralValue,
+    MetricId::RequiredCollateral,
+    MetricId::CollateralCoverage,
+    MetricId::RepoInterest,
+    MetricId::FundingRisk,
+    MetricId::EffectiveRate,
+    MetricId::ImpliedCollateralReturn,
+    // Dollar Roll / TBA
+    MetricId::ImpliedFinancingRate,
+    MetricId::RollSpecialness,
+    // VaR
+    MetricId::HVar,
+    MetricId::ExpectedShortfall,
+];
+
+// ============================================================================
 
 impl fmt::Display for MetricId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1532,5 +1886,51 @@ mod tests {
         assert_eq!(lower, upper);
         assert_eq!(lower, mixed);
         assert_eq!(lower, MetricId::Dv01);
+    }
+
+    #[test]
+    fn test_every_standard_metric_in_exactly_one_group() {
+        let mut grouped: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for group in MetricGroup::ALL {
+            for metric in group.metrics() {
+                assert!(
+                    grouped.insert(metric.as_str()),
+                    "metric '{}' appears in multiple groups (duplicate found in {:?})",
+                    metric.as_str(),
+                    group,
+                );
+            }
+        }
+        for metric in MetricId::ALL_STANDARD {
+            assert!(
+                grouped.contains(metric.as_str()),
+                "metric '{}' from ALL_STANDARD is not assigned to any MetricGroup",
+                metric.as_str(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_group_union_equals_all_standard() {
+        let mut from_groups: Vec<&str> = MetricGroup::ALL
+            .iter()
+            .flat_map(|g| g.metrics().iter().map(|m| m.as_str()))
+            .collect();
+        from_groups.sort();
+        let mut from_all: Vec<&str> = MetricId::ALL_STANDARD.iter().map(|m| m.as_str()).collect();
+        from_all.sort();
+        assert_eq!(
+            from_groups, from_all,
+            "union of all MetricGroup arrays must equal ALL_STANDARD"
+        );
+    }
+
+    #[test]
+    fn test_metric_group_all_with_metrics() {
+        let grouped = MetricGroup::all_with_metrics();
+        assert_eq!(grouped.len(), MetricGroup::ALL.len());
+        for (group, metrics) in grouped {
+            assert!(!metrics.is_empty(), "group {:?} has no metrics", group);
+        }
     }
 }

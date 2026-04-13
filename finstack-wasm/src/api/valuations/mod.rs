@@ -98,6 +98,27 @@ pub fn list_standard_metrics() -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&ids).map_err(to_js_err)
 }
 
+/// List all standard metrics organized by group.
+///
+/// Returns a JSON object `{ group_name: [metric_id, ...], ... }` where
+/// each key is a human-readable group name (e.g. "Pricing", "Greeks",
+/// "Sensitivity") and the value is a sorted array of metric ID strings.
+#[wasm_bindgen(js_name = listStandardMetricsGrouped)]
+pub fn list_standard_metrics_grouped() -> Result<JsValue, JsValue> {
+    let grouped: Vec<(String, Vec<String>)> = finstack_valuations::metrics::standard_registry()
+        .available_metrics_grouped()
+        .into_iter()
+        .map(|(group, metrics)| {
+            (
+                group.display_name().to_string(),
+                metrics.into_iter().map(|m| m.to_string()).collect(),
+            )
+        })
+        .collect();
+    let map: std::collections::BTreeMap<String, Vec<String>> = grouped.into_iter().collect();
+    serde_wasm_bindgen::to_value(&map).map_err(to_js_err)
+}
+
 // ---------------------------------------------------------------------------
 // Attribution
 // ---------------------------------------------------------------------------

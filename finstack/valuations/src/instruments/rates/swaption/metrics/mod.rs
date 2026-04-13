@@ -99,7 +99,7 @@ pub(crate) fn register_bermudan_swaption_metrics(
     }
     // Register custom ExerciseProbability metric separately
     registry.register_metric(
-        crate::metrics::MetricId::custom("ExerciseProbability"),
+        crate::metrics::MetricId::custom("exercise_probability"),
         std::sync::Arc::new(ExerciseProbabilityCalculator::new_with_hw(
             hw_params.kappa,
             hw_params.sigma,

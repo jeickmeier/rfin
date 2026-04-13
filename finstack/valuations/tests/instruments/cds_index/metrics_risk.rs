@@ -310,8 +310,8 @@ fn test_cs01_increases_with_maturity() {
 }
 
 #[test]
-fn test_risky_pv01_matches_pv01_alias() {
-    // Test: Risky PV01 via metrics matches pv01 alias
+fn test_risky_pv01_present() {
+    // Test: Risky PV01 metric is present and non-zero
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -323,19 +323,12 @@ fn test_risky_pv01_matches_pv01_alias() {
         .price_with_metrics(
             &ctx,
             as_of,
-            &[MetricId::RiskyPv01, MetricId::Pv01],
+            &[MetricId::RiskyPv01],
             finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
     let metric_rpv01 = *result.measures.get("risky_pv01").unwrap();
-    let metric_pv01 = *result.measures.get("pv01").unwrap();
-
-    assert_relative_eq(
-        metric_pv01,
-        metric_rpv01,
-        0.001,
-        "Risky PV01: pv01 alias vs metric",
-    );
+    assert!(metric_rpv01.abs() > 0.0, "risky_pv01 should be non-zero");
 }
 
 #[test]
@@ -466,8 +459,8 @@ fn test_all_risk_metrics_together() {
 }
 
 #[test]
-fn test_pv01_alias() {
-    // Test: "pv01" alias works for risky_pv01
+fn test_risky_pv01_computable() {
+    // Test: risky_pv01 metric computes for CDS Index
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -479,7 +472,7 @@ fn test_pv01_alias() {
         .price_with_metrics(
             &ctx,
             as_of,
-            &[MetricId::RiskyPv01, MetricId::custom("pv01")],
+            &[MetricId::RiskyPv01],
             finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
@@ -488,8 +481,7 @@ fn test_pv01_alias() {
         .measures
         .get("risky_pv01")
         .expect("risky_pv01 present");
-    let pv01 = *result.measures.get("pv01").expect("pv01 alias present");
-    assert_relative_eq(rpv01, pv01, 1e-8, "pv01 alias should match risky_pv01");
+    assert!(rpv01.abs() > 0.0, "risky_pv01 should be non-zero");
 }
 
 #[test]

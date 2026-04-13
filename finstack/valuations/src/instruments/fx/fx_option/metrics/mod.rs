@@ -36,21 +36,6 @@ pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         &[InstrumentType::FxOption],
     );
 
-    // Convenience aliases.
-    registry.register_metric(
-        MetricId::custom("rho_domestic"),
-        Arc::new(crate::metrics::OptionRhoCalculator::<
-            crate::instruments::FxOption,
-        >::default()),
-        &[InstrumentType::FxOption],
-    );
-    registry.register_metric(
-        MetricId::custom("rho_foreign"),
-        Arc::new(crate::metrics::OptionForeignRhoCalculator::<
-            crate::instruments::FxOption,
-        >::default()),
-        &[InstrumentType::FxOption],
-    );
     registry.register_metric(
         MetricId::CrossGammaFxVol,
         Arc::new(CrossFactorCalculator::new(
