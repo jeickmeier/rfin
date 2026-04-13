@@ -1,0 +1,210 @@
+//! Shared utilities for historical rate fixing lookups.
+//!
+//! Fixings are stored as [`ScalarTimeSeries`] in [`MarketContext`] using the
+//! convention `FIXING:{forward_curve_id}`. This module centralizes that
+//! convention and provides helpers with clear error messages for seasoned
+//! instrument pricing.
+
+use crate::dates::Date;
+use crate::market_data::context::MarketContext;
+use crate::market_data::scalars::ScalarTimeSeries;
+use crate::Result;
+
+/// Canonical prefix for fixing series stored in MarketContext.
+pub const FIXING_PREFIX: &str = "FIXING:";
+
+/// Build the canonical series ID for a given forward curve / rate index.
+///
+/// # Examples
+///
+/// ```
+/// use finstack_core::market_data::fixings::fixing_series_id;
+/// assert_eq!(fixing_series_id("USD-SOFR"), "FIXING:USD-SOFR");
+/// ```
+pub fn fixing_series_id(forward_curve_id: &str) -> String {
+    format!("{}{}", FIXING_PREFIX, forward_curve_id)
+}
+
+/// Look up the fixing series for a rate index in MarketContext.
+///
+/// Returns a clear error when the series is missing, directing the user
+/// to provide the expected `ScalarTimeSeries`.
+pub fn get_fixing_series<'a>(
+    context: &'a MarketContext,
+    forward_curve_id: &str,
+) -> Result<&'a ScalarTimeSeries> {
+    let id = fixing_series_id(forward_curve_id);
+    context.get_series(&id).map_err(|_| {
+        crate::Error::Validation(format!(
+            "No fixing series found for index '{forward_curve_id}'. \
+             Seasoned instruments require a ScalarTimeSeries with id '{id}' \
+             containing historical observations for dates before the valuation date."
+        ))
+    })
+}
+
+/// Require a fixing value from an already-resolved optional series.
+///
+/// Uses `value_on()` (step interpolation / LOCF), appropriate for overnight
+/// RFR fixings in the compounded path.
+///
+/// Returns a clear error when the series is `None` or the date is missing.
+pub fn require_fixing_value(
+    series: Option<&ScalarTimeSeries>,
+    forward_curve_id: &str,
+    date: Date,
+    as_of: Date,
+) -> Result<f64> {
+    let s = series.ok_or_else(|| {
+        crate::Error::Validation(format!(
+            "Seasoned instrument requires fixings for index '{forward_curve_id}' on {date} \
+             (valuation date: {as_of}). Provide a ScalarTimeSeries with id '{}'.",
+            fixing_series_id(forward_curve_id)
+        ))
+    })?;
+    s.value_on(date).map_err(|e| {
+        crate::Error::Validation(format!(
+            "Missing fixing for '{forward_curve_id}' on {date} (valuation date: {as_of}). \
+             The fixing series exists but lookup failed: {e}"
+        ))
+    })
+}
+
+/// Require a fixing value using exact-date matching (no interpolation).
+///
+/// Fails if no observation exists for the exact requested date.
+/// Appropriate for term rate fixings (e.g., 3M LIBOR resets).
+pub fn require_fixing_value_exact(
+    series: Option<&ScalarTimeSeries>,
+    forward_curve_id: &str,
+    date: Date,
+    as_of: Date,
+) -> Result<f64> {
+    let s = series.ok_or_else(|| {
+        crate::Error::Validation(format!(
+            "Seasoned instrument requires fixings for index '{forward_curve_id}' on {date} \
+             (valuation date: {as_of}). Provide a ScalarTimeSeries with id '{}'.",
+            fixing_series_id(forward_curve_id)
+        ))
+    })?;
+    s.value_on_exact(date).map_err(|e| {
+        crate::Error::Validation(format!(
+            "Missing fixing for '{forward_curve_id}' on {date} (valuation date: {as_of}). \
+             The fixing series exists but has no exact observation: {e}"
+        ))
+    })
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::market_data::scalars::ScalarTimeSeries;
+    use time::macros::date;
+
+    fn sample_series() -> ScalarTimeSeries {
+        ScalarTimeSeries::new(
+            "FIXING:USD-SOFR",
+            vec![
+                (date!(2024 - 01 - 02), 0.053),
+                (date!(2024 - 01 - 03), 0.054),
+                (date!(2024 - 01 - 05), 0.052),
+            ],
+            None,
+        )
+        .expect("valid series")
+    }
+
+    #[test]
+    fn fixing_series_id_builds_correct_key() {
+        assert_eq!(fixing_series_id("USD-SOFR"), "FIXING:USD-SOFR");
+        assert_eq!(fixing_series_id("EUR-ESTR"), "FIXING:EUR-ESTR");
+    }
+
+    #[test]
+    fn get_fixing_series_returns_series_when_present() {
+        let series = sample_series();
+        let ctx = MarketContext::new().insert_series(series);
+        let result = get_fixing_series(&ctx, "USD-SOFR");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn get_fixing_series_errors_when_missing() {
+        let ctx = MarketContext::new();
+        let result = get_fixing_series(&ctx, "USD-SOFR");
+        assert!(result.is_err());
+        let msg = result.expect_err("should error").to_string();
+        assert!(msg.contains("FIXING:USD-SOFR"), "error should mention series id: {msg}");
+        assert!(msg.contains("USD-SOFR"), "error should mention index: {msg}");
+    }
+
+    #[test]
+    fn require_fixing_value_returns_rate_via_locf() {
+        let series = sample_series();
+        let as_of = date!(2024 - 01 - 10);
+        // Jan 4 is not observed; LOCF from Jan 3 (0.054)
+        let rate = require_fixing_value(
+            Some(&series),
+            "USD-SOFR",
+            date!(2024 - 01 - 04),
+            as_of,
+        )
+        .expect("should resolve via LOCF");
+        assert!((rate - 0.054).abs() < 1e-10);
+    }
+
+    #[test]
+    fn require_fixing_value_errors_when_series_is_none() {
+        let result = require_fixing_value(
+            None,
+            "USD-SOFR",
+            date!(2024 - 01 - 02),
+            date!(2024 - 01 - 10),
+        );
+        assert!(result.is_err());
+        let msg = result.expect_err("should error").to_string();
+        assert!(msg.contains("FIXING:USD-SOFR"), "should mention series id: {msg}");
+        assert!(msg.contains("2024-01-02"), "should mention date: {msg}");
+    }
+
+    #[test]
+    fn require_fixing_value_exact_returns_rate_on_observed_date() {
+        let series = sample_series();
+        let rate = require_fixing_value_exact(
+            Some(&series),
+            "USD-SOFR",
+            date!(2024 - 01 - 03),
+            date!(2024 - 01 - 10),
+        )
+        .expect("exact date exists");
+        assert!((rate - 0.054).abs() < 1e-10);
+    }
+
+    #[test]
+    fn require_fixing_value_exact_errors_on_unobserved_date() {
+        let series = sample_series();
+        let result = require_fixing_value_exact(
+            Some(&series),
+            "USD-SOFR",
+            date!(2024 - 01 - 04), // Not observed
+            date!(2024 - 01 - 10),
+        );
+        assert!(result.is_err());
+        let msg = result.expect_err("should error").to_string();
+        assert!(msg.contains("2024-01-04"), "should mention date: {msg}");
+    }
+
+    #[test]
+    fn require_fixing_value_exact_errors_when_series_is_none() {
+        let result = require_fixing_value_exact(
+            None,
+            "USD-SOFR",
+            date!(2024 - 01 - 02),
+            date!(2024 - 01 - 10),
+        );
+        assert!(result.is_err());
+        let msg = result.expect_err("should error").to_string();
+        assert!(msg.contains("FIXING:USD-SOFR"), "should mention series id: {msg}");
+    }
+}
