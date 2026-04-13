@@ -410,6 +410,7 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
             issuer_weights: None,
         }],
         fx_delta_vol_surfaces: vec![],
+        vol_cubes: vec![],
         collateral: std::collections::BTreeMap::new(),
         hierarchy: None,
     };

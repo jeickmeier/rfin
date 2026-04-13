@@ -377,6 +377,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                vol_cubes: vec![],
                 hierarchy: None,
             },
             market_t1: MarketContextState {
@@ -391,6 +392,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                vol_cubes: vec![],
                 hierarchy: None,
             },
             as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
@@ -459,6 +461,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                vol_cubes: vec![],
                 hierarchy: None,
             },
             market_t1: MarketContextState {
@@ -473,6 +476,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                vol_cubes: vec![],
                 hierarchy: None,
             },
             as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
