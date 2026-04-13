@@ -110,3 +110,4 @@ finstack-py/examples/outputs/
 *.db
 
 target-codex/
+docs/superpowers/*

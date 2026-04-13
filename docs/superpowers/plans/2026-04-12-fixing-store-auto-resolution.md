@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Create the fixings utility module with tests
+## Task 1: Create the fixings utility module with tests
 
 **Files:**
 - Create: `finstack/core/src/market_data/fixings.rs`
@@ -278,7 +278,7 @@ require_fixing_value(), and require_fixing_value_exact() helpers."
 
 ---
 
-### Task 2: Migrate IRS pricer to use fixing helpers
+## Task 2: Migrate IRS pricer to use fixing helpers
 
 **Files:**
 - Modify: `finstack/valuations/src/instruments/rates/irs/pricer.rs:354-356`
@@ -329,7 +329,7 @@ git commit -m "refactor(irs): use fixing helpers in compute_pv_raw"
 
 ---
 
-### Task 3: Migrate IRS cashflow to use fixing helpers
+## Task 3: Migrate IRS cashflow to use fixing helpers
 
 **Files:**
 - Modify: `finstack/valuations/src/instruments/rates/irs/cashflow.rs:157-165` (projected_overnight_rate)
@@ -399,7 +399,7 @@ git commit -m "refactor(irs): use fixing helpers in cashflow compounding"
 
 ---
 
-### Task 4: Migrate shared swap_legs to use fixing helpers
+## Task 4: Migrate shared swap_legs to use fixing helpers
 
 **Files:**
 - Modify: `finstack/valuations/src/instruments/common/pricing/swap_legs.rs:747-756`
@@ -455,7 +455,7 @@ git commit -m "refactor(swap-legs): use fixing helpers in pv_floating_leg"
 
 ---
 
-### Task 5: Migrate IRS metrics (par_rate, pv_float)
+## Task 5: Migrate IRS metrics (par_rate, pv_float)
 
 **Files:**
 - Modify: `finstack/valuations/src/instruments/rates/irs/metrics/par_rate.rs:182-183`
@@ -510,7 +510,7 @@ git commit -m "refactor(irs-metrics): use fixing helpers in par_rate and pv_floa
 
 ---
 
-### Task 6: Migrate basis swap and cap/floor
+## Task 6: Migrate basis swap and cap/floor
 
 **Files:**
 - Modify: `finstack/valuations/src/instruments/rates/basis_swap/types.rs:461-462`
@@ -576,7 +576,7 @@ git commit -m "refactor(basis-swap,cap-floor): use fixing helpers"
 
 ---
 
-### Task 7: Final integration test sweep
+## Task 7: Final integration test sweep
 
 **Files:** None (test-only)
 
