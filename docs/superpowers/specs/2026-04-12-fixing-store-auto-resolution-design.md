@@ -122,19 +122,39 @@ All fixing-related errors follow a consistent pattern:
 - **Missing date:** "Missing fixing for '{id}' on {date} (valuation date: {as_of}). The fixing series exists but does not contain an observation for this date."
 - **Series exists but value lookup fails:** Wraps the underlying `ScalarTimeSeries` error with index context.
 
+### New Fixing Support for Additional Instruments
+
+Three floating-rate instrument types currently lack historical fixing support and will be updated:
+
+#### Revolving Credit (`cashflow_engine.rs`)
+The cashflow engine's `generate_period_cashflows()` always projects floating rates from the forward curve via `project_floating_rate_with_curve()`. For seasoned facilities with reset dates before `as_of`, the engine will check fixings first. The `CashflowEngine` struct receives `valuation_date` and `fixings` fields.
+
+#### Structured Credit (`utils/rate_helpers.rs`)
+`tranche_all_in_rate()`, `asset_all_in_rate()`, and their `try_` variants always project from forward curves. They will receive an `as_of` parameter and use `require_fixing_value_exact()` for dates before `as_of`. The infallible wrappers gracefully degrade to forward projection when fixings are missing.
+
+#### Term Loan (`pricing/discounting.rs`)
+Term loans use the cashflow builder which doesn't have fixing support. The pricer will post-process generated cashflows: after `generate_cashflows()` but before discounting, replace rates for `FloatReset` flows with `reset_date < as_of` using historical fixings.
+
 ### File Changes Summary
 
 | File | Change |
 |------|--------|
-| `finstack/core/src/market_data/fixings.rs` | **New.** `FIXING_PREFIX`, `fixing_series_id()`, `get_fixing_series()`, `require_fixing_value()` |
+| `finstack/core/src/market_data/fixings.rs` | **New.** `FIXING_PREFIX`, `fixing_series_id()`, `get_fixing_series()`, `require_fixing_value()`, `require_fixing_value_exact()` |
 | `finstack/core/src/market_data/mod.rs` | Add `pub mod fixings;` re-export |
 | `finstack/valuations/.../irs/pricer.rs` | Use `fixing_series_id()` instead of inline format |
 | `finstack/valuations/.../irs/cashflow.rs` | Use `require_fixing_value()` in `projected_overnight_rate()`, `fixing_series_id()` in callsite |
-| `finstack/valuations/.../pricing/swap_legs.rs` | Use `require_fixing_value()` in `pv_floating_leg()` |
+| `finstack/valuations/.../pricing/swap_legs.rs` | Use `require_fixing_value_exact()` in `pv_floating_leg()` |
+| `finstack/valuations/.../irs/metrics/par_rate.rs` | Use `get_fixing_series()` |
+| `finstack/valuations/.../irs/metrics/pv_float.rs` | Use `get_fixing_series()` |
+| `finstack/valuations/.../basis_swap/types.rs` | Use `get_fixing_series()` |
+| `finstack/valuations/.../cap_floor/types.rs` | Use `fixing_series_id()` |
+| `finstack/valuations/.../revolving_credit/cashflow_engine.rs` | **New fixing support.** Add `valuation_date` + `fixings` to engine, check `reset_d < as_of` |
+| `finstack/valuations/.../structured_credit/utils/rate_helpers.rs` | **New fixing support.** Add `as_of` param, use fixings for past dates |
+| `finstack/valuations/.../term_loan/pricing/discounting.rs` | **New fixing support.** Post-process cashflows to replace forward projections with fixings |
 
 ### How Other Instruments Use This
 
-Any new instrument pricer (FRA, cap/floor, term loan, CLO) follows the same pattern:
+Any instrument pricer follows the same pattern:
 
 1. At the pricing entry point, resolve fixings: `let fixings = get_fixing_series(context, curve_id).ok();`
 2. When encountering a reset/observation date before `as_of`: `let rate = require_fixing_value(fixings, curve_id, date, as_of)?;`
