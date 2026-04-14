@@ -3,7 +3,11 @@
 //! Computes how much a valuation parameter (spread, yield, vol, correlation)
 //! can move before carry + roll-down is wiped out over the configured horizon.
 
+use crate::instruments::{BreakevenConfig, BreakevenTarget};
+use crate::metrics::sensitivities::theta::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
 /// Minimum absolute sensitivity value below which breakeven is undefined.
@@ -62,17 +66,97 @@ impl MetricCalculator for BreakevenCalculator {
     }
 }
 
-/// Placeholder for iterative mode — implemented in Task 4.
-fn iterative_breakeven(
-    _context: &MetricContext,
-    _carry_total: f64,
-    _sensitivity: f64,
-    _config: &crate::instruments::BreakevenConfig,
-) -> Result<f64> {
-    Err(finstack_core::InputError::NotFound {
-        id: "iterative breakeven: not yet implemented".into(),
+/// Bump a market context by `delta` for the given breakeven target.
+///
+/// Returns the bumped [`MarketContext`] or an error if the required
+/// curve / surface cannot be determined.
+fn bump_market_for_target(
+    context: &MetricContext,
+    delta: f64,
+    target: BreakevenTarget,
+) -> Result<MarketContext> {
+    match target {
+        BreakevenTarget::ZSpread | BreakevenTarget::Oas | BreakevenTarget::Ytm => {
+            // Use the instrument's first discount curve, falling back to
+            // the cached `discount_curve_id` on the context.
+            let curve_id = context
+                .instrument
+                .market_dependencies()
+                .ok()
+                .and_then(|d| d.curve_dependencies().discount_curves.first().cloned())
+                .or_else(|| context.discount_curve_id.clone())
+                .ok_or_else(|| finstack_core::InputError::NotFound {
+                    id: "iterative_breakeven: no discount curve found for instrument".into(),
+                })?;
+            crate::metrics::bump_discount_curve_parallel(context.curves.as_ref(), &curve_id, delta)
+        }
+        BreakevenTarget::ImpliedVol => {
+            let vol_surface_id = context
+                .instrument
+                .market_dependencies()
+                .ok()
+                .and_then(|d| d.vol_surface_ids.first().cloned())
+                .ok_or_else(|| finstack_core::InputError::NotFound {
+                    id: "iterative_breakeven: no vol surface found for instrument".into(),
+                })?;
+            // delta is in vol points (e.g. 0.01 = 1 vol point); the sensitivity
+            // metric (Vega) is per-1-vol-point, so convert with * 0.0001.
+            let bump_abs = delta * 0.0001;
+            crate::metrics::bump_surface_vol_absolute(
+                context.curves.as_ref(),
+                vol_surface_id.as_str(),
+                bump_abs,
+            )
+        }
+        BreakevenTarget::BaseCorrelation => Err(finstack_core::InputError::NotFound {
+            id: "iterative_breakeven: BaseCorrelation has no scalar bump API".into(),
+        }
+        .into()),
     }
-    .into())
+}
+
+/// Iterative breakeven using Brent root-finding.
+///
+/// Finds the parameter shift `delta` such that:
+///   carry_total + PV(bumped market, rolled_date) - base_pv_at_horizon = 0
+fn iterative_breakeven(
+    context: &MetricContext,
+    carry_total: f64,
+    sensitivity: f64,
+    config: &BreakevenConfig,
+) -> Result<f64> {
+    // Determine the horizon date (same convention as carry decomposition).
+    let period_str = context
+        .metric_overrides
+        .as_ref()
+        .and_then(|o| o.theta_period.as_deref())
+        .unwrap_or("1D");
+    let expiry_date = context.instrument.expiry();
+    let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
+
+    // Base PV at the horizon with current (un-bumped) curves.
+    let base_pv_at_horizon = context
+        .instrument_value_with_scenario(context.curves.as_ref(), rolled_date)?
+        .amount();
+
+    // Linear estimate as initial guess.
+    let initial_guess = -carry_total / sensitivity;
+
+    let target = config.target;
+    let objective = |delta: f64| -> f64 {
+        let Ok(bumped_market) = bump_market_for_target(context, delta, target) else {
+            return f64::NAN;
+        };
+        let Ok(pv) = context.instrument_value_with_scenario(&bumped_market, rolled_date) else {
+            return f64::NAN;
+        };
+        carry_total + pv.amount() - base_pv_at_horizon
+    };
+
+    BrentSolver::new()
+        .tolerance(1e-8)
+        .max_iterations(50)
+        .solve(objective, initial_guess)
 }
 
 #[cfg(test)]
