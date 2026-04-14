@@ -65,22 +65,62 @@ fn price_instrument(
 ///     Model key string.
 /// metrics : list[str]
 ///     Metric identifiers to compute (e.g. ``["ytm", "dv01", "modified_duration"]``).
+/// pricing_options : str | None
+///     Optional JSON string of ``MetricPricingOverrides`` merged into the instrument's
+///     ``pricing_overrides`` before pricing.  Supported fields include
+///     ``"theta_period"`` (e.g. ``"1D"``, ``"1W"``, ``"1M"``) and
+///     ``"breakeven_config"`` (e.g. ``{"target": "z_spread", "mode": "linear"}``).
+///     If omitted, the instrument's own overrides (if any) are used unchanged.
 ///
 /// Returns
 /// -------
 /// str
 ///     JSON-serialized ``ValuationResult`` including requested metrics.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market, as_of, model="discounting", metrics=vec![]))]
+#[pyo3(signature = (instrument_json, market, as_of, model="discounting", metrics=vec![], pricing_options=None))]
 fn price_instrument_with_metrics(
     instrument_json: &str,
     market: &Bound<'_, PyAny>,
     as_of: &str,
     model: &str,
     metrics: Vec<String>,
+    pricing_options: Option<&str>,
 ) -> PyResult<String> {
+    // If pricing_options is provided, merge its fields into the instrument's
+    // pricing_overrides so that metric calculators (theta, breakeven, etc.) pick
+    // them up from the instrument context as expected by the architecture.
+    let effective_instrument_json: std::borrow::Cow<str> = match pricing_options {
+        None => std::borrow::Cow::Borrowed(instrument_json),
+        Some(opts_json) => {
+            let opts: finstack_valuations::instruments::MetricPricingOverrides =
+                serde_json::from_str(opts_json).map_err(val_to_py)?;
+            let mut doc: serde_json::Value =
+                serde_json::from_str(instrument_json).map_err(val_to_py)?;
+            // Merge opts into doc["spec"]["pricing_overrides"] (create if absent).
+            let overrides_patch =
+                serde_json::to_value(&opts).map_err(val_to_py)?;
+            if let serde_json::Value::Object(patch) = overrides_patch {
+                let po = doc
+                    .get_mut("spec")
+                    .and_then(|s| s.get_mut("pricing_overrides"))
+                    .and_then(|v| v.as_object_mut());
+                if let Some(po_map) = po {
+                    for (k, v) in patch {
+                        po_map.insert(k, v);
+                    }
+                } else if let Some(spec) = doc.get_mut("spec").and_then(|s| s.as_object_mut()) {
+                    spec.insert(
+                        "pricing_overrides".to_string(),
+                        serde_json::Value::Object(patch),
+                    );
+                }
+            }
+            std::borrow::Cow::Owned(serde_json::to_string(&doc).map_err(val_to_py)?)
+        }
+    };
+
     let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(val_to_py)?;
+        serde_json::from_str(&effective_instrument_json).map_err(val_to_py)?;
     let boxed = inst.into_boxed().map_err(val_to_py)?;
 
     let market = extract_market(market)?;
