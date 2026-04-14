@@ -6,10 +6,12 @@ use crate::utils::to_js_err;
 use finstack_core::currency::Currency as RustCurrency;
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCount;
+use finstack_core::market_data::surfaces::VolCube as RustVolCube;
 use finstack_core::market_data::term_structures::{
     DiscountCurve as RustDiscountCurve, ForwardCurve as RustForwardCurve,
 };
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+use finstack_core::math::volatility::sabr::SabrParams;
 use finstack_core::money::fx::{
     FxConversionPolicy as RustFxConversionPolicy, FxMatrix as RustFxMatrix, FxQuery,
     SimpleFxProvider,
@@ -311,6 +313,97 @@ impl FxMatrix {
     }
 }
 
+// ---------------------------------------------------------------------------
+// VolCube
+// ---------------------------------------------------------------------------
+
+/// SABR volatility cube for swaption pricing.
+///
+/// Stores calibrated SABR parameters on an expiry × tenor grid and evaluates
+/// implied volatilities via bilinear parameter interpolation followed by the
+/// Hagan (2002) approximation.
+#[wasm_bindgen(js_name = VolCube)]
+pub struct VolCube {
+    #[wasm_bindgen(skip)]
+    pub(crate) inner: Arc<RustVolCube>,
+}
+
+#[wasm_bindgen(js_class = VolCube)]
+impl VolCube {
+    /// Construct a vol cube from a flat SABR parameter array.
+    ///
+    /// # Arguments
+    /// * `id` - Curve identifier.
+    /// * `expiries` - Option expiry axis in years (strictly increasing).
+    /// * `tenors` - Swap tenor axis in years (strictly increasing).
+    /// * `params_flat` - Row-major flat array of SABR parameters:
+    ///   `[alpha0, beta0, rho0, nu0, shift0, alpha1, …]`.
+    ///   Length must equal `expiries.len() * tenors.len() * 5`.
+    ///   Pass `NaN` for the shift element of a node to omit the shift.
+    /// * `forwards` - Row-major forward rates, one per grid node.
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        id: &str,
+        expiries: &[f64],
+        tenors: &[f64],
+        params_flat: &[f64],
+        forwards: &[f64],
+    ) -> Result<VolCube, JsValue> {
+        let n_nodes = expiries.len() * tenors.len();
+        if params_flat.len() != n_nodes * 5 {
+            return Err(JsValue::from_str(&format!(
+                "params_flat length {} != {} nodes * 5 params",
+                params_flat.len(),
+                n_nodes
+            )));
+        }
+        let mut sabr_params = Vec::with_capacity(n_nodes);
+        for i in 0..n_nodes {
+            let base = i * 5;
+            let mut p = SabrParams::new(
+                params_flat[base],     // alpha
+                params_flat[base + 1], // beta
+                params_flat[base + 2], // rho
+                params_flat[base + 3], // nu
+            )
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            let shift = params_flat[base + 4];
+            if shift.is_finite() {
+                p = p.with_shift(shift);
+            }
+            sabr_params.push(p);
+        }
+        let cube = RustVolCube::from_grid(id, expiries, tenors, &sabr_params, forwards)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Self {
+            inner: Arc::new(cube),
+        })
+    }
+
+    /// Implied volatility at `(expiry, tenor, strike)`.
+    ///
+    /// Returns `Err` if `expiry` or `tenor` falls outside the grid.
+    pub fn vol(&self, expiry: f64, tenor: f64, strike: f64) -> Result<f64, JsValue> {
+        self.inner
+            .vol(expiry, tenor, strike)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    /// Implied volatility with clamped extrapolation.
+    ///
+    /// Clamps `expiry` and `tenor` to the grid edges before interpolation.
+    /// Never returns `Err`.
+    pub fn vol_clamped(&self, expiry: f64, tenor: f64, strike: f64) -> f64 {
+        self.inner.vol_clamped(expiry, tenor, strike)
+    }
+
+    /// Cube identifier.
+    #[wasm_bindgen(getter, js_name = id)]
+    pub fn id(&self) -> String {
+        self.inner.id().as_str().to_string()
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -413,5 +506,45 @@ mod tests {
         m.set_quote("USD", "EUR", 0.92).expect("set quote");
         let r = m.rate("USD", "EUR", "2024-01-15", None).expect("fx rate");
         assert!((r - 0.92).abs() < 1e-9);
+    }
+
+    #[test]
+    fn vol_cube_new_and_accessors() {
+        // 2 expiries x 2 tenors = 4 nodes, 20 params total
+        let expiries = [1.0_f64, 2.0];
+        let tenors = [5.0_f64, 10.0];
+        // [alpha, beta, rho, nu, shift(NaN = none)] per node
+        #[rustfmt::skip]
+        let params_flat = [
+            0.035, 0.5, -0.2, 0.4, f64::NAN,  // expiry=1, tenor=5
+            0.040, 0.5, -0.25, 0.45, f64::NAN, // expiry=1, tenor=10
+            0.030, 0.5, -0.15, 0.35, f64::NAN, // expiry=2, tenor=5
+            0.038, 0.5, -0.22, 0.42, f64::NAN, // expiry=2, tenor=10
+        ];
+        let forwards = [0.03_f64, 0.032, 0.035, 0.037];
+
+        let cube = VolCube::new("USD-SWAPTION", &expiries, &tenors, &params_flat, &forwards)
+            .expect("vol cube construction");
+        assert_eq!(cube.id(), "USD-SWAPTION");
+
+        // vol at an interior grid node with ATM strike
+        let v = cube.vol(1.0, 5.0, 0.03).expect("vol");
+        assert!(v > 0.0, "vol should be positive, got {v}");
+
+        // vol_clamped extrapolates without error
+        let v_ext = cube.vol_clamped(0.5, 3.0, 0.03);
+        assert!(v_ext > 0.0, "vol_clamped should be positive, got {v_ext}");
+
+        // out-of-bounds vol returns Err
+        assert!(cube.vol(0.5, 5.0, 0.03).is_err());
+    }
+
+    #[test]
+    fn vol_cube_params_flat_length_error() {
+        let expiries = [1.0_f64];
+        let tenors = [5.0_f64];
+        // 1 node needs 5 params — supply 4 to trigger error
+        let result = VolCube::new("BAD", &expiries, &tenors, &[0.035, 0.5, -0.2, 0.4], &[0.03]);
+        assert!(result.is_err());
     }
 }
