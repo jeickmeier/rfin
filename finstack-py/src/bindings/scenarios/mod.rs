@@ -5,6 +5,7 @@
 //! registry discovery, and scenario engine application.
 
 mod engine;
+mod horizon;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -164,6 +165,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(list_template_components, &m)?)?;
     m.add_function(wrap_pyfunction!(build_template_component, &m)?)?;
     engine::register(py, &m)?;
+    horizon::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -179,6 +181,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "build_template_component",
             "apply_scenario",
             "apply_scenario_to_market",
+            "compute_horizon_return",
+            "HorizonResult",
         ],
     )?;
     m.setattr("__all__", all)?;

@@ -4,7 +4,7 @@
 //! JSON-based instrument loading, the standard pricer pipeline, and
 //! P&L attribution across multiple methodologies.
 
-mod attribution;
+pub(crate) mod attribution;
 mod calibration;
 mod factor_model;
 mod pricing;
