@@ -110,6 +110,10 @@ mod test_utils;
 /// Scenario application for portfolios.
 pub mod scenarios;
 
+#[cfg(feature = "scenarios")]
+/// Historical scenario replay for portfolios.
+pub mod replay;
+
 // Re-export key types
 pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
 pub use book::{Book, BookId};
@@ -146,3 +150,8 @@ pub use valuation::{
 
 #[cfg(feature = "scenarios")]
 pub use scenarios::{apply_and_revalue, apply_scenario};
+
+#[cfg(feature = "scenarios")]
+pub use replay::{
+    ReplayConfig, ReplayMode, ReplayResult, ReplayStep, ReplaySummary, ReplayTimeline,
+};

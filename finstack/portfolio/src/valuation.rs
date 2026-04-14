@@ -198,7 +198,7 @@ fn assemble_valuation(
 /// By default, risk metrics are treated as best-effort: if metrics fail
 /// for a position, the engine falls back to PV-only valuation for that
 /// position.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PortfolioValuationOptions {
     /// When `true`, any failure to compute requested risk metrics for a
     /// position causes the entire portfolio valuation to fail.
