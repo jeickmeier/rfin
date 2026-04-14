@@ -417,6 +417,88 @@ mod tests {
             carry.abs() > 1e-6,
             "time-roll only: carry should be non-zero, got {carry}"
         );
+
+        // Factor decomposition should be coherent
+        let a = &result.attribution;
+        let sum_of_factors = a.carry.amount()
+            + a.rates_curves_pnl.amount()
+            + a.credit_curves_pnl.amount()
+            + a.inflation_curves_pnl.amount()
+            + a.correlations_pnl.amount()
+            + a.fx_pnl.amount()
+            + a.vol_pnl.amount()
+            + a.cross_factor_pnl.amount()
+            + a.model_params_pnl.amount()
+            + a.market_scalars_pnl.amount()
+            + a.residual.amount();
+        assert!(
+            (a.total_pnl.amount() - sum_of_factors).abs() < 1e-8,
+            "factors + residual ({sum_of_factors}) should equal total ({})",
+            a.total_pnl.amount()
+        );
+    }
+
+    #[test]
+    fn combined_time_roll_and_shock() {
+        let as_of = date!(2025 - 01 - 15);
+        let instrument = test_bond(as_of);
+        let market = test_market(as_of);
+
+        let scenario = ScenarioSpec {
+            id: "roll_and_shock".into(),
+            name: None,
+            description: None,
+            operations: vec![
+                crate::OperationSpec::TimeRollForward {
+                    period: "1M".into(),
+                    apply_shocks: true,
+                    roll_mode: crate::TimeRollMode::BusinessDays,
+                },
+                crate::OperationSpec::CurveParallelBp {
+                    curve_kind: crate::CurveKind::Discount,
+                    curve_id: "USD-OIS".into(),
+                    discount_curve_id: None,
+                    bp: 50.0,
+                },
+            ],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let analyzer = HorizonAnalysis::default();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+
+        // Horizon present
+        assert!(result.horizon_days.is_some());
+
+        // Both carry and rates should be non-zero
+        assert!(
+            result.attribution.carry.amount().abs() > 1e-6,
+            "combined: carry should be non-zero"
+        );
+        assert!(
+            result.attribution.rates_curves_pnl.amount().abs() > 1e-6,
+            "combined: rates P&L should be non-zero"
+        );
+
+        // Factor decomposition should be coherent: sum of factors + residual = total
+        let a = &result.attribution;
+        let sum_of_factors = a.carry.amount()
+            + a.rates_curves_pnl.amount()
+            + a.credit_curves_pnl.amount()
+            + a.inflation_curves_pnl.amount()
+            + a.correlations_pnl.amount()
+            + a.fx_pnl.amount()
+            + a.vol_pnl.amount()
+            + a.cross_factor_pnl.amount()
+            + a.model_params_pnl.amount()
+            + a.market_scalars_pnl.amount()
+            + a.residual.amount();
+        assert!(
+            (a.total_pnl.amount() - sum_of_factors).abs() < 1e-8,
+            "factors + residual ({sum_of_factors}) should equal total ({})",
+            a.total_pnl.amount()
+        );
     }
 
     #[test]

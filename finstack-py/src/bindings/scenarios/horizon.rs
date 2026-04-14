@@ -36,7 +36,7 @@ fn horizon_to_py(e: impl std::fmt::Display) -> PyErr {
 /// HorizonResult
 ///     Decomposed total return with factor attribution.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market, as_of, scenario_json, method = "parallel"))]
+#[pyo3(signature = (instrument_json, market, as_of, scenario_json, method = "parallel", config = None))]
 pub(crate) fn compute_horizon_return<'py>(
     _py: Python<'py>,
     instrument_json: &str,
@@ -44,6 +44,7 @@ pub(crate) fn compute_horizon_return<'py>(
     as_of: &str,
     scenario_json: &str,
     method: &str,
+    config: Option<&str>,
 ) -> PyResult<PyHorizonResult> {
     use finstack_valuations::attribution::AttributionMethod;
     use finstack_valuations::instruments::InstrumentJson;
@@ -87,10 +88,16 @@ pub(crate) fn compute_horizon_return<'py>(
         }
     };
 
+    // Parse config
+    let finstack_config = match config {
+        Some(json) => serde_json::from_str(json).map_err(horizon_to_py)?,
+        None => finstack_core::config::FinstackConfig::default(),
+    };
+
     // Run analysis
     let analyzer = finstack_scenarios::horizon::HorizonAnalysis::new(
         attribution_method,
-        finstack_core::config::FinstackConfig::default(),
+        finstack_config,
     );
     let result = analyzer
         .compute(&instrument, &market_ctx, date, &scenario)

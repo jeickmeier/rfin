@@ -247,6 +247,7 @@ pub fn compute_horizon_return(
     as_of: &str,
     scenario_json: &str,
     method: Option<String>,
+    config_json: Option<String>,
 ) -> Result<String, JsValue> {
     use finstack_valuations::attribution::AttributionMethod;
     use finstack_valuations::instruments::InstrumentJson;
@@ -291,10 +292,15 @@ pub fn compute_horizon_return(
         ))),
     };
 
-    // Run analysis
+    // Parse config
+    let finstack_config: finstack_core::config::FinstackConfig = match config_json.as_deref() {
+        Some(json) => serde_json::from_str(json).map_err(to_js_err)?,
+        None => finstack_core::config::FinstackConfig::default(),
+    };
+
     let analyzer = finstack_scenarios::horizon::HorizonAnalysis::new(
         attribution_method,
-        finstack_core::config::FinstackConfig::default(),
+        finstack_config,
     );
     let result = analyzer
         .compute(&instrument, &market, date, &scenario)
