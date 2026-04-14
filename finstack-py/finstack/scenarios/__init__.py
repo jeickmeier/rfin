@@ -18,10 +18,14 @@ list_template_components = _scenarios.list_template_components
 build_template_component = _scenarios.build_template_component
 apply_scenario = _scenarios.apply_scenario
 apply_scenario_to_market = _scenarios.apply_scenario_to_market
+compute_horizon_return = _scenarios.compute_horizon_return
+HorizonResult = _scenarios.HorizonResult
 
 __all__: list[str] = [
     "apply_scenario",
     "apply_scenario_to_market",
+    "compute_horizon_return",
+    "HorizonResult",
     "build_from_template",
     "build_scenario_spec",
     "build_template_component",
