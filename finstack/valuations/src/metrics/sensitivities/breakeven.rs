@@ -304,4 +304,147 @@ mod tests {
         let result = BreakevenCalculator.calculate(&mut ctx).expect("breakeven");
         assert!((result - 5.0).abs() < 1e-10, "got {result}");
     }
+
+    #[test]
+    fn test_breakeven_via_standard_registry() {
+        use crate::instruments::common_impl::traits::Instrument as InstrumentExt;
+        use crate::instruments::PricingOptions;
+        use crate::instruments::PricingOverrides;
+
+        let as_of = date!(2025 - 01 - 15);
+        let mut bond = Bond::fixed(
+            "CARRY-TEST",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 15),
+            "USD-OIS",
+        )
+        .expect("bond");
+
+        bond.pricing_overrides = PricingOverrides::default()
+            .with_theta_period("6M")
+            .with_breakeven_config(BreakevenConfig {
+                target: BreakevenTarget::ZSpread,
+                mode: BreakevenMode::Linear,
+            });
+
+        let market =
+            MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
+
+        let result = bond
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::CarryTotal, MetricId::Cs01, MetricId::Breakeven],
+                PricingOptions::default(),
+            )
+            .expect("price_with_metrics should succeed");
+
+        let carry = result
+            .measures
+            .get(MetricId::CarryTotal.as_str())
+            .copied()
+            .expect("carry_total");
+        let cs01 = result
+            .measures
+            .get(MetricId::Cs01.as_str())
+            .copied()
+            .expect("cs01");
+        let breakeven = result
+            .measures
+            .get(MetricId::Breakeven.as_str())
+            .copied()
+            .expect("breakeven");
+
+        // Verify: breakeven = -carry / cs01
+        let expected = -carry / cs01;
+        assert!(
+            (breakeven - expected).abs() < 1e-8,
+            "breakeven={breakeven}, expected={expected}, carry={carry}, cs01={cs01}"
+        );
+    }
+
+    #[test]
+    fn test_breakeven_horizon_matches_carry_horizon() {
+        use crate::instruments::common_impl::traits::Instrument as InstrumentExt;
+        use crate::instruments::PricingOptions;
+        use crate::instruments::PricingOverrides;
+
+        let as_of = date!(2025 - 01 - 15);
+
+        // Compute with 1M horizon
+        let mut bond_1m = Bond::fixed(
+            "HORIZON-TEST",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 15),
+            "USD-OIS",
+        )
+        .expect("bond");
+
+        bond_1m.pricing_overrides = PricingOverrides::default()
+            .with_theta_period("1M")
+            .with_breakeven_config(BreakevenConfig {
+                target: BreakevenTarget::ZSpread,
+                mode: BreakevenMode::Linear,
+            });
+
+        let market =
+            MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
+
+        let result_1m = bond_1m
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::CarryTotal, MetricId::Cs01, MetricId::Breakeven],
+                PricingOptions::default(),
+            )
+            .expect("1m result");
+
+        // Compute with 6M horizon
+        let mut bond_6m = Bond::fixed(
+            "HORIZON-TEST",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 15),
+            "USD-OIS",
+        )
+        .expect("bond");
+
+        bond_6m.pricing_overrides = PricingOverrides::default()
+            .with_theta_period("6M")
+            .with_breakeven_config(BreakevenConfig {
+                target: BreakevenTarget::ZSpread,
+                mode: BreakevenMode::Linear,
+            });
+
+        let result_6m = bond_6m
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::CarryTotal, MetricId::Cs01, MetricId::Breakeven],
+                PricingOptions::default(),
+            )
+            .expect("6m result");
+
+        let be_1m = result_1m
+            .measures
+            .get(MetricId::Breakeven.as_str())
+            .copied()
+            .expect("be_1m");
+        let be_6m = result_6m
+            .measures
+            .get(MetricId::Breakeven.as_str())
+            .copied()
+            .expect("be_6m");
+
+        // 6M carry > 1M carry, so 6M breakeven should be larger (more room to widen)
+        assert!(
+            be_6m.abs() > be_1m.abs(),
+            "6M breakeven ({be_6m}) should have larger magnitude than 1M ({be_1m})"
+        );
+    }
 }
