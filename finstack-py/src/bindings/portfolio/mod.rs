@@ -7,6 +7,7 @@
 
 mod optimization;
 mod pipeline;
+mod replay;
 mod spec;
 
 use pyo3::exceptions::PyValueError;
@@ -31,6 +32,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     spec::register(py, &m)?;
     pipeline::register(py, &m)?;
     optimization::register(py, &m)?;
+    replay::register(py, &m)?;
 
     let exports = vec![
         "parse_portfolio_spec",
@@ -42,6 +44,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "aggregate_cashflows",
         "apply_scenario_and_revalue",
         "optimize_portfolio",
+        "replay_portfolio",
     ];
 
     let all = PyList::new(py, exports)?;
