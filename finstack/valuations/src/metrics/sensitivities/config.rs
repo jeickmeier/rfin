@@ -244,6 +244,7 @@ mod tests {
             bump_config: crate::instruments::BumpConfig::default(),
             mc_seed_scenario: None,
             theta_period: None,
+            breakeven_config: None,
         }
         .with_rate_bump(2.0)
         .with_credit_spread_bump(3.0)

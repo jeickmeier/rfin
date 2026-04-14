@@ -1,3 +1,4 @@
+pub(crate) mod breakeven;
 pub(crate) mod carry_decomposition;
 pub(crate) mod config;
 pub(crate) mod cross_factor;
