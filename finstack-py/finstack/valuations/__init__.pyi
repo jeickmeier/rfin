@@ -290,6 +290,7 @@ def price_instrument_with_metrics(
     as_of: str,
     model: str = "discounting",
     metrics: list[str] = [],
+    pricing_options: str | None = None,
 ) -> str:
     """Price an instrument and request explicit risk metrics.
 
@@ -299,6 +300,10 @@ def price_instrument_with_metrics(
         as_of: Valuation date in ISO 8601 format.
         model: Model key string (same vocabulary as ``price_instrument``).
         metrics: Metric names to compute (default empty list).
+        pricing_options: Optional JSON string of ``MetricPricingOverrides``
+            merged into the instrument's ``pricing_overrides``. Supports
+            ``"theta_period"`` (e.g. ``"6M"``) and ``"breakeven_config"``
+            (e.g. ``{"target": "z_spread", "mode": "linear"}``).
 
     Returns:
         Pretty-printed JSON ``ValuationResult`` including requested metrics.
