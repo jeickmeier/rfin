@@ -152,6 +152,18 @@ impl MetricId {
     /// Cost of financing the position (dirty_price x funding_rate x dcf).
     pub const FundingCost: Self = Self(Cow::Borrowed("funding_cost"));
 
+    /// Breakeven parameter shift: how much can the configured target parameter
+    /// (spread, yield, vol, correlation) move before carry + roll-down is wiped out.
+    ///
+    /// Requires `BreakevenConfig` on `MetricPricingOverrides` and the corresponding
+    /// sensitivity metric (e.g., `Cs01` for `ZSpread`) to be computed first.
+    ///
+    /// **Units:** same as the sensitivity bump (typically 1bp for CS01/DV01).
+    ///
+    /// **Sign:** positive = parameter can move against you by this amount;
+    /// negative = carry is negative, parameter must move in your favour.
+    pub const Breakeven: Self = Self(Cow::Borrowed("breakeven"));
+
     /// Dollar value of 01 (DV01) for a parallel rates bump.
     ///
     /// Measures the change in present value for a **+1bp parallel shift** of the
@@ -1149,6 +1161,7 @@ impl MetricId {
         MetricId::FundingCost,
         MetricId::ImpliedFinancingRate,
         MetricId::RollSpecialness,
+        MetricId::Breakeven,
         // -- Sensitivity --
         MetricId::Dv01,
         MetricId::BucketedDv01,
@@ -1442,7 +1455,7 @@ const PRICING_METRICS: [MetricId; 20] = [
     MetricId::TimeToMaturity,
 ];
 
-const CARRY_METRICS: [MetricId; 11] = [
+const CARRY_METRICS: [MetricId; 12] = [
     MetricId::Theta,
     MetricId::ThetaCarry,
     MetricId::ThetaRollDown,
@@ -1454,6 +1467,7 @@ const CARRY_METRICS: [MetricId; 11] = [
     MetricId::FundingCost,
     MetricId::ImpliedFinancingRate,
     MetricId::RollSpecialness,
+    MetricId::Breakeven,
 ];
 
 const SENSITIVITY_METRICS: [MetricId; 19] = [
