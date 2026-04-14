@@ -224,6 +224,85 @@ pub fn apply_scenario_to_market(
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }
 
+/// Compute horizon total return under a scenario.
+///
+/// Applies a scenario specification to project an instrument forward, then
+/// decomposes the resulting P&L using factor-based attribution.
+///
+/// # Arguments
+///
+/// * `instrument_json` - JSON-serialized instrument (tagged).
+/// * `market_json` - JSON-serialized `MarketContext`.
+/// * `as_of` - Valuation date (ISO 8601).
+/// * `scenario_json` - JSON-serialized `ScenarioSpec`.
+/// * `method` - Attribution method: "parallel", "waterfall", "metrics_based", "taylor".
+///
+/// # Returns
+///
+/// JSON-serialized `HorizonResult`.
+#[wasm_bindgen(js_name = computeHorizonReturn)]
+pub fn compute_horizon_return(
+    instrument_json: &str,
+    market_json: &str,
+    as_of: &str,
+    scenario_json: &str,
+    method: Option<String>,
+) -> Result<String, JsValue> {
+    use finstack_valuations::attribution::AttributionMethod;
+    use finstack_valuations::instruments::InstrumentJson;
+    use std::sync::Arc;
+
+    // Parse instrument
+    let inst: InstrumentJson =
+        serde_json::from_str(instrument_json).map_err(to_js_err)?;
+    let boxed = inst.into_boxed().map_err(to_js_err)?;
+    let instrument: Arc<dyn finstack_valuations::instruments::internal::InstrumentExt> =
+        Arc::from(boxed);
+
+    // Parse market
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+
+    // Parse date
+    let format = time::format_description::well_known::Iso8601::DEFAULT;
+    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
+
+    // Parse scenario
+    let scenario: finstack_scenarios::ScenarioSpec =
+        serde_json::from_str(scenario_json).map_err(to_js_err)?;
+
+    // Parse method
+    let method_str = method.as_deref().unwrap_or("parallel");
+    let attribution_method = match method_str {
+        "parallel" => AttributionMethod::Parallel,
+        "waterfall" => {
+            AttributionMethod::Waterfall(
+                finstack_valuations::attribution::default_waterfall_order(),
+            )
+        }
+        "metrics_based" => AttributionMethod::MetricsBased,
+        "taylor" => {
+            AttributionMethod::Taylor(
+                finstack_valuations::attribution::TaylorAttributionConfig::default(),
+            )
+        }
+        other => return Err(to_js_err(format!(
+            "Unknown attribution method '{other}'. Expected: parallel, waterfall, metrics_based, taylor"
+        ))),
+    };
+
+    // Run analysis
+    let analyzer = finstack_scenarios::horizon::HorizonAnalysis::new(
+        attribution_method,
+        finstack_core::config::FinstackConfig::default(),
+    );
+    let result = analyzer
+        .compute(&instrument, &market, date, &scenario)
+        .map_err(to_js_err)?;
+
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
