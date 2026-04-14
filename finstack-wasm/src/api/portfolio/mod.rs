@@ -155,6 +155,49 @@ pub fn optimize_portfolio(spec_json: &str, market_json: &str) -> Result<String, 
     serde_json::to_string_pretty(&result).map_err(to_js_err)
 }
 
+/// Replay a portfolio through dated market snapshots.
+///
+/// Accepts a portfolio spec, an array of dated market snapshots, and a
+/// replay configuration. Returns a JSON-serialized `ReplayResult`.
+#[wasm_bindgen(js_name = replayPortfolio)]
+pub fn replay_portfolio(
+    spec_json: &str,
+    snapshots_json: &str,
+    config_json: &str,
+) -> Result<String, JsValue> {
+    let spec: finstack_portfolio::PortfolioSpec =
+        serde_json::from_str(spec_json).map_err(to_js_err)?;
+    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
+
+    let config: finstack_portfolio::ReplayConfig =
+        serde_json::from_str(config_json).map_err(to_js_err)?;
+
+    // Parse snapshots: [{"date": "YYYY-MM-DD", "market": {...}}, ...]
+    let raw: Vec<serde_json::Value> =
+        serde_json::from_str(snapshots_json).map_err(to_js_err)?;
+
+    let format = time::format_description::well_known::Iso8601::DEFAULT;
+    let mut snapshots = Vec::with_capacity(raw.len());
+    for entry in &raw {
+        let date_str = entry["date"]
+            .as_str()
+            .ok_or_else(|| to_js_err("each snapshot must have a 'date' string field"))?;
+        let date = time::Date::parse(date_str, &format).map_err(to_js_err)?;
+        let market: finstack_core::market_data::context::MarketContext =
+            serde_json::from_value(entry["market"].clone()).map_err(to_js_err)?;
+        snapshots.push((date, market));
+    }
+
+    let timeline = finstack_portfolio::ReplayTimeline::new(snapshots).map_err(to_js_err)?;
+    let finstack_config = finstack_core::config::FinstackConfig::default();
+
+    let result =
+        finstack_portfolio::replay_portfolio(&portfolio, &timeline, &config, &finstack_config)
+            .map_err(to_js_err)?;
+
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -244,5 +287,63 @@ mod tests {
         let result = aggregate_metrics(&valuation_json, "USD", &market, "2024-01-15").expect("agg");
         let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
         assert!(parsed.is_object());
+    }
+
+    /// Tests the replay_portfolio WASM binding logic by exercising the same
+    /// JSON parsing / domain call / serialization pipeline directly.
+    /// We call the domain functions instead of the wasm wrapper because
+    /// `JsValue::from_str` panics on non-wasm32 targets when an error is
+    /// produced.
+    #[test]
+    fn replay_portfolio_empty_portfolio() {
+        let spec_json = minimal_portfolio_spec_json();
+        let spec: finstack_portfolio::PortfolioSpec =
+            serde_json::from_str(&spec_json).expect("parse spec");
+        let portfolio =
+            finstack_portfolio::Portfolio::from_spec(spec).expect("build portfolio");
+
+        let market_json = empty_market_json();
+        let market_val: serde_json::Value =
+            serde_json::from_str(&market_json).expect("parse market");
+        let snapshots_raw = serde_json::json!([
+            {"date": "2024-01-15", "market": market_val.clone()},
+            {"date": "2024-01-16", "market": market_val}
+        ]);
+
+        let format = time::format_description::well_known::Iso8601::DEFAULT;
+        let mut snapshots = Vec::new();
+        for entry in snapshots_raw.as_array().expect("array") {
+            let date_str = entry["date"].as_str().expect("date string");
+            let date = time::Date::parse(date_str, &format).expect("parse date");
+            let market: finstack_core::market_data::context::MarketContext =
+                serde_json::from_value(entry["market"].clone()).expect("parse market ctx");
+            snapshots.push((date, market));
+        }
+
+        let timeline =
+            finstack_portfolio::ReplayTimeline::new(snapshots).expect("build timeline");
+
+        let config_json = serde_json::json!({
+            "mode": "PvOnly",
+            "attribution_method": "Parallel"
+        })
+        .to_string();
+        let config: finstack_portfolio::ReplayConfig =
+            serde_json::from_str(&config_json).expect("parse config");
+
+        let finstack_config = finstack_core::config::FinstackConfig::default();
+
+        let result = finstack_portfolio::replay_portfolio(
+            &portfolio,
+            &timeline,
+            &config,
+            &finstack_config,
+        )
+        .expect("replay");
+
+        let json = serde_json::to_string(&result).expect("serialize");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse json");
+        assert!(parsed["steps"].is_array());
+        assert_eq!(parsed["steps"].as_array().expect("array").len(), 2);
     }
 }
