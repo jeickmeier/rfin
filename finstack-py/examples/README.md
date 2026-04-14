@@ -78,6 +78,8 @@ Deep dives: `models/` (7 notebooks)
 |----------|--------|
 | Portfolio Construction and Valuation | Portfolio spec, valuation, aggregation, cashflow ladder |
 | Scenarios and Stress Testing | Templates, composition, application, revaluation |
+| Horizon Total Return | Carry + scenario P&L composition, factor-decomposed total return |
+| Historical Replay | Replay portfolio through dated market snapshots, P&L, attribution |
 
 Deep dives: `scenarios/` (4 notebooks)
 

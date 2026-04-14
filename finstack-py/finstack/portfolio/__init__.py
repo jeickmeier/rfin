@@ -16,6 +16,7 @@ value_portfolio = _portfolio.value_portfolio
 aggregate_cashflows = _portfolio.aggregate_cashflows
 apply_scenario_and_revalue = _portfolio.apply_scenario_and_revalue
 optimize_portfolio = _portfolio.optimize_portfolio
+replay_portfolio = _portfolio.replay_portfolio
 
 __all__: list[str] = [
     "aggregate_cashflows",
@@ -26,5 +27,6 @@ __all__: list[str] = [
     "parse_portfolio_spec",
     "portfolio_result_get_metric",
     "portfolio_result_total_value",
+    "replay_portfolio",
     "value_portfolio",
 ]
