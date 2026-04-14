@@ -153,5 +153,6 @@ pub use scenarios::{apply_and_revalue, apply_scenario};
 
 #[cfg(feature = "scenarios")]
 pub use replay::{
-    ReplayConfig, ReplayMode, ReplayResult, ReplayStep, ReplaySummary, ReplayTimeline,
+    replay_portfolio, ReplayConfig, ReplayMode, ReplayResult, ReplayStep, ReplaySummary,
+    ReplayTimeline,
 };

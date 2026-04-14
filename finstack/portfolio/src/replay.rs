@@ -144,3 +144,136 @@ pub struct ReplayResult {
     /// Aggregate statistics.
     pub summary: ReplaySummary,
 }
+
+use crate::portfolio::Portfolio;
+use crate::valuation::value_portfolio;
+use finstack_core::config::FinstackConfig;
+
+/// Replay a portfolio through a sequence of dated market snapshots.
+///
+/// For each date in the timeline the portfolio is re-valued using the
+/// corresponding [`MarketContext`].  Depending on [`ReplayMode`]:
+///
+/// * **`PvOnly`** -- only portfolio PV is recorded at each step.
+/// * **`PvAndPnl`** -- daily and cumulative P&L are computed as well.
+/// * **`FullAttribution`** -- P&L plus per-position factor decomposition.
+///
+/// Returns a [`ReplayResult`] containing the per-step detail and an
+/// aggregate [`ReplaySummary`].
+pub fn replay_portfolio(
+    portfolio: &Portfolio,
+    timeline: &ReplayTimeline,
+    config: &ReplayConfig,
+    finstack_config: &FinstackConfig,
+) -> Result<ReplayResult> {
+    let compute_pnl = matches!(config.mode, ReplayMode::PvAndPnl | ReplayMode::FullAttribution);
+    let compute_attribution = matches!(config.mode, ReplayMode::FullAttribution);
+
+    let mut steps = Vec::with_capacity(timeline.len());
+
+    // Step 0: anchor valuation
+    let (first_date, first_market) = &timeline.snapshots[0];
+    let val_0 = value_portfolio(portfolio, first_market, finstack_config, &config.valuation_options)?;
+
+    steps.push(ReplayStep {
+        date: *first_date,
+        valuation: val_0,
+        daily_pnl: None,
+        cumulative_pnl: None,
+        attribution: None,
+    });
+
+    // Steps 1..N
+    for (date, market) in timeline.snapshots.iter().skip(1) {
+        let val_i = value_portfolio(portfolio, market, finstack_config, &config.valuation_options)?;
+
+        let prev_step = &steps[steps.len() - 1];
+
+        let daily_pnl = if compute_pnl {
+            Some(val_i.total_base_ccy.checked_sub(prev_step.valuation.total_base_ccy)?)
+        } else {
+            None
+        };
+
+        let cumulative_pnl = if compute_pnl {
+            Some(val_i.total_base_ccy.checked_sub(steps[0].valuation.total_base_ccy)?)
+        } else {
+            None
+        };
+
+        let attribution = if compute_attribution {
+            let attr = crate::attribution::attribute_portfolio_pnl(
+                portfolio,
+                &timeline.snapshots[steps.len() - 1].1,
+                market,
+                prev_step.date,
+                *date,
+                finstack_config,
+                config.attribution_method.clone(),
+            )?;
+            Some(attr)
+        } else {
+            None
+        };
+
+        steps.push(ReplayStep {
+            date: *date,
+            valuation: val_i,
+            daily_pnl,
+            cumulative_pnl,
+            attribution,
+        });
+    }
+
+    let summary = compute_summary(&steps);
+    Ok(ReplayResult { steps, summary })
+}
+
+fn compute_summary(steps: &[ReplayStep]) -> ReplaySummary {
+    let start_value = steps[0].valuation.total_base_ccy;
+    let end_value = steps[steps.len() - 1].valuation.total_base_ccy;
+    let total_pnl = Money::new(
+        end_value.amount() - start_value.amount(),
+        start_value.currency(),
+    );
+
+    // Max drawdown via high-water mark
+    let mut peak_value = start_value.amount();
+    let mut peak_date = steps[0].date;
+    let mut max_dd = 0.0_f64;
+    let mut max_dd_peak_date = steps[0].date;
+    let mut max_dd_trough_date = steps[0].date;
+
+    for step in steps {
+        let val = step.valuation.total_base_ccy.amount();
+        if val > peak_value {
+            peak_value = val;
+            peak_date = step.date;
+        }
+        let dd = peak_value - val;
+        if dd > max_dd {
+            max_dd = dd;
+            max_dd_peak_date = peak_date;
+            max_dd_trough_date = step.date;
+        }
+    }
+
+    let max_drawdown_pct = if peak_value.abs() > f64::EPSILON {
+        max_dd / peak_value
+    } else {
+        0.0
+    };
+
+    ReplaySummary {
+        start_date: steps[0].date,
+        end_date: steps[steps.len() - 1].date,
+        num_steps: steps.len(),
+        start_value,
+        end_value,
+        total_pnl,
+        max_drawdown: Money::new(max_dd, start_value.currency()),
+        max_drawdown_pct,
+        max_drawdown_peak_date: max_dd_peak_date,
+        max_drawdown_trough_date: max_dd_trough_date,
+    }
+}
