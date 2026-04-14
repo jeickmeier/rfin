@@ -363,6 +363,56 @@ impl InstrumentPricingOverrides {
 // Sub-struct: Metric configuration
 // ---------------------------------------------------------------------------
 
+/// Which valuation parameter to solve the breakeven for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BreakevenTarget {
+    /// Z-spread breakeven (sensitivity: CS01).
+    ZSpread,
+    /// Yield-to-maturity breakeven (sensitivity: DV01).
+    Ytm,
+    /// Implied volatility breakeven (sensitivity: Vega).
+    ImpliedVol,
+    /// Base correlation breakeven (sensitivity: Correlation01).
+    BaseCorrelation,
+    /// OAS breakeven (sensitivity: CS01).
+    Oas,
+}
+
+impl BreakevenTarget {
+    /// Returns the sensitivity `MetricId` used to compute the linear breakeven.
+    pub fn sensitivity_metric(&self) -> crate::metrics::MetricId {
+        use crate::metrics::MetricId;
+        match self {
+            Self::ZSpread | Self::Oas => MetricId::Cs01,
+            Self::Ytm => MetricId::Dv01,
+            Self::ImpliedVol => MetricId::Vega,
+            Self::BaseCorrelation => MetricId::Correlation01,
+        }
+    }
+}
+
+/// Linear (first-order) or iterative (full-reprice root-find) solve mode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BreakevenMode {
+    /// `-(carry_total) / sensitivity`. Fast, ignores convexity.
+    #[default]
+    Linear,
+    /// Brent root-find with full reprice at horizon. Accounts for convexity.
+    Iterative,
+}
+
+/// Configuration for the breakeven calculator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct BreakevenConfig {
+    /// Which valuation parameter to solve for.
+    pub target: BreakevenTarget,
+    /// Solve mode (default: linear).
+    #[serde(default)]
+    pub mode: BreakevenMode,
+}
+
 /// Metric-time overrides derived from an instrument's pricing metadata.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
@@ -378,6 +428,9 @@ pub struct MetricPricingOverrides {
     pub mc_seed_scenario: Option<String>,
     /// Theta period for time decay calculations (e.g., "1D", "1W", "1M", "3M").
     pub theta_period: Option<String>,
+    /// Breakeven configuration: which parameter to solve for and solve mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub breakeven_config: Option<BreakevenConfig>,
 }
 
 impl MetricPricingOverrides {
@@ -387,6 +440,7 @@ impl MetricPricingOverrides {
             bump_config: pricing_overrides.metrics.bump_config.clone(),
             mc_seed_scenario: pricing_overrides.metrics.mc_seed_scenario.clone(),
             theta_period: pricing_overrides.metrics.theta_period.clone(),
+            breakeven_config: pricing_overrides.metrics.breakeven_config,
         }
     }
 
@@ -432,6 +486,12 @@ impl MetricPricingOverrides {
     /// Set theta period for time decay calculations.
     pub fn with_theta_period(mut self, period: impl Into<String>) -> Self {
         self.theta_period = Some(period.into());
+        self
+    }
+
+    /// Set breakeven configuration.
+    pub fn with_breakeven_config(mut self, config: BreakevenConfig) -> Self {
+        self.breakeven_config = Some(config);
         self
     }
 
@@ -737,6 +797,12 @@ impl PricingOverrides {
     /// Set theta period for time decay calculations.
     pub fn with_theta_period(mut self, period: impl Into<String>) -> Self {
         self.metrics.theta_period = Some(period.into());
+        self
+    }
+
+    /// Set breakeven configuration.
+    pub fn with_breakeven_config(mut self, config: BreakevenConfig) -> Self {
+        self.metrics.breakeven_config = Some(config);
         self
     }
 
