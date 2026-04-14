@@ -281,4 +281,42 @@ mod replay_tests {
         assert_eq!(result.summary.max_drawdown_trough_date, date!(2024 - 01 - 02));
     }
 
+    #[test]
+    fn replay_config_roundtrips_via_json() {
+        let config = ReplayConfig {
+            mode: ReplayMode::FullAttribution,
+            attribution_method: AttributionMethod::Parallel,
+            valuation_options: Default::default(),
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: ReplayConfig = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized.mode, ReplayMode::FullAttribution));
+    }
+
+    #[test]
+    fn replay_result_serializes_to_json() {
+        let portfolio = build_test_portfolio();
+        let timeline = ReplayTimeline::new(vec![
+            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 0.0)),
+            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 50.0)),
+        ]).unwrap();
+
+        let config = ReplayConfig {
+            mode: ReplayMode::PvAndPnl,
+            attribution_method: Default::default(),
+            valuation_options: Default::default(),
+        };
+
+        let result = finstack_portfolio::replay_portfolio(
+            &portfolio, &timeline, &config, &FinstackConfig::default(),
+        ).unwrap();
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(!json.is_empty());
+
+        // Deserialize back
+        let deserialized: finstack_portfolio::ReplayResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.steps.len(), 2);
+        assert_eq!(deserialized.summary.num_steps, 2);
+    }
 }
