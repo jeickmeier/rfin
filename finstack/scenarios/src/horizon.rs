@@ -133,6 +133,135 @@ pub struct HorizonResult {
     pub scenario_report: ApplicationReport,
 }
 
+impl HorizonAnalysis {
+    /// Compute horizon total return under a scenario.
+    ///
+    /// Applies the [`ScenarioSpec`] to the provided market context (cloned
+    /// internally) and runs P&L attribution between the original and
+    /// scenario-modified states.
+    ///
+    /// The spec may include a [`OperationSpec::TimeRollForward`] to define
+    /// the holding period.  If no time-roll is present, the analysis is a
+    /// pure mark-to-scenario (carry will be zero, `horizon_days` will be
+    /// `None`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if scenario application or attribution fails (e.g.
+    /// missing market data for a curve referenced in the spec).
+    pub fn compute(
+        &self,
+        instrument: &Arc<dyn Instrument>,
+        market_t0: &MarketContext,
+        as_of_t0: Date,
+        scenario: &ScenarioSpec,
+    ) -> crate::Result<HorizonResult> {
+        // 1. Price at t0
+        let initial_value = instrument
+            .value(market_t0, as_of_t0)
+            .map_err(|e| crate::Error::Internal(format!("t0 pricing failed: {e}")))?;
+
+        // 2. Clone market and build execution context
+        let mut market_t1 = market_t0.clone();
+        let mut model = finstack_statements::FinancialModelSpec::new("__horizon_temp__", vec![]);
+        let mut ctx = ExecutionContext {
+            market: &mut market_t1,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of: as_of_t0,
+        };
+
+        // 3. Apply scenario
+        let scenario_report = self.engine.apply(scenario, &mut ctx)?;
+        let as_of_t1 = ctx.as_of;
+
+        // 4. Derive horizon
+        let diff_days = (as_of_t1 - as_of_t0).whole_days();
+        let horizon_days = if diff_days > 0 {
+            Some(diff_days)
+        } else {
+            None
+        };
+
+        // 5. Run attribution
+        let attribution = self.run_attribution(
+            instrument,
+            market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+        )?;
+
+        // 6. Price at t1
+        let terminal_value = instrument
+            .value(&market_t1, as_of_t1)
+            .map_err(|e| crate::Error::Internal(format!("t1 pricing failed: {e}")))?;
+
+        Ok(HorizonResult {
+            attribution,
+            initial_value,
+            terminal_value,
+            horizon_days,
+            scenario_report,
+        })
+    }
+
+    /// Dispatch to the appropriate attribution function based on `self.attribution_method`.
+    fn run_attribution(
+        &self,
+        instrument: &Arc<dyn Instrument>,
+        market_t0: &MarketContext,
+        market_t1: &MarketContext,
+        as_of_t0: Date,
+        as_of_t1: Date,
+    ) -> crate::Result<PnlAttribution> {
+        let result = match &self.attribution_method {
+            AttributionMethod::Parallel => attribute_pnl_parallel(
+                instrument,
+                market_t0,
+                market_t1,
+                as_of_t0,
+                as_of_t1,
+                &self.config,
+                None,
+            ),
+            AttributionMethod::Waterfall(order) => attribute_pnl_waterfall(
+                instrument,
+                market_t0,
+                market_t1,
+                as_of_t0,
+                as_of_t1,
+                &self.config,
+                order.clone(),
+                false,
+                None,
+            ),
+            AttributionMethod::MetricsBased => {
+                let metrics = default_attribution_metrics();
+                let val_t0 = instrument
+                    .price_with_metrics(market_t0, as_of_t0, &metrics, PricingOptions::default())
+                    .map_err(|e| {
+                        crate::Error::Internal(format!("t0 metrics pricing failed: {e}"))
+                    })?;
+                let val_t1 = instrument
+                    .price_with_metrics(market_t1, as_of_t1, &metrics, PricingOptions::default())
+                    .map_err(|e| {
+                        crate::Error::Internal(format!("t1 metrics pricing failed: {e}"))
+                    })?;
+                attribute_pnl_metrics_based(
+                    instrument, market_t0, market_t1, &val_t0, &val_t1, as_of_t0, as_of_t1,
+                )
+            }
+            AttributionMethod::Taylor(config) => attribute_pnl_taylor_standard(
+                instrument, market_t0, market_t1, as_of_t0, as_of_t1, config,
+            ),
+        };
+        result.map_err(|e| crate::Error::Internal(format!("attribution failed: {e}")))
+    }
+}
+
 impl HorizonResult {
     /// Total return as a decimal fraction (e.g. 0.05 = 5%).
     ///
