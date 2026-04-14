@@ -51,8 +51,7 @@ pub(crate) fn compute_horizon_return<'py>(
     use std::sync::Arc;
 
     // Parse instrument
-    let inst: InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(horizon_to_py)?;
+    let inst: InstrumentJson = serde_json::from_str(instrument_json).map_err(horizon_to_py)?;
     let boxed = inst.into_boxed().map_err(horizon_to_py)?;
     let instrument: Arc<dyn finstack_valuations::instruments::internal::InstrumentExt> =
         Arc::from(boxed);
@@ -71,16 +70,12 @@ pub(crate) fn compute_horizon_return<'py>(
     let attribution_method = match method {
         "parallel" => AttributionMethod::Parallel,
         "waterfall" => {
-            AttributionMethod::Waterfall(
-                finstack_valuations::attribution::default_waterfall_order(),
-            )
+            AttributionMethod::Waterfall(finstack_valuations::attribution::default_waterfall_order())
         }
         "metrics_based" => AttributionMethod::MetricsBased,
-        "taylor" => {
-            AttributionMethod::Taylor(
-                finstack_valuations::attribution::TaylorAttributionConfig::default(),
-            )
-        }
+        "taylor" => AttributionMethod::Taylor(
+            finstack_valuations::attribution::TaylorAttributionConfig::default(),
+        ),
         other => {
             return Err(PyValueError::new_err(format!(
                 "Unknown attribution method '{other}'. Expected: parallel, waterfall, metrics_based, taylor"
@@ -95,10 +90,8 @@ pub(crate) fn compute_horizon_return<'py>(
     };
 
     // Run analysis
-    let analyzer = finstack_scenarios::horizon::HorizonAnalysis::new(
-        attribution_method,
-        finstack_config,
-    );
+    let analyzer =
+        finstack_scenarios::horizon::HorizonAnalysis::new(attribution_method, finstack_config);
     let result = analyzer
         .compute(&instrument, &market_ctx, date, &scenario)
         .map_err(horizon_to_py)?;
@@ -188,9 +181,7 @@ impl PyHorizonResult {
             "model_parameters" | "model_params" => AttributionFactor::ModelParameters,
             "market_scalars" | "scalars" => AttributionFactor::MarketScalars,
             other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown factor '{other}'"
-                )));
+                return Err(PyValueError::new_err(format!("Unknown factor '{other}'")));
             }
         };
         Ok(self.inner.factor_contribution(&f))
@@ -214,22 +205,13 @@ impl PyHorizonResult {
         if let Some(days) = self.inner.horizon_days {
             s.push_str(&format!("Horizon: {} days\n", days));
         }
-        s.push_str(&format!(
-            "Initial Value: {}\n",
-            self.inner.initial_value
-        ));
-        s.push_str(&format!(
-            "Terminal Value: {}\n",
-            self.inner.terminal_value
-        ));
+        s.push_str(&format!("Initial Value: {}\n", self.inner.initial_value));
+        s.push_str(&format!("Terminal Value: {}\n", self.inner.terminal_value));
         s.push_str(&format!(
             "Total P&L: {}\n",
             self.inner.attribution.total_pnl
         ));
-        s.push_str(&format!(
-            "  Carry: {}\n",
-            self.inner.attribution.carry
-        ));
+        s.push_str(&format!("  Carry: {}\n", self.inner.attribution.carry));
         s.push_str(&format!(
             "  Rates: {}\n",
             self.inner.attribution.rates_curves_pnl

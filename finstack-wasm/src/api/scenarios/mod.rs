@@ -254,8 +254,7 @@ pub fn compute_horizon_return(
     use std::sync::Arc;
 
     // Parse instrument
-    let inst: InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(to_js_err)?;
+    let inst: InstrumentJson = serde_json::from_str(instrument_json).map_err(to_js_err)?;
     let boxed = inst.into_boxed().map_err(to_js_err)?;
     let instrument: Arc<dyn finstack_valuations::instruments::internal::InstrumentExt> =
         Arc::from(boxed);
@@ -298,10 +297,8 @@ pub fn compute_horizon_return(
         None => finstack_core::config::FinstackConfig::default(),
     };
 
-    let analyzer = finstack_scenarios::horizon::HorizonAnalysis::new(
-        attribution_method,
-        finstack_config,
-    );
+    let analyzer =
+        finstack_scenarios::horizon::HorizonAnalysis::new(attribution_method, finstack_config);
     let result = analyzer
         .compute(&instrument, &market, date, &scenario)
         .map_err(to_js_err)?;

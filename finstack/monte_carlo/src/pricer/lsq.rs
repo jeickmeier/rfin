@@ -47,7 +47,7 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
 
     // Convert to nalgebra matrices
     let x_matrix = DMatrix::from_row_slice(n, k, design);
-    let y_vector = DVector::from_vec(y.to_vec());
+    let y_vector = DVector::from_column_slice(y);
 
     // Solve least squares problem using SVD (more robust than QR for overdetermined systems)
     let svd = x_matrix.svd(true, true);

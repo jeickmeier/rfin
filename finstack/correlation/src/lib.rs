@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Shared correlation infrastructure for credit modeling.
 //!
 //! This crate provides reusable correlation models used across credit instruments:

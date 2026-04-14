@@ -97,8 +97,7 @@ fn price_instrument_with_metrics(
             let mut doc: serde_json::Value =
                 serde_json::from_str(instrument_json).map_err(val_to_py)?;
             // Merge opts into doc["spec"]["pricing_overrides"] (create if absent).
-            let overrides_patch =
-                serde_json::to_value(&opts).map_err(val_to_py)?;
+            let overrides_patch = serde_json::to_value(&opts).map_err(val_to_py)?;
             if let serde_json::Value::Object(patch) = overrides_patch {
                 let po = doc
                     .get_mut("spec")

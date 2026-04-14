@@ -33,8 +33,7 @@ fn replay_portfolio(spec_json: &str, snapshots_json: &str, config_json: &str) ->
         serde_json::from_str(config_json).map_err(replay_to_py)?;
 
     // Parse snapshots: [{"date": "YYYY-MM-DD", "market": {...}}, ...]
-    let raw: Vec<serde_json::Value> =
-        serde_json::from_str(snapshots_json).map_err(replay_to_py)?;
+    let raw: Vec<serde_json::Value> = serde_json::from_str(snapshots_json).map_err(replay_to_py)?;
 
     let format = time::format_description::well_known::Iso8601::DEFAULT;
     let mut snapshots = Vec::with_capacity(raw.len());

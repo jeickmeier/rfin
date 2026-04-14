@@ -166,14 +166,22 @@ pub fn replay_portfolio(
     config: &ReplayConfig,
     finstack_config: &FinstackConfig,
 ) -> Result<ReplayResult> {
-    let compute_pnl = matches!(config.mode, ReplayMode::PvAndPnl | ReplayMode::FullAttribution);
+    let compute_pnl = matches!(
+        config.mode,
+        ReplayMode::PvAndPnl | ReplayMode::FullAttribution
+    );
     let compute_attribution = matches!(config.mode, ReplayMode::FullAttribution);
 
     let mut steps = Vec::with_capacity(timeline.len());
 
     // Step 0: anchor valuation
     let (first_date, first_market) = &timeline.snapshots[0];
-    let val_0 = value_portfolio(portfolio, first_market, finstack_config, &config.valuation_options)?;
+    let val_0 = value_portfolio(
+        portfolio,
+        first_market,
+        finstack_config,
+        &config.valuation_options,
+    )?;
 
     steps.push(ReplayStep {
         date: *first_date,
@@ -185,18 +193,31 @@ pub fn replay_portfolio(
 
     // Steps 1..N
     for (date, market) in timeline.snapshots.iter().skip(1) {
-        let val_i = value_portfolio(portfolio, market, finstack_config, &config.valuation_options)?;
+        let val_i = value_portfolio(
+            portfolio,
+            market,
+            finstack_config,
+            &config.valuation_options,
+        )?;
 
         let prev_step = &steps[steps.len() - 1];
 
         let daily_pnl = if compute_pnl {
-            Some(val_i.total_base_ccy.checked_sub(prev_step.valuation.total_base_ccy)?)
+            Some(
+                val_i
+                    .total_base_ccy
+                    .checked_sub(prev_step.valuation.total_base_ccy)?,
+            )
         } else {
             None
         };
 
         let cumulative_pnl = if compute_pnl {
-            Some(val_i.total_base_ccy.checked_sub(steps[0].valuation.total_base_ccy)?)
+            Some(
+                val_i
+                    .total_base_ccy
+                    .checked_sub(steps[0].valuation.total_base_ccy)?,
+            )
         } else {
             None
         };

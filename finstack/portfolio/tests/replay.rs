@@ -191,10 +191,20 @@ mod replay_tests {
     fn replay_pv_and_pnl_computes_daily_and_cumulative() {
         let portfolio = build_test_portfolio();
         let timeline = ReplayTimeline::new(vec![
-            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 0.0)),
-            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 50.0)),
-            (date!(2024 - 01 - 03), market_at_rate(date!(2024 - 01 - 03), 100.0)),
-        ]).unwrap();
+            (
+                date!(2024 - 01 - 01),
+                market_at_rate(date!(2024 - 01 - 01), 0.0),
+            ),
+            (
+                date!(2024 - 01 - 02),
+                market_at_rate(date!(2024 - 01 - 02), 50.0),
+            ),
+            (
+                date!(2024 - 01 - 03),
+                market_at_rate(date!(2024 - 01 - 03), 100.0),
+            ),
+        ])
+        .unwrap();
 
         let config = ReplayConfig {
             mode: ReplayMode::PvAndPnl,
@@ -203,8 +213,12 @@ mod replay_tests {
         };
 
         let result = finstack_portfolio::replay_portfolio(
-            &portfolio, &timeline, &config, &FinstackConfig::default(),
-        ).unwrap();
+            &portfolio,
+            &timeline,
+            &config,
+            &FinstackConfig::default(),
+        )
+        .unwrap();
 
         // Step 0: no P&L
         assert!(result.steps[0].daily_pnl.is_none());
@@ -227,9 +241,16 @@ mod replay_tests {
     fn replay_full_attribution_produces_attribution_at_each_step() {
         let portfolio = build_test_portfolio();
         let timeline = ReplayTimeline::new(vec![
-            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 450.0)),
-            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 460.0)),
-        ]).unwrap();
+            (
+                date!(2024 - 01 - 01),
+                market_at_rate(date!(2024 - 01 - 01), 450.0),
+            ),
+            (
+                date!(2024 - 01 - 02),
+                market_at_rate(date!(2024 - 01 - 02), 460.0),
+            ),
+        ])
+        .unwrap();
 
         let config = ReplayConfig {
             mode: ReplayMode::FullAttribution,
@@ -238,15 +259,25 @@ mod replay_tests {
         };
 
         let result = finstack_portfolio::replay_portfolio(
-            &portfolio, &timeline, &config, &FinstackConfig::default(),
-        ).unwrap();
+            &portfolio,
+            &timeline,
+            &config,
+            &FinstackConfig::default(),
+        )
+        .unwrap();
 
         // Step 0: no attribution
         assert!(result.steps[0].attribution.is_none());
 
         // Step 1: has attribution with factor breakdown
-        let attr = result.steps[1].attribution.as_ref().expect("step 1 should have attribution");
-        assert!(!attr.by_position.is_empty(), "should have per-position breakdown");
+        let attr = result.steps[1]
+            .attribution
+            .as_ref()
+            .expect("step 1 should have attribution");
+        assert!(
+            !attr.by_position.is_empty(),
+            "should have per-position breakdown"
+        );
 
         // Also has P&L in FullAttribution mode
         assert!(result.steps[1].daily_pnl.is_some());
@@ -258,10 +289,20 @@ mod replay_tests {
         let portfolio = build_test_portfolio();
         // Rates: 0bp -> 200bp (value drops) -> 100bp (partial recovery)
         let timeline = ReplayTimeline::new(vec![
-            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 0.0)),
-            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 200.0)),
-            (date!(2024 - 01 - 03), market_at_rate(date!(2024 - 01 - 03), 100.0)),
-        ]).unwrap();
+            (
+                date!(2024 - 01 - 01),
+                market_at_rate(date!(2024 - 01 - 01), 0.0),
+            ),
+            (
+                date!(2024 - 01 - 02),
+                market_at_rate(date!(2024 - 01 - 02), 200.0),
+            ),
+            (
+                date!(2024 - 01 - 03),
+                market_at_rate(date!(2024 - 01 - 03), 100.0),
+            ),
+        ])
+        .unwrap();
 
         let config = ReplayConfig {
             mode: ReplayMode::PvAndPnl,
@@ -270,15 +311,22 @@ mod replay_tests {
         };
 
         let result = finstack_portfolio::replay_portfolio(
-            &portfolio, &timeline, &config, &FinstackConfig::default(),
-        ).unwrap();
+            &portfolio,
+            &timeline,
+            &config,
+            &FinstackConfig::default(),
+        )
+        .unwrap();
 
         // Max drawdown should be positive (a loss amount)
         assert!(result.summary.max_drawdown.amount() >= 0.0);
         // Peak should be at step 0 (rates started at 0)
         assert_eq!(result.summary.max_drawdown_peak_date, date!(2024 - 01 - 01));
         // Trough should be at step 1 (highest rates)
-        assert_eq!(result.summary.max_drawdown_trough_date, date!(2024 - 01 - 02));
+        assert_eq!(
+            result.summary.max_drawdown_trough_date,
+            date!(2024 - 01 - 02)
+        );
     }
 
     #[test]
@@ -297,9 +345,16 @@ mod replay_tests {
     fn replay_result_serializes_to_json() {
         let portfolio = build_test_portfolio();
         let timeline = ReplayTimeline::new(vec![
-            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 0.0)),
-            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 50.0)),
-        ]).unwrap();
+            (
+                date!(2024 - 01 - 01),
+                market_at_rate(date!(2024 - 01 - 01), 0.0),
+            ),
+            (
+                date!(2024 - 01 - 02),
+                market_at_rate(date!(2024 - 01 - 02), 50.0),
+            ),
+        ])
+        .unwrap();
 
         let config = ReplayConfig {
             mode: ReplayMode::PvAndPnl,
@@ -308,8 +363,12 @@ mod replay_tests {
         };
 
         let result = finstack_portfolio::replay_portfolio(
-            &portfolio, &timeline, &config, &FinstackConfig::default(),
-        ).unwrap();
+            &portfolio,
+            &timeline,
+            &config,
+            &FinstackConfig::default(),
+        )
+        .unwrap();
 
         let json = serde_json::to_string(&result).unwrap();
         assert!(!json.is_empty());

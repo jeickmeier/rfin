@@ -22,14 +22,14 @@ compute_horizon_return = _scenarios.compute_horizon_return
 HorizonResult = _scenarios.HorizonResult
 
 __all__: list[str] = [
+    "HorizonResult",
     "apply_scenario",
     "apply_scenario_to_market",
-    "compute_horizon_return",
-    "HorizonResult",
     "build_from_template",
     "build_scenario_spec",
     "build_template_component",
     "compose_scenarios",
+    "compute_horizon_return",
     "list_builtin_template_metadata",
     "list_builtin_templates",
     "list_template_components",

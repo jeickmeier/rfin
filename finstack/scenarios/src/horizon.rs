@@ -179,20 +179,11 @@ impl HorizonAnalysis {
 
         // 4. Derive horizon
         let diff_days = (as_of_t1 - as_of_t0).whole_days();
-        let horizon_days = if diff_days > 0 {
-            Some(diff_days)
-        } else {
-            None
-        };
+        let horizon_days = if diff_days > 0 { Some(diff_days) } else { None };
 
         // 5. Run attribution
-        let attribution = self.run_attribution(
-            instrument,
-            market_t0,
-            &market_t1,
-            as_of_t0,
-            as_of_t1,
-        )?;
+        let attribution =
+            self.run_attribution(instrument, market_t0, &market_t1, as_of_t0, as_of_t1)?;
 
         // 6. Price at t1
         let terminal_value = instrument
@@ -326,42 +317,39 @@ mod tests {
     use time::macros::date;
 
     /// Build a simple 2-year fixed-rate bond for testing.
-    fn test_bond(base_date: Date) -> Arc<dyn Instrument> {
-        Arc::new(
-            Bond::builder()
-                .id("TEST-BOND".into())
-                .notional(Money::new(100.0, Currency::USD))
-                .issue_date(base_date)
-                .maturity(base_date + time::Duration::days(730))
-                .cashflow_spec(CashflowSpec::fixed(
-                    0.05,
-                    finstack_core::dates::Tenor::annual(),
-                    DayCount::Thirty360,
-                ))
-                .discount_curve_id(CurveId::new("USD-OIS"))
-                .credit_curve_id_opt(None)
-                .pricing_overrides(PricingOverrides::default())
-                .attributes(Attributes::new())
-                .build()
-                .expect("bond builder should succeed"),
-        )
+    fn test_bond(base_date: Date) -> crate::Result<Arc<dyn Instrument>> {
+        let bond = Bond::builder()
+            .id("TEST-BOND".into())
+            .notional(Money::new(100.0, Currency::USD))
+            .issue_date(base_date)
+            .maturity(base_date + time::Duration::days(730))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Tenor::annual(),
+                DayCount::Thirty360,
+            ))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()?;
+        Ok(Arc::new(bond))
     }
 
     /// Build a market with a flat discount curve.
-    fn test_market(base_date: Date) -> MarketContext {
+    fn test_market(base_date: Date) -> crate::Result<MarketContext> {
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots(vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.90)])
-            .build()
-            .expect("curve builder should succeed");
-        MarketContext::new().insert(curve)
+            .build()?;
+        Ok(MarketContext::new().insert(curve))
     }
 
     #[test]
-    fn no_op_scenario_returns_zero_pnl() {
+    fn no_op_scenario_returns_zero_pnl() -> crate::Result<()> {
         let as_of = date!(2025 - 01 - 15);
-        let instrument = test_bond(as_of);
-        let market = test_market(as_of);
+        let instrument = test_bond(as_of)?;
+        let market = test_market(as_of)?;
 
         let scenario = ScenarioSpec {
             id: "no_op".into(),
@@ -373,7 +361,7 @@ mod tests {
         };
 
         let analyzer = HorizonAnalysis::default();
-        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario)?;
 
         assert!(
             result.attribution.total_pnl.amount().abs() < 1e-10,
@@ -383,13 +371,14 @@ mod tests {
         assert!(result.horizon_days.is_none());
         assert!(result.annualized_return().is_none());
         assert!((result.total_return_pct()).abs() < 1e-10);
+        Ok(())
     }
 
     #[test]
-    fn time_roll_only_has_horizon_days_and_carry() {
+    fn time_roll_only_has_horizon_days_and_carry() -> crate::Result<()> {
         let as_of = date!(2025 - 01 - 15);
-        let instrument = test_bond(as_of);
-        let market = test_market(as_of);
+        let instrument = test_bond(as_of)?;
+        let market = test_market(as_of)?;
 
         let scenario = ScenarioSpec {
             id: "roll_1m".into(),
@@ -405,10 +394,9 @@ mod tests {
         };
 
         let analyzer = HorizonAnalysis::default();
-        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario)?;
 
-        assert!(result.horizon_days.is_some());
-        assert!(result.horizon_days.unwrap() > 0);
+        assert!(matches!(result.horizon_days, Some(days) if days > 0));
         assert!(result.annualized_return().is_some());
 
         // Carry should be non-zero since the bond accrues over the holding period.
@@ -436,13 +424,14 @@ mod tests {
             "factors + residual ({sum_of_factors}) should equal total ({})",
             a.total_pnl.amount()
         );
+        Ok(())
     }
 
     #[test]
-    fn combined_time_roll_and_shock() {
+    fn combined_time_roll_and_shock() -> crate::Result<()> {
         let as_of = date!(2025 - 01 - 15);
-        let instrument = test_bond(as_of);
-        let market = test_market(as_of);
+        let instrument = test_bond(as_of)?;
+        let market = test_market(as_of)?;
 
         let scenario = ScenarioSpec {
             id: "roll_and_shock".into(),
@@ -466,7 +455,7 @@ mod tests {
         };
 
         let analyzer = HorizonAnalysis::default();
-        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario)?;
 
         // Horizon present
         assert!(result.horizon_days.is_some());
@@ -499,13 +488,14 @@ mod tests {
             "factors + residual ({sum_of_factors}) should equal total ({})",
             a.total_pnl.amount()
         );
+        Ok(())
     }
 
     #[test]
-    fn shock_only_has_no_horizon_and_zero_carry() {
+    fn shock_only_has_no_horizon_and_zero_carry() -> crate::Result<()> {
         let as_of = date!(2025 - 01 - 15);
-        let instrument = test_bond(as_of);
-        let market = test_market(as_of);
+        let instrument = test_bond(as_of)?;
+        let market = test_market(as_of)?;
 
         let scenario = ScenarioSpec {
             id: "rate_shock".into(),
@@ -522,7 +512,7 @@ mod tests {
         };
 
         let analyzer = HorizonAnalysis::default();
-        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario)?;
 
         assert!(result.horizon_days.is_none());
         assert!(result.annualized_return().is_none());
@@ -537,13 +527,14 @@ mod tests {
             result.attribution.rates_curves_pnl.amount().abs() > 1e-6,
             "shock-only: rates P&L should be non-zero"
         );
+        Ok(())
     }
 
     #[test]
-    fn total_return_pct_matches_pnl_over_initial() {
+    fn total_return_pct_matches_pnl_over_initial() -> crate::Result<()> {
         let as_of = date!(2025 - 01 - 15);
-        let instrument = test_bond(as_of);
-        let market = test_market(as_of);
+        let instrument = test_bond(as_of)?;
+        let market = test_market(as_of)?;
 
         let scenario = ScenarioSpec {
             id: "rate_shock".into(),
@@ -560,12 +551,13 @@ mod tests {
         };
 
         let analyzer = HorizonAnalysis::default();
-        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario)?;
 
         let expected_pct = result.attribution.total_pnl.amount() / result.initial_value.amount();
         assert!(
             (result.total_return_pct() - expected_pct).abs() < 1e-12,
             "total_return_pct() should match manual calculation"
         );
+        Ok(())
     }
 }

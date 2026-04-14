@@ -364,7 +364,9 @@ impl InstrumentPricingOverrides {
 // ---------------------------------------------------------------------------
 
 /// Which valuation parameter to solve the breakeven for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum BreakevenTarget {
     /// Z-spread breakeven (sensitivity: CS01).
@@ -393,7 +395,17 @@ impl BreakevenTarget {
 }
 
 /// Linear (first-order) or iterative (full-reprice root-find) solve mode.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum BreakevenMode {
     /// `-(carry_total) / sensitivity`. Fast, ignores convexity.
@@ -404,7 +416,9 @@ pub enum BreakevenMode {
 }
 
 /// Configuration for the breakeven calculator.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct BreakevenConfig {
     /// Which valuation parameter to solve for.
     pub target: BreakevenTarget,

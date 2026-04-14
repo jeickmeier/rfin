@@ -173,8 +173,7 @@ pub fn replay_portfolio(
         serde_json::from_str(config_json).map_err(to_js_err)?;
 
     // Parse snapshots: [{"date": "YYYY-MM-DD", "market": {...}}, ...]
-    let raw: Vec<serde_json::Value> =
-        serde_json::from_str(snapshots_json).map_err(to_js_err)?;
+    let raw: Vec<serde_json::Value> = serde_json::from_str(snapshots_json).map_err(to_js_err)?;
 
     let format = time::format_description::well_known::Iso8601::DEFAULT;
     let mut snapshots = Vec::with_capacity(raw.len());
@@ -299,8 +298,7 @@ mod tests {
         let spec_json = minimal_portfolio_spec_json();
         let spec: finstack_portfolio::PortfolioSpec =
             serde_json::from_str(&spec_json).expect("parse spec");
-        let portfolio =
-            finstack_portfolio::Portfolio::from_spec(spec).expect("build portfolio");
+        let portfolio = finstack_portfolio::Portfolio::from_spec(spec).expect("build portfolio");
 
         let market_json = empty_market_json();
         let market_val: serde_json::Value =
@@ -320,8 +318,7 @@ mod tests {
             snapshots.push((date, market));
         }
 
-        let timeline =
-            finstack_portfolio::ReplayTimeline::new(snapshots).expect("build timeline");
+        let timeline = finstack_portfolio::ReplayTimeline::new(snapshots).expect("build timeline");
 
         let config_json = serde_json::json!({
             "mode": "PvOnly",
@@ -333,13 +330,9 @@ mod tests {
 
         let finstack_config = finstack_core::config::FinstackConfig::default();
 
-        let result = finstack_portfolio::replay_portfolio(
-            &portfolio,
-            &timeline,
-            &config,
-            &finstack_config,
-        )
-        .expect("replay");
+        let result =
+            finstack_portfolio::replay_portfolio(&portfolio, &timeline, &config, &finstack_config)
+                .expect("replay");
 
         let json = serde_json::to_string(&result).expect("serialize");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse json");

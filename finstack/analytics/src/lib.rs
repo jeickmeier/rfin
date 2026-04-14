@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Performance analytics on numeric slices and `finstack_core::dates::Date`.
 //!
 //! Start with [`crate::performance::Performance`] when you want a stateful,

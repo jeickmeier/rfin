@@ -51,9 +51,7 @@ impl MetricCalculator for BreakevenCalculator {
         }
 
         match config.mode {
-            crate::instruments::BreakevenMode::Linear => {
-                Ok(-carry_total / sensitivity)
-            }
+            crate::instruments::BreakevenMode::Linear => Ok(-carry_total / sensitivity),
             crate::instruments::BreakevenMode::Iterative => {
                 iterative_breakeven(context, carry_total, sensitivity, &config)
             }
@@ -164,19 +162,23 @@ fn iterative_breakeven(
 mod tests {
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
-    use crate::instruments::{BreakevenConfig, BreakevenMode, BreakevenTarget};
     use crate::instruments::Bond;
+    use crate::instruments::{BreakevenConfig, BreakevenMode, BreakevenTarget};
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCount;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
-    use finstack_core::dates::DayCount;
     use std::sync::Arc;
     use time::macros::date;
 
-    fn flat_discount_curve(id: &str, rate: f64, base_date: finstack_core::dates::Date) -> DiscountCurve {
+    fn flat_discount_curve(
+        id: &str,
+        rate: f64,
+        base_date: finstack_core::dates::Date,
+    ) -> DiscountCurve {
         let knots: Vec<(f64, f64)> = (0..=20)
             .map(|i| {
                 let t = i as f64 * 0.5;
@@ -200,19 +202,28 @@ mod tests {
     ) -> MetricContext {
         let as_of = date!(2025 - 01 - 15);
         let bond = Bond::fixed(
-            "TEST", Money::new(100.0, Currency::USD), 0.05,
-            as_of, date!(2030 - 01 - 15), "USD-OIS",
-        ).expect("bond");
+            "TEST",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 15),
+            "USD-OIS",
+        )
+        .expect("bond");
         let market = MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
         let instrument: Arc<dyn Instrument> = Arc::new(bond);
         let base_value = instrument.value(&market, as_of).expect("pv");
 
         let mut ctx = MetricContext::new(
-            instrument, Arc::new(market), as_of, base_value,
+            instrument,
+            Arc::new(market),
+            as_of,
+            base_value,
             Arc::new(FinstackConfig::default()),
         );
         ctx.computed.insert(MetricId::CarryTotal, carry_total);
-        ctx.computed.insert(target.sensitivity_metric(), sensitivity);
+        ctx.computed
+            .insert(target.sensitivity_metric(), sensitivity);
 
         let overrides = crate::instruments::MetricPricingOverrides::default()
             .with_breakeven_config(BreakevenConfig { target, mode });
@@ -223,7 +234,10 @@ mod tests {
     #[test]
     fn test_linear_breakeven_positive_carry() {
         let mut ctx = context_with_carry_and_sensitivity(
-            0.50, -0.04, BreakevenTarget::ZSpread, BreakevenMode::Linear,
+            0.50,
+            -0.04,
+            BreakevenTarget::ZSpread,
+            BreakevenMode::Linear,
         );
         let result = BreakevenCalculator.calculate(&mut ctx).expect("breakeven");
         assert!((result - 12.5).abs() < 1e-10, "got {result}");
@@ -232,7 +246,10 @@ mod tests {
     #[test]
     fn test_linear_breakeven_negative_carry() {
         let mut ctx = context_with_carry_and_sensitivity(
-            -0.30, -0.04, BreakevenTarget::ZSpread, BreakevenMode::Linear,
+            -0.30,
+            -0.04,
+            BreakevenTarget::ZSpread,
+            BreakevenMode::Linear,
         );
         let result = BreakevenCalculator.calculate(&mut ctx).expect("breakeven");
         assert!((result - (-7.5)).abs() < 1e-10, "got {result}");
@@ -241,7 +258,10 @@ mod tests {
     #[test]
     fn test_linear_breakeven_zero_sensitivity_returns_error() {
         let mut ctx = context_with_carry_and_sensitivity(
-            0.50, 0.0, BreakevenTarget::ZSpread, BreakevenMode::Linear,
+            0.50,
+            0.0,
+            BreakevenTarget::ZSpread,
+            BreakevenMode::Linear,
         );
         let result = BreakevenCalculator.calculate(&mut ctx);
         assert!(result.is_err(), "zero sensitivity should error");
@@ -251,15 +271,23 @@ mod tests {
     fn test_missing_sensitivity_returns_error() {
         let as_of = date!(2025 - 01 - 15);
         let bond = Bond::fixed(
-            "TEST", Money::new(100.0, Currency::USD), 0.05,
-            as_of, date!(2030 - 01 - 15), "USD-OIS",
-        ).expect("bond");
+            "TEST",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 15),
+            "USD-OIS",
+        )
+        .expect("bond");
         let market = MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
         let instrument: Arc<dyn Instrument> = Arc::new(bond);
         let base_value = instrument.value(&market, as_of).expect("pv");
 
         let mut ctx = MetricContext::new(
-            instrument, Arc::new(market), as_of, base_value,
+            instrument,
+            Arc::new(market),
+            as_of,
+            base_value,
             Arc::new(FinstackConfig::default()),
         );
         ctx.computed.insert(MetricId::CarryTotal, 0.50);
@@ -278,15 +306,23 @@ mod tests {
     fn test_missing_config_returns_error() {
         let as_of = date!(2025 - 01 - 15);
         let bond = Bond::fixed(
-            "TEST", Money::new(100.0, Currency::USD), 0.05,
-            as_of, date!(2030 - 01 - 15), "USD-OIS",
-        ).expect("bond");
+            "TEST",
+            Money::new(100.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 15),
+            "USD-OIS",
+        )
+        .expect("bond");
         let market = MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
         let instrument: Arc<dyn Instrument> = Arc::new(bond);
         let base_value = instrument.value(&market, as_of).expect("pv");
 
         let mut ctx = MetricContext::new(
-            instrument, Arc::new(market), as_of, base_value,
+            instrument,
+            Arc::new(market),
+            as_of,
+            base_value,
             Arc::new(FinstackConfig::default()),
         );
         ctx.computed.insert(MetricId::CarryTotal, 0.50);
@@ -299,7 +335,10 @@ mod tests {
     #[test]
     fn test_linear_breakeven_ytm_target() {
         let mut ctx = context_with_carry_and_sensitivity(
-            0.25, -0.05, BreakevenTarget::Ytm, BreakevenMode::Linear,
+            0.25,
+            -0.05,
+            BreakevenTarget::Ytm,
+            BreakevenMode::Linear,
         );
         let result = BreakevenCalculator.calculate(&mut ctx).expect("breakeven");
         assert!((result - 5.0).abs() < 1e-10, "got {result}");
@@ -329,8 +368,7 @@ mod tests {
                 mode: BreakevenMode::Linear,
             });
 
-        let market =
-            MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
+        let market = MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
 
         let result = bond
             .price_with_metrics(
@@ -391,8 +429,7 @@ mod tests {
                 mode: BreakevenMode::Linear,
             });
 
-        let market =
-            MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
+        let market = MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.04, as_of));
 
         let result_1m = bond_1m
             .price_with_metrics(

@@ -85,17 +85,18 @@ pub mod adapters;
 pub mod engine;
 /// Error types for scenario evaluation.
 pub mod error;
+/// Horizon total return analysis.
+pub mod horizon;
 /// Scenario specification types and enums.
 pub mod spec;
 /// Historical stress test template types and builders.
 pub mod templates;
 /// Utility helpers for scenario operations.
 pub mod utils;
-/// Horizon total return analysis.
-pub mod horizon;
 
 pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
+pub use horizon::{HorizonAnalysis, HorizonResult};
 pub use spec::{
     Compounding, CurveKind, HierarchyTarget, InstrumentType, NodeId, OperationSpec,
     RateBindingSpec, ScenarioSpec, TenorMatchMode, TimeRollMode, VolSurfaceKind,
@@ -104,4 +105,3 @@ pub use templates::{
     AssetClass, RegisteredTemplate, ScenarioSpecBuilder, Severity, TemplateMetadata,
     TemplateRegistry,
 };
-pub use horizon::{HorizonAnalysis, HorizonResult};
