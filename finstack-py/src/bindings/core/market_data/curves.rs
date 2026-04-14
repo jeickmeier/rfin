@@ -3,14 +3,15 @@
 use std::sync::Arc;
 
 use finstack_core::dates::DayCount;
-use finstack_core::market_data::surfaces::{VolInterpolationMode, VolSurface, VolSurfaceAxis};
+use finstack_core::market_data::surfaces::{VolCube, VolInterpolationMode, VolSurface, VolSurfaceAxis};
+use finstack_core::math::volatility::sabr::SabrParams;
 use finstack_core::market_data::term_structures::{
     DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve, VolatilityIndexCurve,
 };
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyDict, PyList, PyModule};
 
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 
@@ -691,6 +692,170 @@ impl PyVolSurface {
 }
 
 // ---------------------------------------------------------------------------
+// PyVolCube
+// ---------------------------------------------------------------------------
+
+/// SABR volatility cube on an expiry x tenor grid.
+///
+/// Wraps [`VolCube`] from `finstack-core`.
+#[pyclass(
+    name = "VolCube",
+    module = "finstack.core.market_data.curves",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Clone)]
+pub struct PyVolCube {
+    /// Shared Rust cube.
+    pub(crate) inner: Arc<VolCube>,
+}
+
+impl PyVolCube {
+    /// Build from an existing `Arc<VolCube>`.
+    pub(crate) fn from_inner(inner: Arc<VolCube>) -> Self {
+        Self { inner }
+    }
+}
+
+/// Parse a Python dict to [`SabrParams`].
+///
+/// Required keys: `"alpha"`, `"beta"`, `"rho"`, `"nu"`.
+/// Optional key: `"shift"`.
+fn parse_sabr_dict(dict: &Bound<'_, PyDict>, idx: usize) -> PyResult<SabrParams> {
+    let get = |key: &str| -> PyResult<f64> {
+        dict.get_item(key)?
+            .ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "params_row_major[{idx}]: missing required key {key:?}"
+                ))
+            })?
+            .extract::<f64>()
+    };
+
+    let alpha = get("alpha")?;
+    let beta = get("beta")?;
+    let rho = get("rho")?;
+    let nu = get("nu")?;
+
+    let mut params = SabrParams::new(alpha, beta, rho, nu).map_err(core_to_py)?;
+
+    if let Some(shift_obj) = dict.get_item("shift")? {
+        let shift: f64 = shift_obj.extract()?;
+        params = params.with_shift(shift);
+    }
+
+    Ok(params)
+}
+
+#[pymethods]
+impl PyVolCube {
+    /// Construct a vol cube from row-major grid data.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Unique cube identifier.
+    /// expiries : list[float]
+    ///     Option expiry axis in years.
+    /// tenors : list[float]
+    ///     Underlying swap tenor axis in years.
+    /// params_row_major : list[dict]
+    ///     SABR parameter dicts with keys ``"alpha"``, ``"beta"``, ``"rho"``,
+    ///     ``"nu"``, and optionally ``"shift"``.
+    /// forwards_row_major : list[float]
+    ///     Forward rates in row-major order.
+    /// interpolation_mode : str, optional
+    ///     Interpolation contract: ``"vol"`` or ``"total_variance"``
+    ///     (default ``"vol"``).
+    #[new]
+    #[pyo3(signature = (id, expiries, tenors, params_row_major, forwards_row_major, interpolation_mode="vol"))]
+    fn new(
+        id: &str,
+        expiries: Vec<f64>,
+        tenors: Vec<f64>,
+        params_row_major: Vec<Bound<'_, PyDict>>,
+        forwards_row_major: Vec<f64>,
+        interpolation_mode: &str,
+    ) -> PyResult<Self> {
+        let mode = parse_vol_interpolation_mode(interpolation_mode)?;
+
+        let sabr_params: Vec<SabrParams> = params_row_major
+            .iter()
+            .enumerate()
+            .map(|(i, d)| parse_sabr_dict(d, i))
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let cube = VolCube::from_grid(id, &expiries, &tenors, &sabr_params, &forwards_row_major)
+            .map_err(core_to_py)?
+            .with_interpolation_mode(mode);
+
+        Ok(Self {
+            inner: Arc::new(cube),
+        })
+    }
+
+    /// Implied volatility with bounds checking.
+    #[pyo3(text_signature = "(self, expiry, tenor, strike)")]
+    fn vol(&self, expiry: f64, tenor: f64, strike: f64) -> PyResult<f64> {
+        self.inner.vol(expiry, tenor, strike).map_err(core_to_py)
+    }
+
+    /// Implied volatility with clamped extrapolation.
+    #[pyo3(text_signature = "(self, expiry, tenor, strike)")]
+    fn vol_clamped(&self, expiry: f64, tenor: f64, strike: f64) -> f64 {
+        self.inner.vol_clamped(expiry, tenor, strike)
+    }
+
+    /// Materialize a tenor slice as a [`VolSurface`].
+    #[pyo3(text_signature = "(self, tenor, strikes)")]
+    fn materialize_tenor_slice(&self, tenor: f64, strikes: Vec<f64>) -> PyResult<PyVolSurface> {
+        let surface = self
+            .inner
+            .materialize_tenor_slice(tenor, &strikes)
+            .map_err(core_to_py)?;
+        Ok(PyVolSurface::from_inner(Arc::new(surface)))
+    }
+
+    /// Materialize an expiry slice as a [`VolSurface`].
+    #[pyo3(text_signature = "(self, expiry, strikes)")]
+    fn materialize_expiry_slice(&self, expiry: f64, strikes: Vec<f64>) -> PyResult<PyVolSurface> {
+        let surface = self
+            .inner
+            .materialize_expiry_slice(expiry, &strikes)
+            .map_err(core_to_py)?;
+        Ok(PyVolSurface::from_inner(Arc::new(surface)))
+    }
+
+    /// Cube identifier string.
+    #[getter]
+    fn id(&self) -> &str {
+        self.inner.id().as_str()
+    }
+
+    /// Option expiry axis in years.
+    #[getter]
+    fn expiries(&self) -> Vec<f64> {
+        self.inner.expiries().to_vec()
+    }
+
+    /// Underlying swap tenor axis in years.
+    #[getter]
+    fn tenors(&self) -> Vec<f64> {
+        self.inner.tenors().to_vec()
+    }
+
+    /// Grid shape as `(n_expiries, n_tenors)`.
+    #[getter]
+    fn grid_shape(&self) -> (usize, usize) {
+        self.inner.grid_shape()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("VolCube(id={:?})", self.inner.id().as_str())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // PyVolatilityIndexCurve
 // ---------------------------------------------------------------------------
 
@@ -795,7 +960,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "curves")?;
     m.setattr(
         "__doc__",
-        "Market-data bindings: discount, forward, hazard, inflation, price, vol surface, and vol-index.",
+        "Market-data bindings: discount, forward, hazard, inflation, price, vol surface, vol cube, and vol-index.",
     )?;
 
     m.add_class::<PyDiscountCurve>()?;
@@ -804,6 +969,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyInflationCurve>()?;
     m.add_class::<PyPriceCurve>()?;
     m.add_class::<PyVolSurface>()?;
+    m.add_class::<PyVolCube>()?;
     m.add_class::<PyVolatilityIndexCurve>()?;
 
     let all = PyList::new(
@@ -815,6 +981,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "InflationCurve",
             "PriceCurve",
             "VolSurface",
+            "VolCube",
             "VolatilityIndexCurve",
         ],
     )?;

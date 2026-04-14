@@ -10,8 +10,8 @@ use pyo3::types::{PyList, PyModule};
 use crate::errors::core_to_py;
 
 use super::curves::{
-    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve, PyPriceCurve, PyVolSurface,
-    PyVolatilityIndexCurve,
+    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve, PyPriceCurve, PyVolCube,
+    PyVolSurface, PyVolatilityIndexCurve,
 };
 use super::fx::PyFxMatrix;
 
@@ -55,7 +55,7 @@ impl PyMarketContext {
     ///
     /// Accepts any curve type: ``DiscountCurve``, ``ForwardCurve``,
     /// ``HazardCurve``, ``InflationCurve``, ``PriceCurve``, ``VolSurface``,
-    /// or ``VolatilityIndexCurve``.
+    /// ``VolCube``, or ``VolatilityIndexCurve``.
     #[pyo3(text_signature = "(self, curve)")]
     fn insert<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -85,12 +85,16 @@ impl PyMarketContext {
             slf.inner = std::mem::take(&mut slf.inner).insert_surface(Arc::clone(&vs.inner));
             return Ok(slf);
         }
+        if let Ok(vc) = curve.extract::<PyRef<'_, PyVolCube>>() {
+            slf.inner = std::mem::take(&mut slf.inner).insert_vol_cube(Arc::clone(&vc.inner));
+            return Ok(slf);
+        }
         if let Ok(vc) = curve.extract::<PyRef<'_, PyVolatilityIndexCurve>>() {
             slf.inner = std::mem::take(&mut slf.inner).insert(Arc::clone(&vc.inner));
             return Ok(slf);
         }
         Err(PyTypeError::new_err(
-            "insert() expects a DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve, VolSurface, or VolatilityIndexCurve",
+            "insert() expects a DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve, VolSurface, VolCube, or VolatilityIndexCurve",
         ))
     }
 
@@ -152,6 +156,15 @@ impl PyMarketContext {
     fn get_surface(&self, id: &str) -> PyResult<PyVolSurface> {
         let arc = self.inner.get_surface(id).map_err(core_to_py)?;
         Ok(PyVolSurface::from_inner(arc))
+    }
+
+    /// Retrieve a vol cube by identifier.
+    ///
+    /// Raises ``ValueError`` if the cube does not exist.
+    #[pyo3(text_signature = "(self, id)")]
+    fn get_vol_cube(&self, id: &str) -> PyResult<PyVolCube> {
+        let arc = self.inner.get_vol_cube(id).map_err(core_to_py)?;
+        Ok(PyVolCube::from_inner(arc))
     }
 
     /// Retrieve a volatility index curve by identifier.

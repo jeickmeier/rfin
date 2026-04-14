@@ -32,6 +32,7 @@ __all__ = [
     "InflationCurve",
     "PriceCurve",
     "VolSurface",
+    "VolCube",
     "VolatilityIndexCurve",
     # fx
     "FxConversionPolicy",
@@ -617,6 +618,117 @@ class VolSurface:
     def grid_shape(self) -> tuple[int, int]: ...
     def __repr__(self) -> str: ...
 
+class VolCube:
+    """SABR volatility cube on an expiry x tenor grid.
+
+    Stores calibrated SABR parameters at each (expiry, tenor) node and
+    evaluates implied volatilities via bilinear parameter interpolation
+    and the Hagan (2002) approximation.
+
+    Parameters
+    ----------
+    id : str
+        Unique cube identifier.
+    expiries : list[float]
+        Option expiry axis in years.
+    tenors : list[float]
+        Underlying swap tenor axis in years.
+    params_row_major : list[dict[str, float]]
+        SABR parameter dicts with keys ``"alpha"``, ``"beta"``, ``"rho"``,
+        ``"nu"``, and optionally ``"shift"``.
+    forwards_row_major : list[float]
+        Forward rates in row-major order
+        (length ``len(expiries) * len(tenors)``).
+    interpolation_mode : str
+        Interpolation contract: ``"vol"`` or ``"total_variance"``
+        (default ``"vol"``).
+
+    Raises
+    ------
+    ValueError
+        If the cube cannot be built from the given parameters.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        expiries: list[float],
+        tenors: list[float],
+        params_row_major: list[dict[str, float]],
+        forwards_row_major: list[float],
+        interpolation_mode: str = "vol",
+    ) -> None: ...
+
+    def vol(self, expiry: float, tenor: float, strike: float) -> float:
+        """Implied volatility with bounds checking.
+
+        Parameters
+        ----------
+        expiry : float
+            Option expiry in years.
+        tenor : float
+            Underlying swap tenor in years.
+        strike : float
+            Strike rate.
+
+        Returns
+        -------
+        float
+            Black-76 implied volatility.
+
+        Raises
+        ------
+        ValueError
+            If expiry or tenor falls outside the grid.
+        """
+        ...
+
+    def vol_clamped(self, expiry: float, tenor: float, strike: float) -> float:
+        """Implied volatility with clamped extrapolation at the grid edges."""
+        ...
+
+    def materialize_tenor_slice(self, tenor: float, strikes: list[float]) -> VolSurface:
+        """Materialize a tenor slice as a :class:`VolSurface`.
+
+        Parameters
+        ----------
+        tenor : float
+            Tenor to slice at (years).
+        strikes : list[float]
+            Strike axis for the resulting surface.
+
+        Returns
+        -------
+        VolSurface
+        """
+        ...
+
+    def materialize_expiry_slice(self, expiry: float, strikes: list[float]) -> VolSurface:
+        """Materialize an expiry slice as a :class:`VolSurface`.
+
+        Parameters
+        ----------
+        expiry : float
+            Expiry to slice at (years).
+        strikes : list[float]
+            Strike axis for the resulting surface.
+
+        Returns
+        -------
+        VolSurface
+        """
+        ...
+
+    @property
+    def id(self) -> str: ...
+    @property
+    def expiries(self) -> list[float]: ...
+    @property
+    def tenors(self) -> list[float]: ...
+    @property
+    def grid_shape(self) -> tuple[int, int]: ...
+    def __repr__(self) -> str: ...
+
 class VolatilityIndexCurve:
     """Volatility index forward curve (e.g. VIX term structure).
 
@@ -877,6 +989,7 @@ class MarketContext:
             InflationCurve,
             PriceCurve,
             VolSurface,
+            VolCube,
             VolatilityIndexCurve,
         ],
     ) -> MarketContext:
@@ -884,11 +997,11 @@ class MarketContext:
 
         Accepts any curve type: :class:`DiscountCurve`, :class:`ForwardCurve`,
         :class:`HazardCurve`, :class:`InflationCurve`, :class:`PriceCurve`,
-        :class:`VolSurface`, or :class:`VolatilityIndexCurve`.
+        :class:`VolSurface`, :class:`VolCube`, or :class:`VolatilityIndexCurve`.
 
         Parameters
         ----------
-        curve : DiscountCurve | ForwardCurve | HazardCurve | InflationCurve | PriceCurve | VolSurface | VolatilityIndexCurve
+        curve : DiscountCurve | ForwardCurve | HazardCurve | InflationCurve | PriceCurve | VolSurface | VolCube | VolatilityIndexCurve
             The curve to insert.
 
         Returns
@@ -1024,6 +1137,25 @@ class MarketContext:
         ------
         ValueError
             If no surface with this *id* exists.
+        """
+        ...
+
+    def get_vol_cube(self, id: str) -> VolCube:
+        """Retrieve a vol cube by identifier.
+
+        Parameters
+        ----------
+        id : str
+            Cube identifier.
+
+        Returns
+        -------
+        VolCube
+
+        Raises
+        ------
+        ValueError
+            If no vol cube with this *id* exists.
         """
         ...
 
