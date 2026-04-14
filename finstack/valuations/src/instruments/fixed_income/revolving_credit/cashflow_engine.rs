@@ -348,17 +348,15 @@ impl<'a> CashflowEngine<'a> {
                         // otherwise fall back to forward projection for backwards
                         // compatibility.
                         let coupon_rate = if reset_d < self.as_of {
-                            if let Some(fixing_rate) =
-                                self.fixing_series.and_then(|series| {
-                                    finstack_core::market_data::fixings::require_fixing_value_exact(
-                                        Some(series),
-                                        spec.index_id.as_ref(),
-                                        reset_d,
-                                        self.as_of,
-                                    )
-                                    .ok()
-                                })
-                            {
+                            if let Some(fixing_rate) = self.fixing_series.and_then(|series| {
+                                finstack_core::market_data::fixings::require_fixing_value_exact(
+                                    Some(series),
+                                    spec.index_id.as_ref(),
+                                    reset_d,
+                                    self.as_of,
+                                )
+                                .ok()
+                            }) {
                                 // Apply floor (on index rate) and spread, mirroring
                                 // the convention in project_floating_rate.
                                 let mut index_rate = fixing_rate;

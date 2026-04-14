@@ -135,8 +135,14 @@ mod tests {
         let result = get_fixing_series(&ctx, "USD-SOFR");
         assert!(result.is_err());
         let msg = result.expect_err("should error").to_string();
-        assert!(msg.contains("FIXING:USD-SOFR"), "error should mention series id: {msg}");
-        assert!(msg.contains("USD-SOFR"), "error should mention index: {msg}");
+        assert!(
+            msg.contains("FIXING:USD-SOFR"),
+            "error should mention series id: {msg}"
+        );
+        assert!(
+            msg.contains("USD-SOFR"),
+            "error should mention index: {msg}"
+        );
     }
 
     #[test]
@@ -144,13 +150,8 @@ mod tests {
         let series = sample_series();
         let as_of = date!(2024 - 01 - 10);
         // Jan 4 is not observed; LOCF from Jan 3 (0.054)
-        let rate = require_fixing_value(
-            Some(&series),
-            "USD-SOFR",
-            date!(2024 - 01 - 04),
-            as_of,
-        )
-        .expect("should resolve via LOCF");
+        let rate = require_fixing_value(Some(&series), "USD-SOFR", date!(2024 - 01 - 04), as_of)
+            .expect("should resolve via LOCF");
         assert!((rate - 0.054).abs() < 1e-10);
     }
 
@@ -164,7 +165,10 @@ mod tests {
         );
         assert!(result.is_err());
         let msg = result.expect_err("should error").to_string();
-        assert!(msg.contains("FIXING:USD-SOFR"), "should mention series id: {msg}");
+        assert!(
+            msg.contains("FIXING:USD-SOFR"),
+            "should mention series id: {msg}"
+        );
         assert!(msg.contains("2024-01-02"), "should mention date: {msg}");
     }
 
@@ -205,6 +209,9 @@ mod tests {
         );
         assert!(result.is_err());
         let msg = result.expect_err("should error").to_string();
-        assert!(msg.contains("FIXING:USD-SOFR"), "should mention series id: {msg}");
+        assert!(
+            msg.contains("FIXING:USD-SOFR"),
+            "should mention series id: {msg}"
+        );
     }
 }

@@ -21,11 +21,7 @@ fn build_flat_discount_curve(rate: f64, base_date: time::Date, curve_id: &str) -
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act360)
-        .knots([
-            (0.0, 1.0),
-            (1.0, (-rate).exp()),
-            (5.0, (-rate * 5.0).exp()),
-        ])
+        .knots([(0.0, 1.0), (1.0, (-rate).exp()), (5.0, (-rate * 5.0).exp())])
         .build()
         .unwrap()
 }
@@ -126,32 +122,22 @@ fn test_seasoned_facility_uses_fixings_for_past_resets() {
         .insert_series(fixing_series);
 
     // Build market without fixings
-    let market_without_fixings = MarketContext::new()
-        .insert(disc_curve)
-        .insert(fwd_curve);
+    let market_without_fixings = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Generate cashflows WITH fixings
     let engine_with = CashflowEngine::new(
         &facility,
         Some(&market_with_fixings),
         as_of,
-        finstack_core::market_data::fixings::get_fixing_series(
-            &market_with_fixings,
-            "USD-SOFR-3M",
-        )
-        .ok(),
+        finstack_core::market_data::fixings::get_fixing_series(&market_with_fixings, "USD-SOFR-3M")
+            .ok(),
     )
     .unwrap();
     let schedule_with = engine_with.generate_deterministic().unwrap();
 
     // Generate cashflows WITHOUT fixings (graceful degradation)
-    let engine_without = CashflowEngine::new(
-        &facility,
-        Some(&market_without_fixings),
-        as_of,
-        None,
-    )
-    .unwrap();
+    let engine_without =
+        CashflowEngine::new(&facility, Some(&market_without_fixings), as_of, None).unwrap();
     let schedule_without = engine_without.generate_deterministic().unwrap();
 
     // Both should succeed (graceful degradation)
@@ -194,10 +180,7 @@ fn test_seasoned_facility_uses_fixings_for_past_resets() {
     // Fixings are 5.3%/5.1% + 200bp spread = 7.3%/7.1%
     // Forward is ~4% + 200bp spread = ~6%
     // So the fixing-based interest should be higher.
-    let total_interest_with: f64 = float_flows_with
-        .iter()
-        .map(|cf| cf.amount.amount())
-        .sum();
+    let total_interest_with: f64 = float_flows_with.iter().map(|cf| cf.amount.amount()).sum();
 
     let total_interest_without: f64 = float_flows_without
         .iter()
@@ -390,15 +373,12 @@ fn test_non_seasoned_facility_ignores_fixings() {
         .insert(fwd_curve.clone())
         .insert_series(fixing_series);
 
-    let market_without = MarketContext::new()
-        .insert(disc_curve)
-        .insert(fwd_curve);
+    let market_without = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let fixings =
         finstack_core::market_data::fixings::get_fixing_series(&market_with, "USD-SOFR-3M").ok();
 
-    let engine_with =
-        CashflowEngine::new(&facility, Some(&market_with), as_of, fixings).unwrap();
+    let engine_with = CashflowEngine::new(&facility, Some(&market_with), as_of, fixings).unwrap();
     let schedule_with = engine_with.generate_deterministic().unwrap();
 
     let engine_without =
@@ -464,9 +444,7 @@ fn test_pricer_integration_with_fixings() {
         .insert(fwd_curve.clone())
         .insert_series(fixing_series);
 
-    let market_without = MarketContext::new()
-        .insert(disc_curve)
-        .insert(fwd_curve);
+    let market_without = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Price with fixings (higher past rates)
     let pv_with = facility.value(&market_with, as_of).unwrap();

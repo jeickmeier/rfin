@@ -658,7 +658,6 @@ class VolCube:
         forwards_row_major: list[float],
         interpolation_mode: str = "vol",
     ) -> None: ...
-
     def vol(self, expiry: float, tenor: float, strike: float) -> float:
         """Implied volatility with bounds checking.
 

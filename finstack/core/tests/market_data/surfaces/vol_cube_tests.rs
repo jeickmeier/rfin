@@ -25,8 +25,7 @@ fn test_vol_cube_from_grid() {
     let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
     let params = vec![p; 4];
     let forwards = vec![0.03, 0.035, 0.04, 0.045];
-    let cube =
-        VolCube::from_grid("TEST", &[1.0, 5.0], &[2.0, 10.0], &params, &forwards).unwrap();
+    let cube = VolCube::from_grid("TEST", &[1.0, 5.0], &[2.0, 10.0], &params, &forwards).unwrap();
     assert_eq!(cube.grid_shape(), (2, 2));
 }
 
@@ -75,8 +74,7 @@ fn test_vol_cube_vol_interpolated() {
 #[test]
 fn test_vol_cube_vol_clamped_extrapolation() {
     let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
-    let cube =
-        VolCube::from_grid("TEST", &[1.0, 5.0], &[5.0, 10.0], &[p; 4], &[0.03; 4]).unwrap();
+    let cube = VolCube::from_grid("TEST", &[1.0, 5.0], &[5.0, 10.0], &[p; 4], &[0.03; 4]).unwrap();
     let vol = cube.vol_clamped(0.1, 2.0, 0.03);
     assert!(vol.is_finite() && vol > 0.0);
 }
@@ -84,8 +82,7 @@ fn test_vol_cube_vol_clamped_extrapolation() {
 #[test]
 fn test_vol_cube_vol_checked_out_of_bounds() {
     let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
-    let cube =
-        VolCube::from_grid("TEST", &[1.0, 5.0], &[5.0, 10.0], &[p; 4], &[0.03; 4]).unwrap();
+    let cube = VolCube::from_grid("TEST", &[1.0, 5.0], &[5.0, 10.0], &[p; 4], &[0.03; 4]).unwrap();
     assert!(cube.vol(0.1, 7.0, 0.03).is_err());
     assert!(cube.vol(3.0, 2.0, 0.03).is_err());
 }

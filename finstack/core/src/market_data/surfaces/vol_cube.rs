@@ -97,10 +97,14 @@ impl TryFrom<RawVolCube> for VolCube {
     type Error = crate::Error;
 
     fn try_from(raw: RawVolCube) -> crate::Result<Self> {
-        Ok(
-            VolCube::from_grid(&raw.id, &raw.expiries, &raw.tenors, &raw.params, &raw.forwards)?
-                .with_interpolation_mode(raw.interpolation_mode),
-        )
+        Ok(VolCube::from_grid(
+            &raw.id,
+            &raw.expiries,
+            &raw.tenors,
+            &raw.params,
+            &raw.forwards,
+        )?
+        .with_interpolation_mode(raw.interpolation_mode))
     }
 }
 
@@ -228,21 +232,14 @@ impl VolCube {
     /// Standard bilinear interpolation of four corner values.
     #[inline]
     fn bilinear(q00: f64, q10: f64, q01: f64, q11: f64, t: f64, u: f64) -> f64 {
-        (1.0 - t) * (1.0 - u) * q00
-            + t * (1.0 - u) * q10
-            + (1.0 - t) * u * q01
-            + t * u * q11
+        (1.0 - t) * (1.0 - u) * q00 + t * (1.0 - u) * q10 + (1.0 - t) * u * q01 + t * u * q11
     }
 
     /// Bilinear interpolation of SABR parameters with clamped extrapolation.
     ///
     /// Returns `(interpolated_params, interpolated_forward, clamped_expiry)`.
     /// Coordinates are clamped to the grid edges when out of bounds.
-    fn interpolate_params_clamped(
-        &self,
-        expiry: f64,
-        tenor: f64,
-    ) -> (SabrParams, f64, f64) {
+    fn interpolate_params_clamped(&self, expiry: f64, tenor: f64) -> (SabrParams, f64, f64) {
         let n_tenors = self.tenors.len();
 
         // Clamp coordinates to grid bounds
@@ -269,9 +266,17 @@ impl VolCube {
 
         // Interpolation weights
         #[allow(clippy::float_cmp)]
-        let t_weight = if e0 == e1 { 0.0 } else { (exp_c - e0) / (e1 - e0) };
+        let t_weight = if e0 == e1 {
+            0.0
+        } else {
+            (exp_c - e0) / (e1 - e0)
+        };
         #[allow(clippy::float_cmp)]
-        let u_weight = if t0 == t1 { 0.0 } else { (ten_c - t0) / (t1 - t0) };
+        let u_weight = if t0 == t1 {
+            0.0
+        } else {
+            (ten_c - t0) / (t1 - t0)
+        };
 
         // Corner indices
         let idx00 = ie * n_tenors + it;
@@ -285,13 +290,19 @@ impl VolCube {
         let p11 = &self.params[idx11];
 
         // Bilinear interpolation of each parameter
-        let alpha = Self::bilinear(p00.alpha, p10.alpha, p01.alpha, p11.alpha, t_weight, u_weight);
+        let alpha = Self::bilinear(
+            p00.alpha, p10.alpha, p01.alpha, p11.alpha, t_weight, u_weight,
+        );
         let rho = Self::bilinear(p00.rho, p10.rho, p01.rho, p11.rho, t_weight, u_weight);
         let nu = Self::bilinear(p00.nu, p10.nu, p01.nu, p11.nu, t_weight, u_weight);
 
         // Beta: constant from nearest node
         let nearest_idx = if t_weight <= 0.5 {
-            if u_weight <= 0.5 { idx00 } else { idx01 }
+            if u_weight <= 0.5 {
+                idx00
+            } else {
+                idx01
+            }
         } else if u_weight <= 0.5 {
             idx10
         } else {

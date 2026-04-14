@@ -473,7 +473,11 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
             } else {
                 Some(market.get_forward(float.forward_curve_id.as_str())?)
             };
-            let fixings = finstack_core::market_data::fixings::get_fixing_series(market, float.forward_curve_id.as_str()).ok();
+            let fixings = finstack_core::market_data::fixings::get_fixing_series(
+                market,
+                float.forward_curve_id.as_str(),
+            )
+            .ok();
             let valuation_date = as_of.unwrap_or_else(|| {
                 proj.as_ref()
                     .map(|c| c.base_date())

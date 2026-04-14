@@ -73,10 +73,9 @@ fn try_fixing_with_adjustments(
     market: &MarketContext,
 ) -> Option<f64> {
     let series = fixings::get_fixing_series(market, index_id).ok()?;
-    let raw_fixing = fixings::require_fixing_value_exact(Some(series), index_id, date, as_of).ok()?;
-    Some(crate::cashflow::builder::rate_helpers::calculate_floating_rate(
-        raw_fixing, params,
-    ))
+    let raw_fixing =
+        fixings::require_fixing_value_exact(Some(series), index_id, date, as_of).ok()?;
+    Some(crate::cashflow::builder::rate_helpers::calculate_floating_rate(raw_fixing, params))
 }
 
 /// Try to look up a historical fixing for an asset index rate.
@@ -316,6 +315,7 @@ pub(crate) fn try_asset_all_in_rate(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::FloatingRateSpec;
@@ -407,10 +407,18 @@ mod tests {
     #[test]
     fn tranche_all_in_rate_uses_forward_curve_when_available() {
         let market = sample_market();
-        let rate =
-            tranche_all_in_rate(&floating_coupon(), date!(2025 - 02 - 01), FAR_FUTURE, &market);
-        let try_rate =
-            try_tranche_all_in_rate(&floating_coupon(), date!(2025 - 02 - 01), FAR_FUTURE, &market);
+        let rate = tranche_all_in_rate(
+            &floating_coupon(),
+            date!(2025 - 02 - 01),
+            FAR_FUTURE,
+            &market,
+        );
+        let try_rate = try_tranche_all_in_rate(
+            &floating_coupon(),
+            date!(2025 - 02 - 01),
+            FAR_FUTURE,
+            &market,
+        );
 
         assert!(
             rate > 0.015,
@@ -430,16 +438,21 @@ mod tests {
         let market = sample_market();
         let date = date!(2025 - 04 - 01);
 
-        let projected =
-            asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), 0.08, date, FAR_FUTURE, &market);
+        let projected = asset_all_in_rate(
+            Some("USD-SOFR-3M"),
+            Some(50.0),
+            0.08,
+            date,
+            FAR_FUTURE,
+            &market,
+        );
         let fallback_no_index =
             asset_all_in_rate(None, Some(50.0), 0.08, date, FAR_FUTURE, &market);
         let fallback_missing_curve =
             asset_all_in_rate(Some("MISSING"), Some(50.0), 0.08, date, FAR_FUTURE, &market);
         let try_projected =
             try_asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), date, FAR_FUTURE, &market);
-        let try_missing_id =
-            try_asset_all_in_rate(None, Some(50.0), date, FAR_FUTURE, &market);
+        let try_missing_id = try_asset_all_in_rate(None, Some(50.0), date, FAR_FUTURE, &market);
 
         assert!(projected > 0.0);
         assert_eq!(fallback_no_index, 0.08);
@@ -476,7 +489,9 @@ mod tests {
         )
         .expect("fixing series should build");
 
-        MarketContext::new().insert(curve).insert_series(fixing_series)
+        MarketContext::new()
+            .insert(curve)
+            .insert_series(fixing_series)
     }
 
     #[test]
@@ -515,8 +530,7 @@ mod tests {
         );
 
         // Should match the FAR_FUTURE (forward-only) rate since no fixings exist
-        let forward_rate =
-            tranche_all_in_rate(&floating_coupon(), date, FAR_FUTURE, &market);
+        let forward_rate = tranche_all_in_rate(&floating_coupon(), date, FAR_FUTURE, &market);
         assert!(
             (rate - forward_rate).abs() < 1e-12,
             "fallback should match forward-only rate: got {rate}, expected {forward_rate}"
@@ -530,14 +544,7 @@ mod tests {
         let as_of = date!(2025 - 06 - 01);
 
         // Fixing is 0.025 for 2025-02-01, spread 50bp = 0.005
-        let rate = asset_all_in_rate(
-            Some("USD-SOFR-3M"),
-            Some(50.0),
-            0.08,
-            date,
-            as_of,
-            &market,
-        );
+        let rate = asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), 0.08, date, as_of, &market);
         let expected = 0.025 + 0.005;
         assert!(
             (rate - expected).abs() < 1e-10,
@@ -545,13 +552,7 @@ mod tests {
         );
 
         // Fallible variant should agree
-        let try_rate = try_asset_all_in_rate(
-            Some("USD-SOFR-3M"),
-            Some(50.0),
-            date,
-            as_of,
-            &market,
-        );
+        let try_rate = try_asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), date, as_of, &market);
         assert!(try_rate.is_ok());
         assert!((try_rate.unwrap() - expected).abs() < 1e-10);
     }
@@ -563,15 +564,11 @@ mod tests {
         let date = date!(2025 - 04 - 01);
         let as_of = date!(2025 - 06 - 01);
 
-        let rate = asset_all_in_rate(
-            Some("USD-SOFR-3M"),
-            Some(50.0),
-            0.08,
-            date,
-            as_of,
-            &market,
+        let rate = asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), 0.08, date, as_of, &market);
+        assert!(
+            rate > 0.0,
+            "should fall back to forward projection: got {rate}"
         );
-        assert!(rate > 0.0, "should fall back to forward projection: got {rate}");
 
         // Should match the FAR_FUTURE (forward-only) rate since no fixings exist
         let forward_rate = asset_all_in_rate(

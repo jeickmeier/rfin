@@ -352,7 +352,11 @@ pub(crate) fn compute_pv_raw(
     as_of: Date,
 ) -> Result<f64> {
     let disc = context.get_discount(irs.fixed.discount_curve_id.as_ref())?;
-    let fixings = finstack_core::market_data::fixings::get_fixing_series(context, irs.float.forward_curve_id.as_str()).ok();
+    let fixings = finstack_core::market_data::fixings::get_fixing_series(
+        context,
+        irs.float.forward_curve_id.as_str(),
+    )
+    .ok();
     let pv_fixed = irs.pv_fixed_leg(disc.as_ref(), as_of)?;
     let pv_float = match irs.float.compounding {
         FloatingLegCompounding::Simple => {

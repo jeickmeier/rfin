@@ -76,15 +76,15 @@ pub mod context;
 pub mod diff;
 /// Shared dividend schedules (cash/yield/stock) for equities/ETFs.
 pub mod dividends;
-/// Market data hierarchy for organizational grouping and scenario targeting.
-pub mod hierarchy;
-/// Scalar market data types and time series (including primitives)
-pub mod scalars;
 /// Historical rate fixing lookup utilities.
 ///
 /// Provides the canonical `FIXING:{curve_id}` convention and shared helpers
 /// for seasoned instrument pricing.
 pub mod fixings;
+/// Market data hierarchy for organizational grouping and scenario targeting.
+pub mod hierarchy;
+/// Scalar market data types and time series (including primitives)
+pub mod scalars;
 /// Two-dimensional surfaces (e.g. volatility).
 pub mod surfaces;
 /// One-dimensional term structures (yield, credit, ...).

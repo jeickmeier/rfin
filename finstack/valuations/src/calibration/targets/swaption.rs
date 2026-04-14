@@ -1032,8 +1032,7 @@ mod tests {
         }
 
         let config = CalibrationConfig::default();
-        let (cube, _report) =
-            SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
+        let (cube, _report) = SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
 
         // VolCube stores SABR params; verify calibrated alpha matches ground truth.
         // For beta=0 (normal SABR), alpha IS the ATM normal vol.
@@ -1117,8 +1116,7 @@ mod tests {
                 .with_max_iterations(500),
             ..CalibrationConfig::default()
         };
-        let (cube, _report) =
-            SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
+        let (cube, _report) = SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
 
         let fitted_atm = cube.vol(t_exp, t_ten, fwd).expect("cube vol");
         let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");

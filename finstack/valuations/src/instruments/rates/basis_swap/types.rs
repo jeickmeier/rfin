@@ -458,7 +458,11 @@ impl BasisSwap {
             leg.calendar_id.clone(),
         );
 
-        let fixings = finstack_core::market_data::fixings::get_fixing_series(context, leg.forward_curve_id.as_str()).ok();
+        let fixings = finstack_core::market_data::fixings::get_fixing_series(
+            context,
+            leg.forward_curve_id.as_str(),
+        )
+        .ok();
 
         let pv = crate::instruments::common_impl::pricing::swap_legs::pv_floating_leg(
             leg_periods.into_iter(),

@@ -1059,6 +1059,9 @@ mod tests {
         let k = 0.01;
         let t = 1.0;
         let vol = p.implied_vol_lognormal(f, k, t);
-        assert!(vol.is_finite() && vol > 0.0, "shifted SABR should handle negative rates");
+        assert!(
+            vol.is_finite() && vol > 0.0,
+            "shifted SABR should handle negative rates"
+        );
     }
 }

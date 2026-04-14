@@ -888,9 +888,11 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
         use crate::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
         // Resolve fixings for floating-rate facilities (graceful: None if missing)
         let fixings = match &self.base_rate_spec {
-            BaseRateSpec::Floating(spec) => {
-                finstack_core::market_data::fixings::get_fixing_series(curves, spec.index_id.as_ref()).ok()
-            }
+            BaseRateSpec::Floating(spec) => finstack_core::market_data::fixings::get_fixing_series(
+                curves,
+                spec.index_id.as_ref(),
+            )
+            .ok(),
             _ => None,
         };
         let engine = CashflowEngine::new(self, Some(curves), as_of, fixings)?;

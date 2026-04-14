@@ -179,7 +179,11 @@ fn par_rate_pv_based(
     }
 
     // Look up historical fixings for seasoned swaps
-    let fixings = finstack_core::market_data::fixings::get_fixing_series(&ctx.curves, irs.float.forward_curve_id.as_str()).ok();
+    let fixings = finstack_core::market_data::fixings::get_fixing_series(
+        &ctx.curves,
+        irs.float.forward_curve_id.as_str(),
+    )
+    .ok();
 
     // Reuse the pricer's PV logic based on compounding type
     let pv_float = match irs.float.compounding {

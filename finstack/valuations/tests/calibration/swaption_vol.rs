@@ -294,7 +294,10 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
         .get_vol_provider(swaption.vol_surface_id.as_str())
         .expect("vol cube should be found via get_vol_provider");
     let vol = vol_provider.vol_clamped(1.0, 5.0, 0.045);
-    assert!(vol.is_finite() && vol > 0.0, "VolCube should produce a valid vol");
+    assert!(
+        vol.is_finite() && vol > 0.0,
+        "VolCube should produce a valid vol"
+    );
 }
 
 #[test]

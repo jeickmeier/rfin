@@ -298,8 +298,9 @@ impl TermLoanDiscountingPricer {
             };
 
             // Compute all-in rate from the historical fixing.
-            let all_in_rate =
-                crate::cashflow::builder::rate_helpers::calculate_floating_rate(raw_fixing, &params);
+            let all_in_rate = crate::cashflow::builder::rate_helpers::calculate_floating_rate(
+                raw_fixing, &params,
+            );
 
             // Recalculate coupon amount: notional * all_in_rate * accrual_factor.
             let notional = notional_at(flow.date);
@@ -348,16 +349,14 @@ mod tests {
     use crate::instruments::fixed_income::term_loan::spec::AmortizationSpec;
     use crate::instruments::pricing_overrides::PricingOverrides;
     use finstack_core::cashflow::CFKind;
-    use finstack_core::dates::{
-        BusinessDayConvention, Date, DayCount, StubKind, Tenor,
-    };
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::ScalarTimeSeries;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
-    use finstack_core::currency::Currency;
     use rust_decimal::Decimal;
     use time::Month;
 
@@ -488,10 +487,10 @@ mod tests {
             "FIXING:USD-SOFR-3M",
             vec![
                 (date(2024, 1, 1), 0.02),  // Q1 2024 reset
-                (date(2024, 4, 1), 0.02),   // Q2 2024 reset
-                (date(2024, 7, 1), 0.02),   // Q3 2024 reset
-                (date(2024, 10, 1), 0.02),  // Q4 2024 reset
-                (date(2025, 1, 1), 0.02),   // Q1 2025 reset
+                (date(2024, 4, 1), 0.02),  // Q2 2024 reset
+                (date(2024, 7, 1), 0.02),  // Q3 2024 reset
+                (date(2024, 10, 1), 0.02), // Q4 2024 reset
+                (date(2025, 1, 1), 0.02),  // Q1 2025 reset
             ],
             None,
         )
@@ -508,8 +507,7 @@ mod tests {
         let market = market_with_fixings(as_of);
 
         // Generate cashflows and apply fixings (via the pricer's internal schedule).
-        let mut schedule =
-            generate_cashflows(&loan, &market, as_of).expect("cashflows");
+        let mut schedule = generate_cashflows(&loan, &market, as_of).expect("cashflows");
         TermLoanDiscountingPricer::apply_fixings(&loan, &market, as_of, &mut schedule);
 
         // Check that FloatReset flows with reset_date < as_of use the fixing rate.
@@ -520,8 +518,7 @@ mod tests {
             .flows
             .iter()
             .filter(|cf| {
-                cf.kind == CFKind::FloatReset
-                    && cf.reset_date.is_some_and(|rd| rd < as_of)
+                cf.kind == CFKind::FloatReset && cf.reset_date.is_some_and(|rd| rd < as_of)
             })
             .collect();
 
@@ -549,14 +546,12 @@ mod tests {
         let market_with_fix = market_with_fixings(as_of);
 
         // Price without fixings
-        let pv_no_fixings =
-            TermLoanDiscountingPricer::price(&loan, &market_no_fix, as_of)
-                .expect("price without fixings");
+        let pv_no_fixings = TermLoanDiscountingPricer::price(&loan, &market_no_fix, as_of)
+            .expect("price without fixings");
 
         // Price with fixings (different historical rate should change PV)
-        let pv_with_fixings =
-            TermLoanDiscountingPricer::price(&loan, &market_with_fix, as_of)
-                .expect("price with fixings");
+        let pv_with_fixings = TermLoanDiscountingPricer::price(&loan, &market_with_fix, as_of)
+            .expect("price with fixings");
 
         // Without fixings, the forward rate (5%) is used for all periods.
         // With fixings, past periods use the fixing (2% index => 5% all-in).
