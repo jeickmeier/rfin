@@ -91,6 +91,8 @@ pub mod spec;
 pub mod templates;
 /// Utility helpers for scenario operations.
 pub mod utils;
+/// Horizon total return analysis.
+pub mod horizon;
 
 pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
@@ -102,3 +104,4 @@ pub use templates::{
     AssetClass, RegisteredTemplate, ScenarioSpecBuilder, Severity, TemplateMetadata,
     TemplateRegistry,
 };
+pub use horizon::{HorizonAnalysis, HorizonResult};

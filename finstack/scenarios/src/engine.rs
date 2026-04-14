@@ -364,7 +364,7 @@ fn expand_hierarchy_operations(
 /// The engine is intentionally lightweight: it does not own any state and can
 /// be cloned or reused freely. All mutable inputs are supplied via
 /// [`ExecutionContext`].
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ScenarioEngine {
     _private: (),
 }
