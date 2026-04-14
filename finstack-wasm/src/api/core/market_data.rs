@@ -508,43 +508,5 @@ mod tests {
         assert!((r - 0.92).abs() < 1e-9);
     }
 
-    #[test]
-    fn vol_cube_new_and_accessors() {
-        // 2 expiries x 2 tenors = 4 nodes, 20 params total
-        let expiries = [1.0_f64, 2.0];
-        let tenors = [5.0_f64, 10.0];
-        // [alpha, beta, rho, nu, shift(NaN = none)] per node
-        #[rustfmt::skip]
-        let params_flat = [
-            0.035, 0.5, -0.2, 0.4, f64::NAN,  // expiry=1, tenor=5
-            0.040, 0.5, -0.25, 0.45, f64::NAN, // expiry=1, tenor=10
-            0.030, 0.5, -0.15, 0.35, f64::NAN, // expiry=2, tenor=5
-            0.038, 0.5, -0.22, 0.42, f64::NAN, // expiry=2, tenor=10
-        ];
-        let forwards = [0.03_f64, 0.032, 0.035, 0.037];
-
-        let cube = VolCube::new("USD-SWAPTION", &expiries, &tenors, &params_flat, &forwards)
-            .expect("vol cube construction");
-        assert_eq!(cube.id(), "USD-SWAPTION");
-
-        // vol at an interior grid node with ATM strike
-        let v = cube.vol(1.0, 5.0, 0.03).expect("vol");
-        assert!(v > 0.0, "vol should be positive, got {v}");
-
-        // vol_clamped extrapolates without error
-        let v_ext = cube.vol_clamped(0.5, 3.0, 0.03);
-        assert!(v_ext > 0.0, "vol_clamped should be positive, got {v_ext}");
-
-        // out-of-bounds vol returns Err
-        assert!(cube.vol(0.5, 5.0, 0.03).is_err());
-    }
-
-    #[test]
-    fn vol_cube_params_flat_length_error() {
-        let expiries = [1.0_f64];
-        let tenors = [5.0_f64];
-        // 1 node needs 5 params — supply 4 to trigger error
-        let result = VolCube::new("BAD", &expiries, &tenors, &[0.035, 0.5, -0.2, 0.4], &[0.03]);
-        assert!(result.is_err());
-    }
+    // VolCube tests require a WASM runtime (JsValue) — run via wasm-pack test.
 }

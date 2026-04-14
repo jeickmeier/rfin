@@ -1042,7 +1042,7 @@ mod tests {
 
     #[test]
     fn test_sabr_params_with_shift() {
-        let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).unwrap();
+        let p = SabrParams::new(0.035, 0.5, -0.2, 0.4).expect("valid params");
         assert!(p.shift.is_none());
 
         let shifted = p.with_shift(0.03);
@@ -1053,7 +1053,7 @@ mod tests {
     fn test_shifted_sabr_implied_vol_lognormal() {
         // Shifted SABR: evaluate with F+shift, K+shift
         let p = SabrParams::new(0.035, 0.5, -0.2, 0.4)
-            .unwrap()
+            .expect("valid params")
             .with_shift(0.03);
         let f = -0.005; // negative forward
         let k = 0.01;

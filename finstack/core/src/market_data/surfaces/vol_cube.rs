@@ -247,9 +247,9 @@ impl VolCube {
 
         // Clamp coordinates to grid bounds
         let exp_min = self.expiries[0];
-        let exp_max = *self.expiries.last().unwrap();
+        let exp_max = self.expiries[self.expiries.len() - 1];
         let ten_min = self.tenors[0];
-        let ten_max = *self.tenors.last().unwrap();
+        let ten_max = self.tenors[n_tenors - 1];
 
         let exp_c = expiry.clamp(exp_min, exp_max);
         let ten_c = tenor.clamp(ten_min, ten_max);
