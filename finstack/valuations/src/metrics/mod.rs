@@ -223,6 +223,7 @@ pub(crate) use core::finite_difference::{
     bump_surface_vol_absolute, central_diff_by_half_bump, replace_scalar_value,
     scalar_numeric_value, scaled_central_diff_by_width,
 };
+pub(crate) use sensitivities::breakeven::BreakevenCalculator;
 pub(crate) use sensitivities::carry_decomposition::{
     CarryComponentLookup, CarryDecompositionCalculator,
 };
@@ -491,6 +492,11 @@ fn register_universal_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::FundingCost,
         std::sync::Arc::new(CarryComponentLookup(MetricId::FundingCost)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::Breakeven,
+        std::sync::Arc::new(BreakevenCalculator),
         &[],
     );
     registry.register_metric(
