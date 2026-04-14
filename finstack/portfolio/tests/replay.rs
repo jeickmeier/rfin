@@ -10,6 +10,7 @@ mod replay_tests {
     use finstack_portfolio::{
         Entity, Portfolio, Position, PositionUnit, ReplayConfig, ReplayMode, ReplayTimeline,
     };
+    use finstack_valuations::attribution::AttributionMethod;
     use finstack_valuations::instruments::rates::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;
@@ -185,4 +186,99 @@ mod replay_tests {
         assert_eq!(result.summary.start_date, date!(2024 - 01 - 01));
         assert_eq!(result.summary.end_date, date!(2024 - 01 - 03));
     }
+
+    #[test]
+    fn replay_pv_and_pnl_computes_daily_and_cumulative() {
+        let portfolio = build_test_portfolio();
+        let timeline = ReplayTimeline::new(vec![
+            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 0.0)),
+            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 50.0)),
+            (date!(2024 - 01 - 03), market_at_rate(date!(2024 - 01 - 03), 100.0)),
+        ]).unwrap();
+
+        let config = ReplayConfig {
+            mode: ReplayMode::PvAndPnl,
+            attribution_method: Default::default(),
+            valuation_options: Default::default(),
+        };
+
+        let result = finstack_portfolio::replay_portfolio(
+            &portfolio, &timeline, &config, &FinstackConfig::default(),
+        ).unwrap();
+
+        // Step 0: no P&L
+        assert!(result.steps[0].daily_pnl.is_none());
+        assert!(result.steps[0].cumulative_pnl.is_none());
+
+        // Steps 1+: has P&L, no attribution
+        for step in &result.steps[1..] {
+            assert!(step.daily_pnl.is_some());
+            assert!(step.cumulative_pnl.is_some());
+            assert!(step.attribution.is_none());
+        }
+
+        // Cumulative at last step equals total_pnl in summary
+        let last_cum = result.steps.last().unwrap().cumulative_pnl.unwrap();
+        let diff = (last_cum.amount() - result.summary.total_pnl.amount()).abs();
+        assert!(diff < 1e-6, "cumulative P&L should match summary total_pnl");
+    }
+
+    #[test]
+    fn replay_full_attribution_produces_attribution_at_each_step() {
+        let portfolio = build_test_portfolio();
+        let timeline = ReplayTimeline::new(vec![
+            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 450.0)),
+            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 460.0)),
+        ]).unwrap();
+
+        let config = ReplayConfig {
+            mode: ReplayMode::FullAttribution,
+            attribution_method: AttributionMethod::Parallel,
+            valuation_options: Default::default(),
+        };
+
+        let result = finstack_portfolio::replay_portfolio(
+            &portfolio, &timeline, &config, &FinstackConfig::default(),
+        ).unwrap();
+
+        // Step 0: no attribution
+        assert!(result.steps[0].attribution.is_none());
+
+        // Step 1: has attribution with factor breakdown
+        let attr = result.steps[1].attribution.as_ref().expect("step 1 should have attribution");
+        assert!(!attr.by_position.is_empty(), "should have per-position breakdown");
+
+        // Also has P&L in FullAttribution mode
+        assert!(result.steps[1].daily_pnl.is_some());
+        assert!(result.steps[1].cumulative_pnl.is_some());
+    }
+
+    #[test]
+    fn replay_summary_tracks_max_drawdown() {
+        let portfolio = build_test_portfolio();
+        // Rates: 0bp -> 200bp (value drops) -> 100bp (partial recovery)
+        let timeline = ReplayTimeline::new(vec![
+            (date!(2024 - 01 - 01), market_at_rate(date!(2024 - 01 - 01), 0.0)),
+            (date!(2024 - 01 - 02), market_at_rate(date!(2024 - 01 - 02), 200.0)),
+            (date!(2024 - 01 - 03), market_at_rate(date!(2024 - 01 - 03), 100.0)),
+        ]).unwrap();
+
+        let config = ReplayConfig {
+            mode: ReplayMode::PvAndPnl,
+            attribution_method: Default::default(),
+            valuation_options: Default::default(),
+        };
+
+        let result = finstack_portfolio::replay_portfolio(
+            &portfolio, &timeline, &config, &FinstackConfig::default(),
+        ).unwrap();
+
+        // Max drawdown should be positive (a loss amount)
+        assert!(result.summary.max_drawdown.amount() >= 0.0);
+        // Peak should be at step 0 (rates started at 0)
+        assert_eq!(result.summary.max_drawdown_peak_date, date!(2024 - 01 - 01));
+        // Trough should be at step 1 (highest rates)
+        assert_eq!(result.summary.max_drawdown_trough_date, date!(2024 - 01 - 02));
+    }
+
 }
