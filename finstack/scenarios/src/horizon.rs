@@ -311,3 +311,179 @@ impl HorizonResult {
         pnl / iv
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use finstack_core::types::CurveId;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
+    use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+    use finstack_valuations::instruments::{Attributes, Bond};
+    use time::macros::date;
+
+    /// Build a simple 2-year fixed-rate bond for testing.
+    fn test_bond(base_date: Date) -> Arc<dyn Instrument> {
+        Arc::new(
+            Bond::builder()
+                .id("TEST-BOND".into())
+                .notional(Money::new(100.0, Currency::USD))
+                .issue_date(base_date)
+                .maturity(base_date + time::Duration::days(730))
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.05,
+                    finstack_core::dates::Tenor::annual(),
+                    DayCount::Thirty360,
+                ))
+                .discount_curve_id(CurveId::new("USD-OIS"))
+                .credit_curve_id_opt(None)
+                .pricing_overrides(PricingOverrides::default())
+                .attributes(Attributes::new())
+                .build()
+                .expect("bond builder should succeed"),
+        )
+    }
+
+    /// Build a market with a flat discount curve.
+    fn test_market(base_date: Date) -> MarketContext {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.90)])
+            .build()
+            .expect("curve builder should succeed");
+        MarketContext::new().insert(curve)
+    }
+
+    #[test]
+    fn no_op_scenario_returns_zero_pnl() {
+        let as_of = date!(2025 - 01 - 15);
+        let instrument = test_bond(as_of);
+        let market = test_market(as_of);
+
+        let scenario = ScenarioSpec {
+            id: "no_op".into(),
+            name: None,
+            description: None,
+            operations: vec![],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let analyzer = HorizonAnalysis::default();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+
+        assert!(
+            result.attribution.total_pnl.amount().abs() < 1e-10,
+            "no-op scenario should produce zero P&L, got {}",
+            result.attribution.total_pnl.amount()
+        );
+        assert!(result.horizon_days.is_none());
+        assert!(result.annualized_return().is_none());
+        assert!((result.total_return_pct()).abs() < 1e-10);
+    }
+
+    #[test]
+    fn time_roll_only_has_horizon_days_and_carry() {
+        let as_of = date!(2025 - 01 - 15);
+        let instrument = test_bond(as_of);
+        let market = test_market(as_of);
+
+        let scenario = ScenarioSpec {
+            id: "roll_1m".into(),
+            name: None,
+            description: None,
+            operations: vec![crate::OperationSpec::TimeRollForward {
+                period: "1M".into(),
+                apply_shocks: false,
+                roll_mode: crate::TimeRollMode::BusinessDays,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let analyzer = HorizonAnalysis::default();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+
+        assert!(result.horizon_days.is_some());
+        assert!(result.horizon_days.unwrap() > 0);
+        assert!(result.annualized_return().is_some());
+
+        // Carry should be non-zero since the bond accrues over the holding period.
+        let carry = result.attribution.carry.amount();
+        assert!(
+            carry.abs() > 1e-6,
+            "time-roll only: carry should be non-zero, got {carry}"
+        );
+    }
+
+    #[test]
+    fn shock_only_has_no_horizon_and_zero_carry() {
+        let as_of = date!(2025 - 01 - 15);
+        let instrument = test_bond(as_of);
+        let market = test_market(as_of);
+
+        let scenario = ScenarioSpec {
+            id: "rate_shock".into(),
+            name: None,
+            description: None,
+            operations: vec![crate::OperationSpec::CurveParallelBp {
+                curve_kind: crate::CurveKind::Discount,
+                curve_id: "USD-OIS".into(),
+                discount_curve_id: None,
+                bp: 50.0,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let analyzer = HorizonAnalysis::default();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+
+        assert!(result.horizon_days.is_none());
+        assert!(result.annualized_return().is_none());
+
+        assert!(
+            result.attribution.carry.amount().abs() < 1e-10,
+            "shock-only: carry should be zero, got {}",
+            result.attribution.carry.amount()
+        );
+
+        assert!(
+            result.attribution.rates_curves_pnl.amount().abs() > 1e-6,
+            "shock-only: rates P&L should be non-zero"
+        );
+    }
+
+    #[test]
+    fn total_return_pct_matches_pnl_over_initial() {
+        let as_of = date!(2025 - 01 - 15);
+        let instrument = test_bond(as_of);
+        let market = test_market(as_of);
+
+        let scenario = ScenarioSpec {
+            id: "rate_shock".into(),
+            name: None,
+            description: None,
+            operations: vec![crate::OperationSpec::CurveParallelBp {
+                curve_kind: crate::CurveKind::Discount,
+                curve_id: "USD-OIS".into(),
+                discount_curve_id: None,
+                bp: 50.0,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let analyzer = HorizonAnalysis::default();
+        let result = analyzer.compute(&instrument, &market, as_of, &scenario).unwrap();
+
+        let expected_pct = result.attribution.total_pnl.amount() / result.initial_value.amount();
+        assert!(
+            (result.total_return_pct() - expected_pct).abs() < 1e-12,
+            "total_return_pct() should match manual calculation"
+        );
+    }
+}
