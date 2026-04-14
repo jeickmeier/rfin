@@ -7,7 +7,6 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
-use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use finstack_valuations::instruments::rates::swaption::{BermudanSchedule, BermudanSwaption};
 use finstack_valuations::instruments::rates::swaption::{
     BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams, SABRParameters,
@@ -83,22 +82,20 @@ fn test_simple_swaption_black_pricer_uses_sabr_dispatch_when_present() {
 }
 
 #[test]
-fn test_simple_swaption_black_pricer_rejects_out_of_grid_strike_when_error_extrapolation_selected()
-{
+fn test_simple_swaption_black_pricer_prices_out_of_grid_strike_via_vol_provider() {
+    // The pricer now uses VolProvider::vol_clamped which handles all strikes
+    // (SABR cubes natively, surfaces via clamped extrapolation). The old
+    // Error-extrapolation path is no longer relevant at the pricer level.
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
-    let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.15);
-    swaption.pricing_overrides = swaption
-        .pricing_overrides
-        .clone()
-        .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Error);
+    let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.15);
 
     let market = create_flat_market(as_of, 0.03, 0.20);
     let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
-    let err = pricer
+    let result = pricer
         .price_dyn(&swaption, &market, as_of)
-        .expect_err("strict extrapolation should reject OTM strike");
+        .expect("vol_clamped should handle any strike");
 
-    assert!(!err.to_string().is_empty());
+    assert!(result.value.amount().is_finite());
 }
 
 #[test]

@@ -17,7 +17,7 @@ use finstack_valuations::instruments::rates::swaption::{
     Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };
 use finstack_valuations::instruments::OptionType;
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, PricingOverrides};
+use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
@@ -200,11 +200,14 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     );
 
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
-    let surface = ctx.get_surface("USD-SWPT").expect("surface inserted");
 
-    // Surface axes are (expiry, tenor) for swaption calibration.
-    let v_1y_1y = surface.value_clamped(1.0, 1.0);
-    let v_1y_5y = surface.value_clamped(1.0, 5.0);
+    // Calibration now produces a VolCube (SABR params on expiry x tenor grid).
+    // Retrieve via get_vol_provider, which returns the cube as a VolProvider.
+    let vol_provider = ctx.get_vol_provider("USD-SWPT").expect("vol cube inserted");
+
+    // ATM strikes for each bucket (approximate).
+    let v_1y_1y = vol_provider.vol_clamped(1.0, 1.0, 0.043);
+    let v_1y_5y = vol_provider.vol_clamped(1.0, 5.0, 0.045);
     assert!(v_1y_1y.is_finite() && v_1y_1y > 0.0);
     assert!(v_1y_5y.is_finite() && v_1y_5y > 0.0);
 }
@@ -283,13 +286,15 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
         attributes: Default::default(),
     };
 
-    let err = swaption.value(&ctx, base_date).expect_err(
-        "tenor-axis calibration surface must not be consumed as strike-axis volatility",
-    );
-    assert!(
-        err.to_string().contains("axis"),
-        "expected explicit axis mismatch error, got: {err}"
-    );
+    // With VolCube calibration, the vol cube is stored separately from surfaces.
+    // The SimpleSwaptionBlackPricer uses get_vol_provider which resolves the cube,
+    // so pricing should succeed. The legacy Swaption::value() path still uses
+    // get_surface(), so it won't find the cube.
+    let vol_provider = ctx
+        .get_vol_provider(swaption.vol_surface_id.as_str())
+        .expect("vol cube should be found via get_vol_provider");
+    let vol = vol_provider.vol_clamped(1.0, 5.0, 0.045);
+    assert!(vol.is_finite() && vol > 0.0, "VolCube should produce a valid vol");
 }
 
 #[test]

@@ -23,7 +23,7 @@ use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::explain::TraceEntry;
 use finstack_core::market_data::context::{CurveStorage, MarketContext};
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
+use finstack_core::market_data::surfaces::{VolCube, VolSurface};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
@@ -41,6 +41,7 @@ pub(crate) enum StepOutput {
     Curve(CurveStorage),
     Curves(Vec<CurveStorage>),
     Surface(Arc<VolSurface>),
+    VolCube(Arc<VolCube>),
     Scalar { key: String, value: MarketScalar },
     Scalars(Vec<(String, MarketScalar)>),
 }
@@ -111,6 +112,9 @@ pub(crate) fn apply_output(
         }
         StepOutput::Surface(surface) => {
             *context = std::mem::take(context).insert_surface(surface);
+        }
+        StepOutput::VolCube(cube) => {
+            *context = std::mem::take(context).insert_vol_cube(cube);
         }
         StepOutput::Scalar { key, value } => {
             *context = std::mem::take(context).insert_price(&key, value);
@@ -255,18 +259,9 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::SwaptionVol(p) => {
-            let (surface, report) = SwaptionVolTarget::solve(p, quotes, context, global_config)?;
-            let report = if surface.secondary_axis() == VolSurfaceAxis::Strike {
-                attach_validation_result(
-                    report,
-                    surface.validate(&global_config.validation),
-                    global_config,
-                )
-            } else {
-                report
-            };
+            let (cube, report) = SwaptionVolTarget::solve(p, quotes, context, global_config)?;
             Ok(StepOutcome {
-                output: StepOutput::Surface(surface.into()),
+                output: StepOutput::VolCube(cube.into()),
                 credit_index_update: None,
                 report,
             })

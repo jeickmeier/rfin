@@ -12,7 +12,8 @@ use finstack_core::dates::{
     BusinessDayConvention, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
+use finstack_core::market_data::surfaces::VolCube;
+use finstack_core::math::volatility::sabr::SabrParams;
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
@@ -70,18 +71,17 @@ impl SwaptionVolTarget {
     ///
     /// # Returns
     ///
-    /// A tuple containing the calibrated volatility surface and calibration report.
+    /// A tuple containing the calibrated volatility cube and calibration report.
     ///
     /// # Errors
     ///
-    /// Returns an error if insufficient quotes are provided or calibration fails.
     /// Returns an error if insufficient quotes are provided or calibration fails.
     pub(crate) fn solve(
         params: &SwaptionVolParams,
         quotes: &[MarketQuote],
         context: &MarketContext,
         config: &CalibrationConfig,
-    ) -> Result<(VolSurface, CalibrationReport)> {
+    ) -> Result<(VolCube, CalibrationReport)> {
         // Group quotes by (expiry_years, tenor_years) using stable basis-point keys.
         let mut grouped_quotes: QuotesByExpiryTenor<'_> = BTreeMap::new();
         let dc = if let Some(dc) = params.fixed_day_count {
@@ -311,7 +311,8 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
         let mut interpolated_points = 0usize;
         let mut extrapolated_points = 0usize;
 
-        let mut grid = Vec::new();
+        let mut cube_params: Vec<SabrParams> = Vec::new();
+        let mut cube_forwards: Vec<f64> = Vec::new();
         for &texp in &target_expiries {
             for &tten in &target_tenors {
                 let key = (to_basis_points(texp), to_basis_points(tten));
@@ -355,17 +356,25 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                     extrapolated_points += 1;
                 }
 
-                let val = if let Some(p) = p {
+                if let Some(p) = p {
                     let leg_conv = Self::default_leg_conventions(params)?;
                     let f = Self::calculate_forward_swap_rate_years(
                         params, texp, tten, &leg_conv, context,
                     )?;
-                    let strike = Self::atm_strike(params, f);
-                    let model = SABRModel::new(p);
-                    model.implied_volatility(f, strike, texp)?
+
+                    let core_params = SabrParams {
+                        alpha: p.alpha,
+                        beta: p.beta,
+                        rho: p.rho,
+                        nu: p.nu,
+                        shift: p.shift,
+                    };
+
+                    cube_params.push(core_params);
+                    cube_forwards.push(f);
                 } else {
                     // Market-standard: fail with context rather than silently returning a
-                    // placeholder surface.
+                    // placeholder cube.
                     let available: Vec<String> = sabr_params
                         .keys()
                         .map(|(e, t)| {
@@ -382,17 +391,15 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                         available, bucket_hint
                     )));
                 };
-
-                grid.push(val);
             }
         }
 
-        let surface = VolSurface::from_grid_with_axis(
+        let cube = VolCube::from_grid(
             &params.surface_id,
             &target_expiries,
             &target_tenors,
-            &grid,
-            VolSurfaceAxis::Tenor,
+            &cube_params,
+            &cube_forwards,
         )?;
 
         let vol_tolerance = vol_fit_tolerance;
@@ -422,7 +429,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
 
         report.update_solver_config(config.solver.clone());
 
-        Ok((surface, report))
+        Ok((cube, report))
     }
 
     // =========================================================================
@@ -430,6 +437,7 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
     // =========================================================================
 
     /// Determine the ATM strike for a swaption.
+    #[allow(dead_code)]
     fn atm_strike(params: &SwaptionVolParams, forward_swap_rate: f64) -> f64 {
         match params.atm_convention {
             AtmStrikeConvention::SwapRate => forward_swap_rate,
@@ -997,8 +1005,9 @@ mod tests {
         )
         .expect("forward");
 
+        let true_alpha = 0.0050;
         let sabr_true = SABRParameters {
-            alpha: 0.0050,
+            alpha: true_alpha,
             beta: 0.0,
             nu: 0.60,
             rho: -0.20,
@@ -1023,18 +1032,17 @@ mod tests {
         }
 
         let config = CalibrationConfig::default();
-        let (surface, _report) =
+        let (cube, _report) =
             SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
 
-        let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
-        let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
-
-        // 5 vol bp in decimal units = 0.0005
+        // VolCube stores SABR params; verify calibrated alpha matches ground truth.
+        // For beta=0 (normal SABR), alpha IS the ATM normal vol.
+        let calibrated = cube.params_at(0, 0);
         assert!(
-            (fitted_atm - true_atm).abs() <= 0.0005,
-            "atm mismatch: fitted={} true={}",
-            fitted_atm,
-            true_atm
+            (calibrated.alpha - true_alpha).abs() <= 0.0005,
+            "alpha mismatch: calibrated={} true={}",
+            calibrated.alpha,
+            true_alpha
         );
     }
 
@@ -1109,10 +1117,10 @@ mod tests {
                 .with_max_iterations(500),
             ..CalibrationConfig::default()
         };
-        let (surface, _report) =
+        let (cube, _report) =
             SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
 
-        let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
+        let fitted_atm = cube.vol(t_exp, t_ten, fwd).expect("cube vol");
         let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
 
         assert!(
