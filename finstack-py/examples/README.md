@@ -6,9 +6,9 @@ advanced credit portfolio analytics.
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - `finstack` built and installed (`make python-dev`)
-- `pandas` and `polars` (`uv pip install pandas polars`)
+- Project dependencies installed from the repository root `pyproject.toml`
 
 ## How to Run
 
@@ -21,13 +21,13 @@ uv run jupyter lab
 **Programmatic** -- execute all notebooks and report pass/fail:
 
 ```bash
-uv run python run_all_notebooks.py
+uv run python finstack-py/examples/run_all_notebooks.py
 ```
 
 Run a single section:
 
 ```bash
-uv run python run_all_notebooks.py --directory 01_foundations
+uv run python finstack-py/examples/run_all_notebooks.py --directory 01_foundations
 ```
 
 ## Curriculum Structure

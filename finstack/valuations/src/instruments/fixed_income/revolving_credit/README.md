@@ -242,9 +242,11 @@ let irr_opt = calculate_path_irr(&cashflows_as_(t, amt), base_date, day_count);
 
 ## Python and examples
 
-Python bindings expose the same shapes and behaviors. Example scripts illustrating deterministic vs stochastic pricing, path analysis, and period analysis are available in:
+Python bindings expose the same shapes and behaviors. Notebook examples that are
+closest to revolving-credit workflows live in:
 
-- `finstack-py/examples/scripts/valuations/instruments/revolving_credit/`
+- `finstack-py/examples/02_pricing/instruments/loans_and_credit_facilities.ipynb`
+- `finstack-py/examples/README.md`
 
 ---
 

@@ -1,99 +1,138 @@
 # Finstack
 
-Finstack is a Rust-first quantitative finance workspace with Python and WebAssembly bindings.
-The repository combines reusable financial primitives, pricing and risk engines, statement
-modeling, scenario analysis, portfolio tooling, and binding layers that keep the core logic in
-Rust.
+Finstack is a Rust-first quantitative finance workspace with Python and
+WebAssembly bindings. The repository is organized around reusable financial
+primitives, pricing and risk engines, statement modeling, deterministic
+scenario tooling, portfolio analytics, and thin binding layers that keep the
+business logic in Rust.
 
 ## Workspace Layout
 
 ```text
 rfin/
-├── finstack/                    # Rust workspace and umbrella crate
-│   ├── core/                    # Dates, calendars, currencies, market data, math
-│   ├── cashflows/               # Cashflow schedule construction and projection
-│   ├── correlation/             # Copula, factor, and recovery models
-│   ├── monte_carlo/             # Monte Carlo simulation engine
-│   ├── analytics/               # Shared analytics utilities
-│   ├── margin/                  # Margin, collateral, and XVA primitives
-│   ├── statements/              # Financial statement modeling and forecasting
-│   ├── valuations/              # Instrument pricing, calibration, and risk
-│   ├── portfolio/               # Portfolio valuation, grouping, and optimization
-│   ├── scenarios/               # Scenario modeling and stress testing
-│   └── src/                     # `finstack` umbrella crate re-exports
-├── finstack-py/                 # Python bindings built with PyO3 + maturin
-├── finstack-wasm/               # WebAssembly bindings built with wasm-bindgen
-├── docs/                        # Project references and documentation standards
-├── scripts/                     # Audits and developer automation
-├── pyproject.toml               # Python tooling and dependency configuration
-├── Cargo.toml                   # Workspace configuration and shared profiles
-└── Makefile                     # Common build, test, lint, and packaging commands
+├── finstack/
+│   ├── Cargo.toml                 # `finstack` umbrella crate
+│   ├── src/                       # Feature-gated re-exports
+│   ├── core/                      # Dates, money, market data, math, expressions
+│   ├── cashflows/                 # Schedule construction and cashflow aggregation
+│   ├── analytics/                 # Return-series performance and risk analytics
+│   ├── correlation/               # Copulas, factor models, recovery models
+│   ├── monte_carlo/               # Simulation engine, processes, payoffs, pricers
+│   ├── margin/                    # Margin, collateral, and XVA primitives
+│   ├── statements/                # Financial statement modeling and evaluation
+│   ├── statements-analytics/      # Higher-level statement analytics and reporting
+│   ├── valuations/                # Instruments, pricing, metrics, calibration
+│   ├── portfolio/                 # Portfolio valuation, grouping, optimization
+│   └── scenarios/                 # Scenario composition and application
+├── finstack-py/                   # PyO3 bindings packaged as `finstack`
+├── finstack-wasm/                 # wasm-bindgen bindings packaged as `finstack-wasm`
+├── docs/                          # Shared references and project documentation
+├── book/                          # mdBook documentation
+├── pyproject.toml                 # Python packaging and tooling
+├── Cargo.toml                     # Workspace manifest
+└── Makefile                       # Common build, test, and packaging commands
 ```
 
-## What The Project Covers
+## Library Map
 
-The current workspace is organized around a few major areas:
+- `finstack-core`: currencies, money, rates, dates, calendars, market data,
+  cashflow primitives, math utilities, and the expression engine.
+- `finstack-cashflows`: schedule construction, accrual logic, and
+  currency-preserving cashflow aggregation for bonds, loans, swaps, and
+  structured products.
+- `finstack-analytics`: return-series performance analytics, drawdown analysis,
+  tail risk, benchmark-relative metrics, and rolling statistics.
+- `finstack-correlation`: copulas, factor models, stochastic recovery, and
+  joint-probability tooling used by credit portfolio workflows.
+- `finstack-monte-carlo`: generic Monte Carlo engine, stochastic processes,
+  discretizations, payoffs, variance reduction, and result types.
+- `finstack-margin`: CSA and repo margin specs, VM/IM engines, SIMM helpers,
+  collateral eligibility, and XVA primitives.
+- `finstack-statements`: period-based financial statement modeling,
+  forecasting, formula evaluation, and extension hooks.
+- `finstack-statements-analytics`: higher-level analysis on top of
+  `finstack-statements`, including scenarios, variance tooling, templates,
+  reporting, and covenant-oriented workflows.
+- `finstack-valuations`: instrument coverage across rates, credit, equity, FX,
+  structured products, and private markets, plus pricing, metrics,
+  attribution, covenants, and calibration.
+- `finstack-portfolio`: entity and position containers, aggregation, grouping,
+  selective repricing, factor decomposition, optimization, and scenario-aware
+  workflows.
+- `finstack-scenarios`: deterministic scenario composition, market-data and
+  statement shocks, instrument shocks, and time roll-forward workflows.
 
-- `finstack-core` for shared financial primitives, market data containers, interpolation, solvers,
-  and numerical utilities.
-- `finstack-cashflows`, `finstack-correlation`, and `finstack-monte-carlo` for specialized
-  modeling engines used by higher-level crates.
-- `finstack-valuations` for instruments, pricers, calibration, and risk analytics across rates,
-  credit, equity, FX, structured products, and more.
-- `finstack-statements` for financial statement modeling, formulas, forecasting, and extensions.
-- `finstack-scenarios` and `finstack-portfolio` for stress testing, portfolio aggregation, and
-  multi-position workflows.
-- `finstack-py` and `finstack-wasm` for Python and TypeScript/browser consumers.
+## Umbrella Crate
 
-## Rust Workspace
-
-The top-level Rust crate is `finstack`, an umbrella crate that re-exports the major sub-crates
-behind feature flags so downstream users can opt into only the parts they need.
+The top-level Rust crate is `finstack`, which re-exports the main crates behind
+feature flags so downstream consumers can opt into only the domains they need.
 
 ```toml
 [dependencies]
-finstack = { path = "finstack", features = ["valuations", "portfolio", "scenarios"] }
+finstack = { path = "finstack", features = ["analytics", "valuations", "portfolio", "scenarios"] }
 ```
 
-Available umbrella features include:
+Current domain features:
 
 - `core`
 - `analytics`
+- `correlation`
 - `margin`
+- `monte_carlo`
 - `statements`
 - `valuations`
 - `portfolio`
 - `scenarios`
 - `all`
 
-Default workspace builds exclude the Python and WASM binding crates, which keeps the normal Rust
-edit-test loop fast.
+Cross-cutting features:
+
+- `serde`
+- `parallel`
+- `dataframes`
+
+`finstack-cashflows` is a standalone workspace crate and a direct dependency of
+`finstack-valuations`, but it is not exposed as a separate umbrella feature.
 
 ## Python Bindings
 
-`finstack-py` exposes the Rust functionality through PyO3 bindings and is built with `maturin`.
-The Python package is configured from the repository root `pyproject.toml`, uses `uv` for package
-management, and includes manually maintained `.pyi` stubs plus example scripts and notebooks.
+`finstack-py` builds the Python package named `finstack`. The binding tree
+mirrors the Rust domain layout and currently exposes these top-level
+subpackages:
 
-Useful paths:
+- `analytics`
+- `core`
+- `correlation`
+- `margin`
+- `monte_carlo`
+- `portfolio`
+- `scenarios`
+- `statements`
+- `statements_analytics`
+- `valuations`
 
-- `finstack-py/finstack/` for the package and type stubs
-- `finstack-py/tests/` for Python and parity tests
-- `finstack-py/examples/scripts/` for runnable examples
-- `finstack-py/examples/notebooks/` for notebooks
-- `finstack-py/docs/` for Python-focused documentation
+The Python examples and notebook curriculum live under `finstack-py/examples/`.
+The notebook runner is `finstack-py/examples/run_all_notebooks.py`.
 
 ## WASM Bindings
 
-`finstack-wasm` provides browser and Node.js bindings via `wasm-bindgen` and `wasm-pack`. The
-package emits TypeScript definitions and also includes an example app workflow for local
-development.
+`finstack-wasm` builds the `finstack-wasm` package for browser and Node.js
+consumers. It exposes namespaced modules that mirror the Rust workspace:
 
-Useful paths:
+- `core`
+- `analytics`
+- `correlation`
+- `margin`
+- `monte_carlo`
+- `portfolio`
+- `scenarios`
+- `statements`
+- `statements_analytics`
+- `valuations`
 
-- `finstack-wasm/src/` for bindings
-- `finstack-wasm/examples/` for the example app
-- `finstack-wasm/package.json` for JS tooling commands
+The package facade lives in `finstack-wasm/index.js`, TypeScript declarations
+live in `finstack-wasm/index.d.ts`, and the namespace shims live in
+`finstack-wasm/exports/`.
 
 ## Development Setup
 
@@ -102,7 +141,7 @@ Useful paths:
 - [Rust 1.90+](https://rustup.rs/)
 - [Python 3.12+](https://www.python.org/)
 - [uv](https://github.com/astral-sh/uv)
-- [Node.js](https://nodejs.org/) for WASM tooling
+- [Node.js](https://nodejs.org/) for the WASM package
 - [wasm-pack](https://rustwasm.github.io/wasm-pack/) for WASM builds
 
 ### Quick Start
@@ -111,64 +150,36 @@ Useful paths:
 git clone https://github.com/rustfin/rfin.git
 cd rfin
 
-# Build the default Rust workspace
 make build
-
-# Run Rust, Python, and WASM tests
 make test
-
-# Build Python bindings for local development
 make python-dev
-
-# Build the WASM packages
 make wasm-pkg
 ```
 
-## Common Commands
-
-Run `make help` for the full command list. These are the targets used most often:
+### Common Commands
 
 | Command | Purpose |
 |---|---|
-| `make build` | Build the Rust workspace excluding `finstack-py` and `finstack-wasm` |
+| `make build` | Build the Rust workspace excluding binding crates |
 | `make test` | Run Rust, Python, and WASM tests |
-| `make test-rust` | Run Rust tests with `cargo nextest` |
-| `make test-python` | Run Python tests with `pytest` |
-| `make test-wasm` | Run WASM tests |
 | `make fmt` | Format Rust, Python, and WASM code |
 | `make lint` | Run the fast lint pass across Rust, Python, and WASM |
-| `make lint-full` | Run the slower full Rust lint pass including bindings and all features |
-| `make python-dev` | Create the Python environment and build bindings in release mode |
-| `make python-dev-debug` | Build Python bindings in debug mode for a faster compile loop |
-| `make wasm-examples-dev` | Build WASM and start the example app |
-| `make coverage` | Run Rust and Python coverage reports |
-| `make wheel-local` | Build a wheel for the current platform |
-| `make wheel-all` | Build wheels for all locally available Python interpreters |
-| `make audit` | Run Rust and Python security audits |
+| `make lint-full` | Run the slower full lint pass including bindings |
+| `make python-dev` | Build the Python extension in release mode |
+| `make python-dev-debug` | Build the Python extension in debug mode |
+| `make wasm-pkg` | Build the web and node WASM packages |
+| `make test-rust` | Run Rust tests with `cargo nextest` |
+| `make test-python` | Run Python tests |
+| `make test-wasm` | Run WASM package tests |
+| `make coverage` | Run coverage for the supported components |
+| `make doc` | Generate Rust documentation |
 
-## Code Quality
+## Documentation
 
-The workspace is set up for a strict development workflow:
-
-- Rust formatting via `cargo fmt`
-- Rust linting via `cargo clippy`
-- Python formatting and linting via `ruff`
-- Python typing via `ty` and `pyright`
-- Python security checks via `bandit`
-- WASM and frontend formatting via `prettier`
-- WASM and frontend linting via `eslint`
-
-For day-to-day development, `make fmt`, `make lint`, and `make test` are the main entry points.
-
-## Examples And Documentation
-
-The repo already includes several documentation surfaces:
-
-- Root-level standards and references in `docs/`
-- Python package docs in `finstack-py/docs/`
-- Python example scripts in `finstack-py/examples/scripts/`
-- Python notebooks in `finstack-py/examples/notebooks/`
-- Audit and parity tooling in `scripts/audits/`
+- `docs/` for shared references, standards, and design notes.
+- `book/src/architecture/README.md` for the workspace architecture map.
+- `finstack-py/examples/README.md` for the Python notebook curriculum.
+- `book/src/notebooks/README.md` for notebook navigation from the mdBook side.
 
 ## License
 

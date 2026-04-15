@@ -1,159 +1,85 @@
 # Finstack Scenarios
 
-Lightweight, deterministic scenario capability for stress testing and what-if analysis.
+`finstack-scenarios` provides deterministic scenario composition and scenario
+application for market data, statement models, instrument-level shocks, and
+time roll-forward workflows.
 
-## Features
+## What This Crate Covers
 
-- **Market Data Shocks**: FX, equities, yield curves, vol surfaces, base correlation
-- **Statement Adjustments**: Forecast percent changes and value assignments
-- **Rate Bindings**: Curve-to-statement links with tenor, compounding, and day-count awareness
-- **Attribute/Type Instrument Shocks**: Price/spread shocks by instrument type or metadata filters
-- **Deterministic Composition**: Stable ordering with priority-based conflict resolution
-- **Serde-Stable Wire Format**: JSON interoperability for pipelines and storage
-- **Minimal Dependencies**: Reuses existing `valuations` and `statements` APIs
+The crate centers on a small set of core types:
 
-## Quick Start
+- `ScenarioSpec`: a named scenario with metadata and ordered operations.
+- `OperationSpec`: the supported shock and roll-forward operations.
+- `ScenarioEngine`: composition and application engine.
+- `ExecutionContext`: mutable application context for market data, statement
+  models, rate bindings, and the as-of date.
+- `ApplicationReport`: warnings and execution details returned by application.
+- `RateBinding`: optional bridge between statement nodes and market curves.
 
-```rust
-use finstack_scenarios::{ScenarioSpec, OperationSpec, CurveKind, ScenarioEngine, ExecutionContext};
-use finstack_core::market_data::context::MarketContext;
-use finstack_statements::FinancialModelSpec;
+## Supported Operation Families
 
-let mut market = MarketContext::new(); // with curves, prices, etc.
-let mut model = FinancialModelSpec::new("model_id", vec![]);
+### Market data shocks
 
-let scenario = ScenarioSpec {
-    id: "stress_test".into(),
-    name: Some("Q1 Stress Test".into()),
-    description: None,
-    operations: vec![
-        OperationSpec::CurveParallelBp {
-            curve_kind: CurveKind::Discount,
-            curve_id: "USD_SOFR".into(),
-            bp: 50.0, // +50bp parallel shift
-        },
-        OperationSpec::EquityPricePct {
-            ids: vec!["SPY".into()],
-            pct: -10.0, // -10% equity shock
-        },
-    ],
-    priority: 0,
-};
+- FX shocks
+- equity price shocks
+- discount, forward, hazard, and inflation curve shifts
+- base-correlation shifts
+- volatility-surface shifts
 
-let engine = ScenarioEngine::new();
-let mut ctx = ExecutionContext {
-    market: &mut market,
-    model: &mut model,
-    rate_bindings: None,
-    as_of: time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-};
+### Statement operations
 
-let report = engine.apply(&scenario, &mut ctx)?;
-println!("Applied {} operations", report.operations_applied);
-```
+- forecast percentage changes
+- forecast value assignment
+- curve-linked rate bindings for statement workflows
 
-## Supported Operations
+### Instrument operations
 
-### Market Data
+- price shocks by instrument type
+- spread shocks by instrument type
+- attribute-based selectors where the underlying workflow provides the needed
+  instrument metadata
 
-- `MarketFxPct`: FX rate percent shift
-- `EquityPricePct`: Equity price percent shock
-- `CurveParallelBp`: Parallel basis point shift (discount/forecast/hazard/inflation curves)
-- `CurveNodeBp`: Node-specific basis point shifts with tenor matching (exact or interpolate)
-- `BaseCorrParallelPts`: Parallel correlation point shift
-- `BaseCorrBucketPts`: Bucket-specific correlation shifts (filters by detachment points)
-- `VolSurfaceParallelPct`: Parallel volatility percent shift
-- `VolSurfaceBucketPct`: Bucket-specific volatility shifts (filters by tenor and strike)
+### Time operations
 
-### Statements
+- horizon roll-forward with carry and theta-aware workflows
 
-- `StmtForecastPercent`: Forecast percent change
-- `StmtForecastAssign`: Forecast value assignment
-- `RateBinding` (via context): Bind statement nodes to curves with tenor/compounding/day-count
+## Composition Semantics
 
-### Instrument-Based
+- Scenarios compose deterministically.
+- Operation ordering is stable.
+- Priority values control merge behavior.
+- The wire format is serde-friendly for storage and pipelines.
+- Market, statement, and time operations share one application model instead of
+  separate ad hoc engines.
 
-- `InstrumentPricePctByAttr`: Price shock by attribute match (case-insensitive AND on metadata)
-- `InstrumentSpreadBpByAttr`: Spread shock by attribute match (case-insensitive AND on metadata)
-- `InstrumentPricePctByType`: Price shock by instrument type (Bond, CDS, Swap, etc.)
-- `InstrumentSpreadBpByType`: Spread shock by instrument type
+## Where It Fits
 
-### Time Operations
+`finstack-scenarios` sits between the lower-level crates and the binding
+surfaces:
 
-- `TimeRollForward`: Roll forward horizon by period with carry/theta calculation
-  - Modes: `business_days` (default), `calendar_days`, `approximate`
+- It uses `finstack-core` for market data and dates.
+- It integrates with `finstack-statements` for statement-model workflows.
+- It integrates with `finstack-valuations` for pricing-aware scenario and
+  roll-forward flows.
+- It is exposed through both `finstack-py` and `finstack-wasm`.
 
-## Architecture
+## Typical Usage
 
-```
-ScenarioEngine
-  ├─ compose(scenarios) → deterministic merge
-  └─ apply(scenario, ctx) → ApplicationReport
-       ├─ Phase 1: Market data (FX, equities, vols, curves)
-       ├─ Phase 2: Rate bindings (optional)
-       ├─ Phase 3: Statement operations
-       └─ Phase 4: Re-evaluation
-```
+Most applications follow this pattern:
 
-## Implementation Status
+1. Build a `ScenarioSpec` from one or more `OperationSpec` values.
+2. Construct an `ExecutionContext` with market data, a statement model, and an
+   `as_of` date.
+3. Apply the scenario with `ScenarioEngine`.
+4. Consume the resulting `ApplicationReport` alongside the mutated context.
 
-### Fully Implemented
-
-- ✅ **Tenor-Based Curve Shocks**: Exact pillar matching and interpolated key-rate bumps
-- ✅ **Bucket Filtering**: Vol surfaces filter by tenor/strike; base-corr by detachment
-- ✅ **Instrument Type Shocks**: Type-safe shocks using InstrumentType enum
-- ✅ **Time Roll-Forward**: Date advancement with carry/theta from valuations crate
-- ✅ **FX Shocks**: Full implementation via SimpleFxProvider replacement
-- ✅ **Statement Shocks**: Percent and assign operations on node values
-
-### Phase A Limitations
-
-- **Attribute Selectors**: Not implemented (no instrument registry query)
-
-## Examples
-
-Run the examples:
+## Verification
 
 ```bash
-# Lite example - Basic usage with horizon scenarios
-cargo run -p finstack-scenarios --example scenarios_lite_example
-
-# Comprehensive example - All shock types including horizon analysis
-cargo run -p finstack-scenarios --example scenarios_comprehensive_example
+cargo fmt -p finstack-scenarios
+cargo clippy -p finstack-scenarios --all-targets -- -D warnings
+cargo test -p finstack-scenarios
 ```
-
-Both examples now demonstrate:
-
-- Market data shocks (curves, equity, vol, FX)
-- Statement adjustments
-- **Horizon scenarios**: 1W, 1M, 3M time roll-forward with theta/carry calculations
-- Combined scenarios: Horizon + market shocks
-
-## Testing
-
-```bash
-# Unit and integration tests
-cargo test -p finstack-scenarios --all-features
-
-# Linting
-cargo clippy -p finstack-scenarios --all-features -- -D warnings
-```
-
-## Design Goals
-
-1. **Determinism**: Identical results across runs and platforms
-2. **Composability**: Merge scenarios with stable priority resolution
-3. **Simplicity**: Programmatic API first; DSL deferred to future phases
-4. **Reusability**: Leverage existing `core`, `valuations`, and `statements` features
-5. **Stability**: Serde-stable wire types for long-lived pipelines
-
-## Future Enhancements
-
-- Full DSL with text parser and glob/selector expansion
-- Instrument registry integration for attribute-based selectors
-- Time-windowed operations (`@on`, `@during`)
-- Curve rolling with proper knot expiry/adjustment
-- Python and WASM bindings
 
 ## License
 
