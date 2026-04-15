@@ -4,13 +4,10 @@
 //! for interactive exploration from Python.
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
+use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-
-fn attr_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 /// Parse an ISO 8601 date string into a `time::Date`.
 fn parse_date(s: &str) -> PyResult<time::Date> {
@@ -85,7 +82,7 @@ fn attribute_pnl(
     };
     let spec = build_attribution_spec(py, &args)?;
 
-    let result = spec.execute().map_err(attr_to_py)?;
+    let result = spec.execute().map_err(display_to_py)?;
     Ok(PyPnlAttribution {
         inner: result.attribution,
     })
@@ -114,9 +111,9 @@ fn attribute_pnl(
 fn attribute_pnl_from_spec(spec_json: &str) -> PyResult<String> {
     use finstack_valuations::attribution::AttributionEnvelope;
 
-    let envelope: AttributionEnvelope = serde_json::from_str(spec_json).map_err(attr_to_py)?;
-    let result_envelope = envelope.execute().map_err(attr_to_py)?;
-    serde_json::to_string_pretty(&result_envelope).map_err(attr_to_py)
+    let envelope: AttributionEnvelope = serde_json::from_str(spec_json).map_err(display_to_py)?;
+    let result_envelope = envelope.execute().map_err(display_to_py)?;
+    serde_json::to_string_pretty(&result_envelope).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +139,7 @@ fn validate_attribution_json(json: &str) -> PyResult<String> {
     let envelope: finstack_valuations::attribution::AttributionEnvelope =
         serde_json::from_str(json)
             .map_err(|e| PyValueError::new_err(format!("invalid attribution JSON: {e}")))?;
-    serde_json::to_string_pretty(&envelope).map_err(attr_to_py)
+    serde_json::to_string_pretty(&envelope).map_err(display_to_py)
 }
 
 /// Return the default waterfall factor ordering.
@@ -203,13 +200,13 @@ fn build_attribution_spec(
     use finstack_valuations::attribution::{AttributionConfig, AttributionMethod, AttributionSpec};
 
     let instrument: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(args.instrument_json).map_err(attr_to_py)?;
+        serde_json::from_str(args.instrument_json).map_err(display_to_py)?;
 
     let market_t0: finstack_core::market_data::context::MarketContextState =
-        serde_json::from_str(args.market_t0_json).map_err(attr_to_py)?;
+        serde_json::from_str(args.market_t0_json).map_err(display_to_py)?;
 
     let market_t1: finstack_core::market_data::context::MarketContextState =
-        serde_json::from_str(args.market_t1_json).map_err(attr_to_py)?;
+        serde_json::from_str(args.market_t1_json).map_err(display_to_py)?;
 
     let t0 = parse_date(args.as_of_t0)?;
     let t1 = parse_date(args.as_of_t1)?;
@@ -273,13 +270,13 @@ impl PyPnlAttribution {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_valuations::attribution::PnlAttribution =
-            serde_json::from_str(json).map_err(attr_to_py)?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to pretty-printed JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(attr_to_py)
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     // --- Aggregate P&L fields (amount as f64) ---

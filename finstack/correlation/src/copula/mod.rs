@@ -132,6 +132,18 @@ pub enum CopulaSpec {
     /// than Gaussian predicts. Lower df = more tail dependence.
     ///
     /// Typical calibration: df ∈ [4, 10] for CDX tranches.
+    ///
+    /// # Invariant
+    ///
+    /// `degrees_of_freedom` **must** be finite and `> 2`. The programmatic
+    /// constructor [`CopulaSpec::student_t`] panics on invalid input, but
+    /// deserialized specs (from config files, JSON, etc.) cannot panic —
+    /// [`CopulaSpec::build`] and [`CopulaSpec::build_student_t`] silently
+    /// clamp an out-of-range or non-finite value to `2.01` and emit a
+    /// `tracing::warn!`. This is deliberate: it preserves forward
+    /// compatibility for serialized specs but means callers that round-trip
+    /// a spec may observe a changed `degrees_of_freedom`. Validate at the
+    /// config-loading boundary if strict rejection is required.
     StudentT {
         /// Degrees of freedom (must be > 2 for finite variance)
         degrees_of_freedom: f64,

@@ -3,7 +3,10 @@
 //! This extension provides roll-forward validation for balance sheet accounts, ensuring
 //! that opening balances + changes = closing balances across periods.
 //!
-//! **Status:** ✅ Fully implemented with comprehensive validation logic.
+//! # Migration (v0.5)
+//!
+//! The `Extension` trait implementation in this module is deprecated;
+//! prefer calling [`CorkscrewExtension`] directly.
 //!
 //! # Features
 //!
@@ -52,6 +55,8 @@
 //! # Ok(())
 //! # }
 //! ```
+
+#![allow(deprecated)]
 
 use finstack_statements::extensions::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,

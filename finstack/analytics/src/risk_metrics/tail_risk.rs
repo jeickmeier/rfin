@@ -22,6 +22,11 @@ fn valid_horizon(ann_factor: Option<f64>) -> bool {
 /// Returns a **negative** number representing the loss threshold.
 /// The `ann_factor` parameter is not applied (see parameter docs below).
 ///
+/// # Quantile interpolation
+///
+/// Uses [`finstack_core::math::stats::quantile`]; see that function for
+/// the exact interpolation method and cross-tool comparison notes.
+///
 /// # Arguments
 ///
 /// * `returns` - Slice of period simple returns.

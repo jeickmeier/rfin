@@ -70,6 +70,7 @@ strum_macros = "0.28"
 # Fast hash for integer keys in hot paths
 rustc-hash = "2.1"
 
+# Vendored Polars / pyo3-polars patches; see `vendor/README.md`.
 [patch.crates-io]
 pyo3-polars = { path = "vendor/pyo3-polars-0.26.0" }
 polars-error = { path = "vendor/polars-error-0.53.0" }

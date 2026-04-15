@@ -3,7 +3,10 @@
 //! This extension provides credit rating assignment based on financial metrics
 //! and configurable thresholds.
 //!
-//! **Status:** ✅ Fully implemented with weighted scoring and rating determination.
+//! # Migration (v0.5)
+//!
+//! The `Extension` trait implementation in this module is deprecated;
+//! prefer calling [`CreditScorecardExtension`] directly.
 //!
 //! # Features
 //!
@@ -75,6 +78,8 @@
 //! # Ok(())
 //! # }
 //! ```
+
+#![allow(deprecated)]
 
 use finstack_statements::extensions::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,

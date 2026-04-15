@@ -60,9 +60,34 @@ impl<'a> SensitivityAnalyzer<'a> {
     }
 
     /// Run sensitivity analysis.
+    ///
+    /// # Parallelism
+    ///
+    /// With the `parallel` feature enabled, diagonal sensitivity runs
+    /// each `(parameter, perturbation)` pair concurrently on a rayon
+    /// thread pool. Each worker holds its own cloned `FinancialModelSpec`
+    /// and `Evaluator`, so there is no shared mutable state. Because the
+    /// baseline model is immutable after build, the parallel result is
+    /// identical to the serial result up to floating-point determinism
+    /// of the inner evaluator.
+    ///
+    /// With the feature disabled (the default), the serial path runs.
+    ///
+    /// Full-grid and tornado modes remain serial for now; full-grid has
+    /// cross-parameter ordering dependencies in the naive implementation,
+    /// and tornado delegates to the diagonal path internally.
     pub fn run(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
         match config.mode {
-            SensitivityMode::Diagonal => self.run_diagonal(config),
+            SensitivityMode::Diagonal => {
+                #[cfg(feature = "parallel")]
+                {
+                    self.run_diagonal_parallel(config)
+                }
+                #[cfg(not(feature = "parallel"))]
+                {
+                    self.run_diagonal(config)
+                }
+            }
             SensitivityMode::FullGrid => self.run_full_grid(config),
             SensitivityMode::Tornado => self.run_tornado(config),
         }
@@ -115,6 +140,69 @@ impl<'a> SensitivityAnalyzer<'a> {
         Ok(SensitivityResult {
             config: config.clone(),
             scenarios,
+        })
+    }
+
+    /// Parallel diagonal sensitivity using rayon.
+    ///
+    /// Each `(parameter, perturbation)` pair runs on its own worker with
+    /// an independently-cloned model and evaluator, so there is no shared
+    /// mutable state and no need for the serial path's apply/restore
+    /// bookkeeping. Ordering is preserved to match the serial output.
+    ///
+    /// Enabled via the `parallel` crate feature.
+    #[cfg(feature = "parallel")]
+    fn run_diagonal_parallel(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
+        use rayon::prelude::*;
+
+        // Flatten (param, perturbation) into a work list so the parallel
+        // iterator can dispatch uniformly and collect in original order.
+        let work: Vec<(&ParameterSpec, f64)> = config
+            .parameters
+            .iter()
+            .flat_map(|param| {
+                param
+                    .perturbations
+                    .iter()
+                    .map(move |perturbation| (param, *perturbation))
+            })
+            .collect();
+
+        let scenarios: Result<Vec<SensitivityScenario>> = work
+            .par_iter()
+            .map(|(param, perturbation)| {
+                // Each worker owns its own model and evaluator — no shared
+                // mutable state, no restore bookkeeping needed because the
+                // local model is dropped at the end of the closure.
+                let mut local_model = self.model.clone();
+                let mut local_evaluator = Evaluator::new();
+                let prepared = local_evaluator.prepare(&local_model)?;
+
+                self.apply_parameter_override(
+                    &mut local_model,
+                    &param.node_id,
+                    param.period_id,
+                    *perturbation,
+                )?;
+
+                let results = local_evaluator.evaluate_prepared(&local_model, &prepared)?;
+
+                let mut parameter_values = IndexMap::new();
+                parameter_values.insert(
+                    scenario_parameter_key(&param.node_id, param.period_id),
+                    *perturbation,
+                );
+
+                Ok(SensitivityScenario {
+                    parameter_values,
+                    results,
+                })
+            })
+            .collect();
+
+        Ok(SensitivityResult {
+            config: config.clone(),
+            scenarios: scenarios?,
         })
     }
 

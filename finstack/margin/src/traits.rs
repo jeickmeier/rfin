@@ -9,6 +9,7 @@ use crate::types::{NettingSetId, SimmSensitivities};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::Result;
 
 /// Trait for instruments that support margin calculations.
@@ -55,6 +56,11 @@ pub trait Marginable: Send + Sync {
     /// already be expressed in currency amounts per the SIMM risk measure being
     /// populated rather than raw quote moves.
     ///
+    /// This method **always** performs a full recompute from the supplied
+    /// market state. For scenario sweeps where only a subset of curves
+    /// have moved, prefer [`Self::simm_sensitivities_incremental`], which
+    /// lets implementations reuse a previously-computed baseline.
+    ///
     /// # Errors
     ///
     /// Returns an error when the instrument cannot produce a consistent SIMM
@@ -64,6 +70,49 @@ pub trait Marginable: Send + Sync {
     ///
     /// - ISDA SIMM: `docs/REFERENCES.md#isda-simm`
     fn simm_sensitivities(&self, market: &MarketContext, as_of: Date) -> Result<SimmSensitivities>;
+
+    /// Compute SIMM sensitivities with opportunistic reuse of a prior
+    /// snapshot when only a subset of market curves have changed.
+    ///
+    /// This is the hook aggregators use when running scenario sweeps: they
+    /// pass the sensitivities from the previous scenario in `prior` plus
+    /// the list of curve IDs that the current scenario has mutated in
+    /// `dirty_curve_ids`. Instruments that can cheaply detect "my
+    /// sensitivities don't depend on any of those curves" can return
+    /// `prior.clone()` without rerunning the full pricing path; others
+    /// can do a partial recompute.
+    ///
+    /// # Default behavior
+    ///
+    /// The default implementation ignores `prior` and `dirty_curve_ids`
+    /// and performs a full recompute by delegating to
+    /// [`Self::simm_sensitivities`]. This is correct for every instrument
+    /// but gives up the optimization. Override in implementations where
+    /// full-recompute cost dominates scenario-sweep runtime.
+    ///
+    /// # Arguments
+    ///
+    /// * `prior` - Previously-computed sensitivities from an adjacent
+    ///   scenario, or `None` for a cold start.
+    /// * `dirty_curve_ids` - Curve IDs that have changed since `prior`
+    ///   was computed. Empty means "nothing changed since prior" — a
+    ///   correct incremental impl may return `prior.cloned()` there.
+    /// * `market` - Current market state.
+    /// * `as_of` - Valuation date.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::simm_sensitivities`].
+    fn simm_sensitivities_incremental(
+        &self,
+        prior: Option<&SimmSensitivities>,
+        dirty_curve_ids: &[CurveId],
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<SimmSensitivities> {
+        let _ = (prior, dirty_curve_ids);
+        self.simm_sensitivities(market, as_of)
+    }
 
     /// Get the current mark-to-market value used for margin calculations.
     ///

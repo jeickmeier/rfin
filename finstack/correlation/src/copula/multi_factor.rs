@@ -259,20 +259,34 @@ impl Copula for MultiFactorCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        // Length mismatch is a programmer error. In debug, fail loudly; in
+        // release, return the unconditional PD Φ(c) (the no-information
+        // answer) rather than silently zeroing missing factors — a zeroed
+        // factor produces biased conditional PDs under positive correlation.
+        debug_assert_eq!(
+            factor_realization.len(),
+            self.num_factors_count,
+            "MultiFactorCopula expects exactly {} factors, got {}",
+            self.num_factors_count,
+            factor_realization.len()
+        );
         if factor_realization.len() != self.num_factors_count {
-            tracing::warn!(
+            tracing::error!(
                 expected = self.num_factors_count,
                 actual = factor_realization.len(),
-                "MultiFactorCopula: factor_realization length mismatch, defaulting missing to 0.0"
+                "MultiFactorCopula: factor length mismatch; returning unconditional PD"
             );
+            return norm_cdf(default_threshold);
         }
+
         let (global_loading, sector_loading) =
             self.decompose_correlation(correlation, self.sector_fraction);
 
-        // factor_realization[0] = Z_G (global factor)
-        // factor_realization[1..] = Z_S (sector factors, if present)
-        let z_global = factor_realization.first().copied().unwrap_or(0.0);
-        let z_sector = factor_realization.get(1).copied().unwrap_or(0.0);
+        let (z_global, z_sector) = match factor_realization {
+            [z_global] => (*z_global, 0.0),
+            [z_global, z_sector] => (*z_global, *z_sector),
+            _ => return norm_cdf(default_threshold),
+        };
 
         let gamma = self.idiosyncratic_loading(global_loading, sector_loading);
 
@@ -425,6 +439,36 @@ mod tests {
             integrated_prob,
             pd
         );
+    }
+
+    #[test]
+    fn test_factor_length_mismatch_contract() {
+        let copula = MultiFactorCopula::new(2);
+        let pd = 0.05;
+        let threshold = standard_normal_inv_cdf(pd);
+        let correlation = 0.30;
+
+        let assert_contract = |factors: &[f64]| {
+            if cfg!(debug_assertions) {
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    copula.conditional_default_prob(threshold, factors, correlation)
+                }));
+                assert!(
+                    outcome.is_err(),
+                    "debug builds should panic on factor length mismatch"
+                );
+            } else {
+                let result = copula.conditional_default_prob(threshold, factors, correlation);
+                assert!(
+                    (result - pd).abs() < 1e-9,
+                    "factor length mismatch should return unconditional PD ({pd}), got {result}"
+                );
+            }
+        };
+
+        assert_contract(&[-1.0]);
+        assert_contract(&[0.5, 1.0, -0.3]);
+        assert_contract(&[]);
     }
 
     #[test]

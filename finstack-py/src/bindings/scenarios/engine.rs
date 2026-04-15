@@ -1,13 +1,9 @@
 //! Python wrappers for scenario engine application.
 
 use crate::bindings::extract::{extract_market, extract_model};
-use pyo3::exceptions::PyValueError;
+use crate::errors::display_to_py;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-
-fn scn_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 /// Apply a scenario to a market context and financial model.
 ///
@@ -36,7 +32,7 @@ fn apply_scenario<'py>(
     as_of: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
     let spec: finstack_scenarios::ScenarioSpec =
-        serde_json::from_str(scenario_json).map_err(scn_to_py)?;
+        serde_json::from_str(scenario_json).map_err(display_to_py)?;
     let mut market = extract_market(market)?;
     let mut model = extract_model(model)?;
     let date = super::parse_date(as_of)?;
@@ -51,16 +47,16 @@ fn apply_scenario<'py>(
         as_of: date,
     };
 
-    let report = engine.apply(&spec, &mut ctx).map_err(scn_to_py)?;
+    let report = engine.apply(&spec, &mut ctx).map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item(
         "market_json",
-        serde_json::to_string(&market).map_err(scn_to_py)?,
+        serde_json::to_string(&market).map_err(display_to_py)?,
     )?;
     dict.set_item(
         "model_json",
-        serde_json::to_string(&model).map_err(scn_to_py)?,
+        serde_json::to_string(&model).map_err(display_to_py)?,
     )?;
     dict.set_item("operations_applied", report.operations_applied)?;
     dict.set_item("warnings", &report.warnings)?;
@@ -92,7 +88,7 @@ fn apply_scenario_to_market<'py>(
     as_of: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
     let spec: finstack_scenarios::ScenarioSpec =
-        serde_json::from_str(scenario_json).map_err(scn_to_py)?;
+        serde_json::from_str(scenario_json).map_err(display_to_py)?;
     let mut market = extract_market(market)?;
     let mut model = finstack_statements::FinancialModelSpec::new("__scenario_temp__", vec![]);
     let date = super::parse_date(as_of)?;
@@ -107,12 +103,12 @@ fn apply_scenario_to_market<'py>(
         as_of: date,
     };
 
-    let report = engine.apply(&spec, &mut ctx).map_err(scn_to_py)?;
+    let report = engine.apply(&spec, &mut ctx).map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item(
         "market_json",
-        serde_json::to_string(&market).map_err(scn_to_py)?,
+        serde_json::to_string(&market).map_err(display_to_py)?,
     )?;
     dict.set_item("operations_applied", report.operations_applied)?;
     dict.set_item("warnings", &report.warnings)?;

@@ -1,11 +1,7 @@
 //! Python wrappers for the statement DSL (parser + compiler).
 
-use pyo3::exceptions::PyValueError;
+use crate::errors::display_to_py;
 use pyo3::prelude::*;
-
-fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 /// Parse a DSL formula string and return its string representation.
 ///
@@ -22,7 +18,7 @@ fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
 ///     String representation of the parsed AST.
 #[pyfunction]
 fn parse_formula(formula: &str) -> PyResult<String> {
-    let ast = finstack_statements::dsl::parse_formula(formula).map_err(stmts_to_py)?;
+    let ast = finstack_statements::dsl::parse_formula(formula).map_err(display_to_py)?;
     Ok(format!("{ast:?}"))
 }
 
@@ -44,7 +40,7 @@ fn parse_formula(formula: &str) -> PyResult<String> {
 ///     If the formula fails to parse or compile.
 #[pyfunction]
 fn validate_formula(formula: &str) -> PyResult<bool> {
-    finstack_statements::dsl::parse_and_compile(formula).map_err(stmts_to_py)?;
+    finstack_statements::dsl::parse_and_compile(formula).map_err(display_to_py)?;
     Ok(true)
 }
 

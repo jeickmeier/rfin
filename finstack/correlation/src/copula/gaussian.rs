@@ -152,14 +152,30 @@ impl Copula for GaussianCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        // Length mismatch is a programmer error: caller passed the wrong
+        // number of factors for this copula. In debug, fail loudly so bugs
+        // are caught at test time. In release, fall back to the *unconditional*
+        // probability Φ(c) rather than a biased Z=0 assumption — this is the
+        // no-information answer, which keeps downstream aggregations unbiased
+        // even if individual draws lose per-name conditional structure.
+        debug_assert_eq!(
+            factor_realization.len(),
+            1,
+            "GaussianCopula expects exactly 1 factor, got {}",
+            factor_realization.len()
+        );
         if factor_realization.len() != 1 {
-            tracing::warn!(
+            tracing::error!(
                 expected = 1,
                 actual = factor_realization.len(),
-                "GaussianCopula: factor_realization length mismatch, defaulting missing to 0.0"
+                "GaussianCopula: factor length mismatch; returning unconditional PD"
             );
+            return norm_cdf(default_threshold);
         }
-        let z = factor_realization.first().copied().unwrap_or(0.0);
+        let [z] = factor_realization else {
+            return norm_cdf(default_threshold);
+        };
+        let z = *z;
 
         // Handle extreme correlation before clamping
         if correlation <= MIN_CORRELATION {
@@ -286,6 +302,35 @@ mod tests {
         let prob_high_pos_z = copula.conditional_default_prob(threshold, &[2.0], 0.99);
         assert!(prob_high_neg_z > 0.5); // Should be very high
         assert!(prob_high_pos_z < 0.01); // Should be very low
+    }
+
+    #[test]
+    fn test_factor_length_mismatch_contract() {
+        let copula = GaussianCopula::new();
+        let pd = 0.05;
+        let threshold = standard_normal_inv_cdf(pd);
+        let correlation = 0.30;
+
+        let assert_contract = |factors: &[f64]| {
+            if cfg!(debug_assertions) {
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    copula.conditional_default_prob(threshold, factors, correlation)
+                }));
+                assert!(
+                    outcome.is_err(),
+                    "debug builds should panic on factor length mismatch"
+                );
+            } else {
+                let result = copula.conditional_default_prob(threshold, factors, correlation);
+                assert!(
+                    (result - pd).abs() < 1e-9,
+                    "factor length mismatch should return unconditional PD ({pd}), got {result}"
+                );
+            }
+        };
+
+        assert_contract(&[]);
+        assert_contract(&[0.5, 1.0, -0.3]);
     }
 
     #[test]

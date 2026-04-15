@@ -10,13 +10,10 @@
 //! a parsed object.
 
 use crate::bindings::extract::{extract_market_opt, extract_model_ref, extract_results_ref};
+use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-
-fn sa_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 // ---------------------------------------------------------------------------
 // Sensitivity analysis
@@ -39,10 +36,10 @@ fn sa_to_py(e: impl std::fmt::Display) -> PyErr {
 fn run_sensitivity(model: &Bound<'_, PyAny>, config_json: &str) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let config: finstack_statements_analytics::analysis::SensitivityConfig =
-        serde_json::from_str(config_json).map_err(sa_to_py)?;
+        serde_json::from_str(config_json).map_err(display_to_py)?;
     let analyzer = finstack_statements_analytics::analysis::SensitivityAnalyzer::new(&model);
-    let result = analyzer.run(&config).map_err(sa_to_py)?;
-    serde_json::to_string(&result).map_err(sa_to_py)
+    let result = analyzer.run(&config).map_err(display_to_py)?;
+    serde_json::to_string(&result).map_err(display_to_py)
 }
 
 /// Generate tornado chart entries for a sensitivity result (JSON in/out).
@@ -68,15 +65,16 @@ fn generate_tornado_entries(
     period: Option<&str>,
 ) -> PyResult<String> {
     let result: finstack_statements_analytics::analysis::SensitivityResult =
-        serde_json::from_str(result_json).map_err(sa_to_py)?;
-    let period_id: Option<finstack_core::dates::PeriodId> =
-        period.map(|p| p.parse().map_err(sa_to_py)).transpose()?;
+        serde_json::from_str(result_json).map_err(display_to_py)?;
+    let period_id: Option<finstack_core::dates::PeriodId> = period
+        .map(|p| p.parse().map_err(display_to_py))
+        .transpose()?;
     let entries = finstack_statements_analytics::analysis::generate_tornado_entries(
         &result,
         metric_node,
         period_id,
     );
-    serde_json::to_string(&entries).map_err(sa_to_py)
+    serde_json::to_string(&entries).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -102,11 +100,11 @@ fn run_variance(
     let base = extract_results_ref(base)?;
     let comparison = extract_results_ref(comparison)?;
     let config: finstack_statements_analytics::analysis::VarianceConfig =
-        serde_json::from_str(config_json).map_err(sa_to_py)?;
+        serde_json::from_str(config_json).map_err(display_to_py)?;
     let analyzer =
         finstack_statements_analytics::analysis::VarianceAnalyzer::new(&base, &comparison);
-    let report = analyzer.compute(&config).map_err(sa_to_py)?;
-    serde_json::to_string(&report).map_err(sa_to_py)
+    let report = analyzer.compute(&config).map_err(display_to_py)?;
+    serde_json::to_string(&report).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -130,11 +128,11 @@ fn run_variance(
 fn evaluate_scenario_set(model: &Bound<'_, PyAny>, scenario_set_json: &str) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let scenario_set: finstack_statements_analytics::analysis::ScenarioSet =
-        serde_json::from_str(scenario_set_json).map_err(sa_to_py)?;
-    let results = scenario_set.evaluate_all(&model).map_err(sa_to_py)?;
+        serde_json::from_str(scenario_set_json).map_err(display_to_py)?;
+    let results = scenario_set.evaluate_all(&model).map_err(display_to_py)?;
     let map: indexmap::IndexMap<&String, &finstack_statements::evaluator::StatementResult> =
         results.scenarios.iter().collect();
-    serde_json::to_string(&map).map_err(sa_to_py)
+    serde_json::to_string(&map).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -159,12 +157,12 @@ fn evaluate_scenario_set(model: &Bound<'_, PyAny>, scenario_set_json: &str) -> P
 fn run_monte_carlo(model: &Bound<'_, PyAny>, config_json: &str) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let config: finstack_statements::evaluator::MonteCarloConfig =
-        serde_json::from_str(config_json).map_err(sa_to_py)?;
+        serde_json::from_str(config_json).map_err(display_to_py)?;
     let mut evaluator = finstack_statements::evaluator::Evaluator::new();
     let results = evaluator
         .evaluate_monte_carlo(&model, &config)
-        .map_err(sa_to_py)?;
-    serde_json::to_string(&results).map_err(sa_to_py)
+        .map_err(display_to_py)?;
+    serde_json::to_string(&results).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +177,7 @@ fn backtest_forecast<'py>(
     forecast: Vec<f64>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let metrics = finstack_statements_analytics::analysis::backtest_forecast(&actual, &forecast)
-        .map_err(sa_to_py)?;
+        .map_err(display_to_py)?;
     let dict = PyDict::new(py);
     dict.set_item("mae", metrics.mae)?;
     dict.set_item("mape", metrics.mape)?;
@@ -231,8 +229,8 @@ fn goal_seek(
     bounds: Option<(f64, f64)>,
 ) -> PyResult<(f64, String)> {
     let mut model = extract_model_ref(model)?.into_owned();
-    let tp: finstack_core::dates::PeriodId = target_period.parse().map_err(sa_to_py)?;
-    let dp: finstack_core::dates::PeriodId = driver_period.parse().map_err(sa_to_py)?;
+    let tp: finstack_core::dates::PeriodId = target_period.parse().map_err(display_to_py)?;
+    let dp: finstack_core::dates::PeriodId = driver_period.parse().map_err(display_to_py)?;
 
     let result = finstack_statements_analytics::analysis::goal_seek(
         &mut model,
@@ -244,10 +242,10 @@ fn goal_seek(
         update_model,
         bounds,
     )
-    .map_err(sa_to_py)?;
+    .map_err(display_to_py)?;
 
     let updated_json = if update_model {
-        serde_json::to_string(&model).map_err(sa_to_py)?
+        serde_json::to_string(&model).map_err(display_to_py)?
     } else {
         String::new()
     };
@@ -322,13 +320,13 @@ fn evaluate_dcf<'py>(
 
     let model = extract_model_ref(model)?;
     let terminal_value: TerminalValueSpec =
-        serde_json::from_str(terminal_value_json).map_err(sa_to_py)?;
+        serde_json::from_str(terminal_value_json).map_err(display_to_py)?;
 
     let equity_bridge = equity_bridge_json
-        .map(|j| serde_json::from_str(j).map_err(sa_to_py))
+        .map(|j| serde_json::from_str(j).map_err(display_to_py))
         .transpose()?;
     let valuation_discounts = valuation_discounts_json
-        .map(|j| serde_json::from_str(j).map_err(sa_to_py))
+        .map(|j| serde_json::from_str(j).map_err(display_to_py))
         .transpose()?;
 
     let options = finstack_statements_analytics::analysis::DcfOptions {
@@ -349,7 +347,7 @@ fn evaluate_dcf<'py>(
         &options,
         market.as_ref(),
     )
-    .map_err(sa_to_py)?;
+    .map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item("equity_value", result.equity_value.amount())?;
@@ -429,7 +427,7 @@ fn run_corporate_analysis<'py>(
         let tv_json = terminal_value_json.ok_or_else(|| {
             PyValueError::new_err("terminal_value_json required when wacc is set")
         })?;
-        let tv: TerminalValueSpec = serde_json::from_str(tv_json).map_err(sa_to_py)?;
+        let tv: TerminalValueSpec = serde_json::from_str(tv_json).map_err(display_to_py)?;
         builder = builder.dcf(w, tv);
         if let Some(nd) = net_debt_override {
             builder = builder.net_debt_override(nd);
@@ -442,15 +440,15 @@ fn run_corporate_analysis<'py>(
 
     if let Some(date_str) = as_of {
         let format = time::format_description::well_known::Iso8601::DEFAULT;
-        let date = time::Date::parse(date_str, &format).map_err(sa_to_py)?;
+        let date = time::Date::parse(date_str, &format).map_err(display_to_py)?;
         builder = builder.as_of(date);
     }
 
-    let analysis = builder.analyze().map_err(sa_to_py)?;
+    let analysis = builder.analyze().map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
 
-    let stmt_json = serde_json::to_string(&analysis.statement).map_err(sa_to_py)?;
+    let stmt_json = serde_json::to_string(&analysis.statement).map_err(display_to_py)?;
     dict.set_item("statement_json", stmt_json)?;
 
     if let Some(ref equity) = analysis.equity {
@@ -470,7 +468,7 @@ fn run_corporate_analysis<'py>(
 
     let credit_dict = PyDict::new(py);
     for (inst_id, credit) in &analysis.credit {
-        let cred_json = serde_json::to_string(&credit).map_err(sa_to_py)?;
+        let cred_json = serde_json::to_string(&credit).map_err(display_to_py)?;
         credit_dict.set_item(inst_id.as_str(), cred_json)?;
     }
     dict.set_item("credit", credit_dict)?;
@@ -508,7 +506,7 @@ fn pl_summary_report(
     let results = extract_results_ref(results)?;
     let period_ids: Vec<finstack_core::dates::PeriodId> = periods
         .iter()
-        .map(|p| p.parse().map_err(sa_to_py))
+        .map(|p| p.parse().map_err(display_to_py))
         .collect::<PyResult<Vec<_>>>()?;
     let report = finstack_statements_analytics::analysis::PLSummaryReport::new(
         &results, line_items, period_ids,
@@ -534,7 +532,7 @@ fn credit_assessment_report(results: &Bound<'_, PyAny>, as_of: &str) -> PyResult
     use finstack_statements_analytics::analysis::Report;
 
     let results = extract_results_ref(results)?;
-    let period: finstack_core::dates::PeriodId = as_of.parse().map_err(sa_to_py)?;
+    let period: finstack_core::dates::PeriodId = as_of.parse().map_err(display_to_py)?;
     let report =
         finstack_statements_analytics::analysis::CreditAssessmentReport::new(&results, period);
     Ok(report.to_string())
@@ -574,7 +572,7 @@ impl PyDependencyTracer {
     fn new(model: &Bound<'_, PyAny>) -> PyResult<Self> {
         let model = extract_model_ref(model)?.into_owned();
         let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
-            .map_err(sa_to_py)?;
+            .map_err(display_to_py)?;
         Ok(Self { model, graph })
     }
 
@@ -584,7 +582,7 @@ impl PyDependencyTracer {
             &self.model,
             &self.graph,
         );
-        let tree = tracer.dependency_tree(node_id).map_err(sa_to_py)?;
+        let tree = tracer.dependency_tree(node_id).map_err(display_to_py)?;
         Ok(finstack_statements_analytics::analysis::render_tree_ascii(
             &tree,
         ))
@@ -598,12 +596,12 @@ impl PyDependencyTracer {
         period: &str,
     ) -> PyResult<String> {
         let results = extract_results_ref(results)?;
-        let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
+        let pid: finstack_core::dates::PeriodId = period.parse().map_err(display_to_py)?;
         let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(
             &self.model,
             &self.graph,
         );
-        let tree = tracer.dependency_tree(node_id).map_err(sa_to_py)?;
+        let tree = tracer.dependency_tree(node_id).map_err(display_to_py)?;
         Ok(finstack_statements_analytics::analysis::render_tree_detailed(&tree, &results, &pid))
     }
 
@@ -613,7 +611,7 @@ impl PyDependencyTracer {
             &self.model,
             &self.graph,
         );
-        let deps = tracer.direct_dependencies(node_id).map_err(sa_to_py)?;
+        let deps = tracer.direct_dependencies(node_id).map_err(display_to_py)?;
         Ok(deps.into_iter().map(String::from).collect())
     }
 
@@ -623,7 +621,7 @@ impl PyDependencyTracer {
             &self.model,
             &self.graph,
         );
-        tracer.all_dependencies(node_id).map_err(sa_to_py)
+        tracer.all_dependencies(node_id).map_err(display_to_py)
     }
 
     /// Node IDs that depend on this node.
@@ -632,7 +630,7 @@ impl PyDependencyTracer {
             &self.model,
             &self.graph,
         );
-        let deps = tracer.dependents(node_id).map_err(sa_to_py)?;
+        let deps = tracer.dependents(node_id).map_err(display_to_py)?;
         Ok(deps.into_iter().map(String::from).collect())
     }
 
@@ -661,10 +659,10 @@ impl PyDependencyTracer {
 #[pyfunction]
 fn trace_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<String> {
     let model = extract_model_ref(model)?;
-    let graph =
-        finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
+    let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
+        .map_err(display_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
-    let tree = tracer.dependency_tree(node_id).map_err(sa_to_py)?;
+    let tree = tracer.dependency_tree(node_id).map_err(display_to_py)?;
     Ok(finstack_statements_analytics::analysis::render_tree_ascii(
         &tree,
     ))
@@ -696,11 +694,11 @@ fn trace_dependencies_detailed(
 ) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let results = extract_results_ref(results)?;
-    let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
-    let graph =
-        finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
+    let pid: finstack_core::dates::PeriodId = period.parse().map_err(display_to_py)?;
+    let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
+        .map_err(display_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
-    let tree = tracer.dependency_tree(node_id).map_err(sa_to_py)?;
+    let tree = tracer.dependency_tree(node_id).map_err(display_to_py)?;
     Ok(finstack_statements_analytics::analysis::render_tree_detailed(&tree, &results, &pid))
 }
 
@@ -720,10 +718,10 @@ fn trace_dependencies_detailed(
 #[pyfunction]
 fn direct_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<String>> {
     let model = extract_model_ref(model)?;
-    let graph =
-        finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
+    let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
+        .map_err(display_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
-    let deps = tracer.direct_dependencies(node_id).map_err(sa_to_py)?;
+    let deps = tracer.direct_dependencies(node_id).map_err(display_to_py)?;
     Ok(deps.into_iter().map(String::from).collect())
 }
 
@@ -743,10 +741,10 @@ fn direct_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<
 #[pyfunction]
 fn all_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<String>> {
     let model = extract_model_ref(model)?;
-    let graph =
-        finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
+    let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
+        .map_err(display_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
-    tracer.all_dependencies(node_id).map_err(sa_to_py)
+    tracer.all_dependencies(node_id).map_err(display_to_py)
 }
 
 /// Get nodes that depend on this node (reverse dependencies).
@@ -765,10 +763,10 @@ fn all_dependencies(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<Str
 #[pyfunction]
 fn dependents(model: &Bound<'_, PyAny>, node_id: &str) -> PyResult<Vec<String>> {
     let model = extract_model_ref(model)?;
-    let graph =
-        finstack_statements::evaluator::DependencyGraph::from_model(&model).map_err(sa_to_py)?;
+    let graph = finstack_statements::evaluator::DependencyGraph::from_model(&model)
+        .map_err(display_to_py)?;
     let tracer = finstack_statements_analytics::analysis::DependencyTracer::new(&model, &graph);
-    let deps = tracer.dependents(node_id).map_err(sa_to_py)?;
+    let deps = tracer.dependents(node_id).map_err(display_to_py)?;
     Ok(deps.into_iter().map(String::from).collect())
 }
 
@@ -804,11 +802,11 @@ fn explain_formula<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     let model = extract_model_ref(model)?;
     let results = extract_results_ref(results)?;
-    let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
+    let pid: finstack_core::dates::PeriodId = period.parse().map_err(display_to_py)?;
 
     let explainer =
         finstack_statements_analytics::analysis::FormulaExplainer::new(&model, &results);
-    let explanation = explainer.explain(node_id, &pid).map_err(sa_to_py)?;
+    let explanation = explainer.explain(node_id, &pid).map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item("node_id", &explanation.node_id)?;
@@ -859,11 +857,11 @@ fn explain_formula_text(
 ) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let results = extract_results_ref(results)?;
-    let pid: finstack_core::dates::PeriodId = period.parse().map_err(sa_to_py)?;
+    let pid: finstack_core::dates::PeriodId = period.parse().map_err(display_to_py)?;
 
     let explainer =
         finstack_statements_analytics::analysis::FormulaExplainer::new(&model, &results);
-    let explanation = explainer.explain(node_id, &pid).map_err(sa_to_py)?;
+    let explanation = explainer.explain(node_id, &pid).map_err(display_to_py)?;
     Ok(explanation.to_string_detailed())
 }
 
@@ -899,9 +897,9 @@ fn run_checks(
 ) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let spec: finstack_statements::checks::CheckSuiteSpec =
-        serde_json::from_str(suite_spec_json).map_err(sa_to_py)?;
+        serde_json::from_str(suite_spec_json).map_err(display_to_py)?;
 
-    let mut suite = spec.resolve().map_err(sa_to_py)?;
+    let mut suite = spec.resolve().map_err(display_to_py)?;
 
     if !spec.formula_checks.is_empty() {
         let mut fc_builder = finstack_statements::checks::CheckSuite::builder("_formula_checks");
@@ -929,13 +927,13 @@ fn run_checks(
         None => {
             let mut evaluator = finstack_statements::evaluator::Evaluator::new();
             eval_result = crate::bindings::extract::ResultAccess::Owned(Box::new(
-                evaluator.evaluate(&model).map_err(sa_to_py)?,
+                evaluator.evaluate(&model).map_err(display_to_py)?,
             ));
             &eval_result
         }
     };
-    let report = suite.run(&model, results_ref).map_err(sa_to_py)?;
-    serde_json::to_string(&report).map_err(sa_to_py)
+    let report = suite.run(&model, results_ref).map_err(display_to_py)?;
+    serde_json::to_string(&report).map_err(display_to_py)
 }
 
 /// Run three-statement checks using a node mapping (JSON in/out).
@@ -962,7 +960,7 @@ fn run_three_statement_checks(
 ) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let mapping: finstack_statements_analytics::analysis::ThreeStatementMapping =
-        serde_json::from_str(mapping_json).map_err(sa_to_py)?;
+        serde_json::from_str(mapping_json).map_err(display_to_py)?;
     let suite = finstack_statements_analytics::analysis::three_statement_checks(mapping);
 
     let eval_result;
@@ -974,13 +972,13 @@ fn run_three_statement_checks(
         None => {
             let mut evaluator = finstack_statements::evaluator::Evaluator::new();
             eval_result = crate::bindings::extract::ResultAccess::Owned(Box::new(
-                evaluator.evaluate(&model).map_err(sa_to_py)?,
+                evaluator.evaluate(&model).map_err(display_to_py)?,
             ));
             &eval_result
         }
     };
-    let report = suite.run(&model, results_ref).map_err(sa_to_py)?;
-    serde_json::to_string(&report).map_err(sa_to_py)
+    let report = suite.run(&model, results_ref).map_err(display_to_py)?;
+    serde_json::to_string(&report).map_err(display_to_py)
 }
 
 /// Run credit underwriting checks using a node mapping (JSON in/out).
@@ -1007,7 +1005,7 @@ fn run_credit_underwriting_checks(
 ) -> PyResult<String> {
     let model = extract_model_ref(model)?;
     let mapping: finstack_statements_analytics::analysis::CreditMapping =
-        serde_json::from_str(mapping_json).map_err(sa_to_py)?;
+        serde_json::from_str(mapping_json).map_err(display_to_py)?;
     let suite = finstack_statements_analytics::analysis::credit_underwriting_checks(mapping);
 
     let eval_result;
@@ -1019,13 +1017,13 @@ fn run_credit_underwriting_checks(
         None => {
             let mut evaluator = finstack_statements::evaluator::Evaluator::new();
             eval_result = crate::bindings::extract::ResultAccess::Owned(Box::new(
-                evaluator.evaluate(&model).map_err(sa_to_py)?,
+                evaluator.evaluate(&model).map_err(display_to_py)?,
             ));
             &eval_result
         }
     };
-    let report = suite.run(&model, results_ref).map_err(sa_to_py)?;
-    serde_json::to_string(&report).map_err(sa_to_py)
+    let report = suite.run(&model, results_ref).map_err(display_to_py)?;
+    serde_json::to_string(&report).map_err(display_to_py)
 }
 
 /// Render a check report as plain text.
@@ -1042,7 +1040,7 @@ fn run_credit_underwriting_checks(
 #[pyfunction]
 fn render_check_report_text(report_json: &str) -> PyResult<String> {
     let report: finstack_statements::checks::CheckReport =
-        serde_json::from_str(report_json).map_err(sa_to_py)?;
+        serde_json::from_str(report_json).map_err(display_to_py)?;
     Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_text(&report))
 }
 
@@ -1060,7 +1058,7 @@ fn render_check_report_text(report_json: &str) -> PyResult<String> {
 #[pyfunction]
 fn render_check_report_html(report_json: &str) -> PyResult<String> {
     let report: finstack_statements::checks::CheckReport =
-        serde_json::from_str(report_json).map_err(sa_to_py)?;
+        serde_json::from_str(report_json).map_err(display_to_py)?;
     Ok(finstack_statements_analytics::analysis::CheckReportRenderer::render_html(&report))
 }
 

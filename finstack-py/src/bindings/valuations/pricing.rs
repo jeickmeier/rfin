@@ -1,12 +1,9 @@
 //! Instrument pricing pipeline: JSON instrument + market → ValuationResult.
 
 use crate::bindings::extract::extract_market;
+use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
-fn val_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 /// Price an instrument from its tagged JSON and return a ``ValuationResult`` JSON.
 ///
@@ -35,8 +32,8 @@ fn price_instrument(
     model: &str,
 ) -> PyResult<String> {
     let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(val_to_py)?;
-    let boxed = inst.into_boxed().map_err(val_to_py)?;
+        serde_json::from_str(instrument_json).map_err(display_to_py)?;
+    let boxed = inst.into_boxed().map_err(display_to_py)?;
 
     let market = extract_market(market)?;
 
@@ -46,9 +43,9 @@ fn price_instrument(
     let registry = finstack_valuations::pricer::standard_registry();
     let result = registry
         .price(boxed.as_ref(), model_key, &market, date, None)
-        .map_err(val_to_py)?;
+        .map_err(display_to_py)?;
 
-    serde_json::to_string_pretty(&result).map_err(val_to_py)
+    serde_json::to_string_pretty(&result).map_err(display_to_py)
 }
 
 /// Price an instrument with explicit metric requests.
@@ -93,11 +90,11 @@ fn price_instrument_with_metrics(
         None => std::borrow::Cow::Borrowed(instrument_json),
         Some(opts_json) => {
             let opts: finstack_valuations::instruments::MetricPricingOverrides =
-                serde_json::from_str(opts_json).map_err(val_to_py)?;
+                serde_json::from_str(opts_json).map_err(display_to_py)?;
             let mut doc: serde_json::Value =
-                serde_json::from_str(instrument_json).map_err(val_to_py)?;
+                serde_json::from_str(instrument_json).map_err(display_to_py)?;
             // Merge opts into doc["spec"]["pricing_overrides"] (create if absent).
-            let overrides_patch = serde_json::to_value(&opts).map_err(val_to_py)?;
+            let overrides_patch = serde_json::to_value(&opts).map_err(display_to_py)?;
             if let serde_json::Value::Object(patch) = overrides_patch {
                 let po = doc
                     .get_mut("spec")
@@ -114,13 +111,13 @@ fn price_instrument_with_metrics(
                     );
                 }
             }
-            std::borrow::Cow::Owned(serde_json::to_string(&doc).map_err(val_to_py)?)
+            std::borrow::Cow::Owned(serde_json::to_string(&doc).map_err(display_to_py)?)
         }
     };
 
     let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(&effective_instrument_json).map_err(val_to_py)?;
-    let boxed = inst.into_boxed().map_err(val_to_py)?;
+        serde_json::from_str(&effective_instrument_json).map_err(display_to_py)?;
+    let boxed = inst.into_boxed().map_err(display_to_py)?;
 
     let market = extract_market(market)?;
 
@@ -141,9 +138,9 @@ fn price_instrument_with_metrics(
             &metric_ids,
             Default::default(),
         )
-        .map_err(val_to_py)?;
+        .map_err(display_to_py)?;
 
-    serde_json::to_string_pretty(&result).map_err(val_to_py)
+    serde_json::to_string_pretty(&result).map_err(display_to_py)
 }
 
 /// List all metric IDs in the standard metric registry.

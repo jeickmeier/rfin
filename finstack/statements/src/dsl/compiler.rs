@@ -118,7 +118,8 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     // Map DSL function names to core Function enum
     let func = match func_name {
         "lag" => Some(Function::Lag),
-        // "lead" is intentionally not supported (no forward-looking in financial models)
+        // `lead` is intentionally unsupported: forward-looking references
+        // silently corrupt historical model cells and backtests.
         "diff" => Some(Function::Diff),
         "pct_change" => Some(Function::PctChange),
         "cumsum" => Some(Function::CumSum),

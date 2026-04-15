@@ -8,6 +8,13 @@ use finstack_core::math::neumaier_sum;
 
 use super::return_based::sharpe;
 
+/// Number of slide steps before the incremental rolling kernel fully
+/// recomputes its running sums from the current window.
+///
+/// The rolling kernels update `sum` and `sum_sq` incrementally on each
+/// slide, which accumulates floating-point drift over time. Every
+/// `ROLLING_KERNEL_RECOMPUTE_INTERVAL` steps we recompute those values
+/// over the full window with [`neumaier_sum`] to restore precision.
 const ROLLING_KERNEL_RECOMPUTE_INTERVAL: usize = 1024;
 
 #[inline]

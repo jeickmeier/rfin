@@ -242,9 +242,9 @@ jobs:
   # Semver checks for API stability
   # ============================================
   semver-checks:
-    name: Semver Checks (finstack-core)
+    name: Semver Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     if: github.event_name == 'pull_request'
     needs: [lint, test-rust, test-python, test-wasm]
 
@@ -271,7 +271,12 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --locked
 
+      # Semver-check the stable public-API crates.
       - name: Run semver checks against master
         run: |
           git fetch origin master --tags
-          cargo semver-checks check-release -p finstack-core --baseline-rev origin/master
+          cargo semver-checks check-release \
+            -p finstack-core \
+            -p finstack-valuations \
+            -p finstack-portfolio \
+            --baseline-rev origin/master

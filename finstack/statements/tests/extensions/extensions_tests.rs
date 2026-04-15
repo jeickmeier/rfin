@@ -1,4 +1,11 @@
 //! Integration tests for the extension system.
+//!
+//! The `Extension` trait and `ExtensionRegistry` are deprecated (see
+//! `finstack_statements::extensions` module docs). These tests exercise
+//! the deprecated surface to keep it functional until v0.5 removal;
+//! the file-level `allow(deprecated)` suppresses the warning noise.
+
+#![allow(deprecated)]
 
 use finstack_statements::extensions::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,

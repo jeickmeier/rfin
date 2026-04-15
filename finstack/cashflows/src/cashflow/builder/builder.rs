@@ -1353,7 +1353,7 @@ impl CashFlowBuilder {
     /// Equivalent to `build_with_curves(None)`. For floating-rate instruments
     /// that require projection curves, use [`build_with_curves`](Self::build_with_curves).
     pub fn build(&self) -> finstack_core::Result<CashFlowSchedule> {
-        self.build_with_curves(None)
+        self.prepared()?.project(None)
     }
 
     /// Build the cashflow schedule with optional market curves for floating rate projection.
@@ -1363,10 +1363,48 @@ impl CashFlowBuilder {
     ///
     /// Without curves, the fallback policy on each floating spec controls behavior
     /// (default: error; `SpreadOnly` uses just margin; `FixedRate(r)` uses a fixed index).
+    ///
+    /// # Caching pattern
+    ///
+    /// If you need to reprice the same instrument under many curve bumps
+    /// (e.g., delta/vega grids or scenario sweeps), prefer calling
+    /// [`prepared`](Self::prepared) once and then [`PreparedCashFlow::project`]
+    /// repeatedly — the schedule compilation, date collection, and
+    /// amortization setup are done once and reused.
+    ///
+    /// ```ignore
+    /// let prepared = builder.prepared()?;
+    /// let base    = prepared.project(Some(&market))?;
+    /// let bumped  = prepared.project(Some(&bumped_market))?;
+    /// ```
     pub fn build_with_curves(
         &self,
         curves: Option<&finstack_core::market_data::context::MarketContext>,
     ) -> finstack_core::Result<CashFlowSchedule> {
+        self.prepared()?.project(curves)
+    }
+
+    /// Perform the curve-independent preflight work and return a reusable
+    /// [`PreparedCashFlow`] that can be projected onto arbitrary market data.
+    ///
+    /// All the expensive setup (schedule compilation, date collection,
+    /// amortization derivation, principal-event normalization) happens here.
+    /// The returned value is immutable, cheap to hold, and safe to share
+    /// across repeated [`PreparedCashFlow::project`] calls — making it the
+    /// right entry point when repricing under many curve bumps.
+    ///
+    /// Calling this does NOT touch any [`MarketContext`] — floating-rate
+    /// projection is deferred until
+    /// [`project`](PreparedCashFlow::project).
+    ///
+    /// # Errors
+    ///
+    /// Returns the same validation errors that [`build`](Self::build) would
+    /// surface (missing principal, bad schedules, out-of-range principal
+    /// events, currency mismatches, amortization validation failures, etc.).
+    /// Curve-lookup failures are deferred to the project step and not
+    /// raised here.
+    pub fn prepared(&self) -> finstack_core::Result<PreparedCashFlow> {
         if let Some(err) = &self.pending_error {
             return Err(err.clone());
         }
@@ -1432,11 +1470,82 @@ impl CashFlowBuilder {
         // 4) Derive amortization setup
         let amort_setup = derive_amortization_setup(&notional, &fixed_schedules, &float_schedules)?;
 
+        Ok(PreparedCashFlow {
+            notional,
+            issue,
+            maturity,
+            fixed_schedules,
+            float_schedules,
+            used_fixed_specs,
+            used_float_specs,
+            periodic_fees,
+            fixed_fees,
+            principal_events,
+            dates,
+            amort_setup,
+        })
+    }
+}
+
+/// Immutable, curve-independent pre-computation for a cashflow schedule.
+///
+/// Produced by [`CashFlowBuilder::prepared`]. Holds the compiled schedules,
+/// collected payment dates, amortization setup, and validated principal
+/// events — everything needed to materialize a [`CashFlowSchedule`] except
+/// for the floating-rate projection, which depends on market curves.
+///
+/// This is the canonical artifact for **repeated repricing of the same
+/// instrument** under different market states: construct once, call
+/// [`project`](Self::project) as many times as needed.
+///
+/// # Thread safety
+///
+/// `PreparedCashFlow` is `Send + Sync`-ready and designed to be shared
+/// behind an `Arc` if concurrent projection across threads is needed.
+#[derive(Debug, Clone)]
+pub struct PreparedCashFlow {
+    notional: Notional,
+    issue: Date,
+    maturity: Date,
+    fixed_schedules: Vec<FixedSchedule>,
+    float_schedules: Vec<FloatSchedule>,
+    used_fixed_specs: Vec<crate::cashflow::builder::specs::FixedCouponSpec>,
+    used_float_specs: Vec<crate::cashflow::builder::specs::FloatingCouponSpec>,
+    periodic_fees: Vec<PeriodicFee>,
+    fixed_fees: Vec<(Date, Money)>,
+    principal_events: Vec<PrincipalEvent>,
+    dates: Vec<Date>,
+    amort_setup: AmortizationSetup,
+}
+
+impl PreparedCashFlow {
+    /// Project the prepared schedule onto the supplied market curves to
+    /// produce the fully-materialized [`CashFlowSchedule`].
+    ///
+    /// When `curves` is `Some(market)`, floating-rate coupons are computed
+    /// from the forward curves registered under each float spec's
+    /// `index_id`. When `None`, each float spec's fallback policy controls
+    /// behavior (default: error; `SpreadOnly` uses only the margin;
+    /// `FixedRate(r)` uses a fixed index).
+    ///
+    /// This method is safe to call repeatedly on the same
+    /// `PreparedCashFlow` — no shared mutable state is retained between
+    /// calls, so concurrent projection is supported as long as the
+    /// caller synchronizes access to the underlying `MarketContext`.
+    pub fn project(
+        &self,
+        curves: Option<&finstack_core::market_data::context::MarketContext>,
+    ) -> finstack_core::Result<CashFlowSchedule> {
         // 5) Initialize fold state and build context (processing issue-date principal events)
-        let mut state = initialize_build_state(issue, &notional, dates.len(), &principal_events);
-        let ccy = notional.initial.currency();
-        for (fee_date, amount) in &fixed_fees {
-            if *fee_date == issue && amount.amount() != 0.0 {
+        let mut state = initialize_build_state(
+            self.issue,
+            &self.notional,
+            self.dates.len(),
+            &self.principal_events,
+        );
+        let ccy = self.notional.initial.currency();
+        for (fee_date, amount) in &self.fixed_fees {
+            if *fee_date == self.issue && amount.amount() != 0.0 {
                 state.flows.push(CashFlow {
                     date: *fee_date,
                     reset_date: None,
@@ -1449,42 +1558,72 @@ impl CashFlowBuilder {
         }
         let ctx = BuildContext {
             ccy,
-            maturity,
-            notional: &notional,
-            fixed_schedules: &fixed_schedules,
-            float_schedules: &float_schedules,
-            periodic_fees: &periodic_fees,
-            fixed_fees: &fixed_fees,
-            principal_events: &principal_events,
+            maturity: self.maturity,
+            notional: &self.notional,
+            fixed_schedules: &self.fixed_schedules,
+            float_schedules: &self.float_schedules,
+            periodic_fees: &self.periodic_fees,
+            fixed_fees: &self.fixed_fees,
+            principal_events: &self.principal_events,
         };
 
         // Resolve curves upfront and reuse across all payment dates.
         let resolved_curves: Vec<Option<Arc<ForwardCurve>>> = if let Some(mkt) = curves {
-            float_schedules
+            self.float_schedules
                 .iter()
                 .map(|(spec, _, _)| mkt.get_forward(spec.rate_spec.index_id.as_str()).ok())
                 .collect()
         } else {
-            vec![None; float_schedules.len()]
+            vec![None; self.float_schedules.len()]
         };
 
         // 6) Fold over dates producing flows deterministically
-        let processor = DateProcessor::new(&ctx, &amort_setup, &resolved_curves);
-        for &d in dates.iter().skip(1) {
+        let processor = DateProcessor::new(&ctx, &self.amort_setup, &resolved_curves);
+        for &d in self.dates.iter().skip(1) {
             state = processor.process(d, state)?;
+        }
+
+        // 6.5) Sanity-check final outstanding against initial notional.
+        //
+        // After processing every scheduled date (including maturity's principal
+        // repayment), a well-formed schedule for a standard bullet/amortizing
+        // instrument should leave `state.outstanding ≈ 0`. A non-trivial
+        // residual indicates either amortization schedule misconfiguration
+        // (percentages that don't sum to 100%) or accumulated f64 drift from
+        // very long-dated flows. Warn above 1bp relative so production
+        // misconfigurations surface in logs instead of silently biasing
+        // downstream PV and duration calculations.
+        //
+        // This is a warning, not an error: revolving facilities with draws
+        // past maturity or user-defined terminal events may legitimately
+        // end with a non-zero balance, and we don't want to reject those.
+        const OUTSTANDING_BALANCE_WARN_THRESHOLD: f64 = 1e-4; // 1 bp relative
+        let initial_amount = self.notional.initial.amount();
+        if initial_amount.abs() > 0.0 {
+            let relative_residual = state.outstanding.abs() / initial_amount.abs();
+            if relative_residual > OUTSTANDING_BALANCE_WARN_THRESHOLD {
+                tracing::warn!(
+                    initial = initial_amount,
+                    final_outstanding = state.outstanding,
+                    relative_residual,
+                    threshold_bps = 1.0,
+                    "PreparedCashFlow: final outstanding balance deviates from zero; \
+                     check amortization schedule or instrument terminal flow"
+                );
+            }
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)
         let (flows, meta, out_dc) = finalize_flows(
             state.flows,
-            &used_fixed_specs,
-            &used_float_specs,
-            Some(issue),
+            &self.used_fixed_specs,
+            &self.used_float_specs,
+            Some(self.issue),
         );
-        debug!(flows = flows.len(), "cashflow schedule: build complete");
+        debug!(flows = flows.len(), "cashflow schedule: project complete");
         Ok(CashFlowSchedule {
             flows,
-            notional,
+            notional: self.notional.clone(),
             day_count: out_dc,
             meta,
         })

@@ -2,6 +2,11 @@
 //!
 //! These tests provide full coverage of the extension system by executing
 //! extensions with properly configured parameters.
+//!
+//! Exercises the deprecated `Extension` trait surface; `allow(deprecated)`
+//! keeps the file clean until v0.5 removes the trait.
+
+#![allow(deprecated)]
 
 use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionStatus};
 use finstack_statements::prelude::*;

@@ -1,4 +1,9 @@
 //! Core extension trait and types.
+//!
+//! Deprecated compatibility layer; see [`crate::extensions`] for the
+//! migration path and removal schedule.
+//!
+//! [`ExtensionRegistry`]: crate::extensions::ExtensionRegistry
 
 use crate::error::Result;
 use crate::evaluator::StatementResult;
@@ -7,6 +12,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// Extension trait for custom analysis and validation.
+///
+/// **Deprecated:** see [`crate::extensions`] for the migration path.
 ///
 /// Extensions can process financial models and evaluation results to provide
 /// additional insights, perform validations, or transform data.
@@ -36,6 +43,12 @@ use serde::{Deserialize, Serialize};
 ///     }
 /// }
 /// ```
+#[deprecated(
+    since = "0.4.1",
+    note = "Extension trait is a Factory-of-One with only 2 workspace impls; \
+            call the inherent methods on the extension struct directly. \
+            Scheduled for removal in v0.5."
+)]
 pub trait Extension: Send + Sync {
     /// Get extension metadata.
     fn metadata(&self) -> ExtensionMetadata;
@@ -80,6 +93,12 @@ pub trait Extension: Send + Sync {
 }
 
 /// Metadata about an extension.
+///
+/// **Deprecated:** removed with [`Extension`] in v0.5.
+#[deprecated(
+    since = "0.4.1",
+    note = "part of the deprecated Extension trait; scheduled for removal in v0.5"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtensionMetadata {
     /// Unique extension name
@@ -98,6 +117,12 @@ pub struct ExtensionMetadata {
 }
 
 /// Context passed to extensions during execution.
+///
+/// **Deprecated:** removed with [`Extension`] in v0.5.
+#[deprecated(
+    since = "0.4.1",
+    note = "part of the deprecated Extension trait; scheduled for removal in v0.5"
+)]
 #[derive(Debug)]
 pub struct ExtensionContext<'a> {
     /// The financial model being analyzed
@@ -163,6 +188,12 @@ impl<'a> ExtensionContext<'a> {
 }
 
 /// Result of extension execution.
+///
+/// **Deprecated:** removed with [`Extension`] in v0.5.
+#[deprecated(
+    since = "0.4.1",
+    note = "part of the deprecated Extension trait; scheduled for removal in v0.5"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtensionResult {
     /// Execution status

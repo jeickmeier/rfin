@@ -1,11 +1,7 @@
 //! Python wrappers for the financial statement checks framework.
 
-use pyo3::exceptions::PyValueError;
+use crate::errors::display_to_py;
 use pyo3::prelude::*;
-
-fn stmts_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 // ---------------------------------------------------------------------------
 // CheckSuiteSpec
@@ -28,13 +24,13 @@ impl PyCheckSuiteSpec {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::checks::CheckSuiteSpec =
-            serde_json::from_str(json).map_err(stmts_to_py)?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(stmts_to_py)
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Suite name.
@@ -86,13 +82,13 @@ impl PyCheckReport {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::checks::CheckReport =
-            serde_json::from_str(json).map_err(stmts_to_py)?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(stmts_to_py)
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Whether all checks passed (no error-severity findings).

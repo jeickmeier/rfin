@@ -236,14 +236,27 @@ impl Copula for StudentTCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        // Length mismatch is a programmer error. In debug, fail loudly; in
+        // release, return the unconditional PD t_ν(c) rather than a biased
+        // M=0 assumption. See gaussian.rs for the rationale.
+        debug_assert_eq!(
+            factor_realization.len(),
+            1,
+            "StudentTCopula expects exactly 1 factor, got {}",
+            factor_realization.len()
+        );
         if factor_realization.len() != 1 {
-            tracing::warn!(
+            tracing::error!(
                 expected = 1,
                 actual = factor_realization.len(),
-                "StudentTCopula: factor_realization length mismatch, defaulting missing to 0.0"
+                "StudentTCopula: factor length mismatch; returning unconditional PD"
             );
+            return student_t_cdf(default_threshold, self.degrees_of_freedom);
         }
-        let m = factor_realization.first().copied().unwrap_or(0.0);
+        let [m] = factor_realization else {
+            return student_t_cdf(default_threshold, self.degrees_of_freedom);
+        };
+        let m = *m;
         let nu = self.degrees_of_freedom;
 
         if correlation <= 1e-10 {
@@ -564,6 +577,36 @@ mod tests {
                 points.len()
             );
         }
+    }
+
+    #[test]
+    fn test_factor_length_mismatch_contract() {
+        let df = 5.0;
+        let copula = StudentTCopula::new(df);
+        let pd = 0.05;
+        let threshold = student_t_inv_cdf(pd, df);
+        let correlation = 0.30;
+
+        let assert_contract = |factors: &[f64]| {
+            if cfg!(debug_assertions) {
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    copula.conditional_default_prob(threshold, factors, correlation)
+                }));
+                assert!(
+                    outcome.is_err(),
+                    "debug builds should panic on factor length mismatch"
+                );
+            } else {
+                let result = copula.conditional_default_prob(threshold, factors, correlation);
+                assert!(
+                    (result - pd).abs() < 1e-6,
+                    "factor length mismatch should return unconditional PD ({pd}), got {result}"
+                );
+            }
+        };
+
+        assert_contract(&[]);
+        assert_contract(&[0.5, 1.0]);
     }
 
     #[test]

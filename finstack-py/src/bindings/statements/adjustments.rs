@@ -1,13 +1,9 @@
 //! Python wrappers for EBITDA normalization and adjustments.
 
 use super::evaluator::PyStatementResult;
-use pyo3::exceptions::PyValueError;
+use crate::errors::display_to_py;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-
-fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 // ---------------------------------------------------------------------------
 // NormalizationConfig — JSON wrapper
@@ -38,13 +34,13 @@ impl PyNormalizationConfig {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::adjustments::types::NormalizationConfig =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Target node being normalized.
@@ -91,9 +87,9 @@ fn normalize(results: &PyStatementResult, config: &PyNormalizationConfig) -> PyR
         &results.inner,
         &config.inner,
     )
-    .map_err(stmts_to_py)?;
+    .map_err(display_to_py)?;
 
-    serde_json::to_string(&norm_results).map_err(|e| PyValueError::new_err(e.to_string()))
+    serde_json::to_string(&norm_results).map_err(display_to_py)
 }
 
 /// Run normalization and return results as a list of dicts.
@@ -120,7 +116,7 @@ fn normalize_to_dicts<'py>(
         &results.inner,
         &config.inner,
     )
-    .map_err(stmts_to_py)?;
+    .map_err(display_to_py)?;
 
     let mut out = Vec::with_capacity(norm_results.len());
     for nr in &norm_results {

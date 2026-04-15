@@ -6,6 +6,7 @@
 
 use crate::bindings::core::market_data::context::PyMarketContext;
 use crate::bindings::pandas_utils::dict_to_dataframe;
+use crate::errors::display_to_py;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
@@ -14,10 +15,6 @@ use finstack_valuations::calibration::api::schema::{
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-
-fn cal_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 // ---------------------------------------------------------------------------
 // CalibrationResult
@@ -42,13 +39,13 @@ impl PyCalibrationResult {
     /// Deserialize from a JSON string.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: CalibrationResultEnvelope = serde_json::from_str(json).map_err(cal_to_py)?;
+        let inner: CalibrationResultEnvelope = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a pretty-printed JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(cal_to_py)
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Whether the overall calibration succeeded (all steps passed fitting and validation).
@@ -60,21 +57,21 @@ impl PyCalibrationResult {
     /// The calibrated ``MarketContext`` containing all produced curves and surfaces.
     #[getter]
     fn market(&self) -> PyResult<PyMarketContext> {
-        let ctx =
-            MarketContext::try_from(self.inner.result.final_market.clone()).map_err(cal_to_py)?;
+        let ctx = MarketContext::try_from(self.inner.result.final_market.clone())
+            .map_err(display_to_py)?;
         Ok(PyMarketContext::from_inner(ctx))
     }
 
     /// The calibrated market serialized as a JSON string.
     #[getter]
     fn market_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner.result.final_market).map_err(cal_to_py)
+        serde_json::to_string_pretty(&self.inner.result.final_market).map_err(display_to_py)
     }
 
     /// The aggregated calibration report as a JSON string.
     #[getter]
     fn report_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner.result.report).map_err(cal_to_py)
+        serde_json::to_string_pretty(&self.inner.result.report).map_err(display_to_py)
     }
 
     /// List of step identifiers that were executed.
@@ -124,7 +121,7 @@ impl PyCalibrationResult {
             .step_reports
             .get(step_id)
             .ok_or_else(|| PyValueError::new_err(format!("No step report for '{step_id}'")))?;
-        serde_json::to_string_pretty(report).map_err(cal_to_py)
+        serde_json::to_string_pretty(report).map_err(display_to_py)
     }
 
     /// Per-step summary as a pandas ``DataFrame``.
@@ -194,7 +191,7 @@ impl PyCalibrationResult {
 fn validate_calibration_json(json: &str) -> PyResult<String> {
     let parsed: CalibrationEnvelope = serde_json::from_str(json)
         .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
-    serde_json::to_string_pretty(&parsed).map_err(cal_to_py)
+    serde_json::to_string_pretty(&parsed).map_err(display_to_py)
 }
 
 /// Execute a calibration plan and return the full result.
@@ -218,7 +215,7 @@ fn validate_calibration_json(json: &str) -> PyResult<String> {
 fn calibrate(json: &str) -> PyResult<PyCalibrationResult> {
     let envelope: CalibrationEnvelope = serde_json::from_str(json)
         .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
-    let result = engine::execute(&envelope).map_err(cal_to_py)?;
+    let result = engine::execute(&envelope).map_err(display_to_py)?;
     Ok(PyCalibrationResult { inner: result })
 }
 
@@ -245,8 +242,8 @@ fn calibrate(json: &str) -> PyResult<PyCalibrationResult> {
 fn calibrate_to_market(json: &str) -> PyResult<PyMarketContext> {
     let envelope: CalibrationEnvelope = serde_json::from_str(json)
         .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
-    let result = engine::execute(&envelope).map_err(cal_to_py)?;
-    let ctx = MarketContext::try_from(result.result.final_market).map_err(cal_to_py)?;
+    let result = engine::execute(&envelope).map_err(display_to_py)?;
+    let ctx = MarketContext::try_from(result.result.final_market).map_err(display_to_py)?;
     Ok(PyMarketContext::from_inner(ctx))
 }
 

@@ -2,13 +2,10 @@
 
 use super::types::PyFinancialModelSpec;
 use crate::bindings::pandas_utils::dict_to_dataframe;
+use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-
-fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 // ---------------------------------------------------------------------------
 // StatementResult
@@ -102,14 +99,14 @@ impl PyStatementResult {
 
     /// Export to Polars long-format DataFrame.
     fn to_polars_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let df = self.inner.to_polars_long().map_err(stmts_to_py)?;
+        let df = self.inner.to_polars_long().map_err(display_to_py)?;
         let polars_df = pyo3_polars::PyDataFrame(df);
         polars_df.into_pyobject(py).map(Bound::into_any)
     }
 
     /// Export to Polars wide-format DataFrame.
     fn to_polars_wide<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let df = self.inner.to_polars_wide().map_err(stmts_to_py)?;
+        let df = self.inner.to_polars_wide().map_err(display_to_py)?;
         let polars_df = pyo3_polars::PyDataFrame(df);
         polars_df.into_pyobject(py).map(Bound::into_any)
     }
@@ -210,7 +207,7 @@ impl PyEvaluator {
     /// StatementResult
     ///     Evaluation results with per-node, per-period values.
     fn evaluate(&mut self, model: &PyFinancialModelSpec) -> PyResult<PyStatementResult> {
-        let result = self.inner.evaluate(&model.inner).map_err(stmts_to_py)?;
+        let result = self.inner.evaluate(&model.inner).map_err(display_to_py)?;
         Ok(PyStatementResult { inner: result })
     }
 }

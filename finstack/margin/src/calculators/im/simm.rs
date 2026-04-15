@@ -210,6 +210,56 @@ fn resolve_simm_params(
         .ok_or_else(|| finstack_core::Error::Validation("SIMM registry is empty".to_string()))
 }
 
+/// Validate SIMM parameter completeness before constructing a calculator.
+///
+/// ISDA SIMM specifies risk weights, correlations, and concentration thresholds
+/// exhaustively for each version. A missing key indicates incomplete registry
+/// data (bad config overlay, truncated JSON, corrupted embed). Catching it at
+/// construction time prevents silent regulatory miscalculation in hot paths.
+///
+/// Checked invariants:
+///
+/// * Every `(tenor_i, tenor_j)` pair from `ir_delta_weights` must have a
+///   corresponding entry in `ir_tenor_correlations` (ordered pair form).
+/// * `cq_delta_weights` must contain the `"corporates"` key used by
+///   [`SimmCalculator::calculate_credit_delta`] for qualifying credit.
+fn validate_simm_params(params: &SimmParams) -> finstack_core::Result<()> {
+    if !params.cq_delta_weights.contains_key("corporates") {
+        return Err(finstack_core::Error::Validation(format!(
+            "SIMM registry {:?}: cq_delta_weights missing required 'corporates' key",
+            params.version
+        )));
+    }
+
+    let tenors: Vec<&String> = params.ir_delta_weights.keys().collect();
+    let mut missing_pairs: Vec<(String, String)> = Vec::new();
+    for (i, tenor_i) in tenors.iter().enumerate() {
+        for tenor_j in tenors.iter().skip(i + 1) {
+            let key = ordered_tenor_pair(tenor_i, tenor_j);
+            if !params.ir_tenor_correlations.contains_key(&key) {
+                missing_pairs.push(key);
+            }
+        }
+    }
+    if !missing_pairs.is_empty() {
+        // Keep the error bounded — show up to 5 missing pairs.
+        let sample = missing_pairs
+            .iter()
+            .take(5)
+            .map(|(a, b)| format!("({a},{b})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(finstack_core::Error::Validation(format!(
+            "SIMM registry {:?}: ir_tenor_correlations missing {} tenor pair(s) (showing up to 5: {})",
+            params.version,
+            missing_pairs.len(),
+            sample
+        )));
+    }
+
+    Ok(())
+}
+
 fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskClass) {
     if (a as u8) <= (b as u8) {
         (a, b)
@@ -245,16 +295,31 @@ impl IrTenorCorrelationMatrix {
         }
 
         let mut matrix = vec![1.0; n * n];
-        for i in 0..n {
-            for j in 0..n {
-                if i != j {
-                    let key = ordered_tenor_pair(&tenors[i], &tenors[j]);
-                    let rho = params
-                        .ir_tenor_correlations
-                        .get(&key)
-                        .copied()
-                        .unwrap_or(0.5);
-                    matrix[i * n + j] = rho;
+        for (i, tenor_i) in tenors.iter().enumerate() {
+            for (j, tenor_j) in tenors.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                let key = ordered_tenor_pair(tenor_i, tenor_j);
+                // Post-[`validate_simm_params`]: every tenor pair is
+                // guaranteed present in `ir_tenor_correlations`. The 0.5
+                // fallback is a defensive safety net that should be dead
+                // code after successful validation; hitting it indicates
+                // a registry bug bypassing the constructor's validation.
+                let rho = match params.ir_tenor_correlations.get(&key).copied() {
+                    Some(r) => r,
+                    None => {
+                        tracing::error!(
+                            tenor_i = %key.0,
+                            tenor_j = %key.1,
+                            "SIMM: missing ir_tenor_correlation post-validation; \
+                             using 0.5 fallback (this indicates a registry invariant break)"
+                        );
+                        0.5
+                    }
+                };
+                if let Some(cell) = matrix.get_mut(i * n + j) {
+                    *cell = rho;
                 }
             }
         }
@@ -311,10 +376,13 @@ impl SimmCalculator {
     ///
     /// # Errors
     ///
-    /// Returns an error if the embedded margin registry cannot be loaded.
+    /// Returns an error if the embedded margin registry cannot be loaded or if
+    /// the resolved [`SimmParams`] fails the completeness invariants checked by
+    /// [`validate_simm_params`].
     pub fn new(version: SimmVersion) -> Result<Self> {
         let registry = embedded_registry()?;
         let params = resolve_simm_params(version, registry)?.clone();
+        validate_simm_params(&params)?;
         let ir_corr_matrix = IrTenorCorrelationMatrix::build(&params);
         Ok(Self {
             params,
@@ -335,13 +403,17 @@ impl SimmCalculator {
     ///
     /// # Errors
     ///
-    /// Returns an error if the margin registry cannot be loaded from `cfg`.
+    /// Returns an error if the margin registry cannot be loaded from `cfg` or if
+    /// the merged [`SimmParams`] fails the completeness invariants checked by
+    /// [`validate_simm_params`] — catches broken config overlays at load time
+    /// rather than as silent miscalculations during margin runs.
     pub fn from_finstack_config(
         version: SimmVersion,
         cfg: &finstack_core::config::FinstackConfig,
     ) -> finstack_core::Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
         let params = resolve_simm_params(version, &registry)?.clone();
+        validate_simm_params(&params)?;
         let ir_corr_matrix = IrTenorCorrelationMatrix::build(&params);
         Ok(Self {
             params,
@@ -465,13 +537,30 @@ impl SimmCalculator {
     /// # Returns
     ///
     /// The credit delta margin contribution after the applicable SIMM risk weight.
+    ///
+    /// # Invariant
+    ///
+    /// For `qualifying = true`, the `"corporates"` key must be present in
+    /// `params.cq_delta_weights`. [`validate_simm_params`] enforces this at
+    /// construction time, so the fallback below should be dead code; it is
+    /// retained as a defensive safety net that logs loudly if ever hit.
     pub fn calculate_credit_delta(&self, cs01: f64, qualifying: bool) -> f64 {
         let weight = if qualifying {
-            *self
-                .params
-                .cq_delta_weights
-                .get("corporates")
-                .unwrap_or(&73.0)
+            match self.params.cq_delta_weights.get("corporates").copied() {
+                Some(w) => w,
+                None => {
+                    // Post-validation, this branch is unreachable. If it fires,
+                    // registry mutation bypassed the constructor's validation.
+                    // Fall back to the non-qualifying weight (still a
+                    // registry-sourced value) rather than a magic literal that
+                    // could hide a schedule drift.
+                    tracing::error!(
+                        "SIMM: cq_delta_weights['corporates'] missing post-validation; \
+                         falling back to cnq_delta_weight"
+                    );
+                    self.params.cnq_delta_weight
+                }
+            }
         } else {
             self.params.cnq_delta_weight
         };
@@ -931,6 +1020,53 @@ mod tests {
     #[test]
     fn simm_version_display() {
         assert_eq!(SimmVersion::V2_6.to_string(), "SIMM v2.6");
+    }
+
+    #[test]
+    fn embedded_simm_registries_pass_validation() {
+        for version in [SimmVersion::V2_5, SimmVersion::V2_6] {
+            SimmCalculator::new(version)
+                .unwrap_or_else(|e| panic!("SIMM {version:?} should validate: {e}"));
+        }
+    }
+
+    #[test]
+    fn validate_rejects_missing_corporates_weight() {
+        let mut params = SimmCalculator::new(SimmVersion::V2_6)
+            .expect("registry should load")
+            .params
+            .clone();
+        params.cq_delta_weights.remove("corporates");
+        let err = validate_simm_params(&params).expect_err("should reject missing corporates");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("corporates"),
+            "error should name the key: {msg}"
+        );
+    }
+
+    #[test]
+    fn validate_rejects_missing_ir_tenor_pair() {
+        let mut params = SimmCalculator::new(SimmVersion::V2_6)
+            .expect("registry should load")
+            .params
+            .clone();
+        let mut tenors = params.ir_delta_weights.keys();
+        let a = tenors
+            .next()
+            .expect("embedded SIMM registry should define at least two IR tenors");
+        let b = tenors
+            .next()
+            .expect("embedded SIMM registry should define at least two IR tenors");
+        let pair = ordered_tenor_pair(a, b);
+        params.ir_tenor_correlations.remove(&pair);
+        let err =
+            validate_simm_params(&params).expect_err("should reject missing ir_tenor_correlations");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("ir_tenor_correlations"),
+            "error should name the map: {msg}"
+        );
     }
 
     #[test]

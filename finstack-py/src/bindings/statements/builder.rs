@@ -4,15 +4,12 @@
 //! the two states into a single class and track readiness at runtime.
 
 use super::types::PyFinancialModelSpec;
+use crate::errors::display_to_py;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::types::AmountOrScalar;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
-fn stmts_to_py(e: finstack_statements::Error) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 /// Builder for financial models (type-state collapsed for Python).
 ///
@@ -59,7 +56,7 @@ impl PyModelBuilder {
             .ok_or_else(|| PyValueError::new_err("Builder has already been consumed by build()"))?;
         match state {
             BuilderState::NeedPeriods(b) => {
-                let ready = b.periods(range, actuals_until).map_err(stmts_to_py)?;
+                let ready = b.periods(range, actuals_until).map_err(display_to_py)?;
                 self.inner = Some(BuilderState::Ready(ready));
                 Ok(())
             }
@@ -102,7 +99,7 @@ impl PyModelBuilder {
     ///     DSL formula expression (e.g. ``"revenue - cogs"``).
     fn compute(&mut self, node_id: &str, formula: &str) -> PyResult<()> {
         let state = self.take_ready()?;
-        let ready = state.compute(node_id, formula).map_err(stmts_to_py)?;
+        let ready = state.compute(node_id, formula).map_err(display_to_py)?;
         self.inner = Some(BuilderState::Ready(ready));
         Ok(())
     }
@@ -115,7 +112,7 @@ impl PyModelBuilder {
     ///     The completed model specification.
     fn build(&mut self) -> PyResult<PyFinancialModelSpec> {
         let state = self.take_ready()?;
-        let spec = state.build().map_err(stmts_to_py)?;
+        let spec = state.build().map_err(display_to_py)?;
         Ok(PyFinancialModelSpec { inner: spec })
     }
 }

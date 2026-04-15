@@ -12,6 +12,12 @@
 //!
 //! Covers the main public APIs of finstack-statements to track performance
 //! characteristics and regression over time.
+//!
+//! The `Extension` trait and `ExtensionRegistry` are deprecated; the
+//! file-level `allow(deprecated)` keeps the existing benches running
+//! until v0.5 removal.
+
+#![allow(deprecated)]
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_statements::prelude::*;

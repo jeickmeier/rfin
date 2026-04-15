@@ -3,6 +3,7 @@
 //! Exposes copula models, recovery models, factor models, and joint
 //! probability utilities to Python.
 
+use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -11,15 +12,6 @@ use finstack_correlation::{
     self as corr, Copula, CopulaSpec, CorrelatedBernoulli, FactorModel, FactorSpec,
     MultiFactorModel, RecoveryModel, RecoverySpec, SingleFactorModel, TwoFactorModel,
 };
-
-// ---------------------------------------------------------------------------
-// Error mapping
-// ---------------------------------------------------------------------------
-
-/// Map a `finstack_correlation::Error` to a Python `ValueError`.
-fn corr_to_py(e: corr::Error) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 // ---------------------------------------------------------------------------
 // CopulaSpec
@@ -592,7 +584,7 @@ impl PyMultiFactorModel {
     fn new(num_factors: usize, volatilities: Vec<f64>, correlations: Vec<f64>) -> PyResult<Self> {
         MultiFactorModel::new(num_factors, volatilities, correlations)
             .map(|m| Self { inner: m })
-            .map_err(corr_to_py)
+            .map_err(display_to_py)
     }
 
     /// Create an uncorrelated (identity) multi-factor model.
@@ -768,7 +760,7 @@ fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> (f64, f64, f64, f6
 #[pyfunction]
 #[pyo3(text_signature = "(matrix, n)")]
 fn validate_correlation_matrix(matrix: Vec<f64>, n: usize) -> PyResult<()> {
-    corr::validate_correlation_matrix(&matrix, n).map_err(corr_to_py)
+    corr::validate_correlation_matrix(&matrix, n).map_err(display_to_py)
 }
 
 /// Cholesky decomposition of a correlation matrix (flattened row-major).
@@ -780,7 +772,7 @@ fn validate_correlation_matrix(matrix: Vec<f64>, n: usize) -> PyResult<()> {
 fn cholesky_decompose(matrix: Vec<f64>, n: usize) -> PyResult<Vec<f64>> {
     corr::cholesky_decompose(&matrix, n)
         .map(|f| f.factor_matrix().to_vec())
-        .map_err(corr_to_py)
+        .map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------

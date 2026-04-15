@@ -40,3 +40,5 @@ finstack_correlation = { package = "finstack-correlation", path = "correlation",
 finstack_monte_carlo = { package = "finstack-monte-carlo", path = "monte_carlo", optional = true }
 
 [dev-dependencies]
+time = { workspace = true, features = ["macros"] }
+rust_decimal = { workspace = true }

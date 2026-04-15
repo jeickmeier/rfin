@@ -1,5 +1,6 @@
 //! Scorecard extension integration tests.
 #![allow(clippy::expect_used)]
+#![allow(deprecated)] // Extension trait is deprecated; these tests cover v0.4 compat.
 
 use finstack_statements::extensions::{Extension, ExtensionContext};
 use finstack_statements_analytics::extensions::{

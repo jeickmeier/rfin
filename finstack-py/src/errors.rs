@@ -7,3 +7,8 @@ use pyo3::prelude::*;
 pub fn core_to_py(e: finstack_core::Error) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
+
+/// Convert any `Display`-able error into a Python `ValueError`.
+pub fn display_to_py(e: impl std::fmt::Display) -> PyErr {
+    PyValueError::new_err(e.to_string())
+}

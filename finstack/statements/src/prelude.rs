@@ -25,6 +25,11 @@ pub use crate::error::{Error, Result};
 pub use crate::evaluator::{
     Evaluator, EvaluatorWithContext, NumericMode, PreparedEvaluation, StatementResult,
 };
+// The `Extension` trait and its registry are deprecated (see
+// [`crate::extensions`] module docs). Re-exported through the prelude for
+// backwards compatibility only; allow-deprecated prevents warning noise
+// for downstream consumers until v0.5 removal.
+#[allow(deprecated)]
 pub use crate::extensions::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,
     ExtensionStatus,

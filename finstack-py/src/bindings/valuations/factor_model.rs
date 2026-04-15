@@ -5,6 +5,7 @@
 
 use crate::bindings::extract::extract_market;
 use crate::bindings::pandas_utils::dict_to_dataframe;
+use crate::errors::display_to_py;
 use finstack_valuations::factor_model::FactorSensitivityEngine;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -21,10 +22,6 @@ fn py_to_serde<'py, T: serde::de::DeserializeOwned>(
     let json_str: String = json_mod.call_method1("dumps", (obj,))?.extract()?;
     serde_json::from_str(&json_str)
         .map_err(|e| PyValueError::new_err(format!("invalid {label}: {e}")))
-}
-
-fn fm_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
 }
 
 /// JSON input for a single position in the factor-sensitivity pipeline.
@@ -272,13 +269,13 @@ fn parse_positions(
     Vec<PositionInput>,
     Vec<Box<finstack_valuations::instruments::common::traits::DynInstrument>>,
 )> {
-    let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(fm_to_py)?;
+    let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(display_to_py)?;
     let instruments = specs
         .iter()
         .map(|p| {
             let inst: finstack_valuations::instruments::InstrumentJson =
-                serde_json::from_value(p.instrument.clone()).map_err(fm_to_py)?;
-            inst.into_boxed().map_err(fm_to_py)
+                serde_json::from_value(p.instrument.clone()).map_err(display_to_py)?;
+            inst.into_boxed().map_err(display_to_py)
         })
         .collect::<PyResult<Vec<_>>>()?;
     Ok((specs, instruments))
@@ -336,18 +333,18 @@ fn compute_factor_sensitivities(
         .collect();
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
-        serde_json::from_str(factors_json).map_err(fm_to_py)?;
+        serde_json::from_str(factors_json).map_err(display_to_py)?;
     let market = extract_market(market)?;
     let date = super::parse_date(as_of)?;
     let bump_config: finstack_core::factor_model::BumpSizeConfig = match bump_config_json {
-        Some(json) => serde_json::from_str(json).map_err(fm_to_py)?,
+        Some(json) => serde_json::from_str(json).map_err(display_to_py)?,
         None => finstack_core::factor_model::BumpSizeConfig::default(),
     };
 
     let engine = finstack_valuations::factor_model::DeltaBasedEngine::new(bump_config);
     let matrix = engine
         .compute_sensitivities(&positions, &factors, &market, date)
-        .map_err(fm_to_py)?;
+        .map_err(display_to_py)?;
 
     Ok(PySensitivityMatrix::from_inner(matrix))
 }
@@ -406,11 +403,11 @@ fn compute_pnl_profiles(
         .collect();
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
-        serde_json::from_str(factors_json).map_err(fm_to_py)?;
+        serde_json::from_str(factors_json).map_err(display_to_py)?;
     let market = extract_market(market)?;
     let date = super::parse_date(as_of)?;
     let bump_config: finstack_core::factor_model::BumpSizeConfig = match bump_config_json {
-        Some(json) => serde_json::from_str(json).map_err(fm_to_py)?,
+        Some(json) => serde_json::from_str(json).map_err(display_to_py)?,
         None => finstack_core::factor_model::BumpSizeConfig::default(),
     };
 
@@ -418,7 +415,7 @@ fn compute_pnl_profiles(
         finstack_valuations::factor_model::FullRepricingEngine::new(bump_config, n_scenario_points);
     let profiles = engine
         .compute_pnl_profiles(&positions, &factors, &market, date)
-        .map_err(fm_to_py)?;
+        .map_err(display_to_py)?;
 
     Ok(profiles
         .iter()
@@ -663,7 +660,7 @@ fn decompose_factor_risk(
     }
 
     let covariance: finstack_core::factor_model::FactorCovarianceMatrix =
-        serde_json::from_str(covariance_json).map_err(fm_to_py)?;
+        serde_json::from_str(covariance_json).map_err(display_to_py)?;
 
     let measure: finstack_core::factor_model::RiskMeasure = match risk_measure {
         Some(obj) => py_to_serde(py, obj, "risk_measure")?,
@@ -677,7 +674,7 @@ fn decompose_factor_risk(
         &covariance,
         &measure,
     )
-    .map_err(fm_to_py)?;
+    .map_err(display_to_py)?;
 
     Ok(PyRiskDecomposition::from_inner(result))
 }

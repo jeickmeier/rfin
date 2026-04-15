@@ -1,10 +1,10 @@
 //! Extension plugin system for the statements engine.
 //!
-//! This module provides the [`Extension`] trait and [`ExtensionRegistry`] for
-//! building custom analysis and validation plugins.
-//!
-//! For built-in extensions (corkscrew, credit scorecard), enable the `analytics`
-//! feature or depend on `finstack-statements-analytics` directly.
+//! The [`Extension`] trait and [`ExtensionRegistry`] are deprecated and
+//! scheduled for removal in v0.5. Prefer the inherent methods on the
+//! concrete analytics extension structs instead.
+
+#![allow(deprecated)]
 
 mod plugin;
 mod registry;

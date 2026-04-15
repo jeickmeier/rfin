@@ -4,12 +4,9 @@
 
 use crate::bindings::extract::extract_market;
 use crate::bindings::valuations::attribution::PyPnlAttribution;
+use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
-fn horizon_to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
 
 /// Compute horizon total return under a scenario.
 ///
@@ -51,8 +48,8 @@ pub(crate) fn compute_horizon_return<'py>(
     use std::sync::Arc;
 
     // Parse instrument
-    let inst: InstrumentJson = serde_json::from_str(instrument_json).map_err(horizon_to_py)?;
-    let boxed = inst.into_boxed().map_err(horizon_to_py)?;
+    let inst: InstrumentJson = serde_json::from_str(instrument_json).map_err(display_to_py)?;
+    let boxed = inst.into_boxed().map_err(display_to_py)?;
     let instrument: Arc<dyn finstack_valuations::instruments::internal::InstrumentExt> =
         Arc::from(boxed);
 
@@ -64,7 +61,7 @@ pub(crate) fn compute_horizon_return<'py>(
 
     // Parse scenario
     let scenario: finstack_scenarios::ScenarioSpec =
-        serde_json::from_str(scenario_json).map_err(horizon_to_py)?;
+        serde_json::from_str(scenario_json).map_err(display_to_py)?;
 
     // Parse method
     let attribution_method = match method {
@@ -85,7 +82,7 @@ pub(crate) fn compute_horizon_return<'py>(
 
     // Parse config
     let finstack_config = match config {
-        Some(json) => serde_json::from_str(json).map_err(horizon_to_py)?,
+        Some(json) => serde_json::from_str(json).map_err(display_to_py)?,
         None => finstack_core::config::FinstackConfig::default(),
     };
 
@@ -94,7 +91,7 @@ pub(crate) fn compute_horizon_return<'py>(
         finstack_scenarios::horizon::HorizonAnalysis::new(attribution_method, finstack_config);
     let result = analyzer
         .compute(&instrument, &market_ctx, date, &scenario)
-        .map_err(horizon_to_py)?;
+        .map_err(display_to_py)?;
 
     Ok(PyHorizonResult { inner: result })
 }
@@ -189,7 +186,7 @@ impl PyHorizonResult {
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(horizon_to_py)
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Human-readable summary.

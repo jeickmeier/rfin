@@ -303,12 +303,30 @@ pub fn log_returns(prices: &[f64]) -> Vec<f64> {
 
 /// Empirical quantile via partial sort.
 ///
-/// Returns the `p`-th quantile (0 ≤ p ≤ 1) of the data using linear
-/// interpolation between adjacent order statistics (the "R-7" / NumPy default).
+/// # Interpolation method
 ///
-/// The input slice is **mutated** (partially sorted) to avoid allocation.
-/// Returns `NaN` if the slice is empty or `p` is outside `[0, 1]`, or if any
-/// input value is non-finite (NaN or ±∞).
+/// Returns the `p`-th quantile (0 ≤ p ≤ 1) using **linear interpolation
+/// between adjacent order statistics** — specifically R's `type = 7` /
+/// NumPy's default `linear` mode, which computes
+///
+/// ```text
+/// h = (n - 1) · p
+/// lo = floor(h), hi = lo + 1
+/// result = data[lo] + (h - lo) · (data[hi] - data[lo])
+/// ```
+///
+/// This is **not** the SAS default (R's `type = 3`), the Excel default
+/// (`type = 7` for `PERCENTILE.INC`, `type = 6` for `PERCENTILE.EXC`),
+/// nor "nearest" or "lower" quantile. Backtest reproducibility across
+/// tools requires picking the same method — compare against NumPy's
+/// `np.quantile(..., method='linear')` or R's `quantile(..., type = 7)`.
+///
+/// # Mutation and cost
+///
+/// The input slice is **mutated** (partially sorted via
+/// [`slice::select_nth_unstable_by`]) to avoid allocation. Cost is
+/// expected O(n). Returns [`f64::NAN`] if the slice is empty, `p` is
+/// outside `[0, 1]`, or any input value is non-finite.
 pub fn quantile(data: &mut [f64], p: f64) -> f64 {
     let n = data.len();
     if n == 0 || !(0.0..=1.0).contains(&p) {

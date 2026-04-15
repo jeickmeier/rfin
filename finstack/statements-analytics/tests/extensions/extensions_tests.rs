@@ -1,4 +1,9 @@
 //! Integration tests for the extension system.
+//!
+//! Exercises the deprecated `Extension` trait surface; `allow(deprecated)`
+//! keeps the file clean until v0.5 removes the trait.
+
+#![allow(deprecated)]
 
 use finstack_statements::extensions::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,

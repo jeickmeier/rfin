@@ -9,6 +9,28 @@
 //! P&L attribution answers the question: "Why did my position's value change from
 //! T₀ to T₁?" by isolating the impact of each market factor and model parameter.
 //!
+//! # Choosing a methodology
+//!
+//! This module is intentionally layered by cost and fidelity. **Start at the top
+//! tier** and only move down when you actually need the extra information — the
+//! heavier methodologies are substantially more expensive and introduce more
+//! moving parts in production pipelines.
+//!
+//! | Tier         | Entry point                       | Use when                                    |
+//! |--------------|-----------------------------------|---------------------------------------------|
+//! | Minimal      | [`simple_pnl_bridge`]             | You just want total P&L, no decomposition   |
+//! | Linear       | [`attribute_pnl_metrics_based`]   | Fast daily attribution for small moves      |
+//! | Parallel     | [`attribute_pnl_parallel`]        | Factor isolation with a residual line       |
+//! | Waterfall    | [`attribute_pnl_waterfall`]       | Sum-preserving, path-ordered decomposition  |
+//! | Taylor       | [`attribute_pnl_taylor`]          | Second-order sensitivity-based breakdown    |
+//!
+//! The simple bridge is a single function (~30 LOC). The linear path uses
+//! pre-computed metrics (DV01, theta, etc.) and is the right default for most
+//! daily batch jobs. Parallel/waterfall/taylor are **opt-in** advanced paths
+//! reserved for scenarios where factor attribution genuinely drives a business
+//! decision; they all involve non-trivial per-factor repricing and should be
+//! benchmarked before being wired into hot paths.
+//!
 //! # Documentation Rules For Attribution APIs
 //!
 //! Attribution docs should state:
@@ -314,3 +336,84 @@ pub use factors::{
     restore_scalars, CurveRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
 };
 pub use helpers::{compute_pnl, compute_pnl_with_fx, convert_currency, reprice_instrument};
+
+use crate::instruments::common_impl::traits::Instrument;
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use std::sync::Arc;
+
+/// Minimal, no-frills P&L bridge: `value(T₁) − value(T₀)`.
+///
+/// This is the **cheapest** attribution entry point — it prices the
+/// instrument once at each date in each market state and returns the
+/// scalar total P&L in `target_ccy` (FX-converted on the way out). Use
+/// it when you just need the headline number and don't care which
+/// factors contributed. For a factor-level decomposition, reach for
+/// one of the `attribute_pnl_*` functions listed in the module docs.
+///
+/// This is intentionally a thin wrapper over
+/// [`reprice_instrument`] + [`compute_pnl_with_fx`]: the function is
+/// cheap, it allocates no scratch buffers, and it contains no factor
+/// iteration. Benchmark the heavier methodologies against this
+/// baseline to quantify the cost of factor attribution.
+///
+/// # Arguments
+///
+/// * `instrument` - Instrument to price at both dates.
+/// * `market_t0`, `market_t1` - Market states at T₀ and T₁.
+/// * `as_of_t0`, `as_of_t1` - Valuation dates.
+/// * `target_ccy` - Currency to report P&L in; FX is resolved through
+///   `market_t1`.
+///
+/// # Returns
+///
+/// The total P&L `v_t1 − v_t0` in `target_ccy`.
+///
+/// # Errors
+///
+/// Returns an error if either repricing call fails or if the FX
+/// conversion cannot be resolved from `market_t1`.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::attribution::simple_pnl_bridge;
+/// use finstack_valuations::instruments::common_impl::traits::Instrument;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::context::MarketContext;
+/// use std::sync::Arc;
+/// use time::macros::date;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let instrument: Arc<dyn Instrument> = unimplemented!("obtain the instrument under test");
+/// let market_t0 = MarketContext::new();
+/// let market_t1 = MarketContext::new();
+///
+/// let pnl = simple_pnl_bridge(
+///     &instrument,
+///     &market_t0,
+///     &market_t1,
+///     date!(2025 - 01 - 15),
+///     date!(2025 - 01 - 16),
+///     Currency::USD,
+/// )?;
+/// println!("Daily P&L: {pnl}");
+/// # Ok(())
+/// # }
+/// ```
+pub fn simple_pnl_bridge(
+    instrument: &Arc<dyn Instrument>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t0: Date,
+    as_of_t1: Date,
+    target_ccy: Currency,
+) -> finstack_core::Result<Money> {
+    let v_t0 = reprice_instrument(instrument, market_t0, as_of_t0)?;
+    let v_t1 = reprice_instrument(instrument, market_t1, as_of_t1)?;
+    compute_pnl_with_fx(
+        v_t0, v_t1, target_ccy, market_t0, market_t1, as_of_t0, as_of_t1,
+    )
+}

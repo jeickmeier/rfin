@@ -1,10 +1,16 @@
 //! Extension registry for managing and executing extensions.
+//!
+//! **Deprecated:** see [`crate::extensions`] for the migration path.
+
+#![allow(deprecated)]
 
 use super::plugin::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
 use crate::error::Result;
 use indexmap::IndexMap;
 
 /// Registry for managing extensions.
+///
+/// **Deprecated:** call the extension struct methods directly instead.
 ///
 /// The registry stores registered extensions and provides methods to execute them
 /// against models and results.
@@ -35,6 +41,11 @@ use indexmap::IndexMap;
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated(
+    since = "0.4.1",
+    note = "Factory-of-One registry with only 2 workspace impls; call extension struct \
+            methods directly. Scheduled for removal in v0.5."
+)]
 pub struct ExtensionRegistry {
     /// Registered extensions by name
     extensions: IndexMap<String, Box<dyn Extension>>,

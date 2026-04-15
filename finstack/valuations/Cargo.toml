@@ -157,6 +157,10 @@ name = "attribution"
 harness = false
 
 [[bench]]
+name = "attribution_scale"
+harness = false
+
+[[bench]]
 name = "linear_rates"
 harness = false
 
