@@ -76,7 +76,7 @@ pub mod schedule;
 pub mod specs;
 
 // Export the builder as CashFlowBuilder
-pub use builder::{CashFlowBuilder, PrincipalEvent};
+pub use builder::{CashFlowBuilder, PreparedCashFlow, PrincipalEvent};
 
 // Re-export common types
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};

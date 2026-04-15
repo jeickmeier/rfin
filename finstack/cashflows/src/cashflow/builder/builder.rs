@@ -1393,9 +1393,9 @@ impl CashFlowBuilder {
     /// across repeated [`PreparedCashFlow::project`] calls — making it the
     /// right entry point when repricing under many curve bumps.
     ///
-    /// Calling this does NOT touch any [`MarketContext`] — floating-rate
-    /// projection is deferred until
-    /// [`project`](PreparedCashFlow::project).
+    /// Calling this does NOT touch any
+    /// [`finstack_core::market_data::context::MarketContext`] — floating-rate
+    /// projection is deferred until [`PreparedCashFlow::project`].
     ///
     /// # Errors
     ///

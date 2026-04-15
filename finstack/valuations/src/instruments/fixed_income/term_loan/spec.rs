@@ -66,7 +66,7 @@
 //! # See Also
 //!
 //! - [`super::types::TermLoan`] for the runtime instrument type
-//! - [`super::cashflows`] for cashflow generation
+//! - `super::cashflows` for cashflow generation (internal module)
 //! - term loan pricing module for valuation
 
 use crate::instruments::pricing_overrides::PricingOverrides;

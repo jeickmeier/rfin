@@ -216,8 +216,9 @@ const ML_TOL: f64 = 1e-15;
 /// $$E_{\alpha,\beta}(z) = \sum_{k=0}^{\infty} \frac{z^k}{\Gamma(\alpha k + \beta)}$$
 ///
 /// Computed via direct series summation using `ln_gamma` to avoid overflow
-/// in the Gamma function. The series is truncated after [`ML_MAX_TERMS`]
-/// terms or when the relative contribution falls below [`ML_TOL`].
+/// in the Gamma function. The series is truncated after an internal maximum
+/// term count or when the relative contribution falls below an internal
+/// tolerance (both defined as private constants in this module).
 ///
 /// # Arguments
 ///

@@ -4,12 +4,12 @@
 //! This module provides the mathematical primitives for credit migration modeling
 //! (JLT / CreditMetrics-style transition matrix approaches):
 //!
-//! - [`RatingScale`]: ordered state set; preset S&P/Fitch scales included.
-//! - [`TransitionMatrix`]: validated row-stochastic N×N matrix with time horizon.
-//! - [`GeneratorMatrix`]: continuous-time intensity matrix Q, with extraction
+//! - [`crate::credit::migration::scale::RatingScale`]: ordered state set; preset S&P/Fitch scales included.
+//! - [`crate::credit::migration::matrix::TransitionMatrix`]: validated row-stochastic N×N matrix with time horizon.
+//! - [`crate::credit::migration::generator::GeneratorMatrix`]: continuous-time intensity matrix Q, with extraction
 //!   from annual transition matrices via matrix logarithm.
-//! - [`projection`]: compute P(t) = exp(Q · t) for arbitrary horizons.
-//! - [`simulation`]: Gillespie-algorithm CTMC path simulation.
+//! - [`crate::credit::migration::projection`]: compute P(t) = exp(Q · t) for arbitrary horizons.
+//! - [`crate::credit::migration::simulation`]: Gillespie-algorithm CTMC path simulation.
 //!
 //! # Quick start
 //!

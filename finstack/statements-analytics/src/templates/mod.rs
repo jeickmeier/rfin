@@ -2,11 +2,11 @@
 //!
 //! Each template lives in its own subdirectory. To add a new template, create a
 //! directory under `templates/` with a `mod.rs`, register it here, and wire the
-//! builder trait in [`builder`].
+//! builder trait in [`crate::templates::builder`].
 //!
-//! - [`roll_forward`] — beginning + changes = ending balance pattern
-//! - [`real_estate`] — NOI/NCF/rent-roll/property operating statement builders
-//! - [`vintage`] — cohort/vintage buildup via convolution
+//! - [`crate::templates::roll_forward`] — beginning + changes = ending balance pattern
+//! - [`crate::templates::real_estate`] — NOI/NCF/rent-roll/property operating statement builders
+//! - [`crate::templates::vintage`] — cohort/vintage buildup via convolution
 //!
 //! For property modeling, [`crate::templates::real_estate`] provides the richest public surface:
 //! rent-roll, NOI, EGI, management-fee, and NCF builders that generate

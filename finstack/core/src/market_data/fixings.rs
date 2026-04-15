@@ -1,9 +1,9 @@
 //! Shared utilities for historical rate fixing lookups.
 //!
-//! Fixings are stored as [`ScalarTimeSeries`] in [`MarketContext`] using the
-//! convention `FIXING:{forward_curve_id}`. This module centralizes that
-//! convention and provides helpers with clear error messages for seasoned
-//! instrument pricing.
+//! Fixings are stored as [`crate::market_data::scalars::ScalarTimeSeries`] in
+//! [`crate::market_data::context::MarketContext`] using the convention
+//! `FIXING:{forward_curve_id}`. This module centralizes that convention and
+//! provides helpers with clear error messages for seasoned instrument pricing.
 
 use crate::dates::Date;
 use crate::market_data::context::MarketContext;

@@ -5,19 +5,12 @@
 //! - Model evaluation (simple to complex models)
 //! - DSL parsing and compilation
 //! - Forecast methods (forward fill, growth, seasonal, etc.)
-//! - Extensions (corkscrew, scorecards)
 //! - Registry operations
 //! - Capital structure integration
 //! - Results export (DataFrame conversion)
 //!
 //! Covers the main public APIs of finstack-statements to track performance
 //! characteristics and regression over time.
-//!
-//! The `Extension` trait and `ExtensionRegistry` are deprecated; the
-//! file-level `allow(deprecated)` keeps the existing benches running
-//! until v0.5 removal.
-
-#![allow(deprecated)]
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use finstack_statements::prelude::*;
@@ -528,85 +521,6 @@ fn bench_forecast_methods(c: &mut Criterion) {
 }
 
 // ============================================================================
-// Extension Benchmarks
-// ============================================================================
-
-/// Minimal extension used only to measure framework overhead.
-struct NoopExtension;
-
-impl finstack_statements::extensions::Extension for NoopExtension {
-    fn metadata(&self) -> finstack_statements::extensions::ExtensionMetadata {
-        finstack_statements::extensions::ExtensionMetadata {
-            name: "noop".into(),
-            version: "0.0.0".into(),
-            description: None,
-            author: None,
-        }
-    }
-
-    fn execute(
-        &mut self,
-        _context: &finstack_statements::extensions::ExtensionContext,
-    ) -> finstack_statements::Result<finstack_statements::extensions::ExtensionResult> {
-        Ok(finstack_statements::extensions::ExtensionResult::success(
-            "noop",
-        ))
-    }
-}
-
-fn bench_extensions(c: &mut Criterion) {
-    let mut group = c.benchmark_group("extensions");
-
-    // Extension framework overhead - simple execution
-    let extension_model = ModelBuilder::new("extension")
-        .periods("2025Q1..Q4", None)
-        .unwrap()
-        .value(
-            "revenue",
-            &[
-                (
-                    PeriodId::quarter(2025, 1),
-                    AmountOrScalar::scalar(100_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 2),
-                    AmountOrScalar::scalar(110_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 3),
-                    AmountOrScalar::scalar(120_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 4),
-                    AmountOrScalar::scalar(130_000.0),
-                ),
-            ],
-        )
-        .compute("cogs", "revenue * 0.6")
-        .unwrap()
-        .build()
-        .unwrap();
-
-    group.bench_function("extension_framework_overhead", |b| {
-        b.iter(|| {
-            let mut evaluator = Evaluator::new();
-            let results = evaluator.evaluate(&extension_model).unwrap();
-
-            // Test extension context creation (core overhead)
-            let context = ExtensionContext::new(&extension_model, &results);
-            let mut extension = NoopExtension;
-
-            // Execute the noop extension to measure framework overhead
-            let _ = extension.execute(&context);
-
-            black_box(())
-        })
-    });
-
-    group.finish();
-}
-
-// ============================================================================
 // Registry Benchmarks
 // ============================================================================
 
@@ -917,7 +831,6 @@ criterion_group!(
     bench_model_evaluation,
     bench_dsl_operations,
     bench_forecast_methods,
-    bench_extensions,
     bench_registry_operations,
     bench_results_export,
     bench_serialization,
@@ -931,7 +844,6 @@ criterion_group!(
     bench_model_evaluation,
     bench_dsl_operations,
     bench_forecast_methods,
-    bench_extensions,
     bench_registry_operations,
     bench_serialization,
     bench_end_to_end

@@ -4,11 +4,12 @@
 //! fractional Brownian motion increments. Used by rBergomi and Cheyette rough
 //! vol discretizations.
 //!
-//! The standard [`McEngine`](super::engine::McEngine) simulation loop draws
-//! i.i.d. normals at each time step. Rough volatility models instead need
+//! The standard [`crate::engine::McEngine`] simulation loop draws i.i.d.
+//! normals at each time step. Rough volatility models instead need
 //! correlated noise across *all* steps, generated upfront via an
-//! [`FractionalNoiseGenerator`]. The functions in this module wrap the per-path
-//! simulation loop to handle that pre-generation and injection.
+//! implementor of [`crate::rng::fbm::FractionalNoiseGenerator`]. The
+//! functions in this module wrap the per-path simulation loop to handle
+//! that pre-generation and injection.
 //!
 //! # Usage
 //!

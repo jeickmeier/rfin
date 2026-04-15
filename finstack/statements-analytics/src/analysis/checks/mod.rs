@@ -6,11 +6,11 @@
 //!
 //! Higher-level conveniences:
 //!
-//! - [`FormulaCheck`] — user-defined expression checks evaluated per period
-//! - [`mappings`] — typed node-id mappings for common model patterns
-//! - [`suites`] — pre-built check suites (three-statement, credit, LBO)
-//! - [`corkscrew_adapter`] — convert corkscrew configs into structural checks
-//! - [`renderer`] — render [`finstack_statements::checks::CheckReport`] as
+//! - [`crate::analysis::checks::formula_check::FormulaCheck`] — user-defined expression checks evaluated per period
+//! - [`crate::analysis::checks::mappings`] — typed node-id mappings for common model patterns
+//! - [`crate::analysis::checks::suites`] — pre-built check suites (three-statement, credit, LBO)
+//! - [`crate::analysis::checks::corkscrew_adapter`] — convert corkscrew configs into structural checks
+//! - [`crate::analysis::checks::renderer`] — render [`finstack_statements::checks::CheckReport`] as
 //!   text or HTML
 
 pub mod consistency;

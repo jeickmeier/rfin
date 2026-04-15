@@ -3,19 +3,14 @@
 //! This extension provides credit rating assignment based on financial metrics
 //! and configurable thresholds.
 //!
-//! # Migration (v0.5)
-//!
-//! The `Extension` trait implementation in this module is deprecated;
-//! prefer calling [`CreditScorecardExtension`] directly.
-//!
 //! # Features
 //!
-//! - ✅ Credit rating assignment based on financial metrics
-//! - ✅ Configurable rating scales and thresholds
-//! - ✅ Weighted scoring across multiple metrics
-//! - ✅ Support for multiple rating agencies (S&P, Moody's, Fitch)
-//! - ✅ Minimum rating compliance checks
-//! - ✅ Detailed metric evaluation with scores and weights
+//! - Credit rating assignment based on financial metrics
+//! - Configurable rating scales and thresholds
+//! - Weighted scoring across multiple metrics
+//! - Support for multiple rating agencies (S&P, Moody's, Fitch)
+//! - Minimum rating compliance checks
+//! - Detailed metric evaluation with scores and weights
 //!
 //! # Configuration Schema
 //!
@@ -58,33 +53,40 @@
 //! # Example Usage
 //!
 //! ```rust,no_run
-//! use finstack_statements_analytics::extensions::CreditScorecardExtension;
-//! use finstack_statements::extensions::{ExtensionRegistry, ExtensionContext};
+//! use finstack_statements_analytics::extensions::{
+//!     CreditScorecardExtension, ScorecardConfig, ScorecardMetric,
+//! };
+//! use finstack_statements::evaluator::{Evaluator, StatementResult};
+//! use finstack_statements::types::FinancialModelSpec;
 //!
 //! # fn main() -> finstack_statements::Result<()> {
-//! let config = serde_json::json!({
-//!   "rating_scale": "S&P",
-//!   "metrics": [{
-//!     "name": "debt_to_ebitda",
-//!     "formula": "total_debt / ttm(ebitda)"
-//!   }]
-//! });
-//! let mut registry = ExtensionRegistry::new();
-//! registry.register(Box::new(CreditScorecardExtension::new()))?;
+//! # let model: FinancialModelSpec = unimplemented!("build a model");
+//! let mut evaluator = Evaluator::new();
+//! let results = evaluator.evaluate(&model)?;
 //!
-//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
-//! let results = registry.execute("credit_scorecard", &context.with_config(&config))?;
-//! # let _ = results;
+//! let config = ScorecardConfig {
+//!     rating_scale: "S&P".into(),
+//!     metrics: vec![ScorecardMetric {
+//!         name: "debt_to_ebitda".into(),
+//!         formula: "total_debt / ttm(ebitda)".into(),
+//!         weight: 1.0,
+//!         thresholds: indexmap::IndexMap::new(),
+//!         description: None,
+//!     }],
+//!     min_rating: None,
+//! };
+//!
+//! let mut extension = CreditScorecardExtension::with_config(config);
+//! let report = extension.execute(&model, &results)?;
+//! # let _ = report;
 //! # Ok(())
 //! # }
 //! ```
 
-#![allow(deprecated)]
-
-use finstack_statements::extensions::{
-    Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,
-};
+use finstack_statements::evaluator::StatementResult;
+use finstack_statements::types::FinancialModelSpec;
 use finstack_statements::Result;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
@@ -228,6 +230,38 @@ fn default_weight() -> f64 {
     1.0
 }
 
+/// Status of a scorecard run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScorecardStatus {
+    /// Scorecard executed successfully
+    Success,
+    /// Scorecard execution failed
+    Failed,
+}
+
+/// Report produced by [`CreditScorecardExtension::execute`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScorecardReport {
+    /// Overall execution status
+    pub status: ScorecardStatus,
+
+    /// Human-readable summary
+    pub message: String,
+
+    /// Structured output (rating, total_score, metric_scores, rating_scale)
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub data: IndexMap<String, serde_json::Value>,
+
+    /// Warnings (non-fatal)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
+
+    /// Errors (per-metric failures)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
+}
+
 impl CreditScorecardExtension {
     /// Create a new credit scorecard extension with default configuration.
     ///
@@ -264,41 +298,149 @@ impl CreditScorecardExtension {
         self.config = Some(config);
     }
 
-    fn resolve_config<'a>(&'a self, context: &'a ExtensionContext) -> Result<ScorecardConfig> {
-        if let Some(config) = context.config {
-            serde_json::from_value(config.clone()).map_err(|e| {
-                finstack_statements::error::Error::invalid_input(format!(
-                    "Invalid scorecard configuration: {}",
-                    e
-                ))
-            })
-        } else {
-            self.config.clone().ok_or_else(|| {
-                finstack_statements::error::Error::registry(
-                    "Credit scorecard extension requires configuration",
-                )
-            })
+    /// Validate a configuration without executing.
+    ///
+    /// Useful for schema-style checks before constructing the extension.
+    pub fn validate_config(config: &ScorecardConfig) -> Result<()> {
+        if !is_supported_rating_scale(&config.rating_scale) {
+            return Err(finstack_statements::error::Error::invalid_input(format!(
+                "Unsupported rating_scale '{}'. Expected one of: S&P, Moody's, Fitch",
+                config.rating_scale
+            )));
         }
+
+        let total_weight: f64 = config.metrics.iter().map(|m| m.weight).sum();
+        if total_weight > 0.0 && !(0.01..=100.0).contains(&total_weight) {
+            return Err(finstack_statements::error::Error::invalid_input(format!(
+                "Total metric weights ({}) should be between 0.01 and 100.0",
+                total_weight
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Run scorecard analysis against the provided model and evaluation results.
+    ///
+    /// Requires that [`CreditScorecardExtension::with_config`] or
+    /// [`CreditScorecardExtension::set_config`] has supplied a configuration;
+    /// otherwise returns an error.
+    ///
+    /// # Arguments
+    /// * `model` - The evaluated financial model
+    /// * `results` - Evaluation output to inspect
+    pub fn execute(
+        &mut self,
+        model: &FinancialModelSpec,
+        results: &StatementResult,
+    ) -> Result<ScorecardReport> {
+        let _span = tracing::info_span!("statements_analytics.credit_scorecard.execute").entered();
+
+        let config = self.config.clone().ok_or_else(|| {
+            finstack_statements::error::Error::registry(
+                "Credit scorecard extension requires configuration",
+            )
+        })?;
+
+        let mut scores = Vec::new();
+        let mut errors = Vec::new();
+        let mut warnings = Vec::new();
+
+        // Evaluate each metric
+        for metric_config in &config.metrics {
+            match self.evaluate_metric(metric_config, model, results, &config) {
+                Ok(evaluation) => {
+                    if let Some(warning) = evaluation.warning {
+                        warnings.push(warning);
+                    }
+                    scores.push(evaluation.score);
+                }
+                Err(e) => errors.push(format!("Metric '{}': {}", metric_config.name, e)),
+            }
+        }
+
+        // Calculate weighted average score
+        let total_score = self.calculate_weighted_score(&scores);
+
+        // Determine rating based on scale
+        let rating = self.determine_rating(total_score, &config.rating_scale);
+
+        // Check minimum rating requirement
+        if let Some(min_rating) = &config.min_rating {
+            if !self.meets_minimum_rating(&rating, min_rating, &config.rating_scale) {
+                warnings.push(format!(
+                    "Credit rating {} is below minimum required {}",
+                    rating, min_rating
+                ));
+            }
+        }
+
+        // Build report
+        let (status, message) = if errors.is_empty() {
+            (
+                ScorecardStatus::Success,
+                format!(
+                    "Credit scorecard complete. Rating: {} (Score: {:.2})",
+                    rating, total_score
+                ),
+            )
+        } else {
+            (
+                ScorecardStatus::Failed,
+                format!("Credit scorecard failed with {} errors", errors.len()),
+            )
+        };
+
+        let mut data = IndexMap::new();
+        data.insert("rating".into(), serde_json::json!(rating));
+        data.insert("total_score".into(), serde_json::json!(total_score));
+        data.insert(
+            "metric_scores".into(),
+            serde_json::json!(scores
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "metric": s.metric_name,
+                        "value": s.value,
+                        "score": s.score,
+                        "weight": s.weight,
+                        "weighted_score": s.score * s.weight,
+                    })
+                })
+                .collect::<Vec<_>>()),
+        );
+        data.insert(
+            "rating_scale".into(),
+            serde_json::json!(config.rating_scale),
+        );
+
+        Ok(ScorecardReport {
+            status,
+            message,
+            data,
+            warnings,
+            errors,
+        })
     }
 
     /// Evaluate a single metric.
     fn evaluate_metric(
         &self,
         metric: &ScorecardMetric,
-        context: &ExtensionContext,
+        model: &FinancialModelSpec,
+        results: &StatementResult,
         config: &ScorecardConfig,
     ) -> Result<MetricEvaluation> {
         // Parse and evaluate the formula
         let expr = finstack_statements::dsl::parse_and_compile(&metric.formula)?;
 
         // Create evaluation context for the last period (or average across all)
-        let last_period =
-            context.model.periods.last().ok_or_else(|| {
-                finstack_statements::error::Error::registry("No periods in model")
-            })?;
+        let last_period = model
+            .periods
+            .last()
+            .ok_or_else(|| finstack_statements::error::Error::registry("No periods in model"))?;
 
-        let node_to_column: indexmap::IndexMap<finstack_statements::types::NodeId, usize> = context
-            .model
+        let node_to_column: indexmap::IndexMap<finstack_statements::types::NodeId, usize> = model
             .nodes
             .keys()
             .enumerate()
@@ -306,12 +448,12 @@ impl CreditScorecardExtension {
             .collect();
 
         let mut historical_results = indexmap::IndexMap::new();
-        for period in &context.model.periods {
+        for period in &model.periods {
             if period.id == last_period.id {
                 continue;
             }
             let mut period_values = indexmap::IndexMap::new();
-            for (node_id, node_periods) in &context.results.nodes {
+            for (node_id, node_periods) in &results.nodes {
                 if let Some(value) = node_periods.get(&period.id) {
                     period_values.insert(node_id.clone(), *value);
                 }
@@ -327,11 +469,11 @@ impl CreditScorecardExtension {
             std::sync::Arc::new(historical_results),
         );
 
-        if let Some(ref cs) = context.results.cs_cashflows {
+        if let Some(ref cs) = results.cs_cashflows {
             eval_context.capital_structure_cashflows = Some(cs.clone());
         }
 
-        for (node_id, node_values) in &context.results.nodes {
+        for (node_id, node_values) in &results.nodes {
             if let Some(value) = node_values.get(&last_period.id) {
                 if eval_context.node_to_column.contains_key(node_id.as_str()) {
                     eval_context.set_value(node_id, *value)?;
@@ -485,182 +627,6 @@ struct MetricEvaluation {
 impl Default for CreditScorecardExtension {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Extension for CreditScorecardExtension {
-    fn metadata(&self) -> ExtensionMetadata {
-        ExtensionMetadata {
-            name: "credit_scorecard".into(),
-            version: "0.1.0".into(),
-            description: Some("Credit rating and stress testing based on financial metrics".into()),
-            author: Some("Finstack Team".into()),
-        }
-    }
-
-    fn execute(&mut self, context: &ExtensionContext) -> Result<ExtensionResult> {
-        // Credit scorecard analysis implementation
-        let config = self.resolve_config(context)?;
-
-        let mut scores = Vec::new();
-        let mut errors = Vec::new();
-        let mut warnings = Vec::new();
-
-        // Evaluate each metric
-        for metric_config in &config.metrics {
-            match self.evaluate_metric(metric_config, context, &config) {
-                Ok(evaluation) => {
-                    if let Some(warning) = evaluation.warning {
-                        warnings.push(warning);
-                    }
-                    scores.push(evaluation.score);
-                }
-                Err(e) => errors.push(format!("Metric '{}': {}", metric_config.name, e)),
-            }
-        }
-
-        // Calculate weighted average score
-        let total_score = self.calculate_weighted_score(&scores);
-
-        // Determine rating based on scale
-        let rating = self.determine_rating(total_score, &config.rating_scale);
-
-        // Check minimum rating requirement
-        if let Some(min_rating) = &config.min_rating {
-            if !self.meets_minimum_rating(&rating, min_rating, &config.rating_scale) {
-                warnings.push(format!(
-                    "Credit rating {} is below minimum required {}",
-                    rating, min_rating
-                ));
-            }
-        }
-
-        // Build result
-        let mut result = if errors.is_empty() {
-            ExtensionResult::success(format!(
-                "Credit scorecard complete. Rating: {} (Score: {:.2})",
-                rating, total_score
-            ))
-        } else {
-            ExtensionResult::failure(format!(
-                "Credit scorecard failed with {} errors",
-                errors.len()
-            ))
-        };
-
-        // Add scorecard data
-        result = result
-            .with_data("rating", serde_json::json!(rating))
-            .with_data("total_score", serde_json::json!(total_score))
-            .with_data(
-                "metric_scores",
-                serde_json::json!(scores
-                    .iter()
-                    .map(|s| {
-                        serde_json::json!({
-                            "metric": s.metric_name,
-                            "value": s.value,
-                            "score": s.score,
-                            "weight": s.weight,
-                            "weighted_score": s.score * s.weight,
-                        })
-                    })
-                    .collect::<Vec<_>>()),
-            )
-            .with_data("rating_scale", serde_json::json!(config.rating_scale));
-
-        // Add warnings and errors
-        for warning in warnings {
-            result = result.with_warning(warning);
-        }
-        for error in errors {
-            result = result.with_error(error);
-        }
-
-        Ok(result)
-    }
-
-    fn is_enabled(&self) -> bool {
-        // Extension is always available but returns NotImplemented
-        true
-    }
-
-    fn config_schema(&self) -> Option<serde_json::Value> {
-        Some(serde_json::json!({
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "title": "ScorecardConfig",
-            "type": "object",
-            "properties": {
-                "rating_scale": {
-                    "type": "string",
-                    "default": "S&P",
-                    "description": "Rating scale to use (e.g., 'S&P', 'Moody's', 'Fitch')"
-                },
-                "metrics": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["name", "formula"],
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "description": "Metric name"
-                            },
-                            "formula": {
-                                "type": "string",
-                                "description": "Formula to calculate the metric (DSL syntax)"
-                            },
-                            "weight": {
-                                "type": "number",
-                                "default": 1.0,
-                                "description": "Weight in overall score (0.0 to 1.0)"
-                            },
-                            "thresholds": {
-                                "type": "object",
-                                "description": "Rating thresholds: rating → [min, max]"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Metric description"
-                            }
-                        }
-                    }
-                },
-                "min_rating": {
-                    "type": "string",
-                    "description": "Minimum acceptable rating (optional)"
-                }
-            }
-        }))
-    }
-
-    fn validate_config(&self, config: &serde_json::Value) -> Result<()> {
-        // Validate configuration structure
-        let scorecard_config: ScorecardConfig =
-            serde_json::from_value(config.clone()).map_err(|e| {
-                finstack_statements::error::Error::invalid_input(format!(
-                    "Invalid scorecard configuration: {}",
-                    e
-                ))
-            })?;
-
-        if !is_supported_rating_scale(&scorecard_config.rating_scale) {
-            return Err(finstack_statements::error::Error::invalid_input(format!(
-                "Unsupported rating_scale '{}'. Expected one of: S&P, Moody's, Fitch",
-                scorecard_config.rating_scale
-            )));
-        }
-
-        // Validate metric weights sum to reasonable values
-        let total_weight: f64 = scorecard_config.metrics.iter().map(|m| m.weight).sum();
-        if total_weight > 0.0 && !(0.01..=100.0).contains(&total_weight) {
-            return Err(finstack_statements::error::Error::invalid_input(format!(
-                "Total metric weights ({}) should be between 0.01 and 100.0",
-                total_weight
-            )));
-        }
-
-        Ok(())
     }
 }
 

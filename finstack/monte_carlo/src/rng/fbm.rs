@@ -196,7 +196,7 @@ pub struct HybridFbm {
     near_cholesky: DMatrix<f64>,
     /// For each step i in b..n, the conditional-mean weights on the preceding
     /// b increments and the residual standard deviation.
-    /// `cond_weights[i - b]` = (Vec<f64> of length b, residual_std: f64).
+    /// `cond_weights[i - b]` = (`Vec<f64>` of length b, residual_std: `f64`).
     cond_weights: Vec<(Vec<f64>, f64)>,
     /// Far-field kernel weights. For step i (i >= b), `far_weights[i - b][j]`
     /// is the Molchan-Golosov kernel weight for old increment j (j < i - b).

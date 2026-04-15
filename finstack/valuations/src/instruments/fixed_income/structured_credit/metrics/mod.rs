@@ -7,14 +7,12 @@
 //! - deal_specific: Deal-type specific metrics (ABS, CLO, CMBS, RMBS)
 
 pub(crate) mod deal_specific;
-// pub mod dv01; // removed - using GenericParallelDv01
 pub(crate) mod pool;
 pub(crate) mod pricing;
 pub(crate) mod risk;
 
 // Re-export all calculators for convenience
 pub use deal_specific::*;
-// pub use dv01::StructuredCreditDv01Calculator; // removed - using GenericParallelDv01
 pub use pool::*;
 pub use pricing::*;
 pub use risk::*;

@@ -45,11 +45,11 @@
 //!
 //! # Available Generators
 //!
-//! - [`PhiloxRng`]: Counter-based PRNG for parallel pseudo-random simulation
-//! - [`sobol::SobolRng`]: Low-discrepancy sequence for quasi-Monte Carlo
+//! - [`philox::PhiloxRng`]: Counter-based PRNG for parallel pseudo-random simulation
+//! - [`sobol::SobolRng`]: Low-discrepancy sequence for quasi-Monte Carlo (when `mc` feature enabled)
 //! - [`sobol_pca::effective_dimension`], [`sobol_pca::pca_ordering`], and
-//!   [`sobol_pca::transform_pca_to_assets`]: Sobol PCA utilities
-//! - [`BrownianBridge`]: Path construction with variance reduction
+//!   [`sobol_pca::transform_pca_to_assets`]: Sobol PCA utilities (when `mc` feature enabled)
+//! - [`brownian_bridge::BrownianBridge`]: Path construction with variance reduction (when `mc` feature enabled)
 //!
 //! # References
 //!

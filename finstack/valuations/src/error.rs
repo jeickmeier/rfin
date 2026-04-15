@@ -19,7 +19,7 @@
 //! enables ergonomic `?` propagation from core functions, consistent with
 //! all other Finstack crates (portfolio, statements, scenarios, io).
 //! For richer context when mapping core errors inside pricers, see
-//! [`PricingError::from_core`].
+//! [`crate::pricer::PricingError::from_core`].
 //!
 //! # Naming Convention
 //!

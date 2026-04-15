@@ -86,20 +86,7 @@ Benchmarks different forecast algorithms:
 - Track overhead of statistical methods vs simple methods
 - Validate determinism doesn't add significant cost
 
-### 5. Extensions (`extensions`)
-
-Measures extension execution performance:
-
-- **extension_corkscrew**: Balance sheet roll-forward validation
-- **extension_scorecard**: Credit rating assignment by ranges
-
-**Use Cases:**
-
-- Track overhead of extension framework
-- Ensure extensions scale with model size
-- Validate extension composition doesn't compound overhead
-
-### 6. Registry Operations (`registry_operations`)
+### 5. Registry Operations (`registry_operations`)
 
 Tests dynamic metric registry performance:
 
@@ -176,9 +163,6 @@ Full workflow benchmarks combining multiple operations:
 | Growth rate | 3 periods | ~8-20 μs | Compound calc |
 | Seasonal | 3 periods, 4-season | ~15-40 μs | Pattern matching |
 | Log-normal | 3 periods | ~20-60 μs | RNG overhead |
-| **Extensions** | | | |
-| Corkscrew | 4 periods, 4 nodes | ~10-30 μs | Balance validation |
-| Scorecard | 4 periods, 4 nodes | ~15-40 μs | Range lookups |
 | **Registry** | | | |
 | Load empty | - | ~0.1-0.5 μs | Near-zero overhead |
 | Add 10 metrics | 10 formulas | ~50-150 μs | Includes parsing |
@@ -208,13 +192,6 @@ Relative performance (forward fill = 1.0x baseline):
 - Growth rate: ~1.2-1.5x (simple math)
 - Seasonal: ~2-3x (pattern matching)
 - Log-normal: ~3-4x (RNG + distribution)
-
-### Extension Overhead
-
-Extensions should add minimal overhead (<50% of base evaluation):
-
-- Corkscrew: ~20-40% overhead (simple validation)
-- Scorecard: ~30-50% overhead (range lookups)
 
 ## Optimization Targets
 

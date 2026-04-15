@@ -14,8 +14,8 @@
 //!
 //! - **Analysis** — sensitivity, scenario sets, variance, DCF, goal seek,
 //!   covenants, backtesting, Monte Carlo, and introspection
-//! - **Extensions** — concrete `Extension` implementations (corkscrew,
-//!   credit scorecard)
+//! - **Extensions** — concrete analytics extensions (corkscrew, credit
+//!   scorecard) called directly via inherent methods
 //! - **Templates** — real estate, roll-forward, and vintage model builders
 
 /// Analysis tools for financial statement models.

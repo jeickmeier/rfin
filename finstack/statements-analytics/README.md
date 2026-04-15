@@ -271,20 +271,21 @@ The real-estate template surface is the richest in the crate and includes:
 
 ### 4. Runtime Extensions
 
-The crate ships with two production-oriented `Extension` implementations:
+The crate ships with two production-oriented analytics extensions, each callable directly via inherent methods:
 
 - `CorkscrewExtension` for roll-forward validation and balance-sheet articulation checks.
 - `CreditScorecardExtension` for weighted metric scoring and rating assignment.
 
-Example with targeted execution and extension-specific config:
+Example with direct method dispatch:
 
 ```rust
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
-use finstack_statements::extensions::{ExtensionContext, ExtensionRegistry};
 use finstack_statements::types::AmountOrScalar;
-use finstack_statements_analytics::extensions::CorkscrewExtension;
+use finstack_statements_analytics::extensions::{
+    AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let q1 = PeriodId::quarter(2025, 1);
@@ -304,27 +305,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model)?;
-    let context = ExtensionContext::new(&model, &results);
 
-    let config = serde_json::json!({
-        "accounts": [{
-            "node_id": "cash",
-            "account_type": "asset",
-            "changes": ["cash_change"]
+    let config = CorkscrewConfig {
+        accounts: vec![CorkscrewAccount {
+            node_id: "cash".into(),
+            account_type: AccountType::Asset,
+            changes: vec!["cash_change".into()],
+            beginning_balance_node: None,
         }],
-        "tolerance": 0.01
-    });
+        tolerance: 0.01,
+        fail_on_error: false,
+    };
 
-    let mut registry = ExtensionRegistry::new();
-    registry.register(Box::new(CorkscrewExtension::new()))?;
-
-    let result = registry.execute("corkscrew", &context.with_config(&config))?;
-    println!("{}", result.message);
+    let mut extension = CorkscrewExtension::with_config(config);
+    let report = extension.execute(&model, &results)?;
+    println!("{}", report.message);
     Ok(())
 }
 ```
-
-Operational note: use targeted `execute(name, ...)` when an extension needs config. Registry-wide `execute_all()` and `execute_all_safe()` intentionally avoid extension-specific runtime config injection.
 
 ### 5. Reporting, Explainability, and Utilities
 

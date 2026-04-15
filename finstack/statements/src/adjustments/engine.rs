@@ -19,18 +19,6 @@ impl NormalizationEngine {
         results: &StatementResult,
         config: &NormalizationConfig,
     ) -> Result<Vec<NormalizationResult>> {
-        // Validate adjustment types upfront — Formula adjustments are not yet
-        // supported, so reject them at the start rather than mid-loop.
-        for adj in &config.adjustments {
-            if matches!(adj.value, AdjustmentValue::Formula { .. }) {
-                return Err(Error::eval(format!(
-                    "Formula adjustment '{}' is not yet implemented — \
-                     use Fixed or PercentageOfNode instead",
-                    adj.id
-                )));
-            }
-        }
-
         let mut normalization_results = Vec::new();
 
         // Get the target node values
@@ -119,11 +107,6 @@ impl NormalizationEngine {
 
                 let value = node_values.get(&period_id).unwrap_or(&0.0);
                 Ok(value * percentage)
-            }
-            AdjustmentValue::Formula { .. } => {
-                // Formula evaluation requires more complex context setup which we'll defer for now
-                // or implement if strictly needed. For now returning error as per plan focus.
-                Err(Error::eval("Formula adjustments not yet implemented"))
             }
         }
     }

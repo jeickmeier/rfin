@@ -45,8 +45,8 @@
 //! - No transaction costs
 //!
 //! For more realistic models, see:
-//! - [`HestonProcess`](super::heston::HestonProcess) for stochastic volatility
-//! - [`BatesProcess`](super::bates::BatesProcess) for jumps + stochastic vol
+//! - [`crate::process::heston::HestonProcess`] for stochastic volatility
+//! - [`crate::process::bates::BatesProcess`] for jumps + stochastic vol
 //! - Local volatility models for calibrated smiles
 //!
 //! # References

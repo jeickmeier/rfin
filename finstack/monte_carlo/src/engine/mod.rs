@@ -1,9 +1,10 @@
 //! Monte Carlo execution engine and runtime configuration.
 //!
 //! This module contains the generic simulation loop used throughout the crate.
-//! [`McEngine`] combines a [`RandomStream`], a [`StochasticProcess`], a
-//! compatible [`Discretization`], and a [`Payoff`] into discounted Monte Carlo
-//! estimates.
+//! [`McEngine`] combines a [`crate::traits::RandomStream`], a
+//! [`crate::traits::StochasticProcess`], a compatible
+//! [`crate::traits::Discretization`], and a [`crate::traits::Payoff`] into
+//! discounted Monte Carlo estimates.
 //!
 //! The engine provides:
 //!

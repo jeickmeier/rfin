@@ -1,18 +1,12 @@
 //! Comprehensive extension execution tests with valid configurations.
 //!
-//! These tests provide full coverage of the extension system by executing
-//! extensions with properly configured parameters.
-//!
-//! Exercises the deprecated `Extension` trait surface; `allow(deprecated)`
-//! keeps the file clean until v0.5 removes the trait.
+//! These tests provide full coverage of the analytics extensions by executing
+//! them with properly configured parameters via their inherent methods.
 
-#![allow(deprecated)]
-
-use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionStatus};
 use finstack_statements::prelude::*;
 use finstack_statements_analytics::extensions::{
-    AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CreditScorecardExtension,
-    ScorecardConfig, ScorecardMetric,
+    AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CorkscrewStatus,
+    CreditScorecardExtension, ScorecardConfig, ScorecardMetric, ScorecardStatus,
 };
 
 // ============================================================================
@@ -79,13 +73,12 @@ fn test_corkscrew_extension_with_valid_config() {
     };
 
     let mut extension = CorkscrewExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    // Execute extension
-    let result = extension.execute(&context).unwrap();
+    // Execute extension via inherent method
+    let report = extension.execute(&model, &results).unwrap();
 
-    assert_eq!(result.status, ExtensionStatus::Success);
-    assert!(result.data.contains_key("validations"));
+    assert_eq!(report.status, CorkscrewStatus::Success);
+    assert!(report.data.contains_key("validations"));
 }
 
 #[test]
@@ -139,10 +132,9 @@ fn test_corkscrew_with_multiple_accounts() {
     };
 
     let mut extension = CorkscrewExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    let result = extension.execute(&context).unwrap();
-    assert_eq!(result.status, ExtensionStatus::Success);
+    let report = extension.execute(&model, &results).unwrap();
+    assert_eq!(report.status, CorkscrewStatus::Success);
 }
 
 #[test]
@@ -272,15 +264,14 @@ fn test_scorecard_extension_with_valid_config() {
     };
 
     let mut extension = CreditScorecardExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    // Execute extension
-    let result = extension.execute(&context).unwrap();
+    // Execute extension via inherent method
+    let report = extension.execute(&model, &results).unwrap();
 
-    assert_eq!(result.status, ExtensionStatus::Success);
-    assert!(result.data.contains_key("rating"));
-    assert!(result.data.contains_key("total_score"));
-    assert!(result.data.contains_key("metric_scores"));
+    assert_eq!(report.status, ScorecardStatus::Success);
+    assert!(report.data.contains_key("rating"));
+    assert!(report.data.contains_key("total_score"));
+    assert!(report.data.contains_key("metric_scores"));
 }
 
 #[test]
@@ -353,12 +344,11 @@ fn test_scorecard_moodys_rating_scale() {
     };
 
     let mut extension = CreditScorecardExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    let result = extension.execute(&context).unwrap();
+    let report = extension.execute(&model, &results).unwrap();
 
-    assert_eq!(result.status, ExtensionStatus::Success);
-    assert!(result.data.contains_key("rating"));
+    assert_eq!(report.status, ScorecardStatus::Success);
+    assert!(report.data.contains_key("rating"));
 }
 
 #[test]
@@ -392,10 +382,9 @@ fn test_scorecard_fitch_rating_scale() {
     };
 
     let mut extension = CreditScorecardExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    let result = extension.execute(&context).unwrap();
-    assert_eq!(result.status, ExtensionStatus::Success);
+    let report = extension.execute(&model, &results).unwrap();
+    assert_eq!(report.status, ScorecardStatus::Success);
 }
 
 #[test]
@@ -447,13 +436,12 @@ fn test_scorecard_with_minimum_rating_warning() {
     };
 
     let mut extension = CreditScorecardExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    let result = extension.execute(&context).unwrap();
+    let report = extension.execute(&model, &results).unwrap();
 
     // Should have warnings about not meeting minimum rating
     assert!(
-        !result.warnings.is_empty(),
+        !report.warnings.is_empty(),
         "Should warn about not meeting minimum rating"
     );
 }
@@ -519,13 +507,12 @@ fn test_scorecard_multiple_metrics_weighted() {
     };
 
     let mut extension = CreditScorecardExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    let result = extension.execute(&context).unwrap();
+    let report = extension.execute(&model, &results).unwrap();
 
-    assert_eq!(result.status, ExtensionStatus::Success);
-    assert!(result.data.contains_key("metric_scores"));
-    let metric_scores = result.data.get("metric_scores").unwrap();
+    assert_eq!(report.status, ScorecardStatus::Success);
+    assert!(report.data.contains_key("metric_scores"));
+    let metric_scores = report.data.get("metric_scores").unwrap();
     assert!(metric_scores.is_array());
     assert_eq!(metric_scores.as_array().unwrap().len(), 2);
 }
@@ -558,39 +545,10 @@ fn test_scorecard_metric_evaluation_error_handling() {
     };
 
     let mut extension = CreditScorecardExtension::with_config(config);
-    let context = ExtensionContext::new(&model, &results);
 
-    let result = extension.execute(&context).unwrap();
+    let report = extension.execute(&model, &results).unwrap();
 
     // Should fail due to invalid formula
-    assert_eq!(result.status, ExtensionStatus::Failed);
-    assert!(!result.errors.is_empty());
-}
-
-// ============================================================================
-// Extension Context Tests
-// ============================================================================
-
-#[test]
-fn test_extension_context_builder_pattern() {
-    let model = ModelBuilder::new("test")
-        .periods("2025Q1..2025Q1", None)
-        .unwrap()
-        .build()
-        .unwrap();
-
-    let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model).unwrap();
-
-    let config = serde_json::json!({"key": "value"});
-    let context = ExtensionContext::new(&model, &results)
-        .with_config(&config)
-        .add_context("runtime_key", serde_json::json!("runtime_value"));
-
-    assert!(context.config.is_some());
-    assert_eq!(context.runtime_context.len(), 1);
-    assert_eq!(
-        context.runtime_context.get("runtime_key").unwrap(),
-        &serde_json::json!("runtime_value")
-    );
+    assert_eq!(report.status, ScorecardStatus::Failed);
+    assert!(!report.errors.is_empty());
 }

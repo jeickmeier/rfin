@@ -301,7 +301,7 @@ impl IrTenorCorrelationMatrix {
                     continue;
                 }
                 let key = ordered_tenor_pair(tenor_i, tenor_j);
-                // Post-[`validate_simm_params`]: every tenor pair is
+                // Post-`validate_simm_params`: every tenor pair is
                 // guaranteed present in `ir_tenor_correlations`. The 0.5
                 // fallback is a defensive safety net that should be dead
                 // code after successful validation; hitting it indicates
@@ -378,7 +378,7 @@ impl SimmCalculator {
     ///
     /// Returns an error if the embedded margin registry cannot be loaded or if
     /// the resolved [`SimmParams`] fails the completeness invariants checked by
-    /// [`validate_simm_params`].
+    /// `validate_simm_params`.
     pub fn new(version: SimmVersion) -> Result<Self> {
         let registry = embedded_registry()?;
         let params = resolve_simm_params(version, registry)?.clone();
@@ -405,7 +405,7 @@ impl SimmCalculator {
     ///
     /// Returns an error if the margin registry cannot be loaded from `cfg` or if
     /// the merged [`SimmParams`] fails the completeness invariants checked by
-    /// [`validate_simm_params`] — catches broken config overlays at load time
+    /// `validate_simm_params` — catches broken config overlays at load time
     /// rather than as silent miscalculations during margin runs.
     pub fn from_finstack_config(
         version: SimmVersion,
@@ -541,7 +541,7 @@ impl SimmCalculator {
     /// # Invariant
     ///
     /// For `qualifying = true`, the `"corporates"` key must be present in
-    /// `params.cq_delta_weights`. [`validate_simm_params`] enforces this at
+    /// `params.cq_delta_weights`. `validate_simm_params` enforces this at
     /// construction time, so the fallback below should be dead code; it is
     /// retained as a defensive safety net that logs loudly if ever hit.
     pub fn calculate_credit_delta(&self, cs01: f64, qualifying: bool) -> f64 {

@@ -1,9 +1,0 @@
-// Extension tests.
-//
-// Note: Cargo only discovers integration tests that are direct children of `tests/`.
-// This file wires in the nested extensions test modules so they run.
-//
-// Full execution tests (corkscrew, scorecards) live in finstack-statements-analytics/tests/.
-
-#[path = "extensions/extensions_tests.rs"]
-mod extensions_tests;

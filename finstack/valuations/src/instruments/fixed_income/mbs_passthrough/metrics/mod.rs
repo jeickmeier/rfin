@@ -6,10 +6,10 @@
 //!   model price to market price
 //! - **Effective Duration**: Duration accounting for prepayment sensitivity
 //! - **Effective Convexity**: Convexity accounting for prepayment sensitivity
-//! - **Key-Rate DV01**: Bucketed interest rate sensitivities
+//! - **Bucketed DV01**: Key-rate bucketed interest-rate sensitivities via
+//!   the generic `UnifiedDv01Calculator` with triangular key-rate config.
 
 pub(crate) mod duration;
-pub(crate) mod key_rate;
 #[allow(dead_code)] // Public API items used by external bindings
 pub(crate) mod mc_oas;
 pub(crate) mod oas;

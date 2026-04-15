@@ -277,7 +277,7 @@ impl McEngine {
     ///
     /// This method extends [`Self::price`] by validating and attaching
     /// [`ProcessParams`] metadata and by returning a [`MonteCarloResult`] that
-    /// may include a [`PathDataset`].
+    /// may include a captured [`crate::paths::PathDataset`].
     ///
     /// # Arguments
     ///

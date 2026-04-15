@@ -39,7 +39,7 @@
 //!             roll_mode: TimeRollMode::BusinessDays,
 //!         },
 //!         OperationSpec::CurveParallelBp {
-//!             curve_kind: finstack_scenarios::CurveKind::Hazard,
+//!             curve_kind: finstack_scenarios::CurveKind::ParCDS,
 //!             curve_id: "AAPL-CDS".into(),
 //!             discount_curve_id: None,
 //!             bp: 25.0,
@@ -140,10 +140,10 @@ impl HorizonAnalysis {
     /// internally) and runs P&L attribution between the original and
     /// scenario-modified states.
     ///
-    /// The spec may include a [`OperationSpec::TimeRollForward`] to define
-    /// the holding period.  If no time-roll is present, the analysis is a
-    /// pure mark-to-scenario (carry will be zero, `horizon_days` will be
-    /// `None`).
+    /// The spec may include a [`crate::spec::OperationSpec::TimeRollForward`]
+    /// to define the holding period.  If no time-roll is present, the
+    /// analysis is a pure mark-to-scenario (carry will be zero, `horizon_days`
+    /// will be `None`).
     ///
     /// # Errors
     ///

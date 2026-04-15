@@ -5,7 +5,7 @@
 //! - [`self::discount`]: PV = sum(CF_i * DF_i) using discount curves
 //! - [`self::hazard`]: Survival-weighted PV + fractional recovery of par (FRP)
 //! - [`self::tree`]: Binomial/trinomial tree for callable/putable bonds and OAS
-//! - [`self::merton_mc`]: Merton structural credit Monte Carlo for PIK bonds
+//! - `merton_mc`: Merton structural credit Monte Carlo for PIK bonds (when `mc` feature is enabled)
 
 /// Discount curve-based bond pricing (PV = sum CF_i * DF_i).
 pub mod discount;

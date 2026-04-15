@@ -191,7 +191,7 @@ impl CheckSuiteSpec {
     /// Resolve the spec into a runnable [`CheckSuite`].
     ///
     /// Only built-in checks are materialized; [`FormulaCheckSpec`] entries
-    /// require the analytics crate's [`FormulaCheck`] and must be resolved
+    /// require the analytics crate's `FormulaCheck` and must be resolved
     /// separately.
     pub fn resolve(&self) -> Result<CheckSuite> {
         let mut builder = CheckSuite::builder(&self.name);

@@ -16,13 +16,13 @@
 //! heavier methodologies are substantially more expensive and introduce more
 //! moving parts in production pipelines.
 //!
-//! | Tier         | Entry point                       | Use when                                    |
-//! |--------------|-----------------------------------|---------------------------------------------|
-//! | Minimal      | [`simple_pnl_bridge`]             | You just want total P&L, no decomposition   |
-//! | Linear       | [`attribute_pnl_metrics_based`]   | Fast daily attribution for small moves      |
-//! | Parallel     | [`attribute_pnl_parallel`]        | Factor isolation with a residual line       |
-//! | Waterfall    | [`attribute_pnl_waterfall`]       | Sum-preserving, path-ordered decomposition  |
-//! | Taylor       | [`attribute_pnl_taylor`]          | Second-order sensitivity-based breakdown    |
+//! | Tier         | Entry point                                                      | Use when                                    |
+//! |--------------|------------------------------------------------------------------|---------------------------------------------|
+//! | Minimal      | [`crate::attribution::simple_pnl_bridge`]                        | You just want total P&L, no decomposition   |
+//! | Linear       | [`crate::attribution::attribute_pnl_metrics_based`]              | Fast daily attribution for small moves      |
+//! | Parallel     | [`crate::attribution::attribute_pnl_parallel`]                   | Factor isolation with a residual line       |
+//! | Waterfall    | [`crate::attribution::attribute_pnl_waterfall`]                  | Sum-preserving, path-ordered decomposition  |
+//! | Taylor       | [`crate::attribution::attribute_pnl_taylor`]                     | Second-order sensitivity-based breakdown    |
 //!
 //! The simple bridge is a single function (~30 LOC). The linear path uses
 //! pre-computed metrics (DV01, theta, etc.) and is the right default for most
@@ -380,14 +380,14 @@ use std::sync::Arc;
 ///
 /// ```rust,no_run
 /// use finstack_valuations::attribution::simple_pnl_bridge;
-/// use finstack_valuations::instruments::common_impl::traits::Instrument;
+/// use finstack_valuations::instruments::internal::InstrumentExt;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::context::MarketContext;
 /// use std::sync::Arc;
 /// use time::macros::date;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let instrument: Arc<dyn Instrument> = unimplemented!("obtain the instrument under test");
+/// # let instrument: Arc<dyn InstrumentExt> = unimplemented!("obtain the instrument under test");
 /// let market_t0 = MarketContext::new();
 /// let market_t1 = MarketContext::new();
 ///

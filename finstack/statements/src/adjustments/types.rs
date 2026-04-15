@@ -54,11 +54,6 @@ pub enum AdjustmentValue {
         /// Percentage to apply (e.g., 0.05 for 5%)
         percentage: f64,
     },
-    /// Custom formula expression (future expansion)
-    Formula {
-        /// Formula string
-        expression: String,
-    },
 }
 
 /// Defines a cap on an adjustment.

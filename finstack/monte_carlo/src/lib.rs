@@ -21,7 +21,7 @@
 //! - Heston, CIR, Hull-White, jump-diffusion, Bates, and Schwartz-Smith models
 //! - Euler / Milstein / QE discretizations, path-dependent payoffs, LSMC, Greeks,
 //!   and advanced variance reduction
-//! - deterministic seed helpers in [`seed`]
+//! - deterministic seed helpers in [`crate::seed`]
 //!
 //! The `parallel` feature enables Rayon-backed path simulation. Parallel mode
 //! requires an RNG that supports deterministic stream splitting, such as

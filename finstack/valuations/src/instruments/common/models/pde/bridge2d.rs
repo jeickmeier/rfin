@@ -32,7 +32,8 @@ use super::problem2d::PdeProblem2D;
 ///
 /// # Fields
 ///
-/// All parameters follow the conventions in [`finstack_valuations::HestonParams`].
+/// All parameters follow the conventions in
+/// [`crate::instruments::common::models::closed_form::heston::HestonParams`].
 pub struct HestonPde {
     /// Risk-free interest rate (continuous, decimal).
     pub r: f64,

@@ -15,15 +15,15 @@
 //!
 //! | Feature       | Sub-crate                      |
 //! |---------------|--------------------------------|
-//! | `core`        | [`finstack-core`]              |
-//! | `analytics`   | [`finstack-analytics`]         |
-//! | `correlation` | [`finstack-correlation`]       |
-//! | `margin`      | [`finstack-margin`]            |
-//! | `monte_carlo` | [`finstack-monte-carlo`]       |
-//! | `valuations`  | [`finstack-valuations`]        |
-//! | `statements`  | [`finstack-statements`]        |
-//! | `portfolio`   | [`finstack-portfolio`]         |
-//! | `scenarios`   | [`finstack-scenarios`]         |
+//! | `core`        | [`finstack_core`]              |
+//! | `analytics`   | [`finstack_analytics`]         |
+//! | `correlation` | [`finstack_correlation`]       |
+//! | `margin`      | [`finstack_margin`]            |
+//! | `monte_carlo` | [`finstack_monte_carlo`]       |
+//! | `valuations`  | [`finstack_valuations`]        |
+//! | `statements`  | [`finstack_statements`]        |
+//! | `portfolio`   | [`finstack_portfolio`]         |
+//! | `scenarios`   | [`finstack_scenarios`]         |
 //!
 //! Enable `all` to pull in every sub-crate at once.
 

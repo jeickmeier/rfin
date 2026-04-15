@@ -1,17 +1,15 @@
 //! Concrete extension implementations.
 //!
-//! These modules still implement the deprecated
-//! [`finstack_statements::extensions::Extension`] trait for backwards
-//! compatibility. Prefer the inherent methods on the concrete extension
-//! structs instead.
-//!
-//! - [`corkscrew`] — roll-forward validation for balance-sheet accounts
-//! - [`scorecards`] — credit scorecard rating assignment
-
-#![allow(deprecated)]
+//! - [`crate::extensions::corkscrew`] — roll-forward validation for balance-sheet accounts
+//! - [`crate::extensions::scorecards`] — credit scorecard rating assignment
 
 pub mod corkscrew;
 pub mod scorecards;
 
-pub use corkscrew::{AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension};
-pub use scorecards::{CreditScorecardExtension, ScorecardConfig, ScorecardMetric};
+pub use corkscrew::{
+    AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CorkscrewReport,
+    CorkscrewStatus,
+};
+pub use scorecards::{
+    CreditScorecardExtension, ScorecardConfig, ScorecardMetric, ScorecardReport, ScorecardStatus,
+};

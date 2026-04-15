@@ -9,8 +9,6 @@ mod inflation01;
 mod inflation_convexity;
 mod real_duration;
 mod real_yield;
-// mod theta; // removed - using GenericThetaAny
-// risk_bucketed_dv01 and dv01 - now using generic implementations
 
 pub(crate) use breakeven_inflation::BreakevenInflationCalculator;
 pub(crate) use index_ratio::IndexRatioCalculator;
@@ -18,8 +16,6 @@ pub(crate) use inflation01::Inflation01Calculator;
 pub(crate) use inflation_convexity::InflationConvexityCalculator;
 pub(crate) use real_duration::RealDurationCalculator;
 pub(crate) use real_yield::RealYieldCalculator;
-// pub use theta::ThetaCalculator; // removed - using GenericThetaAny
-// BucketedDv01Calculator now using generic implementation
 
 use crate::metrics::MetricId;
 use crate::metrics::MetricRegistry;

@@ -203,7 +203,8 @@ fn compute_cross_derivative(problem: &dyn PdeProblem2D, grid: &Grid2D, t: f64) -
 /// Apply the cross-derivative operator to a 2D solution vector.
 ///
 /// `u_full` has length `nx * ny` (row-major, including boundaries).
-/// `cross_coeffs` has length `nx_int * ny_int` from [`compute_cross_derivative`].
+/// `cross_coeffs` has length `nx_int * ny_int` from `compute_cross_derivative`
+/// (private helper in this module).
 ///
 /// Returns a flat vector of length `nx_int * ny_int` containing
 /// `a_xy / (4 hx hy) * [u(i+1,j+1) - u(i+1,j-1) - u(i-1,j+1) + u(i-1,j-1)]`.

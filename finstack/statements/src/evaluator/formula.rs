@@ -17,7 +17,7 @@
 //! - Growth rates > 100% produce warnings
 //!
 //! ## Precision
-//! - Equality comparisons use [`ZERO_TOLERANCE`](finstack_core::math::ZERO_TOLERANCE)
+//! - Equality comparisons use [`finstack_core::math::ZERO_TOLERANCE`]
 //! - Suitable for rate comparisons (0.01 bp precision)
 //! - Monetary comparisons should use the `Money` type for currency safety
 

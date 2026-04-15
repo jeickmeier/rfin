@@ -1,7 +1,8 @@
 //! Credit risk modeling primitives.
 //!
-//! Currently provides the [`migration`] module for credit migration modeling
-//! (JLT / CreditMetrics-style transition matrices and CTMC simulation).
+//! Currently provides the [`crate::credit::migration`] module for credit
+//! migration modeling (JLT / CreditMetrics-style transition matrices and
+//! CTMC simulation).
 //!
 //! Future phases will add:
 //! - Time-inhomogeneous generators (economic-state-conditional migration).

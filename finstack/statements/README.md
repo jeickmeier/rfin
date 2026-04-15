@@ -7,7 +7,6 @@
 - Built-in metrics are compile-time embedded. Deployments do not need a runtime `data/metrics` directory.
 - Capital-structure-aware formulas require `Evaluator::evaluate_with_market_context()` with both `market_ctx` and `as_of`.
 - DCF valuation now fails closed on missing `currency`, `debt`, or `cash` inputs unless the caller provides explicit overrides.
-- Extension execution validates `context.config` on targeted `ExtensionRegistry::execute(name, ...)` calls. Registry-wide `execute_all()` and `execute_all_safe()` intentionally strip extension-specific runtime config.
 - Monte Carlo results preserve path-evaluation warnings when the simulated paths remain finite. Non-finite Monte Carlo path values are treated as hard failures during aggregation.
 
 ## Feature Flags

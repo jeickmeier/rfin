@@ -202,7 +202,7 @@ impl MetricRegistry {
             .unwrap_or(false)
     }
 
-    /// Gets registered metrics organized by [`MetricGroup`].
+    /// Gets registered metrics organized by [`super::ids::MetricGroup`].
     ///
     /// Returns only groups that have at least one registered metric. Within
     /// each group, metrics are sorted alphabetically. Useful for building

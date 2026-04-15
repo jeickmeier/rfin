@@ -1,7 +1,7 @@
 //! Higher-level pricing entry points built on top of [`crate::engine::McEngine`].
 //!
 //! Start with [`european`] for a compact GBM-only API. Under the `mc` feature,
-//! [`path_dependent`] and [`lsmc`] expose richer workflows for path-dependent
+//! `path_dependent` and `lsmc` expose richer workflows for path-dependent
 //! contracts and early-exercise problems.
 //!
 //! These pricers bundle process, discretization, and engine choices for common

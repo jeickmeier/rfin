@@ -2,8 +2,8 @@
 //!
 //! **Naming note:** This module defines *market-risk factor models* used for
 //! sensitivity-based portfolio risk decomposition. The latent-variable factor
-//! models used for correlated default/prepayment simulation live in
-//! [`finstack_correlation::factor_model`].
+//! models used for correlated default/prepayment simulation live in the
+//! `finstack_correlation::factor_model` module (sibling crate).
 //!
 //! This module provides the lightweight building blocks needed to map market
 //! objects onto risk factors, attach covariance data, and choose how a pricing

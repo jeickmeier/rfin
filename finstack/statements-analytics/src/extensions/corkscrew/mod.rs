@@ -3,19 +3,14 @@
 //! This extension provides roll-forward validation for balance sheet accounts, ensuring
 //! that opening balances + changes = closing balances across periods.
 //!
-//! # Migration (v0.5)
-//!
-//! The `Extension` trait implementation in this module is deprecated;
-//! prefer calling [`CorkscrewExtension`] directly.
-//!
 //! # Features
 //!
-//! - ✅ Validate balance sheet articulation (Assets = Liabilities + Equity)
-//! - ✅ Track roll-forward schedules (beginning balance → changes → ending balance)
-//! - ✅ Detect inconsistencies in period-to-period transitions
-//! - ✅ Support for multiple balance sheet sections (assets, liabilities, equity)
-//! - ✅ Configurable tolerance for rounding differences
-//! - ✅ Optional fail-on-error mode for strict validation
+//! - Validate balance sheet articulation (Assets = Liabilities + Equity)
+//! - Track roll-forward schedules (beginning balance to changes to ending balance)
+//! - Detect inconsistencies in period-to-period transitions
+//! - Support for multiple balance sheet sections (assets, liabilities, equity)
+//! - Configurable tolerance for rounding differences
+//! - Optional fail-on-error mode for strict validation
 //!
 //! # Configuration Schema
 //!
@@ -40,28 +35,39 @@
 //! # Example Usage
 //!
 //! ```rust,no_run
-//! use finstack_statements_analytics::extensions::CorkscrewExtension;
-//! use finstack_statements::extensions::{ExtensionRegistry, ExtensionContext};
+//! use finstack_statements_analytics::extensions::{
+//!     CorkscrewExtension, CorkscrewConfig, CorkscrewAccount, AccountType,
+//! };
+//! use finstack_statements::evaluator::{Evaluator, StatementResult};
+//! use finstack_statements::types::FinancialModelSpec;
 //!
 //! # fn main() -> finstack_statements::Result<()> {
-//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
-//! let config = serde_json::json!({
-//!   "accounts": [{"node_id": "cash", "account_type": "asset"}]
-//! });
-//! let mut registry = ExtensionRegistry::new();
-//! registry.register(Box::new(CorkscrewExtension::new()))?;
-//! let results = registry.execute("corkscrew", &context.with_config(&config))?;
-//! # let _ = results;
+//! # let model: FinancialModelSpec = unimplemented!("build a model");
+//! let mut evaluator = Evaluator::new();
+//! let results = evaluator.evaluate(&model)?;
+//!
+//! let config = CorkscrewConfig {
+//!     accounts: vec![CorkscrewAccount {
+//!         node_id: "cash".into(),
+//!         account_type: AccountType::Asset,
+//!         changes: vec!["cash_inflows".into(), "cash_outflows".into()],
+//!         beginning_balance_node: None,
+//!     }],
+//!     tolerance: 0.01,
+//!     fail_on_error: false,
+//! };
+//!
+//! let mut extension = CorkscrewExtension::with_config(config);
+//! let report = extension.execute(&model, &results)?;
+//! assert_eq!(report.status, finstack_statements_analytics::extensions::CorkscrewStatus::Success);
 //! # Ok(())
 //! # }
 //! ```
 
-#![allow(deprecated)]
-
-use finstack_statements::extensions::{
-    Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,
-};
+use finstack_statements::evaluator::StatementResult;
+use finstack_statements::types::FinancialModelSpec;
 use finstack_statements::Result;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// Corkscrew analysis extension for balance sheet roll-forward validation.
@@ -134,6 +140,41 @@ fn default_tolerance() -> f64 {
     DEFAULT_CORKSCREW_TOLERANCE
 }
 
+/// Status of a corkscrew validation run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CorkscrewStatus {
+    /// Validation completed without fatal errors
+    Success,
+    /// Validation surfaced fatal errors
+    Failed,
+}
+
+/// Report produced by [`CorkscrewExtension::execute`].
+///
+/// Mirrors the historical extension result shape so existing callers can be
+/// migrated mechanically: status, message, structured data, warnings, errors.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorkscrewReport {
+    /// Overall execution status
+    pub status: CorkscrewStatus,
+
+    /// Human-readable summary
+    pub message: String,
+
+    /// Structured output (e.g. per-account validations as JSON)
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub data: IndexMap<String, serde_json::Value>,
+
+    /// Warnings (non-fatal)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
+
+    /// Errors (fatal in strict mode, otherwise reported)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
+}
+
 impl CorkscrewExtension {
     /// Create a new corkscrew extension with default configuration.
     ///
@@ -170,28 +211,111 @@ impl CorkscrewExtension {
         self.config = Some(config);
     }
 
-    fn resolve_config<'a>(&'a self, context: &'a ExtensionContext) -> Result<CorkscrewConfig> {
-        if let Some(config) = context.config {
-            serde_json::from_value(config.clone()).map_err(|e| {
-                finstack_statements::error::Error::invalid_input(format!(
-                    "Invalid corkscrew configuration: {}",
-                    e
-                ))
-            })
-        } else {
-            self.config.clone().ok_or_else(|| {
-                finstack_statements::error::Error::registry(
-                    "Corkscrew extension requires configuration",
-                )
-            })
+    /// Run corkscrew validation against the provided model and evaluation results.
+    ///
+    /// Requires that [`CorkscrewExtension::with_config`] or
+    /// [`CorkscrewExtension::set_config`] has supplied a configuration; otherwise
+    /// returns an error.
+    ///
+    /// # Arguments
+    /// * `model` - The evaluated financial model
+    /// * `results` - Evaluation output to inspect
+    pub fn execute(
+        &mut self,
+        model: &FinancialModelSpec,
+        results: &StatementResult,
+    ) -> Result<CorkscrewReport> {
+        let _span = tracing::info_span!("statements_analytics.corkscrew.execute").entered();
+
+        let config = self.config.clone().ok_or_else(|| {
+            finstack_statements::error::Error::registry(
+                "Corkscrew extension requires configuration",
+            )
+        })?;
+
+        let mut validations = Vec::new();
+        let mut errors = Vec::new();
+        let mut warnings = Vec::new();
+
+        // Process each configured account
+        for account in &config.accounts {
+            match self.validate_account(account, model, results, config.tolerance) {
+                Ok(validation) => validations.push(validation),
+                Err(e) => {
+                    if config.fail_on_error {
+                        return Err(e);
+                    } else {
+                        errors.push(format!("Account '{}': {}", account.node_id, e));
+                    }
+                }
+            }
         }
+
+        // Check for balance sheet articulation using actual balances
+        if let Some(articulation_result) =
+            self.check_articulation(model, results, &config, config.tolerance)
+        {
+            if !articulation_result.is_balanced {
+                let msg = format!(
+                    "Balance sheet not articulated. Total imbalance: {:.2}",
+                    articulation_result.total_imbalance
+                );
+                if config.fail_on_error {
+                    errors.push(msg);
+                } else {
+                    warnings.push(msg);
+                }
+            }
+        }
+
+        // Build report
+        let (status, message) = if errors.is_empty() {
+            (
+                CorkscrewStatus::Success,
+                format!(
+                    "Corkscrew validation complete. {} accounts validated.",
+                    validations.len()
+                ),
+            )
+        } else {
+            (
+                CorkscrewStatus::Failed,
+                format!("Corkscrew validation failed with {} errors", errors.len()),
+            )
+        };
+
+        let mut data = IndexMap::new();
+        data.insert(
+            "validations".into(),
+            serde_json::json!(validations
+                .iter()
+                .map(|v| {
+                    serde_json::json!({
+                        "account": v.account_id,
+                        "type": v.account_type,
+                        "periods_validated": v.periods_validated,
+                        "max_error": v.max_error,
+                        "is_valid": v.is_valid,
+                    })
+                })
+                .collect::<Vec<_>>()),
+        );
+
+        Ok(CorkscrewReport {
+            status,
+            message,
+            data,
+            warnings,
+            errors,
+        })
     }
 
     /// Validate a single account's roll-forward schedule.
     fn validate_account(
         &self,
         account: &CorkscrewAccount,
-        context: &ExtensionContext,
+        model: &FinancialModelSpec,
+        results: &StatementResult,
         tolerance: f64,
     ) -> Result<AccountValidation> {
         let mut validation = AccountValidation {
@@ -203,7 +327,7 @@ impl CorkscrewExtension {
         };
 
         // Get balance values from results
-        let balance_values = context.results.nodes.get(&account.node_id).ok_or_else(|| {
+        let balance_values = results.nodes.get(&account.node_id).ok_or_else(|| {
             finstack_statements::error::Error::registry(format!(
                 "Balance account '{}' not found in results",
                 account.node_id
@@ -211,7 +335,7 @@ impl CorkscrewExtension {
         })?;
 
         // Get change values and validate roll-forward
-        let periods: Vec<_> = context.model.periods.iter().collect();
+        let periods: Vec<_> = model.periods.iter().collect();
 
         for i in 1..periods.len() {
             let prev_period = &periods[i - 1].id;
@@ -226,7 +350,7 @@ impl CorkscrewExtension {
 
             // Add changes for this period
             for change_node_id in &account.changes {
-                if let Some(change_values) = context.results.nodes.get(change_node_id) {
+                if let Some(change_values) = results.nodes.get(change_node_id) {
                     if let Some(change) = change_values.get(curr_period) {
                         expected_balance += change;
                     }
@@ -235,7 +359,7 @@ impl CorkscrewExtension {
 
             // Check if beginning balance override is used
             if let Some(beginning_node) = &account.beginning_balance_node {
-                if let Some(beginning_values) = context.results.nodes.get(beginning_node) {
+                if let Some(beginning_values) = results.nodes.get(beginning_node) {
                     if let Some(beginning) = beginning_values.get(curr_period) {
                         expected_balance = beginning + expected_balance - prev_balance;
                     }
@@ -262,11 +386,12 @@ impl CorkscrewExtension {
     /// Uses an absolute tolerance matching the configured rounding threshold.
     fn check_articulation(
         &self,
-        context: &ExtensionContext,
+        model: &FinancialModelSpec,
+        results: &StatementResult,
         config: &CorkscrewConfig,
         tolerance: f64,
     ) -> Option<ArticulationResult> {
-        let last_period = context.model.periods.last()?;
+        let last_period = model.periods.last()?;
         let period_id = &last_period.id;
 
         let mut assets = 0.0;
@@ -275,7 +400,7 @@ impl CorkscrewExtension {
         let mut has_balance_sheet = false;
 
         for account in &config.accounts {
-            if let Some(node_values) = context.results.nodes.get(&account.node_id) {
+            if let Some(node_values) = results.nodes.get(&account.node_id) {
                 if let Some(balance) = node_values.get(period_id) {
                     has_balance_sheet = true;
                     match account.account_type {
@@ -322,161 +447,6 @@ impl Default for CorkscrewExtension {
     }
 }
 
-impl Extension for CorkscrewExtension {
-    fn metadata(&self) -> ExtensionMetadata {
-        ExtensionMetadata {
-            name: "corkscrew".into(),
-            version: "0.1.0".into(),
-            description: Some("Balance sheet roll-forward validation (corkscrew analysis)".into()),
-            author: Some("Finstack Team".into()),
-        }
-    }
-
-    fn execute(&mut self, context: &ExtensionContext) -> Result<ExtensionResult> {
-        // Validate balance sheet roll-forward schedules
-        let config = self.resolve_config(context)?;
-
-        let mut validations = Vec::new();
-        let mut errors = Vec::new();
-        let mut warnings = Vec::new();
-
-        // Process each configured account
-        for account in &config.accounts {
-            match self.validate_account(account, context, config.tolerance) {
-                Ok(validation) => validations.push(validation),
-                Err(e) => {
-                    if config.fail_on_error {
-                        return Err(e);
-                    } else {
-                        errors.push(format!("Account '{}': {}", account.node_id, e));
-                    }
-                }
-            }
-        }
-
-        // Check for balance sheet articulation using actual balances
-        if let Some(articulation_result) =
-            self.check_articulation(context, &config, config.tolerance)
-        {
-            if !articulation_result.is_balanced {
-                let msg = format!(
-                    "Balance sheet not articulated. Total imbalance: {:.2}",
-                    articulation_result.total_imbalance
-                );
-                if config.fail_on_error {
-                    errors.push(msg);
-                } else {
-                    warnings.push(msg);
-                }
-            }
-        }
-
-        // Build result
-        let mut result = if errors.is_empty() {
-            ExtensionResult::success(format!(
-                "Corkscrew validation complete. {} accounts validated.",
-                validations.len()
-            ))
-        } else {
-            ExtensionResult::failure(format!(
-                "Corkscrew validation failed with {} errors",
-                errors.len()
-            ))
-        };
-
-        // Add validation data
-        result = result.with_data(
-            "validations",
-            serde_json::json!(validations
-                .iter()
-                .map(|v| {
-                    serde_json::json!({
-                        "account": v.account_id,
-                        "type": v.account_type,
-                        "periods_validated": v.periods_validated,
-                        "max_error": v.max_error,
-                        "is_valid": v.is_valid,
-                    })
-                })
-                .collect::<Vec<_>>()),
-        );
-
-        // Add warnings and errors
-        for warning in warnings {
-            result = result.with_warning(warning);
-        }
-        for error in errors {
-            result = result.with_error(error);
-        }
-
-        Ok(result)
-    }
-
-    fn is_enabled(&self) -> bool {
-        // Extension is always available but returns NotImplemented
-        true
-    }
-
-    fn config_schema(&self) -> Option<serde_json::Value> {
-        Some(serde_json::json!({
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "title": "CorkscrewConfig",
-            "type": "object",
-            "properties": {
-                "accounts": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["node_id", "account_type"],
-                        "properties": {
-                            "node_id": {
-                                "type": "string",
-                                "description": "Node ID for the balance account"
-                            },
-                            "account_type": {
-                                "type": "string",
-                                "enum": ["asset", "liability", "equity"],
-                                "description": "Type of balance sheet account"
-                            },
-                            "changes": {
-                                "type": "array",
-                                "items": { "type": "string" },
-                                "description": "Node IDs representing changes to the balance"
-                            },
-                            "beginning_balance_node": {
-                                "type": "string",
-                                "description": "Optional node ID for beginning balance override"
-                            }
-                        }
-                    }
-                },
-                "tolerance": {
-                    "type": "number",
-                    "default": 0.01,
-                    "description": "Tolerance for rounding differences"
-                },
-                "fail_on_error": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Whether to fail on inconsistencies"
-                }
-            }
-        }))
-    }
-
-    fn validate_config(&self, config: &serde_json::Value) -> Result<()> {
-        // Validate configuration structure
-        let _: CorkscrewConfig = serde_json::from_value(config.clone()).map_err(|e| {
-            finstack_statements::error::Error::invalid_input(format!(
-                "Invalid corkscrew configuration: {}",
-                e
-            ))
-        })?;
-
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -484,17 +454,12 @@ mod tests {
     use finstack_core::dates::PeriodId;
     use finstack_statements::builder::ModelBuilder;
     use finstack_statements::evaluator::Evaluator;
-    use finstack_statements::extensions::ExtensionStatus;
     use finstack_statements::types::AmountOrScalar;
 
     #[test]
     fn test_corkscrew_extension_creation() {
         let extension = CorkscrewExtension::new();
-        let metadata = extension.metadata();
-
-        assert_eq!(metadata.name, "corkscrew");
-        assert_eq!(metadata.version, "0.1.0");
-        assert!(extension.is_enabled());
+        assert!(extension.config().is_none());
     }
 
     #[test]
@@ -524,16 +489,12 @@ mod tests {
 
     #[test]
     fn test_corkscrew_execute_requires_config() {
-        use finstack_statements::evaluator::StatementResult;
-        use finstack_statements::types::FinancialModelSpec;
-
         let model = FinancialModelSpec::new("test", Vec::new());
         let results = StatementResult::new();
-        let context = ExtensionContext::new(&model, &results);
 
         let mut extension = CorkscrewExtension::new();
         // Without config, should return an error
-        let result = extension.execute(&context);
+        let result = extension.execute(&model, &results);
 
         assert!(result.is_err());
         assert!(result
@@ -543,7 +504,7 @@ mod tests {
     }
 
     #[test]
-    fn test_corkscrew_execute_accepts_runtime_context_config() {
+    fn test_corkscrew_execute_with_empty_accounts() {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q1", None)
             .expect("valid periods")
@@ -558,57 +519,17 @@ mod tests {
             .evaluate(&model)
             .expect("evaluation should succeed");
 
-        let config = serde_json::json!({
-            "accounts": [],
-            "fail_on_error": false
-        });
-        let context = ExtensionContext::new(&model, &results).with_config(&config);
+        let config = CorkscrewConfig {
+            accounts: vec![],
+            tolerance: 0.01,
+            fail_on_error: false,
+        };
 
-        let mut extension = CorkscrewExtension::new();
-        let result = extension
-            .execute(&context)
-            .expect("runtime config should be accepted");
-        assert_eq!(result.status, ExtensionStatus::Success);
-    }
-
-    #[test]
-    fn test_corkscrew_config_schema() {
-        let extension = CorkscrewExtension::new();
-        let schema = extension.config_schema();
-
-        assert!(schema.is_some());
-        let schema_obj = schema.expect("test should succeed");
-        assert!(schema_obj.get("properties").is_some());
-    }
-
-    #[test]
-    fn test_corkscrew_config_validation() {
-        let extension = CorkscrewExtension::new();
-
-        let valid_config = serde_json::json!({
-            "accounts": [
-                {
-                    "node_id": "cash",
-                    "account_type": "asset",
-                    "changes": ["inflows", "outflows"]
-                }
-            ],
-            "tolerance": 0.01,
-            "fail_on_error": false
-        });
-
-        assert!(extension.validate_config(&valid_config).is_ok());
-    }
-
-    #[test]
-    fn test_corkscrew_config_validation_invalid() {
-        let extension = CorkscrewExtension::new();
-
-        let invalid_config = serde_json::json!({
-            "accounts": "not_an_array"
-        });
-
-        assert!(extension.validate_config(&invalid_config).is_err());
+        let mut extension = CorkscrewExtension::with_config(config);
+        let report = extension
+            .execute(&model, &results)
+            .expect("empty accounts should succeed");
+        assert_eq!(report.status, CorkscrewStatus::Success);
     }
 
     #[test]
@@ -678,19 +599,18 @@ mod tests {
         };
 
         let mut extension = CorkscrewExtension::with_config(config);
-        let context = ExtensionContext::new(&model, &results);
-        let result = extension
-            .execute(&context)
+        let report = extension
+            .execute(&model, &results)
             .expect("extension should execute");
 
-        assert_eq!(result.status, ExtensionStatus::Failed);
+        assert_eq!(report.status, CorkscrewStatus::Failed);
         assert!(
-            result
+            report
                 .errors
                 .iter()
                 .any(|msg| msg.contains("Balance sheet not articulated")),
             "expected articulation failure, got {:?}",
-            result.errors
+            report.errors
         );
     }
 }

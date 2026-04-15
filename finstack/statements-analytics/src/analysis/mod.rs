@@ -2,13 +2,13 @@
 //!
 //! This module provides tools for:
 //!
-//! - **[`valuation`]** — DCF corporate valuation and the orchestrated analysis pipeline
-//! - **[`credit`]** — Covenant forecasting and credit coverage metrics
-//! - **[`scenarios`]** — Scenario sets, sensitivity sweeps, variance, and Monte Carlo
-//! - **[`introspection`]** — Dependency tracing and formula explanation
-//! - **[`reports`]** — Formatted P&L summaries and credit assessment reports
-//! - **[`goal_seek`]** — Root-finding for target metric values
-//! - **[`backtesting`]** — Forecast accuracy metrics
+//! - **[`crate::analysis::valuation`]** — DCF corporate valuation and the orchestrated analysis pipeline
+//! - **[`crate::analysis::credit`]** — Covenant forecasting and credit coverage metrics
+//! - **[`crate::analysis::scenarios`]** — Scenario sets, sensitivity sweeps, variance, and Monte Carlo
+//! - **[`crate::analysis::introspection`]** — Dependency tracing and formula explanation
+//! - **[`crate::analysis::reports`]** — Formatted P&L summaries and credit assessment reports
+//! - **[`mod@crate::analysis::goal_seek`]** — Root-finding for target metric values
+//! - **[`crate::analysis::backtesting`]** — Forecast accuracy metrics
 //!
 //! ## Where To Start
 //!
