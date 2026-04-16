@@ -2,6 +2,7 @@
 
 pub mod context;
 pub mod curves;
+pub mod dtsm;
 pub mod fx;
 
 use pyo3::prelude::*;
@@ -44,6 +45,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     curves::register(py, &m)?;
     fx::register(py, &m)?;
     context::register(py, &m)?;
+    dtsm::register(py, &m)?;
 
     promote_from_submodule(&m, "curves")?;
     promote_from_submodule(&m, "fx")?;
@@ -55,6 +57,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "curves",
             "fx",
             "context",
+            "dtsm",
             "DiscountCurve",
             "ForwardCurve",
             "HazardCurve",
