@@ -1,5 +1,6 @@
 //! Python bindings for `finstack_core::market_data` term structures and context.
 
+pub mod arbitrage;
 pub mod context;
 pub mod curves;
 pub mod dtsm;
@@ -46,6 +47,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     fx::register(py, &m)?;
     context::register(py, &m)?;
     dtsm::register(py, &m)?;
+    arbitrage::register(py, &m)?;
 
     promote_from_submodule(&m, "curves")?;
     promote_from_submodule(&m, "fx")?;
@@ -58,6 +60,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "fx",
             "context",
             "dtsm",
+            "arbitrage",
             "DiscountCurve",
             "ForwardCurve",
             "HazardCurve",
