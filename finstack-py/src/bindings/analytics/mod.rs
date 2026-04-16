@@ -4,6 +4,7 @@
 //! and result types for benchmarks, drawdowns, rolling metrics, and ruin estimation.
 
 mod backtesting;
+mod comps;
 mod functions;
 mod performance;
 mod timeseries;
@@ -25,6 +26,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     functions::register(py, &m)?;
     backtesting::register(py, &m)?;
     timeseries::register(py, &m)?;
+    comps::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -144,6 +146,13 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "aic",
             "bic",
             "hqic",
+            // Comparable company analysis
+            "percentile_rank",
+            "z_score",
+            "peer_stats",
+            "regression_fair_value",
+            "compute_multiple",
+            "score_relative_value",
         ],
     )?;
     m.setattr("__all__", all)?;
