@@ -644,15 +644,13 @@ mod tests {
         // --- Floating-strike lookback call ---
         // Just inside tolerance (limiting form): b = 1e-4 - eps ≈ 0
         let r_inside = q + super::RATE_EQ_DIV_TOL - eps;
-        let call_inside =
-            floating_strike_lookback_call(spot, time, r_inside, q, vol, s_min);
+        let call_inside = floating_strike_lookback_call(spot, time, r_inside, q, vol, s_min);
         // Just outside tolerance (general form): b = 1e-4 + eps
         let r_outside = q + super::RATE_EQ_DIV_TOL + eps;
-        let call_outside =
-            floating_strike_lookback_call(spot, time, r_outside, q, vol, s_min);
+        let call_outside = floating_strike_lookback_call(spot, time, r_outside, q, vol, s_min);
 
-        let rel_diff_call = (call_inside - call_outside).abs()
-            / call_inside.max(call_outside).max(1e-10);
+        let rel_diff_call =
+            (call_inside - call_outside).abs() / call_inside.max(call_outside).max(1e-10);
         assert!(
             rel_diff_call < 1e-3,
             "Floating-strike lookback call should be continuous at RATE_EQ_DIV_TOL boundary: \
@@ -660,13 +658,11 @@ mod tests {
         );
 
         // --- Floating-strike lookback put ---
-        let put_inside =
-            floating_strike_lookback_put(spot, time, r_inside, q, vol, s_max);
-        let put_outside =
-            floating_strike_lookback_put(spot, time, r_outside, q, vol, s_max);
+        let put_inside = floating_strike_lookback_put(spot, time, r_inside, q, vol, s_max);
+        let put_outside = floating_strike_lookback_put(spot, time, r_outside, q, vol, s_max);
 
-        let rel_diff_put = (put_inside - put_outside).abs()
-            / put_inside.max(put_outside).max(1e-10);
+        let rel_diff_put =
+            (put_inside - put_outside).abs() / put_inside.max(put_outside).max(1e-10);
         assert!(
             rel_diff_put < 1e-3,
             "Floating-strike lookback put should be continuous at RATE_EQ_DIV_TOL boundary: \

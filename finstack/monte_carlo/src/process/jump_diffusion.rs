@@ -137,7 +137,9 @@ impl MertonJumpProcess {
         mu_j: f64,
         sigma_j: f64,
     ) -> finstack_core::Result<Self> {
-        Ok(Self::new(MertonJumpParams::new(r, q, sigma, lambda, mu_j, sigma_j)?))
+        Ok(Self::new(MertonJumpParams::new(
+            r, q, sigma, lambda, mu_j, sigma_j,
+        )?))
     }
 
     /// Get parameters.

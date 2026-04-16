@@ -480,7 +480,10 @@ mod tests {
             .expect("engine should build");
         let rng = PhiloxRng::new(42);
         let process = MultiGbmProcess::new(
-            vec![GbmParams::new(0.0, 0.0, 0.0).unwrap(), GbmParams::new(0.0, 0.0, 0.0).unwrap()],
+            vec![
+                GbmParams::new(0.0, 0.0, 0.0).unwrap(),
+                GbmParams::new(0.0, 0.0, 0.0).unwrap(),
+            ],
             None,
         );
         let disc = ExactMultiGbm::new();
