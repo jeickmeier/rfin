@@ -5,6 +5,7 @@
 
 mod calculators;
 mod metrics;
+mod regulatory;
 mod types;
 mod xva;
 
@@ -23,6 +24,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     calculators::register(py, &m)?;
     xva::register(py, &m)?;
     metrics::register(py, &m)?;
+    regulatory::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -54,6 +56,11 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "ExcessCollateral",
             "MarginFundingCost",
             "Haircut01",
+            // Regulatory (FRTB SBA + SA-CCR)
+            "FrtbSensitivities",
+            "SaCcrTrade",
+            "frtb_sba_charge",
+            "saccr_ead",
         ],
     )?;
     m.setattr("__all__", all)?;

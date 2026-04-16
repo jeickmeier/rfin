@@ -35,6 +35,10 @@ __all__ = [
     "ExcessCollateral",
     "MarginFundingCost",
     "Haircut01",
+    "FrtbSensitivities",
+    "SaCcrTrade",
+    "frtb_sba_charge",
+    "saccr_ead",
 ]
 
 CONSTANTS: Final[dict[str, str]] = ...
@@ -2803,3 +2807,229 @@ class Haircut01:
         ...
 
     def __repr__(self) -> str: ...
+
+
+class FrtbSensitivities:
+    """FRTB sensitivity portfolio for the Sensitivity-Based Approach.
+
+    Build up delta / vega / curvature inputs with the ``add_*`` methods, then
+    pass to :func:`frtb_sba_charge` to compute the capital charge under one or
+    more correlation scenarios per BCBS d457.
+
+    Parameters
+    ----------
+    base_currency : str, default "USD"
+        Reporting / base currency ISO code.
+
+    Examples
+    --------
+    >>> sens = FrtbSensitivities("USD")
+    >>> sens.add_girr_delta("5Y", 100_000.0)
+    """
+
+    def __init__(self, base_currency: str = "USD") -> None: ...
+
+    @staticmethod
+    def from_json(json: str) -> FrtbSensitivities:
+        """Construct from a JSON serialization."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize to a JSON string."""
+        ...
+
+    def add_girr_delta(
+        self, tenor: str, amount: float, currency: str | None = None
+    ) -> None:
+        """Add a GIRR delta sensitivity (currency per 1bp)."""
+        ...
+
+    def add_csr_delta(
+        self, issuer: str, bucket: int, tenor: str, amount: float
+    ) -> None:
+        """Add a CSR (non-securitization) delta sensitivity."""
+        ...
+
+    def add_equity_delta(self, underlier: str, bucket: int, amount: float) -> None:
+        """Add an equity delta sensitivity."""
+        ...
+
+    def add_fx_delta(self, ccy1: str, ccy2: str, amount: float) -> None:
+        """Add an FX delta sensitivity for the pair (ccy1, ccy2)."""
+        ...
+
+    def add_commodity_delta(
+        self, name: str, bucket: int, tenor: str, amount: float
+    ) -> None:
+        """Add a commodity delta sensitivity."""
+        ...
+
+    def add_girr_vega(
+        self,
+        option_maturity: str,
+        underlying_tenor: str,
+        amount: float,
+        currency: str | None = None,
+    ) -> None:
+        """Add a GIRR vega sensitivity."""
+        ...
+
+    def add_equity_vega(
+        self, underlier: str, bucket: int, maturity: str, amount: float
+    ) -> None:
+        """Add an equity vega sensitivity."""
+        ...
+
+    def add_fx_vega(
+        self, ccy1: str, ccy2: str, maturity: str, amount: float
+    ) -> None:
+        """Add an FX vega sensitivity."""
+        ...
+
+    def add_girr_curvature(
+        self, cvr_up: float, cvr_down: float, currency: str | None = None
+    ) -> None:
+        """Add a GIRR curvature sensitivity."""
+        ...
+
+    def add_equity_curvature(
+        self, underlier: str, bucket: int, cvr_up: float, cvr_down: float
+    ) -> None:
+        """Add an equity curvature sensitivity."""
+        ...
+
+    def add_fx_curvature(
+        self, ccy1: str, ccy2: str, cvr_up: float, cvr_down: float
+    ) -> None:
+        """Add an FX curvature sensitivity."""
+        ...
+
+    def add_rrao_position(
+        self, instrument_id: str, notional: float, is_exotic: bool = False
+    ) -> None:
+        """Add a Residual Risk Add-On position."""
+        ...
+
+    @property
+    def base_currency(self) -> str:
+        """Base / reporting currency code."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+
+class SaCcrTrade:
+    """A derivative trade for SA-CCR EAD computation per BCBS 279.
+
+    Parameters
+    ----------
+    trade_id : str
+        Unique trade identifier.
+    asset_class : str
+        One of ``"ir"``, ``"fx"``, ``"credit"``, ``"equity"``, ``"commodity"``.
+    notional : float
+        Adjusted notional in reporting currency.
+    start_year, start_month, start_day : int
+        Trade start date.
+    end_year, end_month, end_day : int
+        Trade end / maturity date.
+    underlier : str
+        Underlier reference (e.g., currency pair, issuer, equity name).
+    hedging_set : str
+        Hedging-set identifier used for within-class offsetting.
+    direction : float, default 1.0
+        ``+1.0`` for long, ``-1.0`` for short.
+    mtm : float, default 0.0
+        Current mark-to-market value.
+    """
+
+    def __init__(
+        self,
+        trade_id: str,
+        asset_class: str,
+        notional: float,
+        start_year: int,
+        start_month: int,
+        start_day: int,
+        end_year: int,
+        end_month: int,
+        end_day: int,
+        underlier: str,
+        hedging_set: str,
+        direction: float = 1.0,
+        mtm: float = 0.0,
+    ) -> None: ...
+
+    @staticmethod
+    def from_json(json: str) -> SaCcrTrade:
+        """Construct from a JSON serialization."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize to a JSON string."""
+        ...
+
+    @property
+    def trade_id(self) -> str: ...
+    @property
+    def asset_class(self) -> str: ...
+    @property
+    def notional(self) -> float: ...
+    @property
+    def mtm(self) -> float: ...
+    def __repr__(self) -> str: ...
+
+
+def frtb_sba_charge(
+    sensitivities: FrtbSensitivities, correlation_scenario: str | None = None
+) -> tuple[float, dict]:
+    """Compute the FRTB SBA capital charge.
+
+    Parameters
+    ----------
+    sensitivities : FrtbSensitivities
+        Portfolio of FRTB sensitivities (delta, vega, curvature, DRC, RRAO).
+    correlation_scenario : str or None, optional
+        If provided (``"low"``, ``"medium"``, or ``"high"``), only that scenario
+        is evaluated. Otherwise all three are run and the max-binding one is
+        reported per BCBS d457.
+
+    Returns
+    -------
+    tuple[float, dict]
+        ``(total_charge, breakdown)`` where ``breakdown`` has keys
+        ``delta``, ``vega``, ``curvature`` (each dict of risk class -> charge),
+        plus ``drc``, ``rrao``, ``binding_scenario``, and
+        ``scenario_charges``.
+
+    Examples
+    --------
+    >>> sens = FrtbSensitivities("USD")
+    >>> sens.add_girr_delta("5Y", 100_000.0)
+    >>> total, breakdown = frtb_sba_charge(sens)
+    >>> total > 0.0
+    True
+    """
+    ...
+
+
+def saccr_ead(
+    trades: list[SaCcrTrade], margined: bool = False, collateral: float = 0.0
+) -> tuple[float, float, float]:
+    """Compute SA-CCR Exposure at Default per BCBS 279.
+
+    Parameters
+    ----------
+    trades : list[SaCcrTrade]
+        Derivative trades making up the netting set.
+    margined : bool, default False
+        Whether the netting set is subject to a daily margin agreement.
+    collateral : float, default 0.0
+        Net collateral currently held (positive = bank holds collateral).
+
+    Returns
+    -------
+    tuple[float, float, float]
+        ``(rc, pfe, ead)`` where ``ead = alpha * (rc + pfe)`` with alpha = 1.4.
+    """
+    ...

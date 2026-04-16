@@ -30,6 +30,10 @@ MarginUtilization = _margin.MarginUtilization
 ExcessCollateral = _margin.ExcessCollateral
 MarginFundingCost = _margin.MarginFundingCost
 Haircut01 = _margin.Haircut01
+FrtbSensitivities = _margin.FrtbSensitivities
+SaCcrTrade = _margin.SaCcrTrade
+frtb_sba_charge = _margin.frtb_sba_charge
+saccr_ead = _margin.saccr_ead
 
 __all__: list[str] = [
     "CONSTANTS",
@@ -41,6 +45,7 @@ __all__: list[str] = [
     "ExcessCollateral",
     "ExposureDiagnostics",
     "ExposureProfile",
+    "FrtbSensitivities",
     "FundingConfig",
     "Haircut01",
     "ImMethodology",
@@ -50,9 +55,12 @@ __all__: list[str] = [
     "MarginTenor",
     "MarginUtilization",
     "NettingSetId",
+    "SaCcrTrade",
     "VmCalculator",
     "VmResult",
     "XvaConfig",
     "XvaNettingSet",
     "XvaResult",
+    "frtb_sba_charge",
+    "saccr_ead",
 ]
