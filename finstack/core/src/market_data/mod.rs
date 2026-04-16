@@ -68,6 +68,11 @@
 //! - Volatility surfaces:
 //!   `docs/REFERENCES.md#gatheral-volatility-surface`
 
+/// Volatility surface arbitrage detection framework.
+///
+/// Model-free checks (butterfly, calendar spread, local vol density)
+/// and SVI-specific checks (moment bounds, density, cross-slice).
+pub mod arbitrage;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
 /// Dynamic term structure models (Diebold-Li, PCA).
