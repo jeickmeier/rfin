@@ -126,7 +126,12 @@ pub use cashflows::{
 };
 pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};
-pub use factor_model::{FactorModel, FactorModelBuilder, RiskDecomposition};
+pub use factor_model::{
+    DecompositionConfig, DecompositionMethod, FactorModel, FactorModelBuilder,
+    HistoricalPositionDecomposer, ParametricPositionDecomposer, PositionEsContribution,
+    PositionRiskDecomposer, PositionRiskDecomposition, PositionVarContribution, RiskBudget,
+    RiskBudgetResult, RiskDecomposition,
+};
 pub use liquidity::{
     score_portfolio_liquidity, LiquidityConfig, LiquidityProfile, LiquidityTier, LvarCalculator,
     PortfolioLiquidityReport,
