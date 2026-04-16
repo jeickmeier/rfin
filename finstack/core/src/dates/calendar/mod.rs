@@ -98,7 +98,7 @@ pub use business_days::{adjust, available_calendars, BusinessDayConvention, Holi
 pub use composite::{CompositeCalendar, CompositeMode};
 pub use registry::{CalendarId, CalendarRegistry};
 pub use rule::{Direction, Observed, Rule};
-pub use types::Calendar;
+pub use types::{Calendar, WeekendRule};
 
 // Include generated calendar implementations.
 //

@@ -83,12 +83,13 @@ use tracing::debug;
 struct BuildState {
     flows: Vec<CashFlow>,
     outstanding_after: finstack_core::HashMap<Date, f64>,
-    /// Outstanding balance tracked as f64 for performance.
+    /// Outstanding balance tracked as `Decimal` for accounting-grade precision.
     ///
-    /// For typical instruments (< 200 periods), f64 accumulation error is negligible
-    /// (< 1e-12 relative error). For very long-dated instruments with many small
-    /// cashflows, consider validating final outstanding against expected value.
-    outstanding: f64,
+    /// Using `Decimal` eliminates f64 accumulation drift that can exceed 1 bp
+    /// relative error on very long-dated instruments with many small cashflows
+    /// (e.g., 600+ period amortizers). Converted to f64 only at API boundaries
+    /// when passing to emission functions that operate in f64 space.
+    outstanding: Decimal,
 }
 
 /// Principal event applied during schedule build (draws/repays).
@@ -232,6 +233,18 @@ fn derive_amortization_setup(
     })
 }
 
+/// Convert an f64 to Decimal, returning `Decimal::ZERO` for non-finite values.
+///
+/// This is used for converting `Money::amount()` (always finite for valid Money)
+/// into Decimal for outstanding balance tracking. The fallback to ZERO is a
+/// defensive guard — valid Money values will always convert successfully.
+fn f64_to_decimal_saturating(value: f64) -> Decimal {
+    if !value.is_finite() {
+        return Decimal::ZERO;
+    }
+    Decimal::try_from(value).unwrap_or(Decimal::ZERO)
+}
+
 fn initialize_build_state(
     issue: Date,
     notional: &Notional,
@@ -255,8 +268,8 @@ fn initialize_build_state(
         });
     }
 
-    // Start with initial notional amount
-    let mut outstanding = notional.initial.amount();
+    // Start with initial notional amount — use Decimal for precision
+    let mut outstanding = f64_to_decimal_saturating(notional.initial.amount());
 
     // Process principal events at or before issue date to set up initial outstanding.
     // This is critical when initial notional is 0 and principal events define the draws.
@@ -278,15 +291,17 @@ fn initialize_build_state(
                 accrual_factor: 0.0,
                 rate: None,
             });
-            outstanding += ev.delta.amount();
+            outstanding += f64_to_decimal_saturating(ev.delta.amount());
         }
     }
 
-    // Pre-allocate outstanding_after based on number of dates
+    // Pre-allocate outstanding_after based on number of dates.
+    // Convert Decimal outstanding to f64 for the history map (used by coupon/fee emission).
+    let outstanding_f64 = outstanding.to_f64().unwrap_or(0.0);
     let mut outstanding_after: finstack_core::HashMap<Date, f64> =
         finstack_core::HashMap::default();
     outstanding_after.reserve(estimated_dates);
-    outstanding_after.insert(issue, outstanding);
+    outstanding_after.insert(issue, outstanding_f64);
 
     BuildState {
         flows,
@@ -367,12 +382,15 @@ impl<'a> DateProcessor<'a> {
     }
 
     /// Emit fixed and floating coupons, returning total PIK amount to capitalize.
+    ///
+    /// Converts Decimal outstanding to f64 at the emission boundary.
     fn emit_coupons(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<f64> {
+        let outstanding_f64 = state.outstanding.to_f64().unwrap_or(0.0);
         let pik_f = emit_fixed_coupons_on(
             d,
             self.ctx.fixed_schedules,
             &state.outstanding_after,
-            state.outstanding,
+            outstanding_f64,
             self.ctx.ccy,
             &mut state.flows,
         )?;
@@ -380,7 +398,7 @@ impl<'a> DateProcessor<'a> {
             d,
             self.ctx.float_schedules,
             &state.outstanding_after,
-            state.outstanding,
+            outstanding_f64,
             self.ctx.ccy,
             self.resolved_curves,
             &mut state.flows,
@@ -389,6 +407,10 @@ impl<'a> DateProcessor<'a> {
     }
 
     /// Emit amortization flows based on the amortization spec.
+    ///
+    /// Bridges the Decimal outstanding to the f64-based emission function by
+    /// passing a temporary f64, then applying the delta back to the Decimal
+    /// outstanding for precision-preserving accumulation.
     fn emit_amortization(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
         let amort_params = AmortizationParams {
             ccy: self.ctx.ccy,
@@ -397,23 +419,35 @@ impl<'a> DateProcessor<'a> {
             percent_per: self.amort_setup.percent_per,
             step_remaining_map: &self.amort_setup.step_remaining_map,
         };
+        // Snapshot f64 outstanding before emission, then compute delta
+        let before = state.outstanding.to_f64().unwrap_or(0.0);
+        let mut outstanding_f64 = before;
         emit_amortization_on(
             d,
             self.ctx.notional,
-            &mut state.outstanding,
+            &mut outstanding_f64,
             &amort_params,
             d == self.ctx.maturity,
             &mut state.flows,
-        )
+        )?;
+        // Apply the amortization delta to the Decimal outstanding
+        let delta = outstanding_f64 - before;
+        if delta != 0.0 {
+            state.outstanding += f64_to_decimal_saturating(delta);
+        }
+        Ok(())
     }
 
     /// Emit fee flows (periodic and fixed).
+    ///
+    /// Converts Decimal outstanding to f64 at the emission boundary.
     fn emit_fees(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
+        let outstanding_f64 = state.outstanding.to_f64().unwrap_or(0.0);
         emit_fees_on(
             d,
             self.ctx.periodic_fees,
             self.ctx.fixed_fees,
-            state.outstanding,
+            outstanding_f64,
             &state.outstanding_after,
             self.ctx.ccy,
             &mut state.flows,
@@ -440,23 +474,24 @@ impl<'a> DateProcessor<'a> {
                     accrual_factor: 0.0,
                     rate: None,
                 });
-                state.outstanding += ev.delta.amount();
+                state.outstanding += f64_to_decimal_saturating(ev.delta.amount());
             }
         }
     }
 
     /// Handle maturity redemption: emit final principal repayment if outstanding > 0.
     fn handle_maturity(&self, d: Date, state: &mut BuildState) {
-        if d == self.ctx.maturity && state.outstanding > 0.0 {
+        if d == self.ctx.maturity && state.outstanding > Decimal::ZERO {
+            let outstanding_f64 = state.outstanding.to_f64().unwrap_or(0.0);
             state.flows.push(CashFlow {
                 date: d,
                 reset_date: None,
-                amount: Money::new(state.outstanding, self.ctx.ccy),
+                amount: Money::new(outstanding_f64, self.ctx.ccy),
                 kind: CFKind::Notional,
                 accrual_factor: 0.0,
                 rate: None,
             });
-            state.outstanding = 0.0;
+            state.outstanding = Decimal::ZERO;
         }
     }
 
@@ -491,7 +526,7 @@ impl<'a> DateProcessor<'a> {
 
         // 3. PIK capitalization (increases outstanding for future periods)
         if pik_to_add > 0.0 {
-            state.outstanding += pik_to_add;
+            state.outstanding += f64_to_decimal_saturating(pik_to_add);
         }
 
         // 4. Fees
@@ -503,8 +538,9 @@ impl<'a> DateProcessor<'a> {
         // 6. Maturity handling
         self.handle_maturity(d, &mut state);
 
-        // Record outstanding for this date
-        state.outstanding_after.insert(d, state.outstanding);
+        // Record outstanding for this date (convert Decimal to f64 for history map)
+        let outstanding_f64 = state.outstanding.to_f64().unwrap_or(0.0);
+        state.outstanding_after.insert(d, outstanding_f64);
 
         Ok(state)
     }
@@ -1588,28 +1624,45 @@ impl PreparedCashFlow {
         // After processing every scheduled date (including maturity's principal
         // repayment), a well-formed schedule for a standard bullet/amortizing
         // instrument should leave `state.outstanding ≈ 0`. A non-trivial
-        // residual indicates either amortization schedule misconfiguration
-        // (percentages that don't sum to 100%) or accumulated f64 drift from
-        // very long-dated flows. Warn above 1bp relative so production
+        // residual indicates amortization schedule misconfiguration
+        // (percentages that don't sum to 100%). With Decimal tracking,
+        // accumulated drift is eliminated; any residual is a genuine
+        // configuration issue. Warn above 1bp relative so production
         // misconfigurations surface in logs instead of silently biasing
         // downstream PV and duration calculations.
         //
         // This is a warning, not an error: revolving facilities with draws
         // past maturity or user-defined terminal events may legitimately
         // end with a non-zero balance, and we don't want to reject those.
-        const OUTSTANDING_BALANCE_WARN_THRESHOLD: f64 = 1e-4; // 1 bp relative
+        let threshold = Decimal::new(1, 4); // 1e-4 = 1 bp relative
         let initial_amount = self.notional.initial.amount();
         if initial_amount.abs() > 0.0 {
-            let relative_residual = state.outstanding.abs() / initial_amount.abs();
-            if relative_residual > OUTSTANDING_BALANCE_WARN_THRESHOLD {
-                tracing::warn!(
-                    initial = initial_amount,
-                    final_outstanding = state.outstanding,
-                    relative_residual,
-                    threshold_bps = 1.0,
-                    "PreparedCashFlow: final outstanding balance deviates from zero; \
-                     check amortization schedule or instrument terminal flow"
-                );
+            let initial_dec = f64_to_decimal_saturating(initial_amount);
+            // Guard against zero initial (already checked above, but defensive)
+            if initial_dec != Decimal::ZERO {
+                let abs_outstanding = if state.outstanding < Decimal::ZERO {
+                    -state.outstanding
+                } else {
+                    state.outstanding
+                };
+                let abs_initial = if initial_dec < Decimal::ZERO {
+                    -initial_dec
+                } else {
+                    initial_dec
+                };
+                let relative_residual = abs_outstanding / abs_initial;
+                if relative_residual > threshold {
+                    let final_outstanding = state.outstanding.to_f64().unwrap_or(0.0);
+                    let relative_residual_f64 = relative_residual.to_f64().unwrap_or(0.0);
+                    tracing::warn!(
+                        initial = initial_amount,
+                        final_outstanding,
+                        relative_residual = relative_residual_f64,
+                        threshold_bps = 1.0,
+                        "PreparedCashFlow: final outstanding balance deviates from zero; \
+                         check amortization schedule or instrument terminal flow"
+                    );
+                }
             }
         }
 

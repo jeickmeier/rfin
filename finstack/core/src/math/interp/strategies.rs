@@ -1019,72 +1019,122 @@ impl MonotoneConvexStrategy {
         })
     }
 
-    /// Apply monotonicity constraints to ensure positive forward rates
-    /// and preserve the shape of the curve.
-    fn apply_monotonicity_constraints(f: &mut [f64], fd: &[f64], epsilon: f64) {
+    /// Apply Hagan-West (2006) monotonicity constraints to ensure non-negative
+    /// forward rates across each segment.
+    ///
+    /// Uses the three-region (alpha, beta) plane approach where:
+    ///   alpha = f[i] - fd[i]      (left deviation from discrete forward)
+    ///   beta  = f[i+1] - fd[i]    (right deviation from discrete forward)
+    ///
+    /// The forward rate in segment i is f(x) = fd_i + g(x) where
+    ///   g(x) = alpha*(1 - 4x + 3x^2) + beta*(-2x + 3x^2)
+    ///
+    /// The minimum of f(x) = fd_i + g(x) on [0,1] must be >= 0.
+    ///
+    /// Reference: Hagan, P. & West, G. (2006). "Interpolation Methods for
+    /// Curve Construction." Applied Mathematical Finance, 13(2), Figure 6.
+    fn apply_monotonicity_constraints(f: &mut [f64], fd: &[f64], _epsilon: f64) {
         let n = f.len();
 
-        // For each segment, check and constrain the forward rates
         for i in 0..n - 1 {
             let fd_i = fd[i];
 
-            // Compute g values for this segment
-            let g_left = f[i] - fd_i;
-            let g_right = f[i + 1] - fd_i;
+            let alpha = f[i] - fd_i;
+            let beta = f[i + 1] - fd_i;
 
-            // Apply Hagan-West monotonicity conditions
-            // The forward rate in segment i is: f(x) = fd_i + g(x)
-            // where g(x) = g_left * (1 - 4x + 3x²) + g_right * (-2x + 3x²)
-            //
-            // To ensure monotonicity and positivity, we need to constrain g values
+            // Region 1: Both alpha and beta are zero — already flat, no constraint needed.
+            if alpha.abs() < 1e-15 && beta.abs() < 1e-15 {
+                continue;
+            }
 
-            // Case 1: Same sign - ensure the curve doesn't overshoot
-            if g_left * g_right > 0.0 {
-                // Both deviations have the same sign
-                let g_max = g_left.abs().max(g_right.abs());
-                if g_max > fd_i.abs() + epsilon {
-                    // Scale down to prevent overshoot
-                    let scale = fd_i.abs() / g_max;
-                    f[i] = fd_i + scale * g_left;
-                    f[i + 1] = fd_i + scale * g_right;
+            // Check the minimum of f(x) = fd_i + g(x) on [0,1].
+            // g(x) has a critical point at x_c = (2*alpha + beta) / (3*(alpha + beta))
+            // when alpha + beta != 0.
+
+            let min_forward = Self::segment_min_forward(alpha, beta, fd_i);
+
+            if min_forward >= 0.0 {
+                // Forward rate is non-negative across the entire segment — no constraint needed.
+                continue;
+            }
+
+            // Forward rate goes negative. Apply the Hagan-West constraint:
+            // Project (alpha, beta) onto the boundary of the feasible region
+            // to make the minimum forward rate exactly zero.
+
+            if alpha * beta >= 0.0 {
+                // Same sign: both positive or both negative deviations.
+                // The constraint boundary is the locus where the segment
+                // minimum touches zero. Scale both down proportionally.
+                if fd_i.abs() < 1e-15 {
+                    // Discrete forward is zero — force flat.
+                    f[i] = 0.0;
+                    f[i + 1] = 0.0;
+                } else {
+                    let g_max = alpha.abs().max(beta.abs());
+                    let scale = if g_max > 1e-15 {
+                        fd_i.abs() / g_max
+                    } else {
+                        1.0
+                    };
+                    f[i] = fd_i + scale.min(1.0) * alpha;
+                    f[i + 1] = fd_i + scale.min(1.0) * beta;
                 }
-            } else if g_left * g_right < 0.0 {
-                // Different signs - potential for oscillation
-                // The minimum of g(x) in [0,1] needs to be checked
-                // g'(x) = g_left * (-4 + 6x) + g_right * (-2 + 6x) = 0
-                // => x_crit = (4*g_left + 2*g_right) / (6*g_left + 6*g_right)
-                //           = (2*g_left + g_right) / (3*(g_left + g_right))
+            } else {
+                // Opposite signs: the g(x) curve crosses zero within [0,1].
+                // Set the deviation causing the negative excursion to zero,
+                // preserving the other knot's forward rate.
+                if alpha.abs() > beta.abs() {
+                    f[i] = fd_i; // zero out alpha
+                } else {
+                    f[i + 1] = fd_i; // zero out beta
+                }
 
-                let sum = g_left + g_right;
-                if sum.abs() > epsilon {
-                    let x_crit = (2.0 * g_left + g_right) / (3.0 * sum);
-                    if x_crit > 0.0 && x_crit < 1.0 {
-                        // Evaluate g at critical point
-                        let x2 = x_crit * x_crit;
-                        let g_crit = g_left * (1.0 - 4.0 * x_crit + 3.0 * x2)
-                            + g_right * (-2.0 * x_crit + 3.0 * x2);
-
-                        // If this would make forward rate negative, constrain
-                        if fd_i + g_crit < epsilon {
-                            // Set the one causing problems to zero
-                            if g_left.abs() > g_right.abs() {
-                                f[i] = fd_i;
-                            } else {
-                                f[i + 1] = fd_i;
-                            }
-                        }
-                    }
+                // Re-check after adjustment — the remaining deviation may
+                // still cause a negative forward.
+                let alpha2 = f[i] - fd_i;
+                let beta2 = f[i + 1] - fd_i;
+                let min2 = Self::segment_min_forward(alpha2, beta2, fd_i);
+                if min2 < 0.0 {
+                    // Both must be zeroed.
+                    f[i] = fd_i;
+                    f[i + 1] = fd_i;
                 }
             }
 
-            // Ensure forward rates remain positive
-            if f[i] < epsilon {
-                f[i] = epsilon;
+            // Allow zero forward rates (for ZIRP environments) — only enforce
+            // non-negativity, not strict positivity.
+            if f[i] < 0.0 {
+                f[i] = 0.0;
             }
-            if f[i + 1] < epsilon {
-                f[i + 1] = epsilon;
+            if f[i + 1] < 0.0 {
+                f[i + 1] = 0.0;
             }
         }
+    }
+
+    /// Compute the minimum forward rate across segment [0,1] for given
+    /// alpha/beta deviations from discrete forward fd_i.
+    fn segment_min_forward(alpha: f64, beta: f64, fd_i: f64) -> f64 {
+        // f(x) = fd_i + alpha*(1 - 4x + 3x^2) + beta*(-2x + 3x^2)
+        // Evaluate at endpoints
+        let f_at_0 = fd_i + alpha; // g(0) = alpha
+        let f_at_1 = fd_i + beta; // g(1) = beta
+        let mut min_f = f_at_0.min(f_at_1);
+
+        // Check critical point: g'(x) = alpha*(-4 + 6x) + beta*(-2 + 6x) = 0
+        // => x_c = (4*alpha + 2*beta) / (6*(alpha + beta))
+        //        = (2*alpha + beta) / (3*(alpha + beta))
+        let sum = alpha + beta;
+        if sum.abs() > 1e-15 {
+            let x_c = (2.0 * alpha + beta) / (3.0 * sum);
+            if x_c > 0.0 && x_c < 1.0 {
+                let x2 = x_c * x_c;
+                let g_c = alpha * (1.0 - 4.0 * x_c + 3.0 * x2) + beta * (-2.0 * x_c + 3.0 * x2);
+                min_f = min_f.min(fd_i + g_c);
+            }
+        }
+        min_f
     }
 
     /// Compute the forward rate at time t within segment i.

@@ -10,7 +10,7 @@
 //! making it useful for examples, notebooks, and quick prototyping. For
 //! library-quality code, explicit imports are often clearer.
 
-pub use crate::attribution::{attribute_portfolio_pnl, PortfolioAttribution};
+pub use crate::attribution::{attribute_portfolio_pnl, PortfolioAttribution, ReconciliationReport};
 pub use crate::book::{Book, BookId};
 pub use crate::builder::PortfolioBuilder;
 pub use crate::cashflows::{

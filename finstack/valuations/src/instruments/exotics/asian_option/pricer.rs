@@ -305,6 +305,7 @@ impl AsianOptionMcPricer {
                             percentile_75: None,
                             min: None,
                             max: None,
+                            num_skipped: 0,
                         },
                         inst.notional.currency(),
                     )
@@ -434,6 +435,7 @@ impl AsianOptionMcPricer {
                             percentile_75: None,
                             min: None,
                             max: None,
+                            num_skipped: 0,
                         },
                         inst.notional.currency(),
                     )

@@ -27,7 +27,7 @@ use crate::types::{
     CollateralAssetClass, CollateralEligibility, EligibleCollateralSchedule, ImMethodology,
     ImParameters, MarginCallTiming, MarginTenor, MaturityConstraints, VmParameters,
 };
-use crate::SimmRiskClass;
+use crate::{SimmCreditSector, SimmRiskClass};
 
 mod embedded;
 mod merge;
@@ -221,6 +221,27 @@ pub struct SimmParams {
     pub curvature_scale_factor: f64,
     /// Concentration thresholds keyed by SIMM risk class.
     pub concentration_thresholds: HashMap<SimmRiskClass, f64>,
+    /// Credit qualifying bucket risk weights keyed by [`SimmCreditSector`].
+    ///
+    /// Maps each ISDA SIMM credit qualifying sector bucket to its risk weight.
+    /// When populated, enables bucket-level credit delta aggregation with
+    /// intra/inter-bucket diversification per ISDA SIMM v2.6.
+    pub cq_bucket_weights: HashMap<SimmCreditSector, f64>,
+    /// Intra-bucket name correlation for credit qualifying delta.
+    ///
+    /// Per ISDA SIMM v2.6, the correlation between distinct names within the
+    /// same credit qualifying sector bucket (typically 0.42).
+    pub cq_intra_bucket_correlation: f64,
+    /// Inter-bucket correlations for credit qualifying delta.
+    ///
+    /// Correlations between different ISDA SIMM credit qualifying sector
+    /// buckets, keyed by ordered sector pair.
+    pub cq_inter_bucket_correlations: HashMap<(SimmCreditSector, SimmCreditSector), f64>,
+    /// Per-bucket concentration thresholds for credit qualifying delta.
+    ///
+    /// When the net weighted sensitivity in a bucket exceeds its threshold,
+    /// a sqrt(|WS| / threshold) concentration factor is applied.
+    pub cq_concentration_thresholds: HashMap<SimmCreditSector, f64>,
 }
 
 static EMBEDDED_REGISTRY: OnceLock<MarginRegistry> = OnceLock::new();
@@ -528,6 +549,16 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
         let concentration_thresholds =
             parse_concentration_thresholds(&record.concentration_thresholds)?;
 
+        let cq_bucket_weights = default_cq_bucket_weights(&cq_delta_weights);
+        let cq_intra_bucket_correlation = 0.42;
+        let cq_inter_bucket_correlations = default_cq_inter_bucket_correlations();
+        let cq_concentration_thresholds = default_cq_concentration_thresholds(
+            concentration_thresholds
+                .get(&SimmRiskClass::CreditQualifying)
+                .copied()
+                .unwrap_or(9_500_000.0),
+        );
+
         let params = SimmParams {
             version,
             mpor_days: record.mpor_days,
@@ -548,6 +579,10 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             commodity_vega_weight,
             curvature_scale_factor,
             concentration_thresholds,
+            cq_bucket_weights,
+            cq_intra_bucket_correlation,
+            cq_inter_bucket_correlations,
+            cq_concentration_thresholds,
         };
 
         validate_simm_params(&params)?;
@@ -738,6 +773,102 @@ fn to_timing(record: &wire::MarginCallTimingRecord) -> MarginCallTiming {
 }
 
 fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskClass) {
+    if (a as u8) <= (b as u8) {
+        (a, b)
+    } else {
+        (b, a)
+    }
+}
+
+/// Build default per-sector bucket weights from the existing `cq_delta_weights` map.
+///
+/// Maps the three broad categories (sovereigns, financials, corporates) in the
+/// existing registry to the nine ISDA SIMM v2.6 credit qualifying sector buckets.
+/// Covered bonds use a lower weight (42); the Residual bucket uses 500.
+fn default_cq_bucket_weights(
+    cq_delta_weights: &HashMap<String, f64>,
+) -> HashMap<SimmCreditSector, f64> {
+    let sov = cq_delta_weights.get("sovereigns").copied().unwrap_or(85.0);
+    let fin = cq_delta_weights.get("financials").copied().unwrap_or(85.0);
+    let corp = cq_delta_weights.get("corporates").copied().unwrap_or(73.0);
+
+    [
+        (SimmCreditSector::Sovereign, sov),
+        (SimmCreditSector::Financial, fin),
+        (SimmCreditSector::BasicMaterials, corp),
+        (SimmCreditSector::ConsumerGoods, corp),
+        (SimmCreditSector::TechnologyMedia, corp),
+        (SimmCreditSector::HealthCare, corp),
+        (SimmCreditSector::Index, corp),
+        (SimmCreditSector::Securitized, 42.0),
+        (SimmCreditSector::Residual, 500.0),
+    ]
+    .into_iter()
+    .collect()
+}
+
+/// Build default inter-bucket correlations for credit qualifying sectors.
+///
+/// Uses a simplified single correlation value of 0.27 across all sector pairs
+/// per ISDA SIMM v2.6. The Residual bucket has zero correlation with all others.
+// TODO: Replace with the full ISDA SIMM v2.6 inter-bucket correlation matrix.
+fn default_cq_inter_bucket_correlations() -> HashMap<(SimmCreditSector, SimmCreditSector), f64> {
+    use SimmCreditSector::*;
+    let sectors = [
+        Sovereign,
+        Financial,
+        BasicMaterials,
+        ConsumerGoods,
+        TechnologyMedia,
+        HealthCare,
+        Index,
+        Securitized,
+        Residual,
+    ];
+    let mut map = HashMap::default();
+    for (i, &a) in sectors.iter().enumerate() {
+        for &b in sectors.iter().skip(i + 1) {
+            let rho = if a == Residual || b == Residual {
+                0.0
+            } else {
+                0.27
+            };
+            let key = ordered_credit_sector_pair(a, b);
+            map.insert(key, rho);
+        }
+    }
+    map
+}
+
+/// Build default per-bucket concentration thresholds for credit qualifying.
+///
+/// Uses the aggregate CQ concentration threshold for each bucket as a
+/// simplified default. Per ISDA SIMM v2.6, each bucket has its own
+/// concentration threshold; the full calibration table should be provided
+/// via registry overlay when available.
+// TODO: Replace with per-bucket calibrated thresholds from ISDA SIMM v2.6.
+fn default_cq_concentration_thresholds(aggregate_threshold: f64) -> HashMap<SimmCreditSector, f64> {
+    use SimmCreditSector::*;
+    [
+        Sovereign,
+        Financial,
+        BasicMaterials,
+        ConsumerGoods,
+        TechnologyMedia,
+        HealthCare,
+        Index,
+        Securitized,
+        Residual,
+    ]
+    .into_iter()
+    .map(|sector| (sector, aggregate_threshold))
+    .collect()
+}
+
+fn ordered_credit_sector_pair(
+    a: SimmCreditSector,
+    b: SimmCreditSector,
+) -> (SimmCreditSector, SimmCreditSector) {
     if (a as u8) <= (b as u8) {
         (a, b)
     } else {

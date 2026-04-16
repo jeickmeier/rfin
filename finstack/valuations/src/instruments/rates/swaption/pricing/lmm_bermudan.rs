@@ -304,6 +304,7 @@ pub fn price_bermudan_lmm(
         percentile_75: None,
         min: None,
         max: None,
+        num_skipped: 0,
     })
 }
 

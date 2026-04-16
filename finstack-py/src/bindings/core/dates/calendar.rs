@@ -119,6 +119,8 @@ pub struct PyCalendarMetadata {
     name: String,
     /// Whether weekends are ignored (all days are potentially business days).
     ignore_weekends: bool,
+    /// Weekend convention used by this calendar.
+    weekend_rule: String,
 }
 
 impl PyCalendarMetadata {
@@ -128,6 +130,7 @@ impl PyCalendarMetadata {
             id: m.id.to_string(),
             name: m.name.to_string(),
             ignore_weekends: m.ignore_weekends,
+            weekend_rule: format!("{:?}", m.weekend_rule),
         }
     }
 }
@@ -150,6 +153,12 @@ impl PyCalendarMetadata {
     #[getter]
     fn ignore_weekends(&self) -> bool {
         self.ignore_weekends
+    }
+
+    /// Weekend convention used by this calendar (e.g. "SaturdaySunday", "FridaySaturday").
+    #[getter]
+    fn weekend_rule(&self) -> &str {
+        &self.weekend_rule
     }
 
     fn __repr__(&self) -> String {

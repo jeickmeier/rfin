@@ -125,7 +125,7 @@ pub use calendar::registry::{CalendarId, CalendarRegistry};
 pub use calendar::rule::{Direction, Observed, Rule};
 
 // Concrete calendar type (used by generated calendars and optional custom calendars).
-pub use calendar::types::Calendar;
+pub use calendar::types::{Calendar, WeekendRule};
 
 mod periods;
 pub use periods::{

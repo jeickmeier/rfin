@@ -115,7 +115,7 @@ pub mod scenarios;
 pub mod replay;
 
 // Re-export key types
-pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
+pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution, ReconciliationReport};
 pub use book::{Book, BookId};
 pub use builder::PortfolioBuilder;
 pub use cashflows::{

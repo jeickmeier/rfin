@@ -213,7 +213,7 @@ impl Pcg64Rng {
         // different streams produce non-overlapping sequences.
         let state = ((stream as u128) << 64) | (seed as u128);
         Self {
-            inner: Pcg64::new(state, stream as u128 | 1), // Ensure odd increment
+            inner: Pcg64::new(state, ((stream as u128) << 1) | 1), // Unique odd increment per stream
             cached_normal: None,
         }
     }
@@ -437,6 +437,24 @@ mod tests {
         let v1: Vec<f64> = (0..10).map(|_| rng1.uniform()).collect();
         let v2: Vec<f64> = (0..10).map(|_| rng2.uniform()).collect();
         assert_ne!(v1, v2);
+    }
+
+    #[test]
+    fn test_pcg64_rng_adjacent_streams_truly_independent() {
+        // Verify that adjacent stream IDs (including even/odd pairs) use
+        // distinct PCG increments and produce uncorrelated sequences.
+        let pairs: &[(u64, u64)] = &[(0, 1), (2, 3), (100, 101), (0, 2), (1, 3)];
+        for &(s1, s2) in pairs {
+            let mut rng1 = Pcg64Rng::new_with_stream(42, s1);
+            let mut rng2 = Pcg64Rng::new_with_stream(42, s2);
+
+            let v1: Vec<f64> = (0..20).map(|_| rng1.uniform()).collect();
+            let v2: Vec<f64> = (0..20).map(|_| rng2.uniform()).collect();
+            assert_ne!(
+                v1, v2,
+                "Streams {s1} and {s2} must produce different sequences"
+            );
+        }
     }
 
     #[test]

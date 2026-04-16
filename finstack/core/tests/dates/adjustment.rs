@@ -298,6 +298,7 @@ impl HolidayCalendar for MetadataCal {
             id: "meta-cal",
             name: "Metadata Calendar",
             ignore_weekends: false,
+            weekend_rule: finstack_core::dates::WeekendRule::default(),
         })
     }
 }

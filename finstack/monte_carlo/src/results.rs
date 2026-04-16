@@ -44,6 +44,9 @@ pub struct MoneyEstimate {
     /// Optional maximum of captured discounted path values.
     #[serde(default)]
     pub max: Option<f64>,
+    /// Number of paths skipped due to non-finite payoff values.
+    #[serde(default)]
+    pub num_skipped: usize,
 }
 
 impl MoneyEstimate {
@@ -73,6 +76,7 @@ impl MoneyEstimate {
             percentile_75: estimate.percentile_75,
             min: estimate.min,
             max: estimate.max,
+            num_skipped: estimate.num_skipped,
         }
     }
 

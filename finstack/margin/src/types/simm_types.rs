@@ -182,6 +182,17 @@ pub struct SimmSensitivities {
     /// Values should be the signed curvature contributions in currency units
     /// before the SIMM curvature scale factor is applied.
     pub curvature: HashMap<SimmRiskClass, f64>,
+
+    /// Credit qualifying delta with sector bucket assignment.
+    ///
+    /// Keyed by `(sector, issuer/index, tenor)`. When populated, the SIMM
+    /// calculator uses bucket-level aggregation with intra/inter-bucket
+    /// diversification per ISDA SIMM v2.6 instead of the scalar fallback.
+    ///
+    /// This field is additive: callers that do not assign sectors can leave it
+    /// empty and only populate [`credit_qualifying_delta`](Self::credit_qualifying_delta),
+    /// which triggers the legacy scalar code path.
+    pub credit_qualifying_delta_bucketed: HashMap<(SimmCreditSector, String, String), f64>,
 }
 
 impl SimmSensitivities {
@@ -208,6 +219,7 @@ impl SimmSensitivities {
             fx_vega: HashMap::default(),
             commodity_delta: HashMap::default(),
             curvature: HashMap::default(),
+            credit_qualifying_delta_bucketed: HashMap::default(),
         }
     }
 
@@ -252,6 +264,32 @@ impl SimmSensitivities {
         }
     }
 
+    /// Add a credit delta sensitivity bucket with sector assignment.
+    ///
+    /// This populates the bucketed credit qualifying delta map used by the
+    /// SIMM bucket-level aggregation path. Sensitivities added here are
+    /// aggregated with intra/inter-bucket diversification.
+    ///
+    /// # Arguments
+    ///
+    /// * `sector` - ISDA SIMM credit qualifying sector bucket
+    /// * `name` - Issuer or index identifier
+    /// * `tenor` - Tenor bucket such as `"5Y"`
+    /// * `delta` - Signed CS01-style currency amount, typically currency per 1bp move
+    pub fn add_credit_delta_bucketed(
+        &mut self,
+        sector: SimmCreditSector,
+        name: impl Into<String>,
+        tenor: impl Into<String>,
+        delta: f64,
+    ) {
+        let key = (sector, name.into(), tenor.into());
+        *self
+            .credit_qualifying_delta_bucketed
+            .entry(key)
+            .or_insert(0.0) += delta;
+    }
+
     /// Add an equity delta sensitivity bucket.
     ///
     /// `delta` is a signed currency sensitivity for the named underlier.
@@ -289,6 +327,7 @@ impl SimmSensitivities {
             && self.fx_vega.is_empty()
             && self.commodity_delta.is_empty()
             && self.curvature.is_empty()
+            && self.credit_qualifying_delta_bucketed.is_empty()
     }
 
     /// Merge another set of sensitivities into this one.
@@ -330,6 +369,12 @@ impl SimmSensitivities {
         }
         for (&key, &value) in &other.curvature {
             *self.curvature.entry(key).or_insert(0.0) += value;
+        }
+        for (key, &value) in &other.credit_qualifying_delta_bucketed {
+            *self
+                .credit_qualifying_delta_bucketed
+                .entry(key.clone())
+                .or_insert(0.0) += value;
         }
     }
 

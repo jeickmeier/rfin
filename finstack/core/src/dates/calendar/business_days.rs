@@ -145,6 +145,8 @@ pub struct CalendarMetadata {
     pub name: &'static str,
     /// Whether weekends are ignored when classifying holidays.
     pub ignore_weekends: bool,
+    /// Weekend convention used by this calendar for business-day logic.
+    pub weekend_rule: super::types::WeekendRule,
 }
 
 /// Business day adjustment conventions per ISDA standards.

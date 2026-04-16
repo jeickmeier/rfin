@@ -139,14 +139,17 @@ pub fn convert_atm_volatility(
     // Initial guess derived from ATM approximations
     let guess = compute_initial_guess(vol, from_convention, to_convention, f);
 
-    // Objective: find sigma such that price(sigma, to_convention) = price_from
+    // Objective: find sigma such that price(sigma, to_convention) = price_from.
+    // Volatility is always positive; we clamp to a small floor to keep the
+    // pricing functions in their valid domain and avoid a non-smooth landscape.
+    const VOL_FLOOR: f64 = 1e-16;
     let objective = |sigma: f64| -> f64 {
-        let sigma_pos = sigma.abs();
+        let sigma_safe = sigma.max(VOL_FLOOR);
         let p = match to_convention {
-            VolatilityConvention::Normal => bachelier_call(f, f, sigma_pos, t),
-            VolatilityConvention::Lognormal => black_call(f, f, sigma_pos, t),
+            VolatilityConvention::Normal => bachelier_call(f, f, sigma_safe, t),
+            VolatilityConvention::Lognormal => black_call(f, f, sigma_safe, t),
             VolatilityConvention::ShiftedLognormal { shift } => {
-                black_shifted_call(f, f, sigma_pos, t, shift)
+                black_shifted_call(f, f, sigma_safe, t, shift)
             }
         };
         p - price_from
@@ -157,7 +160,7 @@ pub fn convert_atm_volatility(
 
     match solver.solve(objective, guess) {
         Ok(solved) => {
-            let result = solved.abs();
+            let result = solved.max(VOL_FLOOR);
             if result.is_finite() && result > 0.0 {
                 Ok(result)
             } else {

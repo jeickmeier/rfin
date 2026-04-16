@@ -159,6 +159,19 @@ pub struct PortfolioAttribution {
     pub scalars_detail: Option<ScalarsAttribution>,
 }
 
+/// Report from reconciling position-level P&L attribution against portfolio totals.
+///
+/// Verifies that the sum of all factor P&L buckets plus FX translation equals `total_pnl`.
+#[derive(Debug, Clone)]
+pub struct ReconciliationReport {
+    /// Total residual: `total_pnl - (sum of factor buckets + fx_translation_pnl)`.
+    pub total_residual: f64,
+    /// Whether the reconciliation passes within tolerance.
+    pub is_reconciled: bool,
+    /// Tolerance used for the check.
+    pub tolerance: f64,
+}
+
 struct PositionAttributionData {
     position_id: PositionId,
     pos_attr: PnlAttribution,
@@ -656,6 +669,40 @@ impl PortfolioAttribution {
 
         lines.join("\n")
     }
+
+    /// Check that the sum of all factor P&L buckets plus FX translation
+    /// reconciles against `total_pnl` within the given tolerance.
+    ///
+    /// This uses the portfolio-level (base-currency) aggregates, so no
+    /// additional FX conversion is needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `tolerance` - Absolute tolerance in base-currency units (e.g. 0.01
+    ///   for one-cent precision).
+    pub fn reconciliation_check(&self, tolerance: f64) -> ReconciliationReport {
+        let mut acc = NeumaierAccumulator::new();
+        acc.add(self.carry.amount());
+        acc.add(self.rates_curves_pnl.amount());
+        acc.add(self.credit_curves_pnl.amount());
+        acc.add(self.inflation_curves_pnl.amount());
+        acc.add(self.correlations_pnl.amount());
+        acc.add(self.fx_pnl.amount());
+        acc.add(self.vol_pnl.amount());
+        acc.add(self.model_params_pnl.amount());
+        acc.add(self.market_scalars_pnl.amount());
+        acc.add(self.residual.amount());
+        acc.add(self.fx_translation_pnl.amount());
+
+        let total_residual = self.total_pnl.amount() - acc.total();
+        let is_reconciled = total_residual.abs() <= tolerance;
+
+        ReconciliationReport {
+            total_residual,
+            is_reconciled,
+            tolerance,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -818,5 +865,84 @@ mod tests {
         let zero_rendered = zero_total.explain();
         assert!(zero_rendered.contains("Carry: USD 5.00 (0.0%)"));
         assert!(zero_rendered.contains("Residual: USD -5.00 (0.0%)"));
+    }
+
+    #[test]
+    fn test_reconciliation_check_passes_for_consistent_attribution() {
+        let base_ccy = Currency::USD;
+        let portfolio_attr = PortfolioAttribution {
+            total_pnl: Money::new(200.0, base_ccy),
+            carry: Money::new(20.0, base_ccy),
+            rates_curves_pnl: Money::new(100.0, base_ccy),
+            credit_curves_pnl: Money::new(10.0, base_ccy),
+            inflation_curves_pnl: Money::new(5.0, base_ccy),
+            correlations_pnl: Money::new(15.0, base_ccy),
+            fx_pnl: Money::new(25.0, base_ccy),
+            fx_translation_pnl: Money::new(10.0, base_ccy),
+            vol_pnl: Money::new(5.0, base_ccy),
+            model_params_pnl: Money::new(5.0, base_ccy),
+            market_scalars_pnl: Money::new(3.0, base_ccy),
+            residual: Money::new(2.0, base_ccy),
+            by_position: IndexMap::new(),
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        };
+
+        let report = portfolio_attr.reconciliation_check(0.01);
+        assert!(
+            report.is_reconciled,
+            "expected reconciliation to pass, residual = {}",
+            report.total_residual
+        );
+        assert!(
+            report.total_residual.abs() < 1e-10,
+            "residual should be ~0, got {}",
+            report.total_residual
+        );
+    }
+
+    #[test]
+    fn test_reconciliation_check_fails_when_totals_mismatch() {
+        let base_ccy = Currency::USD;
+        let zero = Money::new(0.0, base_ccy);
+        // total_pnl deliberately mismatches the sum of factor buckets
+        let portfolio_attr = PortfolioAttribution {
+            total_pnl: Money::new(1000.0, base_ccy),
+            carry: Money::new(100.0, base_ccy),
+            rates_curves_pnl: Money::new(500.0, base_ccy),
+            credit_curves_pnl: zero,
+            inflation_curves_pnl: zero,
+            correlations_pnl: zero,
+            fx_pnl: zero,
+            fx_translation_pnl: zero,
+            vol_pnl: zero,
+            model_params_pnl: zero,
+            market_scalars_pnl: zero,
+            residual: zero,
+            by_position: IndexMap::new(),
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        };
+
+        let report = portfolio_attr.reconciliation_check(0.01);
+        assert!(
+            !report.is_reconciled,
+            "expected reconciliation to fail for mismatched totals"
+        );
+        assert!(
+            (report.total_residual - 400.0).abs() < 1e-10,
+            "residual should be 400.0, got {}",
+            report.total_residual
+        );
     }
 }

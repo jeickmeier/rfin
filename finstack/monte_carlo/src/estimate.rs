@@ -39,6 +39,9 @@ pub struct Estimate {
     /// Optional maximum of captured discounted path values.
     #[serde(default)]
     pub max: Option<f64>,
+    /// Number of paths skipped due to non-finite payoff values.
+    #[serde(default)]
+    pub num_skipped: usize,
 }
 
 impl Estimate {
@@ -66,6 +69,7 @@ impl Estimate {
             percentile_75: None,
             min: None,
             max: None,
+            num_skipped: 0,
         }
     }
 
@@ -92,6 +96,12 @@ impl Estimate {
     pub fn with_range(mut self, min: f64, max: f64) -> Self {
         self.min = Some(min);
         self.max = Some(max);
+        self
+    }
+
+    /// Attach the count of paths skipped due to non-finite payoff values.
+    pub fn with_num_skipped(mut self, num_skipped: usize) -> Self {
+        self.num_skipped = num_skipped;
         self
     }
 
@@ -143,9 +153,13 @@ impl std::fmt::Display for Estimate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:.6} ± {:.6} [{:.6}, {:.6}] (n={})",
+            "{:.6} ± {:.6} [{:.6}, {:.6}] (n={}",
             self.mean, self.stderr, self.ci_95.0, self.ci_95.1, self.num_paths
-        )
+        )?;
+        if self.num_skipped > 0 {
+            write!(f, ", skipped={}", self.num_skipped)?;
+        }
+        write!(f, ")")
     }
 }
 

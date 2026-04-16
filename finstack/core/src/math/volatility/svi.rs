@@ -133,15 +133,41 @@ impl SviParams {
         Ok((w / t).sqrt())
     }
 
-    /// Validate SVI parameters against no-arbitrage constraints.
+    /// Validate SVI parameters against necessary no-arbitrage constraints.
+    ///
+    /// # Butterfly Arbitrage
+    ///
+    /// A butterfly arbitrage exists when the implied density (second derivative
+    /// of call prices with respect to strike) becomes negative, allowing a
+    /// riskless profit via a butterfly spread. The constraints below are
+    /// **necessary but not sufficient** to prevent this: they rule out the
+    /// most common violations but do not guarantee non-negative density
+    /// everywhere along the smile.
+    ///
+    /// Full absence of butterfly arbitrage requires verifying that the
+    /// local variance density `g(k) >= 0` for all log-moneyness `k`, per
+    /// Gatheral & Jacquier (2014) Theorem 4.1. That check is computationally
+    /// expensive and is **not** performed here. This is standard industry
+    /// practice — most production SVI implementations enforce only these
+    /// necessary conditions.
     ///
     /// # Conditions Checked
     ///
     /// 1. `b ≥ 0` — non-negative wing slope
-    /// 2. `σ > 0` — positive smoothing
+    /// 2. `σ > 0` — positive smoothing (controls curvature at the vertex)
     /// 3. `|ρ| < 1` — correlation in valid range
-    /// 4. `a + b × σ × √(1 - ρ²) ≥ 0` — non-negative minimum variance
-    /// 5. All parameters are finite
+    /// 4. `a + b × σ × √(1 - ρ²) ≥ 0` — non-negative minimum variance,
+    ///    ensuring `w(k) ≥ 0` at the vertex where total variance is minimized
+    /// 5. `b(1 + |ρ|) ≤ 2` — Roger Lee moment bound preventing butterfly
+    ///    arbitrage at extreme strikes by capping the asymptotic variance slope
+    /// 6. All parameters are finite
+    ///
+    /// # References
+    ///
+    /// - Gatheral, J., & Jacquier, A. (2014). "Arbitrage-free SVI volatility
+    ///   surfaces." *Quantitative Finance*, 14(1), 59-71. Theorem 4.1.
+    /// - Lee, R. (2004). "The Moment Formula for Implied Volatility at Extreme
+    ///   Strikes." *Mathematical Finance*, 14(3), 469-480.
     ///
     /// # Errors
     ///
@@ -513,6 +539,20 @@ mod tests {
             sigma: 0.1,
         };
         assert!(bad_arb.validate().is_err());
+
+        // Roger Lee moment bound violation: b*(1+|rho|) > 2
+        let bad_lee = SviParams {
+            a: 0.04,
+            b: 1.5,
+            rho: 0.5,
+            m: 0.0,
+            sigma: 0.1,
+        };
+        let err = bad_lee.validate().expect_err("Lee bound should fail");
+        assert!(
+            err.to_string().contains("Roger Lee"),
+            "Expected Lee bound error, got: {err}"
+        );
     }
 
     #[test]

@@ -810,3 +810,100 @@ fn test_price_with_capture_parallel_populates_captured_path_statistics() {
 
     assert_captured_path_statistics(&result);
 }
+
+#[test]
+fn test_num_skipped_defaults_to_zero() {
+    // Normal payoff: no skips expected.
+    let engine = McEngine::builder()
+        .num_paths(100)
+        .uniform_grid(1.0, 10)
+        .parallel(false)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let result = engine
+        .price(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect("pricing should succeed");
+
+    assert_eq!(result.num_skipped, 0);
+    assert_eq!(result.num_paths, 100);
+}
+
+#[test]
+fn test_estimate_num_skipped_builder() {
+    use crate::estimate::Estimate;
+
+    // Default: num_skipped is 0
+    let est = Estimate::new(100.0, 1.0, (98.0, 102.0), 10_000);
+    assert_eq!(est.num_skipped, 0);
+
+    // Builder: attaches num_skipped
+    let est = est.with_num_skipped(42);
+    assert_eq!(est.num_skipped, 42);
+    // Other fields unaffected
+    assert_eq!(est.mean, 100.0);
+    assert_eq!(est.num_paths, 10_000);
+}
+
+#[test]
+fn test_estimate_display_with_skipped() {
+    use crate::estimate::Estimate;
+
+    // Without skipped: no "skipped=" in output
+    let est = Estimate::new(100.0, 1.0, (98.0, 102.0), 10_000);
+    let s = format!("{}", est);
+    assert!(
+        !s.contains("skipped="),
+        "Display should omit skipped when 0"
+    );
+    assert!(s.contains("n=10000"));
+
+    // With skipped: shows "skipped=5"
+    let est = est.with_num_skipped(5);
+    let s = format!("{}", est);
+    assert!(s.contains("skipped=5"), "Display should show skipped count");
+    assert!(s.contains("n=10000"));
+}
+
+#[test]
+fn test_money_estimate_propagates_num_skipped() {
+    use crate::estimate::Estimate;
+    use crate::results::MoneyEstimate;
+
+    let est = Estimate::new(100.0, 1.0, (98.0, 102.0), 10_000).with_num_skipped(7);
+    let money_est = MoneyEstimate::from_estimate(est, Currency::USD);
+    assert_eq!(money_est.num_skipped, 7);
+}
+
+#[test]
+fn test_estimate_serde_backward_compatibility() {
+    // Verify that deserializing an Estimate without num_skipped defaults to 0.
+    use crate::estimate::Estimate;
+
+    let json = r#"{
+        "mean": 100.0,
+        "stderr": 1.0,
+        "ci_95": [98.0, 102.0],
+        "num_paths": 10000,
+        "std_dev": null,
+        "median": null,
+        "percentile_25": null,
+        "percentile_75": null,
+        "min": null,
+        "max": null
+    }"#;
+
+    let est: Estimate =
+        serde_json::from_str(json).expect("Estimate should deserialize without num_skipped field");
+    assert_eq!(est.num_skipped, 0, "num_skipped should default to 0");
+    assert_eq!(est.mean, 100.0);
+    assert_eq!(est.num_paths, 10_000);
+}

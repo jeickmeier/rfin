@@ -45,7 +45,7 @@ use crate::config::margin_registry_from_config;
 use crate::registry::{embedded_registry, MarginRegistry, SimmParams};
 use crate::traits::Marginable;
 use crate::types::ImMethodology;
-use crate::types::{SimmRiskClass, SimmSensitivities};
+use crate::types::{SimmCreditSector, SimmRiskClass, SimmSensitivities};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -110,6 +110,56 @@ impl SimmParams {
             .or_else(|| self.commodity_bucket_weights.get("other"))
             .copied()
             .unwrap_or(64.0)
+    }
+}
+
+// Lookup helpers for credit qualifying bucket parameters.
+impl SimmParams {
+    fn cq_bucket_weight(&self, sector: SimmCreditSector) -> f64 {
+        self.cq_bucket_weights
+            .get(&sector)
+            .copied()
+            .unwrap_or_else(|| {
+                // Fallback: use "corporates" weight from legacy map
+                self.cq_delta_weights
+                    .get("corporates")
+                    .copied()
+                    .unwrap_or(73.0)
+            })
+    }
+
+    fn cq_inter_bucket_correlation(&self, a: SimmCreditSector, b: SimmCreditSector) -> f64 {
+        if a == b {
+            return 1.0;
+        }
+        let key = ordered_credit_sector_pair(a, b);
+        self.cq_inter_bucket_correlations
+            .get(&key)
+            .copied()
+            .unwrap_or(0.27)
+    }
+
+    fn cq_concentration_factor(&self, sector: SimmCreditSector, net_ws: f64) -> f64 {
+        if let Some(&threshold) = self.cq_concentration_thresholds.get(&sector) {
+            if threshold > 0.0 && net_ws.abs() > threshold {
+                (net_ws.abs() / threshold).sqrt()
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        }
+    }
+}
+
+fn ordered_credit_sector_pair(
+    a: SimmCreditSector,
+    b: SimmCreditSector,
+) -> (SimmCreditSector, SimmCreditSector) {
+    if (a as u8) <= (b as u8) {
+        (a, b)
+    } else {
+        (b, a)
     }
 }
 
@@ -568,6 +618,72 @@ impl SimmCalculator {
         (cs01 * weight).abs()
     }
 
+    /// Calculate credit qualifying delta margin with bucket-level aggregation.
+    ///
+    /// Follows the ISDA SIMM v2.6 two-level aggregation for credit qualifying:
+    ///
+    /// 1. **Intra-bucket**: Group sensitivities by sector. Within each bucket,
+    ///    apply the sector risk weight, then compute
+    ///    `K_b = sqrt(sum_i sum_j rho * WS_i * WS_j)` using the intra-bucket
+    ///    name correlation.
+    /// 2. **Concentration**: Apply per-bucket concentration factors when
+    ///    net weighted sensitivity exceeds the bucket threshold.
+    /// 3. **Inter-bucket**: Aggregate across buckets using
+    ///    `K = sqrt(sum_b1 sum_b2 gamma(b1,b2) * S_b1 * S_b2)`.
+    ///
+    /// # Arguments
+    ///
+    /// * `bucketed_delta` - Map of `(sector, issuer, tenor)` to signed CS01 sensitivity
+    ///
+    /// # Returns
+    ///
+    /// The credit qualifying delta margin after bucket diversification.
+    pub fn calculate_credit_delta_bucketed(
+        &self,
+        bucketed_delta: &HashMap<(SimmCreditSector, String, String), f64>,
+    ) -> f64 {
+        // Group sensitivities by sector bucket.
+        let mut by_sector: HashMap<SimmCreditSector, Vec<f64>> = HashMap::default();
+        for ((sector, _issuer, _tenor), delta) in bucketed_delta {
+            let weight = self.params.cq_bucket_weight(*sector);
+            let ws = *delta * weight;
+            by_sector.entry(*sector).or_default().push(ws);
+        }
+
+        let rho = self.params.cq_intra_bucket_correlation;
+
+        // Compute K_b and S_b for each bucket.
+        let mut bucket_results: Vec<(SimmCreditSector, f64, f64)> = Vec::new();
+        for (sector, weighted_sensitivities) in &by_sector {
+            // K_b = sqrt(sum_i sum_j rho_ij * WS_i * WS_j)
+            let mut k_squared = 0.0;
+            for ws_i in weighted_sensitivities {
+                for ws_j in weighted_sensitivities {
+                    let corr = if std::ptr::eq(ws_i, ws_j) { 1.0 } else { rho };
+                    k_squared += corr * ws_i * ws_j;
+                }
+            }
+            let k_b = k_squared.max(0.0).sqrt();
+
+            // Apply concentration factor.
+            let net_ws: f64 = weighted_sensitivities.iter().sum();
+            let cf = self.params.cq_concentration_factor(*sector, net_ws);
+            let s_b = k_b * cf;
+
+            bucket_results.push((*sector, k_b, s_b));
+        }
+
+        // Inter-bucket aggregation: K = sqrt(sum_b1 sum_b2 gamma * S_b1 * S_b2)
+        let mut total = 0.0;
+        for &(sector_i, _k_i, s_i) in &bucket_results {
+            for &(sector_j, _k_j, s_j) in &bucket_results {
+                let gamma = self.params.cq_inter_bucket_correlation(sector_i, sector_j);
+                total += gamma * s_i * s_j;
+            }
+        }
+        total.max(0.0).sqrt()
+    }
+
     /// Calculate equity delta margin.
     ///
     /// # Arguments
@@ -784,16 +900,28 @@ impl SimmCalculator {
             }
         }
 
-        // Credit Delta (Qualifying)
-        let qualifying_total = sensitivities.credit_qualifying_delta.values().sum::<f64>();
-        if qualifying_total.abs() > 0.0 {
-            let credit_margin = self.calculate_credit_delta(qualifying_total, true);
+        // Credit Delta (Qualifying) -- use bucketed path when available
+        if !sensitivities.credit_qualifying_delta_bucketed.is_empty() {
+            let credit_margin = self
+                .calculate_credit_delta_bucketed(&sensitivities.credit_qualifying_delta_bucketed);
             if credit_margin > 0.0 {
                 breakdown.insert(
                     "Credit_Qualifying_Delta".to_string(),
                     Money::new(credit_margin, currency),
                 );
                 risk_class_margins.insert(SimmRiskClass::CreditQualifying, credit_margin);
+            }
+        } else {
+            let qualifying_total = sensitivities.credit_qualifying_delta.values().sum::<f64>();
+            if qualifying_total.abs() > 0.0 {
+                let credit_margin = self.calculate_credit_delta(qualifying_total, true);
+                if credit_margin > 0.0 {
+                    breakdown.insert(
+                        "Credit_Qualifying_Delta".to_string(),
+                        Money::new(credit_margin, currency),
+                    );
+                    risk_class_margins.insert(SimmRiskClass::CreditQualifying, credit_margin);
+                }
             }
         }
 
@@ -876,6 +1004,11 @@ impl SimmCalculator {
         // Apply concentration factors per risk class.
         // SIMM scales the risk-class margin by sqrt(|net_sensitivity| / threshold)
         // when the net sensitivity exceeds the concentration threshold.
+        //
+        // When the bucketed credit delta path is used, per-bucket concentration
+        // is already applied inside `calculate_credit_delta_bucketed`, so the
+        // CreditQualifying risk class is skipped here to avoid double-counting.
+        let uses_bucketed_cq = !sensitivities.credit_qualifying_delta_bucketed.is_empty();
         let net_sensitivities: HashMap<SimmRiskClass, f64> = [
             (SimmRiskClass::InterestRate, sensitivities.total_ir_delta()),
             (
@@ -903,6 +1036,10 @@ impl SimmCalculator {
         .collect();
 
         for (rc, margin) in risk_class_margins.iter_mut() {
+            // Skip CQ when bucketed path already applied concentration.
+            if uses_bucketed_cq && *rc == SimmRiskClass::CreditQualifying {
+                continue;
+            }
             let net = net_sensitivities.get(rc).copied().unwrap_or(0.0);
             let cf = self.concentration_factor(*rc, net);
             if cf > 1.0 {
@@ -1319,5 +1456,219 @@ mod tests {
         }
         assert!(actual.breakdown.contains_key("Equity_Delta"));
         assert!(actual.breakdown.contains_key("FX_Delta"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Bucketed credit qualifying delta tests
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn bucketed_single_bucket_matches_scalar() {
+        // When all sensitivities are in one bucket with one name, the bucketed
+        // aggregation should produce: K = |cs01 * weight|, matching the scalar
+        // path (which computes |sum * corporates_weight|).
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+
+        let cs01 = 50_000.0;
+        let sector = SimmCreditSector::BasicMaterials;
+        let weight = calc.params.cq_bucket_weight(sector);
+
+        // Scalar path uses "corporates" weight for qualifying credit.
+        let scalar_margin = calc.calculate_credit_delta(cs01, true);
+
+        // Bucketed path: single name in one bucket.
+        let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
+        bucketed.insert((sector, "ISSUER_A".to_string(), "5Y".to_string()), cs01);
+        let bucketed_margin = calc.calculate_credit_delta_bucketed(&bucketed);
+
+        // Both should equal |cs01 * weight| since BasicMaterials uses the
+        // corporates weight.
+        let expected = (cs01 * weight).abs();
+        assert!(
+            (scalar_margin - expected).abs() < 1.0,
+            "scalar mismatch: expected {expected}, got {scalar_margin}"
+        );
+        assert!(
+            (bucketed_margin - expected).abs() < 1.0,
+            "bucketed mismatch: expected {expected}, got {bucketed_margin}"
+        );
+    }
+
+    #[test]
+    fn bucketed_diversification_reduces_margin() {
+        // A diversified portfolio across multiple sectors should produce LOWER
+        // margin than the equivalent scalar approach (which sums everything
+        // into one bucket with no diversification benefit).
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+
+        let cs01_per_name = 50_000.0;
+
+        // Scalar path: total across all names.
+        let total_cs01 = cs01_per_name * 4.0;
+        let scalar_margin = calc.calculate_credit_delta(total_cs01, true);
+
+        // Bucketed path: spread across four different sectors.
+        let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
+        bucketed.insert(
+            (
+                SimmCreditSector::Sovereign,
+                "GOVT_A".to_string(),
+                "5Y".to_string(),
+            ),
+            cs01_per_name,
+        );
+        bucketed.insert(
+            (
+                SimmCreditSector::Financial,
+                "BANK_A".to_string(),
+                "5Y".to_string(),
+            ),
+            cs01_per_name,
+        );
+        bucketed.insert(
+            (
+                SimmCreditSector::BasicMaterials,
+                "MINING_A".to_string(),
+                "5Y".to_string(),
+            ),
+            cs01_per_name,
+        );
+        bucketed.insert(
+            (
+                SimmCreditSector::TechnologyMedia,
+                "TECH_A".to_string(),
+                "5Y".to_string(),
+            ),
+            cs01_per_name,
+        );
+        let bucketed_margin = calc.calculate_credit_delta_bucketed(&bucketed);
+
+        assert!(
+            bucketed_margin < scalar_margin,
+            "diversified bucketed margin ({bucketed_margin}) should be less \
+             than scalar margin ({scalar_margin})"
+        );
+        // The bucketed margin should still be positive.
+        assert!(bucketed_margin > 0.0, "bucketed margin should be positive");
+    }
+
+    #[test]
+    fn bucketed_inter_bucket_correlation_formula() {
+        // Verify the inter-bucket aggregation formula directly.
+        // Two buckets with known K values and inter-bucket correlation gamma.
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+
+        let cs01_a = 100_000.0;
+        let cs01_b = 80_000.0;
+        let sector_a = SimmCreditSector::Sovereign;
+        let sector_b = SimmCreditSector::Financial;
+
+        let weight_a = calc.params.cq_bucket_weight(sector_a);
+        let weight_b = calc.params.cq_bucket_weight(sector_b);
+
+        // Single-name per bucket: K_b = |cs01 * weight|
+        let k_a = (cs01_a * weight_a).abs();
+        let k_b = (cs01_b * weight_b).abs();
+
+        let gamma = calc.params.cq_inter_bucket_correlation(sector_a, sector_b);
+
+        // Expected: sqrt(K_a^2 + K_b^2 + 2*gamma*K_a*K_b)
+        let expected = (k_a * k_a + k_b * k_b + 2.0 * gamma * k_a * k_b).sqrt();
+
+        let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
+        bucketed.insert((sector_a, "GOVT_A".to_string(), "5Y".to_string()), cs01_a);
+        bucketed.insert((sector_b, "BANK_A".to_string(), "5Y".to_string()), cs01_b);
+        let actual = calc.calculate_credit_delta_bucketed(&bucketed);
+
+        assert!(
+            (actual - expected).abs() < 1.0,
+            "inter-bucket formula: expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn bucketed_intra_bucket_two_names() {
+        // Verify intra-bucket aggregation with two names in the same sector.
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+
+        let cs01_1 = 60_000.0;
+        let cs01_2 = 40_000.0;
+        let sector = SimmCreditSector::Financial;
+        let weight = calc.params.cq_bucket_weight(sector);
+        let rho = calc.params.cq_intra_bucket_correlation;
+
+        let ws_1 = cs01_1 * weight;
+        let ws_2 = cs01_2 * weight;
+
+        // K_b = sqrt(ws_1^2 + ws_2^2 + 2*rho*ws_1*ws_2)
+        let expected = (ws_1 * ws_1 + ws_2 * ws_2 + 2.0 * rho * ws_1 * ws_2).sqrt();
+
+        let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
+        bucketed.insert((sector, "BANK_A".to_string(), "5Y".to_string()), cs01_1);
+        bucketed.insert((sector, "BANK_B".to_string(), "5Y".to_string()), cs01_2);
+        let actual = calc.calculate_credit_delta_bucketed(&bucketed);
+
+        assert!(
+            (actual - expected).abs() < 1.0,
+            "intra-bucket two names: expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn calculate_from_sensitivities_uses_bucketed_when_available() {
+        // Verify that calculate_from_sensitivities dispatches to the bucketed
+        // path when credit_qualifying_delta_bucketed is populated.
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+
+        let mut sens = SimmSensitivities::new(Currency::USD);
+        sens.add_credit_delta_bucketed(SimmCreditSector::Sovereign, "GOVT_A", "5Y", 50_000.0);
+        sens.add_credit_delta_bucketed(SimmCreditSector::Financial, "BANK_A", "5Y", 50_000.0);
+
+        let (total_im, breakdown) = calc.calculate_from_sensitivities(&sens, Currency::USD);
+        assert!(total_im > 0.0, "total IM should be positive");
+        assert!(
+            breakdown.contains_key("Credit_Qualifying_Delta"),
+            "breakdown should contain Credit_Qualifying_Delta"
+        );
+
+        // The bucketed margin should match the direct bucketed calculation.
+        let expected = calc.calculate_credit_delta_bucketed(&sens.credit_qualifying_delta_bucketed);
+        let actual = breakdown
+            .get("Credit_Qualifying_Delta")
+            .expect("CQ delta breakdown entry")
+            .amount();
+        assert!(
+            (actual - expected).abs() < 1.0,
+            "calculate_from_sensitivities should delegate to bucketed: \
+             expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn legacy_scalar_path_still_works() {
+        // Verify backward compatibility: when only the old
+        // credit_qualifying_delta map is populated, the scalar path is used.
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+
+        let mut sens = SimmSensitivities::new(Currency::USD);
+        sens.add_credit_delta("CDX.NA.IG", true, "5Y", 100_000.0);
+
+        let (total_im, breakdown) = calc.calculate_from_sensitivities(&sens, Currency::USD);
+        assert!(total_im > 0.0, "total IM should be positive");
+        assert!(
+            breakdown.contains_key("Credit_Qualifying_Delta"),
+            "breakdown should contain Credit_Qualifying_Delta"
+        );
+
+        // Should match scalar calculation.
+        let expected = calc.calculate_credit_delta(100_000.0, true);
+        let actual = breakdown
+            .get("Credit_Qualifying_Delta")
+            .expect("CQ delta breakdown entry")
+            .amount();
+        assert!(
+            (actual - expected).abs() < 1.0,
+            "legacy scalar path: expected {expected}, got {actual}"
+        );
     }
 }

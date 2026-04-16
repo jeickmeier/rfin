@@ -424,6 +424,7 @@ impl McEngine {
 
         // Single clone reused across all paths (reset between iterations)
         let mut payoff_local = payoff.clone();
+        let mut num_skipped: usize = 0;
 
         for path_id in 0..self.config.num_paths {
             let mut path_rng = rng.split(path_id as u64);
@@ -464,6 +465,7 @@ impl McEngine {
             if discounted_value.is_finite() {
                 stats.update(discounted_value);
             } else {
+                num_skipped += 1;
                 tracing::warn!(
                     path_id,
                     payoff_value,
@@ -486,7 +488,8 @@ impl McEngine {
             stats.confidence_interval(0.05),
             stats.count(),
         )
-        .with_std_dev(stats.std_dev()))
+        .with_std_dev(stats.std_dev())
+        .with_num_skipped(num_skipped))
     }
 
     /// Parallel pricing implementation.
@@ -519,10 +522,11 @@ impl McEngine {
         let chunks = parallel_path_chunks(self.config.num_paths, effective_chunk_size);
 
         // Process chunks in parallel
-        let chunk_results: Vec<Result<OnlineStats>> = chunks
+        let chunk_results: Vec<Result<(OnlineStats, usize)>> = chunks
             .par_iter()
             .map(|range| {
                 let mut stats = OnlineStats::new();
+                let mut chunk_skipped: usize = 0;
                 let dim = process.dim();
                 let num_factors = process.num_factors();
                 let work_size = disc.work_size(process);
@@ -572,6 +576,7 @@ impl McEngine {
                     if discounted_value.is_finite() {
                         stats.update(discounted_value);
                     } else {
+                        chunk_skipped += 1;
                         tracing::warn!(
                             path_id,
                             payoff_value,
@@ -581,18 +586,20 @@ impl McEngine {
                     }
                 }
 
-                Ok(stats)
+                Ok((stats, chunk_skipped))
             })
             .collect();
 
         // Collect and handle errors (fail-fast on first error)
-        let chunk_stats: Vec<OnlineStats> =
+        let chunk_stats: Vec<(OnlineStats, usize)> =
             chunk_results.into_iter().collect::<Result<Vec<_>>>()?;
 
         // Deterministically reduce chunk statistics
         let mut combined = OnlineStats::new();
-        for chunk_stat in chunk_stats {
+        let mut num_skipped: usize = 0;
+        for (chunk_stat, chunk_skipped) in chunk_stats {
             combined.merge(&chunk_stat);
+            num_skipped += chunk_skipped;
         }
 
         Ok(Estimate::new(
@@ -601,7 +608,8 @@ impl McEngine {
             combined.confidence_interval(0.05),
             combined.count(),
         )
-        .with_std_dev(combined.std_dev()))
+        .with_std_dev(combined.std_dev())
+        .with_num_skipped(num_skipped))
     }
 
     /// Parallel pricing (fallback when parallel feature disabled).
