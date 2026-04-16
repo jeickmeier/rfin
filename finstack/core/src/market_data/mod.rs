@@ -70,6 +70,8 @@
 
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
+/// Dynamic term structure models (Diebold-Li, PCA).
+pub mod dtsm;
 /// Market data context with enum-based storage (simplified from V2).
 pub mod context;
 /// Market data comparison and shift measurement.
