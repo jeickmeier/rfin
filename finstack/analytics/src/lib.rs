@@ -30,6 +30,7 @@ pub mod lookback;
 pub mod performance;
 pub mod returns;
 pub mod risk_metrics;
+pub mod timeseries;
 
 pub use aggregation::{group_by_period, period_stats, PeriodStats};
 pub use benchmark::{
