@@ -177,6 +177,16 @@ pub enum InstrumentJson {
     /// Range accrual note
     RangeAccrual(RangeAccrual),
 
+    // Exotic Rate Products
+    /// Target Redemption Note (TARN)
+    Tarn(Tarn),
+    /// Snowball / Inverse Floater note
+    Snowball(Snowball),
+    /// CMS Spread Option
+    CmsSpreadOption(CmsSpreadOption),
+    /// Callable Range Accrual
+    CallableRangeAccrual(CallableRangeAccrual),
+
     // Total Return Swaps
     /// Equity total return swap
     TrsEquity(EquityTotalReturnSwap),
@@ -260,6 +270,10 @@ macro_rules! with_instrument_json_registry {
             plain: Autocallable(Autocallable) => "autocallable";
             plain: CliquetOption(CliquetOption) => "cliquet_option";
             plain: RangeAccrual(RangeAccrual) => "range_accrual";
+            plain: Tarn(Tarn) => "tarn";
+            plain: Snowball(Snowball) => "snowball";
+            plain: CmsSpreadOption(CmsSpreadOption) => "cms_spread_option";
+            plain: CallableRangeAccrual(CallableRangeAccrual) => "callable_range_accrual";
             plain: TrsEquity(EquityTotalReturnSwap) => "trs_equity", "equity_trs";
             plain: TrsFixedIncomeIndex(FIIndexTotalReturnSwap) => "trs_fixed_income_index", "fi_trs", "fixed_income_trs";
             plain: Basket(Basket) => "basket";
@@ -444,6 +458,12 @@ fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<Instrument
         "cliquet_option" => parse_spec(spec, InstrumentJson::CliquetOption),
         "range_accrual" => parse_spec(spec, InstrumentJson::RangeAccrual),
 
+        // Exotic Rate Products
+        "tarn" | "target_redemption_note" => parse_spec(spec, InstrumentJson::Tarn),
+        "snowball" | "inverse_floater" => parse_spec(spec, InstrumentJson::Snowball),
+        "cms_spread_option" => parse_spec(spec, InstrumentJson::CmsSpreadOption),
+        "callable_range_accrual" => parse_spec(spec, InstrumentJson::CallableRangeAccrual),
+
         // Total Return Swaps
         "trs_equity" | "equity_trs" => parse_spec(spec, InstrumentJson::TrsEquity),
         "trs_fixed_income_index" | "fi_trs" | "fixed_income_trs" => {
@@ -535,6 +555,11 @@ fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<Instrument
                 "autocallable",
                 "cliquet_option",
                 "range_accrual",
+                // Exotic Rate Products
+                "tarn",
+                "snowball",
+                "cms_spread_option",
+                "callable_range_accrual",
                 // TRS
                 "trs_equity",
                 "equity_trs",
