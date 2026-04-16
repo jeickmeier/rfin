@@ -18,7 +18,15 @@ use crate::Result;
 /// Recovery rates vary significantly by position in the capital structure.
 /// These classes align with rating agency (Moody's, S&P) reporting categories.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub enum SeniorityClass {
     /// First-lien secured debt (bank loans, secured bonds).
@@ -187,10 +195,19 @@ impl SeniorityCalibration {
         Ok(Self {
             source: "Moody's 1982-2023 (approximate)".to_string(),
             classes: vec![
-                (SeniorityClass::SeniorSecured, BetaRecovery::new(0.52, 0.25)?),
-                (SeniorityClass::SeniorUnsecured, BetaRecovery::new(0.37, 0.24)?),
+                (
+                    SeniorityClass::SeniorSecured,
+                    BetaRecovery::new(0.52, 0.25)?,
+                ),
+                (
+                    SeniorityClass::SeniorUnsecured,
+                    BetaRecovery::new(0.37, 0.24)?,
+                ),
                 (SeniorityClass::Subordinated, BetaRecovery::new(0.28, 0.20)?),
-                (SeniorityClass::JuniorSubordinated, BetaRecovery::new(0.17, 0.15)?),
+                (
+                    SeniorityClass::JuniorSubordinated,
+                    BetaRecovery::new(0.17, 0.15)?,
+                ),
             ],
         })
     }
@@ -206,17 +223,29 @@ impl SeniorityCalibration {
         Ok(Self {
             source: "S&P Historical (approximate)".to_string(),
             classes: vec![
-                (SeniorityClass::SeniorSecured, BetaRecovery::new(0.53, 0.24)?),
-                (SeniorityClass::SeniorUnsecured, BetaRecovery::new(0.36, 0.23)?),
+                (
+                    SeniorityClass::SeniorSecured,
+                    BetaRecovery::new(0.53, 0.24)?,
+                ),
+                (
+                    SeniorityClass::SeniorUnsecured,
+                    BetaRecovery::new(0.36, 0.23)?,
+                ),
                 (SeniorityClass::Subordinated, BetaRecovery::new(0.27, 0.20)?),
-                (SeniorityClass::JuniorSubordinated, BetaRecovery::new(0.15, 0.13)?),
+                (
+                    SeniorityClass::JuniorSubordinated,
+                    BetaRecovery::new(0.15, 0.13)?,
+                ),
             ],
         })
     }
 
     /// Look up the BetaRecovery for a given seniority class.
     pub fn get(&self, class: SeniorityClass) -> Option<&BetaRecovery> {
-        self.classes.iter().find(|(c, _)| *c == class).map(|(_, b)| b)
+        self.classes
+            .iter()
+            .find(|(c, _)| *c == class)
+            .map(|(_, b)| b)
     }
 }
 
@@ -240,9 +269,7 @@ impl SeniorityRecovery {
         class: SeniorityClass,
         calibration: &SeniorityCalibration,
     ) -> Result<Self> {
-        let dist = calibration
-            .get(class)
-            .ok_or(InputError::Invalid)?;
+        let dist = calibration.get(class).ok_or(InputError::Invalid)?;
         Ok(Self { class, dist: *dist })
     }
 
@@ -365,11 +392,7 @@ mod tests {
 
         for _ in 0..1000 {
             let s = br.sample(&mut rng as &mut dyn RandomNumberGenerator);
-            assert!(
-                (0.0..=1.0).contains(&s),
-                "sample {} out of [0,1]",
-                s
-            );
+            assert!((0.0..=1.0).contains(&s), "sample {} out of [0,1]", s);
         }
     }
 
@@ -430,10 +453,19 @@ mod tests {
     fn seniority_recovery_ordering() {
         let cal = SeniorityCalibration::moodys_historical().expect("valid calibration");
 
-        let secured = cal.get(SeniorityClass::SeniorSecured).expect("found").mean();
-        let unsecured = cal.get(SeniorityClass::SeniorUnsecured).expect("found").mean();
+        let secured = cal
+            .get(SeniorityClass::SeniorSecured)
+            .expect("found")
+            .mean();
+        let unsecured = cal
+            .get(SeniorityClass::SeniorUnsecured)
+            .expect("found")
+            .mean();
         let sub = cal.get(SeniorityClass::Subordinated).expect("found").mean();
-        let junior = cal.get(SeniorityClass::JuniorSubordinated).expect("found").mean();
+        let junior = cal
+            .get(SeniorityClass::JuniorSubordinated)
+            .expect("found")
+            .mean();
 
         assert!(
             secured > unsecured,
@@ -447,12 +479,7 @@ mod tests {
             unsecured,
             sub
         );
-        assert!(
-            sub > junior,
-            "subordinated {} > junior {}",
-            sub,
-            junior
-        );
+        assert!(sub > junior, "subordinated {} > junior {}", sub, junior);
     }
 
     #[test]

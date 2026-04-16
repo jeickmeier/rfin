@@ -198,10 +198,7 @@ fn intra_bucket_aggregate<K: Eq + std::hash::Hash>(
 }
 
 /// Intra-bucket aggregation for u8-keyed data.
-fn intra_bucket_aggregate_u8(
-    by_bucket: &HashMap<u8, Vec<f64>>,
-    intra_rho: f64,
-) -> Vec<(f64, f64)> {
+fn intra_bucket_aggregate_u8(by_bucket: &HashMap<u8, Vec<f64>>, intra_rho: f64) -> Vec<(f64, f64)> {
     let mut results = Vec::new();
     for entries in by_bucket.values() {
         let (k_b, s_b) = aggregate_within_bucket(entries, intra_rho);

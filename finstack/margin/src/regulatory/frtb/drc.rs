@@ -9,15 +9,15 @@ use finstack_core::HashMap;
 
 /// Prescribed DRC risk weights by rating bucket.
 pub const DRC_RISK_WEIGHTS: &[(u8, f64)] = &[
-    (1, 0.005),  // AAA
-    (2, 0.02),   // AA
-    (3, 0.03),   // A
-    (4, 0.05),   // BBB
-    (5, 0.10),   // BB
-    (6, 0.15),   // B
-    (7, 0.30),   // CCC
-    (8, 0.50),   // Unrated
-    (9, 1.00),   // Defaulted
+    (1, 0.005), // AAA
+    (2, 0.02),  // AA
+    (3, 0.03),  // A
+    (4, 0.05),  // BBB
+    (5, 0.10),  // BB
+    (6, 0.15),  // B
+    (7, 0.30),  // CCC
+    (8, 0.50),  // Unrated
+    (9, 1.00),  // Defaulted
 ];
 
 /// LGD assumptions by seniority.

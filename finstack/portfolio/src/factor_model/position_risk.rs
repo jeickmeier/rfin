@@ -774,8 +774,11 @@ impl HistoricalPositionDecomposer {
         let portfolio_var = -portfolio_pnls[var_idx].1;
 
         // Portfolio ES: average loss in tail scenarios.
-        let portfolio_es: f64 =
-            -portfolio_pnls[..n_tail].iter().map(|(_, pnl)| pnl).sum::<f64>() / n_tail as f64;
+        let portfolio_es: f64 = -portfolio_pnls[..n_tail]
+            .iter()
+            .map(|(_, pnl)| pnl)
+            .sum::<f64>()
+            / n_tail as f64;
 
         // Per-position Component ES: average of position-level losses in tail.
         let mut component_es_vec = vec![0.0; n];
@@ -795,8 +798,10 @@ impl HistoricalPositionDecomposer {
         } else {
             1.0
         };
-        let component_var_vec: Vec<f64> =
-            component_es_vec.iter().map(|ces| ces * var_es_ratio).collect();
+        let component_var_vec: Vec<f64> = component_es_vec
+            .iter()
+            .map(|ces| ces * var_es_ratio)
+            .collect();
 
         // Marginal VaR and ES: approximate via component / weight.
         // For historical, we use the component VaR / ES values directly
@@ -880,7 +885,11 @@ mod tests {
         let result = decomposer.decompose_positions(&weights, &covariance, &ids, &config)?;
 
         // sum(component_var) must equal portfolio_var.
-        let sum_cvar: f64 = result.var_contributions.iter().map(|c| c.component_var).sum();
+        let sum_cvar: f64 = result
+            .var_contributions
+            .iter()
+            .map(|c| c.component_var)
+            .sum();
         assert!(
             (sum_cvar - result.portfolio_var).abs() < 1e-10,
             "Euler exhaustion failed: sum={sum_cvar}, total={}",
@@ -888,7 +897,11 @@ mod tests {
         );
 
         // sum(relative_var) must equal 1.0.
-        let sum_rel: f64 = result.var_contributions.iter().map(|c| c.relative_var).sum();
+        let sum_rel: f64 = result
+            .var_contributions
+            .iter()
+            .map(|c| c.relative_var)
+            .sum();
         assert!(
             (sum_rel - 1.0).abs() < 1e-10,
             "relative VaR sum failed: {sum_rel}"
@@ -955,14 +968,10 @@ mod tests {
         let result = decomposer.decompose_positions(&weights, &covariance, &ids, &config)?;
 
         // Component VaR == portfolio VaR.
-        assert!(
-            (result.var_contributions[0].component_var - result.portfolio_var).abs() < 1e-12
-        );
+        assert!((result.var_contributions[0].component_var - result.portfolio_var).abs() < 1e-12);
 
         // Marginal VaR == portfolio VaR (single position, weight = 1).
-        assert!(
-            (result.var_contributions[0].marginal_var - result.portfolio_var).abs() < 1e-12
-        );
+        assert!((result.var_contributions[0].marginal_var - result.portfolio_var).abs() < 1e-12);
 
         // Incremental VaR == portfolio VaR.
         let ivar = result.var_contributions[0]
@@ -1081,7 +1090,11 @@ mod tests {
         }
 
         // Euler still holds.
-        let sum_cvar: f64 = result.var_contributions.iter().map(|c| c.component_var).sum();
+        let sum_cvar: f64 = result
+            .var_contributions
+            .iter()
+            .map(|c| c.component_var)
+            .sum();
         assert!((sum_cvar - result.portfolio_var).abs() < 1e-10);
 
         Ok(())
@@ -1120,7 +1133,11 @@ mod tests {
         let decomposer = ParametricPositionDecomposer;
         let result = decomposer.decompose_positions(&weights, &covariance, &ids, &config)?;
 
-        let sum_cvar: f64 = result.var_contributions.iter().map(|c| c.component_var).sum();
+        let sum_cvar: f64 = result
+            .var_contributions
+            .iter()
+            .map(|c| c.component_var)
+            .sum();
         assert!(
             (sum_cvar - result.portfolio_var).abs() < 1e-10,
             "5-pos Euler exhaustion: sum={sum_cvar}, total={}",
@@ -1140,12 +1157,8 @@ mod tests {
     #[test]
     fn empty_portfolio_returns_zero() -> TestResult {
         let decomposer = ParametricPositionDecomposer;
-        let result = decomposer.decompose_positions(
-            &[],
-            &[],
-            &[],
-            &DecompositionConfig::parametric_95(),
-        )?;
+        let result =
+            decomposer.decompose_positions(&[], &[], &[], &DecompositionConfig::parametric_95())?;
 
         assert!(result.portfolio_var.abs() < 1e-12);
         assert!(result.portfolio_es.abs() < 1e-12);
@@ -1176,12 +1189,8 @@ mod tests {
         let mut config = DecompositionConfig::parametric_95();
         config.confidence = 1.5;
 
-        let result = decomposer.decompose_positions(
-            &[1.0],
-            &[0.04],
-            &[PositionId::new("A")],
-            &config,
-        );
+        let result =
+            decomposer.decompose_positions(&[1.0], &[0.04], &[PositionId::new("A")], &config);
         assert!(result.is_err());
     }
 
@@ -1260,7 +1269,10 @@ mod tests {
         let decomposer = HistoricalPositionDecomposer;
         let result = decomposer.decompose_from_pnls(&pnls, &ids, n_scenarios, &config)?;
 
-        assert!(result.portfolio_var > 0.0, "portfolio VaR should be positive");
+        assert!(
+            result.portfolio_var > 0.0,
+            "portfolio VaR should be positive"
+        );
         assert!(
             result.portfolio_es >= result.portfolio_var,
             "ES should >= VaR"
@@ -1286,12 +1298,8 @@ mod tests {
     #[test]
     fn historical_empty_returns_zero() -> TestResult {
         let decomposer = HistoricalPositionDecomposer;
-        let result = decomposer.decompose_from_pnls(
-            &[],
-            &[],
-            0,
-            &DecompositionConfig::historical(0.95),
-        )?;
+        let result =
+            decomposer.decompose_from_pnls(&[], &[], 0, &DecompositionConfig::historical(0.95))?;
 
         assert!(result.portfolio_var.abs() < 1e-12);
         assert_eq!(result.n_positions, 0);

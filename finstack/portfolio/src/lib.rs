@@ -76,10 +76,10 @@ pub mod dataframe;
 pub mod error;
 /// Factor-model portfolio risk decomposition outputs and engines.
 pub mod factor_model;
-/// Liquidity risk metrics, spread estimation, and portfolio scoring.
-pub mod liquidity;
 /// Grouping and aggregation by attributes or books.
 pub mod grouping;
+/// Liquidity risk metrics, spread estimation, and portfolio scoring.
+pub mod liquidity;
 /// Portfolio margin and netting set utilities.
 pub mod margin;
 /// Metrics aggregation and reporting.
@@ -132,12 +132,12 @@ pub use factor_model::{
     PositionRiskDecomposer, PositionRiskDecomposition, PositionVarContribution, RiskBudget,
     RiskBudgetResult, RiskDecomposition,
 };
+pub use grouping::{
+    aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
+};
 pub use liquidity::{
     score_portfolio_liquidity, LiquidityConfig, LiquidityProfile, LiquidityTier, LvarCalculator,
     PortfolioLiquidityReport,
-};
-pub use grouping::{
-    aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
 };
 pub use margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,

@@ -273,9 +273,16 @@ mod tests {
     use super::*;
     use crate::liquidity::types::LiquidityConfig;
 
-    fn test_profile() -> LiquidityProfile {
-        LiquidityProfile::new("TEST", 100.0, 99.5, 100.5, 1_000_000.0, 500.0, 0.002)
-            .expect("valid profile")
+    fn test_profile() -> std::result::Result<LiquidityProfile, Box<dyn std::error::Error>> {
+        Ok(LiquidityProfile::new(
+            "TEST",
+            100.0,
+            99.5,
+            100.5,
+            1_000_000.0,
+            500.0,
+            0.002,
+        )?)
     }
 
     fn default_calculator() -> LvarCalculator {
@@ -283,23 +290,22 @@ mod tests {
     }
 
     #[test]
-    fn lvar_basic_computation() {
+    fn lvar_basic_computation() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let calc = default_calculator();
-        let profile = test_profile();
+        let profile = test_profile()?;
         let pos_id = PositionId::new("POS1");
 
-        let result = calc.compute(&pos_id, 10_000.0, 1_000_000.0, &profile);
-        assert!(result.is_ok());
-        let r = result.expect("valid");
+        let r = calc.compute(&pos_id, 10_000.0, 1_000_000.0, &profile)?;
 
         assert_eq!(r.var, 10_000.0);
         assert!(r.exogenous_cost > 0.0, "exogenous cost should be positive");
         assert!(r.lvar_bangia > r.var, "LVaR Bangia should exceed VaR");
         assert!(r.lvar_composite >= r.var, "composite should be >= VaR");
+        Ok(())
     }
 
     #[test]
-    fn lvar_zero_spread_zero_exogenous() {
+    fn lvar_zero_spread_zero_exogenous() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let calc = default_calculator();
         // Create a zero-spread instrument (bid == ask == mid)
         let profile = LiquidityProfile {
@@ -314,12 +320,17 @@ mod tests {
         };
         let pos_id = PositionId::new("POS1");
 
-        let r = calc.compute(&pos_id, 10_000.0, 1_000_000.0, &profile).expect("valid");
-        assert!((r.exogenous_cost).abs() < 1e-10, "zero spread => zero exogenous cost");
+        let r = calc.compute(&pos_id, 10_000.0, 1_000_000.0, &profile)?;
+        assert!(
+            (r.exogenous_cost).abs() < 1e-10,
+            "zero spread => zero exogenous cost"
+        );
+        Ok(())
     }
 
     #[test]
-    fn lvar_horizon_equals_one_when_dtl_equals_holding() {
+    fn lvar_horizon_equals_one_when_dtl_equals_holding(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         // If days_to_liquidate == holding_period, horizon adjustment = sqrt(1) = 1
         // position_shares = PV / mid. ADV * participation_rate = daily_capacity.
         // dtl = position_shares / daily_capacity = 1.0
@@ -331,16 +342,13 @@ mod tests {
             ..LiquidityConfig::default()
         };
         let calc = LvarCalculator::new(config);
-        let profile = LiquidityProfile::new(
-            "TEST", 100.0, 99.5, 100.5, 1_000_000.0, 500.0, 0.0,
-        )
-        .expect("valid");
+        let profile = LiquidityProfile::new("TEST", 100.0, 99.5, 100.5, 1_000_000.0, 500.0, 0.0)?;
 
         // position_shares = 10_000_000 / 100 = 100_000
         // daily_capacity = 0.10 * 1_000_000 = 100_000
         // dtl = 1.0
         let pos_id = PositionId::new("POS1");
-        let r = calc.compute(&pos_id, 10_000.0, 10_000_000.0, &profile).expect("valid");
+        let r = calc.compute(&pos_id, 10_000.0, 10_000_000.0, &profile)?;
         assert!(
             (r.days_to_liquidate - 1.0).abs() < 1e-10,
             "expected dtl=1.0, got {}",
@@ -350,30 +358,39 @@ mod tests {
             (r.lvar_horizon - 10_000.0).abs() < 1e-6,
             "horizon LVaR should equal VaR when dtl=holding_period"
         );
+        Ok(())
     }
 
     #[test]
-    fn lvar_rejects_negative_var() {
+    fn lvar_rejects_negative_var() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let calc = default_calculator();
-        let profile = test_profile();
+        let profile = test_profile()?;
         let pos_id = PositionId::new("POS1");
         assert!(calc.compute(&pos_id, -1.0, 1_000_000.0, &profile).is_err());
+        Ok(())
     }
 
     #[test]
-    fn lvar_rejects_nan_var() {
+    fn lvar_rejects_nan_var() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let calc = default_calculator();
-        let profile = test_profile();
+        let profile = test_profile()?;
         let pos_id = PositionId::new("POS1");
-        assert!(calc.compute(&pos_id, f64::NAN, 1_000_000.0, &profile).is_err());
+        assert!(calc
+            .compute(&pos_id, f64::NAN, 1_000_000.0, &profile)
+            .is_err());
+        Ok(())
     }
 
     #[test]
-    fn lvar_rejects_non_finite_position_value() {
+    fn lvar_rejects_non_finite_position_value(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let calc = default_calculator();
-        let profile = test_profile();
+        let profile = test_profile()?;
         let pos_id = PositionId::new("POS1");
-        assert!(calc.compute(&pos_id, 1000.0, f64::INFINITY, &profile).is_err());
+        assert!(calc
+            .compute(&pos_id, 1000.0, f64::INFINITY, &profile)
+            .is_err());
+        Ok(())
     }
 
     #[test]
@@ -393,15 +410,25 @@ mod tests {
     }
 
     #[test]
-    fn portfolio_lvar_aggregation() {
+    fn portfolio_lvar_aggregation() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let calc = default_calculator();
-        let profile = test_profile();
+        let profile = test_profile()?;
         let mut profiles = HashMap::new();
         profiles.insert("TEST".to_string(), profile);
 
         let position_vars = vec![
-            (PositionId::new("POS1"), "TEST".to_string(), 5_000.0, 500_000.0),
-            (PositionId::new("POS2"), "TEST".to_string(), 8_000.0, 800_000.0),
+            (
+                PositionId::new("POS1"),
+                "TEST".to_string(),
+                5_000.0,
+                500_000.0,
+            ),
+            (
+                PositionId::new("POS2"),
+                "TEST".to_string(),
+                8_000.0,
+                800_000.0,
+            ),
         ];
 
         let report = calc.compute_portfolio(&position_vars, &profiles);
@@ -409,10 +436,11 @@ mod tests {
         assert!((report.total_var - 13_000.0).abs() < 1e-10);
         assert!(report.total_lvar_composite >= report.total_var);
         assert!(report.liquidity_cost_pct >= 0.0);
+        Ok(())
     }
 
     #[test]
-    fn serde_round_trip_lvar_result() {
+    fn serde_round_trip_lvar_result() -> std::result::Result<(), Box<dyn std::error::Error>> {
         // Use exact values to avoid floating-point representation discrepancies
         let r = LvarResult {
             position_id: PositionId::new("POS1"),
@@ -425,8 +453,9 @@ mod tests {
             lvar_composite: 17_000.0,
         };
 
-        let json = serde_json::to_string(&r).expect("serialize");
-        let r2: LvarResult = serde_json::from_str(&json).expect("deserialize");
+        let json = serde_json::to_string(&r)?;
+        let r2: LvarResult = serde_json::from_str(&json)?;
         assert_eq!(r, r2);
+        Ok(())
     }
 }

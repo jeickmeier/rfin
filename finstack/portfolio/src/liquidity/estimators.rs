@@ -150,14 +150,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn roll_with_negative_serial_covariance() {
+    fn roll_with_negative_serial_covariance() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         // Synthetic series with bid-ask bounce: alternating +/- deviations
         // which produce negative serial covariance
         let returns = vec![0.01, -0.01, 0.01, -0.01, 0.01, -0.01, 0.01, -0.01];
-        let spread = roll_effective_spread(&returns);
-        assert!(spread.is_some());
-        let s = spread.expect("should be Some");
+        let s = roll_effective_spread(&returns)
+            .ok_or_else(|| std::io::Error::other("expected negative serial covariance"))?;
         assert!(s > 0.0, "Roll spread should be positive");
+        Ok(())
     }
 
     #[test]
@@ -174,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn roll_known_value() {
+    fn roll_known_value() -> std::result::Result<(), Box<dyn std::error::Error>> {
         // With a known bid-ask bounce of c, returns alternate as +c and -c.
         // Serial covariance = -c^2, so Roll spread = 2*c.
         let c = 0.005;
@@ -187,7 +188,8 @@ mod tests {
                 returns.push(-c);
             }
         }
-        let spread = roll_effective_spread(&returns).expect("should be Some");
+        let spread = roll_effective_spread(&returns)
+            .ok_or_else(|| std::io::Error::other("expected Roll spread estimate"))?;
         // The formula gives 2 * sqrt(-cov). For large n, cov -> -c^2
         // so spread -> 2*c = 0.01
         assert!(
@@ -196,21 +198,18 @@ mod tests {
             2.0 * c,
             spread
         );
+        Ok(())
     }
 
     #[test]
-    fn amihud_basic() {
+    fn amihud_basic() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let returns = vec![0.01, -0.02, 0.005];
         let volumes = vec![1_000_000.0, 2_000_000.0, 500_000.0];
-        let ratio = amihud_illiquidity(&returns, &volumes);
-        assert!(ratio.is_some());
-        let expected =
-            (0.01 / 1_000_000.0 + 0.02 / 2_000_000.0 + 0.005 / 500_000.0) / 3.0;
-        let r = ratio.expect("should be Some");
-        assert!(
-            (r - expected).abs() < 1e-15,
-            "expected {expected}, got {r}"
-        );
+        let expected = (0.01 / 1_000_000.0 + 0.02 / 2_000_000.0 + 0.005 / 500_000.0) / 3.0;
+        let r = amihud_illiquidity(&returns, &volumes)
+            .ok_or_else(|| std::io::Error::other("expected Amihud illiquidity estimate"))?;
+        assert!((r - expected).abs() < 1e-15, "expected {expected}, got {r}");
+        Ok(())
     }
 
     #[test]
@@ -241,7 +240,10 @@ mod tests {
     #[test]
     fn spread_with_size_impact_zero_quantity() {
         let s = spread_with_size_impact(0.02, 0.0, 1_000_000.0, 0.002, 0.5);
-        assert!((s - 0.02).abs() < 1e-10, "zero order should equal quoted spread");
+        assert!(
+            (s - 0.02).abs() < 1e-10,
+            "zero order should equal quoted spread"
+        );
     }
 
     #[test]
@@ -254,7 +256,10 @@ mod tests {
     #[test]
     fn spread_with_size_impact_zero_adv() {
         let s = spread_with_size_impact(0.02, 1000.0, 0.0, 0.002, 0.5);
-        assert!((s - 0.02).abs() < 1e-10, "zero ADV should return quoted spread");
+        assert!(
+            (s - 0.02).abs() < 1e-10,
+            "zero ADV should return quoted spread"
+        );
     }
 
     #[test]
@@ -264,9 +269,6 @@ mod tests {
         // spread = 0.02 + 0.01 * 0.31623 = 0.0231623
         let s = spread_with_size_impact(0.02, 100_000.0, 1_000_000.0, 0.01, 0.5);
         let expected = 0.02 + 0.01 * (0.1_f64).sqrt();
-        assert!(
-            (s - expected).abs() < 1e-10,
-            "expected {expected}, got {s}"
-        );
+        assert!((s - expected).abs() < 1e-10, "expected {expected}, got {s}");
     }
 }

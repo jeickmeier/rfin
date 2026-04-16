@@ -13,9 +13,7 @@
 //! derivative of w(k) with respect to strike.
 
 use super::{classify_severity, ArbitrageCheck};
-use crate::market_data::arbitrage::types::{
-    ArbitrageType, ArbitrageViolation, ViolationLocation,
-};
+use crate::market_data::arbitrage::types::{ArbitrageType, ArbitrageViolation, ViolationLocation};
 use crate::market_data::surfaces::VolSurface;
 
 /// Checks that call prices are convex in strike (equivalently, that the

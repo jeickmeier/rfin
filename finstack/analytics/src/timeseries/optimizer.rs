@@ -85,7 +85,11 @@ impl NelderMead {
 
             // Sort vertices by function value
             let mut order: Vec<usize> = (0..=n).collect();
-            order.sort_by(|&a, &b| f_vals[a].partial_cmp(&f_vals[b]).unwrap_or(std::cmp::Ordering::Equal));
+            order.sort_by(|&a, &b| {
+                f_vals[a]
+                    .partial_cmp(&f_vals[b])
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
             // Check convergence: range of function values
             let f_best = f_vals[order[0]];
@@ -176,8 +180,8 @@ impl NelderMead {
             for &idx in &order[1..] {
                 #[allow(clippy::needless_range_loop)]
                 for j in 0..n {
-                    simplex[idx][j] = simplex[i_best][j]
-                        + sigma * (simplex[idx][j] - simplex[i_best][j]);
+                    simplex[idx][j] =
+                        simplex[i_best][j] + sigma * (simplex[idx][j] - simplex[i_best][j]);
                 }
                 simplex[idx] = project(&simplex[idx], bounds);
                 f_vals[idx] = f(&simplex[idx]);

@@ -230,11 +230,12 @@ impl PdTermStructureBuilder {
         let default_idx = scale
             .default_state()
             .ok_or(PdCalibrationError::NoDefaultState)?;
-        let rating_idx = scale
-            .index_of(initial_rating)
-            .ok_or_else(|| PdCalibrationError::UnknownRating {
-                rating: initial_rating.to_owned(),
-            })?;
+        let rating_idx =
+            scale
+                .index_of(initial_rating)
+                .ok_or_else(|| PdCalibrationError::UnknownRating {
+                    rating: initial_rating.to_owned(),
+                })?;
 
         // Compute matrix powers for integer tenors
         let base = tm.as_matrix().clone();

@@ -141,10 +141,7 @@ impl RiskBudget {
         let mut has_breach = false;
 
         for (position_id, &target_frac) in &self.targets {
-            let actual_component = actual_by_id
-                .get(position_id)
-                .copied()
-                .unwrap_or(0.0);
+            let actual_component = actual_by_id.get(position_id).copied().unwrap_or(0.0);
 
             let target_component = target_frac * portfolio_var;
 
@@ -214,10 +211,8 @@ impl RiskBudget {
         let mut deltas = IndexMap::new();
 
         for (position_id, &target_frac) in &self.targets {
-            let (actual_frac, marginal) = actual_by_id
-                .get(position_id)
-                .copied()
-                .unwrap_or((0.0, 0.0));
+            let (actual_frac, marginal) =
+                actual_by_id.get(position_id).copied().unwrap_or((0.0, 0.0));
 
             let gap = target_frac - actual_frac;
 
@@ -303,9 +298,7 @@ mod tests {
             .positions
             .iter()
             .find(|e| e.position_id == "A")
-            .ok_or_else(|| {
-                finstack_core::Error::Validation("Position A not found".to_string())
-            })?;
+            .ok_or_else(|| finstack_core::Error::Validation("Position A not found".to_string()))?;
         assert!(
             (a_entry.actual_component_var - 40.0).abs() < 1e-10,
             "actual_component_var = {}",
@@ -328,9 +321,7 @@ mod tests {
             .positions
             .iter()
             .find(|e| e.position_id == "C")
-            .ok_or_else(|| {
-                finstack_core::Error::Validation("Position C not found".to_string())
-            })?;
+            .ok_or_else(|| finstack_core::Error::Validation("Position C not found".to_string()))?;
         assert!(c_entry.excess < 0.0);
         assert!(c_entry.utilization < 1.0);
 
@@ -368,20 +359,14 @@ mod tests {
         let deltas = budget.suggest_rebalance(&decomp)?;
 
         // Position A is over-budget => should suggest decreasing weight (negative delta).
-        let delta_a = deltas
-            .get(&PositionId::new("A"))
-            .copied()
-            .unwrap_or(0.0);
+        let delta_a = deltas.get(&PositionId::new("A")).copied().unwrap_or(0.0);
         assert!(
             delta_a < 0.0,
             "delta for A should be negative (over-budget), got {delta_a}"
         );
 
         // Position C is under-budget => should suggest increasing weight (positive delta).
-        let delta_c = deltas
-            .get(&PositionId::new("C"))
-            .copied()
-            .unwrap_or(0.0);
+        let delta_c = deltas.get(&PositionId::new("C")).copied().unwrap_or(0.0);
         assert!(
             delta_c > 0.0,
             "delta for C should be positive (under-budget), got {delta_c}"

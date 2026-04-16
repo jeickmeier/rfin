@@ -86,7 +86,8 @@ impl ScenarioMatrix {
     ) -> Self {
         let title = title.into();
         let scenario_names: Vec<String> = results.iter().map(|(name, _)| name.clone()).collect();
-        let metric_id_strings: Vec<String> = metric_ids.iter().map(|m| m.as_str().to_string()).collect();
+        let metric_id_strings: Vec<String> =
+            metric_ids.iter().map(|m| m.as_str().to_string()).collect();
 
         let mut values = Vec::with_capacity(results.len());
         for (_, result) in results {
@@ -97,8 +98,8 @@ impl ScenarioMatrix {
             values.push(row);
         }
 
-        let base_case_index = base_case_name
-            .and_then(|name| scenario_names.iter().position(|s| s == name));
+        let base_case_index =
+            base_case_name.and_then(|name| scenario_names.iter().position(|s| s == name));
 
         let deltas = base_case_index.map(|base_idx| {
             let base_row = &values[base_idx];
@@ -229,7 +230,10 @@ mod tests {
         vec![
             ("Base".to_string(), make_result(1_000_000.0, 425.0, 0.0475)),
             ("+100bp".to_string(), make_result(980_000.0, 420.0, 0.0575)),
-            ("-100bp".to_string(), make_result(1_021_000.0, 430.0, 0.0375)),
+            (
+                "-100bp".to_string(),
+                make_result(1_021_000.0, 430.0, 0.0375),
+            ),
         ]
     }
 
@@ -256,12 +260,8 @@ mod tests {
         let results = sample_results();
         let metric_ids = vec![MetricId::Dv01, MetricId::Ytm];
 
-        let matrix = ScenarioMatrix::from_scenario_results(
-            "Test",
-            &results,
-            &metric_ids,
-            Some("Base"),
-        );
+        let matrix =
+            ScenarioMatrix::from_scenario_results("Test", &results, &metric_ids, Some("Base"));
 
         let deltas = matrix.deltas.as_ref().expect("deltas should be present");
         // Base-to-base deltas should be 0
@@ -276,12 +276,7 @@ mod tests {
         let results = sample_results();
         let metric_ids = vec![MetricId::Dv01];
 
-        let matrix = ScenarioMatrix::from_scenario_results(
-            "Test",
-            &results,
-            &metric_ids,
-            None,
-        );
+        let matrix = ScenarioMatrix::from_scenario_results("Test", &results, &metric_ids, None);
 
         assert!(matrix.base_case_index.is_none());
         assert!(matrix.deltas.is_none());
@@ -308,12 +303,7 @@ mod tests {
         let results = sample_results();
         let metric_ids = vec![MetricId::Dv01, MetricId::custom("nonexistent")];
 
-        let matrix = ScenarioMatrix::from_scenario_results(
-            "Test",
-            &results,
-            &metric_ids,
-            None,
-        );
+        let matrix = ScenarioMatrix::from_scenario_results("Test", &results, &metric_ids, None);
 
         // Second metric should be NaN
         assert!(matrix.values[0][1].is_nan());
@@ -370,12 +360,7 @@ mod tests {
 
     #[test]
     fn component_type_name() {
-        let matrix = ScenarioMatrix::from_scenario_results(
-            "Test",
-            &[],
-            &[],
-            None,
-        );
+        let matrix = ScenarioMatrix::from_scenario_results("Test", &[], &[], None);
         assert_eq!(matrix.component_type(), "scenario_matrix");
     }
 }

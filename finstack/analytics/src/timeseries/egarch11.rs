@@ -72,12 +72,7 @@ impl GarchModel for Egarch11 {
         }
     }
 
-    fn log_likelihood(
-        &self,
-        returns: &[f64],
-        params: &GarchParams,
-        dist: InnovationDist,
-    ) -> f64 {
+    fn log_likelihood(&self, returns: &[f64], params: &GarchParams, dist: InnovationDist) -> f64 {
         let n = returns.len();
         if n == 0 {
             return f64::NEG_INFINITY;
@@ -120,10 +115,10 @@ impl GarchModel for Egarch11 {
 
         // EGARCH operates in log-variance space, so omega bounds are different
         let mut bounds = vec![
-            (-5.0, 5.0),     // omega (log-variance intercept)
-            (0.0, 1.0),      // alpha (magnitude effect)
+            (-5.0, 5.0),       // omega (log-variance intercept)
+            (0.0, 1.0),        // alpha (magnitude effect)
             (-0.9999, 0.9999), // beta (persistence in log-variance)
-            (-0.50, 0.50),   // gamma (leverage)
+            (-0.50, 0.50),     // gamma (leverage)
         ];
         if let InnovationDist::StudentT(_) = dist {
             bounds.push((InnovationDist::dof_lower_bound(), 100.0));
@@ -136,7 +131,15 @@ impl GarchModel for Egarch11 {
 
         // Override the grid search with EGARCH-specific initial values
         let _ = sample_var;
-        fit_garch_mle(self, returns, dist, config, true, &bounds, stationarity_check)
+        fit_garch_mle(
+            self,
+            returns,
+            dist,
+            config,
+            true,
+            &bounds,
+            stationarity_check,
+        )
     }
 
     fn forecast(
@@ -164,8 +167,7 @@ impl GarchModel for Egarch11 {
                     ln_sigma2_t
                 } else {
                     // Under E[z] = 0 forecast: ln(sigma2_{t+h}) converges to unconditional
-                    ln_sigma2_unc
-                        + beta.powi(h as i32) * (ln_sigma2_t - ln_sigma2_unc)
+                    ln_sigma2_unc + beta.powi(h as i32) * (ln_sigma2_t - ln_sigma2_unc)
                 };
                 let sigma2_h = ln_sigma2_h.exp();
                 VarianceForecast {

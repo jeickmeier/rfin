@@ -255,22 +255,14 @@ pub fn analyze_exchange_offer(
     let exchange_ratio = match &offer.exchange_type {
         ExchangeType::ParForPar => 1.0,
         ExchangeType::Discount { exchange_ratio } => *exchange_ratio,
-        ExchangeType::Uptier {
-            exchange_ratio, ..
-        } => *exchange_ratio,
-        ExchangeType::Downtier {
-            exchange_ratio, ..
-        } => *exchange_ratio,
+        ExchangeType::Uptier { exchange_ratio, .. } => *exchange_ratio,
+        ExchangeType::Downtier { exchange_ratio, .. } => *exchange_ratio,
     };
 
     let new_par_amt = offer.old_instrument.par_amount.amount() * exchange_ratio;
     let new_par = Money::new(new_par_amt, offer.new_instrument.par_amount.currency());
 
-    let tender_npv_amt = compute_scaled_npv(
-        &offer.new_instrument,
-        discount_rate,
-        new_par_amt,
-    );
+    let tender_npv_amt = compute_scaled_npv(&offer.new_instrument, discount_rate, new_par_amt);
 
     let sweetener_value = offer.equity_sweetener.as_ref().map_or(0.0, |sw| {
         sw.units_per_1000
@@ -278,8 +270,8 @@ pub fn analyze_exchange_offer(
             * (offer.old_instrument.par_amount.amount() / 1000.0)
     });
 
-    let consent_value = offer.consent_fee_bps.unwrap_or(0.0) / 10_000.0
-        * offer.old_instrument.par_amount.amount();
+    let consent_value =
+        offer.consent_fee_bps.unwrap_or(0.0) / 10_000.0 * offer.old_instrument.par_amount.amount();
 
     let tender_wal = estimate_wal(&offer.new_instrument);
 
@@ -336,12 +328,8 @@ fn validate_exchange_offer(
     let ratio = match &offer.exchange_type {
         ExchangeType::ParForPar => 1.0,
         ExchangeType::Discount { exchange_ratio } => *exchange_ratio,
-        ExchangeType::Uptier {
-            exchange_ratio, ..
-        } => *exchange_ratio,
-        ExchangeType::Downtier {
-            exchange_ratio, ..
-        } => *exchange_ratio,
+        ExchangeType::Uptier { exchange_ratio, .. } => *exchange_ratio,
+        ExchangeType::Downtier { exchange_ratio, .. } => *exchange_ratio,
     };
     if ratio <= 0.0 || ratio > 2.0 {
         return Err(RestructuringError::InvalidExchangeRatio { ratio }.into());
@@ -417,11 +405,7 @@ fn compute_instrument_npv(instrument: &ExchangeInstrument, discount_rate: f64) -
 }
 
 /// Compute NPV scaled to a different par amount (for exchange ratio adjustment).
-fn compute_scaled_npv(
-    instrument: &ExchangeInstrument,
-    discount_rate: f64,
-    scaled_par: f64,
-) -> f64 {
+fn compute_scaled_npv(instrument: &ExchangeInstrument, discount_rate: f64, scaled_par: f64) -> f64 {
     let original_par = instrument.par_amount.amount();
     if original_par <= 0.0 {
         return 0.0;
@@ -444,8 +428,7 @@ fn estimate_wal(instrument: &ExchangeInstrument) -> f64 {
     // Approximate: instruments typically have 2-10 year maturities.
     // We'll compute from a reference year of 2026.
     let ref_year = 2026.0;
-    let years = (year - ref_year).max(0.5);
-    years
+    (year - ref_year).max(0.5)
 }
 
 #[cfg(test)]
@@ -497,8 +480,7 @@ mod tests {
     #[test]
     fn par_for_par_exchange_economics() {
         let offer = sample_offer(ExchangeType::ParForPar);
-        let result =
-            analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let result = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
 
         // With par-for-par and higher coupon on new instrument, tender should
         // generally be preferred.
@@ -512,8 +494,7 @@ mod tests {
         let offer = sample_offer(ExchangeType::Discount {
             exchange_ratio: 0.70,
         });
-        let result =
-            analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let result = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
 
         // New par is 70% of old par.
         assert!(
@@ -527,12 +508,10 @@ mod tests {
     fn consent_fee_adds_value() {
         let mut offer = sample_offer(ExchangeType::ParForPar);
         offer.consent_fee_bps = None;
-        let without_fee =
-            analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let without_fee = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
 
         offer.consent_fee_bps = Some(100.0);
-        let with_fee =
-            analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let with_fee = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
 
         assert!(
             with_fee.tender.npv.amount() > without_fee.tender.npv.amount(),
@@ -543,16 +522,14 @@ mod tests {
     #[test]
     fn equity_sweetener_adds_value() {
         let mut offer = sample_offer(ExchangeType::ParForPar);
-        let without =
-            analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let without = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
 
         offer.equity_sweetener = Some(EquitySweetener {
             equity_type: EquityComponentType::CommonShares,
             units_per_1000: 10.0,
             estimated_value_per_unit: usd(5.0),
         });
-        let with =
-            analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let with = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
 
         assert!(
             with.tender.npv.amount() > without.tender.npv.amount(),

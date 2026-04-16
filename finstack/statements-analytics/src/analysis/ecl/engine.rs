@@ -30,7 +30,7 @@
 use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use super::staging::{classify_stage, StagingConfig, StageResult};
+use super::staging::{classify_stage, StageResult, StagingConfig};
 use super::types::{Exposure, PdTermStructure, Stage};
 
 // ---------------------------------------------------------------------------
@@ -385,12 +385,8 @@ impl<'a> EclEngine<'a> {
         // Use base scenario PD for staging
         let base_pd = self.pd_sources[0].1;
         let stage_result = classify_stage(exposure, base_pd, &self.config.staging)?;
-        let ecl_result = compute_ecl_weighted(
-            exposure,
-            stage_result.stage,
-            &self.pd_sources,
-            &self.config,
-        )?;
+        let ecl_result =
+            compute_ecl_weighted(exposure, stage_result.stage, &self.pd_sources, &self.config)?;
         Ok(ExposureEclResult {
             stage_result,
             ecl_result,
@@ -437,8 +433,16 @@ mod tests {
         let config = EclConfigBuilder::new()
             .bucket_width(0.5)
             .scenarios(vec![
-                MacroScenario { id: "base".into(), weight: 0.6, lgd_override: None },
-                MacroScenario { id: "down".into(), weight: 0.4, lgd_override: Some(0.55) },
+                MacroScenario {
+                    id: "base".into(),
+                    weight: 0.6,
+                    lgd_override: None,
+                },
+                MacroScenario {
+                    id: "down".into(),
+                    weight: 0.4,
+                    lgd_override: Some(0.55),
+                },
             ])
             .build();
         assert!(config.is_ok());
@@ -451,8 +455,16 @@ mod tests {
     fn test_ecl_config_builder_invalid_weights() {
         let config = EclConfigBuilder::new()
             .scenarios(vec![
-                MacroScenario { id: "base".into(), weight: 0.5, lgd_override: None },
-                MacroScenario { id: "down".into(), weight: 0.3, lgd_override: None },
+                MacroScenario {
+                    id: "base".into(),
+                    weight: 0.5,
+                    lgd_override: None,
+                },
+                MacroScenario {
+                    id: "down".into(),
+                    weight: 0.3,
+                    lgd_override: None,
+                },
             ])
             .build();
         assert!(config.is_err());
@@ -567,7 +579,8 @@ mod tests {
         };
         let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> =
             vec![(&scenario, &curve as &dyn PdTermStructure)];
-        let weighted = compute_ecl_weighted(&exposure, Stage::Stage1, &pd_sources, &config).unwrap();
+        let weighted =
+            compute_ecl_weighted(&exposure, Stage::Stage1, &pd_sources, &config).unwrap();
 
         assert!(
             (single.ecl - weighted.ecl).abs() < 1e-10,
@@ -599,8 +612,7 @@ mod tests {
             (&down_scenario, &curve as &dyn PdTermStructure),
         ];
 
-        let result =
-            compute_ecl_weighted(&exposure, Stage::Stage1, &pd_sources, &config).unwrap();
+        let result = compute_ecl_weighted(&exposure, Stage::Stage1, &pd_sources, &config).unwrap();
 
         // Verify manual calculation
         let base_ecl = result.scenario_breakdown[0].2.ecl;

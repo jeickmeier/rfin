@@ -221,7 +221,7 @@ mod unit_tests {
 
         // All forecasts should be negative (VaR is a loss threshold)
         for f in &forecasts {
-            assert!(*f < 0.0 || *f == 0.0, "VaR forecast should be non-positive");
+            assert!(*f <= 0.0, "VaR forecast should be non-positive");
         }
     }
 
@@ -233,7 +233,9 @@ mod unit_tests {
         realized[10] = -0.03;
         realized[50] = -0.025;
 
-        let config = VarBacktestConfig::new().with_confidence(0.99).with_window_size(100);
+        let config = VarBacktestConfig::new()
+            .with_confidence(0.99)
+            .with_window_size(100);
 
         let models: Vec<(VarMethod, &[f64])> = vec![
             (VarMethod::Historical, &var_hist),

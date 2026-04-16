@@ -125,19 +125,39 @@ impl<'a> LewisPricer<'a> {
 
 fn gl_nodes_weights_16() -> (&'static [f64], &'static [f64]) {
     static NODES: [f64; 16] = [
-        -0.989_400_934_991_649_9, -0.944_575_023_073_232_6, -0.865_631_202_387_831_8,
-        -0.755_404_408_355_003, -0.617_876_244_402_643_8, -0.458_016_777_657_227_37,
-        -0.281_603_550_779_258_9, -0.095_012_509_837_637_44, 0.095_012_509_837_637_44,
-        0.281_603_550_779_258_9, 0.458_016_777_657_227_37, 0.617_876_244_402_643_8,
-        0.755_404_408_355_003, 0.865_631_202_387_831_8, 0.944_575_023_073_232_6,
+        -0.989_400_934_991_649_9,
+        -0.944_575_023_073_232_6,
+        -0.865_631_202_387_831_8,
+        -0.755_404_408_355_003,
+        -0.617_876_244_402_643_8,
+        -0.458_016_777_657_227_37,
+        -0.281_603_550_779_258_9,
+        -0.095_012_509_837_637_44,
+        0.095_012_509_837_637_44,
+        0.281_603_550_779_258_9,
+        0.458_016_777_657_227_37,
+        0.617_876_244_402_643_8,
+        0.755_404_408_355_003,
+        0.865_631_202_387_831_8,
+        0.944_575_023_073_232_6,
         0.989_400_934_991_649_9,
     ];
     static WEIGHTS: [f64; 16] = [
-        0.027_152_459_411_754_095, 0.062_253_523_938_647_894, 0.095_158_511_682_492_78,
-        0.124_628_971_255_533_88, 0.149_595_988_816_576_73, 0.169_156_519_395_002_54,
-        0.182_603_415_044_923_58, 0.189_450_610_455_068_5, 0.189_450_610_455_068_5,
-        0.182_603_415_044_923_58, 0.169_156_519_395_002_54, 0.149_595_988_816_576_73,
-        0.124_628_971_255_533_88, 0.095_158_511_682_492_78, 0.062_253_523_938_647_894,
+        0.027_152_459_411_754_095,
+        0.062_253_523_938_647_894,
+        0.095_158_511_682_492_78,
+        0.124_628_971_255_533_88,
+        0.149_595_988_816_576_73,
+        0.169_156_519_395_002_54,
+        0.182_603_415_044_923_58,
+        0.189_450_610_455_068_5,
+        0.189_450_610_455_068_5,
+        0.182_603_415_044_923_58,
+        0.169_156_519_395_002_54,
+        0.149_595_988_816_576_73,
+        0.124_628_971_255_533_88,
+        0.095_158_511_682_492_78,
+        0.062_253_523_938_647_894,
         0.027_152_459_411_754_095,
     ];
     (&NODES, &WEIGHTS)
@@ -159,71 +179,122 @@ mod tests {
     }
 
     #[test]
-    fn lewis_matches_bs_call_atm() {
+    fn lewis_matches_bs_call_atm() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.2;
-        let cf = BlackScholesCf { r: 0.05, q: 0.0, sigma };
+        let cf = BlackScholesCf {
+            r: 0.05,
+            q: 0.0,
+            sigma,
+        };
         let pricer = LewisPricer::new(&cf, LewisConfig::default());
-        let lewis = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let lewis = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
         let bs = bs_call_price(100.0, 100.0, 0.05, 0.0, 1.0, sigma);
         assert!(
             (lewis - bs).abs() < 5e-4,
-            "Lewis={lewis:.8}, BS={bs:.8}, diff={}", (lewis - bs).abs()
+            "Lewis={lewis:.8}, BS={bs:.8}, diff={}",
+            (lewis - bs).abs()
         );
+        Ok(())
     }
 
     #[test]
-    fn lewis_put_call_parity() {
+    fn lewis_put_call_parity() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.2;
-        let cf = BlackScholesCf { r: 0.05, q: 0.02, sigma };
+        let cf = BlackScholesCf {
+            r: 0.05,
+            q: 0.02,
+            sigma,
+        };
         let pricer = LewisPricer::new(&cf, LewisConfig::default());
         let (s, k, r, q, t) = (100.0, 105.0, 0.05, 0.02, 1.0);
-        let call = pricer.price_call(s, k, r, q, t).unwrap();
-        let put = pricer.price_put(s, k, r, q, t).unwrap();
+        let call = pricer.price_call(s, k, r, q, t)?;
+        let put = pricer.price_put(s, k, r, q, t)?;
         let parity = call - put - (s * (-q * t).exp() - k * (-r * t).exp());
-        assert!(parity.abs() < 1e-6, "Put-call parity residual: {parity:.10}");
+        assert!(
+            parity.abs() < 1e-6,
+            "Put-call parity residual: {parity:.10}"
+        );
+        Ok(())
     }
 
     #[test]
-    fn lewis_prices_nonnegative_and_bounded() {
+    fn lewis_prices_nonnegative_and_bounded() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         let sigma = 0.2;
-        let cf = BlackScholesCf { r: 0.05, q: 0.0, sigma };
+        let cf = BlackScholesCf {
+            r: 0.05,
+            q: 0.0,
+            sigma,
+        };
         let pricer = LewisPricer::new(&cf, LewisConfig::default());
         for strike in [80.0, 90.0, 100.0, 110.0, 120.0] {
-            let call = pricer.price_call(100.0, strike, 0.05, 0.0, 1.0).unwrap();
-            assert!(call >= 0.0, "K={strike}: call should be non-negative, got {call}");
-            assert!(call < 100.0, "K={strike}: call should be < spot, got {call}");
+            let call = pricer.price_call(100.0, strike, 0.05, 0.0, 1.0)?;
+            assert!(
+                call >= 0.0,
+                "K={strike}: call should be non-negative, got {call}"
+            );
+            assert!(
+                call < 100.0,
+                "K={strike}: call should be < spot, got {call}"
+            );
         }
+        Ok(())
     }
 
     #[test]
-    fn lewis_call_monotone_in_strike() {
-        let cf = BlackScholesCf { r: 0.05, q: 0.0, sigma: 0.2 };
+    fn lewis_call_monotone_in_strike() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let cf = BlackScholesCf {
+            r: 0.05,
+            q: 0.0,
+            sigma: 0.2,
+        };
         let pricer = LewisPricer::new(&cf, LewisConfig::default());
         let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
-        let prices: Vec<f64> = strikes
-            .iter()
-            .map(|&k| pricer.price_call(100.0, k, 0.05, 0.0, 1.0).unwrap())
-            .collect();
-        for w in prices.windows(2) {
-            assert!(w[0] >= w[1], "Call price should decrease with strike: {} >= {}", w[0], w[1]);
+        let mut prices = Vec::with_capacity(strikes.len());
+        for &k in &strikes {
+            prices.push(pricer.price_call(100.0, k, 0.05, 0.0, 1.0)?);
         }
+        for w in prices.windows(2) {
+            assert!(
+                w[0] >= w[1],
+                "Call price should decrease with strike: {} >= {}",
+                w[0],
+                w[1]
+            );
+        }
+        Ok(())
     }
 
     #[test]
-    fn lewis_vg_prices_reasonable() {
+    fn lewis_vg_prices_reasonable() -> std::result::Result<(), Box<dyn std::error::Error>> {
         use finstack_core::math::characteristic_function::VarianceGammaCf;
-        let vg = VarianceGammaCf { r: 0.05, q: 0.0, sigma: 0.12, nu: 0.2, theta: -0.14 };
+        let vg = VarianceGammaCf {
+            r: 0.05,
+            q: 0.0,
+            sigma: 0.12,
+            nu: 0.2,
+            theta: -0.14,
+        };
         let pricer = LewisPricer::new(&vg, LewisConfig::default());
-        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
         assert!(call > 0.0 && call < 100.0, "VG call: {call}");
+        Ok(())
     }
 
     #[test]
-    fn lewis_merton_prices_reasonable() {
+    fn lewis_merton_prices_reasonable() -> std::result::Result<(), Box<dyn std::error::Error>> {
         use finstack_core::math::characteristic_function::MertonJumpCf;
-        let merton = MertonJumpCf { r: 0.05, q: 0.0, sigma: 0.2, lambda: 1.0, mu_j: -0.05, sigma_j: 0.1 };
+        let merton = MertonJumpCf {
+            r: 0.05,
+            q: 0.0,
+            sigma: 0.2,
+            lambda: 1.0,
+            mu_j: -0.05,
+            sigma_j: 0.1,
+        };
         let pricer = LewisPricer::new(&merton, LewisConfig::default());
-        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
         assert!(call > 0.0 && call < 100.0, "Merton call: {call}");
+        Ok(())
     }
 }

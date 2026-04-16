@@ -19,9 +19,7 @@ use serde::{Deserialize, Serialize};
 /// # References
 ///
 /// US Bankruptcy Code ss. 507, 1129(b) (absolute priority rule).
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ClaimSeniority {
     /// Debtor-in-possession financing (super-priority administrative).
     DipFinancing,
@@ -89,9 +87,9 @@ impl Claim {
         let sum = self
             .principal
             .checked_add(self.accrued_interest)
-            .map_err(|e| crate::Error::Core(e))?
+            .map_err(crate::Error::Core)?
             .checked_add(self.penalties)
-            .map_err(|e| crate::Error::Core(e))?;
+            .map_err(crate::Error::Core)?;
         Ok(sum)
     }
 }
@@ -116,7 +114,10 @@ pub struct CollateralAllocation {
 impl CollateralAllocation {
     /// Net collateral value after haircut.
     pub fn net_value(&self) -> Money {
-        Money::new(self.value.amount() * (1.0 - self.haircut), self.value.currency())
+        Money::new(
+            self.value.amount() * (1.0 - self.haircut),
+            self.value.currency(),
+        )
     }
 }
 
@@ -129,4 +130,3 @@ pub enum AllocationMode {
     /// Pay in strict order within the class (rare; some inter-creditor agreements).
     StrictPriority,
 }
-

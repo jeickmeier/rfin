@@ -128,7 +128,7 @@ pub fn central_tendency(annual_default_rates: &[f64]) -> Result<f64, PdCalibrati
     }
 
     // If any rate is zero, the geometric mean is zero
-    if annual_default_rates.iter().any(|&r| r == 0.0) {
+    if annual_default_rates.contains(&0.0) {
         return Ok(0.0);
     }
 

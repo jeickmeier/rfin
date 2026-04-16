@@ -137,13 +137,20 @@ impl ReportComponent for WaterfallData {
         writeln!(
             &mut out,
             "**Start**: {:.2} {} | **End**: {:.2} {} | **Change**: {:.2} {}\n",
-            self.start_value, self.currency, self.end_value, self.currency, self.total_change,
+            self.start_value,
+            self.currency,
+            self.end_value,
+            self.currency,
+            self.total_change,
             self.currency,
         )
         .expect("writing to String cannot fail");
 
-        writeln!(&mut out, "| Factor | Contribution | Cumulative | % of Total | Direction |")
-            .expect("writing to String cannot fail");
+        writeln!(
+            &mut out,
+            "| Factor | Contribution | Cumulative | % of Total | Direction |"
+        )
+        .expect("writing to String cannot fail");
         writeln!(
             &mut out,
             "|:-------|-------------:|-----------:|-----------:|:----------|"

@@ -147,9 +147,7 @@ impl LiquidityProfile {
 /// # References
 ///
 /// - AIFMD liquidity bucketing: `docs/REFERENCES.md#esma2014AifmdGuidelines`
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum LiquidityTier {
     /// Tier 1: < 1 day to liquidate (highly liquid).
     Tier1,
@@ -282,12 +280,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn valid_profile_construction() {
-        let p = LiquidityProfile::new("AAPL", 150.0, 149.90, 150.10, 50_000_000.0, 200.0, 0.001);
-        assert!(p.is_ok());
-        let p = p.expect("valid profile");
+    fn valid_profile_construction() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let p = LiquidityProfile::new("AAPL", 150.0, 149.90, 150.10, 50_000_000.0, 200.0, 0.001)?;
         assert_eq!(p.instrument_id, "AAPL");
         assert_eq!(p.observation_days, 20);
+        Ok(())
     }
 
     #[test]
@@ -315,13 +312,12 @@ mod tests {
     }
 
     #[test]
-    fn spread_calculations() {
-        let p =
-            LiquidityProfile::new("TEST", 100.0, 99.0, 101.0, 1000.0, 50.0, 0.01)
-                .expect("valid");
+    fn spread_calculations() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let p = LiquidityProfile::new("TEST", 100.0, 99.0, 101.0, 1000.0, 50.0, 0.01)?;
         assert!((p.spread() - 2.0).abs() < 1e-10);
         assert!((p.relative_spread() - 0.02).abs() < 1e-10);
         assert!((p.half_spread() - 1.0).abs() < 1e-10);
+        Ok(())
     }
 
     #[test]
@@ -363,28 +359,29 @@ mod tests {
     }
 
     #[test]
-    fn serde_round_trip_profile() {
-        let p =
-            LiquidityProfile::new("AAPL", 150.0, 149.90, 150.10, 50_000_000.0, 200.0, 0.001)
-                .expect("valid");
-        let json = serde_json::to_string(&p).expect("serialize");
-        let p2: LiquidityProfile = serde_json::from_str(&json).expect("deserialize");
+    fn serde_round_trip_profile() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let p = LiquidityProfile::new("AAPL", 150.0, 149.90, 150.10, 50_000_000.0, 200.0, 0.001)?;
+        let json = serde_json::to_string(&p)?;
+        let p2: LiquidityProfile = serde_json::from_str(&json)?;
         assert_eq!(p, p2);
+        Ok(())
     }
 
     #[test]
-    fn serde_round_trip_tier() {
+    fn serde_round_trip_tier() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let tier = LiquidityTier::Tier3;
-        let json = serde_json::to_string(&tier).expect("serialize");
-        let t2: LiquidityTier = serde_json::from_str(&json).expect("deserialize");
+        let json = serde_json::to_string(&tier)?;
+        let t2: LiquidityTier = serde_json::from_str(&json)?;
         assert_eq!(tier, t2);
+        Ok(())
     }
 
     #[test]
-    fn serde_round_trip_config() {
+    fn serde_round_trip_config() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let c = LiquidityConfig::default();
-        let json = serde_json::to_string(&c).expect("serialize");
-        let c2: LiquidityConfig = serde_json::from_str(&json).expect("deserialize");
+        let json = serde_json::to_string(&c)?;
+        let c2: LiquidityConfig = serde_json::from_str(&json)?;
         assert_eq!(c, c2);
+        Ok(())
     }
 }

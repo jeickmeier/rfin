@@ -264,7 +264,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn position_score_serde_round_trip() {
+    fn position_score_serde_round_trip() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let score = PositionLiquidityScore {
             position_id: PositionId::new("POS1"),
             instrument_id: "AAPL".to_string(),
@@ -274,9 +274,10 @@ mod tests {
             pct_of_adv: 5.0,
             liquidation_cost_bps: 3.5,
         };
-        let json = serde_json::to_string(&score).expect("serialize");
-        let score2: PositionLiquidityScore = serde_json::from_str(&json).expect("deserialize");
+        let json = serde_json::to_string(&score)?;
+        let score2: PositionLiquidityScore = serde_json::from_str(&json)?;
         assert_eq!(score, score2);
+        Ok(())
     }
 
     #[test]
@@ -288,11 +289,8 @@ mod tests {
             tier4_pct: 10.0,
             tier5_pct: 5.0,
         };
-        let sum = alloc.tier1_pct
-            + alloc.tier2_pct
-            + alloc.tier3_pct
-            + alloc.tier4_pct
-            + alloc.tier5_pct;
+        let sum =
+            alloc.tier1_pct + alloc.tier2_pct + alloc.tier3_pct + alloc.tier4_pct + alloc.tier5_pct;
         assert!((sum - 100.0).abs() < 1e-10);
     }
 }

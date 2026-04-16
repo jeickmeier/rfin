@@ -51,16 +51,11 @@ impl CharacteristicFunction for MertonJumpCf {
         let sj2 = self.sigma_j * self.sigma_j;
         let m_bar = (self.mu_j + 0.5 * sj2).exp() - 1.0;
         Cumulants {
-            c1: (self.r - self.q - 0.5 * s2 - self.lambda * m_bar
-                + self.lambda * self.mu_j)
-                * t,
+            c1: (self.r - self.q - 0.5 * s2 - self.lambda * m_bar + self.lambda * self.mu_j) * t,
             c2: (s2 + self.lambda * (sj2 + self.mu_j * self.mu_j)) * t,
-            c3: self.lambda
-                * (self.mu_j.powi(3) + 3.0 * self.mu_j * sj2)
-                * t,
+            c3: self.lambda * (self.mu_j.powi(3) + 3.0 * self.mu_j * sj2) * t,
             c4: self.lambda
-                * (self.mu_j.powi(4) + 6.0 * self.mu_j * self.mu_j * sj2
-                    + 3.0 * sj2 * sj2)
+                * (self.mu_j.powi(4) + 6.0 * self.mu_j * self.mu_j * sj2 + 3.0 * sj2 * sj2)
                 * t,
         }
     }

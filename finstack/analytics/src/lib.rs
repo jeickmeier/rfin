@@ -34,8 +34,8 @@ pub mod returns;
 pub mod risk_metrics;
 pub mod timeseries;
 
-pub use backtesting::{run_backtest, BacktestResult, VarBacktestConfig};
 pub use aggregation::{group_by_period, period_stats, PeriodStats};
+pub use backtesting::{run_backtest, BacktestResult, VarBacktestConfig};
 pub use benchmark::{
     align_benchmark, align_benchmark_with_policy, batting_average, calc_beta, capture_ratio,
     down_capture, greeks, information_ratio, m_squared, m_squared_from_returns,

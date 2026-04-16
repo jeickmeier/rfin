@@ -381,12 +381,12 @@ pub mod instruments;
 pub mod attribution;
 /// Covenant checking for structured products.
 pub mod covenants;
-/// Credit event and restructuring analytics (recovery waterfall, exchange offers, LME).
-pub mod restructuring;
 /// Risk metric calculators and registries.
 pub mod metrics;
 /// Structured report generation components for analytics results.
 pub mod reporting;
+/// Credit event and restructuring analytics (recovery waterfall, exchange offers, LME).
+pub mod restructuring;
 /// XVA (Valuation Adjustments) framework.
 ///
 /// Provides credit valuation adjustment (CVA) and exposure simulation

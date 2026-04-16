@@ -61,11 +61,8 @@ pub fn compare_models(
     dist: InnovationDist,
     config: Option<&FitConfig>,
 ) -> crate::Result<Vec<GarchFit>> {
-    let models: Vec<Box<dyn GarchModel>> = vec![
-        Box::new(Garch11),
-        Box::new(Egarch11),
-        Box::new(GjrGarch11),
-    ];
+    let models: Vec<Box<dyn GarchModel>> =
+        vec![Box::new(Garch11), Box::new(Egarch11), Box::new(GjrGarch11)];
 
     let mut results: Vec<GarchFit> = Vec::new();
     for model in &models {
@@ -81,7 +78,11 @@ pub fn compare_models(
         ));
     }
 
-    results.sort_by(|a, b| a.bic.partial_cmp(&b.bic).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        a.bic
+            .partial_cmp(&b.bic)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     Ok(results)
 }
@@ -104,13 +105,7 @@ mod tests {
     use super::*;
 
     /// Generate a synthetic GARCH(1,1) series with known parameters.
-    fn generate_garch_data(
-        omega: f64,
-        alpha: f64,
-        beta: f64,
-        n: usize,
-        seed: u64,
-    ) -> Vec<f64> {
+    fn generate_garch_data(omega: f64, alpha: f64, beta: f64, n: usize, seed: u64) -> Vec<f64> {
         use rand::rngs::SmallRng;
         use rand::SeedableRng;
 
@@ -278,7 +273,10 @@ mod tests {
 
         // No NaN in conditional variances
         for &s in &fit.conditional_variances {
-            assert!(s.is_finite() && s > 0.0, "Conditional variance should be finite positive");
+            assert!(
+                s.is_finite() && s > 0.0,
+                "Conditional variance should be finite positive"
+            );
         }
     }
 
@@ -338,7 +336,7 @@ mod tests {
 
         // Ljung-Box on squared standardized residuals
         let pval = fit.ljung_box_squared(10);
-        assert!(pval >= 0.0 && pval <= 1.0, "p-value should be in [0,1]");
+        assert!((0.0..=1.0).contains(&pval), "p-value should be in [0,1]");
     }
 
     #[test]
@@ -349,7 +347,7 @@ mod tests {
             .expect("fit should succeed");
 
         let pval = fit.arch_lm_test(5);
-        assert!(pval >= 0.0 && pval <= 1.0, "p-value should be in [0,1]");
+        assert!((0.0..=1.0).contains(&pval), "p-value should be in [0,1]");
     }
 
     #[test]

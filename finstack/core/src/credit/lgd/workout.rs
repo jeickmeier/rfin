@@ -46,9 +46,7 @@ pub enum CollateralType {
 }
 
 /// A single piece of collateral in the recovery waterfall.
-#[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CollateralPiece {
     /// Collateral asset class.
     pub collateral_type: CollateralType,
@@ -87,9 +85,7 @@ impl CollateralPiece {
 /// Workout and resolution costs.
 ///
 /// These reduce the net recovery available to creditors.
-#[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct WorkoutCosts {
     /// Direct costs as fraction of EAD (legal fees, administrative). Typical: 3-8%.
     pub direct_cost_rate: f64,
@@ -283,8 +279,8 @@ mod tests {
 
     #[test]
     fn collateral_piece_liquidation_value() {
-        let piece = CollateralPiece::new(CollateralType::RealEstate, 80.0, 0.30)
-            .expect("valid collateral");
+        let piece =
+            CollateralPiece::new(CollateralType::RealEstate, 80.0, 0.30).expect("valid collateral");
         assert!((piece.liquidation_value() - 56.0).abs() < 1e-12);
     }
 
@@ -315,8 +311,8 @@ mod tests {
     #[test]
     fn workout_lgd_single_collateral() {
         // Single collateral: RE $80M, 30% haircut, EAD $100M, 2yr workout at 5%, 8% total costs
-        let piece = CollateralPiece::new(CollateralType::RealEstate, 80.0, 0.30)
-            .expect("valid collateral");
+        let piece =
+            CollateralPiece::new(CollateralType::RealEstate, 80.0, 0.30).expect("valid collateral");
         let costs = WorkoutCosts::new(0.05, 0.03).expect("valid costs");
 
         let model = WorkoutLgd::builder()
@@ -366,8 +362,8 @@ mod tests {
     #[test]
     fn workout_lgd_collateral_exceeds_ead() {
         // Collateral liquidation value > EAD: recovery capped at EAD
-        let piece = CollateralPiece::new(CollateralType::Cash, 200.0, 0.0)
-            .expect("valid collateral");
+        let piece =
+            CollateralPiece::new(CollateralType::Cash, 200.0, 0.0).expect("valid collateral");
 
         let model = WorkoutLgd::builder()
             .collateral(piece)
@@ -402,10 +398,8 @@ mod tests {
 
     #[test]
     fn workout_lgd_multiple_collateral() {
-        let p1 = CollateralPiece::new(CollateralType::Cash, 20.0, 0.0)
-            .expect("valid");
-        let p2 = CollateralPiece::new(CollateralType::RealEstate, 60.0, 0.25)
-            .expect("valid");
+        let p1 = CollateralPiece::new(CollateralType::Cash, 20.0, 0.0).expect("valid");
+        let p2 = CollateralPiece::new(CollateralType::RealEstate, 60.0, 0.25).expect("valid");
 
         let model = WorkoutLgd::builder()
             .collateral(p1)
@@ -436,8 +430,7 @@ mod tests {
 
     #[test]
     fn workout_lgd_recovery_rate_complement() {
-        let piece = CollateralPiece::new(CollateralType::Equipment, 50.0, 0.40)
-            .expect("valid");
+        let piece = CollateralPiece::new(CollateralType::Equipment, 50.0, 0.40).expect("valid");
         let model = WorkoutLgd::builder()
             .collateral(piece)
             .build()
@@ -450,8 +443,7 @@ mod tests {
 
     #[test]
     fn workout_lgd_serialization_roundtrip() {
-        let piece = CollateralPiece::new(CollateralType::RealEstate, 80.0, 0.30)
-            .expect("valid");
+        let piece = CollateralPiece::new(CollateralType::RealEstate, 80.0, 0.30).expect("valid");
         let model = WorkoutLgd::builder()
             .collateral(piece)
             .build()
@@ -460,8 +452,6 @@ mod tests {
         let json = serde_json::to_string(&model).expect("serialize");
         let model2: WorkoutLgd = serde_json::from_str(&json).expect("deserialize");
 
-        assert!(
-            (model.lgd(100.0).expect("ok") - model2.lgd(100.0).expect("ok")).abs() < 1e-12
-        );
+        assert!((model.lgd(100.0).expect("ok") - model2.lgd(100.0).expect("ok")).abs() < 1e-12);
     }
 }

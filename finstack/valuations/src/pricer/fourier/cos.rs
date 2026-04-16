@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn cos_matches_bs_call_atm() {
+    fn cos_matches_bs_call_atm() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.2;
         let cf = BlackScholesCf {
             r: 0.05,
@@ -281,7 +281,7 @@ mod tests {
             truncation_l: 10.0,
         };
         let pricer = CosPricer::new(&cf, config);
-        let cos_price = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let cos_price = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
         let bs_price = bs_call_price(100.0, 100.0, 0.05, 0.0, 1.0, sigma);
 
         assert!(
@@ -289,10 +289,11 @@ mod tests {
             "COS={cos_price:.8}, BS={bs_price:.8}, diff={}",
             (cos_price - bs_price).abs()
         );
+        Ok(())
     }
 
     #[test]
-    fn cos_matches_bs_call_itm_otm() {
+    fn cos_matches_bs_call_itm_otm() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.25;
         let cf = BlackScholesCf {
             r: 0.05,
@@ -303,7 +304,7 @@ mod tests {
         let pricer = CosPricer::new(&cf, config);
 
         for strike in [80.0, 90.0, 100.0, 110.0, 120.0] {
-            let cos_price = pricer.price_call(100.0, strike, 0.05, 0.02, 1.0).unwrap();
+            let cos_price = pricer.price_call(100.0, strike, 0.05, 0.02, 1.0)?;
             let bs_price = bs_call_price(100.0, strike, 0.05, 0.02, 1.0, sigma);
             assert!(
                 (cos_price - bs_price).abs() < 1e-4,
@@ -311,10 +312,11 @@ mod tests {
                 (cos_price - bs_price).abs()
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn cos_put_call_parity() {
+    fn cos_put_call_parity() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.2;
         let cf = BlackScholesCf {
             r: 0.05,
@@ -329,18 +331,19 @@ mod tests {
         let q = 0.02;
         let t = 1.0;
 
-        let call = pricer.price_call(spot, strike, r, q, t).unwrap();
-        let put = pricer.price_put(spot, strike, r, q, t).unwrap();
+        let call = pricer.price_call(spot, strike, r, q, t)?;
+        let put = pricer.price_put(spot, strike, r, q, t)?;
         let parity = call - put - (spot * (-q * t).exp() - strike * (-r * t).exp());
 
         assert!(
             parity.abs() < 1e-6,
             "Put-call parity residual: {parity:.10}"
         );
+        Ok(())
     }
 
     #[test]
-    fn cos_put_matches_bs() {
+    fn cos_put_matches_bs() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.2;
         let cf = BlackScholesCf {
             r: 0.05,
@@ -349,16 +352,17 @@ mod tests {
         };
         let config = CosConfig::default();
         let pricer = CosPricer::new(&cf, config);
-        let cos_put = pricer.price_put(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let cos_put = pricer.price_put(100.0, 100.0, 0.05, 0.0, 1.0)?;
         let bs_put = bs_put_price(100.0, 100.0, 0.05, 0.0, 1.0, sigma);
         assert!(
             (cos_put - bs_put).abs() < 1e-6,
             "COS put={cos_put:.8}, BS put={bs_put:.8}"
         );
+        Ok(())
     }
 
     #[test]
-    fn cos_strip_matches_singles() {
+    fn cos_strip_matches_singles() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let sigma = 0.2;
         let cf = BlackScholesCf {
             r: 0.05,
@@ -369,9 +373,9 @@ mod tests {
         let pricer = CosPricer::new(&cf, config);
         let strikes = vec![90.0, 95.0, 100.0, 105.0, 110.0];
 
-        let strip = pricer.price_calls(100.0, &strikes, 0.05, 0.0, 1.0).unwrap();
+        let strip = pricer.price_calls(100.0, &strikes, 0.05, 0.0, 1.0)?;
         for (i, &k) in strikes.iter().enumerate() {
-            let single = pricer.price_call(100.0, k, 0.05, 0.0, 1.0).unwrap();
+            let single = pricer.price_call(100.0, k, 0.05, 0.0, 1.0)?;
             assert!(
                 (strip[i] - single).abs() < 1e-12,
                 "Strip[{i}]={}, single={}",
@@ -379,10 +383,12 @@ mod tests {
                 single
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn cos_variance_gamma_prices_are_positive() {
+    fn cos_variance_gamma_prices_are_positive(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         use finstack_core::math::characteristic_function::VarianceGammaCf;
         let vg = VarianceGammaCf {
             r: 0.05,
@@ -396,13 +402,14 @@ mod tests {
             truncation_l: 12.0,
         };
         let pricer = CosPricer::new(&vg, config);
-        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
         assert!(call > 0.0, "VG call should be positive: {call}");
         assert!(call < 100.0, "VG call should be < spot: {call}");
+        Ok(())
     }
 
     #[test]
-    fn cos_merton_prices_are_reasonable() {
+    fn cos_merton_prices_are_reasonable() -> std::result::Result<(), Box<dyn std::error::Error>> {
         use finstack_core::math::characteristic_function::MertonJumpCf;
         let merton = MertonJumpCf {
             r: 0.05,
@@ -417,7 +424,7 @@ mod tests {
             truncation_l: 12.0,
         };
         let pricer = CosPricer::new(&merton, config);
-        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0).unwrap();
+        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
         assert!(call > 0.0, "Merton call should be positive: {call}");
         assert!(call < 100.0, "Merton call should be < spot: {call}");
 
@@ -427,5 +434,6 @@ mod tests {
             (call - bs_price).abs() < 5.0,
             "Merton should be in BS neighborhood: merton={call}, bs={bs_price}"
         );
+        Ok(())
     }
 }

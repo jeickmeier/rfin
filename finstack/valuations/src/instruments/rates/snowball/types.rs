@@ -11,14 +11,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 /// Snowball note variant.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum SnowballVariant {
@@ -128,12 +121,15 @@ impl Snowball {
             )
         })?;
 
-        validation::require_with(self.coupon_floor >= 0.0 && self.coupon_floor.is_finite(), || {
-            format!(
-                "Snowball coupon_floor ({}) must be non-negative and finite",
-                self.coupon_floor
-            )
-        })?;
+        validation::require_with(
+            self.coupon_floor >= 0.0 && self.coupon_floor.is_finite(),
+            || {
+                format!(
+                    "Snowball coupon_floor ({}) must be non-negative and finite",
+                    self.coupon_floor
+                )
+            },
+        )?;
 
         if let Some(cap) = self.coupon_cap {
             validation::require_with(cap > self.coupon_floor, || {

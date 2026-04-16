@@ -91,8 +91,7 @@ pub fn ohlson_o_score(input: &OhlsonOScoreInput) -> Result<ScoringResult, Credit
     )?;
     check_finite("net_income_change", input.net_income_change)?;
 
-    let o = -1.32
-        - 0.407 * input.log_total_assets_adjusted
+    let o = -1.32 - 0.407 * input.log_total_assets_adjusted
         + 6.03 * input.total_liabilities_to_total_assets
         - 1.43 * input.working_capital_to_total_assets
         + 0.0757 * input.current_liabilities_to_current_assets

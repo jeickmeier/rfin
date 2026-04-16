@@ -77,6 +77,4 @@ pub use exchange_offer::{
 };
 
 // LME
-pub use lme::{
-    analyze_lme, LeverageImpact, LmeAnalysis, LmeSpec, LmeType, RemainingHolderImpact,
-};
+pub use lme::{analyze_lme, LeverageImpact, LmeAnalysis, LmeSpec, LmeType, RemainingHolderImpact};

@@ -269,8 +269,6 @@ mod tests {
         let json = serde_json::to_string(&cra).expect("serialize");
         let deser: CallableRangeAccrual = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deser.id, cra.id);
-        assert!(
-            (deser.range_accrual.coupon_rate - cra.range_accrual.coupon_rate).abs() < 1e-12
-        );
+        assert!((deser.range_accrual.coupon_rate - cra.range_accrual.coupon_rate).abs() < 1e-12);
     }
 }

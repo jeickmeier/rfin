@@ -17,9 +17,7 @@ use crate::Result;
 ///
 /// Represents the fraction of undrawn commitments expected to be drawn
 /// at the time of default.
-#[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CreditConversionFactor {
     /// CCF value in \[0, 1\]. Basel IRB: typically 0.75 for revolvers.
     ccf: f64,
@@ -66,9 +64,7 @@ impl CreditConversionFactor {
 ///
 /// Optionally supports Loan Equivalency (LEQ) estimation for revolving
 /// facilities where the CCF varies with utilization.
-#[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct EadCalculator {
     /// Currently drawn amount.
     drawn: f64,
@@ -88,7 +84,11 @@ impl EadCalculator {
         if drawn < 0.0 || undrawn < 0.0 {
             return Err(InputError::NegativeValue.into());
         }
-        Ok(Self { drawn, undrawn, ccf })
+        Ok(Self {
+            drawn,
+            undrawn,
+            ccf,
+        })
     }
 
     /// Create for a fully drawn term loan (no undrawn component).
@@ -225,8 +225,8 @@ mod tests {
 
     #[test]
     fn ead_zero_commitment() {
-        let calc = EadCalculator::new(0.0, 0.0, CreditConversionFactor::full_draw())
-            .expect("valid");
+        let calc =
+            EadCalculator::new(0.0, 0.0, CreditConversionFactor::full_draw()).expect("valid");
         assert!((calc.ead() - 0.0).abs() < 1e-12);
         assert!((calc.utilization() - 0.0).abs() < 1e-12);
     }

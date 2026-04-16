@@ -223,12 +223,7 @@ pub trait GarchModel: Send + Sync {
     fn filter(&self, returns: &[f64], params: &GarchParams, sigma2_out: &mut [f64]);
 
     /// Compute the log-likelihood given parameters and a return series.
-    fn log_likelihood(
-        &self,
-        returns: &[f64],
-        params: &GarchParams,
-        dist: InnovationDist,
-    ) -> f64;
+    fn log_likelihood(&self, returns: &[f64], params: &GarchParams, dist: InnovationDist) -> f64;
 
     /// h-step ahead variance forecast from the last fitted state.
     fn forecast(
@@ -279,8 +274,12 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
     let mut best_ll = f64::NEG_INFINITY;
     let mut best_params_vec: Vec<f64> = Vec::new();
 
-    let alpha_grid: Vec<f64> = (1..gp).map(|i| 0.02 + 0.18 * i as f64 / gp as f64).collect();
-    let beta_grid: Vec<f64> = (1..gp).map(|i| 0.70 + 0.27 * i as f64 / gp as f64).collect();
+    let alpha_grid: Vec<f64> = (1..gp)
+        .map(|i| 0.02 + 0.18 * i as f64 / gp as f64)
+        .collect();
+    let beta_grid: Vec<f64> = (1..gp)
+        .map(|i| 0.70 + 0.27 * i as f64 / gp as f64)
+        .collect();
     let gamma_grid: Vec<f64> = if has_gamma {
         vec![-0.10, -0.05, 0.0, 0.05, 0.10, 0.15]
     } else {

@@ -137,8 +137,8 @@ pub struct StagingConfig {
 impl Default for StagingConfig {
     fn default() -> Self {
         Self {
-            pd_delta_absolute: 0.01,   // 1 pp
-            pd_delta_relative: 2.0,    // PD doubled
+            pd_delta_absolute: 0.01, // 1 pp
+            pd_delta_relative: 2.0,  // PD doubled
             rating_downgrade_notches: 3,
             dpd_stage2_threshold: 30,
             dpd_stage3_threshold: 90,
@@ -331,9 +331,18 @@ mod tests {
     fn make_multi_rating_curves() -> MultiRatingCurve {
         MultiRatingCurve {
             curves: vec![
-                ("A".to_string(), vec![(0.0, 0.0), (1.0, 0.005), (5.0, 0.03), (10.0, 0.06)]),
-                ("BBB".to_string(), vec![(0.0, 0.0), (1.0, 0.02), (5.0, 0.10), (10.0, 0.20)]),
-                ("BB".to_string(), vec![(0.0, 0.0), (1.0, 0.05), (5.0, 0.20), (10.0, 0.40)]),
+                (
+                    "A".to_string(),
+                    vec![(0.0, 0.0), (1.0, 0.005), (5.0, 0.03), (10.0, 0.06)],
+                ),
+                (
+                    "BBB".to_string(),
+                    vec![(0.0, 0.0), (1.0, 0.02), (5.0, 0.10), (10.0, 0.20)],
+                ),
+                (
+                    "BB".to_string(),
+                    vec![(0.0, 0.0), (1.0, 0.05), (5.0, 0.20), (10.0, 0.40)],
+                ),
             ],
         }
     }
@@ -396,7 +405,10 @@ mod tests {
         assert_eq!(result.stage, Stage::Stage3);
         assert!(matches!(
             result.triggers[0],
-            StagingTrigger::DpdStage3 { dpd: 91, threshold: 90 }
+            StagingTrigger::DpdStage3 {
+                dpd: 91,
+                threshold: 90
+            }
         ));
     }
 
@@ -409,10 +421,10 @@ mod tests {
 
         let result = classify_stage(&exposure, &curve, &config).unwrap();
         assert_eq!(result.stage, Stage::Stage2);
-        assert!(result.triggers.iter().any(|t| matches!(
-            t,
-            StagingTrigger::DpdStage2 { .. }
-        )));
+        assert!(result
+            .triggers
+            .iter()
+            .any(|t| matches!(t, StagingTrigger::DpdStage2 { .. })));
     }
 
     #[test]
@@ -426,10 +438,10 @@ mod tests {
 
         let result = classify_stage(&exposure, &curves, &config).unwrap();
         assert_eq!(result.stage, Stage::Stage2);
-        assert!(result.triggers.iter().any(|t| matches!(
-            t,
-            StagingTrigger::PdDeltaAbsolute { .. }
-        )));
+        assert!(result
+            .triggers
+            .iter()
+            .any(|t| matches!(t, StagingTrigger::PdDeltaAbsolute { .. })));
     }
 
     #[test]
@@ -441,10 +453,10 @@ mod tests {
 
         let result = classify_stage(&exposure, &curve, &config).unwrap();
         assert_eq!(result.stage, Stage::Stage2);
-        assert!(result.triggers.iter().any(|t| matches!(
-            t,
-            StagingTrigger::Qualitative { .. }
-        )));
+        assert!(result
+            .triggers
+            .iter()
+            .any(|t| matches!(t, StagingTrigger::Qualitative { .. })));
     }
 
     #[test]

@@ -337,7 +337,10 @@ mod tests {
             "cache should have evicted some entries, got {}",
             cache.len()
         );
-        assert!(cache.stats().evictions() > 0, "should have recorded evictions");
+        assert!(
+            cache.stats().evictions() > 0,
+            "should have recorded evictions"
+        );
     }
 
     #[test]

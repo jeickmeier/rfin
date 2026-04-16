@@ -282,14 +282,14 @@ mod tests {
         let n = 500;
         let series: Vec<f64> = (0..n)
             .map(|i| {
-                let x = (i as f64 * 2.718281828 * 100.0).sin();
+                let x = (i as f64 * std::f64::consts::E * 100.0).sin();
                 x * 0.01
             })
             .collect();
 
         let (stat, pval) = ljung_box(&series, 10);
         assert!(stat.is_finite());
-        assert!(pval >= 0.0 && pval <= 1.0);
+        assert!((0.0..=1.0).contains(&pval));
     }
 
     #[test]
@@ -319,19 +319,23 @@ mod tests {
         // i.i.d. residuals should not show ARCH effects
         let n = 200;
         let resid: Vec<f64> = (0..n)
-            .map(|i| (i as f64 * 3.14159265 * 100.0).sin() * 0.01)
+            .map(|i| (i as f64 * std::f64::consts::PI * 100.0).sin() * 0.01)
             .collect();
 
         let (stat, pval) = arch_lm(&resid, 5);
         assert!(stat.is_finite());
-        assert!(pval >= 0.0 && pval <= 1.0);
+        assert!((0.0..=1.0).contains(&pval));
     }
 
     #[test]
     fn chi2_sf_basic() {
         // chi2(1) at x=3.84 should give p ~ 0.05
         let p = chi2_sf(3.841, 1.0);
-        assert!((p - 0.05).abs() < 0.01, "chi2_sf(3.841, 1) = {}, expected ~0.05", p);
+        assert!(
+            (p - 0.05).abs() < 0.01,
+            "chi2_sf(3.841, 1) = {}, expected ~0.05",
+            p
+        );
 
         // chi2(1) at x=0 should give p = 1
         let p0 = chi2_sf(0.0, 1.0);

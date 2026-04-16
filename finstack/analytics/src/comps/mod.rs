@@ -18,7 +18,10 @@ pub use peer_set::{PeerFilter, PeerSet};
 pub use scoring::{
     score_relative_value, DimensionScore, MetricExtractor, RelativeValueResult, ScoringDimension,
 };
-pub use stats::{historical_percentile, peer_stats, percentile_rank, regression_fair_value, z_score, PeerStats, RegressionResult};
+pub use stats::{
+    historical_percentile, peer_stats, percentile_rank, regression_fair_value, z_score, PeerStats,
+    RegressionResult,
+};
 pub use types::{CompanyId, CompanyMetrics, Multiple, PeriodBasis};
 
 #[cfg(test)]
@@ -120,10 +123,7 @@ mod tests {
         // mean = 3.0, std_dev = sqrt(var) where var = 2.5 (sample variance)
         let values = [1.0, 2.0, 3.0, 4.0, 5.0];
         let z = z_score(&values, 3.0).expect("z-score of mean should be defined");
-        assert!(
-            z.abs() < 1e-10,
-            "z-score of the mean should be ~0, got {z}"
-        );
+        assert!(z.abs() < 1e-10, "z-score of the mean should be ~0, got {z}");
 
         // Value 1 standard deviation above
         let sd = (2.5_f64).sqrt(); // sample std dev of [1,2,3,4,5]
@@ -154,8 +154,7 @@ mod tests {
         let x = [1.0, 2.0, 3.0, 4.0, 5.0];
         let y = [3.0, 5.0, 7.0, 9.0, 11.0];
 
-        let result =
-            regression_fair_value(&x, &y, 3.0, 7.0).expect("regression should succeed");
+        let result = regression_fair_value(&x, &y, 3.0, 7.0).expect("regression should succeed");
 
         assert!(
             result.r_squared > 0.99,
@@ -286,10 +285,7 @@ mod tests {
         let accepted: Vec<_> = universe.iter().filter(|c| filter.accepts(c)).collect();
         assert_eq!(accepted.len(), 8); // A, B, C, D, F, G, I, J
         for c in &accepted {
-            assert_eq!(
-                c.attributes.get_meta("gics_sector"),
-                Some("Energy"),
-            );
+            assert_eq!(c.attributes.get_meta("gics_sector"), Some("Energy"),);
         }
     }
 

@@ -367,7 +367,11 @@ impl FrtbSensitivities {
     ) {
         *self
             .girr_vega
-            .entry((ccy, option_maturity.to_string(), underlying_tenor.to_string()))
+            .entry((
+                ccy,
+                option_maturity.to_string(),
+                underlying_tenor.to_string(),
+            ))
             .or_insert(0.0) += vega;
     }
 

@@ -265,8 +265,8 @@ impl YieldPca {
 
         for (k, &shock) in shocks.iter().enumerate() {
             let sigma_k = self.eigenvalues[k].max(0.0).sqrt();
-            for i in 0..n {
-                result[i] += shock * sigma_k * self.loadings[(i, k)];
+            for (i, value) in result.iter_mut().enumerate() {
+                *value += shock * sigma_k * self.loadings[(i, k)];
             }
         }
 
@@ -291,7 +291,7 @@ impl YieldPca {
         // Reconstruct: scores[:, :K] * loadings[:, :K]'
         let scores_k = self.scores.columns(0, num_components);
         let loadings_k = self.loadings.columns(0, num_components);
-        let reconstructed = &scores_k * loadings_k.transpose();
+        let reconstructed = scores_k * loadings_k.transpose();
 
         // Add back the mean
         let mut result = DMatrix::zeros(m, n);
@@ -309,11 +309,7 @@ impl YieldPca {
     /// # Errors
     /// - base_yields length != N
     /// - shocks length exceeds num_components
-    pub fn apply_scenario(
-        &self,
-        base_yields: &[f64],
-        shocks: &[f64],
-    ) -> crate::Result<Vec<f64>> {
+    pub fn apply_scenario(&self, base_yields: &[f64], shocks: &[f64]) -> crate::Result<Vec<f64>> {
         let n = self.tenors.len();
         if base_yields.len() != n {
             return Err(crate::Error::Validation(format!(
@@ -370,8 +366,8 @@ mod tests {
         let mut scores = DMatrix::zeros(m, k);
         for t in 0..m {
             for f in 0..k {
-                scores[(t, f)] = ((t as f64 + 1.0) * (f as f64 + 1.0) * 0.7).sin()
-                    * factor_variances[f].sqrt();
+                scores[(t, f)] =
+                    ((t as f64 + 1.0) * (f as f64 + 1.0) * 0.7).sin() * factor_variances[f].sqrt();
             }
         }
 

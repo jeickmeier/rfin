@@ -198,19 +198,26 @@ mod tests {
     use super::*;
     use crate::liquidity::types::LiquidityProfile;
 
-    fn test_profile() -> LiquidityProfile {
-        LiquidityProfile::new("TEST", 100.0, 99.5, 100.5, 1_000_000.0, 500.0, 0.001)
-            .expect("valid profile")
+    fn test_profile() -> std::result::Result<LiquidityProfile, Box<dyn std::error::Error>> {
+        Ok(LiquidityProfile::new(
+            "TEST",
+            100.0,
+            99.5,
+            100.5,
+            1_000_000.0,
+            500.0,
+            0.001,
+        )?)
     }
 
-    fn test_params(quantity: f64) -> TradeParams {
-        TradeParams {
+    fn test_params(quantity: f64) -> std::result::Result<TradeParams, Box<dyn std::error::Error>> {
+        Ok(TradeParams {
             quantity,
             horizon_days: 5.0,
             daily_volatility: 0.02,
-            profile: test_profile(),
+            profile: test_profile()?,
             risk_aversion: None,
-        }
+        })
     }
 
     #[test]
@@ -230,45 +237,49 @@ mod tests {
     }
 
     #[test]
-    fn from_amihud_basic() {
+    fn from_amihud_basic() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let model = KyleLambdaModel::from_amihud(1e-9, 1_000_000.0);
         assert!(model.is_ok());
-        let m = model.expect("valid");
+        let m = model?;
         assert!((m.lambda() - 0.001).abs() < 1e-10);
+        Ok(())
     }
 
     #[test]
-    fn estimate_cost_nonnegative() {
-        let model = KyleLambdaModel::new(0.001).expect("valid");
-        let params = test_params(10_000.0);
-        let est = model.estimate_cost(&params).expect("valid");
+    fn estimate_cost_nonnegative() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = KyleLambdaModel::new(0.001)?;
+        let params = test_params(10_000.0)?;
+        let est = model.estimate_cost(&params)?;
 
         assert!(est.total_cost >= 0.0);
         assert!(est.cost_bps >= 0.0);
+        Ok(())
     }
 
     #[test]
-    fn estimate_cost_consistent_with_amihud() {
+    fn estimate_cost_consistent_with_amihud() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         // If lambda = amihud * ADV, then the per-unit price impact
         // for a trade of size Q is lambda * Q.
         // For Q=1000 shares at lambda=0.001:
         // price_impact = 0.001 * 1000 = 1.0
         // total_cost = 0.001 * 1000^2 / 2 = 500.0
-        let model = KyleLambdaModel::new(0.001).expect("valid");
-        let params = test_params(1_000.0);
-        let est = model.estimate_cost(&params).expect("valid");
+        let model = KyleLambdaModel::new(0.001)?;
+        let params = test_params(1_000.0)?;
+        let est = model.estimate_cost(&params)?;
         assert!(
             (est.total_cost - 500.0).abs() < 1e-6,
             "expected 500.0, got {}",
             est.total_cost
         );
+        Ok(())
     }
 
     #[test]
-    fn trajectory_uniform_execution() {
-        let model = KyleLambdaModel::new(0.001).expect("valid");
-        let params = test_params(10_000.0);
-        let traj = model.optimal_trajectory(&params, 5).expect("valid");
+    fn trajectory_uniform_execution() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = KyleLambdaModel::new(0.001)?;
+        let params = test_params(10_000.0)?;
+        let traj = model.optimal_trajectory(&params, 5)?;
 
         assert_eq!(traj.quantities.len(), 5);
         let expected = 10_000.0 / 5.0;
@@ -281,13 +292,14 @@ mod tests {
 
         let total: f64 = traj.quantities.iter().sum();
         assert!((total - 10_000.0).abs() < 1e-6);
+        Ok(())
     }
 
     #[test]
-    fn trajectory_remaining_monotone() {
-        let model = KyleLambdaModel::new(0.001).expect("valid");
-        let params = test_params(10_000.0);
-        let traj = model.optimal_trajectory(&params, 10).expect("valid");
+    fn trajectory_remaining_monotone() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = KyleLambdaModel::new(0.001)?;
+        let params = test_params(10_000.0)?;
+        let traj = model.optimal_trajectory(&params, 10)?;
 
         for i in 1..traj.remaining.len() {
             assert!(
@@ -295,11 +307,13 @@ mod tests {
                 "remaining should be monotonically decreasing"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn trajectory_rejects_zero_buckets() {
-        let model = KyleLambdaModel::new(0.001).expect("valid");
-        assert!(model.optimal_trajectory(&test_params(1000.0), 0).is_err());
+    fn trajectory_rejects_zero_buckets() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = KyleLambdaModel::new(0.001)?;
+        assert!(model.optimal_trajectory(&test_params(1000.0)?, 0).is_err());
+        Ok(())
     }
 }

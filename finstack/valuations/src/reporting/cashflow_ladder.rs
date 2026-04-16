@@ -203,8 +203,7 @@ fn bucket_key(date: Date, frequency: BucketFrequency) -> (String, String, String
             let label = format!("{}-Q{}", year, quarter);
             let start_month = (quarter - 1) * 3 + 1;
             let end_month = quarter * 3;
-            let end_month_enum = time::Month::try_from(end_month)
-                .unwrap_or(time::Month::December);
+            let end_month_enum = time::Month::try_from(end_month).unwrap_or(time::Month::December);
             let days_in_end = end_month_enum.length(year);
             let start = format!("{}-{:02}-01", year, start_month);
             let end = format!("{}-{:02}-{:02}", year, end_month, days_in_end);
@@ -214,8 +213,7 @@ fn bucket_key(date: Date, frequency: BucketFrequency) -> (String, String, String
             let half = if month <= 6 { 1 } else { 2 };
             let label = format!("{}-H{}", year, half);
             let (start_month, end_month) = if half == 1 { (1, 6) } else { (7, 12) };
-            let end_month_enum = time::Month::try_from(end_month)
-                .unwrap_or(time::Month::December);
+            let end_month_enum = time::Month::try_from(end_month).unwrap_or(time::Month::December);
             let days_in_end = end_month_enum.length(year);
             let start = format!("{}-{:02}-01", year, start_month);
             let end = format!("{}-{:02}-{:02}", year, end_month, days_in_end);
@@ -250,8 +248,11 @@ impl ReportComponent for CashflowLadder {
             "| Period | Principal | Interest | Total | Cum. Principal |"
         )
         .expect("writing to String cannot fail");
-        writeln!(&mut out, "|:-------|----------:|---------:|------:|---------------:|")
-            .expect("writing to String cannot fail");
+        writeln!(
+            &mut out,
+            "|:-------|----------:|---------:|------:|---------------:|"
+        )
+        .expect("writing to String cannot fail");
 
         for bucket in &self.buckets {
             writeln!(
@@ -288,9 +289,21 @@ mod tests {
 
     fn sample_cashflows() -> Vec<(Date, f64, f64)> {
         vec![
-            (create_date(2025, Month::March, 15).expect("valid date"), 0.0, 2500.0),
-            (create_date(2025, Month::June, 15).expect("valid date"), 0.0, 2500.0),
-            (create_date(2025, Month::September, 15).expect("valid date"), 0.0, 2500.0),
+            (
+                create_date(2025, Month::March, 15).expect("valid date"),
+                0.0,
+                2500.0,
+            ),
+            (
+                create_date(2025, Month::June, 15).expect("valid date"),
+                0.0,
+                2500.0,
+            ),
+            (
+                create_date(2025, Month::September, 15).expect("valid date"),
+                0.0,
+                2500.0,
+            ),
             (
                 create_date(2025, Month::December, 15).expect("valid date"),
                 100_000.0,
@@ -302,7 +315,8 @@ mod tests {
     #[test]
     fn quarterly_bucketing() {
         let cfs = sample_cashflows();
-        let ladder = CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
+        let ladder =
+            CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
 
         assert_eq!(ladder.buckets.len(), 4);
         assert_eq!(ladder.buckets[0].label, "2025-Q1");
@@ -314,7 +328,8 @@ mod tests {
     #[test]
     fn annual_bucketing() {
         let cfs = sample_cashflows();
-        let ladder = CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Annual);
+        let ladder =
+            CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Annual);
 
         assert_eq!(ladder.buckets.len(), 1);
         assert_eq!(ladder.buckets[0].label, "2025");
@@ -325,7 +340,8 @@ mod tests {
     #[test]
     fn total_and_wal() {
         let cfs = sample_cashflows();
-        let ladder = CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
+        let ladder =
+            CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
 
         assert!((ladder.total - 110_000.0).abs() < 1e-10);
         // WAL should be ~0.75 years (Dec 15 - Mar 15 ~= 275 days / 365.25)
@@ -335,8 +351,7 @@ mod tests {
 
     #[test]
     fn empty_cashflows() {
-        let ladder =
-            CashflowLadder::from_cashflows("EMPTY", "EUR", &[], BucketFrequency::Monthly);
+        let ladder = CashflowLadder::from_cashflows("EMPTY", "EUR", &[], BucketFrequency::Monthly);
 
         assert_eq!(ladder.buckets.len(), 0);
         assert!((ladder.total).abs() < 1e-15);
@@ -350,7 +365,8 @@ mod tests {
             50_000.0,
             1_000.0,
         )];
-        let ladder = CashflowLadder::from_cashflows("SINGLE", "USD", &cfs, BucketFrequency::Quarterly);
+        let ladder =
+            CashflowLadder::from_cashflows("SINGLE", "USD", &cfs, BucketFrequency::Quarterly);
 
         assert_eq!(ladder.buckets.len(), 1);
         assert!((ladder.buckets[0].total - 51_000.0).abs() < 1e-10);
@@ -361,9 +377,21 @@ mod tests {
     #[test]
     fn cumulative_principal() {
         let cfs = vec![
-            (create_date(2025, Month::March, 15).expect("valid date"), 10_000.0, 500.0),
-            (create_date(2025, Month::June, 15).expect("valid date"), 20_000.0, 400.0),
-            (create_date(2025, Month::September, 15).expect("valid date"), 30_000.0, 300.0),
+            (
+                create_date(2025, Month::March, 15).expect("valid date"),
+                10_000.0,
+                500.0,
+            ),
+            (
+                create_date(2025, Month::June, 15).expect("valid date"),
+                20_000.0,
+                400.0,
+            ),
+            (
+                create_date(2025, Month::September, 15).expect("valid date"),
+                30_000.0,
+                300.0,
+            ),
         ];
         let ladder = CashflowLadder::from_cashflows("CUM", "USD", &cfs, BucketFrequency::Quarterly);
 
@@ -375,20 +403,25 @@ mod tests {
     #[test]
     fn to_json_structure() {
         let cfs = sample_cashflows();
-        let ladder = CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
+        let ladder =
+            CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
         let json = ladder.to_json();
 
         assert_eq!(json["instrument_id"], "BOND-001");
         assert_eq!(json["currency"], "USD");
         assert_eq!(json["bucket_frequency"], "quarterly");
         assert!(json["buckets"].is_array());
-        assert_eq!(json["buckets"].as_array().expect("should be array").len(), 4);
+        assert_eq!(
+            json["buckets"].as_array().expect("should be array").len(),
+            4
+        );
     }
 
     #[test]
     fn to_markdown_format() {
         let cfs = sample_cashflows();
-        let ladder = CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
+        let ladder =
+            CashflowLadder::from_cashflows("BOND-001", "USD", &cfs, BucketFrequency::Quarterly);
         let md = ladder.to_markdown();
 
         assert!(md.contains("## Cashflow Ladder: BOND-001"));

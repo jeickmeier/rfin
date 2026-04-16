@@ -65,12 +65,7 @@ impl GarchModel for GjrGarch11 {
         }
     }
 
-    fn log_likelihood(
-        &self,
-        returns: &[f64],
-        params: &GarchParams,
-        dist: InnovationDist,
-    ) -> f64 {
+    fn log_likelihood(&self, returns: &[f64], params: &GarchParams, dist: InnovationDist) -> f64 {
         let n = returns.len();
         if n == 0 {
             return f64::NEG_INFINITY;
@@ -129,7 +124,15 @@ impl GarchModel for GjrGarch11 {
             alpha + beta + gamma / 2.0 < 0.9999 && x[0] > 0.0
         };
 
-        fit_garch_mle(self, returns, dist, config, true, &bounds, stationarity_check)
+        fit_garch_mle(
+            self,
+            returns,
+            dist,
+            config,
+            true,
+            &bounds,
+            stationarity_check,
+        )
     }
 
     fn forecast(

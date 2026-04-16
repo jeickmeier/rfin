@@ -77,7 +77,9 @@ impl SensitivityGrid {
         let mut col_totals = vec![0.0; n_fac];
 
         for pos_idx in 0..n_pos {
-            let row: Vec<f64> = (0..n_fac).map(|fac_idx| matrix.delta(pos_idx, fac_idx)).collect();
+            let row: Vec<f64> = (0..n_fac)
+                .map(|fac_idx| matrix.delta(pos_idx, fac_idx))
+                .collect();
             let row_sum: f64 = row.iter().sum();
             for (fac_idx, &val) in row.iter().enumerate() {
                 col_totals[fac_idx] += val;
@@ -160,7 +162,11 @@ mod tests {
     fn sample_matrix() -> SensitivityMatrix {
         let mut matrix = SensitivityMatrix::zeros(
             vec!["pos-1".into(), "pos-2".into()],
-            vec![FactorId::new("1Y"), FactorId::new("5Y"), FactorId::new("10Y")],
+            vec![
+                FactorId::new("1Y"),
+                FactorId::new("5Y"),
+                FactorId::new("10Y"),
+            ],
         );
         matrix.set_delta(0, 0, 100.0);
         matrix.set_delta(0, 1, 200.0);
@@ -265,10 +271,8 @@ mod tests {
 
     #[test]
     fn component_type_name() {
-        let matrix =
-            SensitivityMatrix::zeros(vec!["pos-1".into()], vec![FactorId::new("Rates")]);
-        let grid =
-            SensitivityGrid::from_sensitivity_matrix(&matrix, "Test", MetricUnit::Currency);
+        let matrix = SensitivityMatrix::zeros(vec!["pos-1".into()], vec![FactorId::new("Rates")]);
+        let grid = SensitivityGrid::from_sensitivity_matrix(&matrix, "Test", MetricUnit::Currency);
         assert_eq!(grid.component_type(), "sensitivity_grid");
     }
 }

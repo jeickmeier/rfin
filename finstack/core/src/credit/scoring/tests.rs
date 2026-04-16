@@ -21,7 +21,11 @@ mod altman_tests {
             sales_to_total_assets: 1.80,
         };
         let result = altman_z_score(&input).unwrap();
-        assert!((result.score - 3.595).abs() < 1e-10, "score={}", result.score);
+        assert!(
+            (result.score - 3.595).abs() < 1e-10,
+            "score={}",
+            result.score
+        );
         assert_eq!(result.zone, ScoringZone::Safe);
         assert!(result.implied_pd < 0.01);
         assert_eq!(result.model, "Altman Z-Score (1968)");
@@ -40,7 +44,11 @@ mod altman_tests {
             sales_to_total_assets: 0.50,
         };
         let result = altman_z_score(&input).unwrap();
-        assert!((result.score - 0.135).abs() < 1e-10, "score={}", result.score);
+        assert!(
+            (result.score - 0.135).abs() < 1e-10,
+            "score={}",
+            result.score
+        );
         assert_eq!(result.zone, ScoringZone::Distress);
         assert!(result.implied_pd > 0.50);
     }
@@ -58,7 +66,11 @@ mod altman_tests {
             sales_to_total_assets: 1.00,
         };
         let result = altman_z_score(&input).unwrap();
-        assert!((result.score - 1.944).abs() < 1e-10, "score={}", result.score);
+        assert!(
+            (result.score - 1.944).abs() < 1e-10,
+            "score={}",
+            result.score
+        );
         assert_eq!(result.zone, ScoringZone::Grey);
         assert!(result.implied_pd > 0.01 && result.implied_pd < 0.50);
     }

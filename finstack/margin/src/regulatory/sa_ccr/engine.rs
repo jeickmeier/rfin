@@ -131,12 +131,7 @@ mod tests {
         .expect("valid date")
     }
 
-    fn simple_ir_trade(
-        trade_id: &str,
-        notional: f64,
-        direction: f64,
-        mtm: f64,
-    ) -> SaCcrTrade {
+    fn simple_ir_trade(trade_id: &str, notional: f64, direction: f64, mtm: f64) -> SaCcrTrade {
         SaCcrTrade {
             trade_id: trade_id.to_string(),
             asset_class: SaCcrAssetClass::InterestRate,
@@ -154,10 +149,7 @@ mod tests {
     }
 
     fn unmargined_config(collateral: f64) -> SaCcrNettingSetConfig {
-        SaCcrNettingSetConfig::unmargined(
-            NettingSetId::bilateral("BANK_A", "CSA-001"),
-            collateral,
-        )
+        SaCcrNettingSetConfig::unmargined(NettingSetId::bilateral("BANK_A", "CSA-001"), collateral)
     }
 
     fn margined_config(
@@ -336,7 +328,11 @@ mod tests {
         use crate::regulatory::sa_ccr::maturity_factor::maturity_factor_margined;
         let mf = maturity_factor_margined(10);
         // 1.5 * sqrt(10/250) = 1.5 * sqrt(0.04) = 1.5 * 0.2 = 0.3.
-        assert!((mf - 0.3).abs() < 1e-4, "MF margined(10d) = 0.3, got {}", mf);
+        assert!(
+            (mf - 0.3).abs() < 1e-4,
+            "MF margined(10d) = 0.3, got {}",
+            mf
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -390,9 +386,7 @@ mod tests {
 
         // Margined with matching collateral.
         let margined = margined_config(2_000_000.0, 0.0, 100_000.0, 500_000.0);
-        let result_m = engine
-            .calculate_ead(&margined, &trades)
-            .expect("margined");
+        let result_m = engine.calculate_ead(&margined, &trades).expect("margined");
 
         assert!(
             result_m.ead < result_u.ead,

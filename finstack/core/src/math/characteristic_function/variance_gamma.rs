@@ -44,13 +44,11 @@ impl CharacteristicFunction for VarianceGammaCf {
 
     fn cumulants(&self, t: f64) -> Cumulants {
         let s2 = self.sigma * self.sigma;
-        let omega =
-            (1.0 / self.nu) * (1.0 - self.theta * self.nu - 0.5 * s2 * self.nu).ln();
+        let omega = (1.0 / self.nu) * (1.0 - self.theta * self.nu - 0.5 * s2 * self.nu).ln();
         Cumulants {
             c1: (self.r - self.q + omega) * t,
             c2: (s2 + self.nu * self.theta * self.theta) * t,
-            c3: (2.0 * self.theta.powi(3) * self.nu * self.nu
-                + 3.0 * s2 * self.theta * self.nu)
+            c3: (2.0 * self.theta.powi(3) * self.nu * self.nu + 3.0 * s2 * self.theta * self.nu)
                 * t,
             c4: (3.0 * s2 * s2 * self.nu
                 + 12.0 * s2 * self.theta * self.theta * self.nu * self.nu

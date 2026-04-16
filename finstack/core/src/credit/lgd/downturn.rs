@@ -13,9 +13,7 @@ use crate::math::special_functions::standard_normal_inv_cdf;
 use crate::Result;
 
 /// Method for computing downturn LGD from base (through-the-cycle) LGD.
-#[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum DownturnMethod {
     /// Frye-Jacobs (2012) model.
     ///
@@ -51,9 +49,7 @@ pub enum DownturnMethod {
 ///
 /// Wraps a base LGD estimate and applies a downturn adjustment method
 /// to produce a stressed LGD for capital calculations.
-#[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DownturnLgd {
     /// Downturn adjustment method.
     method: DownturnMethod,
@@ -146,9 +142,7 @@ impl DownturnLgd {
                     * (base_lgd * (1.0 - base_lgd)).sqrt();
                 base_lgd + systematic
             }
-            DownturnMethod::RegulatoryFloor { add_on, floor } => {
-                (base_lgd + add_on).max(floor)
-            }
+            DownturnMethod::RegulatoryFloor { add_on, floor } => (base_lgd + add_on).max(floor),
         };
         Ok(adjusted.clamp(0.0, 1.0))
     }
@@ -198,11 +192,7 @@ mod tests {
 
         // base 0.30 + 0.08 = 0.38, max(0.38, 0.25) = 0.38
         let adj = dt.adjust(0.30).expect("valid");
-        assert!(
-            (adj - 0.38).abs() < 1e-12,
-            "expected 0.38, got {}",
-            adj
-        );
+        assert!((adj - 0.38).abs() < 1e-12, "expected 0.38, got {}", adj);
     }
 
     #[test]
@@ -211,11 +201,7 @@ mod tests {
 
         // base 0.10 + 0.08 = 0.18, max(0.18, 0.25) = 0.25
         let adj = dt.adjust(0.10).expect("valid");
-        assert!(
-            (adj - 0.25).abs() < 1e-12,
-            "expected 0.25, got {}",
-            adj
-        );
+        assert!((adj - 0.25).abs() < 1e-12, "expected 0.25, got {}", adj);
     }
 
     #[test]
@@ -290,8 +276,6 @@ mod tests {
         let dt2: DownturnLgd = serde_json::from_str(&json).expect("deserialize");
 
         let base = 0.45;
-        assert!(
-            (dt.adjust(base).expect("ok") - dt2.adjust(base).expect("ok")).abs() < 1e-12
-        );
+        assert!((dt.adjust(base).expect("ok") - dt2.adjust(base).expect("ok")).abs() < 1e-12);
     }
 }

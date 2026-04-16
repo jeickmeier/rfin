@@ -90,11 +90,7 @@ fn girr_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
 }
 
 /// Compute intra-GIRR correlation between two risk factors.
-fn intra_girr_correlation(
-    tenor_i: f64,
-    tenor_j: f64,
-    scenario: CorrelationScenario,
-) -> f64 {
+fn intra_girr_correlation(tenor_i: f64, tenor_j: f64, scenario: CorrelationScenario) -> f64 {
     // Special risk factors (inflation = -1, xccy basis = -2).
     let base_rho = match (tenor_i < 0.0, tenor_j < 0.0) {
         (true, true) => {

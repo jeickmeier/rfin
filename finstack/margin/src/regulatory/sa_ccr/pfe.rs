@@ -49,7 +49,10 @@ pub fn multiplier(v_minus_c: f64, add_on: f64) -> f64 {
         return MULTIPLIER_FLOOR;
     }
     let ratio = v_minus_c / (2.0 * (1.0 - MULTIPLIER_FLOOR) * add_on);
-    f64::min(1.0, MULTIPLIER_FLOOR + (1.0 - MULTIPLIER_FLOOR) * ratio.exp())
+    f64::min(
+        1.0,
+        MULTIPLIER_FLOOR + (1.0 - MULTIPLIER_FLOOR) * ratio.exp(),
+    )
 }
 
 /// Compute the representative maturity factor for a netting set.

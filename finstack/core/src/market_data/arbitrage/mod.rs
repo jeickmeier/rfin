@@ -47,12 +47,10 @@ pub mod checks;
 pub mod types;
 
 pub use checks::{
-    ArbitrageCheck, ButterflyCheck, CalendarSpreadCheck, LocalVolDensityCheck,
-    SviArbitrageCheck,
+    ArbitrageCheck, ButterflyCheck, CalendarSpreadCheck, LocalVolDensityCheck, SviArbitrageCheck,
 };
 pub use types::{
-    ArbitrageReport, ArbitrageSeverity, ArbitrageType, ArbitrageViolation,
-    ViolationLocation,
+    ArbitrageReport, ArbitrageSeverity, ArbitrageType, ArbitrageViolation, ViolationLocation,
 };
 
 use crate::market_data::surfaces::VolSurface;

@@ -11,9 +11,7 @@
 //! In total-variance space this means w(k, T2) >= w(k, T1) for T2 > T1.
 
 use super::{classify_severity, ArbitrageCheck};
-use crate::market_data::arbitrage::types::{
-    ArbitrageType, ArbitrageViolation, ViolationLocation,
-};
+use crate::market_data::arbitrage::types::{ArbitrageType, ArbitrageViolation, ViolationLocation};
 use crate::market_data::surfaces::VolSurface;
 
 /// Checks that total variance is non-decreasing in expiry at each strike:

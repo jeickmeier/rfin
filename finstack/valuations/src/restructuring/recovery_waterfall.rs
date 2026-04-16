@@ -406,7 +406,10 @@ mod tests {
 
         let senior = &result.claim_recoveries[0];
         let junior = &result.claim_recoveries[1];
-        assert!((senior.recovery_rate - 1.0).abs() < 1e-9, "senior should be fully recovered");
+        assert!(
+            (senior.recovery_rate - 1.0).abs() < 1e-9,
+            "senior should be fully recovered"
+        );
         assert!(
             (junior.recovery_rate - 0.5).abs() < 1e-9,
             "junior should recover 50%: got {}",
@@ -437,8 +440,7 @@ mod tests {
 
     #[test]
     fn collateral_recovery_before_general() {
-        let mut claim =
-            simple_claim("secured", ClaimSeniority::FirstLienSecured, 100.0);
+        let mut claim = simple_claim("secured", ClaimSeniority::FirstLienSecured, 100.0);
         claim.collateral = Some(CollateralAllocation {
             description: "All assets".to_string(),
             value: usd(80.0),
@@ -502,8 +504,7 @@ mod tests {
 
     #[test]
     fn invalid_haircut_rejected() {
-        let mut claim =
-            simple_claim("sec", ClaimSeniority::FirstLienSecured, 100.0);
+        let mut claim = simple_claim("sec", ClaimSeniority::FirstLienSecured, 100.0);
         claim.collateral = Some(CollateralAllocation {
             description: "test".into(),
             value: usd(80.0),

@@ -25,13 +25,12 @@ impl InnovationDist {
     #[must_use]
     pub fn log_pdf(self, z: f64) -> f64 {
         match self {
-            Self::Gaussian => {
-                -0.5 * (std::f64::consts::TAU.ln() + z * z)
-            }
+            Self::Gaussian => -0.5 * (std::f64::consts::TAU.ln() + z * z),
             Self::StudentT(nu) => {
                 let half_nu_plus_1 = 0.5 * (nu + 1.0);
                 let half_nu = 0.5 * nu;
-                ln_gamma(half_nu_plus_1) - ln_gamma(half_nu)
+                ln_gamma(half_nu_plus_1)
+                    - ln_gamma(half_nu)
                     - 0.5 * (std::f64::consts::PI * (nu - 2.0)).ln()
                     - half_nu_plus_1 * (1.0 + z * z / (nu - 2.0)).ln()
             }

@@ -247,24 +247,20 @@ fn validate_lme(spec: &LmeSpec, participation_rate: f64) -> crate::Result<()> {
 
     // Validate participation rate.
     if !(0.0..=1.0).contains(&participation_rate) {
-        return Err(
-            RestructuringError::InvalidParticipationRate {
-                rate: participation_rate,
-            }
-            .into(),
-        );
+        return Err(RestructuringError::InvalidParticipationRate {
+            rate: participation_rate,
+        }
+        .into());
     }
 
     // Validate type-specific constraints.
     match &spec.lme_type {
         LmeType::OpenMarketRepurchase { purchase_price, .. } => {
             if *purchase_price <= 0.0 || *purchase_price > 1.5 {
-                return Err(
-                    RestructuringError::InvalidPurchasePrice {
-                        price: *purchase_price,
-                    }
-                    .into(),
-                );
+                return Err(RestructuringError::InvalidPurchasePrice {
+                    price: *purchase_price,
+                }
+                .into());
             }
         }
         LmeType::TenderOffer {
@@ -273,20 +269,13 @@ fn validate_lme(spec: &LmeSpec, participation_rate: f64) -> crate::Result<()> {
             ..
         } => {
             if *early_price <= 0.0 || *early_price > 1.5 {
-                return Err(
-                    RestructuringError::InvalidPurchasePrice {
-                        price: *early_price,
-                    }
-                    .into(),
-                );
+                return Err(RestructuringError::InvalidPurchasePrice {
+                    price: *early_price,
+                }
+                .into());
             }
             if *late_price <= 0.0 || *late_price > 1.5 {
-                return Err(
-                    RestructuringError::InvalidPurchasePrice {
-                        price: *late_price,
-                    }
-                    .into(),
-                );
+                return Err(RestructuringError::InvalidPurchasePrice { price: *late_price }.into());
             }
         }
         _ => {}
@@ -350,7 +339,10 @@ mod tests {
 
         // Leverage impact.
         let lev = result.leverage_impact.expect("should have leverage impact");
-        assert!((lev.pre_leverage - 2.0).abs() < 1e-6, "pre leverage = 100M / 50M = 2.0x");
+        assert!(
+            (lev.pre_leverage - 2.0).abs() < 1e-6,
+            "pre leverage = 100M / 50M = 2.0x"
+        );
         assert!(
             (lev.post_leverage - 1.0).abs() < 1e-6,
             "post leverage = (100M - 50M) / 50M = 1.0x"
@@ -453,7 +445,10 @@ mod tests {
         };
 
         let result = analyze_lme(&spec, None, 0.70).expect("should succeed");
-        assert!(result.par_retired.amount().abs() < 1e-6, "no par retired in A&E");
+        assert!(
+            result.par_retired.amount().abs() < 1e-6,
+            "no par retired in A&E"
+        );
     }
 
     #[test]

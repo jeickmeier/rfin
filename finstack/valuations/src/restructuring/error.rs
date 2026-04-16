@@ -98,11 +98,7 @@ impl fmt::Display for RestructuringError {
                 claim_id,
                 field,
                 value,
-            } => write!(
-                f,
-                "claim '{}': {} is negative ({})",
-                claim_id, field, value
-            ),
+            } => write!(f, "claim '{}': {} is negative ({})", claim_id, field, value),
             Self::NegativeDistributableValue { value } => {
                 write!(f, "distributable value is negative ({})", value)
             }
@@ -121,11 +117,7 @@ impl fmt::Display for RestructuringError {
                 claim_id, expected, actual
             ),
             Self::UnknownDeviationClaim { claim_id } => {
-                write!(
-                    f,
-                    "plan deviation references unknown claim '{}'",
-                    claim_id
-                )
+                write!(f, "plan deviation references unknown claim '{}'", claim_id)
             }
             Self::InvalidExchangeRatio { ratio } => {
                 write!(f, "exchange ratio {} outside (0.0, 2.0]", ratio)

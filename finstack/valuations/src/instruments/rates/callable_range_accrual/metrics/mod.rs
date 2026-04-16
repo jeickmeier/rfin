@@ -12,11 +12,9 @@ pub fn register_callable_range_accrual_metrics(registry: &mut MetricRegistry) {
 
     registry.register_metric(
         MetricId::Dv01,
-        Arc::new(
-            UnifiedDv01Calculator::<super::CallableRangeAccrual>::new(
-                Dv01CalculatorConfig::parallel_combined(),
-            ),
-        ),
+        Arc::new(UnifiedDv01Calculator::<super::CallableRangeAccrual>::new(
+            Dv01CalculatorConfig::parallel_combined(),
+        )),
         &[InstrumentType::CallableRangeAccrual],
     );
 

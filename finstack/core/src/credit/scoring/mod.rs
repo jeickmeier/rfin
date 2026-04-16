@@ -31,10 +31,10 @@
 
 pub mod altman;
 pub mod ohlson;
-pub mod types;
-pub mod zmijewski;
 #[cfg(test)]
 mod tests;
+pub mod types;
+pub mod zmijewski;
 
 // Re-exports
 pub use altman::{

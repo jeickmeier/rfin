@@ -31,13 +31,15 @@ pub fn classify_breaches(var_forecasts: &[f64], realized_pnl: &[f64]) -> Vec<Bre
     var_forecasts
         .iter()
         .zip(realized_pnl.iter())
-        .map(|(&var, &pnl)| {
-            if pnl < var {
-                Breach::Hit
-            } else {
-                Breach::Miss
-            }
-        })
+        .map(
+            |(&var, &pnl)| {
+                if pnl < var {
+                    Breach::Hit
+                } else {
+                    Breach::Miss
+                }
+            },
+        )
         .collect()
 }
 
@@ -535,12 +537,16 @@ mod unit_tests {
     fn christoffersen_clustered_breaches_rejects_independence() {
         // 1000 observations, 10 consecutive breaches (clustered)
         let mut breaches = vec![Breach::Miss; 1000];
-        for i in 100..110 {
-            breaches[i] = Breach::Hit;
+        for breach in breaches.iter_mut().take(110).skip(100) {
+            *breach = Breach::Hit;
         }
         let result = christoffersen_test(&breaches, 0.99);
         // LR_ind should be significantly large due to clustering
-        assert!(result.lr_ind > 5.0, "lr_ind={}, expected large", result.lr_ind);
+        assert!(
+            result.lr_ind > 5.0,
+            "lr_ind={}, expected large",
+            result.lr_ind
+        );
         assert!(result.p_value_ind < 0.05);
     }
 
@@ -659,8 +665,8 @@ mod unit_tests {
         // 300 observations, window=250 => uses last 250
         // Put hits only in the first 50 (outside window)
         let mut breaches = vec![Breach::Miss; 300];
-        for i in 0..20 {
-            breaches[i] = Breach::Hit;
+        for breach in breaches.iter_mut().take(20) {
+            *breach = Breach::Hit;
         }
         let result = traffic_light(&breaches, 0.99, 250);
         // Only the last 250 matter; hits are in first 50, so overlap
@@ -676,8 +682,8 @@ mod unit_tests {
         let expected_multipliers = [(5, 3.4), (6, 3.5), (7, 3.65), (8, 3.75), (9, 3.85)];
         for (exc, mult) in &expected_multipliers {
             let mut breaches = vec![Breach::Miss; 250];
-            for i in 0..*exc {
-                breaches[i] = Breach::Hit;
+            for breach in breaches.iter_mut().take(*exc) {
+                *breach = Breach::Hit;
             }
             let result = traffic_light(&breaches, 0.99, 250);
             assert_eq!(result.zone, TrafficLightZone::Yellow);

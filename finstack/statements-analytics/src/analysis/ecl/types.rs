@@ -74,10 +74,7 @@ pub struct QualitativeFlags {
 impl QualitativeFlags {
     /// Returns `true` if any qualitative flag is active.
     pub fn any_active(&self) -> bool {
-        self.watchlist
-            || self.forbearance
-            || self.adverse_conditions
-            || !self.custom.is_empty()
+        self.watchlist || self.forbearance || self.adverse_conditions || !self.custom.is_empty()
     }
 
     /// Returns the names of all active flags.
@@ -322,11 +319,7 @@ mod tests {
 
     #[test]
     fn test_raw_pd_curve_cumulative_pd() {
-        let curve = RawPdCurve::new(
-            "BBB",
-            vec![(1.0, 0.02), (2.0, 0.05), (5.0, 0.12)],
-        )
-        .ok();
+        let curve = RawPdCurve::new("BBB", vec![(1.0, 0.02), (2.0, 0.05), (5.0, 0.12)]).ok();
         let curve = curve.as_ref().unwrap(); // ok in test
         assert!((curve.cumulative_pd("BBB", 1.5).unwrap() - 0.035).abs() < 1e-10);
         // Wrong rating
@@ -335,11 +328,7 @@ mod tests {
 
     #[test]
     fn test_raw_pd_curve_marginal_pd() {
-        let curve = RawPdCurve::new(
-            "BBB",
-            vec![(0.0, 0.0), (1.0, 0.02), (2.0, 0.05)],
-        )
-        .ok();
+        let curve = RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 0.02), (2.0, 0.05)]).ok();
         let curve = curve.as_ref().unwrap();
         // Marginal PD from 0 to 1: cumulative goes from 0 to 0.02
         // survival(0) = 1.0, survival(1) = 0.98

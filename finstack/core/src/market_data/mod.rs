@@ -75,14 +75,14 @@
 pub mod arbitrage;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
-/// Dynamic term structure models (Diebold-Li, PCA).
-pub mod dtsm;
 /// Market data context with enum-based storage (simplified from V2).
 pub mod context;
 /// Market data comparison and shift measurement.
 pub mod diff;
 /// Shared dividend schedules (cash/yield/stock) for equities/ETFs.
 pub mod dividends;
+/// Dynamic term structure models (Diebold-Li, PCA).
+pub mod dtsm;
 /// Historical rate fixing lookup utilities.
 ///
 /// Provides the canonical `FIXING:{curve_id}` convention and shared helpers

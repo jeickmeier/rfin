@@ -91,12 +91,15 @@ impl Tarn {
             )
         })?;
 
-        validation::require_with(self.coupon_floor >= 0.0 && self.coupon_floor.is_finite(), || {
-            format!(
-                "TARN coupon_floor ({}) must be non-negative and finite",
-                self.coupon_floor
-            )
-        })?;
+        validation::require_with(
+            self.coupon_floor >= 0.0 && self.coupon_floor.is_finite(),
+            || {
+                format!(
+                    "TARN coupon_floor ({}) must be non-negative and finite",
+                    self.coupon_floor
+                )
+            },
+        )?;
 
         Ok(())
     }
@@ -251,10 +254,7 @@ mod tests {
         use crate::instruments::common_impl::traits::Instrument;
         let tarn = Tarn::example();
         assert_eq!(tarn.id(), "TARN-USD-5Y");
-        assert_eq!(
-            tarn.key(),
-            crate::pricer::InstrumentType::Tarn
-        );
+        assert_eq!(tarn.key(), crate::pricer::InstrumentType::Tarn);
     }
 
     #[test]

@@ -10,14 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 /// Call or put on a CMS spread.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum CmsSpreadOptionType {
@@ -117,10 +110,7 @@ impl CmsSpreadOption {
         )?;
 
         validation::require_with(self.strike.is_finite(), || {
-            format!(
-                "CmsSpreadOption strike ({}) must be finite",
-                self.strike
-            )
+            format!("CmsSpreadOption strike ({}) must be finite", self.strike)
         })?;
 
         validation::require_with(self.payment_date >= self.expiry_date, || {
@@ -130,15 +120,12 @@ impl CmsSpreadOption {
             )
         })?;
 
-        validation::require_with(
-            (-1.0..=1.0).contains(&self.spread_correlation),
-            || {
-                format!(
-                    "CmsSpreadOption spread_correlation ({}) must be in [-1, 1]",
-                    self.spread_correlation
-                )
-            },
-        )?;
+        validation::require_with((-1.0..=1.0).contains(&self.spread_correlation), || {
+            format!(
+                "CmsSpreadOption spread_correlation ({}) must be in [-1, 1]",
+                self.spread_correlation
+            )
+        })?;
 
         Ok(())
     }

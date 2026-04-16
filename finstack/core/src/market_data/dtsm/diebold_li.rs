@@ -160,12 +160,12 @@ impl DieboldLi {
 
         // Column means for R-squared computation
         let mut col_means = vec![0.0_f64; n];
-        for j in 0..n {
+        for (j, mean) in col_means.iter_mut().enumerate() {
             let mut sum = 0.0;
             for i in 0..t {
                 sum += panel.yields[(i, j)];
             }
-            col_means[j] = sum / t as f64;
+            *mean = sum / t as f64;
         }
 
         // Extract factors for each date via OLS: beta(t) = (X'X)^{-1} X' y(t)
@@ -253,9 +253,9 @@ impl DieboldLi {
         // OLS: [c, Phi'] = (Z'Z)^{-1} Z'Y  =>  B = (Z'Z)^{-1} Z'Y  (4 x 3)
         let zt = z_mat.transpose();
         let ztz = &zt * &z_mat;
-        let chol = ztz.cholesky().ok_or_else(|| {
-            crate::Error::Validation("VAR(1) design matrix is singular".into())
-        })?;
+        let chol = ztz
+            .cholesky()
+            .ok_or_else(|| crate::Error::Validation("VAR(1) design matrix is singular".into()))?;
         let zty = &zt * &y_mat;
 
         // Solve column-by-column
@@ -327,9 +327,10 @@ impl DieboldLi {
         let q = self.q_cov.as_ref().ok_or_else(|| {
             crate::Error::Validation("VAR not fitted -- call fit_var first".into())
         })?;
-        let fts = self.factors.as_ref().ok_or_else(|| {
-            crate::Error::Validation("Factors not extracted".into())
-        })?;
+        let fts = self
+            .factors
+            .as_ref()
+            .ok_or_else(|| crate::Error::Validation("Factors not extracted".into()))?;
 
         let t = fts.factors.nrows();
         // Last observed factor vector
@@ -489,13 +490,7 @@ mod tests {
     use super::*;
 
     /// Generate synthetic yields from known NS parameters.
-    fn make_ns_yields(
-        beta0: f64,
-        beta1: f64,
-        beta2: f64,
-        lambda: f64,
-        tenors: &[f64],
-    ) -> Vec<f64> {
+    fn make_ns_yields(beta0: f64, beta1: f64, beta2: f64, lambda: f64, tenors: &[f64]) -> Vec<f64> {
         tenors
             .iter()
             .map(|&tau| {

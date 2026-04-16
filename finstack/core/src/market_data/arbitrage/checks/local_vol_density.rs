@@ -20,9 +20,7 @@
 //! non-negative.
 
 use super::{classify_severity, ArbitrageCheck};
-use crate::market_data::arbitrage::types::{
-    ArbitrageType, ArbitrageViolation, ViolationLocation,
-};
+use crate::market_data::arbitrage::types::{ArbitrageType, ArbitrageViolation, ViolationLocation};
 use crate::market_data::surfaces::VolSurface;
 
 /// Checks that the Dupire local variance is positive everywhere on the grid.
@@ -65,8 +63,7 @@ impl ArbitrageCheck for LocalVolDensityCheck {
 
                 // Dupire denominator
                 let term1 = 1.0 - k / w * dw_dk;
-                let term2 =
-                    0.25 * (-0.25 - 1.0 / w + k * k / (w * w)) * dw_dk * dw_dk;
+                let term2 = 0.25 * (-0.25 - 1.0 / w + k * k / (w * w)) * dw_dk * dw_dk;
                 let term3 = 0.5 * d2w_dk2;
                 let denominator = term1 + term2 + term3;
 
@@ -165,12 +162,7 @@ fn finite_diff_time(surface: &VolSurface, expiries: &[f64], ei: usize, strike: f
 ///
 /// Returns (first_derivative, second_derivative) of total variance with
 /// respect to log-moneyness.
-fn finite_diff_strike(
-    surface: &VolSurface,
-    strikes: &[f64],
-    si: usize,
-    expiry: f64,
-) -> (f64, f64) {
+fn finite_diff_strike(surface: &VolSurface, strikes: &[f64], si: usize, expiry: f64) -> (f64, f64) {
     let total_var = |idx: usize| -> f64 {
         let v = surface.value_clamped(expiry, strikes[idx]);
         v * v * expiry

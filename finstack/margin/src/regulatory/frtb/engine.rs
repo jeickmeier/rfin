@@ -223,7 +223,9 @@ mod tests {
             result.total
         );
         assert!(
-            result.delta_by_risk_class.contains_key(&FrtbRiskClass::Girr),
+            result
+                .delta_by_risk_class
+                .contains_key(&FrtbRiskClass::Girr),
             "GIRR should be in delta breakdown"
         );
     }

@@ -148,12 +148,8 @@ impl ReportComponent for MetricsTable {
             self.instrument_id, self.as_of
         )
         .expect("writing to String cannot fail");
-        writeln!(
-            &mut out,
-            "**NPV**: {:.2} {}\n",
-            self.npv, self.currency
-        )
-        .expect("writing to String cannot fail");
+        writeln!(&mut out, "**NPV**: {:.2} {}\n", self.npv, self.currency)
+            .expect("writing to String cannot fail");
 
         writeln!(&mut out, "| Metric | Value | Unit | Direction |")
             .expect("writing to String cannot fail");
@@ -310,10 +306,7 @@ mod tests {
 
         assert_eq!(table.rows.len(), 0);
         let json = table.to_json();
-        assert_eq!(
-            json["rows"].as_array().expect("should be array").len(),
-            0
-        );
+        assert_eq!(json["rows"].as_array().expect("should be array").len(), 0);
     }
 
     #[test]

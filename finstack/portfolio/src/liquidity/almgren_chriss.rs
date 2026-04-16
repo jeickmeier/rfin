@@ -115,7 +115,6 @@ impl AlmgrenChrissModel {
 
         Self::new(gamma, eta, delta)
     }
-
 }
 
 impl MarketImpactModel for AlmgrenChrissModel {
@@ -159,8 +158,7 @@ impl MarketImpactModel for AlmgrenChrissModel {
         };
 
         // Execution risk: volatility * sqrt(T) * |Q| * mid
-        let execution_risk =
-            params.daily_volatility * t.sqrt() * q.abs() * params.profile.mid;
+        let execution_risk = params.daily_volatility * t.sqrt() * q.abs() * params.profile.mid;
 
         Ok(ImpactEstimate {
             permanent_impact: perm_cost,
@@ -285,19 +283,26 @@ mod tests {
     use super::*;
     use crate::liquidity::types::LiquidityProfile;
 
-    fn test_profile() -> LiquidityProfile {
-        LiquidityProfile::new("TEST", 100.0, 99.5, 100.5, 1_000_000.0, 500.0, 0.001)
-            .expect("valid profile")
+    fn test_profile() -> std::result::Result<LiquidityProfile, Box<dyn std::error::Error>> {
+        Ok(LiquidityProfile::new(
+            "TEST",
+            100.0,
+            99.5,
+            100.5,
+            1_000_000.0,
+            500.0,
+            0.001,
+        )?)
     }
 
-    fn test_params(quantity: f64) -> TradeParams {
-        TradeParams {
+    fn test_params(quantity: f64) -> std::result::Result<TradeParams, Box<dyn std::error::Error>> {
+        Ok(TradeParams {
             quantity,
             horizon_days: 5.0,
             daily_volatility: 0.02,
-            profile: test_profile(),
+            profile: test_profile()?,
             risk_aversion: None,
-        }
+        })
     }
 
     #[test]
@@ -322,49 +327,56 @@ mod tests {
     }
 
     #[test]
-    fn from_profile_calibrates() {
-        let profile = test_profile();
+    fn from_profile_calibrates() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let profile = test_profile()?;
         let model = AlmgrenChrissModel::from_profile(&profile, 0.02);
         assert!(model.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn estimate_cost_nonnegative() {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5).expect("valid");
-        let params = test_params(10_000.0);
-        let est = model.estimate_cost(&params).expect("valid");
+    fn estimate_cost_nonnegative() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let params = test_params(10_000.0)?;
+        let est = model.estimate_cost(&params)?;
 
         assert!(est.total_cost >= 0.0);
         assert!(est.permanent_impact >= 0.0);
         assert!(est.temporary_impact >= 0.0);
         assert!(est.cost_bps >= 0.0);
         assert!(est.execution_risk >= 0.0);
+        Ok(())
     }
 
     #[test]
-    fn estimate_cost_sell_side() {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5).expect("valid");
-        let params = test_params(-10_000.0);
-        let est = model.estimate_cost(&params).expect("valid");
-        assert!(est.total_cost >= 0.0, "sell-side cost should be non-negative");
+    fn estimate_cost_sell_side() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let params = test_params(-10_000.0)?;
+        let est = model.estimate_cost(&params)?;
+        assert!(
+            est.total_cost >= 0.0,
+            "sell-side cost should be non-negative"
+        );
+        Ok(())
     }
 
     #[test]
-    fn estimate_cost_scales_with_quantity() {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5).expect("valid");
-        let small = model.estimate_cost(&test_params(1_000.0)).expect("valid");
-        let large = model.estimate_cost(&test_params(100_000.0)).expect("valid");
+    fn estimate_cost_scales_with_quantity() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let small = model.estimate_cost(&test_params(1_000.0)?)?;
+        let large = model.estimate_cost(&test_params(100_000.0)?)?;
         assert!(
             large.total_cost > small.total_cost,
             "larger trade should cost more"
         );
+        Ok(())
     }
 
     #[test]
-    fn trajectory_sums_to_quantity() {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5).expect("valid");
-        let params = test_params(50_000.0);
-        let traj = model.optimal_trajectory(&params, 10).expect("valid");
+    fn trajectory_sums_to_quantity() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let params = test_params(50_000.0)?;
+        let traj = model.optimal_trajectory(&params, 10)?;
 
         assert_eq!(traj.quantities.len(), 10);
         assert_eq!(traj.remaining.len(), 11);
@@ -379,14 +391,16 @@ mod tests {
         // Remaining should start at Q and end at 0
         assert!((traj.remaining[0] - 50_000.0).abs() < 1e-10);
         assert!(traj.remaining[10].abs() < 1e-10);
+        Ok(())
     }
 
     #[test]
-    fn trajectory_zero_risk_aversion_is_uniform() {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 1.0).expect("valid");
-        let mut params = test_params(10_000.0);
+    fn trajectory_zero_risk_aversion_is_uniform(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 1.0)?;
+        let mut params = test_params(10_000.0)?;
         params.risk_aversion = Some(0.0);
-        let traj = model.optimal_trajectory(&params, 5).expect("valid");
+        let traj = model.optimal_trajectory(&params, 5)?;
 
         // With zero risk aversion, kappa = 0 => uniform execution
         let expected_per_bucket = 10_000.0 / 5.0;
@@ -396,17 +410,19 @@ mod tests {
                 "expected uniform {expected_per_bucket}, got {q}"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn trajectory_rejects_zero_buckets() {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5).expect("valid");
-        let params = test_params(10_000.0);
+    fn trajectory_rejects_zero_buckets() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let params = test_params(10_000.0)?;
         assert!(model.optimal_trajectory(&params, 0).is_err());
+        Ok(())
     }
 
     #[test]
-    fn serde_round_trip_impact_estimate() {
+    fn serde_round_trip_impact_estimate() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let est = ImpactEstimate {
             permanent_impact: 100.0,
             temporary_impact: 200.0,
@@ -414,8 +430,9 @@ mod tests {
             cost_bps: 15.0,
             execution_risk: 500.0,
         };
-        let json = serde_json::to_string(&est).expect("serialize");
-        let est2: ImpactEstimate = serde_json::from_str(&json).expect("deserialize");
+        let json = serde_json::to_string(&est)?;
+        let est2: ImpactEstimate = serde_json::from_str(&json)?;
         assert_eq!(est, est2);
+        Ok(())
     }
 }

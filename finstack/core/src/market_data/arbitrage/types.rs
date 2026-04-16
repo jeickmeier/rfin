@@ -18,9 +18,7 @@ pub struct ViolationLocation {
 }
 
 /// Classification of the arbitrage condition that was violated.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ArbitrageType {
     /// Call prices not convex in strike: C(K-d) - 2C(K) + C(K+d) < 0.
     /// Equivalently, implied density is negative at this strike.
@@ -44,16 +42,7 @@ pub enum ArbitrageType {
 
 /// Categorical severity of an arbitrage violation.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub enum ArbitrageSeverity {
     /// Violation is within numerical noise (< tolerance).

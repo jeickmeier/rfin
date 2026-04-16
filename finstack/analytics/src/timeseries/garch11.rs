@@ -56,12 +56,7 @@ impl GarchModel for Garch11 {
         }
     }
 
-    fn log_likelihood(
-        &self,
-        returns: &[f64],
-        params: &GarchParams,
-        dist: InnovationDist,
-    ) -> f64 {
+    fn log_likelihood(&self, returns: &[f64], params: &GarchParams, dist: InnovationDist) -> f64 {
         let n = returns.len();
         if n == 0 {
             return f64::NEG_INFINITY;
@@ -117,7 +112,15 @@ impl GarchModel for Garch11 {
             alpha + beta < 0.9999 && x[0] > 0.0
         };
 
-        fit_garch_mle(self, returns, dist, config, false, &bounds, stationarity_check)
+        fit_garch_mle(
+            self,
+            returns,
+            dist,
+            config,
+            false,
+            &bounds,
+            stationarity_check,
+        )
     }
 
     fn forecast(
@@ -181,8 +184,7 @@ mod tests {
         );
 
         // Second: sigma2[1] = omega + alpha * r[0]^2 + beta * sigma2[0]
-        let expected_1 =
-            params.omega + params.alpha * returns[0].powi(2) + params.beta * sigma2[0];
+        let expected_1 = params.omega + params.alpha * returns[0].powi(2) + params.beta * sigma2[0];
         assert!(
             (sigma2[1] - expected_1).abs() < 1e-12,
             "sigma2[1]={}, expected={}",

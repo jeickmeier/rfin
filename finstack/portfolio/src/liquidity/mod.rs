@@ -59,6 +59,4 @@ pub use impact::{ExecutionTrajectory, ImpactEstimate, MarketImpactModel, TradePa
 pub use kyle::KyleLambdaModel;
 
 // Re-export scoring
-pub use scoring::{
-    score_portfolio_liquidity, PortfolioLiquidityReport, PositionLiquidityScore,
-};
+pub use scoring::{score_portfolio_liquidity, PortfolioLiquidityReport, PositionLiquidityScore};

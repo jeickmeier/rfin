@@ -259,7 +259,11 @@ fn format_with_commas(value: f64, decimals: usize) -> String {
 
     // Add commas to integer part
     let is_negative = int_part.starts_with('-');
-    let digits = if is_negative { &int_part[1..] } else { int_part };
+    let digits = if is_negative {
+        &int_part[1..]
+    } else {
+        int_part
+    };
 
     let mut with_commas = String::with_capacity(digits.len() + digits.len() / 3);
     for (i, c) in digits.chars().rev().enumerate() {

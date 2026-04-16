@@ -14,9 +14,7 @@ use finstack_core::dates::Date;
 /// - `call_price`: Fraction of notional returned at exercise (1.0 = par).
 /// - `lockout_periods`: Number of initial coupon periods during which
 ///   the call right cannot be exercised.
-#[derive(
-    Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BermudanCallProvision {
     /// Dates on which the issuer can call (must be sorted ascending).
@@ -57,10 +55,7 @@ impl BermudanCallProvision {
             "BermudanCallProvision requires at least one call date".to_string()
         })?;
 
-        validation::validate_sorted_strict(
-            &self.call_dates,
-            "BermudanCallProvision call_dates",
-        )?;
+        validation::validate_sorted_strict(&self.call_dates, "BermudanCallProvision call_dates")?;
 
         validation::require_with(self.call_price > 0.0, || {
             format!(

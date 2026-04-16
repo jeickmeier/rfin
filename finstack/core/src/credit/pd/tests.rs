@@ -515,7 +515,11 @@ mod master_scale_tests {
         // empirical PD mapping. Verify that map_score actually uses implied_pd.
         assert_eq!(mapped.input_pd, scoring_result.implied_pd);
         // Safe zone has low PD, should not be in the worst grades
-        assert!(mapped.grade_index < scale.n_grades() - 1, "grade={}", mapped.grade);
+        assert!(
+            mapped.grade_index < scale.n_grades() - 1,
+            "grade={}",
+            mapped.grade
+        );
     }
 
     #[test]

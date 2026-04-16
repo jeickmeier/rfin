@@ -312,7 +312,11 @@ mod tests {
     #[test]
     fn test_cecl_always_lifetime() {
         let curve = make_pd_curve();
-        let scenario = MacroScenario { id: "base".into(), weight: 1.0, lgd_override: None };
+        let scenario = MacroScenario {
+            id: "base".into(),
+            weight: 1.0,
+            lgd_override: None,
+        };
         let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> =
             vec![(&scenario, &curve as &dyn PdTermStructure)];
 
@@ -332,7 +336,11 @@ mod tests {
     #[test]
     fn test_cecl_immediate_reversion() {
         let curve = make_pd_curve();
-        let scenario = MacroScenario { id: "base".into(), weight: 1.0, lgd_override: None };
+        let scenario = MacroScenario {
+            id: "base".into(),
+            weight: 1.0,
+            lgd_override: None,
+        };
         let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> =
             vec![(&scenario, &curve as &dyn PdTermStructure)];
 
@@ -352,7 +360,11 @@ mod tests {
     #[test]
     fn test_cecl_linear_reversion() {
         let curve = make_pd_curve();
-        let scenario = MacroScenario { id: "base".into(), weight: 1.0, lgd_override: None };
+        let scenario = MacroScenario {
+            id: "base".into(),
+            weight: 1.0,
+            lgd_override: None,
+        };
         let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> =
             vec![(&scenario, &curve as &dyn PdTermStructure)];
 
@@ -384,8 +396,16 @@ mod tests {
     fn test_cecl_validation_invalid_weights() {
         let config = CeclConfig {
             scenarios: vec![
-                MacroScenario { id: "a".into(), weight: 0.5, lgd_override: None },
-                MacroScenario { id: "b".into(), weight: 0.3, lgd_override: None },
+                MacroScenario {
+                    id: "a".into(),
+                    weight: 0.5,
+                    lgd_override: None,
+                },
+                MacroScenario {
+                    id: "b".into(),
+                    weight: 0.3,
+                    lgd_override: None,
+                },
             ],
             ..CeclConfig::default()
         };
@@ -400,7 +420,11 @@ mod tests {
         let exposure = make_exposure();
 
         // CECL with R&S covering full maturity
-        let cecl_scenario = MacroScenario { id: "base".into(), weight: 1.0, lgd_override: None };
+        let cecl_scenario = MacroScenario {
+            id: "base".into(),
+            weight: 1.0,
+            lgd_override: None,
+        };
         let cecl_pd: Vec<(&MacroScenario, &dyn PdTermStructure)> =
             vec![(&cecl_scenario, &curve as &dyn PdTermStructure)];
         let cecl_config = CeclConfig {
