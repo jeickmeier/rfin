@@ -182,6 +182,7 @@
 //! - [`crate::instruments`]: Financial instrument definitions (bonds, swaps, options, etc.)
 //! - [`crate::metrics`]: Risk metric calculators and registry
 //! - [`crate::pricer`]: Pricing dispatch and registry infrastructure
+//! - [`crate::reporting`]: Structured report generation components
 //! - [`crate::results`]: Valuation result envelopes and metadata
 //! - [`crate::constants`]: Common numerical constants (basis points, etc.)
 //! - [`crate::covenants`]: Covenant checking for structured products
@@ -214,6 +215,8 @@
 //! - [`crate::prelude`]: Convenient re-exports of commonly used types
 //!
 //! ## Layer 2: Extended API (Less Common)
+//! - [`crate::reporting`]: Structured report generation components (metrics tables,
+//!   sensitivity grids, cashflow ladders, scenario matrices, waterfall data)
 //! - [`crate::margin`]: Margin calculations (VM/IM/CSA) for collateralized derivatives
 //! - [`crate::attribution`]: P&L attribution analysis
 //! - [`crate::covenants`]: Covenant checking for structured products
@@ -378,6 +381,8 @@ pub mod attribution;
 pub mod covenants;
 /// Risk metric calculators and registries.
 pub mod metrics;
+/// Structured report generation components for analytics results.
+pub mod reporting;
 /// XVA (Valuation Adjustments) framework.
 ///
 /// Provides credit valuation adjustment (CVA) and exposure simulation
