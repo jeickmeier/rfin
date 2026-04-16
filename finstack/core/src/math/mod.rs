@@ -96,6 +96,7 @@
 /// but small enough to catch actual zeros vs meaningful small values).
 pub const ZERO_TOLERANCE: f64 = 1e-10;
 
+pub mod characteristic_function;
 pub mod compounding;
 pub mod distributions;
 pub mod fractional;

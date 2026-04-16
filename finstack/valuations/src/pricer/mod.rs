@@ -35,6 +35,9 @@ pub use errors::*;
 pub use keys::*;
 pub use registry::*;
 
+// Fourier pricing methods (COS, Lewis)
+pub mod fourier;
+
 // Asset-class registration submodules
 mod commodity;
 mod credit;
