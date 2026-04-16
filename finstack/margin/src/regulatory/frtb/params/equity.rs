@@ -1,0 +1,49 @@
+//! Equity risk prescribed parameters per BCBS d457.
+
+/// Equity delta risk weights by bucket (percentage).
+///
+/// Buckets 1-13 per FRTB specification:
+/// 1-4: Large-cap developed markets
+/// 5-8: Large-cap emerging markets
+/// 9: Small-cap developed markets
+/// 10: Small-cap emerging markets
+/// 11: Indices, ETFs, and funds
+/// 12: Other equity (volatility indices, etc.)
+/// 13: Residual bucket
+pub const EQUITY_RISK_WEIGHTS: &[(u8, f64)] = &[
+    (1, 55.0),
+    (2, 60.0),
+    (3, 45.0),
+    (4, 55.0),
+    (5, 30.0),
+    (6, 35.0),
+    (7, 40.0),
+    (8, 50.0),
+    (9, 70.0),
+    (10, 50.0),
+    (11, 15.0),
+    (12, 70.0),
+    (13, 70.0),
+];
+
+/// Equity intra-bucket correlation.
+pub const EQUITY_INTRA_BUCKET_CORRELATION: f64 = 0.15;
+
+/// Equity inter-bucket correlation.
+pub const EQUITY_INTER_BUCKET_CORRELATION: f64 = 0.15;
+
+/// Equity vega risk weight.
+pub const EQUITY_VEGA_RISK_WEIGHT: f64 = 0.78;
+
+/// Equity curvature risk weight scale.
+pub const EQUITY_CURVATURE_RISK_WEIGHT: f64 = 0.5;
+
+/// Look up an equity risk weight by bucket.
+#[must_use]
+pub fn equity_risk_weight(bucket: u8) -> f64 {
+    EQUITY_RISK_WEIGHTS
+        .iter()
+        .find(|(b, _)| *b == bucket)
+        .map(|(_, w)| *w)
+        .unwrap_or(55.0) // Default for unmapped buckets
+}
