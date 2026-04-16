@@ -6,6 +6,7 @@
 mod backtesting;
 mod functions;
 mod performance;
+mod timeseries;
 mod types;
 
 use pyo3::prelude::*;
@@ -23,6 +24,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     performance::register(py, &m)?;
     functions::register(py, &m)?;
     backtesting::register(py, &m)?;
+    timeseries::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -132,6 +134,16 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "christoffersen_test",
             "traffic_light",
             "run_backtest",
+            // GARCH volatility models
+            "fit_garch11",
+            "fit_egarch11",
+            "fit_gjr_garch11",
+            "garch11_forecast",
+            "ljung_box",
+            "arch_lm",
+            "aic",
+            "bic",
+            "hqic",
         ],
     )?;
     m.setattr("__all__", all)?;
