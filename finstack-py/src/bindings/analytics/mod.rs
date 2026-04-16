@@ -3,6 +3,7 @@
 //! Exposes the stateful [`PyPerformance`] class, standalone analytics functions,
 //! and result types for benchmarks, drawdowns, rolling metrics, and ruin estimation.
 
+mod backtesting;
 mod functions;
 mod performance;
 mod types;
@@ -21,6 +22,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     types::register(py, &m)?;
     performance::register(py, &m)?;
     functions::register(py, &m)?;
+    backtesting::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -124,6 +126,12 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "tail_ratio",
             "outlier_win_ratio",
             "outlier_loss_ratio",
+            // VaR backtesting
+            "classify_breaches",
+            "kupiec_test",
+            "christoffersen_test",
+            "traffic_light",
+            "run_backtest",
         ],
     )?;
     m.setattr("__all__", all)?;
