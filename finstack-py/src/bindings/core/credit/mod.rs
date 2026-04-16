@@ -1,5 +1,6 @@
 //! Python bindings for `finstack_core::credit`.
 
+mod lgd;
 mod pd;
 mod scoring;
 
@@ -11,7 +12,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "credit")?;
     m.setattr(
         "__doc__",
-        "Credit risk models: academic scoring (Altman, Ohlson, Zmijewski) and PD calibration.",
+        "Credit risk models: academic scoring (Altman, Ohlson, Zmijewski), PD calibration, and LGD / EAD.",
     )?;
 
     let pkg: String = match parent.getattr("__package__") {
@@ -26,8 +27,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
 
     scoring::register(py, &m)?;
     pd::register(py, &m)?;
+    lgd::register(py, &m)?;
 
-    let all = PyList::new(py, ["scoring", "pd"])?;
+    let all = PyList::new(py, ["scoring", "pd", "lgd"])?;
     m.setattr("__all__", all)?;
     parent.add_submodule(&m)?;
 
