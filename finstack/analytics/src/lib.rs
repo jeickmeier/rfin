@@ -23,6 +23,7 @@ type Result<T> = finstack_core::Result<T>;
 
 pub mod aggregation;
 pub mod benchmark;
+pub mod comps;
 /// Count consecutive streaks in a numeric series.
 pub mod consecutive;
 pub mod drawdown;
