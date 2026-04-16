@@ -339,6 +339,8 @@
 
 extern crate self as finstack_valuations;
 
+/// Valuation result caching with LRU eviction and dirty tracking.
+pub mod cache;
 /// Curve and surface calibration tooling.
 pub mod calibration;
 /// Cashflow schedule generation and builders.
