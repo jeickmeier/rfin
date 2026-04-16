@@ -5,6 +5,7 @@
 //! result extraction via serde round-trips, and end-to-end pipeline functions
 //! that build the runtime portfolio internally.
 
+mod liquidity;
 mod optimization;
 mod pipeline;
 mod position_risk;
@@ -35,6 +36,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     optimization::register(py, &m)?;
     replay::register(py, &m)?;
     position_risk::register(py, &m)?;
+    liquidity::register(py, &m)?;
 
     let exports = vec![
         "parse_portfolio_spec",
@@ -51,6 +53,13 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "parametric_es_decomposition",
         "historical_var_decomposition",
         "evaluate_risk_budget",
+        "roll_effective_spread",
+        "amihud_illiquidity",
+        "days_to_liquidate",
+        "liquidity_tier",
+        "lvar_bangia",
+        "almgren_chriss_impact",
+        "kyle_lambda",
     ];
 
     let all = PyList::new(py, exports)?;
