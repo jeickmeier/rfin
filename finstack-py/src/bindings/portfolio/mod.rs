@@ -7,6 +7,7 @@
 
 mod optimization;
 mod pipeline;
+mod position_risk;
 mod replay;
 mod spec;
 
@@ -33,6 +34,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     pipeline::register(py, &m)?;
     optimization::register(py, &m)?;
     replay::register(py, &m)?;
+    position_risk::register(py, &m)?;
 
     let exports = vec![
         "parse_portfolio_spec",
@@ -45,6 +47,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "apply_scenario_and_revalue",
         "optimize_portfolio",
         "replay_portfolio",
+        "parametric_var_decomposition",
+        "parametric_es_decomposition",
+        "historical_var_decomposition",
+        "evaluate_risk_budget",
     ];
 
     let all = PyList::new(py, exports)?;
