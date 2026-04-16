@@ -71,6 +71,10 @@ pub enum Error {
     #[error(transparent)]
     Core(#[from] finstack_core::Error),
 
+    /// Liquidity calculation error
+    #[error("Liquidity error: {0}")]
+    LiquidityError(String),
+
     /// Invalid input data
     #[error("Invalid input: {0}")]
     InvalidInput(String),
@@ -145,6 +149,19 @@ impl Error {
     /// [`Error::OptimizationError`] carrying the supplied message.
     pub fn optimization_error(msg: impl Into<String>) -> Self {
         Self::OptimizationError(msg.into())
+    }
+
+    /// Create a liquidity error with context.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - Description of the liquidity calculation failure.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::LiquidityError`] carrying the supplied message.
+    pub fn liquidity(msg: impl Into<String>) -> Self {
+        Self::LiquidityError(msg.into())
     }
 
     /// Create an invalid input error.
