@@ -36,11 +36,11 @@ while the Rust binding implementations live under `src/api/`.
 ## Quick Start
 
 ```javascript
-import init, { core, valuations, portfolio, scenarios } from "finstack-wasm";
+import init, { core, valuations, portfolio, scenarios } from 'finstack-wasm';
 
 await init();
 
-const usd = new core.Currency("USD");
+const usd = new core.Currency('USD');
 const amount = new core.Money(1000.0, usd);
 
 console.log(amount.toString());

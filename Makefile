@@ -7,10 +7,19 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-# Detect Python environment
+# OS detection: identify Windows via MSYS / Git Bash / Cygwin uname output
+UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
+IS_WINDOWS := $(strip $(if $(or $(findstring MINGW,$(UNAME_S)),$(findstring MSYS,$(UNAME_S)),$(findstring CYGWIN,$(UNAME_S))),true,))
+
+# Detect Python environment (Scripts/ on Windows, bin/ on Unix)
 VENV := .venv
 VENV_PATH := $(CURDIR)/$(VENV)
-PYTHON_ACTIVATE := [ -f $(VENV_PATH)/bin/activate ] && . $(VENV_PATH)/bin/activate
+ifdef IS_WINDOWS
+  VENV_BIN_DIR := Scripts
+else
+  VENV_BIN_DIR := bin
+endif
+PYTHON_ACTIVATE := [ -f "$(VENV_PATH)/$(VENV_BIN_DIR)/activate" ] && . "$(VENV_PATH)/$(VENV_BIN_DIR)/activate"
 UV := $(shell command -v uv 2> /dev/null)
 
 # Macro to run python commands consistently
@@ -168,7 +177,7 @@ examples: ## Run all Rust examples with nice categorization
 setup-python: ## Initialize Python environment
 	@printf "Setting up Python development environment...\n"
 	uv venv
-	@printf "Virtual environment created. Now run: source .venv/bin/activate && make python-dev\n"
+	@printf "Virtual environment created. Now run: source .venv/$(VENV_BIN_DIR)/activate && make python-dev\n"
 
 .PHONY: python-dev
 python-dev: ## Install dependencies and build bindings (release mode)
@@ -463,8 +472,8 @@ wheel-local: ## Build wheel for current platform + Python
 
 wheel-docker: ## Build manylinux wheel via Docker (current arch)
 	@printf "Building manylinux wheel via Docker...\n"
-	docker run --rm \
-		-v $(CURDIR):/io \
+	MSYS_NO_PATHCONV=1 docker run --rm \
+		-v "$(CURDIR):/io" \
 		-w /io \
 		ghcr.io/pyo3/maturin:v1.10 \
 		build --release \
