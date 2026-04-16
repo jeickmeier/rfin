@@ -9,6 +9,7 @@
 //! - **[`crate::analysis::reports`]** — Formatted P&L summaries and credit assessment reports
 //! - **[`mod@crate::analysis::goal_seek`]** — Root-finding for target metric values
 //! - **[`crate::analysis::backtesting`]** — Forecast accuracy metrics
+//! - **[`crate::analysis::ecl`]** — Expected credit loss (IFRS 9 staging, CECL, portfolio aggregation) *(feature: `ecl`)*
 //!
 //! ## Where To Start
 //!
@@ -43,6 +44,10 @@ pub mod scenarios;
 
 /// Domain-level validation checks (reconciliation, consistency, credit).
 pub mod checks;
+
+/// Expected credit loss: IFRS 9 staging, ECL calculation, CECL, portfolio aggregation.
+#[cfg(feature = "ecl")]
+pub mod ecl;
 
 // ---- Flat submodules ----
 
@@ -95,4 +100,15 @@ pub use variance::{
 pub use checks::{
     corkscrew_as_checks, credit_underwriting_checks, lbo_model_checks, three_statement_checks,
     CheckReportRenderer, CreditMapping, FormulaCheck, ThreeStatementMapping, TrendDirection,
+};
+
+// ---- ECL re-exports (feature-gated) ----
+
+#[cfg(feature = "ecl")]
+pub use ecl::{
+    classify_stage, compute_ecl_single, compute_ecl_weighted, compute_waterfall, CeclConfig,
+    CeclEngine, CeclMethodology, CeclResult, EclBucket, EclConfig, EclConfigBuilder, EclEngine,
+    EclResult, Exposure, ExposureEclResult, LgdType, MacroScenario, PdTermStructure,
+    PortfolioEclResult, ProvisionWaterfall, QualitativeFlags, RawPdCurve, ReversionMethod, Stage,
+    StageResult, StagingConfig, StagingTrigger, WeightedEclResult,
 };
