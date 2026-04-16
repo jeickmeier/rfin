@@ -410,6 +410,7 @@ pub fn standard_registry() -> &'static MetricRegistry {
         crate::instruments::rates::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
         crate::instruments::rates::cms_option::metrics::register_cms_option_metrics(&mut registry);
         crate::instruments::rates::cms_swap::metrics::register_cms_swap_metrics(&mut registry);
+        crate::instruments::rates::cms_spread_option::metrics::register_cms_spread_option_metrics(&mut registry);
 
         // Credit derivatives
         crate::instruments::credit_derivatives::cds::metrics::register_cds_metrics(&mut registry);
@@ -446,6 +447,9 @@ pub fn standard_registry() -> &'static MetricRegistry {
             crate::instruments::equity::cliquet_option::metrics::register_cliquet_option_metrics(&mut registry);
             crate::instruments::fx::quanto_option::metrics::register_quanto_option_metrics(&mut registry);
             crate::instruments::rates::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
+            crate::instruments::rates::tarn::metrics::register_tarn_metrics(&mut registry);
+            crate::instruments::rates::snowball::metrics::register_snowball_metrics(&mut registry);
+            crate::instruments::rates::callable_range_accrual::metrics::register_callable_range_accrual_metrics(&mut registry);
         }
 
         registry

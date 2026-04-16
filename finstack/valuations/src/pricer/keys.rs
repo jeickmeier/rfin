@@ -149,6 +149,14 @@ pub enum InstrumentType {
     FxDigitalOption = 70,
     /// FX touch option (one-touch / no-touch American binary).
     FxTouchOption = 71,
+    /// Target Redemption Note (path-dependent coupon with knockout).
+    Tarn = 78,
+    /// CMS Spread Option (option on spread between two CMS rates).
+    CmsSpreadOption = 80,
+    /// Callable Range Accrual (range accrual with Bermudan call).
+    CallableRangeAccrual = 81,
+    /// Snowball / Inverse Floater structured note.
+    Snowball = 82,
 }
 
 impl std::fmt::Display for InstrumentType {
@@ -221,6 +229,10 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::AgencyCmo => "agency_cmo",
             InstrumentType::FxDigitalOption => "fx_digital_option",
             InstrumentType::FxTouchOption => "fx_touch_option",
+            InstrumentType::Tarn => "tarn",
+            InstrumentType::CmsSpreadOption => "cms_spread_option",
+            InstrumentType::CallableRangeAccrual => "callable_range_accrual",
+            InstrumentType::Snowball => "snowball",
         };
         write!(f, "{}", label)
     }
@@ -335,6 +347,14 @@ impl std::str::FromStr for InstrumentType {
             }
             "fx_touch_option" | "fxtouchoption" | "fx_touch" | "touch_option" | "one_touch"
             | "no_touch" => Ok(InstrumentType::FxTouchOption),
+            "tarn" | "target_redemption_note" => Ok(InstrumentType::Tarn),
+            "cms_spread_option" | "cmsspreadoption" | "cms_spread" => {
+                Ok(InstrumentType::CmsSpreadOption)
+            }
+            "callable_range_accrual" | "callablerangeaccrual" | "callable_ra" => {
+                Ok(InstrumentType::CallableRangeAccrual)
+            }
+            "snowball" | "inverse_floater" | "inversefloater" => Ok(InstrumentType::Snowball),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }

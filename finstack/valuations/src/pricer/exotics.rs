@@ -177,4 +177,42 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         ModelKey::MonteCarloCheyetteRoughVol,
         crate::instruments::rates::swaption::cheyette_rough_pricer::BermudanSwaptionCheyetteRoughPricer::default(),
     );
+
+    // -- Exotic Rate Products --
+
+    // TARN - generic pricer (MC payoff not yet implemented)
+    registry.register(
+        InstrumentType::Tarn,
+        ModelKey::Discounting,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::rates::tarn::Tarn,
+        >::discounting(InstrumentType::Tarn),
+    );
+
+    // Snowball / Inverse Floater - generic pricer
+    registry.register(
+        InstrumentType::Snowball,
+        ModelKey::Discounting,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::rates::snowball::Snowball,
+        >::discounting(InstrumentType::Snowball),
+    );
+
+    // CMS Spread Option - generic pricer
+    registry.register(
+        InstrumentType::CmsSpreadOption,
+        ModelKey::Discounting,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::rates::cms_spread_option::CmsSpreadOption,
+        >::discounting(InstrumentType::CmsSpreadOption),
+    );
+
+    // Callable Range Accrual - generic pricer
+    registry.register(
+        InstrumentType::CallableRangeAccrual,
+        ModelKey::Discounting,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::rates::callable_range_accrual::CallableRangeAccrual,
+        >::discounting(InstrumentType::CallableRangeAccrual),
+    );
 }

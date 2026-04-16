@@ -300,6 +300,12 @@ impl MarketDependencies {
             InstrumentJson::CliquetOption(i) => Self::from_curves_and_equity(i),
             InstrumentJson::RangeAccrual(i) => Self::from_curves_and_equity(i),
 
+            // Exotic Rate Products
+            InstrumentJson::Tarn(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::Snowball(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CmsSpreadOption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CallableRangeAccrual(i) => Self::from_curve_dependencies(i),
+
             // Total Return Swaps
             InstrumentJson::TrsEquity(i) => Self::from_curve_dependencies(i),
             InstrumentJson::TrsFixedIncomeIndex(i) => Self::from_curve_dependencies(i),
