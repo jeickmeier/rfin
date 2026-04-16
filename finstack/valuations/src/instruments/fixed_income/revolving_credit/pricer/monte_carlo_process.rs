@@ -65,13 +65,17 @@ pub struct CreditSpreadParams {
 
 impl CreditSpreadParams {
     /// Create new credit spread parameters.
-    pub fn new(kappa: f64, theta: f64, sigma: f64, initial: f64) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if CIR parameters are invalid (see [`CirParams::new`]).
+    pub fn new(kappa: f64, theta: f64, sigma: f64, initial: f64) -> finstack_core::Result<Self> {
         assert!(initial >= 0.0, "Initial credit spread must be non-negative");
 
-        Self {
-            cir: CirParams::new(kappa, theta, sigma),
+        Ok(Self {
+            cir: CirParams::new(kappa, theta, sigma)?,
             initial,
-        }
+        })
     }
 }
 
@@ -343,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_credit_spread_params() {
-        let params = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let params = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
         assert_eq!(params.initial, 0.015);
         assert_eq!(params.cir.kappa, 0.3);
     }
@@ -352,7 +356,7 @@ mod tests {
     fn test_process_params_initial_state() {
         let utilization = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate = InterestRateSpec::Fixed { rate: 0.05 };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let state = params.initial_state(0.5);
@@ -370,7 +374,7 @@ mod tests {
             params: hw_params,
             initial: 0.04,
         };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let state = params.initial_state(0.5);
@@ -384,7 +388,7 @@ mod tests {
     fn test_process_drift_fixed_rate() {
         let utilization = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate = InterestRateSpec::Fixed { rate: 0.05 };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process = RevolvingCreditProcess::new(params);
@@ -408,7 +412,7 @@ mod tests {
     fn test_process_diffusion() {
         let utilization = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate = InterestRateSpec::Fixed { rate: 0.05 };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process = RevolvingCreditProcess::new(params);
@@ -432,7 +436,7 @@ mod tests {
     fn test_is_diagonal() {
         let utilization = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate = InterestRateSpec::Fixed { rate: 0.05 };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process_no_corr = RevolvingCreditProcess::new(params);
@@ -441,7 +445,7 @@ mod tests {
         // With correlation, not diagonal
         let utilization2 = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate2 = InterestRateSpec::Fixed { rate: 0.05 };
-        let credit_spread2 = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread2 = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
         let correlation = [[1.0, 0.2, 0.1], [0.2, 1.0, 0.3], [0.1, 0.3, 1.0]];
 
         let params2 =

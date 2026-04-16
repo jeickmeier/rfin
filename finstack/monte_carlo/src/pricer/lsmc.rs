@@ -503,7 +503,7 @@ mod tests {
         let config = LsmcConfig::new(1_000, exercise_dates).with_seed(42);
         let pricer = LsmcPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3).unwrap());
         let put = AmericanPut { strike: 100.0 };
         let basis = PolynomialBasis::new(2);
 
@@ -524,7 +524,7 @@ mod tests {
         let config = LsmcConfig::new(5_000, exercise_dates).with_seed(42);
         let pricer = LsmcPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3).unwrap());
         let put = AmericanPut { strike: 100.0 };
 
         // High-degree polynomial basis (more prone to ill-conditioning)
@@ -550,7 +550,7 @@ mod tests {
         let pricer = LsmcPricer::new(config);
 
         // High volatility to get wide spot range
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 1.0));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 1.0).unwrap());
         let put = AmericanPut { strike: 100.0 };
         let basis = PolynomialBasis::new(3);
 
@@ -574,7 +574,7 @@ mod tests {
         let pricer = LsmcPricer::new(config);
 
         // Low volatility, deep OTM
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.05));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.05).unwrap());
         let put = AmericanPut { strike: 50.0 };
         let basis = PolynomialBasis::new(2);
 

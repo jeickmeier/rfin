@@ -173,7 +173,7 @@ mod tests {
         });
 
         let rng = PhiloxRng::new(42);
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let disc = ExactGbm::new();
         let call = EuropeanCall::new(100.0, 1.0, 50);
 
@@ -209,7 +209,7 @@ mod tests {
         });
 
         let rng = PhiloxRng::new(42);
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let disc = ExactGbm::new();
         let call = EuropeanCall::new(100.0, 1.0, 50);
 

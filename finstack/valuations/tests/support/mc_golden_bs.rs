@@ -75,7 +75,7 @@ mod golden_tests {
             .build()
             .expect("Failed to build MC engine");
 
-        let gbm = GbmProcess::with_params(rate, dividend, vol);
+        let gbm = GbmProcess::with_params(rate, dividend, vol).unwrap();
         let disc = ExactGbm::new();
         let rng = PhiloxRng::new(42);
         let initial_state = [spot];
@@ -294,7 +294,7 @@ mod golden_tests {
             .build()
             .expect("Failed to build MC engine");
 
-        let gbm = GbmProcess::with_params(rate, dividend, vol);
+        let gbm = GbmProcess::with_params(rate, dividend, vol).unwrap();
         let disc = ExactGbm::new();
         let rng = PhiloxRng::new(42);
         let initial_state = [spot];
@@ -363,7 +363,7 @@ mod golden_tests {
             .build()
             .expect("Failed to build MC engine");
 
-        let gbm = GbmProcess::with_params(rate, 0.0, vol);
+        let gbm = GbmProcess::with_params(rate, 0.0, vol).unwrap();
         let disc = ExactGbm::new();
         let initial_state = [spot];
         let discount_factor = (-rate * t).exp();

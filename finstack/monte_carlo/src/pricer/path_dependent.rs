@@ -743,7 +743,7 @@ mod tests {
             .with_parallel(false);
         let pricer = PathDependentPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2).unwrap());
 
         // Monthly fixings
         let fixing_steps: Vec<usize> = (0..=12).map(|i| i * 21).collect();
@@ -766,7 +766,7 @@ mod tests {
             .with_parallel(false);
         let pricer = PathDependentPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3).unwrap());
         let lookback = Lookback::new(LookbackDirection::Call, 100.0, 1.0, 252);
 
         let result = pricer
@@ -786,7 +786,7 @@ mod tests {
             .with_sobol(true)
             .with_brownian_bridge(false);
         let pricer = PathDependentPricer::new(config);
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let time_grid = TimeGrid::uniform(1.0, 4).expect("grid should build");
         let fixing_steps = vec![1, 2, 3, 4];
         let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
@@ -819,7 +819,7 @@ mod tests {
             .with_sobol(true)
             .capture_all_paths();
         let pricer = PathDependentPricer::new(config);
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let fixing_steps = vec![1, 2, 3, 4];
         let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
 
@@ -860,7 +860,7 @@ mod tests {
             .with_sobol(true)
             .with_brownian_bridge(true);
         let pricer = PathDependentPricer::new(config);
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let time_grid = TimeGrid::from_times(vec![0.0, 0.2, 0.55, 1.0]).expect("grid should build");
         let fixing_steps = vec![1, 2, 3];
         let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
@@ -881,7 +881,7 @@ mod tests {
             .with_sobol(true)
             .with_brownian_bridge(false);
         let pricer = PathDependentPricer::new(config);
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let fixing_steps = vec![MAX_SOBOL_DIMENSION + 1];
         let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
 

@@ -26,7 +26,8 @@ fn test_gbm_params_serialization() {
         0.05, // r = 5% risk-free rate
         0.02, // q = 2% dividend yield
         0.20, // σ = 20% volatility
-    );
+    )
+    .unwrap();
 
     let restored = roundtrip_json(&params);
 
@@ -74,7 +75,8 @@ fn test_cir_params_serialization() {
         0.5,  // κ = mean reversion speed
         0.04, // θ = long-term mean
         0.1,  // σ = volatility
-    );
+    )
+    .unwrap();
 
     let restored = roundtrip_json(&params);
 
@@ -94,7 +96,7 @@ fn test_cir_params_serialization() {
 #[test]
 fn test_bates_params_serialization() {
     let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
-    let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.05, 0.1);
+    let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.05, 0.1).unwrap();
     let params = BatesParams::new(heston, jump);
 
     let restored = roundtrip_json(&params);
@@ -233,7 +235,8 @@ fn test_merton_jump_params_serialization() {
         2.0,   // λ = jump intensity (2 jumps/year)
         -0.05, // μ_J = mean of log-jump
         0.1,   // σ_J = std dev of log-jump
-    );
+    )
+    .unwrap();
 
     let restored = roundtrip_json(&params);
 

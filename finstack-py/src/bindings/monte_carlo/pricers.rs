@@ -102,7 +102,7 @@ impl PyEuropeanPricer {
             .with_seed(self.seed)
             .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
         pricer
             .price(
                 &process,
@@ -229,7 +229,7 @@ impl PyPathDependentPricer {
             .with_seed(self.seed)
             .with_parallel(self.use_parallel);
         let pricer = PathDependentPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
         pricer
             .price(
                 &process,
@@ -287,7 +287,7 @@ impl PyLsmcPricer {
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
         let config = LsmcConfig::new(self.num_paths, exercise_dates).with_seed(self.seed);
         let pricer = LsmcPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 
         pricer
             .price(
@@ -327,7 +327,7 @@ impl PyLsmcPricer {
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
         let config = LsmcConfig::new(self.num_paths, exercise_dates).with_seed(self.seed);
         let pricer = LsmcPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 
         pricer
             .price(

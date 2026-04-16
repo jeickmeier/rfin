@@ -47,6 +47,7 @@ impl McEngine {
         let mut work = vec![0.0; work_size];
         let mut state_a = vec![0.0; dim];
         let mut z_anti = vec![0.0; num_factors];
+        let mut work_anti = vec![0.0; work_size];
 
         // Path capture setup
         let capture_enabled = self.config.path_capture.enabled;
@@ -110,6 +111,7 @@ impl McEngine {
                         &mut z,
                         &mut z_anti,
                         &mut work,
+                        &mut work_anti,
                         currency,
                     )?
                 } else {
@@ -236,6 +238,7 @@ impl McEngine {
                 let mut work = vec![0.0; work_size];
                 let mut state_a = vec![0.0; dim];
                 let mut z_anti = vec![0.0; num_factors];
+                let mut work_anti = vec![0.0; work_size];
                 let mut chunk_paths = if capture_enabled {
                     Vec::with_capacity(range.len() / 10 + 1)
                 } else {
@@ -281,6 +284,7 @@ impl McEngine {
                                 &mut z,
                                 &mut z_anti,
                                 &mut work,
+                                &mut work_anti,
                                 currency,
                             )?
                         } else {
@@ -563,6 +567,10 @@ impl McEngine {
     }
 
     /// Simulate one antithetic pair and return the average payoff (in amount).
+    ///
+    /// Uses separate work buffers for primary and antithetic paths to prevent
+    /// state corruption in discretizations with stateful work buffers (e.g.,
+    /// rough Heston, rBergomi, Cheyette rough-vol).
     #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_antithetic_pair<R, P, D, F>(
         &self,
@@ -576,6 +584,7 @@ impl McEngine {
         z: &mut [f64],
         z_anti: &mut [f64],
         work: &mut [f64],
+        work_anti: &mut [f64],
         currency: Currency,
     ) -> Result<f64>
     where
@@ -611,7 +620,7 @@ impl McEngine {
             }
 
             disc.step(process, t, dt, state_p, z, work);
-            disc.step(process, t, dt, state_a, z_anti, work);
+            disc.step(process, t, dt, state_a, z_anti, work_anti);
 
             let u_step = rng.next_u01();
 

@@ -32,7 +32,7 @@ mod tests {
             t in 0.0f64..10.0,
             spot in 1.0f64..1000.0,
         ) {
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
             let mut drift = vec![0.0; gbm.dim()];
             let state = vec![spot];
             gbm.drift(t, &state, &mut drift);
@@ -55,7 +55,7 @@ mod tests {
             t in 0.0f64..10.0,
             spot in 1.0f64..1000.0,
         ) {
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
             let mut diffusion = vec![0.0; gbm.dim()];
             let state = vec![spot];
             gbm.diffusion(t, &state, &mut diffusion);
@@ -76,7 +76,7 @@ mod tests {
             q in 0.0f64..0.1,
             sigma in 0.01f64..1.0,
         ) {
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
 
             prop_assert_eq!(gbm.dim(), 1, "GBM should have dimension 1");
             prop_assert_eq!(gbm.num_factors(), 1, "GBM should have 1 factor");
@@ -93,7 +93,7 @@ mod tests {
             dt_power in 1u32..8,  // dt = 2^(-dt_power), so dt ranges from 0.5 to ~0.004
         ) {
             let dt = 1.0 / (1u64 << dt_power) as f64;
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
             let exact_disc = ExactGbm::new();
             let euler_disc = EulerMaruyama::new();
 
@@ -137,7 +137,7 @@ mod tests {
             dt in 0.001f64..1.0,
             z in -5.0f64..5.0,  // Standard normal range (±5σ covers most cases)
         ) {
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
             let disc = ExactGbm::new();
 
             let mut state = vec![spot];
@@ -270,7 +270,7 @@ mod tests {
             sigma in 0.01f64..1.0,
             spot in 1.0f64..1000.0,
         ) {
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
             let mut diffusion = vec![0.0; gbm.dim()];
             let state = vec![spot];
 
@@ -292,7 +292,7 @@ mod tests {
             sigma in 0.01f64..1.0,
             spot in 1.0f64..1000.0,
         ) {
-            let gbm = GbmProcess::with_params(r, q, sigma);
+            let gbm = GbmProcess::with_params(r, q, sigma).unwrap();
             let disc = EulerMaruyama::new();
 
             let work_size = disc.work_size(&gbm);

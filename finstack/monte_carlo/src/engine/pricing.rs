@@ -210,7 +210,7 @@ impl McEngine {
     ///     .expect("valid Monte Carlo configuration");
     ///
     /// let rng = PhiloxRng::new(11);
-    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20).unwrap();
     /// let disc = ExactGbm::new();
     /// let payoff = EuropeanCall::new(100.0, 1.0, 252);
     /// let discount_factor = (-0.03_f64).exp();
@@ -312,7 +312,7 @@ impl McEngine {
     ///     .expect("valid Monte Carlo configuration");
     ///
     /// let rng = PhiloxRng::new(5);
-    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20).unwrap();
     /// let disc = ExactGbm::new();
     /// let payoff = EuropeanCall::new(100.0, 1.0, 12);
     /// let discount_factor = (-0.03_f64).exp();
@@ -421,6 +421,7 @@ impl McEngine {
         let mut work = vec![0.0; work_size];
         let mut state_a = vec![0.0; dim];
         let mut z_anti = vec![0.0; num_factors];
+        let mut work_anti = vec![0.0; work_size];
 
         // Single clone reused across all paths (reset between iterations)
         let mut payoff_local = payoff.clone();
@@ -444,6 +445,7 @@ impl McEngine {
                     &mut z,
                     &mut z_anti,
                     &mut work,
+                    &mut work_anti,
                     currency,
                 )?
             } else {
@@ -536,6 +538,7 @@ impl McEngine {
                 let mut work = vec![0.0; work_size];
                 let mut state_a = vec![0.0; dim];
                 let mut z_anti = vec![0.0; num_factors];
+                let mut work_anti = vec![0.0; work_size];
                 let mut payoff_clone = payoff.clone();
 
                 for path_id in range.clone() {
@@ -556,6 +559,7 @@ impl McEngine {
                             &mut z,
                             &mut z_anti,
                             &mut work,
+                            &mut work_anti,
                             currency,
                         )?
                     } else {

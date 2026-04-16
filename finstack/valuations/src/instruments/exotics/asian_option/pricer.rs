@@ -128,7 +128,7 @@ impl AsianOptionMcPricer {
         let sigma = vol_surface.value_clamped(t, inst.strike);
 
         // Create GBM process
-        let gbm_params = GbmParams::new(r, q, sigma);
+        let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         let base_cfg = self.merged_path_config(inst);
@@ -588,7 +588,7 @@ impl AsianOptionMcPricer {
         let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike);
 
-        let gbm_params = GbmParams::new(r, q, sigma);
+        let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         let base_cfg = self.merged_path_config(inst);

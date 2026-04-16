@@ -71,7 +71,7 @@ fn test_path_capture_should_capture() {
 
 #[test]
 fn test_process_metadata_gbm() {
-    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
     let metadata = gbm.metadata();
 
     assert_eq!(metadata.process_type, "GBM");
@@ -90,7 +90,7 @@ fn test_path_dependent_pricer_with_paths() {
 
     let pricer = PathDependentPricer::new(config);
 
-    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
     let call = EuropeanCall::new(100.0, 1.0, 50);
 
     // Price with path capture
@@ -118,7 +118,7 @@ fn test_path_dataset_structure() {
 
     let pricer = PathDependentPricer::new(config);
 
-    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
     let call = EuropeanCall::new(100.0, 1.0, 10);
 
     let result = pricer
@@ -153,7 +153,7 @@ fn test_disabled_path_capture() {
 
     let pricer = PathDependentPricer::new(config);
 
-    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
     let call = EuropeanCall::new(100.0, 1.0, 10);
 
     let result = pricer
@@ -176,7 +176,7 @@ fn test_path_capture_determinism_philox() {
         .capture_all_paths();
 
     let pricer = PathDependentPricer::new(config);
-    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
     let call = EuropeanCall::new(100.0, 1.0, 12);
 
     let first = pricer
@@ -213,7 +213,7 @@ fn test_path_capture_determinism_sobol() {
         .capture_all_paths();
 
     let pricer = PathDependentPricer::new(config);
-    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
     let call = EuropeanCall::new(100.0, 1.0, 12);
 
     let first = pricer

@@ -36,17 +36,36 @@ pub struct CirParams {
 }
 
 impl CirParams {
-    /// Create new CIR parameters.
-    pub fn new(kappa: f64, theta: f64, sigma: f64) -> Self {
-        assert!(kappa > 0.0, "Mean reversion speed must be positive");
-        assert!(theta >= 0.0, "Long-term mean must be non-negative");
-        assert!(sigma > 0.0, "Volatility must be positive");
+    /// Create new CIR parameters with validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `kappa <= 0` or non-finite
+    /// - `theta < 0` or non-finite
+    /// - `sigma <= 0` or non-finite
+    pub fn new(kappa: f64, theta: f64, sigma: f64) -> finstack_core::Result<Self> {
+        if !kappa.is_finite() || kappa <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "CIR kappa (mean reversion speed) must be positive, got {kappa}"
+            )));
+        }
+        if !theta.is_finite() || theta < 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "CIR theta (long-term mean) must be non-negative, got {theta}"
+            )));
+        }
+        if !sigma.is_finite() || sigma <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "CIR sigma (volatility) must be positive, got {sigma}"
+            )));
+        }
 
-        Self {
+        Ok(Self {
             kappa,
             theta,
             sigma,
-        }
+        })
     }
 
     /// Check if Feller condition is satisfied.
@@ -93,8 +112,12 @@ impl CirProcess {
     }
 
     /// Create with explicit parameters.
-    pub fn with_params(kappa: f64, theta: f64, sigma: f64) -> Self {
-        Self::new(CirParams::new(kappa, theta, sigma))
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any parameter is invalid (see [`CirParams::new`]).
+    pub fn with_params(kappa: f64, theta: f64, sigma: f64) -> finstack_core::Result<Self> {
+        Ok(Self::new(CirParams::new(kappa, theta, sigma)?))
     }
 
     /// Get parameters.
@@ -250,19 +273,19 @@ mod tests {
     #[test]
     fn test_cir_params_feller_condition() {
         // Satisfies Feller: 2κθ ≥ σ²
-        let params1 = CirParams::new(0.5, 0.04, 0.1);
+        let params1 = CirParams::new(0.5, 0.04, 0.1).unwrap();
         assert!(params1.satisfies_feller());
         // 2 * 0.5 * 0.04 = 0.04 >= 0.01 ✓
 
         // Violates Feller
-        let params2 = CirParams::new(0.1, 0.01, 0.2);
+        let params2 = CirParams::new(0.1, 0.01, 0.2).unwrap();
         assert!(!params2.satisfies_feller());
         // 2 * 0.1 * 0.01 = 0.002 < 0.04 ✗
     }
 
     #[test]
     fn test_cir_drift() {
-        let params = CirParams::new(0.3, 0.04, 0.1);
+        let params = CirParams::new(0.3, 0.04, 0.1).unwrap();
         let process = CirProcess::new(params);
 
         // Above mean
@@ -281,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_cir_diffusion() {
-        let params = CirParams::new(0.3, 0.04, 0.1);
+        let params = CirParams::new(0.3, 0.04, 0.1).unwrap();
         let process = CirProcess::new(params);
 
         let x = vec![0.04];
@@ -294,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_cir_plus_plus_shift() {
-        let cir = CirProcess::with_params(0.1, 0.03, 0.05);
+        let cir = CirProcess::with_params(0.1, 0.03, 0.05).unwrap();
         let shift_curve = vec![0.01, 0.02];
         let shift_times = vec![0.0, 1.0];
 
@@ -312,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_cir_plus_plus_dynamics() {
-        let cir = CirProcess::with_params(0.1, 0.03, 0.05);
+        let cir = CirProcess::with_params(0.1, 0.03, 0.05).unwrap();
         let cir_pp = CirPlusPlusProcess::with_constant_shift(cir, 0.02);
 
         // The state x follows base CIR dynamics

@@ -69,7 +69,7 @@
 //!     0.05,  // r = 5% risk-free rate
 //!     0.02,  // q = 2% dividend yield
 //!     0.20,  // σ = 20% volatility
-//! );
+//! ).unwrap();
 //!
 //! let gbm = GbmProcess::new(params);
 //!
@@ -94,9 +94,31 @@ pub struct GbmParams {
 }
 
 impl GbmParams {
-    /// Create new GBM parameters.
-    pub fn new(r: f64, q: f64, sigma: f64) -> Self {
-        Self { r, q, sigma }
+    /// Create new GBM parameters with validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `r` is non-finite
+    /// - `q` is non-finite
+    /// - `sigma` is non-finite or negative
+    pub fn new(r: f64, q: f64, sigma: f64) -> finstack_core::Result<Self> {
+        if !r.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "GBM r (risk-free rate) must be finite, got {r}"
+            )));
+        }
+        if !q.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "GBM q (dividend yield) must be finite, got {q}"
+            )));
+        }
+        if !sigma.is_finite() || sigma < 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "GBM sigma (volatility) must be finite and non-negative, got {sigma}"
+            )));
+        }
+        Ok(Self { r, q, sigma })
     }
 }
 
@@ -116,8 +138,12 @@ impl GbmProcess {
     }
 
     /// Create with explicit parameters.
-    pub fn with_params(r: f64, q: f64, sigma: f64) -> Self {
-        Self::new(GbmParams::new(r, q, sigma))
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any parameter is invalid (see [`GbmParams::new`]).
+    pub fn with_params(r: f64, q: f64, sigma: f64) -> finstack_core::Result<Self> {
+        Ok(Self::new(GbmParams::new(r, q, sigma)?))
     }
 
     /// Get parameters.
@@ -308,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_gbm_creation() {
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let gbm = GbmProcess::new(params);
 
         assert_eq!(gbm.dim(), 1);
@@ -318,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_gbm_drift_diffusion() {
-        let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+        let gbm = GbmProcess::with_params(0.05, 0.02, 0.2).unwrap();
         let x = [100.0];
         let mut drift = [0.0];
         let mut diffusion = [0.0];
@@ -333,8 +359,8 @@ mod tests {
     #[test]
     fn test_multi_gbm() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let multi_gbm = MultiGbmProcess::new(params, None);
 
@@ -346,8 +372,8 @@ mod tests {
     #[test]
     fn test_multi_gbm_with_correlation() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
@@ -360,8 +386,8 @@ mod tests {
     #[test]
     fn test_multi_gbm_populates_indexed_spot_state() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let process = MultiGbmProcess::new(params, None);
         let mut state = PathState::new(0, 0.0);
@@ -376,8 +402,8 @@ mod tests {
     #[test]
     fn test_multi_gbm_try_new_rejects_asymmetric_correlation() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.2, 0.4, 1.0];
 

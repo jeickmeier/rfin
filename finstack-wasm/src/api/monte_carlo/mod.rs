@@ -171,7 +171,7 @@ pub fn price_asian_call(
     let df = (-rate * expiry).exp();
     let config = PathDependentPricerConfig::new(num_paths).with_seed(seed);
     let pricer = PathDependentPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol);
+    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
     let est = pricer
         .price(&process, spot, expiry, steps, &payoff, ccy, df)
         .map_err(to_js_err)?;
@@ -206,7 +206,7 @@ pub fn price_asian_put(
     let df = (-rate * expiry).exp();
     let config = PathDependentPricerConfig::new(num_paths).with_seed(seed);
     let pricer = PathDependentPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol);
+    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
     let est = pricer
         .price(&process, spot, expiry, steps, &payoff, ccy, df)
         .map_err(to_js_err)?;
@@ -238,7 +238,7 @@ pub fn price_american_put(
     let exercise = AmericanPut::new(strike).map_err(to_js_err)?;
     let config = LsmcConfig::new(num_paths, exercise_dates).with_seed(seed);
     let pricer = LsmcPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol);
+    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
     let est = pricer
         .price(
             &process,
@@ -284,7 +284,7 @@ fn run_pricer(
         .with_seed(seed)
         .with_parallel(false);
     let pricer = EuropeanPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol);
+    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
 
     pricer
         .price(
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn run_pricer_european_call_positive_mean() {
         let payoff = EuropeanCall::new(100.0, 1.0, 252);
-        let process = GbmProcess::with_params(0.05, 0.0, 0.2);
+        let process = GbmProcess::with_params(0.05, 0.0, 0.2).unwrap();
         assert!((process.volatility() - 0.2).abs() < 1e-12);
         let df = (-0.05_f64 * 1.0_f64).exp();
         let Ok(est) = run_pricer(

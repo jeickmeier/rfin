@@ -65,7 +65,7 @@
 //!     .expect("valid Monte Carlo configuration");
 //!
 //! let rng = PhiloxRng::new(7);
-//! let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+//! let process = GbmProcess::with_params(0.03, 0.01, 0.20).unwrap();
 //! let disc = ExactGbm::new();
 //! let payoff = EuropeanCall::new(100.0, 1.0, 252);
 //! let discount_factor = (-0.03_f64).exp();

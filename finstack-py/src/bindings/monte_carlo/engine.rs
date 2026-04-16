@@ -108,7 +108,7 @@ impl PyMcEngineConfig {
         let config = McEngineConfig::new(self.num_paths, time_grid).with_seed(self.seed);
         let engine = McEngine::new(config);
         let rng = PhiloxRng::new(self.seed);
-        let process = GbmProcess::with_params(rate, div_yield, vol);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
         let disc = ExactGbm::new();
         let df = (-rate * self.time_to_maturity).exp();
 
@@ -212,7 +212,7 @@ impl PyMcEngine {
         discount_factor: f64,
     ) -> PyResult<PyMonteCarloResult> {
         let rng = PhiloxRng::new(self.seed);
-        let process = GbmProcess::with_params(rate, div_yield, vol);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
         let disc = ExactGbm::new();
         self.inner
             .price(
@@ -312,7 +312,7 @@ fn run_european_pricer(
         .with_seed(seed)
         .with_parallel(false);
     let pricer = EuropeanPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol);
+    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 
     pricer
         .price(

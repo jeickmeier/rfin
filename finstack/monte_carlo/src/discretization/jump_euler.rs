@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn test_jump_euler_no_jumps() {
         // With lambda = 0, should behave like log-Euler
-        let params = MertonJumpParams::new(0.05, 0.02, 0.2, 0.0, 0.0, 0.0);
+        let params = MertonJumpParams::new(0.05, 0.02, 0.2, 0.0, 0.0, 0.0).unwrap();
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();
 
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_engine_supplies_jump_size_random_factors() {
-        let params = MertonJumpParams::new(0.0, 0.0, 0.0, 50.0, 0.0, 1.0);
+        let params = MertonJumpParams::new(0.0, 0.0, 0.0, 50.0, 0.0, 1.0).unwrap();
         let compensated_drift = params.compensated_drift();
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();

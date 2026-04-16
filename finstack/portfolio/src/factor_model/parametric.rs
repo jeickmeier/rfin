@@ -61,6 +61,17 @@ impl ParametricDecomposer {
             }
         }
 
+        // Verify positive semi-definiteness via Cholesky decomposition.
+        // A non-PSD covariance matrix can produce meaningless (negative)
+        // factor contributions that look like diversification benefits.
+        if n > 0 {
+            finstack_core::math::linalg::cholesky_decomposition(data, n).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "Covariance matrix is not positive semi-definite: {e}"
+                ))
+            })?;
+        }
+
         Ok(())
     }
 

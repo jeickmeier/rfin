@@ -109,7 +109,7 @@ impl EuropeanPricer {
     ///         .with_seed(19)
     ///         .with_parallel(false),
     /// );
-    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20).unwrap();
     /// let payoff = EuropeanCall::new(100.0, 1.0, 252);
     /// let discount_factor = (-0.03_f64).exp();
     ///
@@ -188,7 +188,7 @@ mod tests {
             .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let call = EuropeanCall::new(100.0, 1.0, 10);
 
         let result = pricer
@@ -210,7 +210,7 @@ mod tests {
             .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2).unwrap());
         let call = EuropeanCall::new(100.0, 1.0, 252);
 
         let result = pricer
@@ -230,7 +230,7 @@ mod tests {
             .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.0, 0.0, 0.01)); // Very low vol, no drift
+        let gbm = GbmProcess::new(GbmParams::new(0.0, 0.0, 0.01).unwrap()); // Very low vol, no drift
         let call = EuropeanCall::new(50.0, 1.0, 100);
 
         let result = pricer

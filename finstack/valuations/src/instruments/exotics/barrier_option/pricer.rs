@@ -121,7 +121,7 @@ impl BarrierOptionMcPricer {
         let sigma = vol_surface.value_clamped(t_vol, inst.strike);
 
         // Create GBM process
-        let gbm_params = GbmParams::new(r, q, sigma);
+        let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         // Create time grid with minimum-capped steps (using vol surface time basis for proper
@@ -236,7 +236,7 @@ impl BarrierOptionMcPricer {
         // Volatility and process (using vol surface time basis)
         let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t_vol, inst.strike);
-        let gbm_params = GbmParams::new(r, q, sigma);
+        let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         // Steps and payoff (using vol surface time basis)

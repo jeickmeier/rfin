@@ -548,11 +548,13 @@ pub fn up_out_call(
     }
 
     // Up-and-out = Vanilla - Up-and-in
+    // Clamp to zero: catastrophic cancellation near the barrier can produce
+    // tiny negative values (order 1e-10).
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
 
     let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, 1.0);
 
-    vanilla - up_in
+    (vanilla - up_in).max(0.0)
 }
 
 /// Price a continuous up-and-in call.
@@ -587,11 +589,13 @@ pub fn down_out_call(
         return 0.0; // Already knocked out
     }
 
+    // Clamp to zero: catastrophic cancellation near the barrier can produce
+    // tiny negative values.
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
 
     let down_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, -1.0);
 
-    vanilla - down_in
+    (vanilla - down_in).max(0.0)
 }
 
 /// Price a continuous down-and-in call.
@@ -666,13 +670,15 @@ pub fn down_out_put(
         return 0.0; // Already knocked out
     }
 
+    // Clamp to zero: catastrophic cancellation near the barrier can produce
+    // tiny negative values.
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
 
     let down_in = barrier_helper(
         spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0,
     );
 
-    vanilla - down_in
+    (vanilla - down_in).max(0.0)
 }
 
 /// Price a continuous up-and-in put.
@@ -707,11 +713,13 @@ pub fn up_out_put(
         return 0.0; // Already knocked out
     }
 
+    // Clamp to zero: catastrophic cancellation near the barrier can produce
+    // tiny negative values.
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
 
     let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0);
 
-    vanilla - up_in
+    (vanilla - up_in).max(0.0)
 }
 
 /// Generic barrier put price dispatcher.

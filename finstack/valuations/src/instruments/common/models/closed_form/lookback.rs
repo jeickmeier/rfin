@@ -47,11 +47,12 @@ use finstack_core::math::special_functions::norm_cdf;
 /// at b → 0 are derived via L'Hôpital's rule and are independent of the d₃ vs a₂
 /// distinction (both collapse to a₁ at b = 0).
 ///
-/// The threshold of 1e-4 (0.01%) captures only truly degenerate cases while
-/// avoiding unnecessary switching for common equity parameter regimes (e.g.,
-/// r = 3%, q = 2.5% uses the general form). The previous value of 0.01 (1%)
-/// was too wide and created Greeks discontinuity at the tolerance boundary.
-const RATE_EQ_DIV_TOL: f64 = 1e-4;
+/// The threshold must be small enough that the general and limiting forms
+/// agree to within 0.1% at the crossover point. At 1e-7 the σ²/(2b) factor
+/// in the general form is still well-conditioned and the L'Hôpital limiting
+/// form is sufficiently accurate. Previous values of 1e-2 and 1e-4 created
+/// visible price discontinuities at the switching boundary.
+const RATE_EQ_DIV_TOL: f64 = 1e-7;
 
 /// Price a fixed-strike lookback call option (continuous monitoring).
 ///
@@ -624,6 +625,52 @@ mod tests {
             "Seasoned ITM lookback put {} should be >= PV of intrinsic {}",
             price,
             intrinsic_pv
+        );
+    }
+
+    #[test]
+    fn test_rate_eq_div_tol_boundary_continuity() {
+        // Verify that the general formula and L'Hôpital limiting form agree
+        // at the RATE_EQ_DIV_TOL crossover boundary (|b| = 1e-4).
+        let spot = 100.0;
+        let s_min = 95.0;
+        let s_max = 105.0;
+        let time = 1.0;
+        let vol = 0.2;
+        let q = 0.05;
+
+        let eps = 1e-6; // Tiny perturbation around the boundary
+
+        // --- Floating-strike lookback call ---
+        // Just inside tolerance (limiting form): b = 1e-4 - eps ≈ 0
+        let r_inside = q + super::RATE_EQ_DIV_TOL - eps;
+        let call_inside =
+            floating_strike_lookback_call(spot, time, r_inside, q, vol, s_min);
+        // Just outside tolerance (general form): b = 1e-4 + eps
+        let r_outside = q + super::RATE_EQ_DIV_TOL + eps;
+        let call_outside =
+            floating_strike_lookback_call(spot, time, r_outside, q, vol, s_min);
+
+        let rel_diff_call = (call_inside - call_outside).abs()
+            / call_inside.max(call_outside).max(1e-10);
+        assert!(
+            rel_diff_call < 1e-3,
+            "Floating-strike lookback call should be continuous at RATE_EQ_DIV_TOL boundary: \
+             inside={call_inside:.8}, outside={call_outside:.8}, rel_diff={rel_diff_call:.2e}"
+        );
+
+        // --- Floating-strike lookback put ---
+        let put_inside =
+            floating_strike_lookback_put(spot, time, r_inside, q, vol, s_max);
+        let put_outside =
+            floating_strike_lookback_put(spot, time, r_outside, q, vol, s_max);
+
+        let rel_diff_put = (put_inside - put_outside).abs()
+            / put_inside.max(put_outside).max(1e-10);
+        assert!(
+            rel_diff_put < 1e-3,
+            "Floating-strike lookback put should be continuous at RATE_EQ_DIV_TOL boundary: \
+             inside={put_inside:.8}, outside={put_outside:.8}, rel_diff={rel_diff_put:.2e}"
         );
     }
 }

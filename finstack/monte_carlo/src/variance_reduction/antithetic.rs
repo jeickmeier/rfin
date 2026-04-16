@@ -67,6 +67,7 @@ where
     let mut z = vec![0.0; num_factors];
     let mut z_neg = vec![0.0; num_factors];
     let mut work = vec![0.0; work_size];
+    let mut work_neg = vec![0.0; work_size];
 
     // Pre-allocate storage for all shocks in the positive path so we can
     // replay them negated for the antithetic path. This avoids the
@@ -109,7 +110,7 @@ where
             &mut payoff_neg,
             &mut state_neg,
             &mut z_neg,
-            &mut work,
+            &mut work_neg,
             config.time_grid,
             &all_shocks,
             -1.0, // Negative shocks
@@ -195,7 +196,7 @@ mod tests {
     #[test]
     fn test_antithetic_basic() {
         let mut rng = PhiloxRng::new(42);
-        let process = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
+        let process = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2).unwrap());
         let disc = ExactGbm::new();
         let initial_state = vec![100.0];
         let payoff = EuropeanCall::new(100.0, 1.0, 10);
@@ -223,7 +224,7 @@ mod tests {
 
         let mut rng_antithetic = PhiloxRng::new(42);
 
-        let process = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.3));
+        let process = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.3).unwrap());
         let disc = ExactGbm::new();
         let initial_state = vec![100.0];
         let payoff = EuropeanCall::new(100.0, 1.0, 50);

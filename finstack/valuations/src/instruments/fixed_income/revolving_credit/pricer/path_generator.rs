@@ -378,22 +378,22 @@ fn build_credit_spread_params(
                 let _ = feller_ratio;
             }
 
-            Ok(CreditSpreadParams::new(
+            CreditSpreadParams::new(
                 stable_kappa,
                 stable_theta,
                 *sigma,
                 stable_initial,
-            ))
+            )
         }
         CreditSpreadProcessSpec::Constant(spread) => {
             // Use constant spread with minimal dynamics
             let stable_spread = spread.max(0.0);
-            Ok(CreditSpreadParams::new(
+            CreditSpreadParams::new(
                 0.01,
                 stable_spread,
                 0.001,
                 stable_spread,
-            ))
+            )
         }
         CreditSpreadProcessSpec::MarketAnchored {
             hazard_curve_id,
@@ -458,7 +458,7 @@ fn build_credit_spread_params(
                 let _ = feller_ratio;
             }
 
-            Ok(CreditSpreadParams::new(k, theta, sigma, s0))
+            CreditSpreadParams::new(k, theta, sigma, s0)
         }
     }
 }

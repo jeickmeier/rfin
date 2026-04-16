@@ -133,7 +133,7 @@ mod tests {
     fn test_exact_gbm_div_no_dividends() {
         // Without dividends, should behave like standard GBM
         let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             vec![], // No dividends
         );
 
@@ -154,7 +154,7 @@ mod tests {
         // With cash dividend, spot should jump down
         let dividends = vec![(0.005, Dividend::Cash(1.0))]; // Dividend at t=0.005
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -177,7 +177,7 @@ mod tests {
         let dividends = vec![(0.003, Dividend::Cash(0.5)), (0.007, Dividend::Cash(0.5))];
 
         let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.1), // Low vol for stability
+            GbmParams::new(0.05, 0.0, 0.1).unwrap(), // Low vol for stability
             dividends,
         );
 
@@ -198,7 +198,7 @@ mod tests {
         let dividends = vec![(0.005, Dividend::Proportional(0.02))]; // 2% dividend
 
         let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.0), // Zero vol for deterministic test
+            GbmParams::new(0.05, 0.0, 0.0).unwrap(), // Zero vol for deterministic test
             dividends,
         );
 
@@ -220,7 +220,7 @@ mod tests {
         // Large dividend that could make spot negative
         let dividends = vec![(0.005, Dividend::Cash(150.0))];
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];

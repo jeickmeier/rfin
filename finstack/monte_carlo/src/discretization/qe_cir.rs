@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_qe_cir_positivity() {
-        let params = CirParams::new(0.5, 0.04, 0.1);
+        let params = CirParams::new(0.5, 0.04, 0.1).unwrap();
         let process = CirProcess::new(params);
         let disc = QeCir::new();
 
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_qe_cir_mean_reversion() {
-        let params = CirParams::new(0.5, 0.04, 0.1);
+        let params = CirParams::new(0.5, 0.04, 0.1).unwrap();
         let process = CirProcess::new(params);
         let disc = QeCir::new();
 
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn test_qe_cir_feller_violation() {
         // Test case where Feller condition is violated
-        let params = CirParams::new(0.1, 0.01, 0.2);
+        let params = CirParams::new(0.1, 0.01, 0.2).unwrap();
         assert!(!params.satisfies_feller());
 
         let process = CirProcess::new(params);

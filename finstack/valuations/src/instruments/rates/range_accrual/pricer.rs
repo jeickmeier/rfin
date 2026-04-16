@@ -145,7 +145,7 @@ impl RangeAccrualMcPricer {
             q += quanto.correlation * sigma * sigma_fx;
         }
 
-        let gbm_params = GbmParams::new(r, q, sigma);
+        let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         let steps_per_year = self.config.steps_per_year;

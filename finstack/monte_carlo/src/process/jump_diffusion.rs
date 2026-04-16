@@ -55,16 +55,36 @@ impl MertonJumpParams {
     /// * `lambda` - Jump intensity (jumps per year)
     /// * `mu_j` - Mean of log-jump
     /// * `sigma_j` - Std dev of log-jump
-    pub fn new(r: f64, q: f64, sigma: f64, lambda: f64, mu_j: f64, sigma_j: f64) -> Self {
-        assert!(lambda >= 0.0, "Jump intensity must be non-negative");
-        assert!(sigma_j >= 0.0, "Jump volatility must be non-negative");
+    pub fn new(
+        r: f64,
+        q: f64,
+        sigma: f64,
+        lambda: f64,
+        mu_j: f64,
+        sigma_j: f64,
+    ) -> finstack_core::Result<Self> {
+        if !lambda.is_finite() || lambda < 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Jump intensity must be finite and non-negative, got {lambda}"
+            )));
+        }
+        if !sigma_j.is_finite() || sigma_j < 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Jump volatility must be finite and non-negative, got {sigma_j}"
+            )));
+        }
+        if !mu_j.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Jump mean must be finite, got {mu_j}"
+            )));
+        }
 
-        Self {
-            gbm: GbmParams::new(r, q, sigma),
+        Ok(Self {
+            gbm: GbmParams::new(r, q, sigma)?,
             lambda,
             mu_j,
             sigma_j,
-        }
+        })
     }
 
     /// Compute jump compensation term k = E[J - 1].
@@ -105,8 +125,19 @@ impl MertonJumpProcess {
     }
 
     /// Create with explicit parameters.
-    pub fn with_params(r: f64, q: f64, sigma: f64, lambda: f64, mu_j: f64, sigma_j: f64) -> Self {
-        Self::new(MertonJumpParams::new(r, q, sigma, lambda, mu_j, sigma_j))
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any parameter is invalid (see [`MertonJumpParams::new`]).
+    pub fn with_params(
+        r: f64,
+        q: f64,
+        sigma: f64,
+        lambda: f64,
+        mu_j: f64,
+        sigma_j: f64,
+    ) -> finstack_core::Result<Self> {
+        Ok(Self::new(MertonJumpParams::new(r, q, sigma, lambda, mu_j, sigma_j)?))
     }
 
     /// Get parameters.
@@ -155,7 +186,8 @@ mod tests {
             2.0,   // lambda (2 jumps/year on average)
             -0.05, // mu_j (slightly negative jumps)
             0.1,   // sigma_j
-        );
+        )
+        .unwrap();
 
         assert_eq!(params.lambda, 2.0);
         assert_eq!(params.mu_j, -0.05);
@@ -168,7 +200,8 @@ mod tests {
             0.05, 0.02, 0.2, 1.0,  // lambda
             -0.1, // mu_j (negative jumps)
             0.15, // sigma_j
-        );
+        )
+        .unwrap();
 
         let k = params.jump_compensation();
 
@@ -184,7 +217,8 @@ mod tests {
             0.05, 0.02, 0.2, 2.0, // lambda
             0.0, // mu_j (neutral jumps)
             0.1, // sigma_j
-        );
+        )
+        .unwrap();
 
         let drift = params.compensated_drift();
 
@@ -198,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_merton_drift() {
-        let params = MertonJumpParams::new(0.05, 0.02, 0.2, 1.0, -0.05, 0.1);
+        let params = MertonJumpParams::new(0.05, 0.02, 0.2, 1.0, -0.05, 0.1).unwrap();
         let process = MertonJumpProcess::new(params);
 
         let x = vec![100.0];
@@ -213,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_merton_diffusion() {
-        let params = MertonJumpParams::new(0.05, 0.02, 0.25, 1.0, 0.0, 0.1);
+        let params = MertonJumpParams::new(0.05, 0.02, 0.25, 1.0, 0.0, 0.1).unwrap();
         let process = MertonJumpProcess::new(params);
 
         let x = vec![100.0];
@@ -228,7 +262,7 @@ mod tests {
     #[test]
     fn test_zero_jumps_reduces_to_gbm() {
         // With lambda = 0, should behave like GBM
-        let params = MertonJumpParams::new(0.05, 0.02, 0.2, 0.0, 0.0, 0.0);
+        let params = MertonJumpParams::new(0.05, 0.02, 0.2, 0.0, 0.0, 0.0).unwrap();
         let process = MertonJumpProcess::new(params);
 
         // Drift should be (r - q) * S

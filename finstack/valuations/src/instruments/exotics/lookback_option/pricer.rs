@@ -98,7 +98,7 @@ impl LookbackOptionMcPricer {
         let strike_val = inst.strike.unwrap_or(spot);
         let sigma = vol_surface.value_clamped(t, strike_val);
 
-        let gbm_params = GbmParams::new(r, q, sigma);
+        let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         let base_cfg = self.merged_path_config(inst);

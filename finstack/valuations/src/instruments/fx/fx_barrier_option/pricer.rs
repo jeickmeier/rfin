@@ -105,7 +105,7 @@ impl FxBarrierOptionMcPricer {
         // In GBM process param 'q' is subtracted from r to get drift (r-q).
         // So q should be r_for.
         let q = r_for;
-        let gbm_params = GbmParams::new(r_dom, q, sigma);
+        let gbm_params = GbmParams::new(r_dom, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 
         let steps_per_year = self.config.steps_per_year;

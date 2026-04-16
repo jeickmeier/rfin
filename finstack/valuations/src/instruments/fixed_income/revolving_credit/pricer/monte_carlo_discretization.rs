@@ -259,7 +259,7 @@ mod tests {
     fn test_discretization_step_fixed_rate() {
         let utilization = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate = InterestRateSpec::Fixed { rate: 0.05 };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process = RevolvingCreditProcess::new(params);
@@ -289,7 +289,7 @@ mod tests {
             params: hw_params,
             initial: 0.04,
         };
-        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
+        let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process = RevolvingCreditProcess::new(params);

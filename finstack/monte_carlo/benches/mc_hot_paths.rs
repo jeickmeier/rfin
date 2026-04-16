@@ -29,7 +29,7 @@ use finstack_monte_carlo::process::gbm::GbmProcess;
 
 fn bench_european_pricer(c: &mut Criterion) {
     let mut group = c.benchmark_group("european_pricer");
-    let process = GbmProcess::with_params(0.05, 0.02, 0.20);
+    let process = GbmProcess::with_params(0.05, 0.02, 0.20).unwrap();
     let payoff = EuropeanCall::new(100.0, 1.0, 252);
     let df = (-0.05_f64).exp();
 
@@ -56,7 +56,7 @@ fn bench_european_pricer(c: &mut Criterion) {
 
 fn bench_lsmc_pricer(c: &mut Criterion) {
     let mut group = c.benchmark_group("lsmc_pricer");
-    let process = GbmProcess::with_params(0.05, 0.02, 0.20);
+    let process = GbmProcess::with_params(0.05, 0.02, 0.20).unwrap();
     let exercise = AmericanPut::new(100.0).expect("valid strike");
     let basis = PolynomialBasis::new(2);
 

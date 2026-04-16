@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_milstein_step() {
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = Milstein::new();
 
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_log_milstein_positivity() {
-        let params = GbmParams::new(0.05, 0.02, 0.5); // High vol
+        let params = GbmParams::new(0.05, 0.02, 0.5).unwrap(); // High vol
         let process = GbmProcess::new(params);
         let disc = LogMilstein::new();
 
@@ -213,7 +213,7 @@ mod tests {
     fn test_milstein_vs_euler() {
         // Milstein should have better strong convergence than Euler
         // Test with same random shocks - Milstein should track exact solution better
-        let params = GbmParams::new(0.05, 0.02, 0.3);
+        let params = GbmParams::new(0.05, 0.02, 0.3).unwrap();
         let process = GbmProcess::new(params);
 
         let t: f64 = 0.0;

@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_euler_maruyama_step() {
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = EulerMaruyama::new();
 
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_log_euler_positivity() {
-        let params = GbmParams::new(0.05, 0.02, 0.4); // High vol
+        let params = GbmParams::new(0.05, 0.02, 0.4).unwrap(); // High vol
         let process = GbmProcess::new(params);
         let disc = LogEuler::new();
 
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_euler_convergence() {
         // Test that Euler converges to expected mean as dt -> 0
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = EulerMaruyama::new();
 

@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_exact_gbm_step() {
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = ExactGbm::new();
 
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_exact_gbm_with_shock() {
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = ExactGbm::new();
 
@@ -288,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_exact_gbm_multiple_steps() {
-        let params = GbmParams::new(0.05, 0.0, 0.2);
+        let params = GbmParams::new(0.05, 0.0, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = ExactGbm::new();
 
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_work_size() {
-        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let params = GbmParams::new(0.05, 0.02, 0.2).unwrap();
         let process = GbmProcess::new(params);
         let disc = ExactGbm::new();
 
@@ -320,8 +320,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_preserves_zero_and_evolves_small_positive_state() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let process = MultiGbmProcess::new(params, None);
         let disc = ExactMultiGbm::new();
@@ -343,8 +343,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_smallest_subnormal_can_round_to_zero() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let process = MultiGbmProcess::new(params, None);
         let disc = ExactMultiGbm::new();
@@ -365,8 +365,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_recovers_mixed_underflow_coefficients() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 1.5),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 1.5).unwrap(),
         ];
         let process = MultiGbmProcess::new(params, None);
         let disc = ExactMultiGbm::new();
@@ -387,8 +387,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_creation() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
@@ -407,8 +407,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_step() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
@@ -434,8 +434,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_preserves_zero_and_evolves_small_positive_state() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let process = MultiGbmProcess::new(params, Some(corr.clone()));
@@ -458,8 +458,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_smallest_subnormal_can_round_to_zero() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.0, 0.0, 1.0];
         let process = MultiGbmProcess::new(params, Some(corr.clone()));
@@ -481,8 +481,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_recovers_mixed_underflow_coefficients() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 1.5),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 1.5).unwrap(),
         ];
         let corr = vec![1.0, 0.0, 0.0, 1.0];
         let process = MultiGbmProcess::new(params, Some(corr.clone()));
@@ -504,8 +504,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_with_shocks() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
@@ -531,8 +531,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_work_size() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
@@ -544,8 +544,8 @@ mod tests {
     #[test]
     fn test_exact_multi_gbm_correlated_from_process_no_correlation() {
         let params = vec![
-            GbmParams::new(0.05, 0.02, 0.2),
-            GbmParams::new(0.05, 0.03, 0.3),
+            GbmParams::new(0.05, 0.02, 0.2).unwrap(),
+            GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let multi_gbm = MultiGbmProcess::new(params, None); // No correlation
 
