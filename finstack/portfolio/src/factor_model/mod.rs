@@ -39,6 +39,8 @@ mod assignment;
 mod model;
 mod optimization;
 mod parametric;
+mod position_risk;
+mod risk_budget;
 mod simulation;
 mod traits;
 mod types;
@@ -48,8 +50,14 @@ pub use assignment::{FactorAssignmentReport, PositionAssignment, UnmatchedEntry}
 pub use model::{FactorModel, FactorModelBuilder};
 pub use optimization::{FactorConstraint, FactorOptimizationResult};
 pub use parametric::ParametricDecomposer;
+pub use position_risk::{
+    DecompositionConfig, DecompositionMethod, HistoricalPositionDecomposer,
+    ParametricPositionDecomposer, PositionEsContribution, PositionRiskDecomposition,
+    PositionVarContribution, StressAttribution, StressPositionEntry, TailScenarioBreakdown,
+};
+pub use risk_budget::{PositionBudgetEntry, RiskBudget, RiskBudgetResult};
 pub use simulation::SimulationDecomposer;
-pub use traits::RiskDecomposer;
+pub use traits::{PositionRiskDecomposer, RiskDecomposer};
 pub use types::{FactorContribution, PositionFactorContribution, RiskDecomposition};
 pub use whatif::{
     FactorContributionDelta, PositionChange, StressResult, WhatIfEngine, WhatIfResult,
