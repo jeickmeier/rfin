@@ -28,6 +28,10 @@ __all__ = [
     "run_credit_underwriting_checks",
     "render_check_report_text",
     "render_check_report_html",
+    "Exposure",
+    "classify_stage",
+    "compute_ecl",
+    "compute_ecl_weighted",
 ]
 
 def run_sensitivity(model_json: str, config_json: str) -> str:
@@ -480,5 +484,101 @@ def render_check_report_html(report_json: str) -> str:
     Example:
         >>> from finstack.statements_analytics import render_check_report_html
         >>> html = render_check_report_html(report_json)
+    """
+    ...
+
+class Exposure:
+    """A single credit exposure for ECL / IFRS 9 / CECL computation.
+
+    All monetary fields are in the exposure's base currency; all rates and
+    probabilities are expressed as decimals (``0.05`` = 5%).
+    """
+
+    id: str
+    ead: float
+    lgd: float
+    eir: float
+    remaining_maturity: float
+    current_pd: float
+    origination_pd: float
+    dpd: int
+
+    def __init__(
+        self,
+        id: str,
+        ead: float,
+        lgd: float,
+        eir: float,
+        remaining_maturity: float,
+        current_pd: float,
+        origination_pd: float,
+        dpd: int = 0,
+    ) -> None: ...
+
+def classify_stage(
+    exposure: Exposure,
+    pd_delta_stage2: float = 0.01,
+    dpd_30_trigger: bool = True,
+    dpd_90_trigger: bool = True,
+) -> tuple[str, str]:
+    """Classify an exposure into an IFRS 9 stage.
+
+    Args:
+        exposure: Credit exposure.
+        pd_delta_stage2: Absolute PD increase threshold (decimal) for SICR.
+        dpd_30_trigger: Apply the 30-DPD Stage 2 rebuttable backstop.
+        dpd_90_trigger: Apply the 90-DPD Stage 3 non-rebuttable backstop.
+
+    Returns:
+        ``(stage, trigger_reason)`` where stage is ``"Stage 1"``, ``"Stage 2"``,
+        or ``"Stage 3"``.
+    """
+    ...
+
+def compute_ecl(
+    ead: float,
+    pd_schedule: list[tuple[float, float]],
+    lgd: float,
+    eir: float,
+    max_horizon_years: float,
+    bucket_width_years: float = 0.25,
+    stage: str = "stage1",
+) -> float:
+    """Compute single-scenario ECL for one exposure.
+
+    Args:
+        ead: Exposure at default.
+        pd_schedule: ``[(time_years, cumulative_pd), ...]`` knots.
+        lgd: Loss given default (decimal).
+        eir: Effective interest rate (decimal).
+        max_horizon_years: Remaining maturity cap.
+        bucket_width_years: Time-bucket width (e.g. ``0.25`` for quarterly).
+        stage: ``"stage1"``, ``"stage2"``, or ``"stage3"``.
+
+    Returns:
+        ECL amount in the exposure's base currency.
+    """
+    ...
+
+def compute_ecl_weighted(
+    ead: float,
+    scenarios: list[tuple[float, list[tuple[float, float]]]],
+    lgd: float,
+    eir: float,
+    max_horizon: float,
+    stage: str = "stage1",
+) -> float:
+    """Compute probability-weighted ECL across macro scenarios.
+
+    Args:
+        ead: Exposure at default.
+        scenarios: List of ``(weight, pd_schedule)``. Weights must sum to 1.0.
+        lgd: Loss given default (decimal).
+        eir: Effective interest rate (decimal).
+        max_horizon: Remaining maturity cap (years).
+        stage: ``"stage1"``, ``"stage2"``, or ``"stage3"``.
+
+    Returns:
+        Probability-weighted ECL amount.
     """
     ...

@@ -5,6 +5,7 @@
 //! pipeline, Monte Carlo, and reports.
 
 mod analysis;
+mod ecl;
 
 use pyo3::prelude::*;
 use pyo3::types::PyList;
@@ -18,6 +19,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
 
     analysis::register(py, &m)?;
+    ecl::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -46,6 +48,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "run_credit_underwriting_checks",
             "render_check_report_text",
             "render_check_report_html",
+            "Exposure",
+            "classify_stage",
+            "compute_ecl",
+            "compute_ecl_weighted",
         ],
     )?;
     m.setattr("__all__", all)?;

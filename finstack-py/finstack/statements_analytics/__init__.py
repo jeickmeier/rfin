@@ -27,9 +27,19 @@ dependents = _sa.dependents
 explain_formula = _sa.explain_formula
 explain_formula_text = _sa.explain_formula_text
 
+# ECL / IFRS 9 / CECL
+Exposure = _sa.Exposure
+classify_stage = _sa.classify_stage
+compute_ecl = _sa.compute_ecl
+compute_ecl_weighted = _sa.compute_ecl_weighted
+
 __all__: list[str] = [
+    "Exposure",
     "all_dependencies",
     "backtest_forecast",
+    "classify_stage",
+    "compute_ecl",
+    "compute_ecl_weighted",
     "credit_assessment_report",
     "dependents",
     "direct_dependencies",
