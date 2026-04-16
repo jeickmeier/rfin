@@ -22,6 +22,7 @@ pub(crate) use finstack_core::{dates, error, math};
 type Result<T> = finstack_core::Result<T>;
 
 pub mod aggregation;
+pub mod backtesting;
 pub mod benchmark;
 /// Count consecutive streaks in a numeric series.
 pub mod consecutive;
@@ -31,6 +32,7 @@ pub mod performance;
 pub mod returns;
 pub mod risk_metrics;
 
+pub use backtesting::{run_backtest, BacktestResult, VarBacktestConfig};
 pub use aggregation::{group_by_period, period_stats, PeriodStats};
 pub use benchmark::{
     align_benchmark, align_benchmark_with_policy, batting_average, calc_beta, capture_ratio,
