@@ -29,6 +29,15 @@ CalibrationResult = _valuations.CalibrationResult
 validate_calibration_json = _valuations.validate_calibration_json
 calibrate = _valuations.calibrate
 calibrate_to_market = _valuations.calibrate_to_market
+metrics_table_from_dict = _valuations.metrics_table_from_dict
+cashflow_ladder = _valuations.cashflow_ladder
+scenario_matrix = _valuations.scenario_matrix
+waterfall_from_steps = _valuations.waterfall_from_steps
+format_bps = _valuations.format_bps
+format_pct = _valuations.format_pct
+format_currency = _valuations.format_currency
+format_ratio = _valuations.format_ratio
+format_scientific = _valuations.format_scientific
 
 __all__: list[str] = [
     "CalibrationResult",
@@ -41,16 +50,25 @@ __all__: list[str] = [
     "attribute_pnl_from_spec",
     "calibrate",
     "calibrate_to_market",
+    "cashflow_ladder",
     "compute_factor_sensitivities",
     "compute_pnl_profiles",
     "decompose_factor_risk",
     "default_attribution_metrics",
     "default_waterfall_order",
+    "format_bps",
+    "format_currency",
+    "format_pct",
+    "format_ratio",
+    "format_scientific",
     "list_standard_metrics",
     "list_standard_metrics_grouped",
+    "metrics_table_from_dict",
     "price_instrument",
     "price_instrument_with_metrics",
+    "scenario_matrix",
     "validate_attribution_json",
     "validate_calibration_json",
     "validate_instrument_json",
+    "waterfall_from_steps",
 ]

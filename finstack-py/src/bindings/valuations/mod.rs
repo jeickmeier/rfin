@@ -8,6 +8,7 @@ pub(crate) mod attribution;
 mod calibration;
 mod factor_model;
 mod pricing;
+mod reporting;
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
@@ -142,6 +143,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     attribution::register(py, &m)?;
     factor_model::register(py, &m)?;
     calibration::register(py, &m)?;
+    reporting::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -168,6 +170,15 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "validate_calibration_json",
             "calibrate",
             "calibrate_to_market",
+            "metrics_table_from_dict",
+            "cashflow_ladder",
+            "scenario_matrix",
+            "waterfall_from_steps",
+            "format_bps",
+            "format_pct",
+            "format_currency",
+            "format_ratio",
+            "format_scientific",
         ],
     )?;
     m.setattr("__all__", all)?;
