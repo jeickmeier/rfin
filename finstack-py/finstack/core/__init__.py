@@ -16,6 +16,7 @@ types = _core.types
 dates = _core.dates
 math = _core.math
 market_data = _core.market_data
+credit = _core.credit
 
 _submodules = {
     "currency": currency,
@@ -25,6 +26,9 @@ _submodules = {
     "dates": dates,
     "math": math,
     "market_data": market_data,
+    "credit": credit,
+    "credit.scoring": credit.scoring,
+    "credit.pd": credit.pd,
 }
 
 for _name, _mod in _submodules.items():
@@ -34,6 +38,7 @@ for _name, _mod in _submodules.items():
 
 __all__: list[str] = [
     "config",
+    "credit",
     "currency",
     "dates",
     "market_data",

@@ -1,6 +1,7 @@
 //! Python bindings for the `finstack-core` crate.
 
 mod config;
+mod credit;
 pub(crate) mod currency;
 pub mod dates;
 pub mod market_data;
@@ -24,6 +25,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     math::register(py, &m)?;
     dates::register(py, &m)?;
     market_data::register(py, &m)?;
+    credit::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -35,6 +37,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "math",
             "dates",
             "market_data",
+            "credit",
         ],
     )?;
     m.setattr("__all__", all)?;
