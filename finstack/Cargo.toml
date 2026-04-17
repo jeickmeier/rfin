@@ -13,14 +13,17 @@ default = ["core"]
 # Crate selection features
 core = ["dep:finstack_core"]
 analytics = ["core", "dep:finstack_analytics"]
-correlation = ["core", "dep:finstack_correlation"]
 margin = ["core", "dep:finstack_margin"]
 monte_carlo = ["core", "dep:finstack_monte_carlo"]
 statements = ["core", "dep:finstack_statements", "dep:finstack_statements_analytics"]
 valuations = ["core", "dep:finstack_valuations"]
 scenarios = ["core", "statements", "dep:finstack_scenarios"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
-all = ["core", "analytics", "correlation", "margin", "monte_carlo", "statements", "valuations", "portfolio", "scenarios"]
+# `correlation` is now part of the `valuations` crate; this feature is retained
+# as a deprecated alias that pulls in `valuations` so existing consumers keep
+# building.
+correlation = ["valuations"]
+all = ["core", "analytics", "margin", "monte_carlo", "statements", "valuations", "portfolio", "scenarios"]
 
 # Cross-cutting capability features
 serde = []  # Delegated to subcrates (enabled by default in most)
@@ -36,7 +39,6 @@ finstack_statements_analytics = { package = "finstack-statements-analytics", pat
 finstack_valuations = { package = "finstack-valuations", path = "valuations", optional = true }
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }
 finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
-finstack_correlation = { package = "finstack-correlation", path = "correlation", optional = true }
 finstack_monte_carlo = { package = "finstack-monte-carlo", path = "monte_carlo", optional = true }
 
 [dev-dependencies]

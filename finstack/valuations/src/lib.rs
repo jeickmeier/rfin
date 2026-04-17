@@ -350,6 +350,11 @@ pub mod calibration;
 pub use finstack_cashflows as cashflow;
 /// Shared numerical constants and basis point helpers.
 pub mod constants;
+/// Copula, factor, and recovery models for credit correlation.
+///
+/// Provides reusable correlation infrastructure used across credit instruments
+/// (CDS tranche pricing, structured credit engines, portfolio credit risk).
+pub mod correlation;
 /// Error types for pricing and valuation workflows.
 pub mod error;
 /// Factor-model integration helpers.

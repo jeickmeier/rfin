@@ -99,6 +99,7 @@ status = "exists"
 # Top-level public modules — detailed symbol mapping to follow in Wave 3
 instruments  = { python = "finstack.valuations.instruments",  status = "exists" }
 calibration  = { python = "finstack.valuations.calibration",  status = "exists" }
+correlation  = { python = "finstack.valuations.correlation",  status = "exists", note = "Former standalone finstack-correlation crate; nested under valuations" }
 # All other valuations submodules are deferred pending detailed lib.rs audit (Wave 3)
 
 # ---------------------------------------------------------------------------
@@ -205,6 +206,5 @@ utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 "finstack_portfolio::dataframe"  = "Feature-gated `dataframes`; deferred until feature flag is stable in Python"
 "finstack_portfolio::scenarios"  = "Feature-gated `scenarios`; available through finstack.scenarios instead"
 "finstack-cashflows"             = "Internal crate; not re-exported from umbrella"
-"finstack-correlation"           = "Internal crate; not re-exported from umbrella"
 "finstack-monte-carlo"           = "Internal crate; not re-exported from umbrella"
 "finstack-valuations-macros"     = "Proc-macro crate; compile-time only, no Python surface"

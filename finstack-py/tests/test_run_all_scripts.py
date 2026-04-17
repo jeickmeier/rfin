@@ -41,9 +41,7 @@ def test_find_scripts_skips_runner_and_checkpoints(module: ModuleType, tmp_path:
     assert [path.name for path in scripts] == ["01_ok.py"]
 
 
-def test_run_script_reports_success(
-    module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_script_reports_success(module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A successful script should return stdout and a zero-style status."""
     script = tmp_path / "success.py"
     script.write_text("print('success')\n", encoding="utf-8")
@@ -56,9 +54,7 @@ def test_run_script_reports_success(
     assert elapsed >= 0
 
 
-def test_run_script_reports_failure(
-    module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_script_reports_failure(module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A failing script should return stderr and a non-zero-style status."""
     script = tmp_path / "failure.py"
     script.write_text("raise RuntimeError('boom')\n", encoding="utf-8")
@@ -120,9 +116,7 @@ def test_example_modules_export_symbols_used_by_scripts(
     assert portfolio_exports.issubset(set(portfolio.__all__))
 
 
-def test_arbitrage_example_runs_successfully(
-    module: ModuleType, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_arbitrage_example_runs_successfully(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     """The volatility-surface arbitrage example should run end-to-end."""
     monkeypatch.setattr(module, "PYTHON_RUNNER", (sys.executable,))
 
@@ -132,9 +126,7 @@ def test_arbitrage_example_runs_successfully(
     assert ok is True, message
 
 
-def test_liquidity_example_runs_successfully(
-    module: ModuleType, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_liquidity_example_runs_successfully(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     """The liquidity risk example should follow the current LVaR sign convention."""
     monkeypatch.setattr(module, "PYTHON_RUNNER", (sys.executable,))
 

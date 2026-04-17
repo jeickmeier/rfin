@@ -30,9 +30,9 @@ almgren_chriss_impact = _portfolio.almgren_chriss_impact
 kyle_lambda = _portfolio.kyle_lambda
 
 __all__: list[str] = [
-    "almgren_chriss_impact",
     "aggregate_cashflows",
     "aggregate_metrics",
+    "almgren_chriss_impact",
     "amihud_illiquidity",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",

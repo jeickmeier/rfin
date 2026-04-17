@@ -1,8 +1,8 @@
 //! Error types for correlation modeling.
 //!
 //! This module contains the structured diagnostics returned by
-//! [`crate::factor_model::validate_correlation_matrix`] and
-//! [`crate::factor_model::cholesky_decompose`].
+//! [`crate::correlation::factor_model::validate_correlation_matrix`] and
+//! [`crate::correlation::factor_model::cholesky_decompose`].
 //!
 //! The errors focus on caller-fixable input problems:
 //! - wrong flattened matrix size

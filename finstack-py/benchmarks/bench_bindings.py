@@ -35,6 +35,15 @@ from finstack.statements_analytics import (
     run_variance,
     trace_dependencies,
 )
+from finstack.valuations.correlation import (
+    CopulaSpec,
+    CorrelatedBernoulli,
+    FactorSpec,
+    RecoverySpec,
+    SingleFactorModel,
+    correlation_bounds,
+    validate_correlation_matrix,
+)
 import pytest
 
 from finstack.analytics import (
@@ -57,15 +66,6 @@ from finstack.analytics import (
     tracking_error,
     value_at_risk,
     volatility,
-)
-from finstack.correlation import (
-    CopulaSpec,
-    CorrelatedBernoulli,
-    FactorSpec,
-    RecoverySpec,
-    SingleFactorModel,
-    correlation_bounds,
-    validate_correlation_matrix,
 )
 from finstack.margin import (
     CsaSpec,

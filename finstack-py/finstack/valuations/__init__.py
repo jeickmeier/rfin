@@ -6,6 +6,7 @@ Bindings for the ``finstack-valuations`` Rust crate.
 from __future__ import annotations
 
 from finstack.finstack import valuations as _valuations
+from finstack.valuations import correlation as correlation
 
 ValuationResult = _valuations.ValuationResult
 validate_instrument_json = _valuations.validate_instrument_json
@@ -72,6 +73,7 @@ __all__: list[str] = [
     "cms_spread_option_intrinsic",
     "compute_factor_sensitivities",
     "compute_pnl_profiles",
+    "correlation",
     "decompose_factor_risk",
     "default_attribution_metrics",
     "default_waterfall_order",

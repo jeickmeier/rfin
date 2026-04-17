@@ -1,7 +1,10 @@
 //! WASM bindings for the `finstack-valuations` crate.
 //!
 //! Exposes JSON round-trip for valuation results, instrument validation,
-//! and P&L attribution across multiple methodologies.
+//! and P&L attribution across multiple methodologies. The `correlation`
+//! submodule mirrors the Rust `finstack_valuations::correlation` module.
+
+pub mod correlation;
 
 use crate::utils::to_js_err;
 use finstack_valuations::factor_model::FactorSensitivityEngine;

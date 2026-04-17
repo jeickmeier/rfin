@@ -118,7 +118,7 @@ impl RandomFactorLoadingCopula {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{Copula, RandomFactorLoadingCopula};
+    /// use finstack_valuations::correlation::{Copula, RandomFactorLoadingCopula};
     /// use finstack_core::math::standard_normal_inv_cdf;
     ///
     /// let copula = RandomFactorLoadingCopula::new(0.15);

@@ -17,13 +17,16 @@
 //! |---------------|--------------------------------|
 //! | `core`        | [`finstack_core`]              |
 //! | `analytics`   | [`finstack_analytics`]         |
-//! | `correlation` | [`finstack_correlation`]       |
 //! | `margin`      | [`finstack_margin`]            |
 //! | `monte_carlo` | [`finstack_monte_carlo`]       |
 //! | `valuations`  | [`finstack_valuations`]        |
 //! | `statements`  | [`finstack_statements`]        |
 //! | `portfolio`   | [`finstack_portfolio`]         |
 //! | `scenarios`   | [`finstack_scenarios`]         |
+//!
+//! Credit correlation infrastructure (copulas, factor models, stochastic
+//! recovery) now lives in [`finstack_valuations::correlation`] and is enabled
+//! via the `valuations` feature.
 //!
 //! Enable `all` to pull in every sub-crate at once.
 
@@ -51,8 +54,12 @@ pub use finstack_portfolio as portfolio;
 #[cfg(feature = "scenarios")]
 pub use finstack_scenarios as scenarios;
 
-#[cfg(feature = "correlation")]
-pub use finstack_correlation as correlation;
+/// Credit correlation infrastructure (copulas, factor models, stochastic recovery).
+///
+/// Re-export of [`finstack_valuations::correlation`], which absorbed the
+/// former standalone `finstack-correlation` crate.
+#[cfg(feature = "valuations")]
+pub use finstack_valuations::correlation;
 
 #[cfg(feature = "monte_carlo")]
 pub use finstack_monte_carlo as monte_carlo;

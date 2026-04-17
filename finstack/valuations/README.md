@@ -44,10 +44,13 @@ families:
 
 - `finstack-core` for dates, money, market data, and math primitives.
 - `finstack-cashflows` for schedule construction, accrual, and aggregation.
-- `finstack-correlation` for correlation and recovery tooling used in credit
-  portfolio and structured-credit workflows.
 - `finstack-margin` for margin and XVA integrations.
 - `finstack-monte-carlo` for optional advanced simulation workflows.
+
+Credit correlation, copula, factor-model, and stochastic-recovery tooling used
+by structured-credit and CDS-tranche workflows lives inside this crate, in the
+[`correlation`](src/correlation) submodule (previously the standalone
+`finstack-correlation` crate).
 
 This crate is also surfaced through:
 

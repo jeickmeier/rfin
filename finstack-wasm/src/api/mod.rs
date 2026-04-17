@@ -4,7 +4,6 @@
 
 pub mod analytics;
 pub mod core;
-pub mod correlation;
 pub mod margin;
 pub mod monte_carlo;
 pub mod portfolio;

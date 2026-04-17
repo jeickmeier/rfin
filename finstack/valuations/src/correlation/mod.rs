@@ -1,8 +1,6 @@
-#![forbid(unsafe_code)]
-
 //! Shared correlation infrastructure for credit modeling.
 //!
-//! This crate provides reusable correlation models used across credit instruments:
+//! This module provides reusable correlation models used across credit instruments:
 //! - CDS tranche pricing
 //! - Structured credit (ABS/CLO/CMBS/RMBS)
 //! - Portfolio credit risk

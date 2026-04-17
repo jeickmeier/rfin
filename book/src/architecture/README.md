@@ -11,7 +11,6 @@ finstack (umbrella crate with feature-gated re-exports)
 ├── finstack-core                 currencies, money, dates, calendars, market data, math, expressions
 ├── finstack-cashflows            schedule construction, accrual, and aggregation
 ├── finstack-analytics            return-series performance and risk analytics
-├── finstack-correlation          copulas, factor models, recovery models
 ├── finstack-monte-carlo          simulation engine, processes, payoffs, pricers
 ├── finstack-margin               margin, collateral, SIMM, XVA primitives
 ├── finstack-statements           financial statement modeling and evaluation
@@ -32,11 +31,10 @@ The umbrella `finstack` crate exposes these domain features:
 |---|---|
 | `core` | `finstack-core` |
 | `analytics` | `finstack-core`, `finstack-analytics` |
-| `correlation` | `finstack-core`, `finstack-correlation` |
 | `margin` | `finstack-core`, `finstack-margin` |
 | `monte_carlo` | `finstack-core`, `finstack-monte-carlo` |
 | `statements` | `finstack-core`, `finstack-statements`, `finstack-statements-analytics` |
-| `valuations` | `finstack-core`, `finstack-valuations` |
+| `valuations` | `finstack-core`, `finstack-valuations` (includes credit-correlation infrastructure) |
 | `scenarios` | `finstack-core`, `finstack-statements`, `finstack-statements-analytics`, `finstack-scenarios` |
 | `portfolio` | `finstack-core`, `finstack-statements`, `finstack-statements-analytics`, `finstack-valuations`, `finstack-portfolio` |
 | `all` | all of the above |

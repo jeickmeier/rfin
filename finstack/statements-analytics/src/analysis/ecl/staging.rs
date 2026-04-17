@@ -254,7 +254,7 @@ pub fn classify_stage(
     if let (Some(orig_rating), Some(curr_rating)) =
         (&exposure.origination_rating, &exposure.current_rating)
     {
-        let horizon = exposure.remaining_maturity_years.min(30.0).max(1.0);
+        let horizon = exposure.remaining_maturity_years.clamp(1.0, 30.0);
         let orig_pd = pd_source.cumulative_pd(orig_rating, horizon)?;
         let curr_pd = pd_source.cumulative_pd(curr_rating, horizon)?;
 

@@ -43,7 +43,7 @@
 //! - Portfolio-risk and dependence context:
 //!   `docs/REFERENCES.md#mcneil-frey-embrechts-qrm`
 
-use crate::error::{Error, Result};
+use crate::correlation::error::{Error, Result};
 use finstack_core::math::linalg::{cholesky_correlation, CholeskyError, CorrelationFactor};
 
 /// Tolerance for correlation matrix validation.
@@ -53,7 +53,7 @@ const CORRELATION_TOLERANCE: f64 = 1e-10;
 ///
 /// Delegates to [`finstack_core::math::linalg::validate_correlation_matrix`] for
 /// validation logic. On failure, classifies the error into a specific
-/// [`crate::Error`] variant for diagnostics.
+/// [`crate::correlation::Error`] variant for diagnostics.
 ///
 /// Checks:
 /// - Correct size (n×n flattened)
@@ -71,14 +71,14 @@ const CORRELATION_TOLERANCE: f64 = 1e-10;
 ///
 /// # Errors
 ///
-/// Returns [`crate::Error`] when the flattened matrix has the wrong
+/// Returns [`crate::correlation::Error`] when the flattened matrix has the wrong
 /// size, a non-unit diagonal, asymmetric entries, out-of-bounds correlations,
 /// or is not positive semidefinite.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use finstack_correlation::validate_correlation_matrix;
+/// use finstack_valuations::correlation::validate_correlation_matrix;
 ///
 /// let corr = vec![1.0, 0.5, 0.5, 1.0];
 /// assert!(validate_correlation_matrix(&corr, 2).is_ok());
@@ -166,7 +166,7 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> Error {
 /// is indefinite.
 ///
 /// # Errors
-/// Returns [`crate::Error`] if the flattened matrix shape is wrong or
+/// Returns [`crate::correlation::Error`] if the flattened matrix shape is wrong or
 /// the matrix is not positive semidefinite.
 pub fn cholesky_decompose(matrix: &[f64], n: usize) -> Result<CorrelationFactor> {
     if matrix.len() != n * n {
@@ -400,7 +400,7 @@ impl SingleFactorModel {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{FactorModel, SingleFactorModel};
+    /// use finstack_valuations::correlation::{FactorModel, SingleFactorModel};
     ///
     /// let model = SingleFactorModel::new(0.25, 0.10);
     /// assert_eq!(model.num_factors(), 1);
@@ -659,7 +659,7 @@ impl MultiFactorModel {
     /// * `correlations` - Correlation matrix (flattened row-major, n×n values)
     ///
     /// # Errors
-    /// Returns [`crate::Error`] if the matrix is invalid.
+    /// Returns [`crate::correlation::Error`] if the matrix is invalid.
     ///
     /// # Returns
     ///
@@ -699,7 +699,7 @@ impl MultiFactorModel {
     /// * `correlations` - Correlation matrix (flattened row-major, n×n values)
     ///
     /// # Errors
-    /// Returns [`crate::Error`] if the matrix is invalid.
+    /// Returns [`crate::correlation::Error`] if the matrix is invalid.
     ///
     /// # Returns
     ///
@@ -811,7 +811,7 @@ impl MultiFactorModel {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::MultiFactorModel;
+    /// use finstack_valuations::correlation::MultiFactorModel;
     ///
     /// let model = MultiFactorModel::uncorrelated(2, vec![0.2, 0.3]);
     /// let factors = model.generate_correlated_factors(&[1.0, -1.0]);

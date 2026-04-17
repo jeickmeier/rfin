@@ -178,7 +178,7 @@ impl CopulaSpec {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::CopulaSpec;
+    /// use finstack_valuations::correlation::CopulaSpec;
     ///
     /// let spec = CopulaSpec::gaussian();
     /// assert!(spec.is_gaussian());

@@ -7,6 +7,7 @@
 pub(crate) mod attribution;
 mod cache;
 mod calibration;
+pub mod correlation;
 mod exotic_rates;
 mod factor_model;
 mod fourier;
@@ -152,6 +153,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     exotic_rates::register(py, &m)?;
     restructuring::register(py, &m)?;
     cache::register(py, &m)?;
+    correlation::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -199,6 +201,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "analyze_exchange_offer",
             "analyze_lme",
             "ValuationCache",
+            "correlation",
         ],
     )?;
     m.setattr("__all__", all)?;

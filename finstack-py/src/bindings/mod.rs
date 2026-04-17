@@ -8,7 +8,6 @@ use pyo3::types::PyList;
 
 pub mod analytics;
 pub mod core;
-pub mod correlation;
 pub(crate) mod extract;
 pub mod margin;
 pub mod monte_carlo;
@@ -25,7 +24,6 @@ pub fn register_root(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     core::register(py, m)?;
     analytics::register(py, m)?;
-    correlation::register(py, m)?;
     monte_carlo::register(py, m)?;
     margin::register(py, m)?;
     valuations::register(py, m)?;
@@ -39,7 +37,6 @@ pub fn register_root(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         [
             "core",
             "analytics",
-            "correlation",
             "monte_carlo",
             "margin",
             "valuations",

@@ -5,8 +5,10 @@ from __future__ import annotations
 import pandas as pd
 
 from finstack.core.market_data import MarketContext
+from finstack.valuations import correlation as correlation
 
 __all__ = [
+    "correlation",
     "ValuationResult",
     "validate_instrument_json",
     "price_instrument",

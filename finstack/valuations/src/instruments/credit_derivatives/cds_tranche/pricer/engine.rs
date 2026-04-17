@@ -45,9 +45,6 @@ impl CDSTranchePricer {
             CopulaSpec::MultiFactor { num_factors } => {
                 Box::new(MultiFactorCopula::new(*num_factors))
             }
-            _ => Box::new(GaussianCopula::with_quadrature_order(
-                self.params.quadrature_order,
-            )),
         }
     }
 

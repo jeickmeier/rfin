@@ -1,14 +1,15 @@
-//! Python bindings for the `finstack-correlation` crate.
+//! Python bindings for the credit-correlation module.
 //!
 //! Exposes copula models, recovery models, factor models, and joint
-//! probability utilities to Python.
+//! probability utilities to Python under `finstack.valuations.correlation`,
+//! mirroring the Rust module [`finstack_valuations::correlation`].
 
 use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 
-use finstack_correlation::{
+use finstack_valuations::correlation::{
     self as corr, Copula, CopulaSpec, CorrelatedBernoulli, FactorModel, FactorSpec,
     MultiFactorModel, RecoveryModel, RecoverySpec, SingleFactorModel, TwoFactorModel,
 };
@@ -22,7 +23,7 @@ use finstack_correlation::{
 /// Use class methods to create a spec, then call `build()` to get a `Copula`.
 #[pyclass(
     name = "CopulaSpec",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -122,7 +123,7 @@ impl PyCopulaSpec {
 /// Concrete copula model for portfolio default correlation.
 ///
 /// Obtain an instance via ``CopulaSpec.build()``.
-#[pyclass(name = "Copula", module = "finstack.correlation", frozen)]
+#[pyclass(name = "Copula", module = "finstack.valuations.correlation", frozen)]
 pub struct PyCopula {
     /// Boxed trait object.
     pub(crate) inner: Box<dyn Copula + Send + Sync>,
@@ -174,7 +175,7 @@ impl PyCopula {
 /// Recovery model specification for configuration and deferred construction.
 #[pyclass(
     name = "RecoverySpec",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -238,7 +239,11 @@ impl PyRecoverySpec {
 /// Concrete recovery model for credit portfolio pricing.
 ///
 /// Obtain an instance via ``RecoverySpec.build()``.
-#[pyclass(name = "RecoveryModel", module = "finstack.correlation", frozen)]
+#[pyclass(
+    name = "RecoveryModel",
+    module = "finstack.valuations.correlation",
+    frozen
+)]
 pub struct PyRecoveryModel {
     /// Boxed trait object.
     pub(crate) inner: Box<dyn RecoveryModel + Send + Sync>,
@@ -304,7 +309,7 @@ impl PyRecoveryModel {
 /// Factor model specification for configuration and deferred construction.
 #[pyclass(
     name = "FactorSpec",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -367,7 +372,11 @@ impl PyFactorSpec {
 /// Concrete factor model for correlated behavior.
 ///
 /// Obtain an instance via ``FactorSpec.build()``.
-#[pyclass(name = "FactorModel", module = "finstack.correlation", frozen)]
+#[pyclass(
+    name = "FactorModel",
+    module = "finstack.valuations.correlation",
+    frozen
+)]
 pub struct PyFactorModel {
     /// Boxed trait object.
     pub(crate) inner: Box<dyn FactorModel + Send + Sync>,
@@ -427,7 +436,7 @@ impl PyFactorModel {
 /// Single-factor model (common market factor).
 #[pyclass(
     name = "SingleFactorModel",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -478,7 +487,7 @@ impl PySingleFactorModel {
 /// Two-factor model for prepayment and credit.
 #[pyclass(
     name = "TwoFactorModel",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -564,7 +573,7 @@ impl PyTwoFactorModel {
 /// Multi-factor model with custom correlation structure.
 #[pyclass(
     name = "MultiFactorModel",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -634,7 +643,7 @@ impl PyMultiFactorModel {
 /// Wraps ``finstack_core::math::probability::CorrelatedBernoulli``.
 #[pyclass(
     name = "CorrelatedBernoulli",
-    module = "finstack.correlation",
+    module = "finstack.valuations.correlation",
     frozen,
     from_py_object
 )]
@@ -823,17 +832,18 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     m.setattr("__all__", all)?;
 
-    parent.add_submodule(&m)?;
-
-    let parent_name: String = match parent.getattr("__name__") {
+    let pkg: String = match parent.getattr("__package__") {
         Ok(attr) => match attr.extract::<String>() {
             Ok(s) => s,
-            Err(_) => "finstack.finstack".to_string(),
+            Err(_) => "finstack.valuations".to_string(),
         },
-        Err(_) => "finstack.finstack".to_string(),
+        Err(_) => "finstack.valuations".to_string(),
     };
-    let qual = format!("{parent_name}.correlation");
+    let qual = format!("{pkg}.correlation");
     m.setattr("__package__", &qual)?;
+
+    parent.add_submodule(&m)?;
+
     let sys = PyModule::import(py, "sys")?;
     let modules = sys.getattr("modules")?;
     modules.set_item(&qual, &m)?;

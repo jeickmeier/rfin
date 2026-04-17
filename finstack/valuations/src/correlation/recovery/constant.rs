@@ -44,7 +44,7 @@ impl ConstantRecovery {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{ConstantRecovery, RecoveryModel};
+    /// use finstack_valuations::correlation::{ConstantRecovery, RecoveryModel};
     ///
     /// let model = ConstantRecovery::new(0.40);
     /// assert_eq!(model.expected_recovery(), 0.40);

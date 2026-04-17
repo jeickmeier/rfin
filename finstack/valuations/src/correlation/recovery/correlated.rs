@@ -96,7 +96,7 @@ impl CorrelatedRecovery {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{CorrelatedRecovery, RecoveryModel};
+    /// use finstack_valuations::correlation::{CorrelatedRecovery, RecoveryModel};
     ///
     /// let model = CorrelatedRecovery::new(0.40, 0.25, -0.40);
     /// let mean_at_zero = model.conditional_recovery(0.0);

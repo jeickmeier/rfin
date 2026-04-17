@@ -141,7 +141,7 @@ impl MultiFactorCopula {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{Copula, MultiFactorCopula};
+    /// use finstack_valuations::correlation::{Copula, MultiFactorCopula};
     ///
     /// let copula = MultiFactorCopula::new(2);
     /// assert_eq!(copula.num_factors(), 2);

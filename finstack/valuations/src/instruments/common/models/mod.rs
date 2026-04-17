@@ -16,7 +16,7 @@
 #![allow(dead_code, unused_imports)]
 
 pub mod closed_form;
-pub use finstack_correlation as correlation;
+pub use crate::correlation;
 pub mod credit;
 pub mod pde;
 pub mod trees;

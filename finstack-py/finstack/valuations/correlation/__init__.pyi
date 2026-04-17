@@ -1,4 +1,4 @@
-"""Type stubs for ``finstack.correlation``.
+"""Type stubs for ``finstack.valuations.correlation``.
 
 Correlation infrastructure: copulas, factor models, recovery models.
 """
@@ -32,7 +32,7 @@ class CopulaSpec:
 
     Example
     -------
-    >>> from finstack.correlation import CopulaSpec
+    >>> from finstack.valuations.correlation import CopulaSpec
     >>> spec = CopulaSpec.gaussian()
     >>> copula = spec.build()
     >>> copula.model_name
@@ -136,7 +136,7 @@ class Copula:
 
     Example
     -------
-    >>> from finstack.correlation import CopulaSpec
+    >>> from finstack.valuations.correlation import CopulaSpec
     >>> copula = CopulaSpec.gaussian().build()
     >>> copula.conditional_default_prob(-2.33, [0.0], 0.3)
     0.009...
@@ -198,7 +198,7 @@ class RecoverySpec:
 
     Example
     -------
-    >>> from finstack.correlation import RecoverySpec
+    >>> from finstack.valuations.correlation import RecoverySpec
     >>> spec = RecoverySpec.constant(0.4)
     >>> model = spec.build()
     >>> model.expected_recovery
@@ -333,7 +333,7 @@ class FactorSpec:
 
     Example
     -------
-    >>> from finstack.correlation import FactorSpec
+    >>> from finstack.valuations.correlation import FactorSpec
     >>> spec = FactorSpec.single_factor(0.2, 0.05)
     >>> model = spec.build()
     >>> model.num_factors
@@ -446,7 +446,7 @@ class SingleFactorModel:
 
     Example
     -------
-    >>> from finstack.correlation import SingleFactorModel
+    >>> from finstack.valuations.correlation import SingleFactorModel
     >>> m = SingleFactorModel(volatility=0.2, mean_reversion=0.05)
     >>> m.num_factors
     1
@@ -484,7 +484,7 @@ class TwoFactorModel:
 
     Example
     -------
-    >>> from finstack.correlation import TwoFactorModel
+    >>> from finstack.valuations.correlation import TwoFactorModel
     >>> m = TwoFactorModel(prepay_vol=0.15, credit_vol=0.10, correlation=-0.2)
     >>> m.num_factors
     2
@@ -561,7 +561,7 @@ class MultiFactorModel:
 
     Example
     -------
-    >>> from finstack.correlation import MultiFactorModel
+    >>> from finstack.valuations.correlation import MultiFactorModel
     >>> m = MultiFactorModel(
     ...     num_factors=2,
     ...     volatilities=[0.2, 0.15],
@@ -648,7 +648,7 @@ class CorrelatedBernoulli:
 
     Example
     -------
-    >>> from finstack.correlation import CorrelatedBernoulli
+    >>> from finstack.valuations.correlation import CorrelatedBernoulli
     >>> cb = CorrelatedBernoulli(p1=0.05, p2=0.03, correlation=0.3)
     >>> cb.joint_p11  # P(both default)
     0.00...

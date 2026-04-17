@@ -126,7 +126,7 @@ impl StudentTCopula {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{Copula, StudentTCopula};
+    /// use finstack_valuations::correlation::{Copula, StudentTCopula};
     ///
     /// let copula = StudentTCopula::new(5.0);
     /// let lambda = copula.tail_dependence(0.50);

@@ -1,11 +1,15 @@
 """Correlation infrastructure: copulas, factor models, recovery models.
 
-Bindings for the ``finstack-correlation`` Rust crate.
+Bindings for the ``finstack_valuations::correlation`` Rust module. Nested
+under :mod:`finstack.valuations` to mirror the Rust crate layout where
+correlation lives inside ``finstack-valuations``.
 """
 
 from __future__ import annotations
 
-from finstack.finstack import correlation as _corr
+from finstack.finstack import valuations as _valuations
+
+_corr = _valuations.correlation
 
 CopulaSpec = _corr.CopulaSpec
 Copula = _corr.Copula

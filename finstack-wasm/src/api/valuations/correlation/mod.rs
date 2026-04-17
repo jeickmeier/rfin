@@ -1,10 +1,12 @@
-//! WASM bindings for the `finstack-correlation` crate.
+//! WASM bindings for the credit-correlation module.
 //!
 //! Exposes copula models, recovery models, and joint probability utilities
-//! to JavaScript/TypeScript via `wasm-bindgen`.
+//! to JavaScript/TypeScript via `wasm-bindgen`, mirroring the Rust module
+//! [`finstack_valuations::correlation`]. The JS facade nests these exports
+//! under `fs.valuations.correlation`.
 
 use crate::utils::to_js_err;
-use finstack_correlation::{self as corr, Copula, CopulaSpec, RecoveryModel};
+use finstack_valuations::correlation::{self as corr, Copula, CopulaSpec, RecoveryModel};
 use wasm_bindgen::prelude::*;
 
 // ---------------------------------------------------------------------------

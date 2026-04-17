@@ -10,7 +10,6 @@ authors.workspace = true
 [dependencies]
 finstack-core = { path = "../core" }
 finstack-cashflows = { path = "../cashflows" }
-finstack-correlation = { path = "../correlation" }
 finstack-margin = { path = "../margin" }
 finstack-monte-carlo = { path = "../monte_carlo", default-features = false, features = ["parallel"] }
 finstack-valuations-macros = { path = "macros" }

@@ -11,14 +11,13 @@ The current package exposes these top-level namespaces:
 
 - `core`
 - `analytics`
-- `correlation`
 - `margin`
 - `monte_carlo`
 - `portfolio`
 - `scenarios`
 - `statements`
 - `statements_analytics`
-- `valuations`
+- `valuations` (includes nested `valuations.correlation`)
 
 These namespaces are assembled in `index.js` from the files under `exports/`,
 while the Rust binding implementations live under `src/api/`.

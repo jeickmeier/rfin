@@ -216,7 +216,7 @@ impl RecoverySpec {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{RecoveryModel, RecoverySpec};
+    /// use finstack_valuations::correlation::{RecoveryModel, RecoverySpec};
     ///
     /// let model = RecoverySpec::constant(0.40).build();
     /// assert_eq!(model.expected_recovery(), 0.40);

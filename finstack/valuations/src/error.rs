@@ -55,9 +55,9 @@
 //! let core_err: finstack_core::Error = pricing_err.into();
 //! ```
 
+pub use crate::correlation::Error as CorrelationError;
 pub use crate::instruments::fixed_income::structured_credit::utils::validation::ValidationError;
 pub use crate::pricer::{PricingError, PricingErrorContext, PricingResult};
-pub use finstack_correlation::Error as CorrelationError;
 
 /// Unified error type for the valuations crate.
 ///

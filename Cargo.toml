@@ -10,7 +10,6 @@ repository = "https://github.com/rustfin/rfin"
 members = [
     "finstack/core",
     "finstack/cashflows",
-    "finstack/correlation",
     "finstack/monte_carlo",
     "finstack/margin",
     "finstack/analytics",

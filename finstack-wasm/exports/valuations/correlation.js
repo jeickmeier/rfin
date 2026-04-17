@@ -1,4 +1,4 @@
-import * as wasm from '../pkg/finstack_wasm.js';
+import * as wasm from '../../pkg/finstack_wasm.js';
 
 export const correlation = {
   CopulaSpec: wasm.CopulaSpec,

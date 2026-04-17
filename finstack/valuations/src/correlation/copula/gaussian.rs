@@ -102,7 +102,7 @@ impl GaussianCopula {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_correlation::{Copula, GaussianCopula};
+    /// use finstack_valuations::correlation::{Copula, GaussianCopula};
     /// use finstack_core::math::standard_normal_inv_cdf;
     ///
     /// let copula = GaussianCopula::new();

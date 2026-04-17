@@ -12,14 +12,13 @@ The current top-level Python package exposes these subpackages:
 
 - `finstack.analytics`
 - `finstack.core`
-- `finstack.correlation`
 - `finstack.margin`
 - `finstack.monte_carlo`
 - `finstack.portfolio`
 - `finstack.scenarios`
 - `finstack.statements`
 - `finstack.statements_analytics`
-- `finstack.valuations`
+- `finstack.valuations` (includes `finstack.valuations.correlation`)
 
 Each subpackage is a thin wrapper over the corresponding Rust crate domain.
 

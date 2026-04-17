@@ -95,7 +95,6 @@ impl ScenarioTree {
             FactorSpec::MultiFactor { volatilities, .. } => {
                 volatilities.first().copied().unwrap_or(1.0)
             }
-            _ => 1.0,
         };
         let dt = self.config.dt();
         let vol_sq_dt = vol * vol * dt;
@@ -244,7 +243,6 @@ impl ScenarioTree {
                     vec![z]
                 }
             }
-            _ => vec![z],
         }
     }
 
@@ -297,7 +295,6 @@ impl ScenarioTree {
                 let recovery = mean_recovery + factor_correlation * recovery_volatility * factor;
                 recovery.clamp(0.0, 1.0)
             }
-            _ => self.config.recovery_spec.expected_recovery(),
         }
     }
 

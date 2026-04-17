@@ -1,8 +1,6 @@
 """Tests for correlation types: copulas, Bernoulli, factor models, bounds."""
 
-import pytest
-
-from finstack.correlation import (
+from finstack.valuations.correlation import (
     CopulaSpec,
     CorrelatedBernoulli,
     cholesky_decompose,
@@ -10,6 +8,7 @@ from finstack.correlation import (
     joint_probabilities,
     validate_correlation_matrix,
 )
+import pytest
 
 
 class TestCopulaSpec:

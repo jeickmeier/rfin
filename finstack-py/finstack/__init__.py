@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING
 __all__ = [
     "analytics",
     "core",
-    "correlation",
     "margin",
     "monte_carlo",
     "portfolio",
@@ -35,7 +34,6 @@ if TYPE_CHECKING:
     from . import (
         analytics as analytics,
         core as core,
-        correlation as correlation,
         margin as margin,
         monte_carlo as monte_carlo,
         portfolio as portfolio,

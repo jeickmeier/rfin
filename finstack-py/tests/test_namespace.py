@@ -73,11 +73,11 @@ class TestAnalyticsNamespace:
 
 
 class TestCorrelationNamespace:
-    """Verify the correlation subpackage."""
+    """Verify the correlation subpackage nested under valuations."""
 
     def test_correlation_exports(self) -> None:
         """Correlation should export copula, recovery, factor, and Bernoulli types."""
-        from finstack.correlation import (  # noqa: F401
+        from finstack.valuations.correlation import (  # noqa: F401
             Copula,
             CopulaSpec,
             CorrelatedBernoulli,
@@ -93,6 +93,12 @@ class TestCorrelationNamespace:
             joint_probabilities,
             validate_correlation_matrix,
         )
+
+    def test_correlation_accessible_via_valuations(self) -> None:
+        """``finstack.valuations.correlation`` is importable as a submodule attribute."""
+        from finstack import valuations
+
+        assert valuations.correlation.CopulaSpec is not None
 
 
 class TestMonteCarloNamespace:

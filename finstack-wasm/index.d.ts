@@ -289,7 +289,7 @@ export interface AnalyticsNamespace {
 
 export declare const analytics: AnalyticsNamespace;
 
-// --- correlation ------------------------------------------------------------
+// --- valuations.correlation -------------------------------------------------
 
 export interface Copula {
   readonly numFactors: number;
@@ -356,13 +356,11 @@ export interface CorrelationNamespace {
   jointProbabilities(p1: number, p2: number, correlation: number): number[];
   /**
    * Flat row-major correlation matrix with explicit dimension `n`
-   * (finstack-correlation). Same wasm export name as core/math; if both are
-   * linked, the generated binding is whichever the linker keeps last.
+   * (finstack_valuations::correlation). Same wasm export name as core/math; if
+   * both are linked, the generated binding is whichever the linker keeps last.
    */
   validateCorrelationMatrix(matrix: number[], n: number): void;
 }
-
-export declare const correlation: CorrelationNamespace;
 
 // --- monte_carlo ----------------------------------------------------------
 
@@ -426,6 +424,8 @@ export declare const margin: MarginNamespace;
 // --- valuations ------------------------------------------------------------
 
 export interface ValuationsNamespace {
+  /** Credit-correlation infrastructure (copulas, recovery, factor models). */
+  correlation: CorrelationNamespace;
   validateValuationResultJson(json: string): string;
   validateInstrumentJson(json: string): string;
   priceInstrument(

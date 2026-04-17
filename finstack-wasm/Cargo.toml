@@ -14,7 +14,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 finstack-analytics = { path = "../finstack/analytics" }
 finstack-core = { path = "../finstack/core" }
-finstack-correlation = { path = "../finstack/correlation" }
 finstack-margin = { path = "../finstack/margin" }
 finstack-statements = { path = "../finstack/statements" }
 finstack-statements-analytics = { path = "../finstack/statements-analytics" }

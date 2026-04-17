@@ -42,8 +42,6 @@ rfin/
   structured products.
 - `finstack-analytics`: return-series performance analytics, drawdown analysis,
   tail risk, benchmark-relative metrics, and rolling statistics.
-- `finstack-correlation`: copulas, factor models, stochastic recovery, and
-  joint-probability tooling used by credit portfolio workflows.
 - `finstack-monte-carlo`: generic Monte Carlo engine, stochastic processes,
   discretizations, payoffs, variance reduction, and result types.
 - `finstack-margin`: CSA and repo margin specs, VM/IM engines, SIMM helpers,
