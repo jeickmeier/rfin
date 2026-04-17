@@ -186,7 +186,9 @@ pub enum OperationSpec {
     ///   `Attributes`); tag sets are ignored.
     /// - Attribute keys/values compared case-insensitively
     /// - AND semantics (all provided pairs must match metadata)
-    /// - An empty attribute map matches every instrument (wildcard)
+    /// - An empty attribute map is rejected at validation time. Use
+    ///   [`OperationSpec::InstrumentPricePctByType`] with an explicit list of
+    ///   instrument types to apply a broad shock.
     InstrumentPricePctByAttr {
         /// Attributes to match. Matching uses AND semantics with
         /// case-insensitive key/value comparison.
@@ -197,11 +199,17 @@ pub enum OperationSpec {
 
     /// Parallel shift to a curve (additive in basis points).
     ///
-    /// For rate curves (Discount, Forward, Hazard), `bp` uses the standard
-    /// convention where 1 bp = 0.0001 in fractional rate space. For
-    /// [`CurveKind::VolIndex`], `bp` is scaled differently: 100 bp = 1.0 index
-    /// point (i.e., `bp / 100`). See the vol-index branch in the curve adapter
-    /// for details.
+    /// For rate curves (Discount, Forward, Hazard, ParCDS), `bp` uses the standard
+    /// fixed-income convention where `1 bp = 0.0001` in fractional rate space.
+    ///
+    /// **WARNING — non-standard convention for [`CurveKind::VolIndex`]:** `bp`
+    /// is re-scaled by `bp / 100`, so `100 bp` corresponds to `1.0` absolute
+    /// vol-index point (e.g. +1.0 VIX point). This is **100× larger** than the
+    /// rate interpretation — a `50 bp` shock on a VIX curve moves the index by
+    /// `0.5` points, not `0.005`. The adapter emits a warning in
+    /// [`crate::engine::ApplicationReport::warnings`] so the convention is
+    /// auditable. If you want a strict-bp interpretation on VolIndex, divide
+    /// your `bp` input by 100 before submitting the operation.
     ///
     /// # Example
     /// ```rust
@@ -231,11 +239,13 @@ pub enum OperationSpec {
 
     /// Node-specific basis point shifts for curve shaping.
     ///
-    /// For rate curves (Discount, Forward, Hazard), `bp` values use the standard
-    /// convention where 1 bp = 0.0001 in fractional rate space. For
-    /// [`CurveKind::VolIndex`], `bp` is scaled differently: 100 bp = 1.0 index
-    /// point (i.e., `bp / 100`). See the vol-index branch in the curve adapter
-    /// for details.
+    /// For rate curves (Discount, Forward, Hazard, ParCDS), `bp` values use the
+    /// standard fixed-income convention where `1 bp = 0.0001` in fractional rate
+    /// space.
+    ///
+    /// **WARNING — non-standard convention for [`CurveKind::VolIndex`]:** same
+    /// `bp / 100` rescaling as [`OperationSpec::CurveParallelBp`] applies — see
+    /// that variant's docs for details.
     ///
     /// # Example
     /// ```rust
@@ -443,7 +453,9 @@ pub enum OperationSpec {
     ///   `Attributes`); tag sets are ignored.
     /// - Attribute keys/values compared case-insensitively
     /// - AND semantics (all provided pairs must match metadata)
-    /// - An empty attribute map matches every instrument (wildcard)
+    /// - An empty attribute map is rejected at validation time. Use
+    ///   [`OperationSpec::InstrumentSpreadBpByType`] with an explicit list of
+    ///   instrument types to apply a broad shock.
     InstrumentSpreadBpByAttr {
         /// Attributes to match. Matching uses AND semantics with
         /// case-insensitive key/value comparison.
@@ -544,21 +556,12 @@ pub enum OperationSpec {
 
     /// Shock recovery-default correlation for structured credit instruments.
     ///
-    /// Applies a shock to the correlation between recovery rates and defaults.
-    /// Negative correlation implies recoveries decline when defaults rise
-    /// (common in economic stress scenarios).
-    ///
-    /// # Arguments
-    /// - `delta_pts`: Additive shock in correlation points
-    ///
-    /// # Example
-    /// ```rust
-    /// use finstack_scenarios::OperationSpec;
-    ///
-    /// let op = OperationSpec::RecoveryCorrelationPts {
-    ///     delta_pts: -0.10, // -10 percentage points (more negative)
-    /// };
-    /// ```
+    /// **Not yet supported.** [`OperationSpec::validate`] returns an error for
+    /// this variant because the underlying
+    /// [`finstack_valuations::instruments::fixed_income::structured_credit::CorrelationStructure`]
+    /// does not expose a recovery-default correlation field. The variant is
+    /// retained so scenario configurations can serialize round-trip, but any
+    /// attempt to apply it fails loudly at `validate()` time.
     RecoveryCorrelationPts {
         /// Additive shock in correlation points.
         delta_pts: f64,
@@ -566,24 +569,13 @@ pub enum OperationSpec {
 
     /// Shock prepayment factor loading (sensitivity to systematic factors).
     ///
-    /// Bumps the factor loading that determines how much prepayment rates
-    /// move with systematic factors. Higher factor loading means prepayment
-    /// is more correlated across the pool.
-    ///
-    /// # Arguments
-    /// - `delta_pts`: Additive shock to factor loading
-    ///
-    /// # Clamping
-    /// Factor loading is clamped to [0, 1.0].
-    ///
-    /// # Example
-    /// ```rust
-    /// use finstack_scenarios::OperationSpec;
-    ///
-    /// let op = OperationSpec::PrepayFactorLoadingPts {
-    ///     delta_pts: 0.05, // +5 percentage points
-    /// };
-    /// ```
+    /// **Not yet supported.** Prepay factor loading is a *derived* quantity
+    /// (`prepay_default_correlation / sqrt(asset_correlation)`); inverting a
+    /// direct shock to recover the pair of underlying correlations is
+    /// under-determined. Use [`OperationSpec::AssetCorrelationPts`] and
+    /// [`OperationSpec::PrepayDefaultCorrelationPts`] together to reshape the
+    /// implied factor loading. [`OperationSpec::validate`] returns an error
+    /// for this variant.
     PrepayFactorLoadingPts {
         /// Additive shock to factor loading.
         delta_pts: f64,
@@ -934,6 +926,10 @@ impl OperationSpec {
                     ));
                 }
                 check_finite(*pct, "pct")?;
+                // FX cannot be driven to zero or negative; a -100% shock would
+                // collapse the spot rate and propagate NaNs through triangulation
+                // and valuation downstream.
+                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::EquityPricePct { ids, pct } => {
                 if ids.is_empty() {
@@ -944,7 +940,15 @@ impl OperationSpec {
                 check_finite(*pct, "pct")?;
                 check_pct_floor(*pct, "pct")?;
             }
-            OperationSpec::InstrumentPricePctByAttr { pct, .. } => {
+            OperationSpec::InstrumentPricePctByAttr { attrs, pct } => {
+                if attrs.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "InstrumentPricePctByAttr.attrs must not be empty; an empty map would \
+                         silently apply the shock to every instrument. Use \
+                         InstrumentPricePctByType to target by instrument type."
+                            .into(),
+                    ));
+                }
                 check_finite(*pct, "pct")?;
                 check_pct_floor(*pct, "pct")?;
             }
@@ -1025,7 +1029,15 @@ impl OperationSpec {
                     ));
                 }
             }
-            OperationSpec::InstrumentSpreadBpByAttr { bp, .. } => {
+            OperationSpec::InstrumentSpreadBpByAttr { attrs, bp } => {
+                if attrs.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "InstrumentSpreadBpByAttr.attrs must not be empty; an empty map would \
+                         silently apply the shock to every instrument. Use \
+                         InstrumentSpreadBpByType to target by instrument type."
+                            .into(),
+                    ));
+                }
                 check_finite(*bp, "bp")?;
             }
             OperationSpec::InstrumentPricePctByType { pct, .. } => {
@@ -1043,9 +1055,25 @@ impl OperationSpec {
             }
             OperationSpec::RecoveryCorrelationPts { delta_pts } => {
                 check_finite(*delta_pts, "delta_pts")?;
+                return Err(crate::error::Error::Validation(
+                    "RecoveryCorrelationPts is not yet supported: \
+                     CorrelationStructure in finstack_valuations does not expose a \
+                     recovery-default correlation field. Remove this operation from \
+                     the scenario or track the ticket that adds \
+                     CorrelationStructure::bump_recovery_default()."
+                        .into(),
+                ));
             }
             OperationSpec::PrepayFactorLoadingPts { delta_pts } => {
                 check_finite(*delta_pts, "delta_pts")?;
+                return Err(crate::error::Error::Validation(
+                    "PrepayFactorLoadingPts is not yet supported: prepay factor loading \
+                     is a *derived* quantity (prepay_default_correlation / \
+                     sqrt(asset_correlation)); bumping it directly is under-determined. \
+                     Shock asset correlation and prepay-default correlation instead, \
+                     or track the ticket that adds direct factor-loading support."
+                        .into(),
+                ));
             }
             OperationSpec::HierarchyCurveParallelBp {
                 target,

@@ -92,17 +92,36 @@ pub struct ExecutionContext<'a> {
 ///
 /// let report = ApplicationReport {
 ///     operations_applied: 3,
+///     user_operations: 1,
+///     expanded_operations: 3,
 ///     warnings: vec!["fallback curve used".into()],
 ///     rounding_context: Some("default".into()),
 /// };
 ///
 /// assert_eq!(report.operations_applied, 3);
+/// assert_eq!(report.user_operations, 1);
+/// assert_eq!(report.expanded_operations, 3);
 /// assert_eq!(report.warnings.len(), 1);
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ApplicationReport {
-    /// Number of operations successfully applied.
+    /// Number of effects successfully applied to the execution context.
+    ///
+    /// One user-level `OperationSpec` can produce multiple effects after
+    /// hierarchy expansion (e.g. a single `CurveParallelBp` targeting the
+    /// `USD` group may expand to one effect per USD-denominated discount or
+    /// forward curve). Prefer `user_operations` for scenario-level reporting
+    /// and this field for low-level audit.
     pub operations_applied: usize,
+    /// Number of user-provided `OperationSpec` entries in the scenario
+    /// (before hierarchy expansion and deduplication).
+    pub user_operations: usize,
+    /// Number of direct (non-hierarchy) operations produced after hierarchy
+    /// expansion and resolution-mode deduplication. This is the count of
+    /// operations that the engine actually tried to execute; it is always
+    /// `>= user_operations` and is what should be compared to
+    /// `operations_applied` when assessing scenario coverage.
+    pub expanded_operations: usize,
 
     /// Warnings generated during application (non-fatal).
     pub warnings: Vec<String>,
@@ -572,9 +591,12 @@ impl ScenarioEngine {
         // but ApplicationReport doesn't support it yet.
         // We focus on operations_applied and warnings.
 
+        let user_operations = spec.operations.len();
+
         // Phase -1: Expand hierarchy-targeted operations to direct operations
         let expanded_ops =
             expand_hierarchy_operations(&spec.operations, ctx.market, spec.resolution_mode);
+        let expanded_operations = expanded_ops.len();
 
         // Phase 0: Time Roll Forward
         let time_roll_count = expanded_ops
@@ -602,6 +624,8 @@ impl ScenarioEngine {
                 if !*apply_shocks {
                     return Ok(ApplicationReport {
                         operations_applied: applied,
+                        user_operations,
+                        expanded_operations,
                         warnings,
                         rounding_context: rounding_stamp(),
                     });
@@ -696,13 +720,28 @@ impl ScenarioEngine {
                             applied += c;
                             warnings.extend(w);
                         }
-                        crate::adapters::traits::ScenarioEffect::AssetCorrelationShock { delta_pts }
-                        | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock { delta_pts }
-                        | crate::adapters::traits::ScenarioEffect::RecoveryCorrelationShock { delta_pts }
-                        | crate::adapters::traits::ScenarioEffect::PrepayFactorLoadingShock { delta_pts } => {
+                        crate::adapters::traits::ScenarioEffect::AssetCorrelationShock {
+                            delta_pts,
+                        }
+                        | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock {
+                            delta_pts,
+                        } => {
                             let (count, ws) = apply_correlation_effect(&effect, delta_pts, ctx);
                             applied += count;
                             warnings.extend(ws);
+                        }
+                        // RecoveryCorrelationShock / PrepayFactorLoadingShock are
+                        // rejected at OperationSpec::validate() time and the
+                        // adapter no longer emits them. If validation is
+                        // bypassed they still fall through here with a loud
+                        // warning rather than a silent no-op.
+                        crate::adapters::traits::ScenarioEffect::RecoveryCorrelationShock { .. }
+                        | crate::adapters::traits::ScenarioEffect::PrepayFactorLoadingShock { .. } => {
+                            warnings.push(format!(
+                                "Correlation effect {:?} is not supported by CorrelationStructure; \
+                                 validate() should have rejected the originating OperationSpec",
+                                std::mem::discriminant(&effect)
+                            ));
                         }
                         crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
                         | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
@@ -719,33 +758,39 @@ impl ScenarioEngine {
         }
 
         // Phase 2: Rate bindings update (from context configuration)
+        //
+        // A mismatch between the map key and `binding.node_id` used to be
+        // silently patched by the engine (rewriting `binding.node_id` to
+        // match the key and emitting a warning). That behaviour was
+        // footgun-y: the binding spec the caller passed was not the one
+        // applied, and any other field on the binding (curve_id, tenor,
+        // compounding) was still trusted as-is. We now fail hard so the
+        // caller fixes the mismatch upstream.
         if let Some(bindings) = &ctx.rate_bindings {
             for (node_id, binding) in bindings {
-                let mut binding_to_use = None;
                 if binding.node_id != *node_id {
-                    warnings.push(format!(
-                        "Rate binding node_id mismatch: map key '{}' vs binding '{}'; using key",
+                    return Err(crate::error::Error::Validation(format!(
+                        "Rate binding node_id mismatch: map key '{}' does not equal \
+                         binding.node_id '{}'. The map key is authoritative for routing; \
+                         rebuild the binding with node_id set to the map key.",
                         node_id, binding.node_id
-                    ));
-                    let mut clone = binding.clone();
-                    clone.node_id = node_id.clone();
-                    binding_to_use = Some(clone);
+                    )));
                 }
-                let binding_ref = binding_to_use.as_ref().unwrap_or(binding);
 
                 match crate::adapters::statements::update_rate_from_binding(
-                    binding_ref,
+                    binding,
                     ctx.model,
                     ctx.market,
+                    ctx.calendar,
                 ) {
                     Ok(true) => {}
                     Ok(false) => warnings.push(format!(
                         "Rate binding {}->{}: node has no forecast values to assign",
-                        node_id, binding_ref.curve_id
+                        node_id, binding.curve_id
                     )),
                     Err(e) => warnings.push(format!(
                         "Rate binding {}->{}: {}",
-                        node_id, binding_ref.curve_id, e
+                        node_id, binding.curve_id, e
                     )),
                 }
             }
@@ -762,7 +807,10 @@ impl ScenarioEngine {
                     }
                     // Update immediately
                     match crate::adapters::statements::update_rate_from_binding(
-                        &binding, ctx.model, ctx.market,
+                        &binding,
+                        ctx.model,
+                        ctx.market,
+                        ctx.calendar,
                     ) {
                         Ok(true) => {
                             applied += 1;
@@ -846,6 +894,8 @@ impl ScenarioEngine {
 
         Ok(ApplicationReport {
             operations_applied: applied,
+            user_operations,
+            expanded_operations,
             warnings,
             rounding_context: rounding_stamp(),
         })
@@ -857,7 +907,7 @@ type TypeShockFn = fn(
     &mut [Box<DynInstrument>],
     &[finstack_valuations::pricer::InstrumentType],
     f64,
-) -> crate::error::Result<usize>;
+) -> crate::error::Result<(usize, Vec<String>)>;
 
 /// Function that applies an instrument shock filtered by attributes.
 type AttrShockFn = fn(
@@ -882,7 +932,10 @@ fn apply_instrument_shock(
     if let Some(ts) = types {
         if let Some(instruments) = instruments.as_mut() {
             match type_fn(instruments, ts, value) {
-                Ok(c) => applied += c,
+                Ok((c, w)) => {
+                    applied += c;
+                    warnings.extend(w);
+                }
                 Err(e) => warnings.push(format!("Instrument {} shock error: {}", kind, e)),
             }
         } else {
@@ -914,6 +967,17 @@ fn apply_instrument_shock(
 }
 
 /// Apply a correlation shock effect to StructuredCredit instruments via downcast.
+///
+/// Only handles [`ScenarioEffect::AssetCorrelationShock`] and
+/// [`ScenarioEffect::PrepayDefaultCorrelationShock`]. The recovery and
+/// prepay-factor-loading variants are rejected at `OperationSpec::validate()`
+/// time and should never reach this function.
+///
+/// Clamping is detected at the primitive field level (via
+/// [`CorrelationStructure::bump_asset_with_clamp_info`]) so warnings fire only
+/// when a correlation value is actually clamped, not whenever the aggregate
+/// `asset_correlation()` accessor moves less than `delta` (which is normal for
+/// sectored structures).
 fn apply_correlation_effect(
     effect: &crate::adapters::traits::ScenarioEffect,
     delta_pts: f64,
@@ -921,21 +985,6 @@ fn apply_correlation_effect(
 ) -> (usize, Vec<String>) {
     use crate::adapters::traits::ScenarioEffect;
     use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
-
-    // Recovery and prepay factor loading shocks are not yet supported by CorrelationStructure
-    if matches!(
-        effect,
-        ScenarioEffect::RecoveryCorrelationShock { .. }
-            | ScenarioEffect::PrepayFactorLoadingShock { .. }
-    ) {
-        return (
-            0,
-            vec![format!(
-                "Correlation shock {:?} not yet supported by CorrelationStructure model",
-                std::mem::discriminant(effect)
-            )],
-        );
-    }
 
     let instruments = match ctx.instruments.as_mut() {
         Some(insts) => insts,
@@ -958,14 +1007,19 @@ fn apply_correlation_effect(
             continue;
         };
 
-        let new_corr = match effect {
-            ScenarioEffect::AssetCorrelationShock { .. } => corr.bump_asset(delta_pts),
+        let (new_corr, clamp_info) = match effect {
+            ScenarioEffect::AssetCorrelationShock { .. } => {
+                corr.bump_asset_with_clamp_info(delta_pts)
+            }
             ScenarioEffect::PrepayDefaultCorrelationShock { .. } => {
-                corr.bump_prepay_default(delta_pts)
+                corr.bump_prepay_default_with_clamp_info(delta_pts)
             }
             _ => continue,
         };
 
+        if let Some(info) = clamp_info {
+            warnings.push(format!("Correlation bump for '{}': {info}", sc.id));
+        }
         sc.credit_model.correlation_structure = Some(new_corr);
         count += 1;
     }

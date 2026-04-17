@@ -22,7 +22,9 @@ use pyo3::types::PyDict;
 /// -------
 /// dict
 ///     Dict with ``market_json`` (modified market), ``model_json`` (modified
-///     model), ``operations_applied`` (int), and ``warnings`` (list[str]).
+///     model), ``operations_applied`` (int), ``user_operations`` (int, count of
+///     user-provided operations before hierarchy expansion), ``expanded_operations``
+///     (int, count after expansion), and ``warnings`` (list[str]).
 #[pyfunction]
 fn apply_scenario<'py>(
     py: Python<'py>,
@@ -59,6 +61,8 @@ fn apply_scenario<'py>(
         serde_json::to_string(&model).map_err(display_to_py)?,
     )?;
     dict.set_item("operations_applied", report.operations_applied)?;
+    dict.set_item("user_operations", report.user_operations)?;
+    dict.set_item("expanded_operations", report.expanded_operations)?;
     dict.set_item("warnings", &report.warnings)?;
 
     Ok(dict)
@@ -79,7 +83,7 @@ fn apply_scenario<'py>(
 /// -------
 /// dict
 ///     Dict with ``market_json`` (modified market), ``operations_applied``,
-///     and ``warnings``.
+///     ``user_operations``, ``expanded_operations``, and ``warnings``.
 #[pyfunction]
 fn apply_scenario_to_market<'py>(
     py: Python<'py>,
@@ -111,6 +115,8 @@ fn apply_scenario_to_market<'py>(
         serde_json::to_string(&market).map_err(display_to_py)?,
     )?;
     dict.set_item("operations_applied", report.operations_applied)?;
+    dict.set_item("user_operations", report.user_operations)?;
+    dict.set_item("expanded_operations", report.expanded_operations)?;
     dict.set_item("warnings", &report.warnings)?;
 
     Ok(dict)

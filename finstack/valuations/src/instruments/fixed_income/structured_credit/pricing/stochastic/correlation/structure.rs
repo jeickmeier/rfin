@@ -315,22 +315,75 @@ impl CorrelationStructure {
     /// # Arguments
     /// * `delta` - Amount to add to correlation (clamped to valid range)
     pub fn bump_asset(&self, delta: f64) -> Self {
+        self.bump_asset_with_clamp_info(delta).0
+    }
+
+    /// Bump asset correlation and report whether any underlying field was
+    /// clamped.
+    ///
+    /// This is the primitive used by scenario adapters that need to surface a
+    /// clamp warning. The clamp is detected at the underlying field level
+    /// (`asset_correlation`, `intra_sector`, `inter_sector`, or each off-diagonal
+    /// matrix entry) rather than at the aggregated
+    /// [`Self::asset_correlation`] value, which for `Sectored` averages
+    /// intra/inter and would not move by the requested `delta` even without
+    /// clamping.
+    ///
+    /// # Returns
+    ///
+    /// `(new_structure, clamp_info)`. `clamp_info` is `Some` iff at least one
+    /// underlying field required clamping; the string describes which field(s)
+    /// were clamped and to what value.
+    pub fn bump_asset_with_clamp_info(&self, delta: f64) -> (Self, Option<String>) {
+        const LO: f64 = 0.0;
+        const HI: f64 = 0.99;
         match self {
             CorrelationStructure::Flat {
                 asset_correlation,
                 prepay_default_correlation,
             } => {
-                let new_asset = (asset_correlation + delta).clamp(0.0, 0.99);
-                CorrelationStructure::flat(new_asset, *prepay_default_correlation)
+                let target = asset_correlation + delta;
+                let new_asset = target.clamp(LO, HI);
+                let clamp_info = if (new_asset - target).abs() > 1e-12 {
+                    Some(format!(
+                        "asset_correlation clamped to {new_asset:.4} (requested {target:.4})"
+                    ))
+                } else {
+                    None
+                };
+                (
+                    CorrelationStructure::flat(new_asset, *prepay_default_correlation),
+                    clamp_info,
+                )
             }
             CorrelationStructure::Sectored {
                 intra_sector,
                 inter_sector,
                 prepay_default,
             } => {
-                let new_intra = (intra_sector + delta).clamp(0.0, 0.99);
-                let new_inter = (inter_sector + delta * 0.5).clamp(0.0, 0.99);
-                CorrelationStructure::sectored(new_intra, new_inter, *prepay_default)
+                let intra_target = intra_sector + delta;
+                let inter_target = inter_sector + delta * 0.5;
+                let new_intra = intra_target.clamp(LO, HI);
+                let new_inter = inter_target.clamp(LO, HI);
+                let intra_clamped = (new_intra - intra_target).abs() > 1e-12;
+                let inter_clamped = (new_inter - inter_target).abs() > 1e-12;
+                let clamp_info = match (intra_clamped, inter_clamped) {
+                    (false, false) => None,
+                    (true, false) => Some(format!(
+                        "intra_sector clamped to {new_intra:.4} (requested {intra_target:.4})"
+                    )),
+                    (false, true) => Some(format!(
+                        "inter_sector clamped to {new_inter:.4} (requested {inter_target:.4})"
+                    )),
+                    (true, true) => Some(format!(
+                        "intra_sector clamped to {new_intra:.4} (requested {intra_target:.4}) \
+                         and inter_sector clamped to {new_inter:.4} (requested {inter_target:.4})"
+                    )),
+                };
+                (
+                    CorrelationStructure::sectored(new_intra, new_inter, *prepay_default),
+                    clamp_info,
+                )
             }
             CorrelationStructure::Matrix {
                 correlations,
@@ -338,15 +391,32 @@ impl CorrelationStructure {
             } => {
                 let n = labels.len();
                 let mut new_corrs = correlations.clone();
+                let mut clamp_count: usize = 0;
                 for i in 0..n {
                     for j in 0..n {
                         if i != j {
                             let idx = i * n + j;
-                            new_corrs[idx] = (new_corrs[idx] + delta).clamp(0.0, 0.99);
+                            let target = new_corrs[idx] + delta;
+                            let clamped = target.clamp(LO, HI);
+                            if (clamped - target).abs() > 1e-12 {
+                                clamp_count += 1;
+                            }
+                            new_corrs[idx] = clamped;
                         }
                     }
                 }
-                CorrelationStructure::matrix(new_corrs, labels.clone())
+                let clamp_info = if clamp_count > 0 {
+                    Some(format!(
+                        "{clamp_count} matrix off-diagonal entr{} clamped to [{LO}, {HI}]",
+                        if clamp_count == 1 { "y" } else { "ies" }
+                    ))
+                } else {
+                    None
+                };
+                (
+                    CorrelationStructure::matrix(new_corrs, labels.clone()),
+                    clamp_info,
+                )
             }
         }
     }
@@ -458,25 +528,66 @@ impl CorrelationStructure {
     /// # Arguments
     /// * `delta` - Amount to add to correlation (clamped to [-0.99, 0.99])
     pub fn bump_prepay_default(&self, delta: f64) -> Self {
+        self.bump_prepay_default_with_clamp_info(delta).0
+    }
+
+    /// Bump prepay-default correlation and report whether the underlying
+    /// field was clamped. See [`Self::bump_asset_with_clamp_info`] for
+    /// rationale.
+    pub fn bump_prepay_default_with_clamp_info(&self, delta: f64) -> (Self, Option<String>) {
+        const LO: f64 = -0.99;
+        const HI: f64 = 0.99;
         match self {
             CorrelationStructure::Flat {
                 asset_correlation,
                 prepay_default_correlation,
             } => {
-                let new_pd = (prepay_default_correlation + delta).clamp(-0.99, 0.99);
-                CorrelationStructure::flat(*asset_correlation, new_pd)
+                let target = prepay_default_correlation + delta;
+                let new_pd = target.clamp(LO, HI);
+                let clamp_info = if (new_pd - target).abs() > 1e-12 {
+                    Some(format!(
+                        "prepay_default_correlation clamped to {new_pd:.4} \
+                         (requested {target:.4})"
+                    ))
+                } else {
+                    None
+                };
+                (
+                    CorrelationStructure::flat(*asset_correlation, new_pd),
+                    clamp_info,
+                )
             }
             CorrelationStructure::Sectored {
                 intra_sector,
                 inter_sector,
                 prepay_default,
             } => {
-                let new_pd = (prepay_default + delta).clamp(-0.99, 0.99);
-                CorrelationStructure::sectored(*intra_sector, *inter_sector, new_pd)
+                let target = prepay_default + delta;
+                let new_pd = target.clamp(LO, HI);
+                let clamp_info = if (new_pd - target).abs() > 1e-12 {
+                    Some(format!(
+                        "prepay_default clamped to {new_pd:.4} (requested {target:.4})"
+                    ))
+                } else {
+                    None
+                };
+                (
+                    CorrelationStructure::sectored(*intra_sector, *inter_sector, new_pd),
+                    clamp_info,
+                )
             }
             CorrelationStructure::Matrix { .. } => {
-                // Matrix structure doesn't have explicit prepay-default correlation
-                self.clone()
+                // Matrix structure doesn't have explicit prepay-default correlation;
+                // the shock is a no-op rather than a clamp. Surface it to the caller
+                // so the scenario report can distinguish "applied" from "no-op".
+                (
+                    self.clone(),
+                    Some(
+                        "CorrelationStructure::Matrix has no prepay_default field; \
+                         bump_prepay_default is a no-op for matrix structures"
+                            .into(),
+                    ),
+                )
             }
         }
     }

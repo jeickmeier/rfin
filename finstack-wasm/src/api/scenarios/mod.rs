@@ -153,7 +153,7 @@ pub fn build_scenario_spec(
 /// Apply a scenario to a market context and financial model.
 ///
 /// Returns a JSON object with `market_json`, `model_json`,
-/// `operations_applied`, and `warnings`.
+/// `operations_applied`, `user_operations`, `expanded_operations`, and `warnings`.
 #[wasm_bindgen(js_name = applyScenario)]
 pub fn apply_scenario(
     scenario_json: &str,
@@ -185,6 +185,8 @@ pub fn apply_scenario(
         "market_json": serde_json::to_string(&market).map_err(to_js_err)?,
         "model_json": serde_json::to_string(&model).map_err(to_js_err)?,
         "operations_applied": report.operations_applied,
+        "user_operations": report.user_operations,
+        "expanded_operations": report.expanded_operations,
         "warnings": report.warnings,
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
@@ -219,6 +221,8 @@ pub fn apply_scenario_to_market(
     let out = serde_json::json!({
         "market_json": serde_json::to_string(&market).map_err(to_js_err)?,
         "operations_applied": report.operations_applied,
+        "user_operations": report.user_operations,
+        "expanded_operations": report.expanded_operations,
         "warnings": report.warnings,
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)

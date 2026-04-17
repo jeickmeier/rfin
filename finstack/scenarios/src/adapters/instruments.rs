@@ -16,16 +16,39 @@ fn accumulate_optional_shock(current: Option<f64>, delta: f64) -> f64 {
     current.unwrap_or(0.0) + delta
 }
 
-fn accumulate_meta_shock(attrs: &mut Attributes, key: &str, delta: f64, precision: usize) {
+/// Accumulate a shock into an instrument's metadata map.
+///
+/// The serialized representation uses the default `f64` display (shortest
+/// round-trippable decimal), which avoids the silent precision loss that
+/// occurs when repeatedly parsing and re-formatting with a fixed precision.
+fn accumulate_meta_shock(attrs: &mut Attributes, key: &str, delta: f64) {
     let current = attrs
         .meta
         .get(key)
         .and_then(|value| value.parse::<f64>().ok())
         .unwrap_or(0.0);
-    attrs.meta.insert(
-        key.to_string(),
-        format!("{:.*}", precision, current + delta),
-    );
+    attrs
+        .meta
+        .insert(key.to_string(), format!("{}", current + delta));
+}
+
+fn instrument_label(attrs: &Attributes) -> String {
+    attrs
+        .meta
+        .get("id")
+        .or_else(|| attrs.meta.get("instrument_id"))
+        .or_else(|| attrs.meta.get("name"))
+        .cloned()
+        .unwrap_or_else(|| "<unidentified>".to_string())
+}
+
+fn fallback_warning(kind: &str, inst_type: &str, label: &str) -> String {
+    format!(
+        "Instrument {kind} shock fell back to metadata for instrument '{label}' \
+         (type {inst_type}): the pricer does not expose scenario_overrides_mut(), \
+         so the shock is recorded under scenario_{kind}_shock_* but will not affect \
+         valuation unless the downstream consumer reads that metadata."
+    )
 }
 
 /// Adapter for instrument operations.
@@ -94,34 +117,35 @@ pub fn apply_instrument_type_price_shock(
     instruments: &mut [Box<DynInstrument>],
     instrument_types: &[InstrumentType],
     pct: f64,
-) -> Result<usize> {
+) -> Result<(usize, Vec<String>)> {
     let mut count = 0;
-    let shock_decimal = pct / 100.0; // Convert percentage to decimal
+    let mut warnings = Vec::new();
+    let shock_decimal = pct / 100.0;
 
     for instrument in instruments.iter_mut() {
         let inst_type = instrument.key();
 
         if instrument_types.contains(&inst_type) {
-            // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
                 overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
                     overrides.scenario_price_shock_pct,
                     shock_decimal,
                 ));
             } else {
-                // Fallback: store as metadata for downstream processing
+                let label = instrument_label(instrument.attributes());
+                let type_name = format!("{inst_type:?}");
                 accumulate_meta_shock(
                     instrument.attributes_mut(),
                     "scenario_price_shock_pct",
                     shock_decimal,
-                    6,
                 );
+                warnings.push(fallback_warning("price", &type_name, &label));
             }
             count += 1;
         }
     }
 
-    Ok(count)
+    Ok((count, warnings))
 }
 
 /// Apply a spread shock (basis points) to instruments matching the provided types.
@@ -143,33 +167,30 @@ pub fn apply_instrument_type_spread_shock(
     instruments: &mut [Box<DynInstrument>],
     instrument_types: &[InstrumentType],
     bp: f64,
-) -> Result<usize> {
+) -> Result<(usize, Vec<String>)> {
     let mut count = 0;
+    let mut warnings = Vec::new();
 
     for instrument in instruments.iter_mut() {
         let inst_type = instrument.key();
 
         if instrument_types.contains(&inst_type) {
-            // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
                 overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
                     overrides.scenario_spread_shock_bp,
                     bp,
                 ));
             } else {
-                // Fallback: store as metadata for downstream processing
-                accumulate_meta_shock(
-                    instrument.attributes_mut(),
-                    "scenario_spread_shock_bp",
-                    bp,
-                    2,
-                );
+                let label = instrument_label(instrument.attributes());
+                let type_name = format!("{inst_type:?}");
+                accumulate_meta_shock(instrument.attributes_mut(), "scenario_spread_shock_bp", bp);
+                warnings.push(fallback_warning("spread", &type_name, &label));
             }
             count += 1;
         }
     }
 
-    Ok(count)
+    Ok((count, warnings))
 }
 
 /// Apply a percentage price shock to instruments matching the provided attributes.
@@ -207,12 +228,14 @@ pub fn apply_instrument_attr_price_shock(
                     shock_decimal,
                 ));
             } else {
+                let label = instrument_label(instrument.attributes());
+                let type_name = format!("{:?}", instrument.key());
                 accumulate_meta_shock(
                     instrument.attributes_mut(),
                     "scenario_price_shock_pct",
                     shock_decimal,
-                    6,
                 );
+                warnings.push(fallback_warning("price", &type_name, &label));
             }
             count += 1;
         }
@@ -261,12 +284,10 @@ pub fn apply_instrument_attr_spread_shock(
                     bp,
                 ));
             } else {
-                accumulate_meta_shock(
-                    instrument.attributes_mut(),
-                    "scenario_spread_shock_bp",
-                    bp,
-                    2,
-                );
+                let label = instrument_label(instrument.attributes());
+                let type_name = format!("{:?}", instrument.key());
+                accumulate_meta_shock(instrument.attributes_mut(), "scenario_spread_shock_bp", bp);
+                warnings.push(fallback_warning("spread", &type_name, &label));
             }
             count += 1;
         }

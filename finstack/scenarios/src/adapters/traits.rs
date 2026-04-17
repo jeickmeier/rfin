@@ -67,11 +67,24 @@ pub(crate) enum ScenarioEffect {
         delta_pts: f64,
     },
     /// Shock recovery-default correlation on StructuredCredit instruments.
+    ///
+    /// Reserved: `OperationSpec::RecoveryCorrelationPts` is rejected at
+    /// validation time because `CorrelationStructure` does not yet expose a
+    /// recovery-default correlation field. This variant is retained so the
+    /// engine can emit a loud warning if validation is bypassed.
+    #[allow(dead_code)]
     RecoveryCorrelationShock {
         /// Additive shock in correlation points.
         delta_pts: f64,
     },
     /// Shock prepay factor loading on StructuredCredit instruments.
+    ///
+    /// Reserved: `OperationSpec::PrepayFactorLoadingPts` is rejected at
+    /// validation time because `CorrelationStructure` derives factor loading
+    /// from correlation rather than exposing it directly. This variant is
+    /// retained so the engine can emit a loud warning if validation is
+    /// bypassed.
+    #[allow(dead_code)]
     PrepayFactorLoadingShock {
         /// Additive shock to factor loading.
         delta_pts: f64,

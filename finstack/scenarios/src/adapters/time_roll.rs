@@ -146,7 +146,7 @@ pub fn apply_time_roll_forward(
     // This ensures we capture the true carry (time value change with constant curves)
     let (instrument_carry, total_carry, failed_instruments) =
         if let Some(instruments) = ctx.instruments.as_ref() {
-            calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, day_shift)?
+            calculate_instrument_pnl(instruments, ctx.market, old_date, new_date)?
         } else {
             (Vec::new(), IndexMap::new(), Vec::new())
         };
@@ -188,13 +188,28 @@ pub fn apply_time_roll_forward(
 /// - Principal payments during the period
 ///
 /// This is consistent with the theta metric definition in valuations.
+///
+/// # Failure handling
+///
+/// If either the start-date or end-date valuation returns an error, the
+/// instrument is recorded in the `failed_instruments` return slot with the
+/// underlying error message and is *excluded* from `instrument_carry` /
+/// `total_carry`. This prevents partial cashflow-only carry lines from
+/// contaminating the aggregate while still surfacing the failure in the
+/// `RollForwardReport`.
+///
+/// # Cashflow window convention
+///
+/// Cashflows are included when their payment date satisfies
+/// `start_date < date <= end_date` (i.e. T+0 excluded, T+N included). A coupon
+/// paid on the roll-forward target date counts toward carry; a coupon paid on
+/// the starting valuation date does not.
 #[allow(clippy::type_complexity)]
 fn calculate_instrument_pnl(
     instruments: &[Box<DynInstrument>],
     market: &finstack_core::market_data::context::MarketContext,
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
-    _days: i64,
 ) -> Result<(
     Vec<(String, IndexMap<Currency, Money>)>,
     IndexMap<Currency, Money>,
@@ -207,27 +222,38 @@ fn calculate_instrument_pnl(
     for instrument in instruments {
         let inst_id = instrument.id().to_string();
 
-        // Calculate PV change as Money, grouped by currency (single currency per instrument).
+        // Valuation at both ends is required to compute carry. Swallowing errors
+        // here and falling through to cashflow-only accumulation would produce a
+        // misleading "pure coupon" carry number with no failure indication.
+        let pv_old = match instrument.value(market, old_date) {
+            Ok(v) => v,
+            Err(err) => {
+                failed_instruments.push((inst_id.clone(), format!("t0 valuation failed: {err}")));
+                continue;
+            }
+        };
+        let pv_new = match instrument.value(market, new_date) {
+            Ok(v) => v,
+            Err(err) => {
+                failed_instruments.push((inst_id.clone(), format!("t1 valuation failed: {err}")));
+                continue;
+            }
+        };
+
         let mut pv_change_by_ccy: IndexMap<Currency, Money> = IndexMap::new();
-        let pv_old = instrument.value(market, old_date).ok();
-        let pv_new = instrument.value(market, new_date).ok();
-        if let (Some(old), Some(new)) = (pv_old, pv_new) {
-            match new.checked_sub(old) {
-                Ok(diff) => {
-                    pv_change_by_ccy.insert(diff.currency(), diff);
-                }
-                Err(err) => {
-                    failed_instruments.push((inst_id.clone(), err.to_string()));
-                    continue;
-                }
+        match pv_new.checked_sub(pv_old) {
+            Ok(diff) => {
+                pv_change_by_ccy.insert(diff.currency(), diff);
+            }
+            Err(err) => {
+                failed_instruments.push((inst_id.clone(), format!("pv diff failed: {err}")));
+                continue;
             }
         }
 
-        // Collect cashflows during the period, grouped by currency.
         let cashflows_during_period =
             collect_instrument_cashflows(instrument.as_ref(), market, old_date, new_date);
 
-        // Carry per currency = PV change + net cashflows in the period.
         let mut carry_by_ccy = pv_change_by_ccy;
         for (ccy, flow) in cashflows_during_period {
             carry_by_ccy
@@ -236,7 +262,6 @@ fn calculate_instrument_pnl(
                 .or_insert(flow);
         }
 
-        // Accumulate totals by currency.
         for (ccy, amount) in &carry_by_ccy {
             total_carry
                 .entry(*ccy)
@@ -251,6 +276,14 @@ fn calculate_instrument_pnl(
 }
 
 /// Collect cashflows for an instrument during a period, grouped by currency.
+///
+/// The cashflow window is half-open: `(start_date, end_date]`. Cashflows
+/// exactly at `start_date` are excluded (they are assumed to have been
+/// captured by the previous roll's "end_date" or to have already been paid
+/// at `t = 0`) while cashflows exactly at `end_date` are included. This
+/// keeps successive [`apply_time_roll_forward`] calls conservative under
+/// concatenation and avoids double-counting coupons landing on roll
+/// boundaries.
 fn collect_instrument_cashflows(
     instrument: &DynInstrument,
     market: &finstack_core::market_data::context::MarketContext,

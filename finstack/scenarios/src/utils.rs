@@ -226,6 +226,27 @@ pub fn tenor_years_from_binding(
 /// with year fraction calculations. This ensures that time roll theta calculations
 /// align with tenor-to-years conversions.
 ///
+/// # Accuracy and drift
+///
+/// This helper is intentionally **calendar-unaware**: it does not know about
+/// leap years, month-end conventions, business-day calendars, or the actual
+/// date to which the period is added. For short horizons (≤ 1Y) the result
+/// is accurate to within 1-2 days; for multi-year horizons drift can
+/// accumulate (e.g. five actual calendar years contain 1826 or 1827 days
+/// depending on leap-year placement, while `5Y` returns `1825`). Use this
+/// helper for:
+///
+/// 1. Sorting, binning, and interpolation-weight math where only a
+///    monotonically ordered integer day count is required, and
+/// 2. Approximate theta/day-roll heuristics where ±1-2 days of drift is
+///    acceptable.
+///
+/// Anchored date arithmetic (e.g. advancing a valuation date by a tenor,
+/// or deriving a forward start) must instead use
+/// [`finstack_core::dates::Tenor::add_to_date`] or
+/// [`parse_tenor_to_years_with_context`], both of which honour the
+/// valuation date, calendar, and business-day convention.
+///
 /// # Arguments
 /// - `period`: Period string matching one of the supported formats.
 ///

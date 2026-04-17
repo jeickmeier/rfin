@@ -334,6 +334,7 @@ fn evaluate_dcf<'py>(
         equity_bridge,
         shares_outstanding,
         valuation_discounts,
+        ..Default::default()
     };
 
     let market = extract_market_opt(market)?;

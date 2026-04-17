@@ -58,6 +58,9 @@ fn trigger_reason(trigger: &rust_ecl::StagingTrigger) -> String {
             format!("rating_downgrade ({} >= {} notches)", notches, threshold)
         }
         rust_ecl::StagingTrigger::Qualitative { flag } => format!("qualitative:{}", flag),
+        rust_ecl::StagingTrigger::Stage3Qualitative { flag } => {
+            format!("stage3_qualitative:{}", flag)
+        }
         rust_ecl::StagingTrigger::NoTrigger => "no_trigger".to_string(),
     }
 }
@@ -244,6 +247,7 @@ fn classify_stage(
         dpd_stage2_threshold: if dpd_30_trigger { 30 } else { u32::MAX },
         dpd_stage3_threshold: if dpd_90_trigger { 90 } else { u32::MAX },
         qualitative_triggers_enabled: false,
+        stage3_qualitative_triggers_enabled: false,
         cure_periods_stage2_to_1: 3,
         cure_periods_stage3_to_2: 6,
     };

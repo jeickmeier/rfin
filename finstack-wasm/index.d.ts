@@ -597,12 +597,16 @@ export interface ScenarioApplyResult {
   market_json: string;
   model_json: string;
   operations_applied: number;
+  user_operations: number;
+  expanded_operations: number;
   warnings: string[];
 }
 
 export interface ScenarioApplyMarketResult {
   market_json: string;
   operations_applied: number;
+  user_operations: number;
+  expanded_operations: number;
   warnings: string[];
 }
 

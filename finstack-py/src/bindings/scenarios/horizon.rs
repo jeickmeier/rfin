@@ -158,6 +158,18 @@ impl PyHorizonResult {
         self.inner.scenario_report.operations_applied
     }
 
+    /// Number of user-provided scenario operations before hierarchy expansion.
+    #[getter]
+    fn user_operations(&self) -> usize {
+        self.inner.scenario_report.user_operations
+    }
+
+    /// Number of direct operations after hierarchy expansion and deduplication.
+    #[getter]
+    fn expanded_operations(&self) -> usize {
+        self.inner.scenario_report.expanded_operations
+    }
+
     /// Warnings from scenario application.
     #[getter]
     fn warnings(&self) -> Vec<String> {

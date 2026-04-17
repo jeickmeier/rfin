@@ -302,23 +302,40 @@ impl ScenarioAdapter for CurveAdapter {
                             discount_curve_id.as_deref(),
                             Some(curve_id),
                         )?;
-                        let new_curve = bump_hazard_spreads(
+                        let mut fallback_warning: Option<String> = None;
+                        let new_curve = match bump_hazard_spreads(
                             &base_curve,
                             ctx.market,
                             &bump_req,
                             Some(&discount_id),
-                        )
-                        .or_else(|_| {
-                            tracing::warn!(curve_id = %curve_id, "Hazard curve recalibration failed; falling back to direct shift");
-                            bump_hazard_shift(&base_curve, &bump_req)
-                        })
-                        .map_err(|e| {
-                            Error::Internal(format!("Failed to bump hazard curve: {}", e))
-                        })?;
+                        ) {
+                            Ok(c) => c,
+                            Err(recalib_err) => {
+                                tracing::warn!(
+                                    curve_id = %curve_id,
+                                    error = %recalib_err,
+                                    "Hazard curve recalibration failed; falling back to direct hazard-rate shift"
+                                );
+                                let msg = format!(
+                                    "Hazard curve '{curve_id}' parallel shock: par-CDS recalibration \
+                                     failed ({recalib_err}); applied direct hazard-rate shift instead. \
+                                     Risk-neutral default probabilities will be additively shifted by the \
+                                     requested bp amount at each pillar rather than re-solved from par \
+                                     spreads, which can materially change CS01 for sharply sloped curves."
+                                );
+                                fallback_warning = Some(msg);
+                                bump_hazard_shift(&base_curve, &bump_req).map_err(|e| {
+                                    Error::Internal(format!("Failed to bump hazard curve: {}", e))
+                                })?
+                            }
+                        };
 
                         let mut effects = vec![ScenarioEffect::UpdateCurve(
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
                         )];
+                        if let Some(w) = fallback_warning {
+                            effects.push(ScenarioEffect::Warning(w));
+                        }
                         if let Some(warning) = warning {
                             effects.push(ScenarioEffect::Warning(warning));
                         }
@@ -387,7 +404,8 @@ impl ScenarioAdapter for CurveAdapter {
                         // - `bp = -25`  -> `-0.25` vol-index points
                         //
                         // This intentionally differs from rate curves where `bp` means 1e-4 in
-                        // fractional rate space.
+                        // fractional rate space. Emit a warning so the convention is auditable
+                        // in the ApplicationReport.
                         let base_curve =
                             ctx.market.get_vol_index_curve(curve_id).map_err(|_| {
                                 Error::MarketDataNotFound {
@@ -395,14 +413,21 @@ impl ScenarioAdapter for CurveAdapter {
                                 }
                             })?;
 
-                        let new_curve =
-                            base_curve.with_parallel_bump(*bp / 100.0).map_err(|e| {
-                                Error::Internal(format!("Failed to bump vol index curve: {}", e))
-                            })?;
+                        let pts = *bp / 100.0;
+                        let new_curve = base_curve.with_parallel_bump(pts).map_err(|e| {
+                            Error::Internal(format!("Failed to bump vol index curve: {}", e))
+                        })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
-                            finstack_core::market_data::context::CurveStorage::from(new_curve),
-                        )]))
+                        Ok(Some(vec![
+                            ScenarioEffect::UpdateCurve(
+                                finstack_core::market_data::context::CurveStorage::from(new_curve),
+                            ),
+                            ScenarioEffect::Warning(format!(
+                                "VolIndex '{curve_id}' parallel shock: {bp} bp interpreted as \
+                                 {pts:+.4} absolute vol-index points (VolIndex uses bp/100 \
+                                 scaling, not the 1 bp = 0.0001 rate convention)"
+                            )),
+                        ]))
                     }
                 }
             }
@@ -537,26 +562,44 @@ impl ScenarioAdapter for CurveAdapter {
                             Some(curve_id),
                         )?;
 
-                        let new_curve = bump_hazard_spreads(
+                        let mut fallback_warning: Option<String> = None;
+                        let new_curve = match bump_hazard_spreads(
                             &base_curve,
                             ctx.market,
                             &bump_req,
                             Some(&discount_id),
-                        )
-                        .or_else(|_| {
-                            tracing::warn!(curve_id = %curve_id, "Hazard curve recalibration failed; falling back to direct shift");
-                            bump_hazard_shift(&base_curve, &bump_req)
-                        })
-                        .map_err(|e| {
-                            Error::Internal(format!(
-                                "Failed to bump hazard curve components: {}",
-                                e
-                            ))
-                        })?;
+                        ) {
+                            Ok(c) => c,
+                            Err(recalib_err) => {
+                                tracing::warn!(
+                                    curve_id = %curve_id,
+                                    error = %recalib_err,
+                                    "Hazard curve recalibration failed; falling back to direct hazard-rate shift"
+                                );
+                                let msg = format!(
+                                    "Hazard curve '{curve_id}' node shock: par-CDS recalibration failed \
+                                     ({recalib_err}); applied direct hazard-rate shift instead. \
+                                     Risk-neutral default probabilities will be additively shifted by the \
+                                     requested bp amount at the targeted pillars rather than re-solved \
+                                     from par spreads, which can materially change CS01 for sharply \
+                                     sloped curves."
+                                );
+                                fallback_warning = Some(msg);
+                                bump_hazard_shift(&base_curve, &bump_req).map_err(|e| {
+                                    Error::Internal(format!(
+                                        "Failed to bump hazard curve components: {}",
+                                        e
+                                    ))
+                                })?
+                            }
+                        };
 
                         let mut effects = vec![ScenarioEffect::UpdateCurve(
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
                         )];
+                        if let Some(w) = fallback_warning {
+                            effects.push(ScenarioEffect::Warning(w));
+                        }
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         if let Some(warning) = warning {
                             effects.push(ScenarioEffect::Warning(warning));
@@ -714,9 +757,11 @@ impl ScenarioAdapter for CurveAdapter {
 
                         // Use indexed_targets for precise knot matching (avoids
                         // float tolerance issues from round-tripping through time values).
+                        let mut total_bp_abs = 0.0_f64;
                         for &(idx, bp) in &result.indexed_targets {
                             // bp / 100 converts to index points: bp=100 → +1.0 index point
                             levels[idx] += bp / 100.0;
+                            total_bp_abs += bp.abs();
                         }
 
                         // Rebuild the vol index curve
@@ -736,6 +781,13 @@ impl ScenarioAdapter for CurveAdapter {
                         let mut effects = vec![ScenarioEffect::UpdateCurve(
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
                         )];
+                        if total_bp_abs > 0.0 {
+                            effects.push(ScenarioEffect::Warning(format!(
+                                "VolIndex '{}' node shocks: bp values rescaled by bp/100 to \
+                                 absolute vol-index points (not the 1 bp = 0.0001 rate convention)",
+                                curve_id
+                            )));
+                        }
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }

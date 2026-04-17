@@ -9,7 +9,7 @@ use crate::engine::ExecutionContext;
 use crate::error::{Error, Result};
 use crate::spec::{Compounding, OperationSpec, RateBindingSpec};
 use crate::utils::tenor_years_from_binding;
-use finstack_core::dates::{BusinessDayConvention, Tenor};
+use finstack_core::dates::{BusinessDayConvention, HolidayCalendar, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::Compounding as CoreCompounding;
 use finstack_statements::evaluator::Evaluator;
@@ -183,8 +183,22 @@ pub fn apply_forecast_assign_filtered(
 /// - Emits clear validation errors when the tenor is outside the curve range or
 ///   when compounding/day-count combinations are incompatible.
 ///
-/// The assigned statement value is always a decimal annualized rate such as
-/// `0.0525` for 5.25%.
+/// The assigned statement value is a decimal annualized rate such as
+/// `0.0525` for 5.25%. Mathematical semantics by target compounding:
+///
+/// - `Continuous`, `Annual`, `SemiAnnual`, `Quarterly`, `Monthly`: the output
+///   rate is **horizon-independent** because the conversion is defined via the
+///   discount factor round-trip at the same `t`. For a 5.25% continuous zero
+///   over 1 year, the `Annual` rate is `exp(0.0525) - 1 ≈ 5.39%` regardless
+///   of the binding tenor.
+/// - `Simple`: the output rate is the **simple rate over the binding tenor**
+///   (or, for forward curves, over the forward curve's native accrual tenor).
+///   This preserves the invariant `DF = 1 / (1 + r_simple * t)` at the same
+///   `t` used to extract the input rate, so a `Simple` binding on a forward
+///   curve is the identity transform (the simple forward rate round-trips
+///   through continuous and back to itself). If you need a 1-year simple
+///   quote, request `Annual` instead — the two are numerically identical
+///   over a 1-year horizon because `DF = 1/(1+r) = (1+r)^{-1}`.
 ///
 /// Returns `true` if the target node had explicit values that were updated,
 /// `false` if the node exists but has no values (a no-op).
@@ -195,6 +209,8 @@ pub fn apply_forecast_assign_filtered(
 ///   output compounding.
 /// - `model`: Statement model whose target node will be updated.
 /// - `market`: Market context that supplies the referenced discount or forward curve.
+/// - `calendar`: Optional holiday calendar used for business-day adjustment of
+///   the binding tenor; pass `None` to fall back to pure calendar arithmetic.
 ///
 /// # Errors
 ///
@@ -216,6 +232,7 @@ pub fn update_rate_from_binding(
     binding: &RateBindingSpec,
     model: &mut FinancialModelSpec,
     market: &MarketContext,
+    calendar: Option<&dyn HolidayCalendar>,
 ) -> Result<bool> {
     let curve_id = &binding.curve_id;
 
@@ -224,7 +241,7 @@ pub fn update_rate_from_binding(
             binding,
             curve.base_date(),
             curve.day_count(),
-            None,
+            calendar,
             BusinessDayConvention::ModifiedFollowing,
         )?;
 
@@ -247,7 +264,7 @@ pub fn update_rate_from_binding(
             binding,
             curve.base_date(),
             curve.day_count(),
-            None,
+            calendar,
             BusinessDayConvention::ModifiedFollowing,
         )?;
 
@@ -268,7 +285,7 @@ pub fn update_rate_from_binding(
             .map_err(|e| Error::InvalidTenor(e.to_string()))?
             .add_to_date(
                 curve.base_date(),
-                None,
+                calendar,
                 BusinessDayConvention::ModifiedFollowing,
             )
             .map_err(|e| Error::Internal(e.to_string()))?;
@@ -276,11 +293,17 @@ pub fn update_rate_from_binding(
         let accrual_years = Tenor::from_years(curve.tenor(), effective_dc)
             .to_years_with_context(
                 forward_start,
-                None,
+                calendar,
                 BusinessDayConvention::ModifiedFollowing,
                 effective_dc,
             )
             .map_err(|e| Error::Internal(e.to_string()))?;
+        if !accrual_years.is_finite() || accrual_years <= 0.0 {
+            return Err(Error::Validation(format!(
+                "Forward curve '{curve_id}' has non-positive accrual period ({accrual_years:.6}y); \
+                 cannot convert simple forward rate"
+            )));
+        }
 
         let forward_simple = curve.rate(start_years);
         let forward_continuous = CoreCompounding::Simple.convert_rate(

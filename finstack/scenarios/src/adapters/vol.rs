@@ -124,12 +124,17 @@ impl std::fmt::Display for ArbitrageViolation {
 ///   indicate either data errors or excessive negative shocks.
 ///
 /// # Arguments
-/// - `expiries`: Expiry times in years (must be sorted ascending)
+/// - `expiries`: Expiry times in years (must be strictly ascending)
 /// - `strikes`: Strike levels
 /// - `vols`: 2D grid of volatilities indexed as `vols[expiry_idx][strike_idx]`
 ///
 /// # Returns
-/// Vector of detected arbitrage violations (empty if surface is clean).
+/// Vector of detected arbitrage violations (empty if surface is clean). If
+/// `expiries` is not strictly ascending, a synthetic
+/// [`ArbitrageViolation::CalendarSpread`] violation is returned with variance
+/// fields set to NaN and further checks are short-circuited; this prevents
+/// silent false-negatives when the caller accidentally passes an unsorted
+/// grid.
 ///
 /// # Example
 ///
@@ -153,6 +158,24 @@ pub fn check_arbitrage(
     vols: &[Vec<f64>],
 ) -> Vec<ArbitrageViolation> {
     let mut violations = Vec::new();
+
+    // Calendar-spread arbitrage is defined in terms of cumulative total
+    // variance along the expiry axis. If expiries are not strictly ascending
+    // (or contain NaN), the variance comparison below is meaningless, so we
+    // surface a diagnostic rather than returning "no violations" and
+    // misleading the caller.
+    for win in expiries.windows(2) {
+        let (prev, next) = (win[0], win[1]);
+        if !(prev.is_finite() && next.is_finite() && next > prev) {
+            violations.push(ArbitrageViolation::CalendarSpread {
+                strike: f64::NAN,
+                expiry: next,
+                prev_variance: f64::NAN,
+                curr_variance: f64::NAN,
+            });
+            return violations;
+        }
+    }
 
     // Check calendar spread arbitrage for each strike
     for (strike_idx, &strike) in strikes.iter().enumerate() {
@@ -257,24 +280,28 @@ impl ScenarioAdapter for VolAdapter {
                     )));
                 }
 
-                let preview = surface.as_ref().apply_bump(BumpSpec {
+                // Build the BumpSpec once so the preview and the dispatched
+                // MarketBump cannot diverge. A multiplicative factor of
+                // `1 + pct/100` is numerically equivalent to an additive
+                // percent bump of `pct` (which is how
+                // `MarketBump::VolBucketPct { expiries: None, strikes: None, .. }`
+                // is routed internally), so either routing produces the same
+                // shocked vol surface.
+                let parallel_spec = BumpSpec {
                     mode: BumpMode::Multiplicative,
                     units: BumpUnits::Factor,
                     value: 1.0 + (pct / 100.0),
                     bump_type: BumpType::Parallel,
-                })?;
+                };
+
+                let preview = surface.as_ref().apply_bump(parallel_spec)?;
                 for warning in arbitrage_warnings_for_surface(surface_id, &preview)? {
                     effects.push(ScenarioEffect::Warning(warning));
                 }
 
                 let bump = MarketBump::Curve {
                     id: finstack_core::types::CurveId::from(surface_id.as_str()),
-                    spec: BumpSpec {
-                        mode: BumpMode::Multiplicative,
-                        units: BumpUnits::Factor,
-                        value: 1.0 + (pct / 100.0),
-                        bump_type: BumpType::Parallel,
-                    },
+                    spec: parallel_spec,
                 };
                 effects.push(ScenarioEffect::MarketBump(bump));
 
@@ -406,6 +433,31 @@ mod tests {
     }
 
     #[test]
+    fn test_arbitrage_rejects_unsorted_expiries() {
+        let expiries = vec![1.0, 0.5]; // descending, not ascending
+        let strikes = vec![100.0];
+        let vols = vec![vec![0.20], vec![0.25]];
+
+        let violations = check_arbitrage(&expiries, &strikes, &vols);
+        assert_eq!(violations.len(), 1);
+        assert!(matches!(
+            &violations[0],
+            ArbitrageViolation::CalendarSpread { prev_variance, curr_variance, .. }
+                if prev_variance.is_nan() && curr_variance.is_nan()
+        ));
+    }
+
+    #[test]
+    fn test_arbitrage_rejects_duplicate_expiries() {
+        let expiries = vec![0.5, 0.5]; // duplicates violate strict ordering
+        let strikes = vec![100.0];
+        let vols = vec![vec![0.20], vec![0.25]];
+
+        let violations = check_arbitrage(&expiries, &strikes, &vols);
+        assert_eq!(violations.len(), 1);
+    }
+
+    #[test]
     fn test_no_arbitrage_clean_surface() {
         // Create a clean surface with no arbitrage
         let expiries = vec![0.25, 0.5, 1.0];
@@ -418,6 +470,72 @@ mod tests {
 
         let violations = check_arbitrage(&expiries, &strikes, &vols);
         assert!(violations.is_empty());
+    }
+
+    /// End-to-end check that `VolSurfaceParallelPct` routes its `MarketBump`
+    /// through `MarketContext::bump` and actually mutates the stored surface.
+    /// This pins the semantics of the multiplicative factor (`1 + pct/100`)
+    /// against the surface's own `apply_bump` implementation and ensures that
+    /// the `MarketBump::Curve` variant correctly dispatches to surfaces (not
+    /// just term-structure curves).
+    #[test]
+    fn test_vol_surface_parallel_pct_integration() -> crate::error::Result<()> {
+        use crate::engine::ScenarioEngine;
+        use crate::spec::{ScenarioSpec, VolSurfaceKind};
+
+        let surface = VolSurface::builder("VOL")
+            .expiries(&[0.5, 1.0])
+            .strikes(&[100.0])
+            .row(&[0.20])
+            .row(&[0.22])
+            .build()
+            .map_err(crate::error::Error::from)?;
+        let mut market = MarketContext::new().insert_surface(surface);
+        let mut model = finstack_statements::FinancialModelSpec::new("test", vec![]);
+
+        let scenario = ScenarioSpec {
+            id: "vol_parallel".into(),
+            name: None,
+            description: None,
+            operations: vec![OperationSpec::VolSurfaceParallelPct {
+                surface_id: "VOL".into(),
+                surface_kind: VolSurfaceKind::Equity,
+                pct: 10.0,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let engine = ScenarioEngine::new();
+        {
+            let mut ctx = ExecutionContext {
+                market: &mut market,
+                model: &mut model,
+                instruments: None,
+                rate_bindings: None,
+                calendar: None,
+                as_of: date!(2025 - 01 - 01),
+            };
+            let report = engine.apply(&scenario, &mut ctx)?;
+            assert_eq!(report.operations_applied, 1);
+        }
+
+        let bumped = market.get_surface("VOL")?;
+        let v_05 = bumped
+            .value_checked(0.5, 100.0)
+            .map_err(crate::error::Error::from)?;
+        let v_10 = bumped
+            .value_checked(1.0, 100.0)
+            .map_err(crate::error::Error::from)?;
+        assert!(
+            (v_05 - 0.22).abs() < 1e-10,
+            "expected 0.20 * 1.10 = 0.22, got {v_05}"
+        );
+        assert!(
+            (v_10 - 0.242).abs() < 1e-10,
+            "expected 0.22 * 1.10 = 0.242, got {v_10}"
+        );
+        Ok(())
     }
 
     #[test]
