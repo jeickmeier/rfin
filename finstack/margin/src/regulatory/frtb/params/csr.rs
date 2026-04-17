@@ -3,7 +3,11 @@
 //! Risk weights and correlations for non-securitization, securitization CTP,
 //! and securitization non-CTP per BCBS d457.
 
-/// CSR non-securitization delta risk weights by bucket (basis points).
+/// CSR non-securitization delta risk weights by bucket.
+///
+/// Values are expressed in **percent of notional** (e.g. `0.5` means
+/// `0.5%` = `50 bp`); they multiply a CSR delta stated as P&L per
+/// 1 percentage-point spread shift.
 ///
 /// Buckets 1-18 per FRTB specification:
 /// 1: Sovereigns (incl. central banks)

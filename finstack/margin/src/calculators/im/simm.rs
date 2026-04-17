@@ -500,10 +500,21 @@ impl SimmCalculator {
 
     /// Calculate IR delta margin with multi-currency aggregation.
     ///
-    /// Per ISDA SIMM methodology:
-    /// 1. For each currency, compute K_ccy using intra-currency tenor correlations
-    /// 2. Aggregate across currencies: `sqrt(sum_c sum_d gamma(c,d) * K_c * K_d)`
-    ///    where gamma = 1.0 when c == d, and `ir_inter_currency_correlation` otherwise
+    /// Per ISDA SIMM v2.6 methodology:
+    /// 1. For each currency, compute the net weighted sensitivity
+    ///    `net_c = sum_t WS_{c,t}` and the per-currency concentration
+    ///    factor `CR_c = concentration_factor(InterestRate, net_c)`.
+    /// 2. For each currency, compute `K_c` with `WS_{c,t}` scaled by
+    ///    `CR_c` (uniform-by-currency convention), using the intra-
+    ///    currency tenor correlations.
+    /// 3. Aggregate across currencies: `sqrt(sum_c sum_d gamma_cd * K_c * K_d)`
+    ///    where `gamma_cd = 1` on the diagonal and
+    ///    `ir_inter_currency_correlation` off-diagonal.
+    ///
+    /// Applying the concentration factor at the currency level rather
+    /// than pool-wide matches the SIMM specification: a large net USD
+    /// position should not have its concentration penalty diluted by an
+    /// offsetting JPY position in the pooled sum.
     ///
     /// # Arguments
     ///
@@ -512,7 +523,7 @@ impl SimmCalculator {
         &self,
         ir_delta: &HashMap<(Currency, String), f64>,
     ) -> f64 {
-        // Group sensitivities by currency
+        // Group sensitivities by currency.
         let mut by_currency: HashMap<Currency, HashMap<String, f64>> = HashMap::default();
         for ((ccy, tenor), delta) in ir_delta {
             *by_currency
@@ -522,18 +533,38 @@ impl SimmCalculator {
                 .or_insert(0.0) += delta;
         }
 
-        // Compute K_ccy for each currency using intra-currency tenor correlations
+        // For each currency: weight the sensitivities, derive the per-
+        // currency concentration factor from the net weighted amount,
+        // then compute K_c using the (scaled) weighted sensitivities.
         let k_values: Vec<f64> = by_currency
             .values()
-            .map(|tenor_map| self.calculate_ir_delta(tenor_map))
+            .map(|tenor_map| {
+                // Compute WS per tenor, then net_ws, then CR, then K.
+                let weighted: Vec<(usize, f64)> = tenor_map
+                    .iter()
+                    .filter_map(|(tenor, dv01)| {
+                        let w = self.params.ir_delta_weights.get(tenor)?;
+                        let idx = self.ir_corr_matrix.tenor_to_idx.get(tenor)?;
+                        Some((*idx, dv01 * w))
+                    })
+                    .collect();
+                let net_ws: f64 = weighted.iter().map(|(_, ws)| *ws).sum();
+                let cf = self.concentration_factor(SimmRiskClass::InterestRate, net_ws);
+                let mut sum = 0.0;
+                for &(idx_i, ws_i) in &weighted {
+                    for &(idx_j, ws_j) in &weighted {
+                        let rho = self.ir_corr_matrix.correlation(idx_i, idx_j);
+                        sum += rho * (ws_i * cf) * (ws_j * cf);
+                    }
+                }
+                sum.max(0.0).sqrt()
+            })
             .collect();
 
-        // Single currency: no cross-currency aggregation needed
         if k_values.len() <= 1 {
             return k_values.first().copied().unwrap_or(0.0);
         }
 
-        // Aggregate across currencies with inter-currency correlation gamma
         let gamma = self.params.ir_inter_currency_correlation;
         let mut total = 0.0;
         for (i, k_i) in k_values.iter().enumerate() {
@@ -620,16 +651,23 @@ impl SimmCalculator {
 
     /// Calculate credit qualifying delta margin with bucket-level aggregation.
     ///
-    /// Follows the ISDA SIMM v2.6 two-level aggregation for credit qualifying:
+    /// Follows the ISDA SIMM v2.6 §3.B two-level aggregation for credit
+    /// qualifying:
     ///
-    /// 1. **Intra-bucket**: Group sensitivities by sector. Within each bucket,
-    ///    apply the sector risk weight, then compute
-    ///    `K_b = sqrt(sum_i sum_j rho * WS_i * WS_j)` using the intra-bucket
-    ///    name correlation.
-    /// 2. **Concentration**: Apply per-bucket concentration factors when
-    ///    net weighted sensitivity exceeds the bucket threshold.
-    /// 3. **Inter-bucket**: Aggregate across buckets using
-    ///    `K = sqrt(sum_b1 sum_b2 gamma(b1,b2) * S_b1 * S_b2)`.
+    /// 1. **Weighting + concentration**: For each bucket `b`, compute the
+    ///    bucket-level concentration factor `CR_b` from the net weighted
+    ///    sensitivity. Each WS is then scaled by `CR_b` (uniform within
+    ///    the bucket, matching the simplified SIMM convention of a single
+    ///    concentration factor per bucket).
+    /// 2. **Intra-bucket**:
+    ///    `K_b = sqrt(sum_i sum_j rho * (CR_b * WS_i) * (CR_b * WS_j))`.
+    /// 3. **Net weighted sum (capped)**:
+    ///    `S_b = max(-K_b, min(K_b, sum_i CR_b * WS_i))`.
+    /// 4. **Inter-bucket**:
+    ///    `K = sqrt(sum_b K_b^2 + sum_{b != c} gamma_bc * S_b * S_c)`.
+    ///
+    /// The diagonal of the inter-bucket sum contributes `K_b²` (not
+    /// `S_b²`), consistent with the SIMM formula.
     ///
     /// # Arguments
     ///
@@ -652,33 +690,43 @@ impl SimmCalculator {
 
         let rho = self.params.cq_intra_bucket_correlation;
 
-        // Compute K_b and S_b for each bucket.
+        // Compute K_b and S_b (capped) for each bucket.
         let mut bucket_results: Vec<(SimmCreditSector, f64, f64)> = Vec::new();
         for (sector, weighted_sensitivities) in &by_sector {
-            // K_b = sqrt(sum_i sum_j rho_ij * WS_i * WS_j)
+            // Per-bucket concentration factor on the raw net weighted sum.
+            let raw_net: f64 = weighted_sensitivities.iter().sum();
+            let cf = self.params.cq_concentration_factor(*sector, raw_net);
+
+            // K_b = sqrt(sum_i sum_j rho_ij * (CR*WS_i) * (CR*WS_j))
+            //     = |CR| * sqrt(sum_i sum_j rho_ij * WS_i * WS_j)
+            // Build it from the scaled WS directly for clarity.
+            let scaled: Vec<f64> = weighted_sensitivities.iter().map(|ws| ws * cf).collect();
             let mut k_squared = 0.0;
-            for ws_i in weighted_sensitivities {
-                for ws_j in weighted_sensitivities {
-                    let corr = if std::ptr::eq(ws_i, ws_j) { 1.0 } else { rho };
+            for (i, ws_i) in scaled.iter().enumerate() {
+                for (j, ws_j) in scaled.iter().enumerate() {
+                    let corr = if i == j { 1.0 } else { rho };
                     k_squared += corr * ws_i * ws_j;
                 }
             }
             let k_b = k_squared.max(0.0).sqrt();
 
-            // Apply concentration factor.
-            let net_ws: f64 = weighted_sensitivities.iter().sum();
-            let cf = self.params.cq_concentration_factor(*sector, net_ws);
-            let s_b = k_b * cf;
+            // S_b = max(-K_b, min(K_b, sum CR*WS))
+            let net_scaled: f64 = scaled.iter().sum();
+            let s_b = net_scaled.clamp(-k_b, k_b);
 
             bucket_results.push((*sector, k_b, s_b));
         }
 
-        // Inter-bucket aggregation: K = sqrt(sum_b1 sum_b2 gamma * S_b1 * S_b2)
+        // Inter-bucket aggregation:
+        //   K = sqrt(sum_b K_b^2 + sum_{b != c} gamma_bc * S_b * S_c)
         let mut total = 0.0;
-        for &(sector_i, _k_i, s_i) in &bucket_results {
-            for &(sector_j, _k_j, s_j) in &bucket_results {
-                let gamma = self.params.cq_inter_bucket_correlation(sector_i, sector_j);
-                total += gamma * s_i * s_j;
+        for (i, &(sector_i, k_i, s_i)) in bucket_results.iter().enumerate() {
+            total += k_i * k_i;
+            for (j, &(sector_j, _k_j, s_j)) in bucket_results.iter().enumerate() {
+                if i != j {
+                    let gamma = self.params.cq_inter_bucket_correlation(sector_i, sector_j);
+                    total += gamma * s_i * s_j;
+                }
             }
         }
         total.max(0.0).sqrt()
@@ -969,10 +1017,20 @@ impl SimmCalculator {
             }
         }
 
-        // FX Delta
-        let total_fx = sensitivities.fx_delta.values().sum::<f64>();
-        if total_fx.abs() > 0.0 {
-            let fx_margin = self.calculate_fx_delta(total_fx);
+        // FX Delta. Apply the FX concentration factor per-currency before
+        // summing — SIMM v2.6 concentration is keyed on the FX risk
+        // factor, not the pooled net FX delta, so the penalty for a
+        // large single-currency position must not be diluted by offsets
+        // against other currencies.
+        if !sensitivities.fx_delta.is_empty() {
+            let fx_w = self.params.fx_delta_weight;
+            let mut net_scaled = 0.0;
+            for delta in sensitivities.fx_delta.values() {
+                let ws = delta * fx_w;
+                let cf = self.concentration_factor(SimmRiskClass::Fx, ws);
+                net_scaled += ws * cf;
+            }
+            let fx_margin = net_scaled.abs();
             if fx_margin > 0.0 {
                 breakdown.insert("FX_Delta".to_string(), Money::new(fx_margin, currency));
                 risk_class_margins.insert(SimmRiskClass::Fx, fx_margin);
@@ -1001,16 +1059,19 @@ impl SimmCalculator {
             }
         }
 
-        // Apply concentration factors per risk class.
-        // SIMM scales the risk-class margin by sqrt(|net_sensitivity| / threshold)
-        // when the net sensitivity exceeds the concentration threshold.
+        // Apply concentration factors for the remaining risk classes.
         //
-        // When the bucketed credit delta path is used, per-bucket concentration
-        // is already applied inside `calculate_credit_delta_bucketed`, so the
-        // CreditQualifying risk class is skipped here to avoid double-counting.
+        // - InterestRate: per-currency CF already applied inside
+        //   `calculate_ir_delta_multi_currency`.
+        // - Fx: per-currency CF already applied in the FX block above.
+        // - CreditQualifying (bucketed path): per-bucket CF already
+        //   applied inside `calculate_credit_delta_bucketed`.
+        //
+        // For the legacy-scalar credit paths and for Equity / Commodity
+        // (where the inputs are pooled by construction), the pool-level
+        // CF is the best available approximation.
         let uses_bucketed_cq = !sensitivities.credit_qualifying_delta_bucketed.is_empty();
         let net_sensitivities: HashMap<SimmRiskClass, f64> = [
-            (SimmRiskClass::InterestRate, sensitivities.total_ir_delta()),
             (
                 SimmRiskClass::CreditQualifying,
                 sensitivities.credit_qualifying_delta.values().sum::<f64>(),
@@ -1024,10 +1085,6 @@ impl SimmCalculator {
             ),
             (SimmRiskClass::Equity, sensitivities.total_equity_delta()),
             (
-                SimmRiskClass::Fx,
-                sensitivities.fx_delta.values().sum::<f64>(),
-            ),
-            (
                 SimmRiskClass::Commodity,
                 sensitivities.commodity_delta.values().sum::<f64>(),
             ),
@@ -1036,11 +1093,14 @@ impl SimmCalculator {
         .collect();
 
         for (rc, margin) in risk_class_margins.iter_mut() {
-            // Skip CQ when bucketed path already applied concentration.
-            if uses_bucketed_cq && *rc == SimmRiskClass::CreditQualifying {
-                continue;
+            match *rc {
+                SimmRiskClass::InterestRate | SimmRiskClass::Fx => continue,
+                SimmRiskClass::CreditQualifying if uses_bucketed_cq => continue,
+                _ => {}
             }
-            let net = net_sensitivities.get(rc).copied().unwrap_or(0.0);
+            let Some(&net) = net_sensitivities.get(rc) else {
+                continue;
+            };
             let cf = self.concentration_factor(*rc, net);
             if cf > 1.0 {
                 *margin *= cf;

@@ -55,9 +55,8 @@ impl GarchModel for Garch11 {
 
         for t in 1..returns.len() {
             let eps_prev = returns[t - 1] - mu;
-            sigma2_out[t] = params.omega
-                + params.alpha * eps_prev * eps_prev
-                + params.beta * sigma2_out[t - 1];
+            sigma2_out[t] =
+                params.omega + params.alpha * eps_prev * eps_prev + params.beta * sigma2_out[t - 1];
             sigma2_out[t] = sigma2_out[t].max(1e-20);
         }
     }

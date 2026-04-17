@@ -19,8 +19,9 @@
 //! bucket should perform the systematic/idiosyncratic split at the
 //! entity level upstream and pass one hedging-set-per-entity here.
 
+use super::maturity_factor::{maturity_factor_margined, maturity_factor_unmargined};
 use super::params::{supervisory_correlation, supervisory_factor};
-use super::types::{SaCcrAssetClass, SaCcrTrade};
+use super::types::{SaCcrAssetClass, SaCcrNettingSetConfig, SaCcrTrade};
 use finstack_core::HashMap;
 
 /// IR supervisory correlation continuous-compounding rate per CRE52.54.
@@ -31,15 +32,39 @@ const IR_SUPERVISORY_DISCOUNT_RATE: f64 = 0.05;
 const IR_ADJACENT_BUCKET_CORR: f64 = 1.4;
 const IR_NONADJACENT_BUCKET_CORR: f64 = 0.6;
 
+/// Per-trade maturity factor.
+///
+/// * Margined netting sets: all trades share `MF = 1.5 * sqrt(MPOR/250)`
+///   per CRE52.52.
+/// * Unmargined: each trade has its own `MF_i = sqrt(min(M_i, 1y)/1y)`
+///   per CRE52.48, where `M_i` is the remaining maturity of trade i
+///   (with a 10-business-day floor).
+///
+/// Aggregating via a single netting-set-level average MF (the previous
+/// behavior) is not SA-CCR-compliant for mixed-tenor unmargined books.
+fn trade_maturity_factor(config: &SaCcrNettingSetConfig, trade: &SaCcrTrade) -> f64 {
+    if config.is_margined {
+        maturity_factor_margined(config.mpor_days)
+    } else {
+        let days = (trade.end_date - trade.start_date).whole_days().max(0) as f64;
+        let m_years = days / 365.0;
+        maturity_factor_unmargined(m_years)
+    }
+}
+
 /// Compute the add-on for a single asset class.
+///
+/// Per-trade maturity factors are derived from `config` so unmargined
+/// netting sets with mixed maturities are handled correctly (see
+/// [`trade_maturity_factor`]).
 pub fn asset_class_add_on(
     asset_class: SaCcrAssetClass,
     trades: &[SaCcrTrade],
-    maturity_factor: f64,
+    config: &SaCcrNettingSetConfig,
 ) -> f64 {
     match asset_class {
-        SaCcrAssetClass::InterestRate => ir_add_on(trades, maturity_factor),
-        other => non_ir_add_on(other, trades, maturity_factor),
+        SaCcrAssetClass::InterestRate => ir_add_on(trades, config),
+        other => non_ir_add_on(other, trades, config),
     }
 }
 
@@ -55,7 +80,7 @@ pub fn asset_class_add_on(
 /// * Per-hedging-set effective notional via CRE52.54:
 ///   `EN_HS = sqrt(D1^2 + D2^2 + D3^2 + 1.4*D1*D2 + 1.4*D2*D3 + 0.6*D1*D3)`
 /// * Across hedging sets (currencies): simple absolute sum.
-fn ir_add_on(trades: &[SaCcrTrade], maturity_factor: f64) -> f64 {
+fn ir_add_on(trades: &[SaCcrTrade], config: &SaCcrNettingSetConfig) -> f64 {
     let sf = supervisory_factor(SaCcrAssetClass::InterestRate);
 
     // (D1, D2, D3) per hedging set.
@@ -66,10 +91,10 @@ fn ir_add_on(trades: &[SaCcrTrade], maturity_factor: f64) -> f64 {
     {
         // Use trade duration as the end-offset; start-offset defaults to 0
         // (trade considered in-flight as of the calculation date).
-        let end_years =
-            ((trade.end_date - trade.start_date).whole_days().max(0) as f64) / 365.0;
+        let end_years = ((trade.end_date - trade.start_date).whole_days().max(0) as f64) / 365.0;
         let sd = supervisory_duration(0.0, end_years);
-        let d_i = trade.supervisory_delta * trade.notional.abs() * sd * maturity_factor;
+        let mf = trade_maturity_factor(config, trade);
+        let d_i = trade.supervisory_delta * trade.notional.abs() * sd * mf;
 
         let bucket = if end_years < 1.0 {
             0
@@ -122,14 +147,15 @@ pub fn supervisory_duration(start_years: f64, end_years: f64) -> f64 {
 fn non_ir_add_on(
     asset_class: SaCcrAssetClass,
     trades: &[SaCcrTrade],
-    maturity_factor: f64,
+    config: &SaCcrNettingSetConfig,
 ) -> f64 {
     let sf = supervisory_factor(asset_class);
     let rho = supervisory_correlation(asset_class);
 
     let mut by_hedging_set: HashMap<String, f64> = HashMap::default();
     for trade in trades.iter().filter(|t| t.asset_class == asset_class) {
-        let d_i = trade.supervisory_delta * trade.notional.abs() * maturity_factor;
+        let mf = trade_maturity_factor(config, trade);
+        let d_i = trade.supervisory_delta * trade.notional.abs() * mf;
         *by_hedging_set
             .entry(trade.hedging_set.clone())
             .or_insert(0.0) += d_i;
@@ -187,5 +213,95 @@ mod tests {
         // Defensive: if caller supplies end < start, clamp to 0.
         let sd = supervisory_duration(5.0, 1.0);
         assert!(sd >= 0.0);
+    }
+
+    mod per_trade_mf {
+        use super::*;
+        use crate::regulatory::sa_ccr::types::{SaCcrNettingSetConfig, SaCcrTrade};
+        use crate::types::NettingSetId;
+        use finstack_core::dates::Date;
+
+        fn d(y: i32, m: u8, day: u8) -> Date {
+            Date::from_calendar_date(y, time::Month::try_from(m).expect("valid"), day)
+                .expect("valid")
+        }
+
+        fn fx_trade(end: Date, notional: f64) -> SaCcrTrade {
+            SaCcrTrade {
+                trade_id: "T".into(),
+                asset_class: SaCcrAssetClass::ForeignExchange,
+                notional,
+                start_date: d(2025, 1, 15),
+                end_date: end,
+                underlier: "EURUSD".into(),
+                hedging_set: "EURUSD".into(),
+                direction: 1.0,
+                supervisory_delta: 1.0,
+                mtm: 0.0,
+                is_option: false,
+                option_type: None,
+            }
+        }
+
+        /// Unmargined SA-CCR uses per-trade MF. A 6M trade must get a
+        /// smaller MF than a 1Y trade, so adding a 6M trade alongside
+        /// a 1Y trade should grow the add-on by strictly less than
+        /// adding a second 1Y trade.
+        #[test]
+        fn unmargined_per_trade_mf_shrinks_short_tenor_contribution() {
+            let cfg =
+                SaCcrNettingSetConfig::unmargined(NettingSetId::bilateral("BANK_A", "CSA"), 0.0);
+
+            let one_year = d(2026, 1, 15);
+            let six_months = d(2025, 7, 15);
+
+            let trade_1y_a = fx_trade(one_year, 100_000_000.0);
+            let trade_1y_b = fx_trade(one_year, 100_000_000.0);
+            let trade_6m = fx_trade(six_months, 100_000_000.0);
+
+            let ao_two_one_year = asset_class_add_on(
+                SaCcrAssetClass::ForeignExchange,
+                &[trade_1y_a.clone(), trade_1y_b],
+                &cfg,
+            );
+            let ao_one_year_plus_six_month = asset_class_add_on(
+                SaCcrAssetClass::ForeignExchange,
+                &[trade_1y_a, trade_6m],
+                &cfg,
+            );
+
+            assert!(
+                ao_one_year_plus_six_month < ao_two_one_year,
+                "mixed-tenor add-on must reflect per-trade MF: \
+                 1y+6m={ao_one_year_plus_six_month} vs 1y+1y={ao_two_one_year}"
+            );
+        }
+
+        /// Margined netting sets must apply a single MPOR-based MF to
+        /// every trade regardless of remaining maturity, so the
+        /// per-trade MF must collapse to the shared MPOR formula.
+        #[test]
+        fn margined_uses_shared_mpor_mf() {
+            let cfg = SaCcrNettingSetConfig::margined(
+                NettingSetId::bilateral("BANK_A", "CSA"),
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                10,
+            );
+
+            let t_short = fx_trade(d(2025, 3, 15), 50_000_000.0);
+            let t_long = fx_trade(d(2030, 1, 15), 50_000_000.0);
+
+            let mf_short = super::trade_maturity_factor(&cfg, &t_short);
+            let mf_long = super::trade_maturity_factor(&cfg, &t_long);
+
+            let expected = 1.5 * (10.0f64 / 250.0).sqrt();
+            assert!(
+                (mf_short - expected).abs() < 1e-12 && (mf_long - expected).abs() < 1e-12,
+                "margined MF must be constant = {expected}, got short={mf_short} long={mf_long}"
+            );
+        }
     }
 }

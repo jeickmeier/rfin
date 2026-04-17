@@ -148,6 +148,9 @@ fn compute_cva_internal(
             eff_epe_time_integral += effective_epe_running * dt;
         }
 
+        // Deterministic single-scenario engine: the exposure
+        // distribution is a point mass at max(V(t), 0), so PFE at any
+        // quantile equals EPE. See doc on `XvaResult::pfe_profile`.
         let pfe_t = epe_t;
         max_pfe = max_pfe.max(pfe_t);
 

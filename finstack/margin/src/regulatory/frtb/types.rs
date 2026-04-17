@@ -238,11 +238,23 @@ pub struct FrtbSensitivities {
     pub base_currency: Currency,
 
     // -- GIRR --
-    /// GIRR delta by (currency, tenor). Units: currency per 1bp.
+    /// GIRR delta by (currency, tenor).
+    ///
+    /// Units: base-currency P&L per **1 percentage-point** (1pp) parallel
+    /// shift of the yield curve — i.e. `100 × DV01`. This matches the
+    /// FRTB risk-weight convention (`GIRR_DELTA_RISK_WEIGHTS` are stated
+    /// in percent, e.g. `1.7` for 1.7%). See the module-level docs on
+    /// sensitivity conventions.
     pub girr_delta: HashMap<(Currency, String), f64>,
     /// GIRR inflation delta by currency.
+    ///
+    /// Units: base-currency P&L per 1pp shift in inflation (same
+    /// convention as [`Self::girr_delta`]).
     pub girr_inflation_delta: HashMap<Currency, f64>,
     /// GIRR cross-currency basis delta by currency.
+    ///
+    /// Units: base-currency P&L per 1pp shift in the cross-currency
+    /// basis (same convention as [`Self::girr_delta`]).
     pub girr_xccy_basis_delta: HashMap<Currency, f64>,
     /// GIRR vega by (currency, option_maturity, underlying_tenor).
     pub girr_vega: HashMap<(Currency, String, String), f64>,

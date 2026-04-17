@@ -202,7 +202,8 @@ fn bucket_k_and_s(pairs: &[(f64, f64)], intra_rho: f64) -> (f64, f64) {
         return (0.0, 0.0);
     }
 
-    let (k_plus, s_plus_raw) = one_side_k(&pairs.iter().map(|p| p.0).collect::<Vec<_>>(), intra_rho);
+    let (k_plus, s_plus_raw) =
+        one_side_k(&pairs.iter().map(|p| p.0).collect::<Vec<_>>(), intra_rho);
     let (k_minus, s_minus_raw) =
         one_side_k(&pairs.iter().map(|p| p.1).collect::<Vec<_>>(), intra_rho);
 
@@ -313,6 +314,25 @@ mod tests {
         assert!(
             k.abs() < 1e-12,
             "both-negative CVR+ should contribute 0 to K_b, got {k}"
+        );
+    }
+
+    #[test]
+    fn bucket_returns_sign_of_winning_direction() {
+        // Two factors; CVR+ = (8, 6) all positive loss; CVR- = (-1, -2)
+        // (gains on down shock). K+ dominates, S_b must be the positive
+        // sum (14), not the down-side sum (-3). This is what the
+        // inter-bucket psi-blocking relies on.
+        let (k, s) = bucket_k_and_s(&[(8.0, -1.0), (6.0, -2.0)], 0.5);
+        let k_plus_expected = (8.0f64.powi(2) + 6.0_f64.powi(2) + 2.0 * 0.5 * 8.0 * 6.0).sqrt();
+        assert!(
+            (k - k_plus_expected).abs() < 1e-10,
+            "K_b should equal K+ = {k_plus_expected}, got {k}"
+        );
+        // S+ raw = 14, K = ~13.4 so capped = K.
+        assert!(
+            s > 0.0 && (s - k).abs() < 1e-12,
+            "S_b should be the up-side sum capped at K_b, got {s}"
         );
     }
 

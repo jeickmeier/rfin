@@ -35,19 +35,65 @@ fn girr_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
         return 0.0;
     }
 
-    // Group by currency bucket.
-    let mut by_currency: HashMap<_, Vec<f64>> = HashMap::default();
-    for ((ccy, _, _), vega) in &sens.girr_vega {
+    // Group by currency bucket, carrying option maturity and underlying
+    // tenor so intra-bucket correlation can reflect both dimensions per
+    // MAR21.89.
+    // Entry: (ws, option_maturity_years, underlying_tenor_years)
+    type VegaEntry = (f64, f64, f64);
+    let mut by_currency: HashMap<_, Vec<VegaEntry>> = HashMap::default();
+    for ((ccy, opt_mat, und_tenor), vega) in &sens.girr_vega {
         let ws = vega * girr::GIRR_VEGA_RISK_WEIGHT;
-        by_currency.entry(*ccy).or_default().push(ws);
+        // Default to 5Y if the label is unrecognised — matches the GIRR
+        // delta fallback and is dominated by the exp-decay elsewhere.
+        let t_opt = girr::tenor_to_years(opt_mat).unwrap_or(5.0);
+        let t_und = girr::tenor_to_years(und_tenor).unwrap_or(5.0);
+        by_currency
+            .entry(*ccy)
+            .or_default()
+            .push((ws, t_opt, t_und));
     }
 
-    // Intra-bucket: use a uniform vega correlation.
-    let intra_rho = scenario.scale_correlation(0.96);
     let inter_gamma = scenario.scale_correlation(girr::GIRR_INTER_BUCKET_CORRELATION);
 
-    let bucket_results = intra_bucket_aggregate(&by_currency, intra_rho);
+    // Intra-bucket aggregation with MAR21.89 correlation
+    //   rho = min(rho_opt_mat * rho_under_mat, 1)
+    //   rho_opt_mat   = exp(-alpha * |T_k - T_l| / min(T_k, T_l)), alpha=0.01
+    //   rho_under_mat = exp(-alpha * |U_k - U_l| / min(U_k, U_l)), alpha=0.03
+    // (option-maturity alpha uses the standard Basel value; underlying-
+    // tenor alpha reuses the GIRR delta tenor formula.)
+    let mut bucket_results: Vec<(f64, f64)> = Vec::new();
+    for entries in by_currency.values() {
+        let mut k_squared = 0.0;
+        for (i, &(ws_i, t_opt_i, t_und_i)) in entries.iter().enumerate() {
+            for (j, &(ws_j, t_opt_j, t_und_j)) in entries.iter().enumerate() {
+                let base_rho = if i == j {
+                    1.0
+                } else {
+                    let rho_opt = exp_decay_rho(t_opt_i, t_opt_j, 0.01);
+                    let rho_und = girr::girr_tenor_correlation(t_und_i, t_und_j);
+                    (rho_opt * rho_und).min(1.0)
+                };
+                let rho = scenario.scale_correlation(base_rho);
+                k_squared += rho * ws_i * ws_j;
+            }
+        }
+        let k_b = k_squared.max(0.0).sqrt();
+        let s_b: f64 = entries.iter().map(|(ws, _, _)| ws).sum();
+        bucket_results.push((k_b, s_b));
+    }
+
     inter_bucket_agg(&bucket_results, inter_gamma)
+}
+
+/// Exponential-decay correlation between two tenors / maturities.
+///
+/// `rho = exp(-alpha * |T_i - T_j| / min(T_i, T_j))` — the canonical
+/// Basel tenor correlation form used across GIRR. `min(T_i, T_j)` is
+/// floored at a small positive value to avoid division by zero for
+/// zero-tenor cases.
+fn exp_decay_rho(t_i: f64, t_j: f64, alpha: f64) -> f64 {
+    let min_t = t_i.min(t_j).max(1.0 / 365.0);
+    (-alpha * (t_i - t_j).abs() / min_t).exp()
 }
 
 // ---------------------------------------------------------------------------
@@ -184,19 +230,6 @@ fn generic_bucketed_vega(
     inter_bucket_agg(&bucket_results, scaled_inter)
 }
 
-/// Intra-bucket aggregation for currency-keyed data.
-fn intra_bucket_aggregate<K: Eq + std::hash::Hash>(
-    by_bucket: &HashMap<K, Vec<f64>>,
-    intra_rho: f64,
-) -> Vec<(f64, f64)> {
-    let mut results = Vec::new();
-    for entries in by_bucket.values() {
-        let (k_b, s_b) = aggregate_within_bucket(entries, intra_rho);
-        results.push((k_b, s_b));
-    }
-    results
-}
-
 /// Intra-bucket aggregation for u8-keyed data.
 fn intra_bucket_aggregate_u8(by_bucket: &HashMap<u8, Vec<f64>>, intra_rho: f64) -> Vec<(f64, f64)> {
     let mut results = Vec::new();
@@ -217,20 +250,42 @@ fn aggregate_within_bucket(entries: &[f64], intra_rho: f64) -> (f64, f64) {
     }
     let k_b = k_squared.max(0.0).sqrt();
     let s_b: f64 = entries.iter().sum();
-    let s_b_capped = s_b.max(-k_b).min(k_b);
-    (k_b, s_b_capped)
+    (k_b, s_b)
 }
 
-/// Inter-bucket aggregation.
+/// Inter-bucket aggregation per MAR21.4-21.6.
+///
+/// Tries the standard quadratic form with uncapped `S_b = sum WS` first.
+/// Only if it comes out negative does the alternative formula (MAR21.6)
+/// fire, in which every `S_b` is capped to `[-K_b, K_b]`.
 fn inter_bucket_agg(bucket_results: &[(f64, f64)], gamma: f64) -> f64 {
-    let mut total = 0.0;
-    for (i, &(k_i, s_i)) in bucket_results.iter().enumerate() {
-        total += k_i * k_i;
-        for (j, &(_k_j, s_j)) in bucket_results.iter().enumerate() {
-            if i != j {
-                total += gamma * s_i * s_j;
+    let compute = |cap: bool| -> f64 {
+        let mut total = 0.0;
+        for (i, &(k_i, s_i_raw)) in bucket_results.iter().enumerate() {
+            total += k_i * k_i;
+            let s_i = if cap {
+                s_i_raw.clamp(-k_i, k_i)
+            } else {
+                s_i_raw
+            };
+            for (j, &(k_j, s_j_raw)) in bucket_results.iter().enumerate() {
+                if i != j {
+                    let s_j = if cap {
+                        s_j_raw.clamp(-k_j, k_j)
+                    } else {
+                        s_j_raw
+                    };
+                    total += gamma * s_i * s_j;
+                }
             }
         }
+        total
+    };
+
+    let standard = compute(false);
+    if standard >= 0.0 {
+        standard.sqrt()
+    } else {
+        compute(true).max(0.0).sqrt()
     }
-    total.max(0.0).sqrt()
 }

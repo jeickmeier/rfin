@@ -235,16 +235,25 @@ pub struct XvaResult {
     /// at each time point (own-default exposure).
     pub ene_profile: Vec<(f64, f64)>,
 
-    /// Potential Future Exposure at 97.5% quantile: `(time, PFE(t))`.
+    /// Potential Future Exposure profile: `(time, PFE(t))`.
     ///
-    /// For the simplified deterministic model, PFE equals EPE since
-    /// there is a single scenario. In a full Monte Carlo implementation,
-    /// this would represent the 97.5th percentile of the exposure distribution.
+    /// **IMPORTANT** — the deterministic CVA engine in
+    /// [`compute_cva`](super::cva::compute_cva) has a single path, so
+    /// the distribution of exposures collapses to a point mass at
+    /// `max(V(t), 0)`. In that degenerate case every quantile (and the
+    /// mean) equals `EPE(t)`, and this field holds the EPE path, not a
+    /// tail quantile. The name is retained so downstream systems keep
+    /// their column bindings; use the Monte Carlo engine
+    /// ([`StochasticExposureProfile`]) when a true 97.5%-quantile PFE
+    /// is required for limit monitoring.
     pub pfe_profile: Vec<(f64, f64)>,
 
-    /// Maximum PFE across the profile.
+    /// Maximum PFE across the profile (`max_t PFE(t)`).
     ///
-    /// max_t PFE(t) — used for credit limit monitoring.
+    /// In the deterministic engine this equals `max_t EPE(t)` by
+    /// construction (see [`Self::pfe_profile`]). Used for coarse credit
+    /// limit monitoring where a Monte Carlo tail quantile is not
+    /// available.
     pub max_pfe: f64,
 
     /// Effective EPE profile: `(time, Effective_EPE(t))`.

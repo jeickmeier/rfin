@@ -355,7 +355,11 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
     let sample_mean: f64 = returns.iter().sum::<f64>() / n as f64;
 
     let sample_var = {
-        returns.iter().map(|r| (r - sample_mean).powi(2)).sum::<f64>() / (n as f64 - 1.0)
+        returns
+            .iter()
+            .map(|r| (r - sample_mean).powi(2))
+            .sum::<f64>()
+            / (n as f64 - 1.0)
     };
 
     if sample_var < 1e-20 || !sample_var.is_finite() {
@@ -452,8 +456,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
         if !stationarity_check_clone(x) {
             return 1e18;
         }
-        let params = GarchParams::from_vec(x, dist, has_gamma, model.family())
-            .with_mean(sample_mean);
+        let params =
+            GarchParams::from_vec(x, dist, has_gamma, model.family()).with_mean(sample_mean);
         let ll = model.log_likelihood(returns, &params, dist);
         if ll.is_finite() {
             -ll
@@ -466,8 +470,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
     let opt_bounds: super::optimizer::Bounds = bounds.to_vec();
     let result = optimizer.minimize(neg_ll, &best_params_vec, &opt_bounds);
 
-    let final_params = GarchParams::from_vec(&result.x, dist, has_gamma, model.family())
-        .with_mean(sample_mean);
+    let final_params =
+        GarchParams::from_vec(&result.x, dist, has_gamma, model.family()).with_mean(sample_mean);
     let final_ll = -result.f_val;
 
     // Compute conditional variances and standardized residuals.

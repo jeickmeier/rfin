@@ -41,23 +41,25 @@ impl SaCcrEngine {
         let pfe_value = mult * add_on_agg;
         let ead = self.alpha * (rc + pfe_value);
 
+        // `maturity_factor` on `EadResult` is a single summary number for
+        // reporting. For margined sets it is the (per-trade shared)
+        // MPOR MF. For unmargined sets the true per-trade MFs are
+        // applied inside the add-on; this is a tenor-weighted average
+        // for reporting only and is not used in the EAD arithmetic.
         let mf = if config.is_margined {
             maturity_factor_margined(config.mpor_days)
+        } else if trades.is_empty() {
+            maturity_factor_unmargined(10.0 / 250.0)
         } else {
-            // Representative MF.
-            if trades.is_empty() {
-                maturity_factor_unmargined(10.0 / 250.0)
-            } else {
-                let avg_maturity: f64 = trades
-                    .iter()
-                    .map(|t| {
-                        let days = (t.end_date - t.start_date).whole_days().max(0) as f64;
-                        days / 365.0
-                    })
-                    .sum::<f64>()
-                    / trades.len() as f64;
-                maturity_factor_unmargined(avg_maturity)
-            }
+            let avg_maturity: f64 = trades
+                .iter()
+                .map(|t| {
+                    let days = (t.end_date - t.start_date).whole_days().max(0) as f64;
+                    days / 365.0
+                })
+                .sum::<f64>()
+                / trades.len() as f64;
+            maturity_factor_unmargined(avg_maturity)
         };
 
         Ok(EadResult {
@@ -278,10 +280,10 @@ mod tests {
         let config_with_nica = margined_config(5_000_000.0, 0.0, 500_000.0, 3_000_000.0);
 
         let result_no = engine
-            .calculate_ead(&config_no_nica, &[trade.clone()])
+            .calculate_ead(&config_no_nica, std::slice::from_ref(&trade))
             .expect("no NICA");
         let result_with = engine
-            .calculate_ead(&config_with_nica, &[trade])
+            .calculate_ead(&config_with_nica, std::slice::from_ref(&trade))
             .expect("with NICA");
 
         // Adding NICA reduces V - C (more negative), which pushes the

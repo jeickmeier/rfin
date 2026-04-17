@@ -2,7 +2,13 @@
 //!
 //! Risk weights and tenor correlations per BCBS d457.
 
-/// GIRR delta risk weights by tenor bucket (in basis points).
+/// GIRR delta risk weights by tenor bucket (MAR21.45).
+///
+/// Values are expressed in **percent of notional** (e.g. `1.7` means
+/// `1.7%` = `170 bp`). They multiply a delta stated as P&L per 1
+/// percentage-point yield shift — see
+/// [`FrtbSensitivities::girr_delta`](crate::regulatory::frtb::types::FrtbSensitivities::girr_delta)
+/// for the input-unit convention.
 ///
 /// Tenor labels: 0.25Y, 0.5Y, 1Y, 2Y, 3Y, 5Y, 10Y, 15Y, 20Y, 30Y.
 pub const GIRR_DELTA_RISK_WEIGHTS: &[(&str, f64)] = &[

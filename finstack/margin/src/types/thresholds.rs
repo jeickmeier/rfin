@@ -101,6 +101,48 @@ impl VmParameters {
         }
     }
 
+    /// Compute the required credit support amount **before** netting
+    /// against currently posted collateral, rounding, and the MTA cutoff.
+    ///
+    /// # ISDA CSA Formula (symmetric, bilateral)
+    ///
+    /// ```text
+    /// Excess              = sign(Exposure) × max(0, |Exposure| − Threshold)
+    /// Required Support    = Excess + Independent_Amount
+    /// ```
+    ///
+    /// This is the single source of truth used by both
+    /// [`Self::calculate_margin_call`] and
+    /// [`crate::calculators::VmCalculator::calculate`] to avoid silent
+    /// formula drift between the net-exposure reporting field and the
+    /// margin-call amount.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] if `exposure.currency()`
+    /// does not match the threshold currency.
+    pub fn required_credit_support(&self, exposure: Money) -> Result<Money> {
+        if exposure.currency() != self.threshold.currency() {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM exposure currency mismatch: expected {}, got {}",
+                self.threshold.currency(),
+                exposure.currency()
+            )));
+        }
+        let currency = exposure.currency();
+        let exp = exposure.amount();
+        let threshold = self.threshold.amount();
+        let ia = self.independent_amount.amount();
+
+        let abs_excess = (exp.abs() - threshold).max(0.0);
+        let signed_excess = if abs_excess == 0.0 {
+            0.0
+        } else {
+            exp.signum() * abs_excess
+        };
+        Ok(Money::new(signed_excess + ia, currency))
+    }
+
     /// Calculate the credit support amount (margin to be delivered/returned).
     ///
     /// # ISDA CSA Formula
@@ -135,14 +177,6 @@ impl VmParameters {
         exposure: Money,
         current_collateral: Money,
     ) -> Result<Money> {
-        // Prevent silent currency mixing in release builds.
-        if exposure.currency() != self.threshold.currency() {
-            return Err(finstack_core::Error::Validation(format!(
-                "VM exposure currency mismatch: expected {}, got {}",
-                self.threshold.currency(),
-                exposure.currency()
-            )));
-        }
         if current_collateral.currency() != self.threshold.currency() {
             return Err(finstack_core::Error::Validation(format!(
                 "VM collateral currency mismatch: expected {}, got {}",
@@ -151,20 +185,9 @@ impl VmParameters {
             )));
         }
 
-        let currency = exposure.currency();
-
-        let exp = exposure.amount();
-        let threshold = self.threshold.amount();
-        let ia = self.independent_amount.amount();
-        let posted = current_collateral.amount();
-
-        let abs_excess = (exp.abs() - threshold).max(0.0);
-        let signed_excess = if abs_excess == 0.0 {
-            0.0
-        } else {
-            exp.signum() * abs_excess
-        };
-        let credit_support_amount = signed_excess + ia - posted;
+        let required = self.required_credit_support(exposure)?;
+        let currency = required.currency();
+        let credit_support_amount = required.amount() - current_collateral.amount();
 
         // Round first; MTA applies to the transfer amount after rounding (CSA convention).
         let rounded = self.round_to_nearest(Money::new(credit_support_amount, currency));

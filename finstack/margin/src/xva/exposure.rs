@@ -984,7 +984,7 @@ mod tests {
         use crate::xva::types::StochasticExposureConfig;
         use finstack_monte_carlo::prelude::{ExactGbm, GbmProcess};
 
-        let process = GbmProcess::with_params(0.0, 0.0, 0.25).unwrap();
+        let process = GbmProcess::with_params(0.0, 0.0, 0.25).expect("valid GBM params");
         let discretization = ExactGbm::new();
         let xva_config = XvaConfig {
             time_grid: vec![0.5, 1.0],
@@ -1022,7 +1022,7 @@ mod tests {
         use crate::xva::types::StochasticExposureConfig;
         use finstack_monte_carlo::prelude::{ExactGbm, GbmProcess};
 
-        let process = GbmProcess::with_params(0.0, 0.0, 0.0).unwrap();
+        let process = GbmProcess::with_params(0.0, 0.0, 0.0).expect("valid GBM params");
         let discretization = ExactGbm::new();
         let xva_config = XvaConfig {
             time_grid: vec![0.25, 0.5, 1.0],

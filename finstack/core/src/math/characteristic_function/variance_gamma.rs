@@ -153,7 +153,8 @@ mod tests {
     #[test]
     fn new_rejects_martingale_violation() {
         // 1 - theta*nu - 0.5*sigma^2*nu = 1 - 0.8 - 0.5 = -0.3
-        let err = VarianceGammaCf::new(0.05, 0.0, 0.5, 4.0, 0.2).unwrap_err();
+        let err = VarianceGammaCf::new(0.05, 0.0, 0.5, 4.0, 0.2)
+            .expect_err("martingale violation should be rejected");
         assert!(
             err.contains("martingale"),
             "expected constraint error: {err}"

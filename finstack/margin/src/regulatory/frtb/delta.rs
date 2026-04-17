@@ -10,12 +10,17 @@ use finstack_core::HashMap;
 /// Compute the delta risk charge for a single risk class under one
 /// correlation scenario.
 ///
-/// Formula (two-level aggregation):
+/// Formula (two-level aggregation, MAR21.4-21.6):
 ///
 /// 1. Weighted sensitivity: `WS_k = s_k * RW_k`
 /// 2. Intra-bucket: `K_b = sqrt(max(sum_k sum_l rho_kl * WS_k * WS_l, 0))`
-/// 3. Inter-bucket: `Delta = sqrt(max(sum_b sum_c gamma_bc * S_b * S_c, 0))`
-///    where `S_b = sum_k(WS_k)` within bucket b, capped by `K_b`.
+/// 3. Inter-bucket standard formula: try
+///    `Delta² = sum_b K_b² + sum_{b != c} gamma_bc * S_b * S_c`
+///    with uncapped `S_b = sum_k WS_k`. If this is non-negative, take
+///    `Delta = sqrt(Delta²)`.
+/// 4. Alternative formula (MAR21.6): if `Delta² < 0`, replace every `S_b`
+///    with `S_b_capped = max(-K_b, min(S_b, K_b))` and recompute. The
+///    alternative value is guaranteed non-negative.
 pub fn delta_charge(
     risk_class: FrtbRiskClass,
     sensitivities: &FrtbSensitivities,
@@ -36,6 +41,24 @@ pub fn delta_charge(
 // GIRR delta
 // ---------------------------------------------------------------------------
 
+/// Internal tag discriminating the three kinds of GIRR risk factor.
+///
+/// Basel assigns separate risk weights and intra-bucket correlations to
+/// yield-curve tenors, inflation and cross-currency basis. Modelling
+/// them with a single `f64` tenor axis (and sentinel values for the
+/// special factors) is fragile; the tag makes the discriminator explicit
+/// inside the aggregation routine without altering the public
+/// [`FrtbSensitivities`] map shapes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum GirrFactor {
+    /// A specific yield-curve tenor, expressed in years.
+    Tenor(f64),
+    /// The currency's inflation risk factor.
+    Inflation,
+    /// The currency's cross-currency basis risk factor.
+    XccyBasis,
+}
+
 fn girr_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     if sens.girr_delta.is_empty()
         && sens.girr_inflation_delta.is_empty()
@@ -45,43 +68,49 @@ fn girr_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     }
 
     // Group by currency (bucket = currency for GIRR).
-    let mut by_currency: HashMap<_, Vec<(f64, f64)>> = HashMap::default();
+    let mut by_currency: HashMap<_, Vec<(f64, GirrFactor)>> = HashMap::default();
     for ((ccy, tenor), delta) in &sens.girr_delta {
         let rw = girr_risk_weight(tenor);
         let ws = delta * rw;
         let tenor_years = girr::tenor_to_years(tenor).unwrap_or(5.0);
-        by_currency.entry(*ccy).or_default().push((ws, tenor_years));
+        by_currency
+            .entry(*ccy)
+            .or_default()
+            .push((ws, GirrFactor::Tenor(tenor_years)));
     }
 
-    // Add inflation and xccy basis to their currency bucket.
     for (ccy, delta) in &sens.girr_inflation_delta {
         let ws = delta * girr::GIRR_INFLATION_RISK_WEIGHT;
-        by_currency.entry(*ccy).or_default().push((ws, -1.0)); // -1 = inflation sentinel
+        by_currency
+            .entry(*ccy)
+            .or_default()
+            .push((ws, GirrFactor::Inflation));
     }
     for (ccy, delta) in &sens.girr_xccy_basis_delta {
         let ws = delta * girr::GIRR_XCCY_BASIS_RISK_WEIGHT;
-        by_currency.entry(*ccy).or_default().push((ws, -2.0)); // -2 = xccy basis sentinel
+        by_currency
+            .entry(*ccy)
+            .or_default()
+            .push((ws, GirrFactor::XccyBasis));
     }
 
     // Intra-bucket aggregation per currency.
-    let mut bucket_results: Vec<(f64, f64)> = Vec::new(); // (K_b, S_b)
+    let mut bucket_results: Vec<(f64, f64)> = Vec::new(); // (K_b, S_b uncapped)
     for entries in by_currency.values() {
         let mut k_squared = 0.0;
-        for (i, &(ws_i, tenor_i)) in entries.iter().enumerate() {
-            for (j, &(ws_j, tenor_j)) in entries.iter().enumerate() {
+        for (i, &(ws_i, fac_i)) in entries.iter().enumerate() {
+            for (j, &(ws_j, fac_j)) in entries.iter().enumerate() {
                 let rho = if i == j {
                     1.0
                 } else {
-                    intra_girr_correlation(tenor_i, tenor_j, scenario)
+                    intra_girr_correlation(fac_i, fac_j, scenario)
                 };
                 k_squared += rho * ws_i * ws_j;
             }
         }
         let k_b = k_squared.max(0.0).sqrt();
         let s_b: f64 = entries.iter().map(|(ws, _)| ws).sum();
-        // Cap S_b by K_b.
-        let s_b_capped = s_b.max(-k_b).min(k_b);
-        bucket_results.push((k_b, s_b_capped));
+        bucket_results.push((k_b, s_b));
     }
 
     // Inter-bucket aggregation across currencies.
@@ -89,30 +118,19 @@ fn girr_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     inter_bucket_aggregate(&bucket_results, gamma)
 }
 
-/// Compute intra-GIRR correlation between two risk factors.
-fn intra_girr_correlation(tenor_i: f64, tenor_j: f64, scenario: CorrelationScenario) -> f64 {
-    // Special risk factors (inflation = -1, xccy basis = -2).
-    let base_rho = match (tenor_i < 0.0, tenor_j < 0.0) {
-        (true, true) => {
-            // Both are special: inflation-inflation = 1, inflation-xccy = 0, xccy-xccy = 1.
-            if (tenor_i - tenor_j).abs() < 0.5 {
-                1.0
-            } else {
-                girr::GIRR_XCCY_BASIS_CORRELATION
-            }
-        }
-        (true, false) | (false, true) => {
-            // One special, one tenor: use inflation or xccy basis correlation.
-            let special = if tenor_i < 0.0 { tenor_i } else { tenor_j };
-            if special > -1.5 {
-                // Inflation.
-                girr::GIRR_INFLATION_CORRELATION
-            } else {
-                // Xccy basis.
-                girr::GIRR_XCCY_BASIS_CORRELATION
-            }
-        }
-        (false, false) => girr::girr_tenor_correlation(tenor_i, tenor_j),
+/// Intra-GIRR correlation between two risk factors (MAR21.46-21.49).
+fn intra_girr_correlation(
+    fac_i: GirrFactor,
+    fac_j: GirrFactor,
+    scenario: CorrelationScenario,
+) -> f64 {
+    use GirrFactor::{Inflation, Tenor, XccyBasis};
+    let base_rho = match (fac_i, fac_j) {
+        (Tenor(t_i), Tenor(t_j)) => girr::girr_tenor_correlation(t_i, t_j),
+        (Inflation, Inflation) | (XccyBasis, XccyBasis) => 1.0,
+        (Inflation, Tenor(_)) | (Tenor(_), Inflation) => girr::GIRR_INFLATION_CORRELATION,
+        (XccyBasis, Tenor(_)) | (Tenor(_), XccyBasis) => girr::GIRR_XCCY_BASIS_CORRELATION,
+        (Inflation, XccyBasis) | (XccyBasis, Inflation) => girr::GIRR_XCCY_BASIS_CORRELATION,
     };
     scenario.scale_correlation(base_rho)
 }
@@ -257,7 +275,9 @@ fn girr_risk_weight(tenor: &str) -> f64 {
 
 /// Intra-bucket aggregation with uniform correlation.
 ///
-/// Returns `(K_b, S_b_capped)` for each bucket.
+/// Returns `(K_b, S_b)` for each bucket, where `S_b` is the uncapped sum
+/// of weighted sensitivities (capping is deferred to the inter-bucket
+/// fallback per MAR21.6).
 fn intra_bucket_aggregate_simple(
     by_bucket: &HashMap<u8, Vec<f64>>,
     intra_rho: f64,
@@ -273,26 +293,50 @@ fn intra_bucket_aggregate_simple(
         }
         let k_b = k_squared.max(0.0).sqrt();
         let s_b: f64 = entries.iter().sum();
-        let s_b_capped = s_b.max(-k_b).min(k_b);
-        results.push((k_b, s_b_capped));
+        results.push((k_b, s_b));
     }
     results
 }
 
-/// Inter-bucket aggregation.
+/// Inter-bucket aggregation following MAR21.4-21.6.
 ///
-/// `Delta = sqrt(max(sum_b K_b^2 + sum_{b != c} gamma * S_b * S_c, 0))`
+/// Tries the standard formula first with uncapped `S_b = sum WS`:
+/// `Delta² = sum_b K_b² + sum_{b != c} gamma * S_b * S_c`.
+///
+/// If `Delta²` is non-negative the result is `sqrt(Delta²)`. Otherwise
+/// the alternative formula is applied: every `S_b` is replaced by
+/// `S_b_capped = max(-K_b, min(S_b, K_b))` and the quadratic form is
+/// recomputed. The alternative form is provably non-negative.
 fn inter_bucket_aggregate(bucket_results: &[(f64, f64)], gamma: f64) -> f64 {
-    let mut total = 0.0;
-    for (i, &(k_i, s_i)) in bucket_results.iter().enumerate() {
-        total += k_i * k_i;
-        for (j, &(_k_j, s_j)) in bucket_results.iter().enumerate() {
-            if i != j {
-                total += gamma * s_i * s_j;
+    let compute = |cap: bool| -> f64 {
+        let mut total = 0.0;
+        for (i, &(k_i, s_i_raw)) in bucket_results.iter().enumerate() {
+            total += k_i * k_i;
+            let s_i = if cap {
+                s_i_raw.clamp(-k_i, k_i)
+            } else {
+                s_i_raw
+            };
+            for (j, &(k_j, s_j_raw)) in bucket_results.iter().enumerate() {
+                if i != j {
+                    let s_j = if cap {
+                        s_j_raw.clamp(-k_j, k_j)
+                    } else {
+                        s_j_raw
+                    };
+                    total += gamma * s_i * s_j;
+                }
             }
         }
+        total
+    };
+
+    let standard = compute(false);
+    if standard >= 0.0 {
+        standard.sqrt()
+    } else {
+        compute(true).max(0.0).sqrt()
     }
-    total.max(0.0).sqrt()
 }
 
 /// CSR-specific delta aggregation with full intra-bucket `rho = rho_name * rho_tenor`.
@@ -361,8 +405,7 @@ fn csr_bucketed_delta(
         }
         let k_b = k_squared.max(0.0).sqrt();
         let s_b: f64 = entries.iter().map(|(_, _, ws)| *ws).sum();
-        let s_b_capped = s_b.max(-k_b).min(k_b);
-        bucket_results.push((k_b, s_b_capped));
+        bucket_results.push((k_b, s_b));
     }
 
     inter_bucket_aggregate(&bucket_results, scaled_inter)

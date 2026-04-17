@@ -194,18 +194,12 @@ impl VmCalculator {
 
         let vm_params = &self.csa.vm_params;
 
+        // Single source of truth for the threshold + IA formula. Both
+        // the reported net_exposure and the margin call are derived
+        // from VmParameters so the two cannot silently drift.
+        let net_exposure_money = vm_params.required_credit_support(exposure)?;
         let exp = exposure.amount();
-        let threshold = vm_params.threshold.amount();
-        let ia = vm_params.independent_amount.amount();
-        let abs_excess = (exp.abs() - threshold).max(0.0);
-        let signed_excess = if abs_excess == 0.0 {
-            0.0
-        } else {
-            exp.signum() * abs_excess
-        };
-        let net_exposure_money = Money::new(signed_excess + ia, currency);
 
-        // Delegate CSA/MTA/rounding logic to VmParameters for consistency
         let net_call = vm_params.calculate_margin_call(exposure, posted_collateral)?;
         let (delivery, ret) = match net_call.amount().total_cmp(&0.0) {
             std::cmp::Ordering::Greater => (net_call, Money::new(0.0, currency)),

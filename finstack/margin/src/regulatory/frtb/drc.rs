@@ -43,9 +43,11 @@ pub const DRC_LGD: &[(DrcSeniority, f64)] = &[
 /// 3. Weighted long / short sums:
 ///    `WtS_long_b  = sum_k max(0, netJTD_k) * RW_k`
 ///    `WtS_short_b = sum_k min(0, netJTD_k) * RW_k`  (negative)
-/// 4. Bucket hedge-benefit ratio, capturing how much of the short offset
-///    Basel allows against the bucket's long exposure:
-///    `HBR_b = WtS_long_b / (WtS_long_b + |WtS_short_b|)`
+/// 4. Bucket hedge-benefit ratio, computed on **unweighted** net JTD per
+///    MAR22.23. This captures how much of the short offset Basel allows
+///    against the bucket's long exposure:
+///    `HBR_b = sum_k max(0, netJTD_k) /
+///             (sum_k max(0, netJTD_k) + sum_k |min(0, netJTD_k)|)`
 /// 5. Per-bucket DRC:
 ///    `DRC_b = max(WtS_long_b - HBR_b * |WtS_short_b|, 0)`
 ///
@@ -87,26 +89,41 @@ pub fn drc_charge(positions: &[DrcPosition]) -> f64 {
         entry.net_jtd += gross_jtd;
     }
 
-    // Step 3: group net JTDs by sector bucket and split long / short,
-    // weighted by rating-bucket risk weight.
-    let mut by_sector: HashMap<DrcSector, (f64, f64)> = HashMap::default(); // (long_w, short_w_abs)
+    // Step 3: for each sector bucket, accumulate BOTH weighted and
+    // unweighted long/short sums. HBR uses unweighted net JTD per MAR22.23,
+    // while the bucket DRC itself uses weighted sums.
+    #[derive(Default, Clone, Copy)]
+    struct BucketAcc {
+        long_unweighted: f64,
+        short_unweighted_abs: f64,
+        long_weighted: f64,
+        short_weighted_abs: f64,
+    }
+    let mut by_sector: HashMap<DrcSector, BucketAcc> = HashMap::default();
     for ((sector, _issuer), entry) in &net_by_issuer {
         let rw = drc_risk_weight(entry.rating_bucket);
         let weighted = entry.net_jtd * rw;
-        let bucket = by_sector.entry(*sector).or_insert((0.0, 0.0));
-        if weighted > 0.0 {
-            bucket.0 += weighted;
-        } else {
-            bucket.1 += weighted.abs();
+        let acc = by_sector.entry(*sector).or_default();
+        if entry.net_jtd > 0.0 {
+            acc.long_unweighted += entry.net_jtd;
+            acc.long_weighted += weighted;
+        } else if entry.net_jtd < 0.0 {
+            acc.short_unweighted_abs += entry.net_jtd.abs();
+            acc.short_weighted_abs += weighted.abs();
         }
     }
 
-    // Steps 4 & 5: per-bucket HBR and DRC, summed across buckets.
+    // Steps 4 & 5: per-bucket HBR (unweighted) and DRC (weighted), summed
+    // across buckets.
     let mut total = 0.0;
-    for (long_w, short_w_abs) in by_sector.values() {
-        let denom = long_w + short_w_abs;
-        let hbr = if denom > 0.0 { long_w / denom } else { 0.0 };
-        let bucket_drc = (long_w - hbr * short_w_abs).max(0.0);
+    for acc in by_sector.values() {
+        let denom = acc.long_unweighted + acc.short_unweighted_abs;
+        let hbr = if denom > 0.0 {
+            acc.long_unweighted / denom
+        } else {
+            0.0
+        };
+        let bucket_drc = (acc.long_weighted - hbr * acc.short_weighted_abs).max(0.0);
         total += bucket_drc;
     }
     total
