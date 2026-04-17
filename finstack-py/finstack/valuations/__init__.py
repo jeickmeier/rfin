@@ -38,6 +38,14 @@ format_pct = _valuations.format_pct
 format_currency = _valuations.format_currency
 format_ratio = _valuations.format_ratio
 format_scientific = _valuations.format_scientific
+tarn_coupon_profile = _valuations.tarn_coupon_profile
+snowball_coupon_profile = _valuations.snowball_coupon_profile
+cms_spread_option_intrinsic = _valuations.cms_spread_option_intrinsic
+callable_range_accrual_accrued = _valuations.callable_range_accrual_accrued
+ValuationCache = _valuations.ValuationCache
+execute_recovery_waterfall = _valuations.execute_recovery_waterfall
+analyze_exchange_offer = _valuations.analyze_exchange_offer
+analyze_lme = _valuations.analyze_lme
 
 __all__: list[str] = [
     "CalibrationResult",
@@ -45,17 +53,23 @@ __all__: list[str] = [
     "PnlAttribution",
     "RiskDecomposition",
     "SensitivityMatrix",
+    "ValuationCache",
     "ValuationResult",
+    "analyze_exchange_offer",
+    "analyze_lme",
     "attribute_pnl",
     "attribute_pnl_from_spec",
     "calibrate",
     "calibrate_to_market",
+    "callable_range_accrual_accrued",
     "cashflow_ladder",
+    "cms_spread_option_intrinsic",
     "compute_factor_sensitivities",
     "compute_pnl_profiles",
     "decompose_factor_risk",
     "default_attribution_metrics",
     "default_waterfall_order",
+    "execute_recovery_waterfall",
     "format_bps",
     "format_currency",
     "format_pct",
@@ -67,6 +81,8 @@ __all__: list[str] = [
     "price_instrument",
     "price_instrument_with_metrics",
     "scenario_matrix",
+    "snowball_coupon_profile",
+    "tarn_coupon_profile",
     "validate_attribution_json",
     "validate_calibration_json",
     "validate_instrument_json",

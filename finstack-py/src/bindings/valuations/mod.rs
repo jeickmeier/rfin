@@ -5,10 +5,13 @@
 //! P&L attribution across multiple methodologies.
 
 pub(crate) mod attribution;
+mod cache;
 mod calibration;
+mod exotic_rates;
 mod factor_model;
 mod pricing;
 mod reporting;
+mod restructuring;
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
@@ -144,6 +147,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     factor_model::register(py, &m)?;
     calibration::register(py, &m)?;
     reporting::register(py, &m)?;
+    exotic_rates::register(py, &m)?;
+    restructuring::register(py, &m)?;
+    cache::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -179,6 +185,14 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "format_currency",
             "format_ratio",
             "format_scientific",
+            "tarn_coupon_profile",
+            "snowball_coupon_profile",
+            "cms_spread_option_intrinsic",
+            "callable_range_accrual_accrued",
+            "execute_recovery_waterfall",
+            "analyze_exchange_offer",
+            "analyze_lme",
+            "ValuationCache",
         ],
     )?;
     m.setattr("__all__", all)?;

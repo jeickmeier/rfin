@@ -38,6 +38,14 @@ __all__ = [
     "format_currency",
     "format_ratio",
     "format_scientific",
+    "tarn_coupon_profile",
+    "snowball_coupon_profile",
+    "cms_spread_option_intrinsic",
+    "callable_range_accrual_accrued",
+    "execute_recovery_waterfall",
+    "analyze_exchange_offer",
+    "analyze_lme",
+    "ValuationCache",
 ]
 
 class ValuationResult:
@@ -1221,3 +1229,245 @@ def format_ratio(value: float, decimals: int = 2) -> str:
 def format_scientific(value: float, sig_figs: int = 3) -> str:
     """Format a number in scientific notation (``0.000123`` → ``"1.23e-4"``)."""
     ...
+
+# ---------------------------------------------------------------------------
+# Exotic rate products — deterministic coupon / payoff helpers
+# ---------------------------------------------------------------------------
+
+def tarn_coupon_profile(
+    fixed_rate: float,
+    coupon_floor: float,
+    floating_fixings: list[float],
+    target_coupon: float,
+    day_count_fraction: float,
+) -> dict:
+    """Simulate a TARN coupon profile along a deterministic rate path.
+
+    Each period coupon is ``max(fixed_rate - L_i, coupon_floor) * dcf``;
+    payments accumulate until the cumulative reaches ``target_coupon``, at
+    which point the final coupon is capped so the cumulative hits the
+    target exactly and the note redeems early.
+
+    Args:
+        fixed_rate: Fixed strike rate.
+        coupon_floor: Per-period floor on ``fixed_rate - L_i``.
+        floating_fixings: Floating rate fixings (one per period).
+        target_coupon: Cumulative target that triggers knockout (> 0).
+        day_count_fraction: Year fraction applied to each period coupon.
+
+    Returns:
+        Dict with keys ``coupons_paid`` (list[float]), ``cumulative``
+        (list[float]), ``redemption_index`` (int | None) and
+        ``redeemed_early`` (bool).
+    """
+    ...
+
+def snowball_coupon_profile(
+    initial_coupon: float,
+    fixed_rate: float,
+    floating_fixings: list[float],
+    floor: float,
+    cap: float,
+    is_inverse_floater: bool,
+    leverage: float = 1.0,
+) -> list[float]:
+    """Compute a snowball or inverse-floater coupon schedule.
+
+    Snowball: ``c_i = clip(c_{i-1} + fixed_rate - L_i, floor, cap)``
+    with ``c_0 = initial_coupon``.
+
+    Inverse floater: ``c_i = clip(fixed_rate - leverage * L_i, floor, cap)``
+    (``initial_coupon`` ignored).
+
+    Pass ``float('inf')`` as ``cap`` for an uncapped coupon.
+    """
+    ...
+
+def cms_spread_option_intrinsic(
+    long_cms: float,
+    short_cms: float,
+    strike: float,
+    is_call: bool,
+    notional: float,
+) -> float:
+    """Undiscounted intrinsic payoff of a CMS spread option.
+
+    Call: ``notional * max(long_cms - short_cms - strike, 0)``.
+    Put: ``notional * max(strike - (long_cms - short_cms), 0)``.
+
+    Ignores CMS convexity, vol smile, and correlation adjustments — the
+    full product pricer applies those on top of a copula model with
+    SABR marginals.
+    """
+    ...
+
+def callable_range_accrual_accrued(
+    lower: float,
+    upper: float,
+    observations: list[float],
+    coupon_rate: float,
+    day_count_fraction: float,
+) -> float:
+    """Accrued coupon over a range-accrual period.
+
+    Counts the fraction of ``observations`` within the inclusive interval
+    ``[lower, upper]`` and returns
+    ``coupon_rate * day_count_fraction * fraction``.
+
+    The call provision is not applied here — this is the coupon that
+    would accrue assuming the note is not called before period end.
+    """
+    ...
+
+# ---------------------------------------------------------------------------
+# Credit events / restructuring
+# ---------------------------------------------------------------------------
+
+def execute_recovery_waterfall(
+    total_value: float,
+    currency: str,
+    claims: list[dict],
+    allocation_mode: str = "pro_rata",
+) -> dict:
+    """Run a recovery waterfall over an ordered claim stack.
+
+    Distributes ``total_value`` across ``claims`` in priority order
+    following the Absolute Priority Rule (APR). Secured claims first
+    recover from their collateral; any shortfall becomes a deficiency
+    claim in the unsecured pool.
+
+    Args:
+        total_value: Total enterprise value or liquidation proceeds.
+        currency: ISO currency code (e.g. ``"USD"``).
+        claims: Ordered list of claim dicts. Each supports ``seniority``
+            (str: ``first_lien``, ``second_lien``, ``senior_unsecured``,
+            ``subordinated``, ``equity``, etc.), ``principal`` (float),
+            optional ``accrued``, ``penalties``, ``collateral_value``,
+            ``haircut``, ``id``, ``label``.
+        allocation_mode: Intra-class allocation; ``"pro_rata"`` (default)
+            or ``"strict_priority"``.
+
+    Returns:
+        Dict with ``total_distributed``, ``residual``, ``apr_satisfied``,
+        ``apr_violations``, and ``per_claim_recovery``.
+    """
+    ...
+
+def analyze_exchange_offer(
+    old_pv: float,
+    new_pv: float,
+    consent_fee: float = 0.0,
+    equity_sweetener_value: float = 0.0,
+    exchange_type: str = "par_for_par",
+) -> dict:
+    """Compare hold-vs-tender economics for a distressed exchange offer.
+
+    Args:
+        old_pv: Present value of the existing claim (hold scenario).
+        new_pv: Present value of the new instrument (tender scenario).
+        consent_fee: Consent / early-tender fee paid to participants.
+        equity_sweetener_value: Estimated value of any equity kicker.
+        exchange_type: One of ``par_for_par``, ``discount``, ``uptier``,
+            ``downtier`` (audit only).
+
+    Returns:
+        Dict with ``old_npv``, ``new_npv``, ``tender_total``,
+        ``delta_npv``, ``breakeven_recovery``, ``tender_recommended``.
+    """
+    ...
+
+def analyze_lme(
+    lme_type: str,
+    notional: float,
+    repurchase_price_pct: float,
+    opt_acceptance_pct: float = 1.0,
+    ebitda: float | None = None,
+) -> dict:
+    """Analyze a liability management exercise.
+
+    Args:
+        lme_type: One of ``open_market`` / ``open_market_repurchase``,
+            ``tender_offer``, ``amend_and_extend`` / ``ae``, ``dropdown``.
+        notional: Outstanding notional of the target instrument.
+        repurchase_price_pct: Price fraction for repurchases/tenders;
+            extension fee fraction for A&E; transferred-asset fraction
+            for dropdown.
+        opt_acceptance_pct: Fraction of holders participating (0.0-1.0).
+        ebitda: If provided, a ``leverage_impact`` block is returned.
+
+    Returns:
+        Dict with ``cost``, ``notional_reduction``, ``discount_capture``,
+        ``discount_capture_pct``, ``remaining_holder_impact_pct``, and
+        optional ``leverage_impact``.
+    """
+    ...
+
+# ---------------------------------------------------------------------------
+# Valuation result caching
+# ---------------------------------------------------------------------------
+
+class ValuationCache:
+    """Memory-bounded LRU cache for valuation NPVs.
+
+    Keyed by ``(instrument_id, market_version)``. Demonstrates the eviction
+    and invalidation semantics of the underlying Rust
+    :rust:struct:`finstack_valuations::cache::ValuationCache` without
+    requiring full ``ValuationResult`` round-trips.
+
+    Args:
+        max_entries: Soft cap on cached entries (default ``10_000``).
+        max_memory_bytes: Soft cap on estimated memory in bytes
+            (default ``256_000_000``).
+
+    Example:
+        >>> from finstack.valuations import ValuationCache
+        >>> cache = ValuationCache(max_entries=1000)
+        >>> cache.insert(key=42, npv=1_000_000.0, market_version=1)
+        True
+        >>> cache.get(key=42, market_version=1)
+        1000000.0
+        >>> cache.get(key=42, market_version=2) is None
+        True
+    """
+
+    def __init__(
+        self,
+        max_entries: int = 10_000,
+        max_memory_bytes: int = 256_000_000,
+    ) -> None: ...
+
+    def insert(self, key: int, npv: float, market_version: int) -> bool:
+        """Insert an NPV under ``(key, market_version)``.
+
+        Returns ``True`` if newly inserted, ``False`` if the key and market
+        version already matched an existing entry (LRU is refreshed either
+        way).
+        """
+        ...
+
+    def get(self, key: int, market_version: int) -> float | None:
+        """Look up the NPV for ``(key, market_version)``; ``None`` on miss."""
+        ...
+
+    def len(self) -> int:
+        """Current number of cached entries."""
+        ...
+
+    def invalidate_instrument(self, instrument_id: int) -> None:
+        """Drop every entry for ``instrument_id`` across all market versions."""
+        ...
+
+    def clear(self) -> None:
+        """Remove every entry. Cumulative statistics are preserved."""
+        ...
+
+    def stats(self) -> dict:
+        """Return a snapshot of cumulative statistics.
+
+        Keys: ``hits``, ``misses``, ``lookups``, ``hit_rate``, ``evictions``,
+        ``inserts``, ``entries``, ``memory_bytes``, ``memory_mb``.
+        """
+        ...
+
+    def __len__(self) -> int: ...
+    def __repr__(self) -> str: ...
