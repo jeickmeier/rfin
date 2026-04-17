@@ -158,10 +158,10 @@ def main() -> None:
         print(clean)
 
     bf = check_butterfly(
-        list(strikes), list(expiries), clean.tolist(), tolerance=1e-6
+        list(strikes), list(expiries), clean.tolist(), forward=forward, tolerance=1e-6
     )
     cs = check_calendar_spread(
-        list(strikes), list(expiries), clean.tolist(), tolerance=1e-6
+        list(strikes), list(expiries), clean.tolist(), forward=forward, tolerance=1e-6
     )
     lv = check_local_vol_density(
         list(strikes), list(expiries), clean.tolist(), forward_prices
@@ -170,7 +170,7 @@ def main() -> None:
     summarize("calendar spread", cs)
     summarize("local vol density", lv)
 
-    report = check_all(list(strikes), list(expiries), clean.tolist())
+    report = check_all(list(strikes), list(expiries), clean.tolist(), forward=forward)
     print(
         f"\ncheck_all summary: passed={report['passed']}, "
         f"total={report['total_violations']}, "
@@ -188,10 +188,10 @@ def main() -> None:
         print(bad_bf)
 
     bf = check_butterfly(
-        list(strikes), list(expiries), bad_bf.tolist(), tolerance=1e-6
+        list(strikes), list(expiries), bad_bf.tolist(), forward=forward, tolerance=1e-6
     )
     summarize("butterfly", bf)
-    report = check_all(list(strikes), list(expiries), bad_bf.tolist())
+    report = check_all(list(strikes), list(expiries), bad_bf.tolist(), forward=forward)
     print(
         f"check_all summary: passed={report['passed']}, "
         f"total={report['total_violations']}, "
@@ -213,10 +213,10 @@ def main() -> None:
     print(f"total variance at K={strikes[atm_idx]:.0f}, by expiry: {w_atm}")
 
     cs = check_calendar_spread(
-        list(strikes), list(expiries), bad_cs.tolist(), tolerance=1e-6
+        list(strikes), list(expiries), bad_cs.tolist(), forward=forward, tolerance=1e-6
     )
     summarize("calendar spread", cs)
-    report = check_all(list(strikes), list(expiries), bad_cs.tolist())
+    report = check_all(list(strikes), list(expiries), bad_cs.tolist(), forward=forward)
     print(
         f"check_all summary: passed={report['passed']}, "
         f"total={report['total_violations']}, "

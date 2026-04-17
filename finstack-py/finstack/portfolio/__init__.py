@@ -21,14 +21,27 @@ parametric_var_decomposition = _portfolio.parametric_var_decomposition
 parametric_es_decomposition = _portfolio.parametric_es_decomposition
 historical_var_decomposition = _portfolio.historical_var_decomposition
 evaluate_risk_budget = _portfolio.evaluate_risk_budget
+roll_effective_spread = _portfolio.roll_effective_spread
+amihud_illiquidity = _portfolio.amihud_illiquidity
+days_to_liquidate = _portfolio.days_to_liquidate
+liquidity_tier = _portfolio.liquidity_tier
+lvar_bangia = _portfolio.lvar_bangia
+almgren_chriss_impact = _portfolio.almgren_chriss_impact
+kyle_lambda = _portfolio.kyle_lambda
 
 __all__: list[str] = [
+    "almgren_chriss_impact",
     "aggregate_cashflows",
     "aggregate_metrics",
+    "amihud_illiquidity",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",
+    "days_to_liquidate",
     "evaluate_risk_budget",
     "historical_var_decomposition",
+    "kyle_lambda",
+    "liquidity_tier",
+    "lvar_bangia",
     "optimize_portfolio",
     "parametric_es_decomposition",
     "parametric_var_decomposition",
@@ -36,5 +49,6 @@ __all__: list[str] = [
     "portfolio_result_get_metric",
     "portfolio_result_total_value",
     "replay_portfolio",
+    "roll_effective_spread",
     "value_portfolio",
 ]

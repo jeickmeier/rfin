@@ -127,9 +127,9 @@ def main() -> None:
     # 4. Liquidity-adjusted VaR (Bangia et al. 1999)
     # ------------------------------------------------------------------
     section("Liquidity-adjusted VaR (Bangia et al. 1999)")
-    # Use a 2.33-sigma 99% daily VaR as the input risk number.
+    # The binding uses the loss sign convention, so VaR is negative.
     daily_vol = float(returns.std())
-    var_99 = 2.326 * daily_vol * position_value
+    var_99 = -2.326 * daily_vol * position_value
     spread_mean = 0.0010  # 10bp mean relative spread (given).
     spread_vol = 0.0003  # 3bp spread volatility.
 
@@ -140,9 +140,9 @@ def main() -> None:
         confidence=0.99,
         position_value=position_value,
     )
-    print(f"  Base 99% VaR:             ${lvar['var']:>14,.2f}")
+    print(f"  Base 99% VaR:             ${abs(lvar['var']):>14,.2f}")
     print(f"  Spread cost add-on:       ${lvar['spread_cost']:>14,.2f}")
-    print(f"  Bangia LVaR:              ${lvar['lvar']:>14,.2f}")
+    print(f"  Bangia LVaR:              ${abs(lvar['lvar']):>14,.2f}")
     print(f"  LVaR / VaR ratio:         {lvar['lvar_ratio']:>14.4f}x")
 
     # ------------------------------------------------------------------

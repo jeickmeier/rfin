@@ -114,6 +114,32 @@ tail_ratio = _analytics.tail_ratio
 outlier_win_ratio = _analytics.outlier_win_ratio
 outlier_loss_ratio = _analytics.outlier_loss_ratio
 
+# VaR backtesting
+classify_breaches = _analytics.classify_breaches
+kupiec_test = _analytics.kupiec_test
+christoffersen_test = _analytics.christoffersen_test
+traffic_light = _analytics.traffic_light
+run_backtest = _analytics.run_backtest
+
+# GARCH volatility models
+fit_garch11 = _analytics.fit_garch11
+fit_egarch11 = _analytics.fit_egarch11
+fit_gjr_garch11 = _analytics.fit_gjr_garch11
+garch11_forecast = _analytics.garch11_forecast
+ljung_box = _analytics.ljung_box
+arch_lm = _analytics.arch_lm
+aic = _analytics.aic
+bic = _analytics.bic
+hqic = _analytics.hqic
+
+# Comparable company analysis
+percentile_rank = _analytics.percentile_rank
+z_score = _analytics.z_score
+peer_stats = _analytics.peer_stats
+regression_fair_value = _analytics.regression_fair_value
+compute_multiple = _analytics.compute_multiple
+score_relative_value = _analytics.score_relative_value
+
 __all__: list[str] = [
     "BenchmarkAlignmentPolicy",
     "BetaResult",
@@ -149,6 +175,8 @@ __all__: list[str] = [
     "convert_to_prices",
     "cornish_fisher_var",
     "count_consecutive",
+    "christoffersen_test",
+    "classify_breaches",
     "down_capture",
     "downside_deviation",
     "drawdown_details",
@@ -159,8 +187,12 @@ __all__: list[str] = [
     "geometric_mean",
     "greeks",
     "group_by_period",
+    "garch11_forecast",
+    "hqic",
     "information_ratio",
     "kurtosis",
+    "kupiec_test",
+    "ljung_box",
     "m_squared",
     "m_squared_from_returns",
     "martin_ratio",
@@ -179,7 +211,10 @@ __all__: list[str] = [
     "pain_ratio_from_returns",
     "parametric_var",
     "period_stats",
+    "peer_stats",
+    "percentile_rank",
     "r_squared",
+    "regression_fair_value",
     "rebase",
     "recovery_factor",
     "recovery_factor_from_returns",
@@ -190,6 +225,8 @@ __all__: list[str] = [
     "rolling_sortino_values",
     "rolling_volatility",
     "rolling_volatility_values",
+    "run_backtest",
+    "score_relative_value",
     "sharpe",
     "simple_returns",
     "skewness",
@@ -199,9 +236,18 @@ __all__: list[str] = [
     "tail_ratio",
     "to_drawdown_series",
     "tracking_error",
+    "traffic_light",
     "treynor",
     "ulcer_index",
     "up_capture",
     "value_at_risk",
     "volatility",
+    "z_score",
+    "aic",
+    "arch_lm",
+    "bic",
+    "compute_multiple",
+    "fit_egarch11",
+    "fit_garch11",
+    "fit_gjr_garch11",
 ]

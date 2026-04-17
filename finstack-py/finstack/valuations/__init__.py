@@ -42,6 +42,10 @@ tarn_coupon_profile = _valuations.tarn_coupon_profile
 snowball_coupon_profile = _valuations.snowball_coupon_profile
 cms_spread_option_intrinsic = _valuations.cms_spread_option_intrinsic
 callable_range_accrual_accrued = _valuations.callable_range_accrual_accrued
+bs_cos_price = _valuations.bs_cos_price
+bs_lewis_price = _valuations.bs_lewis_price
+vg_cos_price = _valuations.vg_cos_price
+merton_jump_cos_price = _valuations.merton_jump_cos_price
 ValuationCache = _valuations.ValuationCache
 execute_recovery_waterfall = _valuations.execute_recovery_waterfall
 analyze_exchange_offer = _valuations.analyze_exchange_offer
@@ -59,6 +63,8 @@ __all__: list[str] = [
     "analyze_lme",
     "attribute_pnl",
     "attribute_pnl_from_spec",
+    "bs_cos_price",
+    "bs_lewis_price",
     "calibrate",
     "calibrate_to_market",
     "callable_range_accrual_accrued",
@@ -77,6 +83,7 @@ __all__: list[str] = [
     "format_scientific",
     "list_standard_metrics",
     "list_standard_metrics_grouped",
+    "merton_jump_cos_price",
     "metrics_table_from_dict",
     "price_instrument",
     "price_instrument_with_metrics",
@@ -86,5 +93,6 @@ __all__: list[str] = [
     "validate_attribution_json",
     "validate_calibration_json",
     "validate_instrument_json",
+    "vg_cos_price",
     "waterfall_from_steps",
 ]

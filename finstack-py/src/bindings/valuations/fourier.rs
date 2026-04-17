@@ -66,13 +66,9 @@ fn bs_cos_price(
     };
     let pricer = CosPricer::new(&cf, config);
     if is_call {
-        pricer
-            .price_call(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
+        pricer.price_call(spot, strike, rate, maturity).map_err(display_to_py)
     } else {
-        pricer
-            .price_put(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
+        pricer.price_put(spot, strike, rate, maturity).map_err(display_to_py)
     }
 }
 
@@ -188,13 +184,9 @@ fn vg_cos_price(
     };
     let pricer = CosPricer::new(&cf, config);
     if is_call {
-        pricer
-            .price_call(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
+        pricer.price_call(spot, strike, rate, maturity).map_err(display_to_py)
     } else {
-        pricer
-            .price_put(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
+        pricer.price_put(spot, strike, rate, maturity).map_err(display_to_py)
     }
 }
 
@@ -263,13 +255,9 @@ fn merton_jump_cos_price(
     };
     let pricer = CosPricer::new(&cf, config);
     if is_call {
-        pricer
-            .price_call(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
+        pricer.price_call(spot, strike, rate, maturity).map_err(display_to_py)
     } else {
-        pricer
-            .price_put(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
+        pricer.price_put(spot, strike, rate, maturity).map_err(display_to_py)
     }
 }
 

@@ -9,6 +9,7 @@ mod cache;
 mod calibration;
 mod exotic_rates;
 mod factor_model;
+mod fourier;
 mod pricing;
 mod reporting;
 mod restructuring;
@@ -147,6 +148,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     factor_model::register(py, &m)?;
     calibration::register(py, &m)?;
     reporting::register(py, &m)?;
+    fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
     restructuring::register(py, &m)?;
     cache::register(py, &m)?;
@@ -185,6 +187,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "format_currency",
             "format_ratio",
             "format_scientific",
+            "bs_cos_price",
+            "bs_lewis_price",
+            "vg_cos_price",
+            "merton_jump_cos_price",
             "tarn_coupon_profile",
             "snowball_coupon_profile",
             "cms_spread_option_intrinsic",
