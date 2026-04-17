@@ -1,8 +1,8 @@
 //! Content-addressed cache key for valuation results.
 //!
-//! Uses a 128-bit fingerprint of all key components (instrument ID and
-//! body-content hash, market data version, per-curve versions, model key,
-//! and metrics set) to enable O(1) cache lookup.
+//! Uses a 128-bit fingerprint of all key components (instrument ID plus
+//! an [`InstrumentFingerprint`], market data version, per-curve versions,
+//! model key, and metrics set) to enable O(1) cache lookup.
 //!
 //! # 128-bit fingerprinting
 //!
@@ -14,25 +14,30 @@
 //!
 //! # Instrument-body content hash (IMPORTANT)
 //!
-//! [`CacheKeyInput::instrument_content_hash`] must encode every field of
-//! the instrument that affects pricing. If a caller mutates an
-//! instrument in-place (e.g. changes a coupon spec or a pricing override)
-//! without bumping either the instrument ID or the content hash, the
-//! cache will serve a stale, incorrect PV. Callers can compute this hash
-//! from:
+//! [`CacheKeyInput::instrument_fingerprint`] must encode every pricing
+//! -relevant field of the instrument whenever the instrument can be
+//! mutated in place. If a caller changes a coupon spec or a pricing
+//! override without bumping either the instrument ID or the fingerprint,
+//! the cache will serve a stale, incorrect PV.
 //!
-//! - `std::hash::Hash` on the instrument, when it implements `Hash`; or
-//! - a canonical serde_json form of the instrument, hashed with a stable
-//!   hasher.
+//! The cache therefore forces callers to pick one of two explicit
+//! attestations via [`InstrumentFingerprint`]:
 //!
-//! The cache does not attempt to compute the content hash itself — that
-//! keeps this crate independent of the instrument trait boundary and
-//! lets callers batch/cache the hash alongside the instrument.
+//! - [`InstrumentFingerprint::ImmutableById`] — the instrument is frozen
+//!   after construction, so the instrument ID alone is sufficient for
+//!   cache correctness. Using this for a mutable instrument is a bug.
+//! - [`InstrumentFingerprint::ContentHash`] — a non-zero hash derived
+//!   from the instrument body (e.g. `std::hash::Hash` on the instrument
+//!   or a canonical `serde_json` form hashed with a stable hasher). The
+//!   cache does not compute this itself, which keeps the crate
+//!   independent of the instrument trait boundary and lets callers
+//!   batch/cache the hash alongside the instrument.
 
 use crate::metrics::MetricId;
 use crate::pricer::ModelKey;
 use finstack_core::types::CurveId;
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroU64;
 
 /// Domain separator for the first fingerprint hash.
 const FP_SALT_A: &[u8] = b"finstack.cache.v1.a:";
@@ -74,6 +79,47 @@ impl Hash for CacheKey {
     }
 }
 
+/// How an instrument's pricing-relevant state is represented in the
+/// cache key.
+///
+/// Callers must pick a variant that matches the instrument's actual
+/// mutability contract:
+///
+/// - [`ImmutableById`](Self::ImmutableById) — the instrument is frozen
+///   after construction. The `instrument_id` carries all the identity
+///   the cache needs; choose this only when the instrument type
+///   genuinely rejects in-place mutation (including through
+///   `pricing_overrides`).
+/// - [`ContentHash`](Self::ContentHash) — a non-zero 64-bit hash of the
+///   instrument's pricing-relevant fields. Using a [`NonZeroU64`]
+///   eliminates the "I meant immutable but forgot to set anything"
+///   footgun of an ambient `0` default.
+///
+/// Two fingerprints are encoded distinctly (via a discriminator byte) so
+/// that `ImmutableById` and `ContentHash(0xFFFFFFFFFFFFFFFF)` can never
+/// alias.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstrumentFingerprint {
+    /// Instrument cannot be mutated after construction; identify by
+    /// `instrument_id` alone.
+    ImmutableById,
+    /// Non-zero 64-bit hash of the instrument's pricing-relevant fields.
+    ContentHash(NonZeroU64),
+}
+
+impl InstrumentFingerprint {
+    /// Construct a [`ContentHash`](Self::ContentHash) fingerprint,
+    /// returning `None` when `hash == 0`.
+    ///
+    /// `0` is reserved to encourage callers to use
+    /// [`ImmutableById`](Self::ImmutableById) explicitly rather than
+    /// silently falling back to a zero value.
+    #[must_use]
+    pub fn from_hash(hash: u64) -> Option<Self> {
+        NonZeroU64::new(hash).map(Self::ContentHash)
+    }
+}
+
 /// Components that contribute to the cache key fingerprint.
 ///
 /// This struct exists only for key construction: it is hashed
@@ -82,14 +128,15 @@ impl Hash for CacheKey {
 pub struct CacheKeyInput<'a> {
     /// Instrument identifier (stable across serialization).
     pub instrument_id: &'a str,
-    /// Hash of the instrument's pricing-relevant fields.
+    /// Explicit statement of how the instrument's pricing-relevant
+    /// state contributes to the key.
     ///
-    /// **Must** cover every mutable field that affects the valuation,
-    /// including `pricing_overrides`. See the module-level docs for
-    /// guidance on computing this. Pass `0` only for instruments that
-    /// are genuinely immutable after construction — and be aware that
-    /// `0` opens the cache to stale reads if that assumption breaks.
-    pub instrument_content_hash: u64,
+    /// The previous API accepted a bare `u64` with a documented
+    /// "`0` means immutable" sentinel; that made silent stale reads
+    /// trivially easy to hit when a caller forgot to compute a real
+    /// content hash. The enum forces the caller to attest to one
+    /// specific contract for every lookup.
+    pub instrument_fingerprint: InstrumentFingerprint,
     /// Market data version counter from `MarketContext`.
     pub market_version: u64,
     /// Per-curve versions for the instrument's curve dependencies.
@@ -119,7 +166,22 @@ impl CacheKey {
         let mut buf = Vec::with_capacity(256);
         buf.extend_from_slice(input.instrument_id.as_bytes());
         buf.push(0xFF); // separator to avoid instrument_id/content ambiguity
-        buf.extend_from_slice(&input.instrument_content_hash.to_le_bytes());
+
+        // Discriminator byte distinguishes ImmutableById from ContentHash so
+        // that a forgotten content hash can never alias an immutable-by-id
+        // lookup (and vice versa).
+        match input.instrument_fingerprint {
+            InstrumentFingerprint::ImmutableById => {
+                buf.push(0x00);
+                // Zero-filled slot keeps the wire format aligned with the
+                // ContentHash variant.
+                buf.extend_from_slice(&0u64.to_le_bytes());
+            }
+            InstrumentFingerprint::ContentHash(hash) => {
+                buf.push(0x01);
+                buf.extend_from_slice(&hash.get().to_le_bytes());
+            }
+        }
         buf.extend_from_slice(&input.market_version.to_le_bytes());
 
         for (curve_id, version) in input.curve_versions {
@@ -181,7 +243,7 @@ mod tests {
     ) -> CacheKeyInput<'a> {
         CacheKeyInput {
             instrument_id,
-            instrument_content_hash: 0,
+            instrument_fingerprint: InstrumentFingerprint::ImmutableById,
             market_version,
             curve_versions,
             model_key,
@@ -197,9 +259,11 @@ mod tests {
         model_key: ModelKey,
         metrics: &'a [MetricId],
     ) -> CacheKeyInput<'a> {
+        let fingerprint = InstrumentFingerprint::from_hash(instrument_content_hash)
+            .expect("test inputs must supply non-zero content hashes");
         CacheKeyInput {
             instrument_id,
-            instrument_content_hash,
+            instrument_fingerprint: fingerprint,
             market_version,
             curve_versions,
             model_key,
@@ -376,6 +440,39 @@ mod tests {
         ));
         let (a, b) = key.fingerprint();
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn from_hash_rejects_zero() {
+        assert!(InstrumentFingerprint::from_hash(0).is_none());
+        assert!(InstrumentFingerprint::from_hash(1).is_some());
+    }
+
+    #[test]
+    fn immutable_vs_content_hash_never_alias() {
+        // Choosing ImmutableById must not produce the same key as any
+        // ContentHash value — the discriminator byte enforces this even
+        // if a caller's content hash collides with the zero slot used
+        // for the immutable encoding.
+        let curves: Vec<(CurveId, u64)> = vec![];
+        let metrics: Vec<MetricId> = vec![];
+        let key_immutable = CacheKey::new(&CacheKeyInput {
+            instrument_id: "BOND-001",
+            instrument_fingerprint: InstrumentFingerprint::ImmutableById,
+            market_version: 0,
+            curve_versions: &curves,
+            model_key: ModelKey::Discounting,
+            metrics: &metrics,
+        });
+        let key_with_hash = CacheKey::new(&CacheKeyInput {
+            instrument_id: "BOND-001",
+            instrument_fingerprint: InstrumentFingerprint::from_hash(1).expect("non-zero"),
+            market_version: 0,
+            curve_versions: &curves,
+            model_key: ModelKey::Discounting,
+            metrics: &metrics,
+        });
+        assert_ne!(key_immutable, key_with_hash);
     }
 
     #[test]

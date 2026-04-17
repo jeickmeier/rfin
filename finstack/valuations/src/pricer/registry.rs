@@ -1079,11 +1079,17 @@ mod tests {
                 .is_some(),
             "CDS HazardRate pricer should be registered"
         );
+        // CDS / CDSIndex / CDSOption / CDSTranche no longer register a
+        // `ModelKey::Discounting` alias. The earlier registrations pointed at
+        // the same hazard (or Black76) implementation, which falsely implied a
+        // pure-discounting alternative existed. See `pricer/credit.rs` for
+        // the rationale; callers should look these products up under their
+        // real model key.
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::Discounting))
-                .is_some(),
-            "CDS Discounting pricer should be registered"
+                .is_none(),
+            "CDS Discounting pricer must not be registered (misleading alias removed)"
         );
         assert!(
             registry
@@ -1100,8 +1106,8 @@ mod tests {
                     InstrumentType::CDSIndex,
                     ModelKey::Discounting
                 ))
-                .is_some(),
-            "CDSIndex Discounting pricer should be registered"
+                .is_none(),
+            "CDSIndex Discounting pricer must not be registered (misleading alias removed)"
         );
         assert!(
             registry
@@ -1115,8 +1121,8 @@ mod tests {
                     InstrumentType::CDSOption,
                     ModelKey::Discounting
                 ))
-                .is_some(),
-            "CDSOption Discounting pricer should be registered"
+                .is_none(),
+            "CDSOption Discounting pricer must not be registered (misleading alias removed)"
         );
         assert!(
             registry
@@ -1133,8 +1139,8 @@ mod tests {
                     InstrumentType::CDSTranche,
                     ModelKey::Discounting
                 ))
-                .is_some(),
-            "CDSTranche Discounting pricer should be registered"
+                .is_none(),
+            "CDSTranche Discounting pricer must not be registered (misleading alias removed)"
         );
 
         // FX pricers

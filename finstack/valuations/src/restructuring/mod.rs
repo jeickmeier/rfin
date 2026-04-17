@@ -72,8 +72,8 @@ pub use recovery_waterfall::{
 // Exchange offers
 pub use exchange_offer::{
     analyze_exchange_offer, ConsentTracker, CouponPaymentType, EquityComponentType,
-    EquitySweetener, ExchangeInstrument, ExchangeOffer, ExchangeType, HoldVsTenderAnalysis,
-    ScenarioEconomics, TenderRecommendation,
+    EquitySweetener, ExchangeInstrument, ExchangeOffer, ExchangeOfferAnalysisInputs, ExchangeType,
+    HoldVsTenderAnalysis, ScenarioEconomics, TenderRecommendation,
 };
 
 // LME

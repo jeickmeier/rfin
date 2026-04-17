@@ -210,8 +210,8 @@ impl CDSPricer {
                 // coupon part per unit spread
                 ann += unit_spread * accrual * sp * df;
 
-                // AoD part per unit spread in this period
-                ann += self.accrual_on_default_isda_midpoint(AodInputs {
+                // AoD part per unit spread in this period (honours integration_method)
+                ann += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: unit_spread,
                     start_date: start_date.max(as_of),
@@ -281,7 +281,7 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
-                per_bp_pv += self.accrual_on_default_isda_midpoint(AodInputs {
+                per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
                     start_date: start_date.max(as_of),

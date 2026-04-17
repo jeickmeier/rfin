@@ -46,11 +46,6 @@ impl SimpleCDSTrancheHazardPricer {
             model_key: crate::pricer::ModelKey::HazardRate,
         }
     }
-
-    /// Create CDS tranche pricer with specified model key
-    pub(crate) fn with_model(model_key: crate::pricer::ModelKey) -> Self {
-        Self { model_key }
-    }
 }
 
 impl Default for SimpleCDSTrancheHazardPricer {

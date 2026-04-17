@@ -19,7 +19,9 @@
 //! # Quick Start
 //!
 //! ```
-//! use finstack_valuations::cache::{CacheConfig, CacheKey, CacheKeyInput, ValuationCache};
+//! use finstack_valuations::cache::{
+//!     CacheConfig, CacheKey, CacheKeyInput, InstrumentFingerprint, ValuationCache,
+//! };
 //! use finstack_valuations::pricer::ModelKey;
 //! use finstack_valuations::results::ValuationResult;
 //! use finstack_core::currency::Currency;
@@ -32,10 +34,14 @@
 //! let cache = ValuationCache::new(CacheConfig::default());
 //! let as_of = create_date(2025, Month::January, 15)?;
 //!
-//! // Build a cache key
+//! // Build a cache key.
+//! //
+//! // Use `InstrumentFingerprint::ImmutableById` only for instruments that
+//! // cannot be mutated after construction. For mutable instruments, pass a
+//! // non-zero content hash derived from the instrument body.
 //! let key = CacheKey::new(&CacheKeyInput {
 //!     instrument_id: "BOND-001",
-//!     instrument_content_hash: 0, // compute from Hash/serde for mutable instruments
+//!     instrument_fingerprint: InstrumentFingerprint::ImmutableById,
 //!     market_version: 1,
 //!     curve_versions: &[],
 //!     model_key: ModelKey::Discounting,
@@ -72,6 +78,6 @@ mod stats;
 mod store;
 
 pub use config::{CacheConfig, CacheConfigBuilder};
-pub use key::{CacheKey, CacheKeyInput};
+pub use key::{CacheKey, CacheKeyInput, InstrumentFingerprint};
 pub use stats::{CacheStats, CacheStatsSnapshot};
 pub use store::ValuationCache;

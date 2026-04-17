@@ -45,7 +45,9 @@ struct CacheEntry {
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::cache::{CacheConfig, CacheKey, CacheKeyInput, ValuationCache};
+/// use finstack_valuations::cache::{
+///     CacheConfig, CacheKey, CacheKeyInput, InstrumentFingerprint, ValuationCache,
+/// };
 /// use finstack_valuations::pricer::ModelKey;
 /// use finstack_valuations::results::ValuationResult;
 /// use finstack_core::currency::Currency;
@@ -60,7 +62,10 @@ struct CacheEntry {
 ///
 /// let key = CacheKey::new(&CacheKeyInput {
 ///     instrument_id: "BOND-001",
-///     instrument_content_hash: 0, // for truly immutable instruments; see CacheKeyInput docs
+///     // Use `ImmutableById` only if the instrument is frozen after construction.
+///     // Mutable instruments must supply a non-zero content hash via
+///     // `InstrumentFingerprint::from_hash(...)`.
+///     instrument_fingerprint: InstrumentFingerprint::ImmutableById,
 ///     market_version: 1,
 ///     curve_versions: &[],
 ///     model_key: ModelKey::Discounting,
@@ -267,7 +272,7 @@ impl ValuationCache {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::cache::{CacheKeyInput, CacheStatsSnapshot};
+    use crate::cache::{CacheKeyInput, CacheStatsSnapshot, InstrumentFingerprint};
     use crate::pricer::ModelKey;
     use finstack_core::currency::Currency;
     use finstack_core::dates::create_date;
@@ -282,7 +287,7 @@ mod tests {
     fn make_key(instrument_id: &str, version: u64) -> CacheKey {
         CacheKey::new(&CacheKeyInput {
             instrument_id,
-            instrument_content_hash: 0,
+            instrument_fingerprint: InstrumentFingerprint::ImmutableById,
             market_version: version,
             curve_versions: &[],
             model_key: ModelKey::Discounting,

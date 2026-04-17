@@ -180,48 +180,25 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
 
     // -- Exotic Rate Products --
     //
-    // These instruments register `ModelKey::Discounting` as a placeholder so
-    // they appear in `available_models(...)`. `GenericInstrumentPricer` routes
-    // to the instrument's `value()` method, which for each of these exotics
-    // currently returns `Err(Error::Validation(...))` explaining that a
-    // proper MC/LSM/replication model must be provided. Callers therefore
-    // get a clear error rather than a silently wrong discounting-only PV.
-    // When a real model lands, add a second registration under the real
-    // model key and update `value()` to forward to it.
-
-    // TARN - generic pricer (MC payoff not yet implemented).
-    registry.register(
-        InstrumentType::Tarn,
-        ModelKey::Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::rates::tarn::Tarn,
-        >::discounting(InstrumentType::Tarn),
-    );
-
-    // Snowball / Inverse Floater - generic pricer.
-    registry.register(
-        InstrumentType::Snowball,
-        ModelKey::Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::rates::snowball::Snowball,
-        >::discounting(InstrumentType::Snowball),
-    );
-
-    // CMS Spread Option - generic pricer.
-    registry.register(
-        InstrumentType::CmsSpreadOption,
-        ModelKey::Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::rates::cms_spread_option::CmsSpreadOption,
-        >::discounting(InstrumentType::CmsSpreadOption),
-    );
-
-    // Callable Range Accrual - generic pricer.
-    registry.register(
-        InstrumentType::CallableRangeAccrual,
-        ModelKey::Discounting,
-        crate::instruments::common_impl::GenericInstrumentPricer::<
-            crate::instruments::rates::callable_range_accrual::CallableRangeAccrual,
-        >::discounting(InstrumentType::CallableRangeAccrual),
-    );
+    // The following instrument types do not have a registered pricer in this
+    // function:
+    //
+    //   * TARN
+    //   * Snowball / Inverse Floater
+    //   * CMS Spread Option
+    //   * Callable Range Accrual
+    //
+    // Each of these requires a Monte-Carlo, LSMC, or static-replication
+    // model that has not been implemented yet. An earlier revision attached
+    // a `ModelKey::Discounting` placeholder that routed to
+    // `GenericInstrumentPricer::discounting`, which in turn returned
+    // `Err(Error::Validation("…MC pricer required…"))`. Advertising a
+    // `Discounting` model key for these products was misleading because it
+    // implied a working discounting-only fallback.
+    //
+    // Leaving the registry empty for these `(instrument, model)` pairs
+    // produces a clean "no pricer registered" error from the registry. When
+    // a real MC/LSM/replication pricer lands, register it here under its
+    // actual model key (e.g. `ModelKey::MonteCarloGBM`,
+    // `ModelKey::MonteCarloHullWhite1F`, or `ModelKey::StaticReplication`).
 }

@@ -1,18 +1,20 @@
 use super::config::CDSPricerConfig;
 use super::helpers::{
-    approx_default_density, df_asof_to, haz_t, midpoint_default_date,
-    restructuring_adjustment_factor, settlement_date, sp_cond_to,
+    approx_default_density, date_from_hazard_time, df_asof_to, haz_t,
+    isda_standard_model_boundaries, midpoint_default_date, restructuring_adjustment_factor,
+    settlement_date, sp_cond_to,
 };
 use super::IntegrationMethod;
-use crate::constants::{isda, numerical, BASIS_POINTS_PER_UNIT};
+use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_core::dates::{Date, HolidayCalendar};
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
-use finstack_core::math::adaptive_simpson;
+use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
+use std::cell::RefCell;
 
 /// CDS pricing engine. Stateless wrapper carrying configuration.
 #[derive(Debug)]
@@ -299,6 +301,8 @@ impl CDSPricer {
     /// - Discounting: relative DF from `as_of` using discount curve's day-count
     /// - Survival: conditional survival given no default before `as_of` using hazard curve's day-count
     /// - Accrual: instrument's premium leg day-count convention (Act/360 for NA, etc.)
+    /// - Accrual-on-default: dispatched through [`Self::accrual_on_default_dispatch`]
+    ///   which honours [`CDSPricerConfig::integration_method`].
     pub(crate) fn pv_premium_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
@@ -346,7 +350,7 @@ impl CDSPricer {
                 // Keep AoD on the same dollar basis as the scheduled coupon leg.
                 premium_pv += spread_sign
                     * cds.notional.amount()
-                    * self.accrual_on_default_isda_midpoint(AodInputs {
+                    * self.accrual_on_default_dispatch(AodInputs {
                         cds,
                         spread: spread.abs(),
                         start_date: start_date.max(as_of),
@@ -363,27 +367,75 @@ impl CDSPricer {
         Ok(premium_pv)
     }
 
-    /// Calculate accrual-on-default for a period using dates with proper time-axis handling.
+    // ─── Accrual-on-default dispatch and variants ─────────────────────────
+
+    /// Route accrual-on-default to a method-specific implementation based on
+    /// [`CDSPricerConfig::integration_method`].
     ///
-    /// This method properly handles:
-    /// - Discounting using discount curve's day-count relative to as_of
-    /// - Survival using hazard curve's day-count with conditional probability from as_of
-    /// - Accrual fraction within the period
-    pub(super) fn accrual_on_default_isda_midpoint(&self, inp: AodInputs<'_>) -> Result<f64> {
-        // ISDA midpoint approximation for accrual-on-default, using **dates**:
-        //
-        // AoD ≈ spread * (0.5 * τ_remaining) * DF(as_of→pay) * P(default in (start, end] | survived to as_of)
-        //
-        // Important: `start_date` is already `max(period_start, as_of)` in all call sites,
-        // so this implements a "clean" AoD (does not include already-accrued premium before `as_of`).
+    /// All implementations use **conditional survival** given no default before
+    /// `as_of` and **relative discount factors** from `as_of`, matching the
+    /// protection-leg conventions.
+    ///
+    /// | Method | AoD implementation |
+    /// |--------|--------------------|
+    /// | `Midpoint` | Period midpoint with conditional survival |
+    /// | `IsdaExact` | Piecewise fixed-step midpoint quadrature |
+    /// | `IsdaStandardModel` | Analytical piecewise-constant integration over hazard/disc knots |
+    /// | `GaussianQuadrature` | Gauss-Legendre on hazard-time axis with conditional density |
+    /// | `AdaptiveSimpson` | Adaptive Simpson on hazard-time axis with conditional density |
+    pub(super) fn accrual_on_default_dispatch(&self, inp: AodInputs<'_>) -> Result<f64> {
+        match self.config.integration_method {
+            IntegrationMethod::Midpoint => self.accrual_on_default_midpoint_cond(inp),
+            IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact_cond(inp),
+            IntegrationMethod::IsdaStandardModel => {
+                self.accrual_on_default_isda_standard_model_cond(inp)
+            }
+            IntegrationMethod::GaussianQuadrature => {
+                match self.accrual_on_default_gaussian_quadrature_cond(inp) {
+                    Ok(pv) => Ok(pv),
+                    Err(e) => {
+                        tracing::warn!(
+                            method = "GaussianQuadrature",
+                            error = %e,
+                            "AoD integration failed, falling back to midpoint"
+                        );
+                        self.accrual_on_default_midpoint_cond(inp)
+                    }
+                }
+            }
+            IntegrationMethod::AdaptiveSimpson => {
+                match self.accrual_on_default_adaptive_simpson_cond(inp) {
+                    Ok(pv) => Ok(pv),
+                    Err(e) => {
+                        tracing::warn!(
+                            method = "AdaptiveSimpson",
+                            error = %e,
+                            "AoD integration failed, falling back to midpoint"
+                        );
+                        self.accrual_on_default_midpoint_cond(inp)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Period midpoint approximation for AoD with conditional survival.
+    ///
+    /// ```text
+    /// AoD ≈ spread * (0.5 * τ_remaining) * DF(as_of→settle(mid))
+    ///     * P(default in (start, end] | survived to as_of)
+    /// ```
+    ///
+    /// `start_date` is already `max(period_start, as_of)` at the call site,
+    /// so this implements a "clean" AoD (no already-accrued premium before
+    /// `as_of`).
+    pub(super) fn accrual_on_default_midpoint_cond(&self, inp: AodInputs<'_>) -> Result<f64> {
         if inp.end_date <= inp.start_date {
             return Ok(0.0);
         }
 
-        // Remaining accrual fraction uses the instrument premium day count convention.
         let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
 
-        // Conditional default probability between start and end (conditioned on survival to as_of).
         let sp_start = sp_cond_to(inp.surv, inp.as_of, inp.start_date)?;
         let sp_end = sp_cond_to(inp.surv, inp.as_of, inp.end_date)?;
         let default_prob = (sp_start - sp_end).max(0.0);
@@ -400,349 +452,289 @@ impl CDSPricer {
         Ok(inp.spread * 0.5 * tau_remaining * default_prob * df)
     }
 
-    /// Midpoint method for AoD with proper time-axis handling
-    #[allow(clippy::too_many_arguments)]
-    fn accrual_on_default_midpoint_dates(
-        &self,
-        spread: f64,
-        t_start_haz: f64,
-        t_end_haz: f64,
-        t_start_disc: f64,
-        _t_end_disc: f64,
-        sp_asof: f64,
-        df_asof: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let period_length = t_end_haz - t_start_haz;
-        let num_steps = (period_length * self.config.steps_per_year as f64).ceil() as usize;
-        let num_steps = num_steps.max(1);
-        let dt_haz = period_length / num_steps as f64;
-        // Assume disc and haz time axes are similar for step sizing (not exact but reasonable)
-        let dt_disc = (t_start_disc - t_start_haz + period_length) / num_steps as f64;
-        let _ = dt_disc; // We'll interpolate disc time from haz time ratio
-
-        let mut accrual_pv = 0.0;
-        for i in 0..num_steps {
-            let t1_haz = t_start_haz + i as f64 * dt_haz;
-            let t2_haz = t_start_haz + (i + 1) as f64 * dt_haz;
-
-            // Conditional default probability for this sub-period
-            let sp1 = surv.sp(t1_haz) / sp_asof;
-            let sp2 = surv.sp(t2_haz) / sp_asof;
-            let default_prob = sp1 - sp2;
-
-            // Default assumed at midpoint
-            let t_mid_haz = (t1_haz + t2_haz) * 0.5;
-            // Map haz time to disc time (linear interpolation approximation)
-            let ratio = (t_mid_haz - t_start_haz) / period_length;
-            let t_mid_disc = t_start_disc + ratio * (t_start_disc - t_start_haz + period_length);
-
-            // Relative DF from as_of
-            let df = disc.df(t_mid_disc) / df_asof;
-
-            // Accrued time within the period (from start to default)
-            let accrued_fraction = t_mid_haz - t_start_haz;
-            let accrual = spread * accrued_fraction;
-
-            accrual_pv += accrual * default_prob * df;
+    /// Piecewise fixed-step midpoint quadrature over [start, end] (ISDA exact
+    /// variant), using conditional survival and relative discount factors.
+    pub(super) fn accrual_on_default_isda_exact_cond(&self, inp: AodInputs<'_>) -> Result<f64> {
+        if inp.end_date <= inp.start_date {
+            return Ok(0.0);
         }
-        Ok(accrual_pv)
-    }
-
-    /// Adaptive method for AoD with proper time-axis handling
-    #[allow(clippy::too_many_arguments)]
-    fn accrual_on_default_adaptive_dates(
-        &self,
-        spread: f64,
-        t_start_haz: f64,
-        t_end_haz: f64,
-        t_start_disc: f64,
-        _t_end_disc: f64,
-        sp_asof: f64,
-        df_asof: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let period_length = t_end_haz - t_start_haz;
-        if period_length <= 0.0 || spread < 0.0 {
+        let t_start = haz_t(inp.surv, inp.start_date)?;
+        let t_end = haz_t(inp.surv, inp.end_date)?;
+        let t_asof = haz_t(inp.surv, inp.as_of)?;
+        let sp_asof = inp.surv.sp(t_asof);
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
 
-        let h = period_length * numerical::INTEGRATION_STEP_FACTOR;
-        let integrand = |t_haz: f64| {
-            // Density of default at t_haz (conditioned on survival to as_of)
-            let density = approx_default_density(surv, t_haz, h, t_start_haz, t_end_haz) / sp_asof;
-
-            // Map haz time to disc time
-            let ratio = (t_haz - t_start_haz) / period_length;
-            let t_disc = t_start_disc + ratio * period_length;
-
-            // Relative DF from as_of
-            let df = disc.df(t_disc) / df_asof;
-
-            // Accrued time within period
-            let accrued_time = (t_haz - t_start_haz).max(0.0);
-
-            spread * accrued_time * density * df
-        };
-
-        adaptive_simpson(
-            integrand,
-            t_start_haz,
-            t_end_haz,
-            self.config.tolerance,
-            self.config.adaptive_max_depth,
-        )
-    }
-
-    /// ISDA-style method for AoD with proper time-axis handling
-    #[allow(clippy::too_many_arguments)]
-    fn accrual_on_default_isda_dates(
-        &self,
-        spread: f64,
-        t_start_haz: f64,
-        t_end_haz: f64,
-        t_start_disc: f64,
-        _t_end_disc: f64,
-        sp_asof: f64,
-        df_asof: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let period_length = t_end_haz - t_start_haz;
-        if period_length <= 0.0 {
+        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
+        let period_length_haz = t_end - t_start;
+        if period_length_haz <= 0.0 || tau_remaining <= 0.0 {
             return Ok(0.0);
         }
 
-        // Use ISDA piecewise-constant approximation
-        let steps_per_period = self.config.effective_steps(period_length);
-        let dt = period_length / steps_per_period as f64;
-        let mut accrual_pv = 0.0;
-
-        for i in 0..steps_per_period {
-            let t1_haz = t_start_haz + i as f64 * dt;
-            let t2_haz = t1_haz + dt;
-
-            // Conditional survival probabilities
-            let sp1 = surv.sp(t1_haz) / sp_asof;
-            let sp2 = surv.sp(t2_haz) / sp_asof;
-
-            if sp1 > sp2 && sp1 > 0.0 {
-                // Note: Hazard rate computed for documentation but not needed in simplified formula
-                // let hazard_rate = -(sp2 / sp1).ln() / dt;
-
-                // Map to disc time axis
-                let ratio1 = (t1_haz - t_start_haz) / period_length;
-                let t1_disc = t_start_disc + ratio1 * period_length;
-
-                // Relative DF at interval start
-                let df1 = disc.df(t1_disc) / df_asof;
-
-                // Accrued time from period start to interval start
-                let accrued_time = t1_haz - t_start_haz;
-
-                // ISDA: accrual at default is approximately at interval midpoint
-                // Simplified: use accrued_time + dt/2 as average
-                let avg_accrued = accrued_time + dt * 0.5;
-
-                // Contribution: spread * avg_accrued * (probability of default in interval) * df
-                // Default prob = sp1 - sp2
-                accrual_pv += spread * avg_accrued * (sp1 - sp2) * df1;
-            }
-        }
-
-        Ok(accrual_pv)
-    }
-
-    /// Calculate accrual-on-default for a period using configured method (time-based)
-    ///
-    /// Note: This method assumes times are computed using consistent day-count conventions.
-    /// Prefer using `calculate_accrual_on_default_dates` for new code.
-    fn calculate_accrual_on_default(
-        &self,
-        spread: f64,
-        t_start: f64,
-        t_end: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let period_length = t_end - t_start;
-        match self.config.integration_method {
-            IntegrationMethod::Midpoint => {
-                self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv)
-            }
-            IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => {
-                self.accrual_on_default_adaptive(spread, t_start, t_end, period_length, disc, surv)
-            }
-            IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(
-                spread,
-                t_start,
-                t_end,
-                period_length,
-                disc,
-                surv,
-            ),
-            IntegrationMethod::IsdaStandardModel => self.accrual_on_default_isda_standard_model(
-                spread,
-                t_start,
-                t_end,
-                period_length,
-                disc,
-                surv,
-            ),
-        }
-    }
-
-    fn accrual_on_default_midpoint(
-        &self,
-        spread: f64,
-        t_start: f64,
-        _t_end: f64,
-        period_length: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let num_steps = (period_length * self.config.steps_per_year as f64).ceil() as usize;
-        let dt = period_length / num_steps as f64;
-        let mut accrual_pv = 0.0;
-        for i in 0..num_steps {
-            let t1 = t_start + i as f64 * dt;
-            let t2 = t_start + (i + 1) as f64 * dt;
-            let default_prob = surv.sp(t1) - surv.sp(t2);
-            let t_default = (t1 + t2) * 0.5;
-            let accrued_time = t_default - t_start;
-            let df = disc.df(t_default);
-            let accrual = spread * accrued_time;
-            accrual_pv += accrual * default_prob * df;
-        }
-        Ok(accrual_pv)
-    }
-
-    fn accrual_on_default_adaptive(
-        &self,
-        spread: f64,
-        t_start: f64,
-        t_end: f64,
-        _period_length: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        if t_start >= t_end || spread < 0.0 {
-            return Err(Error::internal(
-                "accrued-on-default integral requires t_start < t_end and non-negative spread",
-            ));
-        }
-        let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
-        let integrand = |t: f64| {
-            let density = approx_default_density(surv, t, h, t_start, t_end);
-            let accrued_time = (t - t_start).max(0.0);
-            let df = disc.df(t);
-            spread * accrued_time * density * df
-        };
-        adaptive_simpson(
-            integrand,
-            t_start,
-            t_end,
-            self.config.tolerance,
-            self.config.adaptive_max_depth,
-        )
-    }
-
-    fn accrual_on_default_isda_exact(
-        &self,
-        spread: f64,
-        t_start: f64,
-        _t_end: f64,
-        period_length: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let steps = isda::STANDARD_INTEGRATION_POINTS;
-        let dt = period_length / steps as f64;
-        let mut accrual_pv = 0.0;
-        for i in 0..steps {
-            let t = t_start + (i as f64 + 0.5) * dt;
-            let accrual_fraction = (t - t_start) / period_length;
-            let t1 = t - dt * 0.5;
-            let t2 = t + dt * 0.5;
-            let sp1 = if t1 >= 0.0 { surv.sp(t1) } else { 1.0 };
-            let sp2 = surv.sp(t2);
-            let default_prob = if sp1 > 0.0 && sp2 < sp1 {
-                (sp1 - sp2) / dt
-            } else {
-                0.0
-            };
-            let df = disc.df(t);
-            accrual_pv += spread * accrual_fraction * default_prob * df * dt;
-        }
-        Ok(accrual_pv)
-    }
-
-    fn accrual_on_default_isda_standard_model(
-        &self,
-        spread: f64,
-        t_start: f64,
-        _t_end: f64,
-        period_length: f64,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        let steps = isda::STANDARD_INTEGRATION_POINTS;
-        let dt = period_length / steps as f64;
+        let steps = self.config.effective_steps(period_length_haz).max(1);
+        let dt = period_length_haz / steps as f64;
         let mut accrual_pv = 0.0;
 
         for i in 0..steps {
             let t1 = t_start + i as f64 * dt;
             let t2 = t1 + dt;
-            let sp1 = if t1 >= 0.0 { surv.sp(t1) } else { 1.0 };
-            let sp2 = surv.sp(t2);
-
-            if sp1 > 0.0 && sp2 < sp1 {
-                // Calculate piecewise constant hazard rate
-                let hazard_rate = -(sp2 / sp1).ln() / dt;
-
-                // Get discount factors at both ends
-                let df1 = disc.df(t1);
-                let df2 = disc.df(t2);
-
-                // Calculate piecewise constant interest rate (allow negative rates)
-                // Negative rates are valid when df2 > df1 (discount factors rising)
-                let interest_rate = if df1 > 0.0 && df2 > 0.0 {
-                    -(df2 / df1).ln() / dt
-                } else {
-                    0.0
-                };
-
-                // ISDA Standard Model analytical integration for accrual on default:
-                // We need ∫[t1,t2] (t - t_start) * D(t) * λ * S(t) dt
-                // where D(t) = D(t1) * exp(-r*(t-t1)) and S(t) = S(t1) * exp(-λ*(t-t1))
-                //
-                // Let τ = t - t1, then the integral becomes:
-                // D(t1) * S(t1) * ∫[0,dt] (t_start - t1 + τ) * exp(-(r+λ)*τ) * λ dτ
-                // = D(t1) * S(t1) * λ * [(t1 - t_start) * I0 + I1]
-                // where I0 = ∫exp(-(r+λ)*τ)dτ and I1 = ∫τ*exp(-(r+λ)*τ)dτ
-
-                let lambda_plus_r = hazard_rate + interest_rate;
-
-                if lambda_plus_r.abs() > numerical::ZERO_TOLERANCE {
-                    let exp_term = (-lambda_plus_r * dt).exp();
-                    // I0 = [1 - exp(-k*dt)] / k
-                    let i0 = (1.0 - exp_term) / lambda_plus_r;
-                    // I1 = [1 - exp(-k*dt)*(1 + k*dt)] / k^2
-                    let i1 = (1.0 - exp_term * (1.0 + lambda_plus_r * dt))
-                        / (lambda_plus_r * lambda_plus_r);
-
-                    accrual_pv += spread * df1 * sp1 * hazard_rate * ((t1 - t_start) * i0 + i1);
-                } else {
-                    // Fallback: midpoint approximation for very small rates
-                    let t_mid = (t1 + t2) * 0.5;
-                    let accrued_time = t_mid - t_start;
-                    accrual_pv += spread * accrued_time * (sp1 - sp2) * df1;
-                }
+            let sp1 = inp.surv.sp(t1) / sp_asof;
+            let sp2 = inp.surv.sp(t2) / sp_asof;
+            if !(sp1 > sp2 && sp1 > 0.0) {
+                continue;
             }
+            // Default assumed at interval midpoint; accrual fraction scaled by
+            // position within the accrual period on the instrument day-count.
+            let t_mid = (t1 + t2) * 0.5;
+            let position = ((t_mid - t_start) / period_length_haz).clamp(0.0, 1.0);
+            let accrued_tau = tau_remaining * position;
+
+            let default_date = date_from_hazard_time(inp.surv, t_mid);
+            let settle_date = settlement_date(
+                default_date,
+                inp.settlement_delay,
+                inp.calendar,
+                self.config.business_days_per_year,
+            )?;
+            let df = df_asof_to(inp.disc, inp.as_of, settle_date)?;
+
+            accrual_pv += inp.spread * accrued_tau * (sp1 - sp2) * df;
+        }
+        Ok(accrual_pv)
+    }
+
+    /// ISDA Standard Model AoD: analytical integration over piecewise-constant
+    /// hazard and interest rate intervals (knot-aligned), using conditional
+    /// survival and relative discount factors.
+    pub(super) fn accrual_on_default_isda_standard_model_cond(
+        &self,
+        inp: AodInputs<'_>,
+    ) -> Result<f64> {
+        if inp.end_date <= inp.start_date {
+            return Ok(0.0);
+        }
+        let t_start = haz_t(inp.surv, inp.start_date)?;
+        let t_end = haz_t(inp.surv, inp.end_date)?;
+        let t_asof = haz_t(inp.surv, inp.as_of)?;
+        let sp_asof = inp.surv.sp(t_asof);
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
+            return Ok(0.0);
         }
 
+        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
+        let period_length_haz = t_end - t_start;
+        if period_length_haz <= 0.0 || tau_remaining <= 0.0 {
+            return Ok(0.0);
+        }
+        // Linear scale from hazard-time position to instrument-day-count accrual.
+        let tau_per_haz = tau_remaining / period_length_haz;
+
+        let boundaries = isda_standard_model_boundaries(t_start, t_end, inp.surv, inp.disc);
+        let mut accrual_pv = 0.0;
+
+        for window in boundaries.windows(2) {
+            let t1 = window[0];
+            let t2 = window[1];
+            let dt = t2 - t1;
+            if dt <= numerical::ZERO_TOLERANCE {
+                continue;
+            }
+
+            let sp1 = inp.surv.sp(t1) / sp_asof;
+            let sp2 = inp.surv.sp(t2) / sp_asof;
+            if !(sp1 > sp2 && sp1 > 0.0) {
+                continue;
+            }
+
+            // Piecewise-constant hazard rate over [t1, t2].
+            let hazard_rate = -(sp2 / sp1).ln() / dt;
+
+            // Relative DF anchored at as_of, via settled default date per knot.
+            let settle1 = settlement_date(
+                date_from_hazard_time(inp.surv, t1),
+                inp.settlement_delay,
+                inp.calendar,
+                self.config.business_days_per_year,
+            )?;
+            let settle2 = settlement_date(
+                date_from_hazard_time(inp.surv, t2),
+                inp.settlement_delay,
+                inp.calendar,
+                self.config.business_days_per_year,
+            )?;
+            let df1 = df_asof_to(inp.disc, inp.as_of, settle1)?;
+            let df2 = df_asof_to(inp.disc, inp.as_of, settle2)?;
+
+            // Piecewise-constant interest rate (may be negative if df2 > df1).
+            let interest_rate = if df1 > 0.0 && df2 > 0.0 {
+                -(df2 / df1).ln() / dt
+            } else {
+                0.0
+            };
+
+            // Accrued fraction at interval start, expressed in instrument-DC units.
+            let tau_at_t1 = (t1 - t_start) * tau_per_haz;
+
+            // Analytical integration for
+            //   ∫ spread * (τ_at_t1 + (t - t1) * tau_per_haz) * λ * S(t1) * D(t1)
+            //     * exp(-(λ + r)(t - t1)) dt
+            // Let k = λ + r. Then
+            //   I0 = (1 - e^{-kΔ})/k
+            //   I1 = (1 - e^{-kΔ}(1 + kΔ))/k²
+            let k = hazard_rate + interest_rate;
+            let contribution = if k.abs() > numerical::ZERO_TOLERANCE {
+                let exp_term = (-k * dt).exp();
+                let i0 = (1.0 - exp_term) / k;
+                let i1 = (1.0 - exp_term * (1.0 + k * dt)) / (k * k);
+                inp.spread * df1 * sp1 * hazard_rate * (tau_at_t1 * i0 + tau_per_haz * i1)
+            } else {
+                // Small-k fallback: midpoint approximation keeps AoD well-behaved
+                // for near-zero hazard or near-zero (r+λ).
+                let t_mid = (t1 + t2) * 0.5;
+                let position = ((t_mid - t_start) / period_length_haz).clamp(0.0, 1.0);
+                let accrued_tau = tau_remaining * position;
+                inp.spread * accrued_tau * (sp1 - sp2) * df1
+            };
+            accrual_pv += contribution;
+        }
         Ok(accrual_pv)
+    }
+
+    /// Gauss-Legendre quadrature on hazard-time axis with conditional density
+    /// and relative discount factors.
+    pub(super) fn accrual_on_default_gaussian_quadrature_cond(
+        &self,
+        inp: AodInputs<'_>,
+    ) -> Result<f64> {
+        if inp.end_date <= inp.start_date {
+            return Ok(0.0);
+        }
+        let t_start = haz_t(inp.surv, inp.start_date)?;
+        let t_end = haz_t(inp.surv, inp.end_date)?;
+        if t_start >= t_end {
+            return Ok(0.0);
+        }
+        let t_asof = haz_t(inp.surv, inp.as_of)?;
+        let sp_asof = inp.surv.sp(t_asof);
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
+            return Ok(0.0);
+        }
+
+        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
+        let period_length_haz = t_end - t_start;
+        if tau_remaining <= 0.0 || period_length_haz <= 0.0 {
+            return Ok(0.0);
+        }
+        let tau_per_haz = tau_remaining / period_length_haz;
+
+        let h = period_length_haz * numerical::INTEGRATION_STEP_FACTOR;
+        let err: RefCell<Option<Error>> = RefCell::new(None);
+        let integrand = |t: f64| {
+            if err.borrow().is_some() {
+                return 0.0;
+            }
+            let density = approx_default_density(inp.surv, t, h, t_start, t_end) / sp_asof;
+            let default_date = date_from_hazard_time(inp.surv, t);
+            let settle = match settlement_date(
+                default_date,
+                inp.settlement_delay,
+                inp.calendar,
+                self.config.business_days_per_year,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    *err.borrow_mut() = Some(e);
+                    return 0.0;
+                }
+            };
+            let df = match df_asof_to(inp.disc, inp.as_of, settle) {
+                Ok(d) => d,
+                Err(e) => {
+                    *err.borrow_mut() = Some(e);
+                    return 0.0;
+                }
+            };
+            let tau = (t - t_start).max(0.0) * tau_per_haz;
+            inp.spread * tau * density * df
+        };
+
+        let result =
+            gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())?;
+        if let Some(e) = err.into_inner() {
+            return Err(e);
+        }
+        Ok(result)
+    }
+
+    /// Adaptive Simpson on hazard-time axis with conditional density and
+    /// relative discount factors.
+    pub(super) fn accrual_on_default_adaptive_simpson_cond(
+        &self,
+        inp: AodInputs<'_>,
+    ) -> Result<f64> {
+        if inp.end_date <= inp.start_date {
+            return Ok(0.0);
+        }
+        let t_start = haz_t(inp.surv, inp.start_date)?;
+        let t_end = haz_t(inp.surv, inp.end_date)?;
+        if t_start >= t_end {
+            return Ok(0.0);
+        }
+        let t_asof = haz_t(inp.surv, inp.as_of)?;
+        let sp_asof = inp.surv.sp(t_asof);
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
+            return Ok(0.0);
+        }
+
+        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
+        let period_length_haz = t_end - t_start;
+        if tau_remaining <= 0.0 || period_length_haz <= 0.0 {
+            return Ok(0.0);
+        }
+        let tau_per_haz = tau_remaining / period_length_haz;
+
+        let h = period_length_haz * numerical::INTEGRATION_STEP_FACTOR;
+        let err: RefCell<Option<Error>> = RefCell::new(None);
+        let integrand = |t: f64| {
+            if err.borrow().is_some() {
+                return 0.0;
+            }
+            let density = approx_default_density(inp.surv, t, h, t_start, t_end) / sp_asof;
+            let default_date = date_from_hazard_time(inp.surv, t);
+            let settle = match settlement_date(
+                default_date,
+                inp.settlement_delay,
+                inp.calendar,
+                self.config.business_days_per_year,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    *err.borrow_mut() = Some(e);
+                    return 0.0;
+                }
+            };
+            let df = match df_asof_to(inp.disc, inp.as_of, settle) {
+                Ok(d) => d,
+                Err(e) => {
+                    *err.borrow_mut() = Some(e);
+                    return 0.0;
+                }
+            };
+            let tau = (t - t_start).max(0.0) * tau_per_haz;
+            inp.spread * tau * density * df
+        };
+
+        let result = adaptive_simpson(
+            integrand,
+            t_start,
+            t_end,
+            self.config.tolerance,
+            self.config.adaptive_max_depth,
+        )?;
+        if let Some(e) = err.into_inner() {
+            return Err(e);
+        }
+        Ok(result)
     }
 }

@@ -874,11 +874,6 @@ impl SimpleCdsIndexHazardPricer {
             model_key: crate::pricer::ModelKey::HazardRate,
         }
     }
-
-    /// Create a CDS index pricer with specified model key
-    pub(crate) fn with_model(model_key: crate::pricer::ModelKey) -> Self {
-        Self { model_key }
-    }
 }
 
 impl Default for SimpleCdsIndexHazardPricer {

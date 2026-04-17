@@ -19,7 +19,10 @@ pub(crate) struct ModifiedDurationCalculator;
 
 impl MetricCalculator for ModifiedDurationCalculator {
     fn dependencies(&self) -> &[MetricId] {
-        &[MetricId::DurationMac]
+        // Ytm is required for straight bonds in addition to DurationMac. Declaring
+        // it explicitly lets the topological resolver schedule Ytm ahead of us even
+        // when no other metric in the batch depends on it.
+        &[MetricId::DurationMac, MetricId::Ytm]
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

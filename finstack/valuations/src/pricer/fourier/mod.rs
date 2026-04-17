@@ -30,9 +30,9 @@
 //!
 //! let cf = BlackScholesCf { r: 0.05, q: 0.0, sigma: 0.2 };
 //!
-//! // COS method
+//! // COS method (r encodes the drift already present in the CF)
 //! let cos = CosPricer::new(&cf, CosConfig::default());
-//! let call = cos.price_call(100.0, 100.0, 0.05, 0.0, 1.0);
+//! let call = cos.price_call(100.0, 100.0, 0.05, 1.0);
 //!
 //! // Lewis method
 //! let lewis = LewisPricer::new(&cf, LewisConfig::default());

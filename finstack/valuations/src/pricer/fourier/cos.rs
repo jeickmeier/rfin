@@ -65,27 +65,34 @@ impl<'a> CosPricer<'a> {
     }
 
     /// Price a European call option.
+    ///
+    /// # Parameters
+    ///
+    /// * `r` — risk-free rate used for the discount factor `exp(-r*t)`. This
+    ///   **must** match the rate encoded in the characteristic function's drift
+    ///   term. Any dividend yield is already part of the CF's drift and does
+    ///   not appear here — the COS method computes the risk-neutral expectation
+    ///   directly from `phi_Y`.
     pub fn price_call(
         &self,
         spot: f64,
         strike: f64,
         r: f64,
-        q: f64,
         t: f64,
     ) -> crate::pricer::PricingResult<f64> {
-        self.price(spot, strike, r, q, t, true)
+        self.price(spot, strike, r, t, true)
     }
 
-    /// Price a European put option.
+    /// Price a European put option. See [`price_call`](Self::price_call) for the
+    /// role of `r`.
     pub fn price_put(
         &self,
         spot: f64,
         strike: f64,
         r: f64,
-        q: f64,
         t: f64,
     ) -> crate::pricer::PricingResult<f64> {
-        self.price(spot, strike, r, q, t, false)
+        self.price(spot, strike, r, t, false)
     }
 
     /// Price a strip of European calls across strikes.
@@ -94,10 +101,9 @@ impl<'a> CosPricer<'a> {
         spot: f64,
         strikes: &[f64],
         r: f64,
-        q: f64,
         t: f64,
     ) -> crate::pricer::PricingResult<Vec<f64>> {
-        self.price_strip(spot, strikes, r, q, t, true)
+        self.price_strip(spot, strikes, r, t, true)
     }
 
     /// Price a strip of European puts across strikes.
@@ -106,10 +112,9 @@ impl<'a> CosPricer<'a> {
         spot: f64,
         strikes: &[f64],
         r: f64,
-        q: f64,
         t: f64,
     ) -> crate::pricer::PricingResult<Vec<f64>> {
-        self.price_strip(spot, strikes, r, q, t, false)
+        self.price_strip(spot, strikes, r, t, false)
     }
 
     fn price(
@@ -117,11 +122,10 @@ impl<'a> CosPricer<'a> {
         spot: f64,
         strike: f64,
         r: f64,
-        q: f64,
         t: f64,
         is_call: bool,
     ) -> crate::pricer::PricingResult<f64> {
-        let prices = self.price_strip(spot, &[strike], r, q, t, is_call)?;
+        let prices = self.price_strip(spot, &[strike], r, t, is_call)?;
         Ok(prices[0])
     }
 
@@ -130,7 +134,6 @@ impl<'a> CosPricer<'a> {
         spot: f64,
         strikes: &[f64],
         r: f64,
-        _q: f64,
         t: f64,
         is_call: bool,
     ) -> crate::pricer::PricingResult<Vec<f64>> {
@@ -197,12 +200,41 @@ impl<'a> CosPricer<'a> {
                     sum += weight * (2.0 / bma) * ak * payoff_k[k];
                 }
 
-                (strike * df * sum).max(0.0)
+                let raw = strike * df * sum;
+                // A negative result here is always a truncation / discretisation
+                // artefact for vanilla calls and puts — the mathematical price
+                // is non-negative. Surface it as a warning so callers can tune
+                // `num_terms` or `truncation_l` instead of silently accepting a
+                // misleading zero.
+                if raw < -numerical_negativity_tolerance(strike) {
+                    tracing::warn!(
+                        strike,
+                        spot,
+                        r,
+                        t,
+                        raw,
+                        num_terms = self.config.num_terms,
+                        truncation_l = self.config.truncation_l,
+                        "COS method returned negative raw price; clamping to zero. \
+                         Consider increasing num_terms or truncation_l, or check \
+                         that the CF's drift matches the supplied r."
+                    );
+                }
+                raw.max(0.0)
             })
             .collect();
 
         Ok(prices)
     }
+}
+
+/// Threshold below which a negative COS price is surfaced as a warning.
+///
+/// Clamping at exactly zero would fire the warning for benign rounding
+/// noise near out-of-the-money strikes. We allow a small relative slack
+/// (1e-10 of the strike) before warning.
+fn numerical_negativity_tolerance(strike: f64) -> f64 {
+    strike.abs() * 1e-10 + 1e-12
 }
 
 /// Compute the truncation range [a, b] from cumulants.
@@ -281,7 +313,7 @@ mod tests {
             truncation_l: 10.0,
         };
         let pricer = CosPricer::new(&cf, config);
-        let cos_price = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
+        let cos_price = pricer.price_call(100.0, 100.0, 0.05, 1.0)?;
         let bs_price = bs_call_price(100.0, 100.0, 0.05, 0.0, 1.0, sigma);
 
         assert!(
@@ -304,7 +336,7 @@ mod tests {
         let pricer = CosPricer::new(&cf, config);
 
         for strike in [80.0, 90.0, 100.0, 110.0, 120.0] {
-            let cos_price = pricer.price_call(100.0, strike, 0.05, 0.02, 1.0)?;
+            let cos_price = pricer.price_call(100.0, strike, 0.05, 1.0)?;
             let bs_price = bs_call_price(100.0, strike, 0.05, 0.02, 1.0, sigma);
             assert!(
                 (cos_price - bs_price).abs() < 1e-4,
@@ -331,8 +363,8 @@ mod tests {
         let q = 0.02;
         let t = 1.0;
 
-        let call = pricer.price_call(spot, strike, r, q, t)?;
-        let put = pricer.price_put(spot, strike, r, q, t)?;
+        let call = pricer.price_call(spot, strike, r, t)?;
+        let put = pricer.price_put(spot, strike, r, t)?;
         let parity = call - put - (spot * (-q * t).exp() - strike * (-r * t).exp());
 
         assert!(
@@ -352,7 +384,7 @@ mod tests {
         };
         let config = CosConfig::default();
         let pricer = CosPricer::new(&cf, config);
-        let cos_put = pricer.price_put(100.0, 100.0, 0.05, 0.0, 1.0)?;
+        let cos_put = pricer.price_put(100.0, 100.0, 0.05, 1.0)?;
         let bs_put = bs_put_price(100.0, 100.0, 0.05, 0.0, 1.0, sigma);
         assert!(
             (cos_put - bs_put).abs() < 1e-6,
@@ -373,9 +405,9 @@ mod tests {
         let pricer = CosPricer::new(&cf, config);
         let strikes = vec![90.0, 95.0, 100.0, 105.0, 110.0];
 
-        let strip = pricer.price_calls(100.0, &strikes, 0.05, 0.0, 1.0)?;
+        let strip = pricer.price_calls(100.0, &strikes, 0.05, 1.0)?;
         for (i, &k) in strikes.iter().enumerate() {
-            let single = pricer.price_call(100.0, k, 0.05, 0.0, 1.0)?;
+            let single = pricer.price_call(100.0, k, 0.05, 1.0)?;
             assert!(
                 (strip[i] - single).abs() < 1e-12,
                 "Strip[{i}]={}, single={}",
@@ -402,7 +434,7 @@ mod tests {
             truncation_l: 12.0,
         };
         let pricer = CosPricer::new(&vg, config);
-        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
+        let call = pricer.price_call(100.0, 100.0, 0.05, 1.0)?;
         assert!(call > 0.0, "VG call should be positive: {call}");
         assert!(call < 100.0, "VG call should be < spot: {call}");
         Ok(())
@@ -424,7 +456,7 @@ mod tests {
             truncation_l: 12.0,
         };
         let pricer = CosPricer::new(&merton, config);
-        let call = pricer.price_call(100.0, 100.0, 0.05, 0.0, 1.0)?;
+        let call = pricer.price_call(100.0, 100.0, 0.05, 1.0)?;
         assert!(call > 0.0, "Merton call should be positive: {call}");
         assert!(call < 100.0, "Merton call should be < spot: {call}");
 

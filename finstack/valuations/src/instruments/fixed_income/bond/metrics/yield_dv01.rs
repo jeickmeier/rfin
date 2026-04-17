@@ -19,7 +19,10 @@ pub(crate) struct YieldDv01Calculator;
 
 impl MetricCalculator for YieldDv01Calculator {
     fn dependencies(&self) -> &[MetricId] {
-        &[MetricId::DurationMod]
+        // Ytm is required alongside DurationMod for the price-from-yield repricing.
+        // Declaring it explicitly keeps this calculator robust to changes in which
+        // metrics are requested in the batch.
+        &[MetricId::DurationMod, MetricId::Ytm]
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
