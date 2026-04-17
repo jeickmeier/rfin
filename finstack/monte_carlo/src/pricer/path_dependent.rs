@@ -217,6 +217,20 @@ impl PathDependentPricer {
             }
         }
 
+        // Brownian bridge path construction allocates the leading Sobol
+        // dimensions to terminal/midpoint increments of a single scalar
+        // Brownian motion. With multi-factor processes the bridge would need
+        // to be applied per-factor using the increment-covariance Cholesky,
+        // which is not yet implemented. Reject the combination to prevent a
+        // silently biased result.
+        if self.config.use_brownian_bridge && num_factors != 1 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Brownian-bridge path construction is only supported for single-factor \
+                 processes, but the supplied process reports num_factors={num_factors}. \
+                 Disable `use_brownian_bridge` or use a single-factor process."
+            )));
+        }
+
         let sobol_dimension = if self.config.use_brownian_bridge {
             time_grid.num_steps()
         } else {

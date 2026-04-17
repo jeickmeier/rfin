@@ -97,6 +97,11 @@ impl LsmcConfig {
     }
 
     /// Create a validated LSMC configuration.
+    ///
+    /// Validates that `num_paths > 0` and that `exercise_dates` is non-empty
+    /// and contains no zero values. Zero step indices imply exercise *before*
+    /// the first simulated timestep and would silently be dropped by the
+    /// backward-induction loop.
     pub fn try_new(
         num_paths: usize,
         exercise_dates: Vec<usize>,
@@ -107,7 +112,35 @@ impl LsmcConfig {
         if exercise_dates.is_empty() {
             return Err("exercise_dates must have at least one element".to_string());
         }
+        if let Some(pos) = exercise_dates.iter().position(|&d| d == 0) {
+            return Err(format!(
+                "exercise_dates must be strictly positive step indices (exercise_dates[{pos}] = 0 \
+                 implies exercise before the first simulated step)"
+            ));
+        }
         Ok(Self::new(num_paths, exercise_dates))
+    }
+
+    /// Create a validated LSMC configuration with known `num_steps`.
+    ///
+    /// This is the preferred constructor: it additionally verifies that every
+    /// exercise date is in the half-open range `(0, num_steps]`. An index of
+    /// `num_steps` corresponds to the terminal exercise (European boundary
+    /// condition); any index strictly greater is silently dropped by
+    /// backward induction and almost certainly indicates a caller bug.
+    pub fn try_new_at_steps(
+        num_paths: usize,
+        exercise_dates: Vec<usize>,
+        num_steps: usize,
+    ) -> std::result::Result<Self, String> {
+        let cfg = Self::try_new(num_paths, exercise_dates)?;
+        if let Some(&bad) = cfg.exercise_dates.iter().find(|&&d| d > num_steps) {
+            return Err(format!(
+                "exercise_dates contain {bad} which exceeds num_steps={num_steps}; each date \
+                 must satisfy 0 < date <= num_steps"
+            ));
+        }
+        Ok(cfg)
     }
 
     /// Set random seed.
@@ -338,13 +371,14 @@ impl LsmcPricer {
 
         let valid_exercise_count = sorted_exercise_dates
             .iter()
-            .filter(|&&step| step < num_steps)
+            .filter(|&&step| step > 0 && step < num_steps)
             .count();
         if valid_exercise_count == 0 {
             tracing::warn!(
                 num_steps,
                 exercise_dates = ?self.config.exercise_dates,
-                "All exercise dates are >= num_steps; option priced as European (terminal exercise only)"
+                "No exercise date is inside the simulated horizon (0 < step < num_steps); \
+                 option priced as European (terminal exercise only)"
             );
         }
 
@@ -354,7 +388,11 @@ impl LsmcPricer {
         let mut regression_indices = Vec::with_capacity(paths.len() / 2);
 
         for &exercise_step in &sorted_exercise_dates {
-            if exercise_step >= num_steps {
+            // Drop guards against:
+            //   - exercise_step == 0: pre-simulation exercise, nonsensical.
+            //   - exercise_step >= num_steps: past/at the terminal where the
+            //     European payoff is already seeded in `cashflows`.
+            if exercise_step == 0 || exercise_step >= num_steps {
                 continue;
             }
 
@@ -605,6 +643,32 @@ mod tests {
 
         let expected = 30.0 * (-0.05_f64).exp();
         assert!((present_values[0] - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_lsmc_config_rejects_zero_exercise_date() {
+        let err = LsmcConfig::try_new(100, vec![0, 10, 20]).expect_err("should reject zero step");
+        assert!(
+            err.contains("strictly positive"),
+            "unexpected error message: {err}"
+        );
+    }
+
+    #[test]
+    fn test_lsmc_config_rejects_date_beyond_num_steps() {
+        let err = LsmcConfig::try_new_at_steps(100, vec![5, 15, 42], 20)
+            .expect_err("should reject date > num_steps");
+        assert!(
+            err.contains("42") && err.contains("num_steps=20"),
+            "unexpected error message: {err}"
+        );
+    }
+
+    #[test]
+    fn test_lsmc_config_accepts_terminal_date() {
+        let cfg = LsmcConfig::try_new_at_steps(100, vec![5, 10, 20], 20)
+            .expect("terminal date should be accepted");
+        assert_eq!(cfg.exercise_dates, vec![5, 10, 20]);
     }
 
     #[test]

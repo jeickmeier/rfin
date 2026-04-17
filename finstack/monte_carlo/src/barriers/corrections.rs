@@ -1,21 +1,33 @@
 //! Barrier adjustment corrections.
 //!
-//! Implements the Gobet-Miri continuity correction which adjusts
-//! the barrier level to reduce discretization bias.
+//! Implements the Broadie–Glasserman–Kou (1997) continuity correction which
+//! adjusts the barrier level to reduce discretization bias when a continuous
+//! barrier is monitored discretely. Gobet & Miri (2001) later generalized the
+//! same shift to local-volatility models.
 
-/// Gobet-Miri barrier shift coefficient.
+/// Continuity-correction coefficient `β = −ζ(1/2)/√(2π) ≈ 0.582597`.
 ///
-/// Reference: Gobet & Miri (2001) - "Weak approximation of averaged diffusion processes"
+/// Under continuous monitoring with equal time steps, shifting the barrier by
+/// `β · σ · √Δt` toward the spot makes the discretely-monitored price match
+/// the continuous price up to `o(1/√n)` error in the number of monitoring
+/// points.
 ///
-/// The adjusted barrier is: B' = B * exp(±β * σ * √Δt)
-/// where β ≈ 0.5826 for optimal bias reduction and the sign
+/// The adjusted barrier is `B' = B · exp(±β · σ · √Δt)`, where the sign
 /// shifts the barrier toward spot.
+///
+/// References:
+/// - Broadie, Glasserman & Kou (1997). "A Continuity Correction for Discrete
+///   Barrier Options." *Mathematical Finance*, 7(4), 325–349.
+/// - Gobet & Miri (2001). "Weak approximation of averaged diffusion
+///   processes" (extension to local-volatility models; same leading
+///   coefficient β).
 pub const GOBET_MIRI_BETA: f64 = 0.5826;
 
-/// Apply Gobet-Miri barrier shift.
+/// Apply the Broadie–Glasserman–Kou (1997) / Gobet–Miri barrier shift.
 ///
-/// Adjusts the barrier level to reduce discretization bias when
-/// monitoring is discrete.
+/// Adjusts the barrier level to reduce discretization bias when monitoring is
+/// discrete. Named for historical reasons; the leading coefficient is from
+/// Broadie–Glasserman–Kou.
 ///
 /// # Arguments
 ///

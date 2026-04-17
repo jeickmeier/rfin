@@ -149,9 +149,13 @@ impl McEngine {
                 captured_paths.push(path);
             }
 
-            // Check auto-stop condition
+            // Check auto-stop condition (see AUTO_STOP_MIN_SAMPLES rationale
+            // in the pricing module — 5 000 samples reduces stderr noise to
+            // ≈ 1 %, so the threshold stops firing on transient dips).
             if let Some(target) = self.config.target_ci_half_width {
-                if stats.count() > 1000 && stats.ci_half_width() < target {
+                if stats.count() >= super::pricing::AUTO_STOP_MIN_SAMPLES
+                    && stats.ci_half_width() < target
+                {
                     break;
                 }
             }

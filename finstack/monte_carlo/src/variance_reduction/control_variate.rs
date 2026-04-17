@@ -87,21 +87,41 @@ pub fn black_scholes_put(
     )
 }
 
-/// Apply control variate adjustment to Monte Carlo estimate.
+/// Apply control variate adjustment to a Monte Carlo estimate.
+///
+/// Forms the adjusted estimator
+/// ```text
+/// Ŷ = X̄ − β̂ · (C̄ − E[C])
+/// ```
+/// with `β̂ = Cov(X, C) / Var(C)` and returns its sample mean and standard
+/// error.
+///
+/// # Variance caveat
+///
+/// With a *known* optimal `β`, `Var(Ŷ) = Var(X̄)(1 − ρ²)` exactly. In practice
+/// `β̂` is estimated from the same paths, so the realised sampling variance
+/// has an extra `O(1/n)` term. This routine returns the plug-in variance
+/// `Var(X̄) + β̂² Var(C̄) − 2β̂ Cov(X̄, C̄)`, which **underestimates** the true
+/// estimator variance at small `n`. The error is empirically negligible for
+/// `n ≳ 1 000` but can matter for tight confidence-interval comparisons at
+/// low path counts; compute `β̂` on an independent warm-up batch if exact
+/// coverage is required. See Glasserman (2003), §4.1.
 ///
 /// # Arguments
 ///
-/// * `mc_mean` - Monte Carlo sample mean
-/// * `mc_var` - Monte Carlo sample variance
-/// * `control_mean` - Control variate sample mean
-/// * `control_var` - Control variate sample variance
-/// * `covariance` - Covariance between MC and control
-/// * `control_analytical` - Analytical value of control
-/// * `num_samples` - Number of samples
+/// * `mc_mean` - Monte Carlo sample mean of the target payoff `X`
+/// * `mc_var`  - Monte Carlo sample variance of `X`
+/// * `control_mean` - Sample mean of the control variate `C`
+/// * `control_var`  - Sample variance of `C`
+/// * `covariance`   - Sample covariance between `X` and `C`
+/// * `control_analytical` - Known closed-form value `E[C]`
+/// * `num_samples`  - Number of Monte Carlo samples
 ///
 /// # Returns
 ///
-/// Adjusted estimate with reduced variance
+/// An [`Estimate`] carrying the adjusted mean, plug-in standard error, and
+/// a 95 % confidence interval. When `num_samples < 2`, returns the raw
+/// `mc_mean` with zero stderr.
 pub fn apply_control_variate(
     mc_mean: f64,
     mc_var: f64,

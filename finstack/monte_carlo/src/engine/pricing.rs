@@ -23,6 +23,17 @@ pub struct McEngine {
     pub(super) config: McEngineConfig,
 }
 
+/// Minimum number of samples required before the serial auto-stop logic is
+/// allowed to fire.
+///
+/// The half-width threshold is driven by the sample standard error, which
+/// itself has relative noise `≈ 1/√(2n)`. At `n = 1 000` that is ≈ 2 %, large
+/// enough that noise in the stderr estimate can cross the threshold before
+/// the mean has stabilised. `5 000` drops the noise to ≈ 1 % and empirically
+/// eliminates premature termination at the cost of a negligible number of
+/// extra paths when the threshold is easy.
+pub(super) const AUTO_STOP_MIN_SAMPLES: usize = 5_000;
+
 /// Calculate adaptive chunk size for parallel MC execution.
 ///
 /// Balances load distribution across cores with cache efficiency.
@@ -476,9 +487,13 @@ impl McEngine {
                 );
             }
 
-            // Check auto-stop condition
+            // Check auto-stop condition. A 5 000-sample warm-up keeps the
+            // half-width estimate stable — the standard error of the sample
+            // standard error is ~1/√(2n), so at n=1 000 the stopping criterion
+            // itself has ≈ 2 % noise which routinely trips the threshold
+            // early.
             if let Some(target) = self.config.target_ci_half_width {
-                if stats.count() > 1000 && stats.ci_half_width() < target {
+                if stats.count() >= AUTO_STOP_MIN_SAMPLES && stats.ci_half_width() < target {
                     break;
                 }
             }

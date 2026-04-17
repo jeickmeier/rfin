@@ -8,6 +8,17 @@
 use super::super::process::heston::HestonProcess;
 use super::super::traits::Discretization;
 
+/// Threshold on `|κ·Δt|` below which the exp-κΔt expansions in QE are replaced
+/// by their first-order Taylor limits. Chosen so that the quadratic remainder
+/// `(κ·Δt)²/2` is below one part in 1e16 (≈ f64 epsilon) while still being
+/// loose enough to trigger for daily steps at small κ.
+const KAPPA_DT_EXPANSION_EPS: f64 = 1e-8;
+
+/// Lower bound on the conditional mean `m` below which QE forces Case B to
+/// avoid division and log-domain overflow. Identical threshold is used for
+/// guarding the Case B β computation.
+const QE_SMALL_MEAN_EPS: f64 = 1e-10;
+
 /// Integrated variance approximation method.
 ///
 /// Controls how the integrated variance ∫_t^{t+Δt} v_s ds is computed
@@ -21,22 +32,28 @@ pub enum IntegratedVarianceMethod {
     #[default]
     Trapezoidal,
 
-    /// Exact conditional expectation: E[∫v_s ds | v_t, v_{t+Δt}]
+    /// Mean-reversion-adjusted trapezoidal correction (Andersen 2008 QE-M).
     ///
-    /// Uses the closed-form conditional formula (given both v_0 and v_T):
+    /// Replaces the plain trapezoidal rule with a closed-form expression that
+    /// accounts for the exponential mean-reversion of the CIR variance process:
     /// ```text
-    /// E[∫_0^T v_s ds | v_0, v_T] = (θ - (v_0+v_T)/2)(T - (1-e^{-κT})/κ) + (v_0+v_T)(1-e^{-κT})/κ
+    /// ∫_t^{t+Δt} v_s ds ≈ θ·Δt + (v_t + v_{t+Δt} − 2θ)(1 − e^{−κΔt}) / (2κ)
     /// ```
-    /// which expands to:
-    /// ```text
-    /// θT - θ(1-e^{-κT})/κ - (v_0+v_T)T/2 + (v_0+v_T)(1-e^{-κT})/κ
-    /// ```
+    /// This reduces to the trapezoidal rule `(v_t + v_{t+Δt})/2 · Δt` as
+    /// `κ → 0` and to `θ·Δt` as `κ → ∞` or `v_t = v_{t+Δt} = θ`. It removes
+    /// the leading drift bias of the trapezoidal approximation for high
+    /// mean-reversion (κ > 5) or coarse time steps.
     ///
-    /// This reduces to the trapezoidal rule (v_0+v_T)/2 × T when κ→0. More accurate than
-    /// trapezoidal for high mean-reversion (κ > 5) or coarse time steps.
+    /// This is **not** the Broadie & Kaya (2006) exact simulation of the
+    /// conditional integrated-variance distribution (which requires inverting
+    /// the conditional characteristic function); it is the lightweight drift
+    /// correction standard in Andersen's QE-M implementation. If true
+    /// unbiased simulation is required, a separate method variant should be
+    /// added.
     ///
-    /// Reference: Broadie & Kaya (2006) eq. (16), "Exact Simulation of Stochastic
-    /// Volatility and Other Affine Jump Diffusion Processes"
+    /// Reference: Andersen, L. (2008). "Simple and efficient simulation of
+    /// the Heston stochastic volatility model." *Journal of Computational
+    /// Finance*, 11(3), §3.5 and Eq. (33).
     Exact,
 }
 
@@ -158,10 +175,12 @@ impl QeHeston {
         // Ensure non-negative input
         let v_t = v_t.max(0.0);
 
-        // Compute conditional mean and variance (Andersen 2008, Eq. 17-18)
+        // Compute conditional mean and variance (Andersen 2008, Eq. 17-18).
+        // When |κ·Δt| is near the numerical limit below which (1 - e^{-κΔt})/κ
+        // loses precision, fall back to the first-order expansion.
         let exp_kappa_dt = (-kappa * dt).exp();
         let m = theta + (v_t - theta) * exp_kappa_dt;
-        let s2 = if kappa.abs() * dt < 1e-6 {
+        let s2 = if (kappa * dt).abs() < KAPPA_DT_EXPANSION_EPS {
             v_t * sigma_v * sigma_v * dt
         } else {
             v_t * sigma_v * sigma_v * exp_kappa_dt * (1.0 - exp_kappa_dt) / kappa
@@ -184,7 +203,7 @@ impl QeHeston {
         // =========================================================================
         // Rationale: When m → 0, ψ = s²/m² → ∞, but the division itself may
         // produce overflow or NaN. Forcing Case B directly avoids this.
-        let psi = if m > 1e-10 {
+        let psi = if m > QE_SMALL_MEAN_EPS {
             let ratio = s2 / (m * m);
             ratio.min(10.0) // Safeguard 1: clamp to prevent Case A overflow
         } else {
@@ -202,11 +221,20 @@ impl QeHeston {
             let v_next = a * (z_v + b_squared.sqrt()).powi(2);
             v_next.max(0.0)
         } else {
-            // Case B: Exponential/uniform mixture
+            // Case B: Exponential/uniform mixture.
+            //
+            // Analytically, β = (1 − p)/m. The ψ‑clamp above forces Case B when
+            // m < QE_SMALL_MEAN_EPS, so in principle we never reach this branch
+            // with a vanishing mean. Retain an explicit guard: if the guard
+            // ever fires the inverse-CDF draw is degenerate and the variance
+            // collapses to its lower bound of zero.
+            if m <= QE_SMALL_MEAN_EPS {
+                return 0.0;
+            }
+
             let p = (psi - 1.0) / (psi + 1.0);
             let beta = (1.0 - p) / m;
 
-            // Inverse CDF method
             let u = finstack_core::math::special_functions::norm_cdf(z_v);
 
             if u <= p {
@@ -268,7 +296,7 @@ impl QeHeston {
         match self.int_var_method {
             IntegratedVarianceMethod::Trapezoidal => (v_t + v_next) / 2.0 * dt,
             IntegratedVarianceMethod::Exact => {
-                if kappa.abs() < 1e-10 {
+                if (kappa * dt).abs() < KAPPA_DT_EXPANSION_EPS {
                     (v_t + v_next) / 2.0 * dt
                 } else {
                     let exp_term = (-kappa * dt).exp();

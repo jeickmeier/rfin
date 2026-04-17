@@ -14,7 +14,16 @@ pub const MAX_NUM_PATHS: usize = 10_000_000;
 pub struct McEngineConfig {
     /// Number of paths to simulate (capped at [`MAX_NUM_PATHS`] at runtime)
     pub num_paths: usize,
-    /// Random number generator seed
+    /// Informational seed value recorded on the configuration for
+    /// reproducibility and logging purposes only.
+    ///
+    /// **Important:** the engine does *not* consume this field to drive the
+    /// simulation. Path generation is driven by the `rng: &R` argument passed
+    /// to [`McEngine::price`] / [`McEngine::price_with_capture`]. If you need
+    /// a specific seed, construct the `rng` accordingly (for example
+    /// `PhiloxRng::new(seed)`). Keeping `rng` separate allows Greek routines
+    /// and bootstrap-style callers to reuse the same source of randomness
+    /// across multiple `price` calls (common random numbers).
     pub seed: u64,
     /// Time grid for discretization
     pub time_grid: TimeGrid,
@@ -56,7 +65,11 @@ impl McEngineConfig {
         }
     }
 
-    /// Set the root RNG seed used by the engine.
+    /// Record a seed value on the configuration for logging/reproducibility.
+    ///
+    /// This does not influence path generation; the engine's RNG is supplied
+    /// separately to [`McEngine::price`]. Use it together with
+    /// `PhiloxRng::new(seed)` if you want the two to agree.
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self
@@ -152,7 +165,10 @@ impl McEngineBuilder {
         self
     }
 
-    /// Set the root RNG seed.
+    /// Record a seed value on the resulting configuration.
+    ///
+    /// This is metadata only; the RNG passed to [`McEngine::price`] actually
+    /// drives the simulation. See [`McEngineConfig::seed`] for the rationale.
     pub fn seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self

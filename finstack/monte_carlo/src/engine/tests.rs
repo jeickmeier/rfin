@@ -719,8 +719,13 @@ fn test_price_with_capture_preserves_cashflows_across_multiple_timesteps() {
 
 #[test]
 fn test_price_with_capture_uses_actual_path_count_after_auto_stop() {
+    // Configure num_paths slightly above the auto-stop warmup so that
+    // auto-stop fires on the first eligible iteration (count ==
+    // AUTO_STOP_MIN_SAMPLES). Any change to the warmup constant must be
+    // reflected here.
+    let num_paths = super::pricing::AUTO_STOP_MIN_SAMPLES + 4_000;
     let engine = McEngine::new(McEngineConfig {
-        num_paths: 5_000,
+        num_paths,
         seed: 42,
         time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
         target_ci_half_width: Some(0.01),
@@ -744,9 +749,10 @@ fn test_price_with_capture_uses_actual_path_count_after_auto_stop() {
         .expect("pricing should succeed");
 
     let captured = result.paths().expect("captured paths should exist");
-    assert_eq!(result.estimate.num_paths, 1001);
-    assert_eq!(captured.num_paths_total, 1001);
-    assert_eq!(captured.num_captured(), 1001);
+    let expected = super::pricing::AUTO_STOP_MIN_SAMPLES;
+    assert_eq!(result.estimate.num_paths, expected);
+    assert_eq!(captured.num_paths_total, expected);
+    assert_eq!(captured.num_captured(), expected);
 }
 
 fn assert_captured_path_statistics(result: &MonteCarloResult) {

@@ -150,7 +150,8 @@ mod tests {
             0.05, 0.02, 0.15, 5.0,  // lambda (expect ~5 jumps per year)
             0.02, // mu_j (small positive jumps)
             0.05, // sigma_j
-        );
+        )
+        .expect("valid Merton params");
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();
 
@@ -175,7 +176,8 @@ mod tests {
             0.05, 0.02, 0.2, 1.0,  // lambda
             -0.1, // mu_j (negative jumps)
             0.15, // sigma_j
-        );
+        )
+        .expect("valid Merton params");
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();
 
@@ -200,7 +202,8 @@ mod tests {
             0.05, 0.02, 0.2, 2.0,  // 2 jumps/year
             0.05, // positive mu_j
             0.1,
-        );
+        )
+        .expect("valid Merton params");
 
         let drift = params.compensated_drift();
         let pure_gbm_drift = params.gbm.r - params.gbm.q;

@@ -130,7 +130,24 @@ impl BasisFunctions for NormalizedPolynomialBasis {
     }
 }
 
-/// Laguerre basis normalized by strike for option-style payoffs.
+/// Laguerre basis normalised by strike for option-style payoffs.
+///
+/// Emits `[1, L_1(x), …, L_degree(x)]` where `x = S/K` and `L_k` are the
+/// standard (non-weighted) Laguerre polynomials. In classical LSMC (Longstaff
+/// & Schwartz, 2001) the regressors are weighted as `w_k(x) = exp(−x/2)·L_k(x)`
+/// to make them orthonormal under the Lebesgue measure on `[0, ∞)`. We omit
+/// the weight because the `S/K` normalisation already bounds the design
+/// matrix's condition number for typical option payoffs, and because the
+/// `exp(−x/2)` term has been observed to under-weight deep-ITM paths where
+/// the continuation value is most sensitive. **Implication:** fitted
+/// coefficients and regression-table reproducibility *will differ* from
+/// published Longstaff–Schwartz benchmark tables by an `O(1)` rotation of
+/// the basis; the resulting LSMC prices converge to the same limit but
+/// finite-sample values are not bit-identical.
+///
+/// If you need to reproduce published benchmark tables, apply the
+/// `exp(−x/2)` weight externally on the basis outputs or switch to
+/// [`NormalizedPolynomialBasis`].
 #[derive(Debug, Clone)]
 pub struct LaguerreBasis {
     degree: usize,

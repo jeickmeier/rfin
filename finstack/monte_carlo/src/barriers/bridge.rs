@@ -1,38 +1,58 @@
 //! Brownian bridge correction for barrier monitoring.
 //!
-//! When barriers are monitored discretely (at time steps), there's a bias
+//! When barriers are monitored discretely (at time steps), there is a bias
 //! because the continuous path between observations can cross the barrier
-//! without detection.
+//! without detection. The Brownian-bridge formula provides the conditional
+//! probability that a barrier was crossed between two observations.
 //!
-//! The Brownian bridge provides the probability that a barrier was hit
-//! between two observations.
+//! # Modelling assumptions
+//!
+//! The bridge formula below is derived under the assumption that, conditional
+//! on `(S_t, S_{t+Δt})`, `ln S_u` is a linear Brownian bridge on `[t, t+Δt]`
+//! with **constant** instantaneous volatility `σ`. This is exact for GBM
+//! with deterministic (piecewise-constant) volatility on the interval and is
+//! widely used as a first-order correction for:
+//!
+//! - Local-volatility models, provided `σ` is set to an effective local
+//!   volatility over the step (bias is `O(σ'·Δt)`).
+//! - Stochastic-volatility models (Heston, SABR, …) only over sub-steps
+//!   short enough that the variance process is approximately frozen.
+//!
+//! It is **not** appropriate for jump-diffusion models, for rough
+//! volatility (fBM-driven) paths, or for multi-factor processes where the
+//! underlying has non-trivial correlation with other state variables. In
+//! those cases prefer finer monitoring or a model-specific exit
+//! distribution.
 
 /// Compute probability of hitting a barrier between two observations.
 ///
-/// For a Brownian bridge from S(t) to S(t+Δt), compute the probability
-/// that the path crosses barrier B at some point in [t, t+Δt].
+/// For a Brownian bridge from `S(t)` to `S(t+Δt)`, compute the probability
+/// that the path crosses barrier `B` at some point in `[t, t+Δt]` assuming
+/// log-normal GBM dynamics with constant volatility `σ`.
 ///
 /// # Arguments
 ///
 /// * `s_t` - Spot at time t
 /// * `s_t_dt` - Spot at time t+Δt
 /// * `barrier` - Barrier level
-/// * `sigma` - Volatility
+/// * `sigma` - Instantaneous volatility over the step (constant assumption)
 /// * `dt` - Time step
 ///
 /// # Returns
 ///
-/// Probability of hitting the barrier in [t, t+Δt].
+/// Probability of hitting the barrier in `[t, t+Δt]`.
 ///
 /// # Algorithm
 ///
-/// For log-space Brownian motion X = ln(S), the hit probability is:
+/// For log-space Brownian motion `X = ln(S)`, the closed-form hit
+/// probability of the Brownian bridge (see Glasserman 2003, §6.4) is
 ///
 /// ```text
-/// p_hit ≈ exp(-2 * (ln(S_t/B)) * (ln(S_{t+Δt}/B)) / (σ² Δt))
+/// p_hit ≈ exp(−2 · ln(S_t/B) · ln(S_{t+Δt}/B) / (σ² · Δt))
 /// ```
 ///
-/// if both S_t and S_{t+Δt} are on the same side of B.
+/// when both `S_t` and `S_{t+Δt}` are on the same side of `B`; otherwise a
+/// crossing is guaranteed.
 #[must_use]
 pub fn bridge_hit_probability(s_t: f64, s_t_dt: f64, barrier: f64, sigma: f64, dt: f64) -> f64 {
     if dt <= 0.0 || sigma <= 0.0 {
