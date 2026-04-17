@@ -1,6 +1,7 @@
 //! ECF calculation, cash-interest deduction rules, and sweep sizing.
 
 use crate::capital_structure::cashflows::CashflowBreakdown;
+use crate::capital_structure::state::CapitalStructureState;
 use crate::capital_structure::waterfall_spec::EcfSweepSpec;
 use crate::error::Result;
 use crate::evaluator::EvaluationContext;
@@ -8,12 +9,21 @@ use finstack_core::money::Money;
 use indexmap::IndexMap;
 
 use super::eval_value_or_formula;
+use super::payment_in_kind::is_pik_enabled;
 
 /// Calculate Excess Cash Flow and determine sweep amount.
+///
+/// Per S&P LCD / standard LPA definitions, ECF deducts **cash interest paid**,
+/// not contractual interest. When `ecf_spec.cash_interest_node` is omitted, the
+/// fallback sums contractual cash interest only for instruments that are **not**
+/// in PIK mode for the current period (PIK'd coupons are not paid in cash).
+/// This keeps ECF consistent with the PIK toggle evaluated earlier in the same
+/// waterfall step.
 pub(super) fn calculate_ecf_sweep(
     context: &EvaluationContext,
     ecf_spec: &EcfSweepSpec,
     contractual_flows: &IndexMap<String, CashflowBreakdown>,
+    state: &CapitalStructureState,
 ) -> Result<Money> {
     if !(0.0..=1.0).contains(&ecf_spec.sweep_percentage) {
         return Err(crate::error::Error::capital_structure(format!(
@@ -45,15 +55,13 @@ pub(super) fn calculate_ecf_sweep(
         .transpose()?
         .unwrap_or(0.0);
 
-    // Per S&P LCD / standard LPA definitions, ECF should deduct cash interest
-    // paid. When not explicitly provided, use the period's contractual cash
-    // interest so ECF is not overstated.
     let cash_interest = if let Some(ref expr) = ecf_spec.cash_interest_node {
         eval_value_or_formula(context, expr)?
     } else {
         contractual_flows
-            .values()
-            .map(|cf| cf.interest_expense_cash.amount())
+            .iter()
+            .filter(|(instrument_id, _)| !is_pik_enabled(state, instrument_id))
+            .map(|(_, cf)| cf.interest_expense_cash.amount())
             .sum()
     }
     .max(0.0);

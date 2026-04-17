@@ -283,6 +283,26 @@ impl<'a> SensitivityAnalyzer<'a> {
         period_id: finstack_core::dates::PeriodId,
         value: f64,
     ) -> Result<()> {
+        // Refuse to bump historical actuals: "what if revenue was 5%
+        // higher" is a forecast statement, not a rewrite of recorded
+        // history. This mirrors `scenario_set::apply_overrides`, which
+        // filters to `!p.is_actual` forecast periods, and prevents
+        // sensitivity analyses from silently corrupting reported data.
+        let is_actual = self
+            .model
+            .periods
+            .iter()
+            .find(|p| p.id == period_id)
+            .map(|p| p.is_actual)
+            .unwrap_or(false);
+        if is_actual {
+            return Err(Error::invalid_input(format!(
+                "Cannot override parameter '{}' for actual (historical) period '{}'; \
+                 sensitivities may only bump forecast periods",
+                node_id, period_id
+            )));
+        }
+
         if let Some(node) = model.nodes.get_mut(node_id) {
             let mut values = node.values.clone().unwrap_or_default();
             values.insert(period_id, AmountOrScalar::scalar(value));

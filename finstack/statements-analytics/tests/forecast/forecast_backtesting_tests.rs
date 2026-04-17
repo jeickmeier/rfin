@@ -151,6 +151,8 @@ fn test_forecast_metrics_summary() {
     let metrics = ForecastMetrics {
         mae: 2.5,
         mape: 3.7,
+        mape_effective_n: 10,
+        smape: 3.5,
         rmse: 3.2,
         n: 10,
     };

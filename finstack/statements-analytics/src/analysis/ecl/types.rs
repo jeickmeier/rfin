@@ -55,29 +55,54 @@ impl std::fmt::Display for Stage {
 // Qualitative flags
 // ---------------------------------------------------------------------------
 
-/// Qualitative triggers for SICR detection (IFRS 9 B5.5.17).
+/// Qualitative triggers for SICR detection (IFRS 9 B5.5.17) and
+/// "unlikely-to-pay" evidence of default (IFRS 9 B5.5.37).
 ///
-/// These flags represent non-quantitative indicators that may trigger a
-/// Stage 2 classification independently of PD movements or DPD backstops.
+/// These flags represent non-quantitative indicators. SICR flags
+/// (`watchlist`, `forbearance`, `adverse_conditions`, `custom`) may
+/// trigger a Stage 2 classification. The `default_evidence` flags
+/// (`bankruptcy`, `distressed_modification`, `cross_default`,
+/// `other_default_evidence`) represent objective evidence of default
+/// and should trigger Stage 3 independently of the 90-DPD backstop.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QualitativeFlags {
     /// On internal watchlist.
     pub watchlist: bool,
-    /// Forbearance or concession granted.
+    /// Forbearance or concession granted. Under IFRS 9 forbearance is
+    /// at minimum a SICR trigger; distressed modifications (deep
+    /// concessions such as haircut, maturity extension with NPV loss)
+    /// are tracked separately under `distressed_modification` and
+    /// trigger Stage 3.
     pub forbearance: bool,
     /// Significant adverse change in business or financial conditions.
     pub adverse_conditions: bool,
-    /// Custom user-defined flags (e.g., sector-specific triggers).
+    /// Custom user-defined SICR flags (e.g., sector-specific triggers).
     pub custom: Vec<String>,
+
+    // --- Objective evidence of default / "unlikely to pay" (Stage 3) ---
+    /// Obligor has filed or is subject to bankruptcy / insolvency
+    /// proceedings. Non-rebuttable Stage 3 trigger.
+    pub bankruptcy: bool,
+    /// Distressed restructuring / modification with material NPV loss
+    /// to the lender. IFRS 9 B5.5.37(e) / EBA GL on default.
+    pub distressed_modification: bool,
+    /// Cross-default has been triggered on another obligation of the
+    /// same obligor.
+    pub cross_default: bool,
+    /// Custom user-defined Stage 3 default-evidence flags.
+    pub other_default_evidence: Vec<String>,
 }
 
 impl QualitativeFlags {
-    /// Returns `true` if any qualitative flag is active.
+    /// Returns `true` if any SICR (Stage 2) qualitative flag is active.
+    ///
+    /// Note: this does not include the default-evidence flags. Use
+    /// [`QualitativeFlags::has_default_evidence`] for Stage 3 triggers.
     pub fn any_active(&self) -> bool {
         self.watchlist || self.forbearance || self.adverse_conditions || !self.custom.is_empty()
     }
 
-    /// Returns the names of all active flags.
+    /// Returns the names of all active SICR flags (for audit trail).
     pub fn active_flags(&self) -> Vec<String> {
         let mut flags = Vec::new();
         if self.watchlist {
@@ -90,6 +115,34 @@ impl QualitativeFlags {
             flags.push("adverse_conditions".to_string());
         }
         for c in &self.custom {
+            flags.push(c.clone());
+        }
+        flags
+    }
+
+    /// Returns `true` if any objective evidence of default (Stage 3) is
+    /// flagged. Corresponds to IFRS 9 B5.5.37 "unlikely-to-pay"
+    /// indicators.
+    pub fn has_default_evidence(&self) -> bool {
+        self.bankruptcy
+            || self.distressed_modification
+            || self.cross_default
+            || !self.other_default_evidence.is_empty()
+    }
+
+    /// Returns the names of all active default-evidence flags.
+    pub fn active_default_evidence(&self) -> Vec<String> {
+        let mut flags = Vec::new();
+        if self.bankruptcy {
+            flags.push("bankruptcy".to_string());
+        }
+        if self.distressed_modification {
+            flags.push("distressed_modification".to_string());
+        }
+        if self.cross_default {
+            flags.push("cross_default".to_string());
+        }
+        for c in &self.other_default_evidence {
             flags.push(c.clone());
         }
         flags
@@ -149,6 +202,54 @@ pub struct Exposure {
 
     /// Previous reporting period's stage (for migration tracking).
     pub previous_stage: Option<Stage>,
+}
+
+impl Exposure {
+    /// Validate that the exposure's numeric invariants hold before it enters
+    /// the ECL engine.
+    ///
+    /// The ECL engine assumes:
+    ///
+    /// - `ead >= 0` (signed EAD is not a modelled concept here)
+    /// - `eir` is finite and `> -1` (discount factors must be well-defined)
+    /// - `lgd` ∈ \[0, 1\]
+    /// - `remaining_maturity_years >= 0` and finite
+    ///
+    /// Running ECL on violating inputs would either produce silently wrong
+    /// numbers (negative EAD flips the sign of the ECL, out-of-range LGD
+    /// distorts severity) or NaN/Inf via the discounting step.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Validation` with a descriptive message if any invariant
+    /// is violated.
+    pub fn validate(&self) -> Result<()> {
+        if !self.ead.is_finite() || self.ead < 0.0 {
+            return Err(Error::Validation(format!(
+                "Exposure '{}': EAD must be finite and non-negative (got {})",
+                self.id, self.ead
+            )));
+        }
+        if !self.eir.is_finite() || self.eir <= -1.0 {
+            return Err(Error::Validation(format!(
+                "Exposure '{}': EIR must be finite and > -1 (got {})",
+                self.id, self.eir
+            )));
+        }
+        if !self.lgd.is_finite() || !(0.0..=1.0).contains(&self.lgd) {
+            return Err(Error::Validation(format!(
+                "Exposure '{}': LGD must be finite and in [0, 1] (got {})",
+                self.id, self.lgd
+            )));
+        }
+        if !self.remaining_maturity_years.is_finite() || self.remaining_maturity_years < 0.0 {
+            return Err(Error::Validation(format!(
+                "Exposure '{}': remaining maturity must be finite and non-negative (got {})",
+                self.id, self.remaining_maturity_years
+            )));
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -281,9 +382,8 @@ mod tests {
     fn test_qualitative_flags_some_active() {
         let flags = QualitativeFlags {
             watchlist: true,
-            forbearance: false,
-            adverse_conditions: false,
             custom: vec!["sector_stress".to_string()],
+            ..QualitativeFlags::default()
         };
         assert!(flags.any_active());
         let active = flags.active_flags();

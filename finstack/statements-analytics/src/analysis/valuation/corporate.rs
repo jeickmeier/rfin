@@ -46,7 +46,7 @@ pub struct CorporateValuationResult {
 /// All fields default to `None`/`false`.
 ///
 /// Percentage-style inputs use decimal form, so `0.10` means `10%`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct DcfOptions {
     /// Enable mid-year discounting convention (default: false).
     pub mid_year_convention: bool,
@@ -56,6 +56,60 @@ pub struct DcfOptions {
     pub shares_outstanding: Option<f64>,
     /// Private company valuation discounts (DLOM, DLOC).
     pub valuation_discounts: Option<ValuationDiscounts>,
+    /// WACC sensitivity bump, in decimal (default `0.01` = ±100 bp).
+    ///
+    /// The down-shock is clamped so the terminal-value denominator
+    /// `wacc - g` cannot collapse (the resulting EV would blow up and
+    /// obscure the true sensitivity). See
+    /// [`DcfOptions::wacc_denominator_epsilon`].
+    pub wacc_sensitivity_bump: f64,
+    /// Minimum spread between WACC-down and the Gordon / H-Model growth
+    /// rate in the terminal-value formula (default `0.005` = 50 bp).
+    ///
+    /// When `wacc - bump < growth + epsilon`, the down-shock is clamped
+    /// to `growth + epsilon` so the `1/(wacc - g)` denominator stays
+    /// well defined. The clamp is reported in the trace so the caller
+    /// knows the bump was shortened.
+    pub wacc_denominator_epsilon: f64,
+    /// Exit-multiple sensitivity bump (default: `ExitMultipleBump::Absolute(1.0)`).
+    ///
+    /// Use [`ExitMultipleBump::Relative`] for a proportional shock,
+    /// e.g. `Relative(0.10)` for ±10% of the base multiple. Absolute
+    /// bumps are clamped at zero on the downside.
+    pub exit_multiple_bump: ExitMultipleBump,
+}
+
+impl Default for DcfOptions {
+    fn default() -> Self {
+        Self {
+            mid_year_convention: false,
+            equity_bridge: None,
+            shares_outstanding: None,
+            valuation_discounts: None,
+            wacc_sensitivity_bump: 0.01,
+            wacc_denominator_epsilon: 0.005,
+            exit_multiple_bump: ExitMultipleBump::default(),
+        }
+    }
+}
+
+/// Exit-multiple sensitivity shock shape.
+///
+/// Absolute bumps are in multiple-turn units (e.g. `Absolute(1.0)` is
+/// ±1.0x). Relative bumps are decimal fractions of the base multiple
+/// (e.g. `Relative(0.10)` is ±10%).
+#[derive(Debug, Clone, Copy)]
+pub enum ExitMultipleBump {
+    /// Absolute bump in turns of the multiple.
+    Absolute(f64),
+    /// Proportional bump in decimal (0.10 = ±10%).
+    Relative(f64),
+}
+
+impl Default for ExitMultipleBump {
+    fn default() -> Self {
+        ExitMultipleBump::Absolute(1.0)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -356,12 +410,32 @@ pub(crate) fn evaluate_dcf_from_results_impl(
         None,
     );
 
-    // Sensitivity of EV to WACC (+/- 100 bps).
+    // Sensitivity of EV to WACC (configurable bump, default +/- 100 bps).
     // Compute EV directly from PV components (not from equity + bridge) so that
     // the result is independent of valuation discounts (DLOM/DLOC).
+    //
+    // The down-shock is clamped against the terminal-value growth rate
+    // so `1/(wacc - g)` does not explode (or go negative) when the bump
+    // lands at or below `g`. The effective down-shock is reported in
+    // the trace so the caller sees when the bump was shortened.
+    let wacc_bump = context.options.wacc_sensitivity_bump.abs();
+    let wacc_epsilon = context.options.wacc_denominator_epsilon.max(0.0);
+    let growth_floor: f64 = match dcf.terminal_value {
+        TerminalValueSpec::GordonGrowth { growth_rate } => growth_rate,
+        TerminalValueSpec::HModel {
+            stable_growth_rate, ..
+        } => stable_growth_rate,
+        TerminalValueSpec::ExitMultiple { .. } => f64::NEG_INFINITY,
+    };
+    let wacc_up = wacc + wacc_bump;
+    let wacc_down_raw = wacc - wacc_bump;
+    let wacc_down_floor = (growth_floor + wacc_epsilon).max(wacc_epsilon);
+    let wacc_down = wacc_down_raw.max(wacc_down_floor);
+    let wacc_down_clamped = (wacc_down - wacc_down_raw).abs() > 1e-12;
+
     let ev_wacc_up = {
         let mut dcf_up = dcf.clone();
-        dcf_up.wacc = wacc + 0.01;
+        dcf_up.wacc = wacc_up;
         let pv_exp = dcf_up.calculate_pv_explicit_flows();
         let tv_up = dcf_up
             .calculate_terminal_value()
@@ -374,7 +448,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
 
     let ev_wacc_down = {
         let mut dcf_down = dcf.clone();
-        dcf_down.wacc = (wacc - 0.01).max(0.0001);
+        dcf_down.wacc = wacc_down;
         let pv_exp = dcf_down.calculate_pv_explicit_flows();
         let tv_down = dcf_down
             .calculate_terminal_value()
@@ -388,29 +462,43 @@ pub(crate) fn evaluate_dcf_from_results_impl(
     trace.push(
         TraceEntry::ComputationStep {
             name: "wacc_sensitivity".to_string(),
-            description: "Sensitivity of enterprise value to WACC (+/- 100 bps)".to_string(),
+            description: "Sensitivity of enterprise value to WACC".to_string(),
             metadata: Some(json!({
                 "wacc": wacc,
                 "ev_base": enterprise_value,
-                "wacc_up_bp": 100.0,
+                "wacc_up_bp": wacc_bump * 10_000.0,
+                "wacc_up": wacc_up,
                 "ev_wacc_up": ev_wacc_up,
-                "wacc_down_bp": 100.0,
+                "wacc_down_bp": wacc_bump * 10_000.0,
+                "wacc_down": wacc_down,
+                "wacc_down_clamped": wacc_down_clamped,
+                "wacc_down_growth_floor": growth_floor,
                 "ev_wacc_down": ev_wacc_down,
             })),
         },
         None,
     );
 
-    // Sensitivity of EV to Exit Multiple (if applicable)
+    // Sensitivity of EV to Exit Multiple (if applicable).
     if let TerminalValueSpec::ExitMultiple {
         terminal_metric,
         multiple,
     } = dcf.terminal_value
     {
+        let (bump_up, bump_down) = match context.options.exit_multiple_bump {
+            ExitMultipleBump::Absolute(b) => (b.abs(), b.abs()),
+            ExitMultipleBump::Relative(r) => {
+                let shock = multiple.abs() * r.abs();
+                (shock, shock)
+            }
+        };
+        let multiple_up = multiple + bump_up;
+        let multiple_down = (multiple - bump_down).max(0.0);
+
         let mut dcf_up = dcf.clone();
         dcf_up.terminal_value = TerminalValueSpec::ExitMultiple {
             terminal_metric,
-            multiple: multiple + 1.0,
+            multiple: multiple_up,
         };
         let ev_up = {
             let pv_explicit_up = dcf_up.calculate_pv_explicit_flows();
@@ -426,7 +514,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
         let mut dcf_down = dcf.clone();
         dcf_down.terminal_value = TerminalValueSpec::ExitMultiple {
             terminal_metric,
-            multiple: (multiple - 1.0).max(0.0),
+            multiple: multiple_down,
         };
         let ev_down = {
             let pv_explicit_down = dcf_down.calculate_pv_explicit_flows();
@@ -442,16 +530,20 @@ pub(crate) fn evaluate_dcf_from_results_impl(
         trace.push(
             TraceEntry::ComputationStep {
                 name: "exit_multiple_sensitivity".to_string(),
-                description: "Sensitivity of enterprise value to terminal exit multiple (+/- 1.0x)"
+                description: "Sensitivity of enterprise value to terminal exit multiple"
                     .to_string(),
                 metadata: Some(json!({
                     "terminal_metric": terminal_metric,
                     "multiple_base": multiple,
                     "ev_base": enterprise_value,
-                    "multiple_up": multiple + 1.0,
+                    "multiple_up": multiple_up,
                     "ev_multiple_up": ev_up,
-                    "multiple_down": (multiple - 1.0).max(0.0),
+                    "multiple_down": multiple_down,
                     "ev_multiple_down": ev_down,
+                    "bump_shape": match context.options.exit_multiple_bump {
+                        ExitMultipleBump::Absolute(b) => format!("absolute({:.4})", b),
+                        ExitMultipleBump::Relative(r) => format!("relative({:.4})", r),
+                    },
                 })),
             },
             None,
@@ -479,8 +571,12 @@ pub(crate) fn evaluate_dcf_from_results_impl(
 
 /// Extract currency from the model (assumes uniform currency).
 ///
-/// Checks model metadata for a `"currency"` key. Falls back to USD with a
-/// warning log when no currency is specified, since many models are USD-based.
+/// Checks model metadata for a `"currency"` key (string ISO code) and
+/// returns the parsed [`Currency`]. Returns an error if the key is
+/// missing or not a string: we never silently default to USD because
+/// that corrupts per-share and enterprise-value reporting for non-USD
+/// models. Callers that want a USD default must set `meta["currency"]`
+/// explicitly on the model.
 fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
     if let Some(currency_meta) = model.meta.get("currency") {
         if let Some(currency_str) = currency_meta.as_str() {

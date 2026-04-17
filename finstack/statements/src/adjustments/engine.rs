@@ -1,8 +1,8 @@
 //! Normalization Engine implementation.
 
 use crate::adjustments::types::{
-    Adjustment, AdjustmentCap, AdjustmentValue, AppliedAdjustment, NormalizationConfig,
-    NormalizationResult,
+    Adjustment, AdjustmentCap, AdjustmentValue, AppliedAdjustment, CapBaseMode,
+    NormalizationConfig, NormalizationResult,
 };
 use crate::error::{Error, Result};
 use crate::evaluator::StatementResult;
@@ -113,10 +113,18 @@ impl NormalizationEngine {
 
     /// Apply capping logic to an adjustment amount.
     ///
-    /// When the cap references the normalization target node, the cap limit
-    /// is computed against the **progressively adjusted** value
-    /// (`base_value + running_total`) rather than the unadjusted value, so
-    /// that earlier adjustments widen the cap room for subsequent ones.
+    /// For self-referential caps (`base_node == target_node`), the base is
+    /// resolved according to [`AdjustmentCap::base_mode`]:
+    /// - `Reported` (default): the cap denominator is the **reported**
+    ///   (pre-adjustment) target value. Matches the standard LBO / credit
+    ///   agreement definition of e.g. "add-backs capped at 25% of reported
+    ///   EBITDA" — cap room is fixed for the period and does not widen as
+    ///   earlier add-backs are applied.
+    /// - `Progressive`: the cap denominator is `target_value + running_total`,
+    ///   so earlier adjustments widen cap room for later ones.
+    ///
+    /// For caps referencing a different node, the base is always that node's
+    /// reported value (that node is not being adjusted in this pass).
     fn apply_cap(
         cap: &AdjustmentCap,
         raw_amount: f64,
@@ -133,7 +141,10 @@ impl NormalizationEngine {
 
             let node_value = *base_values.get(&period_id).unwrap_or(&0.0);
             let effective_base = if base_node == target_node {
-                node_value + running_total
+                match cap.base_mode {
+                    CapBaseMode::Reported => node_value,
+                    CapBaseMode::Progressive => node_value + running_total,
+                }
             } else {
                 node_value
             };

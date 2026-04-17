@@ -506,11 +506,21 @@ fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
         }
     }
 
-    // Extrapolate trend to edges using linear extrapolation
+    // Extrapolate trend to edges using linear extrapolation from the first /
+    // last two centered-MA points. Guard indices and require finite, non-equal
+    // values before computing the slope.
     if n > season_length {
-        // Front extrapolation
-        let slope_front = if trend[half_season + 1] != 0.0 {
-            trend[half_season + 1] - trend[half_season]
+        // Front extrapolation: slope from the first two centered trend points.
+        let slope_front = if half_season + 1 < n
+            && trend[half_season].is_finite()
+            && trend[half_season + 1].is_finite()
+        {
+            let diff = trend[half_season + 1] - trend[half_season];
+            if diff.abs() > ZERO_TOLERANCE {
+                diff
+            } else {
+                0.0
+            }
         } else {
             0.0
         };
@@ -518,15 +528,20 @@ fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
             trend[i] = trend[half_season] - slope_front * (half_season - i) as f64;
         }
 
-        // Back extrapolation
+        // Back extrapolation: slope from the last two centered trend points.
         let last_valid = n.saturating_sub(half_season + 1);
-        let slope_back = if last_valid > 0
-            && (trend[last_valid] - trend[last_valid - 1]).abs() > ZERO_TOLERANCE
-        {
-            trend[last_valid] - trend[last_valid - 1]
-        } else {
-            0.0
-        };
+        let slope_back =
+            if last_valid > 0 && trend[last_valid].is_finite() && trend[last_valid - 1].is_finite()
+            {
+                let diff = trend[last_valid] - trend[last_valid - 1];
+                if diff.abs() > ZERO_TOLERANCE {
+                    diff
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
         for i in (n.saturating_sub(half_season))..n {
             let steps = i - (n - half_season - 1);
             trend[i] = trend[n - half_season - 1] + slope_back * steps as f64;

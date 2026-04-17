@@ -838,6 +838,30 @@ impl Solver for BrentSolver {
 }
 
 impl BrentSolver {
+    /// Solve within a user-provided bracket `[a, b]` without running the
+    /// bracket-expansion search.
+    ///
+    /// Requirements: `f(a)` and `f(b)` must have opposite signs (or one of
+    /// them must already be a root). This is the preferred entry point when
+    /// the caller already knows a valid bracket; it is strictly more accurate
+    /// than a hand-rolled bisection loop because it uses inverse quadratic
+    /// interpolation with Brent's classical safeguards.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the bracket is invalid (same-sign endpoints,
+    /// non-finite evaluations) or Brent's method fails to converge within
+    /// `max_iterations`.
+    pub fn solve_in_bracket<Func>(&self, f: Func, a: f64, b: f64) -> Result<f64>
+    where
+        Func: FnMut(f64) -> f64,
+    {
+        let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+        self.brent_method(f, lo, hi)
+    }
+}
+
+impl BrentSolver {
     /// Core Brent's method implementation.
     ///
     /// Requirements: `f(lo)` and `f(hi)` must have opposite signs.

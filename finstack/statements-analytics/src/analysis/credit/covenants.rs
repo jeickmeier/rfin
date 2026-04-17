@@ -252,21 +252,43 @@ pub fn forecast_breaches(
     forecast_breaches_generic(covenants, &adapter, &periods, config)
 }
 
+/// Map a covenant variant to the statement-model node id that most
+/// naturally drives its stochastic volatility in the breach forecast.
+///
+/// These defaults are pragmatic, not normative: they define which
+/// primary driver gets shocked when the caller hasn't supplied one
+/// explicitly. Variants that don't map to a single monetary/ratio
+/// driver (Negative, Affirmative, Custom, Basket, MinAssetCoverage,
+/// MaxCapex, MinLiquidity) return `None` so the forecast engine
+/// falls back to deterministic projection.
 fn default_driver_node_id(spec: &CovenantSpec) -> Option<&'static str> {
     use finstack_valuations::covenants::CovenantType;
     match &spec.covenant.covenant_type {
-        CovenantType::MaxDebtToEBITDA { .. } => Some("ebitda"),
+        // Leverage ratios: EBITDA is the usual denominator and the
+        // dominant source of volatility; gross and net debt variants
+        // share this driver.
+        CovenantType::MaxDebtToEBITDA { .. }
+        | CovenantType::MaxTotalLeverage { .. }
+        | CovenantType::MaxSeniorLeverage { .. }
+        | CovenantType::MaxNetDebtToEBITDA { .. } => Some("ebitda"),
+
+        // Coverage ratios: numerator is earnings-based. EBIT for
+        // interest coverage, EBITDA for fixed-charge and DSCR (which
+        // typically nets capex/cash rent from EBITDA in the full
+        // formula — callers who want a dedicated `dscr` driver should
+        // pass it explicitly).
         CovenantType::MinInterestCoverage { .. } => Some("ebit"),
-        CovenantType::MinFixedChargeCoverage { .. } => Some("ebitda"),
-        CovenantType::MaxTotalLeverage { .. } => Some("ebitda"),
-        CovenantType::MaxSeniorLeverage { .. } => Some("ebitda"),
+        CovenantType::MinFixedChargeCoverage { .. } | CovenantType::MinDSCR { .. } => {
+            Some("ebitda")
+        }
+
+        // No single monetary driver — forecasting engine degrades to a
+        // deterministic projection.
         CovenantType::MinAssetCoverage { .. }
         | CovenantType::Negative { .. }
         | CovenantType::Affirmative { .. }
         | CovenantType::Custom { .. }
         | CovenantType::Basket { .. }
-        | CovenantType::MinDSCR { .. }
-        | CovenantType::MaxNetDebtToEBITDA { .. }
         | CovenantType::MaxCapex { .. }
         | CovenantType::MinLiquidity { .. } => None,
     }
@@ -291,11 +313,16 @@ fn extract_sigma_and_seed(model: &FinancialModelSpec, node_id: &str) -> Option<(
 /// The resulting schema is:
 /// `(test_date, projected_value, threshold, headroom, breach_prob)`.
 ///
-/// # Panics
-/// Panics if the DataFrame construction fails, which should never happen
-/// with well-formed forecast data (all vectors have the same length).
-#[allow(clippy::expect_used)] // DataFrame build from aligned vectors should never fail
-pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
+/// # Errors
+///
+/// Returns an error from `polars` if the backing DataFrame build fails.
+/// This should not happen in practice because all columns share the
+/// same length by construction, but it is surfaced as a `Result` so
+/// that the binding layer can map it into a typed error instead of
+/// panicking.
+pub fn to_polars(
+    forecast: &CovenantForecast,
+) -> polars::prelude::PolarsResult<polars::prelude::DataFrame> {
     use polars::prelude::*;
     let dates = forecast
         .test_dates
@@ -309,7 +336,6 @@ pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
         "headroom" => forecast.headroom.clone(),
         "breach_prob" => forecast.breach_probability.clone()
     ]
-    .expect("dataframe build")
 }
 
 #[cfg(test)]

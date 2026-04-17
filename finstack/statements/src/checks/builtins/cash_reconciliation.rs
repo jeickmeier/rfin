@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::get_node_value;
+use crate::checks::types::effective_tolerance;
 use crate::checks::{
     Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Materiality, Severity,
 };
@@ -41,7 +42,6 @@ impl Check for CashReconciliation {
     }
 
     fn execute(&self, context: &CheckContext) -> Result<CheckResult> {
-        let tolerance = self.tolerance.unwrap_or(context.config.default_tolerance);
         let mut findings = Vec::new();
         let periods = &context.model.periods;
 
@@ -49,27 +49,48 @@ impl Check for CashReconciliation {
             let prev_pid = &periods[i - 1].id;
             let curr_pid = &periods[i].id;
 
-            let Some(cash_prev) =
-                get_node_value(context.results, &self.cash_balance_node, prev_pid)
-            else {
-                continue;
-            };
-            let Some(cash_curr) =
-                get_node_value(context.results, &self.cash_balance_node, curr_pid)
-            else {
-                continue;
-            };
-            let Some(total_cf) =
-                get_node_value(context.results, &self.total_cash_flow_node, curr_pid)
-            else {
-                continue;
+            let cash_prev = get_node_value(context.results, &self.cash_balance_node, prev_pid);
+            let cash_curr = get_node_value(context.results, &self.cash_balance_node, curr_pid);
+            let total_cf = get_node_value(context.results, &self.total_cash_flow_node, curr_pid);
+
+            let (cash_prev, cash_curr, total_cf) = match (cash_prev, cash_curr, total_cf) {
+                (Some(p), Some(c), Some(t)) => (p, c, t),
+                (p, c, t) => {
+                    let mut missing: Vec<String> = Vec::new();
+                    if p.is_none() {
+                        missing.push(format!("{} @ {prev_pid}", self.cash_balance_node));
+                    }
+                    if c.is_none() {
+                        missing.push(format!("{} @ {curr_pid}", self.cash_balance_node));
+                    }
+                    if t.is_none() {
+                        missing.push(format!("{} @ {curr_pid}", self.total_cash_flow_node));
+                    }
+                    findings.push(CheckFinding {
+                        check_id: self.id().to_string(),
+                        severity: Severity::Warning,
+                        message: format!(
+                            "Cash reconciliation skipped for {curr_pid}: missing inputs [{}]. \
+                             The identity cannot be evaluated without all three values.",
+                            missing.join(", ")
+                        ),
+                        period: Some(*curr_pid),
+                        materiality: None,
+                        nodes: vec![
+                            self.cash_balance_node.clone(),
+                            self.total_cash_flow_node.clone(),
+                        ],
+                    });
+                    continue;
+                }
             };
 
             let expected_cash = cash_prev + total_cf;
             let diff = cash_curr - expected_cash;
+            let reference = cash_prev.abs().max(1.0);
+            let tolerance = effective_tolerance(&context.config, self.tolerance, reference);
 
             if diff.abs() > tolerance {
-                let reference = cash_prev.abs().max(1.0);
                 let relative = (diff / reference).abs() * 100.0;
 
                 findings.push(CheckFinding {
@@ -105,9 +126,11 @@ impl Check for CashReconciliation {
                 if let (Some(cfo_val), Some(cfi_val), Some(cff_val)) = (cfo, cfi, cff) {
                     let component_sum = cfo_val + cfi_val + cff_val;
                     let component_diff = total_cf - component_sum;
+                    let reference = total_cf.abs().max(1.0);
+                    let component_tolerance =
+                        effective_tolerance(&context.config, self.tolerance, reference);
 
-                    if component_diff.abs() > tolerance {
-                        let reference = total_cf.abs().max(1.0);
+                    if component_diff.abs() > component_tolerance {
                         let relative = (component_diff / reference).abs() * 100.0;
 
                         findings.push(CheckFinding {

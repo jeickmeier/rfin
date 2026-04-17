@@ -11,6 +11,20 @@ use finstack_core::dates::PeriodKind;
 use finstack_core::expr::{Expr, ExprNode, Function};
 use finstack_core::math::neumaier_sum;
 
+/// NaN policy for aggregate helpers: **skip non-finite values** (pandas
+/// `skipna=True`).
+///
+/// This is necessary because the compensated accumulators (`kahan_sum` /
+/// `neumaier_sum`) have undefined behavior when fed NaN or ±∞ — a single
+/// non-finite input silently corrupts the running compensation term and
+/// poisons every subsequent sum. Filtering up front keeps rolling and
+/// cumulative aggregates aligned with the period-aggregate helpers (`ytd`,
+/// `ttm`, etc.) which already filter NaN.
+#[inline]
+fn retain_finite(values: &[f64]) -> Vec<f64> {
+    values.iter().copied().filter(|v| v.is_finite()).collect()
+}
+
 pub(crate) fn evaluate_historical_function(
     func: &Function,
     args: &[Expr],
@@ -56,11 +70,15 @@ fn evaluate_rolling_function(
         return Err(eval_error(node_id, "Window size must be greater than 0"));
     }
 
-    let values = if let ExprNode::Column(node_name) = &args[0].node {
+    let raw_values = if let ExprNode::Column(node_name) = &args[0].node {
         collect_rolling_window_values(node_name, context, window)?
     } else {
         collect_expression_window_values(&args[0], context, window, node_id)?
     };
+
+    // Skip non-finite values (see `retain_finite` doc). Note: `RollingCount`
+    // counts finite observations, matching pandas `rolling().count()`.
+    let values = retain_finite(&raw_values);
 
     if values.is_empty() {
         return Ok(f64::NAN);
@@ -90,13 +108,14 @@ fn evaluate_statistical_function(
 ) -> Result<f64> {
     require_min_args(&func.to_string(), args, 1, node_id)?;
 
-    let values = if let ExprNode::Column(node_name) = &args[0].node {
+    let raw_values = if let ExprNode::Column(node_name) = &args[0].node {
         collect_all_historical_values(node_name, context)?
     } else {
         collect_expression_values_sorted(&args[0], context, node_id)?
             .into_values()
             .collect()
     };
+    let values = retain_finite(&raw_values);
 
     match func {
         Function::Std => calculate_std(&values),
@@ -117,13 +136,14 @@ fn evaluate_cumulative_function(
 ) -> Result<f64> {
     require_min_args(&func.to_string(), args, 1, node_id)?;
 
-    let values = if let ExprNode::Column(node_name) = &args[0].node {
+    let raw_values = if let ExprNode::Column(node_name) = &args[0].node {
         collect_all_historical_values(node_name, context)?
     } else {
         collect_expression_values_sorted(&args[0], context, node_id)?
             .into_values()
             .collect()
     };
+    let values = retain_finite(&raw_values);
 
     if values.is_empty() {
         return Ok(f64::NAN);
@@ -183,7 +203,7 @@ fn evaluate_period_aggregate_function(
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values =
                     collect_period_range_values(node_name, context, start_of_year, current)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                let filtered = retain_finite(&values);
                 Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 Err(eval_error(
@@ -209,7 +229,7 @@ fn evaluate_period_aggregate_function(
 
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_period_range_values(node_name, context, start, current)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                let filtered = retain_finite(&values);
                 Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 Err(eval_error(
@@ -249,7 +269,7 @@ fn evaluate_period_aggregate_function(
 
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_period_range_values(node_name, context, start, current)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
+                let filtered = retain_finite(&values);
                 Ok(neumaier_sum(filtered.iter().copied()))
             } else {
                 Err(eval_error(
@@ -261,15 +281,13 @@ fn evaluate_period_aggregate_function(
         Function::Ttm => {
             require_args("ttm", args, 1, node_id)?;
             let window = context.period_kind.periods_per_year() as usize;
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let values = collect_rolling_window_values(node_name, context, window)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
+            let values = if let ExprNode::Column(node_name) = &args[0].node {
+                collect_rolling_window_values(node_name, context, window)?
             } else {
-                let values = collect_expression_window_values(&args[0], context, window, node_id)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
-            }
+                collect_expression_window_values(&args[0], context, window, node_id)?
+            };
+            let filtered = retain_finite(&values);
+            Ok(neumaier_sum(filtered.iter().copied()))
         }
         _ => Err(eval_error(
             node_id,

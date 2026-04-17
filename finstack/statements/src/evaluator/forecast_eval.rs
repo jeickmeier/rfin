@@ -81,6 +81,7 @@ pub(crate) fn evaluate_forecast(
                             monte_carlo_correlated_series(CorrelatedMonteCarloSeries {
                                 method: forecast_spec.method,
                                 params: &forecast_spec.params,
+                                base_value,
                                 forecast_periods: &forecast_periods,
                                 seed_offset: offset,
                                 node_id: node_spec.node_id.as_str(),
@@ -106,6 +107,7 @@ pub(crate) fn evaluate_forecast(
                             &forecast_spec.params,
                             &forecast_periods,
                             &series,
+                            base_value,
                             &node_spec.node_id,
                             cache,
                         )?;

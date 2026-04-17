@@ -129,12 +129,29 @@ fn default_check_tolerance() -> f64 {
     0.01
 }
 
+fn default_relative_tolerance() -> f64 {
+    0.0
+}
+
 /// Configuration parameters that govern check execution.
+///
+/// Identity checks trigger a finding when
+/// `|diff| > max(default_tolerance, default_relative_tolerance * |reference|)`,
+/// so an analyst can set an absolute floor (currency units) that catches
+/// micro-errors on small balances plus a relative ceiling that scales with
+/// larger balance sheets.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CheckConfig {
-    /// Default numeric tolerance for equality comparisons (fraction, not percent).
+    /// Default **absolute** tolerance for equality comparisons, expressed in
+    /// the same currency units as the node values being compared (e.g. 0.01
+    /// means one cent when nodes are in whole dollars).
     #[serde(default = "default_check_tolerance")]
     pub default_tolerance: f64,
+    /// Default **relative** tolerance as a fraction of the reference
+    /// denominator (e.g. 1e-6 ≈ "one basis point of a basis point"). Zero
+    /// disables relative tolerance.
+    #[serde(default = "default_relative_tolerance")]
+    pub default_relative_tolerance: f64,
     /// Findings below this absolute materiality threshold are excluded from reports.
     #[serde(default)]
     pub materiality_threshold: f64,
@@ -147,10 +164,27 @@ impl Default for CheckConfig {
     fn default() -> Self {
         Self {
             default_tolerance: 0.01,
+            default_relative_tolerance: 0.0,
             materiality_threshold: 0.0,
             min_severity: Severity::Info,
         }
     }
+}
+
+/// Return the effective tolerance to apply to a diff, given an optional
+/// per-check absolute override and a reference magnitude used for the
+/// relative tolerance.
+///
+/// `|diff| > effective_tolerance(...)` means the check should fire.
+#[must_use]
+pub fn effective_tolerance(
+    config: &CheckConfig,
+    absolute_override: Option<f64>,
+    reference: f64,
+) -> f64 {
+    let absolute = absolute_override.unwrap_or(config.default_tolerance);
+    let relative = config.default_relative_tolerance * reference.abs();
+    absolute.max(relative)
 }
 
 // ---------------------------------------------------------------------------

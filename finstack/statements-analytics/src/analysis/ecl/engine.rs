@@ -11,11 +11,21 @@
 //! For each time bucket \[t_{i-1}, t_i\]:
 //!
 //! ```text
-//! bucket_ECL = marginal_PD(t_{i-1}, t_i) * LGD * EAD * DF(t_mid)
+//! bucket_ECL = [cumPD(t_i) - cumPD(t_{i-1})] * LGD * EAD * DF(t_mid)
 //! ```
 //!
-//! where DF(t) = 1 / (1 + EIR)^t is the IFRS 9 effective interest rate
-//! discount factor.
+//! where `cumPD(t)` is the cumulative (unconditional) default probability
+//! from origination to `t`, and DF(t) = 1 / (1 + EIR)^t is the IFRS 9
+//! effective interest rate discount factor.
+//!
+//! Using the unconditional marginal `cumPD(t_i) - cumPD(t_{i-1})` is
+//! equivalent to integrating the survival-weighted instantaneous loss,
+//! i.e. `S(t_{i-1}) * marginal_pd(t_{i-1}, t_i)` where `S(t)=1-cumPD(t)`
+//! is the survival probability. The conditional marginal PD returned by
+//! [`PdTermStructure::marginal_pd`] is NOT directly summable without the
+//! `S(t_{i-1})` weight, so bucket-level ECL must use the unconditional
+//! form above. See Duffie & Singleton (2003), *Credit Risk: Pricing,
+//! Measurement and Management*, chapter 3.
 //!
 //! Total ECL = sum of bucket ECLs over the appropriate horizon:
 //! - Stage 1: min(1 year, remaining maturity)
@@ -198,7 +208,10 @@ pub struct EclBucket {
     pub t_start: f64,
     /// End of the time bucket (years).
     pub t_end: f64,
-    /// Marginal PD for this bucket, conditional on survival.
+    /// Unconditional default probability for the bucket,
+    /// `cumPD(t_end) - cumPD(t_start)`. This is the quantity that
+    /// multiplies `LGD * EAD * DF` directly; it is *not* the
+    /// conditional-on-survival marginal PD.
     pub marginal_pd: f64,
     /// LGD used for this bucket.
     pub lgd: f64,
@@ -269,6 +282,7 @@ pub fn compute_ecl_single(
     pd_source: &dyn PdTermStructure,
     config: &EclConfig,
 ) -> Result<EclResult> {
+    exposure.validate()?;
     let horizon = match stage {
         Stage::Stage1 => 1.0_f64.min(exposure.remaining_maturity_years),
         Stage::Stage2 | Stage::Stage3 => exposure.remaining_maturity_years,
@@ -287,18 +301,26 @@ pub fn compute_ecl_single(
         let t_end = ((i + 1) as f64 * dt).min(horizon);
         let t_mid = (t_start + t_end) / 2.0;
 
-        let mpd = pd_source.marginal_pd(rating, t_start, t_end)?;
+        // Use the unconditional bucket default probability
+        // `cumPD(t_end) - cumPD(t_start)`. This is mathematically
+        // equivalent to `S(t_start) * marginal_pd(t_start, t_end)` but
+        // avoids losing the survival weight at the bucket boundary,
+        // which otherwise systematically overstates ECL on a compound
+        // curve (see module-level docs).
+        let pd_start = pd_source.cumulative_pd(rating, t_start)?;
+        let pd_end = pd_source.cumulative_pd(rating, t_end)?;
+        let uncond_mpd = (pd_end - pd_start).max(0.0);
         let lgd = exposure.lgd;
         let ead = exposure.ead;
         let df = 1.0 / (1.0 + exposure.eir).powf(t_mid);
 
-        let bucket_ecl = mpd * lgd * ead * df;
+        let bucket_ecl = uncond_mpd * lgd * ead * df;
         ecl += bucket_ecl;
 
         bucket_details.push(EclBucket {
             t_start,
             t_end,
-            marginal_pd: mpd,
+            marginal_pd: uncond_mpd,
             lgd,
             ead,
             discount_factor: df,
@@ -550,17 +572,20 @@ mod tests {
         let result = compute_ecl_single(&exposure, Stage::Stage1, &curve, &config).unwrap();
 
         // Bucket 1: [0, 0.5]
-        // marginal_pd = 1 - (1-0.01)/(1-0.0) = 0.01
+        // uncond_mpd = cumPD(0.5) - cumPD(0.0) = 0.01 - 0.00 = 0.01
         // bucket_ecl = 0.01 * 0.40 * 100000 * 1.0 = 400.0
         //
         // Bucket 2: [0.5, 1.0]
-        // marginal_pd = 1 - (1-0.02)/(1-0.01) = 1 - 0.98/0.99 = 0.01010101...
-        // bucket_ecl = 0.010101... * 0.40 * 100000 * 1.0 = 404.04...
+        // uncond_mpd = cumPD(1.0) - cumPD(0.5) = 0.02 - 0.01 = 0.01
+        // bucket_ecl = 0.01 * 0.40 * 100000 * 1.0 = 400.0
         //
-        // Total ECL ~ 804.04
+        // Total ECL = 800.0. Using the conditional marginal PD without
+        // a survival weight would incorrectly yield ~804, which is the
+        // bug fixed by using unconditional PD differences.
         assert_eq!(result.buckets.len(), 2);
-        assert!((result.buckets[0].ecl - 400.0).abs() < 1.0);
-        assert!((result.ecl - 804.0).abs() < 2.0);
+        assert!((result.buckets[0].ecl - 400.0).abs() < 1e-10);
+        assert!((result.buckets[1].ecl - 400.0).abs() < 1e-10);
+        assert!((result.ecl - 800.0).abs() < 1e-10);
     }
 
     #[test]

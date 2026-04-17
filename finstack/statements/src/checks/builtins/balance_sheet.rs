@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::sum_nodes;
+use crate::checks::types::effective_tolerance;
 use crate::checks::{
     Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Materiality, Severity,
 };
@@ -36,7 +37,6 @@ impl Check for BalanceSheetArticulation {
     }
 
     fn execute(&self, context: &CheckContext) -> Result<CheckResult> {
-        let tolerance = self.tolerance.unwrap_or(context.config.default_tolerance);
         let mut findings = Vec::new();
 
         for period in &context.model.periods {
@@ -45,6 +45,7 @@ impl Check for BalanceSheetArticulation {
             let liabilities = sum_nodes(context.results, &self.liabilities_nodes, pid);
             let equity = sum_nodes(context.results, &self.equity_nodes, pid);
             let imbalance = assets - (liabilities + equity);
+            let tolerance = effective_tolerance(&context.config, self.tolerance, assets);
 
             if imbalance.abs() > tolerance {
                 let relative = if assets.abs() > f64::EPSILON {

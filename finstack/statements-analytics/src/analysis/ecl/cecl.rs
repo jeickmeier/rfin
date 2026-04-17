@@ -167,7 +167,14 @@ impl<'a> CeclEngine<'a> {
     /// Always uses the full remaining maturity (no staging).
     /// PD term structure is blended: forecast PD for the R&S period,
     /// then reverts to historical.
+    ///
+    /// The bucket integration uses the unconditional bucket default
+    /// probability `S(t_start) * P(default in [t_start, t_end] | survive to t_start)`,
+    /// with the running survival `S` carried across the forecast → historical
+    /// boundary so the reverted portion remains properly conditional on
+    /// surviving the R&S window.
     pub fn compute_cecl(&self, exposure: &Exposure) -> Result<CeclResult> {
+        exposure.validate()?;
         let horizon = exposure.remaining_maturity_years;
         let rating = exposure.current_rating.as_deref().unwrap_or("NR");
         let dt = self.config.bucket_width_years;
@@ -178,16 +185,28 @@ impl<'a> CeclEngine<'a> {
 
         for (scenario, pd_source) in &self.pd_sources {
             let mut scenario_ecl = 0.0;
+            let mut survival = 1.0_f64;
             for i in 0..n_buckets {
                 let t_start = i as f64 * dt;
                 let t_end = ((i + 1) as f64 * dt).min(horizon);
                 let t_mid = (t_start + t_end) / 2.0;
 
-                let mpd = self.blended_marginal_pd(*pd_source, rating, t_start, t_end)?;
+                // Conditional probability of default within the bucket
+                // given survival to t_start. Forecast region uses the
+                // pd_source's conditional marginal; reverted region uses
+                // a hazard-based constant intensity derived from the
+                // historical annual PD; the straddling bucket composes
+                // both sub-intervals multiplicatively so that no
+                // survival weight is lost at the R&S boundary.
+                let cond_mpd = self.blended_conditional_mpd(*pd_source, rating, t_start, t_end)?;
+
+                // Unconditional bucket default probability: S(t_start) * cond_mpd.
+                let uncond_mpd = (survival * cond_mpd).max(0.0);
+                survival = (survival * (1.0 - cond_mpd)).max(0.0);
 
                 let lgd = scenario.lgd_override.unwrap_or(exposure.lgd);
                 let df = 1.0 / (1.0 + exposure.eir).powf(t_mid);
-                scenario_ecl += mpd * lgd * exposure.ead * df;
+                scenario_ecl += uncond_mpd * lgd * exposure.ead * df;
             }
             weighted_ecl += scenario.weight * scenario_ecl;
         }
@@ -200,12 +219,17 @@ impl<'a> CeclEngine<'a> {
         })
     }
 
-    /// Blend forecast PD with historical reversion.
+    /// Blended conditional marginal PD for `[t1, t2]` given survival to `t1`.
     ///
-    /// - Fully within R&S period: use forecast PD from `pd_source`.
-    /// - Fully beyond R&S: use historical PD (via reversion method).
-    /// - Straddling boundary: weighted blend.
-    fn blended_marginal_pd(
+    /// - Fully within R&S period: use forecast conditional PD from `pd_source`.
+    /// - Fully beyond R&S: use hazard-based historical conditional PD.
+    /// - Straddling boundary: compose the forecast `[t1, rs]` and the
+    ///   reverted `[rs, t2]` segments multiplicatively:
+    ///   `1 - (1 - mpd_forecast) * (1 - mpd_reverted)`.
+    ///   This preserves survival consistency across the boundary; a
+    ///   weighted arithmetic blend would systematically under- or
+    ///   over-weight the post-boundary hazard.
+    fn blended_conditional_mpd(
         &self,
         pd_source: &dyn PdTermStructure,
         rating: &str,
@@ -215,28 +239,30 @@ impl<'a> CeclEngine<'a> {
         let rs = self.config.forecast_horizon_years;
 
         if t2 <= rs {
-            // Fully within R&S period: use forecast PD.
             return pd_source.marginal_pd(rating, t1, t2);
         }
 
         if t1 >= rs {
-            // Fully beyond R&S: use reverted PD.
-            return self.reverted_marginal_pd(pd_source, rating, t1, t2);
+            return self.reverted_conditional_mpd(pd_source, rating, t1, t2);
         }
 
-        // Straddles the boundary: split the bucket.
-        let w_rs = (rs - t1) / (t2 - t1);
-        let pd_forecast = pd_source.marginal_pd(rating, t1, rs)?;
-        let pd_reverted = self.reverted_marginal_pd(pd_source, rating, rs, t2)?;
-        Ok(w_rs * pd_forecast + (1.0 - w_rs) * pd_reverted)
+        // Straddles the boundary: compose forecast(t1,rs) and
+        // reverted(rs,t2) multiplicatively.
+        let mpd_forecast = pd_source.marginal_pd(rating, t1, rs)?;
+        let mpd_reverted = self.reverted_conditional_mpd(pd_source, rating, rs, t2)?;
+        Ok((1.0 - (1.0 - mpd_forecast) * (1.0 - mpd_reverted)).clamp(0.0, 1.0))
     }
 
-    /// Compute the reverted marginal PD beyond the R&S period.
+    /// Reverted conditional marginal PD for a bucket fully beyond the R&S
+    /// period (or the post-boundary sub-interval of a straddling bucket).
     ///
-    /// For immediate reversion, uses the historical annual PD converted to
-    /// the bucket interval. For linear reversion, blends forecast and
-    /// historical PDs over the reversion window.
-    fn reverted_marginal_pd(
+    /// Uses a constant-intensity (hazard rate) translation of the historical
+    /// annual PD: `lambda = -ln(1 - annual_pd)` and
+    /// `cond_mpd = 1 - exp(-lambda * dt)`. For linear reversion the hazard
+    /// is a convex combination of the local forecast hazard (approximated
+    /// from `pd_source.marginal_pd` over the bucket) and the historical
+    /// hazard, blended linearly from 0 to 1 over the reversion window.
+    fn reverted_conditional_mpd(
         &self,
         pd_source: &dyn PdTermStructure,
         rating: &str,
@@ -245,14 +271,12 @@ impl<'a> CeclEngine<'a> {
     ) -> Result<f64> {
         let annual_pd = self.config.historical_annual_pd;
         let dt = t2 - t1;
-        // Convert annual PD to marginal PD for the bucket via hazard rate
-        let lambda = if annual_pd < 1.0 {
+        let lambda_hist = if annual_pd < 1.0 {
             -(1.0 - annual_pd).ln()
         } else {
-            // PD = 1.0 means certain default
             f64::INFINITY
         };
-        let historical_mpd = 1.0 - (-lambda * dt).exp();
+        let historical_mpd = 1.0 - (-lambda_hist * dt).exp();
 
         match self.config.reversion_method {
             ReversionMethod::Immediate => Ok(historical_mpd),
@@ -262,13 +286,20 @@ impl<'a> CeclEngine<'a> {
                 let t_mid = (t1 + t2) / 2.0;
 
                 if t_mid >= reversion_end {
-                    // Past reversion window: fully historical
                     Ok(historical_mpd)
                 } else {
-                    // Within reversion window: linear blend
-                    let blend = (t_mid - rs) / reversion_years;
-                    let forecast_mpd = pd_source.marginal_pd(rating, t1, t2)?;
-                    Ok((1.0 - blend) * forecast_mpd + blend * historical_mpd)
+                    // Convert forecast conditional mpd to a hazard, blend,
+                    // and convert back. This keeps the blend on the
+                    // hazard scale rather than on the survival scale.
+                    let blend = ((t_mid - rs) / reversion_years).clamp(0.0, 1.0);
+                    let fcst_mpd = pd_source.marginal_pd(rating, t1, t2)?;
+                    let lambda_fcst = if fcst_mpd < 1.0 {
+                        -(1.0 - fcst_mpd).ln() / dt
+                    } else {
+                        f64::INFINITY
+                    };
+                    let lambda_blend = (1.0 - blend) * lambda_fcst + blend * lambda_hist;
+                    Ok(1.0 - (-lambda_blend * dt).exp())
                 }
             }
         }

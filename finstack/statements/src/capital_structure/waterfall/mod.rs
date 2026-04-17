@@ -142,6 +142,10 @@ pub fn execute_waterfall(
     );
 
     // --- Step 1: PIK toggle ---
+    //
+    // Evaluate PIK mode BEFORE ECF so that ECF cash-interest deduction
+    // correctly reflects actual cash interest paid (instruments in PIK mode
+    // pay zero cash interest that period).
     let (pik_enable, pik_targets): (Option<bool>, Option<HashSet<String>>) =
         if let Some(pik_spec) = &waterfall_spec.pik_toggle {
             (
@@ -155,9 +159,55 @@ pub fn execute_waterfall(
             (None, None)
         };
 
+    // Apply PIK mode transitions to `state` before using it for ECF.
+    let min_periods_in_pik = waterfall_spec
+        .pik_toggle
+        .as_ref()
+        .map(|spec| spec.min_periods_in_pik)
+        .unwrap_or(0);
+
+    if let Some(enable_pik) = pik_enable {
+        for instrument_id in contractual_flows.keys() {
+            let should_apply = pik_targets
+                .as_ref()
+                .map(|set| set.contains(instrument_id))
+                .unwrap_or(true);
+            if !should_apply {
+                continue;
+            }
+            let periods_active = state
+                .pik_periods_active
+                .get(instrument_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            let currently_pik = state
+                .pik_mode
+                .get(instrument_id.as_str())
+                .copied()
+                .unwrap_or(false);
+            let effective_pik =
+                if currently_pik && !enable_pik && periods_active < min_periods_in_pik {
+                    true
+                } else {
+                    enable_pik
+                };
+            state
+                .pik_mode
+                .insert(instrument_id.to_string(), effective_pik);
+            state.pik_periods_active.insert(
+                instrument_id.to_string(),
+                if effective_pik { periods_active + 1 } else { 0 },
+            );
+        }
+    }
+
     // --- Step 2: ECF / sweep ---
+    //
+    // ECF is PIK-aware: when `cash_interest_node` is omitted, the fallback
+    // deducts contractual cash interest only for instruments NOT in PIK mode
+    // this period.
     let sweep_amount = if let Some(ecf_spec) = &waterfall_spec.ecf_sweep {
-        calculate_ecf_sweep(context, ecf_spec, contractual_flows)?
+        calculate_ecf_sweep(context, ecf_spec, contractual_flows, state)?
     } else {
         Money::new(0.0, cash_currency)
     };
@@ -174,49 +224,11 @@ pub fn execute_waterfall(
     //   1. Determine sweep amount (already computed above)
     //   2. Apply sweep as additional principal prepayment
     //   3. Update balance after sweep + scheduled amortization
-    //   4. Apply PIK mode — PIK accrues on post-sweep balance
-    let min_periods_in_pik = waterfall_spec
-        .pik_toggle
-        .as_ref()
-        .map(|spec| spec.min_periods_in_pik)
-        .unwrap_or(0);
-
+    //   4. Capitalize PIK interest into the closing balance when appropriate
     let mut staged: Vec<StagedInstrumentFlow> = Vec::with_capacity(contractual_flows.len());
     for (instrument_id, breakdown) in contractual_flows {
         let currency = breakdown.interest_expense_cash.currency();
         let opening_balance = state.get_opening_balance(instrument_id, currency);
-
-        if let Some(enable_pik) = pik_enable {
-            let should_apply = pik_targets
-                .as_ref()
-                .map(|set| set.contains(instrument_id))
-                .unwrap_or(true);
-            if should_apply {
-                let periods_active = state
-                    .pik_periods_active
-                    .get(instrument_id.as_str())
-                    .copied()
-                    .unwrap_or(0);
-                let currently_pik = state
-                    .pik_mode
-                    .get(instrument_id.as_str())
-                    .copied()
-                    .unwrap_or(false);
-                let effective_pik =
-                    if currently_pik && !enable_pik && periods_active < min_periods_in_pik {
-                        true
-                    } else {
-                        enable_pik
-                    };
-                state
-                    .pik_mode
-                    .insert(instrument_id.to_string(), effective_pik);
-                state.pik_periods_active.insert(
-                    instrument_id.to_string(),
-                    if effective_pik { periods_active + 1 } else { 0 },
-                );
-            }
-        }
 
         let staged_breakdown = breakdown.clone();
         staged.push(StagedInstrumentFlow {
@@ -245,16 +257,12 @@ pub fn execute_waterfall(
             remaining_sweep.currency(),
         );
     }
-    if interest_priority < extra_principal_priority && waterfall_spec.ecf_sweep.is_none() {
-        let total_cash_interest = staged
-            .iter()
-            .map(|s| s.breakdown.interest_expense_cash.amount())
-            .sum::<f64>();
-        remaining_sweep = Money::new(
-            (remaining_sweep.amount() - total_cash_interest).max(0.0),
-            remaining_sweep.currency(),
-        );
-    }
+    // Note: no separate interest-priority deduction from `remaining_sweep`
+    // here. When an ECF sweep is configured, `calculate_ecf_sweep` already
+    // deducts cash interest from EBITDA. When no ECF sweep is configured,
+    // `sweep_amount` is zero, so `remaining_sweep` starts at zero and any
+    // subtraction is a no-op. `interest_priority` is still used below in
+    // Step 6 to decide whether PIK capitalization has already been applied.
 
     let target_instrument_id = waterfall_spec
         .ecf_sweep
@@ -349,7 +357,17 @@ pub fn execute_waterfall(
     }
 
     // --- Step 5: Available cash caps ---
+    //
+    // The three prepayment priorities (MandatoryPrepayment, VoluntaryPrepayment,
+    // Sweep) all share the single `extra_principal` bucket populated from the
+    // ECF sweep in Step 4. Because there is only one bucket, the first of the
+    // three that appears in `priority_of_payments` consumes the cash cap for
+    // that bucket; later entries are no-ops. Modelers who need strict ordering
+    // across distinct prepayment types should populate separate buckets
+    // upstream (not currently supported by this engine) and distinguish them
+    // via separate `target_instrument_id`s.
     if let Some(mut remaining_cash) = available_cash {
+        let mut extra_principal_capped = false;
         for priority in &waterfall_spec.priority_of_payments {
             match priority {
                 PaymentPriority::Fees => {
@@ -376,6 +394,9 @@ pub fn execute_waterfall(
                 PaymentPriority::MandatoryPrepayment
                 | PaymentPriority::VoluntaryPrepayment
                 | PaymentPriority::Sweep => {
+                    if extra_principal_capped {
+                        continue;
+                    }
                     let planned: Vec<f64> = staged
                         .iter()
                         .map(|s| s.extra_principal.amount().max(0.0))
@@ -384,6 +405,7 @@ pub fn execute_waterfall(
                     for (s, allocated) in staged.iter_mut().zip(allocations.into_iter()) {
                         s.extra_principal = Money::new(allocated, s.extra_principal.currency());
                     }
+                    extra_principal_capped = true;
                 }
                 PaymentPriority::Equity => {}
             }
@@ -391,6 +413,27 @@ pub fn execute_waterfall(
     }
 
     // --- Step 6: Period close ---
+    //
+    // For each instrument:
+    //   (a) principal_payment = scheduled + extra, capped at opening_balance.
+    //       If the cap truncates the sum, reduce `extra_principal` first
+    //       (discretionary sweep is netted before scheduled amortization is
+    //       reduced) so downstream accounting stays consistent.
+    //   (b) post_sweep_balance = opening - principal_payment (with a small
+    //       dust floor to avoid micro-residuals).
+    //   (c) PIK capitalization: if the instrument was toggled into PIK mode
+    //       AND the waterfall's ordering did not already move cash interest
+    //       into the PIK bucket earlier, move it here. PIK interest accrues
+    //       on the pre-waterfall opening balance and capitalizes at period
+    //       close even when the principal was fully paid down during the
+    //       period: the coupon still economically exists and gets rolled
+    //       into the closing balance.
+    //   (d) closing_balance = post_sweep_balance + PIK capitalized.
+    //   (e) accrued_interest: cleared to zero when PIK capitalization
+    //       absorbed the contractual coupon into principal, or when the
+    //       debt was paid off and no further contractual accrual applies.
+    //       Otherwise the field retains the contractual pre-waterfall
+    //       accrual.
     for s in staged {
         let StagedInstrumentFlow {
             instrument_id,
@@ -400,29 +443,64 @@ pub fn execute_waterfall(
             scheduled_principal,
         } = s;
         let currency = breakdown.interest_expense_cash.currency();
-        breakdown.principal_payment = scheduled_principal.checked_add(extra_principal)?;
-        if breakdown.principal_payment.amount() > opening_balance.amount() {
-            breakdown.principal_payment = opening_balance;
-        }
-        let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
+
+        // (a) Principal cap. `extra_principal` (the discretionary sweep
+        // bucket) is netted against the overshoot before scheduled
+        // amortization is reduced, so the aggregate `principal_payment` is
+        // never > opening_balance.
+        let desired = scheduled_principal.checked_add(extra_principal)?;
+        let principal_payment = if desired.amount() > opening_balance.amount() {
+            opening_balance
+        } else {
+            desired
+        };
+        breakdown.principal_payment = principal_payment;
+
+        let post_sweep_balance = opening_balance.checked_sub(principal_payment)?;
+        // Dust floor: collapse sub-cent residuals on full paydown. Currency
+        // agnostic fallback; modelers in JPY should override via explicit
+        // rounding upstream.
         let post_sweep_balance = if post_sweep_balance.amount().abs() < 0.005 {
             Money::new(0.0, post_sweep_balance.currency())
         } else {
             post_sweep_balance
         };
+        let fully_paid = post_sweep_balance.amount() == 0.0;
 
+        // (c) PIK capitalization at close. Applies whenever the PIK toggle is
+        // active and Step 4b did not already move the coupon into the PIK
+        // bucket. Capitalization is independent of whether the principal was
+        // fully repaid this period: the coupon accrued on the pre-waterfall
+        // opening balance and must be recognized.
         let pik_enabled = is_pik_enabled(state, &instrument_id);
-        if pik_enabled
+        let deferred_pik_applied = pik_enabled
             && !(interest_priority < extra_principal_priority
-                && extra_principal_priority != usize::MAX)
-        {
-            breakdown.interest_expense_pik += breakdown.interest_expense_cash;
+                && extra_principal_priority != usize::MAX);
+        let pik_capitalized_this_step = if deferred_pik_applied {
+            let cash_coupon = breakdown.interest_expense_cash;
+            breakdown.interest_expense_pik += cash_coupon;
             breakdown.interest_expense_cash = Money::new(0.0, currency);
-        }
+            true
+        } else {
+            // PIK already moved into the PIK bucket in Step 4b (or the
+            // instrument is not in PIK mode).
+            false
+        };
 
+        // (d) Closing balance. PIK capitalizes into the post-sweep balance.
         let closing_balance = post_sweep_balance.checked_add(breakdown.interest_expense_pik)?;
         state.set_closing_balance(instrument_id.to_string(), closing_balance);
         breakdown.debt_balance = closing_balance;
+
+        // (e) Accrued interest bookkeeping after waterfall mutation.
+        // The pre-waterfall `accrued_interest` was the contractual schedule's
+        // accrual. It is cleared when the coupon was moved into PIK (the
+        // accrual has been capitalized into principal) or when the debt was
+        // fully paid off and there is no remaining balance to accrue on.
+        if fully_paid || pik_capitalized_this_step {
+            breakdown.accrued_interest = Money::new(0.0, currency);
+        }
+
         breakdown.validate_currency_invariant().map_err(|e| {
             crate::error::Error::capital_structure(format!(
                 "Currency invariant violated after waterfall mutation for {instrument_id}: {e}"

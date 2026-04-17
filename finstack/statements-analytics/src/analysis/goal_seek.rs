@@ -210,20 +210,25 @@ pub fn goal_seek(
         return apply_solution(model, driver_node, driver_period, update_model, solution);
     }
 
-    // Derive adaptive bounds when none supplied
-    let (auto_lower, auto_upper) = {
-        let abs_guess = initial_guess.abs().max(1.0);
-        (
-            initial_guess - abs_guess * 10.0,
-            initial_guess + abs_guess * 10.0,
-        )
-    };
+    // Pick an initial bracket size scaled to the guess magnitude, then let
+    // Brent's own bracket-expansion search widen as needed. The solver's
+    // default `bracket_min`/`bracket_max` (±1e6) define the outer limits,
+    // which we tighten on one side to honour the sign of the initial guess:
+    // if the guess is strictly positive, the root is almost certainly also
+    // positive (revenue, leverage ratio, hazard-rate intensity, etc.) and
+    // the evaluator may produce NaN for non-positive inputs — same logic
+    // applies symmetrically for strictly negative guesses. A zero guess
+    // carries no sign information so we leave both sides at the default.
     let mut solver = BrentSolver::new();
-    let bracket_size = ((auto_upper - auto_lower).abs() / 2.0).max(1e-6);
-    solver.initial_bracket_size = Some(bracket_size);
-    let clamped_guess = initial_guess.clamp(auto_lower, auto_upper);
+    let abs_guess = initial_guess.abs().max(1.0);
+    solver.initial_bracket_size = Some(abs_guess);
+    if initial_guess > 0.0 {
+        solver.bracket_min = 0.0;
+    } else if initial_guess < 0.0 {
+        solver.bracket_max = 0.0;
+    }
 
-    let solution = solver.solve(objective, clamped_guess).map_err(|e| {
+    let solution = solver.solve(objective, initial_guess).map_err(|e| {
         Error::eval(format!(
             "Goal seek failed to find solution: target_node='{}', target_value={}, driver_node='{}'. {}",
             target_node, target_value, driver_node, e
@@ -254,7 +259,6 @@ fn solve_with_bounds<F>(f: &F, lower: f64, upper: f64) -> Result<f64>
 where
     F: Fn(f64) -> f64,
 {
-    const MAX_ITER: usize = 128;
     const TOLERANCE: f64 = 1e-9;
 
     if !lower.is_finite() || !upper.is_finite() {
@@ -269,10 +273,8 @@ where
         ));
     }
 
-    let mut lo = lower;
-    let mut hi = upper;
-    let mut flo = f(lo);
-    let fhi = f(hi);
+    let flo = f(lower);
+    let fhi = f(upper);
 
     if !flo.is_finite() || !fhi.is_finite() {
         return Err(Error::eval(
@@ -281,10 +283,10 @@ where
     }
 
     if flo.abs() < TOLERANCE {
-        return Ok(lo);
+        return Ok(lower);
     }
     if fhi.abs() < TOLERANCE {
-        return Ok(hi);
+        return Ok(upper);
     }
 
     if flo * fhi > 0.0 {
@@ -294,35 +296,13 @@ where
         )));
     }
 
-    for _ in 0..MAX_ITER {
-        let mid = 0.5 * (lo + hi);
-        let fmid = f(mid);
-
-        if !fmid.is_finite() {
-            return Err(Error::eval(
-                "Goal seek produced non-finite value within bounds",
-            ));
-        }
-
-        // Use combined absolute + relative tolerance so that:
-        // - For small values, absolute tolerance governs
-        // - For large values (e.g., billions), relative tolerance governs
-        let relative_tol = TOLERANCE * (1.0 + hi.abs().max(lo.abs()));
-        if fmid.abs() < TOLERANCE || (hi - lo).abs() < relative_tol {
-            return Ok(mid);
-        }
-
-        if flo * fmid < 0.0 {
-            hi = mid;
-        } else {
-            lo = mid;
-            flo = fmid;
-        }
-    }
-
-    Err(Error::eval(
-        "Goal seek failed to converge within provided bounds",
-    ))
+    // Use Brent's method inside the user-supplied bracket; inverse quadratic
+    // interpolation with safeguarded bisection converges super-linearly on
+    // smooth objectives while retaining the robustness of bisection.
+    let solver = BrentSolver::new().tolerance(TOLERANCE);
+    solver
+        .solve_in_bracket(f, lower, upper)
+        .map_err(|e| Error::eval(format!("Goal seek failed within bounds: {}", e)))
 }
 
 #[cfg(test)]

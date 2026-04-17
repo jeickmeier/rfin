@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{get_node_value, sum_nodes};
+use crate::checks::types::effective_tolerance;
 use crate::checks::{
     Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Materiality, Severity,
 };
@@ -39,7 +40,6 @@ impl Check for RetainedEarningsReconciliation {
     }
 
     fn execute(&self, context: &CheckContext) -> Result<CheckResult> {
-        let tolerance = self.tolerance.unwrap_or(context.config.default_tolerance);
         let mut findings = Vec::new();
         let periods = &context.model.periods;
 
@@ -47,18 +47,41 @@ impl Check for RetainedEarningsReconciliation {
             let prev_pid = &periods[i - 1].id;
             let curr_pid = &periods[i].id;
 
-            let Some(re_prev) =
-                get_node_value(context.results, &self.retained_earnings_node, prev_pid)
-            else {
-                continue;
-            };
-            let Some(re_curr) =
-                get_node_value(context.results, &self.retained_earnings_node, curr_pid)
-            else {
-                continue;
-            };
-            let Some(ni) = get_node_value(context.results, &self.net_income_node, curr_pid) else {
-                continue;
+            let re_prev = get_node_value(context.results, &self.retained_earnings_node, prev_pid);
+            let re_curr = get_node_value(context.results, &self.retained_earnings_node, curr_pid);
+            let ni = get_node_value(context.results, &self.net_income_node, curr_pid);
+
+            let (re_prev, re_curr, ni) = match (re_prev, re_curr, ni) {
+                (Some(p), Some(c), Some(n)) => (p, c, n),
+                (p, c, n) => {
+                    let mut missing: Vec<String> = Vec::new();
+                    if p.is_none() {
+                        missing.push(format!("{} @ {prev_pid}", self.retained_earnings_node));
+                    }
+                    if c.is_none() {
+                        missing.push(format!("{} @ {curr_pid}", self.retained_earnings_node));
+                    }
+                    if n.is_none() {
+                        missing.push(format!("{} @ {curr_pid}", self.net_income_node));
+                    }
+                    findings.push(CheckFinding {
+                        check_id: self.id().to_string(),
+                        severity: Severity::Warning,
+                        message: format!(
+                            "Retained earnings reconciliation skipped for {curr_pid}: \
+                             missing inputs [{}]. The identity cannot be evaluated without \
+                             all three core values.",
+                            missing.join(", ")
+                        ),
+                        period: Some(*curr_pid),
+                        materiality: None,
+                        nodes: vec![
+                            self.retained_earnings_node.clone(),
+                            self.net_income_node.clone(),
+                        ],
+                    });
+                    continue;
+                }
             };
 
             let dividends = self
@@ -71,9 +94,10 @@ impl Check for RetainedEarningsReconciliation {
 
             let expected = re_prev + ni - dividends + adjustments;
             let diff = re_curr - expected;
+            let reference = re_prev.abs().max(1.0);
+            let tolerance = effective_tolerance(&context.config, self.tolerance, reference);
 
             if diff.abs() > tolerance {
-                let reference = re_prev.abs().max(1.0);
                 let relative = (diff / reference).abs() * 100.0;
 
                 let mut nodes = vec![

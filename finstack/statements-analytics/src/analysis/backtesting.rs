@@ -37,12 +37,28 @@ pub struct ForecastMetrics {
     ///
     /// Interpretation: Average error as a percentage. Scale-independent.
     /// Be cautious when actual values are near zero (can produce extreme values).
-    /// The implementation treats `|actual| < ZERO_TOLERANCE` as a zero-weight term to
-    /// avoid infinities, but very small non-zero actuals can still dominate the
-    /// metric. For series with many near-zero observations, prefer a more robust
-    /// alternative such as sMAPE or MASE.
+    /// The implementation treats `|actual| < ZERO_TOLERANCE` as a zero-weight
+    /// term and excludes that sample from both the numerator and the count;
+    /// [`ForecastMetrics::mape_effective_n`] records how many samples were
+    /// used so callers can tell a low MAPE from a MAPE that was computed on
+    /// very few points. Very small non-zero actuals can still dominate the
+    /// metric. If `mape_effective_n == 0`, `mape` is `NaN`; prefer
+    /// [`ForecastMetrics::smape`] in that case.
     /// Lower is better.
     pub mape: f64,
+
+    /// Number of samples that actually contributed to MAPE (i.e. had
+    /// `|actual| >= ZERO_TOLERANCE`). Always `<= n`.
+    pub mape_effective_n: usize,
+
+    /// Symmetric Mean Absolute Percentage Error:
+    /// `mean( |a - f| / ((|a| + |f|) / 2) ) × 100`.
+    ///
+    /// Always well-defined when at least one of `|a|` or `|f|` is positive,
+    /// and always bounded in `[0, 200]`. Preferred over MAPE when the actual
+    /// series contains zeros or near-zeros. Terms where both `a` and `f`
+    /// are within `ZERO_TOLERANCE` of zero are skipped.
+    pub smape: f64,
 
     /// Root Mean Squared Error: sqrt(average((actual - forecast)²))
     ///
@@ -65,16 +81,22 @@ impl ForecastMetrics {
     /// let metrics = ForecastMetrics {
     ///     mae: 2.5,
     ///     mape: 3.7,
+    ///     mape_effective_n: 10,
+    ///     smape: 3.5,
     ///     rmse: 3.2,
     ///     n: 10,
     /// };
     /// println!("{}", metrics.summary());
-    /// // Output: "MAE: 2.50, MAPE: 3.70%, RMSE: 3.20 (n=10)"
     /// ```
     pub fn summary(&self) -> String {
+        let mape_str = if self.mape.is_nan() {
+            "n/a".to_string()
+        } else {
+            format!("{:.2}%", self.mape)
+        };
         format!(
-            "MAE: {:.2}, MAPE: {:.2}%, RMSE: {:.2} (n={})",
-            self.mae, self.mape, self.rmse, self.n
+            "MAE: {:.2}, MAPE: {} (eff_n={}), sMAPE: {:.2}%, RMSE: {:.2} (n={})",
+            self.mae, mape_str, self.mape_effective_n, self.smape, self.rmse, self.n
         )
     }
 }
@@ -135,8 +157,8 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
         .sum::<f64>()
         / n as f64;
 
-    // Mean Absolute Percentage Error (excludes near-zero actuals from count)
-    let (mape_sum, mape_count) =
+    // Mean Absolute Percentage Error (excludes near-zero actuals).
+    let (mape_sum, mape_effective_n) =
         actual
             .iter()
             .zip(forecast.iter())
@@ -147,8 +169,29 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
                     (sum + ((a - f).abs() / a.abs()) * 100.0, count + 1)
                 }
             });
-    let mape = if mape_count > 0 {
-        mape_sum / mape_count as f64
+    let mape = if mape_effective_n > 0 {
+        mape_sum / mape_effective_n as f64
+    } else {
+        f64::NAN
+    };
+
+    // Symmetric MAPE: well-defined even when some `a` are zero, so we
+    // report it alongside MAPE as a second-line defence. Skip terms
+    // where both `a` and `f` are effectively zero (no information).
+    let (smape_sum, smape_count) =
+        actual
+            .iter()
+            .zip(forecast.iter())
+            .fold((0.0_f64, 0_usize), |(sum, count), (a, f)| {
+                let denom = (a.abs() + f.abs()) * 0.5;
+                if denom < ZERO_TOLERANCE {
+                    (sum, count)
+                } else {
+                    (sum + ((a - f).abs() / denom) * 100.0, count + 1)
+                }
+            });
+    let smape = if smape_count > 0 {
+        smape_sum / smape_count as f64
     } else {
         f64::NAN
     };
@@ -166,7 +209,14 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
 
     let rmse = mse.sqrt();
 
-    Ok(ForecastMetrics { mae, mape, rmse, n })
+    Ok(ForecastMetrics {
+        mae,
+        mape,
+        mape_effective_n,
+        smape,
+        rmse,
+        n,
+    })
 }
 
 #[cfg(test)]

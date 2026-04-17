@@ -56,6 +56,25 @@ pub enum AdjustmentValue {
     },
 }
 
+/// How a self-referential cap base (where `base_node == target_node`) is
+/// resolved each period.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapBaseMode {
+    /// Cap against the **reported** (pre-adjustment) value of the base node.
+    /// This is the standard credit-agreement convention — e.g., "add-backs
+    /// capped at 25% of reported EBITDA" uses a fixed denominator that does
+    /// not widen as earlier add-backs are applied.
+    #[default]
+    Reported,
+    /// Cap against the **progressively adjusted** value
+    /// (`base_value + running_total_of_earlier_adjustments`). Earlier
+    /// adjustments widen the cap room for later ones. Retained for
+    /// backwards compatibility and edge cases where a document explicitly
+    /// caps against "adjusted" EBITDA at each step.
+    Progressive,
+}
+
 /// Defines a cap on an adjustment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -67,6 +86,18 @@ pub struct AdjustmentCap {
     /// The percentage of the base node to cap at (e.g., 0.20 for 20%)
     /// Or the absolute amount if base_node is None.
     pub value: f64,
+
+    /// For self-referential caps (`base_node == target_node`), choose whether
+    /// to size the cap against the reported or the progressively adjusted
+    /// base. Defaults to `Reported`, the standard LBO / credit-agreement
+    /// convention. Ignored when `base_node` is `None` or points to a
+    /// different node.
+    #[serde(default, skip_serializing_if = "is_default_cap_base_mode")]
+    pub base_mode: CapBaseMode,
+}
+
+fn is_default_cap_base_mode(mode: &CapBaseMode) -> bool {
+    *mode == CapBaseMode::default()
 }
 
 /// Result of a normalization process for a single period.
@@ -164,9 +195,28 @@ impl Adjustment {
         }
     }
 
-    /// Add a cap to the adjustment.
+    /// Add a cap to the adjustment. Uses the default `Reported` base mode.
     pub fn with_cap(mut self, base_node: Option<String>, value: f64) -> Self {
-        self.cap = Some(AdjustmentCap { base_node, value });
+        self.cap = Some(AdjustmentCap {
+            base_node,
+            value,
+            base_mode: CapBaseMode::default(),
+        });
+        self
+    }
+
+    /// Add a cap with an explicit self-referential base mode.
+    pub fn with_cap_mode(
+        mut self,
+        base_node: Option<String>,
+        value: f64,
+        base_mode: CapBaseMode,
+    ) -> Self {
+        self.cap = Some(AdjustmentCap {
+            base_node,
+            value,
+            base_mode,
+        });
         self
     }
 }

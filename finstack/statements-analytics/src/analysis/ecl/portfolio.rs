@@ -193,8 +193,14 @@ impl PortfolioEclResult {
 ///
 /// The accounting identity is:
 /// closing = opening + new_originations + transfers_to_stage2
-///         + transfers_to_stage3 + cured_to_stage1 + derecognitions
-///         + write_offs + remeasurement
+///         + transfers_to_stage3 + cured_to_stage1 + cured_to_stage2
+///         + derecognitions + write_offs + remeasurement
+///
+/// Cure movements are split into `cured_to_stage1` (Stage 2 → Stage 1,
+/// and Stage 3 → Stage 1 "direct" cures) and `cured_to_stage2`
+/// (Stage 3 → Stage 2 partial cures / probation). This matches the
+/// IFRS 9 disclosure convention which treats partial cures out of
+/// credit-impaired separately from full cures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProvisionWaterfall {
     /// Opening ECL balance (previous period closing).
@@ -205,8 +211,13 @@ pub struct ProvisionWaterfall {
     pub transfers_to_stage2: f64,
     /// Transfers to Stage 3 (net ECL change from stage downgrades).
     pub transfers_to_stage3: f64,
-    /// Cured back to Stage 1 (net ECL release).
+    /// Cured back to Stage 1 (net ECL release) — both Stage 2 → 1 and
+    /// Stage 3 → 1.
     pub cured_to_stage1: f64,
+    /// Partial cure Stage 3 → Stage 2 (net ECL change, typically a
+    /// release as Stage 3 lifetime ECL is de-recognised, partly offset
+    /// by Stage 2 lifetime ECL).
+    pub cured_to_stage2: f64,
     /// Derecognitions (maturities, repayments, sales).
     pub derecognitions: f64,
     /// Write-offs.
@@ -251,6 +262,7 @@ pub fn compute_waterfall(
     let mut transfers_to_stage2 = 0.0;
     let mut transfers_to_stage3 = 0.0;
     let mut cured_to_stage1 = 0.0;
+    let mut cured_to_stage2 = 0.0;
     let mut remeasurement = 0.0;
 
     // New originations: in current but not in previous
@@ -282,14 +294,19 @@ pub fn compute_waterfall(
                     transfers_to_stage3 += ecl_delta;
                 }
                 (Stage::Stage2, Stage::Stage1) | (Stage::Stage3, Stage::Stage1) => {
-                    cured_to_stage1 += ecl_delta; // Negative = release
-                }
-                (Stage::Stage3, Stage::Stage2) => {
-                    // Partial cure: net of Stage 3 release and Stage 2 addition
+                    // Direct cure back to Stage 1 (including Stage 3
+                    // "full cure" after probation). Negative delta = release.
                     cured_to_stage1 += ecl_delta;
                 }
+                (Stage::Stage3, Stage::Stage2) => {
+                    // Partial cure out of credit-impaired into Stage 2.
+                    // Kept on its own line so disclosure ties back to
+                    // the IFRS 7.35H credit-impaired movement table.
+                    cured_to_stage2 += ecl_delta;
+                }
                 _ => {
-                    // Same stage: remeasurement
+                    // Same stage (Stage1→1, Stage2→2, Stage3→3) or any
+                    // residual combination is treated as remeasurement.
                     remeasurement += ecl_delta;
                 }
             }
@@ -302,6 +319,7 @@ pub fn compute_waterfall(
         transfers_to_stage2,
         transfers_to_stage3,
         cured_to_stage1,
+        cured_to_stage2,
         derecognitions,
         write_offs: 0.0, // Write-offs must be provided externally
         remeasurement,

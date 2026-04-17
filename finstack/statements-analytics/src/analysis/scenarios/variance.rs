@@ -126,9 +126,14 @@ pub struct VarianceRow {
 
     /// Percentage variance (fraction): `abs_var / baseline`.
     ///
-    /// When the baseline is effectively zero, this is set to `0.0` to avoid
-    /// infinities or NaNs.
-    pub pct_var: f64,
+    /// When the baseline is effectively zero this is `None` (Options
+    /// serialize as JSON `null`) rather than a spurious `0.0`, which
+    /// previously hid meaningful absolute deltas whenever the
+    /// denominator was small. Reporting layers should interpret a
+    /// `None` as "undefined / not meaningful" and fall back to the
+    /// absolute variance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pct_var: Option<f64>,
 
     /// Optional driver breakdown: `driver → contribution` in the same units
     /// as the underlying metric.
@@ -207,7 +212,9 @@ impl<'a> VarianceAnalyzer<'a> {
     /// and periods.
     ///
     /// - `abs_var = comparison - baseline`
-    /// - `pct_var = abs_var / baseline` (0.0 when baseline is ~0 to avoid NaN/inf)
+    /// - `pct_var = abs_var / baseline` (`None` when baseline is ~0 so
+    ///   callers can distinguish a truly 0% change from an undefined
+    ///   ratio with a non-trivial absolute move)
     pub fn compute(&self, config: &VarianceConfig) -> Result<VarianceReport> {
         if config.metrics.is_empty() {
             return Err(Error::invalid_input(
@@ -241,9 +248,9 @@ impl<'a> VarianceAnalyzer<'a> {
 
                 let abs_var = comparison - baseline;
                 let pct_var = if baseline.abs() < ZERO_TOLERANCE {
-                    0.0
+                    None
                 } else {
-                    abs_var / baseline
+                    Some(abs_var / baseline)
                 };
 
                 rows.push(VarianceRow {
@@ -436,7 +443,8 @@ mod tests {
 
         for row in report.rows {
             assert_eq!(row.abs_var, 0.0);
-            assert_eq!(row.pct_var, 0.0);
+            // Non-zero baseline with zero delta → Some(0.0).
+            assert_eq!(row.pct_var, Some(0.0));
         }
     }
 
@@ -455,11 +463,14 @@ mod tests {
 
         let row = &report.rows[0];
         assert_eq!(row.abs_var, -5.0);
-        assert!((row.pct_var - (-0.05)).abs() < 1e-12);
+        let pct = row
+            .pct_var
+            .expect("pct_var should be defined for non-zero baseline");
+        assert!((pct - (-0.05)).abs() < 1e-12);
     }
 
     #[test]
-    fn pct_variance_is_zero_when_baseline_is_zero() {
+    fn pct_variance_is_none_when_baseline_is_zero() {
         let period = PeriodId::quarter(2025, 1);
 
         let baseline = make_results(&[("revenue", period, 0.0)]);
@@ -471,8 +482,9 @@ mod tests {
         let report = analyzer.compute(&config).expect("variance should succeed");
         let row = &report.rows[0];
 
+        // The absolute variance is still meaningful; the ratio is not.
         assert_eq!(row.abs_var, 10.0);
-        assert_eq!(row.pct_var, 0.0);
+        assert!(row.pct_var.is_none());
     }
 
     #[test]

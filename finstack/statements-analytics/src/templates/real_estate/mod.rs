@@ -22,6 +22,30 @@ fn sum_expr(nodes: &[&str]) -> Result<String> {
     Ok(nodes.join(" + "))
 }
 
+/// Maximum allowed lease-growth period index. Beyond this the `u32`
+/// period count risks truncation when cast to `i32` for `f64::powi`
+/// (values ≥ 2^31 wrap to negative exponents, silently turning a
+/// growing rent into a decaying one). At monthly cadence this is
+/// ~833 years, which is well beyond any real underwriting horizon.
+const MAX_LEASE_GROWTH_PERIODS: u32 = 10_000;
+
+/// Convert a period count into a non-negative `i32` exponent suitable
+/// for `f64::powi`, erroring out if the count exceeds the cap.
+///
+/// Direct `as i32` casts are unsafe here: a `u32` above `i32::MAX`
+/// wraps silently to a negative exponent, which would collapse a
+/// growth factor into a decay factor on long horizons. Returning an
+/// error forces the caller to acknowledge the pathological input.
+fn checked_growth_exponent(n: u32) -> core::result::Result<i32, String> {
+    if n > MAX_LEASE_GROWTH_PERIODS {
+        return Err(format!(
+            "lease growth exponent {} exceeds safe limit {} (≈ 10k periods)",
+            n, MAX_LEASE_GROWTH_PERIODS
+        ));
+    }
+    Ok(n as i32)
+}
+
 fn sum_expr_or_zero(nodes: &[&str]) -> String {
     if nodes.is_empty() {
         "0".to_string()
@@ -235,8 +259,13 @@ pub fn add_rent_roll_rental_revenue(
             let pid = p.id;
             let active = pid >= lease.start && lease.end.is_none_or(|e| pid <= e);
             let rent = if active {
-                let rent_before_free =
-                    lease.base_rent * (1.0 + lease.growth_rate).powi(periods_since_start as i32);
+                let exp = checked_growth_exponent(periods_since_start).map_err(|e| {
+                    Error::build(format!(
+                        "add_rent_roll_rental_revenue: {} (period index {})",
+                        e, periods_since_start
+                    ))
+                })?;
+                let rent_before_free = lease.base_rent * (1.0 + lease.growth_rate).powi(exp);
                 if !rent_before_free.is_finite() {
                     return Err(Error::build(
                         "add_rent_roll_rental_revenue: rent growth overflow (base_rent * (1+g)^n is not finite)",
@@ -637,10 +666,16 @@ fn add_rent_roll_impl(
                 }
             }
             let periods_elapsed = idx.saturating_sub(base_idx);
-            let n = match lease.growth_convention {
-                LeaseGrowthConvention::PerPeriod => periods_elapsed as i32,
-                LeaseGrowthConvention::AnnualEscalator => (periods_elapsed / ppy) as i32,
+            let raw_n = match lease.growth_convention {
+                LeaseGrowthConvention::PerPeriod => periods_elapsed,
+                LeaseGrowthConvention::AnnualEscalator => periods_elapsed / ppy,
             };
+            let n = checked_growth_exponent(raw_n as u32).map_err(|e| {
+                Error::build(format!(
+                    "add_rent_roll: {} (period index {}, base_idx {})",
+                    e, idx, base_idx
+                ))
+            })?;
             let contractual = base_rent * (1.0 + lease.growth_rate).powi(n);
             if !contractual.is_finite() {
                 return Err(Error::build(

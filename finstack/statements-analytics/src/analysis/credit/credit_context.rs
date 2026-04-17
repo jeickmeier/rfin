@@ -9,17 +9,44 @@ use serde::{Deserialize, Serialize};
 ///
 /// Ratios are stored as plain scalars, so `2.0` means `2.0x` coverage and
 /// `0.40` means `40%` loan-to-value.
+///
+/// DSCR is reported in two flavours:
+///
+/// - [`CreditContextMetrics::dscr`] / [`CreditContextMetrics::dscr_min`]:
+///   the "cash" DSCR, whose denominator is **cash interest + principal**
+///   (i.e. the numerator excludes PIK interest). This is the covenant-
+///   relevant number for cash-sweep style tests and matches what cash
+///   actually funds.
+/// - [`CreditContextMetrics::dscr_total`] /
+///   [`CreditContextMetrics::dscr_total_min`]: the "total" DSCR whose
+///   denominator includes PIK interest. This is the accrual-basis view
+///   that ties back to the income statement's interest expense line.
+///
+/// The two are identical when there is no PIK component. When there is,
+/// `dscr_total <= dscr_cash`. Pairing a cash-sweep denominator with a
+/// PIK-inclusive numerator (or vice versa) will understate DSCR and is
+/// an easy source of covenant miscalculation; by exposing both we let
+/// the caller (and the covenant engine) pick the right convention
+/// explicitly. See Standard & Poor's "Corporate Methodology" and the
+/// Tuckman / Serrat credit discussion referenced below.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreditContextMetrics {
-    /// DSCR by period: coverage_node_value / (interest + principal)
+    /// Cash DSCR by period:
+    /// `coverage_node_value / (interest_cash + principal)`.
     pub dscr: Vec<(PeriodId, f64)>,
-    /// Interest coverage by period: coverage_node_value / interest_expense
+    /// Total DSCR by period (includes PIK):
+    /// `coverage_node_value / (interest_total + principal)`.
+    pub dscr_total: Vec<(PeriodId, f64)>,
+    /// Interest coverage by period:
+    /// `coverage_node_value / interest_expense_total`.
     pub interest_coverage: Vec<(PeriodId, f64)>,
-    /// LTV by period: debt_balance / reference_value
+    /// LTV by period: `debt_balance / reference_value`.
     pub ltv: Vec<(PeriodId, f64)>,
-    /// Minimum DSCR across all periods
+    /// Minimum cash DSCR across all periods.
     pub dscr_min: Option<f64>,
-    /// Minimum interest coverage across all periods
+    /// Minimum total DSCR across all periods.
+    pub dscr_total_min: Option<f64>,
+    /// Minimum interest coverage across all periods.
     pub interest_coverage_min: Option<f64>,
 }
 
@@ -116,15 +143,17 @@ pub fn compute_credit_context(
     };
 
     let mut dscr = Vec::new();
+    let mut dscr_total = Vec::new();
     let mut interest_coverage = Vec::new();
     let mut ltv = Vec::new();
 
     for period in periods {
         if let Some(cf) = inst_data.get(&period.id) {
-            let interest = match cf.interest_expense_total() {
+            let interest_total = match cf.interest_expense_total() {
                 Ok(m) => m.amount(),
                 Err(_) => continue,
             };
+            let interest_cash = cf.interest_expense_cash.amount();
             let principal = cf.principal_payment.amount();
             let balance = cf.debt_balance.amount();
 
@@ -138,24 +167,31 @@ pub fn compute_credit_context(
                 continue;
             };
 
-            let debt_service = interest + principal;
-            if debt_service > 0.0 {
-                dscr.push((period.id, coverage_val / debt_service));
+            let debt_service_cash = interest_cash + principal;
+            if debt_service_cash > 0.0 {
+                dscr.push((period.id, coverage_val / debt_service_cash));
             }
-            if interest > 0.0 {
-                interest_coverage.push((period.id, coverage_val / interest));
+            let debt_service_total = interest_total + principal;
+            if debt_service_total > 0.0 {
+                dscr_total.push((period.id, coverage_val / debt_service_total));
+            }
+            if interest_total > 0.0 {
+                interest_coverage.push((period.id, coverage_val / interest_total));
             }
         }
     }
 
     let dscr_min = dscr.iter().map(|(_, v)| *v).reduce(f64::min);
+    let dscr_total_min = dscr_total.iter().map(|(_, v)| *v).reduce(f64::min);
     let interest_coverage_min = interest_coverage.iter().map(|(_, v)| *v).reduce(f64::min);
 
     CreditContextMetrics {
         dscr,
+        dscr_total,
         interest_coverage,
         ltv,
         dscr_min,
+        dscr_total_min,
         interest_coverage_min,
     }
 }

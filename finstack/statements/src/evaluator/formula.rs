@@ -439,6 +439,21 @@ pub(crate) fn evaluate_expr(
             // Note: Binary operations are evaluated directly here rather than
             // through the Function enum. This is intentional - see module docs.
             let left_val = evaluate_expr(left, context, node_id)?;
+
+            // Short-circuit logical operators before touching the right-hand
+            // side. DSL boolean semantics (`is_truthy`) treat non-finite and
+            // zero as false, so an AND whose left is false cannot become true
+            // and an OR whose left is true cannot become false. Skipping the
+            // right side avoids triggering its side effects (division-by-zero
+            // warnings, lookup errors, etc.) whenever the result is already
+            // determined.
+            if matches!(op, BinOp::And) && !is_truthy(left_val) {
+                return Ok(bool_to_f64(false));
+            }
+            if matches!(op, BinOp::Or) && is_truthy(left_val) {
+                return Ok(bool_to_f64(true));
+            }
+
             let right_val = evaluate_expr(right, context, node_id)?;
 
             let result = match op {
@@ -575,7 +590,11 @@ fn evaluate_function(
             };
 
             if lag_periods == 0 {
-                return evaluate_expr(&args[0], context, node_id).map(|_| 0.0);
+                // diff(x, 0) == x - x. Propagate NaN from the inner expression
+                // rather than collapsing it to 0.0, so missing/non-finite data
+                // is not silently masked.
+                let v = evaluate_expr(&args[0], context, node_id)?;
+                return Ok(if v.is_finite() { 0.0 } else { f64::NAN });
             }
 
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
@@ -804,19 +823,25 @@ fn evaluate_function(
                 ));
             };
 
-            let mut all_values = collect_all_historical_values(node_name, context)?;
+            let all_values = collect_all_historical_values(node_name, context)?;
 
-            // Sort values in ascending order
-            all_values.sort_by(|a, b| a.total_cmp(b));
+            // Rank semantics (1-based, ascending, ties share the minimum rank):
+            //
+            //   rank = 1 + count(v < current_value)
+            //
+            // If `current_value` is non-finite, return NaN (missing data).
+            // If no historical observations exist, return NaN rather than a
+            // synthetic rank of 1 — `unwrap_or(1.0)` would make "no data"
+            // look identical to "best observation".
+            if !current_value.is_finite() || all_values.is_empty() {
+                return Ok(f64::NAN);
+            }
 
-            // Find rank (1-based)
-            let rank = all_values
+            let strictly_less = all_values
                 .iter()
-                .position(|&v| (v - current_value).abs() < ZERO_TOLERANCE)
-                .map(|pos| (pos + 1) as f64)
-                .unwrap_or(1.0);
-
-            Ok(rank)
+                .filter(|&&v| v.is_finite() && v < current_value - ZERO_TOLERANCE)
+                .count();
+            Ok((strictly_less + 1) as f64)
         }
 
         Function::Quantile => {

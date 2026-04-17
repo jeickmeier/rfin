@@ -30,6 +30,14 @@ fn build_rng(seed: u64, stream_id: Option<u64>) -> Pcg64Rng {
 ///
 /// Used to decorrelate independent stochastic forecasts across nodes while
 /// keeping results reproducible for a given `(seed, path_offset, node_id)` tuple.
+///
+/// Implementation: 64-bit FNV-1a absorption followed by a splitmix64 finalizer
+/// to improve avalanche. FNV-1a alone has poor bit diffusion and can cluster
+/// similar identifiers (e.g. `revenue_2024`, `revenue_2025`), which in
+/// correlated Monte Carlo can translate into correlated seed streams across
+/// otherwise-independent nodes. The splitmix64 finalizer is the standard
+/// finalizer from Vigna's SplitMix generator; it is bijective, so no
+/// collisions are introduced and reproducibility is preserved.
 #[must_use]
 pub(crate) fn stable_hash_u64(node_id: &str) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -37,7 +45,14 @@ pub(crate) fn stable_hash_u64(node_id: &str) -> u64 {
         hash ^= u64::from(b);
         hash = hash.wrapping_mul(0x0100_0000_01b3);
     }
-    hash
+    splitmix64_finalize(hash)
+}
+
+#[inline]
+fn splitmix64_finalize(mut z: u64) -> u64 {
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
 }
 
 /// Parse a JSON seed as `u64`, accepting integer JSON numbers stored as floats
@@ -356,11 +371,28 @@ pub(crate) fn lognormal_forecast_with_stream(
 
 /// Store standard-normal Z scores for independent Monte Carlo forecasts so peers can
 /// correlate in a later [`crate::evaluator::forecast_eval::evaluate_forecast`] pass.
+///
+/// Recorded Z values are the **shock** Z that was applied at each period, not a
+/// level normalization. They must match the recurrences in
+/// [`normal_forecast_with_stream`] and [`lognormal_forecast_with_stream`]:
+///
+/// - Normal (random walk): `v_t = v_{t-1} + mean + std_dev * z_t`
+///   ⇒ `z_t = (v_t - v_{t-1} - mean) / std_dev`.
+/// - LogNormal with path (`|base_value| > EPSILON`, GBM):
+///   `v_t = v_{t-1} * exp((mean - 0.5*std_dev²) + std_dev * z_t)`
+///   ⇒ `z_t = (ln(v_t / v_{t-1}) - (mean - 0.5*std_dev²)) / std_dev`.
+/// - LogNormal zero-base fallback (i.i.d. `exp(N(mean, std_dev))`):
+///   ⇒ `z_t = (ln(v_t) - mean) / std_dev`.
+///
+/// These per-period shocks are what [`monte_carlo_correlated_series`] mixes
+/// via `ρ·Z_peer + sqrt(1-ρ²)·Z_indep`, so the correlation is applied in the
+/// same shock space that generated the peer path.
 pub(crate) fn record_independent_z_scores_for_mc(
     method: ForecastMethod,
     params: &IndexMap<String, serde_json::Value>,
     forecast_periods: &[PeriodId],
     values: &IndexMap<PeriodId, f64>,
+    base_value: f64,
     node_id: &NodeId,
     mc_z_cache: &mut IndexMap<NodeId, IndexMap<PeriodId, f64>>,
 ) -> Result<()> {
@@ -368,8 +400,9 @@ pub(crate) fn record_independent_z_scores_for_mc(
         ForecastMethod::Normal => {
             let p = extract_distribution_params(params, "Normal")?;
             let entry = mc_z_cache.entry(node_id.clone()).or_default();
+            let mut prev = base_value;
             for pid in forecast_periods {
-                let v = values.get(pid).ok_or_else(|| {
+                let v = *values.get(pid).ok_or_else(|| {
                     Error::forecast(format!(
                         "Monte Carlo forecast missing value for period {:?}",
                         pid
@@ -378,16 +411,19 @@ pub(crate) fn record_independent_z_scores_for_mc(
                 let z = if p.std_dev == 0.0 {
                     0.0
                 } else {
-                    (*v - p.mean) / p.std_dev
+                    (v - prev - p.mean) / p.std_dev
                 };
                 entry.insert(*pid, z);
+                prev = v;
             }
         }
         ForecastMethod::LogNormal => {
             let p = extract_distribution_params(params, "LogNormal")?;
             let entry = mc_z_cache.entry(node_id.clone()).or_default();
+            let use_path = base_value.abs() > f64::EPSILON;
+            let mut prev = base_value;
             for pid in forecast_periods {
-                let v = values.get(pid).ok_or_else(|| {
+                let v = *values.get(pid).ok_or_else(|| {
                     Error::forecast(format!(
                         "Monte Carlo forecast missing value for period {:?}",
                         pid
@@ -395,11 +431,18 @@ pub(crate) fn record_independent_z_scores_for_mc(
                 })?;
                 let z = if p.std_dev == 0.0 {
                     0.0
+                } else if use_path {
+                    // GBM: log-return space with Itô correction
+                    let ln_ratio = (v / prev).ln();
+                    (ln_ratio - (p.mean - 0.5 * p.std_dev * p.std_dev)) / p.std_dev
                 } else {
-                    let ln_v = (*v).ln();
-                    (ln_v - p.mean) / p.std_dev
+                    // Zero-base fallback: i.i.d. exp(N(mean, std_dev))
+                    ((v).ln() - p.mean) / p.std_dev
                 };
                 entry.insert(*pid, z);
+                if use_path {
+                    prev = v;
+                }
             }
         }
         _ => {}
@@ -413,6 +456,8 @@ pub(crate) struct CorrelatedMonteCarloSeries<'a> {
     pub method: ForecastMethod,
     /// Method parameters.
     pub params: &'a IndexMap<String, serde_json::Value>,
+    /// Starting level anchoring the path; must match the peer-path convention.
+    pub base_value: f64,
     pub forecast_periods: &'a [PeriodId],
     pub seed_offset: u64,
     pub node_id: &'a str,
@@ -421,14 +466,29 @@ pub(crate) struct CorrelatedMonteCarloSeries<'a> {
     pub mc_z_cache: &'a IndexMap<NodeId, IndexMap<PeriodId, f64>>,
 }
 
-/// Correlated Normal / LogNormal series for Monte Carlo: `Z` uses
-/// `ρ·Z_peer + sqrt(1-ρ²)·Z_indep` per forecast period.
+/// Correlated Normal / LogNormal series for Monte Carlo.
+///
+/// The shock `z_t = ρ·z_peer + sqrt(1-ρ²)·z_indep` is applied in the **same
+/// recurrence** as the independent forecast paths
+/// ([`normal_forecast_with_stream`], [`lognormal_forecast_with_stream`]) so
+/// correlated and uncorrelated outputs live on the same process:
+///
+/// - Normal: additive random walk `v_t = v_{t-1} + mean + std_dev * z_t`
+///   anchored at `base_value`.
+/// - LogNormal (GBM) when `|base_value| > EPSILON`:
+///   `v_t = v_{t-1} * exp((mean - 0.5*std_dev²) + std_dev * z_t)`.
+/// - LogNormal zero-base fallback: i.i.d. `exp(mean + std_dev * z_t)`.
+///
+/// Matches the shock convention recorded by
+/// [`record_independent_z_scores_for_mc`] so linear correlation of the
+/// peer path is preserved.
 pub(crate) fn monte_carlo_correlated_series(
     input: CorrelatedMonteCarloSeries<'_>,
 ) -> Result<(IndexMap<PeriodId, f64>, IndexMap<PeriodId, f64>)> {
     let CorrelatedMonteCarloSeries {
         method,
         params,
+        base_value,
         forecast_periods,
         seed_offset,
         node_id,
@@ -436,6 +496,13 @@ pub(crate) fn monte_carlo_correlated_series(
         rho,
         mc_z_cache,
     } = input;
+
+    if !base_value.is_finite() {
+        return Err(Error::forecast(format!(
+            "Monte Carlo correlated forecast for '{node_id}' requires a finite base_value, \
+             got {base_value}"
+        )));
+    }
 
     let peer_key = NodeId::new(peer_id);
     let peer_map = mc_z_cache.get(&peer_key).ok_or_else(|| {
@@ -459,6 +526,13 @@ pub(crate) fn monte_carlo_correlated_series(
     let mut rng = Pcg64Rng::new_with_stream(p.seed ^ stable_hash_u64(node_id), seed_offset);
     let mut values = IndexMap::new();
     let mut z_out = IndexMap::new();
+    let mut prev = base_value;
+    let use_path = matches!(method, ForecastMethod::LogNormal) && base_value.abs() > f64::EPSILON;
+
+    // Clamp kept in sync with `lognormal_forecast_with_stream`.
+    const EXP_CLAMP: f64 = 709.0;
+    // sqrt(1 - ρ²) with floor at zero in case of tiny numerical overshoot.
+    let indep_weight = (1.0 - rho * rho).max(0.0).sqrt();
 
     for period_id in forecast_periods {
         let z_peer = peer_map.get(period_id).copied().ok_or_else(|| {
@@ -470,30 +544,52 @@ pub(crate) fn monte_carlo_correlated_series(
         })?;
 
         let z_indep = rng.normal(0.0, 1.0);
-        let z = rho * z_peer + (1.0 - rho * rho).sqrt() * z_indep;
+        let z = rho * z_peer + indep_weight * z_indep;
         z_out.insert(*period_id, z);
 
-        let value = if matches!(method, ForecastMethod::Normal) {
-            let v = p.mean + p.std_dev * z;
-            if !v.is_finite() {
-                return Err(Error::forecast(format!(
-                    "Normal forecast produced a non-finite value at period {:?}",
-                    period_id
-                )));
+        let value = match method {
+            ForecastMethod::Normal => prev + p.mean + p.std_dev * z,
+            ForecastMethod::LogNormal if use_path => {
+                let log_return = (p.mean - 0.5 * p.std_dev * p.std_dev) + p.std_dev * z;
+                if log_return.abs() > EXP_CLAMP {
+                    tracing::warn!(
+                        mean = p.mean,
+                        std_dev = p.std_dev,
+                        "LogNormal correlated exponent clamped to avoid overflow"
+                    );
+                }
+                prev * log_return.clamp(-EXP_CLAMP, EXP_CLAMP).exp()
             }
-            v
-        } else {
-            let normal_value = p.mean + p.std_dev * z;
-            let v = normal_value.exp();
-            if !v.is_finite() {
-                return Err(Error::forecast(format!(
-                    "LogNormal forecast produced a non-finite value at period {:?}",
-                    period_id
-                )));
+            ForecastMethod::LogNormal => {
+                // base_value ≈ 0 fallback: i.i.d. exp(N(mean, std_dev))
+                let normal_value = p.mean + p.std_dev * z;
+                if normal_value.abs() > EXP_CLAMP {
+                    tracing::warn!(
+                        mean = p.mean,
+                        std_dev = p.std_dev,
+                        "LogNormal correlated exponent clamped to avoid overflow"
+                    );
+                }
+                normal_value.clamp(-EXP_CLAMP, EXP_CLAMP).exp()
             }
-            v
+            _ => {
+                return Err(Error::forecast(
+                    "Monte Carlo correlation is only supported for Normal and LogNormal forecasts"
+                        .to_string(),
+                ));
+            }
         };
+
+        if !value.is_finite() {
+            return Err(Error::forecast(format!(
+                "{:?} correlated forecast produced a non-finite value at period {:?}",
+                method, period_id
+            )));
+        }
         values.insert(*period_id, value);
+        if use_path || matches!(method, ForecastMethod::Normal) {
+            prev = value;
+        }
     }
 
     Ok((values, z_out))
