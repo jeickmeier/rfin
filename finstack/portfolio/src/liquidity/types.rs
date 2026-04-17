@@ -7,6 +7,28 @@
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
+/// How [`LiquidityProfile::spread_volatility`] should be interpreted.
+///
+/// Bangia et al. (1999) phrase the LVaR add-on in terms of the volatility of the
+/// **relative** (proportional) spread. Some data providers quote spread
+/// volatility in absolute price units instead. This enum selects the convention;
+/// the LVaR calculator normalizes absolute spread volatilities to relative
+/// before combining with `z_alpha` and position value.
+///
+/// The default is [`SpreadVolatilityKind::Relative`] to match the original
+/// Bangia convention.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpreadVolatilityKind {
+    /// Standard deviation of the relative (fractional) bid-ask spread
+    /// (`spread / mid`). This matches Bangia et al. (1999).
+    #[default]
+    Relative,
+    /// Standard deviation of the absolute bid-ask spread in price units
+    /// (`ask - bid`). The LVaR calculator divides by `mid` before use.
+    Absolute,
+}
+
 /// Market microstructure data for a single instrument.
 ///
 /// This is the primary input to all liquidity calculations. Users supply
@@ -43,11 +65,22 @@ pub struct LiquidityProfile {
     /// Average trade size in shares/contracts.
     pub avg_trade_size: f64,
 
-    /// Standard deviation of the relative bid-ask spread.
+    /// Standard deviation of the bid-ask spread.
     ///
     /// Used in the Bangia et al. (1999) LVaR formula. Set to 0.0 if
     /// spread volatility data is unavailable (degrades to exogenous LVaR).
+    ///
+    /// The interpretation (relative vs. absolute) is controlled by
+    /// [`Self::spread_volatility_kind`], which defaults to
+    /// [`SpreadVolatilityKind::Relative`] (the original Bangia convention).
     pub spread_volatility: f64,
+
+    /// Interpretation of [`Self::spread_volatility`]: relative (default) or absolute.
+    ///
+    /// Defaulted via serde so existing serialized profiles continue to deserialize
+    /// as `Relative`, which matches Bangia et al. (1999).
+    #[serde(default)]
+    pub spread_volatility_kind: SpreadVolatilityKind,
 
     /// Observation window in trading days for volume/spread statistics.
     ///
@@ -114,8 +147,39 @@ impl LiquidityProfile {
             avg_daily_volume,
             avg_trade_size,
             spread_volatility,
+            spread_volatility_kind: SpreadVolatilityKind::default(),
             observation_days: 20,
         })
+    }
+
+    /// Override the [`SpreadVolatilityKind`] for this profile.
+    ///
+    /// Defaults to [`SpreadVolatilityKind::Relative`] (Bangia convention); use
+    /// [`SpreadVolatilityKind::Absolute`] when the stored `spread_volatility`
+    /// is in absolute price units (e.g., the standard deviation of `ask - bid`).
+    #[must_use]
+    pub fn with_spread_volatility_kind(mut self, kind: SpreadVolatilityKind) -> Self {
+        self.spread_volatility_kind = kind;
+        self
+    }
+
+    /// Spread volatility expressed as a fraction of mid-price.
+    ///
+    /// For [`SpreadVolatilityKind::Relative`] this is the stored value; for
+    /// [`SpreadVolatilityKind::Absolute`] the stored value is divided by `mid`.
+    /// Returns 0.0 when `mid` is non-positive.
+    #[inline]
+    pub fn relative_spread_volatility(&self) -> f64 {
+        match self.spread_volatility_kind {
+            SpreadVolatilityKind::Relative => self.spread_volatility,
+            SpreadVolatilityKind::Absolute => {
+                if self.mid > 0.0 {
+                    self.spread_volatility / self.mid
+                } else {
+                    0.0
+                }
+            }
+        }
     }
 
     /// Absolute bid-ask spread.

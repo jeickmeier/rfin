@@ -199,8 +199,17 @@ impl MarketImpactModel for AlmgrenChrissModel {
 
         // For linear temporary impact (delta=1), the optimal trajectory
         // has an analytical solution. For general delta, we use the
-        // linear solution as a good approximation (exact when delta=1).
-        //
+        // linear solution as an approximation (exact only when delta=1).
+        // Warn so callers aren't surprised when delta != 1.
+        if (self.delta - 1.0).abs() > 1e-12 {
+            tracing::warn!(
+                delta = self.delta,
+                "Almgren-Chriss optimal_trajectory uses the delta=1 closed-form \
+                 as an approximation; expected-cost is computed with the true \
+                 delta but the schedule itself is only optimal for delta=1."
+            );
+        }
+
         // kappa = sqrt(risk_aversion * sigma^2 / eta)
         // Optimal remaining: x_j = Q * sinh(kappa * (T - t_j)) / sinh(kappa * T)
         let kappa_sq = if self.eta > 0.0 {

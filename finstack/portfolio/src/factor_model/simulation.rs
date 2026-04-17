@@ -112,6 +112,15 @@ impl SplitMix64 {
 /// `position_factor_contributions` are left empty because a stable, scenario-based
 /// per-position allocation is deferred for a later cluster.
 ///
+/// # Sign convention
+///
+/// Variance and volatility are returned as non-negative numbers. VaR and ES
+/// follow the P&L sign convention: **losses are reported as negative numbers**,
+/// so `total_risk` and factor contributions for VaR / ES are non-positive for a
+/// long-risk portfolio. Component allocations carry the same sign as
+/// `total_risk`; `relative_risk` is preserved as a non-negative share because
+/// numerator and denominator share the same sign.
+///
 /// # VaR Decomposition
 ///
 /// VaR is decomposed using ES-prorated Euler allocation (Tasche 2008): component
@@ -410,10 +419,14 @@ impl SimulationDecomposer {
         let tail_count = tail_count.max(1);
         let tail_indices = &indices[..tail_count];
         let var_index = tail_indices[tail_count - 1];
-        let var = (-scenarios.portfolio_pnls[var_index]).max(0.0);
+        // Loss convention: VaR is the signed P&L at the alpha quantile (negative
+        // for tail losses). Clamp to zero only if the quantile P&L is actually
+        // a gain, which can happen for extremely low confidence levels.
+        let var = scenarios.portfolio_pnls[var_index].min(0.0);
+        // ES is the average tail P&L (negative for tail losses).
         let es = tail_indices
             .iter()
-            .map(|index| -scenarios.portfolio_pnls[*index])
+            .map(|index| scenarios.portfolio_pnls[*index])
             .sum::<f64>()
             / tail_count as f64;
 
@@ -423,7 +436,7 @@ impl SimulationDecomposer {
             .map(|factor_pnl| {
                 tail_indices
                     .iter()
-                    .map(|index| -factor_pnl[*index])
+                    .map(|index| factor_pnl[*index])
                     .sum::<f64>()
                     / tail_count as f64
             })
@@ -434,15 +447,16 @@ impl SimulationDecomposer {
             .map(|factor_shock| {
                 tail_indices
                     .iter()
-                    .map(|index| -factor_shock[*index])
+                    .map(|index| factor_shock[*index])
                     .sum::<f64>()
                     / tail_count as f64
             })
             .collect();
 
         let (total_risk, absolute, marginal) = match measure {
-            RiskMeasure::ExpectedShortfall { .. } => (es.max(0.0), component_es, marginal_es),
+            RiskMeasure::ExpectedShortfall { .. } => (es.min(0.0), component_es, marginal_es),
             RiskMeasure::VaR { .. } => {
+                // Prorate negative ES contributions to negative VaR total.
                 let ratio = if es.abs() > ZERO_TOLERANCE {
                     var / es
                 } else {
@@ -540,7 +554,9 @@ mod tests {
             &RiskMeasure::ExpectedShortfall { confidence: 0.99 },
         )?;
 
-        assert!((result.total_risk - 53.304_289).abs() < 2.0);
+        // ES follows the loss sign convention (negative for a long-risk book).
+        assert!((result.total_risk - (-53.304_289)).abs() < 2.0);
+        assert!(result.total_risk < 0.0, "ES must be negative");
         assert_eq!(result.position_factor_contributions, Vec::new());
 
         Ok(())
@@ -560,7 +576,9 @@ mod tests {
             &RiskMeasure::VaR { confidence: 0.99 },
         )?;
 
-        assert!((result.total_risk - 46.526_958).abs() < 2.0);
+        // VaR follows the loss sign convention (negative for a long-risk book).
+        assert!((result.total_risk - (-46.526_958)).abs() < 2.0);
+        assert!(result.total_risk < 0.0, "VaR must be negative");
         assert_eq!(result.position_factor_contributions, Vec::new());
 
         Ok(())

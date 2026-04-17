@@ -15,17 +15,49 @@ use std::sync::Arc;
 /// The unit describes how the `quantity` on a [`Position`] should be interpreted.
 /// Callers should treat it as part of the valuation contract, not display-only
 /// metadata.
+///
+/// # Scaling contract
+///
+/// Position value is computed as ``scale_factor(unit) * per_unit_pv``, where the
+/// per-unit PV is the monetary value returned by the underlying instrument's
+/// pricing. Each variant defines the scale factor explicitly:
+///
+/// | Variant       | Scale factor              | Per-unit PV interpretation           |
+/// |---------------|---------------------------|--------------------------------------|
+/// | `Units`       | `quantity`                | PV of one instrument unit/share      |
+/// | `Notional(_)` | `quantity`                | PV of **one unit of notional** (``$1`` / 1 FX unit) |
+/// | `FaceValue`   | `quantity`                | PV per one face-value unit           |
+/// | `Percentage`  | `quantity / 100`          | PV of 100% of the instrument         |
+///
+/// ## `Notional` semantics (important)
+///
+/// `Notional(ccy)` means *"position notional multiplied by per-unit PV"*. The
+/// per-unit PV MUST therefore be priced assuming **unit notional size = 1**
+/// (``$1``, £1, 1 unit of the notional currency). The binding builders for
+/// notional-quoted instruments (swaps, FX forwards, CDS, etc.) follow this
+/// convention by default; do not double-count by pricing the instrument with
+/// its full deal notional and then scaling by `quantity`, as that yields
+/// ``quantity * notional * per-unit PV`` instead of the intended
+/// ``quantity * per-unit PV``.
+///
+/// The optional [`Currency`] records the notional currency for validation; it
+/// does not change the scale factor. A warning is emitted when it disagrees
+/// with the instrument's valuation currency.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum PositionUnit {
-    /// Number of units/shares (for equities, baskets)
+    /// Number of units/shares (for equities, baskets). Scale factor = `quantity`.
     Units,
 
-    /// Notional amount, optionally in a specific currency (for derivatives, FX)
+    /// Notional amount, optionally tagged with a currency (for derivatives, FX).
+    ///
+    /// Scale factor = `quantity`. The per-unit PV must be computed with a
+    /// unit notional of 1 (e.g., ``$1`` notional swap PV). The optional
+    /// [`Currency`] is a validation tag and does not alter scaling.
     Notional(Option<Currency>),
 
-    /// Face value of debt instruments (for bonds, loans)
+    /// Face value of debt instruments (for bonds, loans). Scale factor = `quantity`.
     FaceValue,
 
     /// Percentage of ownership where the value represents percentage points.
@@ -416,10 +448,12 @@ impl Position {
     /// # }
     /// ```
     pub fn scale_value(&self, value: Money) -> Money {
+        // See [`PositionUnit`] for the full scaling contract. `Notional` expects
+        // `value` to be the per-unit-notional PV (priced with unit notional = 1),
+        // so the scale factor is simply `quantity`.
         let scale_factor = match self.unit {
             PositionUnit::Units => self.quantity,
             PositionUnit::Notional(unit_ccy) => {
-                // Warn if notional currency differs from instrument currency
                 if let Some(notional_ccy) = unit_ccy {
                     if notional_ccy != value.currency() {
                         tracing::warn!(
@@ -432,10 +466,7 @@ impl Position {
                 self.quantity
             }
             PositionUnit::FaceValue => self.quantity,
-            PositionUnit::Percentage => {
-                // Percentage values are always in points: 50 = 50%
-                self.quantity / 100.0
-            }
+            PositionUnit::Percentage => self.quantity / 100.0,
         };
         Money::new(value.amount() * scale_factor, value.currency())
     }

@@ -173,15 +173,20 @@ impl DefaultLpOptimizer {
                             continue;
                         }
                     }
-                    let m_i = match metric {
-                        PerPositionMetric::PvNative => {
-                            tracing::debug!(
-                                "PvNative substituted with PvBase for cross-currency comparability"
-                            );
-                            feat.pv_base
-                        }
-                        _ => Self::per_position_metric_value(metric, feat, missing_policy)?,
-                    };
+                    // Aggregated objectives sum across positions, so the per-
+                    // position metric must be expressed in a common numeraire.
+                    // `PvNative` is per-position native currency and is not
+                    // commensurable across multi-currency portfolios, so reject
+                    // it explicitly instead of silently substituting `PvBase`.
+                    if matches!(metric, PerPositionMetric::PvNative) {
+                        return Err(Error::invalid_input(
+                            "PvNative is not valid in aggregated objectives \
+                             (WeightedSum / ValueWeightedAverage); values in \
+                             different native currencies are not commensurable. \
+                             Use PerPositionMetric::PvBase instead.",
+                        ));
+                    }
+                    let m_i = Self::per_position_metric_value(metric, feat, missing_policy)?;
                     coeffs.push(m_i);
                 }
             }

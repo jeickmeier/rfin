@@ -44,7 +44,7 @@ mod types;
 // Re-export core types
 pub use types::{
     classify_tier, days_to_liquidate, LiquidityConfig, LiquidityProfile, LiquidityTier,
-    TierAllocation,
+    SpreadVolatilityKind, TierAllocation,
 };
 
 // Re-export estimators

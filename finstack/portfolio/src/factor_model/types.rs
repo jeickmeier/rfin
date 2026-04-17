@@ -3,30 +3,52 @@ use finstack_core::factor_model::{FactorId, RiskMeasure};
 use serde::{Deserialize, Serialize};
 
 /// Portfolio-level decomposition of total risk across common factors and residuals.
+///
+/// # Sign convention
+///
+/// The sign of [`RiskDecomposition::total_risk`], [`FactorContribution::absolute_risk`],
+/// [`FactorContribution::marginal_risk`], and [`RiskDecomposition::residual_risk`]
+/// depends on the selected [`RiskMeasure`]:
+///
+/// * [`RiskMeasure::Variance`] and [`RiskMeasure::Volatility`] — non-negative.
+/// * [`RiskMeasure::VaR`] and [`RiskMeasure::ExpectedShortfall`] — **non-positive**
+///   (losses reported as negative numbers; see [`RiskMeasure`] for details).
+///
+/// [`FactorContribution::relative_risk`] is always a dimensionless share and
+/// stays non-negative for a long-risk portfolio because numerator and denominator
+/// carry the same sign.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RiskDecomposition {
-    /// Total portfolio risk under the selected `measure`.
+    /// Total portfolio risk under the selected `measure`. Sign follows the
+    /// measure's convention (see struct-level docs).
     pub total_risk: f64,
     /// Risk measure used to aggregate and report the decomposition.
     pub measure: RiskMeasure,
     /// Aggregate factor-level contributions to portfolio risk.
     pub factor_contributions: Vec<FactorContribution>,
     /// Unattributed or idiosyncratic risk left after factor aggregation.
+    /// Same sign convention as `total_risk`.
     pub residual_risk: f64,
     /// Per-position, per-factor contributions that roll up into the portfolio view.
     pub position_factor_contributions: Vec<PositionFactorContribution>,
 }
 
 /// Contribution of a single factor to portfolio risk.
+///
+/// See [`RiskDecomposition`] for the sign convention applied to each field.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FactorContribution {
     /// Identifier of the factor being reported.
     pub factor_id: FactorId,
     /// Absolute contribution of the factor to the chosen risk measure.
+    /// Sign follows the measure's convention.
     pub absolute_risk: f64,
-    /// Contribution expressed as a share of total portfolio risk.
+    /// Contribution expressed as a share of total portfolio risk. Dimensionless,
+    /// non-negative for standard long-risk portfolios (signs of numerator and
+    /// denominator cancel).
     pub relative_risk: f64,
-    /// Marginal sensitivity of portfolio risk to the factor.
+    /// Marginal sensitivity of portfolio risk to the factor. Same sign
+    /// convention as `absolute_risk`.
     pub marginal_risk: f64,
 }
 

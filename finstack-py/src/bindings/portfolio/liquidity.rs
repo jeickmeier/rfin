@@ -131,26 +131,33 @@ fn liquidity_tier(days_to_liquidate: f64) -> String {
 
 /// Liquidity-adjusted VaR following Bangia, Diebold, Schuermann & Stroughair (1999).
 ///
-/// ``LVaR = VaR + (0.5 * spread_mean + z_alpha * 0.5 * spread_vol) * position_value``
+/// Uses the loss sign convention: VaR and LVaR are non-positive numbers.
+///
+/// ``LVaR = VaR - (0.5 * spread_mean + z_alpha * 0.5 * spread_vol) * position_value``
+///
+/// The ``spread_cost`` add-on is returned as a non-negative magnitude.
 ///
 /// Parameters
 /// ----------
 /// var : float
-///     Standard VaR for the position (positive number = loss), in currency units.
+///     Standard VaR for the position following the loss sign convention
+///     (non-positive number; ``-10_000.0`` means a $10,000 loss). ``0.0`` is
+///     accepted for a zero-risk position.
 /// spread_mean : float
 ///     Mean relative bid-ask spread over the lookback window, e.g. ``0.001``
 ///     for 10bp.
 /// spread_vol : float
-///     Standard deviation of the relative spread.
+///     Relative spread volatility (standard deviation of relative spread).
 /// confidence : float
 ///     Confidence level in ``(0, 1)``, e.g. ``0.99``.
 /// position_value : float
-///     Absolute market value of the position.
+///     Market value of the position (sign ignored; only magnitude is used).
 ///
 /// Returns
 /// -------
 /// dict
-///     ``{var, spread_cost, lvar, lvar_ratio}`` where ``lvar_ratio =
+///     ``{var, spread_cost, lvar, lvar_ratio}`` where ``spread_cost`` is a
+///     non-negative magnitude, ``lvar <= var <= 0``, and ``lvar_ratio =
 ///     lvar / var`` (or ``NaN`` if VaR is zero).
 #[pyfunction]
 #[pyo3(signature = (var, spread_mean, spread_vol, confidence, position_value))]
@@ -162,9 +169,9 @@ fn lvar_bangia<'py>(
     confidence: f64,
     position_value: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
-    if !var.is_finite() || var < 0.0 {
+    if !var.is_finite() || var > 0.0 {
         return Err(PyValueError::new_err(format!(
-            "var must be non-negative and finite, got {var}"
+            "var must be non-positive and finite (loss sign convention), got {var}"
         )));
     }
     if !spread_mean.is_finite() || spread_mean < 0.0 {
@@ -189,7 +196,7 @@ fn lvar_bangia<'py>(
     let pv = position_value.abs();
     let z_alpha = standard_normal_inv_cdf(confidence);
     let spread_cost = (0.5 * spread_mean + 0.5 * z_alpha * spread_vol) * pv;
-    let lvar = var + spread_cost;
+    let lvar = var - spread_cost;
     let lvar_ratio = if var.abs() > 1e-15 {
         lvar / var
     } else {

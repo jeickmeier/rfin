@@ -61,6 +61,13 @@ pub enum RiskMeasure {
     /// This assumes the downstream aggregation engine is interpreting the factor
     /// model as a parametric, one-period loss distribution rather than a full
     /// historical or Monte Carlo simulation.
+    ///
+    /// # Sign convention
+    ///
+    /// VaR is reported as a **negative** number on the P&L axis: for a long-risk
+    /// portfolio, `total_risk` at 99% is approximately `-sigma * z_{0.99}`.
+    /// Factor contributions carry the same sign as the total. Downstream
+    /// aggregators and visualizations rely on this convention.
     #[serde(rename = "var")]
     VaR {
         /// Confidence level in the open interval `(0.5, 1)`.
@@ -69,7 +76,8 @@ pub enum RiskMeasure {
     /// Aggregate exposures using expected shortfall at a fixed one-sided loss confidence level.
     ///
     /// As with [`Self::VaR`], this is intended for parametric factor-model
-    /// aggregation rather than full-path simulation.
+    /// aggregation rather than full-path simulation, and ES is reported as a
+    /// **negative** number using the P&L sign convention.
     ExpectedShortfall {
         /// Confidence level in the open interval `(0.5, 1)`.
         confidence: f64,

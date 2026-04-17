@@ -1,5 +1,6 @@
 //! Parametric factor risk decomposition using covariance-based Euler allocation.
 
+use super::simulation::cholesky;
 use super::traits::RiskDecomposer;
 use super::types::{FactorContribution, PositionFactorContribution, RiskDecomposition};
 use crate::PositionId;
@@ -13,6 +14,14 @@ use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 /// position-weighted by the upstream sensitivity engine. Portfolio exposures are therefore
 /// just the column sums of the matrix, and Euler allocations are computed directly from those
 /// weighted exposures.
+///
+/// # Sign convention
+///
+/// `Variance` and `Volatility` are returned as non-negative numbers. `VaR` and
+/// `ExpectedShortfall` follow the P&L sign convention: **losses are reported as
+/// negative numbers**, so `total_risk` and factor contributions for VaR / ES are
+/// non-positive for a long-risk portfolio. `relative_risk` is preserved as a
+/// non-negative share because numerator and denominator carry the same sign.
 ///
 /// # References
 ///
@@ -61,11 +70,15 @@ impl ParametricDecomposer {
             }
         }
 
-        // Verify positive semi-definiteness via Cholesky decomposition.
+        // Verify positive semi-definiteness via a rank-tolerant Cholesky.
         // A non-PSD covariance matrix can produce meaningless (negative)
         // factor contributions that look like diversification benefits.
+        // We reuse the simulation-module factorization which accepts
+        // rank-deficient (PSD-but-not-PD) matrices — these arise naturally
+        // when users regularize a covariance matrix with shrinkage or when
+        // two factors are perfectly collinear at a given as-of.
         if n > 0 {
-            finstack_core::math::linalg::cholesky_decomposition(data, n).map_err(|e| {
+            cholesky(data, n).map_err(|e| {
                 finstack_core::Error::Validation(format!(
                     "Covariance matrix is not positive semi-definite: {e}"
                 ))
@@ -128,18 +141,20 @@ impl ParametricDecomposer {
                 }
             }
             RiskMeasure::VaR { confidence } => {
+                // Loss convention: VaR is reported as a negative number.
                 let z_score = Self::normal_quantile(*confidence);
                 if sigma > 0.0 {
-                    (sigma * z_score, z_score * sigma.recip())
+                    (-sigma * z_score, -z_score * sigma.recip())
                 } else {
                     (0.0, 0.0)
                 }
             }
             RiskMeasure::ExpectedShortfall { confidence } => {
+                // Loss convention: ES is reported as a negative number.
                 let z_score = Self::normal_quantile(*confidence);
                 let es_multiplier = Self::normal_pdf(z_score) / (1.0 - confidence);
                 if sigma > 0.0 {
-                    (sigma * es_multiplier, es_multiplier * sigma.recip())
+                    (-sigma * es_multiplier, -es_multiplier * sigma.recip())
                 } else {
                     (0.0, 0.0)
                 }
@@ -440,8 +455,10 @@ mod tests {
 
         let sigma = 925.0_f64.sqrt();
         let z_99 = 2.326_347_874_040_840_8;
-        let expected_var = sigma * z_99;
+        // VaR is reported as a negative loss.
+        let expected_var = -sigma * z_99;
         assert!((result.total_risk - expected_var).abs() < 1e-6);
+        assert!(result.total_risk < 0.0, "VaR must be negative");
 
         let Some(rates) = result
             .factor_contributions
@@ -452,7 +469,11 @@ mod tests {
                 "rates contribution must exist".to_string(),
             ));
         };
-        assert!((rates.absolute_risk - ((550.0 / sigma) * z_99)).abs() < 1e-6);
+        assert!((rates.absolute_risk - (-(550.0 / sigma) * z_99)).abs() < 1e-6);
+        assert!(rates.absolute_risk < 0.0);
+        // Relative share is preserved as a non-negative fraction because total
+        // and component share the same sign.
+        assert!((rates.relative_risk - (550.0 / 925.0)).abs() < 1e-10);
 
         Ok(())
     }
@@ -472,7 +493,9 @@ mod tests {
         let pdf = (-0.5_f64 * z_99 * z_99).exp() / (2.0_f64 * std::f64::consts::PI).sqrt();
         let es_multiplier = pdf / 0.01;
 
-        assert!((result.total_risk - (sigma * es_multiplier)).abs() < 1e-6);
+        // ES is reported as a negative loss.
+        assert!((result.total_risk - (-sigma * es_multiplier)).abs() < 1e-6);
+        assert!(result.total_risk < 0.0, "ES must be negative");
 
         let Some(rates) = result
             .factor_contributions
@@ -483,7 +506,8 @@ mod tests {
                 "rates contribution must exist".to_string(),
             ));
         };
-        assert!((rates.absolute_risk - ((550.0 / sigma) * es_multiplier)).abs() < 1e-6);
+        assert!((rates.absolute_risk - (-(550.0 / sigma) * es_multiplier)).abs() < 1e-6);
+        assert!(rates.absolute_risk < 0.0);
 
         Ok(())
     }
@@ -573,6 +597,33 @@ mod tests {
         let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parametric_accepts_rank_deficient_psd_covariance() -> TestResult {
+        // Two perfectly collinear factors: covariance is PSD but not PD
+        // (rank 1). The parametric decomposer should accept this because
+        // the rank-tolerant Cholesky used for validation handles the
+        // zero-eigenvalue direction cleanly.
+        let mut sensitivities = SensitivityMatrix::zeros(
+            vec!["pos-A".into()],
+            vec![FactorId::new("Rates"), FactorId::new("Duplicate")],
+        );
+        sensitivities.set_delta(0, 0, 10.0);
+        sensitivities.set_delta(0, 1, 10.0);
+
+        // Rates and Duplicate are perfectly correlated with the same variance.
+        let covariance = FactorCovarianceMatrix::new(
+            vec![FactorId::new("Rates"), FactorId::new("Duplicate")],
+            vec![0.04, 0.04, 0.04, 0.04],
+        )?;
+        let decomposer = ParametricDecomposer;
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance)?;
+
+        // Portfolio variance = (10+10)^2 * 0.04 = 16.0.
+        assert!((result.total_risk - 16.0).abs() < 1e-10);
+
+        Ok(())
     }
 
     #[test]

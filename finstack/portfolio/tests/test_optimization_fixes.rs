@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 use finstack_portfolio::builder::PortfolioBuilder;
 use finstack_portfolio::optimization::{
     CandidatePosition, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, PositionFilter, WeightingScheme,
+    PerPositionMetric, PortfolioOptimizationProblem, WeightingScheme,
 };
 use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
@@ -354,7 +354,7 @@ fn test_missing_metric_exclude_freezes_position_at_current_weight() {
 }
 
 #[test]
-fn test_pv_native_objective_aggregates_via_fx_conversion() {
+fn test_pv_native_objective_rejected_in_aggregated_expression() {
     let as_of = create_date(2024, Month::January, 1).unwrap();
 
     let usd_position = Position::new(
@@ -393,34 +393,28 @@ fn test_pv_native_objective_aggregates_via_fx_conversion() {
         .build()
         .unwrap();
 
+    // PvNative is no longer silently substituted for PvBase: aggregated
+    // objectives over multi-currency portfolios must be explicit about which
+    // numeraire they sum in.
     let problem = PortfolioOptimizationProblem::new(
         portfolio,
         Objective::Maximize(MetricExpr::WeightedSum {
             metric: PerPositionMetric::PvNative,
             filter: None,
         }),
-    )
-    .with_constraint(finstack_portfolio::optimization::Constraint::WeightBounds {
-        label: Some("pin_usd".to_string()),
-        filter: PositionFilter::ByPositionIds(vec!["POS_USD".into()]),
-        min: 0.25,
-        max: 0.25,
-    })
-    .with_constraint(finstack_portfolio::optimization::Constraint::WeightBounds {
-        label: Some("pin_eur".to_string()),
-        filter: PositionFilter::ByPositionIds(vec!["POS_EUR".into()]),
-        min: 0.75,
-        max: 0.75,
-    });
+    );
 
     let market = build_multi_currency_market();
     let config = FinstackConfig::default();
     let optimizer = DefaultLpOptimizer;
-    let result = optimizer.optimize(&problem, &market, &config).unwrap();
-
-    assert_eq!(result.optimal_weights.get("POS_USD"), Some(&0.25));
-    assert_eq!(result.optimal_weights.get("POS_EUR"), Some(&0.75));
-    assert!((result.objective_value - 115.0).abs() < 1.0e-9);
+    let err = optimizer
+        .optimize(&problem, &market, &config)
+        .expect_err("PvNative in WeightedSum must error");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("PvNative") && msg.contains("PvBase"),
+        "error should mention PvNative and PvBase: {msg}"
+    );
 }
 
 #[test]

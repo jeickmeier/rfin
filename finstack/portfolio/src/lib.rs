@@ -137,7 +137,7 @@ pub use grouping::{
 };
 pub use liquidity::{
     score_portfolio_liquidity, LiquidityConfig, LiquidityProfile, LiquidityTier, LvarCalculator,
-    PortfolioLiquidityReport,
+    PortfolioLiquidityReport, SpreadVolatilityKind,
 };
 pub use margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,

@@ -47,16 +47,12 @@ pub enum PerPositionMetric {
 
     /// Use the native‑currency PV of the position (after scaling).
     ///
-    /// **Two behaviors** (historical naming: "native" refers to the stored native PV field):
-    ///
-    /// - When lowering a scalar through the generic per-metric path, this resolves to the
-    ///   **native-currency** PV.
-    /// - When this variant appears in [`MetricExpr::WeightedSum`] or
-    ///   [`MetricExpr::ValueWeightedAverage`], the linear coefficient builder uses
-    ///   **base-currency PV** (FX-converted to the portfolio base) so mixed-currency
-    ///   positions remain comparable inside the linear program.
-    ///
-    /// Use [`PerPositionMetric::PvBase`] when you need base-currency PV in every context.
+    /// Values are returned in each position's own currency and are therefore
+    /// **not commensurable** across a mixed-currency portfolio. The LP
+    /// coefficient builder rejects `PvNative` inside aggregated objectives
+    /// ([`MetricExpr::WeightedSum`] or [`MetricExpr::ValueWeightedAverage`]) —
+    /// use [`PerPositionMetric::PvBase`] in those contexts so all positions
+    /// are summed in a single numeraire.
     PvNative,
 
     /// Numeric attribute value from position attributes.

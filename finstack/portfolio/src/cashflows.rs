@@ -510,7 +510,16 @@ pub fn collapse_cashflows_to_base_by_date(
             total = total.checked_add(converted).map_err(Error::Core)?;
         }
 
-        if !total.amount().is_nan() {
+        if total.amount().is_nan() {
+            // NaN totals indicate upstream data quality problems (e.g. a
+            // position priced with NaN cashflows, or an unresolvable FX rate
+            // path); surface them instead of silently dropping the bucket.
+            tracing::warn!(
+                date = %date,
+                base_ccy = %base_ccy,
+                "Dropping cashflow bucket because aggregated amount is NaN"
+            );
+        } else {
             by_date_base.insert(*date, total);
         }
     }
