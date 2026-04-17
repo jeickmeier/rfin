@@ -1031,6 +1031,10 @@ impl CreditDefaultSwap {
 impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::CDS);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::HazardRate
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>

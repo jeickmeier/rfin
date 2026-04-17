@@ -80,7 +80,7 @@ fn test_compounding_lookback_sensitivity() {
             end: start.add_months(12),
             payment_lag_days: 0,
             end_of_month: false,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             par_method: None,
             compounding_simple: true,
         })
@@ -101,7 +101,7 @@ fn test_compounding_lookback_sensitivity() {
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             reset_lag_days: 0,
         })
         .build()
@@ -236,7 +236,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
             end: start.add_months(1),
             payment_lag_days: 0,
             end_of_month: false,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             par_method: None,
             compounding_simple: true,
         })
@@ -257,7 +257,7 @@ fn test_seasoned_compounded_swap_requires_fixings() {
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: Some("USNY".into()),
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             reset_lag_days: 0,
         })
         .build()
@@ -325,7 +325,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
             end: start.add_months(1),
             payment_lag_days: 0,
             end_of_month: false,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             par_method: None,
             compounding_simple: true,
         })
@@ -346,7 +346,7 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
             fixing_calendar_id: Some("USNY".into()),
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             reset_lag_days: 0,
         })
         .build()
@@ -404,7 +404,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
             end: start.add_months(12),
             payment_lag_days: 0,
             end_of_month: false,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             par_method: None,
             compounding_simple: true,
         })
@@ -425,7 +425,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(50.0).expect("valid"), // 50bp spread
             fixing_calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             reset_lag_days: 0,
         })
         .build()
@@ -497,7 +497,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
             end: start.add_months(12),
             payment_lag_days: 0,
             end_of_month: false,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             par_method: None,
             compounding_simple: true,
         })
@@ -518,7 +518,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::try_from(100.0).expect("valid"), // 100bp spread
             fixing_calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             reset_lag_days: 0,
         })
         .build()
@@ -603,7 +603,7 @@ fn test_observation_shift_before_curve_base_date() {
             end: start.add_months(1),
             payment_lag_days: 0,
             end_of_month: false,
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             par_method: None,
             compounding_simple: true,
         })
@@ -624,7 +624,7 @@ fn test_observation_shift_before_curve_base_date() {
             end_of_month: false,
             spread_bp: rust_decimal::Decimal::ZERO,
             fixing_calendar_id: Some("USNY".into()),
-            stub: finstack_core::dates::StubKind::None,
+            stub: finstack_core::dates::StubKind::ShortFront,
             reset_lag_days: 0,
         })
         .build()

@@ -906,6 +906,69 @@
               },
               "type": "object"
             },
+            "BreakevenConfig": {
+              "description": "Configuration for the breakeven calculator.",
+              "properties": {
+                "mode": {
+                  "$ref": "#/$defs/BreakevenMode",
+                  "default": "linear",
+                  "description": "Solve mode (default: linear)."
+                },
+                "target": {
+                  "$ref": "#/$defs/BreakevenTarget",
+                  "description": "Which valuation parameter to solve for."
+                }
+              },
+              "required": [
+                "target"
+              ],
+              "type": "object"
+            },
+            "BreakevenMode": {
+              "description": "Linear (first-order) or iterative (full-reprice root-find) solve mode.",
+              "oneOf": [
+                {
+                  "const": "linear",
+                  "description": "`-(carry_total) / sensitivity`. Fast, ignores convexity.",
+                  "type": "string"
+                },
+                {
+                  "const": "iterative",
+                  "description": "Brent root-find with full reprice at horizon. Accounts for convexity.",
+                  "type": "string"
+                }
+              ]
+            },
+            "BreakevenTarget": {
+              "description": "Which valuation parameter to solve the breakeven for.",
+              "oneOf": [
+                {
+                  "const": "z_spread",
+                  "description": "Z-spread breakeven (sensitivity: CS01).",
+                  "type": "string"
+                },
+                {
+                  "const": "ytm",
+                  "description": "Yield-to-maturity breakeven (sensitivity: DV01).",
+                  "type": "string"
+                },
+                {
+                  "const": "implied_vol",
+                  "description": "Implied volatility breakeven (sensitivity: Vega).",
+                  "type": "string"
+                },
+                {
+                  "const": "base_correlation",
+                  "description": "Base correlation breakeven (sensitivity: Correlation01).",
+                  "type": "string"
+                },
+                {
+                  "const": "oas",
+                  "description": "OAS breakeven (sensitivity: CS01).",
+                  "type": "string"
+                }
+              ]
+            },
             "BusinessDayConvention": {
               "description": "Business day adjustment conventions per ISDA standards.\n\nDefines how dates are adjusted when they fall on non-business days\n(weekends or holidays). Used throughout fixed income and derivatives\nmarkets for determining payment dates, fixing dates, and maturity dates.\n\n# Standards References\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.12\n- **FpML**: BusinessDayConventionEnum\n- **ISO 20022**: Business Day Convention codes\n\n# Examples\n\n```rust\nuse finstack_core::dates::{adjust, BusinessDayConvention, Date};\nuse finstack_core::dates::calendar::TARGET2;\nuse time::Month;\n\n// Saturday, January 4, 2025\nlet weekend = Date::from_calendar_date(2025, Month::January, 4).expect(\"Valid date\");\n\n// Following: moves to next Monday (Jan 6)\nlet adj = adjust(weekend, BusinessDayConvention::Following, &TARGET2)?;\nassert_eq!(adj.day(), 6);\n\n// Preceding: moves to previous Friday (Jan 3)\nlet adj = adjust(weekend, BusinessDayConvention::Preceding, &TARGET2)?;\nassert_eq!(adj.day(), 3);\n# Ok::<(), finstack_core::Error>(())\n```",
               "oneOf": [
@@ -1041,7 +1104,7 @@
                 },
                 {
                   "additionalProperties": false,
-                  "description": "Student-t copula with specified degrees of freedom.\n\nCaptures tail dependence - joint extreme defaults are more likely\nthan Gaussian predicts. Lower df = more tail dependence.\n\nTypical calibration: df ∈ [4, 10] for CDX tranches.",
+                  "description": "Student-t copula with specified degrees of freedom.\n\nCaptures tail dependence - joint extreme defaults are more likely\nthan Gaussian predicts. Lower df = more tail dependence.\n\nTypical calibration: df ∈ [4, 10] for CDX tranches.\n\n# Invariant\n\n`degrees_of_freedom` **must** be finite and `> 2`. The programmatic\nconstructor [`CopulaSpec::student_t`] panics on invalid input, but\ndeserialized specs (from config files, JSON, etc.) cannot panic —\n[`CopulaSpec::build`] and [`CopulaSpec::build_student_t`] silently\nclamp an out-of-range or non-finite value to `2.01` and emit a\n`tracing::warn!`. This is deliberate: it preserves forward\ncompatibility for serialized specs but means callers that round-trip\na spec may observe a changed `degrees_of_freedom`. Validate at the\nconfig-loading boundary if strict rejection is required.",
                   "properties": {
                     "degrees_of_freedom": {
                       "description": "Degrees of freedom (must be > 2 for finite variance)",
@@ -1322,61 +1385,121 @@
               "type": "object"
             },
             "CreditRating": {
-              "description": "Credit rating scale (agency-agnostic).\n\nThis enum represents a standardized credit rating scale that maps to\nequivalent ratings from major agencies:\n\n| `CreditRating` | S&P/Fitch | Moody's |\n|----------------|-----------|---------|\n| `AAA`          | AAA       | Aaa     |\n| `AA`           | AA        | Aa      |\n| `A`            | A         | A       |\n| `BBB`          | BBB       | Baa     |\n| `BB`           | BB        | Ba      |\n| `B`            | B         | B       |\n| `CCC`          | CCC       | Caa     |\n| `CC`           | CC        | Ca      |\n| `C`            | C         | C       |\n| `D`            | D         | D       |\n| `NR`           | NR        | NR      |\n\n# Investment Grade\n\nRatings of `BBB` and above are considered \"investment grade\":\n\n```rust\nuse finstack_core::types::CreditRating;\n\nassert!(CreditRating::A.is_investment_grade());\nassert!(!CreditRating::BB.is_investment_grade());\n```",
+              "description": "Unified credit rating scale with notch-level precision (agency-agnostic).\n\nEach variant represents a specific notch in the rating scale. Ratings\nwithout a `Plus`/`Minus` suffix represent the \"flat\" (middle) notch.\n\n| Variant     | S&P/Fitch | Moody's |\n|-------------|-----------|---------|\n| `AAA`       | AAA       | Aaa     |\n| `AAPlus`    | AA+       | Aa1     |\n| `AA`        | AA        | Aa2     |\n| `AAMinus`   | AA-       | Aa3     |\n| `APlus`     | A+        | A1      |\n| `A`         | A         | A2      |\n| `AMinus`    | A-        | A3      |\n| `BBBPlus`   | BBB+      | Baa1    |\n| `BBB`       | BBB       | Baa2    |\n| `BBBMinus`  | BBB-      | Baa3    |\n| `BBPlus`    | BB+       | Ba1     |\n| `BB`        | BB        | Ba2     |\n| `BBMinus`   | BB-       | Ba3     |\n| `BPlus`     | B+        | B1      |\n| `B`         | B         | B2      |\n| `BMinus`    | B-        | B3      |\n| `CCCPlus`   | CCC+      | Caa1    |\n| `CCC`       | CCC       | Caa2    |\n| `CCCMinus`  | CCC-      | Caa3    |\n| `CC`        | CC        | Ca      |\n| `C`         | C         | C       |\n| `D`         | D         | D       |\n| `NR`        | NR        | NR      |\n\n# Investment Grade\n\nRatings of `BBBMinus` and above are considered \"investment grade\":\n\n```rust\nuse finstack_core::types::CreditRating;\n\nassert!(CreditRating::A.is_investment_grade());\nassert!(CreditRating::BBBMinus.is_investment_grade());\nassert!(!CreditRating::BBPlus.is_investment_grade());\n```",
               "oneOf": [
                 {
                   "const": "AAA",
-                  "description": "AAA - Highest quality, minimal credit risk",
+                  "description": "AAA / Aaa — Highest quality, minimal credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "AAPlus",
+                  "description": "AA+ / Aa1",
                   "type": "string"
                 },
                 {
                   "const": "AA",
-                  "description": "AA - Very high quality, very low credit risk",
+                  "description": "AA / Aa2 — Very high quality, very low credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "AAMinus",
+                  "description": "AA- / Aa3",
+                  "type": "string"
+                },
+                {
+                  "const": "APlus",
+                  "description": "A+ / A1",
                   "type": "string"
                 },
                 {
                   "const": "A",
-                  "description": "A - High quality, low credit risk",
+                  "description": "A / A2 — High quality, low credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "AMinus",
+                  "description": "A- / A3",
+                  "type": "string"
+                },
+                {
+                  "const": "BBBPlus",
+                  "description": "BBB+ / Baa1",
                   "type": "string"
                 },
                 {
                   "const": "BBB",
-                  "description": "BBB - Medium grade, moderate credit risk (lowest investment grade)",
+                  "description": "BBB / Baa2 — Medium grade, moderate credit risk (lowest investment grade)",
+                  "type": "string"
+                },
+                {
+                  "const": "BBBMinus",
+                  "description": "BBB- / Baa3",
+                  "type": "string"
+                },
+                {
+                  "const": "BBPlus",
+                  "description": "BB+ / Ba1",
                   "type": "string"
                 },
                 {
                   "const": "BB",
-                  "description": "BB - Speculative, substantial credit risk",
+                  "description": "BB / Ba2 — Speculative, substantial credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "BBMinus",
+                  "description": "BB- / Ba3",
+                  "type": "string"
+                },
+                {
+                  "const": "BPlus",
+                  "description": "B+ / B1",
                   "type": "string"
                 },
                 {
                   "const": "B",
-                  "description": "B - Highly speculative, high credit risk",
+                  "description": "B / B2 — Highly speculative, high credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "BMinus",
+                  "description": "B- / B3",
+                  "type": "string"
+                },
+                {
+                  "const": "CCCPlus",
+                  "description": "CCC+ / Caa1",
                   "type": "string"
                 },
                 {
                   "const": "CCC",
-                  "description": "CCC - Poor standing, very high credit risk",
+                  "description": "CCC / Caa2 — Poor standing, very high credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "CCCMinus",
+                  "description": "CCC- / Caa3",
                   "type": "string"
                 },
                 {
                   "const": "CC",
-                  "description": "CC - Highly vulnerable, near default",
+                  "description": "CC / Ca — Highly vulnerable, near default",
                   "type": "string"
                 },
                 {
                   "const": "C",
-                  "description": "C - Lowest rated, typically in default",
+                  "description": "C — Lowest rated, typically in default",
                   "type": "string"
                 },
                 {
                   "const": "D",
-                  "description": "D - In default",
+                  "description": "D — In default",
                   "type": "string"
                 },
                 {
                   "const": "NR",
-                  "description": "NR - Not rated",
+                  "description": "NR — Not rated",
                   "type": "string"
                 }
               ]
@@ -2240,7 +2363,7 @@
                 },
                 {
                   "const": "Thirty360",
-                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(f) - \"30/360\"\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere:\n  D₁' = min(D₁, 30)\n  D₂' = min(D₂, 30) if D₁' = 30, else D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
+                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **SIA/PSA**: Standard Securities Calculation Methods (SIA Standard Formulas)\n  — primary reference for this implementation, including the February\n  end-of-month rule\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis, 30/360 PSA\n\n# SIA/PSA vs ISDA\n\nThis implementation follows the SIA/PSA convention, which includes a\nFebruary end-of-month rule: when both the start date and the end date\nfall on the last day of February, D₂ is changed to 30. ISDA 2006\n§4.16(f) specifies a slightly different set of adjustment rules that\nomit this February-EOM logic. Both are commonly referred to as\n\"30/360 US\", but they can produce different day counts for periods\nthat start or end on the last day of February.\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere (SIA/PSA rules):\n  D₁' = 30                       if D₁ is 31 or last day of February\n  D₂' = 30                       if D₂ is 31 and D₁' = 30\n  D₂' = 30                       if D₂ is last day of Feb and D₁ is last day of Feb\n  otherwise D₁' = D₁, D₂' = D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
                   "type": "string"
                 },
                 {
@@ -2751,7 +2874,7 @@
               ]
             },
             "FloatingRateSpec": {
-              "description": "Canonical floating rate specification for all instruments.\n\nUsed by bonds, swaps, credit facilities, and structured products.\nAll instruments should compose this type rather than defining their own\nfloating rate specifications.\n\n# Rate Calculation\n\nThe all-in rate is computed as:\n1. Look up forward rate from `index_id` curve for the accrual period\n2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread\n3. Add `spread_bp` to get base rate\n4. Multiply by `gearing` (typically 1.0)\n5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing\n\nFormula: `cap(gearing * (floor(index) + spread))`\n\n# Negative Rate Handling\n\nNegative index rates are supported and will flow through calculations\nunless constrained by floors. For markets with negative rates (EUR, JPY, CHF):\n\n- Set `floor_bp: Some(0.0)` to floor the index at zero\n- Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero\n- Omit floors to allow negative coupons (rare but valid in some structures)\n\nThe implementation does not reject negative rates; the policy is controlled\nby the floor configuration.\n\n# Example\n\n```rust\nuse finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};\nuse finstack_cashflows::builder::FloatingRateSpec;\nuse rust_decimal_macros::dec;\n\n// 3M SOFR + 200bps with 0% floor\nlet spec = FloatingRateSpec {\n    index_id: \"USD-SOFR-3M\".into(),\n    spread_bp: dec!(200.0),\n    gearing: dec!(1.0),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0.0)),\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    fallback: Default::default(),\n};\n```",
+              "description": "Canonical floating rate specification for all instruments.\n\nUsed by bonds, swaps, credit facilities, and structured products.\nAll instruments should compose this type rather than defining their own\nfloating rate specifications.\n\n# Rate Calculation\n\nThe all-in rate is computed as:\n1. Look up forward rate from `index_id` curve for the accrual period\n2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread\n3. Add `spread_bp` to get base rate\n4. Multiply by `gearing` (typically 1.0)\n5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing\n\nFormula: `cap(gearing * (floor(index) + spread))`\n\n# Negative Rate Handling\n\nNegative index rates are supported and will flow through calculations\nunless constrained by floors. For markets with negative rates (EUR, JPY, CHF):\n\n- Set `floor_bp: Some(0.0)` to floor the index at zero\n- Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero\n- Omit floors to allow negative coupons (rare but valid in some structures)\n\nThe implementation does not reject negative rates; the policy is controlled\nby the floor configuration.\n\n# Example\n\n```rust\nuse finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};\nuse finstack_cashflows::builder::FloatingRateSpec;\nuse rust_decimal_macros::dec;\n\n// 3M SOFR + 200bps with 0% floor\nlet spec = FloatingRateSpec {\n    index_id: \"USD-SOFR-3M\".into(),\n    spread_bp: dec!(200.0),\n    gearing: dec!(1.0),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0.0)),\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    overnight_basis: None,\n    fallback: Default::default(),\n};\n```",
               "properties": {
                 "all_in_floor_bp": {
                   "default": null,
@@ -2839,6 +2962,17 @@
                 "index_id": {
                   "$ref": "#/$defs/Id",
                   "description": "Forward curve identifier (e.g., \"USD-SOFR-3M\", \"EUR-EURIBOR-6M\")."
+                },
+                "overnight_basis": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/DayCount"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Day-count basis for the overnight compounding denominator.\n\nThis controls the annualization factor used when compounding daily\novernight fixings (e.g., 360 for SOFR/ESTR/TONA, 365 for SONIA).\nIt is independent of the leg's accrual day count (`dc`), which\ngoverns the coupon year fraction.\n\nDefaults to `Act/360` when `None`, matching SOFR/ESTR/TONA\nconvention. Set to `Act/365F` for SONIA.\nIgnored when `overnight_compounding` is `None`."
                 },
                 "overnight_compounding": {
                   "anyOf": [
@@ -3679,6 +3813,17 @@
                   "default": false,
                   "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol → larger bumps)\n- Time to expiry (longer dated → larger bumps)\n- Moneyness (deep ITM/OTM → smaller bumps)\n\nDefault: false (use fixed bump sizes)",
                   "type": "boolean"
+                },
+                "breakeven_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/BreakevenConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Breakeven configuration: which parameter to solve for and solve mode."
                 },
                 "call_friction_cents": {
                   "default": null,

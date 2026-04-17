@@ -111,7 +111,7 @@
                 },
                 {
                   "const": "Compounded",
-                  "description": "Compounded accrual (ICMA-style).\n\n`Accrued = Notional × [(1 + period_rate)^(elapsed/period) - 1]`\nwhere `period_rate = coupon_amount / notional`.",
+                  "description": "Compounded accrual.\n\n`Accrued = N × expm1(f × ln1p(r))`\n\nwhich is the numerically stable form of\n`N × [(1 + r)^f − 1]`, where `r = coupon_amount / notional`\nand `f = elapsed / period` (time fraction within the current\ncoupon period).\n\n**Note:** ICMA Rule 251.1 prescribes *linear* accrual for bond\nAI calculations. This variant uses true exponential compounding\nand should not be cited as ICMA-style.",
                   "type": "string"
                 }
               ]
@@ -2185,6 +2185,36 @@
               ],
               "type": "object"
             },
+            "BermudanCallProvision": {
+              "additionalProperties": false,
+              "description": "Bermudan call provision for callable exotics.\n\nAllows the issuer to terminate the note on specified call dates\nat a specified call price (typically par). Used by Callable Range Accrual,\nPRDC, and callable Snowball notes.\n\n# Fields\n\n- `call_dates`: Sorted ascending dates on which the issuer may call.\n- `call_price`: Fraction of notional returned at exercise (1.0 = par).\n- `lockout_periods`: Number of initial coupon periods during which\n  the call right cannot be exercised.",
+              "properties": {
+                "call_dates": {
+                  "description": "Dates on which the issuer can call (must be sorted ascending).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "call_price": {
+                  "description": "Call price (fraction of notional, typically 1.0 = par).",
+                  "format": "double",
+                  "type": "number"
+                },
+                "lockout_periods": {
+                  "description": "Lockout period in number of coupon periods before first call.",
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "call_dates",
+                "call_price",
+                "lockout_periods"
+              ],
+              "type": "object"
+            },
             "Bond": {
               "description": "Bond instrument with fixed, floating, or amortizing cashflows.\n\nCashflow sign convention (holder view):\n- All contractual cashflows **received by a long holder** (coupons,\n  amortization, final redemption) are represented as **positive** amounts.\n- Cash outflows for the holder (e.g., purchase price, funding, short\n  positions) are represented as **negative** amounts and are handled at\n  trade level rather than in the bond's contractual schedule.\n\nSupports call/put schedules, quoted prices for yield-to-maturity calculations,\nand custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps\nthe canonical builder coupon specs for maximum flexibility and parity.",
               "properties": {
@@ -2517,6 +2547,69 @@
                 {
                   "const": "relative_to_initial_spot",
                   "description": "Bounds are relative to initial spot (e.g., 0.95 = 95% of initial).\nCommon for equity-linked range accruals.",
+                  "type": "string"
+                }
+              ]
+            },
+            "BreakevenConfig": {
+              "description": "Configuration for the breakeven calculator.",
+              "properties": {
+                "mode": {
+                  "$ref": "#/$defs/BreakevenMode",
+                  "default": "linear",
+                  "description": "Solve mode (default: linear)."
+                },
+                "target": {
+                  "$ref": "#/$defs/BreakevenTarget",
+                  "description": "Which valuation parameter to solve for."
+                }
+              },
+              "required": [
+                "target"
+              ],
+              "type": "object"
+            },
+            "BreakevenMode": {
+              "description": "Linear (first-order) or iterative (full-reprice root-find) solve mode.",
+              "oneOf": [
+                {
+                  "const": "linear",
+                  "description": "`-(carry_total) / sensitivity`. Fast, ignores convexity.",
+                  "type": "string"
+                },
+                {
+                  "const": "iterative",
+                  "description": "Brent root-find with full reprice at horizon. Accounts for convexity.",
+                  "type": "string"
+                }
+              ]
+            },
+            "BreakevenTarget": {
+              "description": "Which valuation parameter to solve the breakeven for.",
+              "oneOf": [
+                {
+                  "const": "z_spread",
+                  "description": "Z-spread breakeven (sensitivity: CS01).",
+                  "type": "string"
+                },
+                {
+                  "const": "ytm",
+                  "description": "Yield-to-maturity breakeven (sensitivity: DV01).",
+                  "type": "string"
+                },
+                {
+                  "const": "implied_vol",
+                  "description": "Implied volatility breakeven (sensitivity: Vega).",
+                  "type": "string"
+                },
+                {
+                  "const": "base_correlation",
+                  "description": "Base correlation breakeven (sensitivity: Correlation01).",
+                  "type": "string"
+                },
+                {
+                  "const": "oas",
+                  "description": "OAS breakeven (sensitivity: CS01).",
                   "type": "string"
                 }
               ]
@@ -3200,6 +3293,50 @@
               "required": [
                 "calls",
                 "puts"
+              ],
+              "type": "object"
+            },
+            "CallableRangeAccrual": {
+              "additionalProperties": false,
+              "description": "Callable Range Accrual.\n\nExtends the existing range accrual concept with a Bermudan call provision\nallowing the issuer to terminate early on specified call dates.\n\nThe call decision interacts with the range accrual feature: the issuer\nwill call when the expected future value of remaining range accrual\ncoupons exceeds the call price (par). Pricing requires backward\ninduction (LSMC or HW tree) combined with forward range accrual\ncoupon simulation.\n\n# Pricing\n\n- **LSMC**: Simulate paths with HW1F short rate model. At each call\n  date, compute continuation value via regression. Exercise if\n  call_price < continuation_value.\n- **HW Tree**: Build trinomial tree, attach range accrual cashflows\n  at each node, apply backward induction with call decision.",
+              "properties": {
+                "attributes": {
+                  "$ref": "#/$defs/Attributes",
+                  "description": "Attributes."
+                },
+                "call_provision": {
+                  "$ref": "#/$defs/BermudanCallProvision",
+                  "description": "Bermudan call provision."
+                },
+                "discount_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Discount curve ID."
+                },
+                "id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Unique instrument identifier."
+                },
+                "pricing_overrides": {
+                  "$ref": "#/$defs/PricingOverrides",
+                  "description": "Pricing overrides."
+                },
+                "range_accrual": {
+                  "$ref": "#/$defs/RangeAccrualSpec",
+                  "description": "Underlying range accrual specification (observation dates, bounds, coupon)."
+                },
+                "vol_surface_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Volatility surface ID for the reference rate."
+                }
+              },
+              "required": [
+                "id",
+                "range_accrual",
+                "call_provision",
+                "discount_curve_id",
+                "vol_surface_id",
+                "pricing_overrides",
+                "attributes"
               ],
               "type": "object"
             },
@@ -4015,6 +4152,112 @@
                 "vol_surface_id"
               ],
               "type": "object"
+            },
+            "CmsSpreadOption": {
+              "additionalProperties": false,
+              "description": "CMS Spread Option.\n\nOption on the spread between two CMS rates of different tenors.\n\n```text\nPayoff = max(CMS_long - CMS_short - strike, 0) * notional    [for a call]\nPayoff = max(strike - (CMS_long - CMS_short), 0) * notional   [for a put]\n```\n\nTypically: long tenor = 10Y or 30Y CMS, short tenor = 2Y CMS.\n\n# Pricing Approach\n\n1. Each CMS rate has SABR marginal distribution (reuses CMS option SABR calibration)\n2. Joint distribution via Gaussian copula with rank correlation\n3. CMS convexity adjustment applied to each leg via static replication\n\n# References\n\n- Hagan, P. S. (2003). \"Convexity Conundrums.\" *Wilmott Magazine*.\n- Antonov, A., Konikov, M., & Spector, M. (2013). \"SABR Spreads.\" *Risk*.",
+              "properties": {
+                "attributes": {
+                  "$ref": "#/$defs/Attributes",
+                  "description": "Attributes."
+                },
+                "day_count": {
+                  "$ref": "#/$defs/DayCount",
+                  "description": "Day count convention."
+                },
+                "discount_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Discount curve ID."
+                },
+                "expiry_date": {
+                  "description": "Option expiry date.",
+                  "type": "string"
+                },
+                "forward_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Forward curve ID (for swap rate projection)."
+                },
+                "id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Unique instrument identifier."
+                },
+                "long_cms_tenor": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Long CMS tenor (e.g., 10Y)."
+                },
+                "long_vol_surface_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Swaption volatility surface for long tenor."
+                },
+                "notional": {
+                  "$ref": "#/$defs/Money",
+                  "description": "Notional amount."
+                },
+                "option_type": {
+                  "$ref": "#/$defs/CmsSpreadOptionType",
+                  "description": "Call or put on the spread."
+                },
+                "payment_date": {
+                  "description": "Payment date (may differ from expiry).",
+                  "type": "string"
+                },
+                "pricing_overrides": {
+                  "$ref": "#/$defs/PricingOverrides",
+                  "description": "Pricing overrides."
+                },
+                "short_cms_tenor": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Short CMS tenor (e.g., 2Y)."
+                },
+                "short_vol_surface_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Swaption volatility surface for short tenor."
+                },
+                "spread_correlation": {
+                  "description": "Rank correlation between the two CMS rates.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "strike": {
+                  "description": "Strike spread (in decimal, e.g., 0.005 = 50bp).",
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "long_cms_tenor",
+                "short_cms_tenor",
+                "strike",
+                "option_type",
+                "notional",
+                "expiry_date",
+                "payment_date",
+                "long_vol_surface_id",
+                "short_vol_surface_id",
+                "discount_curve_id",
+                "forward_curve_id",
+                "spread_correlation",
+                "day_count",
+                "pricing_overrides",
+                "attributes"
+              ],
+              "type": "object"
+            },
+            "CmsSpreadOptionType": {
+              "description": "Call or put on a CMS spread.",
+              "oneOf": [
+                {
+                  "const": "call",
+                  "description": "max(CMS_long - CMS_short - K, 0)",
+                  "type": "string"
+                },
+                {
+                  "const": "put",
+                  "description": "max(K - (CMS_long - CMS_short), 0)",
+                  "type": "string"
+                }
+              ]
             },
             "CmsSwap": {
               "additionalProperties": false,
@@ -5624,7 +5867,7 @@
                 },
                 {
                   "additionalProperties": false,
-                  "description": "Student-t copula with specified degrees of freedom.\n\nCaptures tail dependence - joint extreme defaults are more likely\nthan Gaussian predicts. Lower df = more tail dependence.\n\nTypical calibration: df ∈ [4, 10] for CDX tranches.",
+                  "description": "Student-t copula with specified degrees of freedom.\n\nCaptures tail dependence - joint extreme defaults are more likely\nthan Gaussian predicts. Lower df = more tail dependence.\n\nTypical calibration: df ∈ [4, 10] for CDX tranches.\n\n# Invariant\n\n`degrees_of_freedom` **must** be finite and `> 2`. The programmatic\nconstructor [`CopulaSpec::student_t`] panics on invalid input, but\ndeserialized specs (from config files, JSON, etc.) cannot panic —\n[`CopulaSpec::build`] and [`CopulaSpec::build_student_t`] silently\nclamp an out-of-range or non-finite value to `2.01` and emit a\n`tracing::warn!`. This is deliberate: it preserves forward\ncompatibility for serialized specs but means callers that round-trip\na spec may observe a changed `degrees_of_freedom`. Validate at the\nconfig-loading boundary if strict rejection is required.",
                   "properties": {
                     "degrees_of_freedom": {
                       "description": "Degrees of freedom (must be > 2 for finite variance)",
@@ -6136,61 +6379,121 @@
               "type": "object"
             },
             "CreditRating": {
-              "description": "Credit rating scale (agency-agnostic).\n\nThis enum represents a standardized credit rating scale that maps to\nequivalent ratings from major agencies:\n\n| `CreditRating` | S&P/Fitch | Moody's |\n|----------------|-----------|---------|\n| `AAA`          | AAA       | Aaa     |\n| `AA`           | AA        | Aa      |\n| `A`            | A         | A       |\n| `BBB`          | BBB       | Baa     |\n| `BB`           | BB        | Ba      |\n| `B`            | B         | B       |\n| `CCC`          | CCC       | Caa     |\n| `CC`           | CC        | Ca      |\n| `C`            | C         | C       |\n| `D`            | D         | D       |\n| `NR`           | NR        | NR      |\n\n# Investment Grade\n\nRatings of `BBB` and above are considered \"investment grade\":\n\n```rust\nuse finstack_core::types::CreditRating;\n\nassert!(CreditRating::A.is_investment_grade());\nassert!(!CreditRating::BB.is_investment_grade());\n```",
+              "description": "Unified credit rating scale with notch-level precision (agency-agnostic).\n\nEach variant represents a specific notch in the rating scale. Ratings\nwithout a `Plus`/`Minus` suffix represent the \"flat\" (middle) notch.\n\n| Variant     | S&P/Fitch | Moody's |\n|-------------|-----------|---------|\n| `AAA`       | AAA       | Aaa     |\n| `AAPlus`    | AA+       | Aa1     |\n| `AA`        | AA        | Aa2     |\n| `AAMinus`   | AA-       | Aa3     |\n| `APlus`     | A+        | A1      |\n| `A`         | A         | A2      |\n| `AMinus`    | A-        | A3      |\n| `BBBPlus`   | BBB+      | Baa1    |\n| `BBB`       | BBB       | Baa2    |\n| `BBBMinus`  | BBB-      | Baa3    |\n| `BBPlus`    | BB+       | Ba1     |\n| `BB`        | BB        | Ba2     |\n| `BBMinus`   | BB-       | Ba3     |\n| `BPlus`     | B+        | B1      |\n| `B`         | B         | B2      |\n| `BMinus`    | B-        | B3      |\n| `CCCPlus`   | CCC+      | Caa1    |\n| `CCC`       | CCC       | Caa2    |\n| `CCCMinus`  | CCC-      | Caa3    |\n| `CC`        | CC        | Ca      |\n| `C`         | C         | C       |\n| `D`         | D         | D       |\n| `NR`        | NR        | NR      |\n\n# Investment Grade\n\nRatings of `BBBMinus` and above are considered \"investment grade\":\n\n```rust\nuse finstack_core::types::CreditRating;\n\nassert!(CreditRating::A.is_investment_grade());\nassert!(CreditRating::BBBMinus.is_investment_grade());\nassert!(!CreditRating::BBPlus.is_investment_grade());\n```",
               "oneOf": [
                 {
                   "const": "AAA",
-                  "description": "AAA - Highest quality, minimal credit risk",
+                  "description": "AAA / Aaa — Highest quality, minimal credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "AAPlus",
+                  "description": "AA+ / Aa1",
                   "type": "string"
                 },
                 {
                   "const": "AA",
-                  "description": "AA - Very high quality, very low credit risk",
+                  "description": "AA / Aa2 — Very high quality, very low credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "AAMinus",
+                  "description": "AA- / Aa3",
+                  "type": "string"
+                },
+                {
+                  "const": "APlus",
+                  "description": "A+ / A1",
                   "type": "string"
                 },
                 {
                   "const": "A",
-                  "description": "A - High quality, low credit risk",
+                  "description": "A / A2 — High quality, low credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "AMinus",
+                  "description": "A- / A3",
+                  "type": "string"
+                },
+                {
+                  "const": "BBBPlus",
+                  "description": "BBB+ / Baa1",
                   "type": "string"
                 },
                 {
                   "const": "BBB",
-                  "description": "BBB - Medium grade, moderate credit risk (lowest investment grade)",
+                  "description": "BBB / Baa2 — Medium grade, moderate credit risk (lowest investment grade)",
+                  "type": "string"
+                },
+                {
+                  "const": "BBBMinus",
+                  "description": "BBB- / Baa3",
+                  "type": "string"
+                },
+                {
+                  "const": "BBPlus",
+                  "description": "BB+ / Ba1",
                   "type": "string"
                 },
                 {
                   "const": "BB",
-                  "description": "BB - Speculative, substantial credit risk",
+                  "description": "BB / Ba2 — Speculative, substantial credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "BBMinus",
+                  "description": "BB- / Ba3",
+                  "type": "string"
+                },
+                {
+                  "const": "BPlus",
+                  "description": "B+ / B1",
                   "type": "string"
                 },
                 {
                   "const": "B",
-                  "description": "B - Highly speculative, high credit risk",
+                  "description": "B / B2 — Highly speculative, high credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "BMinus",
+                  "description": "B- / B3",
+                  "type": "string"
+                },
+                {
+                  "const": "CCCPlus",
+                  "description": "CCC+ / Caa1",
                   "type": "string"
                 },
                 {
                   "const": "CCC",
-                  "description": "CCC - Poor standing, very high credit risk",
+                  "description": "CCC / Caa2 — Poor standing, very high credit risk",
+                  "type": "string"
+                },
+                {
+                  "const": "CCCMinus",
+                  "description": "CCC- / Caa3",
                   "type": "string"
                 },
                 {
                   "const": "CC",
-                  "description": "CC - Highly vulnerable, near default",
+                  "description": "CC / Ca — Highly vulnerable, near default",
                   "type": "string"
                 },
                 {
                   "const": "C",
-                  "description": "C - Lowest rated, typically in default",
+                  "description": "C — Lowest rated, typically in default",
                   "type": "string"
                 },
                 {
                   "const": "D",
-                  "description": "D - In default",
+                  "description": "D — In default",
                   "type": "string"
                 },
                 {
                   "const": "NR",
-                  "description": "NR - Not rated",
+                  "description": "NR — Not rated",
                   "type": "string"
                 }
               ]
@@ -7054,7 +7357,7 @@
                 },
                 {
                   "const": "Thirty360",
-                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(f) - \"30/360\"\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere:\n  D₁' = min(D₁, 30)\n  D₂' = min(D₂, 30) if D₁' = 30, else D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
+                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **SIA/PSA**: Standard Securities Calculation Methods (SIA Standard Formulas)\n  — primary reference for this implementation, including the February\n  end-of-month rule\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis, 30/360 PSA\n\n# SIA/PSA vs ISDA\n\nThis implementation follows the SIA/PSA convention, which includes a\nFebruary end-of-month rule: when both the start date and the end date\nfall on the last day of February, D₂ is changed to 30. ISDA 2006\n§4.16(f) specifies a slightly different set of adjustment rules that\nomit this February-EOM logic. Both are commonly referred to as\n\"30/360 US\", but they can produce different day counts for periods\nthat start or end on the last day of February.\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere (SIA/PSA rules):\n  D₁' = 30                       if D₁ is 31 or last day of February\n  D₂' = 30                       if D₂ is 31 and D₁' = 30\n  D₂' = 30                       if D₂ is last day of Feb and D₁ is last day of Feb\n  otherwise D₁' = D₁, D₂' = D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
                   "type": "string"
                 },
                 {
@@ -9167,7 +9470,7 @@
               ]
             },
             "FloatingRateSpec": {
-              "description": "Canonical floating rate specification for all instruments.\n\nUsed by bonds, swaps, credit facilities, and structured products.\nAll instruments should compose this type rather than defining their own\nfloating rate specifications.\n\n# Rate Calculation\n\nThe all-in rate is computed as:\n1. Look up forward rate from `index_id` curve for the accrual period\n2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread\n3. Add `spread_bp` to get base rate\n4. Multiply by `gearing` (typically 1.0)\n5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing\n\nFormula: `cap(gearing * (floor(index) + spread))`\n\n# Negative Rate Handling\n\nNegative index rates are supported and will flow through calculations\nunless constrained by floors. For markets with negative rates (EUR, JPY, CHF):\n\n- Set `floor_bp: Some(0.0)` to floor the index at zero\n- Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero\n- Omit floors to allow negative coupons (rare but valid in some structures)\n\nThe implementation does not reject negative rates; the policy is controlled\nby the floor configuration.\n\n# Example\n\n```rust\nuse finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};\nuse finstack_cashflows::builder::FloatingRateSpec;\nuse rust_decimal_macros::dec;\n\n// 3M SOFR + 200bps with 0% floor\nlet spec = FloatingRateSpec {\n    index_id: \"USD-SOFR-3M\".into(),\n    spread_bp: dec!(200.0),\n    gearing: dec!(1.0),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0.0)),\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    fallback: Default::default(),\n};\n```",
+              "description": "Canonical floating rate specification for all instruments.\n\nUsed by bonds, swaps, credit facilities, and structured products.\nAll instruments should compose this type rather than defining their own\nfloating rate specifications.\n\n# Rate Calculation\n\nThe all-in rate is computed as:\n1. Look up forward rate from `index_id` curve for the accrual period\n2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread\n3. Add `spread_bp` to get base rate\n4. Multiply by `gearing` (typically 1.0)\n5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing\n\nFormula: `cap(gearing * (floor(index) + spread))`\n\n# Negative Rate Handling\n\nNegative index rates are supported and will flow through calculations\nunless constrained by floors. For markets with negative rates (EUR, JPY, CHF):\n\n- Set `floor_bp: Some(0.0)` to floor the index at zero\n- Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero\n- Omit floors to allow negative coupons (rare but valid in some structures)\n\nThe implementation does not reject negative rates; the policy is controlled\nby the floor configuration.\n\n# Example\n\n```rust\nuse finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};\nuse finstack_cashflows::builder::FloatingRateSpec;\nuse rust_decimal_macros::dec;\n\n// 3M SOFR + 200bps with 0% floor\nlet spec = FloatingRateSpec {\n    index_id: \"USD-SOFR-3M\".into(),\n    spread_bp: dec!(200.0),\n    gearing: dec!(1.0),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0.0)),\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    overnight_basis: None,\n    fallback: Default::default(),\n};\n```",
               "properties": {
                 "all_in_floor_bp": {
                   "default": null,
@@ -9255,6 +9558,17 @@
                 "index_id": {
                   "$ref": "#/$defs/Id",
                   "description": "Forward curve identifier (e.g., \"USD-SOFR-3M\", \"EUR-EURIBOR-6M\")."
+                },
+                "overnight_basis": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/DayCount"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Day-count basis for the overnight compounding denominator.\n\nThis controls the annualization factor used when compounding daily\novernight fixings (e.g., 360 for SOFR/ESTR/TONA, 365 for SONIA).\nIt is independent of the leg's accrual day count (`dc`), which\ngoverns the coupon year fraction.\n\nDefaults to `Act/360` when `None`, matching SOFR/ESTR/TONA\nconvention. Set to `Act/365F` for SONIA.\nIgnored when `overnight_compounding` is `None`."
                 },
                 "overnight_compounding": {
                   "anyOf": [
@@ -12109,6 +12423,74 @@
                   "type": "object"
                 },
                 {
+                  "description": "Target Redemption Note (TARN)",
+                  "properties": {
+                    "spec": {
+                      "$ref": "#/$defs/Tarn"
+                    },
+                    "type": {
+                      "const": "tarn",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "spec"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "description": "Snowball / Inverse Floater note",
+                  "properties": {
+                    "spec": {
+                      "$ref": "#/$defs/Snowball"
+                    },
+                    "type": {
+                      "const": "snowball",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "spec"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "description": "CMS Spread Option",
+                  "properties": {
+                    "spec": {
+                      "$ref": "#/$defs/CmsSpreadOption"
+                    },
+                    "type": {
+                      "const": "cms_spread_option",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "spec"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "description": "Callable Range Accrual",
+                  "properties": {
+                    "spec": {
+                      "$ref": "#/$defs/CallableRangeAccrual"
+                    },
+                    "type": {
+                      "const": "callable_range_accrual",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "spec"
+                  ],
+                  "type": "object"
+                },
+                {
                   "description": "Equity total return swap",
                   "properties": {
                     "spec": {
@@ -14080,6 +14462,17 @@
                   "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol → larger bumps)\n- Time to expiry (longer dated → larger bumps)\n- Moneyness (deep ITM/OTM → smaller bumps)\n\nDefault: false (use fixed bump sizes)",
                   "type": "boolean"
                 },
+                "breakeven_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/BreakevenConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Breakeven configuration: which parameter to solve for and solve mode."
+                },
                 "call_friction_cents": {
                   "default": null,
                   "description": "Exercise friction cost for issuer/borrower calls, expressed as **cents per 100 of par**.\n\nThis models the real-world costs of refinancing / reissue (fees, OID, documentation),\nby requiring the issuer/borrower to see sufficient economic benefit before exercising.\n\n## Convention\n- `0.0` (or `None`) means frictionless optimal exercise (pure model)\n- `50.0` means **$0.50 per $100** of outstanding principal (0.50 points)\n- `200.0` means **$2.00 per $100** of outstanding principal (2.00 points)\n\nThe friction affects the **exercise decision threshold**, but redemption still occurs\nat the contractual call price.",
@@ -14700,6 +15093,66 @@
               ],
               "type": "object"
             },
+            "RangeAccrualSpec": {
+              "additionalProperties": false,
+              "description": "Core range accrual parameters extracted for reuse in callable wrapper.\n\nMirrors the essential fields from [`crate::instruments::rates::range_accrual::RangeAccrual`]\nwithout the instrument-level metadata (id, attributes, overrides).",
+              "properties": {
+                "bounds_type": {
+                  "$ref": "#/$defs/BoundsType",
+                  "default": "absolute",
+                  "description": "Bounds interpretation."
+                },
+                "coupon_rate": {
+                  "description": "Coupon rate when in range.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "day_count": {
+                  "$ref": "#/$defs/DayCount",
+                  "description": "Day count convention."
+                },
+                "lower_bound": {
+                  "description": "Lower bound of accrual range.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "notional": {
+                  "$ref": "#/$defs/Money",
+                  "description": "Notional."
+                },
+                "observation_dates": {
+                  "description": "Observation dates (must be sorted ascending).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "spot_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Spot price identifier."
+                },
+                "underlying_ticker": {
+                  "description": "Underlying ticker.",
+                  "type": "string"
+                },
+                "upper_bound": {
+                  "description": "Upper bound of accrual range.",
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "underlying_ticker",
+                "observation_dates",
+                "lower_bound",
+                "upper_bound",
+                "coupon_rate",
+                "notional",
+                "day_count",
+                "spot_id"
+              ],
+              "type": "object"
+            },
             "RateOptionType": {
               "description": "Type of interest rate option",
               "oneOf": [
@@ -14726,7 +15179,7 @@
               ]
             },
             "RateSpec": {
-              "description": "Rate specification for term loans.\n\n Defines whether the loan uses fixed or floating rate interest, with full\nsupport for floating rate features including floors, caps, and leverage.\n\n# Variants\n\n- [`Fixed`](RateSpec::Fixed): Constant rate specified in basis points\n- [`Floating`](RateSpec::Floating): Index-based rate with spread and optional limits\n\n# Examples\n\nFixed rate loan:\n```rust\nuse finstack_valuations::instruments::fixed_income::term_loan::RateSpec;\n\nlet fixed_rate = RateSpec::Fixed { rate_bp: 600 };  // 6% fixed\n```\n\nFloating rate with floor:\n```rust\nuse finstack_valuations::instruments::fixed_income::term_loan::RateSpec;\nuse finstack_valuations::cashflow::builder::FloatingRateSpec;\nuse finstack_core::dates::{DayCount, BusinessDayConvention, Tenor};\nuse finstack_core::types::CurveId;\nuse rust_decimal_macros::dec;\n\nlet floating = RateSpec::Floating(FloatingRateSpec {\n    index_id: CurveId::new(\"USD-SOFR-3M\"),\n    spread_bp: dec!(300),     // +300 bps spread\n    gearing: dec!(1),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0)),  // 0% floor\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    fallback: Default::default(),\n});\n```",
+              "description": "Rate specification for term loans.\n\n Defines whether the loan uses fixed or floating rate interest, with full\nsupport for floating rate features including floors, caps, and leverage.\n\n# Variants\n\n- [`Fixed`](RateSpec::Fixed): Constant rate specified in basis points\n- [`Floating`](RateSpec::Floating): Index-based rate with spread and optional limits\n\n# Examples\n\nFixed rate loan:\n```rust\nuse finstack_valuations::instruments::fixed_income::term_loan::RateSpec;\n\nlet fixed_rate = RateSpec::Fixed { rate_bp: 600 };  // 6% fixed\n```\n\nFloating rate with floor:\n```rust\nuse finstack_valuations::instruments::fixed_income::term_loan::RateSpec;\nuse finstack_valuations::cashflow::builder::FloatingRateSpec;\nuse finstack_core::dates::{DayCount, BusinessDayConvention, Tenor};\nuse finstack_core::types::CurveId;\nuse rust_decimal_macros::dec;\n\nlet floating = RateSpec::Floating(FloatingRateSpec {\n    index_id: CurveId::new(\"USD-SOFR-3M\"),\n    spread_bp: dec!(300),     // +300 bps spread\n    gearing: dec!(1),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0)),  // 0% floor\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    overnight_basis: None,\n    fallback: Default::default(),\n});\n```",
               "oneOf": [
                 {
                   "additionalProperties": false,
@@ -15817,6 +16270,126 @@
                 }
               ]
             },
+            "Snowball": {
+              "additionalProperties": false,
+              "description": "Snowball structured note.\n\nThe coupon in each period depends on the previous period's coupon,\ncreating a path-dependent \"snowball\" accumulation:\n\n```text\nc_i = max(c_{i-1} + fixed_rate - L_i, 0)\n```\n\nwhere L_i is the floating rate and c_0 = initial_coupon.\n\nIf the floating rate stays low, coupons ratchet up over time.\nIf rates spike, the coupon floors at zero and must rebuild.\n\n# Variants\n\n- **Snowball**: Coupon depends on previous coupon (path-dependent)\n- **Inverse Floater**: Coupon = fixed_rate - leverage * floating_rate\n  (simpler, not path-dependent, but often combined with callability)\n\n# References\n\n- Brigo, D., & Mercurio, F. (2006). *Interest Rate Models*. Chapter 14.",
+              "properties": {
+                "attributes": {
+                  "$ref": "#/$defs/Attributes",
+                  "description": "Attributes."
+                },
+                "callable": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/BermudanCallProvision"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Optional Bermudan call provision."
+                },
+                "coupon_cap": {
+                  "description": "Optional cap on each period coupon.",
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "coupon_dates": {
+                  "description": "Coupon payment dates (must be sorted ascending).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "coupon_floor": {
+                  "description": "Floor on each period coupon (typically 0.0).",
+                  "format": "double",
+                  "type": "number"
+                },
+                "day_count": {
+                  "$ref": "#/$defs/DayCount",
+                  "description": "Day count convention."
+                },
+                "discount_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Discount curve ID."
+                },
+                "fixed_rate": {
+                  "description": "Fixed rate component.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "floating_index_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Floating rate index identifier."
+                },
+                "floating_tenor": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Floating rate tenor."
+                },
+                "id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Unique instrument identifier."
+                },
+                "initial_coupon": {
+                  "description": "Initial coupon for snowball (c_0); ignored for inverse floater.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "leverage": {
+                  "description": "Leverage multiplier on floating rate (1.0 for snowball, variable for inverse floater).",
+                  "format": "double",
+                  "type": "number"
+                },
+                "notional": {
+                  "$ref": "#/$defs/Money",
+                  "description": "Notional amount."
+                },
+                "pricing_overrides": {
+                  "$ref": "#/$defs/PricingOverrides",
+                  "description": "Pricing overrides."
+                },
+                "variant": {
+                  "$ref": "#/$defs/SnowballVariant",
+                  "description": "Snowball or inverse floater variant."
+                }
+              },
+              "required": [
+                "id",
+                "variant",
+                "initial_coupon",
+                "fixed_rate",
+                "leverage",
+                "coupon_floor",
+                "notional",
+                "coupon_dates",
+                "floating_index_id",
+                "floating_tenor",
+                "discount_curve_id",
+                "day_count",
+                "pricing_overrides",
+                "attributes"
+              ],
+              "type": "object"
+            },
+            "SnowballVariant": {
+              "description": "Snowball note variant.",
+              "oneOf": [
+                {
+                  "const": "snowball",
+                  "description": "Path-dependent snowball: c_i = max(c_{i-1} + fixed - floating, 0).",
+                  "type": "string"
+                },
+                {
+                  "const": "inverse_floater",
+                  "description": "Inverse floater: c_i = max(fixed - leverage * floating, 0).",
+                  "type": "string"
+                }
+              ]
+            },
             "SoftCallTrigger": {
               "description": "Soft-call trigger condition for convertible bonds.\n\nA soft call allows the issuer to call the bond only if the underlying stock\nprice has been trading above a threshold (typically 130% of the conversion\nprice) for a sustained period. This protects holders from having their\nconversion option terminated when the stock is only marginally above parity.\n\n# Industry Practice\n\nThe standard soft-call trigger is:\n- **Threshold**: 130% of conversion price (most common)\n- **Observation period**: 20 of 30 consecutive trading days\n\nSome issuances use 120% or 150% thresholds.",
               "properties": {
@@ -16713,6 +17286,81 @@
                   "type": "string"
                 }
               ]
+            },
+            "Tarn": {
+              "additionalProperties": false,
+              "description": "Target Redemption Note (TARN).\n\nPays periodic coupons = max(fixed_rate - floating_rate, floor) until the\ncumulative coupon reaches a target level, at which point the note redeems\nat par. Path-dependent due to the knockout on cumulative coupon.\n\n# Coupon Formula\n\n```text\nc_i = max(fixed_rate - L_i, floor)\n```\n\nwhere L_i is the floating rate (e.g., SOFR) for period i.\n\n# Target Knockout\n\n```text\nIf sum(c_1, ..., c_i) >= target => redeem at par, stop paying coupons\n```\n\nThe final coupon is reduced so the cumulative equals the target exactly.\n\n# References\n\n- Brigo, D., & Mercurio, F. (2006). *Interest Rate Models - Theory and\n  Practice* (2nd ed.). Springer. Chapter 14: Exotic Derivatives.",
+              "properties": {
+                "attributes": {
+                  "$ref": "#/$defs/Attributes",
+                  "description": "Attributes for scenario selection."
+                },
+                "coupon_dates": {
+                  "description": "Coupon payment dates (must be sorted ascending).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "coupon_floor": {
+                  "description": "Floor on each period's coupon (typically 0.0).",
+                  "format": "double",
+                  "type": "number"
+                },
+                "day_count": {
+                  "$ref": "#/$defs/DayCount",
+                  "description": "Day count convention for coupon accrual."
+                },
+                "discount_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Discount curve ID for PV calculations."
+                },
+                "fixed_rate": {
+                  "description": "Fixed coupon rate (the \"strike\" rate).",
+                  "format": "double",
+                  "type": "number"
+                },
+                "floating_index_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Floating rate index identifier."
+                },
+                "floating_tenor": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Floating rate tenor (e.g., \"3M\", \"6M\")."
+                },
+                "id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Unique instrument identifier."
+                },
+                "notional": {
+                  "$ref": "#/$defs/Money",
+                  "description": "Notional amount."
+                },
+                "pricing_overrides": {
+                  "$ref": "#/$defs/PricingOverrides",
+                  "description": "Pricing overrides."
+                },
+                "target_coupon": {
+                  "description": "Target cumulative coupon level (triggers early redemption).",
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "fixed_rate",
+                "coupon_floor",
+                "target_coupon",
+                "notional",
+                "coupon_dates",
+                "floating_tenor",
+                "floating_index_id",
+                "discount_curve_id",
+                "day_count",
+                "pricing_overrides",
+                "attributes"
+              ],
+              "type": "object"
             },
             "TbaTerm": {
               "description": "TBA term enumeration (original loan term).",

@@ -494,6 +494,10 @@ pub(crate) struct CDSOptionPricingInputs {
 impl crate::instruments::common_impl::traits::Instrument for CDSOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CDSOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

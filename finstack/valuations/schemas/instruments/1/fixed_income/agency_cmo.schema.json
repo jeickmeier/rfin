@@ -157,6 +157,69 @@
               },
               "type": "object"
             },
+            "BreakevenConfig": {
+              "description": "Configuration for the breakeven calculator.",
+              "properties": {
+                "mode": {
+                  "$ref": "#/$defs/BreakevenMode",
+                  "default": "linear",
+                  "description": "Solve mode (default: linear)."
+                },
+                "target": {
+                  "$ref": "#/$defs/BreakevenTarget",
+                  "description": "Which valuation parameter to solve for."
+                }
+              },
+              "required": [
+                "target"
+              ],
+              "type": "object"
+            },
+            "BreakevenMode": {
+              "description": "Linear (first-order) or iterative (full-reprice root-find) solve mode.",
+              "oneOf": [
+                {
+                  "const": "linear",
+                  "description": "`-(carry_total) / sensitivity`. Fast, ignores convexity.",
+                  "type": "string"
+                },
+                {
+                  "const": "iterative",
+                  "description": "Brent root-find with full reprice at horizon. Accounts for convexity.",
+                  "type": "string"
+                }
+              ]
+            },
+            "BreakevenTarget": {
+              "description": "Which valuation parameter to solve the breakeven for.",
+              "oneOf": [
+                {
+                  "const": "z_spread",
+                  "description": "Z-spread breakeven (sensitivity: CS01).",
+                  "type": "string"
+                },
+                {
+                  "const": "ytm",
+                  "description": "Yield-to-maturity breakeven (sensitivity: DV01).",
+                  "type": "string"
+                },
+                {
+                  "const": "implied_vol",
+                  "description": "Implied volatility breakeven (sensitivity: Vega).",
+                  "type": "string"
+                },
+                {
+                  "const": "base_correlation",
+                  "description": "Base correlation breakeven (sensitivity: Correlation01).",
+                  "type": "string"
+                },
+                {
+                  "const": "oas",
+                  "description": "OAS breakeven (sensitivity: CS01).",
+                  "type": "string"
+                }
+              ]
+            },
             "CmoTranche": {
               "description": "CMO tranche definition.",
               "properties": {
@@ -1102,6 +1165,17 @@
                   "default": false,
                   "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol → larger bumps)\n- Time to expiry (longer dated → larger bumps)\n- Moneyness (deep ITM/OTM → smaller bumps)\n\nDefault: false (use fixed bump sizes)",
                   "type": "boolean"
+                },
+                "breakeven_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/BreakevenConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Breakeven configuration: which parameter to solve for and solve mode."
                 },
                 "call_friction_cents": {
                   "default": null,

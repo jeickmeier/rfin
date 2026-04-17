@@ -96,6 +96,69 @@
               },
               "type": "object"
             },
+            "BreakevenConfig": {
+              "description": "Configuration for the breakeven calculator.",
+              "properties": {
+                "mode": {
+                  "$ref": "#/$defs/BreakevenMode",
+                  "default": "linear",
+                  "description": "Solve mode (default: linear)."
+                },
+                "target": {
+                  "$ref": "#/$defs/BreakevenTarget",
+                  "description": "Which valuation parameter to solve for."
+                }
+              },
+              "required": [
+                "target"
+              ],
+              "type": "object"
+            },
+            "BreakevenMode": {
+              "description": "Linear (first-order) or iterative (full-reprice root-find) solve mode.",
+              "oneOf": [
+                {
+                  "const": "linear",
+                  "description": "`-(carry_total) / sensitivity`. Fast, ignores convexity.",
+                  "type": "string"
+                },
+                {
+                  "const": "iterative",
+                  "description": "Brent root-find with full reprice at horizon. Accounts for convexity.",
+                  "type": "string"
+                }
+              ]
+            },
+            "BreakevenTarget": {
+              "description": "Which valuation parameter to solve the breakeven for.",
+              "oneOf": [
+                {
+                  "const": "z_spread",
+                  "description": "Z-spread breakeven (sensitivity: CS01).",
+                  "type": "string"
+                },
+                {
+                  "const": "ytm",
+                  "description": "Yield-to-maturity breakeven (sensitivity: DV01).",
+                  "type": "string"
+                },
+                {
+                  "const": "implied_vol",
+                  "description": "Implied volatility breakeven (sensitivity: Vega).",
+                  "type": "string"
+                },
+                {
+                  "const": "base_correlation",
+                  "description": "Base correlation breakeven (sensitivity: Correlation01).",
+                  "type": "string"
+                },
+                {
+                  "const": "oas",
+                  "description": "OAS breakeven (sensitivity: CS01).",
+                  "type": "string"
+                }
+              ]
+            },
             "Currency": {
               "description": "ISO 4217 currency enumeration",
               "oneOf": [
@@ -906,7 +969,7 @@
                 },
                 {
                   "const": "Thirty360",
-                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **ISDA**: 2006 ISDA Definitions, Section 4.16(f) - \"30/360\"\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere:\n  D₁' = min(D₁, 30)\n  D₂' = min(D₂, 30) if D₁' = 30, else D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
+                  "description": "30/360 US (Bond Basis) day count convention.\n\nAssumes 30 days per month and 360 days per year with US market adjustments.\n\n# Standards Reference\n\n- **SIA/PSA**: Standard Securities Calculation Methods (SIA Standard Formulas)\n  — primary reference for this implementation, including the February\n  end-of-month rule\n- **ISO 20022**: Day Count Fraction Code \"30/360\" (A001)\n- **Also known as**: 30U/360, 30/360 US, Bond Basis, 30/360 PSA\n\n# SIA/PSA vs ISDA\n\nThis implementation follows the SIA/PSA convention, which includes a\nFebruary end-of-month rule: when both the start date and the end date\nfall on the last day of February, D₂ is changed to 30. ISDA 2006\n§4.16(f) specifies a slightly different set of adjustment rules that\nomit this February-EOM logic. Both are commonly referred to as\n\"30/360 US\", but they can produce different day counts for periods\nthat start or end on the last day of February.\n\n# Formula\n\n```text\nDays = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')\n\nwhere (SIA/PSA rules):\n  D₁' = 30                       if D₁ is 31 or last day of February\n  D₂' = 30                       if D₂ is 31 and D₁' = 30\n  D₂' = 30                       if D₂ is last day of Feb and D₁ is last day of Feb\n  otherwise D₁' = D₁, D₂' = D₂\n```\n\n# Usage\n\nStandard for:\n- US corporate bonds\n- US municipal bonds\n- US agency debt\n\n# Examples\n\n```rust\nuse finstack_core::dates::{Date, DayCount, DayCountCtx};\nuse time::Month;\n\nlet start = Date::from_calendar_date(2025, Month::January, 31).expect(\"Valid date\");\nlet end = Date::from_calendar_date(2025, Month::February, 28).expect(\"Valid date\");\n\nlet yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect(\"Year fraction calculation should succeed\");\n// Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360\nassert_eq!(yf, 28.0 / 360.0);\n```",
                   "type": "string"
                 },
                 {
@@ -1008,6 +1071,17 @@
                   "default": false,
                   "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol → larger bumps)\n- Time to expiry (longer dated → larger bumps)\n- Moneyness (deep ITM/OTM → smaller bumps)\n\nDefault: false (use fixed bump sizes)",
                   "type": "boolean"
+                },
+                "breakeven_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/BreakevenConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Breakeven configuration: which parameter to solve for and solve mode."
                 },
                 "call_friction_cents": {
                   "default": null,

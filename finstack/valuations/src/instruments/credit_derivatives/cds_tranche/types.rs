@@ -387,6 +387,10 @@ impl CDSTranche {
 impl Instrument for CDSTranche {
     impl_instrument_base!(crate::pricer::InstrumentType::CDSTranche);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::HazardRate
+    }
+
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {

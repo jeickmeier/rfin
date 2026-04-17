@@ -456,7 +456,6 @@ fn test_stub_convention_variants() {
     let as_of = d(2025, 1, 2);
 
     for stub in [
-        finstack_core::dates::StubKind::None,
         finstack_core::dates::StubKind::ShortFront,
         finstack_core::dates::StubKind::ShortBack,
     ] {

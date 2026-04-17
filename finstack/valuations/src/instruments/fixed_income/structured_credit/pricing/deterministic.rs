@@ -15,7 +15,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, ScheduleBuilder,
+    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, ScheduleBuilder, StubKind,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -97,6 +97,7 @@ pub fn run_simulation(
     // seasoned deals valued between payment dates.
     let schedule = ScheduleBuilder::new(instrument.first_payment_date, instrument.maturity)?
         .frequency(instrument.frequency)
+        .stub_rule(StubKind::ShortBack)
         .build()?;
 
     let mut adjusted_schedule = schedule;

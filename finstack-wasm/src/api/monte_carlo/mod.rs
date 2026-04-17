@@ -348,6 +348,7 @@ mod tests {
             percentile_75: None,
             min: None,
             max: None,
+            num_skipped: 0,
         };
         let js = McResultJs::from_estimate(&est);
         assert!((js.mean - 10.0).abs() < 1e-12);

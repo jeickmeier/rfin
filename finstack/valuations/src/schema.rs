@@ -36,11 +36,13 @@ macro_rules! with_instrument_schema_registry {
             "basket" => "../schemas/instruments/1/exotics/basket.schema.json";
             "bond" => "../schemas/instruments/1/fixed_income/bond.schema.json";
             "bond_future" => "../schemas/instruments/1/fixed_income/bond_future.schema.json";
+            "callable_range_accrual" => "../schemas/instruments/1/rates/callable_range_accrual.schema.json";
             "cds_index" => "../schemas/instruments/1/credit_derivatives/cds_index.schema.json";
             "cds_option" => "../schemas/instruments/1/credit_derivatives/cds_option.schema.json";
             "cds_tranche" => "../schemas/instruments/1/credit_derivatives/cds_tranche.schema.json";
             "cliquet_option" => "../schemas/instruments/1/equity/cliquet_option.schema.json";
             "cms_option" => "../schemas/instruments/1/rates/cms_option.schema.json";
+            "cms_spread_option" => "../schemas/instruments/1/rates/cms_spread_option.schema.json";
             "cms_swap" => "../schemas/instruments/1/rates/cms_swap.schema.json";
             "commodity_asian_option" => "../schemas/instruments/1/commodity/commodity_asian_option.schema.json";
             "commodity_forward" => "../schemas/instruments/1/commodity/commodity_forward.schema.json";
@@ -81,8 +83,10 @@ macro_rules! with_instrument_schema_registry {
             "real_estate_asset" => "../schemas/instruments/1/equity/real_estate_asset.schema.json";
             "repo" => "../schemas/instruments/1/rates/repo.schema.json";
             "revolving_credit" => "../schemas/instruments/1/fixed_income/revolving_credit.schema.json";
+            "snowball" => "../schemas/instruments/1/rates/snowball.schema.json";
             "structured_credit" => "../schemas/instruments/1/fixed_income/structured_credit.schema.json";
             "swaption" => "../schemas/instruments/1/rates/swaption.schema.json";
+            "tarn" => "../schemas/instruments/1/rates/tarn.schema.json";
             "term_loan" => "../schemas/instruments/1/fixed_income/term_loan.schema.json";
             "trs_equity" => "../schemas/instruments/1/equity/trs_equity.schema.json";
             "trs_fixed_income_index" => "../schemas/instruments/1/fixed_income/trs_fixed_income_index.schema.json";

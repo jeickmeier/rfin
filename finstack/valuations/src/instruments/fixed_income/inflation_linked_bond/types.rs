@@ -694,6 +694,9 @@ impl InflationLinkedBond {
 
     /// Calculate real accrued interest at the given date
     fn accrued_real_interest(&self, as_of: Date) -> Result<f64> {
+        if self.issue_date >= self.maturity {
+            return Ok(0.0);
+        }
         // Reconstruct the date schedule
         let sched = crate::cashflow::builder::build_dates(
             self.issue_date,
@@ -754,6 +757,9 @@ impl InflationLinkedBond {
     /// Cashflows with `payment_date < as_of` are excluded (already settled).
     /// The principal payment date is business-day adjusted via the bond's BDC.
     pub(crate) fn build_real_schedule(&self, as_of: Date) -> Result<DatedFlows> {
+        if self.issue_date >= self.maturity {
+            return Ok(vec![]);
+        }
         let cal_id = self
             .calendar_id
             .as_deref()
@@ -1003,6 +1009,17 @@ impl CashflowProvider for InflationLinkedBond {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
+        if self.issue_date >= self.maturity {
+            return Ok(crate::cashflow::builder::CashFlowSchedule::from_parts(
+                Vec::new(),
+                crate::cashflow::builder::Notional::par(
+                    self.notional.amount(),
+                    self.notional.currency(),
+                ),
+                self.day_count,
+                Default::default(),
+            ));
+        }
         let inflation_source = self.inflation_source(curves)?;
         let sched = crate::cashflow::builder::build_dates(
             self.issue_date,

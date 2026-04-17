@@ -490,6 +490,10 @@ impl CDSIndex {
 impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
     impl_instrument_base!(crate::pricer::InstrumentType::CDSIndex);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::HazardRate
+    }
+
     fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }

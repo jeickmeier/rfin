@@ -238,7 +238,7 @@ impl Default for CDSTranchePricerConfig {
             mid_period_protection: true, // ISDA standard
             accrual_on_default_enabled: true,
             aod_allocation_fraction: DEFAULT_AOD_ALLOCATION_FRACTION,
-            schedule_stub: StubKind::None,
+            schedule_stub: StubKind::ShortFront,
             use_isda_coupon_dates: false,
             index_settlement_lag: DEFAULT_INDEX_SETTLEMENT_LAG,
             bespoke_settlement_lag: DEFAULT_BESPOKE_SETTLEMENT_LAG,

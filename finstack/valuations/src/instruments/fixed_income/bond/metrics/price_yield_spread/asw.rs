@@ -442,6 +442,11 @@ impl MetricCalculator for AssetSwapParCalculator {
         // Market standard: Par swap rate via discount ratio on the ASW fixed-leg
         // schedule. By default this matches the bond schedule; callers may
         // override fixed-leg conventions via AssetSwapConfig.
+        if context.as_of >= maturity {
+            return Err(finstack_core::Error::Validation(
+                "ASW par calculation requires at least two fixed-leg schedule dates".to_string(),
+            ));
+        }
         let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)?
             .frequency(freq)
             .stub_rule(stub);
@@ -616,6 +621,11 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             .as_deref()
             .or(bond_calendar_id);
 
+        if context.as_of >= maturity {
+            return Err(finstack_core::Error::Validation(
+                "ASW market calculation requires at least two fixed-leg schedule dates".to_string(),
+            ));
+        }
         let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)?
             .frequency(freq)
             .stub_rule(stub);
