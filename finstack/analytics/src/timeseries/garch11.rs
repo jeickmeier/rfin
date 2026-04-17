@@ -40,21 +40,23 @@ impl GarchModel for Garch11 {
             return;
         }
 
+        let mu = params.mean;
         let sigma2_0 = params.unconditional_variance().unwrap_or_else(|| {
             let n = returns.len() as f64;
-            returns.iter().map(|r| r * r).sum::<f64>() / n
+            returns.iter().map(|r| (r - mu).powi(2)).sum::<f64>() / n
         });
 
-        // First observation uses sigma2_0 as the "previous" variance
-        // and the first return as the "previous" shock (or we use sigma2_0
-        // as the first conditional variance).
-        sigma2_out[0] = params.omega + params.alpha * returns[0].powi(2) + params.beta * sigma2_0;
-        // Ensure positivity
-        sigma2_out[0] = sigma2_out[0].max(1e-20);
+        // Standard GARCH convention: sigma^2_0 is the unconditional
+        // variance, and sigma^2_t = omega + alpha*eps_{t-1}^2 + beta*sigma^2_{t-1}
+        // for t >= 1. This keeps the filter non-anticipating (sigma^2_t
+        // depends on information strictly before t) and matches the
+        // EGARCH / GJR convention in this crate.
+        sigma2_out[0] = sigma2_0.max(1e-20);
 
         for t in 1..returns.len() {
+            let eps_prev = returns[t - 1] - mu;
             sigma2_out[t] = params.omega
-                + params.alpha * returns[t - 1].powi(2)
+                + params.alpha * eps_prev * eps_prev
                 + params.beta * sigma2_out[t - 1];
             sigma2_out[t] = sigma2_out[t].max(1e-20);
         }
@@ -68,6 +70,7 @@ impl GarchModel for Garch11 {
 
         let mut sigma2 = vec![0.0; n];
         self.filter(returns, params, &mut sigma2);
+        let mu = params.mean;
 
         let mut ll = 0.0;
         for t in 0..n {
@@ -75,7 +78,8 @@ impl GarchModel for Garch11 {
             if s2 <= 0.0 || !s2.is_finite() {
                 return f64::NEG_INFINITY;
             }
-            let z = returns[t] / s2.sqrt();
+            // Standardised residual on the demeaned innovation.
+            let z = (returns[t] - mu) / s2.sqrt();
             ll += -0.5 * s2.ln() + dist.log_pdf(z);
         }
 
@@ -162,8 +166,11 @@ mod tests {
 
     #[test]
     fn filter_known_data() {
-        // Hand-verify the GARCH(1,1) filter on a short series
+        // Hand-verify the GARCH(1,1) filter on a short series under the
+        // standard non-anticipating convention: sigma^2_0 = unconditional,
+        // sigma^2_t uses eps_{t-1} for t >= 1.
         let returns = [0.01, -0.02, 0.015, -0.01, 0.005];
+        let mu = 0.0; // params.mean defaults to 0 in this hand-constructed case
         let params = GarchParams {
             omega: 0.00001,
             alpha: 0.1,
@@ -171,25 +178,25 @@ mod tests {
             gamma: None,
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Garch11,
+            mean: mu,
         };
 
         let mut sigma2 = vec![0.0; 5];
         Garch11.filter(&returns, &params, &mut sigma2);
 
-        // Check unconditional variance
         let uncond = params.omega / (1.0 - params.alpha - params.beta);
 
-        // First: sigma2[0] = omega + alpha * r[0]^2 + beta * uncond
-        let expected_0 = params.omega + params.alpha * 0.01_f64.powi(2) + params.beta * uncond;
+        // sigma^2_0 = unconditional (no prior data used).
         assert!(
-            (sigma2[0] - expected_0).abs() < 1e-12,
-            "sigma2[0]={}, expected={}",
+            (sigma2[0] - uncond).abs() < 1e-12,
+            "sigma2[0]={}, expected uncond={}",
             sigma2[0],
-            expected_0
+            uncond
         );
 
-        // Second: sigma2[1] = omega + alpha * r[0]^2 + beta * sigma2[0]
-        let expected_1 = params.omega + params.alpha * returns[0].powi(2) + params.beta * sigma2[0];
+        // sigma^2_1 = omega + alpha * (r_0 - mu)^2 + beta * sigma^2_0
+        let eps_0 = returns[0] - mu;
+        let expected_1 = params.omega + params.alpha * eps_0 * eps_0 + params.beta * sigma2[0];
         assert!(
             (sigma2[1] - expected_1).abs() < 1e-12,
             "sigma2[1]={}, expected={}",
@@ -197,7 +204,7 @@ mod tests {
             expected_1
         );
 
-        // All variances should be positive
+        // All variances positive.
         for &s in &sigma2 {
             assert!(s > 0.0);
         }
@@ -212,6 +219,7 @@ mod tests {
             gamma: None,
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Garch11,
+            mean: 0.0,
         };
         assert!(params.persistence() < 1.0);
         assert!(params.unconditional_variance().is_some());
@@ -227,6 +235,7 @@ mod tests {
             gamma: None,
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Garch11,
+            mean: 0.0,
         };
         assert!(params.persistence() > 1.0);
         assert!(params.unconditional_variance().is_none());
@@ -243,6 +252,7 @@ mod tests {
                 gamma: None,
                 dist: InnovationDist::Gaussian,
                 family: super::super::garch::GarchFamily::Garch11,
+                mean: 0.0,
             },
             std_errors: None,
             log_likelihood: -1000.0,

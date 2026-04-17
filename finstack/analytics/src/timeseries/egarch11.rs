@@ -47,32 +47,31 @@ impl GarchModel for Egarch11 {
 
         let gamma = params.gamma.unwrap_or(0.0);
         let e_abs_z = params.dist.expected_abs();
+        let mu = params.mean;
 
-        // Initialize from unconditional log-variance: omega / (1 - beta)
+        // Initialise from unconditional log-variance: omega / (1 - beta).
         let beta_abs = params.beta.abs();
         let ln_sigma2_0 = if beta_abs < 1.0 {
             params.omega / (1.0 - params.beta)
         } else {
-            // Fallback: use log of sample variance
             let n = returns.len() as f64;
-            let sv = returns.iter().map(|r| r * r).sum::<f64>() / n;
+            let sv = returns.iter().map(|r| (r - mu).powi(2)).sum::<f64>() / n;
             sv.max(1e-20).ln()
         };
 
-        let mut ln_sigma2 = ln_sigma2_0;
+        // t = 0: sigma^2_0 = unconditional (no prior observation).
+        sigma2_out[0] = ln_sigma2_0.clamp(-50.0, 50.0).exp();
 
-        for t in 0..returns.len() {
-            if t > 0 {
-                let sigma_prev = sigma2_out[t - 1].max(1e-20).sqrt();
-                let z = returns[t - 1] / sigma_prev;
-                ln_sigma2 = params.omega
-                    + params.alpha * (z.abs() - e_abs_z)
-                    + gamma * z
-                    + params.beta * sigma2_out[t - 1].max(1e-20).ln();
-            }
-            // Clamp log-variance to avoid overflow/underflow
-            ln_sigma2 = ln_sigma2.clamp(-50.0, 50.0);
-            sigma2_out[t] = ln_sigma2.exp();
+        // t >= 1: z_{t-1} is the standardised *demeaned* residual.
+        for t in 1..returns.len() {
+            let eps_prev = returns[t - 1] - mu;
+            let sigma_prev = sigma2_out[t - 1].max(1e-20).sqrt();
+            let z = eps_prev / sigma_prev;
+            let ln_sigma2 = params.omega
+                + params.alpha * (z.abs() - e_abs_z)
+                + gamma * z
+                + params.beta * sigma2_out[t - 1].max(1e-20).ln();
+            sigma2_out[t] = ln_sigma2.clamp(-50.0, 50.0).exp();
         }
     }
 
@@ -84,6 +83,7 @@ impl GarchModel for Egarch11 {
 
         let mut sigma2 = vec![0.0; n];
         self.filter(returns, params, &mut sigma2);
+        let mu = params.mean;
 
         let mut ll = 0.0;
         for t in 0..n {
@@ -91,7 +91,7 @@ impl GarchModel for Egarch11 {
             if s2 <= 0.0 || !s2.is_finite() {
                 return f64::NEG_INFINITY;
             }
-            let z = returns[t] / s2.sqrt();
+            let z = (returns[t] - mu) / s2.sqrt();
             ll += -0.5 * s2.ln() + dist.log_pdf(z);
         }
 
@@ -198,6 +198,7 @@ mod tests {
             gamma: Some(-0.05),
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Egarch11,
+            mean: 0.0,
         };
 
         let mut sigma2 = vec![0.0; returns.len()];
@@ -219,6 +220,7 @@ mod tests {
             gamma: Some(-0.10),
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Egarch11,
+            mean: 0.0,
         };
 
         // Positive shock series

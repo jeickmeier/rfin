@@ -1,9 +1,26 @@
-//! Multi-factor Gaussian copula with sector structure.
+//! Multi-factor Gaussian copula: global + one shared sector factor.
 //!
-//! Extends single-factor to capture sector-specific correlation effects.
-//! Useful for bespoke portfolios with industry concentration.
+//! # Current Implementation Scope
 //!
-//! # Mathematical Model
+//! **This implementation does not currently resolve per-name sector
+//! assignments.** The [`Copula`] trait methods
+//! ([`Copula::conditional_default_prob`] and [`Copula::integrate_fn`]) do not
+//! take a sector index argument, and the integration is performed over a
+//! single `(Z_G, Z_S)` pair that is *shared* by every name in the portfolio.
+//!
+//! As a result, the model is mathematically equivalent to a reparameterized
+//! two-factor Gaussian copula in which every entity has the same global and
+//! sector loadings (`β_G`, `β_S`) and every pair of entities exhibits the same
+//! pairwise correlation `ρᵢⱼ = β_G² + β_S²`. The doc strings on
+//! [`MultiFactorCopula::inter_sector_correlation`] and
+//! [`MultiFactorCopula::intra_sector_correlation`] therefore describe the
+//! parameter structure, not a realized per-name sector effect.
+//!
+//! Treat the accessors as the correlation that *would* apply under a
+//! per-name-sector extension, and use [`Copula::num_factors`] = 2 as a signal
+//! that the caller is supplying `[Z_G, Z_S]` rather than a per-name sector id.
+//!
+//! # Mathematical Model (target, not fully realized in this release)
 //!
 //! Latent variable for entity i with sector s(i):
 //! ```text
@@ -17,18 +34,22 @@
 //! - β_G is the global loading, β_S is the sector loading
 //! - γᵢ = √(1 - β_G² - β_S²) is the idiosyncratic loading
 //!
-//! # Correlation Structure
+//! # Target Correlation Structure
 //!
 //! ```text
 //! ρᵢⱼ = β_G² + β_S² · 1{s(i)=s(j)}  (same sector)
 //! ρᵢⱼ = β_G²                          (different sectors)
 //! ```
 //!
-//! # Use Cases
+//! In the current implementation, all names behave as if they belong to the
+//! same sector, so the realized pairwise correlation is always the intra-sector
+//! value. A future extension will need a sector-indexed conditional-PD API so
+//! pairs in different sectors correctly see only `β_G²`.
 //!
-//! - Bespoke CDOs with sector concentration
-//! - Portfolios with industry clustering
-//! - Risk decomposition into systematic vs. sector risk
+//! # Use Cases (current scope)
+//!
+//! - Sensitivity analysis with a two-factor decomposition of correlation
+//! - A placeholder for forthcoming per-name sector support in bespoke CDOs
 //!
 //! # References
 //!
@@ -188,25 +209,31 @@ impl MultiFactorCopula {
         copula
     }
 
-    /// Get the inter-sector correlation (global factor only).
+    /// Get the parameter-level inter-sector correlation (β_G²).
     ///
-    /// Returns β_G² where β_G is the global factor loading.
+    /// Returns the correlation `β_G²` that would apply to a pair of names in
+    /// different sectors under the intended multi-factor model. See the module
+    /// documentation: this implementation does not currently resolve per-name
+    /// sector assignments, so every simulated pair behaves as
+    /// [`Self::intra_sector_correlation`] regardless of this value.
     ///
     /// # Returns
     ///
-    /// The implied correlation between names in different sectors.
+    /// The implied *parameter* correlation for cross-sector pairs, `β_G²`.
     #[must_use]
     pub fn inter_sector_correlation(&self) -> f64 {
         self.default_global_loading * self.default_global_loading
     }
 
-    /// Get the intra-sector correlation (global + sector factors).
+    /// Get the parameter-level intra-sector correlation (β_G² + β_S²).
     ///
-    /// Returns β_G² + β_S² where β_G is global and β_S is sector loading.
+    /// This is the realized pairwise correlation produced by the current
+    /// implementation for *every* pair of names (see module docs — sector
+    /// resolution is not wired through the [`Copula`] trait yet).
     ///
     /// # Returns
     ///
-    /// The implied correlation between names in the same sector.
+    /// The implied correlation between names in the same sector, `β_G² + β_S²`.
     #[must_use]
     pub fn intra_sector_correlation(&self) -> f64 {
         let gl = self.default_global_loading;

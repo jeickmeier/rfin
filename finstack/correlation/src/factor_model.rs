@@ -137,7 +137,17 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> Error {
     match cholesky_decompose(matrix, n) {
         Err(Error::NotPositiveSemiDefinite { row }) => Error::NotPositiveSemiDefinite { row },
         Err(err) => err,
-        Ok(_) => Error::NotPositiveSemiDefinite { row: 0 },
+        Ok(_) => {
+            // Core validation rejected the matrix but every local check passed
+            // and the pivoted Cholesky now succeeds. This should be vanishingly
+            // rare (e.g. tolerance mismatch between core and this crate), but
+            // we prefer a loud signal over silently mislabeling the failure.
+            tracing::warn!(
+                n,
+                "classify_correlation_error: core rejected matrix but local checks and cholesky_decompose both succeeded; defaulting to NotPositiveSemiDefinite{{row=0}}"
+            );
+            Error::NotPositiveSemiDefinite { row: 0 }
+        }
     }
 }
 
@@ -597,15 +607,18 @@ impl FactorModel for TwoFactorModel {
     }
 
     fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64 {
-        // For two independent standard normals z1, z2:
-        // Factor 1 = z1 * prepay_vol
-        // Factor 2 = (ρ * z1 + √(1-ρ²) * z2) * credit_vol
+        // Returns the *diagonal* Cholesky contribution `L[i,i] · z · vol[i]`,
+        // matching the trait contract used by MultiFactorModel. The caller is
+        // responsible for combining this with the off-diagonal contribution
+        // (use `cholesky_l10` / `cholesky_l11`) or invoking
+        // `TwoFactorModel::generate_correlated_factors_into`.
         //
-        // This function returns the factor value for a single z draw
-        // Caller should provide correlated z values for factor 2
+        // For the 2×2 correlation matrix:
+        //   L[0,0] = 1
+        //   L[1,1] = √(1 − ρ²)
         match factor_index {
             0 => z * self.prepay_vol,
-            1 => z * self.credit_vol,
+            1 => self.cholesky_l11 * z * self.credit_vol,
             _ => 0.0,
         }
     }
@@ -698,12 +711,16 @@ impl MultiFactorModel {
     ) -> Result<Self> {
         let n = num_factors.max(1);
 
-        // Validate or create default volatilities
-        let vols = if volatilities.len() == n {
-            volatilities.iter().map(|v| v.clamp(0.01, 10.0)).collect()
-        } else {
-            vec![1.0; n]
-        };
+        // Validate volatilities length: previously a mismatch silently replaced
+        // the caller's vector with unit volatilities, which hid serious
+        // misconfiguration (wrong vol magnitudes flowing into pricing).
+        if volatilities.len() != n {
+            return Err(Error::VolatilityLengthMismatch {
+                expected: n,
+                actual: volatilities.len(),
+            });
+        }
+        let vols: Vec<f64> = volatilities.iter().map(|v| v.clamp(0.01, 10.0)).collect();
 
         // Validate correlation matrix
         if correlations.len() != n * n {
@@ -740,6 +757,11 @@ impl MultiFactorModel {
         let vols = if volatilities.len() == n {
             volatilities.iter().map(|v| v.clamp(0.01, 10.0)).collect()
         } else {
+            tracing::warn!(
+                expected = n,
+                actual = volatilities.len(),
+                "MultiFactorModel::uncorrelated: volatility length mismatch; falling back to unit volatilities"
+            );
             vec![1.0; n]
         };
 
@@ -908,10 +930,29 @@ mod tests {
 
     #[test]
     fn test_diagonal_factor_contribution_two_factor_credit_uses_diagonal_loading() {
-        let model = TwoFactorModel::new(0.20, 0.30, -0.30);
+        // Regression: the diagonal credit contribution must include the L[1,1]
+        // Cholesky factor √(1 − ρ²). Previously this returned z · credit_vol,
+        // double-counting the systematic component when combined with the
+        // correlated draw path.
+        let rho: f64 = -0.30;
+        let credit_vol: f64 = 0.30;
+        let model = TwoFactorModel::new(0.20, credit_vol, rho);
 
-        let factor = model.diagonal_factor_contribution(1, 2.0);
-        assert!((factor - 0.6).abs() < 1e-10);
+        let z = 2.0;
+        let expected = z * credit_vol * (1.0 - rho * rho).sqrt();
+        let factor = model.diagonal_factor_contribution(1, z);
+        assert!(
+            (factor - expected).abs() < 1e-10,
+            "diagonal credit contribution: expected {expected}, got {factor}"
+        );
+    }
+
+    #[test]
+    fn test_diagonal_factor_contribution_two_factor_prepay_unchanged() {
+        // Prepayment is factor 0; L[0,0] = 1 so the contribution is z · vol.
+        let model = TwoFactorModel::new(0.20, 0.30, -0.30);
+        let factor = model.diagonal_factor_contribution(0, 1.5);
+        assert!((factor - 0.30).abs() < 1e-10);
     }
 
     #[test]
@@ -1116,6 +1157,25 @@ mod tests {
             .expect_err("invalid matrices should no longer silently fall back");
 
         assert!(matches!(err, Error::NotSymmetric { .. }));
+    }
+
+    #[test]
+    fn test_multi_factor_volatility_length_mismatch_returns_error() {
+        // Regression: previously the caller's vols were silently replaced with
+        // unit volatilities. Now it surfaces as an explicit error variant so
+        // config-driven workflows can fail loudly.
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let wrong_vols = vec![0.2, 0.3, 0.4]; // len 3, but num_factors = 2
+        let err = MultiFactorModel::new(2, wrong_vols, corr)
+            .expect_err("mismatched vol length should be reported");
+
+        assert!(matches!(
+            err,
+            Error::VolatilityLengthMismatch {
+                expected: 2,
+                actual: 3,
+            }
+        ));
     }
 
     #[test]

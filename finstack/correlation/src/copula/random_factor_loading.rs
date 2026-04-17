@@ -8,13 +8,21 @@
 //!
 //! The factor loading β is random rather than fixed:
 //! ```text
-//! β ~ N(β̄, σ²_β)
+//! β ~ N(β̄, σ²_β)      (truncated to [0.01, 0.99])
 //! Aᵢ = β · Z + √(1-β²) · εᵢ
 //! ```
 //!
-//! This means effective correlation ρ = β² is stochastic, with:
+//! This means effective correlation ρ(β) = β² is stochastic, with:
 //! - Higher realized correlation in stress (β further from 0)
 //! - Lower realized correlation in calm markets
+//!
+//! # Parameterization
+//!
+//! The `correlation` argument is treated as the **realized pairwise
+//! correlation**: E[β²] = ρ. Since E[β²] = β̄² + σ²_β (pre-clamping), we pick
+//! β̄ = √max(ρ − σ²_β, 0). When σ²_β > ρ, β̄ is floored at 0 and the realized
+//! correlation becomes σ²_β, which exceeds the requested ρ; this is reported
+//! via the debug log and is an expected limit of the RFL parameterization.
 //!
 //! # Integration Approach
 //!
@@ -196,8 +204,13 @@ impl Copula for RandomFactorLoadingCopula {
         let z = factor_realization.first().copied().unwrap_or(0.0);
         let eta = factor_realization.get(1).copied().unwrap_or(0.0);
 
-        // Mean loading from correlation: β̄ = √ρ
-        let mean_loading = correlation.clamp(0.0, 1.0).sqrt();
+        // Mean loading chosen so the realized pairwise correlation equals ρ:
+        //   E[β²] = β̄² + σ²_β (ignoring clamping) ⇒ β̄ = √max(ρ − σ²_β, 0).
+        // When σ²_β > ρ, β̄ is floored at 0 and the model’s realized
+        // correlation is σ²_β > ρ; this is documented in the module header.
+        let rho = correlation.clamp(0.0, 1.0);
+        let variance_of_loading = self.loading_volatility * self.loading_volatility;
+        let mean_loading = (rho - variance_of_loading).max(0.0).sqrt();
         let beta = self.effective_loading(mean_loading, eta);
         let gamma = self.idiosyncratic_loading(beta);
 
@@ -241,7 +254,10 @@ impl Copula for RandomFactorLoadingCopula {
         }
 
         let rho = correlation.clamp(0.0, 1.0);
-        let mean_loading = rho.sqrt();
+        let variance_of_loading = self.loading_volatility * self.loading_volatility;
+        // Use the same β̄ parameterization as conditional_default_prob so the
+        // unconditional correlation reference (β̄² + σ²_β ≈ ρ) is consistent.
+        let mean_loading = (rho - variance_of_loading).max(0.0).sqrt();
 
         // Stress scenario: β̄ + 2σ_β (same tail reference as before: η = 2).
         let beta_stress = (mean_loading + 2.0 * self.loading_volatility).min(MAX_LOADING);
@@ -361,6 +377,23 @@ mod tests {
         assert_eq!(copula.tail_dependence(0.0), 0.0);
         assert_eq!(copula.tail_dependence(0.5), 0.0);
         assert_eq!(copula.tail_dependence(0.99), 0.0);
+    }
+
+    #[test]
+    fn test_realized_correlation_matches_input() {
+        // Regression: the `correlation` argument is defined as the realized
+        // pairwise correlation E[β²]. We verify β̄² + σ²_β ≈ ρ for a range of
+        // (ρ, σ_β) pairs where the non-negativity floor is not engaged.
+        let cases = [(0.30_f64, 0.15_f64), (0.50, 0.20), (0.15, 0.10)];
+        for &(rho, sigma) in &cases {
+            let var = sigma * sigma;
+            let mean_loading = (rho - var).max(0.0).sqrt();
+            let realized = mean_loading * mean_loading + var;
+            assert!(
+                (realized - rho).abs() < 1e-12,
+                "σ_β={sigma}, ρ={rho}: realized E[β²]={realized} should equal ρ"
+            );
+        }
     }
 
     #[test]

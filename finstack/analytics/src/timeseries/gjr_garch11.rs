@@ -46,22 +46,21 @@ impl GarchModel for GjrGarch11 {
         }
 
         let gamma = params.gamma.unwrap_or(0.0);
+        let mu = params.mean;
 
         let sigma2_0 = params.unconditional_variance().unwrap_or_else(|| {
             let n = returns.len() as f64;
-            returns.iter().map(|r| r * r).sum::<f64>() / n
+            returns.iter().map(|r| (r - mu).powi(2)).sum::<f64>() / n
         });
 
-        // First observation
-        let e2 = returns[0].powi(2);
-        let indicator = if returns[0] < 0.0 { 1.0 } else { 0.0 };
-        sigma2_out[0] =
-            params.omega + (params.alpha + gamma * indicator) * e2 + params.beta * sigma2_0;
-        sigma2_out[0] = sigma2_out[0].max(1e-20);
+        // Standard GARCH convention: sigma^2_0 = unconditional. For t >= 1
+        // the GJR leverage indicator triggers on the demeaned residual.
+        sigma2_out[0] = sigma2_0.max(1e-20);
 
         for t in 1..returns.len() {
-            let e2 = returns[t - 1].powi(2);
-            let indicator = if returns[t - 1] < 0.0 { 1.0 } else { 0.0 };
+            let eps_prev = returns[t - 1] - mu;
+            let e2 = eps_prev * eps_prev;
+            let indicator = if eps_prev < 0.0 { 1.0 } else { 0.0 };
             sigma2_out[t] = params.omega
                 + (params.alpha + gamma * indicator) * e2
                 + params.beta * sigma2_out[t - 1];
@@ -77,6 +76,7 @@ impl GarchModel for GjrGarch11 {
 
         let mut sigma2 = vec![0.0; n];
         self.filter(returns, params, &mut sigma2);
+        let mu = params.mean;
 
         let mut ll = 0.0;
         for t in 0..n {
@@ -84,7 +84,7 @@ impl GarchModel for GjrGarch11 {
             if s2 <= 0.0 || !s2.is_finite() {
                 return f64::NEG_INFINITY;
             }
-            let z = returns[t] / s2.sqrt();
+            let z = (returns[t] - mu) / s2.sqrt();
             ll += -0.5 * s2.ln() + dist.log_pdf(z);
         }
 
@@ -190,6 +190,7 @@ mod tests {
             gamma: Some(0.10),
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::GjrGarch11,
+            mean: 0.0,
         };
 
         // Compare effect of positive vs negative return
@@ -219,6 +220,7 @@ mod tests {
             gamma: Some(0.0),
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::GjrGarch11,
+            mean: 0.0,
         };
         let params_garch = GarchParams {
             omega: 0.00001,
@@ -227,6 +229,7 @@ mod tests {
             gamma: None,
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Garch11,
+            mean: 0.0,
         };
 
         let returns = [0.01, -0.02, 0.015, -0.01, 0.005];
@@ -256,6 +259,7 @@ mod tests {
             gamma: Some(0.10),
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::GjrGarch11,
+            mean: 0.0,
         };
         // GJR persistence: alpha + beta + gamma/2 = 0.05 + 0.85 + 0.05 = 0.95
         assert!((params.persistence() - 0.95).abs() < 1e-12);
@@ -275,6 +279,7 @@ mod tests {
             gamma: Some(-0.05),
             dist: InnovationDist::Gaussian,
             family: super::super::garch::GarchFamily::Egarch11,
+            mean: 0.0,
         };
         assert!((params.persistence() - 0.95).abs() < 1e-12);
         // Simple unconditional variance is not well-defined for EGARCH; must be None.

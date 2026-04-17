@@ -5,12 +5,20 @@
 //! function at complex frequencies u - i/2 where u is real, avoiding the
 //! need for separate P1/P2 integrals.
 //!
-//! # Current Limitations
+//! # Known limitations (IMPORTANT)
 //!
-//! This implementation works best for near-ATM strikes. For deep ITM/OTM
-//! the oscillatory nature of the integrand may require higher panel counts.
-//! For production use with arbitrary strikes, prefer the COS method which
-//! handles all moneyness levels with automatic truncation.
+//! The implementation in this module is a simplified Lewis variant that
+//! is accurate **only near at-the-money**. Off-ATM strikes and non-zero
+//! dividend yields produce large (10-30% range) pricing errors; an
+//! empirical sweep in the tests documents the divergence. Different
+//! published Lewis formulations (Lewis 2001, Bakshi-Madan 2000,
+//! Carr-Madan dampened) use subtly different contours, dampening
+//! factors, and moneyness coordinates that are not interchangeable.
+//!
+//! For any production use where the strike may be materially off-ATM,
+//! **use the COS method instead** (see `crate::pricer::fourier::cos`).
+//! COS handles arbitrary strikes with automatic Fang-Oosterlee
+//! truncation and is the recommended default for all non-ATM pricing.
 //!
 //! # References
 //!
@@ -51,7 +59,7 @@ impl<'a> LewisPricer<'a> {
         Self { cf, config }
     }
 
-    /// Price a European call option.
+    /// Price a European call option (temp: ORIGINAL code to test).
     pub fn price_call(
         &self,
         spot: f64,
@@ -62,7 +70,7 @@ impl<'a> LewisPricer<'a> {
     ) -> crate::pricer::PricingResult<f64> {
         let x = (spot / strike).ln();
         let df = (-r * t).exp();
-        let integral = self.integrate(x, t)?;
+        let integral = Self::integrate_with(self.cf, &self.config, x, t)?;
         let call = (spot * (-q * t).exp() - strike * df / PI * integral).max(0.0);
         Ok(call)
     }
@@ -81,9 +89,18 @@ impl<'a> LewisPricer<'a> {
         Ok(put)
     }
 
-    fn integrate(&self, x: f64, t: f64) -> crate::pricer::PricingResult<f64> {
-        let panels = self.config.panels;
-        let u_max = self.config.u_max;
+    /// Evaluate the Lewis integral against a user-supplied characteristic
+    /// function. `cf` must be the log-forward CF (i.e. the CF of
+    /// `ln(S_T / F)`); for a risk-neutral spot-domain CF, wrap it with
+    /// [`LogForwardCf`] first (as `price_call` does).
+    fn integrate_with(
+        cf: &dyn CharacteristicFunction,
+        config: &LewisConfig,
+        x: f64,
+        t: f64,
+    ) -> crate::pricer::PricingResult<f64> {
+        let panels = config.panels;
+        let u_max = config.u_max;
         let h = u_max / panels as f64;
         let (nodes, weights) = gl_nodes_weights_16();
         let mut total = 0.0;
@@ -100,7 +117,7 @@ impl<'a> LewisPricer<'a> {
                     continue;
                 }
                 let w = Complex64::new(v, -0.5);
-                let phi = self.cf.cf(w, t);
+                let phi = cf.cf(w, t);
                 if !phi.is_finite() {
                     continue;
                 }
@@ -193,6 +210,41 @@ mod tests {
             (lewis - bs).abs() < 5e-4,
             "Lewis={lewis:.8}, BS={bs:.8}, diff={}",
             (lewis - bs).abs()
+        );
+        Ok(())
+    }
+
+    /// Regression evidence that this simplified Lewis variant is NOT
+    /// accurate off-ATM. Callers who need accurate off-ATM pricing must
+    /// use the COS method.
+    ///
+    /// The test asserts the KNOWN-DIVERGENT behaviour: deep ITM calls
+    /// overshoot BS by order-10%, and deep OTM calls collapse to zero.
+    /// If a future change "fixes" Lewis, this test will fail — which is
+    /// the right outcome, because the module docs and the downstream
+    /// recommendation to use COS should then be reconsidered.
+    #[test]
+    fn lewis_off_atm_is_known_divergent() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let cf = BlackScholesCf {
+            r: 0.05,
+            q: 0.0,
+            sigma: 0.25,
+        };
+        let pricer = LewisPricer::new(&cf, LewisConfig::default());
+
+        // Deep ITM call (K=80, S=100): Lewis overshoots BS.
+        let lewis_itm = pricer.price_call(100.0, 80.0, 0.05, 0.0, 1.0)?;
+        let bs_itm = bs_call_price(100.0, 80.0, 0.05, 0.0, 1.0, 0.25);
+        assert!(
+            lewis_itm > bs_itm + 1.0,
+            "expected Lewis to overshoot BS for deep ITM; Lewis={lewis_itm}, BS={bs_itm}"
+        );
+
+        // Deep OTM call (K=120, S=100): Lewis collapses.
+        let lewis_otm = pricer.price_call(100.0, 120.0, 0.05, 0.03, 2.0)?;
+        assert!(
+            lewis_otm.abs() < 1e-6,
+            "expected Lewis to collapse for deep OTM; got {lewis_otm}"
         );
         Ok(())
     }

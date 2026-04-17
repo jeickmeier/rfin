@@ -246,17 +246,21 @@ pub fn classify_stage(
         });
     }
 
-    // If any Stage 2 trigger fired, classify as Stage 2
+    // If any Stage 2 trigger fired, classify as Stage 2 — but respect the
+    // Stage 3 -> Stage 2 cure probation. An exposure that was credit-
+    // impaired last period must stay in Stage 3 until it has accumulated
+    // `cure_periods_stage3_to_2` consecutive performing periods; otherwise
+    // the fact that today it "only" exhibits Stage-2 behaviour would let
+    // it bypass probation, which IFRS 9 B5.5.26 / EBA GL on default do
+    // not permit.
     if !triggers.is_empty() {
-        // Check curing: can we step down?
-        if let Some(prev_stage) = &exposure.previous_stage {
-            match prev_stage {
-                Stage::Stage3 => {
-                    // Stage 3 -> Stage 2 curing check: but we already have
-                    // Stage 2 triggers, so stay at Stage 2 (already the
-                    // correct assignment).
-                }
-                _ => {}
+        if let Some(Stage::Stage3) = &exposure.previous_stage {
+            if exposure.consecutive_performing_periods < config.cure_periods_stage3_to_2 {
+                return Ok(StageResult {
+                    stage: Stage::Stage3,
+                    triggers,
+                    cured: false,
+                });
             }
         }
         return Ok(StageResult {
@@ -532,5 +536,45 @@ mod tests {
         let result = classify_stage(&exposure, &curve, &config).unwrap();
         assert_eq!(result.stage, Stage::Stage1);
         assert!(result.cured);
+    }
+
+    /// Regression: if the exposure was Stage 3 last period and today
+    /// shows Stage 2 triggers (e.g. watchlist, PD delta) but has NOT
+    /// accumulated enough performing periods to clear the cure
+    /// probation, the classification must stay Stage 3. Previously the
+    /// code short-circuited to Stage 2 on any trigger hit, bypassing
+    /// probation. IFRS 9 B5.5.26 / EBA GL on default do not permit
+    /// this.
+    #[test]
+    fn test_stage3_probation_blocks_downgrade_to_stage2_via_triggers() {
+        let curve = make_pd_curve();
+        let config = StagingConfig::default();
+        let mut exposure = base_exposure();
+        exposure.previous_stage = Some(Stage::Stage3);
+        exposure.consecutive_performing_periods = 3; // < 6 = cure_periods_stage3_to_2
+        exposure.qualitative_flags.watchlist = true; // fires a Stage-2 trigger
+
+        let result = classify_stage(&exposure, &curve, &config).unwrap();
+        assert_eq!(
+            result.stage,
+            Stage::Stage3,
+            "Stage 3 probation must override Stage 2 triggers"
+        );
+        assert!(!result.cured);
+    }
+
+    /// Sibling test: once probation *is* complete, Stage 2 triggers
+    /// correctly move the exposure to Stage 2.
+    #[test]
+    fn test_stage3_probation_complete_allows_stage2_via_triggers() {
+        let curve = make_pd_curve();
+        let config = StagingConfig::default();
+        let mut exposure = base_exposure();
+        exposure.previous_stage = Some(Stage::Stage3);
+        exposure.consecutive_performing_periods = 6; // == cure_periods_stage3_to_2
+        exposure.qualitative_flags.watchlist = true;
+
+        let result = classify_stage(&exposure, &curve, &config).unwrap();
+        assert_eq!(result.stage, Stage::Stage2);
     }
 }

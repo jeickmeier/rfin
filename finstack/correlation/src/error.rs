@@ -66,4 +66,17 @@ pub enum Error {
         /// Out-of-bounds value.
         value: f64,
     },
+    /// Volatility vector length does not match number of factors.
+    ///
+    /// Returned by validated factor-model constructors when the caller supplies
+    /// a volatility vector whose length disagrees with the declared number of
+    /// factors. Previously the caller's vector was silently dropped and
+    /// replaced with unit volatilities, which masked serious misconfiguration.
+    #[error("Volatility vector length mismatch: expected {expected}, got {actual}")]
+    VolatilityLengthMismatch {
+        /// Expected number of factors.
+        expected: usize,
+        /// Length of the volatility vector supplied by the caller.
+        actual: usize,
+    },
 }

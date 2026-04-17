@@ -119,21 +119,28 @@ uncertainty matters most at the portfolio tail.
 
 #### Multi-Factor Gaussian (`multi_factor.rs`)
 
-Extends the single-factor model with sector-specific factors to capture
-intra-sector vs. inter-sector correlation differences.
+Two-factor Gaussian copula (global + one shared sector factor). Intended as
+a foundation for per-name sector structure; see the limitation note below.
 
-**Latent variable:**
+**Latent variable (target):**
 
 ```
 Aᵢ = β_G · Z_G + β_S(i) · Z_S(i) + γᵢ · εᵢ
 ```
 
-**Correlation structure:**
+**Target correlation structure:**
 
 ```
 ρᵢⱼ = β_G² + β_S²    (same sector)
 ρᵢⱼ = β_G²            (different sectors)
 ```
+
+> **Current limitation.** The `Copula` trait methods do not yet take a
+> per-name sector index; `integrate_fn` integrates over a single `(Z_G, Z_S)`
+> pair shared by all names. As a result the realised pairwise correlation for
+> *every* pair is `β_G² + β_S²` (the intra-sector value).
+> `inter_sector_correlation()` and `intra_sector_correlation()` return the
+> parameter-level values that *would* apply under a per-name sector extension.
 
 | Property            | Value                                              |
 |---------------------|----------------------------------------------------|
@@ -143,8 +150,9 @@ Aᵢ = β_G · Z_G + β_S(i) · Z_S(i) + γᵢ · εᵢ
 | Default loadings    | β_G = 0.4, β_S = 0.3, sector_fraction = 0.4        |
 | Variance constraint | β_G² + β_S² ≤ 1 (enforced via clamping)             |
 
-**Use cases:** Bespoke CDOs with sector concentration, portfolios with industry
-clustering, systematic vs. sector risk decomposition.
+**Use cases:** Sensitivity analysis with a two-factor correlation
+decomposition; placeholder for forthcoming per-name sector support in bespoke
+CDOs.
 
 ### Factor Models (`factor_model.rs`)
 
@@ -313,7 +321,11 @@ let built = spec.build();
 let constant = ConstantRecovery::isda_standard(); // 40%
 let stochastic = CorrelatedRecovery::market_standard(); // μ=40%, σ=25%, ρ=-40%
 let recovery_downside_factor = stochastic.conditional_recovery(2.0); // lower for positive factor shocks
-let lgd = stochastic.lgd(); // 1 - E[R] = 0.60
+// lgd = 1 - E[R(Z)] where E[R(Z)] is computed by Gauss-Hermite quadrature
+// against N(0,1). Due to Jensen's inequality on the logistic-bounded
+// transform, E[R(Z)] differs from the R(0) location parameter (0.40) by a
+// small positive correction; lgd is therefore close to but not exactly 0.60.
+let lgd = stochastic.lgd();
 
 // --- Recovery via spec ---
 let r_spec = RecoverySpec::market_standard_stochastic();

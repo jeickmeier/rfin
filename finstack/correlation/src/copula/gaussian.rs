@@ -177,14 +177,18 @@ impl Copula for GaussianCopula {
         };
         let z = *z;
 
-        // Handle extreme correlation before clamping
+        // Near-zero correlation: fall back to the unconditional PD. This is a
+        // safe approximation because the clamped general formula would still
+        // produce values ε-close to Φ(c) for ρ ≪ 1, and sidestepping the
+        // smoothing avoids a spurious factor dependence at the floor.
         if correlation <= MIN_CORRELATION {
             return norm_cdf(default_threshold);
         }
-        if correlation >= MAX_CORRELATION {
-            return norm_cdf(default_threshold - z);
-        }
 
+        // General formula with smoothing and CDF-argument clipping. The
+        // smoothing clamp (0.99) plus CDF_CLIP gives a stable near-indicator
+        // limit as ρ → 1 — do NOT short-circuit to Φ(c − z), which is off by
+        // roughly 20 orders of magnitude in the tail.
         let rho = self.smooth_correlation(correlation);
         let sqrt_rho = rho.sqrt();
         let sqrt_1mr = (1.0 - rho).sqrt();
@@ -297,11 +301,38 @@ mod tests {
         let prob_low = copula.conditional_default_prob(threshold, &[0.0], 0.001);
         assert!((prob_low - 0.05).abs() < 0.001);
 
-        // Very high correlation should be sensitive to Z
+        // Near-perfect correlation should saturate toward the indicator
+        // 1{z ≥ -c} (i.e. Aᵢ ≈ Z so default iff Z ≤ c = -1.645).
         let prob_high_neg_z = copula.conditional_default_prob(threshold, &[-2.0], 0.99);
         let prob_high_pos_z = copula.conditional_default_prob(threshold, &[2.0], 0.99);
-        assert!(prob_high_neg_z > 0.5); // Should be very high
-        assert!(prob_high_pos_z < 0.01); // Should be very low
+        assert!(
+            prob_high_neg_z > 0.99,
+            "ρ=0.99, z=-2 should be near 1 (default virtually certain), got {prob_high_neg_z}"
+        );
+        assert!(
+            prob_high_pos_z < 1e-6,
+            "ρ=0.99, z=+2 should be effectively zero, got {prob_high_pos_z}"
+        );
+    }
+
+    #[test]
+    fn test_high_correlation_matches_general_formula() {
+        // Regression test: at ρ = MAX_CORRELATION exactly, the result must
+        // agree with the general clamped formula evaluated just below the
+        // boundary. Previously a special branch returned Φ(c − z), breaking
+        // continuity by ~20 orders of magnitude.
+        let copula = GaussianCopula::new();
+        let threshold = standard_normal_inv_cdf(0.05);
+
+        for &z in &[-2.5_f64, -1.0, 0.0, 1.0, 2.5] {
+            let at_boundary = copula.conditional_default_prob(threshold, &[z], MAX_CORRELATION);
+            let just_below =
+                copula.conditional_default_prob(threshold, &[z], MAX_CORRELATION - 1e-6);
+            assert!(
+                (at_boundary - just_below).abs() < 1e-6,
+                "discontinuity at ρ = MAX_CORRELATION for z={z}: boundary={at_boundary}, just_below={just_below}"
+            );
+        }
     }
 
     #[test]

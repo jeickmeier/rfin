@@ -26,6 +26,10 @@ fn default_garch_family() -> GarchFamily {
     GarchFamily::Garch11
 }
 
+fn default_mean() -> f64 {
+    0.0
+}
+
 /// Model parameters in canonical order.
 ///
 /// Each GARCH variant interprets these fields according to its own
@@ -52,6 +56,17 @@ pub struct GarchParams {
     /// GARCH-family tag. Controls persistence / unconditional-variance formulas.
     #[serde(default = "default_garch_family")]
     pub family: GarchFamily,
+    /// Constant mean `mu` in the return model `r_t = mu + eps_t` where
+    /// `eps_t ~ N(0, sigma^2_t)` (Gaussian) or the rescaled Student-t.
+    ///
+    /// Defaults to `0.0` for backward compatibility. `fit_garch_mle`
+    /// pins this to the sample mean before the MLE starts so the
+    /// variance recursion and the log-likelihood both see the demeaned
+    /// residual `eps_t = r_t - mu` rather than the raw return. Skipping
+    /// this demeaning biases `omega` upward for equity return series
+    /// with non-zero drift.
+    #[serde(default = "default_mean")]
+    pub mean: f64,
 }
 
 impl GarchParams {
@@ -112,6 +127,10 @@ impl GarchParams {
     }
 
     /// Pack parameters into a flat slice for the optimizer.
+    ///
+    /// `mean` is deliberately excluded — it is fixed to the sample mean
+    /// before the MLE starts so variance parameters are estimated on
+    /// demeaned residuals.
     #[must_use]
     pub fn to_vec(&self) -> Vec<f64> {
         let mut v = vec![self.omega, self.alpha, self.beta];
@@ -125,6 +144,10 @@ impl GarchParams {
     }
 
     /// Unpack from a flat slice. Model-specific interpretation.
+    ///
+    /// `mean` defaults to 0.0; callers that want a demeaned fit should
+    /// set it explicitly on the returned value (or call
+    /// [`Self::with_mean`]).
     #[must_use]
     pub fn from_vec(v: &[f64], dist: InnovationDist, has_gamma: bool, family: GarchFamily) -> Self {
         let omega = v[0];
@@ -149,7 +172,15 @@ impl GarchParams {
             beta,
             gamma,
             dist,
+            mean: 0.0,
         }
+    }
+
+    /// Return a copy with the mean field set to `mean`.
+    #[must_use]
+    pub fn with_mean(mut self, mean: f64) -> Self {
+        self.mean = mean;
+        self
     }
 }
 
@@ -318,9 +349,13 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
         ));
     }
 
+    // Sample mean: pinned throughout the fit so the variance recursion
+    // and log-likelihood both operate on demeaned residuals. This is the
+    // standard "mean + GARCH variance" two-step decomposition.
+    let sample_mean: f64 = returns.iter().sum::<f64>() / n as f64;
+
     let sample_var = {
-        let mean = returns.iter().sum::<f64>() / n as f64;
-        returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0)
+        returns.iter().map(|r| (r - sample_mean).powi(2)).sum::<f64>() / (n as f64 - 1.0)
     };
 
     if sample_var < 1e-20 || !sample_var.is_finite() {
@@ -385,7 +420,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
                     continue;
                 }
 
-                let params = GarchParams::from_vec(&pvec, dist, has_gamma, model.family());
+                let params = GarchParams::from_vec(&pvec, dist, has_gamma, model.family())
+                    .with_mean(sample_mean);
                 let ll = model.log_likelihood(returns, &params, dist);
 
                 if ll.is_finite() && ll > best_ll {
@@ -416,7 +452,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
         if !stationarity_check_clone(x) {
             return 1e18;
         }
-        let params = GarchParams::from_vec(x, dist, has_gamma, model.family());
+        let params = GarchParams::from_vec(x, dist, has_gamma, model.family())
+            .with_mean(sample_mean);
         let ll = model.log_likelihood(returns, &params, dist);
         if ll.is_finite() {
             -ll
@@ -429,10 +466,12 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
     let opt_bounds: super::optimizer::Bounds = bounds.to_vec();
     let result = optimizer.minimize(neg_ll, &best_params_vec, &opt_bounds);
 
-    let final_params = GarchParams::from_vec(&result.x, dist, has_gamma, model.family());
+    let final_params = GarchParams::from_vec(&result.x, dist, has_gamma, model.family())
+        .with_mean(sample_mean);
     let final_ll = -result.f_val;
 
-    // Compute conditional variances and standardized residuals
+    // Compute conditional variances and standardized residuals.
+    // Residuals are demeaned, so z_t = (r_t - mu) / sigma_t.
     let mut sigma2 = vec![0.0; n];
     model.filter(returns, &final_params, &mut sigma2);
 
@@ -441,7 +480,7 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
         .zip(sigma2.iter())
         .map(|(&r, &s2)| {
             let s = s2.max(1e-20).sqrt();
-            r / s
+            (r - sample_mean) / s
         })
         .collect();
 

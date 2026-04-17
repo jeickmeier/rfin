@@ -237,11 +237,18 @@ impl RecoverySpec {
         }
     }
 
-    /// Get expected recovery rate from specification.
+    /// Get the location-parameter recovery rate from the specification.
+    ///
+    /// For [`RecoverySpec::Constant`], this is the constant recovery rate.
+    /// For [`RecoverySpec::MarketCorrelated`], this returns the `mean_recovery`
+    /// input (the target recovery at `Z = 0`), which differs from the
+    /// Jensen-corrected unconditional mean `E_Z[R(Z)]` whenever the factor
+    /// sensitivity is non-zero. To obtain the true expected recovery, call
+    /// [`Self::build`] and then [`RecoveryModel::expected_recovery`].
     ///
     /// # Returns
     ///
-    /// The unconditional recovery implied by the specification.
+    /// The location-parameter recovery in decimal form.
     #[must_use]
     pub fn expected_recovery(&self) -> f64 {
         match self {

@@ -43,6 +43,12 @@
 //!   `docs/REFERENCES.md#krekel-stumpp-2006-correlation-products`
 
 use super::RecoveryModel;
+use finstack_core::math::GaussHermiteQuadrature;
+
+/// Quadrature order for precomputing the Jensen-corrected unconditional mean
+/// `E_Z[R(Z)]`. Order 20 is more than sufficient for a smooth logistic-bounded
+/// recovery integrand and matches the other copula integrands in this crate.
+const EXPECTED_RECOVERY_QUAD_ORDER: usize = 20;
 
 /// Market-correlated stochastic recovery model.
 ///
@@ -55,7 +61,10 @@ use super::RecoveryModel;
 /// - `docs/REFERENCES.md#altman-et-al-2005-recovery`
 #[derive(Debug, Clone)]
 pub struct CorrelatedRecovery {
-    /// Mean recovery rate
+    /// Target recovery at `Z = 0` (median / location parameter of the
+    /// logistic-bounded recovery transform). Due to Jensen's inequality, the
+    /// true unconditional mean `E_Z[R(Z)]` differs from this value whenever
+    /// `ρ_R · σ_R ≠ 0`.
     mean_recovery: f64,
     /// Recovery volatility (standard deviation)
     recovery_volatility: f64,
@@ -65,6 +74,11 @@ pub struct CorrelatedRecovery {
     min_recovery: f64,
     /// Maximum recovery (ceiling)
     max_recovery: f64,
+    /// Cached `E_Z[R(Z)]` computed once at construction by Gauss-Hermite
+    /// quadrature against `N(0, 1)`. Used by [`RecoveryModel::expected_recovery`]
+    /// so `lgd()` reflects the Jensen-corrected unconditional mean, not the
+    /// biased R(0) location parameter.
+    unconditional_expected_recovery: f64,
 }
 
 impl CorrelatedRecovery {
@@ -85,19 +99,22 @@ impl CorrelatedRecovery {
     /// use finstack_correlation::{CorrelatedRecovery, RecoveryModel};
     ///
     /// let model = CorrelatedRecovery::new(0.40, 0.25, -0.40);
-    /// let mean = model.conditional_recovery(0.0);
+    /// let mean_at_zero = model.conditional_recovery(0.0);
     ///
-    /// assert!((mean - 0.40).abs() < 1e-12);
+    /// assert!((mean_at_zero - 0.40).abs() < 1e-12);
     /// ```
     #[must_use]
     pub fn new(mean: f64, vol: f64, corr: f64) -> Self {
-        Self {
+        let mut model = Self {
             mean_recovery: mean.clamp(0.05, 0.95),
             recovery_volatility: vol.clamp(0.0, 0.50),
             factor_correlation: corr.clamp(-1.0, 1.0),
             min_recovery: 0.0,
             max_recovery: 1.0,
-        }
+            unconditional_expected_recovery: 0.0,
+        };
+        model.unconditional_expected_recovery = model.compute_unconditional_expected_recovery();
+        model
     }
 
     /// Create with custom bounds.
@@ -117,6 +134,9 @@ impl CorrelatedRecovery {
         let mut model = Self::new(mean, vol, corr);
         model.min_recovery = min.clamp(0.0, 0.5);
         model.max_recovery = max.clamp(0.5, 1.0);
+        // Bounds affect the logistic transform, so the cached expectation must
+        // be recomputed after overriding them.
+        model.unconditional_expected_recovery = model.compute_unconditional_expected_recovery();
         model
     }
 
@@ -150,11 +170,16 @@ impl CorrelatedRecovery {
         Self::new(0.40, 0.30, -0.50)
     }
 
-    /// Get the mean recovery rate.
+    /// Get the target recovery at `Z = 0` (location parameter).
+    ///
+    /// This is the `μ_R` input parameter after clamping — the median of the
+    /// logistic-bounded recovery distribution, not the Jensen-corrected
+    /// unconditional mean. Use [`RecoveryModel::expected_recovery`] when you
+    /// need `E_Z[R(Z)]`.
     ///
     /// # Returns
     ///
-    /// The target mean recovery in decimal form.
+    /// The target recovery at zero market shock, in decimal form.
     #[must_use]
     pub fn mean(&self) -> f64 {
         self.mean_recovery
@@ -180,6 +205,34 @@ impl CorrelatedRecovery {
         self.factor_correlation
     }
 
+    /// Compute `E_Z[R(Z)]` via Gauss-Hermite quadrature against `N(0, 1)`.
+    ///
+    /// The logistic transform is smooth and bounded in `[0, 1]`, so a
+    /// moderate-order Gauss-Hermite rule achieves machine precision. When the
+    /// model is effectively deterministic (ρ_R·σ_R = 0) we short-circuit to
+    /// avoid a spurious quadrature call.
+    fn compute_unconditional_expected_recovery(&self) -> f64 {
+        if self.factor_correlation == 0.0 || self.recovery_volatility == 0.0 {
+            return self.logistic_bounded_recovery(0.0);
+        }
+
+        // Fallback to R(0) if the requested quadrature order is unsupported —
+        // this keeps the constructor infallible while logging the anomaly.
+        let quad = match GaussHermiteQuadrature::new(EXPECTED_RECOVERY_QUAD_ORDER) {
+            Ok(q) => q,
+            Err(err) => {
+                tracing::warn!(
+                    order = EXPECTED_RECOVERY_QUAD_ORDER,
+                    %err,
+                    "CorrelatedRecovery: falling back to R(0) for expected_recovery; \
+                     GaussHermiteQuadrature rejected the requested order"
+                );
+                return self.logistic_bounded_recovery(0.0);
+            }
+        };
+        quad.integrate(|z| self.conditional_recovery(z))
+    }
+
     fn logistic_bounded_recovery(&self, shock: f64) -> f64 {
         let width = (self.max_recovery - self.min_recovery).max(f64::EPSILON);
         let mean = self
@@ -195,7 +248,10 @@ impl CorrelatedRecovery {
 
 impl RecoveryModel for CorrelatedRecovery {
     fn expected_recovery(&self) -> f64 {
-        self.mean_recovery
+        // Jensen-corrected unconditional mean E_Z[R(Z)]. Because the logistic
+        // transform is non-linear and saturates near the bounds, this differs
+        // from `self.mean_recovery` (R(0)) whenever ρ_R·σ_R ≠ 0.
+        self.unconditional_expected_recovery
     }
 
     fn conditional_recovery(&self, market_factor: f64) -> f64 {
@@ -231,9 +287,11 @@ mod tests {
 
         let stress_recovery = model.conditional_recovery(-2.0);
 
+        // Compare against R(0) (mean location), which is the reference
+        // unaffected by the Jensen correction.
         assert!(
-            stress_recovery > model.expected_recovery(),
-            "Stress with negative recovery correlation should raise recovery in this sign convention"
+            stress_recovery > model.mean(),
+            "Stress with negative recovery correlation should raise recovery above R(0) in this sign convention"
         );
     }
 
@@ -253,14 +311,51 @@ mod tests {
     }
 
     #[test]
-    fn test_mean_recovery_at_zero_factor() {
+    fn test_conditional_recovery_at_zero_equals_location() {
         let model = CorrelatedRecovery::market_standard();
 
-        // At Z=0, conditional should equal mean
+        // At Z=0, R(Z) equals the location parameter μ_R (median recovery).
+        // This is *not* generally the same as the unconditional mean E[R(Z)]
+        // because the logistic transform is non-linear (Jensen's inequality).
         let r_at_zero = model.conditional_recovery(0.0);
         assert!(
-            (r_at_zero - model.expected_recovery()).abs() < 1e-10,
-            "Recovery at Z=0 should equal mean"
+            (r_at_zero - model.mean()).abs() < 1e-10,
+            "Recovery at Z=0 should equal the location parameter μ_R"
+        );
+    }
+
+    #[test]
+    fn test_expected_recovery_is_jensen_corrected_mean() {
+        // Regression: expected_recovery() must return E_Z[R(Z)] computed by
+        // integrating the logistic-bounded recovery against N(0,1). It should
+        // differ from R(0) when ρ_R·σ_R ≠ 0, and match R(0) exactly when the
+        // recovery is deterministic.
+        let model = CorrelatedRecovery::market_standard();
+        let r_at_zero = model.mean();
+        let e_r = model.expected_recovery();
+
+        // The two differ by the Jensen correction; it is small but non-zero.
+        assert!(
+            (e_r - r_at_zero).abs() > 1e-6,
+            "expected_recovery {e_r} should differ from R(0) {r_at_zero}"
+        );
+        // Both values remain inside the recovery bounds.
+        assert!((0.0..=1.0).contains(&e_r));
+
+        // When correlation is zero, R is deterministic and E[R] = R(0).
+        let det_model = CorrelatedRecovery::new(0.40, 0.25, 0.0);
+        assert!(
+            (det_model.expected_recovery() - det_model.mean()).abs() < 1e-12,
+            "Deterministic recovery: E[R] must equal R(0)"
+        );
+
+        // Cross-check against an independent Gauss-Hermite computation.
+        let independent_quad = GaussHermiteQuadrature::new(20)
+            .expect("order 20 is a supported Gauss-Hermite quadrature");
+        let e_r_check = independent_quad.integrate(|z| model.conditional_recovery(z));
+        assert!(
+            (e_r - e_r_check).abs() < 1e-12,
+            "cached E[R]={e_r} should match independently computed value {e_r_check}"
         );
     }
 
@@ -331,10 +426,18 @@ mod tests {
     fn test_lgd_calculation() {
         let model = CorrelatedRecovery::market_standard();
 
-        assert!((model.lgd() - 0.60).abs() < 1e-10);
+        // LGD = 1 - E[R(Z)]. The Jensen correction is small (a few bp), so
+        // LGD should be close to but not exactly equal to 1 - R(0) = 0.60.
+        let expected_lgd = 1.0 - model.expected_recovery();
+        assert!((model.lgd() - expected_lgd).abs() < 1e-12);
+        assert!(
+            (model.lgd() - 0.60).abs() < 1e-2,
+            "LGD {} should be within a few bp of the naive 1 - R(0) = 0.60",
+            model.lgd()
+        );
 
-        // Conditional LGD at Z=0 should equal expected LGD
-        assert!((model.conditional_lgd(0.0) - 0.60).abs() < 1e-10);
+        // Conditional LGD at Z=0 must equal 1 - R(0) exactly.
+        assert!((model.conditional_lgd(0.0) - (1.0 - model.mean())).abs() < 1e-10);
     }
 
     #[test]

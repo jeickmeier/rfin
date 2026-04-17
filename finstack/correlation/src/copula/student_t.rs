@@ -58,6 +58,11 @@ use finstack_core::math::{ln_gamma, student_t_cdf, GaussHermiteQuadrature};
 
 /// Minimum correlation for numerical stability.
 const MIN_CORRELATION: f64 = 0.01;
+/// Clip conditional-CDF arguments to avoid pathological tails when the
+/// smoothing clamp forces ρ ≈ MAX_CORRELATION (1 − ρ ≈ 1e-2). Mirrors the
+/// Gaussian copula behaviour; `student_t_cdf` saturates naturally, but we
+/// guard against catastrophic cancellation inside the scaling factor.
+const CDF_CLIP: f64 = 10.0;
 /// Maximum correlation for numerical stability.
 const MAX_CORRELATION: f64 = 0.99;
 
@@ -259,14 +264,16 @@ impl Copula for StudentTCopula {
         let m = *m;
         let nu = self.degrees_of_freedom;
 
-        if correlation <= 1e-10 {
+        if correlation <= MIN_CORRELATION {
             return student_t_cdf(default_threshold, nu);
         }
-        if correlation >= 1.0 - 1e-10 {
-            let scaling = ((nu + 1.0) / (nu + m * m)).sqrt();
-            return student_t_cdf((default_threshold - m) * scaling, nu + 1.0);
-        }
 
+        // General formula with smoothing and argument clipping. We deliberately
+        // do NOT short-circuit ρ ≈ 1 with `t_{ν+1}((c − m) · √((ν+1)/(ν+m²)))`:
+        // that variant drops the essential 1/√(1−ρ) Cholesky factor and
+        // produces a smoothed CDF where the true ρ → 1 limit is an indicator
+        // 1{m ≤ c}. The smoothing clamp (0.99) combined with CDF_CLIP gives a
+        // stable, physically correct near-indicator limit.
         let rho = self.smooth_correlation(correlation);
 
         let sqrt_rho = rho.sqrt();
@@ -276,7 +283,7 @@ impl Copula for StudentTCopula {
         // P(default | M=m) = t_{ν+1}( (c - √ρ·m)/√(1-ρ) · √((ν+1)/(ν+m²)) )
         let base_arg = (default_threshold - sqrt_rho * m) / sqrt_1mr;
         let scaling = ((nu + 1.0) / (nu + m * m)).sqrt();
-        let conditional_threshold = base_arg * scaling;
+        let conditional_threshold = (base_arg * scaling).clamp(-CDF_CLIP, CDF_CLIP);
 
         student_t_cdf(conditional_threshold, nu + 1.0)
     }
@@ -410,26 +417,54 @@ mod tests {
     }
 
     #[test]
-    fn test_conditional_prob_uses_nu_plus_one_in_perfect_correlation_limit() {
+    fn test_conditional_prob_uses_nu_plus_one_scaling() {
+        // Verify the conditional formula from Demarta & McNeil (2005):
+        //   P(default | M=m) = t_{ν+1}((c − √ρ·m)/√(1−ρ) · √((ν+1)/(ν+m²)))
+        // Use a moderate ρ so the smoothing clamp is not engaged and the
+        // closed-form expectation matches exactly.
         let copula = StudentTCopula::new(5.0);
         let nu: f64 = 5.0;
+        let rho: f64 = 0.30;
+        let sqrt_rho = rho.sqrt();
+        let sqrt_1mr = (1.0 - rho).sqrt();
 
-        // Test with small and large factor values to exercise the scaling
         for &factor in &[0.35_f64, 3.0, -2.5] {
             let threshold: f64 = -1.25;
+            let base_arg = (threshold - sqrt_rho * factor) / sqrt_1mr;
             let scaling = ((nu + 1.0) / (nu + factor * factor)).sqrt();
-            let expected = student_t_cdf((threshold - factor) * scaling, nu + 1.0);
+            let expected = student_t_cdf(base_arg * scaling, nu + 1.0);
 
-            let prob = copula.conditional_default_prob(threshold, &[factor], 1.0);
+            let prob = copula.conditional_default_prob(threshold, &[factor], rho);
 
             assert!(
                 (prob - expected).abs() < 1e-12,
-                "perfect-correlation limit should use scaling: factor={}, expected {}, got {}",
-                factor,
-                expected,
-                prob
+                "conditional formula mismatch: factor={factor}, expected {expected}, got {prob}"
             );
         }
+    }
+
+    #[test]
+    fn test_high_correlation_saturates_toward_indicator() {
+        // Regression: at ρ → 1, the copula should degenerate to
+        //   P(default | M=m) → 1{m ≤ c}
+        // because Aᵢ = M. The previous implementation dropped the 1/√(1−ρ)
+        // factor and produced an overly smooth CDF.
+        let copula = StudentTCopula::new(5.0);
+        let threshold: f64 = -1.25;
+
+        // m well below threshold ⇒ default virtually certain.
+        let prob_below = copula.conditional_default_prob(threshold, &[-5.0], 1.0);
+        assert!(
+            prob_below > 0.999,
+            "ρ→1, m≪c: expected near 1, got {prob_below}"
+        );
+
+        // m well above threshold ⇒ default virtually impossible.
+        let prob_above = copula.conditional_default_prob(threshold, &[5.0], 1.0);
+        assert!(
+            prob_above < 1e-3,
+            "ρ→1, m≫c: expected near 0, got {prob_above}"
+        );
     }
 
     #[test]
