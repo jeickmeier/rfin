@@ -31,9 +31,10 @@ pub fn pfe(
         }
     }
 
-    // Compute multiplier.
+    // Compute multiplier. Basel 279 para 149: the multiplier input is
+    // V - C where C is *total* net collateral, i.e. VM + NICA.
     let v: f64 = trades.iter().map(|t| t.mtm).sum();
-    let v_minus_c = v - config.collateral;
+    let v_minus_c = v - config.collateral - config.nica;
     let mult = multiplier(v_minus_c, add_on_aggregate);
 
     (mult, add_on_aggregate, add_on_by_class)
@@ -58,17 +59,27 @@ pub fn multiplier(v_minus_c: f64, add_on: f64) -> f64 {
 /// Compute the representative maturity factor for a netting set.
 ///
 /// For margined sets: uses MPOR-based formula.
-/// For unmargined sets: uses the average remaining maturity across trades,
-/// with the regulatory floor of 10 business days.
+/// For unmargined sets: uses the average tenor across trades, with the
+/// regulatory floor of 10 business days.
+///
+/// # Known limitations
+///
+/// * Basel 279 defines `M_i` as *remaining* maturity (from the
+///   calculation date to trade end). This implementation uses
+///   `end - start` because no calculation-date parameter is currently
+///   plumbed into `calculate_ead`. For already-seasoned trades the two
+///   differ and the result slightly overstates MF. Wire an `as_of`
+///   parameter through if precision for seasoned books matters.
+/// * The floor `10 / 250` is a business-day year fraction while
+///   `(end - start) / 365` is calendar. The mismatch is ~4% at the
+///   floor and is clamped to 1 year at the ceiling, so the effective
+///   bias is small for typical derivatives maturities.
 fn compute_maturity_factor(config: &SaCcrNettingSetConfig, trades: &[SaCcrTrade]) -> f64 {
     if config.is_margined {
         maturity_factor_margined(config.mpor_days)
     } else if trades.is_empty() {
         maturity_factor_unmargined(10.0 / 250.0)
     } else {
-        // Use the average remaining maturity across trades.
-        // In practice, each trade has its own MF; here we use a
-        // representative value for the netting set.
         let avg_maturity: f64 = trades
             .iter()
             .map(|t| {

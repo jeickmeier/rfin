@@ -341,6 +341,7 @@ mod tests {
             sector: DrcSector::FinancialsCorporate,
             seniority: DrcSeniority::SeniorUnsecured,
             asset_type: DrcAssetType::Corporate,
+            pnl_adjustment: 0.0,
         });
 
         let result = engine.calculate(&sens).expect("calculate");
@@ -349,6 +350,52 @@ mod tests {
         assert!(
             (result.drc - expected).abs() < 1.0,
             "DRC: expected {expected}, got {}",
+            result.drc
+        );
+    }
+
+    /// Two issuers in *different* sector buckets should not hedge each
+    /// other. Previously HBR was computed globally, so a sovereign short
+    /// could offset a corporate long even though MAR22.23 forbids it.
+    #[test]
+    fn drc_hedge_benefit_is_per_bucket() {
+        let engine = FrtbSbaEngine::builder().build().expect("build");
+
+        let mut sens = FrtbSensitivities::new(Currency::USD);
+        // Long corporate bond (FinancialsCorporate bucket).
+        sens.drc_positions.push(DrcPosition {
+            issuer: "CORP_A".to_string(),
+            jtd_amount: 1_000_000.0,
+            rating_bucket: 4, // BBB, RW = 0.06
+            sector: DrcSector::FinancialsCorporate,
+            seniority: DrcSeniority::SeniorUnsecured,
+            asset_type: DrcAssetType::Corporate,
+            pnl_adjustment: 0.0,
+        });
+        // Short sovereign exposure (Sovereign bucket) — must NOT hedge
+        // the corporate long.
+        sens.drc_positions.push(DrcPosition {
+            issuer: "SOV_A".to_string(),
+            jtd_amount: -1_000_000.0,
+            rating_bucket: 2, // AA, RW = 0.02
+            sector: DrcSector::Sovereign,
+            seniority: DrcSeniority::SeniorUnsecured,
+            asset_type: DrcAssetType::Sovereign,
+            pnl_adjustment: 0.0,
+        });
+
+        let result = engine.calculate(&sens).expect("calculate");
+        // With per-bucket HBR: corporate bucket has only a long
+        // (HBR_corp = 1, DRC_corp = 0.75 * 1M * 0.06 = 45k). Sovereign
+        // bucket has only a short (HBR_sov = 0, DRC_sov = 0). Total = 45k.
+        // Under the buggy global HBR, the short would offset the long
+        // and total would be strictly less than 45k.
+        let expected = 0.75 * 1_000_000.0 * 0.06;
+        assert!(
+            (result.drc - expected).abs() < 1.0,
+            "per-bucket DRC: expected {expected}, got {} (buggy global-HBR \
+             would give a smaller number because the sov short would offset \
+             the corp long)",
             result.drc
         );
     }
@@ -394,6 +441,58 @@ mod tests {
             (result.rrao - expected).abs() < 1.0,
             "RRAO: expected {expected}, got {}",
             result.rrao
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // CSR delta: name x tenor correlation factorisation
+    // -----------------------------------------------------------------------
+
+    /// Two CSR-non-sec sensitivities in the same bucket but at different
+    /// tenors should aggregate with effective rho = rho_name * rho_tenor.
+    /// Previously the code applied only rho_name (0.35), over-stating
+    /// capital because it ignored the additional tenor offset (0.65).
+    #[test]
+    fn csr_intra_bucket_tenor_rho_is_applied() {
+        let engine = FrtbSbaEngine::builder()
+            .risk_classes(vec![FrtbRiskClass::CsrNonSec])
+            .scenarios(vec![CorrelationScenario::Medium])
+            .build()
+            .expect("build");
+
+        // Two issuer positions, same bucket (4 = basic materials), same name,
+        // different tenors: name-identity rho = 1.0, but tenor rho = 0.65
+        // kicks in.
+        let mut sens_diff_tenor = FrtbSensitivities::new(Currency::USD);
+        sens_diff_tenor.add_csr_nonsec_delta("ISSUER_A", 4, "1Y", 1_000_000.0);
+        sens_diff_tenor.add_csr_nonsec_delta("ISSUER_A", 4, "5Y", 1_000_000.0);
+
+        // Same name, same tenor: both factors = 1, full correlation.
+        let mut sens_same_tenor = FrtbSensitivities::new(Currency::USD);
+        sens_same_tenor.add_csr_nonsec_delta("ISSUER_A", 4, "1Y", 1_000_000.0);
+        sens_same_tenor.add_csr_nonsec_delta("ISSUER_A", 4, "1Y", 1_000_000.0);
+
+        let charge_diff = engine
+            .calculate(&sens_diff_tenor)
+            .expect("calc diff")
+            .delta_by_risk_class
+            .get(&FrtbRiskClass::CsrNonSec)
+            .copied()
+            .unwrap_or(0.0);
+        let charge_same = engine
+            .calculate(&sens_same_tenor)
+            .expect("calc same")
+            .delta_by_risk_class
+            .get(&FrtbRiskClass::CsrNonSec)
+            .copied()
+            .unwrap_or(0.0);
+
+        // Different-tenor charge must be strictly less than same-tenor
+        // charge (otherwise the tenor correlation factor is being dropped).
+        assert!(
+            charge_diff < charge_same,
+            "diff-tenor CSR charge ({charge_diff}) must be < same-tenor ({charge_same}) \
+             because tenor rho < 1"
         );
     }
 

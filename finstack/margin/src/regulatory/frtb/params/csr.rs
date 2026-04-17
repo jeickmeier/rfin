@@ -46,7 +46,25 @@ pub const CSR_NONSEC_INTRA_BUCKET_TENOR_CORRELATION: f64 = 0.65;
 pub const CSR_NONSEC_INTER_BUCKET_CORRELATION: f64 = 0.40;
 
 /// CSR non-sec vega risk weight.
+///
+/// Stored as the unadjusted base `RW_sigma = 0.55` per MAR21.92.
+/// Callers that want the LH-adjusted effective weight should apply the
+/// liquidity-horizon scaling `min(RW_sigma * sqrt(LH/10), 1.0)` — which
+/// for CSR non-sec (LH = 120 days) evaluates to 1.0 in practice.
 pub const CSR_NONSEC_VEGA_RISK_WEIGHT: f64 = 0.55;
+
+/// CSR securitisation (CTP) vega risk weight.
+///
+/// Distinct from [`CSR_NONSEC_VEGA_RISK_WEIGHT`]. Per MAR21.92, securitised
+/// CTP exposures carry a 100% vega risk weight (no further LH scaling
+/// reduces it). Using the non-sec 55% base materially understates
+/// securitisation vega capital.
+pub const CSR_SEC_CTP_VEGA_RISK_WEIGHT: f64 = 1.00;
+
+/// CSR securitisation (non-CTP) vega risk weight.
+///
+/// Also 100% per MAR21.92.
+pub const CSR_SEC_NONCTP_VEGA_RISK_WEIGHT: f64 = 1.00;
 
 /// CSR non-sec curvature risk weight scale.
 pub const CSR_NONSEC_CURVATURE_RISK_WEIGHT: f64 = 0.5;

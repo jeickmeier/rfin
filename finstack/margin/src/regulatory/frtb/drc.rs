@@ -4,7 +4,7 @@
 //! that delta/vega/curvature cannot model. It is NOT subject to
 //! correlation scenarios.
 
-use super::types::{DrcPosition, DrcSeniority};
+use super::types::{DrcPosition, DrcSector, DrcSeniority};
 use finstack_core::HashMap;
 
 /// Prescribed DRC risk weights by rating bucket.
@@ -32,63 +32,84 @@ pub const DRC_LGD: &[(DrcSeniority, f64)] = &[
     (DrcSeniority::Securitization, 1.00),
 ];
 
-/// Hedge benefit ratio for DRC netting across buckets.
+/// Compute the Default Risk Charge (MAR22.20-22.24).
 ///
-/// HBR = sum(net_long_JTD) / (sum(net_long_JTD) + sum(|net_short_JTD|))
-/// Applied to short positions to limit hedge recognition.
-const DRC_HEDGE_BENEFIT_DISALLOWANCE: f64 = 0.5;
-
-/// Compute the Default Risk Charge.
+/// Aggregates jump-to-default risk bucket-by-bucket (bucket = sector per
+/// MAR22.5). Within each bucket:
 ///
-/// DRC is computed in four steps:
-///   1. Gross JTD = LGD * |jtd_amount| (direction carried by sign)
-///   2. Net JTD within obligor (long/short offsetting with constraints)
-///   3. Bucket-level: `WtS = sum(net_JTD * risk_weight)`
-///   4. Across buckets: `DRC = max(sum_b WtS_b, 0)`
+/// 1. Gross JTD per position, with the MAR22.9 sign-preserving floor on
+///    `LGD * notional + P&L`.
+/// 2. Net JTD per obligor (long/short offset within issuer).
+/// 3. Weighted long / short sums:
+///    `WtS_long_b  = sum_k max(0, netJTD_k) * RW_k`
+///    `WtS_short_b = sum_k min(0, netJTD_k) * RW_k`  (negative)
+/// 4. Bucket hedge-benefit ratio, capturing how much of the short offset
+///    Basel allows against the bucket's long exposure:
+///    `HBR_b = WtS_long_b / (WtS_long_b + |WtS_short_b|)`
+/// 5. Per-bucket DRC:
+///    `DRC_b = max(WtS_long_b - HBR_b * |WtS_short_b|, 0)`
+///
+/// Total DRC is the simple sum of per-bucket charges — there is no
+/// further netting between buckets per MAR22.23.
 pub fn drc_charge(positions: &[DrcPosition]) -> f64 {
     if positions.is_empty() {
         return 0.0;
     }
 
-    // Step 1 & 2: Compute net JTD per obligor.
-    let mut net_jtd_by_issuer: HashMap<String, (f64, u8)> = HashMap::default();
+    // Step 1: per-position gross JTD, MAR22.9 floor.
+    // Step 2: net per issuer inside the same sector bucket. We key by
+    // (sector, issuer) so the same obligor in different buckets — which
+    // shouldn't normally happen, but is well-defined here — is netted
+    // within each bucket independently.
+    struct NetEntry {
+        net_jtd: f64,
+        rating_bucket: u8,
+    }
+    let mut net_by_issuer: HashMap<(DrcSector, String), NetEntry> = HashMap::default();
     for pos in positions {
         let lgd = drc_lgd(pos.seniority);
-        let gross_jtd = lgd * pos.jtd_amount;
-        let entry = net_jtd_by_issuer
-            .entry(pos.issuer.clone())
-            .or_insert((0.0, pos.rating_bucket));
-        entry.0 += gross_jtd;
+        let raw = lgd * pos.jtd_amount + pos.pnl_adjustment;
+        // MAR22.9 sign-preserving floor: longs clamp at 0 from below,
+        // shorts clamp at 0 from above, using the *notional* sign.
+        let gross_jtd = if pos.jtd_amount > 0.0 {
+            raw.max(0.0)
+        } else if pos.jtd_amount < 0.0 {
+            raw.min(0.0)
+        } else {
+            0.0
+        };
+        let entry = net_by_issuer
+            .entry((pos.sector, pos.issuer.clone()))
+            .or_insert(NetEntry {
+                net_jtd: 0.0,
+                rating_bucket: pos.rating_bucket,
+            });
+        entry.net_jtd += gross_jtd;
     }
 
-    // Step 3: Aggregate by rating bucket.
-    let mut long_total = 0.0;
-    let mut short_total = 0.0;
-    let mut bucket_charges: HashMap<u8, f64> = HashMap::default();
-
-    for (_, (net_jtd, rating_bucket)) in &net_jtd_by_issuer {
-        let rw = drc_risk_weight(*rating_bucket);
-        let weighted = net_jtd * rw;
-        *bucket_charges.entry(*rating_bucket).or_insert(0.0) += weighted;
-
-        if *net_jtd > 0.0 {
-            long_total += net_jtd * rw;
+    // Step 3: group net JTDs by sector bucket and split long / short,
+    // weighted by rating-bucket risk weight.
+    let mut by_sector: HashMap<DrcSector, (f64, f64)> = HashMap::default(); // (long_w, short_w_abs)
+    for ((sector, _issuer), entry) in &net_by_issuer {
+        let rw = drc_risk_weight(entry.rating_bucket);
+        let weighted = entry.net_jtd * rw;
+        let bucket = by_sector.entry(*sector).or_insert((0.0, 0.0));
+        if weighted > 0.0 {
+            bucket.0 += weighted;
         } else {
-            short_total += (net_jtd * rw).abs();
+            bucket.1 += weighted.abs();
         }
     }
 
-    // Step 4: Apply hedge benefit ratio.
-    // HBR limits the offset benefit of short positions.
-    let hbr = if long_total + short_total > 0.0 {
-        long_total / (long_total + short_total)
-    } else {
-        DRC_HEDGE_BENEFIT_DISALLOWANCE
-    };
-
-    // DRC = max(sum of long weighted JTD - HBR * sum of |short weighted JTD|, 0)
-    let drc = long_total - hbr * short_total;
-    f64::max(drc, 0.0)
+    // Steps 4 & 5: per-bucket HBR and DRC, summed across buckets.
+    let mut total = 0.0;
+    for (long_w, short_w_abs) in by_sector.values() {
+        let denom = long_w + short_w_abs;
+        let hbr = if denom > 0.0 { long_w / denom } else { 0.0 };
+        let bucket_drc = (long_w - hbr * short_w_abs).max(0.0);
+        total += bucket_drc;
+    }
+    total
 }
 
 /// Look up DRC risk weight by rating bucket.

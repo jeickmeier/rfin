@@ -163,11 +163,26 @@ pub enum DrcAssetType {
 }
 
 /// A position subject to the Default Risk Charge.
+///
+/// Per MAR22.9, gross JTD for a position is:
+///
+/// ```text
+/// long:  gross = max(LGD * notional + P&L, 0)
+/// short: gross = min(LGD * notional + P&L, 0)
+/// ```
+///
+/// where the `P&L` term captures any mark-to-market adjustment already
+/// reflected in the trading-book valuation (e.g. an underwater long bond
+/// has a small negative `P&L` that reduces the exposed JTD). `jtd_amount`
+/// represents the signed *notional* (positive = long, negative = short);
+/// [`drc_charge`](super::drc::drc_charge) multiplies by [`DrcSeniority`]
+/// LGD and then applies the `pnl_adjustment` and the sign-preserving floor.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DrcPosition {
     /// Issuer identifier.
     pub issuer: String,
-    /// Long (+) or short (-) jump-to-default amount.
+    /// Signed JTD *notional* (positive = long, negative = short). Does
+    /// **not** include the LGD multiplier — [`drc_charge`] applies LGD.
     pub jtd_amount: f64,
     /// Credit rating bucket (1-based per FRTB specification).
     pub rating_bucket: u8,
@@ -177,6 +192,13 @@ pub struct DrcPosition {
     pub seniority: DrcSeniority,
     /// Asset sub-type: corporate bond, equity, or securitization.
     pub asset_type: DrcAssetType,
+    /// Mark-to-market / P&L adjustment from MAR22.9. Default 0. Add a
+    /// negative value for a long position with unrealised loss so the
+    /// gross JTD is correctly floored at zero when the mark-down already
+    /// exceeds `LGD * notional`. Ignored for securitisations where Basel
+    /// treats JTD differently.
+    #[serde(default)]
+    pub pnl_adjustment: f64,
 }
 
 // ---------------------------------------------------------------------------

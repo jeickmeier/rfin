@@ -1,13 +1,42 @@
 //! FRTB curvature risk charge computation.
 //!
-//! For each risk factor k:
-//!   CVR_k = max(CVR_up_k, CVR_down_k)
+//! Per MAR21.5 / MAR21.89 the curvature charge is built from signed
+//! per-factor shifts `CVR+` and `CVR-` and aggregated with a sign-aware
+//! `psi` indicator that prevents gains on one side from offsetting
+//! losses on the other.
 //!
-//! Where CVR_up and CVR_down are provided as inputs (pre-computed from
-//! the revaluation under curvature shocks minus the delta-hedged component).
+//! # Algorithm
 //!
-//! Intra-bucket and inter-bucket aggregation follow the same two-level
-//! structure as delta/vega, but applied to curvature CVR values.
+//! For each risk factor `k`:
+//!
+//! * `CVR+_k` = loss under an upward shock of the factor, already
+//!   adjusted for the delta-hedged component, sign convention "loss is
+//!   positive".
+//! * `CVR-_k` = loss under a downward shock, same convention.
+//!
+//! For each bucket `b`:
+//!
+//! ```text
+//! K_b^+ = sqrt( max(0, sum_k max(CVR+_k, 0)^2
+//!                        + sum_{k != l} rho_kl * CVR+_k * CVR+_l * psi(CVR+_k, CVR+_l)) )
+//! K_b^- = sqrt( ... same with CVR-_k )
+//! K_b   = max(K_b^+, K_b^-)
+//! ```
+//!
+//! Whichever direction (+/-) gave the larger `K_b` also dictates the
+//! bucket's signed sum `S_b = sum_k CVR_k`, capped by the bucket's own
+//! aggregate: `S_b_capped = max(min(S_b, K_b), -K_b)`.
+//!
+//! Inter-bucket:
+//!
+//! ```text
+//! Curvature = sqrt( max(0, sum_b K_b^2
+//!                   + sum_{b != c} gamma_bc^2 * S_b * S_c * psi(S_b, S_c)) )
+//! ```
+//!
+//! The `psi` function is `0` when *both* arguments are strictly
+//! negative and `1` otherwise, so a pair of bucket-level gains
+//! cannot reduce the charge from a separate pair of losses.
 
 use super::params::{commodity, csr, equity, fx, girr};
 use super::types::{CorrelationScenario, FrtbRiskClass, FrtbSensitivities};
@@ -31,7 +60,7 @@ pub fn curvature_charge(
 }
 
 // ---------------------------------------------------------------------------
-// GIRR curvature
+// Per-risk-class drivers
 // ---------------------------------------------------------------------------
 
 fn girr_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
@@ -39,26 +68,19 @@ fn girr_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f6
         return 0.0;
     }
 
-    // GIRR curvature: one risk factor per currency.
-    // Intra-bucket is trivial (one factor per bucket = currency).
-    let bucket_cvrs: Vec<f64> = sens
+    // GIRR curvature: one risk factor per currency, so each bucket holds
+    // exactly one `(up, down)` pair. `intra_rho` is irrelevant for a
+    // single-factor bucket — the diagonal K_b is max(CVR_plus, 0) or
+    // max(CVR_minus, 0), and the direction picks the larger.
+    let bucket_results: Vec<(f64, f64)> = sens
         .girr_curvature
         .values()
-        .map(|(up, down)| {
-            let cvr = f64::max(*up, *down);
-            f64::max(cvr, 0.0)
-        })
+        .map(|&(up, down)| bucket_k_and_s(&[(up, down)], 0.0))
         .collect();
 
-    let rho = scenario
-        .scale_correlation(girr::GIRR_INTER_BUCKET_CORRELATION)
-        .powi(2);
-    curvature_inter_bucket(&bucket_cvrs, rho)
+    let gamma = scenario.scale_correlation(girr::GIRR_INTER_BUCKET_CORRELATION);
+    curvature_inter_bucket(&bucket_results, gamma)
 }
-
-// ---------------------------------------------------------------------------
-// CSR curvature
-// ---------------------------------------------------------------------------
 
 fn csr_nonsec_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     generic_curvature_bucketed(
@@ -87,10 +109,6 @@ fn csr_sec_nonctp_curvature(sens: &FrtbSensitivities, scenario: CorrelationScena
     )
 }
 
-// ---------------------------------------------------------------------------
-// Equity curvature
-// ---------------------------------------------------------------------------
-
 fn equity_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     generic_curvature_bucketed(
         &sens.equity_curvature,
@@ -99,10 +117,6 @@ fn equity_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> 
         scenario,
     )
 }
-
-// ---------------------------------------------------------------------------
-// Commodity curvature
-// ---------------------------------------------------------------------------
 
 fn commodity_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     generic_curvature_bucketed(
@@ -113,33 +127,26 @@ fn commodity_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) 
     )
 }
 
-// ---------------------------------------------------------------------------
-// FX curvature
-// ---------------------------------------------------------------------------
-
 fn fx_curvature(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     if sens.fx_curvature.is_empty() {
         return 0.0;
     }
-
-    // FX: single bucket, aggregate all pairs.
-    let cvrs: Vec<f64> = sens
+    // FX curvature factors live in a single (implicit) bucket; inter-pair
+    // correlation drives the intra-bucket aggregation.
+    let pairs: Vec<(f64, f64)> = sens
         .fx_curvature
         .values()
-        .map(|(up, down)| f64::max(f64::max(*up, *down), 0.0))
+        .map(|&(up, down)| (up, down))
         .collect();
-
-    let rho = scenario
-        .scale_correlation(fx::FX_INTER_PAIR_CORRELATION)
-        .powi(2);
-    curvature_inter_bucket(&cvrs, rho)
+    let rho = scenario.scale_correlation(fx::FX_INTER_PAIR_CORRELATION);
+    let (k_b, s_b) = bucket_k_and_s(&pairs, rho);
+    curvature_inter_bucket(&[(k_b, s_b)], rho)
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Generic bucketed curvature
 // ---------------------------------------------------------------------------
 
-/// Generic curvature aggregation for (name, bucket) keyed data.
 fn generic_curvature_bucketed(
     curvatures: &HashMap<(String, u8), (f64, f64)>,
     intra_rho: f64,
@@ -150,41 +157,177 @@ fn generic_curvature_bucketed(
         return 0.0;
     }
 
-    // Group by bucket.
-    let mut by_bucket: HashMap<u8, Vec<f64>> = HashMap::default();
-    for ((_, bucket), (up, down)) in curvatures {
-        let cvr = f64::max(f64::max(*up, *down), 0.0);
-        by_bucket.entry(*bucket).or_default().push(cvr);
+    let mut by_bucket: HashMap<u8, Vec<(f64, f64)>> = HashMap::default();
+    for ((_, bucket), pair) in curvatures {
+        by_bucket.entry(*bucket).or_default().push(*pair);
     }
 
-    // For curvature, correlations are squared.
-    let intra_rho_sq = scenario.scale_correlation(intra_rho).powi(2);
-    let inter_gamma_sq = scenario.scale_correlation(inter_gamma).powi(2);
+    let scaled_intra = scenario.scale_correlation(intra_rho);
+    let scaled_inter = scenario.scale_correlation(inter_gamma);
 
-    // Intra-bucket aggregation.
-    let mut bucket_charges: Vec<f64> = Vec::new();
-    for entries in by_bucket.values() {
-        let mut k_squared = 0.0;
-        for (i, cvr_i) in entries.iter().enumerate() {
-            for (j, cvr_j) in entries.iter().enumerate() {
-                let rho = if i == j { 1.0 } else { intra_rho_sq };
-                k_squared += rho * cvr_i * cvr_j;
-            }
-        }
-        bucket_charges.push(f64::max(k_squared, 0.0).sqrt());
-    }
+    let bucket_results: Vec<(f64, f64)> = by_bucket
+        .values()
+        .map(|pairs| bucket_k_and_s(pairs, scaled_intra))
+        .collect();
 
-    curvature_inter_bucket(&bucket_charges, inter_gamma_sq)
+    curvature_inter_bucket(&bucket_results, scaled_inter)
 }
 
-/// Inter-bucket curvature aggregation.
-fn curvature_inter_bucket(bucket_charges: &[f64], rho_sq: f64) -> f64 {
-    let mut total = 0.0;
-    for (i, &c_i) in bucket_charges.iter().enumerate() {
-        for (j, &c_j) in bucket_charges.iter().enumerate() {
-            let corr = if i == j { 1.0 } else { rho_sq };
-            total += corr * c_i * c_j;
+// ---------------------------------------------------------------------------
+// MAR21.5 helpers
+// ---------------------------------------------------------------------------
+
+/// Psi indicator per MAR21.5.
+///
+/// Returns `0` when *both* arguments are strictly negative; returns `1`
+/// otherwise. Used to prevent a pair of net-negative CVRs from
+/// contributing negative off-diagonal mass that would reduce the charge.
+#[inline]
+fn psi(x: f64, y: f64) -> f64 {
+    if x < 0.0 && y < 0.0 {
+        0.0
+    } else {
+        1.0
+    }
+}
+
+/// Compute `(K_b, S_b)` for a curvature bucket.
+///
+/// `pairs` is the list of `(CVR+, CVR-)` per risk factor. Computes
+/// `K_b^+` and `K_b^-` separately, picks the larger, and returns the
+/// corresponding direction's `sum CVR` (already capped at `[-K_b, K_b]`
+/// for safety in inter-bucket aggregation).
+fn bucket_k_and_s(pairs: &[(f64, f64)], intra_rho: f64) -> (f64, f64) {
+    if pairs.is_empty() {
+        return (0.0, 0.0);
+    }
+
+    let (k_plus, s_plus_raw) = one_side_k(&pairs.iter().map(|p| p.0).collect::<Vec<_>>(), intra_rho);
+    let (k_minus, s_minus_raw) =
+        one_side_k(&pairs.iter().map(|p| p.1).collect::<Vec<_>>(), intra_rho);
+
+    if k_plus >= k_minus {
+        let s_capped = s_plus_raw.max(-k_plus).min(k_plus);
+        (k_plus, s_capped)
+    } else {
+        let s_capped = s_minus_raw.max(-k_minus).min(k_minus);
+        (k_minus, s_capped)
+    }
+}
+
+/// One-sided `K` aggregate:
+///
+/// ```text
+/// K = sqrt( max(0, sum_k max(cvr_k, 0)^2
+///                 + sum_{k != l} rho * cvr_k * cvr_l * psi(cvr_k, cvr_l)) )
+/// ```
+///
+/// Also returns the raw (uncapped) sum of cvr_k for this side.
+fn one_side_k(cvrs: &[f64], rho: f64) -> (f64, f64) {
+    let mut inner = 0.0;
+    for (i, c_i) in cvrs.iter().enumerate() {
+        inner += c_i.max(0.0).powi(2);
+        for (j, c_j) in cvrs.iter().enumerate() {
+            if i != j {
+                inner += rho * c_i * c_j * psi(*c_i, *c_j);
+            }
         }
     }
-    f64::max(total, 0.0).sqrt()
+    let k = inner.max(0.0).sqrt();
+    let s: f64 = cvrs.iter().sum();
+    (k, s)
+}
+
+/// Inter-bucket curvature aggregation:
+///
+/// ```text
+/// Curvature = sqrt( max(0, sum_b K_b^2
+///                    + sum_{b != c} gamma^2 * S_b * S_c * psi(S_b, S_c)) )
+/// ```
+fn curvature_inter_bucket(bucket_results: &[(f64, f64)], gamma: f64) -> f64 {
+    let mut total = 0.0;
+    let gamma_sq = gamma * gamma;
+    for (i, &(k_i, s_i)) in bucket_results.iter().enumerate() {
+        total += k_i * k_i;
+        for (j, &(_k_j, s_j)) in bucket_results.iter().enumerate() {
+            if i != j {
+                total += gamma_sq * s_i * s_j * psi(s_i, s_j);
+            }
+        }
+    }
+    total.max(0.0).sqrt()
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn psi_zero_only_when_both_negative() {
+        assert_eq!(psi(-1.0, -2.0), 0.0);
+        assert_eq!(psi(-1.0, 2.0), 1.0);
+        assert_eq!(psi(1.0, -2.0), 1.0);
+        assert_eq!(psi(1.0, 2.0), 1.0);
+        // Boundary: one value exactly zero -> psi returns 1 (not both strictly negative)
+        assert_eq!(psi(0.0, -2.0), 1.0);
+        assert_eq!(psi(-1.0, 0.0), 1.0);
+    }
+
+    #[test]
+    fn single_factor_bucket_picks_worse_side() {
+        // CVR+ = 10 loss, CVR- = 3 loss -> K_b = 10 from + side, S_b = 10.
+        let (k, s) = bucket_k_and_s(&[(10.0, 3.0)], 0.0);
+        assert!((k - 10.0).abs() < 1e-12);
+        assert!((s - 10.0).abs() < 1e-12);
+
+        // Reverse: CVR- is larger.
+        let (k, s) = bucket_k_and_s(&[(2.0, 15.0)], 0.0);
+        assert!((k - 15.0).abs() < 1e-12);
+        assert!((s - 15.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn s_b_is_capped_by_k_b() {
+        // Two factors both positive CVR+, the sum could exceed K_b under
+        // a diagonal-only formula; check the cap keeps S_b <= K_b.
+        let pairs = vec![(10.0, 0.0), (10.0, 0.0)];
+        let (k, s) = bucket_k_and_s(&pairs, 0.5);
+        // K = sqrt(100 + 100 + 2*0.5*10*10*1) = sqrt(300) ~= 17.32
+        // Raw S = 20, capped at K = 17.32.
+        let k_expected = 300_f64.sqrt();
+        assert!((k - k_expected).abs() < 1e-10);
+        assert!(s <= k + 1e-12, "S_b must be capped by K_b");
+        assert!(s >= -k - 1e-12);
+        assert!((s - k_expected).abs() < 1e-10, "S_b should equal cap here");
+    }
+
+    #[test]
+    fn psi_blocks_negative_off_diagonal() {
+        // Two factors with CVR = -5 each. Under the plain quadratic the
+        // off-diagonal would give 2*rho*25 = 25 (for rho=0.5) which
+        // would increase the charge. With psi=0 for both-negative
+        // pairs, the off-diagonal drops out and the diagonal
+        // max(CVR, 0)^2 = 0 for each, so K = 0.
+        let (k, _s) = bucket_k_and_s(&[(-5.0, 0.0), (-5.0, 0.0)], 0.5);
+        assert!(
+            k.abs() < 1e-12,
+            "both-negative CVR+ should contribute 0 to K_b, got {k}"
+        );
+    }
+
+    #[test]
+    fn inter_bucket_blocks_both_negative_offsets() {
+        // Two buckets with negative S. Under a plain quadratic form they
+        // would contribute +gamma^2 * |S1|*|S2| to the sum; under
+        // MAR21.5 psi=0 for both-negative, so no contribution.
+        let buckets = vec![(5.0, -3.0), (5.0, -4.0)];
+        let total = curvature_inter_bucket(&buckets, 0.5);
+        // Expected: sqrt(K1^2 + K2^2) because the off-diagonal vanishes.
+        let expected = (25.0 + 25.0_f64).sqrt();
+        assert!(
+            (total - expected).abs() < 1e-10,
+            "inter-bucket total = {total}, expected {expected}"
+        );
+    }
 }

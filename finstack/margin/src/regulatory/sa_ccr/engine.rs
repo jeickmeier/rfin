@@ -255,12 +255,48 @@ mod tests {
         let config = margined_config(5_000_000.0, 0.0, 500_000.0, 1_000_000.0);
         let trade = simple_ir_trade("T1", 100_000_000.0, 1.0, 2_500_000.0);
         let result = engine.calculate_ead(&config, &[trade]).expect("calculate");
-        // RC_margined = max(V-C, TH+MTA-NICA, 0)
-        //             = max(2.5M-5M, 0+0.5M-1M, 0) = max(-2.5M, -0.5M, 0) = 0.
+        // RC_margined = max(V - (VM + NICA), TH + MTA - NICA, 0)
+        //             = max(2.5M - (5M + 1M), 0 + 0.5M - 1M, 0)
+        //             = max(-3.5M, -0.5M, 0) = 0.
         assert!(
             result.rc.abs() < 1e-10,
             "RC margined over-collateralized: expected 0, got {}",
             result.rc
+        );
+    }
+
+    /// NICA must reduce the multiplier input `V - C` (C = VM + NICA).
+    /// Previously the multiplier ignored NICA, so a netting set holding
+    /// substantial independent collateral still reported PFE as if the
+    /// independent amount had no offsetting effect.
+    #[test]
+    fn nica_reduces_pfe_multiplier() {
+        let engine = SaCcrEngine::builder().build().expect("build");
+        let trade = simple_ir_trade("T1", 100_000_000.0, 1.0, 2_500_000.0);
+
+        let config_no_nica = margined_config(5_000_000.0, 0.0, 500_000.0, 0.0);
+        let config_with_nica = margined_config(5_000_000.0, 0.0, 500_000.0, 3_000_000.0);
+
+        let result_no = engine
+            .calculate_ead(&config_no_nica, &[trade.clone()])
+            .expect("no NICA");
+        let result_with = engine
+            .calculate_ead(&config_with_nica, &[trade])
+            .expect("with NICA");
+
+        // Adding NICA reduces V - C (more negative), which pushes the
+        // multiplier further below 1 and therefore reduces PFE.
+        assert!(
+            result_with.multiplier <= result_no.multiplier,
+            "NICA should not increase multiplier: no_nica={} with_nica={}",
+            result_no.multiplier,
+            result_with.multiplier,
+        );
+        assert!(
+            result_with.pfe <= result_no.pfe,
+            "NICA should not increase PFE: no_nica={} with_nica={}",
+            result_no.pfe,
+            result_with.pfe,
         );
     }
 

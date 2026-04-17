@@ -4,19 +4,24 @@
 
 use super::types::{SaCcrNettingSetConfig, SaCcrTrade};
 
-/// Compute replacement cost for a netting set.
+/// Compute replacement cost for a netting set (BCBS 279 paragraph 135).
+///
+/// In this codebase `config.collateral` represents the variation margin
+/// (VM) posted, and `config.nica` is the net independent collateral
+/// amount held separately. The Basel formula uses total net collateral
+/// `C = VM + NICA`.
 ///
 /// Unmargined:
-///   `RC = max(V - C, 0)`
-///   where V = sum of trade MTMs, C = net collateral
+///   `RC = max(V - C, 0)` with `C = VM + NICA`
 ///
 /// Margined:
-///   `RC = max(V - C, TH + MTA - NICA, 0)`
-///   The second term captures the minimum possible exposure
-///   given the margin agreement mechanics.
+///   `RC = max(V - C, TH + MTA - NICA, 0)` with `C = VM + NICA`
+///   The second term captures the minimum possible exposure given the
+///   margin agreement mechanics, and it subtracts NICA (not the full C)
+///   because NICA is already offsetting the threshold.
 pub fn replacement_cost(config: &SaCcrNettingSetConfig, trades: &[SaCcrTrade]) -> f64 {
     let v: f64 = trades.iter().map(|t| t.mtm).sum();
-    let c = config.collateral;
+    let c = config.collateral + config.nica; // total net collateral
 
     if config.is_margined {
         let margin_term = config.threshold + config.mta - config.nica;

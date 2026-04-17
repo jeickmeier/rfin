@@ -67,7 +67,7 @@ fn csr_nonsec_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f
 fn csr_sec_ctp_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     generic_bucketed_vega(
         &sens.csr_sec_ctp_vega,
-        csr::CSR_NONSEC_VEGA_RISK_WEIGHT, // Same vega weight for sec CTP.
+        csr::CSR_SEC_CTP_VEGA_RISK_WEIGHT,
         csr::CSR_SEC_CTP_INTRA_BUCKET_CORRELATION,
         csr::CSR_SEC_CTP_INTER_BUCKET_CORRELATION,
         scenario,
@@ -77,7 +77,7 @@ fn csr_sec_ctp_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> 
 fn csr_sec_nonctp_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     generic_bucketed_vega(
         &sens.csr_sec_nonctp_vega,
-        csr::CSR_NONSEC_VEGA_RISK_WEIGHT,
+        csr::CSR_SEC_NONCTP_VEGA_RISK_WEIGHT,
         csr::CSR_SEC_NONCTP_INTRA_BUCKET_CORRELATION,
         csr::CSR_SEC_NONCTP_INTER_BUCKET_CORRELATION,
         scenario,
