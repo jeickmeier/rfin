@@ -1,4 +1,4 @@
-# finstack Python Examples
+# finstack Python Notebook Examples
 
 A layered Jupyter notebook curriculum covering the full `finstack` Python library.
 Designed for a starting quant to learn every module from core types through
