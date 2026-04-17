@@ -87,6 +87,7 @@ mod tests {
                 gamma: None,
                 dist: InnovationDist::Gaussian,
                 family: GarchFamily::Garch11,
+                mean: 0.0,
             },
             std_errors: None,
             log_likelihood: -1000.0,
