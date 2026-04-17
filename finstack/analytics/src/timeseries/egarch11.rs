@@ -28,6 +28,10 @@ impl GarchModel for Egarch11 {
         "EGARCH(1,1)"
     }
 
+    fn family(&self) -> super::garch::GarchFamily {
+        super::garch::GarchFamily::Egarch11
+    }
+
     fn num_params(&self) -> usize {
         4
     }
@@ -193,6 +197,7 @@ mod tests {
             beta: 0.95,
             gamma: Some(-0.05),
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Egarch11,
         };
 
         let mut sigma2 = vec![0.0; returns.len()];
@@ -213,6 +218,7 @@ mod tests {
             beta: 0.90,
             gamma: Some(-0.10),
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Egarch11,
         };
 
         // Positive shock series

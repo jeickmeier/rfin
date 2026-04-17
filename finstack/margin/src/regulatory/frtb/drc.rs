@@ -8,15 +8,19 @@ use super::types::{DrcPosition, DrcSeniority};
 use finstack_core::HashMap;
 
 /// Prescribed DRC risk weights by rating bucket.
+///
+/// Source: Basel Framework MAR22.24 (FRTB Standardised Approach, DRC for
+/// non-securitisations). Unrated exposures receive the BB-equivalent 15%
+/// weight, and defaulted exposures receive 100%.
 pub const DRC_RISK_WEIGHTS: &[(u8, f64)] = &[
     (1, 0.005), // AAA
     (2, 0.02),  // AA
     (3, 0.03),  // A
-    (4, 0.05),  // BBB
-    (5, 0.10),  // BB
-    (6, 0.15),  // B
-    (7, 0.30),  // CCC
-    (8, 0.50),  // Unrated
+    (4, 0.06),  // BBB
+    (5, 0.15),  // BB
+    (6, 0.30),  // B
+    (7, 0.50),  // CCC
+    (8, 0.15),  // Unrated
     (9, 1.00),  // Defaulted
 ];
 
@@ -88,12 +92,17 @@ pub fn drc_charge(positions: &[DrcPosition]) -> f64 {
 }
 
 /// Look up DRC risk weight by rating bucket.
+///
+/// Unknown buckets fall back to the Unrated weight (15% per MAR22.24),
+/// matching how the Basel text treats exposures that lack an external
+/// rating. Callers who want a stricter policy should validate rating
+/// assignment upstream and not rely on this fallback.
 fn drc_risk_weight(rating_bucket: u8) -> f64 {
     DRC_RISK_WEIGHTS
         .iter()
         .find(|(b, _)| *b == rating_bucket)
         .map(|(_, w)| *w)
-        .unwrap_or(0.50) // Default: unrated
+        .unwrap_or(0.15) // Default: Unrated per MAR22.24
 }
 
 /// Look up LGD by seniority.

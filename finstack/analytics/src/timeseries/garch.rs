@@ -7,11 +7,36 @@ use super::diagnostics;
 use super::forecast::VarianceForecast;
 use super::innovations::InnovationDist;
 
+/// GARCH-family model tag used to interpret [`GarchParams`] correctly.
+///
+/// Different family members have different persistence definitions and
+/// different unconditional-variance formulas. Tagging the params struct
+/// removes the ambiguity that otherwise silently mis-reports both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GarchFamily {
+    /// Symmetric GARCH(1,1): sigma^2_t = omega + alpha*eps^2 + beta*sigma^2_{t-1}.
+    Garch11,
+    /// GJR-GARCH(1,1) with asymmetric leverage gamma.
+    GjrGarch11,
+    /// EGARCH(1,1): log(sigma^2) = omega + beta*log(sigma^2_{t-1}) + ...
+    Egarch11,
+}
+
+fn default_garch_family() -> GarchFamily {
+    GarchFamily::Garch11
+}
+
 /// Model parameters in canonical order.
 ///
 /// Each GARCH variant interprets these fields according to its own
 /// parameterization. The `gamma` field holds model-specific parameters
-/// (e.g., leverage coefficient for EGARCH/GJR).
+/// (e.g., leverage coefficient for EGARCH/GJR). The `family` tag is used
+/// by [`persistence`](Self::persistence), [`half_life`](Self::half_life),
+/// and [`unconditional_variance`](Self::unconditional_variance) to apply
+/// the correct formula.
+///
+/// Deserialising older snapshots that lack the `family` field defaults to
+/// [`GarchFamily::Garch11`].
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GarchParams {
     /// Intercept (omega).
@@ -24,28 +49,59 @@ pub struct GarchParams {
     pub gamma: Option<f64>,
     /// Innovation distribution (includes estimated dof for Student-t).
     pub dist: InnovationDist,
+    /// GARCH-family tag. Controls persistence / unconditional-variance formulas.
+    #[serde(default = "default_garch_family")]
+    pub family: GarchFamily,
 }
 
 impl GarchParams {
-    /// Persistence: alpha + beta for symmetric GARCH, beta for EGARCH (log-variance).
+    /// Persistence of volatility shocks under the model's own recursion.
+    ///
+    /// - `Garch11`: `alpha + beta`
+    /// - `GjrGarch11`: `alpha + beta + gamma/2` (assumes symmetric innovations)
+    /// - `Egarch11`: `beta` (EGARCH operates on log-variance; alpha acts
+    ///   on the magnitude innovation g(z_t) not on previous log-variance)
     #[must_use]
     pub fn persistence(&self) -> f64 {
-        self.alpha + self.beta
+        match self.family {
+            GarchFamily::Garch11 => self.alpha + self.beta,
+            GarchFamily::GjrGarch11 => self.alpha + self.beta + self.gamma.unwrap_or(0.0) / 2.0,
+            GarchFamily::Egarch11 => self.beta,
+        }
     }
 
-    /// Unconditional variance: omega / (1 - alpha - beta) for stationary GARCH.
+    /// Unconditional variance under the model's stationary distribution.
     ///
-    /// Returns `None` if the model is non-stationary (persistence >= 1).
+    /// - Symmetric GARCH(1,1): `omega / (1 - alpha - beta)` when persistence < 1.
+    /// - GJR-GARCH(1,1): `omega / (1 - alpha - beta - gamma/2)` (symmetric
+    ///   innovations, so `E[I{z<0} z^2] = 1/2`).
+    /// - EGARCH(1,1): the log-variance unconditional level is
+    ///   `omega / (1 - beta)`. The unconditional *variance* under a Gaussian
+    ///   standardised innovation is `exp(omega/(1-beta) + 0.5 * sigma_g^2)`
+    ///   with a non-trivial correction that depends on `alpha` and `gamma`.
+    ///   Returning a simple point estimate here would be misleading, so
+    ///   EGARCH returns `None`; callers should use EGARCH-specific tooling
+    ///   or sample from the filter for a long horizon.
+    ///
+    /// Returns `None` for non-stationary (persistence >= 1) or
+    /// ill-conditioned (omega <= 0, persistence <= 0) parameterisations.
     #[must_use]
     pub fn unconditional_variance(&self) -> Option<f64> {
-        let p = self.persistence();
-        if p >= 1.0 || p <= 0.0 {
-            return None;
+        match self.family {
+            GarchFamily::Egarch11 => None,
+            GarchFamily::Garch11 | GarchFamily::GjrGarch11 => {
+                let p = self.persistence();
+                if p >= 1.0 || p <= 0.0 {
+                    return None;
+                }
+                Some(self.omega / (1.0 - p))
+            }
         }
-        Some(self.omega / (1.0 - p))
     }
 
-    /// Half-life of a variance shock in periods: ln(2) / ln(persistence).
+    /// Half-life of a variance shock in periods: `ln(2) / (-ln(persistence))`.
+    ///
+    /// Defined when `0 < persistence < 1`.
     #[must_use]
     pub fn half_life(&self) -> Option<f64> {
         let p = self.persistence();
@@ -70,7 +126,7 @@ impl GarchParams {
 
     /// Unpack from a flat slice. Model-specific interpretation.
     #[must_use]
-    pub fn from_vec(v: &[f64], dist: InnovationDist, has_gamma: bool) -> Self {
+    pub fn from_vec(v: &[f64], dist: InnovationDist, has_gamma: bool, family: GarchFamily) -> Self {
         let omega = v[0];
         let alpha = v[1];
         let beta = v[2];
@@ -87,6 +143,7 @@ impl GarchParams {
             InnovationDist::Gaussian => InnovationDist::Gaussian,
         };
         Self {
+            family,
             omega,
             alpha,
             beta,
@@ -208,6 +265,9 @@ pub trait GarchModel: Send + Sync {
     /// Human-readable model name.
     fn name(&self) -> &'static str;
 
+    /// GARCH-family tag; used to build correctly-typed [`GarchParams`].
+    fn family(&self) -> GarchFamily;
+
     /// Number of model-specific parameters (excludes innovation distribution params).
     fn num_params(&self) -> usize;
 
@@ -325,7 +385,7 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
                     continue;
                 }
 
-                let params = GarchParams::from_vec(&pvec, dist, has_gamma);
+                let params = GarchParams::from_vec(&pvec, dist, has_gamma, model.family());
                 let ll = model.log_likelihood(returns, &params, dist);
 
                 if ll.is_finite() && ll > best_ll {
@@ -356,7 +416,7 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
         if !stationarity_check_clone(x) {
             return 1e18;
         }
-        let params = GarchParams::from_vec(x, dist, has_gamma);
+        let params = GarchParams::from_vec(x, dist, has_gamma, model.family());
         let ll = model.log_likelihood(returns, &params, dist);
         if ll.is_finite() {
             -ll
@@ -369,7 +429,7 @@ pub(crate) fn fit_garch_mle<M: GarchModel>(
     let opt_bounds: super::optimizer::Bounds = bounds.to_vec();
     let result = optimizer.minimize(neg_ll, &best_params_vec, &opt_bounds);
 
-    let final_params = GarchParams::from_vec(&result.x, dist, has_gamma);
+    let final_params = GarchParams::from_vec(&result.x, dist, has_gamma, model.family());
     let final_ll = -result.f_val;
 
     // Compute conditional variances and standardized residuals

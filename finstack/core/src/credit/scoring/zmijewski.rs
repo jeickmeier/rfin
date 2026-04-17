@@ -36,14 +36,26 @@ pub struct ZmijewskiInput {
 
 /// Compute the Zmijewski probit score.
 ///
+/// ```text
 /// Y = -4.336 - 4.513 * X1 + 5.679 * X2 + 0.004 * X3
+/// PD = Phi(Y)
+/// ```
 ///
-/// PD = Phi(Y) (standard normal CDF)
-///
-/// Zone classification based on implied PD:
+/// Zone classification on implied PD:
 /// - PD < 0.10: Safe
 /// - 0.10 <= PD <= 0.50: Grey
 /// - PD > 0.50: Distress
+///
+/// # Coefficient convention
+///
+/// This uses Zmijewski's originally published 1984 coefficients, including
+/// the counterintuitively positive coefficient (+0.004) on the current
+/// ratio (CACL). Zmijewski noted this sign in the original paper; it is
+/// economically weak (higher liquidity should reduce distress probability)
+/// but statistically insignificant in the original sample. Many subsequent
+/// replications (e.g. Grice & Dugan 2003) refit the model and report a
+/// small negative coefficient. If your calibration target is a refit
+/// version rather than the original paper, negate the CACL term.
 ///
 /// # Errors
 ///

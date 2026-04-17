@@ -222,6 +222,8 @@ impl ConsentTracker {
 /// # Arguments
 ///
 /// * `offer` - Exchange offer specification
+/// * `as_of` - Valuation date used to compute years-to-maturity for both
+///   the hold and tender legs.
 /// * `discount_rate` - Rate used to discount future cash flows
 /// * `hold_recovery_rate` - Assumed recovery if holder does not tender
 ///   and the issuer eventually defaults or restructures further
@@ -234,6 +236,7 @@ impl ConsentTracker {
 /// rates are negative, or if old/new instruments have currency mismatch.
 pub fn analyze_exchange_offer(
     offer: &ExchangeOffer,
+    as_of: Date,
     discount_rate: f64,
     hold_recovery_rate: f64,
     _participation_estimate: f64,
@@ -244,12 +247,12 @@ pub fn analyze_exchange_offer(
 
     // Hold scenario: NPV of existing instrument cash flows, weighted by
     // hold_recovery_rate for the default-contingent path.
-    let hold_npv = compute_instrument_npv(&offer.old_instrument, discount_rate);
+    let hold_npv = compute_instrument_npv(&offer.old_instrument, as_of, discount_rate);
     let hold_recovery_value = Money::new(
         offer.old_instrument.par_amount.amount() * hold_recovery_rate,
         currency,
     );
-    let hold_wal = estimate_wal(&offer.old_instrument);
+    let hold_wal = estimate_wal(&offer.old_instrument, as_of);
 
     // Tender scenario: NPV of new instrument + equity sweetener + consent fee.
     let exchange_ratio = match &offer.exchange_type {
@@ -262,7 +265,8 @@ pub fn analyze_exchange_offer(
     let new_par_amt = offer.old_instrument.par_amount.amount() * exchange_ratio;
     let new_par = Money::new(new_par_amt, offer.new_instrument.par_amount.currency());
 
-    let tender_npv_amt = compute_scaled_npv(&offer.new_instrument, discount_rate, new_par_amt);
+    let tender_npv_amt =
+        compute_scaled_npv(&offer.new_instrument, as_of, discount_rate, new_par_amt);
 
     let sweetener_value = offer.equity_sweetener.as_ref().map_or(0.0, |sw| {
         sw.units_per_1000
@@ -273,7 +277,7 @@ pub fn analyze_exchange_offer(
     let consent_value =
         offer.consent_fee_bps.unwrap_or(0.0) / 10_000.0 * offer.old_instrument.par_amount.amount();
 
-    let tender_wal = estimate_wal(&offer.new_instrument);
+    let tender_wal = estimate_wal(&offer.new_instrument, as_of);
 
     let hold = ScenarioEconomics {
         par_amount: offer.old_instrument.par_amount,
@@ -378,15 +382,16 @@ fn validate_exchange_offer(
     Ok(())
 }
 
-/// Compute a simple NPV for an instrument using flat discount rate.
+/// Compute a simple NPV for an instrument using a flat discount rate.
 ///
 /// NPV = sum of discounted coupons + discounted principal at maturity.
-/// Uses years-to-maturity estimated from the maturity date vs a
-/// reference point (instrument maturity provides the duration).
-fn compute_instrument_npv(instrument: &ExchangeInstrument, discount_rate: f64) -> f64 {
+/// Years-to-maturity are taken from `as_of` to `instrument.maturity` on an
+/// Act/365F basis. Assumes one coupon payment per (annual) period; callers
+/// wanting a finer schedule should build a full cashflow model.
+fn compute_instrument_npv(instrument: &ExchangeInstrument, as_of: Date, discount_rate: f64) -> f64 {
     let par = instrument.par_amount.amount();
     let coupon = par * instrument.coupon_rate;
-    let years = estimate_wal(instrument);
+    let years = estimate_wal(instrument, as_of);
 
     if years <= 0.0 || discount_rate <= 0.0 {
         return par;
@@ -405,30 +410,28 @@ fn compute_instrument_npv(instrument: &ExchangeInstrument, discount_rate: f64) -
 }
 
 /// Compute NPV scaled to a different par amount (for exchange ratio adjustment).
-fn compute_scaled_npv(instrument: &ExchangeInstrument, discount_rate: f64, scaled_par: f64) -> f64 {
+fn compute_scaled_npv(
+    instrument: &ExchangeInstrument,
+    as_of: Date,
+    discount_rate: f64,
+    scaled_par: f64,
+) -> f64 {
     let original_par = instrument.par_amount.amount();
     if original_par <= 0.0 {
         return 0.0;
     }
-    let base_npv = compute_instrument_npv(instrument, discount_rate);
+    let base_npv = compute_instrument_npv(instrument, as_of, discount_rate);
     base_npv * (scaled_par / original_par)
 }
 
-/// Estimate weighted average life (WAL) in years from today.
+/// Estimate weighted average life (WAL) in years from `as_of`.
 ///
-/// Simplified: uses a fixed reference date and computes years to maturity.
-/// In production, this would use the actual valuation date.
-fn estimate_wal(instrument: &ExchangeInstrument) -> f64 {
-    // Use maturity year minus a reference. Since we don't have an
-    // as-of date, approximate WAL as the coupon-weighted midpoint.
-    // For a bullet bond, WAL ~= years to maturity.
-    // We estimate years to maturity as a reasonable default.
-    // Use 5.0 years as a fallback when maturity information is ambiguous.
-    let year = instrument.maturity.year() as f64;
-    // Approximate: instruments typically have 2-10 year maturities.
-    // We'll compute from a reference year of 2026.
-    let ref_year = 2026.0;
-    (year - ref_year).max(0.5)
+/// For a bullet bond, WAL ~= time to maturity. Computed on Act/365F from
+/// `as_of` to `instrument.maturity`. Floored at 0.5y to avoid degenerate
+/// pricing for near-matured claims where the zero-coupon NPV would collapse.
+fn estimate_wal(instrument: &ExchangeInstrument, as_of: Date) -> f64 {
+    let days = (instrument.maturity - as_of).whole_days() as f64;
+    (days / 365.0).max(0.5)
 }
 
 #[cfg(test)]
@@ -477,10 +480,15 @@ mod tests {
         }
     }
 
+    fn as_of() -> Date {
+        make_date(2026, Month::January, 15)
+    }
+
     #[test]
     fn par_for_par_exchange_economics() {
         let offer = sample_offer(ExchangeType::ParForPar);
-        let result = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let result =
+            analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).expect("should succeed");
 
         // With par-for-par and higher coupon on new instrument, tender should
         // generally be preferred.
@@ -494,7 +502,8 @@ mod tests {
         let offer = sample_offer(ExchangeType::Discount {
             exchange_ratio: 0.70,
         });
-        let result = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let result =
+            analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).expect("should succeed");
 
         // New par is 70% of old par.
         assert!(
@@ -508,10 +517,12 @@ mod tests {
     fn consent_fee_adds_value() {
         let mut offer = sample_offer(ExchangeType::ParForPar);
         offer.consent_fee_bps = None;
-        let without_fee = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let without_fee =
+            analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).expect("should succeed");
 
         offer.consent_fee_bps = Some(100.0);
-        let with_fee = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let with_fee =
+            analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).expect("should succeed");
 
         assert!(
             with_fee.tender.npv.amount() > without_fee.tender.npv.amount(),
@@ -522,14 +533,16 @@ mod tests {
     #[test]
     fn equity_sweetener_adds_value() {
         let mut offer = sample_offer(ExchangeType::ParForPar);
-        let without = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let without =
+            analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).expect("should succeed");
 
         offer.equity_sweetener = Some(EquitySweetener {
             equity_type: EquityComponentType::CommonShares,
             units_per_1000: 10.0,
             estimated_value_per_unit: usd(5.0),
         });
-        let with = analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).expect("should succeed");
+        let with =
+            analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).expect("should succeed");
 
         assert!(
             with.tender.npv.amount() > without.tender.npv.amount(),
@@ -542,18 +555,18 @@ mod tests {
         let offer = sample_offer(ExchangeType::Discount {
             exchange_ratio: 0.0,
         });
-        assert!(analyze_exchange_offer(&offer, 0.12, 0.40, 0.75).is_err());
+        assert!(analyze_exchange_offer(&offer, as_of(), 0.12, 0.40, 0.75).is_err());
 
         let offer2 = sample_offer(ExchangeType::Discount {
             exchange_ratio: 3.0,
         });
-        assert!(analyze_exchange_offer(&offer2, 0.12, 0.40, 0.75).is_err());
+        assert!(analyze_exchange_offer(&offer2, as_of(), 0.12, 0.40, 0.75).is_err());
     }
 
     #[test]
     fn negative_discount_rate_rejected() {
         let offer = sample_offer(ExchangeType::ParForPar);
-        assert!(analyze_exchange_offer(&offer, -0.05, 0.40, 0.75).is_err());
+        assert!(analyze_exchange_offer(&offer, as_of(), -0.05, 0.40, 0.75).is_err());
     }
 
     #[test]

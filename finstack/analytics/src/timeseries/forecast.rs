@@ -73,7 +73,7 @@ pub fn vol_term_structure(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::timeseries::garch::{GarchFit, GarchParams};
+    use crate::timeseries::garch::{GarchFamily, GarchFit, GarchParams};
     use crate::timeseries::garch11::Garch11;
     use crate::timeseries::innovations::InnovationDist;
 
@@ -86,6 +86,7 @@ mod tests {
                 beta: 0.85,
                 gamma: None,
                 dist: InnovationDist::Gaussian,
+                family: GarchFamily::Garch11,
             },
             std_errors: None,
             log_likelihood: -1000.0,

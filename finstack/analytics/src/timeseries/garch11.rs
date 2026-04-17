@@ -23,6 +23,10 @@ impl GarchModel for Garch11 {
         "GARCH(1,1)"
     }
 
+    fn family(&self) -> super::garch::GarchFamily {
+        super::garch::GarchFamily::Garch11
+    }
+
     fn num_params(&self) -> usize {
         3
     }
@@ -166,6 +170,7 @@ mod tests {
             beta: 0.85,
             gamma: None,
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Garch11,
         };
 
         let mut sigma2 = vec![0.0; 5];
@@ -206,6 +211,7 @@ mod tests {
             beta: 0.85,
             gamma: None,
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Garch11,
         };
         assert!(params.persistence() < 1.0);
         assert!(params.unconditional_variance().is_some());
@@ -220,6 +226,7 @@ mod tests {
             beta: 0.6,
             gamma: None,
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Garch11,
         };
         assert!(params.persistence() > 1.0);
         assert!(params.unconditional_variance().is_none());
@@ -235,6 +242,7 @@ mod tests {
                 beta: 0.85,
                 gamma: None,
                 dist: InnovationDist::Gaussian,
+                family: super::super::garch::GarchFamily::Garch11,
             },
             std_errors: None,
             log_likelihood: -1000.0,

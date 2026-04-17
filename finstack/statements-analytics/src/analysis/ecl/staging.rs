@@ -12,11 +12,21 @@
 //! 5. Curing: If previously Stage 2/3 and now meets cure criteria, allow step-down
 //! 6. Default: Stage 1
 //!
+//! # Comparator convention
+//!
+//! IFRS 9 B5.5.37 phrases the backstops as "contractual payments are
+//! *more than* 30 / 90 days past due". This module follows that literal
+//! wording: a trigger fires when `days_past_due > threshold` (equivalently
+//! DPD >= threshold + 1). Callers who require the alternative ">=" reading
+//! (e.g. some Basel IRB implementations) should set
+//! `dpd_stage2_threshold = 29` and `dpd_stage3_threshold = 89`.
+//!
 //! # References
 //!
 //! - IFRS 9 Financial Instruments, Section 5.5 -- Impairment
 //! - IFRS 9 B5.5.17 -- Qualitative indicators of SICR
 //! - IFRS 9 B5.5.19 -- 30 days past due rebuttable presumption
+//! - IFRS 9 B5.5.37 -- 90 days past due default presumption
 
 use finstack_core::Result;
 use serde::{Deserialize, Serialize};

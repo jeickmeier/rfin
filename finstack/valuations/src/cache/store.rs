@@ -60,6 +60,7 @@ struct CacheEntry {
 ///
 /// let key = CacheKey::new(&CacheKeyInput {
 ///     instrument_id: "BOND-001",
+///     instrument_content_hash: 0, // for truly immutable instruments; see CacheKeyInput docs
 ///     market_version: 1,
 ///     curve_versions: &[],
 ///     model_key: ModelKey::Discounting,
@@ -281,6 +282,7 @@ mod tests {
     fn make_key(instrument_id: &str, version: u64) -> CacheKey {
         CacheKey::new(&CacheKeyInput {
             instrument_id,
+            instrument_content_hash: 0,
             market_version: version,
             curve_versions: &[],
             model_key: ModelKey::Discounting,

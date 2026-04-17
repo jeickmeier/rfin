@@ -179,8 +179,17 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // -- Exotic Rate Products --
+    //
+    // These instruments register `ModelKey::Discounting` as a placeholder so
+    // they appear in `available_models(...)`. `GenericInstrumentPricer` routes
+    // to the instrument's `value()` method, which for each of these exotics
+    // currently returns `Err(Error::Validation(...))` explaining that a
+    // proper MC/LSM/replication model must be provided. Callers therefore
+    // get a clear error rather than a silently wrong discounting-only PV.
+    // When a real model lands, add a second registration under the real
+    // model key and update `value()` to forward to it.
 
-    // TARN - generic pricer (MC payoff not yet implemented)
+    // TARN - generic pricer (MC payoff not yet implemented).
     registry.register(
         InstrumentType::Tarn,
         ModelKey::Discounting,
@@ -189,7 +198,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         >::discounting(InstrumentType::Tarn),
     );
 
-    // Snowball / Inverse Floater - generic pricer
+    // Snowball / Inverse Floater - generic pricer.
     registry.register(
         InstrumentType::Snowball,
         ModelKey::Discounting,
@@ -198,7 +207,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         >::discounting(InstrumentType::Snowball),
     );
 
-    // CMS Spread Option - generic pricer
+    // CMS Spread Option - generic pricer.
     registry.register(
         InstrumentType::CmsSpreadOption,
         ModelKey::Discounting,
@@ -207,7 +216,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         >::discounting(InstrumentType::CmsSpreadOption),
     );
 
-    // Callable Range Accrual - generic pricer
+    // Callable Range Accrual - generic pricer.
     registry.register(
         InstrumentType::CallableRangeAccrual,
         ModelKey::Discounting,

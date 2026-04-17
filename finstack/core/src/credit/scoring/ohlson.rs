@@ -24,10 +24,35 @@ use super::types::{check_finite, CreditScoringError, ScoringResult, ScoringZone}
 /// of Bankruptcy." *Journal of Accounting Research*, 18(1), 109-131.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct OhlsonOScoreInput {
-    /// log(Total Assets / GNP price-level index).
+    /// Ohlson's SIZE variable: `ln(Total Assets / GNP price-level index)`.
     ///
-    /// Use `ln(total_assets_millions)` as a practical approximation when
-    /// a GNP deflator is unavailable.
+    /// The published coefficient `-0.407` is calibrated to this specific
+    /// scale using the US GNP deflator with Ohlson's 1970s base period
+    /// (Ohlson 1980, Table 4). The deflator normalises for inflation so
+    /// firms are compared on a constant-dollar basis.
+    ///
+    /// # Unit sensitivity (IMPORTANT)
+    ///
+    /// Because the coefficient is calibrated to Ohlson's specific scale,
+    /// substituting a different unit shifts the score by a constant and
+    /// therefore shifts every implied PD and every zone boundary. For
+    /// example, `ln(total_assets_millions)` differs from Ohlson's SIZE
+    /// by `+ ln(10^6 / GNP_deflator_1970s)`, which multiplied by
+    /// `-0.407` shifts the O-score by roughly `-2.8` - i.e. every firm
+    /// looks ~60%+ "safer" than it should.
+    ///
+    /// Recommended inputs, in order of fidelity:
+    /// 1. `ln(total_assets_nominal_USD / GNP_deflator)` using a deflator
+    ///    with an explicit base period close to 1968-70. This reproduces
+    ///    Ohlson's original scale.
+    /// 2. `ln(total_assets_deflated_to_Ohlson_base_USD)` if you have
+    ///    pre-deflated real dollars.
+    /// 3. Any other rescaling, together with a re-estimated intercept and
+    ///    re-calibrated zone thresholds on your own sample.
+    ///
+    /// Do **not** feed raw `ln(total_assets_millions)` or
+    /// `ln(total_assets_billions)` unless you have re-estimated the model
+    /// - the out-of-the-box thresholds will mis-rank.
     pub log_total_assets_adjusted: f64,
     /// Total Liabilities / Total Assets.
     pub total_liabilities_to_total_assets: f64,

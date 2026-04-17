@@ -35,6 +35,7 @@
 //! // Build a cache key
 //! let key = CacheKey::new(&CacheKeyInput {
 //!     instrument_id: "BOND-001",
+//!     instrument_content_hash: 0, // compute from Hash/serde for mutable instruments
 //!     market_version: 1,
 //!     curve_versions: &[],
 //!     model_key: ModelKey::Discounting,

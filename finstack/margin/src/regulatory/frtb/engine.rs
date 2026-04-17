@@ -337,15 +337,15 @@ mod tests {
         sens.drc_positions.push(DrcPosition {
             issuer: "ACME".to_string(),
             jtd_amount: 1_000_000.0,
-            rating_bucket: 4, // BBB -> RW = 0.05
+            rating_bucket: 4, // BBB -> RW = 0.06 per MAR22.24
             sector: DrcSector::FinancialsCorporate,
             seniority: DrcSeniority::SeniorUnsecured,
             asset_type: DrcAssetType::Corporate,
         });
 
         let result = engine.calculate(&sens).expect("calculate");
-        // DRC = LGD * JTD * RW = 0.75 * 1M * 0.05 = 37,500.
-        let expected = 0.75 * 1_000_000.0 * 0.05;
+        // DRC = LGD * JTD * RW = 0.75 * 1M * 0.06 = 45,000.
+        let expected = 0.75 * 1_000_000.0 * 0.06;
         assert!(
             (result.drc - expected).abs() < 1.0,
             "DRC: expected {expected}, got {}",

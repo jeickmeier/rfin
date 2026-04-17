@@ -28,6 +28,10 @@ impl GarchModel for GjrGarch11 {
         "GJR-GARCH(1,1)"
     }
 
+    fn family(&self) -> super::garch::GarchFamily {
+        super::garch::GarchFamily::GjrGarch11
+    }
+
     fn num_params(&self) -> usize {
         4
     }
@@ -185,6 +189,7 @@ mod tests {
             beta: 0.85,
             gamma: Some(0.10),
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::GjrGarch11,
         };
 
         // Compare effect of positive vs negative return
@@ -213,6 +218,7 @@ mod tests {
             beta: 0.85,
             gamma: Some(0.0),
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::GjrGarch11,
         };
         let params_garch = GarchParams {
             omega: 0.00001,
@@ -220,6 +226,7 @@ mod tests {
             beta: 0.85,
             gamma: None,
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Garch11,
         };
 
         let returns = [0.01, -0.02, 0.015, -0.01, 0.005];
@@ -248,9 +255,29 @@ mod tests {
             beta: 0.85,
             gamma: Some(0.10),
             dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::GjrGarch11,
         };
-        // GJR stationarity: alpha + beta + gamma/2 = 0.05 + 0.85 + 0.05 = 0.95 < 1
-        let persistence = params.alpha + params.beta + params.gamma.unwrap() / 2.0;
-        assert!(persistence < 1.0);
+        // GJR persistence: alpha + beta + gamma/2 = 0.05 + 0.85 + 0.05 = 0.95
+        assert!((params.persistence() - 0.95).abs() < 1e-12);
+        assert!(params.persistence() < 1.0);
+        assert!(params.unconditional_variance().is_some());
+    }
+
+    #[test]
+    fn egarch_persistence_is_beta_only() {
+        // Regression: persistence() must branch on family. EGARCH persistence
+        // is beta alone; applying alpha+beta would mis-state half-life and
+        // (more importantly) break comparisons against GARCH/GJR.
+        let params = GarchParams {
+            omega: -0.1,
+            alpha: 0.15,
+            beta: 0.95,
+            gamma: Some(-0.05),
+            dist: InnovationDist::Gaussian,
+            family: super::super::garch::GarchFamily::Egarch11,
+        };
+        assert!((params.persistence() - 0.95).abs() < 1e-12);
+        // Simple unconditional variance is not well-defined for EGARCH; must be None.
+        assert!(params.unconditional_variance().is_none());
     }
 }
