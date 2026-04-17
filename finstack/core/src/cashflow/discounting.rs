@@ -233,16 +233,48 @@ pub fn npv_with_ctx<D: Discounting + ?Sized>(
         }
     }
 
-    // Accumulate using Money arithmetic to preserve internal Decimal precision.
-    // Money uses rust_decimal::Decimal internally, which doesn't suffer from the
-    // same floating-point accumulation errors that Neumaier summation addresses.
-    // For scalar (f64) NPV calculations, use npv_amounts() which employs Neumaier.
+    // Per-flow discounting: Money × f64 discount factor produces a Money
+    // value rounded to Money's Decimal scale. Accumulation of rounded
+    // per-flow values is exact at that scale. For bit-exact precision,
+    // callers should pre-discount amounts in Decimal and sum via
+    // npv_prediscounted_money().
     let mut total = Money::new(0.0, ccy);
     for (d, amt) in flows {
         let t = day_count.signed_year_fraction(base, *d, ctx)?;
         let df = disc.df(t);
         let disc_amt = *amt * df;
         total = total.checked_add(disc_amt)?;
+    }
+    Ok(total)
+}
+
+/// Sum pre-discounted `Money` cashflows for bit-exact accumulation.
+///
+/// Callers that need maximum precision should discount each flow
+/// using `Decimal` arithmetic and then pass the results here. This
+/// avoids the `f64` rounding that occurs in [`npv_with_ctx`] when
+/// multiplying `Money` by `f64` discount factors.
+///
+/// # Errors
+///
+/// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints): Empty flow slice
+/// - [`Error::CurrencyMismatch`](crate::Error::CurrencyMismatch): Mixed currencies
+pub fn npv_prediscounted_money(flows: &[(Date, Money)]) -> crate::Result<Money> {
+    if flows.is_empty() {
+        return Err(crate::error::InputError::TooFewPoints.into());
+    }
+    let ccy = flows[0].1.currency();
+    for (_, amt) in flows.iter().skip(1) {
+        if amt.currency() != ccy {
+            return Err(crate::Error::CurrencyMismatch {
+                expected: ccy,
+                actual: amt.currency(),
+            });
+        }
+    }
+    let mut total = Money::new(0.0, ccy);
+    for (_, amt) in flows {
+        total = total.checked_add(*amt)?;
     }
     Ok(total)
 }
@@ -353,6 +385,7 @@ mod hardening_tests {
             calendar: Some(&TARGET2),
             frequency: None,
             bus_basis: None,
+            coupon_period: None,
         };
 
         let pv = npv_with_ctx(&curve, base, Some(DayCount::Bus252), ctx, &flows)
@@ -614,6 +647,47 @@ mod tests {
             flows.len(),
             pv.amount(),
             (pv.amount() - 12000.0).abs()
+        );
+    }
+
+    #[test]
+    fn npv_prediscounted_money_exact_summation() {
+        let base = create_date(2025, Month::January, 1).expect("Valid test date");
+        let flows: Vec<(Date, Money)> = (1..=120)
+            .map(|i| {
+                let date = base + time::Duration::days(i as i64 * 91);
+                (date, Money::new(100.0, Currency::USD))
+            })
+            .collect();
+
+        let pv = npv_prediscounted_money(&flows).expect("summation should succeed");
+        assert!(
+            (pv.amount() - 12000.0).abs() < 1e-12,
+            "expected exact 12000.0, got {} (error: {:.2e})",
+            pv.amount(),
+            (pv.amount() - 12000.0).abs()
+        );
+    }
+
+    #[test]
+    fn npv_prediscounted_money_empty_errors() {
+        let flows: Vec<(Date, Money)> = vec![];
+        assert!(
+            npv_prediscounted_money(&flows).is_err(),
+            "empty flows should error"
+        );
+    }
+
+    #[test]
+    fn npv_prediscounted_money_currency_mismatch_errors() {
+        let base = create_date(2025, Month::January, 1).expect("Valid test date");
+        let flows = vec![
+            (base, Money::new(100.0, Currency::USD)),
+            (base, Money::new(100.0, Currency::EUR)),
+        ];
+        assert!(
+            npv_prediscounted_money(&flows).is_err(),
+            "mixed currencies should error"
         );
     }
 

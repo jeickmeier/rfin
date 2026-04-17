@@ -112,11 +112,12 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
     - `next_imm_option_expiry(date)` – next IMM option expiry (quarterly)
     - `next_equity_option_expiry(date)` – next equity option expiry (3rd Friday monthly)
 - **`rate_conversions.rs`**
-  - Interest‑rate compounding conversions:
-    - Simple ↔ periodic: `simple_to_periodic`, `periodic_to_simple`
-    - Periodic ↔ continuous: `periodic_to_continuous`, `continuous_to_periodic`
-    - Simple ↔ continuous: `simple_to_continuous`, `continuous_to_simple`
-  - All functions return `Result<f64>` and validate inputs (non‑negative year fractions, positive frequencies, etc.).
+  - **Deprecated** free functions retained for backward compatibility; prefer
+    [`Compounding::convert_rate`](crate::math::Compounding::convert_rate).
+  - Legacy wrappers: `simple_to_periodic`, `periodic_to_simple`,
+    `periodic_to_continuous`, `continuous_to_periodic`,
+    `simple_to_continuous`, `continuous_to_simple`
+  - All legacy functions return `Result<f64>` and validate inputs (non‑negative year fractions, positive frequencies, etc.).
 
 ---
 
@@ -317,26 +318,27 @@ For equity options, use `next_equity_option_expiry(date)` (3rd Friday of each mo
 
 ### Rate Conversion Utilities
 
-The `rate_conversions` module normalizes interest rates across quoting conventions:
+Use [`Compounding::convert_rate`] for all rate convention conversions:
 
 ```rust
-use finstack_core::dates::rate_conversions::{
-    simple_to_periodic, periodic_to_continuous, continuous_to_simple,
-};
+use finstack_core::math::Compounding;
 
 // Money‑market simple rate → swap (semi‑annual) → continuous → back to simple
 let simple = 0.035;
 let yf = 0.25;                // 3M
-let periodic = simple_to_periodic(simple, yf, 2)?; // 2 coupons/year
-let continuous = periodic_to_continuous(periodic, 2)?;
-let simple_back = continuous_to_simple(continuous, yf)?;
+let periodic = Compounding::Simple.convert_rate(simple, yf, &Compounding::SEMI_ANNUAL);
+let continuous = Compounding::SEMI_ANNUAL.convert_rate(periodic, 1.0, &Compounding::Continuous);
+let simple_back = Compounding::Continuous.convert_rate(continuous, yf, &Compounding::Simple);
 ```
 
-All functions:
+The `Compounding` enum:
 
-- Validate inputs (e.g., `periods_per_year > 0`, non‑negative year fractions)
-- Preserve precision under realistic rates (round‑trip tests)
-- Support negative rates, which are common in modern markets
+- Supports `Continuous`, `Annual`, `Periodic(n)`, and `Simple` conventions
+- Provides `convert_rate`, `df_from_rate`, and `rate_from_df` methods
+- Preserves precision under realistic rates (round‑trip tests)
+- Supports negative rates, which are common in modern markets
+
+The legacy free functions in `dates::rate_conversions` are deprecated thin wrappers.
 
 ---
 
@@ -401,7 +403,7 @@ use time::Month;
 let start = Date::from_calendar_date(2025, Month::January, 2)?;
 let end   = Date::from_calendar_date(2025, Month::January, 9)?;
 
-let ctx = DayCountCtx { calendar: Some(&TARGET2), frequency: None, bus_basis: None };
+let ctx = DayCountCtx { calendar: Some(&TARGET2), frequency: None, bus_basis: None, coupon_period: None };
 let yf = DayCount::Bus252.year_fraction(start, end, ctx)?;
 ```
 

@@ -269,6 +269,7 @@ fn actact_isma_requires_frequency() {
         frequency: None,
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
     assert!(
         dc.year_fraction(d(2025, 1, 1), d(2025, 7, 1), ctx_no_freq)
@@ -286,6 +287,7 @@ fn actact_isma_with_semi_annual_frequency() {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
     let result = dc.year_fraction(d(2025, 1, 1), d(2025, 7, 1), ctx_with_freq);
 
@@ -309,6 +311,7 @@ fn actact_isma_with_quarterly_frequency() {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let result = dc.year_fraction(d(2025, 1, 1), d(2025, 4, 1), ctx);
@@ -350,6 +353,7 @@ fn actact_isma_golden_value_semi_annual_regular_period() {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = dc
@@ -375,6 +379,7 @@ fn actact_isma_golden_value_quarterly_regular_period() {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = dc
@@ -398,6 +403,7 @@ fn actact_isma_golden_value_annual_regular_period() {
         frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = dc
@@ -428,6 +434,7 @@ fn actact_isma_stub_period_shorter_than_regular() {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = dc
@@ -464,6 +471,7 @@ fn actact_isda_no_frequency_required() {
         frequency: None,
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     // Should work without frequency
@@ -515,6 +523,7 @@ fn zero_length_period_all_conventions() {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let conventions = [

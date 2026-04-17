@@ -131,8 +131,8 @@ fn metrics_table_from_dict<'py>(
         measures.insert(metric_id, value);
     }
 
-    let result = ValuationResult::stamped(instrument_id, date, Money::new(npv, ccy))
-        .with_measures(measures);
+    let result =
+        ValuationResult::stamped(instrument_id, date, Money::new(npv, ccy)).with_measures(measures);
     let table = MetricsTable::from_valuation_result(&result);
     component_to_pydict(py, &table)
 }
@@ -262,8 +262,7 @@ fn scenario_matrix<'py>(
         })
         .collect();
 
-    let base_case_index =
-        base_case.and_then(|name| scenario_names.iter().position(|s| s == name));
+    let base_case_index = base_case.and_then(|name| scenario_names.iter().position(|s| s == name));
     let deltas = base_case_index.map(|base_idx| {
         let base_row = values[base_idx].clone();
         values

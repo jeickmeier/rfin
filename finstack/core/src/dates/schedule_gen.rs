@@ -112,6 +112,13 @@ pub(super) struct BuilderInternal {
 
 impl BuilderInternal {
     pub(super) fn generate(self) -> crate::Result<Vec<Date>> {
+        if self.start >= self.end {
+            return Err(crate::error::InputError::InvalidScheduleRange {
+                start: self.start,
+                end: self.end,
+            }
+            .into());
+        }
         match self.stub {
             StubKind::ShortFront => self.gen_short_front(),
             StubKind::LongFront => self.gen_long_front(),
@@ -145,9 +152,9 @@ impl BuilderInternal {
         );
         buf.push(dt);
         while dt < end {
-            let mut next = self.add_tenor(dt, 1)?;
+            let next = self.add_tenor(dt, 1)?;
             if next > end {
-                next = end;
+                return Err(crate::error::InputError::NonIntegerScheduleTenor.into());
             }
             dt = maybe_eom(self.eom, next);
             push_if_new(&mut buf, dt);
@@ -156,7 +163,22 @@ impl BuilderInternal {
     }
 
     fn gen_short_back(self) -> crate::Result<Vec<Date>> {
-        self.gen_regular()
+        let mut buf: Buffer = Buffer::new();
+        let (mut dt, end) = (
+            maybe_eom(self.eom, self.start),
+            maybe_eom(self.eom, self.end),
+        );
+        buf.push(dt);
+        while dt < end {
+            let next = self.add_tenor(dt, 1)?;
+            dt = maybe_eom(self.eom, next);
+            if dt > end {
+                push_if_new(&mut buf, end);
+                break;
+            }
+            push_if_new(&mut buf, dt);
+        }
+        Ok(buf.into_vec())
     }
 
     fn gen_short_front(self) -> crate::Result<Vec<Date>> {

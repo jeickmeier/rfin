@@ -168,8 +168,9 @@ impl CommoditySwaption {
 
     /// Generate the underlying swap payment schedule.
     pub fn swap_payment_schedule(&self) -> Result<Vec<Date>> {
-        let mut builder =
-            ScheduleBuilder::new(self.swap_start, self.swap_end)?.frequency(self.swap_frequency);
+        let mut builder = ScheduleBuilder::new(self.swap_start, self.swap_end)?
+            .frequency(self.swap_frequency)
+            .stub_rule(finstack_core::dates::StubKind::ShortBack);
 
         if let Some(ref cal_id) = self.calendar_id {
             if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {

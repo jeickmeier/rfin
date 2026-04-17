@@ -168,6 +168,7 @@ fn test_single_convention(
         calendar: None,
         frequency,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = dc

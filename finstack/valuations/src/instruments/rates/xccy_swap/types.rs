@@ -400,6 +400,7 @@ impl XccySwap {
                     end_of_month: false,
                     payment_lag_days: leg.payment_lag_days,
                     overnight_compounding: None,
+                    overnight_basis: None,
                     fallback: FloatingRateFallback::Error,
                 },
                 coupon_type: CouponType::Cash,

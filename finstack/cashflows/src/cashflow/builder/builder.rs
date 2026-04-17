@@ -762,6 +762,7 @@ impl CashFlowBuilder {
             end_of_month,
             payment_lag_days,
             overnight_compounding,
+            overnight_basis,
             fallback,
         } = rate_spec;
         self.coupon_program.push(CouponProgramPiece {
@@ -791,6 +792,7 @@ impl CashFlowBuilder {
                 index_cap_bp,
                 fixing_calendar_id,
                 overnight_compounding,
+                overnight_basis,
                 fallback,
             },
         });
@@ -981,6 +983,7 @@ impl CashFlowBuilder {
                 index_cap_bp: params.index_cap_bp,
                 fixing_calendar_id: params.fixing_calendar_id,
                 overnight_compounding: params.overnight_compounding,
+                overnight_basis: params.overnight_basis,
                 fallback: params.fallback,
             },
         });
@@ -1125,6 +1128,7 @@ impl CashFlowBuilder {
     ///     index_cap_bp: None,
     ///     fixing_calendar_id: None,
     ///     overnight_compounding: None,
+    ///     overnight_basis: None,
     ///     fallback: Default::default(),
     /// };
     ///
@@ -1250,6 +1254,7 @@ impl CashFlowBuilder {
     ///         index_cap_bp: None,
     ///         fixing_calendar_id: None,
     ///         overnight_compounding: None,
+    ///         overnight_basis: None,
     ///         fallback: Default::default(),
     ///     },
     ///     schedule: ScheduleParams::quarterly_act360(),
@@ -1745,6 +1750,7 @@ mod tests {
                 index_cap_bp: None,
                 fixing_calendar_id: None,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
             },
             schedule: ScheduleParams {

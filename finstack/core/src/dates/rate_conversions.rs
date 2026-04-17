@@ -1,5 +1,9 @@
 //! Interest rate compounding convention conversion utilities.
 //!
+//! **Deprecated:** Prefer [`Compounding::convert_rate`](crate::math::Compounding::convert_rate)
+//! for all new code. The free functions in this module are thin wrappers retained
+//! for backward compatibility.
+//!
 //! This module provides standard conversion functions between different interest rate
 //! compounding conventions commonly used in financial markets. These conversions are
 //! essential for comparing rates across different instruments and markets that use
@@ -36,42 +40,23 @@
 //!
 //! # Examples
 //!
-//! ## Converting Simple to Periodic Rate
+//! ## Preferred: Using `Compounding::convert_rate`
 //! ```
-//! use finstack_core::dates::rate_conversions::simple_to_periodic;
+//! use finstack_core::math::Compounding;
 //!
-//! // 5% simple rate over 6 months (0.5 year fraction)
-//! // Convert to equivalent semi-annual rate
-//! let simple_rate = 0.05;
-//! let year_fraction = 0.5;
-//! let periodic_rate = simple_to_periodic(simple_rate, year_fraction, 2).expect("conversion should succeed");
-//!
-//! // For short periods, rates are approximately equal
-//! assert!((periodic_rate - simple_rate).abs() < 0.001);
+//! // 5% semi-annual → continuous
+//! let continuous = Compounding::SEMI_ANNUAL.convert_rate(0.05, 1.0, &Compounding::Continuous);
+//! assert!((continuous - 0.04939).abs() < 0.00001);
 //! ```
 //!
-//! ## Converting Periodic to Continuous Rate
+//! ## Legacy: Free functions (deprecated)
 //! ```
+//! #[allow(deprecated)]
 //! use finstack_core::dates::rate_conversions::periodic_to_continuous;
 //!
-//! // Convert 5% semi-annual rate to continuous
-//! let periodic_rate = 0.05;
-//! let continuous_rate = periodic_to_continuous(periodic_rate, 2).expect("conversion should succeed");
-//!
-//! // Continuous rate is slightly lower for positive rates
-//! assert!(continuous_rate < periodic_rate);
-//! ```
-//!
-//! ## Round-Trip Conversion
-//! ```
-//! use finstack_core::dates::rate_conversions::{periodic_to_continuous, continuous_to_periodic};
-//!
-//! let original_rate = 0.05;
-//! let continuous = periodic_to_continuous(original_rate, 2).expect("conversion should succeed");
-//! let back_to_periodic = continuous_to_periodic(continuous, 2).expect("conversion should succeed");
-//!
-//! // Round-trip should preserve precision
-//! assert!((original_rate - back_to_periodic).abs() < 1e-12);
+//! #[allow(deprecated)]
+//! let continuous = periodic_to_continuous(0.05, 2).expect("conversion should succeed");
+//! assert!(continuous < 0.05);
 //! ```
 //!
 //! # References
@@ -81,7 +66,9 @@
 //! - Tuckman & Serrat: "Fixed Income Securities" (Chapter 1: Prices, Discount Factors, and Arbitrage)
 
 use crate::error::{InputError, NonFiniteKind};
+use crate::math::Compounding;
 use crate::{Error, Result};
+use std::num::NonZeroU32;
 
 #[inline]
 fn ensure_finite(_function: &'static str, _name: &'static str, x: f64) -> Result<()> {
@@ -122,6 +109,14 @@ fn invalid_params(function: &'static str, reason: impl Into<String>) -> Error {
     })
 }
 
+/// Construct a [`Compounding::Periodic`] from a `u32`, returning an error if zero.
+#[inline]
+fn periodic_or_err(function: &'static str, periods_per_year: u32) -> Result<Compounding> {
+    NonZeroU32::new(periods_per_year)
+        .map(Compounding::Periodic)
+        .ok_or_else(|| invalid_params(function, "periods_per_year must be positive"))
+}
+
 /// Convert a simple (linear) interest rate to a periodically compounded rate.
 ///
 /// Simple interest accrues linearly: FV = PV × (1 + r × t)
@@ -158,16 +153,20 @@ fn invalid_params(function: &'static str, reason: impl Into<String>) -> Error {
 /// # Examples
 ///
 /// ```
+/// #[allow(deprecated)]
 /// use finstack_core::dates::rate_conversions::simple_to_periodic;
 ///
 /// // 5% simple rate over 1 year, convert to semi-annual
+/// #[allow(deprecated)]
 /// let periodic = simple_to_periodic(0.05, 1.0, 2).expect("conversion should succeed");
 /// assert!((periodic - 0.04939).abs() < 0.00001);
 ///
 /// // For very short periods, rates are approximately equal
+/// #[allow(deprecated)]
 /// let periodic_short = simple_to_periodic(0.05, 0.01, 2).expect("conversion should succeed");
 /// assert!((periodic_short - 0.05).abs() < 0.01);
 /// ```
+#[deprecated(since = "0.5.0", note = "use Compounding::convert_rate instead")]
 #[inline]
 pub fn simple_to_periodic(
     simple_rate: f64,
@@ -176,12 +175,7 @@ pub fn simple_to_periodic(
 ) -> Result<f64> {
     ensure_finite("simple_to_periodic", "simple_rate", simple_rate)?;
     ensure_finite("simple_to_periodic", "year_fraction", year_fraction)?;
-    if periods_per_year == 0 {
-        return Err(invalid_params(
-            "simple_to_periodic",
-            "periods_per_year must be positive",
-        ));
-    }
+    let to = periodic_or_err("simple_to_periodic", periods_per_year)?;
 
     if year_fraction < 0.0 {
         return Err(invalid_params(
@@ -190,14 +184,11 @@ pub fn simple_to_periodic(
         ));
     }
 
-    // Handle edge case: zero year fraction
     if year_fraction.abs() < 1e-15 {
         return Ok(simple_rate);
     }
 
-    let n = periods_per_year as f64;
     let one_plus_simple = 1.0 + simple_rate * year_fraction;
-
     if one_plus_simple <= 0.0 {
         return Err(invalid_params(
             "simple_to_periodic",
@@ -205,10 +196,7 @@ pub fn simple_to_periodic(
         ));
     }
 
-    let exponent = 1.0 / (n * year_fraction);
-    let periodic_rate = n * (one_plus_simple.powf(exponent) - 1.0);
-
-    ensure_output_finite(periodic_rate)
+    ensure_output_finite(Compounding::Simple.convert_rate(simple_rate, year_fraction, &to))
 }
 
 /// Convert a periodically compounded rate to a simple (linear) rate.
@@ -239,14 +227,18 @@ pub fn simple_to_periodic(
 /// # Examples
 ///
 /// ```
+/// #[allow(deprecated)]
 /// use finstack_core::dates::rate_conversions::{simple_to_periodic, periodic_to_simple};
 ///
 /// // Round-trip conversion
 /// let original = 0.05;
+/// #[allow(deprecated)]
 /// let periodic = simple_to_periodic(original, 0.5, 2).expect("conversion should succeed");
+/// #[allow(deprecated)]
 /// let back = periodic_to_simple(periodic, 0.5, 2).expect("conversion should succeed");
 /// assert!((original - back).abs() < 1e-12);
 /// ```
+#[deprecated(since = "0.5.0", note = "use Compounding::convert_rate instead")]
 #[inline]
 pub fn periodic_to_simple(
     periodic_rate: f64,
@@ -255,12 +247,7 @@ pub fn periodic_to_simple(
 ) -> Result<f64> {
     ensure_finite("periodic_to_simple", "periodic_rate", periodic_rate)?;
     ensure_finite("periodic_to_simple", "year_fraction", year_fraction)?;
-    if periods_per_year == 0 {
-        return Err(invalid_params(
-            "periodic_to_simple",
-            "periods_per_year must be positive",
-        ));
-    }
+    let from = periodic_or_err("periodic_to_simple", periods_per_year)?;
 
     if year_fraction <= 0.0 {
         return Err(invalid_params(
@@ -271,7 +258,6 @@ pub fn periodic_to_simple(
 
     let n = periods_per_year as f64;
     let one_plus_periodic = 1.0 + periodic_rate / n;
-
     if one_plus_periodic <= 0.0 {
         return Err(invalid_params(
             "periodic_to_simple",
@@ -279,10 +265,7 @@ pub fn periodic_to_simple(
         ));
     }
 
-    let future_value = one_plus_periodic.powf(n * year_fraction);
-    let simple_rate = (future_value - 1.0) / year_fraction;
-
-    ensure_output_finite(simple_rate)
+    ensure_output_finite(from.convert_rate(periodic_rate, year_fraction, &Compounding::Simple))
 }
 
 /// Convert a periodically compounded rate to a continuously compounded rate.
@@ -315,13 +298,16 @@ pub fn periodic_to_simple(
 /// # Examples
 ///
 /// ```
+/// #[allow(deprecated)]
 /// use finstack_core::dates::rate_conversions::periodic_to_continuous;
 ///
 /// // 5% semi-annual to continuous
+/// #[allow(deprecated)]
 /// let continuous = periodic_to_continuous(0.05, 2).expect("conversion should succeed");
 /// assert!((continuous - 0.04939).abs() < 0.00001);
 ///
 /// // 10% quarterly to continuous
+/// #[allow(deprecated)]
 /// let continuous_q = periodic_to_continuous(0.10, 4).expect("conversion should succeed");
 /// assert!(continuous_q < 0.10); // Continuous rate is lower
 /// ```
@@ -331,19 +317,14 @@ pub fn periodic_to_simple(
 /// ISDA 2006 Definitions specify that swap rates are quoted with semi-annual
 /// compounding. Converting to continuous is standard for zero curve bootstrapping
 /// and derivatives pricing.
+#[deprecated(since = "0.5.0", note = "use Compounding::convert_rate instead")]
 #[inline]
 pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Result<f64> {
     ensure_finite("periodic_to_continuous", "periodic_rate", periodic_rate)?;
-    if periods_per_year == 0 {
-        return Err(invalid_params(
-            "periodic_to_continuous",
-            "periods_per_year must be positive",
-        ));
-    }
+    let from = periodic_or_err("periodic_to_continuous", periods_per_year)?;
 
     let n = periods_per_year as f64;
     let one_plus_periodic = 1.0 + periodic_rate / n;
-
     if one_plus_periodic <= 0.0 {
         return Err(invalid_params(
             "periodic_to_continuous",
@@ -351,10 +332,7 @@ pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Resu
         ));
     }
 
-    // ln((1 + r/n)^n) = n × ln(1 + r/n)
-    let continuous_rate = n * one_plus_periodic.ln();
-
-    ensure_output_finite(continuous_rate)
+    ensure_output_finite(from.convert_rate(periodic_rate, 1.0, &Compounding::Continuous))
 }
 
 /// Convert a continuously compounded rate to a periodically compounded rate.
@@ -381,28 +359,24 @@ pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Resu
 /// # Examples
 ///
 /// ```
+/// #[allow(deprecated)]
 /// use finstack_core::dates::rate_conversions::{periodic_to_continuous, continuous_to_periodic};
 ///
 /// // Round-trip conversion
 /// let original = 0.05;
+/// #[allow(deprecated)]
 /// let continuous = periodic_to_continuous(original, 2).expect("conversion should succeed");
+/// #[allow(deprecated)]
 /// let back = continuous_to_periodic(continuous, 2).expect("conversion should succeed");
 /// assert!((original - back).abs() < 1e-14);
 /// ```
+#[deprecated(since = "0.5.0", note = "use Compounding::convert_rate instead")]
 #[inline]
 pub fn continuous_to_periodic(continuous_rate: f64, periods_per_year: u32) -> Result<f64> {
     ensure_finite("continuous_to_periodic", "continuous_rate", continuous_rate)?;
-    if periods_per_year == 0 {
-        return Err(invalid_params(
-            "continuous_to_periodic",
-            "periods_per_year must be positive",
-        ));
-    }
+    let to = periodic_or_err("continuous_to_periodic", periods_per_year)?;
 
-    let n = periods_per_year as f64;
-    let periodic_rate = n * ((continuous_rate / n).exp() - 1.0);
-
-    ensure_output_finite(periodic_rate)
+    ensure_output_finite(Compounding::Continuous.convert_rate(continuous_rate, 1.0, &to))
 }
 
 /// Convert a simple rate to a continuously compounded rate.
@@ -421,11 +395,14 @@ pub fn continuous_to_periodic(continuous_rate: f64, periods_per_year: u32) -> Re
 /// # Examples
 ///
 /// ```
+/// #[allow(deprecated)]
 /// use finstack_core::dates::rate_conversions::simple_to_continuous;
 ///
+/// #[allow(deprecated)]
 /// let continuous = simple_to_continuous(0.05, 1.0).expect("conversion should succeed");
 /// assert!((continuous - 0.04879).abs() < 0.00001);
 /// ```
+#[deprecated(since = "0.5.0", note = "use Compounding::convert_rate instead")]
 #[inline]
 pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64> {
     ensure_finite("simple_to_continuous", "simple_rate", simple_rate)?;
@@ -442,7 +419,6 @@ pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64>
     }
 
     let one_plus_simple = 1.0 + simple_rate * year_fraction;
-
     if one_plus_simple <= 0.0 {
         return Err(invalid_params(
             "simple_to_continuous",
@@ -450,8 +426,11 @@ pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64>
         ));
     }
 
-    let continuous_rate = one_plus_simple.ln() / year_fraction;
-    ensure_output_finite(continuous_rate)
+    ensure_output_finite(Compounding::Simple.convert_rate(
+        simple_rate,
+        year_fraction,
+        &Compounding::Continuous,
+    ))
 }
 
 /// Convert a continuously compounded rate to a simple rate.
@@ -470,13 +449,17 @@ pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64>
 /// # Examples
 ///
 /// ```
+/// #[allow(deprecated)]
 /// use finstack_core::dates::rate_conversions::{simple_to_continuous, continuous_to_simple};
 ///
 /// let original = 0.05;
+/// #[allow(deprecated)]
 /// let continuous = simple_to_continuous(original, 1.0).expect("conversion should succeed");
+/// #[allow(deprecated)]
 /// let back = continuous_to_simple(continuous, 1.0).expect("conversion should succeed");
 /// assert!((original - back).abs() < 1e-14);
 /// ```
+#[deprecated(since = "0.5.0", note = "use Compounding::convert_rate instead")]
 #[inline]
 pub fn continuous_to_simple(continuous_rate: f64, year_fraction: f64) -> Result<f64> {
     ensure_finite("continuous_to_simple", "continuous_rate", continuous_rate)?;
@@ -488,12 +471,20 @@ pub fn continuous_to_simple(continuous_rate: f64, year_fraction: f64) -> Result<
         ));
     }
 
-    let simple_rate = ((continuous_rate * year_fraction).exp() - 1.0) / year_fraction;
-    ensure_output_finite(simple_rate)
+    ensure_output_finite(Compounding::Continuous.convert_rate(
+        continuous_rate,
+        year_fraction,
+        &Compounding::Simple,
+    ))
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+#[allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    deprecated
+)]
 mod tests {
     use super::*;
 

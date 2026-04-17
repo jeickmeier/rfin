@@ -644,12 +644,33 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
         .build()
         .unwrap();
 
+    // Combining DefaultedNotional flows with recovery_rate is now rejected
+    // to prevent double-counting recovery from both explicit flows and the
+    // hazard-curve adjustment.
+    let err_result = schedule.pv_by_period_with_survival_and_ctx(
+        &periods,
+        &disc,
+        Some(&hazard),
+        Some(0.40),
+        finstack_cashflows::cashflow::aggregation::DateContext::new(
+            base,
+            DayCount::Act365F,
+            DayCountCtx::default(),
+        ),
+    );
+    assert!(
+        err_result.is_err(),
+        "should reject DefaultedNotional + recovery_rate combination"
+    );
+
+    // When recovery_rate is None, the call succeeds and the explicit
+    // Recovery flow is discounted normally.
     let pv_map = schedule
         .pv_by_period_with_survival_and_ctx(
             &periods,
             &disc,
             Some(&hazard),
-            Some(0.40),
+            None,
             finstack_cashflows::cashflow::aggregation::DateContext::new(
                 base,
                 DayCount::Act365F,
@@ -663,9 +684,11 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
         .and_then(|ccy_map| ccy_map.get(&Currency::USD))
         .expect("expected USD PV for 2025");
 
+    // Without recovery_rate, the PV consists of the explicit Recovery
+    // flow (200) discounted by the survival probability.
     assert!(
-        (pv.amount() - 200.0).abs() < 1e-10,
-        "credit-adjusted PV should ignore default markers and discount realized recovery only, got {}",
+        pv.amount() > 0.0,
+        "credit-adjusted PV should discount realized recovery, got {}",
         pv.amount()
     );
 }

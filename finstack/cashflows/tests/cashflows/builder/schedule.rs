@@ -258,7 +258,7 @@ fn detects_stub_periods() {
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
         calendar_id: "weekends_only".to_string(),
-        stub: StubKind::None,
+        stub: StubKind::ShortFront,
         end_of_month: false,
         payment_lag_days: 0,
     };
@@ -518,7 +518,7 @@ fn stub_period_thirty360_produces_proportional_accrual() {
         dc: DayCount::Thirty360, // Market standard for corporate bonds
         bdc: BusinessDayConvention::Following,
         calendar_id: "weekends_only".to_string(),
-        stub: StubKind::None,
+        stub: StubKind::ShortFront,
         end_of_month: false,
         payment_lag_days: 0,
     };

@@ -84,7 +84,7 @@
 //!
 //! // Calculate year fraction with a calendar in context
 //! let yf = DayCount::Bus252
-//!     .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None, bus_basis: None })
+//!     .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None, bus_basis: None, coupon_period: None })
 //!     .expect("Year fraction calculation should succeed");
 //! ```
 //!
@@ -111,7 +111,7 @@
 //! // Returns year fractions: a full 6-month regular period = 0.5 years
 //! let freq = Tenor::semi_annual(); // Semi-annual
 //! let yf_isma = DayCount::ActActIsma
-//!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None })
+//!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None, coupon_period: None })
 //!     .expect("Year fraction calculation should succeed");
 //! // yf_isma ≈ 0.5 (one full semi-annual period in years)
 //! ```
@@ -140,6 +140,13 @@ pub struct DayCountCtx<'a> {
     pub frequency: Option<Tenor>,
     /// Business day convention (required for Bus/252)
     pub bus_basis: Option<u16>,
+    /// Reference coupon period `(start, end)` for ACT/ACT ISMA.
+    ///
+    /// When set, the ISMA year fraction uses this explicit reference period
+    /// instead of re-anchoring from the accrual start date. Required for
+    /// correct accrued interest calculations on mid-coupon dates or
+    /// irregular first/last coupons.
+    pub coupon_period: Option<(Date, Date)>,
 }
 
 impl<'a> std::fmt::Debug for DayCountCtx<'a> {
@@ -148,6 +155,7 @@ impl<'a> std::fmt::Debug for DayCountCtx<'a> {
             .field("calendar", &self.calendar.map(|_| "HolidayCalendar"))
             .field("frequency", &self.frequency)
             .field("bus_basis", &self.bus_basis)
+            .field("coupon_period", &self.coupon_period)
             .finish()
     }
 }
@@ -177,6 +185,7 @@ impl DayCountCtxState {
             calendar,
             frequency: self.frequency,
             bus_basis: self.bus_basis,
+            coupon_period: None,
         }
     }
 }
@@ -331,18 +340,32 @@ pub enum DayCount {
     ///
     /// # Standards Reference
     ///
-    /// - **ISDA**: 2006 ISDA Definitions, Section 4.16(f) - "30/360"
+    /// - **SIA/PSA**: Standard Securities Calculation Methods (SIA Standard Formulas)
+    ///   — primary reference for this implementation, including the February
+    ///   end-of-month rule
     /// - **ISO 20022**: Day Count Fraction Code "30/360" (A001)
-    /// - **Also known as**: 30U/360, 30/360 US, Bond Basis
+    /// - **Also known as**: 30U/360, 30/360 US, Bond Basis, 30/360 PSA
+    ///
+    /// # SIA/PSA vs ISDA
+    ///
+    /// This implementation follows the SIA/PSA convention, which includes a
+    /// February end-of-month rule: when both the start date and the end date
+    /// fall on the last day of February, D₂ is changed to 30. ISDA 2006
+    /// §4.16(f) specifies a slightly different set of adjustment rules that
+    /// omit this February-EOM logic. Both are commonly referred to as
+    /// "30/360 US", but they can produce different day counts for periods
+    /// that start or end on the last day of February.
     ///
     /// # Formula
     ///
     /// ```text
     /// Days = 360(Y₂ - Y₁) + 30(M₂ - M₁) + (D₂' - D₁')
     ///
-    /// where:
-    ///   D₁' = min(D₁, 30)
-    ///   D₂' = min(D₂, 30) if D₁' = 30, else D₂
+    /// where (SIA/PSA rules):
+    ///   D₁' = 30                       if D₁ is 31 or last day of February
+    ///   D₂' = 30                       if D₂ is 31 and D₁' = 30
+    ///   D₂' = 30                       if D₂ is last day of Feb and D₁ is last day of Feb
+    ///   otherwise D₁' = D₁, D₂' = D₂
     /// ```
     ///
     /// # Usage
@@ -910,10 +933,11 @@ pub(crate) fn days_30_360(start: Date, end: Date, convention: Thirty360Conventio
 
     let (d1_adj, d2_adj) = match convention {
         Thirty360Convention::Us => {
-            // ISDA 2006 §4.16(f) - 30/360 US:
+            // SIA/PSA 30/360 US Bond Basis:
             // - If D1 is 31 or last day of February, change D1 to 30
             // - If D2 is 31 and D1 was adjusted to 30, change D2 to 30
             // - If D2 is last day of Feb AND D1 was last day of Feb, change D2 to 30
+            // (The Feb-EOM rule is SIA/PSA-specific; ISDA 2006 §4.16(f) omits it.)
             let d1_adj = if d1 == 31 || is_last_day_of_february(start) {
                 30
             } else {
@@ -944,8 +968,8 @@ pub(crate) fn days_30_360(start: Date, end: Date, convention: Thirty360Conventio
 
 /// Check if date is the last day of February (28 or 29 depending on leap year).
 ///
-/// Per ISDA 2006 §4.16(f), the last day of February receives special treatment
-/// in 30/360 US convention calculations.
+/// Per SIA/PSA Standard Formulas, the last day of February receives special
+/// treatment in 30/360 US Bond Basis calculations.
 #[inline]
 fn is_last_day_of_february(date: Date) -> bool {
     date.month() == Month::February && date.day() == date.month().length(date.year())
@@ -989,7 +1013,12 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> crate::Result<f64> {
 // Context-aware helpers for year_fraction_impl
 // -------------------------------------------------------------------------------------------------
 
-/// ACT/ACT (ISMA) with context extraction - validates frequency is present.
+/// ACT/ACT (ISMA) with context extraction.
+///
+/// When `ctx.coupon_period` is set, delegates to
+/// [`act_act_isma_year_fraction_with_reference_period`] for exact
+/// mid-coupon accrual. Otherwise falls back to the frequency-based
+/// approach that re-anchors from `start`.
 fn year_fraction_act_act_isma_with_ctx(
     start: Date,
     end: Date,
@@ -998,7 +1027,11 @@ fn year_fraction_act_act_isma_with_ctx(
     let freq = ctx
         .frequency
         .ok_or(InputError::MissingFrequencyForActActIsma)?;
-    year_fraction_act_act_isma(start, end, freq)
+    if let Some((ref_start, ref_end)) = ctx.coupon_period {
+        act_act_isma_year_fraction_with_reference_period(start, end, ref_start, ref_end)
+    } else {
+        year_fraction_act_act_isma(start, end, freq)
+    }
 }
 
 /// Bus/252 with context extraction - validates calendar is present and basis is non-zero.
@@ -1113,8 +1146,8 @@ fn extend_forward_for_coupon_period(date: Date, freq: Tenor) -> crate::Result<Da
 // -------------------------------------------------------------------------------------------------
 /// Calculate year fraction for Act/365L convention.
 ///
-/// Act/365L uses 366 as denominator if February 29 falls in the closed interval
-/// `[start, end]`, otherwise uses 365.
+/// Act/365L uses 366 as denominator if February 29 falls in the half-open
+/// interval `[start, end)`, otherwise uses 365.
 fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
     if start == end {
         return 0.0;
@@ -1122,9 +1155,6 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
 
     let actual_days = (end - start).whole_days() as f64;
 
-    // ACT/365L uses a closed interval for the leap-day denominator rule,
-    // even though actual days are still counted using the library's
-    // standard [start, end) convention.
     let denominator = if contains_feb_29(start, end) {
         366.0
     } else {
@@ -1134,17 +1164,15 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
     actual_days / denominator
 }
 
-/// Check if February 29 falls in the closed interval `[start, end]`.
+/// Check if February 29 falls in the half-open interval `[start, end)`.
 fn contains_feb_29(start: Date, end: Date) -> bool {
     let start_year = start.year();
     let end_year = end.year();
 
-    // Check each year in the range for Feb 29
     for year in start_year..=end_year {
         if time::util::is_leap_year(year) {
-            // Try to create Feb 29 for this year
             if let Ok(feb_29) = Date::from_calendar_date(year, Month::February, 29) {
-                if feb_29 >= start && feb_29 <= end {
+                if feb_29 >= start && feb_29 < end {
                     return true;
                 }
             }
@@ -1307,5 +1335,110 @@ mod tests {
     #[test]
     fn daycount_from_str_unknown() {
         assert!("garbage".parse::<super::DayCount>().is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // Act/365L half-open interval regression tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn act365l_period_ending_on_feb29_uses_365() {
+        use super::{DayCount, DayCountCtx};
+
+        // [2024-02-01, 2024-02-29): end date is Feb 29 but excluded from the
+        // half-open interval, so Feb 29 is NOT in the period → denominator 365.
+        let start = date!(2024 - 02 - 01);
+        let end = date!(2024 - 02 - 29);
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .expect("should succeed");
+
+        let days = (end - start).whole_days() as f64;
+        assert_eq!(
+            yf,
+            days / 365.0,
+            "denominator should be 365 when end == Feb 29 (excluded)"
+        );
+    }
+
+    #[test]
+    fn act365l_period_containing_feb29_uses_366() {
+        use super::{DayCount, DayCountCtx};
+
+        // [2024-02-01, 2024-03-01): Feb 29 is strictly inside → denominator 366.
+        let start = date!(2024 - 02 - 01);
+        let end = date!(2024 - 03 - 01);
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .expect("should succeed");
+
+        let days = (end - start).whole_days() as f64;
+        assert_eq!(
+            yf,
+            days / 366.0,
+            "denominator should be 366 when Feb 29 is in interior"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Act/Act ISMA coupon_period routing tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn act_act_isma_coupon_period_mid_coupon_accrual() {
+        use super::{DayCount, DayCountCtx, Tenor};
+
+        let coupon_start = date!(2025 - 01 - 15);
+        let coupon_end = date!(2025 - 07 - 15);
+
+        // Mid-coupon accrual: settlement to next coupon
+        let settlement = date!(2025 - 03 - 15);
+        let freq = Tenor::semi_annual();
+
+        // With coupon_period: uses the explicit reference period
+        let ctx_with = DayCountCtx {
+            frequency: Some(freq),
+            coupon_period: Some((coupon_start, coupon_end)),
+            ..Default::default()
+        };
+        let yf_with = DayCount::ActActIsma
+            .year_fraction(settlement, coupon_end, ctx_with)
+            .expect("should succeed with coupon_period");
+
+        // Without coupon_period: re-anchors from settlement
+        let ctx_without = DayCountCtx {
+            frequency: Some(freq),
+            ..Default::default()
+        };
+        let yf_without = DayCount::ActActIsma
+            .year_fraction(settlement, coupon_end, ctx_without)
+            .expect("should succeed without coupon_period");
+
+        // With reference period: 122 days / 181 days × 0.5 ≈ 0.33702
+        let expected_days = (coupon_end - settlement).whole_days() as f64;
+        let ref_days = (coupon_end - coupon_start).whole_days() as f64;
+        let expected = (expected_days / ref_days) * 0.5;
+        assert!(
+            (yf_with - expected).abs() < 1e-10,
+            "coupon_period path: {yf_with} vs expected {expected}"
+        );
+
+        // The reference-period path should match calling the function directly
+        let yf_direct = act_act_isma_year_fraction_with_reference_period(
+            settlement,
+            coupon_end,
+            coupon_start,
+            coupon_end,
+        )
+        .expect("direct call should succeed");
+        assert!(
+            (yf_with - yf_direct).abs() < 1e-14,
+            "coupon_period routing should match direct call: {yf_with} vs {yf_direct}"
+        );
+
+        // The two paths may diverge for mid-coupon dates because the
+        // re-anchor path infers a different reference period.
+        // We just assert the reference-period path gives the expected result.
+        let _ = yf_without;
     }
 }

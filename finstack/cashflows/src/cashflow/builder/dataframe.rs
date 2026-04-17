@@ -514,6 +514,7 @@ impl CashFlowSchedule {
                 calendar: resolved_calendar,
                 frequency: options.frequency,
                 bus_basis: None,
+                coupon_period: None,
             };
             let yr_fraq = dc.year_fraction(period.start, cf.date, dc_ctx)?;
             out.yr_fraqs.push(yr_fraq);
@@ -525,6 +526,7 @@ impl CashFlowSchedule {
                 calendar: resolved_calendar,
                 frequency: options.frequency,
                 bus_basis: None,
+                coupon_period: None,
             };
             let t = compute_discount_time(cf.date, base, dc_for_discounting, disc_dc_ctx)?;
             let df = disc_arc.df(t);
@@ -576,6 +578,7 @@ impl CashFlowSchedule {
                     calendar: resolved_calendar,
                     frequency: options.frequency,
                     bus_basis: None,
+                    coupon_period: None,
                 };
                 compute_floating_decomposition(
                     cf,

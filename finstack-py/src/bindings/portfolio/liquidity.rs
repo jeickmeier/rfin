@@ -93,11 +93,7 @@ fn amihud_illiquidity(returns: Vec<f64>, volumes: Vec<f64>) -> f64 {
 ///     Trading days to fully liquidate. ``inf`` if ADV or participation rate
 ///     is non-positive.
 #[pyfunction]
-fn days_to_liquidate(
-    position_value: f64,
-    avg_daily_volume: f64,
-    participation_rate: f64,
-) -> f64 {
+fn days_to_liquidate(position_value: f64, avg_daily_volume: f64, participation_rate: f64) -> f64 {
     liquidity::days_to_liquidate(position_value, avg_daily_volume, participation_rate)
 }
 

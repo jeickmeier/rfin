@@ -97,6 +97,7 @@ fn revolving_credit_floating(maturity: Date) -> RevolvingCredit {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
                 payment_lag_days: 0,
             },

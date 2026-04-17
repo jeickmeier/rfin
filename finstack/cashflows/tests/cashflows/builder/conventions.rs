@@ -170,6 +170,7 @@ fn test_bus_252_year_fraction() {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = DayCount::Bus252

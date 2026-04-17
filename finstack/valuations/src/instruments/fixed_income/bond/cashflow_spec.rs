@@ -194,7 +194,7 @@ impl CashflowSpec {
             dc,
             bdc: BusinessDayConvention::Following,
             calendar_id: "weekends_only".to_string(),
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,
         })
@@ -210,7 +210,7 @@ impl CashflowSpec {
             dc,
             bdc: BusinessDayConvention::Following,
             calendar_id: "weekends_only".to_string(),
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,
         })
@@ -310,11 +310,12 @@ impl CashflowSpec {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,
             freq,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
         })
     }
 
@@ -408,11 +409,12 @@ impl CashflowSpec {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,
             freq,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
         })
     }
 
@@ -447,11 +449,12 @@ impl CashflowSpec {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,
             freq,
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
         })
     }
 
@@ -503,6 +506,7 @@ impl CashflowSpec {
     /// - `end_of_month`: `false`
     /// - `payment_lag_days`: `0`
     /// - `overnight_compounding`: `None`
+    /// - `overnight_basis`: `None`
     /// - `fallback`: `FloatingRateFallback::Error`
     pub fn floating_with_conventions(params: FloatingConventionParams) -> Self {
         Self::Floating(FloatingCouponSpec {
@@ -523,6 +527,7 @@ impl CashflowSpec {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
                 payment_lag_days: 0,
             },
@@ -601,7 +606,7 @@ impl CashflowSpec {
             dc,
             bdc: BusinessDayConvention::Following,
             calendar_id: "weekends_only".to_string(),
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,
         })
@@ -778,7 +783,7 @@ mod tests {
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
             calendar_id: "weekends_only".to_string(),
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,
         }
@@ -820,7 +825,7 @@ mod tests {
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
             calendar_id: "weekends_only".to_string(),
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,
         };
@@ -882,7 +887,7 @@ mod tests {
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
             calendar_id: "weekends_only".to_string(),
-            stub: StubKind::None,
+            stub: StubKind::ShortFront,
             end_of_month: false,
             payment_lag_days: 0,
         };

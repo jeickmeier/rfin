@@ -160,6 +160,7 @@ impl RevolvingCredit {
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback: Default::default(),
         });
         let fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);

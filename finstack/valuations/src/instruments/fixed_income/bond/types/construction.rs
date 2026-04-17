@@ -779,6 +779,7 @@ impl Bond {
                 end_of_month: false,
                 payment_lag_days: 0,
                 overnight_compounding: None,
+                overnight_basis: None,
                 fallback: Default::default(),
             },
             coupon_type: CouponType::Cash,

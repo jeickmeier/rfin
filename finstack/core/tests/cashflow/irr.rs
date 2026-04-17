@@ -338,8 +338,11 @@ fn xirr_same_day_instant_return() {
         "Same-day cashflows have constant NPV and should not yield a defined IRR"
     );
 
-    // Ensure it fails with a typed, user-facing error.
+    // After date-aggregation the two flows collapse into a single net
+    // cashflow, so TooFewPoints is the expected error path.  Accept
+    // either that or a convergence validation message.
     match result.unwrap_err() {
+        Error::Input(_) => {} // e.g. TooFewPoints after aggregation
         Error::Validation(msg) => {
             assert!(
                 msg.contains("no convergence") || msg.contains("failed"),
@@ -347,7 +350,7 @@ fn xirr_same_day_instant_return() {
                 msg
             );
         }
-        other => panic!("Expected validation error, got: {other:?}"),
+        other => panic!("Expected input or validation error, got: {other:?}"),
     }
 }
 
@@ -685,6 +688,7 @@ fn xirr_supports_contextual_day_counts_via_explicit_ctx() {
         frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let result = xirr_with_daycount_ctx(&flows, DayCount::ActActIsma, ctx, None)

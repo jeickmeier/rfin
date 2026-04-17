@@ -387,6 +387,7 @@ pub(crate) fn generate_cashflows(
                 index_cap_bp: spec.index_cap_bp,
                 fixing_calendar_id: spec.fixing_calendar_id.clone(),
                 overnight_compounding: spec.overnight_compounding,
+                overnight_basis: spec.overnight_basis,
                 fallback: spec.fallback.clone(),
             };
             let sched_params = ScheduleParams {

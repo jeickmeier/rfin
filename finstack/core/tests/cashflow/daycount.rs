@@ -142,6 +142,7 @@ fn actact_isma_with_annual_frequency() {
         frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     // Full year with annual frequency should be 1.0
@@ -163,6 +164,7 @@ fn actact_isma_requires_frequency() {
         frequency: None,
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let result = dc.year_fraction(d(2025, 1, 1), d(2025, 7, 1), ctx_no_freq);
@@ -179,6 +181,7 @@ fn actact_isma_with_semi_annual_frequency() {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     // 6-month period with semi-annual frequency
@@ -201,6 +204,7 @@ fn actact_isma_with_quarterly_frequency() {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     // 3-month period with quarterly frequency
@@ -367,6 +371,7 @@ fn zero_length_period_all_conventions() {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let conventions = [

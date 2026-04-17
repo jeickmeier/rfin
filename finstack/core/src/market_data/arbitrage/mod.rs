@@ -101,15 +101,23 @@ pub fn check_surface(surface: &VolSurface, config: &ArbitrageCheckConfig) -> Arb
     let start = std::time::Instant::now();
     let mut all_violations: Vec<ArbitrageViolation> = Vec::new();
 
-    if config.check_butterfly {
+    // Build per-expiry forward vector from the single forward value
+    let forwards: Vec<f64> = config
+        .forward
+        .map(|f| vec![f; surface.expiries().len()])
+        .unwrap_or_default();
+
+    if config.check_butterfly && !forwards.is_empty() {
         let checker = ButterflyCheck {
+            forwards: forwards.clone(),
             tolerance: config.tolerance,
         };
         all_violations.extend(checker.check(surface));
     }
 
-    if config.check_calendar_spread {
+    if config.check_calendar_spread && !forwards.is_empty() {
         let checker = CalendarSpreadCheck {
+            forwards: forwards.clone(),
             tolerance: config.tolerance,
         };
         all_violations.extend(checker.check(surface));
@@ -304,7 +312,7 @@ mod tests {
             check_butterfly: true,
             check_calendar_spread: false,
             check_local_vol_density: false,
-            forward: None,
+            forward: Some(100.0),
             min_severity: ArbitrageSeverity::Minor,
             ..Default::default()
         };
@@ -337,7 +345,7 @@ mod tests {
             check_butterfly: false,
             check_calendar_spread: true,
             check_local_vol_density: false,
-            forward: None,
+            forward: Some(100.0),
             min_severity: ArbitrageSeverity::Negligible,
             ..Default::default()
         };
@@ -385,7 +393,7 @@ mod tests {
             check_calendar_spread: true,
             check_butterfly: false,
             check_local_vol_density: false,
-            forward: None,
+            forward: Some(100.0),
             ..Default::default()
         };
         let report = check_surface(&surface, &config);
@@ -410,7 +418,7 @@ mod tests {
             check_butterfly: true,
             check_calendar_spread: false,
             check_local_vol_density: false,
-            forward: None,
+            forward: Some(100.0),
             ..Default::default()
         };
         let report = check_surface(&surface, &config);
@@ -457,7 +465,7 @@ mod tests {
             check_butterfly: false,
             check_calendar_spread: true,
             check_local_vol_density: false,
-            forward: None,
+            forward: Some(100.0),
             ..Default::default()
         };
         let report = check_surface(&surface, &config);
@@ -477,23 +485,20 @@ mod tests {
     }
 
     #[test]
-    fn config_skips_local_vol_when_no_forward() {
+    fn config_skips_checks_when_no_forward() {
         let surface = flat_surface();
         let config = ArbitrageCheckConfig {
+            check_butterfly: true,
+            check_calendar_spread: true,
             check_local_vol_density: true,
-            forward: None, // No forward => skip local vol
+            forward: None,
             ..Default::default()
         };
         let report = check_surface(&surface, &config);
 
-        let local_vol_violations: Vec<_> = report
-            .violations
-            .iter()
-            .filter(|v| v.violation_type == ArbitrageType::LocalVolDensity)
-            .collect();
         assert!(
-            local_vol_violations.is_empty(),
-            "Local vol check should be skipped when forward is None"
+            report.violations.is_empty(),
+            "All checks requiring forward should be skipped when forward is None"
         );
     }
 

@@ -104,6 +104,7 @@ fn default_settlement_days() -> u32 {
 ///     end_of_month: false,
 ///     payment_lag_days: 0,
 ///     overnight_compounding: None,
+///     overnight_basis: None,
 ///     fallback: Default::default(),
 /// });
 /// ```
@@ -367,6 +368,7 @@ impl TermLoan {
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback: Default::default(),
         };
 

@@ -194,6 +194,7 @@ impl PyDayCountContext {
             calendar,
             frequency: self.frequency,
             bus_basis: self.bus_basis,
+            coupon_period: None,
         }
     }
 }

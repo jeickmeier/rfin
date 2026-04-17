@@ -133,10 +133,18 @@ pub enum AccrualMethod {
     #[default]
     Linear,
 
-    /// Compounded accrual (ICMA-style).
+    /// Compounded accrual.
     ///
-    /// `Accrued = Notional × [(1 + period_rate)^(elapsed/period) - 1]`
-    /// where `period_rate = coupon_amount / notional`.
+    /// `Accrued = N × expm1(f × ln1p(r))`
+    ///
+    /// which is the numerically stable form of
+    /// `N × [(1 + r)^f − 1]`, where `r = coupon_amount / notional`
+    /// and `f = elapsed / period` (time fraction within the current
+    /// coupon period).
+    ///
+    /// **Note:** ICMA Rule 251.1 prescribes *linear* accrual for bond
+    /// AI calculations. This variant uses true exponential compounding
+    /// and should not be cited as ICMA-style.
     Compounded,
 }
 
@@ -552,14 +560,15 @@ fn find_active_period_and_elapsed<'a>(
 /// - Avoids precision loss for small results via `expm1` (exp(x)-1 accurate near 0)
 /// - Works correctly across all fraction values without threshold switching
 ///
-/// The compounded accrual formula follows ICMA Rule 251.1 for calculating accrued
-/// interest on securities with periodic interest payments:
+/// The compounded accrual formula computes:
 ///
 /// `Accrued = Notional × [(1 + period_rate)^(elapsed/period) - 1]`
 ///
 /// where `period_rate = coupon_amount / notional` is the yield per coupon period.
 ///
-/// Reference: ICMA Primary Market Handbook, Rule 251 (Accrued Interest Calculations)
+/// Note: ICMA Rule 251.1 prescribes *linear* interpolation for accrued interest.
+/// This function's compounded variant is used for instruments that genuinely
+/// compound within a period (e.g. some leveraged loans); it is not the ICMA method.
 fn accrue_in_period(
     inputs: &PeriodInputs,
     elapsed_yf: f64,

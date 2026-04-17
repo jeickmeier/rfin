@@ -40,6 +40,7 @@ fn make_float_spec(fallback: FloatingRateFallback, spread_bp: Decimal) -> Floati
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback,
         },
         coupon_type: CouponType::Cash,
@@ -967,6 +968,7 @@ fn make_overnight_float_spec(
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: Some(method),
+            overnight_basis: None,
             fallback,
         },
         coupon_type: CouponType::Cash,
@@ -1325,11 +1327,12 @@ fn test_overnight_compounding_weekend_start_no_lost_days() {
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: Some(OvernightCompoundingMethod::CompoundedInArrears),
+            overnight_basis: None,
             fallback: FloatingRateFallback::Error,
         },
         coupon_type: CouponType::Cash,
         freq: Tenor::quarterly(),
-        stub: StubKind::None,
+        stub: StubKind::ShortBack,
     };
 
     // Schedule 1: Saturday start with Unadjusted BDC (accrual_start = Saturday)

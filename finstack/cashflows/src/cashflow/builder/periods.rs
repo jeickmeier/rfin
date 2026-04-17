@@ -99,6 +99,7 @@ pub fn build_single_period(
         calendar: Some(cal),
         frequency: Some(params.frequency),
         bus_basis: None,
+        coupon_period: None,
     };
 
     let accrual_year_fraction =
@@ -192,6 +193,7 @@ pub fn build_periods(params: BuildPeriodsParams<'_>) -> finstack_core::Result<Ve
         calendar: Some(cal),
         frequency: Some(params.frequency),
         bus_basis: None,
+        coupon_period: None,
     };
     let mut periods = Vec::with_capacity(sched.periods.len());
     for period in sched.periods {

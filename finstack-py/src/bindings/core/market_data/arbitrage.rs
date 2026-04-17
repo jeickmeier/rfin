@@ -75,10 +75,7 @@ fn severity_str(s: ArbitrageSeverity) -> &'static str {
 }
 
 /// Convert a single violation into a Python dict.
-fn violation_to_dict<'py>(
-    py: Python<'py>,
-    v: &ArbitrageViolation,
-) -> PyResult<Bound<'py, PyDict>> {
+fn violation_to_dict<'py>(py: Python<'py>, v: &ArbitrageViolation) -> PyResult<Bound<'py, PyDict>> {
     let d = PyDict::new(py);
     d.set_item("type", arbitrage_type_str(v.violation_type))?;
     d.set_item("severity", severity_str(v.severity))?;
@@ -112,7 +109,7 @@ fn violations_to_pylist<'py>(
 // Public functions
 // ---------------------------------------------------------------------------
 
-/// Check butterfly arbitrage (strike convexity of total variance).
+/// Check butterfly arbitrage via Durrleman's g(k) density condition.
 ///
 /// Parameters
 /// ----------
@@ -122,6 +119,8 @@ fn violations_to_pylist<'py>(
 ///     Monotonically increasing expiry grid (years).
 /// vols : list[list[float]]
 ///     Implied vols shaped ``[n_expiries][n_strikes]``.
+/// forward : float
+///     Forward price (used for all expiries).
 /// tolerance : float, optional
 ///     Tolerance in total-variance units. Default ``1e-6``.
 ///
@@ -132,34 +131,58 @@ fn violations_to_pylist<'py>(
 ///     ``expiry``, ``adjacent_expiry``, ``magnitude``, ``value``,
 ///     ``message``, ``description``.
 #[pyfunction]
-#[pyo3(signature = (strikes, expiries, vols, tolerance = 1e-6))]
+#[pyo3(signature = (strikes, expiries, vols, forward, tolerance = 1e-6))]
 fn check_butterfly<'py>(
     py: Python<'py>,
     strikes: Vec<f64>,
     expiries: Vec<f64>,
     vols: Vec<Vec<f64>>,
+    forward: f64,
     tolerance: f64,
 ) -> PyResult<Bound<'py, PyList>> {
     let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
-    let checker = ButterflyCheck { tolerance };
+    let checker = ButterflyCheck {
+        forwards: vec![forward; expiries.len()],
+        tolerance,
+    };
     let violations = checker.check(&surface);
     violations_to_pylist(py, &violations)
 }
 
-/// Check calendar spread arbitrage (expiry monotonicity of total variance).
+/// Check calendar spread arbitrage (total variance monotonicity in log-moneyness).
 ///
-/// Parameters mirror :func:`check_butterfly`.
+/// Parameters
+/// ----------
+/// strikes : list[float]
+///     Monotonically increasing strike grid.
+/// expiries : list[float]
+///     Monotonically increasing expiry grid (years).
+/// vols : list[list[float]]
+///     Implied vols shaped ``[n_expiries][n_strikes]``.
+/// forward : float
+///     Forward price (used for all expiries).
+/// tolerance : float, optional
+///     Tolerance in total-variance units. Default ``1e-6``.
+///
+/// Returns
+/// -------
+/// list[dict]
+///     One dict per violation.
 #[pyfunction]
-#[pyo3(signature = (strikes, expiries, vols, tolerance = 1e-6))]
+#[pyo3(signature = (strikes, expiries, vols, forward, tolerance = 1e-6))]
 fn check_calendar_spread<'py>(
     py: Python<'py>,
     strikes: Vec<f64>,
     expiries: Vec<f64>,
     vols: Vec<Vec<f64>>,
+    forward: f64,
     tolerance: f64,
 ) -> PyResult<Bound<'py, PyList>> {
     let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
-    let checker = CalendarSpreadCheck { tolerance };
+    let checker = CalendarSpreadCheck {
+        forwards: vec![forward; expiries.len()],
+        tolerance,
+    };
     let violations = checker.check(&surface);
     violations_to_pylist(py, &violations)
 }
@@ -239,6 +262,9 @@ fn check_local_vol_density<'py>(
 ///     Monotonically increasing expiry grid (years).
 /// vols : list[list[float]]
 ///     Implied vols shaped ``[n_expiries][n_strikes]``.
+/// forward : float, optional
+///     Forward price. Required for butterfly, calendar-spread, and
+///     local-vol density checks. If not provided, these checks are skipped.
 /// tolerance : float, optional
 ///     Shared tolerance for all checks. Default ``1e-6``.
 ///
@@ -249,21 +275,21 @@ fn check_local_vol_density<'py>(
 ///     ``by_severity`` (dict ``severity -> count``), ``by_type``
 ///     (dict ``type -> count``), and ``violations`` (list[dict]).
 #[pyfunction]
-#[pyo3(signature = (strikes, expiries, vols, tolerance = 1e-6))]
+#[pyo3(signature = (strikes, expiries, vols, forward = None, tolerance = 1e-6))]
 fn check_all<'py>(
     py: Python<'py>,
     strikes: Vec<f64>,
     expiries: Vec<f64>,
     vols: Vec<Vec<f64>>,
+    forward: Option<f64>,
     tolerance: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
     let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
     let config = ArbitrageCheckConfig {
         check_butterfly: true,
         check_calendar_spread: true,
-        // Local-vol check requires a forward; skip when not supplied here.
-        check_local_vol_density: false,
-        forward: None,
+        check_local_vol_density: forward.is_some(),
+        forward,
         tolerance,
         min_severity: ArbitrageSeverity::Negligible,
     };
@@ -284,7 +310,10 @@ fn check_all<'py>(
         ArbitrageSeverity::Major,
         ArbitrageSeverity::Critical,
     ] {
-        by_sev.set_item(severity_str(sev), sev_counts.get(&sev).copied().unwrap_or(0))?;
+        by_sev.set_item(
+            severity_str(sev),
+            sev_counts.get(&sev).copied().unwrap_or(0),
+        )?;
     }
     out.set_item("by_severity", by_sev)?;
 
@@ -298,7 +327,10 @@ fn check_all<'py>(
         ArbitrageType::CalendarSpread,
         ArbitrageType::LocalVolDensity,
     ] {
-        by_type.set_item(arbitrage_type_str(t), type_counts.get(&t).copied().unwrap_or(0))?;
+        by_type.set_item(
+            arbitrage_type_str(t),
+            type_counts.get(&t).copied().unwrap_or(0),
+        )?;
     }
     out.set_item("by_type", by_type)?;
 

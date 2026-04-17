@@ -9,11 +9,9 @@ use crate::engine::ExecutionContext;
 use crate::error::{Error, Result};
 use crate::spec::{Compounding, OperationSpec, RateBindingSpec};
 use crate::utils::tenor_years_from_binding;
-use finstack_core::dates::rate_conversions::{
-    continuous_to_periodic, continuous_to_simple, simple_to_continuous,
-};
 use finstack_core::dates::{BusinessDayConvention, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::Compounding as CoreCompounding;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 
@@ -285,8 +283,11 @@ pub fn update_rate_from_binding(
             .map_err(|e| Error::Internal(e.to_string()))?;
 
         let forward_simple = curve.rate(start_years);
-        let forward_continuous = simple_to_continuous(forward_simple, accrual_years)
-            .map_err(|e| Error::Validation(e.to_string()))?;
+        let forward_continuous = CoreCompounding::Simple.convert_rate(
+            forward_simple,
+            accrual_years,
+            &CoreCompounding::Continuous,
+        );
         let converted =
             convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?;
         return apply_forecast_assign(model, binding.node_id.as_str(), converted);
@@ -302,8 +303,6 @@ fn convert_continuous_rate(
     comp: Compounding,
     year_fraction: f64,
 ) -> Result<f64> {
-    // Validate year fraction to prevent division by zero or invalid calculations
-    // in simple rate conversion: simple_rate = (exp(r * t) - 1) / t
     if !year_fraction.is_finite() || year_fraction <= 0.0 {
         return Err(Error::Validation(format!(
             "Year fraction must be positive for rate conversion, got {}",
@@ -311,21 +310,16 @@ fn convert_continuous_rate(
         )));
     }
 
-    let converted = match comp {
-        Compounding::Continuous => continuous_rate,
-        Compounding::Simple => continuous_to_simple(continuous_rate, year_fraction)
-            .map_err(|e| Error::Validation(e.to_string()))?,
-        Compounding::Annual => continuous_to_periodic(continuous_rate, 1)
-            .map_err(|e| Error::Validation(e.to_string()))?,
-        Compounding::SemiAnnual => continuous_to_periodic(continuous_rate, 2)
-            .map_err(|e| Error::Validation(e.to_string()))?,
-        Compounding::Quarterly => continuous_to_periodic(continuous_rate, 4)
-            .map_err(|e| Error::Validation(e.to_string()))?,
-        Compounding::Monthly => continuous_to_periodic(continuous_rate, 12)
-            .map_err(|e| Error::Validation(e.to_string()))?,
+    let to: CoreCompounding = match comp {
+        Compounding::Continuous => return Ok(continuous_rate),
+        Compounding::Simple => CoreCompounding::Simple,
+        Compounding::Annual => CoreCompounding::Annual,
+        Compounding::SemiAnnual => CoreCompounding::SEMI_ANNUAL,
+        Compounding::Quarterly => CoreCompounding::QUARTERLY,
+        Compounding::Monthly => CoreCompounding::MONTHLY,
     };
 
-    Ok(converted)
+    Ok(CoreCompounding::Continuous.convert_rate(continuous_rate, year_fraction, &to))
 }
 
 /// Re-evaluate the financial model to propagate scenario changes.

@@ -2808,7 +2808,6 @@ class Haircut01:
 
     def __repr__(self) -> str: ...
 
-
 class FrtbSensitivities:
     """FRTB sensitivity portfolio for the Sensitivity-Based Approach.
 
@@ -2828,7 +2827,6 @@ class FrtbSensitivities:
     """
 
     def __init__(self, base_currency: str = "USD") -> None: ...
-
     @staticmethod
     def from_json(json: str) -> FrtbSensitivities:
         """Construct from a JSON serialization."""
@@ -2838,15 +2836,11 @@ class FrtbSensitivities:
         """Serialize to a JSON string."""
         ...
 
-    def add_girr_delta(
-        self, tenor: str, amount: float, currency: str | None = None
-    ) -> None:
+    def add_girr_delta(self, tenor: str, amount: float, currency: str | None = None) -> None:
         """Add a GIRR delta sensitivity (currency per 1bp)."""
         ...
 
-    def add_csr_delta(
-        self, issuer: str, bucket: int, tenor: str, amount: float
-    ) -> None:
+    def add_csr_delta(self, issuer: str, bucket: int, tenor: str, amount: float) -> None:
         """Add a CSR (non-securitization) delta sensitivity."""
         ...
 
@@ -2858,9 +2852,7 @@ class FrtbSensitivities:
         """Add an FX delta sensitivity for the pair (ccy1, ccy2)."""
         ...
 
-    def add_commodity_delta(
-        self, name: str, bucket: int, tenor: str, amount: float
-    ) -> None:
+    def add_commodity_delta(self, name: str, bucket: int, tenor: str, amount: float) -> None:
         """Add a commodity delta sensitivity."""
         ...
 
@@ -2874,39 +2866,27 @@ class FrtbSensitivities:
         """Add a GIRR vega sensitivity."""
         ...
 
-    def add_equity_vega(
-        self, underlier: str, bucket: int, maturity: str, amount: float
-    ) -> None:
+    def add_equity_vega(self, underlier: str, bucket: int, maturity: str, amount: float) -> None:
         """Add an equity vega sensitivity."""
         ...
 
-    def add_fx_vega(
-        self, ccy1: str, ccy2: str, maturity: str, amount: float
-    ) -> None:
+    def add_fx_vega(self, ccy1: str, ccy2: str, maturity: str, amount: float) -> None:
         """Add an FX vega sensitivity."""
         ...
 
-    def add_girr_curvature(
-        self, cvr_up: float, cvr_down: float, currency: str | None = None
-    ) -> None:
+    def add_girr_curvature(self, cvr_up: float, cvr_down: float, currency: str | None = None) -> None:
         """Add a GIRR curvature sensitivity."""
         ...
 
-    def add_equity_curvature(
-        self, underlier: str, bucket: int, cvr_up: float, cvr_down: float
-    ) -> None:
+    def add_equity_curvature(self, underlier: str, bucket: int, cvr_up: float, cvr_down: float) -> None:
         """Add an equity curvature sensitivity."""
         ...
 
-    def add_fx_curvature(
-        self, ccy1: str, ccy2: str, cvr_up: float, cvr_down: float
-    ) -> None:
+    def add_fx_curvature(self, ccy1: str, ccy2: str, cvr_up: float, cvr_down: float) -> None:
         """Add an FX curvature sensitivity."""
         ...
 
-    def add_rrao_position(
-        self, instrument_id: str, notional: float, is_exotic: bool = False
-    ) -> None:
+    def add_rrao_position(self, instrument_id: str, notional: float, is_exotic: bool = False) -> None:
         """Add a Residual Risk Add-On position."""
         ...
 
@@ -2916,7 +2896,6 @@ class FrtbSensitivities:
         ...
 
     def __repr__(self) -> str: ...
-
 
 class SaCcrTrade:
     """A derivative trade for SA-CCR EAD computation per BCBS 279.
@@ -2959,7 +2938,6 @@ class SaCcrTrade:
         direction: float = 1.0,
         mtm: float = 0.0,
     ) -> None: ...
-
     @staticmethod
     def from_json(json: str) -> SaCcrTrade:
         """Construct from a JSON serialization."""
@@ -2979,10 +2957,7 @@ class SaCcrTrade:
     def mtm(self) -> float: ...
     def __repr__(self) -> str: ...
 
-
-def frtb_sba_charge(
-    sensitivities: FrtbSensitivities, correlation_scenario: str | None = None
-) -> tuple[float, dict]:
+def frtb_sba_charge(sensitivities: FrtbSensitivities, correlation_scenario: str | None = None) -> tuple[float, dict]:
     """Compute the FRTB SBA capital charge.
 
     Parameters
@@ -3012,10 +2987,7 @@ def frtb_sba_charge(
     """
     ...
 
-
-def saccr_ead(
-    trades: list[SaCcrTrade], margined: bool = False, collateral: float = 0.0
-) -> tuple[float, float, float]:
+def saccr_ead(trades: list[SaCcrTrade], margined: bool = False, collateral: float = 0.0) -> tuple[float, float, float]:
     """Compute SA-CCR Exposure at Default per BCBS 279.
 
     Parameters

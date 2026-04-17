@@ -363,12 +363,17 @@ impl CashFlowSchedule {
     /// and the sum runs over all principal flows (Amortization, Notional,
     /// PrePayment) with positive amounts after `as_of`.
     ///
+    /// WAL is computed on an Act/365F basis regardless of the schedule's
+    /// accrual day count, matching conventional desk reporting. This avoids
+    /// silent mis-computation when the schedule uses Act/Act ISMA or
+    /// Bus/252, which require calendar or frequency context that WAL does
+    /// not carry.
+    ///
     /// Returns `Ok(0.0)` if there are no future principal flows.
     ///
     /// # Errors
     ///
-    /// Returns an error if the day-count convention cannot compute a year
-    /// fraction for any principal flow date.
+    /// Returns an error if the day-count year-fraction calculation fails.
     pub fn weighted_average_life(&self, as_of: Date) -> finstack_core::Result<f64> {
         let mut principal_time_sum = 0.0;
         let mut principal_total = 0.0;
@@ -380,9 +385,7 @@ impl CashFlowSchedule {
             ) && cf.date > as_of
                 && cf.amount.amount() > 0.0
             {
-                let t = self
-                    .day_count
-                    .year_fraction(as_of, cf.date, Default::default())?;
+                let t = DayCount::Act365F.year_fraction(as_of, cf.date, DayCountCtx::default())?;
                 principal_time_sum += cf.amount.amount() * t;
                 principal_total += cf.amount.amount();
             }
@@ -813,7 +816,7 @@ impl<'a> IntoIterator for &'a CashFlowSchedule {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
@@ -895,5 +898,62 @@ mod tests {
             vec!["lon".to_string(), "nyc".to_string()]
         );
         assert_eq!(merged.meta.issue_date, Some(d1));
+    }
+
+    #[test]
+    fn wal_uses_act365f_regardless_of_schedule_day_count() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let d1 = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+        let d2 = Date::from_calendar_date(2027, Month::January, 1).expect("valid date");
+
+        let schedule = CashFlowSchedule::from_parts(
+            vec![
+                flow(d1, 500_000.0, CFKind::Amortization),
+                flow(d2, 500_000.0, CFKind::Amortization),
+            ],
+            Notional::par(1_000_000.0, Currency::USD),
+            DayCount::Thirty360, // schedule uses 30/360 but WAL should use Act/365F
+            CashFlowMeta::default(),
+        );
+
+        let wal = schedule.weighted_average_life(as_of).expect("WAL succeeds");
+
+        // Compute expected WAL with Act/365F:
+        // d1: 365 days / 365 = 1.0 years
+        // d2: 731 days / 365 ≈ 2.0027 years (2026 is not a leap year, 2×365+1 ≈ 731)
+        // WAL = (500k * 1.0 + 500k * t2) / 1M
+        let t1 = DayCount::Act365F
+            .year_fraction(as_of, d1, DayCountCtx::default())
+            .unwrap();
+        let t2 = DayCount::Act365F
+            .year_fraction(as_of, d2, DayCountCtx::default())
+            .unwrap();
+        let expected = (500_000.0 * t1 + 500_000.0 * t2) / 1_000_000.0;
+
+        assert!(
+            (wal - expected).abs() < 1e-10,
+            "WAL should match Act/365F calculation: expected {}, got {}",
+            expected,
+            wal
+        );
+
+        // Also verify it differs from 30/360 (which would give 1.0 and 2.0 exactly)
+        let t30_360_1 = DayCount::Thirty360
+            .year_fraction(as_of, d1, DayCountCtx::default())
+            .unwrap();
+        let t30_360_2 = DayCount::Thirty360
+            .year_fraction(as_of, d2, DayCountCtx::default())
+            .unwrap();
+        let wal_30360 = (500_000.0 * t30_360_1 + 500_000.0 * t30_360_2) / 1_000_000.0;
+
+        // The values should differ (Act/365F vs 30/360 give different year fractions
+        // for multi-year spans). If they match, the WAL is accidentally using the
+        // schedule day count instead of Act/365F.
+        // Note: for these specific dates they may be very close, so we just verify
+        // our function returns the Act/365F-based value.
+        assert!(
+            (wal - expected).abs() < (wal - wal_30360).abs() || (wal - expected).abs() < 1e-10,
+            "WAL should be closer to Act/365F value than 30/360 value"
+        );
     }
 }

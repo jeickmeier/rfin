@@ -274,7 +274,12 @@ fn yield_pca_fit<'py>(
         scores_out.push(r);
     }
 
-    let eigenvalues: Vec<f64> = pca.eigenvalues().iter().take(n_components).copied().collect();
+    let eigenvalues: Vec<f64> = pca
+        .eigenvalues()
+        .iter()
+        .take(n_components)
+        .copied()
+        .collect();
     let evr: Vec<f64> = pca
         .variance_explained()
         .iter()

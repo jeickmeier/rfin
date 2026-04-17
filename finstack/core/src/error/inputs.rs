@@ -109,6 +109,23 @@ pub enum InputError {
     #[error("Invalid date range: start must be before end")]
     InvalidDateRange,
 
+    /// Schedule range is invalid: start must be strictly before end.
+    #[error("Invalid schedule range: start ({start}) must be before end ({end})")]
+    InvalidScheduleRange {
+        /// Schedule start date.
+        start: time::Date,
+        /// Schedule end date.
+        end: time::Date,
+    },
+
+    /// `StubKind::None` was requested but the tenor does not divide evenly
+    /// into the schedule range. Use `ShortBack` or `ShortFront` instead.
+    #[error(
+        "StubKind::None requires the tenor to divide evenly into the schedule period, \
+         but the last generated date overshoots the end; use ShortBack or ShortFront"
+    )]
+    NonIntegerScheduleTenor,
+
     /// Invalid calendar date creation (e.g., February 30th).
     #[error("Invalid calendar date: {year}-{month:02}-{day:02}")]
     InvalidDate {

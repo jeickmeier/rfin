@@ -21,15 +21,10 @@
 //! - Cashflows change sign more than once (e.g., outflow, inflow, outflow)
 //! - There are large negative cashflows late in the sequence
 //!
-//! When multiple roots exist, this implementation returns the **first valid root found**
-//! from a predefined set of initial guesses. The search order prioritizes:
-//! 1. User-provided guess (if any)
-//! 2. Commonly encountered rates (10%, 5%, 20%, etc.)
-//! 3. Extreme rates for distressed scenarios (-90%, -99%, +500%)
-//!
-//! The returned root may not be the "economically meaningful" one (typically the
-//! smallest positive root or the root nearest zero). Users with complex cashflow
-//! patterns should verify the result makes economic sense for their use case.
+//! When multiple roots exist, this implementation collects **all** valid roots from
+//! every solver phase (Brent direct, Newton, Brent fallback), deduplicates them
+//! within `1e-9` tolerance, and returns the root **closest to 0.0**. This
+//! deterministic selection avoids dependence on solver iteration order.
 //!
 //! # Rate Bounds
 //!
@@ -264,13 +259,6 @@ pub fn xirr_with_daycount_ctx(
     let mut sorted_flows = flows.to_vec();
     sorted_flows.sort_by_key(|k| k.0);
 
-    // Check for sign change
-    if !has_sign_change(sorted_flows.iter().map(|(_, amt)| *amt)) {
-        return Err(crate::Error::Validation(
-            "Cashflows must contain at least one positive and one negative value".to_string(),
-        ));
-    }
-
     let first_date = sorted_flows[0].0;
 
     // Precompute (year_fraction, amount) once for performance and
@@ -281,7 +269,22 @@ pub fn xirr_with_daycount_ctx(
         years_and_amounts.push((years, amount));
     }
 
-    solve_rate_of_return(years_and_amounts, guess)
+    // Aggregate entries with identical year-fractions by summing amounts.
+    // This deduplicates same-date flows, reduces iteration cost, and avoids
+    // f64 summation noise from carrying redundant entries.
+    years_and_amounts.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut aggregated: Vec<(f64, f64)> = Vec::with_capacity(years_and_amounts.len());
+    for (t, amount) in &years_and_amounts {
+        if let Some(last) = aggregated.last_mut() {
+            if (last.0 - t).abs() < 1e-12 {
+                last.1 += amount;
+                continue;
+            }
+        }
+        aggregated.push((*t, *amount));
+    }
+
+    solve_rate_of_return(aggregated, guess)
 }
 
 // -----------------------------------------------------------------------------
@@ -289,6 +292,13 @@ pub fn xirr_with_daycount_ctx(
 // -----------------------------------------------------------------------------
 
 /// Solves for the rate of return (r) that sets the Net Present Value (NPV) to zero.
+///
+/// # Determinism contract
+///
+/// All solver phases (Brent direct, Newton, Brent fallback) are run exhaustively.
+/// Valid roots are collected, deduplicated within `1e-9` tolerance, and the root
+/// closest to `0.0` that satisfies `rate > MIN_VALID_RATE` is returned. This
+/// guarantees a deterministic result regardless of solver iteration order.
 ///
 /// # Arguments
 /// * `flows` - Iterator of (time, amount) pairs
@@ -319,32 +329,33 @@ where
         );
     }
 
-    // Define NPV function: Σ C_t / (1+r)^t using Neumaier compensated summation
+    // Define NPV function: Σ C_t / (1+r)^t using Neumaier compensated summation.
+    // Uses exp(−t·ln(1+r)) instead of powf(t) to hoist the transcendental out of
+    // the inner loop (one ln vs N powf calls).
     let npv = |rate: f64| -> f64 {
         let df_base = 1.0 + rate;
-        // Guard: (1+r) must be positive for real-valued power function.
-        // For non-integer exponents, negative base produces NaN; for zero base,
-        // we get division by zero. Return non-finite to signal the solver to
-        // reject this candidate rate.
         if df_base <= 0.0 {
             return f64::INFINITY;
         }
+        let ln_df = df_base.ln();
         let mut acc = NeumaierAccumulator::new();
         for &(t, amount) in &data {
-            acc.add(amount / df_base.powf(t));
+            acc.add(amount * (-t * ln_df).exp());
         }
         acc.total()
     };
 
-    // Define derivative d(NPV)/dr: Σ -t * C_t / (1+r)^(t+1) using Neumaier
+    // Define derivative d(NPV)/dr: Σ -t * C_t / (1+r)^(t+1) using Neumaier.
+    // Same ln-exp hoist as npv.
     let npv_derivative = |rate: f64| -> f64 {
         let df_base = 1.0 + rate;
         if df_base <= 0.0 {
             return f64::INFINITY;
         }
+        let ln_df = df_base.ln();
         let mut acc = NeumaierAccumulator::new();
         for &(t, amount) in &data {
-            acc.add(-t * amount / df_base.powf(t + 1.0));
+            acc.add(-t * amount * (-(t + 1.0) * ln_df).exp());
         }
         acc.total()
     };
@@ -378,9 +389,12 @@ where
         5.0,   // 500%
     ];
 
+    // Collect all valid roots across solver phases, then pick the one closest to 0.
+    let mut all_roots: Vec<f64> = Vec::new();
+
+    let is_valid = |root: f64| root > MIN_VALID_RATE && root.is_finite();
+
     // Phase 0: Attempt direct Brent bracketing from NPV sign at r=0.
-    // NPV(0) = sum of raw amounts; use its sign to narrow the search bracket
-    // before trying blind seeds.
     let npv_at_zero = npv(0.0);
     if npv_at_zero.is_finite() && npv_at_zero.abs() > DEFAULT_TOLERANCE {
         let brent_direct = BrentSolver::new()
@@ -390,8 +404,8 @@ where
             .bracket_bounds(-0.99, 10.0);
         let direct_seed = if npv_at_zero > 0.0 { 0.1 } else { -0.1 };
         if let Ok(root) = brent_direct.solve(npv, direct_seed) {
-            if root > MIN_VALID_RATE {
-                return Ok(root);
+            if is_valid(root) {
+                all_roots.push(root);
             }
         }
     }
@@ -399,8 +413,8 @@ where
     // Phase 1: Try Newton-Raphson (fast, quadratic convergence) with all seeds
     for &g in seeds {
         if let Ok(root) = newton.solve_with_derivative(npv, npv_derivative, g) {
-            if root > MIN_VALID_RATE && npv(root).abs() < DEFAULT_TOLERANCE * 100.0 {
-                return Ok(root);
+            if is_valid(root) && npv(root).abs() < DEFAULT_TOLERANCE * 100.0 {
+                all_roots.push(root);
             }
         }
     }
@@ -416,15 +430,20 @@ where
 
     for &g in brent_seeds {
         if let Ok(root) = brent.solve(npv, g) {
-            if root > MIN_VALID_RATE {
-                return Ok(root);
+            if is_valid(root) {
+                all_roots.push(root);
             }
         }
     }
 
-    Err(crate::Error::Validation(
-        "IRR calculation failed: no convergence".into(),
-    ))
+    // Deduplicate roots within 1e-9 tolerance, then pick closest to 0.
+    all_roots.sort_by(|a, b| a.total_cmp(b));
+    all_roots.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+
+    all_roots
+        .into_iter()
+        .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+        .ok_or_else(|| crate::Error::Validation("IRR calculation failed: no convergence".into()))
 }
 
 /// Return `true` if the iterator contains at least one positive and one negative value.

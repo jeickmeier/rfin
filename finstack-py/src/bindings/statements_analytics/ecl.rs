@@ -49,7 +49,10 @@ fn trigger_reason(trigger: &rust_ecl::StagingTrigger) -> String {
             format!("pd_delta_absolute (delta={:.4} > {:.4})", delta, threshold)
         }
         rust_ecl::StagingTrigger::PdDeltaRelative { ratio, threshold } => {
-            format!("pd_delta_relative (ratio={:.2}x > {:.2}x)", ratio, threshold)
+            format!(
+                "pd_delta_relative (ratio={:.2}x > {:.2}x)",
+                ratio, threshold
+            )
         }
         rust_ecl::StagingTrigger::RatingDowngrade { notches, threshold } => {
             format!("rating_downgrade ({} >= {} notches)", notches, threshold)
@@ -83,7 +86,11 @@ fn trigger_reason(trigger: &rust_ecl::StagingTrigger) -> String {
 ///     Lifetime PD at initial recognition, in decimal.
 /// dpd : int
 ///     Current days past due.
-#[pyclass(name = "Exposure", module = "finstack.statements_analytics", from_py_object)]
+#[pyclass(
+    name = "Exposure",
+    module = "finstack.statements_analytics",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyExposure {
     #[pyo3(get, set)]
@@ -241,8 +248,8 @@ fn classify_stage(
         cure_periods_stage3_to_2: 6,
     };
 
-    let result = rust_ecl::classify_stage(&rust_exp, &pd_source, &staging_config)
-        .map_err(display_to_py)?;
+    let result =
+        rust_ecl::classify_stage(&rust_exp, &pd_source, &staging_config).map_err(display_to_py)?;
 
     let reason = result
         .triggers
@@ -338,8 +345,8 @@ fn compute_ecl(
     };
     let exposure = cap_maturity(&exposure, max_horizon_years);
 
-    let result = rust_ecl::compute_ecl_single(&exposure, stage, &curve, &config)
-        .map_err(display_to_py)?;
+    let result =
+        rust_ecl::compute_ecl_single(&exposure, stage, &curve, &config).map_err(display_to_py)?;
     Ok(result.ecl)
 }
 

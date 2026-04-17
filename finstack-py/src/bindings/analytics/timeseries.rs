@@ -50,7 +50,10 @@ fn fill_common_fit_fields<'py>(
         out.set_item("nu", nu)?;
     }
     out.set_item("persistence", fit.params.persistence())?;
-    out.set_item("unconditional_variance", fit.params.unconditional_variance())?;
+    out.set_item(
+        "unconditional_variance",
+        fit.params.unconditional_variance(),
+    )?;
     out.set_item("half_life", fit.params.half_life())?;
     out.set_item("log_likelihood", fit.log_likelihood)?;
     out.set_item("aic", fit.aic)?;
@@ -61,14 +64,8 @@ fn fill_common_fit_fields<'py>(
     out.set_item("converged", fit.converged)?;
     out.set_item("iterations", fit.iterations)?;
     out.set_item("terminal_variance", fit.terminal_variance)?;
-    out.set_item(
-        "conditional_variances",
-        fit.conditional_variances.clone(),
-    )?;
-    out.set_item(
-        "standardized_residuals",
-        fit.standardized_residuals.clone(),
-    )?;
+    out.set_item("conditional_variances", fit.conditional_variances.clone())?;
+    out.set_item("standardized_residuals", fit.standardized_residuals.clone())?;
 
     // Standard errors (paired with parameter names where possible).
     if let Some(se) = &fit.std_errors {

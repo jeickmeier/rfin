@@ -170,6 +170,7 @@ fn test_floating_rate_term_loan_yield_and_dm() {
             fixing_calendar_id: None,
             end_of_month: false,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback: Default::default(),
             payment_lag_days: 0,
         }))

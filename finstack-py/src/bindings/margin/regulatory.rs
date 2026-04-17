@@ -9,9 +9,7 @@
 use crate::errors::core_to_py;
 use finstack_core::currency::Currency;
 use finstack_margin::regulatory::{
-    frtb::{
-        CorrelationScenario, FrtbRiskClass, FrtbSbaEngine, FrtbSensitivities, RraoPosition,
-    },
+    frtb::{CorrelationScenario, FrtbRiskClass, FrtbSbaEngine, FrtbSensitivities, RraoPosition},
     sa_ccr::{SaCcrAssetClass, SaCcrEngine, SaCcrNettingSetConfig, SaCcrTrade},
 };
 use finstack_margin::NettingSetId;
@@ -131,12 +129,7 @@ impl PyFrtbSensitivities {
 
     /// Add a GIRR delta sensitivity (currency per 1bp).
     #[pyo3(signature = (tenor, amount, currency = None))]
-    fn add_girr_delta(
-        &mut self,
-        tenor: &str,
-        amount: f64,
-        currency: Option<&str>,
-    ) -> PyResult<()> {
+    fn add_girr_delta(&mut self, tenor: &str, amount: f64, currency: Option<&str>) -> PyResult<()> {
         let ccy = match currency {
             Some(c) => parse_currency(c)?,
             None => self.inner.base_currency,
@@ -148,7 +141,8 @@ impl PyFrtbSensitivities {
     /// Add a CSR (non-securitization) delta sensitivity.
     #[pyo3(signature = (issuer, bucket, tenor, amount))]
     fn add_csr_delta(&mut self, issuer: &str, bucket: u8, tenor: &str, amount: f64) {
-        self.inner.add_csr_nonsec_delta(issuer, bucket, tenor, amount);
+        self.inner
+            .add_csr_nonsec_delta(issuer, bucket, tenor, amount);
     }
 
     /// Add an equity delta sensitivity.

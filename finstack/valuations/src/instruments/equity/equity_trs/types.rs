@@ -392,6 +392,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
                     end_of_month: self.schedule.params.end_of_month,
                     payment_lag_days: self.schedule.params.payment_lag_days,
                     overnight_compounding: None,
+                    overnight_basis: None,
                     fallback: crate::cashflow::builder::FloatingRateFallback::Error,
                 },
                 coupon_type: crate::cashflow::builder::CouponType::Cash,

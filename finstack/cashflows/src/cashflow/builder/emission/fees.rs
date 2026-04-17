@@ -301,6 +301,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
                     calendar: Some(calendar),
                     frequency: Some(pf.freq),
                     bus_basis: None,
+                    coupon_period: None,
                 },
             )?;
 

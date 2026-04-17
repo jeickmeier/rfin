@@ -34,7 +34,7 @@ fn test_quarterly_schedule_with_short_back_stub() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .unwrap()
         .frequency(Tenor::quarterly())
-        .stub_rule(StubKind::None) // Default behavior creates short back stub
+        .stub_rule(StubKind::ShortBack)
         .build()
         .unwrap()
         .into_iter()
@@ -47,6 +47,23 @@ fn test_quarterly_schedule_with_short_back_stub() {
     assert_eq!(dates[2], make_date(2025, 7, 1));
     assert_eq!(dates[3], make_date(2025, 10, 1));
     assert_eq!(dates[4], make_date(2025, 11, 1));
+}
+
+#[test]
+fn test_stub_none_rejects_non_integer_tenor() {
+    let start = make_date(2025, 1, 1);
+    let end = make_date(2025, 11, 1); // 10 months, not a multiple of 3
+
+    let result = ScheduleBuilder::new(start, end)
+        .unwrap()
+        .frequency(Tenor::quarterly())
+        .stub_rule(StubKind::None)
+        .build();
+
+    assert!(
+        result.is_err(),
+        "StubKind::None must reject non-integer tenor"
+    );
 }
 
 #[test]
@@ -95,16 +112,15 @@ fn test_day_based_frequency() {
 fn test_single_date_schedule() {
     let date = make_date(2025, 1, 15);
 
-    let dates: Vec<_> = ScheduleBuilder::new(date, date)
+    let result = ScheduleBuilder::new(date, date)
         .unwrap()
         .frequency(Tenor::monthly())
-        .build()
-        .unwrap()
-        .into_iter()
-        .collect();
+        .build();
 
-    assert_eq!(dates.len(), 1);
-    assert_eq!(dates[0], date);
+    assert!(
+        result.is_err(),
+        "start == end is no longer valid; must have start < end"
+    );
 }
 
 #[test]
@@ -154,13 +170,25 @@ fn test_schedule_builder_with_adjustment() {
 
 #[test]
 fn test_uneven_period_clamping() {
-    // Test that when step would overshoot end date, it clamps to end date
+    // StubKind::None now rejects non-integer tenors; use ShortBack for clamping
     let start = make_date(2025, 1, 1);
     let end = make_date(2025, 1, 20); // Not a multiple of monthly frequency
 
+    // Verify StubKind::None rejects it
+    let none_result = ScheduleBuilder::new(start, end)
+        .unwrap()
+        .frequency(Tenor::monthly())
+        .build();
+    assert!(
+        none_result.is_err(),
+        "StubKind::None must reject non-integer tenor"
+    );
+
+    // ShortBack clamps to end date
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .unwrap()
         .frequency(Tenor::monthly())
+        .stub_rule(StubKind::ShortBack)
         .build()
         .unwrap()
         .into_iter()
@@ -168,7 +196,7 @@ fn test_uneven_period_clamping() {
 
     assert_eq!(dates.len(), 2);
     assert_eq!(dates[0], make_date(2025, 1, 1));
-    assert_eq!(dates[1], make_date(2025, 1, 20)); // Clamped to end date
+    assert_eq!(dates[1], make_date(2025, 1, 20));
 }
 
 #[test]

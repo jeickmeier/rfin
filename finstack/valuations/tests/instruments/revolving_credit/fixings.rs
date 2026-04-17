@@ -72,6 +72,7 @@ fn build_seasoned_floating_facility(
             fixing_calendar_id: None,
             end_of_month: false,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback: Default::default(),
             payment_lag_days: 0,
         }))
@@ -288,6 +289,7 @@ fn test_fixings_respect_floor() {
             fixing_calendar_id: None,
             end_of_month: false,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback: Default::default(),
             payment_lag_days: 0,
         }))

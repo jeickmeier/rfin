@@ -447,6 +447,7 @@ fn test_mc_stochastic_floating_rate_index_cap() {
             end_of_month: false,
             payment_lag_days: 0,
             overnight_compounding: None,
+            overnight_basis: None,
             fallback: Default::default(),
         }
     };

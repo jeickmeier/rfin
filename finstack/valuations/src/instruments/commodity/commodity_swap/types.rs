@@ -362,8 +362,9 @@ impl CommoditySwap {
         // Market standard: Modified Following for commodity swaps (matches QuantLib/Bloomberg)
         let bdc = self.bdc;
 
-        let mut builder =
-            ScheduleBuilder::new(self.start_date, self.maturity)?.frequency(self.frequency);
+        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity)?
+            .frequency(self.frequency)
+            .stub_rule(finstack_core::dates::StubKind::ShortBack);
 
         // Apply calendar adjustment if calendar_id is specified
         if let Some(ref cal_id) = self.calendar_id {

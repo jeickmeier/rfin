@@ -477,6 +477,20 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
         }
     }
 
+    // Guard against double-counting recovery: when the schedule contains
+    // explicit DefaultedNotional flows AND a non-zero recovery_rate is
+    // supplied, the surviving principal would get recovery applied twice
+    // (once via the explicit Recovery cashflow, once via R*(1-SP) on the
+    // remaining amortization stream). Reject this combination.
+    if recovery_rate.is_some() && flows.iter().any(|cf| cf.kind == CFKind::DefaultedNotional) {
+        return Err(finstack_core::Error::Validation(
+            "pv_by_period_credit_adjusted_detailed: schedule contains explicit \
+             DefaultedNotional flows; pass recovery_rate=None to avoid \
+             double-counting recovery from both explicit events and hazard curve"
+                .into(),
+        ));
+    }
+
     if flows.is_empty() || periods.is_empty() {
         return Ok(IndexMap::new());
     }
@@ -616,6 +630,153 @@ mod compensated_sum_tests {
             "Neumaier error ({}) should be less than naive error ({})",
             neumaier_error,
             naive_error
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod credit_pv_tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+    use finstack_core::market_data::traits::TermStructure;
+    use finstack_core::money::Money;
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    fn d(y: i32, m: u8, day: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    struct FlatDiscount {
+        base: Date,
+    }
+
+    impl TermStructure for FlatDiscount {
+        fn id(&self) -> &CurveId {
+            static ID: std::sync::LazyLock<CurveId> = std::sync::LazyLock::new(|| "test".into());
+            &ID
+        }
+    }
+
+    impl Discounting for FlatDiscount {
+        fn base_date(&self) -> Date {
+            self.base
+        }
+        fn df(&self, _t: f64) -> f64 {
+            1.0
+        }
+    }
+
+    struct FlatSurvival;
+
+    impl TermStructure for FlatSurvival {
+        fn id(&self) -> &CurveId {
+            static ID: std::sync::LazyLock<CurveId> = std::sync::LazyLock::new(|| "hzd".into());
+            &ID
+        }
+    }
+
+    impl Survival for FlatSurvival {
+        fn sp(&self, _t: f64) -> f64 {
+            0.95
+        }
+    }
+
+    fn make_period(base: Date, end: Date) -> Period {
+        Period {
+            id: PeriodId::quarter(base.year(), 1),
+            start: base,
+            end,
+            is_actual: false,
+        }
+    }
+
+    #[test]
+    fn rejects_defaulted_notional_with_recovery_rate() {
+        let base = d(2025, 1, 1);
+        let flows = vec![
+            CashFlow {
+                date: d(2025, 6, 1),
+                reset_date: None,
+                amount: Money::new(100_000.0, Currency::USD),
+                kind: CFKind::DefaultedNotional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: d(2025, 12, 1),
+                reset_date: None,
+                amount: Money::new(900_000.0, Currency::USD),
+                kind: CFKind::Amortization,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ];
+        let periods = vec![make_period(base, d(2026, 1, 1))];
+        let disc = FlatDiscount { base };
+        let hazard = FlatSurvival;
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+
+        let result = pv_by_period_credit_adjusted_detailed(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            ctx,
+        );
+        assert!(
+            result.is_err(),
+            "should reject DefaultedNotional + recovery_rate"
+        );
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("DefaultedNotional"),
+            "error message should mention DefaultedNotional: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn allows_defaulted_notional_without_recovery_rate() {
+        let base = d(2025, 1, 1);
+        let flows = vec![
+            CashFlow {
+                date: d(2025, 6, 1),
+                reset_date: None,
+                amount: Money::new(100_000.0, Currency::USD),
+                kind: CFKind::DefaultedNotional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: d(2025, 12, 1),
+                reset_date: None,
+                amount: Money::new(900_000.0, Currency::USD),
+                kind: CFKind::Amortization,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ];
+        let periods = vec![make_period(base, d(2026, 1, 1))];
+        let disc = FlatDiscount { base };
+        let hazard = FlatSurvival;
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+
+        let result = pv_by_period_credit_adjusted_detailed(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            None,
+            ctx,
+        );
+        assert!(
+            result.is_ok(),
+            "should allow DefaultedNotional without recovery_rate"
         );
     }
 }

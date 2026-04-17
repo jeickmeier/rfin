@@ -233,6 +233,7 @@ pub(super) enum CouponSpec {
         index_cap_bp: Option<Decimal>,
         fixing_calendar_id: Option<String>,
         overnight_compounding: Option<super::specs::OvernightCompoundingMethod>,
+        overnight_basis: Option<finstack_core::dates::DayCount>,
         fallback: super::specs::FloatingRateFallback,
     },
     StepUp {
@@ -594,6 +595,7 @@ pub(super) fn compute_coupon_schedules(
                 index_cap_bp,
                 fixing_calendar_id,
                 overnight_compounding,
+                overnight_basis,
                 fallback,
             } => {
                 let spec = FloatingCouponSpec {
@@ -615,6 +617,7 @@ pub(super) fn compute_coupon_schedules(
                         end_of_month: chosen_coupon.schedule.end_of_month,
                         payment_lag_days: chosen_coupon.schedule.payment_lag_days,
                         overnight_compounding: *overnight_compounding,
+                        overnight_basis: *overnight_basis,
                         fallback: fallback.clone(),
                     },
                     coupon_type: split,

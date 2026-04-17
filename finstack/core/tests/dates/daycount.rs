@@ -319,14 +319,14 @@ fn act365l_period_no_feb29_uses_365() {
 
 #[test]
 fn act365l_period_ending_on_feb29() {
-    // Period ending exactly on Feb 29 (inclusive)
-    // 59 actual days (Jan 31 + Feb 1-29), Feb 29 in range -> 366 denom
+    // Period [Jan 1, Feb 29) — half-open, so Feb 29 itself is excluded.
+    // 59 actual days, Feb 29 NOT in [start, end) -> 365 denom
     let yf = DayCount::Act365L
         .year_fraction(d(2024, 1, 1), d(2024, 2, 29), DayCountCtx::default())
         .unwrap();
     assert!(
-        (yf - 59.0 / 366.0).abs() < TOL,
-        "Expected 59/366, got {}",
+        (yf - 59.0 / 365.0).abs() < TOL,
+        "Expected 59/365, got {}",
         yf
     );
 }
@@ -393,11 +393,11 @@ fn act365l_spanning_non_leap_year_boundary() {
 
 #[test]
 fn act365l_single_day_feb29() {
-    // Feb 28 to Feb 29 = 1 day, contains Feb 29
+    // [Feb 28, Feb 29) = 1 day, Feb 29 excluded by half-open -> 365 denom
     let yf = DayCount::Act365L
         .year_fraction(d(2024, 2, 28), d(2024, 2, 29), DayCountCtx::default())
         .unwrap();
-    assert!((yf - 1.0 / 366.0).abs() < TOL, "Expected 1/366, got {}", yf);
+    assert!((yf - 1.0 / 365.0).abs() < TOL, "Expected 1/365, got {}", yf);
 }
 
 #[test]
@@ -427,6 +427,7 @@ fn actact_isma_requires_frequency() {
         calendar: None,
         frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
+        coupon_period: None,
     };
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
     assert!(yf > 0.0);
@@ -441,6 +442,7 @@ fn actact_isma_full_coupon_period() {
         calendar: None,
         frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -459,6 +461,7 @@ fn actact_isma_multiple_frequencies() {
         calendar: None,
         frequency: Some(Tenor::new(3, TenorUnit::Months)),
         bus_basis: None,
+        coupon_period: None,
     };
     let yf_q = DayCount::ActActIsma
         .year_fraction(start, end, ctx_q)
@@ -469,6 +472,7 @@ fn actact_isma_multiple_frequencies() {
         calendar: None,
         frequency: Some(Tenor::new(1, TenorUnit::Months)),
         bus_basis: None,
+        coupon_period: None,
     };
     let yf_m = DayCount::ActActIsma
         .year_fraction(start, end, ctx_m)
@@ -498,6 +502,7 @@ fn actact_isma_partial_period() {
         calendar: None,
         frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -531,6 +536,7 @@ fn actact_vs_actact_isma_comparison() {
         calendar: None,
         frequency: Some(Tenor::new(12, TenorUnit::Months)),
         bus_basis: None,
+        coupon_period: None,
     };
     let yf_isma = DayCount::ActActIsma
         .year_fraction(start, end, ctx_isma)
@@ -622,6 +628,7 @@ fn bus252_requires_calendar() {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
+        coupon_period: None,
     };
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
     assert!(yf > 0.0);
@@ -637,6 +644,7 @@ fn bus252_counts_only_business_days() {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
@@ -664,6 +672,7 @@ fn bus252_full_year_is_deterministic() {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
@@ -709,6 +718,7 @@ fn bus252_excludes_holidays() {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
+        coupon_period: None,
     };
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();

@@ -89,11 +89,8 @@ impl Inner {
         let evict_count = (self.map.len() / 10).max(1);
 
         // Collect access times, sort, drop the oldest `evict_count`.
-        let mut stamps: Vec<((u64, u64), u64)> = self
-            .map
-            .iter()
-            .map(|(k, e)| (*k, e.last_access))
-            .collect();
+        let mut stamps: Vec<((u64, u64), u64)> =
+            self.map.iter().map(|(k, e)| (*k, e.last_access)).collect();
         stamps.sort_unstable_by_key(|(_, t)| *t);
 
         for (key, _) in stamps.iter().take(evict_count) {
@@ -157,9 +154,13 @@ impl PyValuationCache {
         }
 
         let t = inner.tick();
-        inner
-            .map
-            .insert(composite, CacheEntry { npv, last_access: t });
+        inner.map.insert(
+            composite,
+            CacheEntry {
+                npv,
+                last_access: t,
+            },
+        );
         inner.inserts += 1;
         inner.maybe_evict();
         true
@@ -216,9 +217,10 @@ impl PyValuationCache {
     /// Keys: ``hits``, ``misses``, ``lookups``, ``hit_rate``, ``evictions``,
     /// ``inserts``, ``entries``, ``memory_bytes``, ``memory_mb``.
     fn stats<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let inner = self.inner.lock().map_err(|_| {
-            pyo3::exceptions::PyRuntimeError::new_err("cache mutex poisoned")
-        })?;
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("cache mutex poisoned"))?;
 
         let hits = inner.hits;
         let misses = inner.misses;

@@ -103,9 +103,7 @@ fn tarn_coupon_profile<'py>(
 
     for &l_i in &floating_fixings {
         if !l_i.is_finite() {
-            return Err(PyValueError::new_err(
-                "floating_fixings must all be finite",
-            ));
+            return Err(PyValueError::new_err("floating_fixings must all be finite"));
         }
         let raw = (fixed_rate - l_i).max(coupon_floor);
         let period_coupon = raw * day_count_fraction;
@@ -215,9 +213,7 @@ fn snowball_coupon_profile(
     let mut out: Vec<f64> = Vec::with_capacity(floating_fixings.len());
     for &l_i in &floating_fixings {
         if !l_i.is_finite() {
-            return Err(PyValueError::new_err(
-                "floating_fixings must all be finite",
-            ));
+            return Err(PyValueError::new_err("floating_fixings must all be finite"));
         }
         let raw = if is_inverse_floater {
             fixed_rate - leverage * l_i
@@ -225,7 +221,11 @@ fn snowball_coupon_profile(
             prev + fixed_rate - l_i
         };
         let floored = raw.max(floor);
-        let c = if cap.is_finite() { floored.min(cap) } else { floored };
+        let c = if cap.is_finite() {
+            floored.min(cap)
+        } else {
+            floored
+        };
         out.push(c);
         prev = c;
     }

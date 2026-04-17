@@ -518,6 +518,7 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
                 end_of_month: float.end_of_month,
                 payment_lag_days: float.payment_lag_days,
                 overnight_compounding: builder_overnight_method(float.compounding.clone()),
+                overnight_basis: None,
                 fallback: if curves.is_some() {
                     crate::cashflow::builder::FloatingRateFallback::Error
                 } else {

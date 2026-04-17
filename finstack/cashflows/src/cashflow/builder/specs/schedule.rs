@@ -268,6 +268,11 @@ pub struct FloatCouponParams {
     /// Overnight compounding convention for overnight indices such as SOFR,
     /// ESTR, or SONIA.
     pub overnight_compounding: Option<super::OvernightCompoundingMethod>,
+    /// Day-count basis for the overnight compounding denominator.
+    ///
+    /// Defaults to `None` (= Act/360). Set to `Some(DayCount::Act365F)`
+    /// for SONIA.
+    pub overnight_basis: Option<finstack_core::dates::DayCount>,
     /// Policy applied when the forward curve cannot be resolved or projected.
     pub fallback: super::FloatingRateFallback,
 }

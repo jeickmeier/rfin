@@ -182,6 +182,7 @@ pub(crate) fn emit_fixed_coupons_on(
                     calendar: Some(calendar),
                     frequency: Some(spec.freq),
                     bus_basis: None,
+                    coupon_period: None,
                 },
             )?;
 
@@ -353,6 +354,7 @@ pub(crate) fn emit_float_coupons_on(
                     calendar: Some(calendar),
                     frequency: Some(spec.rate_spec.reset_freq),
                     bus_basis: None,
+                    coupon_period: None,
                 },
             )?;
 
@@ -432,11 +434,17 @@ pub(crate) fn emit_float_coupons_on(
                     let (daily_rates, total_days) =
                         sample_overnight_rates(accrual_start, accrual_end, fwd, calendar);
 
-                    // Determine the annualization basis from the floating rate day count.
-                    let day_count_basis = match spec.rate_spec.dc {
+                    // Use the index's native compounding basis, not the leg's
+                    // accrual day count. Defaults to Act/360 (SOFR, ESTR, TONA);
+                    // callers set overnight_basis = Act/365F for SONIA.
+                    let overnight_dc = spec
+                        .rate_spec
+                        .overnight_basis
+                        .unwrap_or(finstack_core::dates::DayCount::Act360);
+                    let day_count_basis = match overnight_dc {
                         finstack_core::dates::DayCount::Act365F
                         | finstack_core::dates::DayCount::Act365L => 365.0,
-                        _ => 360.0, // Act360, Thirty360, etc.
+                        _ => 360.0,
                     };
 
                     let compounded_index = super::super::rate_helpers::compute_overnight_rate(

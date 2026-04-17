@@ -1139,7 +1139,10 @@ def metrics_table_from_dict(
     Example:
         >>> from finstack.valuations import metrics_table_from_dict
         >>> out = metrics_table_from_dict(
-        ...     "BOND-001", "2025-01-15", "USD", 1_000_000.0,
+        ...     "BOND-001",
+        ...     "2025-01-15",
+        ...     "USD",
+        ...     1_000_000.0,
         ...     {"dv01": 425.0, "ytm": 0.0475},
         ... )
         >>> print(out["markdown"])  # doctest: +SKIP
@@ -1435,7 +1438,6 @@ class ValuationCache:
         max_entries: int = 10_000,
         max_memory_bytes: int = 256_000_000,
     ) -> None: ...
-
     def insert(self, key: int, npv: float, market_version: int) -> bool:
         """Insert an NPV under ``(key, market_version)``.
 

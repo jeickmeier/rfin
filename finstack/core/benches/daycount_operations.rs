@@ -66,6 +66,7 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
                         calendar: None,
                         frequency: Some(freq),
                         bus_basis: None,
+                        coupon_period: None,
                     },
                 )
                 .unwrap();
@@ -92,6 +93,7 @@ fn bench_daycount_bus252(c: &mut Criterion) {
                         calendar: Some(calendar),
                         frequency: None,
                         bus_basis: None,
+                        coupon_period: None,
                     },
                 )
                 .unwrap();

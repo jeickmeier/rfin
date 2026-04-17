@@ -268,6 +268,7 @@ impl FloatingRateFallback {
 ///     end_of_month: false,
 ///     payment_lag_days: 0,
 ///     overnight_compounding: None,
+///     overnight_basis: None,
 ///     fallback: Default::default(),
 /// };
 /// ```
@@ -350,6 +351,19 @@ pub struct FloatingRateSpec {
     /// Leave as `None` for term rates (e.g., 3M EURIBOR, 6M LIBOR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overnight_compounding: Option<OvernightCompoundingMethod>,
+
+    /// Day-count basis for the overnight compounding denominator.
+    ///
+    /// This controls the annualization factor used when compounding daily
+    /// overnight fixings (e.g., 360 for SOFR/ESTR/TONA, 365 for SONIA).
+    /// It is independent of the leg's accrual day count (`dc`), which
+    /// governs the coupon year fraction.
+    ///
+    /// Defaults to `Act/360` when `None`, matching SOFR/ESTR/TONA
+    /// convention. Set to `Act/365F` for SONIA.
+    /// Ignored when `overnight_compounding` is `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overnight_basis: Option<DayCount>,
 
     /// Policy when forward curve lookup fails during emission.
     ///

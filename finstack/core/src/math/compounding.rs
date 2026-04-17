@@ -203,6 +203,10 @@ impl Compounding {
     /// Simple:       r = (1/DF - 1) / t
     /// ```
     ///
+    /// Returns `NaN` for non-positive or non-finite discount factors. Use
+    /// [`try_rate_from_df`](Self::try_rate_from_df) when callers need to
+    /// distinguish error cases.
+    ///
     /// When `t == 0.0`, returns `0.0` (the rate is undefined for an
     /// instantaneous observation; zero is a safe sentinel).
     ///
@@ -213,6 +217,9 @@ impl Compounding {
     #[must_use]
     #[inline]
     pub fn rate_from_df(&self, df: f64, t: f64) -> f64 {
+        if !df.is_finite() || df <= 0.0 {
+            return f64::NAN;
+        }
         if t == 0.0 {
             return 0.0;
         }
@@ -223,13 +230,7 @@ impl Compounding {
                 let n = f64::from(n.get());
                 n * (df.powf(-1.0 / (n * t)) - 1.0)
             }
-            Compounding::Simple => {
-                if df <= 0.0 || !df.is_finite() {
-                    f64::NAN
-                } else {
-                    (1.0 / df - 1.0) / t
-                }
-            }
+            Compounding::Simple => (1.0 / df - 1.0) / t,
         }
     }
 
@@ -679,6 +680,21 @@ mod tests {
             r_ann > r_cont,
             "r_annual ({r_ann}) should be > r_continuous ({r_cont})",
         );
+    }
+
+    #[test]
+    fn test_rate_from_df_nan_for_invalid_discount_factors() {
+        let bad_dfs = [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY];
+        let t = 1.0;
+        for conv in all_conventions() {
+            for &df in &bad_dfs {
+                let rate = conv.rate_from_df(df, t);
+                assert!(
+                    rate.is_nan(),
+                    "{conv}: rate_from_df({df}, {t}) should be NaN, got {rate}",
+                );
+            }
+        }
     }
 
     #[test]

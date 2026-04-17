@@ -537,6 +537,7 @@ impl Tenor {
             calendar,
             frequency: None,
             bus_basis: None,
+            coupon_period: None,
         };
 
         day_count.year_fraction(as_of, end_date, ctx)
