@@ -116,6 +116,7 @@ status = "exists"
 adjustments      = { python = "finstack.statements.adjustments",       status = "exists" }
 builder          = { python = "finstack.statements.builder",           status = "exists" }
 capital_structure = { python = "finstack.statements.capital_structure", status = "exists" }
+checks           = { python = "finstack.statements.checks",            status = "exists" }
 dsl              = { python = "finstack.statements.dsl",               status = "exists" }
 error            = { python = "finstack.statements.error",             status = "missing" }
 evaluator        = { python = "finstack.statements.evaluator",         status = "exists" }
