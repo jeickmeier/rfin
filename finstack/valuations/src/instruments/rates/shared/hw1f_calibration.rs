@@ -5,6 +5,10 @@
 //! 2. Calibrated from the instrument's swaption vol surface (if provided).
 //! 3. [`HullWhiteParams::default()`] with a `tracing::warn!` log.
 
+// NOTE: swaption::pricer::HullWhiteParams is used (not
+// calibration::hull_white's) because this type has `impl Default` and
+// an infallible `new`, which the precedence-resolver needs. Converging
+// the two is tracked as a follow-up.
 use crate::instruments::rates::swaption::pricer::HullWhiteParams;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
@@ -26,6 +30,10 @@ pub struct Hw1fResolveRequest<'a> {
 /// Never returns an error for the "no surface + no overrides" case; instead
 /// emits a `tracing::warn!` and returns [`HullWhiteParams::default()`].
 /// An error is only returned when overrides are malformed.
+///
+/// `_market` is currently unused and reserved for the surface-calibration
+/// branch (follow-up PR). It is part of the public signature so that
+/// wiring it up later is not a breaking change.
 pub fn resolve_hw1f_params(
     req: &Hw1fResolveRequest<'_>,
     _market: &MarketContext,
@@ -48,21 +56,24 @@ pub fn resolve_hw1f_params(
         }
     }
 
-    if let Some(_surface_id) = req.vol_surface_id {
-        // Full term-structure calibration is deferred to a follow-up PR.
+    if let Some(surface_id) = req.vol_surface_id {
         tracing::warn!(
             target = "finstack.exotic_rates",
             context = req.context,
-            "HW1F calibration-from-surface not yet implemented; falling back to defaults"
+            vol_surface_id = %surface_id,
+            "HW1F calibration-from-surface not yet implemented; falling back to HullWhiteParams::default(). Tracked in docs/superpowers/plans/2026-04-16-exotic-rate-products-roadmap.md."
         );
     }
 
+    let defaults = HullWhiteParams::default();
     tracing::warn!(
         target = "finstack.exotic_rates",
         context = req.context,
-        "no HW1F overrides or surface provided; using HullWhiteParams::default() (kappa=0.03, sigma=0.01)"
+        kappa = defaults.kappa,
+        sigma = defaults.sigma,
+        "no HW1F overrides or surface provided; using HullWhiteParams::default()"
     );
-    Ok(HullWhiteParams::default())
+    Ok(defaults)
 }
 
 #[cfg(test)]
@@ -127,5 +138,32 @@ mod tests {
         };
         let err = resolve_hw1f_params(&req, &empty_market()).expect_err("should error");
         assert!(format!("{err}").contains("hw1f_sigma"));
+    }
+
+    #[test]
+    fn partial_override_falls_through_to_default() {
+        let overrides = json!({ "hw1f_kappa": 0.07 });
+        let req = Hw1fResolveRequest {
+            vol_surface_id: None,
+            overrides: Some(&overrides),
+            context: "test",
+        };
+        let params = resolve_hw1f_params(&req, &empty_market()).expect("ok");
+        let default = HullWhiteParams::default();
+        assert!((params.kappa - default.kappa).abs() < 1e-12);
+        assert!((params.sigma - default.sigma).abs() < 1e-12);
+    }
+
+    #[test]
+    fn surface_id_alone_falls_through_to_default() {
+        let req = Hw1fResolveRequest {
+            vol_surface_id: Some("USD_SWAPTION_ATM"),
+            overrides: None,
+            context: "test",
+        };
+        let params = resolve_hw1f_params(&req, &empty_market()).expect("ok");
+        let default = HullWhiteParams::default();
+        assert!((params.kappa - default.kappa).abs() < 1e-12);
+        assert!((params.sigma - default.sigma).abs() < 1e-12);
     }
 }
