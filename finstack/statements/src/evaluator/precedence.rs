@@ -70,27 +70,10 @@ pub enum NodeValueSource {
 }
 
 impl NodeValueSource {
-    /// Check if this is an explicit value.
-    pub fn is_value(&self) -> bool {
-        matches!(self, Self::Value(_))
-    }
-
-    /// Check if this is a forecast.
-    pub fn is_forecast(&self) -> bool {
-        matches!(self, Self::Forecast)
-    }
-
     /// Check if this is a formula.
+    #[cfg(test)]
     pub fn is_formula(&self) -> bool {
         matches!(self, Self::Formula)
-    }
-
-    /// Get the value if this is an explicit value.
-    pub fn as_value(&self) -> Option<f64> {
-        match self {
-            Self::Value(v) => Some(*v),
-            _ => None,
-        }
     }
 }
 #[cfg(test)]

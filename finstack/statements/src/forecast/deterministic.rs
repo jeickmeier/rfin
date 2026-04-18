@@ -15,24 +15,7 @@ use indexmap::IndexMap;
 ///
 /// * `base_value` - Value to repeat
 /// * `forecast_periods` - Periods that require projected values
-///
-/// # Example
-///
-/// ```rust
-/// # use finstack_statements::forecast::forward_fill;
-/// # use finstack_core::dates::PeriodId;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let periods = [
-///     PeriodId::quarter(2025, 3),
-///     PeriodId::quarter(2025, 4),
-/// ];
-/// let projected = forward_fill(125.0, &periods)?;
-/// assert_eq!(projected[&periods[0]], 125.0);
-/// assert_eq!(projected[&periods[1]], 125.0);
-/// # Ok(())
-/// # }
-/// ```
-pub fn forward_fill(
+pub(super) fn forward_fill(
     base_value: f64,
     forecast_periods: &[PeriodId],
 ) -> Result<IndexMap<PeriodId, f64>> {
@@ -53,26 +36,7 @@ pub fn forward_fill(
 /// # Parameters
 ///
 /// * `rate` - Growth rate per period (e.g., 0.05 for 5% growth)
-///
-/// # Example
-///
-/// ```rust
-/// # use finstack_statements::forecast::growth_pct;
-/// # use finstack_core::dates::PeriodId;
-/// # use indexmap::indexmap;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let periods = [
-///     PeriodId::quarter(2025, 1),
-///     PeriodId::quarter(2025, 2),
-///     PeriodId::quarter(2025, 3),
-/// ];
-/// let params = indexmap! { "rate".to_string() => serde_json::json!(0.05) };
-/// let projected = growth_pct(100.0, &periods, &params)?;
-/// assert!((projected[&periods[2]] - 115.7625).abs() < 1e-6);
-/// # Ok(())
-/// # }
-/// ```
-pub fn growth_pct(
+pub(super) fn growth_pct(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
@@ -127,28 +91,7 @@ pub fn growth_pct(
 /// # Parameters
 ///
 /// * `curve` - Array of growth rates, one per forecast period
-///
-/// # Example
-///
-/// ```rust
-/// # use finstack_statements::forecast::curve_pct;
-/// # use finstack_core::dates::PeriodId;
-/// # use indexmap::indexmap;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let periods = [
-///     PeriodId::quarter(2025, 1),
-///     PeriodId::quarter(2025, 2),
-///     PeriodId::quarter(2025, 3),
-/// ];
-/// let params = indexmap! {
-///     "curve".to_string() => serde_json::json!([0.05, 0.06, 0.05])
-/// };
-/// let projected = curve_pct(100.0, &periods, &params)?;
-/// assert!((projected[&periods[2]] - 116.865).abs() < 1e-6);
-/// # Ok(())
-/// # }
-/// ```
-pub fn curve_pct(
+pub(super) fn curve_pct(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
@@ -319,5 +262,34 @@ mod tests {
 
         let result = curve_pct(f64::MAX, &periods, &params);
         assert!(result.is_err(), "non-finite forecasts must be rejected");
+    }
+
+    /// Overflow in compound growth must be detected and returned as an error.
+    #[test]
+    fn test_growth_pct_overflow_error() {
+        // Use extreme growth rate (10000% per period) to trigger overflow
+        // With rate=100, starting at 1e10: 1e10 * 101^150 > f64::MAX (1.8e308)
+        // After 100 periods we're at ~1e210, need ~50 more to overflow
+        let periods: Vec<_> = (0..200)
+            .map(|i| PeriodId::quarter(2025 + i / 4, ((i % 4) as u8) + 1))
+            .collect();
+
+        let mut params = IndexMap::new();
+        params.insert("rate".to_string(), serde_json::json!(100.0)); // 10000% per period
+
+        let err = growth_pct(1e10, &periods, &params).expect_err("overflow should error");
+        assert!(err.to_string().contains("Overflow"));
+    }
+
+    /// High growth rates (>100% per period) should warn but still succeed.
+    #[test]
+    fn test_growth_pct_high_rate_no_error() {
+        let periods = vec![PeriodId::quarter(2025, 1)];
+
+        let mut params = IndexMap::new();
+        params.insert("rate".to_string(), serde_json::json!(1.5)); // 150% per period
+
+        let result = growth_pct(100.0, &periods, &params).expect("150% growth should succeed");
+        assert!((result[&PeriodId::quarter(2025, 1)] - 250.0).abs() < 0.01);
     }
 }

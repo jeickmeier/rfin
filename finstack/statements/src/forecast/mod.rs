@@ -51,10 +51,10 @@ mod override_method;
 pub(crate) mod statistical;
 mod timeseries;
 
-pub use deterministic::{curve_pct, forward_fill, growth_pct};
-pub use override_method::apply_override;
-pub use statistical::{lognormal_forecast, normal_forecast};
-pub use timeseries::{seasonal_forecast, timeseries_forecast};
+use deterministic::{curve_pct, forward_fill, growth_pct};
+use override_method::apply_override;
+use statistical::{lognormal_forecast, normal_forecast};
+use timeseries::{seasonal_forecast, timeseries_forecast};
 
 use crate::error::Result;
 use crate::types::ForecastSpec;

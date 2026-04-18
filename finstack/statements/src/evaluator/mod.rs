@@ -45,5 +45,4 @@ pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
 pub use engine::{Evaluator, PreparedEvaluation};
 pub use monte_carlo::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
-pub use precedence::{resolve_node_value, NodeValueSource};
 pub use results::{EvalWarning, NumericMode, ResultsMeta, StatementResult};

@@ -1043,35 +1043,6 @@ impl ModelBuilder<Ready> {
         self.alias_registry = Some(registry);
         self
     }
-
-    /// Set custom alias registry.
-    ///
-    /// # Arguments
-    ///
-    /// * `registry` - Custom alias registry
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use finstack_statements::builder::ModelBuilder;
-    /// # use finstack_statements::registry::AliasRegistry;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut aliases = AliasRegistry::new();
-    /// aliases.add_alias("rev", "revenue");
-    ///
-    /// let model = ModelBuilder::new("demo")
-    ///     .periods("2025Q1..Q2", None)?
-    ///     .with_aliases(aliases)
-    ///     .compute("revenue", "100000")?
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[must_use = "builder methods take self by value and return the modified value"]
-    pub fn with_aliases(mut self, registry: crate::registry::AliasRegistry) -> Self {
-        self.alias_registry = Some(registry);
-        self
-    }
 }
 
 #[cfg(test)]

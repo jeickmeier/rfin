@@ -50,7 +50,11 @@ impl CheckSuite {
         model: &FinancialModelSpec,
         results: &StatementResult,
     ) -> Result<CheckReport> {
-        let context = CheckContext::with_config(model, results, self.config.clone());
+        let context = CheckContext {
+            model,
+            results,
+            config: self.config.clone(),
+        };
         let min_severity = context.config.min_severity;
         let mat_threshold = context.config.materiality_threshold;
 

@@ -1,125 +1,39 @@
-//! Name normalization and alias registry.
+//! Name normalization and alias registry (crate-internal).
 //!
-//! This module provides functionality to map user input names to canonical
-//! node identifiers using exact matching, aliases, and fuzzy matching.
+//! Internal helper used by `ModelBuilder::with_name_normalization` to rewrite
+//! user-authored identifiers into canonical node IDs via exact alias match or
+//! Jaro-Winkler fuzzy match. Not part of the public API — callers control
+//! normalization through the `ModelBuilder` methods.
 
 use indexmap::{IndexMap, IndexSet};
 
-/// Registry for name aliases and normalization.
-///
-/// The alias registry allows you to define alternative names for nodes and
-/// provides fuzzy matching to handle typos and variations in naming.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_statements::registry::AliasRegistry;
-/// use indexmap::IndexSet;
-///
-/// let mut registry = AliasRegistry::new();
-/// registry.add_alias("rev", "revenue");
-/// registry.add_alias("sales", "revenue");
-///
-/// assert_eq!(registry.normalize("rev"), Some("revenue".to_string()));
-/// assert_eq!(registry.normalize("sales"), Some("revenue".to_string()));
-///
-/// // Fuzzy matching
-/// let available: IndexSet<String> = ["revenue", "cogs"]
-///     .iter()
-///     .map(|s| s.to_string())
-///     .collect();
-/// assert_eq!(
-///     registry.normalize_fuzzy("revenu", &available),
-///     Some("revenue".to_string())
-/// );
-/// ```
-#[derive(Debug, Clone)]
-pub struct AliasRegistry {
-    /// Map of alias → canonical node_id
-    aliases: IndexMap<String, String>,
+/// Jaro-Winkler similarity threshold for fuzzy matching (0.0 exact-only → 1.0 permissive).
+const FUZZY_THRESHOLD: f64 = 0.85;
 
-    /// Fuzzy matching threshold (0.0 = exact only, 1.0 = very permissive)
-    /// Default is 0.85 (85% similarity required)
-    fuzzy_threshold: f64,
+/// Registry for name aliases and normalization.
+#[derive(Debug, Clone)]
+pub(crate) struct AliasRegistry {
+    aliases: IndexMap<String, String>,
 }
 
 impl AliasRegistry {
     /// Create a new empty alias registry.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_statements::registry::AliasRegistry;
-    ///
-    /// let registry = AliasRegistry::new();
-    /// ```
     pub fn new() -> Self {
         Self {
             aliases: IndexMap::new(),
-            fuzzy_threshold: 0.85,
         }
     }
 
-    /// Create a new alias registry with a custom fuzzy matching threshold.
-    ///
-    /// # Arguments
-    ///
-    /// * `fuzzy_threshold` - Similarity threshold (0.0 to 1.0)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_statements::registry::AliasRegistry;
-    ///
-    /// let registry = AliasRegistry::with_threshold(0.9); // Require 90% similarity
-    /// ```
-    pub fn with_threshold(fuzzy_threshold: f64) -> Self {
-        Self {
-            aliases: IndexMap::new(),
-            fuzzy_threshold: fuzzy_threshold.clamp(0.0, 1.0),
-        }
-    }
-
-    /// Add an alias mapping.
-    ///
-    /// # Arguments
-    ///
-    /// * `alias` - Alternative name
-    /// * `canonical` - Canonical node identifier
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_statements::registry::AliasRegistry;
-    ///
-    /// let mut registry = AliasRegistry::new();
-    /// registry.add_alias("rev", "revenue");
-    /// registry.add_alias("sales", "revenue");
-    /// ```
+    /// Add an alias mapping. The alias key is lower-cased and stripped of
+    /// non-alphanumeric characters for matching.
     pub fn add_alias(&mut self, alias: impl Into<String>, canonical: impl Into<String>) {
         let alias_str = alias.into();
         let canonical_str = canonical.into();
-
-        // Normalize the alias key (lowercase, no underscores/spaces)
         let normalized_alias = normalize_string(&alias_str);
         self.aliases.insert(normalized_alias, canonical_str);
     }
 
-    /// Add multiple aliases for the same canonical name.
-    ///
-    /// # Arguments
-    ///
-    /// * `canonical` - Canonical node identifier
-    /// * `aliases` - Vector of alternative names
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_statements::registry::AliasRegistry;
-    ///
-    /// let mut registry = AliasRegistry::new();
-    /// registry.add_aliases("revenue", vec!["rev".to_string(), "sales".to_string(), "turnover".to_string()]);
-    /// ```
+    /// Add multiple aliases pointing at the same canonical name.
     pub fn add_aliases(&mut self, canonical: impl Into<String>, aliases: Vec<String>) {
         let canonical_str = canonical.into();
         for alias in aliases {
@@ -128,63 +42,27 @@ impl AliasRegistry {
     }
 
     /// Normalize a name to its canonical form using exact alias matching.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - Name to normalize
-    ///
-    /// # Returns
-    ///
-    /// Canonical name if an exact alias match is found, otherwise `None`
     pub fn normalize(&self, input: &str) -> Option<String> {
         let normalized_input = normalize_string(input);
         self.aliases.get(&normalized_input).cloned()
     }
 
-    /// Normalize with fuzzy matching against available nodes.
-    ///
-    /// This method first tries exact alias matching, then falls back to fuzzy
-    /// matching against the provided set of available node IDs.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - Name to normalize
-    /// * `available_nodes` - Set of valid node identifiers
-    ///
-    /// # Returns
-    ///
-    /// Best matching node ID if similarity exceeds threshold
+    /// Normalize with fuzzy matching against available nodes. Tries the exact
+    /// alias table first, then falls back to Jaro-Winkler above [`FUZZY_THRESHOLD`].
     pub fn normalize_fuzzy(
         &self,
         input: &str,
         available_nodes: &IndexSet<String>,
     ) -> Option<String> {
-        // First try exact alias match
         if let Some(canonical) = self.normalize(input) {
             return Some(canonical);
         }
-
-        // Try fuzzy matching
-        fuzzy_match(input, available_nodes, self.fuzzy_threshold)
+        fuzzy_match(input, available_nodes, FUZZY_THRESHOLD)
     }
 
-    /// Load standard accounting aliases.
-    ///
-    /// Adds common aliases for financial statement line items.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_statements::registry::AliasRegistry;
-    ///
-    /// let mut registry = AliasRegistry::new();
-    /// registry.load_standard_aliases();
-    ///
-    /// assert_eq!(registry.normalize("rev"), Some("revenue".to_string()));
-    /// assert_eq!(registry.normalize("sales"), Some("revenue".to_string()));
-    /// ```
+    /// Populate the registry with standard financial-statement aliases
+    /// (revenue/cogs/ebit/…). Used by `ModelBuilder::with_name_normalization`.
     pub fn load_standard_aliases(&mut self) {
-        // Revenue variations
         self.add_aliases(
             "revenue",
             vec![
@@ -196,7 +74,6 @@ impl AliasRegistry {
             ],
         );
 
-        // COGS variations
         self.add_aliases(
             "cogs",
             vec![
@@ -206,7 +83,6 @@ impl AliasRegistry {
             ],
         );
 
-        // Operating expense variations
         self.add_aliases(
             "operating_expenses",
             vec![
@@ -216,7 +92,6 @@ impl AliasRegistry {
             ],
         );
 
-        // SG&A variations
         self.add_aliases(
             "sga",
             vec![
@@ -226,19 +101,16 @@ impl AliasRegistry {
             ],
         );
 
-        // Gross profit variations
         self.add_aliases(
             "gross_profit",
             vec!["gp".to_string(), "gross_margin_dollars".to_string()],
         );
 
-        // EBITDA variations
         self.add_aliases(
             "ebitda",
             vec!["earnings_before_interest_taxes_depreciation_amortization".to_string()],
         );
 
-        // EBIT variations
         self.add_aliases(
             "ebit",
             vec![
@@ -247,7 +119,6 @@ impl AliasRegistry {
             ],
         );
 
-        // Net income variations
         self.add_aliases(
             "net_income",
             vec![
@@ -259,7 +130,6 @@ impl AliasRegistry {
             ],
         );
 
-        // Depreciation & Amortization
         self.add_aliases(
             "depreciation_amortization",
             vec![
@@ -269,19 +139,16 @@ impl AliasRegistry {
             ],
         );
 
-        // Interest expense
         self.add_aliases(
             "interest_expense",
             vec!["int_exp".to_string(), "interest".to_string()],
         );
 
-        // Tax expense
         self.add_aliases(
             "tax_expense",
             vec!["taxes".to_string(), "income_tax".to_string()],
         );
 
-        // Capital expenditures
         self.add_aliases(
             "capex",
             vec![
@@ -291,55 +158,10 @@ impl AliasRegistry {
             ],
         );
 
-        // Free cash flow
         self.add_aliases(
             "free_cash_flow",
             vec!["fcf".to_string(), "free_cashflow".to_string()],
         );
-    }
-
-    /// Get all registered aliases.
-    ///
-    /// # Returns
-    ///
-    /// Iterator over (alias, canonical) pairs
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.aliases.iter().map(|(k, v)| (k.as_str(), v.as_str()))
-    }
-
-    /// Get the number of registered aliases.
-    pub fn len(&self) -> usize {
-        self.aliases.len()
-    }
-
-    /// Check if the registry is empty.
-    pub fn is_empty(&self) -> bool {
-        self.aliases.is_empty()
-    }
-
-    /// Suggest close matches for a given input.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - Name to find matches for
-    /// * `available_nodes` - Set of valid node identifiers
-    /// * `max_suggestions` - Maximum number of suggestions to return
-    ///
-    /// # Returns
-    ///
-    /// Comma-separated list of suggestions
-    pub fn suggest_matches(
-        &self,
-        input: &str,
-        available_nodes: &IndexSet<String>,
-        max_suggestions: usize,
-    ) -> String {
-        calculate_scores(input, available_nodes)
-            .into_iter()
-            .take(max_suggestions)
-            .map(|(_, name)| name)
-            .collect::<Vec<_>>()
-            .join(", ")
     }
 }
 
@@ -357,36 +179,21 @@ fn normalize_string(s: &str) -> String {
         .collect()
 }
 
-/// Calculate similarity scores for input against candidates.
-fn calculate_scores(input: &str, candidates: &IndexSet<String>) -> Vec<(f64, String)> {
-    let normalized_input = normalize_string(input);
-    let mut scores: Vec<(f64, String)> = candidates
-        .iter()
-        .map(|c| {
-            let score = jaro_winkler(&normalized_input, &normalize_string(c));
-            (score, c.clone())
-        })
-        .collect();
-
-    scores.sort_by(|a, b| {
-        // Jaro-Winkler scores are always in [0, 1] and never NaN
-        b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
-    });
-    scores
-}
-
 /// Fuzzy match input against candidates using Jaro-Winkler similarity.
 fn fuzzy_match(input: &str, candidates: &IndexSet<String>, threshold: f64) -> Option<String> {
-    calculate_scores(input, candidates)
-        .into_iter()
-        .find(|(score, _)| *score >= threshold)
-        .map(|(_, name)| name)
+    let normalized_input = normalize_string(input);
+    candidates
+        .iter()
+        .map(|c| (jaro_winkler(&normalized_input, &normalize_string(c)), c))
+        .filter(|(score, _)| *score >= threshold)
+        .max_by(|a, b| {
+            // Jaro-Winkler scores are always in [0, 1] and never NaN.
+            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(_, name)| name.clone())
 }
 
-/// Calculate Jaro-Winkler similarity between two strings.
-///
-/// Returns a value between 0.0 (no similarity) and 1.0 (identical).
-/// Jaro-Winkler gives higher scores for strings with matching prefixes.
+/// Jaro-Winkler similarity in [0.0, 1.0]. Gives a prefix bonus (up to 4 chars).
 fn jaro_winkler(s1: &str, s2: &str) -> f64 {
     if s1 == s2 {
         return 1.0;
@@ -395,24 +202,18 @@ fn jaro_winkler(s1: &str, s2: &str) -> f64 {
         return 0.0;
     }
 
-    // Calculate Jaro similarity first
     let jaro = jaro_similarity(s1, s2);
-
-    // Calculate common prefix length (up to 4 characters)
     let prefix_len = s1
         .chars()
         .zip(s2.chars())
         .take(4)
         .take_while(|(c1, c2)| c1 == c2)
         .count()
-        .min(4); // Cap at 4 to match Jaro-Winkler standard
+        .min(4);
 
-    // Jaro-Winkler = Jaro + (prefix_length * 0.1 * (1 - Jaro))
-    let result = jaro + (prefix_len as f64 * 0.1 * (1.0 - jaro));
-    result.min(1.0) // Ensure we never exceed 1.0
+    (jaro + (prefix_len as f64 * 0.1 * (1.0 - jaro))).min(1.0)
 }
 
-/// Calculate Jaro similarity between two strings.
 fn jaro_similarity(s1: &str, s2: &str) -> f64 {
     let s1_chars: Vec<char> = s1.chars().collect();
     let s2_chars: Vec<char> = s2.chars().collect();
@@ -438,7 +239,6 @@ fn jaro_similarity(s1: &str, s2: &str) -> f64 {
     let mut matches = 0;
     let mut transpositions = 0;
 
-    // Find matches
     for (i, &c1) in s1_chars.iter().enumerate() {
         let start = i.saturating_sub(match_distance);
         let end = (i + match_distance + 1).min(s2_len);
@@ -458,7 +258,6 @@ fn jaro_similarity(s1: &str, s2: &str) -> f64 {
         return 0.0;
     }
 
-    // Count transpositions
     let mut k = 0;
     for (i, &matched) in s1_matches.iter().enumerate() {
         if !matched {
@@ -609,18 +408,6 @@ mod tests {
 
         // No match if below threshold
         assert_eq!(fuzzy_match("xyz", &candidates, 0.85), None);
-    }
-
-    #[test]
-    fn test_suggest_matches() {
-        let registry = AliasRegistry::new();
-        let available: IndexSet<String> = ["revenue", "cogs", "gross_profit"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-
-        let suggestions = registry.suggest_matches("revenu", &available, 3);
-        assert!(suggestions.contains("revenue"));
     }
 
     #[test]

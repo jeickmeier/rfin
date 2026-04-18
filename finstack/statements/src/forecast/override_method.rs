@@ -13,35 +13,7 @@ use indexmap::IndexMap;
 /// # Parameters
 ///
 /// * `overrides` - Map of period_id string → value
-///
-/// # Example
-///
-/// ```rust
-/// # use finstack_statements::forecast::apply_override;
-/// # use finstack_core::dates::PeriodId;
-/// # use indexmap::indexmap;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let periods = [
-///     PeriodId::quarter(2025, 1),
-///     PeriodId::quarter(2025, 2),
-///     PeriodId::quarter(2025, 3),
-///     PeriodId::quarter(2025, 4),
-/// ];
-/// let params = indexmap! {
-///     "overrides".to_string() => serde_json::json!({
-///         "2025Q1": 120.0,
-///         "2025Q3": 130.0,
-///     })
-/// };
-/// let projected = apply_override(100.0, &periods, &params)?;
-/// assert_eq!(projected[&periods[0]], 120.0); // explicit override
-/// assert_eq!(projected[&periods[1]], 120.0); // forward fill
-/// assert_eq!(projected[&periods[2]], 130.0); // explicit override
-/// assert_eq!(projected[&periods[3]], 130.0); // forward fill
-/// # Ok(())
-/// # }
-/// ```
-pub fn apply_override(
+pub(super) fn apply_override(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,

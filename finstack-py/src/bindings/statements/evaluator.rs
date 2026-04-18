@@ -1,7 +1,6 @@
 //! Python wrappers for the statement evaluator and results.
 
 use super::types::PyFinancialModelSpec;
-use crate::bindings::pandas_utils::dict_to_dataframe;
 use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -113,53 +112,27 @@ impl PyStatementResult {
 
     /// Export to pandas long-format ``DataFrame``.
     ///
-    /// Columns: ``node_id``, ``period``, ``value``.
+    /// Columns: ``node_id``, ``period``, ``value``. Built by narrowing the
+    /// canonical Polars long export so iteration stays in Rust.
     fn to_pandas_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let total: usize = self.inner.nodes.values().map(|pm| pm.len()).sum();
-        let mut node_ids: Vec<String> = Vec::with_capacity(total);
-        let mut periods: Vec<String> = Vec::with_capacity(total);
-        let mut values: Vec<f64> = Vec::with_capacity(total);
-
-        for (node_id, period_map) in &self.inner.nodes {
-            for (pid, &val) in period_map {
-                node_ids.push(node_id.clone());
-                periods.push(pid.to_string());
-                values.push(val);
-            }
-        }
-
-        let data = PyDict::new(py);
-        data.set_item("node_id", node_ids)?;
-        data.set_item("period", periods)?;
-        data.set_item("value", values)?;
-        dict_to_dataframe(py, &data, None)
+        let df = self.to_polars_long(py)?;
+        let rename = PyDict::new(py);
+        rename.set_item("period_id", "period")?;
+        df.call_method1("select", (["node_id", "period_id", "value"],))?
+            .call_method1("rename", (rename,))?
+            .call_method0("to_pandas")
     }
 
     /// Export to pandas wide-format ``DataFrame``.
     ///
-    /// Rows are node identifiers, columns are period identifiers.
+    /// Rows are node identifiers, columns are period identifiers. Built from
+    /// the canonical Polars wide export (which has rows=periods) by converting
+    /// to pandas, moving ``period_id`` onto the index, then transposing.
     fn to_pandas_wide<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let mut all_periods = indexmap::IndexSet::new();
-        for period_map in self.inner.nodes.values() {
-            for pid in period_map.keys() {
-                all_periods.insert(*pid);
-            }
-        }
-
-        let data = PyDict::new(py);
-        for pid in &all_periods {
-            let col: Vec<Option<f64>> = self
-                .inner
-                .nodes
-                .values()
-                .map(|pm| pm.get(pid).copied())
-                .collect();
-            data.set_item(pid.to_string(), col)?;
-        }
-
-        let node_ids: Vec<&str> = self.inner.nodes.keys().map(|s| s.as_str()).collect();
-        let idx = node_ids.into_pyobject(py)?.into_any();
-        dict_to_dataframe(py, &data, Some(idx))
+        self.to_polars_wide(py)?
+            .call_method0("to_pandas")?
+            .call_method1("set_index", ("period_id",))?
+            .getattr("T")
     }
 
     fn __repr__(&self) -> String {

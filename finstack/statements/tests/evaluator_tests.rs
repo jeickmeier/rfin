@@ -371,42 +371,6 @@ fn test_self_reference_cycle() {
 }
 
 // ============================================================================
-// PR #3.4 — Precedence Resolution Tests
-// ============================================================================
-
-#[test]
-fn test_precedence_value_over_formula() {
-    use finstack_statements::evaluator::{resolve_node_value, NodeValueSource};
-    use finstack_statements::types::NodeSpec;
-    use indexmap::IndexMap;
-
-    let mut values = IndexMap::new();
-    values.insert(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0));
-
-    let node = NodeSpec::new("revenue", NodeType::Mixed)
-        .with_values(values)
-        .with_formula("999999"); // Should be ignored
-
-    let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
-
-    // Should use explicit value, not formula
-    assert_eq!(source, NodeValueSource::Value(100.0));
-}
-
-#[test]
-fn test_precedence_formula_fallback() {
-    use finstack_statements::evaluator::resolve_node_value;
-    use finstack_statements::types::NodeSpec;
-
-    let node = NodeSpec::new("cogs", NodeType::Calculated).with_formula("revenue * 0.6");
-
-    let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
-
-    // Should use formula
-    assert!(source.is_formula());
-}
-
-// ============================================================================
 // Integration Tests
 // ============================================================================
 

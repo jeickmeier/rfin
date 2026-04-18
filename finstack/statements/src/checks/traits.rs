@@ -28,19 +28,6 @@ impl<'a> CheckContext<'a> {
             config: CheckConfig::default(),
         }
     }
-
-    /// Create a context with explicit configuration.
-    pub fn with_config(
-        model: &'a FinancialModelSpec,
-        results: &'a StatementResult,
-        config: CheckConfig,
-    ) -> Self {
-        Self {
-            model,
-            results,
-            config,
-        }
-    }
 }
 
 /// A single validation check that can be executed against a financial model.

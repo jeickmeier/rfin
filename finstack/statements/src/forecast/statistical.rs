@@ -184,34 +184,11 @@ fn extract_distribution_params(
 /// Returns an error if the parameter map is incomplete, if `std_dev` is
 /// negative, or if simulation produces a non-finite value.
 ///
-/// # Example
-///
-/// ```rust
-/// # use finstack_statements::forecast::normal_forecast;
-/// # use finstack_core::dates::PeriodId;
-/// # use indexmap::indexmap;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let periods = [
-///     PeriodId::quarter(2025, 1),
-///     PeriodId::quarter(2025, 2),
-///     PeriodId::quarter(2025, 3),
-/// ];
-/// let params = indexmap! {
-///     "mean".to_string() => serde_json::json!(100_000.0),
-///     "std_dev".to_string() => serde_json::json!(15_000.0),
-///     "seed".to_string() => serde_json::json!(42_u64),
-/// };
-/// let simulated = normal_forecast(0.0, &periods, &params)?;
-/// assert_eq!(simulated.len(), periods.len());
-/// # Ok(())
-/// # }
-/// ```
-///
 /// # References
 ///
 /// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
 /// - Numerical sampling techniques: `docs/REFERENCES.md#press-numerical-recipes`
-pub fn normal_forecast(
+pub(super) fn normal_forecast(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
@@ -278,33 +255,11 @@ pub(crate) fn normal_forecast_with_stream(
 /// Returns an error if the parameter map is incomplete, if `std_dev` is
 /// negative, or if exponentiation produces a non-finite value.
 ///
-/// # Example
-///
-/// ```rust
-/// # use finstack_statements::forecast::lognormal_forecast;
-/// # use finstack_core::dates::PeriodId;
-/// # use indexmap::indexmap;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let periods = [
-///     PeriodId::quarter(2025, 1),
-///     PeriodId::quarter(2025, 2),
-/// ];
-/// let params = indexmap! {
-///     "mean".to_string() => serde_json::json!(0.05),
-///     "std_dev".to_string() => serde_json::json!(0.15),
-///     "seed".to_string() => serde_json::json!(42_u64),
-/// };
-/// let simulated = lognormal_forecast(100.0, &periods, &params)?;
-/// assert!(simulated.values().all(|v| *v > 0.0));
-/// # Ok(())
-/// # }
-/// ```
-///
 /// # References
 ///
 /// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
 /// - Numerical sampling techniques: `docs/REFERENCES.md#press-numerical-recipes`
-pub fn lognormal_forecast(
+pub(super) fn lognormal_forecast(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
@@ -742,6 +697,61 @@ mod tests {
         let values = result.expect("test already asserted Ok");
         for v in values.values() {
             assert!(v.is_finite(), "clamped output must be finite");
+        }
+    }
+
+    /// Normal forecast must never produce NaN or non-finite values — exercises
+    /// the Box-Muller guard against ln(0) across many seeds.
+    #[test]
+    fn test_normal_forecast_no_nan() {
+        let periods: Vec<_> = (0..100)
+            .map(|i| PeriodId::quarter(2025 + i / 4, ((i % 4) as u8) + 1))
+            .collect();
+
+        for seed in 0..1000 {
+            let mut params = IndexMap::new();
+            params.insert("mean".to_string(), serde_json::json!(100.0));
+            params.insert("std_dev".to_string(), serde_json::json!(15.0));
+            params.insert("seed".to_string(), serde_json::json!(seed));
+
+            let result =
+                normal_forecast(0.0, &periods, &params).expect("normal_forecast should succeed");
+            for value in result.values() {
+                assert!(!value.is_nan(), "NaN produced with seed {}", seed);
+                assert!(
+                    value.is_finite(),
+                    "Non-finite value produced with seed {}",
+                    seed
+                );
+            }
+        }
+    }
+
+    /// Lognormal with std_dev=0.0 is a degenerate distribution — every draw
+    /// should return exp(mean) exactly.
+    #[test]
+    fn test_lognormal_zero_stddev_degenerate() {
+        let periods = vec![
+            PeriodId::quarter(2025, 1),
+            PeriodId::quarter(2025, 2),
+            PeriodId::quarter(2025, 3),
+        ];
+
+        let mut params = IndexMap::new();
+        params.insert("mean".to_string(), serde_json::json!(11.5));
+        params.insert("std_dev".to_string(), serde_json::json!(0.0));
+        params.insert("seed".to_string(), serde_json::json!(42));
+
+        let values =
+            lognormal_forecast(0.0, &periods, &params).expect("lognormal std_dev=0 should succeed");
+        let expected = (11.5_f64).exp();
+        for value in values.values() {
+            assert!(
+                (*value - expected).abs() < 1e-10,
+                "Expected {}, got {}",
+                expected,
+                value
+            );
         }
     }
 }
