@@ -34,9 +34,9 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 
 - **`risk_metrics/`** (directory module)
   - **`mod.rs`**: Public facade, re-exports from all three submodules.
-  - **`return_based.rs`**: `cagr`, `cagr_from_periods`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `estimate_ruin`, `RuinDefinition`, `RuinModel`, `RuinEstimate`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
+  - **`return_based.rs`**: `cagr`, `CagrBasis`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `estimate_ruin`, `RuinDefinition`, `RuinModel`, `RuinEstimate`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
   - **`tail_risk.rs`**: `skewness`, `kurtosis`, `value_at_risk`, `expected_shortfall`, `parametric_var`, `cornish_fisher_var`, `tail_ratio`, `outlier_win_ratio`, `outlier_loss_ratio` (`_with_scratch` variants are crate-internal optimizations used by the `Performance` facade).
-  - **`rolling.rs`**: `RollingSharpe`, `RollingVolatility`, `RollingSortino`, `rolling_sharpe`, `rolling_volatility`, `rolling_sortino`, `rolling_sharpe_values`, `rolling_volatility_values`, `rolling_sortino_values`.
+  - **`rolling.rs`**: `RollingSharpe`, `RollingVolatility`, `RollingSortino`, `rolling_sharpe`, `rolling_volatility`, `rolling_sortino`, plus `to_nan_padded()` helpers on each rolling result type.
   - All functions take `&[f64]` and return `f64` or a small struct.
 
 - **`benchmark.rs`**

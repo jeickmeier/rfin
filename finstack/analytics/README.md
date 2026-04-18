@@ -160,7 +160,7 @@ assert!(stats.win_rate >= 0.0);
 |--------|------------|--------------|
 | `performance` | Stateful portfolio analytics over multiple tickers | `Performance`, `LookbackReturns` |
 | `returns` | Return transforms and compounding | `simple_returns`, `excess_returns`, `comp_sum`, `comp_total`, `convert_to_prices`, `rebase`, `clean_returns` |
-| `risk_metrics::return_based` | Return-level metrics | `cagr`, `cagr_from_periods`, `mean_return`, `volatility`, `sharpe`, `sortino`, `omega_ratio`, `estimate_ruin` |
+| `risk_metrics::return_based` | Return-level metrics | `cagr`, `CagrBasis`, `mean_return`, `volatility`, `sharpe`, `sortino`, `omega_ratio`, `estimate_ruin` |
 | `risk_metrics::tail_risk` | Distribution and downside-tail metrics | `value_at_risk`, `expected_shortfall`, `parametric_var`, `cornish_fisher_var`, `skewness`, `kurtosis`, `tail_ratio` |
 | `risk_metrics::rolling` | Rolling series outputs | `rolling_sharpe`, `rolling_sortino`, `rolling_volatility` |
 | `drawdown` | Drawdown paths, episodes, and drawdown-derived ratios | `to_drawdown_series`, `drawdown_details`, `cdar`, `ulcer_index`, `calmar`, `martin_ratio`, `sterling_ratio` |

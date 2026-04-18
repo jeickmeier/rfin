@@ -54,8 +54,9 @@ fn mean_return_finite() {
 }
 
 #[wasm_bindgen_test]
-fn cagr_from_periods_finite() {
-    let v = cagr_from_periods(returns_js(), 252.0).unwrap();
+fn cagr_factor_basis_finite() {
+    let basis = WasmCagrBasis::factor(252.0);
+    let v = cagr(returns_js(), &basis).unwrap();
     assert!(v.is_finite());
 }
 
@@ -146,27 +147,6 @@ fn outlier_loss_ratio_finite() {
 }
 
 // ---- Rolling ----
-
-#[wasm_bindgen_test]
-fn rolling_sharpe_values_returns_array() {
-    let v = rolling_sharpe_values(returns_js(), 5, 252.0, 0.02).unwrap();
-    let arr: Vec<f64> = serde_wasm_bindgen::from_value(v).unwrap();
-    assert!(!arr.is_empty());
-}
-
-#[wasm_bindgen_test]
-fn rolling_sortino_values_returns_array() {
-    let v = rolling_sortino_values(returns_js(), 5, 252.0).unwrap();
-    let arr: Vec<f64> = serde_wasm_bindgen::from_value(v).unwrap();
-    assert!(!arr.is_empty());
-}
-
-#[wasm_bindgen_test]
-fn rolling_volatility_values_returns_array() {
-    let v = rolling_volatility_values(returns_js(), 5, 252.0).unwrap();
-    let arr: Vec<f64> = serde_wasm_bindgen::from_value(v).unwrap();
-    assert!(!arr.is_empty());
-}
 
 // ---- Returns ----
 
@@ -315,11 +295,4 @@ fn capture_ratio_finite() {
 fn batting_average_between_0_and_1() {
     let v = batting_average(returns_js(), benchmark_js()).unwrap();
     assert!((0.0..=1.0).contains(&v));
-}
-
-#[wasm_bindgen_test]
-fn count_consecutive_positive_run() {
-    let v = serde_wasm_bindgen::to_value(&vec![1.0, 2.0, 3.0, -1.0, 2.0]).unwrap();
-    let c = count_consecutive(v).unwrap();
-    assert_eq!(c, 3);
 }

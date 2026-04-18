@@ -2,7 +2,7 @@
 //! special functions, and compensated summation.
 
 use crate::utils::to_js_err;
-use finstack_core::math::{linalg, special_functions, stats, summation};
+use finstack_core::math::{self, linalg, special_functions, stats, summation};
 use wasm_bindgen::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -154,6 +154,13 @@ pub fn kahan_sum(values: JsValue) -> Result<f64, JsValue> {
 pub fn neumaier_sum(values: JsValue) -> Result<f64, JsValue> {
     let v: Vec<f64> = serde_wasm_bindgen::from_value(values).map_err(to_js_err)?;
     Ok(summation::neumaier_sum(v))
+}
+
+/// Count the longest consecutive run of strictly positive values.
+#[wasm_bindgen(js_name = countConsecutive)]
+pub fn count_consecutive(values: JsValue) -> Result<usize, JsValue> {
+    let v: Vec<f64> = serde_wasm_bindgen::from_value(values).map_err(to_js_err)?;
+    Ok(math::count_consecutive(&v, |x| x > 0.0))
 }
 
 // ---------------------------------------------------------------------------

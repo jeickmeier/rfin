@@ -18,6 +18,7 @@ LookbackReturns = _analytics.LookbackReturns
 RollingSharpe = _analytics.RollingSharpe
 RollingSortino = _analytics.RollingSortino
 RollingVolatility = _analytics.RollingVolatility
+CagrBasis = _analytics.CagrBasis
 RuinDefinition = _analytics.RuinDefinition
 RuinModel = _analytics.RuinModel
 RuinEstimate = _analytics.RuinEstimate
@@ -72,7 +73,6 @@ comp_total = _analytics.comp_total
 
 # Risk metrics — return-based
 cagr = _analytics.cagr
-cagr_from_periods = _analytics.cagr_from_periods
 mean_return = _analytics.mean_return
 volatility = _analytics.volatility
 sharpe = _analytics.sharpe
@@ -88,9 +88,6 @@ estimate_ruin = _analytics.estimate_ruin
 rolling_sharpe = _analytics.rolling_sharpe
 rolling_sortino = _analytics.rolling_sortino
 rolling_volatility = _analytics.rolling_volatility
-rolling_sharpe_values = _analytics.rolling_sharpe_values
-rolling_sortino_values = _analytics.rolling_sortino_values
-rolling_volatility_values = _analytics.rolling_volatility_values
 
 # Risk metrics — tail
 value_at_risk = _analytics.value_at_risk
@@ -141,6 +138,7 @@ __all__: list[str] = [
     "BacktestResult",
     "BenchmarkAlignmentPolicy",
     "BetaResult",
+    "CagrBasis",
     "ChristoffersenResult",
     "DrawdownEpisode",
     "GarchFit",
@@ -167,7 +165,6 @@ __all__: list[str] = [
     "bic",
     "burke_ratio",
     "cagr",
-    "cagr_from_periods",
     "calmar",
     "capture_ratio",
     "cdar",
@@ -222,11 +219,8 @@ __all__: list[str] = [
     "regression_fair_value",
     "rolling_greeks",
     "rolling_sharpe",
-    "rolling_sharpe_values",
     "rolling_sortino",
-    "rolling_sortino_values",
     "rolling_volatility",
-    "rolling_volatility_values",
     "run_backtest",
     "score_relative_value",
     "sharpe",

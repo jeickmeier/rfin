@@ -110,3 +110,10 @@ fn neumaier_sum_accurate() {
     let v = neumaier_sum(data).unwrap();
     assert!((v - 2.0).abs() < 1e-10);
 }
+
+#[wasm_bindgen_test]
+fn count_consecutive_counts_positive_run() {
+    let data = serde_wasm_bindgen::to_value(&vec![1.0, 2.0, 3.0, -1.0, 2.0]).unwrap();
+    let v = count_consecutive(data).unwrap();
+    assert_eq!(v, 3);
+}

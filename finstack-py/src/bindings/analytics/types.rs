@@ -1,6 +1,6 @@
 //! Result structs and enums for the analytics domain.
 
-use crate::bindings::core::dates::utils::date_to_py;
+use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use finstack_analytics as fa;
 use pyo3::prelude::*;
@@ -481,6 +481,80 @@ impl PyRollingVolatility {
 }
 
 // ---------------------------------------------------------------------------
+// CagrBasis
+// ---------------------------------------------------------------------------
+
+fn parse_cagr_convention(
+    convention: Option<&str>,
+) -> PyResult<fa::risk_metrics::AnnualizationConvention> {
+    match convention
+        .unwrap_or("act365_25")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "act365_25" | "act36525" | "act/365.25" | "default" => {
+            Ok(fa::risk_metrics::AnnualizationConvention::Act365_25)
+        }
+        "act365fixed" | "act365_fixed" | "act/365f" | "act365f" => {
+            Ok(fa::risk_metrics::AnnualizationConvention::Act365Fixed)
+        }
+        "actact" | "act_act" | "actualactual" | "actual_actual" => {
+            Ok(fa::risk_metrics::AnnualizationConvention::ActAct)
+        }
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, actact"
+        ))),
+    }
+}
+
+/// CAGR annualization basis.
+#[pyclass(
+    name = "CagrBasis",
+    module = "finstack.analytics",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyCagrBasis {
+    pub(super) inner: fa::risk_metrics::CagrBasis,
+}
+
+#[pymethods]
+impl PyCagrBasis {
+    /// Build a factor-based CAGR basis from periods per year.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, ann_factor)")]
+    fn factor(_cls: &Bound<'_, PyType>, ann_factor: f64) -> Self {
+        Self {
+            inner: fa::risk_metrics::CagrBasis::factor(ann_factor),
+        }
+    }
+
+    /// Build a date-based CAGR basis from start/end dates.
+    #[classmethod]
+    #[pyo3(signature = (start, end, convention = None), text_signature = "(cls, start, end, convention=None)")]
+    fn dates(
+        _cls: &Bound<'_, PyType>,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        convention: Option<&str>,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: fa::risk_metrics::CagrBasis::dates_with_convention(
+                py_to_date(&start)?,
+                py_to_date(&end)?,
+                parse_cagr_convention(convention)?,
+            ),
+        })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CagrBasis({:?})", self.inner)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Ruin types
 // ---------------------------------------------------------------------------
 
@@ -914,6 +988,7 @@ pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRollingSharpe>()?;
     m.add_class::<PyRollingSortino>()?;
     m.add_class::<PyRollingVolatility>()?;
+    m.add_class::<PyCagrBasis>()?;
     m.add_class::<PyRuinDefinition>()?;
     m.add_class::<PyRuinModel>()?;
     m.add_class::<PyRuinEstimate>()?;

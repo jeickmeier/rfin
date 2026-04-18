@@ -1,6 +1,6 @@
-//! Python binding for `finstack_analytics::consecutive`.
+//! Python binding for `finstack_core::math::consecutive`.
 
-use finstack_analytics::consecutive;
+use finstack_core::math::consecutive;
 use pyo3::prelude::*;
 
 /// Count longest consecutive run of positive values.

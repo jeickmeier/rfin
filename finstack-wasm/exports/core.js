@@ -31,4 +31,5 @@ export const core = {
   lnGamma: wasm.lnGamma,
   kahanSum: wasm.kahanSum,
   neumaierSum: wasm.neumaierSum,
+  countConsecutive: wasm.countConsecutive,
 };

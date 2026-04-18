@@ -212,6 +212,7 @@ export interface CoreNamespace {
   lnGamma(x: number): number;
   kahanSum(values: number[]): number;
   neumaierSum(values: number[]): number;
+  countConsecutive(values: number[]): number;
 }
 
 export declare const core: CoreNamespace;
@@ -408,13 +409,22 @@ export interface MultiFactorResult {
   residual_vol: number;
 }
 
+/** Opaque CAGR annualization basis used by the analytics namespace. */
+export interface CagrBasis {}
+
+export interface CagrBasisConstructor {
+  factor(annFactor: number): CagrBasis;
+  dates(start: string, end: string, convention?: string): CagrBasis;
+}
+
 export interface AnalyticsNamespace {
   // Risk metrics — return-based
+  CagrBasis: CagrBasisConstructor;
   sharpe(annReturn: number, annVol: number, riskFreeRate: number): number;
   sortino(annReturn: number, downsideDev: number, riskFreeRate: number): number;
   volatility(returns: number[], periodsPerYear: number): number;
   meanReturn(returns: number[]): number;
-  cagrFromPeriods(totalReturn: number, numPeriods: number, periodsPerYear: number): number;
+  cagr(returns: number[], basis: CagrBasis): number;
   downsideDeviation(returns: number[], threshold: number, periodsPerYear: number): number;
   geometricMean(returns: number[]): number;
   omegaRatio(returns: number[], threshold: number): number;
@@ -430,10 +440,6 @@ export interface AnalyticsNamespace {
   tailRatio(returns: number[], confidence: number): number;
   outlierWinRatio(returns: number[], threshold: number): number;
   outlierLossRatio(returns: number[], threshold: number): number;
-  // Risk metrics — rolling (NaN-padded arrays)
-  rollingSharpeValues(returns: number[], window: number, periodsPerYear: number, riskFreeRate: number): number[];
-  rollingSortinoValues(returns: number[], window: number, periodsPerYear: number, riskFreeRate: number, threshold: number): number[];
-  rollingVolatilityValues(returns: number[], window: number, periodsPerYear: number): number[];
   // Risk metrics — rolling (dated structs)
   rollingSharpe(returns: number[], dates: string[], window: number, annFactor: number, riskFreeRate: number): RollingSharpe;
   rollingSortino(returns: number[], dates: string[], window: number, annFactor: number): RollingSortino;
@@ -476,8 +482,6 @@ export interface AnalyticsNamespace {
   greeks(returns: number[], benchmark: number[], annFactor: number): GreeksResult;
   rollingGreeks(returns: number[], benchmark: number[], window: number, annFactor: number): RollingGreeksResult;
   multiFactorGreeks(returns: number[], factors: number[][], annFactor: number): MultiFactorResult;
-  // Consecutive
-  countConsecutive(returns: number[]): number[];
   // Aggregation
   groupByPeriod(returns: number[], dates: string[], periodKind: string): [string, number][];
   periodStats(grouped: [string, number][]): PeriodStats;

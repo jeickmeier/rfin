@@ -1,5 +1,7 @@
 """Tests for analytics functions: returns, risk metrics, drawdowns."""
 
+from datetime import date
+
 import pytest
 
 from finstack.analytics import (
@@ -111,6 +113,24 @@ class TestMeanReturn:
         """Mean of [0.10, -0.10, 0.20] is about 0.0667."""
         rets = [0.10, -0.10, 0.20]
         assert mean_return(rets) == pytest.approx(0.2 / 3.0, abs=1e-10)
+
+
+class TestCagr:
+    """Validate CAGR basis selection."""
+
+    def test_factor_basis_matches_expected_growth(self) -> None:
+        """A one-year factor basis should annualize a single-year return directly."""
+        from finstack.analytics import CagrBasis, cagr
+
+        value = cagr([0.10], CagrBasis.factor(1.0))
+        assert value == pytest.approx(0.10, abs=1e-12)
+
+    def test_date_basis_matches_calendar_year_growth(self) -> None:
+        """A one-year date basis should match the same single-year return."""
+        from finstack.analytics import CagrBasis, cagr
+
+        value = cagr([0.10], CagrBasis.dates(date(2024, 1, 1), date(2025, 1, 1)))
+        assert value == pytest.approx(0.10, abs=1e-3)
 
 
 class TestMaxDrawdown:

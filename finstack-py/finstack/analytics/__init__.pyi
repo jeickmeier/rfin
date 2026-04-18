@@ -23,6 +23,7 @@ __all__ = [
     "RollingSharpe",
     "RollingSortino",
     "RollingVolatility",
+    "CagrBasis",
     "RuinDefinition",
     "RuinModel",
     "RuinEstimate",
@@ -76,7 +77,6 @@ __all__ = [
     "comp_sum",
     "comp_total",
     "cagr",
-    "cagr_from_periods",
     "mean_return",
     "volatility",
     "sharpe",
@@ -90,9 +90,6 @@ __all__ = [
     "rolling_sharpe",
     "rolling_sortino",
     "rolling_volatility",
-    "rolling_sharpe_values",
-    "rolling_sortino_values",
-    "rolling_volatility_values",
     "value_at_risk",
     "expected_shortfall",
     "parametric_var",
@@ -364,6 +361,26 @@ class RollingVolatility:
 
     def to_dataframe(self) -> pd.DataFrame:
         """Convert to a pandas DataFrame with date index and a ``volatility`` column."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+class CagrBasis:
+    """Annualization basis for CAGR."""
+
+    @classmethod
+    def factor(cls, ann_factor: float) -> CagrBasis:
+        """Create a factor-based basis from periods per year."""
+        ...
+
+    @classmethod
+    def dates(
+        cls,
+        start: object,
+        end: object,
+        convention: str | None = None,
+    ) -> CagrBasis:
+        """Create a date-based basis from start/end dates and an optional convention."""
         ...
 
     def __repr__(self) -> str: ...
@@ -1658,34 +1675,20 @@ def comp_total(returns: list[float]) -> float:
         True
     """
 
-def cagr(returns: list[float], start: object, end: object) -> float:
-    """CAGR between two calendar dates (index positions implied by series length).
+def cagr(returns: list[float], basis: CagrBasis) -> float:
+    """CAGR annualized using the supplied basis.
 
     Args:
         returns: Simple returns.
-        start: Start date (date-like).
-        end: End date (date-like).
+        basis: Date-based or factor-based annualization basis.
 
     Returns:
         CAGR over the window.
 
     Example:
         >>> import datetime
-        >>> cagr([0.01] * 10, datetime.date(2024, 1, 1), datetime.date(2024, 1, 31))  # doctest: +SKIP
-    """
-
-def cagr_from_periods(returns: list[float], ann_factor: float) -> float:
-    """CAGR from an annualization factor.
-
-    Args:
-        returns: Simple returns.
-        ann_factor: Periods per year.
-
-    Returns:
-        CAGR.
-
-    Example:
-        >>> isinstance(cagr_from_periods([0.01] * 252, 252.0), float)
+        >>> basis = CagrBasis.dates(datetime.date(2024, 1, 1), datetime.date(2025, 1, 1))
+        >>> isinstance(cagr([0.10], basis), float)
         True
     """
 
@@ -1929,60 +1932,6 @@ def rolling_volatility(
         >>> import datetime
         >>> d = [datetime.date(2024, 1, i) for i in range(1, 70)]
         >>> len(rolling_volatility([0.01] * 69, d).values) > 0
-        True
-    """
-
-def rolling_sharpe_values(
-    returns: list[float],
-    window: int = 63,
-    ann_factor: float = 252.0,
-    risk_free_rate: float = 0.0,
-) -> list[float]:
-    """Rolling Sharpe values only (no dates).
-
-    Args:
-        returns: Simple returns.
-        window: Window length.
-        ann_factor: Annualization factor.
-        risk_free_rate: Risk-free rate.
-
-    Returns:
-        Rolling Sharpe series.
-
-    Example:
-        >>> len(rolling_sharpe_values([0.0] * 100)) > 0
-        True
-    """
-
-def rolling_sortino_values(returns: list[float], window: int = 63, ann_factor: float = 252.0) -> list[float]:
-    """Rolling Sortino values only (no dates).
-
-    Args:
-        returns: Simple returns.
-        window: Window length.
-        ann_factor: Annualization factor.
-
-    Returns:
-        Rolling Sortino series.
-
-    Example:
-        >>> len(rolling_sortino_values([0.0] * 100)) > 0
-        True
-    """
-
-def rolling_volatility_values(returns: list[float], window: int = 63, ann_factor: float = 252.0) -> list[float]:
-    """Rolling volatility values only (no dates).
-
-    Args:
-        returns: Simple returns.
-        window: Window length.
-        ann_factor: Annualization factor.
-
-    Returns:
-        Rolling vol series.
-
-    Example:
-        >>> len(rolling_volatility_values([0.01] * 100)) > 0
         True
     """
 

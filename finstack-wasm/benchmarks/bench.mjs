@@ -572,6 +572,9 @@ async function main() {
   const benchReturns = returns;
   const benchRf = returns.map(() => 0.0001);
   const benchBm = returns.map((x) => x * 0.95);
+  const benchDates = benchReturns.map((_, i) =>
+    new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10),
+  );
   let ddSeries = benchReturns;
   try {
     ddSeries = w.toDrawdownSeries(benchReturns);
@@ -627,12 +630,12 @@ async function main() {
     w.excessReturns(benchReturns, benchRf);
   });
 
-  bench('analytics', 'rollingSharpeValues', 2000, () => {
-    w.rollingSharpeValues(benchReturns, 60, 252, 0.02);
+  bench('analytics', 'rollingSharpe', 2000, () => {
+    w.rollingSharpe(benchReturns, benchDates, 60, 252, 0.02);
   });
 
-  bench('analytics', 'rollingVolatilityValues', 2000, () => {
-    w.rollingVolatilityValues(benchReturns, 60, 252);
+  bench('analytics', 'rollingVolatility', 2000, () => {
+    w.rollingVolatility(benchReturns, benchDates, 60, 252);
   });
 
   bench('analytics', 'trackingError', 4000, () => {
@@ -655,7 +658,7 @@ async function main() {
     w.calmar(0.08, 0.12);
   });
 
-  bench('analytics', 'countConsecutive', 8000, () => {
+  bench('core', 'countConsecutive', 8000, () => {
     w.countConsecutive(statsArr);
   });
 

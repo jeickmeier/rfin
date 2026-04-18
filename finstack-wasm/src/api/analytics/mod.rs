@@ -21,6 +21,59 @@ fn parse_iso_date(s: &str) -> Result<time::Date, JsValue> {
     time::Date::from_calendar_date(year, month, day).map_err(to_js_err)
 }
 
+fn parse_cagr_convention(
+    convention: Option<&str>,
+) -> Result<fa::risk_metrics::AnnualizationConvention, JsValue> {
+    match convention
+        .unwrap_or("act365_25")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "act365_25" | "act36525" | "act/365.25" | "default" => {
+            Ok(fa::risk_metrics::AnnualizationConvention::Act365_25)
+        }
+        "act365fixed" | "act365_fixed" | "act/365f" | "act365f" => {
+            Ok(fa::risk_metrics::AnnualizationConvention::Act365Fixed)
+        }
+        "actact" | "act_act" | "actualactual" | "actual_actual" => {
+            Ok(fa::risk_metrics::AnnualizationConvention::ActAct)
+        }
+        other => Err(to_js_err(format!(
+            "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, actact"
+        ))),
+    }
+}
+
+/// Annualization basis for CAGR.
+#[wasm_bindgen(js_name = CagrBasis)]
+pub struct WasmCagrBasis {
+    inner: fa::risk_metrics::CagrBasis,
+}
+
+#[wasm_bindgen(js_class = CagrBasis)]
+impl WasmCagrBasis {
+    /// Create a factor-based basis from periods per year.
+    #[wasm_bindgen(js_name = factor)]
+    pub fn factor(ann_factor: f64) -> Self {
+        Self {
+            inner: fa::risk_metrics::CagrBasis::factor(ann_factor),
+        }
+    }
+
+    /// Create a date-based basis from ISO dates and an optional convention string.
+    #[wasm_bindgen(js_name = dates)]
+    pub fn dates(start: &str, end: &str, convention: Option<String>) -> Result<Self, JsValue> {
+        Ok(Self {
+            inner: fa::risk_metrics::CagrBasis::dates_with_convention(
+                parse_iso_date(start)?,
+                parse_iso_date(end)?,
+                parse_cagr_convention(convention.as_deref())?,
+            ),
+        })
+    }
+}
+
 // ===================================================================
 // Risk metrics — return-based
 // ===================================================================
@@ -52,11 +105,11 @@ pub fn mean_return(returns: JsValue, annualize: bool, ann_factor: f64) -> Result
     Ok(fa::risk_metrics::mean_return(&r, annualize, ann_factor))
 }
 
-/// CAGR from an annualization factor.
-#[wasm_bindgen(js_name = cagrFromPeriods)]
-pub fn cagr_from_periods(returns: JsValue, ann_factor: f64) -> Result<f64, JsValue> {
+/// CAGR annualized using the supplied basis.
+#[wasm_bindgen(js_name = cagr)]
+pub fn cagr(returns: JsValue, basis: &WasmCagrBasis) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::cagr_from_periods(&r, ann_factor))
+    Ok(fa::risk_metrics::cagr(&r, basis.inner))
 }
 
 /// Downside deviation.
@@ -181,43 +234,6 @@ pub fn outlier_loss_ratio(returns: JsValue, confidence: f64) -> Result<f64, JsVa
 // ===================================================================
 // Risk metrics — rolling
 // ===================================================================
-
-/// Rolling Sharpe values (no dates).
-#[wasm_bindgen(js_name = rollingSharpeValues)]
-pub fn rolling_sharpe_values(
-    returns: JsValue,
-    window: usize,
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> Result<JsValue, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let v = fa::risk_metrics::rolling_sharpe_values(&r, window, ann_factor, risk_free_rate);
-    serde_wasm_bindgen::to_value(&v).map_err(to_js_err)
-}
-
-/// Rolling Sortino values (no dates).
-#[wasm_bindgen(js_name = rollingSortinoValues)]
-pub fn rolling_sortino_values(
-    returns: JsValue,
-    window: usize,
-    ann_factor: f64,
-) -> Result<JsValue, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let v = fa::risk_metrics::rolling_sortino_values(&r, window, ann_factor);
-    serde_wasm_bindgen::to_value(&v).map_err(to_js_err)
-}
-
-/// Rolling volatility values (no dates).
-#[wasm_bindgen(js_name = rollingVolatilityValues)]
-pub fn rolling_volatility_values(
-    returns: JsValue,
-    window: usize,
-    ann_factor: f64,
-) -> Result<JsValue, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let v = fa::risk_metrics::rolling_volatility_values(&r, window, ann_factor);
-    serde_wasm_bindgen::to_value(&v).map_err(to_js_err)
-}
 
 // ===================================================================
 // Returns
@@ -597,17 +613,6 @@ pub fn multi_factor_greeks(
     let refs: Vec<&[f64]> = f.iter().map(|v| v.as_slice()).collect();
     let result = fa::benchmark::multi_factor_greeks(&r, &refs, ann_factor).map_err(to_js_err)?;
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
-}
-
-// ===================================================================
-// Consecutive
-// ===================================================================
-
-/// Count longest consecutive run of positive values.
-#[wasm_bindgen(js_name = countConsecutive)]
-pub fn count_consecutive(values: JsValue) -> Result<usize, JsValue> {
-    let v: Vec<f64> = serde_wasm_bindgen::from_value(values).map_err(to_js_err)?;
-    Ok(finstack_core::math::count_consecutive(&v, |x| x > 0.0))
 }
 
 // ===================================================================
@@ -1045,9 +1050,9 @@ mod tests {
     }
 
     #[test]
-    fn underlying_cagr_from_periods() {
+    fn underlying_cagr_factor_basis() {
         let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let c = fa::risk_metrics::cagr_from_periods(&r, 252.0);
+        let c = fa::risk_metrics::cagr(&r, fa::risk_metrics::CagrBasis::factor(252.0));
         assert!(c.is_finite());
     }
 
@@ -1133,19 +1138,6 @@ mod tests {
         assert!(tr.is_finite());
         assert!(owr.is_finite());
         assert!(olr.is_finite());
-    }
-
-    #[test]
-    fn underlying_rolling() {
-        let r = vec![
-            0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005, 0.02, -0.01,
-        ];
-        let rs = fa::risk_metrics::rolling_sharpe_values(&r, 5, 252.0, 0.02);
-        let rso = fa::risk_metrics::rolling_sortino_values(&r, 5, 252.0);
-        let rv = fa::risk_metrics::rolling_volatility_values(&r, 5, 252.0);
-        assert!(!rs.is_empty());
-        assert!(!rso.is_empty());
-        assert!(!rv.is_empty());
     }
 
     #[test]
@@ -1279,13 +1271,6 @@ mod tests {
         let bench_vol = fa::risk_metrics::volatility(&b, true, ann);
         let ms = fa::benchmark::m_squared(ann_return, ann_vol, bench_vol, 0.02);
         assert!(ms.is_finite());
-    }
-
-    #[test]
-    fn underlying_count_consecutive() {
-        let v = vec![1.0, 2.0, 3.0, -1.0, 2.0];
-        let c = finstack_core::math::count_consecutive(&v, |x| x > 0.0);
-        assert_eq!(c, 3);
     }
 
     #[test]

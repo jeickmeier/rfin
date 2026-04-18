@@ -360,8 +360,8 @@ impl Performance {
         let Some((start, end)) = self.active_holding_period() else {
             return vec![0.0; self.ticker_names.len()];
         };
-        let conv = risk_metrics::AnnualizationConvention::default();
-        self.map_tickers(|i| risk_metrics::cagr(self.active_returns(i), start, end, conv))
+        let basis = risk_metrics::CagrBasis::dates(start, end);
+        self.map_tickers(|i| risk_metrics::cagr(self.active_returns(i), basis))
     }
 
     /// Mean return for each ticker.

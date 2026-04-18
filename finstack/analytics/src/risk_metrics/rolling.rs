@@ -47,10 +47,6 @@ pub struct RollingSharpe {
 
 impl RollingSharpe {
     /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
-    ///
-    /// The first `n - values.len()` entries are `f64::NAN`, followed by the
-    /// computed values in order. This matches the output shape of
-    /// [`rolling_sharpe_values`].
     #[must_use]
     pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
         nan_pad(&self.values, n)
@@ -134,10 +130,6 @@ pub struct RollingVolatility {
 
 impl RollingVolatility {
     /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
-    ///
-    /// The first `n - values.len()` entries are `f64::NAN`, followed by the
-    /// computed values in order. This matches the output shape of
-    /// [`rolling_volatility_values`].
     #[must_use]
     pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
         nan_pad(&self.values, n)
@@ -215,10 +207,6 @@ pub struct RollingSortino {
 
 impl RollingSortino {
     /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
-    ///
-    /// The first `n - values.len()` entries are `f64::NAN`, followed by the
-    /// computed values in order. This matches the output shape of
-    /// [`rolling_sortino_values`].
     #[must_use]
     pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
         nan_pad(&self.values, n)
@@ -372,101 +360,6 @@ where
         }
         emit(sum, sum_ds);
     }
-}
-
-/// Rolling Sharpe ratio without dates, returning NaN-padded output.
-///
-/// The first `window - 1` values are `NaN`, followed by the Sharpe ratio
-/// for each completed window. Uses the same O(n) sliding-window approach
-/// as [`rolling_sharpe`].
-///
-/// # Arguments
-///
-/// * `returns`        - Slice of period simple returns.
-/// * `window`         - Look-back window length in periods.
-/// * `ann_factor`     - Number of periods per year for annualization.
-/// * `risk_free_rate` - Annualized risk-free rate to subtract from return.
-pub fn rolling_sharpe_values(
-    returns: &[f64],
-    window: usize,
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> Vec<f64> {
-    let n = returns.len();
-    if n < window || window == 0 {
-        return vec![];
-    }
-    let w = window as f64;
-    let mut out = Vec::with_capacity(n);
-    out.resize(window - 1, f64::NAN);
-    rolling_sum_sum_sq_kernel(returns, n, window, |sum, sum_sq| {
-        let ann_mean = (sum / w) * ann_factor;
-        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
-        let ann_vol = var.sqrt() * ann_factor.sqrt();
-        out.push(sharpe(ann_mean, ann_vol, risk_free_rate));
-    });
-    out
-}
-
-/// Rolling annualized volatility without dates, returning NaN-padded output.
-///
-/// The first `window - 1` values are `NaN`, followed by the annualized
-/// volatility for each completed window.
-///
-/// # Arguments
-///
-/// * `returns`    - Slice of period simple returns.
-/// * `window`     - Look-back window length in periods.
-/// * `ann_factor` - Number of periods per year for annualization.
-pub fn rolling_volatility_values(returns: &[f64], window: usize, ann_factor: f64) -> Vec<f64> {
-    let n = returns.len();
-    if n < window || window == 0 {
-        return vec![];
-    }
-    let w = window as f64;
-    let mut out = Vec::with_capacity(n);
-    out.resize(window - 1, f64::NAN);
-    rolling_sum_sum_sq_kernel(returns, n, window, |sum, sum_sq| {
-        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
-        out.push(var.sqrt() * ann_factor.sqrt());
-    });
-    out
-}
-
-/// Rolling Sortino ratio without dates, returning NaN-padded output.
-///
-/// The first `window - 1` values are `NaN`, followed by the Sortino ratio
-/// for each completed window.
-///
-/// # Arguments
-///
-/// * `returns`    - Slice of period simple returns.
-/// * `window`     - Look-back window length in periods.
-/// * `ann_factor` - Number of periods per year for annualization.
-pub fn rolling_sortino_values(returns: &[f64], window: usize, ann_factor: f64) -> Vec<f64> {
-    let n = returns.len();
-    if n < window || window == 0 {
-        return vec![];
-    }
-    let w = window as f64;
-    let mut out = Vec::with_capacity(n);
-    out.resize(window - 1, f64::NAN);
-    rolling_sortino_kernel(returns, n, window, |sum, sum_ds| {
-        let m = sum / w;
-        let dd = (sum_ds / w).sqrt();
-        out.push(if dd == 0.0 {
-            if m > 0.0 {
-                f64::INFINITY
-            } else if m < 0.0 {
-                f64::NEG_INFINITY
-            } else {
-                0.0
-            }
-        } else {
-            (m * ann_factor) / (dd * ann_factor.sqrt())
-        });
-    });
-    out
 }
 
 #[cfg(test)]

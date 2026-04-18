@@ -24,13 +24,12 @@ pub mod rolling;
 pub mod tail_risk;
 
 pub use return_based::{
-    cagr, cagr_from_periods, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean,
-    mean_return, modified_sharpe, omega_ratio, sharpe, sortino, volatility,
-    AnnualizationConvention, RuinDefinition, RuinEstimate, RuinModel,
+    cagr, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean, mean_return,
+    modified_sharpe, omega_ratio, sharpe, sortino, volatility, AnnualizationConvention, CagrBasis,
+    RuinDefinition, RuinEstimate, RuinModel,
 };
 pub use rolling::{
-    rolling_sharpe, rolling_sharpe_values, rolling_sortino, rolling_sortino_values,
-    rolling_volatility, rolling_volatility_values, RollingSharpe, RollingSortino,
+    rolling_sharpe, rolling_sortino, rolling_volatility, RollingSharpe, RollingSortino,
     RollingVolatility,
 };
 pub use tail_risk::{

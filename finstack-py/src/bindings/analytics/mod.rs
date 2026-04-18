@@ -42,6 +42,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "RollingSharpe",
             "RollingSortino",
             "RollingVolatility",
+            "CagrBasis",
             "RuinDefinition",
             "RuinModel",
             "RuinEstimate",
@@ -66,8 +67,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "multi_factor_greeks",
             "treynor",
             "m_squared",
-            // Consecutive
-            "count_consecutive",
             // Drawdown
             "to_drawdown_series",
             "drawdown_details",
@@ -94,7 +93,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "comp_total",
             // Risk metrics — return-based
             "cagr",
-            "cagr_from_periods",
             "mean_return",
             "volatility",
             "sharpe",
@@ -109,9 +107,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "rolling_sharpe",
             "rolling_sortino",
             "rolling_volatility",
-            "rolling_sharpe_values",
-            "rolling_sortino_values",
-            "rolling_volatility_values",
             // Risk metrics — tail
             "value_at_risk",
             "expected_shortfall",

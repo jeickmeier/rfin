@@ -6,7 +6,8 @@ export const analytics = {
   sortino: wasm.sortino,
   volatility: wasm.volatility,
   meanReturn: wasm.meanReturn,
-  cagrFromPeriods: wasm.cagrFromPeriods,
+  CagrBasis: wasm.CagrBasis,
+  cagr: wasm.cagr,
   downsideDeviation: wasm.downsideDeviation,
   geometricMean: wasm.geometricMean,
   omegaRatio: wasm.omegaRatio,
@@ -22,10 +23,6 @@ export const analytics = {
   tailRatio: wasm.tailRatio,
   outlierWinRatio: wasm.outlierWinRatio,
   outlierLossRatio: wasm.outlierLossRatio,
-  // Risk metrics — rolling
-  rollingSharpeValues: wasm.rollingSharpeValues,
-  rollingSortinoValues: wasm.rollingSortinoValues,
-  rollingVolatilityValues: wasm.rollingVolatilityValues,
   // Returns
   simpleReturns: wasm.simpleReturns,
   compSum: wasm.compSum,
@@ -68,8 +65,6 @@ export const analytics = {
   greeks: wasm.greeks,
   rollingGreeks: wasm.rollingGreeks,
   multiFactorGreeks: wasm.multiFactorGreeks,
-  // Consecutive
-  countConsecutive: wasm.countConsecutive,
   // Aggregation
   groupByPeriod: wasm.groupByPeriod,
   periodStats: wasm.periodStats,

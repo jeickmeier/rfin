@@ -32,7 +32,55 @@ pub enum AnnualizationConvention {
     ActAct,
 }
 
-/// Compound annual growth rate from a return series over a date range.
+/// Basis used to annualize CAGR from either explicit dates or a periods-per-year factor.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum CagrBasis {
+    /// Annualize across an explicit calendar range using the chosen convention.
+    Dates {
+        /// Inclusive start date of the return span.
+        start: crate::dates::Date,
+        /// Inclusive end date of the return span.
+        end: crate::dates::Date,
+        /// Day-count convention used to convert the span to a year fraction.
+        convention: AnnualizationConvention,
+    },
+    /// Annualize from a periods-per-year factor such as 252 (daily) or 12 (monthly).
+    Factor(f64),
+}
+
+impl CagrBasis {
+    /// Build a date-based CAGR basis using the default Act/365.25 convention.
+    #[must_use]
+    pub fn dates(start: crate::dates::Date, end: crate::dates::Date) -> Self {
+        Self::Dates {
+            start,
+            end,
+            convention: AnnualizationConvention::default(),
+        }
+    }
+
+    /// Build a date-based CAGR basis with an explicit day-count convention.
+    #[must_use]
+    pub fn dates_with_convention(
+        start: crate::dates::Date,
+        end: crate::dates::Date,
+        convention: AnnualizationConvention,
+    ) -> Self {
+        Self::Dates {
+            start,
+            end,
+            convention,
+        }
+    }
+
+    /// Build a factor-based CAGR basis from periods per year.
+    #[must_use]
+    pub fn factor(ann_factor: f64) -> Self {
+        Self::Factor(ann_factor)
+    }
+}
+
+/// Compound annual growth rate from a return series using the supplied basis.
 ///
 /// Computes:
 ///
@@ -40,51 +88,73 @@ pub enum AnnualizationConvention {
 /// CAGR = (Π(1 + r_i))^(1/years) - 1
 /// ```
 ///
-/// where `years` depends on `convention` (see [`AnnualizationConvention`]).
-/// Pass `AnnualizationConvention::default()` (= `Act365_25`) for the most
-/// common default, or an explicit variant when a different day-count is
-/// required.
+/// where `years` comes either from an explicit date range or from a
+/// periods-per-year factor, depending on `basis`.
 ///
 /// # Arguments
 ///
 /// * `returns`    - Slice of simple period returns.
-/// * `start`      - Start date of the series (inclusive).
-/// * `end`        - End date of the series (inclusive).
-/// * `convention` - How calendar span maps to year fraction for the exponent.
+/// * `basis`      - How to annualize the compounded return.
 ///
 /// # Returns
 ///
-/// Annualized growth rate as a decimal. Returns `0.0` if `returns` is
-/// empty or if the date range covers zero or negative days.
+/// Annualized growth rate as a decimal. Returns `0.0` for empty input, `0.0`
+/// for non-positive date spans, and [`f64::NAN`] when a factor basis uses an
+/// invalid annualization factor.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::risk_metrics::{cagr, AnnualizationConvention};
+/// use finstack_analytics::risk_metrics::{cagr, CagrBasis};
 /// use finstack_core::dates::{Date, Month};
 ///
 /// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
 /// let end   = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 /// // Single 10% return over one year → CAGR ≈ 10%.
-/// let c = cagr(&[0.10], start, end, AnnualizationConvention::default());
+/// let c = cagr(&[0.10], CagrBasis::dates(start, end));
 /// assert!((c - 0.10).abs() < 0.01);
 /// ```
 #[must_use]
-pub fn cagr(
+pub fn cagr(returns: &[f64], basis: CagrBasis) -> f64 {
+    if returns.is_empty() {
+        return 0.0;
+    }
+
+    match basis {
+        CagrBasis::Dates {
+            start,
+            end,
+            convention,
+        } => cagr_from_dates(returns, start, end, convention),
+        CagrBasis::Factor(ann_factor) => cagr_from_factor(returns, ann_factor),
+    }
+}
+
+fn cagr_from_dates(
     returns: &[f64],
     start: crate::dates::Date,
     end: crate::dates::Date,
     convention: AnnualizationConvention,
 ) -> f64 {
-    if returns.is_empty() {
-        return 0.0;
-    }
     let total = 1.0 + crate::returns::comp_total(returns);
     let years = annualized_years(start, end, convention);
     if years <= 0.0 {
         return 0.0;
     }
     total.powf(1.0 / years) - 1.0
+}
+
+fn cagr_from_factor(returns: &[f64], ann_factor: f64) -> f64 {
+    if !ann_factor.is_finite() || ann_factor <= 0.0 {
+        return f64::NAN;
+    }
+    let total = 1.0 + crate::returns::comp_total(returns);
+    let years = returns.len() as f64 / ann_factor;
+    if years > 0.0 {
+        total.powf(1.0 / years) - 1.0
+    } else {
+        0.0
+    }
 }
 
 fn annualized_years(
@@ -134,32 +204,6 @@ fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
-/// Compound annual growth rate from a return series using a period-based
-/// annualization factor (e.g., 252 for daily, 12 for monthly).
-///
-/// Unlike [`cagr`], which requires start/end dates, this variant derives
-/// the holding period from `returns.len() / ann_factor`.
-///
-/// Returns `f64::NAN` when `returns` has fewer than 2 elements, or when
-/// `ann_factor` is not finite and strictly positive.
-#[must_use]
-pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
-    let n = returns.len();
-    if n < 2 {
-        return f64::NAN;
-    }
-    if !ann_factor.is_finite() || ann_factor <= 0.0 {
-        return f64::NAN;
-    }
-    let total = 1.0 + crate::returns::comp_total(returns);
-    let years = n as f64 / ann_factor;
-    if years > 0.0 {
-        total.powf(1.0 / years) - 1.0
-    } else {
-        f64::NAN
-    }
-}
-
 /// Mean return, optionally annualized.
 ///
 /// Computes the **arithmetic** mean of `returns`. When `annualize` is `true`,
@@ -171,7 +215,7 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
 ///
 /// This is **simple** annualization of the average **per-period** return, not a
 /// compounded (geometric) annual return. For growth over time that compounds
-/// period returns, use [`cagr`] or [`cagr_from_periods`]. Volatility in this
+/// period returns, use [`cagr`]. Volatility in this
 /// module uses the usual root-time rule (`σ_ann = σ_period × √ann_factor`); mean
 /// return uses **linear** scaling instead.
 ///
@@ -868,12 +912,7 @@ mod tests {
     #[test]
     fn cagr_basic() {
         let r = [0.10];
-        let c = cagr(
-            &r,
-            jan1(2024),
-            jan1(2025),
-            AnnualizationConvention::default(),
-        );
+        let c = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025)));
         assert!((c - 0.10).abs() < 0.01);
     }
 
@@ -882,9 +921,11 @@ mod tests {
         let r = [0.10];
         let c = cagr(
             &r,
-            jan1(2024),
-            jan1(2025),
-            AnnualizationConvention::Act365Fixed,
+            CagrBasis::dates_with_convention(
+                jan1(2024),
+                jan1(2025),
+                AnnualizationConvention::Act365Fixed,
+            ),
         );
         assert!((c - 0.09971358593414137).abs() < 1.0e-12);
     }
@@ -892,17 +933,14 @@ mod tests {
     #[test]
     fn cagr_default_convention_is_act_365_25() {
         let r = [0.10];
-        let c_default = cagr(
-            &r,
-            jan1(2024),
-            jan1(2025),
-            AnnualizationConvention::default(),
-        );
+        let c_default = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025)));
         let c_fixed = cagr(
             &r,
-            jan1(2024),
-            jan1(2025),
-            AnnualizationConvention::Act365Fixed,
+            CagrBasis::dates_with_convention(
+                jan1(2024),
+                jan1(2025),
+                AnnualizationConvention::Act365Fixed,
+            ),
         );
         assert!(c_default > c_fixed);
         assert!((c_default - 0.09978518245839707).abs() < 1.0e-12);
@@ -911,7 +949,14 @@ mod tests {
     #[test]
     fn cagr_act_act_matches_full_leap_year() {
         let r = [0.10];
-        let c = cagr(&r, jan1(2024), jan1(2025), AnnualizationConvention::ActAct);
+        let c = cagr(
+            &r,
+            CagrBasis::dates_with_convention(
+                jan1(2024),
+                jan1(2025),
+                AnnualizationConvention::ActAct,
+            ),
+        );
         assert!((c - 0.10).abs() < 1.0e-12);
     }
 
@@ -933,10 +978,15 @@ mod tests {
     }
 
     #[test]
-    fn cagr_from_periods_rejects_bad_ann_factor() {
-        assert!(cagr_from_periods(&[0.01, 0.02], 0.0).is_nan());
-        assert!(cagr_from_periods(&[0.01, 0.02], -1.0).is_nan());
-        assert!(cagr_from_periods(&[0.01, 0.02], f64::NAN).is_nan());
+    fn cagr_factor_basis_rejects_bad_ann_factor() {
+        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(0.0)).is_nan());
+        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(-1.0)).is_nan());
+        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(f64::NAN)).is_nan());
+    }
+
+    #[test]
+    fn cagr_factor_basis_accepts_single_period() {
+        assert!((cagr(&[0.10], CagrBasis::factor(1.0)) - 0.10).abs() < 1.0e-12);
     }
 
     #[test]
@@ -945,10 +995,10 @@ mod tests {
         let m_ann = mean_return(&r, true, 252.0);
         let mean_p = mean(&r);
         assert!((m_ann - mean_p * 252.0).abs() < 1e-10);
-        let cagr_ann = cagr_from_periods(&r, 252.0);
+        let cagr_ann = cagr(&r, CagrBasis::factor(252.0));
         assert!(
             cagr_ann.is_finite() && (m_ann - cagr_ann).abs() > 1e-6,
-            "arithmetic annualized mean should differ from compounded cagr_from_periods"
+            "arithmetic annualized mean should differ from compounded cagr"
         );
     }
 

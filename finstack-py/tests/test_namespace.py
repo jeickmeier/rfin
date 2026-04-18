@@ -71,6 +71,14 @@ class TestAnalyticsNamespace:
             volatility,
         )
 
+    def test_analytics_does_not_export_legacy_rolling_values(self) -> None:
+        """Legacy rolling `_values` helpers should not remain on the public namespace."""
+        from finstack import analytics
+
+        assert not hasattr(analytics, "rolling_sharpe_values")
+        assert not hasattr(analytics, "rolling_sortino_values")
+        assert not hasattr(analytics, "rolling_volatility_values")
+
 
 class TestCorrelationNamespace:
     """Verify the correlation subpackage nested under valuations."""

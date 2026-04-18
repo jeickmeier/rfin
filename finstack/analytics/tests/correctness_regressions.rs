@@ -246,7 +246,10 @@ fn max_drawdown_and_calmar_compose_from_primitives() {
     let drawdown = finstack_analytics::drawdown::to_drawdown_series(&returns);
     let expected_max_drawdown = finstack_analytics::drawdown::max_drawdown(&drawdown);
     let expected_calmar = finstack_analytics::drawdown::calmar(
-        finstack_analytics::risk_metrics::cagr_from_periods(&returns, ann),
+        finstack_analytics::risk_metrics::cagr(
+            &returns,
+            finstack_analytics::risk_metrics::CagrBasis::factor(ann),
+        ),
         expected_max_drawdown,
     );
 

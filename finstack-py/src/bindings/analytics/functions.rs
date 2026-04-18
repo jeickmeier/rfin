@@ -342,23 +342,10 @@ fn comp_total(returns: Vec<f64>) -> f64 {
 // Risk metrics — return-based
 // ===================================================================
 
-/// CAGR between two dates using the default Act/365.25 convention.
+/// CAGR using a supplied annualization basis.
 #[pyfunction]
-fn cagr(returns: Vec<f64>, start: Bound<'_, PyAny>, end: Bound<'_, PyAny>) -> PyResult<f64> {
-    let s = py_to_date(&start)?;
-    let e = py_to_date(&end)?;
-    Ok(fa::risk_metrics::cagr(
-        &returns,
-        s,
-        e,
-        fa::risk_metrics::AnnualizationConvention::default(),
-    ))
-}
-
-/// CAGR from an annualization factor.
-#[pyfunction]
-fn cagr_from_periods(returns: Vec<f64>, ann_factor: f64) -> f64 {
-    fa::risk_metrics::cagr_from_periods(&returns, ann_factor)
+fn cagr(returns: Vec<f64>, basis: &PyCagrBasis) -> f64 {
+    fa::risk_metrics::cagr(&returns, basis.inner)
 }
 
 /// Arithmetic mean return.
@@ -489,32 +476,6 @@ fn rolling_volatility(
     })
 }
 
-/// Rolling Sharpe values only (no dates).
-#[pyfunction]
-#[pyo3(signature = (returns, window = 63, ann_factor = 252.0, risk_free_rate = 0.0))]
-fn rolling_sharpe_values(
-    returns: Vec<f64>,
-    window: usize,
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> Vec<f64> {
-    fa::risk_metrics::rolling_sharpe_values(&returns, window, ann_factor, risk_free_rate)
-}
-
-/// Rolling Sortino values only (no dates).
-#[pyfunction]
-#[pyo3(signature = (returns, window = 63, ann_factor = 252.0))]
-fn rolling_sortino_values(returns: Vec<f64>, window: usize, ann_factor: f64) -> Vec<f64> {
-    fa::risk_metrics::rolling_sortino_values(&returns, window, ann_factor)
-}
-
-/// Rolling volatility values only (no dates).
-#[pyfunction]
-#[pyo3(signature = (returns, window = 63, ann_factor = 252.0))]
-fn rolling_volatility_values(returns: Vec<f64>, window: usize, ann_factor: f64) -> Vec<f64> {
-    fa::risk_metrics::rolling_volatility_values(&returns, window, ann_factor)
-}
-
 // ===================================================================
 // Risk metrics — tail risk
 // ===================================================================
@@ -630,7 +591,6 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(comp_total, m)?)?;
     // Risk metrics — return-based
     m.add_function(wrap_pyfunction!(cagr, m)?)?;
-    m.add_function(wrap_pyfunction!(cagr_from_periods, m)?)?;
     m.add_function(wrap_pyfunction!(mean_return, m)?)?;
     m.add_function(wrap_pyfunction!(volatility, m)?)?;
     m.add_function(wrap_pyfunction!(sharpe, m)?)?;
@@ -645,9 +605,6 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(rolling_sharpe, m)?)?;
     m.add_function(wrap_pyfunction!(rolling_sortino, m)?)?;
     m.add_function(wrap_pyfunction!(rolling_volatility, m)?)?;
-    m.add_function(wrap_pyfunction!(rolling_sharpe_values, m)?)?;
-    m.add_function(wrap_pyfunction!(rolling_sortino_values, m)?)?;
-    m.add_function(wrap_pyfunction!(rolling_volatility_values, m)?)?;
     // Risk metrics — tail
     m.add_function(wrap_pyfunction!(value_at_risk, m)?)?;
     m.add_function(wrap_pyfunction!(expected_shortfall, m)?)?;

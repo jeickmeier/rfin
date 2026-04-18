@@ -25,8 +25,6 @@ pub mod aggregation;
 pub mod backtesting;
 pub mod benchmark;
 pub mod comps;
-/// Count consecutive streaks in a numeric series.
-pub mod consecutive;
 pub mod drawdown;
 pub mod lookback;
 pub mod performance;
