@@ -13,8 +13,8 @@
 //! - Use [`crate::evaluator::Evaluator::evaluate_with_market`] when the model
 //!   references capital structure (`cs.*`) and you need instrument pricing.
 //! - Use [`crate::evaluator::StatementResult`] as the canonical output envelope for downstream
-//!   analysis, reporting, and exports; call its `to_polars_*` methods (with the
-//!   `dataframes` feature enabled) when you need tabular export.
+//!   analysis, reporting, and exports; call its `to_table_*` methods when you
+//!   need a serializable tabular representation.
 //!
 //! ## Conventions
 //!
@@ -30,7 +30,6 @@ mod cashflow_export;
 mod context;
 mod dag;
 mod engine;
-#[cfg(feature = "dataframes")]
 pub(crate) mod export;
 mod forecast_eval;
 pub mod formula;

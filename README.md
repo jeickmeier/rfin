@@ -70,12 +70,10 @@ downstream consumers reach the full API through a single dependency.
 finstack = { path = "finstack" }
 ```
 
-Two pass-through features remain to gate heavy compile-time costs:
+One pass-through feature remains to gate heavy compile-time cost:
 
 - `mc` — enables `finstack-monte-carlo`/`margin`/`valuations` Monte Carlo paths
   (pulls in `nalgebra`).
-- `dataframes` — enables the `polars`-based DataFrame surfaces in
-  `finstack-statements`/`finstack-portfolio`.
 
 `finstack-cashflows` is a standalone workspace crate and a direct dependency of
 `finstack-valuations`.

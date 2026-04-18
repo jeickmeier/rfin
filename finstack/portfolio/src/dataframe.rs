@@ -1,8 +1,8 @@
-//! DataFrame exports for portfolio results.
+//! Tabular exports for portfolio results.
 //!
 //! Functions in this module turn portfolio valuations and metrics into
-//! [`polars::prelude::DataFrame`] objects that can be consumed by downstream
-//! analytics pipelines or saved for offline processing.
+//! [`finstack_core::table::TableEnvelope`] values that can be serialized or
+//! consumed by downstream bindings without taking a Rust DataFrame dependency.
 //!
 //! # Conventions
 //!
@@ -13,10 +13,19 @@
 
 use crate::metrics::PortfolioMetrics;
 use crate::valuation::PortfolioValuation;
+use finstack_core::table::{TableColumn, TableColumnData, TableColumnRole, TableEnvelope};
 use finstack_core::Result;
-use finstack_core::{Error, InputError};
+use indexmap::IndexMap;
+use serde_json::json;
 
-/// Export position values to a Polars `DataFrame`.
+fn table_metadata(source: &str) -> IndexMap<String, serde_json::Value> {
+    let mut metadata = IndexMap::new();
+    metadata.insert("layout".to_string(), json!("long"));
+    metadata.insert("source".to_string(), json!(source));
+    metadata
+}
+
+/// Export position values to a table envelope.
 ///
 /// Columns produced:
 /// `position_id`, `entity_id`, `value_native`, `value_base`, `currency_native`, `currency_base`.
@@ -28,23 +37,21 @@ use finstack_core::{Error, InputError};
 ///
 /// # Returns
 ///
-/// A [`Result`] wrapping the generated [`polars::prelude::DataFrame`].
+/// A [`Result`] wrapping the generated [`TableEnvelope`].
 ///
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_portfolio::dataframe::positions_to_dataframe;
+/// use finstack_portfolio::dataframe::positions_to_table;
 ///
 /// # fn main() -> finstack_core::Result<()> {
 /// # let valuation: finstack_portfolio::PortfolioValuation = unimplemented!("Provide a valuation");
-/// let df = positions_to_dataframe(&valuation)?;
-/// assert!(df.get_column_names().iter().any(|name| name.as_str() == "position_id"));
+/// let table = positions_to_table(&valuation)?;
+/// assert!(table.column("position_id").is_some());
 /// # Ok(())
 /// # }
 /// ```
-pub fn positions_to_dataframe(
-    valuation: &PortfolioValuation,
-) -> Result<polars::prelude::DataFrame> {
+pub fn positions_to_table(valuation: &PortfolioValuation) -> Result<TableEnvelope> {
     let n = valuation.position_values.len();
     let mut position_ids: Vec<String> = Vec::with_capacity(n);
     let mut entity_ids: Vec<String> = Vec::with_capacity(n);
@@ -62,20 +69,29 @@ pub fn positions_to_dataframe(
         currencies_base.push(position_value.value_base.currency().to_string());
     }
 
-    let df = polars::prelude::df! (
-        "position_id" => position_ids,
-        "entity_id" => entity_ids,
-        "value_native" => values_native,
-        "value_base" => values_base,
-        "currency_native" => currencies_native,
-        "currency_base" => currencies_base,
+    TableEnvelope::new_with_metadata(
+        vec![
+            TableColumn::new("position_id", TableColumnData::String(position_ids))
+                .with_role(TableColumnRole::Dimension),
+            TableColumn::new("entity_id", TableColumnData::String(entity_ids))
+                .with_role(TableColumnRole::Dimension),
+            TableColumn::new("value_native", TableColumnData::Float64(values_native))
+                .with_role(TableColumnRole::Measure),
+            TableColumn::new("value_base", TableColumnData::Float64(values_base))
+                .with_role(TableColumnRole::Measure),
+            TableColumn::new(
+                "currency_native",
+                TableColumnData::String(currencies_native),
+            )
+            .with_role(TableColumnRole::Attribute),
+            TableColumn::new("currency_base", TableColumnData::String(currencies_base))
+                .with_role(TableColumnRole::Attribute),
+        ],
+        table_metadata("portfolio_positions"),
     )
-    .map_err(|_| Error::Input(InputError::Invalid))?;
-
-    Ok(df)
 }
 
-/// Export entity-level aggregates to a Polars `DataFrame`.
+/// Export entity-level aggregates to a table envelope.
 ///
 /// Columns produced: `entity_id`, `total_value`, `currency`.
 ///
@@ -85,8 +101,8 @@ pub fn positions_to_dataframe(
 ///
 /// # Returns
 ///
-/// A [`Result`] containing the [`polars::prelude::DataFrame`].
-pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::prelude::DataFrame> {
+/// A [`Result`] containing the generated [`TableEnvelope`].
+pub fn entities_to_table(valuation: &PortfolioValuation) -> Result<TableEnvelope> {
     let n = valuation.by_entity.len();
     let mut entity_ids: Vec<String> = Vec::with_capacity(n);
     let mut total_values: Vec<f64> = Vec::with_capacity(n);
@@ -98,17 +114,20 @@ pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::p
         currencies.push(money.currency().to_string());
     }
 
-    let df = polars::prelude::df! (
-        "entity_id" => entity_ids,
-        "total_value" => total_values,
-        "currency" => currencies,
+    TableEnvelope::new_with_metadata(
+        vec![
+            TableColumn::new("entity_id", TableColumnData::String(entity_ids))
+                .with_role(TableColumnRole::Dimension),
+            TableColumn::new("total_value", TableColumnData::Float64(total_values))
+                .with_role(TableColumnRole::Measure),
+            TableColumn::new("currency", TableColumnData::String(currencies))
+                .with_role(TableColumnRole::Attribute),
+        ],
+        table_metadata("portfolio_entities"),
     )
-    .map_err(|_| Error::Input(InputError::Invalid))?;
-
-    Ok(df)
 }
 
-/// Export metrics to a Polars `DataFrame` in long format.
+/// Export metrics to a table envelope in long format.
 ///
 /// Columns produced: `metric_id`, `position_id`, `currency`, `value`.
 ///
@@ -118,8 +137,8 @@ pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::p
 ///
 /// # Returns
 ///
-/// A [`Result`] containing the [`polars::prelude::DataFrame`].
-pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelude::DataFrame> {
+/// A [`Result`] containing the generated [`TableEnvelope`].
+pub fn metrics_to_table(metrics: &PortfolioMetrics) -> Result<TableEnvelope> {
     let row_count: usize = metrics
         .by_position
         .values()
@@ -139,18 +158,22 @@ pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelud
         }
     }
 
-    let df = polars::prelude::df! (
-        "metric_id" => metric_ids,
-        "position_id" => position_ids,
-        "currency" => currencies,
-        "value" => values,
+    TableEnvelope::new_with_metadata(
+        vec![
+            TableColumn::new("metric_id", TableColumnData::String(metric_ids))
+                .with_role(TableColumnRole::Dimension),
+            TableColumn::new("position_id", TableColumnData::String(position_ids))
+                .with_role(TableColumnRole::Dimension),
+            TableColumn::new("currency", TableColumnData::String(currencies))
+                .with_role(TableColumnRole::Attribute),
+            TableColumn::new("value", TableColumnData::Float64(values))
+                .with_role(TableColumnRole::Measure),
+        ],
+        table_metadata("portfolio_metrics"),
     )
-    .map_err(|_| Error::Input(InputError::Invalid))?;
-
-    Ok(df)
 }
 
-/// Export aggregated metrics to a Polars `DataFrame`.
+/// Export aggregated metrics to a table envelope.
 ///
 /// Columns produced: `metric_id`, `total`, where `total` is the summation across positions.
 ///
@@ -160,10 +183,8 @@ pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelud
 ///
 /// # Returns
 ///
-/// A [`Result`] containing the [`polars::prelude::DataFrame`].
-pub fn aggregated_metrics_to_dataframe(
-    metrics: &PortfolioMetrics,
-) -> Result<polars::prelude::DataFrame> {
+/// A [`Result`] containing the generated [`TableEnvelope`].
+pub fn aggregated_metrics_to_table(metrics: &PortfolioMetrics) -> Result<TableEnvelope> {
     let n = metrics.aggregated.len();
     let mut metric_ids: Vec<String> = Vec::with_capacity(n);
     let mut totals: Vec<f64> = Vec::with_capacity(n);
@@ -173,13 +194,15 @@ pub fn aggregated_metrics_to_dataframe(
         totals.push(agg_metric.total);
     }
 
-    let df = polars::prelude::df! (
-        "metric_id" => metric_ids,
-        "total" => totals,
+    TableEnvelope::new_with_metadata(
+        vec![
+            TableColumn::new("metric_id", TableColumnData::String(metric_ids))
+                .with_role(TableColumnRole::Dimension),
+            TableColumn::new("total", TableColumnData::Float64(totals))
+                .with_role(TableColumnRole::Measure),
+        ],
+        table_metadata("portfolio_aggregated_metrics"),
     )
-    .map_err(|_| Error::Input(InputError::Invalid))?;
-
-    Ok(df)
 }
 
 #[cfg(test)]
@@ -199,7 +222,7 @@ mod tests {
     use time::macros::date;
 
     #[test]
-    fn test_positions_to_dataframe() {
+    fn test_positions_to_table() {
         let as_of = date!(2024 - 01 - 01);
 
         let deposit = Deposit::builder()
@@ -238,16 +261,15 @@ mod tests {
 
         let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
             .expect("test should succeed");
-        let df = positions_to_dataframe(&valuation).expect("test should succeed");
+        let table = positions_to_table(&valuation).expect("test should succeed");
 
-        assert_eq!(df.height(), 1);
-        let col_names: Vec<&str> = df.get_column_names().iter().map(|s| s.as_str()).collect();
-        assert!(col_names.contains(&"position_id"));
-        assert!(col_names.contains(&"value_base"));
+        assert_eq!(table.row_count, 1);
+        assert!(table.column("position_id").is_some());
+        assert!(table.column("value_base").is_some());
     }
 
     #[test]
-    fn test_entities_to_dataframe() {
+    fn test_entities_to_table() {
         let as_of = date!(2024 - 01 - 01);
 
         let deposit = Deposit::builder()
@@ -286,11 +308,10 @@ mod tests {
 
         let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
             .expect("test should succeed");
-        let df = entities_to_dataframe(&valuation).expect("test should succeed");
+        let table = entities_to_table(&valuation).expect("test should succeed");
 
-        assert_eq!(df.height(), 1);
-        let col_names: Vec<&str> = df.get_column_names().iter().map(|s| s.as_str()).collect();
-        assert!(col_names.contains(&"entity_id"));
-        assert!(col_names.contains(&"total_value"));
+        assert_eq!(table.row_count, 1);
+        assert!(table.column("entity_id").is_some());
+        assert!(table.column("total_value").is_some());
     }
 }

@@ -7,7 +7,7 @@
 //! - Forecast methods (forward fill, growth, seasonal, etc.)
 //! - Registry operations
 //! - Capital structure integration
-//! - Results export (DataFrame conversion)
+//! - Results export (table conversion)
 //!
 //! Covers the main public APIs of finstack-statements to track performance
 //! characteristics and regression over time.
@@ -560,7 +560,6 @@ fn bench_registry_operations(c: &mut Criterion) {
 // Results Export Benchmarks
 // ============================================================================
 
-#[cfg(feature = "dataframes")]
 fn bench_results_export(c: &mut Criterion) {
     let mut group = c.benchmark_group("results_export");
 
@@ -599,12 +598,12 @@ fn bench_results_export(c: &mut Criterion) {
     let mut evaluator = Evaluator::new();
     let small_results = evaluator.evaluate(&small_model).unwrap();
 
-    group.bench_function("export_to_long_dataframe", |b| {
-        b.iter(|| black_box(small_results.to_polars_long().unwrap()))
+    group.bench_function("export_to_long_table", |b| {
+        b.iter(|| black_box(small_results.to_table_long().unwrap()))
     });
 
-    group.bench_function("export_to_wide_dataframe", |b| {
-        b.iter(|| black_box(small_results.to_polars_wide().unwrap()))
+    group.bench_function("export_to_wide_table", |b| {
+        b.iter(|| black_box(small_results.to_table_wide().unwrap()))
     });
 
     // Large model export
@@ -635,12 +634,12 @@ fn bench_results_export(c: &mut Criterion) {
     let mut evaluator = Evaluator::new();
     let large_results = evaluator.evaluate(&large_model).unwrap();
 
-    group.bench_function("export_large_to_long_dataframe", |b| {
-        b.iter(|| black_box(large_results.to_polars_long().unwrap()))
+    group.bench_function("export_large_to_long_table", |b| {
+        b.iter(|| black_box(large_results.to_table_long().unwrap()))
     });
 
-    group.bench_function("export_large_to_wide_dataframe", |b| {
-        b.iter(|| black_box(large_results.to_polars_wide().unwrap()))
+    group.bench_function("export_large_to_wide_table", |b| {
+        b.iter(|| black_box(large_results.to_table_wide().unwrap()))
     });
 
     group.finish();
@@ -824,7 +823,6 @@ fn bench_end_to_end(c: &mut Criterion) {
 // Criterion Configuration
 // ============================================================================
 
-#[cfg(feature = "dataframes")]
 criterion_group!(
     benches,
     bench_model_building,
@@ -833,18 +831,6 @@ criterion_group!(
     bench_forecast_methods,
     bench_registry_operations,
     bench_results_export,
-    bench_serialization,
-    bench_end_to_end
-);
-
-#[cfg(not(feature = "dataframes"))]
-criterion_group!(
-    benches,
-    bench_model_building,
-    bench_model_evaluation,
-    bench_dsl_operations,
-    bench_forecast_methods,
-    bench_registry_operations,
     bench_serialization,
     bench_end_to_end
 );

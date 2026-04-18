@@ -161,7 +161,7 @@ attribution  = { python = "finstack.portfolio.attribution",  status = "exists" }
 book         = { python = "finstack.portfolio.book",         status = "exists" }
 builder      = { python = "finstack.portfolio.builder",      status = "exists" }
 cashflows    = { python = "finstack.portfolio.cashflows",    status = "exists" }
-dataframe    = { python = "finstack.portfolio.dataframe",    status = "exists",  note = "Feature-gated: dataframes" }
+dataframe    = { python = "finstack.portfolio.dataframe",    status = "exists",  note = "Exposes table-envelope helpers" }
 dependencies = { python = "finstack.portfolio.dependencies", status = "missing" }
 error        = { python = "finstack.portfolio.error",        status = "missing" }
 factor_model = { python = "finstack.portfolio.factor_model", status = "exists" }
@@ -204,7 +204,6 @@ utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 "finstack_core::golden"          = "Test-only module, feature-gated `golden`; not part of public API"
 "finstack_core::validation"      = "Internal validation helpers; not exposed in Python bindings"
 "finstack_statements::utils"     = "Internal utilities; not part of public Python surface"
-"finstack_portfolio::dataframe"  = "Feature-gated `dataframes`; deferred until feature flag is stable in Python"
 "finstack_portfolio::scenarios"  = "Feature-gated `scenarios`; available through finstack.scenarios instead"
 "finstack-cashflows"             = "Internal crate; not re-exported from umbrella"
 "finstack-monte-carlo"           = "Internal crate; not re-exported from umbrella"

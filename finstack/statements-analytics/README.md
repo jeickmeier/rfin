@@ -30,14 +30,12 @@ Core capabilities:
 | Feature | Effect | Operational note |
 |---------|--------|------------------|
 | `default` | Core analytics runtime | Suitable for most statement-analysis flows |
-| `dataframes` | Enables Polars DataFrame exports | Required for `ScenarioResults::to_comparison_df`, variance DataFrames, and covenant DataFrame export helpers |
 | `parallel` | Forwards parallel Monte Carlo support from `finstack-statements` | Useful when scenario or Monte Carlo workflows need Rayon-backed execution |
 
 Recommended verification matrix:
 
 ```bash
 cargo test -p finstack-statements-analytics
-cargo test -p finstack-statements-analytics --features dataframes
 ```
 
 ## Installation
@@ -209,7 +207,7 @@ Useful types and entry points:
 - `analysis::credit::covenants::forecast_covenant()`
 - `analysis::credit::covenants::forecast_covenants()`
 
-When the `dataframes` feature is enabled, covenant forecast outputs can also be exported through `analysis::credit::covenants::to_polars()`.
+Covenant forecast outputs can also be exported through `analysis::credit::covenants::to_table()`.
 
 ### 3. Build-Time Templates
 
@@ -369,7 +367,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - `ScenarioDefinition.overrides` is interpreted as `node_id -> scalar`, broadcast across model periods as explicit values. In models with an actual-history cutoff, historical actuals are preserved while forecast periods are overridden.
 - Template helpers are build-time graph builders. For runtime validation of roll-forward structures, use `CorkscrewExtension`.
 - `CreditScorecardExtension` supports S&P, Moody's, and Fitch aliases. The shipped rating scales are embedded at compile time; callers do not need a runtime ratings data directory.
-- Polars export helpers are only available with the `dataframes` feature.
 - The `parallel` feature enables parallel statement Monte Carlo workflows via the underlying statements crate; outputs remain compatible with the analytics APIs here.
 
 ## Common Import Patterns
@@ -395,12 +392,6 @@ Primary crate verification:
 ```bash
 cargo test -p finstack-statements-analytics
 cargo doc -p finstack-statements-analytics --open
-```
-
-For feature-gated surfaces:
-
-```bash
-cargo test -p finstack-statements-analytics --features dataframes
 ```
 
 ## See Also

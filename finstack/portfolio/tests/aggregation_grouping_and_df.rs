@@ -129,33 +129,37 @@ fn dataframe_exports_have_expected_columns() {
         finstack_portfolio::metrics::aggregate_metrics(&valuation, Currency::USD, &market, as_of)
             .unwrap();
 
-    let df_pos = finstack_portfolio::dataframe::positions_to_dataframe(&valuation).unwrap();
-    let df_ent = finstack_portfolio::dataframe::entities_to_dataframe(&valuation).unwrap();
-    let df_m = finstack_portfolio::dataframe::metrics_to_dataframe(&metrics).unwrap();
-    let df_ma = finstack_portfolio::dataframe::aggregated_metrics_to_dataframe(&metrics).unwrap();
+    let table_pos = finstack_portfolio::dataframe::positions_to_table(&valuation).unwrap();
+    let table_ent = finstack_portfolio::dataframe::entities_to_table(&valuation).unwrap();
+    let table_m = finstack_portfolio::dataframe::metrics_to_table(&metrics).unwrap();
+    let table_ma = finstack_portfolio::dataframe::aggregated_metrics_to_table(&metrics).unwrap();
 
-    let pos_cols: Vec<&str> = df_pos
-        .get_column_names()
+    let pos_cols: Vec<&str> = table_pos
+        .columns
         .iter()
-        .map(|s| s.as_str())
+        .map(|column| column.name.as_str())
         .collect();
     assert!(pos_cols.contains(&"position_id") && pos_cols.contains(&"value_base"));
-    let ent_cols: Vec<&str> = df_ent
-        .get_column_names()
+    let ent_cols: Vec<&str> = table_ent
+        .columns
         .iter()
-        .map(|s| s.as_str())
+        .map(|column| column.name.as_str())
         .collect();
     assert!(ent_cols.contains(&"entity_id") && ent_cols.contains(&"total_value"));
-    let m_cols: Vec<&str> = df_m.get_column_names().iter().map(|s| s.as_str()).collect();
+    let m_cols: Vec<&str> = table_m
+        .columns
+        .iter()
+        .map(|column| column.name.as_str())
+        .collect();
     assert!(
         m_cols.contains(&"metric_id")
             && m_cols.contains(&"position_id")
             && m_cols.contains(&"value")
     );
-    let ma_cols: Vec<&str> = df_ma
-        .get_column_names()
+    let ma_cols: Vec<&str> = table_ma
+        .columns
         .iter()
-        .map(|s| s.as_str())
+        .map(|column| column.name.as_str())
         .collect();
     assert!(ma_cols.contains(&"metric_id") && ma_cols.contains(&"total"));
 }

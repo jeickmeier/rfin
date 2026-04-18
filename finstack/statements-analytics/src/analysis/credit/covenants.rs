@@ -4,6 +4,7 @@
 //! and the covenant engine, allowing for future compliance checking.
 
 use finstack_core::dates::{Date, PeriodId, PeriodKind};
+use finstack_core::table::{TableColumn, TableColumnData, TableColumnRole, TableEnvelope};
 use finstack_core::Result;
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::types::{FinancialModelSpec, ForecastMethod};
@@ -12,6 +13,8 @@ use finstack_valuations::covenants::{
     forecast_breaches_generic, forecast_covenant_generic, CovenantEngine, CovenantForecastConfig,
     CovenantSpec, FutureBreach, ModelTimeSeries,
 };
+use indexmap::IndexMap;
+use serde_json::json;
 use time::Month;
 
 /// Forecast output envelope for covenant compliance projections.
@@ -307,35 +310,52 @@ fn extract_sigma_and_seed(model: &FinancialModelSpec, node_id: &str) -> Option<(
     }
 }
 
-#[cfg(feature = "dataframes")]
-/// Convert a covenant forecast into a Polars DataFrame for downstream analysis.
+/// Convert a covenant forecast into a serializable table for downstream analysis.
 ///
 /// The resulting schema is:
 /// `(test_date, projected_value, threshold, headroom, breach_prob)`.
 ///
 /// # Errors
 ///
-/// Returns an error from `polars` if the backing DataFrame build fails.
-/// This should not happen in practice because all columns share the
-/// same length by construction, but it is surfaced as a `Result` so
-/// that the binding layer can map it into a typed error instead of
-/// panicking.
-pub fn to_polars(
-    forecast: &CovenantForecast,
-) -> polars::prelude::PolarsResult<polars::prelude::DataFrame> {
-    use polars::prelude::*;
+/// Returns a validation error if the table envelope invariants are broken.
+pub fn to_table(forecast: &CovenantForecast) -> Result<TableEnvelope> {
     let dates = forecast
         .test_dates
         .iter()
         .map(|d| d.to_string())
         .collect::<Vec<_>>();
-    df![
-        "test_date" => dates,
-        "projected_value" => forecast.projected_values.clone(),
-        "threshold" => forecast.thresholds.clone(),
-        "headroom" => forecast.headroom.clone(),
-        "breach_prob" => forecast.breach_probability.clone()
-    ]
+
+    let mut metadata = IndexMap::new();
+    metadata.insert("layout".to_string(), json!("long"));
+    metadata.insert("source".to_string(), json!("covenant_forecast"));
+
+    TableEnvelope::new_with_metadata(
+        vec![
+            TableColumn::new("test_date", TableColumnData::String(dates))
+                .with_role(TableColumnRole::Index),
+            TableColumn::new(
+                "projected_value",
+                TableColumnData::Float64(forecast.projected_values.clone()),
+            )
+            .with_role(TableColumnRole::Measure),
+            TableColumn::new(
+                "threshold",
+                TableColumnData::Float64(forecast.thresholds.clone()),
+            )
+            .with_role(TableColumnRole::Measure),
+            TableColumn::new(
+                "headroom",
+                TableColumnData::Float64(forecast.headroom.clone()),
+            )
+            .with_role(TableColumnRole::Measure),
+            TableColumn::new(
+                "breach_prob",
+                TableColumnData::Float64(forecast.breach_probability.clone()),
+            )
+            .with_role(TableColumnRole::Measure),
+        ],
+        metadata,
+    )
 }
 
 #[cfg(test)]

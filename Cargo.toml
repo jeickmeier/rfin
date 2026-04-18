@@ -69,14 +69,6 @@ strum_macros = "0.28"
 # Fast hash for integer keys in hot paths
 rustc-hash = "2.1"
 
-# Vendored Polars / pyo3-polars patches; see `vendor/README.md`.
-[patch.crates-io]
-pyo3-polars = { path = "vendor/pyo3-polars-0.26.0" }
-polars-error = { path = "vendor/polars-error-0.53.0" }
-polars-plan = { path = "vendor/polars-plan-0.53.0" }
-polars-lazy = { path = "vendor/polars-lazy-0.53.0" }
-polars-utils = { path = "vendor/polars-utils-0.53.0" }
-
 # Build profiles
 [profile.dev]
 # Standard development profile (cargo-llvm-cov will override these for coverage runs)

@@ -25,8 +25,8 @@
 //! | `portfolio`        | [`finstack_portfolio`]            |
 //! | `scenarios`        | [`finstack_scenarios`]            |
 //!
-//! Two pass-through features remain to gate heavy compile-time costs:
-//! `mc` (Monte Carlo + `nalgebra`) and `dataframes` (`polars`).
+//! One pass-through feature remains to gate heavy compile-time cost:
+//! `mc` (Monte Carlo + `nalgebra`).
 
 pub use finstack_analytics as analytics;
 pub use finstack_core as core;

@@ -648,49 +648,6 @@ class StatementResult:
         """Count of evaluation warnings attached to metadata."""
         ...
 
-    def to_polars_long(self) -> Any:
-        """Export results as a Polars DataFrame in long (tidy) form.
-
-        Returns
-        -------
-        polars.DataFrame
-            Long-format frame; exact schema is defined by the Rust exporter.
-
-        Raises
-        ------
-        ValueError
-            If export fails.
-
-        Example
-        -------
-        >>> # At runtime this returns a ``polars.DataFrame`` (stubbed as ``Any``).
-        >>> # df = r.to_polars_long()  # doctest: +SKIP
-        >>> parse_formula("x")  # doctest: +ELLIPSIS
-        '...'
-        """
-        ...
-
-    def to_polars_wide(self) -> Any:
-        """Export results as a Polars DataFrame in wide form.
-
-        Returns
-        -------
-        polars.DataFrame
-            Wide-format frame; exact schema is defined by the Rust exporter.
-
-        Raises
-        ------
-        ValueError
-            If export fails.
-
-        Example
-        -------
-        >>> # df = r.to_polars_wide()  # doctest: +SKIP
-        >>> NumericMode.float64()  # doctest: +ELLIPSIS
-        NumericMode(...)
-        """
-        ...
-
     def to_pandas_long(self) -> pd.DataFrame:
         """Export results as a pandas DataFrame in long (tidy) form.
 

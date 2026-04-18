@@ -14,8 +14,6 @@ yanked = "deny"
 ignore = [
     # Transitive via nalgebra/simba; no safe upgrade path published by advisory.
     "RUSTSEC-2024-0436", # paste (unmaintained)
-    # Transitive via polars; bincode team ceased development, no safe upgrade path.
-    "RUSTSEC-2025-0141", # bincode (unmaintained)
 ]
 
 [licenses]

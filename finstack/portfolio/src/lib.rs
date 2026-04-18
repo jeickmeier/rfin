@@ -17,7 +17,7 @@
 //! - Metrics aggregation with cross-currency support
 //! - Attribute-based grouping and analysis
 //! - Scenario application
-//! - DataFrame exports for analysis
+//! - Tabular exports for analysis
 //!
 //! # Quick Start
 //!
@@ -71,8 +71,7 @@ pub mod attribution;
 pub mod book;
 /// Fluent portfolio construction helpers.
 pub mod builder;
-#[cfg(feature = "dataframes")]
-/// DataFrame exports for portfolio results.
+/// Tabular exports for portfolio results.
 pub mod dataframe;
 /// Error types for portfolio operations.
 pub mod error;

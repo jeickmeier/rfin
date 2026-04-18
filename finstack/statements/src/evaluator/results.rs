@@ -262,34 +262,31 @@ impl StatementResult {
         Ok(())
     }
 
-    /// Export to Polars long format DataFrame.
+    /// Export to a long-format table.
     ///
-    /// Schema: `(node_id: Utf8, period_id: Utf8, value: Float64)`
-    #[cfg(feature = "dataframes")]
-    pub fn to_polars_long(&self) -> Result<polars::prelude::DataFrame> {
-        super::export::to_polars_long(self)
+    /// Schema: `(node_id, period_id, value, value_money, currency, value_type)`.
+    pub fn to_table_long(&self) -> Result<finstack_core::table::TableEnvelope> {
+        super::export::to_table_long(self)
     }
 
-    /// Export to Polars long format with node filtering.
+    /// Export to a long-format table with node filtering.
     ///
     /// If `node_filter` is empty, all nodes are included.
     ///
     /// # Arguments
     /// * `node_filter` - Optional list of node identifiers to keep
-    #[cfg(feature = "dataframes")]
-    pub fn to_polars_long_filtered(
+    pub fn to_table_long_filtered(
         &self,
         node_filter: &[&str],
-    ) -> Result<polars::prelude::DataFrame> {
-        super::export::to_polars_long_filtered(self, node_filter)
+    ) -> Result<finstack_core::table::TableEnvelope> {
+        super::export::to_table_long_filtered(self, node_filter)
     }
 
-    /// Export to Polars wide format DataFrame.
+    /// Export to a wide-format table.
     ///
-    /// Schema: `(period_id: Utf8, <node1>: Float64, <node2>: Float64, ...)`
-    #[cfg(feature = "dataframes")]
-    pub fn to_polars_wide(&self) -> Result<polars::prelude::DataFrame> {
-        super::export::to_polars_wide(self)
+    /// Schema: `(period_id, <node1>, <node2>, ...)`
+    pub fn to_table_wide(&self) -> Result<finstack_core::table::TableEnvelope> {
+        super::export::to_table_wide(self)
     }
 }
 

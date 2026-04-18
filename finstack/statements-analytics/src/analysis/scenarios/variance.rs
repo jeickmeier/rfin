@@ -6,9 +6,9 @@
 //!
 //! Key features:
 //! - **Absolute and percentage variance** between a baseline and comparison
-//! - **Per-metric, per-period rows** suitable for DataFrame export
+//! - **Per-metric, per-period rows** suitable for tabular export
 //! - **Bridge decomposition** helpers for driver-level attribution
-//! - Optional **Polars DataFrame** export when the `dataframes` feature is enabled
+//! - Optional serializable table export for bindings and reports
 //!
 //! # Examples
 //!
@@ -46,13 +46,12 @@
 
 use finstack_core::dates::PeriodId;
 use finstack_core::math::ZERO_TOLERANCE;
+use finstack_core::table::{TableColumn, TableColumnData, TableColumnRole, TableEnvelope};
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::StatementResult;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "dataframes")]
-use polars::prelude::*;
+use serde_json::json;
 
 /// Configuration for variance analysis between two `StatementResult`.
 ///
@@ -345,19 +344,18 @@ impl VarianceReport {
     }
 }
 
-#[cfg(feature = "dataframes")]
 impl VarianceReport {
-    /// Export variance rows to a Polars DataFrame.
+    /// Export variance rows to a table envelope.
     ///
     /// Schema:
-    /// - `period` (Utf8)
-    /// - `metric` (Utf8)
+    /// - `period` (String)
+    /// - `metric` (String)
     /// - `baseline` (Float64)
     /// - `comparison` (Float64)
     /// - `abs_var` (Float64)
-    /// - `pct_var` (Float64)
-    /// - `driver_contribution` (Utf8, optional)
-    pub fn to_polars(&self) -> Result<DataFrame> {
+    /// - `pct_var` (Float64, nullable)
+    /// - `driver_contribution` (String, nullable)
+    pub fn to_table(&self) -> Result<TableEnvelope> {
         let mut periods = Vec::with_capacity(self.rows.len());
         let mut metrics = Vec::with_capacity(self.rows.len());
         let mut baselines = Vec::with_capacity(self.rows.len());
@@ -387,18 +385,33 @@ impl VarianceReport {
             }
         }
 
-        let df = DataFrame::new_infer_height(vec![
-            Series::new("period".into(), periods).into(),
-            Series::new("metric".into(), metrics).into(),
-            Series::new("baseline".into(), baselines).into(),
-            Series::new("comparison".into(), comparisons).into(),
-            Series::new("abs_var".into(), abs_vars).into(),
-            Series::new("pct_var".into(), pct_vars).into(),
-            Series::new("driver_contribution".into(), driver_contributions).into(),
-        ])
-        .map_err(|e| Error::invalid_input(format!("Failed to create variance DataFrame: {}", e)))?;
+        let mut metadata = IndexMap::new();
+        metadata.insert("layout".to_string(), json!("long"));
+        metadata.insert("source".to_string(), json!("variance_report"));
 
-        Ok(df)
+        TableEnvelope::new_with_metadata(
+            vec![
+                TableColumn::new("period", TableColumnData::String(periods))
+                    .with_role(TableColumnRole::Index),
+                TableColumn::new("metric", TableColumnData::String(metrics))
+                    .with_role(TableColumnRole::Dimension),
+                TableColumn::new("baseline", TableColumnData::Float64(baselines))
+                    .with_role(TableColumnRole::Measure),
+                TableColumn::new("comparison", TableColumnData::Float64(comparisons))
+                    .with_role(TableColumnRole::Measure),
+                TableColumn::new("abs_var", TableColumnData::Float64(abs_vars))
+                    .with_role(TableColumnRole::Measure),
+                TableColumn::new("pct_var", TableColumnData::NullableFloat64(pct_vars))
+                    .with_role(TableColumnRole::Measure),
+                TableColumn::new(
+                    "driver_contribution",
+                    TableColumnData::NullableString(driver_contributions),
+                )
+                .with_role(TableColumnRole::Attribute),
+            ],
+            metadata,
+        )
+        .map_err(Into::into)
     }
 }
 

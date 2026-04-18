@@ -4,7 +4,9 @@ use crate::error::{Error, Result};
 use crate::evaluator::results::EvalWarning;
 use crate::types::FinancialModelSpec;
 use finstack_core::dates::PeriodId;
+use finstack_core::table::{TableColumn, TableColumnData, TableColumnRole, TableEnvelope};
 use indexmap::IndexMap;
+use serde_json::json;
 
 /// Results for a single Monte Carlo path: per-node per-period values and any warnings emitted.
 pub(crate) type PathResult = (IndexMap<String, IndexMap<PeriodId, f64>>, Vec<EvalWarning>);
@@ -88,10 +90,9 @@ pub struct MonteCarloResults {
     /// Internal storage of path-level values.
     #[serde(skip)]
     pub(crate) path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>>,
-    /// Optional full path data in long-format Polars DataFrame.
-    #[cfg(feature = "dataframes")]
-    #[serde(skip)]
-    pub path_data: Option<polars::prelude::DataFrame>,
+    /// Optional full path data in long-format table form.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path_data: Option<TableEnvelope>,
 }
 
 impl MonteCarloResults {
@@ -187,13 +188,9 @@ pub(crate) struct MonteCarloAccumulator {
     forecast_set: HashSet<PeriodId>,
     path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>>,
     warnings: Vec<EvalWarning>,
-    #[cfg(feature = "dataframes")]
     path_ids: Vec<u32>,
-    #[cfg(feature = "dataframes")]
     periods: Vec<String>,
-    #[cfg(feature = "dataframes")]
     metrics: Vec<String>,
-    #[cfg(feature = "dataframes")]
     values: Vec<f64>,
 }
 
@@ -221,20 +218,16 @@ impl MonteCarloAccumulator {
             forecast_periods,
             path_values: IndexMap::new(),
             warnings: Vec::new(),
-            #[cfg(feature = "dataframes")]
             path_ids: Vec::new(),
-            #[cfg(feature = "dataframes")]
             periods: Vec::new(),
-            #[cfg(feature = "dataframes")]
             metrics: Vec::new(),
-            #[cfg(feature = "dataframes")]
             values: Vec::new(),
         })
     }
 
     pub(crate) fn push_path(
         &mut self,
-        #[cfg_attr(not(feature = "dataframes"), allow(unused_variables))] path_idx: usize,
+        path_idx: usize,
         path_results: IndexMap<String, IndexMap<PeriodId, f64>>,
         warnings: Vec<EvalWarning>,
     ) -> Result<()> {
@@ -254,13 +247,10 @@ impl MonteCarloAccumulator {
                     )));
                 }
                 metric_entry.entry(period_id).or_default().push(value);
-                #[cfg(feature = "dataframes")]
-                {
-                    self.path_ids.push(path_idx as u32);
-                    self.periods.push(period_id.to_string());
-                    self.metrics.push(metric.clone());
-                    self.values.push(value);
-                }
+                self.path_ids.push(path_idx as u32);
+                self.periods.push(period_id.to_string());
+                self.metrics.push(metric.clone());
+                self.values.push(value);
             }
         }
 
@@ -315,24 +305,25 @@ impl MonteCarloAccumulator {
             percentile_results.insert(metric.clone(), series);
         }
 
-        #[cfg(feature = "dataframes")]
-        let path_data = {
-            use polars::prelude::*;
-
-            if self.path_ids.is_empty() {
-                None
-            } else {
-                let df = DataFrame::new_infer_height(vec![
-                    Series::new("path_id".into(), self.path_ids).into(),
-                    Series::new("period".into(), self.periods).into(),
-                    Series::new("metric".into(), self.metrics).into(),
-                    Series::new("value".into(), self.values).into(),
-                ])
-                .map_err(|e| {
-                    Error::invalid_input(format!("Failed to build Monte Carlo path DataFrame: {e}"))
-                })?;
-                Some(df)
-            }
+        let path_data = if self.path_ids.is_empty() {
+            None
+        } else {
+            let mut metadata = IndexMap::new();
+            metadata.insert("layout".to_string(), json!("long"));
+            metadata.insert("source".to_string(), json!("statement_monte_carlo_paths"));
+            Some(TableEnvelope::new_with_metadata(
+                vec![
+                    TableColumn::new("path_id", TableColumnData::UInt32(self.path_ids))
+                        .with_role(TableColumnRole::Dimension),
+                    TableColumn::new("period", TableColumnData::String(self.periods))
+                        .with_role(TableColumnRole::Index),
+                    TableColumn::new("metric", TableColumnData::String(self.metrics))
+                        .with_role(TableColumnRole::Dimension),
+                    TableColumn::new("value", TableColumnData::Float64(self.values))
+                        .with_role(TableColumnRole::Measure),
+                ],
+                metadata,
+            )?)
         };
 
         Ok(MonteCarloResults {
@@ -342,7 +333,6 @@ impl MonteCarloAccumulator {
             forecast_periods: self.forecast_periods,
             warnings: self.warnings,
             path_values: self.path_values,
-            #[cfg(feature = "dataframes")]
             path_data,
         })
     }
@@ -367,13 +357,10 @@ impl MonteCarloAccumulator {
             }
         }
 
-        #[cfg(feature = "dataframes")]
-        {
-            self.path_ids.extend(other.path_ids);
-            self.periods.extend(other.periods);
-            self.metrics.extend(other.metrics);
-            self.values.extend(other.values);
-        }
+        self.path_ids.extend(other.path_ids);
+        self.periods.extend(other.periods);
+        self.metrics.extend(other.metrics);
+        self.values.extend(other.values);
 
         Ok(self)
     }
@@ -387,13 +374,9 @@ impl MonteCarloAccumulator {
             forecast_set: self.forecast_set.clone(),
             path_values: IndexMap::new(),
             warnings: Vec::new(),
-            #[cfg(feature = "dataframes")]
             path_ids: Vec::new(),
-            #[cfg(feature = "dataframes")]
             periods: Vec::new(),
-            #[cfg(feature = "dataframes")]
             metrics: Vec::new(),
-            #[cfg(feature = "dataframes")]
             values: Vec::new(),
         }
     }

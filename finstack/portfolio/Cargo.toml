@@ -19,7 +19,6 @@ serde_json = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 tracing = "0.1"
 time = { workspace = true, features = ["macros", "serde", "parsing", "formatting"] }
-polars = { version = "0.53", default-features = false, features = ["fmt", "dtype-date"], optional = true }
 rayon = "1.11"
 good_lp = { version = "1.15", default-features = false, features = ["microlp"] }
 
@@ -29,8 +28,7 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 
 [features]
-default = ["dataframes"]
-dataframes = ["dep:polars"]
+default = []
 
 [[bench]]
 name = "portfolio_valuation"

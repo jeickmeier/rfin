@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: This is useful for learning about the portfolio crate and its functionality which includes:  Entity-based position tracking, multi-instrument valuation, cross-currency aggregation with explicit FX, attribute-based grouping, metrics aggregation, scenario integration, and DataFrame exports.
+description: This is useful for learning about the portfolio crate and its functionality which includes: entity-based position tracking, multi-instrument valuation, cross-currency aggregation with explicit FX, attribute-based grouping, metrics aggregation, scenario integration, and table exports.
 globs:
 ---
 ### Finstack Portfolio (Rust) — Rules, Structure, and Contribution Guide
@@ -9,7 +9,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 
 ### Scope and Purpose
 
-- **Core responsibilities**: Entity-based position tracking, multi-instrument valuation, cross-currency aggregation with explicit FX, attribute-based grouping, metrics aggregation, scenario integration, and DataFrame exports.
+- **Core responsibilities**: Entity-based position tracking, multi-instrument valuation, cross-currency aggregation with explicit FX, attribute-based grouping, metrics aggregation, scenario integration, and table exports.
 - **Entity-centric model**: Positions belong to entities (companies, funds) with support for standalone instruments via dummy entity (`DUMMY_ENTITY_ID`).
 - **Flat position storage**: Simple Vec-based position list with flexible attribute-based grouping (no enforced hierarchy).
 - **Multi-instrument support**: Works with any instrument implementing `finstack_valuations::instruments::common::traits::Instrument`.
@@ -30,7 +30,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - `src/grouping.rs`: attribute-based grouping (`aggregate_by_attribute`, `group_by_attribute`).
 - `src/results.rs`: additional result types and utilities (if needed beyond valuation types).
 - `src/scenarios.rs`: scenario application and revaluation.
-- `src/dataframe.rs`: Polars DataFrame exports for positions and entities (feature-gated, requires `dataframes` feature).
+- `src/dataframe.rs`: Serializable table exports for positions and entities.
 - `src/error.rs`: `PortfolioError` enum and `Result<T>` type alias.
 - `tests/`: integration tests covering builder, valuation, FX conversion, grouping, metrics, scenarios.
 - `benches/`: benchmarks for portfolio valuation performance.
@@ -59,7 +59,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - **Concurrency**: Respect the `parallel` feature flag (inherited from core); do not change outputs when toggled. Valuation can be parallelized per-position in future without changing results.
 - **Performance**: Preallocate `IndexMap` where sizes are known; avoid redundant FX lookups (cache rates if needed); use `Arc` to share instrument references across positions.
 - **No implicit FX**: Never auto-convert `Money` across currencies; require explicit `FxMatrix` and `FxQuery` with policy stamping where appropriate.
-- **Dependencies**: Core dependencies are `finstack-core`, `finstack-valuations`, `finstack-scenarios`, `finstack-statements`, `indexmap`, `serde`, `thiserror`, `time`, `tracing`. Optional: `polars` (for dataframes).
+- **Dependencies**: Core dependencies are `finstack-core`, `finstack-valuations`, `finstack-scenarios`, `finstack-statements`, `indexmap`, `serde`, `thiserror`, `time`, `tracing`.
 - **Tests**: Add unit tests in module files and integration tests in `tests/` directory. Ensure cross-currency, multi-entity, and edge cases are covered. Validate FX fallback behavior.
 
 ### Feature Design Patterns
@@ -70,7 +70,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - **Metrics handling**: Standard summable metrics (DV01, CS01, Theta) are aggregated; non-summable metrics (YTM, Duration) are position-specific. Use `aggregate_metrics` to sum compatible metrics across positions.
 - **Attribute-based grouping**: Positions have `tags: IndexMap<String, String>` for flexible grouping (rating, sector, asset_class, etc.). Functions `group_by_attribute` and `aggregate_by_attribute` enable rollups by any tag.
 - **Scenario integration**: `apply_scenario` applies scenario to market data and re-values portfolio; `apply_and_revalue` is a convenience wrapper.
-- **DataFrame exports**: `positions_to_dataframe` and `entities_to_dataframe` (feature-gated) convert results to Polars DataFrames for analysis. Requires `dataframes` feature.
+- **Table exports**: `positions_to_table` and `entities_to_table` convert results to serializable table envelopes for downstream consumers.
 - **Builder ergonomics**: `PortfolioBuilder` uses method chaining (`.entity()`, `.position()`, `.base_ccy()`, `.as_of()`) and auto-creates dummy entity if positions reference it. Final `build()` validates entity integrity.
 
 ### Adding New Features to `portfolio/`
@@ -119,12 +119,12 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
   - Add before/after comparison helpers (delta value, delta metrics).
   - Integration tests in `tests/scenarios_integration.rs` covering stress tests, parallel shifts, and composition.
 
-1) DataFrame Export Extensions
+1) Table Export Extensions
 
-- Extend `dataframe.rs` (requires `dataframes` feature):
-  - Add metric exports to DataFrames (e.g., `metrics_to_dataframe`).
+- Extend `dataframe.rs`:
+  - Add metric exports to table envelopes (e.g., `metrics_to_table`).
   - Support hierarchical aggregations (entity → position → metrics).
-  - Add schema validation and type safety for DataFrame columns.
+  - Add schema validation and type safety for exported columns.
   - Ensure stable column ordering and naming for downstream consumers.
   - Add tests for empty portfolios, missing metrics, and schema consistency in `tests/grouping_and_df.rs`.
 
@@ -148,7 +148,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - Builder validation enforced (duplicate checks, entity existence).
 - Integration tests cover multi-entity, cross-currency, and edge cases.
 - Scenarios integration tested.
-- DataFrame exports tested (if `dataframes` feature is enabled).
+- Table exports tested.
 - Benchmarks updated if performance-critical paths are modified.
 
 ### Practical Tips
@@ -178,15 +178,9 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 
 ### Cargo Features
 
-The `finstack-portfolio` crate supports a single optional feature:
-
-- `dataframes` (default): Enables Polars DataFrame exports via `dep:polars`. Provides `positions_to_dataframe` and `entities_to_dataframe` functions.
-
 Scenario application and revaluation (`apply_scenario`, `apply_and_revalue`)
 are always available; `finstack-scenarios` and `finstack-statements` are
 unconditional dependencies.
-
-Default features: `["dataframes"]`
 
 ### Available Types and Functions
 
@@ -220,10 +214,10 @@ Default features: `["dataframes"]`
 - `apply_scenario(portfolio, scenario, market, config) -> Result<(MarketContext, ScenarioReport)>`: Apply scenario to market data.
 - `apply_and_revalue(portfolio, scenario, market, config) -> Result<(PortfolioValuation, ScenarioReport)>`: Apply scenario and revalue portfolio.
 
-#### DataFrames (feature-gated)
+#### Tables
 
-- `positions_to_dataframe(valuation) -> Result<DataFrame>`: Export position-level results to Polars DataFrame.
-- `entities_to_dataframe(valuation) -> Result<DataFrame>`: Export entity-level aggregates to Polars DataFrame.
+- `positions_to_table(valuation) -> Result<TableEnvelope>`: Export position-level results to a serializable table envelope.
+- `entities_to_table(valuation) -> Result<TableEnvelope>`: Export entity-level aggregates to a serializable table envelope.
 
 ### Error Types
 
@@ -250,7 +244,7 @@ The following features are planned for future releases:
 - **Performance optimization**: Parallel per-position valuation with deterministic aggregation; bounded FX rate caching.
 - **Position serialization**: Store instrument state alongside position for full serialization/deserialization.
 - **Stronger ID types**: Migrate `EntityId` and `PositionId` from `String` aliases to `Id<Entity>` and `Id<Position>` newtypes for type safety.
-- **Time-series valuations**: Value portfolio across multiple dates with period alignment and time-series DataFrame exports.
+- **Time-series valuations**: Value portfolio across multiple dates with period alignment and time-series table exports.
 
 ### Testing Guidelines
 
@@ -259,7 +253,7 @@ The following features are planned for future releases:
   - `portfolio_and_builder.rs`: Builder validation, entity integrity, position queries.
   - `valuation_fx.rs`: Cross-currency valuation, FX fallback, rate lookup failures.
   - `valuation_fallback.rs`: Metrics fallback to value-only when `price_with_metrics` fails.
-  - `grouping_and_df.rs`: Attribute-based grouping, DataFrame exports, schema validation.
+  - `grouping_and_df.rs`: Attribute-based grouping, table exports, schema validation.
   - `metrics_agg.rs`: Metrics aggregation, summable vs non-summable, scaling by quantity.
   - `scenarios_integration.rs`: Scenario application, revaluation, before/after comparison.
 - **Benchmarks**: In `benches/portfolio_valuation.rs` for performance regression tracking.

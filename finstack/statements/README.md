@@ -14,16 +14,13 @@
 | Feature | Effect | Operational note |
 |---------|--------|------------------|
 | `default` | Core statements runtime only | Baseline production build |
-| `dataframes` | Enables Polars-based exports and path DataFrames | Required for DataFrame export APIs |
 | `parallel` | Enables Rayon-backed Monte Carlo path parallelism | Higher peak memory than serial Monte Carlo |
 
 Recommended verification matrix:
 
 ```bash
 cargo test -p finstack-statements
-cargo test -p finstack-statements --features dataframes
-cargo test -p finstack-statements
-cargo test -p finstack-statements --features dataframes
+cargo bench -p finstack-statements --bench statements_operations --no-run
 ```
 
 ## Key Docs

@@ -11,7 +11,6 @@ authors.workspace = true
 default = []
 # Capability pass-throughs: gate compile-time cost in sub-crates.
 mc = ["finstack_monte_carlo/mc", "finstack_margin/mc", "finstack_valuations/mc"]
-dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes"]
 
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core" }

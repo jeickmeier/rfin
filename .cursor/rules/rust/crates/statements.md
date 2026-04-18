@@ -59,7 +59,7 @@ This document defines Cursor rules for the `finstack/statements/` crate. It expl
   - `corkscrew.rs`: `CorkscrewExtension` for balance sheet roll-forward validation.
   - `scorecards.rs`: `CreditScorecardExtension` for rating assignment.
 - `src/results/`: result export utilities.
-  - `export.rs`: Polars DataFrame exports (feature-gated under `dataframes`).
+  - `export.rs`: Serializable table export utilities.
 - `src/utils/`: internal utilities.
   - `formula.rs`: formula parsing and validation helpers.
 - `src/error.rs`: `Error` enum and `Result<T>` type alias.
@@ -91,7 +91,7 @@ This document defines Cursor rules for the `finstack/statements/` crate. It expl
 - **DSL design**: Keep parser simple and predictable; support time-series operators (`lag`, `lead`, `diff`, `pct_change`), rolling windows (`rolling_mean`, etc.), statistical functions (`std`, `var`, `median`), and custom functions (`sum`, `mean`, `ttm`, `annualize`, `coalesce`).
 - **Evaluation context**: `EvaluationContext` provides variable/function lookups; isolate side effects (market data access, instrument pricing) in context implementations.
 - **Performance**: Preallocate vectors where sizes are known; cache compiled expressions in DAG; reuse `EvaluationContext` across periods where safe.
-- **Dependencies**: Core dependencies are `finstack-core`, `finstack-valuations`, `indexmap`, `serde`, `serde_json`, `nom` (parser), `thiserror`. Optional: `polars` (for dataframes).
+- **Dependencies**: Core dependencies are `finstack-core`, `finstack-valuations`, `indexmap`, `serde`, `serde_json`, `nom` (parser), `thiserror`.
 - **Tests**: Add unit tests in module files and integration tests in `tests/` directory. Cover happy paths, edge cases (circular deps, missing nodes, currency mismatches), and golden tests for formula evaluation.
 
 ### Feature Design Patterns
@@ -105,7 +105,7 @@ This document defines Cursor rules for the `finstack/statements/` crate. It expl
 - **Capital structure integration**: Instruments stored in `CapitalStructureSpec`; accessed via `cs.*` namespace in DSL; cashflows computed with `MarketContext` from valuations crate.
 - **Extension plugins**: Extensions implement `Extension` trait; registered in `ExtensionRegistry`; run post-evaluation with access to results and model metadata.
 - **Registry system**: Metrics defined in JSON; loaded into dynamic registry; inter-metric dependencies resolved; built-in `fin.*` namespace provided.
-- **DataFrame exports**: `Results::to_dataframe()` (feature-gated) converts results to Polars DataFrames for analysis; requires `dataframes` feature.
+- **Table exports**: result export helpers produce serializable table envelopes for downstream Rust, Python, and WASM consumers.
 
 ### Adding New Features to `statements/`
 
@@ -191,7 +191,7 @@ This document defines Cursor rules for the `finstack/statements/` crate. It expl
 - Integration tests cover multi-period, multi-metric, and edge cases.
 - Capital structure integration tested (if applicable).
 - Extension execution tested (if applicable).
-- DataFrame exports tested (if `dataframes` feature is enabled).
+- Table exports tested.
 - Benchmarks updated if performance-critical paths are modified.
 
 ### Practical Tips
@@ -223,11 +223,7 @@ This document defines Cursor rules for the `finstack/statements/` crate. It expl
 
 ### Cargo Features
 
-The `finstack-statements` crate supports the following features:
-
-- `dataframes` (optional): Enables Polars DataFrame exports via `dep:polars`. Provides `Results::to_dataframe()` and related functions.
-
-Default features: `[]` (no defaults; opt-in for dataframes)
+The `finstack-statements` crate currently ships without optional dataframe features; tabular outputs are exported through serde-friendly table envelopes.
 
 ### Available Forecast Methods
 

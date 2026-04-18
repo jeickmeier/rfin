@@ -1,13 +1,27 @@
 //! Integration tests for results export functionality.
 
-#![cfg(feature = "dataframes")]
-
 use finstack_statements::prelude::*;
 use indexmap::indexmap;
 use serde_json::json;
 
+fn string_column<'a>(table: &'a finstack_core::table::TableEnvelope, name: &str) -> &'a [String] {
+    table
+        .column(name)
+        .unwrap()
+        .as_strings()
+        .expect("expected string column")
+}
+
+fn float_column<'a>(table: &'a finstack_core::table::TableEnvelope, name: &str) -> &'a [f64] {
+    table
+        .column(name)
+        .unwrap()
+        .as_f64()
+        .expect("expected float column")
+}
+
 #[test]
-fn test_export_to_polars_long() {
+fn test_export_to_table_long() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q2", None)
         .unwrap()
@@ -34,25 +48,21 @@ fn test_export_to_polars_long() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    let df = results.to_polars_long().unwrap();
+    let table = results.to_table_long().unwrap();
 
     // Should have 3 nodes × 2 periods = 6 rows
-    assert_eq!(df.height(), 6);
-    assert_eq!(df.width(), 6); // node_id, period_id, value, value_money, currency, value_type
-
-    // Check column names
-    let columns = df.get_column_names();
-    assert_eq!(columns.len(), 6);
-    assert_eq!(columns[0].as_str(), "node_id");
-    assert_eq!(columns[1].as_str(), "period_id");
-    assert_eq!(columns[2].as_str(), "value");
-    assert_eq!(columns[3].as_str(), "value_money");
-    assert_eq!(columns[4].as_str(), "currency");
-    assert_eq!(columns[5].as_str(), "value_type");
+    assert_eq!(table.row_count, 6);
+    assert_eq!(table.columns.len(), 6); // node_id, period_id, value, value_money, currency, value_type
+    assert_eq!(table.columns[0].name, "node_id");
+    assert_eq!(table.columns[1].name, "period_id");
+    assert_eq!(table.columns[2].name, "value");
+    assert_eq!(table.columns[3].name, "value_money");
+    assert_eq!(table.columns[4].name, "currency");
+    assert_eq!(table.columns[5].name, "value_type");
 }
 
 #[test]
-fn test_export_to_polars_long_filtered() {
+fn test_export_to_table_long_filtered() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q2", None)
         .unwrap()
@@ -80,17 +90,17 @@ fn test_export_to_polars_long_filtered() {
     let results = evaluator.evaluate(&model).unwrap();
 
     // Filter to just revenue and cogs
-    let df = results
-        .to_polars_long_filtered(&["revenue", "cogs"])
+    let table = results
+        .to_table_long_filtered(&["revenue", "cogs"])
         .unwrap();
 
     // Should have 2 nodes × 2 periods = 4 rows
-    assert_eq!(df.height(), 4);
-    assert_eq!(df.width(), 6);
+    assert_eq!(table.row_count, 4);
+    assert_eq!(table.columns.len(), 6);
 
     // Verify only revenue and cogs are present
-    let node_ids = df.column("node_id").unwrap().str().unwrap();
-    let unique_nodes: std::collections::HashSet<_> = node_ids.into_iter().flatten().collect();
+    let node_ids = string_column(&table, "node_id");
+    let unique_nodes: std::collections::HashSet<_> = node_ids.iter().map(String::as_str).collect();
     assert_eq!(unique_nodes.len(), 2);
     assert!(unique_nodes.contains("revenue"));
     assert!(unique_nodes.contains("cogs"));
@@ -98,7 +108,7 @@ fn test_export_to_polars_long_filtered() {
 }
 
 #[test]
-fn test_export_to_polars_wide() {
+fn test_export_to_table_wide() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q2", None)
         .unwrap()
@@ -125,29 +135,28 @@ fn test_export_to_polars_wide() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    let df = results.to_polars_wide().unwrap();
+    let table = results.to_table_wide().unwrap();
 
     // Should have 2 periods (rows)
-    assert_eq!(df.height(), 2);
+    assert_eq!(table.row_count, 2);
     // Should have 4 columns: period_id + 3 nodes
-    assert_eq!(df.width(), 4);
+    assert_eq!(table.columns.len(), 4);
 
     // Check column names
-    let columns = df.get_column_names();
-    let col_names: Vec<String> = columns.iter().map(|c| c.as_str().to_string()).collect();
+    let col_names: Vec<String> = table.columns.iter().map(|c| c.name.clone()).collect();
     assert!(col_names.contains(&"period_id".to_string()));
     assert!(col_names.contains(&"revenue".to_string()));
     assert!(col_names.contains(&"cogs".to_string()));
     assert!(col_names.contains(&"gross_profit".to_string()));
 
     // Check first row values
-    let revenue = df.column("revenue").unwrap().f64().unwrap();
-    assert_eq!(revenue.get(0), Some(100_000.0));
-    assert_eq!(revenue.get(1), Some(110_000.0));
+    let revenue = float_column(&table, "revenue");
+    assert_eq!(revenue[0], 100_000.0);
+    assert_eq!(revenue[1], 110_000.0);
 
-    let cogs = df.column("cogs").unwrap().f64().unwrap();
-    assert_eq!(cogs.get(0), Some(60_000.0));
-    assert_eq!(cogs.get(1), Some(66_000.0));
+    let cogs = float_column(&table, "cogs");
+    assert_eq!(cogs[0], 60_000.0);
+    assert_eq!(cogs[1], 66_000.0);
 }
 
 #[test]
@@ -195,19 +204,18 @@ fn test_export_complete_pl_model() {
     let results = evaluator.evaluate(&model).unwrap();
 
     // Test long format
-    let df_long = results.to_polars_long().unwrap();
-    assert_eq!(df_long.height(), 24); // 6 nodes × 4 periods
+    let table_long = results.to_table_long().unwrap();
+    assert_eq!(table_long.row_count, 24); // 6 nodes × 4 periods
 
     // Test wide format
-    let df_wide = results.to_polars_wide().unwrap();
-    assert_eq!(df_wide.height(), 4); // 4 periods
-    assert_eq!(df_wide.width(), 7); // period_id + 6 nodes
+    let table_wide = results.to_table_wide().unwrap();
+    assert_eq!(table_wide.row_count, 4); // 4 periods
+    assert_eq!(table_wide.columns.len(), 7); // period_id + 6 nodes
 
     // Verify some calculated values
-    let gross_margin = df_wide.column("gross_margin").unwrap().f64().unwrap();
+    let gross_margin = float_column(&table_wide, "gross_margin");
     // All quarters should have ~0.4 gross margin (40%)
-    for i in 0..4 {
-        let margin = gross_margin.get(i).unwrap();
+    for margin in gross_margin.iter().take(4) {
         assert!((margin - 0.4).abs() < 0.001);
     }
 }
@@ -247,20 +255,20 @@ fn test_export_with_multiple_periods() {
     let results = evaluator.evaluate(&model).unwrap();
 
     // Test long format
-    let df_long = results.to_polars_long().unwrap();
-    assert_eq!(df_long.height(), 8); // 2 nodes × 4 periods
+    let table_long = results.to_table_long().unwrap();
+    assert_eq!(table_long.row_count, 8); // 2 nodes × 4 periods
 
     // Test wide format
-    let df_wide = results.to_polars_wide().unwrap();
-    assert_eq!(df_wide.height(), 4); // 4 periods
-    assert_eq!(df_wide.width(), 3); // period_id + 2 nodes
+    let table_wide = results.to_table_wide().unwrap();
+    assert_eq!(table_wide.row_count, 4); // 4 periods
+    assert_eq!(table_wide.columns.len(), 3); // period_id + 2 nodes
 
     // Verify period ordering in wide format
-    let period_ids = df_wide.column("period_id").unwrap().str().unwrap();
-    assert_eq!(period_ids.get(0), Some("2025Q1"));
-    assert_eq!(period_ids.get(1), Some("2025Q2"));
-    assert_eq!(period_ids.get(2), Some("2025Q3"));
-    assert_eq!(period_ids.get(3), Some("2025Q4"));
+    let period_ids = string_column(&table_wide, "period_id");
+    assert_eq!(period_ids[0], "2025Q1");
+    assert_eq!(period_ids[1], "2025Q2");
+    assert_eq!(period_ids[2], "2025Q3");
+    assert_eq!(period_ids[3], "2025Q4");
 }
 
 #[test]
@@ -298,12 +306,11 @@ fn test_export_with_builtin_metrics() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    let df_wide = results.to_polars_wide().unwrap();
+    let table_wide = results.to_table_wide().unwrap();
 
     // Should include revenue, cogs, and all calculated metrics
-    assert!(df_wide.height() > 0);
-    let columns = df_wide.get_column_names();
-    let col_names: Vec<String> = columns.iter().map(|c| c.as_str().to_string()).collect();
+    assert!(table_wide.row_count > 0);
+    let col_names: Vec<String> = table_wide.columns.iter().map(|c| c.name.clone()).collect();
     assert!(col_names.contains(&"revenue".to_string()));
     assert!(col_names.contains(&"cogs".to_string()));
     assert!(col_names.contains(&"gross_profit".to_string()));
@@ -321,13 +328,13 @@ fn test_empty_results_export() {
         meta: Default::default(),
     };
 
-    let df_long = results.to_polars_long().unwrap();
-    assert_eq!(df_long.height(), 0);
-    assert_eq!(df_long.width(), 6); // Updated for new columns
+    let table_long = results.to_table_long().unwrap();
+    assert_eq!(table_long.row_count, 0);
+    assert_eq!(table_long.columns.len(), 6); // Updated for new columns
 
-    let df_wide = results.to_polars_wide().unwrap();
-    assert_eq!(df_wide.height(), 0);
-    assert_eq!(df_wide.width(), 1); // Just period_id column
+    let table_wide = results.to_table_wide().unwrap();
+    assert_eq!(table_wide.row_count, 0);
+    assert_eq!(table_wide.columns.len(), 1); // Just period_id column
 }
 
 #[test]
@@ -350,19 +357,19 @@ fn test_export_preserves_period_order() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    let df_wide = results.to_polars_wide().unwrap();
+    let table_wide = results.to_table_wide().unwrap();
 
     // Periods should be sorted in chronological order
-    let period_ids = df_wide.column("period_id").unwrap().str().unwrap();
-    assert_eq!(period_ids.get(0), Some("2025Q1"));
-    assert_eq!(period_ids.get(1), Some("2025Q2"));
-    assert_eq!(period_ids.get(2), Some("2025Q3"));
-    assert_eq!(period_ids.get(3), Some("2025Q4"));
+    let period_ids = string_column(&table_wide, "period_id");
+    assert_eq!(period_ids[0], "2025Q1");
+    assert_eq!(period_ids[1], "2025Q2");
+    assert_eq!(period_ids[2], "2025Q3");
+    assert_eq!(period_ids[3], "2025Q4");
 
     // Values should match the sorted order
-    let values = df_wide.column("value").unwrap().f64().unwrap();
-    assert_eq!(values.get(0), Some(1.0));
-    assert_eq!(values.get(1), Some(2.0));
-    assert_eq!(values.get(2), Some(3.0));
-    assert_eq!(values.get(3), Some(4.0));
+    let values = float_column(&table_wide, "value");
+    assert_eq!(values[0], 1.0);
+    assert_eq!(values[1], 2.0);
+    assert_eq!(values[2], 3.0);
+    assert_eq!(values[3], 4.0);
 }

@@ -114,7 +114,7 @@ impl CovenantForecast {
         Some(((p - 1.96 * se).max(0.0), (p + 1.96 * se).min(1.0)))
     }
 
-    // Polars export lives in the meta crate to avoid bringing polars into valuations.
+    // Table/pandas export lives in downstream crates to keep valuations serde-first.
 }
 
 /// A projected covenant breach.

@@ -16,7 +16,7 @@ cargo bench --package finstack-statements -- model_evaluation
 cargo bench --package finstack-statements -- --quick
 
 # With Polars export benchmarks (requires feature flag)
-cargo bench --package finstack-statements --features polars_export
+cargo bench --package finstack-statements
 
 # Compare against baseline (after running once)
 cargo bench --package finstack-statements -- --save-baseline my_baseline
@@ -100,7 +100,7 @@ Tests dynamic metric registry performance:
 - Ensure metric addition scales linearly
 - Monitor namespace resolution performance
 
-### 7. Results Export (`results_export`) *[requires `polars_export` feature]*
+### 7. Results Export (`results_export`)
 
 Benchmarks DataFrame conversion:
 
@@ -263,7 +263,7 @@ Flag for investigation if:
 - Results may vary by hardware
 - Criterion automatically determines sample size for statistical significance
 - Use `--quick` for faster iteration during development
-- Some benchmarks require `polars_export` feature flag
+- Results-export benchmarks now use the built-in table-envelope APIs directly.
 - All benchmarks use deterministic operations (no network, no external data)
 
 ## Future Benchmarks

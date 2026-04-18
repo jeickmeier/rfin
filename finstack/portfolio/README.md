@@ -157,7 +157,6 @@ an external instrument registry is required to rebuild it.
 ## Feature Flags
 
 - `scenarios`: enables scenario application helpers.
-- `dataframes`: enables Polars `DataFrame` export helpers.
 - `parallel`: enables rayon-backed portfolio valuation and metric collection in
   selected paths.
 

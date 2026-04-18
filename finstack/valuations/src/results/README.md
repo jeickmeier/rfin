@@ -374,13 +374,13 @@ let position_values: Vec<PositionValue> = portfolio
 
 ### 4. **Export and Reporting**
 
-Results are converted to DataFrames for analysis:
+Results can be flattened into serializable rows for downstream analysis:
 
 ```rust
 // Export to analytics
 let rows = results_to_rows(&valuation_results);
-let df = polars::DataFrame::from_rows(&rows)?;
-df.write_parquet("valuations.parquet")?;
+let json = serde_json::to_string(&rows)?;
+std::fs::write("valuations.json", json)?;
 ```
 
 ## Design Principles

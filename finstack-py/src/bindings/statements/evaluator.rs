@@ -1,6 +1,7 @@
 //! Python wrappers for the statement evaluator and results.
 
 use super::types::PyFinancialModelSpec;
+use crate::bindings::pandas_utils::{selected_table_to_dataframe, table_to_dataframe};
 use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -96,43 +97,25 @@ impl PyStatementResult {
         self.inner.meta.warnings.len()
     }
 
-    /// Export to Polars long-format DataFrame.
-    fn to_polars_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let df = self.inner.to_polars_long().map_err(display_to_py)?;
-        let polars_df = pyo3_polars::PyDataFrame(df);
-        polars_df.into_pyobject(py).map(Bound::into_any)
-    }
-
-    /// Export to Polars wide-format DataFrame.
-    fn to_polars_wide<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let df = self.inner.to_polars_wide().map_err(display_to_py)?;
-        let polars_df = pyo3_polars::PyDataFrame(df);
-        polars_df.into_pyobject(py).map(Bound::into_any)
-    }
-
     /// Export to pandas long-format ``DataFrame``.
     ///
-    /// Columns: ``node_id``, ``period``, ``value``. Built by narrowing the
-    /// canonical Polars long export so iteration stays in Rust.
+    /// Columns: ``node_id``, ``period``, ``value``.
     fn to_pandas_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let df = self.to_polars_long(py)?;
-        let rename = PyDict::new(py);
-        rename.set_item("period_id", "period")?;
-        df.call_method1("select", (["node_id", "period_id", "value"],))?
-            .call_method1("rename", (rename,))?
-            .call_method0("to_pandas")
+        let table = self.inner.to_table_long().map_err(display_to_py)?;
+        selected_table_to_dataframe(
+            py,
+            &table,
+            &[("node_id", "node_id"), ("period_id", "period"), ("value", "value")],
+        )
     }
 
     /// Export to pandas wide-format ``DataFrame``.
     ///
-    /// Rows are node identifiers, columns are period identifiers. Built from
-    /// the canonical Polars wide export (which has rows=periods) by converting
-    /// to pandas, moving ``period_id`` onto the index, then transposing.
+    /// Rows are node identifiers, columns are period identifiers.
     fn to_pandas_wide<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        self.to_polars_wide(py)?
-            .call_method0("to_pandas")?
-            .call_method1("set_index", ("period_id",))?
-            .getattr("T")
+        let table = self.inner.to_table_wide().map_err(display_to_py)?;
+        let df = table_to_dataframe(py, &table)?;
+        df.call_method1("set_index", ("period_id",))?.getattr("T")
     }
 
     fn __repr__(&self) -> String {

@@ -407,7 +407,7 @@ impl SchemaRegistry {
 #### Always Use Standard Crates for Format I/O
 
 - **CSV**: Use `csv` crate (`csv::ReaderBuilder`, `csv::Writer`) for all CSV operations. Add finstack-specific custom deserializers for `Amount`, `Date`, `Currency`.
-- **Parquet**: Use `parquet` crate for columnar data. Map to/from Polars DataFrames when appropriate.
+- **Parquet**: Use `parquet` crate for columnar data. Map to/from serde-friendly table envelopes or host-language tabular types when appropriate.
 - **JSON**: Use `serde_json` for all JSON I/O. Leverage serde derive macros; add custom deserializers only for non-standard types.
 - **Markdown**: Use `comrak` or `pulldown-cmark` for parsing. Extract tables and convert to finstack domain types.
 - **Excel**: Use `calamine` for reading, `rust_xlsxwriter` for writing. Handle multi-sheet workbooks and basic cell formatting.
@@ -427,7 +427,7 @@ impl SchemaRegistry {
 - For databases, use connection pooling (`deadpool`, `bb8`) and prepared statements for performance.
 - For dates, always use `time::Date` from finstack-core; preserve time zones when relevant.
 - For amounts, preserve currency and precision through I/O; validate currency codes against ISO-4217.
-- For time series data, users should use Polars DataFrames from core; io provides conversion utilities.
+- For time series data, users should use core table envelopes or host-language tabular types; io provides conversion utilities.
 - Data validation logic should live in `core/` and `statements/` crates where domain types are defined.
 
 ### Anti‑Patterns to Avoid

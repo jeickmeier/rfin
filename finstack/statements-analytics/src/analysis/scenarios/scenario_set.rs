@@ -8,8 +8,7 @@
 //! - Evaluate all scenarios into a [`ScenarioResults`] envelope.
 //! - Compute variance-style diffs between two scenarios using
 //!   [`VarianceAnalyzer`].
-//! - Export wide comparison tables as Polars DataFrames when the
-//!   `dataframes` feature is enabled.
+//! - Export wide comparison tables as serializable table envelopes.
 //!
 //! The wire format is intentionally simple and mirrors the design docs:
 //!
@@ -37,16 +36,14 @@
 
 use crate::analysis::{VarianceAnalyzer, VarianceConfig, VarianceReport};
 use finstack_core::dates::PeriodId;
+use finstack_core::math::ZERO_TOLERANCE;
+use finstack_core::table::{TableColumn, TableColumnData, TableColumnRole, TableEnvelope};
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "dataframes")]
-use finstack_core::math::ZERO_TOLERANCE;
-#[cfg(feature = "dataframes")]
-use polars::prelude::*;
+use serde_json::json;
 
 /// Definition for a single named scenario.
 ///
@@ -340,9 +337,8 @@ impl ScenarioResults {
     }
 }
 
-#[cfg(feature = "dataframes")]
 impl ScenarioResults {
-    /// Export a wide comparison table to a Polars DataFrame.
+    /// Export a wide comparison table to a serializable table envelope.
     ///
     /// Columns:
     /// - `period` (Utf8)
@@ -356,7 +352,7 @@ impl ScenarioResults {
     /// The baseline scenario is chosen as:
     /// - `"base"` if present, otherwise
     /// - the first scenario in insertion order.
-    pub fn to_comparison_df(&self, metrics: &[&str]) -> Result<DataFrame> {
+    pub fn to_comparison_table(&self, metrics: &[&str]) -> Result<TableEnvelope> {
         if self.scenarios.is_empty() {
             return Err(Error::invalid_input(
                 "ScenarioResults.scenarios cannot be empty",
@@ -445,12 +441,21 @@ impl ScenarioResults {
             }
         }
 
-        let mut columns: Vec<Column> = Vec::new();
-        columns.push(Series::new("period".into(), periods_col).into());
-        columns.push(Series::new("metric".into(), metrics_col).into());
+        let mut columns = vec![
+            TableColumn::new("period", TableColumnData::String(periods_col))
+                .with_role(TableColumnRole::Index),
+            TableColumn::new("metric", TableColumnData::String(metrics_col))
+                .with_role(TableColumnRole::Dimension),
+        ];
 
         for (idx, scenario_name) in scenario_names.iter().enumerate() {
-            columns.push(Series::new((*scenario_name).into(), scenario_values[idx].clone()).into());
+            columns.push(
+                TableColumn::new(
+                    (*scenario_name).to_string(),
+                    TableColumnData::NullableFloat64(scenario_values[idx].clone()),
+                )
+                .with_role(TableColumnRole::Measure),
+            );
 
             if *scenario_name != baseline_name {
                 // Find index in pct_values for this scenario.
@@ -460,21 +465,22 @@ impl ScenarioResults {
                 {
                     let pct_col_name = format!("{}_vs_{}_pct", scenario_name, baseline_name);
                     columns.push(
-                        Series::new(pct_col_name.as_str().into(), pct_values[pct_idx].clone())
-                            .into(),
+                        TableColumn::new(
+                            pct_col_name,
+                            TableColumnData::NullableFloat64(pct_values[pct_idx].clone()),
+                        )
+                        .with_role(TableColumnRole::Measure),
                     );
                 }
             }
         }
 
-        let df = DataFrame::new_infer_height(columns).map_err(|e| {
-            Error::invalid_input(format!(
-                "Failed to create scenario comparison DataFrame: {}",
-                e
-            ))
-        })?;
+        let mut metadata = IndexMap::new();
+        metadata.insert("layout".to_string(), json!("long"));
+        metadata.insert("source".to_string(), json!("scenario_results"));
+        metadata.insert("baseline".to_string(), json!(baseline_name));
 
-        Ok(df)
+        TableEnvelope::new_with_metadata(columns, metadata).map_err(Into::into)
     }
 }
 

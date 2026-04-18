@@ -130,6 +130,8 @@ pub mod money;
 pub mod parse;
 /// Convenient re-exports of commonly used types
 pub mod prelude;
+/// Serializable columnar table envelope for host-language bindings.
+pub mod table;
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
 /// Generic validation helpers for checking invariants.

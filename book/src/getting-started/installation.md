@@ -50,17 +50,15 @@ The umbrella crate re-exports every sub-crate (core, analytics, margin,
 valuations, portfolio, statements, statements_analytics, scenarios,
 monte_carlo, correlation) unconditionally.
 
-Two pass-through features are available to opt in to heavier compile-time
-costs:
+One pass-through feature is available to opt in to heavier compile-time cost:
 
 | Feature | Effect |
 |---------|--------|
 | `mc` | Enables Monte Carlo pricers across `monte_carlo`, `margin`, `valuations` (pulls in `nalgebra`). |
-| `dataframes` | Enables the `polars`-based DataFrame surfaces in `statements` and `portfolio`. |
 
 ```toml
 [dependencies]
-finstack = { version = "0.1", features = ["mc", "dataframes"] }
+finstack = { version = "0.1", features = ["mc"] }
 ```
 
 ## WASM / TypeScript
