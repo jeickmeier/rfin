@@ -69,7 +69,7 @@ fn parse_historical_series(historical: &[serde_json::Value], context: &str) -> R
 /// * `alpha` - Smoothing factor for exponential method (0-1, required for exponential)
 /// * `beta` - Trend smoothing factor for exponential method (0-1, required for exponential)
 /// * `window` - Window size for moving average (required for moving_average)
-pub fn timeseries_forecast(
+pub(super) fn timeseries_forecast(
     _base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
@@ -343,7 +343,7 @@ fn double_exponential_smoothing(data: &[f64], alpha: f64, beta: f64) -> (f64, f6
 /// Note: `base_value` is provided for API parity with other forecast methods but
 /// is not used in the seasonal calculation—the historical series establishes
 /// the level for projections.
-pub fn seasonal_forecast(
+pub(super) fn seasonal_forecast(
     base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
