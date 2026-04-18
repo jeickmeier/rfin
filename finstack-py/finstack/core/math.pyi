@@ -6,7 +6,22 @@ Provides pure-function submodules for numerical computation backed by
 
 from __future__ import annotations
 
-__all__ = ["linalg", "stats", "special_functions", "summation"]
+__all__ = ["consecutive", "linalg", "stats", "special_functions", "summation"]
+
+def count_consecutive(values: list[float]) -> int:
+    """Count longest consecutive run of strictly positive values.
+
+    Args:
+        values: Numeric series.
+
+    Returns:
+        Longest positive run length.
+
+    Example:
+        >>> count_consecutive([1.0, 2.0, -1.0, 3.0])
+        2
+    """
+    ...
 
 class linalg:
     """Linear algebra utilities: Cholesky decomposition, correlation matrices.

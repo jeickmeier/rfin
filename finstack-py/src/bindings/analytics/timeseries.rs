@@ -1,16 +1,251 @@
 //! Python bindings for GARCH-family volatility models and residual diagnostics.
 //!
-//! Exposes a simple function-based API returning Python dicts/tuples so callers
-//! do not need custom `#[pyclass]` wrappers. Mirrors the public API in
+//! Exposes typed `GarchFit` / `GarchParams` result classes and a
+//! function-based fitting API.  Mirrors the public API in
 //! `finstack_analytics::timeseries`.
 
 use crate::errors::core_to_py;
 use finstack_analytics::timeseries as ts;
-use finstack_analytics::timeseries::{
-    Egarch11, Garch11, GarchFit, GarchModel, GjrGarch11, InnovationDist,
-};
+use finstack_analytics::timeseries::{Egarch11, Garch11, GarchModel, GjrGarch11, InnovationDist};
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+
+// -------------------------------------------------------------------
+// PyGarchParams
+// -------------------------------------------------------------------
+
+/// Estimated GARCH model parameters.
+///
+/// Mirrors ``finstack_analytics::timeseries::GarchParams``.
+/// Fields use the same names as the Rust struct for serde parity.
+#[pyclass(frozen, name = "GarchParams", module = "finstack.analytics")]
+pub struct PyGarchParams {
+    pub(crate) inner: ts::GarchParams,
+}
+
+#[pymethods]
+impl PyGarchParams {
+    /// Intercept (omega).
+    #[getter]
+    fn omega(&self) -> f64 {
+        self.inner.omega
+    }
+    /// ARCH coefficient (alpha).
+    #[getter]
+    fn alpha(&self) -> f64 {
+        self.inner.alpha
+    }
+    /// GARCH coefficient (beta).
+    #[getter]
+    fn beta(&self) -> f64 {
+        self.inner.beta
+    }
+    /// Leverage / asymmetry parameter (``None`` for symmetric GARCH).
+    #[getter]
+    fn gamma(&self) -> Option<f64> {
+        self.inner.gamma
+    }
+    /// Innovation distribution name (``"gaussian"`` or ``"student_t"``).
+    #[getter]
+    fn distribution(&self) -> &str {
+        match self.inner.dist {
+            InnovationDist::Gaussian => "gaussian",
+            InnovationDist::StudentT(_) => "student_t",
+        }
+    }
+    /// Student-t degrees of freedom (``None`` for Gaussian).
+    #[getter]
+    fn nu(&self) -> Option<f64> {
+        match self.inner.dist {
+            InnovationDist::StudentT(nu) => Some(nu),
+            InnovationDist::Gaussian => None,
+        }
+    }
+    /// Constant mean used in demeaning.
+    #[getter]
+    fn mean(&self) -> f64 {
+        self.inner.mean
+    }
+    /// Persistence of volatility shocks.
+    #[getter]
+    fn persistence(&self) -> f64 {
+        self.inner.persistence()
+    }
+    /// Unconditional variance (``None`` for EGARCH or non-stationary).
+    #[getter]
+    fn unconditional_variance(&self) -> Option<f64> {
+        self.inner.unconditional_variance()
+    }
+    /// Shock half-life in periods (``None`` when undefined).
+    #[getter]
+    fn half_life(&self) -> Option<f64> {
+        self.inner.half_life()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "GarchParams(omega={:.6}, alpha={:.6}, beta={:.6}, persistence={:.6})",
+            self.inner.omega,
+            self.inner.alpha,
+            self.inner.beta,
+            self.inner.persistence(),
+        )
+    }
+}
+
+// -------------------------------------------------------------------
+// PyGarchFit
+// -------------------------------------------------------------------
+
+/// Complete result of a GARCH model fit.
+///
+/// Mirrors ``finstack_analytics::timeseries::GarchFit``.
+#[pyclass(frozen, name = "GarchFit", module = "finstack.analytics")]
+pub struct PyGarchFit {
+    pub(crate) inner: ts::GarchFit,
+}
+
+impl PyGarchFit {
+    /// Build from the Rust fit result.
+    pub(crate) fn from_inner(inner: ts::GarchFit) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyGarchFit {
+    /// Model name (e.g. ``"GARCH(1,1)"``).
+    #[getter]
+    fn model(&self) -> &str {
+        &self.inner.model
+    }
+    /// Estimated parameters.
+    #[getter]
+    fn params(&self) -> PyGarchParams {
+        PyGarchParams {
+            inner: self.inner.params.clone(),
+        }
+    }
+    /// Intercept (omega) — shortcut for ``fit.params.omega``.
+    #[getter]
+    fn omega(&self) -> f64 {
+        self.inner.params.omega
+    }
+    /// ARCH coefficient (alpha) — shortcut for ``fit.params.alpha``.
+    #[getter]
+    fn alpha(&self) -> f64 {
+        self.inner.params.alpha
+    }
+    /// GARCH coefficient (beta) — shortcut for ``fit.params.beta``.
+    #[getter]
+    fn beta(&self) -> f64 {
+        self.inner.params.beta
+    }
+    /// Leverage parameter — shortcut for ``fit.params.gamma``.
+    #[getter]
+    fn gamma(&self) -> Option<f64> {
+        self.inner.params.gamma
+    }
+    /// Student-t dof — shortcut for ``fit.params.nu``.
+    #[getter]
+    fn nu(&self) -> Option<f64> {
+        match self.inner.params.dist {
+            InnovationDist::StudentT(nu) => Some(nu),
+            InnovationDist::Gaussian => None,
+        }
+    }
+    /// Persistence — shortcut for ``fit.params.persistence``.
+    #[getter]
+    fn persistence(&self) -> f64 {
+        self.inner.params.persistence()
+    }
+    /// Unconditional variance — shortcut for ``fit.params.unconditional_variance``.
+    #[getter]
+    fn unconditional_variance(&self) -> Option<f64> {
+        self.inner.params.unconditional_variance()
+    }
+    /// Shock half-life — shortcut for ``fit.params.half_life``.
+    #[getter]
+    fn half_life(&self) -> Option<f64> {
+        self.inner.params.half_life()
+    }
+    /// Approximate standard errors (``None`` if Hessian inversion failed).
+    #[getter]
+    fn std_errors(&self) -> Option<Vec<f64>> {
+        self.inner.std_errors.clone()
+    }
+    /// Maximized log-likelihood.
+    #[getter]
+    fn log_likelihood(&self) -> f64 {
+        self.inner.log_likelihood
+    }
+    /// Number of observations used in fitting.
+    #[getter]
+    fn n_obs(&self) -> usize {
+        self.inner.n_obs
+    }
+    /// Number of estimated parameters.
+    #[getter]
+    fn n_params(&self) -> usize {
+        self.inner.n_params
+    }
+    /// Akaike Information Criterion.
+    #[getter]
+    fn aic(&self) -> f64 {
+        self.inner.aic
+    }
+    /// Bayesian Information Criterion.
+    #[getter]
+    fn bic(&self) -> f64 {
+        self.inner.bic
+    }
+    /// Hannan-Quinn Information Criterion.
+    #[getter]
+    fn hqic(&self) -> f64 {
+        self.inner.hqic
+    }
+    /// Conditional variance series (length = ``n_obs``).
+    #[getter]
+    fn conditional_variances(&self) -> Vec<f64> {
+        self.inner.conditional_variances.clone()
+    }
+    /// Standardized residuals: ``z_t = (r_t - mu) / sigma_t``.
+    #[getter]
+    fn standardized_residuals(&self) -> Vec<f64> {
+        self.inner.standardized_residuals.clone()
+    }
+    /// Terminal conditional variance (last ``sigma^2_t``).
+    #[getter]
+    fn terminal_variance(&self) -> f64 {
+        self.inner.terminal_variance
+    }
+    /// Whether the optimizer converged.
+    #[getter]
+    fn converged(&self) -> bool {
+        self.inner.converged
+    }
+    /// Number of optimizer iterations.
+    #[getter]
+    fn iterations(&self) -> usize {
+        self.inner.iterations
+    }
+    /// Ljung-Box p-value on squared standardized residuals (lag=10).
+    #[getter]
+    fn ljung_box_squared_p10(&self) -> f64 {
+        self.inner.ljung_box_squared(10)
+    }
+    /// ARCH-LM p-value on standardized residuals (lag=5).
+    #[getter]
+    fn arch_lm_p5(&self) -> f64 {
+        self.inner.arch_lm_test(5)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "GarchFit(model='{}', ll={:.4}, aic={:.4}, converged={})",
+            self.inner.model, self.inner.log_likelihood, self.inner.aic, self.inner.converged,
+        )
+    }
+}
 
 // -------------------------------------------------------------------
 // Helpers
@@ -30,64 +265,6 @@ fn parse_dist(s: &str) -> PyResult<InnovationDist> {
     }
 }
 
-/// Populate a `PyDict` with the shared `GarchFit` fields.
-fn fill_common_fit_fields<'py>(
-    py: Python<'py>,
-    out: &Bound<'py, PyDict>,
-    fit: &GarchFit,
-    param_names: &[&str],
-) -> PyResult<()> {
-    out.set_item("model", fit.model.clone())?;
-    out.set_item("omega", fit.params.omega)?;
-    out.set_item("alpha", fit.params.alpha)?;
-    out.set_item("beta", fit.params.beta)?;
-    if let Some(g) = fit.params.gamma {
-        out.set_item("gamma", g)?;
-    } else {
-        out.set_item("gamma", py.None())?;
-    }
-    if let InnovationDist::StudentT(nu) = fit.params.dist {
-        out.set_item("nu", nu)?;
-    }
-    out.set_item("persistence", fit.params.persistence())?;
-    out.set_item(
-        "unconditional_variance",
-        fit.params.unconditional_variance(),
-    )?;
-    out.set_item("half_life", fit.params.half_life())?;
-    out.set_item("log_likelihood", fit.log_likelihood)?;
-    out.set_item("aic", fit.aic)?;
-    out.set_item("bic", fit.bic)?;
-    out.set_item("hqic", fit.hqic)?;
-    out.set_item("n_obs", fit.n_obs)?;
-    out.set_item("n_params", fit.n_params)?;
-    out.set_item("converged", fit.converged)?;
-    out.set_item("iterations", fit.iterations)?;
-    out.set_item("terminal_variance", fit.terminal_variance)?;
-    out.set_item("conditional_variances", fit.conditional_variances.clone())?;
-    out.set_item("standardized_residuals", fit.standardized_residuals.clone())?;
-
-    // Standard errors (paired with parameter names where possible).
-    if let Some(se) = &fit.std_errors {
-        let se_dict = PyDict::new(py);
-        for (i, name) in param_names.iter().enumerate() {
-            let v = se.get(i).copied().unwrap_or(f64::NAN);
-            se_dict.set_item(*name, v)?;
-        }
-        out.set_item("std_errors", se_dict)?;
-        out.set_item("std_errors_vec", se.clone())?;
-    } else {
-        out.set_item("std_errors", py.None())?;
-        out.set_item("std_errors_vec", py.None())?;
-    }
-
-    // Convenience diagnostics on standardized residuals.
-    out.set_item("ljung_box_squared_p10", fit.ljung_box_squared(10))?;
-    out.set_item("arch_lm_p5", fit.arch_lm_test(5))?;
-
-    Ok(())
-}
-
 // -------------------------------------------------------------------
 // fit_garch11
 // -------------------------------------------------------------------
@@ -102,30 +279,14 @@ fn fill_common_fit_fields<'py>(
 ///
 /// # Returns
 ///
-/// Dict with keys ``omega``, ``alpha``, ``beta``, ``gamma`` (None for GARCH),
-/// ``log_likelihood``, ``aic``, ``bic``, ``hqic``, ``converged``,
-/// ``persistence``, ``unconditional_variance``, ``half_life``,
-/// ``std_errors`` (dict keyed by parameter name), ``conditional_variances``,
-/// ``standardized_residuals``, ``terminal_variance``, ``n_obs``,
-/// ``n_params``, ``iterations``, plus quick residual diagnostics
-/// ``ljung_box_squared_p10`` and ``arch_lm_p5``.
+/// :class:`GarchFit` with estimated parameters, diagnostics, and
+/// conditional variance series.
 #[pyfunction]
 #[pyo3(signature = (returns, distribution = "gaussian"))]
-fn fit_garch11<'py>(
-    py: Python<'py>,
-    returns: Vec<f64>,
-    distribution: &str,
-) -> PyResult<Bound<'py, PyDict>> {
+fn fit_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
     let dist = parse_dist(distribution)?;
     let fit = Garch11.fit(&returns, dist, None).map_err(core_to_py)?;
-
-    let out = PyDict::new(py);
-    let mut names: Vec<&str> = Garch11.param_names();
-    if matches!(fit.params.dist, InnovationDist::StudentT(_)) {
-        names.push("nu");
-    }
-    fill_common_fit_fields(py, &out, &fit, &names)?;
-    Ok(out)
+    Ok(PyGarchFit::from_inner(fit))
 }
 
 // -------------------------------------------------------------------
@@ -141,26 +302,13 @@ fn fit_garch11<'py>(
 ///
 /// # Returns
 ///
-/// Dict with keys ``omega``, ``alpha``, ``gamma``, ``beta``,
-/// ``log_likelihood``, ``aic``, ``bic``, ``hqic``, ``converged``, and the
-/// same residual/diagnostic fields as :func:`fit_garch11`.
+/// :class:`GarchFit` result.
 #[pyfunction]
 #[pyo3(signature = (returns, distribution = "gaussian"))]
-fn fit_egarch11<'py>(
-    py: Python<'py>,
-    returns: Vec<f64>,
-    distribution: &str,
-) -> PyResult<Bound<'py, PyDict>> {
+fn fit_egarch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
     let dist = parse_dist(distribution)?;
     let fit = Egarch11.fit(&returns, dist, None).map_err(core_to_py)?;
-
-    let out = PyDict::new(py);
-    let mut names: Vec<&str> = Egarch11.param_names();
-    if matches!(fit.params.dist, InnovationDist::StudentT(_)) {
-        names.push("nu");
-    }
-    fill_common_fit_fields(py, &out, &fit, &names)?;
-    Ok(out)
+    Ok(PyGarchFit::from_inner(fit))
 }
 
 // -------------------------------------------------------------------
@@ -179,26 +327,13 @@ fn fit_egarch11<'py>(
 ///
 /// # Returns
 ///
-/// Dict with keys ``omega``, ``alpha``, ``gamma``, ``beta``,
-/// ``log_likelihood``, ``aic``, ``bic``, ``hqic``, ``converged``, and the
-/// same residual/diagnostic fields as :func:`fit_garch11`.
+/// :class:`GarchFit` result.
 #[pyfunction]
 #[pyo3(signature = (returns, distribution = "gaussian"))]
-fn fit_gjr_garch11<'py>(
-    py: Python<'py>,
-    returns: Vec<f64>,
-    distribution: &str,
-) -> PyResult<Bound<'py, PyDict>> {
+fn fit_gjr_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
     let dist = parse_dist(distribution)?;
     let fit = GjrGarch11.fit(&returns, dist, None).map_err(core_to_py)?;
-
-    let out = PyDict::new(py);
-    let mut names: Vec<&str> = GjrGarch11.param_names();
-    if matches!(fit.params.dist, InnovationDist::StudentT(_)) {
-        names.push("nu");
-    }
-    fill_common_fit_fields(py, &out, &fit, &names)?;
-    Ok(out)
+    Ok(PyGarchFit::from_inner(fit))
 }
 
 // -------------------------------------------------------------------
@@ -320,6 +455,8 @@ fn hqic(log_likelihood: f64, n_params: usize, n_obs: usize) -> f64 {
 // -------------------------------------------------------------------
 
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyGarchParams>()?;
+    m.add_class::<PyGarchFit>()?;
     m.add_function(wrap_pyfunction!(fit_garch11, m)?)?;
     m.add_function(wrap_pyfunction!(fit_egarch11, m)?)?;
     m.add_function(wrap_pyfunction!(fit_gjr_garch11, m)?)?;

@@ -27,7 +27,16 @@ __all__ = [
     "RuinModel",
     "RuinEstimate",
     "BenchmarkAlignmentPolicy",
+    "KupiecResult",
+    "ChristoffersenResult",
+    "TrafficLightResult",
+    "BacktestResult",
     "Performance",
+    "classify_breaches",
+    "kupiec_test",
+    "christoffersen_test",
+    "traffic_light",
+    "run_backtest",
     "group_by_period",
     "period_stats",
     "align_benchmark",
@@ -44,7 +53,6 @@ __all__ = [
     "multi_factor_greeks",
     "treynor",
     "m_squared",
-    "count_consecutive",
     "to_drawdown_series",
     "drawdown_details",
     "mean_episode_drawdown",
@@ -94,6 +102,17 @@ __all__ = [
     "tail_ratio",
     "outlier_win_ratio",
     "outlier_loss_ratio",
+    "GarchFit",
+    "GarchParams",
+    "fit_garch11",
+    "fit_egarch11",
+    "fit_gjr_garch11",
+    "garch11_forecast",
+    "ljung_box",
+    "arch_lm",
+    "aic",
+    "bic",
+    "hqic",
 ]
 
 # ---------------------------------------------------------------------------
@@ -502,6 +521,130 @@ class BenchmarkAlignmentPolicy:
             >>> BenchmarkAlignmentPolicy.error_on_missing()
             BenchmarkAlignmentPolicy(...)
         """
+
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# Backtesting result types
+# ---------------------------------------------------------------------------
+
+class KupiecResult:
+    """Result of the Kupiec Proportion of Failures (POF) test."""
+
+    @property
+    def lr_statistic(self) -> float:
+        """Likelihood-ratio test statistic LR_uc."""
+
+    @property
+    def p_value(self) -> float:
+        """p-value from chi-squared(1) distribution."""
+
+    @property
+    def breach_count(self) -> int:
+        """Number of observed VaR breaches."""
+
+    @property
+    def expected_count(self) -> float:
+        """Expected number of breaches under H0."""
+
+    @property
+    def total_observations(self) -> int:
+        """Total number of observations."""
+
+    @property
+    def observed_rate(self) -> float:
+        """Observed breach rate."""
+
+    @property
+    def reject_h0_5pct(self) -> bool:
+        """Whether H0 is rejected at 5% significance."""
+
+    def __repr__(self) -> str: ...
+
+class ChristoffersenResult:
+    """Result of the Christoffersen conditional coverage test."""
+
+    @property
+    def lr_uc(self) -> float:
+        """Unconditional coverage component (Kupiec LR_uc)."""
+
+    @property
+    def lr_ind(self) -> float:
+        """Independence component LR_ind."""
+
+    @property
+    def lr_cc(self) -> float:
+        """Joint conditional coverage statistic LR_cc."""
+
+    @property
+    def p_value_uc(self) -> float:
+        """p-value for unconditional coverage test."""
+
+    @property
+    def p_value_ind(self) -> float:
+        """p-value for independence test."""
+
+    @property
+    def p_value_cc(self) -> float:
+        """p-value for joint conditional coverage test."""
+
+    @property
+    def transition_counts(self) -> list[int]:
+        """Transition matrix counts [n00, n01, n10, n11]."""
+
+    @property
+    def reject_h0_5pct(self) -> bool:
+        """Whether H0 (joint) is rejected at 5% significance."""
+
+    def __repr__(self) -> str: ...
+
+class TrafficLightResult:
+    """Basel traffic-light assessment result."""
+
+    @property
+    def zone(self) -> str:
+        """Assigned zone name (``"Green"``, ``"Yellow"``, or ``"Red"``)."""
+
+    @property
+    def exceptions(self) -> int:
+        """Number of exceptions in the evaluation window."""
+
+    @property
+    def capital_multiplier(self) -> float:
+        """Capital multiplier for the market risk charge."""
+
+    @property
+    def window_size(self) -> int:
+        """Window size used."""
+
+    @property
+    def confidence(self) -> float:
+        """VaR confidence level used."""
+
+    def __repr__(self) -> str: ...
+
+class BacktestResult:
+    """Full backtest result aggregating all statistical tests."""
+
+    @property
+    def kupiec(self) -> KupiecResult:
+        """Kupiec unconditional coverage test result."""
+
+    @property
+    def christoffersen(self) -> ChristoffersenResult:
+        """Christoffersen conditional coverage test result."""
+
+    @property
+    def traffic_light(self) -> TrafficLightResult:
+        """Basel traffic-light classification result."""
+
+    @property
+    def breach_count(self) -> int:
+        """Number of observed VaR breaches."""
+
+    @property
+    def confidence(self) -> float:
+        """VaR confidence level used for the backtest."""
 
     def __repr__(self) -> str: ...
 
@@ -1175,20 +1318,6 @@ def m_squared(ann_return: float, ann_vol: float, bench_vol: float, risk_free_rat
     Example:
         >>> isinstance(m_squared(0.1, 0.2, 0.15, 0.0), float)
         True
-    """
-
-def count_consecutive(values: list[float]) -> int:
-    """Count longest consecutive run of strictly positive values.
-
-    Args:
-        values: Numeric series.
-
-    Returns:
-        Longest positive run length.
-
-    Example:
-        >>> count_consecutive([1.0, 2.0, -1.0, 3.0])
-        2
     """
 
 def to_drawdown_series(returns: list[float]) -> list[float]:
@@ -1992,4 +2121,417 @@ def outlier_loss_ratio(returns: list[float], confidence: float = 0.95) -> float:
     Example:
         >>> isinstance(outlier_loss_ratio([-0.2, 0.01, 0.0]), float)
         True
+    """
+
+# ---------------------------------------------------------------------------
+# GARCH types
+# ---------------------------------------------------------------------------
+
+class GarchParams:
+    """Estimated GARCH model parameters."""
+
+    @property
+    def omega(self) -> float:
+        """Intercept (omega)."""
+
+    @property
+    def alpha(self) -> float:
+        """ARCH coefficient (alpha)."""
+
+    @property
+    def beta(self) -> float:
+        """GARCH coefficient (beta)."""
+
+    @property
+    def gamma(self) -> float | None:
+        """Leverage / asymmetry parameter (``None`` for symmetric GARCH)."""
+
+    @property
+    def distribution(self) -> str:
+        """Innovation distribution name (``"gaussian"`` or ``"student_t"``)."""
+
+    @property
+    def nu(self) -> float | None:
+        """Student-t degrees of freedom (``None`` for Gaussian)."""
+
+    @property
+    def mean(self) -> float:
+        """Constant mean used in demeaning."""
+
+    @property
+    def persistence(self) -> float:
+        """Persistence of volatility shocks."""
+
+    @property
+    def unconditional_variance(self) -> float | None:
+        """Unconditional variance (``None`` for EGARCH or non-stationary)."""
+
+    @property
+    def half_life(self) -> float | None:
+        """Shock half-life in periods (``None`` when undefined)."""
+
+    def __repr__(self) -> str: ...
+
+class GarchFit:
+    """Complete result of a GARCH model fit."""
+
+    @property
+    def model(self) -> str:
+        """Model name (e.g. ``"GARCH(1,1)"``)."""
+
+    @property
+    def params(self) -> GarchParams:
+        """Estimated parameters."""
+
+    @property
+    def omega(self) -> float:
+        """Intercept (omega) — shortcut for ``fit.params.omega``."""
+
+    @property
+    def alpha(self) -> float:
+        """ARCH coefficient (alpha) — shortcut for ``fit.params.alpha``."""
+
+    @property
+    def beta(self) -> float:
+        """GARCH coefficient (beta) — shortcut for ``fit.params.beta``."""
+
+    @property
+    def gamma(self) -> float | None:
+        """Leverage parameter — shortcut for ``fit.params.gamma``."""
+
+    @property
+    def nu(self) -> float | None:
+        """Student-t dof — shortcut for ``fit.params.nu``."""
+
+    @property
+    def persistence(self) -> float:
+        """Persistence — shortcut for ``fit.params.persistence``."""
+
+    @property
+    def unconditional_variance(self) -> float | None:
+        """Unconditional variance — shortcut for ``fit.params.unconditional_variance``."""
+
+    @property
+    def half_life(self) -> float | None:
+        """Shock half-life — shortcut for ``fit.params.half_life``."""
+
+    @property
+    def std_errors(self) -> list[float] | None:
+        """Approximate standard errors (``None`` if Hessian inversion failed)."""
+
+    @property
+    def log_likelihood(self) -> float:
+        """Maximized log-likelihood."""
+
+    @property
+    def n_obs(self) -> int:
+        """Number of observations used in fitting."""
+
+    @property
+    def n_params(self) -> int:
+        """Number of estimated parameters."""
+
+    @property
+    def aic(self) -> float:
+        """Akaike Information Criterion."""
+
+    @property
+    def bic(self) -> float:
+        """Bayesian Information Criterion."""
+
+    @property
+    def hqic(self) -> float:
+        """Hannan-Quinn Information Criterion."""
+
+    @property
+    def conditional_variances(self) -> list[float]:
+        """Conditional variance series (length = ``n_obs``)."""
+
+    @property
+    def standardized_residuals(self) -> list[float]:
+        """Standardized residuals: ``z_t = (r_t - mu) / sigma_t``."""
+
+    @property
+    def terminal_variance(self) -> float:
+        """Terminal conditional variance (last ``sigma^2_t``)."""
+
+    @property
+    def converged(self) -> bool:
+        """Whether the optimizer converged."""
+
+    @property
+    def iterations(self) -> int:
+        """Number of optimizer iterations."""
+
+    @property
+    def ljung_box_squared_p10(self) -> float:
+        """Ljung-Box p-value on squared standardized residuals (lag=10)."""
+
+    @property
+    def arch_lm_p5(self) -> float:
+        """ARCH-LM p-value on standardized residuals (lag=5)."""
+
+    def __repr__(self) -> str: ...
+
+# ---------------------------------------------------------------------------
+# GARCH functions
+# ---------------------------------------------------------------------------
+
+def fit_garch11(
+    returns: list[float],
+    distribution: str = "gaussian",
+) -> GarchFit:
+    """Fit a standard GARCH(1,1) model by maximum likelihood.
+
+    Args:
+        returns: Log return series (at least 10 observations).
+        distribution: ``"gaussian"`` (default) or ``"student_t"``.
+
+    Returns:
+        :class:`GarchFit` result.
+
+    Example:
+        >>> fit = fit_garch11([0.01, -0.02] * 50)
+        >>> fit.converged
+        True
+    """
+
+def fit_egarch11(
+    returns: list[float],
+    distribution: str = "gaussian",
+) -> GarchFit:
+    """Fit an EGARCH(1,1) model (Nelson, 1991).
+
+    Args:
+        returns: Log return series.
+        distribution: ``"gaussian"`` (default) or ``"student_t"``.
+
+    Returns:
+        :class:`GarchFit` result.
+
+    Example:
+        >>> fit = fit_egarch11([0.01, -0.02] * 50)
+        >>> isinstance(fit.alpha, float)
+        True
+    """
+
+def fit_gjr_garch11(
+    returns: list[float],
+    distribution: str = "gaussian",
+) -> GarchFit:
+    """Fit a GJR-GARCH(1,1) model (Glosten, Jagannathan & Runkle, 1993).
+
+    Args:
+        returns: Log return series.
+        distribution: ``"gaussian"`` (default) or ``"student_t"``.
+
+    Returns:
+        :class:`GarchFit` result.
+
+    Example:
+        >>> fit = fit_gjr_garch11([0.01, -0.02] * 50)
+        >>> fit.gamma is not None
+        True
+    """
+
+def garch11_forecast(
+    omega: float,
+    alpha: float,
+    beta: float,
+    last_variance: float,
+    last_return: float,
+    horizon: int,
+) -> list[float]:
+    """Closed-form h-step-ahead GARCH(1,1) variance forecast.
+
+    Args:
+        omega: Fitted omega.
+        alpha: Fitted alpha.
+        beta: Fitted beta.
+        last_variance: Terminal conditional variance.
+        last_return: Terminal return.
+        horizon: Number of horizons to forecast.
+
+    Returns:
+        Forecasted variances for ``h=1..horizon``.
+
+    Example:
+        >>> len(garch11_forecast(1e-5, 0.05, 0.9, 1e-4, 0.01, 5))
+        5
+    """
+
+def ljung_box(residuals: list[float], lags: int) -> tuple[float, float]:
+    """Ljung-Box Q-statistic for serial correlation.
+
+    Args:
+        residuals: Series to test.
+        lags: Number of lags.
+
+    Returns:
+        ``(q_stat, p_value)``.
+
+    Example:
+        >>> q, p = ljung_box([0.1, -0.05, 0.02] * 30, 10)
+        >>> isinstance(p, float)
+        True
+    """
+
+def arch_lm(residuals: list[float], lags: int) -> tuple[float, float]:
+    """Engle's ARCH-LM test for remaining heteroskedasticity.
+
+    Args:
+        residuals: Standardized residuals.
+        lags: Number of lags.
+
+    Returns:
+        ``(lm_stat, p_value)``.
+
+    Example:
+        >>> lm, p = arch_lm([0.1, -0.05] * 30, 5)
+        >>> isinstance(p, float)
+        True
+    """
+
+def aic(log_likelihood: float, n_params: int) -> float:
+    """Akaike Information Criterion: ``-2*LL + 2*k``.
+
+    Args:
+        log_likelihood: Maximized log-likelihood.
+        n_params: Number of parameters.
+
+    Returns:
+        AIC value.
+
+    Example:
+        >>> aic(-100.0, 3) == 206.0
+        True
+    """
+
+def bic(log_likelihood: float, n_params: int, n_obs: int) -> float:
+    """Bayesian Information Criterion: ``-2*LL + k*ln(n)``.
+
+    Args:
+        log_likelihood: Maximized log-likelihood.
+        n_params: Number of parameters.
+        n_obs: Number of observations.
+
+    Returns:
+        BIC value.
+
+    Example:
+        >>> isinstance(bic(-100.0, 3, 100), float)
+        True
+    """
+
+def hqic(log_likelihood: float, n_params: int, n_obs: int) -> float:
+    """Hannan-Quinn Information Criterion: ``-2*LL + 2*k*ln(ln(n))``.
+
+    Args:
+        log_likelihood: Maximized log-likelihood.
+        n_params: Number of parameters.
+        n_obs: Number of observations.
+
+    Returns:
+        HQIC value.
+
+    Example:
+        >>> isinstance(hqic(-100.0, 3, 100), float)
+        True
+    """
+
+# ---------------------------------------------------------------------------
+# VaR backtesting
+# ---------------------------------------------------------------------------
+
+def classify_breaches(
+    var_forecasts: list[float],
+    realized_pnl: list[float],
+) -> list[tuple[int, float, float]]:
+    """Classify each observation as a VaR breach (hit) or miss.
+
+    Args:
+        var_forecasts: Daily VaR forecasts (negative = loss threshold).
+        realized_pnl: Daily realized P&L.
+
+    Returns:
+        List of ``(index, var_forecast, realized_pnl)`` tuples, one per breach.
+
+    Example:
+        >>> classify_breaches([-0.02, -0.02], [-0.01, -0.03])
+        [(1, -0.02, -0.03)]
+    """
+
+def kupiec_test(breaches: int, n: int, confidence: float) -> KupiecResult:
+    """Kupiec Proportion of Failures (POF) unconditional coverage test.
+
+    Args:
+        breaches: Number of observed VaR breaches.
+        n: Total observations.
+        confidence: VaR confidence level (e.g. ``0.99``).
+
+    Returns:
+        :class:`KupiecResult`.
+
+    Example:
+        >>> kupiec_test(3, 250, 0.99).p_value > 0
+        True
+    """
+
+def christoffersen_test(
+    breach_indicators: list[bool],
+    confidence: float = 0.99,
+) -> ChristoffersenResult:
+    """Christoffersen joint conditional coverage test.
+
+    Args:
+        breach_indicators: Boolean series (``True`` = breach).
+        confidence: VaR confidence level.
+
+    Returns:
+        :class:`ChristoffersenResult` with LR statistics, p-values,
+        and transition counts.
+
+    Example:
+        >>> r = christoffersen_test([False, True, False])
+        >>> isinstance(r.p_value_cc, float)
+        True
+    """
+
+def traffic_light(breaches: int, n: int, confidence: float) -> TrafficLightResult:
+    """Basel Committee traffic-light classification of VaR model adequacy.
+
+    Args:
+        breaches: Number of VaR exceptions in the evaluation window.
+        n: Window size (typically 250 trading days).
+        confidence: VaR confidence level (typically ``0.99``).
+
+    Returns:
+        :class:`TrafficLightResult`.
+
+    Example:
+        >>> traffic_light(3, 250, 0.99).zone
+        'Green'
+    """
+
+def run_backtest(
+    var_forecasts: list[float],
+    realized_pnl: list[float],
+    confidence: float = 0.99,
+    window_size: int = 250,
+) -> BacktestResult:
+    """Run a complete VaR backtest and return all statistics.
+
+    Args:
+        var_forecasts: Daily VaR forecasts (negative = loss threshold).
+        realized_pnl: Daily realized P&L.
+        confidence: VaR confidence level.
+        window_size: Traffic-light window size.
+
+    Returns:
+        :class:`BacktestResult`.
+
+    Example:
+        >>> result = run_backtest([-0.02] * 100, [-0.01] * 100)
+        >>> result.confidence
+        0.99
     """

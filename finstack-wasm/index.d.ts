@@ -218,6 +218,196 @@ export declare const core: CoreNamespace;
 
 // --- analytics ------------------------------------------------------------
 
+export interface PeriodStats {
+  best: number;
+  worst: number;
+  consecutive_wins: number;
+  consecutive_losses: number;
+  win_rate: number;
+  avg_return: number;
+  avg_win: number;
+  avg_loss: number;
+  payoff_ratio: number;
+  profit_factor: number;
+  cpc_ratio: number;
+  kelly_criterion: number;
+}
+
+/** Breach indicator from VaR backtesting: "Hit" or "Miss". */
+export type Breach = "Hit" | "Miss";
+
+/** Kupiec Proportion of Failures (POF) unconditional coverage test result. */
+export interface KupiecResultJson {
+  lr_statistic: number;
+  p_value: number;
+  breach_count: number;
+  expected_count: number;
+  total_observations: number;
+  observed_rate: number;
+  reject_h0_5pct: boolean;
+}
+
+/** Christoffersen conditional coverage test result. */
+export interface ChristoffersenResultJson {
+  lr_uc: number;
+  lr_ind: number;
+  lr_cc: number;
+  p_value_uc: number;
+  p_value_ind: number;
+  p_value_cc: number;
+  transition_counts: [number, number, number, number];
+  reject_h0_5pct: boolean;
+}
+
+/** Basel traffic-light zone: "Green", "Yellow", or "Red". */
+export type TrafficLightZone = "Green" | "Yellow" | "Red";
+
+/** Basel traffic-light classification result. */
+export interface TrafficLightResultJson {
+  zone: TrafficLightZone;
+  exceptions: number;
+  capital_multiplier: number;
+  window_size: number;
+  confidence: number;
+}
+
+/** Full VaR backtest result aggregating all statistical tests. */
+export interface BacktestResultJson {
+  kupiec: KupiecResultJson;
+  christoffersen: ChristoffersenResultJson;
+  traffic_light: TrafficLightResultJson;
+  breaches: Breach[];
+  confidence: number;
+}
+
+/** GARCH model parameter estimates (serde-serialized from Rust). */
+export interface GarchParamsJson {
+  omega: number;
+  alpha: number;
+  beta: number;
+  gamma: number | null;
+  dist: { Gaussian: null } | { StudentT: number };
+  mean: number;
+  family: string;
+}
+
+/** Complete GARCH model fit result (serde-serialized from Rust). */
+export interface GarchFitJson {
+  model: string;
+  params: GarchParamsJson;
+  std_errors: number[] | null;
+  log_likelihood: number;
+  n_obs: number;
+  n_params: number;
+  aic: number;
+  bic: number;
+  hqic: number;
+  conditional_variances: number[];
+  standardized_residuals: number[];
+  terminal_variance: number;
+  converged: boolean;
+  iterations: number;
+}
+
+/** Descriptive statistics returned by `peerStats`. */
+export interface PeerStatsJson {
+  count: number;
+  mean: number;
+  median: number;
+  std_dev: number;
+  min: number;
+  max: number;
+  q1: number;
+  q3: number;
+}
+
+/** Single-factor OLS regression result returned by `regressionFairValue`. */
+export interface RegressionResultJson {
+  intercept: number;
+  slope: number;
+  r_squared: number;
+  fitted_value: number;
+  residual: number;
+  n: number;
+}
+
+/** Per-dimension decomposition in a relative value score. */
+export interface DimensionScoreJson {
+  label: string;
+  percentile: number;
+  z_score: number;
+  regression_residual: number | null;
+  r_squared: number | null;
+  weight: number;
+}
+
+/** Composite relative value result returned by `scoreRelativeValue`. */
+export interface RelativeValueResultJson {
+  company_id: string;
+  composite_score: number;
+  dimensions: DimensionScoreJson[];
+  confidence: number;
+  peer_count: number;
+}
+
+/** A single drawdown episode returned by `drawdownDetails`. */
+export interface DrawdownEpisode {
+  start: string;
+  valley: string;
+  end: string | null;
+  duration_days: number;
+  max_drawdown: number;
+  near_recovery_threshold: number;
+}
+
+/** Dated rolling Sharpe result returned by `rollingSharpe`. */
+export interface RollingSharpe {
+  values: number[];
+  dates: string[];
+}
+
+/** Dated rolling Sortino result returned by `rollingSortino`. */
+export interface RollingSortino {
+  values: number[];
+  dates: string[];
+}
+
+/** Dated rolling volatility result returned by `rollingVolatility`. */
+export interface RollingVolatility {
+  values: number[];
+  dates: string[];
+}
+
+/** OLS beta result with standard error and 95% confidence interval. */
+export interface BetaResult {
+  beta: number;
+  std_err: number;
+  ci_lower: number;
+  ci_upper: number;
+}
+
+/** Single-factor greeks (alpha, beta, R²). */
+export interface GreeksResult {
+  alpha: number;
+  beta: number;
+  r_squared: number;
+}
+
+/** Rolling greeks output (alphas and betas without date labels). */
+export interface RollingGreeksResult {
+  alphas: number[];
+  betas: number[];
+}
+
+/** Multi-factor regression result. */
+export interface MultiFactorResult {
+  alpha: number;
+  betas: number[];
+  r_squared: number;
+  adjusted_r_squared: number;
+  residual_vol: number;
+}
+
 export interface AnalyticsNamespace {
   // Risk metrics — return-based
   sharpe(annReturn: number, annVol: number, riskFreeRate: number): number;
@@ -240,10 +430,14 @@ export interface AnalyticsNamespace {
   tailRatio(returns: number[], confidence: number): number;
   outlierWinRatio(returns: number[], threshold: number): number;
   outlierLossRatio(returns: number[], threshold: number): number;
-  // Risk metrics — rolling
+  // Risk metrics — rolling (NaN-padded arrays)
   rollingSharpeValues(returns: number[], window: number, periodsPerYear: number, riskFreeRate: number): number[];
   rollingSortinoValues(returns: number[], window: number, periodsPerYear: number, riskFreeRate: number, threshold: number): number[];
   rollingVolatilityValues(returns: number[], window: number, periodsPerYear: number): number[];
+  // Risk metrics — rolling (dated structs)
+  rollingSharpe(returns: number[], dates: string[], window: number, annFactor: number, riskFreeRate: number): RollingSharpe;
+  rollingSortino(returns: number[], dates: string[], window: number, annFactor: number): RollingSortino;
+  rollingVolatility(returns: number[], dates: string[], window: number, annFactor: number): RollingVolatility;
   // Returns
   simpleReturns(prices: number[]): number[];
   compSum(returns: number[]): number[];
@@ -257,6 +451,8 @@ export interface AnalyticsNamespace {
   maxDrawdown(drawdownSeries: number[]): number;
   meanEpisodeDrawdown(drawdownSeries: number[], count: number): number;
   meanDrawdown(drawdownSeries: number[]): number;
+  drawdownDetails(drawdownSeries: number[], dates: string[], n: number): DrawdownEpisode[];
+  maxDrawdownDuration(drawdownSeries: number[], dates: string[]): number;
   cdar(drawdownSeries: number[], confidence: number): number;
   ulcerIndex(drawdownSeries: number[]): number;
   painIndex(drawdownSeries: number[]): number;
@@ -276,8 +472,43 @@ export interface AnalyticsNamespace {
   battingAverage(returns: number[], benchmark: number[]): number;
   treynor(annReturn: number, riskFreeRate: number, beta: number): number;
   mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
+  beta(portfolio: number[], benchmark: number[]): BetaResult;
+  greeks(returns: number[], benchmark: number[], annFactor: number): GreeksResult;
+  rollingGreeks(returns: number[], benchmark: number[], window: number, annFactor: number): RollingGreeksResult;
+  multiFactorGreeks(returns: number[], factors: number[][], annFactor: number): MultiFactorResult;
   // Consecutive
   countConsecutive(returns: number[]): number[];
+  // Aggregation
+  groupByPeriod(returns: number[], dates: string[], periodKind: string): [string, number][];
+  periodStats(grouped: [string, number][]): PeriodStats;
+  // Lookback selectors
+  mtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
+  qtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
+  ytdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
+  fytdSelect(dates: string[], asOf: string, offsetDays: number, fiscalStartMonth: number, fiscalStartDay: number): [number, number];
+  // Backtesting
+  classifyBreaches(varForecasts: number[], realizedPnl: number[]): Breach[];
+  kupiecTest(breachCount: number, n: number, confidence: number): KupiecResultJson;
+  christoffersenTest(breachIndicators: boolean[], confidence: number): ChristoffersenResultJson;
+  trafficLight(exceptions: number, n: number, confidence: number): TrafficLightResultJson;
+  runBacktest(varForecasts: number[], realizedPnl: number[], confidence: number, windowSize: number): BacktestResultJson;
+  // GARCH volatility models
+  fitGarch11(returns: number[], distribution: string): GarchFitJson;
+  fitEgarch11(returns: number[], distribution: string): GarchFitJson;
+  fitGjrGarch11(returns: number[], distribution: string): GarchFitJson;
+  garch11Forecast(omega: number, alpha: number, beta: number, lastVariance: number, lastReturn: number, horizon: number): number[];
+  ljungBox(residuals: number[], lags: number): [number, number];
+  archLm(residuals: number[], lags: number): [number, number];
+  aic(logLikelihood: number, nParams: number): number;
+  bic(logLikelihood: number, nParams: number, nObs: number): number;
+  hqic(logLikelihood: number, nParams: number, nObs: number): number;
+  // Comps — comparable company analysis
+  percentileRank(value: number, data: number[]): number;
+  zScore(value: number, data: number[]): number;
+  peerStats(data: number[]): PeerStatsJson | null;
+  regressionFairValue(xValues: number[], yValues: number[], subjectX: number, subjectY: number): RegressionResultJson | null;
+  computeMultiple(price: number, metric: number): number;
+  scoreRelativeValue(peerSet: unknown, dimensions: unknown[]): RelativeValueResultJson;
 }
 
 export declare const analytics: AnalyticsNamespace;

@@ -22,7 +22,7 @@ import json
 from finstack.core.currency import Currency
 from finstack.core.dates import DayCount, Tenor
 from finstack.core.market_data import DiscountCurve, ForwardCurve, FxMatrix
-from finstack.core.math import linalg, stats
+from finstack.core.math import count_consecutive, linalg, stats
 from finstack.core.money import Money
 from finstack.core.types import Rate
 from finstack.statements_analytics import (
@@ -47,19 +47,19 @@ from finstack.valuations.correlation import (
 import pytest
 
 from finstack.analytics import (
+    CagrBasis,
     Performance,
     beta,
-    cagr_from_periods,
+    cagr,
     calmar,
     comp_sum,
-    count_consecutive,
     drawdown_details,
     expected_shortfall,
     kurtosis,
     max_drawdown,
     mean_return,
     period_stats,
-    rolling_sharpe_values,
+    rolling_sharpe,
     sharpe,
     simple_returns,
     skewness,
@@ -122,6 +122,7 @@ RETURNS_10K_ALT: list[float] = [0.0003 + (i % 13) * 1.2e-5 for i in range(10_000
 PRICES_10K: list[float] = list(accumulate(RETURNS_10K, lambda p, r: p * (1.0 + r), initial=100.0))
 
 DATES_252 = [date(2024, 1, 1) + timedelta(days=i) for i in range(252)]
+DATES_10K = [date(2000, 1, 1) + timedelta(days=i) for i in range(10_000)]
 
 DATA_10K: list[float] = [float(i) * 0.01 for i in range(10_000)]
 
@@ -371,8 +372,8 @@ class TestAnalyticsBenchmarks:
     def test_to_drawdown_series(self, benchmark) -> None:
         benchmark(to_drawdown_series, RETURNS_10K)
 
-    def test_rolling_sharpe_values(self, benchmark) -> None:
-        benchmark(rolling_sharpe_values, RETURNS_10K, 63)
+    def test_rolling_sharpe(self, benchmark) -> None:
+        benchmark(rolling_sharpe, RETURNS_10K, DATES_10K, 63)
 
     def test_volatility(self, benchmark) -> None:
         benchmark(volatility, RETURNS_10K)
@@ -413,7 +414,7 @@ class TestAnalyticsBenchmarks:
 
     def test_calmar(self, benchmark) -> None:
         dd = to_drawdown_series(RETURNS_10K)
-        cg = cagr_from_periods(RETURNS_10K, 252.0)
+        cg = cagr(RETURNS_10K, CagrBasis.factor(252.0))
         md = max_drawdown(dd)
         benchmark(calmar, cg, md)
 

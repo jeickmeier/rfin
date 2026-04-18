@@ -108,6 +108,7 @@ During a refactor:
 - If the parity test suite fails after your changes, stop. Either your refactor broke an invariant or the parity entry is stale — figure out which before "fixing" the test.
 
 Run the parity tests with:
+
 ```bash
 uv run pytest finstack-py/tests/parity -x
 ```

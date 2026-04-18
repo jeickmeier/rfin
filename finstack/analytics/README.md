@@ -167,7 +167,6 @@ assert!(stats.win_rate >= 0.0);
 | `benchmark` | Benchmark-relative and regression-style analytics | `tracking_error`, `information_ratio`, `beta`, `greeks`, `rolling_greeks`, `multi_factor_greeks`, `align_benchmark` |
 | `aggregation` | Period compounding and trading statistics | `group_by_period`, `period_stats`, `PeriodStats` |
 | `lookback` | Index-range selectors for dated arrays | `mtd_select`, `qtd_select`, `ytd_select`, `fytd_select` |
-| `consecutive` | Predicate-based streak counting | `count_consecutive` |
 
 ## Core Types
 

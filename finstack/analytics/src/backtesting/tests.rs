@@ -61,21 +61,21 @@ pub fn classify_breaches(var_forecasts: &[f64], realized_pnl: &[f64]) -> Vec<Bre
 ///
 /// # Arguments
 ///
-/// * `breaches` - Slice of breach indicators from `classify_breaches()`.
+/// * `breach_count` - Number of observed VaR breaches.
+/// * `n` - Total number of observations.
 /// * `confidence` - VaR confidence level (e.g. 0.99).
 ///
 /// # Returns
 ///
 /// `KupiecResult` with test statistic, p-value, and breach counts.
-/// Returns a degenerate result with `NaN` p-value for empty input.
+/// Returns a degenerate result with `NaN` p-value when `n` is zero.
 ///
 /// # References
 ///
 /// - Kupiec (1995): see docs/REFERENCES.md#kupiec1995VaRBacktest
 #[must_use]
-pub fn kupiec_test(breaches: &[Breach], confidence: f64) -> KupiecResult {
-    let t = breaches.len();
-    if t == 0 {
+pub fn kupiec_test(breach_count: usize, n: usize, confidence: f64) -> KupiecResult {
+    if n == 0 {
         return KupiecResult {
             lr_statistic: f64::NAN,
             p_value: f64::NAN,
@@ -87,21 +87,19 @@ pub fn kupiec_test(breaches: &[Breach], confidence: f64) -> KupiecResult {
         };
     }
 
-    let x = breaches.iter().filter(|b| **b == Breach::Hit).count();
+    let x = breach_count.min(n);
     let alpha = 1.0 - confidence;
-    let t_f = t as f64;
+    let t_f = n as f64;
     let x_f = x as f64;
     let tx = t_f - x_f;
 
-    // Log-likelihood under H0 (alpha is the expected breach rate)
     let ll_h0 = tx * (1.0 - alpha).ln() + x_f * alpha.ln();
 
-    // Log-likelihood under H1 (observed breach rate x/T)
     let p_hat = x_f / t_f;
     let ll_h1 = if x == 0 {
-        tx * 1.0_f64.ln() // = 0.0
-    } else if x == t {
-        x_f * 1.0_f64.ln() // = 0.0
+        tx * 1.0_f64.ln()
+    } else if x == n {
+        x_f * 1.0_f64.ln()
     } else {
         tx * (1.0 - p_hat).ln() + x_f * p_hat.ln()
     };
@@ -114,7 +112,7 @@ pub fn kupiec_test(breaches: &[Breach], confidence: f64) -> KupiecResult {
         p_value,
         breach_count: x,
         expected_count: alpha * t_f,
-        total_observations: t,
+        total_observations: n,
         observed_rate: p_hat,
         reject_h0_5pct: p_value < 0.05,
     }
@@ -164,7 +162,8 @@ pub fn kupiec_test(breaches: &[Breach], confidence: f64) -> KupiecResult {
 /// - Christoffersen (1998): see docs/REFERENCES.md#christoffersen1998VaRBacktest
 #[must_use]
 pub fn christoffersen_test(breaches: &[Breach], confidence: f64) -> ChristoffersenResult {
-    let kupiec = kupiec_test(breaches, confidence);
+    let x = breaches.iter().filter(|b| **b == Breach::Hit).count();
+    let kupiec = kupiec_test(x, breaches.len(), confidence);
 
     // Build transition matrix from consecutive observations
     let (n00, n01, n10, n11) = build_transition_matrix(breaches);
@@ -275,9 +274,9 @@ fn markov_ll(n_stay: usize, n_switch: usize, pi: f64) -> f64 {
 ///
 /// # Arguments
 ///
-/// * `breaches` - Slice of breach indicators.
+/// * `exceptions` - Number of VaR exceptions in the evaluation window.
+/// * `n` - Window size (total observations, e.g. 250).
 /// * `confidence` - VaR confidence level (e.g. 0.99).
-/// * `window_size` - Evaluation window (e.g. 250).
 ///
 /// # Returns
 ///
@@ -288,27 +287,11 @@ fn markov_ll(n_stay: usize, n_switch: usize, pi: f64) -> f64 {
 /// - Basel Committee on Banking Supervision (1996):
 ///   see docs/REFERENCES.md#bcbs1996MarketRisk
 #[must_use]
-pub fn traffic_light(
-    breaches: &[Breach],
-    confidence: f64,
-    window_size: usize,
-) -> TrafficLightResult {
-    // Use the last `window_size` observations, or all if fewer
-    let window = if breaches.len() > window_size {
-        &breaches[breaches.len() - window_size..]
-    } else {
-        breaches
-    };
-
-    let exceptions = window.iter().filter(|b| **b == Breach::Hit).count();
-
-    // Standard Basel thresholds for 250-day / 99% calibration.
-    // For non-standard calibrations, scale proportionally.
-    let expected = window.len() as f64 * (1.0 - confidence);
-    let (green_max, yellow_max) = if window.len() == 250 && confidence == 0.99 {
+pub fn traffic_light(exceptions: usize, n: usize, confidence: f64) -> TrafficLightResult {
+    let expected = n as f64 * (1.0 - confidence);
+    let (green_max, yellow_max) = if n == 250 && confidence == 0.99 {
         (4, 9)
     } else {
-        // Scale: green threshold at ~2x expected, red at ~4x expected
         let g = (expected * 2.0).ceil() as usize;
         let y = (expected * 4.0).ceil() as usize;
         (g.max(1), y.max(g + 1))
@@ -326,7 +309,7 @@ pub fn traffic_light(
         zone,
         exceptions,
         capital_multiplier: zone.capital_multiplier(exceptions),
-        window_size: window.len(),
+        window_size: n,
         confidence,
     }
 }
@@ -446,7 +429,7 @@ mod unit_tests {
 
     #[test]
     fn kupiec_empty() {
-        let result = kupiec_test(&[], 0.99);
+        let result = kupiec_test(0, 0, 0.99);
         assert!(result.lr_statistic.is_nan());
         assert!(result.p_value.is_nan());
         assert_eq!(result.breach_count, 0);
@@ -456,17 +439,11 @@ mod unit_tests {
     #[test]
     fn kupiec_exact_expected_rate() {
         // 1000 observations, 10 breaches at 99% VaR => alpha=0.01, expected=10
-        let mut breaches = vec![Breach::Miss; 1000];
-        // Place 10 hits uniformly
-        for i in 0..10 {
-            breaches[i * 100] = Breach::Hit;
-        }
-        let result = kupiec_test(&breaches, 0.99);
+        let result = kupiec_test(10, 1000, 0.99);
         assert_eq!(result.breach_count, 10);
         assert_eq!(result.total_observations, 1000);
         assert!((result.observed_rate - 0.01).abs() < 1e-10);
         assert!((result.expected_count - 10.0).abs() < 1e-10);
-        // LR should be near 0, p-value near 1
         assert!(result.lr_statistic.abs() < 1e-10);
         assert!(result.p_value > 0.95);
         assert!(!result.reject_h0_5pct);
@@ -475,11 +452,7 @@ mod unit_tests {
     #[test]
     fn kupiec_too_many_breaches_rejects() {
         // 1000 observations, 50 breaches at 99% VaR => 5% rate vs 1% expected
-        let mut breaches = vec![Breach::Miss; 1000];
-        for i in 0..50 {
-            breaches[i * 20] = Breach::Hit;
-        }
-        let result = kupiec_test(&breaches, 0.99);
+        let result = kupiec_test(50, 1000, 0.99);
         assert_eq!(result.breach_count, 50);
         assert!(result.lr_statistic > 10.0);
         assert!(result.p_value < 0.01);
@@ -488,18 +461,15 @@ mod unit_tests {
 
     #[test]
     fn kupiec_zero_breaches() {
-        let breaches = vec![Breach::Miss; 250];
-        let result = kupiec_test(&breaches, 0.99);
+        let result = kupiec_test(0, 250, 0.99);
         assert_eq!(result.breach_count, 0);
         assert_eq!(result.observed_rate, 0.0);
-        // With zero breaches at 99%, the model is conservative but LR is not huge
         assert!(result.lr_statistic.is_finite());
     }
 
     #[test]
     fn kupiec_all_breaches() {
-        let breaches = vec![Breach::Hit; 100];
-        let result = kupiec_test(&breaches, 0.99);
+        let result = kupiec_test(100, 100, 0.99);
         assert_eq!(result.breach_count, 100);
         assert!((result.observed_rate - 1.0).abs() < 1e-10);
         assert!(result.reject_h0_5pct);
@@ -507,7 +477,7 @@ mod unit_tests {
 
     #[test]
     fn kupiec_single_observation() {
-        let result = kupiec_test(&[Breach::Miss], 0.99);
+        let result = kupiec_test(0, 1, 0.99);
         assert_eq!(result.total_observations, 1);
         assert_eq!(result.breach_count, 0);
     }
@@ -602,12 +572,7 @@ mod unit_tests {
 
     #[test]
     fn traffic_light_green_boundary() {
-        // 4 exceptions in 250-day window at 99% => Green
-        let mut breaches = vec![Breach::Miss; 250];
-        for i in 0..4 {
-            breaches[i * 60] = Breach::Hit;
-        }
-        let result = traffic_light(&breaches, 0.99, 250);
+        let result = traffic_light(4, 250, 0.99);
         assert_eq!(result.zone, TrafficLightZone::Green);
         assert_eq!(result.exceptions, 4);
         assert!((result.capital_multiplier - 3.0).abs() < 1e-10);
@@ -615,12 +580,7 @@ mod unit_tests {
 
     #[test]
     fn traffic_light_yellow_boundary_low() {
-        // 5 exceptions in 250-day window at 99% => Yellow
-        let mut breaches = vec![Breach::Miss; 250];
-        for i in 0..5 {
-            breaches[i * 50] = Breach::Hit;
-        }
-        let result = traffic_light(&breaches, 0.99, 250);
+        let result = traffic_light(5, 250, 0.99);
         assert_eq!(result.zone, TrafficLightZone::Yellow);
         assert_eq!(result.exceptions, 5);
         assert!((result.capital_multiplier - 3.4).abs() < 1e-10);
@@ -628,12 +588,7 @@ mod unit_tests {
 
     #[test]
     fn traffic_light_yellow_boundary_high() {
-        // 9 exceptions in 250-day window at 99% => Yellow
-        let mut breaches = vec![Breach::Miss; 250];
-        for i in 0..9 {
-            breaches[i * 27] = Breach::Hit;
-        }
-        let result = traffic_light(&breaches, 0.99, 250);
+        let result = traffic_light(9, 250, 0.99);
         assert_eq!(result.zone, TrafficLightZone::Yellow);
         assert_eq!(result.exceptions, 9);
         assert!((result.capital_multiplier - 3.85).abs() < 1e-10);
@@ -641,12 +596,7 @@ mod unit_tests {
 
     #[test]
     fn traffic_light_red_boundary() {
-        // 10 exceptions in 250-day window at 99% => Red
-        let mut breaches = vec![Breach::Miss; 250];
-        for i in 0..10 {
-            breaches[i * 25] = Breach::Hit;
-        }
-        let result = traffic_light(&breaches, 0.99, 250);
+        let result = traffic_light(10, 250, 0.99);
         assert_eq!(result.zone, TrafficLightZone::Red);
         assert_eq!(result.exceptions, 10);
         assert!((result.capital_multiplier - 4.0).abs() < 1e-10);
@@ -654,38 +604,16 @@ mod unit_tests {
 
     #[test]
     fn traffic_light_zero_exceptions() {
-        let breaches = vec![Breach::Miss; 250];
-        let result = traffic_light(&breaches, 0.99, 250);
+        let result = traffic_light(0, 250, 0.99);
         assert_eq!(result.zone, TrafficLightZone::Green);
         assert_eq!(result.exceptions, 0);
-    }
-
-    #[test]
-    fn traffic_light_uses_last_window() {
-        // 300 observations, window=250 => uses last 250
-        // Put hits only in the first 50 (outside window)
-        let mut breaches = vec![Breach::Miss; 300];
-        for breach in breaches.iter_mut().take(20) {
-            *breach = Breach::Hit;
-        }
-        let result = traffic_light(&breaches, 0.99, 250);
-        // Only the last 250 matter; hits are in first 50, so overlap
-        // is breaches[50..300], which has the hits at indices 0..20
-        // Since 20 < 50 and window starts at 300-250=50, no hits in window
-        assert_eq!(result.exceptions, 0);
-        assert_eq!(result.zone, TrafficLightZone::Green);
     }
 
     #[test]
     fn traffic_light_capital_multipliers_yellow_range() {
-        // Verify all yellow multipliers: 5->3.4, 6->3.5, 7->3.65, 8->3.75, 9->3.85
         let expected_multipliers = [(5, 3.4), (6, 3.5), (7, 3.65), (8, 3.75), (9, 3.85)];
         for (exc, mult) in &expected_multipliers {
-            let mut breaches = vec![Breach::Miss; 250];
-            for breach in breaches.iter_mut().take(*exc) {
-                *breach = Breach::Hit;
-            }
-            let result = traffic_light(&breaches, 0.99, 250);
+            let result = traffic_light(*exc, 250, 0.99);
             assert_eq!(result.zone, TrafficLightZone::Yellow);
             assert!(
                 (result.capital_multiplier - mult).abs() < 1e-10,
@@ -757,14 +685,7 @@ mod unit_tests {
 
     #[test]
     fn kupiec_large_sample() {
-        // 100,000 observations with expected breach rate
-        let n = 100_000;
-        let mut breaches = vec![Breach::Miss; n];
-        // Place ~1000 breaches (1% at 99% VaR)
-        for i in 0..1000 {
-            breaches[i * 100] = Breach::Hit;
-        }
-        let result = kupiec_test(&breaches, 0.99);
+        let result = kupiec_test(1000, 100_000, 0.99);
         assert!(result.lr_statistic.is_finite());
         assert!(result.p_value.is_finite());
         assert!(result.p_value > 0.05);

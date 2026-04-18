@@ -2,7 +2,7 @@
 //! multi-model comparison.
 
 use super::tests::{christoffersen_test, classify_breaches, kupiec_test, traffic_light};
-use super::types::{BacktestResult, MultiModelComparison, VarBacktestConfig, VarMethod};
+use super::types::{BacktestResult, Breach, MultiModelComparison, VarBacktestConfig, VarMethod};
 
 /// Run a complete VaR backtest on a single forecast series.
 ///
@@ -45,10 +45,19 @@ pub fn run_backtest(
     config: &VarBacktestConfig,
 ) -> BacktestResult {
     let breaches = classify_breaches(var_forecasts, realized_pnl);
+    let n = breaches.len();
+    let breach_count = breaches.iter().filter(|b| **b == Breach::Hit).count();
 
-    let kupiec = kupiec_test(&breaches, config.confidence);
+    let kupiec = kupiec_test(breach_count, n, config.confidence);
     let christoffersen = christoffersen_test(&breaches, config.confidence);
-    let tl = traffic_light(&breaches, config.confidence, config.window_size);
+
+    let tl_window = if n > config.window_size {
+        &breaches[n - config.window_size..]
+    } else {
+        &breaches
+    };
+    let tl_exceptions = tl_window.iter().filter(|b| **b == Breach::Hit).count();
+    let tl = traffic_light(tl_exceptions, tl_window.len(), config.confidence);
 
     BacktestResult {
         kupiec,

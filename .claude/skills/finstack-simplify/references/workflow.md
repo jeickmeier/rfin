@@ -153,6 +153,7 @@ The slice is done when:
 - In the body, reference the verify commands that passed.
 
 Example:
+
 ```
 refactor(statements): collapse dual check runners
 

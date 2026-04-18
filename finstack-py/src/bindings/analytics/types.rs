@@ -676,6 +676,230 @@ impl PyBenchmarkAlignmentPolicy {
 }
 
 // ---------------------------------------------------------------------------
+// KupiecResult
+// ---------------------------------------------------------------------------
+
+/// Result of the Kupiec Proportion of Failures (POF) test.
+#[pyclass(name = "KupiecResult", module = "finstack.analytics", frozen)]
+pub struct PyKupiecResult {
+    pub(super) inner: fa::backtesting::KupiecResult,
+}
+
+#[pymethods]
+impl PyKupiecResult {
+    /// Likelihood-ratio test statistic LR_uc.
+    #[getter]
+    fn lr_statistic(&self) -> f64 {
+        self.inner.lr_statistic
+    }
+    /// p-value from chi-squared(1) distribution.
+    #[getter]
+    fn p_value(&self) -> f64 {
+        self.inner.p_value
+    }
+    /// Number of observed VaR breaches.
+    #[getter]
+    fn breach_count(&self) -> usize {
+        self.inner.breach_count
+    }
+    /// Expected number of breaches under H0.
+    #[getter]
+    fn expected_count(&self) -> f64 {
+        self.inner.expected_count
+    }
+    /// Total number of observations.
+    #[getter]
+    fn total_observations(&self) -> usize {
+        self.inner.total_observations
+    }
+    /// Observed breach rate.
+    #[getter]
+    fn observed_rate(&self) -> f64 {
+        self.inner.observed_rate
+    }
+    /// Whether H0 is rejected at 5% significance.
+    #[getter]
+    fn reject_h0_5pct(&self) -> bool {
+        self.inner.reject_h0_5pct
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "KupiecResult(lr={:.4}, p={:.4}, breaches={}/{})",
+            self.inner.lr_statistic,
+            self.inner.p_value,
+            self.inner.breach_count,
+            self.inner.total_observations
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ChristoffersenResult
+// ---------------------------------------------------------------------------
+
+/// Result of the Christoffersen conditional coverage test.
+#[pyclass(name = "ChristoffersenResult", module = "finstack.analytics", frozen)]
+pub struct PyChristoffersenResult {
+    pub(super) inner: fa::backtesting::ChristoffersenResult,
+}
+
+#[pymethods]
+impl PyChristoffersenResult {
+    /// Unconditional coverage component (Kupiec LR_uc).
+    #[getter]
+    fn lr_uc(&self) -> f64 {
+        self.inner.lr_uc
+    }
+    /// Independence component LR_ind.
+    #[getter]
+    fn lr_ind(&self) -> f64 {
+        self.inner.lr_ind
+    }
+    /// Joint conditional coverage statistic LR_cc.
+    #[getter]
+    fn lr_cc(&self) -> f64 {
+        self.inner.lr_cc
+    }
+    /// p-value for unconditional coverage test.
+    #[getter]
+    fn p_value_uc(&self) -> f64 {
+        self.inner.p_value_uc
+    }
+    /// p-value for independence test.
+    #[getter]
+    fn p_value_ind(&self) -> f64 {
+        self.inner.p_value_ind
+    }
+    /// p-value for joint conditional coverage test.
+    #[getter]
+    fn p_value_cc(&self) -> f64 {
+        self.inner.p_value_cc
+    }
+    /// Transition matrix counts [n00, n01, n10, n11].
+    #[getter]
+    fn transition_counts(&self) -> Vec<usize> {
+        self.inner.transition_counts.to_vec()
+    }
+    /// Whether H0 (joint) is rejected at 5% significance.
+    #[getter]
+    fn reject_h0_5pct(&self) -> bool {
+        self.inner.reject_h0_5pct
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ChristoffersenResult(lr_cc={:.4}, p_cc={:.4})",
+            self.inner.lr_cc, self.inner.p_value_cc
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TrafficLightResult
+// ---------------------------------------------------------------------------
+
+/// Basel traffic-light assessment result.
+#[pyclass(name = "TrafficLightResult", module = "finstack.analytics", frozen)]
+pub struct PyTrafficLightResult {
+    pub(super) inner: fa::backtesting::TrafficLightResult,
+}
+
+#[pymethods]
+impl PyTrafficLightResult {
+    /// Assigned zone name (``"Green"``, ``"Yellow"``, or ``"Red"``).
+    #[getter]
+    fn zone(&self) -> &str {
+        match self.inner.zone {
+            fa::backtesting::TrafficLightZone::Green => "Green",
+            fa::backtesting::TrafficLightZone::Yellow => "Yellow",
+            fa::backtesting::TrafficLightZone::Red => "Red",
+        }
+    }
+    /// Number of exceptions in the evaluation window.
+    #[getter]
+    fn exceptions(&self) -> usize {
+        self.inner.exceptions
+    }
+    /// Capital multiplier for the market risk charge.
+    #[getter]
+    fn capital_multiplier(&self) -> f64 {
+        self.inner.capital_multiplier
+    }
+    /// Window size used.
+    #[getter]
+    fn window_size(&self) -> usize {
+        self.inner.window_size
+    }
+    /// VaR confidence level used.
+    #[getter]
+    fn confidence(&self) -> f64 {
+        self.inner.confidence
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TrafficLightResult(zone={}, exceptions={}, multiplier={:.2})",
+            self.zone(),
+            self.inner.exceptions,
+            self.inner.capital_multiplier
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BacktestResult
+// ---------------------------------------------------------------------------
+
+/// Full backtest result aggregating all statistical tests.
+#[pyclass(name = "BacktestResult", module = "finstack.analytics", frozen)]
+pub struct PyBacktestResult {
+    pub(super) inner: fa::backtesting::BacktestResult,
+}
+
+#[pymethods]
+impl PyBacktestResult {
+    /// Kupiec unconditional coverage test result.
+    #[getter]
+    fn kupiec(&self) -> PyKupiecResult {
+        PyKupiecResult {
+            inner: self.inner.kupiec.clone(),
+        }
+    }
+    /// Christoffersen conditional coverage test result.
+    #[getter]
+    fn christoffersen(&self) -> PyChristoffersenResult {
+        PyChristoffersenResult {
+            inner: self.inner.christoffersen.clone(),
+        }
+    }
+    /// Basel traffic-light classification result.
+    #[getter]
+    fn traffic_light(&self) -> PyTrafficLightResult {
+        PyTrafficLightResult {
+            inner: self.inner.traffic_light.clone(),
+        }
+    }
+    /// Number of observed VaR breaches.
+    #[getter]
+    fn breach_count(&self) -> usize {
+        self.inner.kupiec.breach_count
+    }
+    /// VaR confidence level used for the backtest.
+    #[getter]
+    fn confidence(&self) -> f64 {
+        self.inner.confidence
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BacktestResult(breaches={}, confidence={:.2})",
+            self.inner.kupiec.breach_count, self.inner.confidence
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -694,6 +918,10 @@ pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRuinModel>()?;
     m.add_class::<PyRuinEstimate>()?;
     m.add_class::<PyBenchmarkAlignmentPolicy>()?;
+    m.add_class::<PyKupiecResult>()?;
+    m.add_class::<PyChristoffersenResult>()?;
+    m.add_class::<PyTrafficLightResult>()?;
+    m.add_class::<PyBacktestResult>()?;
     let _ = py;
     Ok(())
 }

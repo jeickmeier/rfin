@@ -43,8 +43,6 @@ batting_average = _analytics.batting_average
 multi_factor_greeks = _analytics.multi_factor_greeks
 treynor = _analytics.treynor
 m_squared = _analytics.m_squared
-# Consecutive
-count_consecutive = _analytics.count_consecutive
 
 # Drawdown
 to_drawdown_series = _analytics.to_drawdown_series
@@ -105,7 +103,13 @@ tail_ratio = _analytics.tail_ratio
 outlier_win_ratio = _analytics.outlier_win_ratio
 outlier_loss_ratio = _analytics.outlier_loss_ratio
 
-# VaR backtesting
+# VaR backtesting — types
+KupiecResult = _analytics.KupiecResult
+ChristoffersenResult = _analytics.ChristoffersenResult
+TrafficLightResult = _analytics.TrafficLightResult
+BacktestResult = _analytics.BacktestResult
+
+# VaR backtesting — functions
 classify_breaches = _analytics.classify_breaches
 kupiec_test = _analytics.kupiec_test
 christoffersen_test = _analytics.christoffersen_test
@@ -113,6 +117,8 @@ traffic_light = _analytics.traffic_light
 run_backtest = _analytics.run_backtest
 
 # GARCH volatility models
+GarchFit = _analytics.GarchFit
+GarchParams = _analytics.GarchParams
 fit_garch11 = _analytics.fit_garch11
 fit_egarch11 = _analytics.fit_egarch11
 fit_gjr_garch11 = _analytics.fit_gjr_garch11
@@ -132,10 +138,15 @@ compute_multiple = _analytics.compute_multiple
 score_relative_value = _analytics.score_relative_value
 
 __all__: list[str] = [
+    "BacktestResult",
     "BenchmarkAlignmentPolicy",
     "BetaResult",
+    "ChristoffersenResult",
     "DrawdownEpisode",
+    "GarchFit",
+    "GarchParams",
     "GreeksResult",
+    "KupiecResult",
     "LookbackReturns",
     "MultiFactorResult",
     "Performance",
@@ -147,6 +158,7 @@ __all__: list[str] = [
     "RuinDefinition",
     "RuinEstimate",
     "RuinModel",
+    "TrafficLightResult",
     "aic",
     "align_benchmark",
     "arch_lm",
@@ -167,7 +179,6 @@ __all__: list[str] = [
     "compute_multiple",
     "convert_to_prices",
     "cornish_fisher_var",
-    "count_consecutive",
     "down_capture",
     "downside_deviation",
     "drawdown_details",

@@ -179,16 +179,6 @@ fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64)
 }
 
 // ===================================================================
-// Consecutive
-// ===================================================================
-
-/// Count longest consecutive run of positive values.
-#[pyfunction]
-fn count_consecutive(values: Vec<f64>) -> usize {
-    fa::consecutive::count_consecutive(&values, |x| x > 0.0)
-}
-
-// ===================================================================
 // Drawdown
 // ===================================================================
 
@@ -614,8 +604,6 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(multi_factor_greeks, m)?)?;
     m.add_function(wrap_pyfunction!(treynor, m)?)?;
     m.add_function(wrap_pyfunction!(m_squared, m)?)?;
-    // Consecutive
-    m.add_function(wrap_pyfunction!(count_consecutive, m)?)?;
     // Drawdown
     m.add_function(wrap_pyfunction!(to_drawdown_series, m)?)?;
     m.add_function(wrap_pyfunction!(drawdown_details, m)?)?;

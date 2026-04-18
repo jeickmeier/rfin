@@ -36,6 +36,7 @@ Bullet list of signature / behavior changes on items that survived.
 Show the most representative call-site's diff. Not the whole codebase — just the one that captures the user's ergonomic win.
 
 **Before:**
+
 ```rust
 let runner = LegacyCheckRunner::new(config);
 let suite = CheckSuite::from_runner(&runner);
@@ -46,6 +47,7 @@ for r in &results {
 ```
 
 **After:**
+
 ```rust
 let suite = CheckSuite::new(config);
 let results = suite.run(&ctx)?;

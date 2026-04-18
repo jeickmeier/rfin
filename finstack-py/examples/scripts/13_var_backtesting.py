@@ -73,25 +73,25 @@ def print_report(label: str, confidence: float, forecasts: np.ndarray, realized:
         )
 
     # 2. Kupiec POF
-    lr_k, p_k, reject_k = kupiec_test(breach_count, n, confidence)
+    k = kupiec_test(breach_count, n, confidence)
     print("\n  Kupiec POF (unconditional coverage):")
-    print(f"    LR statistic:             {lr_k:.4f}")
-    print(f"    p-value:                  {p_k:.4f}")
-    print(f"    Reject H0 at 5%:          {reject_k}")
+    print(f"    LR statistic:             {k.lr_statistic:.4f}")
+    print(f"    p-value:                  {k.p_value:.4f}")
+    print(f"    Reject H0 at 5%:          {k.reject_h0_5pct}")
 
     # 3. Christoffersen
     breach_series = [realized[i] < forecasts[i] for i in range(n)]
-    lr_cc, p_cc, reject_cc = christoffersen_test(breach_series, confidence)
+    c = christoffersen_test(breach_series, confidence)
     print("\n  Christoffersen (conditional coverage):")
-    print(f"    LR_cc statistic:          {lr_cc:.4f}")
-    print(f"    p-value:                  {p_cc:.4f}")
-    print(f"    Reject H0 at 5%:          {reject_cc}")
+    print(f"    LR_cc statistic:          {c.lr_cc:.4f}")
+    print(f"    p-value:                  {c.p_value_cc:.4f}")
+    print(f"    Reject H0 at 5%:          {c.reject_h0_5pct}")
 
     # 4. Traffic light
-    zone, mult = traffic_light(breach_count, n, confidence)
+    tl = traffic_light(breach_count, n, confidence)
     print("\n  Basel traffic light:")
-    print(f"    Zone:                     {zone}")
-    print(f"    Capital multiplier:       {mult:.2f}")
+    print(f"    Zone:                     {tl.zone}")
+    print(f"    Capital multiplier:       {tl.capital_multiplier:.2f}")
 
     # 5. One-shot aggregated report
     full = run_backtest(
@@ -102,11 +102,11 @@ def print_report(label: str, confidence: float, forecasts: np.ndarray, realized:
     )
     print("\n  Aggregated run_backtest():")
     print(
-        f"    kupiec.observed_rate:     {full['kupiec']['observed_rate']:.4f} "
+        f"    kupiec.observed_rate:     {full.kupiec.observed_rate:.4f} "
         f"(expected {1.0 - confidence:.4f})"
     )
-    print(f"    christoffersen.lr_ind:    {full['christoffersen']['lr_ind']:.4f}")
-    print(f"    traffic_light.zone:       {full['traffic_light']['zone']}")
+    print(f"    christoffersen.lr_ind:    {full.christoffersen.lr_ind:.4f}")
+    print(f"    traffic_light.zone:       {full.traffic_light.zone}")
 
 
 def main() -> None:

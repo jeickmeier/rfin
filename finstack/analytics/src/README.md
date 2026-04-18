@@ -71,9 +71,6 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
   - All accept an `offset_days` parameter to shift window starts.
   - Uses binary search; no allocations.
 
-- **`consecutive.rs`**
-  - `count_consecutive`: longest streak of elements satisfying a predicate (used for win/loss streak counts in `PeriodStats`).
-
 ---
 
 ## Core Types

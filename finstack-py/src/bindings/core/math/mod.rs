@@ -1,5 +1,6 @@
 //! Python bindings for `finstack_core::math`.
 
+mod consecutive;
 mod linalg;
 mod special_functions;
 mod stats;
@@ -26,12 +27,22 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let qual = format!("{pkg}.math");
     m.setattr("__package__", &qual)?;
 
+    consecutive::register(py, &m)?;
     linalg::register(py, &m)?;
     stats::register(py, &m)?;
     special_functions::register(py, &m)?;
     summation::register(py, &m)?;
 
-    let all = PyList::new(py, ["linalg", "stats", "special_functions", "summation"])?;
+    let all = PyList::new(
+        py,
+        [
+            "consecutive",
+            "linalg",
+            "stats",
+            "special_functions",
+            "summation",
+        ],
+    )?;
     m.setattr("__all__", all)?;
     parent.add_submodule(&m)?;
 

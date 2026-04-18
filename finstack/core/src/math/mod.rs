@@ -98,6 +98,8 @@ pub const ZERO_TOLERANCE: f64 = 1e-10;
 
 pub mod characteristic_function;
 pub mod compounding;
+/// Consecutive streak counter for return series analysis.
+pub mod consecutive;
 pub mod distributions;
 pub mod fractional;
 pub mod integration;
@@ -137,6 +139,7 @@ pub use random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 pub use random::{box_muller_transform, Pcg64Rng, RandomNumberGenerator};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
 pub use compounding::Compounding;
+pub use consecutive::count_consecutive;
 pub use solver::{BracketHint, BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
 pub use special_functions::{

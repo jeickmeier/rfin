@@ -20,6 +20,7 @@ import math
 import numpy as np
 
 from finstack.analytics import (
+    GarchFit,
     arch_lm,
     fit_egarch11,
     fit_garch11,
@@ -70,33 +71,44 @@ def fmt(value: float | None, width: int = 10, precision: int = 6) -> str:
     return f"{value:{width}.{precision}f}"
 
 
-def print_fit_summary(label: str, fit: dict) -> None:
+def _se_index(fit: GarchFit) -> dict[str, int]:
+    """Map parameter names to std_errors vector indices for the fitted model."""
+    idx: dict[str, int] = {"omega": 0, "alpha": 1, "beta": 2}
+    next_i = 3
+    if fit.gamma is not None:
+        idx["gamma"] = next_i
+        next_i += 1
+    if fit.nu is not None:
+        idx["nu"] = next_i
+    return idx
+
+
+def print_fit_summary(label: str, fit: GarchFit) -> None:
     """Print parameter estimates with optional standard errors."""
     print(f"\n{'=' * 72}")
     print(f"  {label}")
     print(f"{'=' * 72}")
-    print(f"  converged:        {fit['converged']}  (iters={fit['iterations']})")
-    print(f"  n_obs:            {fit['n_obs']}  n_params: {fit['n_params']}")
+    print(f"  converged:        {fit.converged}  (iters={fit.iterations})")
+    print(f"  n_obs:            {fit.n_obs}  n_params: {fit.n_params}")
 
-    se = fit.get("std_errors")
+    se = fit.std_errors
+    se_idx = _se_index(fit)
     print("\n  {:<10} {:>12}  {:>12}".format("parameter", "estimate", "std_error"))
     print("  " + "-" * 38)
     for name in ("omega", "alpha", "beta", "gamma", "nu"):
-        if name not in fit:
-            continue
-        est = fit[name]
+        est = getattr(fit, name, None)
         if est is None:
             continue
-        se_val = se.get(name) if isinstance(se, dict) else None
+        se_val = se[se_idx[name]] if se and name in se_idx else None
         print(f"  {name:<10} {fmt(est, 12):>12}  {fmt(se_val, 12):>12}")
 
-    print(f"\n  log-likelihood:   {fit['log_likelihood']:.4f}")
-    print(f"  AIC / BIC / HQIC: {fit['aic']:.4f}  /  {fit['bic']:.4f}  /  {fit['hqic']:.4f}")
-    print(f"  persistence:      {fit['persistence']:.6f}")
-    uv = fit.get("unconditional_variance")
+    print(f"\n  log-likelihood:   {fit.log_likelihood:.4f}")
+    print(f"  AIC / BIC / HQIC: {fit.aic:.4f}  /  {fit.bic:.4f}  /  {fit.hqic:.4f}")
+    print(f"  persistence:      {fit.persistence:.6f}")
+    uv = fit.unconditional_variance
     if uv is not None:
         print(f"  uncond. variance: {uv:.8f}  (ann. vol = {math.sqrt(uv * 252):.4f})")
-    hl = fit.get("half_life")
+    hl = fit.half_life
     if hl is not None:
         print(f"  shock half-life:  {hl:.2f} periods")
 
@@ -106,7 +118,6 @@ def print_fit_summary(label: str, fit: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    # True data-generating parameters
     true_omega = 2.0e-5
     true_alpha = 0.08
     true_beta = 0.88
@@ -137,20 +148,20 @@ def main() -> None:
     print("  " + "-" * 60)
     for name, fit in (("GARCH(1,1)", garch), ("EGARCH(1,1)", egarch), ("GJR-GARCH(1,1)", gjr)):
         print(
-            f"  {name:<16} {fit['log_likelihood']:>14.4f}"
-            f" {fit['aic']:>14.4f} {fit['bic']:>14.4f}"
+            f"  {name:<16} {fit.log_likelihood:>14.4f}"
+            f" {fit.aic:>14.4f} {fit.bic:>14.4f}"
         )
     best = min([("GARCH(1,1)", garch), ("EGARCH(1,1)", egarch), ("GJR-GARCH(1,1)", gjr)],
-               key=lambda kv: kv[1]["bic"])
+               key=lambda kv: kv[1].bic)
     print(f"\n  Best by BIC: {best[0]}")
 
     # ---- Forecast 21-day variance term structure from GARCH(1,1) ----------
     horizon = 21
     forecasts = garch11_forecast(
-        omega=garch["omega"],
-        alpha=garch["alpha"],
-        beta=garch["beta"],
-        last_variance=garch["terminal_variance"],
+        omega=garch.omega,
+        alpha=garch.alpha,
+        beta=garch.beta,
+        last_variance=garch.terminal_variance,
         last_return=returns_list[-1],
         horizon=horizon,
     )
@@ -160,7 +171,7 @@ def main() -> None:
     print(f"{'=' * 72}")
     print("  {:>8} {:>16} {:>16}".format("horizon", "variance", "ann. vol"))
     print("  " + "-" * 44)
-    uv = garch.get("unconditional_variance")
+    uv = garch.unconditional_variance
     for h, var in enumerate(forecasts, start=1):
         ann_vol = math.sqrt(max(var, 0.0) * ann_factor)
         if h in (1, 5, 10, 21):
@@ -169,7 +180,7 @@ def main() -> None:
         print(f"\n  Long-run uncond. ann. vol: {math.sqrt(uv * ann_factor):.6f}")
 
     # ---- Residual diagnostics on standardized residuals -------------------
-    resid = garch["standardized_residuals"]
+    resid = garch.standardized_residuals
     sq = [z * z for z in resid]
 
     q10, p10 = ljung_box(sq, 10)

@@ -15,6 +15,7 @@ Apply tactics one at a time per slice. Don't chain multiple tactics unless the c
 **Example:**
 
 *Before:*
+
 ```rust
 // in statements/src/checks/runner.rs
 pub struct LegacyCheckRunner { /* ... */ }
@@ -39,6 +40,7 @@ Delete `runner.rs`. Remove `pub mod runner;` from `checks/mod.rs`. Remove any re
 **Example:**
 
 *Before:*
+
 ```rust
 // in analytics/src/sharpe.rs
 pub fn sharpe(returns: &[f64], rf: f64) -> f64 {
@@ -55,6 +57,7 @@ fn sharpe_core(returns: &[f64], rf: f64, annualization: f64) -> f64 {
 ```
 
 *After:*
+
 ```rust
 pub fn sharpe(returns: &[f64], rf: f64, annualization: f64) -> f64 {
     // real work inlined
@@ -74,6 +77,7 @@ If call-sites always pass `252.0`, keep the signature but document the default e
 **Example:**
 
 *Before:*
+
 ```rust
 pub trait ScenarioAdapter {
     fn apply(&self, state: &mut State) -> Result<(), Error>;
@@ -88,6 +92,7 @@ pub fn run<A: ScenarioAdapter>(adapter: A, state: &mut State) -> Result<(), Erro
 ```
 
 *After:*
+
 ```rust
 pub struct MarketAdapter { /* ... */ }
 impl MarketAdapter {
@@ -112,6 +117,7 @@ Delete the trait. Tests that needed polymorphism can use a test-specific mock by
 **Example:**
 
 *Before:*
+
 ```rust
 impl DiscountCurve {
     pub fn new(pillars: Vec<Pillar>) -> Self { /* panics on bad input */ }
@@ -122,6 +128,7 @@ impl DiscountCurve {
 ```
 
 *After:*
+
 ```rust
 impl DiscountCurve {
     pub fn new(pillars: Vec<Pillar>) -> Result<Self, Error> {
@@ -152,12 +159,14 @@ impl From<MarketData> for DiscountCurve {
 **Example:**
 
 *Before:*
+
 ```rust
 pub fn evaluate_period<T: Numeric>(ctx: &Context<T>, period: Period) -> T { /* ... */ }
 // Only ever called with T = Decimal.
 ```
 
 *After:*
+
 ```rust
 pub fn evaluate_period(ctx: &Context, period: Period) -> Decimal { /* ... */ }
 ```
@@ -173,6 +182,7 @@ Delete the `Numeric` trait if nothing else uses it. Update bindings — generics
 **Example:**
 
 *Before:*
+
 ```rust
 impl Currency {
     pub fn new(iso: &str) -> Self { Self::try_new(iso).expect("bad ISO") }
@@ -181,6 +191,7 @@ impl Currency {
 ```
 
 *After:*
+
 ```rust
 impl Currency {
     pub fn new(iso: &str) -> Result<Self, ParseCurrencyError> { /* ... */ }
@@ -201,6 +212,7 @@ Use distinct input types, not distinct function names, to express the preconditi
 **Example:**
 
 *Before (Python binding):*
+
 ```rust
 #[pyfunction]
 fn compute_sharpe_from_df(df: &PyAny, rf: f64) -> PyResult<f64> {
@@ -215,6 +227,7 @@ fn compute_sharpe_from_df(df: &PyAny, rf: f64) -> PyResult<f64> {
 ```
 
 *After (Rust canonical):*
+
 ```rust
 // in analytics/src/sharpe.rs
 pub fn sharpe(returns: &[f64], rf: f64, annualization: f64) -> Option<f64> {
@@ -224,6 +237,7 @@ pub fn sharpe(returns: &[f64], rf: f64, annualization: f64) -> Option<f64> {
 ```
 
 *After (Python binding):*
+
 ```rust
 #[pyfunction]
 fn sharpe(returns: Vec<f64>, rf: f64, annualization: f64) -> PyResult<f64> {
@@ -244,6 +258,7 @@ Same refactor applied to WASM binding. `.pyi` updated. Parity contract updated.
 **Example:**
 
 *Before:*
+
 ```rust
 pub enum ParseError { BadIso(String), BadDate(String), BadNumber(String) }
 pub enum ValidationError { EmptyInput, NegativeRate, MismatchedLengths }
@@ -252,6 +267,7 @@ pub enum ValidationError { EmptyInput, NegativeRate, MismatchedLengths }
 If both types are mapped the same way in bindings (both become `ValueError` in Python, both become `JsValue::from_str` in WASM), there's no caller that distinguishes them — they can be one type.
 
 *After:*
+
 ```rust
 pub enum Error {
     #[error("parse failed for {field}: {reason}")]
@@ -277,6 +293,7 @@ Fewer variants, same information content, one mapping point in bindings.
 **Example:** `pub fn internal_helper` in `statements/src/evaluator/forecast_eval.rs` is not used by any other crate.
 
 *Fix:*
+
 ```rust
 pub(crate) fn internal_helper(...) -> ... { /* ... */ }
 ```
@@ -304,6 +321,7 @@ Usually a safe, instant, Tier 2 refactor.
 **When:** A wrapper type adds no invariants or behavior beyond forwarding to an inner type.
 
 *Before:*
+
 ```rust
 pub struct CurveHandle {
     inner: Arc<DiscountCurve>,
@@ -341,6 +359,7 @@ Use `Arc<DiscountCurve>` directly at call-sites, or add `#[derive(Clone)]` to `D
 **When:** Deeply nested `if let` / `match` that can be linear with early returns or `?`.
 
 *Before:*
+
 ```rust
 pub fn find_curve(id: &str, market: &Market) -> Option<Curve> {
     if let Some(section) = market.discount_curves.get(id) {
@@ -355,6 +374,7 @@ pub fn find_curve(id: &str, market: &Market) -> Option<Curve> {
 ```
 
 *After:*
+
 ```rust
 pub fn find_curve(id: &str, market: &Market) -> Option<Curve> {
     let section = market.discount_curves.get(id)?;
