@@ -5,7 +5,7 @@
 //! string-based and typed ID resolution.
 
 use crate::dates::calendar::calendar_by_id;
-use crate::dates::calendar::{CompositeCalendar, CompositeMode, HolidayCalendar};
+use crate::dates::calendar::HolidayCalendar;
 use core::marker::PhantomData;
 use std::sync::OnceLock;
 
@@ -49,43 +49,11 @@ impl CalendarRegistry<'_> {
         self.resolve_str(id.0)
     }
 
-    /// Resolve many calendars into `storage` and return a composite using the specified mode.
+    /// Resolve many calendars by id, returning them as an owned `Vec`.
     ///
-    /// This avoids allocation leaks by letting the caller own the backing buffer used by the
-    /// returned `CompositeCalendar` view.
-    ///
-    /// Usage:
-    /// ```
-    /// # use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
-    /// # use finstack_core::dates::calendar::{GBLO, TARGET2};
-    /// # use finstack_core::dates::HolidayCalendar;
-    /// let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
-    /// let regs = CalendarRegistry::global();
-    /// let mut buf = Vec::new();
-    /// let composite = regs.resolve_many(&ids, CompositeMode::Union, &mut buf);
-    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid date"));
-    /// ```
-    #[inline]
-    pub fn resolve_many<'s>(
-        &self,
-        ids: &[CalendarId],
-        mode: CompositeMode,
-        storage: &'s mut Vec<&'s dyn HolidayCalendar>,
-    ) -> CompositeCalendar<'s> {
-        storage.clear();
-        storage.reserve(ids.len());
-        for id in ids {
-            if let Some(c) = self.resolve(*id) {
-                storage.push(c);
-            }
-        }
-        CompositeCalendar::with_mode(&storage[..], mode)
-    }
-
-    /// Resolve many calendars and return them as a `Vec<&dyn HolidayCalendar>`.
-    ///
-    /// This helper avoids leaking memory and lets callers build a
-    /// `CompositeCalendar` by borrowing the returned `Vec` as a slice:
+    /// Unknown ids are silently dropped; the returned order matches input order
+    /// for the ids that did resolve. Build a [`CompositeCalendar`] by borrowing
+    /// the returned `Vec` as a slice:
     ///
     /// ```
     /// # use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
@@ -125,7 +93,7 @@ impl CalendarRegistry<'_> {
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
-    use crate::dates::calendar::{GBLO, TARGET2};
+    use crate::dates::calendar::{CompositeCalendar, CompositeMode, GBLO, TARGET2};
     use time::{Date, Month};
 
     #[test]
