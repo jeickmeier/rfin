@@ -21,3 +21,9 @@ pub use hw1f_calibration::{resolve_hw1f_params, Hw1fResolveRequest};
 pub mod exercise;
 #[cfg(feature = "mc")]
 pub use exercise::{extended_basis, standard_basis, ExerciseBoundaryPayoff};
+
+/// Generic HW1F Monte Carlo orchestrator for path-dependent rate exotics.
+#[cfg(feature = "mc")]
+pub mod hw1f_mc;
+#[cfg(feature = "mc")]
+pub use hw1f_mc::RateExoticHw1fMcPricer;
