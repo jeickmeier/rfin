@@ -33,20 +33,18 @@ mod generic;
 pub(crate) mod strategies;
 /// Traits for interpolation.
 mod traits;
-/// Types and factory for interpolation.
+/// Types, public aliases, and factory for interpolation.
 pub(crate) mod types;
 /// Shared helpers (validation and search).
 pub(crate) mod utils;
-/// Public wrapper types for interpolators.
-mod wrappers;
 
 // Re-exports for ergonomic access
 pub use generic::Interpolator;
 pub use strategies::DEFAULT_MONOTONE_CONVEX_EPSILON;
 pub use traits::{InterpFn, InterpolationStrategy};
-pub use types::{ExtrapolationPolicy, InterpStyle, ValidationPolicy, DERIVATIVE_EPSILON};
+pub use types::{
+    CubicHermite, ExtrapolationPolicy, InterpStyle, LinearDf, LogLinearDf, MonotoneConvex,
+    PiecewiseQuadraticForward, ValidationPolicy, DERIVATIVE_EPSILON,
+};
 /// Validate knot ordering and finiteness (internal helper used by curve builders).
 pub use utils::validate_knots;
-pub use wrappers::{
-    CubicHermite, LinearDf, LogLinearDf, MonotoneConvex, PiecewiseQuadraticForward,
-};
