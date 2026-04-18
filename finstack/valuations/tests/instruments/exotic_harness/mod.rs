@@ -2,3 +2,5 @@
 
 #[cfg(feature = "mc")]
 pub mod european_option_analytical;
+#[cfg(feature = "mc")]
+pub mod bermudan_swaption_parity;
