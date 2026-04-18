@@ -3,8 +3,8 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
-use crate::cashflow::builder::Notional;
-use crate::cashflow::primitives::{CFKind, CashFlow};
+use crate::builder::Notional;
+use crate::primitives::{CFKind, CashFlow};
 use finstack_core::cashflow::Discountable;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
@@ -631,7 +631,7 @@ impl CashFlowSchedule {
         }
         // Schedule flows are always sorted at construction (maintained by sort_flows).
         // Use the CashFlow-native path to avoid intermediate Vec<DatedFlow> allocation.
-        crate::cashflow::aggregation::pv_by_period_cashflows_sorted_checked(
+        crate::aggregation::pv_by_period_cashflows_sorted_checked(
             &self.flows,
             periods,
             disc,
@@ -697,7 +697,7 @@ impl CashFlowSchedule {
         let disc: &dyn Discounting = curves.discounting();
         let hazard = curves.hazard_survival();
 
-        let date_ctx = crate::cashflow::aggregation::DateContext::new(base, dc, dc_ctx);
+        let date_ctx = crate::aggregation::DateContext::new(base, dc, dc_ctx);
         self.pv_by_period_with_survival_and_ctx(
             periods,
             disc,
@@ -741,10 +741,10 @@ impl CashFlowSchedule {
         disc: &dyn Discounting,
         hazard: Option<&dyn Survival>,
         recovery_rate: Option<f64>,
-        date_ctx: crate::cashflow::aggregation::DateContext<'_>,
+        date_ctx: crate::aggregation::DateContext<'_>,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         if let Some(hazard_curve) = hazard {
-            crate::cashflow::aggregation::pv_by_period_credit_adjusted_detailed(
+            crate::aggregation::pv_by_period_credit_adjusted_detailed(
                 &self.flows,
                 periods,
                 disc,

@@ -1,7 +1,7 @@
 use super::config::{CDSTranchePricer, HeteroMethod};
 use crate::constants::credit;
-use crate::instruments::credit_derivatives::cds_tranche::copula::Copula;
-use crate::instruments::credit_derivatives::cds_tranche::recovery::RecoveryModel;
+use crate::correlation::copula::Copula;
+use crate::correlation::recovery::RecoveryModel;
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::math::{norm_cdf, norm_pdf};

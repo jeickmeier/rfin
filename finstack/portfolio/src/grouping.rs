@@ -169,7 +169,8 @@ pub fn aggregate_by_multiple_attributes(
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_portfolio::{aggregate_by_book, value_portfolio};
+/// use finstack_portfolio::grouping::aggregate_by_book;
+/// use finstack_portfolio::valuation::value_portfolio;
 /// use finstack_core::currency::Currency;
 ///
 /// # fn example(portfolio: finstack_portfolio::Portfolio, market: finstack_core::market_data::context::MarketContext, config: finstack_core::config::FinstackConfig) -> finstack_portfolio::Result<()> {

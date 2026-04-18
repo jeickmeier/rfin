@@ -15,7 +15,7 @@ use finstack_core::market_data::hierarchy::{
 };
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
-use finstack_statements::NodeId;
+use finstack_statements::types::NodeId;
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 

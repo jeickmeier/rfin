@@ -17,7 +17,7 @@
 //! # Shared Infrastructure
 //!
 //! This module delegates to the shared swap leg pricing infrastructure in
-//! [`crate::instruments::common::pricing::swap_legs`] for robust discounting
+//! [`crate::instruments::common_impl::pricing::swap_legs`] for robust discounting
 //! and numerical stability.
 
 #[allow(unused_imports)] // Used in doc examples and tests
@@ -142,7 +142,7 @@ pub struct BasisSwap {
     #[builder(default)]
     #[serde(
         default,
-        deserialize_with = "crate::instruments::common::parameters::deserialize_null_default"
+        deserialize_with = "crate::instruments::common_impl::parameters::deserialize_null_default"
     )]
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for instrument selection and tagging.

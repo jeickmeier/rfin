@@ -157,7 +157,7 @@ impl Position {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_portfolio::position::{Position, PositionUnit};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::instruments::rates::deposit::Deposit;
@@ -315,7 +315,7 @@ impl Position {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_portfolio::position::{Position, PositionUnit};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::instruments::rates::deposit::Deposit;
@@ -417,7 +417,7 @@ impl Position {
     /// ```rust,no_run
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
-    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_portfolio::position::{Position, PositionUnit};
     /// use finstack_valuations::instruments::rates::deposit::Deposit;
     /// use std::sync::Arc;
     /// use time::macros::date;

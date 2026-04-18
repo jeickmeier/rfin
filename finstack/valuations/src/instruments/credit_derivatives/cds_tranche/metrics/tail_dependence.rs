@@ -22,7 +22,7 @@
 //! - Equity tranches: Higher expected loss in stress
 //! - Senior tranches: Higher unexpected loss risk
 
-use crate::instruments::credit_derivatives::cds_tranche::copula::CopulaSpec;
+use crate::correlation::copula::CopulaSpec;
 use crate::instruments::credit_derivatives::cds_tranche::pricer::CDSTranchePricer;
 use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::{MetricCalculator, MetricContext};

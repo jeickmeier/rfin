@@ -16,7 +16,7 @@ use pyo3::prelude::*;
 )]
 #[derive(Clone, PartialEq)]
 pub struct PyForecastMethod {
-    pub(super) inner: finstack_statements::ForecastMethod,
+    pub(super) inner: finstack_statements::types::ForecastMethod,
 }
 
 #[pymethods]
@@ -24,56 +24,56 @@ impl PyForecastMethod {
     #[staticmethod]
     fn forward_fill() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::ForwardFill,
+            inner: finstack_statements::types::ForecastMethod::ForwardFill,
         }
     }
 
     #[staticmethod]
     fn growth_pct() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::GrowthPct,
+            inner: finstack_statements::types::ForecastMethod::GrowthPct,
         }
     }
 
     #[staticmethod]
     fn curve_pct() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::CurvePct,
+            inner: finstack_statements::types::ForecastMethod::CurvePct,
         }
     }
 
     #[staticmethod]
     fn normal() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::Normal,
+            inner: finstack_statements::types::ForecastMethod::Normal,
         }
     }
 
     #[staticmethod]
     fn log_normal() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::LogNormal,
+            inner: finstack_statements::types::ForecastMethod::LogNormal,
         }
     }
 
     #[staticmethod]
     fn override_method() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::Override,
+            inner: finstack_statements::types::ForecastMethod::Override,
         }
     }
 
     #[staticmethod]
     fn time_series() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::TimeSeries,
+            inner: finstack_statements::types::ForecastMethod::TimeSeries,
         }
     }
 
     #[staticmethod]
     fn seasonal() -> Self {
         Self {
-            inner: finstack_statements::ForecastMethod::Seasonal,
+            inner: finstack_statements::types::ForecastMethod::Seasonal,
         }
     }
 
@@ -95,7 +95,7 @@ impl PyForecastMethod {
 )]
 #[derive(Clone, PartialEq)]
 pub struct PyNodeType {
-    pub(super) inner: finstack_statements::NodeType,
+    pub(super) inner: finstack_statements::types::NodeType,
 }
 
 #[pymethods]
@@ -103,21 +103,21 @@ impl PyNodeType {
     #[staticmethod]
     fn value() -> Self {
         Self {
-            inner: finstack_statements::NodeType::Value,
+            inner: finstack_statements::types::NodeType::Value,
         }
     }
 
     #[staticmethod]
     fn calculated() -> Self {
         Self {
-            inner: finstack_statements::NodeType::Calculated,
+            inner: finstack_statements::types::NodeType::Calculated,
         }
     }
 
     #[staticmethod]
     fn mixed() -> Self {
         Self {
-            inner: finstack_statements::NodeType::Mixed,
+            inner: finstack_statements::types::NodeType::Mixed,
         }
     }
 
@@ -134,7 +134,7 @@ impl PyNodeType {
 #[pyclass(name = "NodeId", module = "finstack.statements", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyNodeId {
-    pub(super) inner: finstack_statements::NodeId,
+    pub(super) inner: finstack_statements::types::NodeId,
 }
 
 #[pymethods]
@@ -142,7 +142,7 @@ impl PyNodeId {
     #[new]
     fn new(id: &str) -> Self {
         Self {
-            inner: finstack_statements::NodeId::new(id),
+            inner: finstack_statements::types::NodeId::new(id),
         }
     }
 
@@ -172,7 +172,7 @@ impl PyNodeId {
 )]
 #[derive(Clone, PartialEq)]
 pub struct PyNumericMode {
-    pub(super) inner: finstack_statements::NumericMode,
+    pub(super) inner: finstack_statements::evaluator::NumericMode,
 }
 
 #[pymethods]
@@ -180,7 +180,7 @@ impl PyNumericMode {
     #[staticmethod]
     fn float64() -> Self {
         Self {
-            inner: finstack_statements::NumericMode::Float64,
+            inner: finstack_statements::evaluator::NumericMode::Float64,
         }
     }
 

@@ -3,8 +3,8 @@
 #![allow(clippy::unwrap_used)]
 
 use crate::swaption::common::*;
+use finstack_core::dates::DayCountCtx;
 use finstack_core::dates::{Tenor, TenorUnit};
-use finstack_valuations::instruments::common::helpers::year_fraction;
 use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use finstack_valuations::instruments::rates::swaption::SABRParameters;
 use finstack_valuations::instruments::rates::swaption::{
@@ -98,8 +98,14 @@ fn test_swaption_cash_annuity_zero_forward_and_invalid_freq() {
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     swaption.settlement = SwaptionSettlement::Cash;
 
-    let expected =
-        year_fraction(swaption.day_count, swaption.swap_start, swaption.swap_end).unwrap();
+    let expected = swaption
+        .day_count
+        .year_fraction(
+            swaption.swap_start,
+            swaption.swap_end,
+            DayCountCtx::default(),
+        )
+        .unwrap();
     let annuity = swaption.cash_annuity_par_yield(0.0).unwrap();
     assert_approx_eq(annuity, expected, 1e-8, "cash annuity zero rate");
 
@@ -113,7 +119,10 @@ fn test_resolve_volatility_priority_and_greek_inputs_expired() {
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     let market = create_flat_market(as_of, 0.03, 0.2);
     let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
-    let t = year_fraction(swaption.day_count, as_of, swaption.expiry).unwrap();
+    let t = swaption
+        .day_count
+        .year_fraction(as_of, swaption.expiry, DayCountCtx::default())
+        .unwrap();
 
     let surface_vol = swaption.resolve_volatility(&market, forward, t).unwrap();
     assert_approx_eq(surface_vol, 0.2, 1e-12, "surface vol");

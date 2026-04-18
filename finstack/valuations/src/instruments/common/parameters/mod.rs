@@ -20,10 +20,8 @@ pub mod underlying;
 pub mod volatility;
 
 // Re-export commonly used types for convenience
-pub use commodity_settlement::CommoditySettlementSpec;
 pub use contract::{ContractSpec, ScheduleSpec};
 pub use conventions::{BondConvention, CommodityConvention, IRSConvention};
-pub use indexation::IndexationSpec;
 pub use legs::{
     BasisSwapLeg, FinancingLegSpec, FixedLegSpec, FloatLegSpec, ParRateMethod, PayReceive,
     PremiumLegSpec, ProtectionLegSpec, TotalReturnLegSpec,
@@ -34,7 +32,6 @@ pub use market::{
 };
 pub use option_market::OptionMarketParams;
 pub use quanto::QuantoSpec;
-pub use trs_common::{TrsScheduleSpec, TrsSide};
 pub use underlying::{
     CommodityUnderlyingParams, EquityUnderlyingParams, FxUnderlyingParams, IndexUnderlyingParams,
     UnderlyingParams,

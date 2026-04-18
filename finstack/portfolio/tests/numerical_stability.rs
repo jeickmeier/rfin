@@ -5,8 +5,9 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_core::money::Money;
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{Error, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::{Error, PortfolioBuilder};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Duration;
@@ -61,9 +62,13 @@ fn test_compensated_summation_large_portfolio() {
     let market = market_with_usd();
     let config = FinstackConfig::default();
 
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
 
     // With alternating ±1e12, the total should be close to zero
     // Compensated summation should maintain accuracy
@@ -125,11 +130,16 @@ fn test_aggregated_metrics_are_finite() {
     let market = market_with_usd();
     let config = FinstackConfig::default();
 
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
+        finstack_portfolio::metrics::aggregate_metrics(&valuation, Currency::USD, &market, as_of)
+            .unwrap();
 
     // Verify that all aggregated metrics are finite
     for (metric_id, agg_metric) in &metrics.aggregated {

@@ -778,7 +778,7 @@ mod tests {
     use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::equity::equity_option::pricer;
     use crate::instruments::{
-        common::traits::Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+        Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
     };
     use finstack_core::{
         currency::Currency,

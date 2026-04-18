@@ -62,8 +62,8 @@ fn classify_breaches(
 /// so this synthetic placement is sufficient.
 fn synth_breaches(breaches: usize, n: usize) -> Vec<Breach> {
     let mut seq = vec![Breach::Miss; n];
-    for i in 0..breaches.min(n) {
-        seq[i] = Breach::Hit;
+    for item in seq.iter_mut().take(breaches.min(n)) {
+        *item = Breach::Hit;
     }
     seq
 }

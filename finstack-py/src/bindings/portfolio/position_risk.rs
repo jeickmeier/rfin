@@ -7,10 +7,11 @@
 //! nested `PyDict` structures rather than opaque `#[pyclass]` wrappers.
 
 use crate::errors::core_to_py;
-use finstack_portfolio::{
-    DecompositionConfig, HistoricalPositionDecomposer, ParametricPositionDecomposer, PositionId,
+use finstack_portfolio::factor_model::{
+    DecompositionConfig, HistoricalPositionDecomposer, ParametricPositionDecomposer,
     PositionRiskDecomposer, PositionRiskDecomposition, RiskBudget,
 };
+use finstack_portfolio::types::PositionId;
 use indexmap::IndexMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -321,7 +322,7 @@ fn evaluate_risk_budget<'py>(
     }
 
     // Synthesize a decomposition so we can reuse the Rust budget engine.
-    use finstack_portfolio::{
+    use finstack_portfolio::factor_model::{
         DecompositionMethod, PositionEsContribution, PositionVarContribution,
     };
     let var_contributions: Vec<PositionVarContribution> = position_ids

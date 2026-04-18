@@ -1,9 +1,9 @@
 //! Cashflow-related traits and aliases.
 
-use crate::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule, CashflowRepresentation};
-use crate::cashflow::builder::Notional;
-use crate::cashflow::primitives::{CFKind, CashFlow};
-pub use crate::cashflow::DatedFlows;
+use crate::builder::schedule::{CashFlowMeta, CashFlowSchedule, CashflowRepresentation};
+use crate::builder::Notional;
+use crate::primitives::{CFKind, CashFlow};
+pub use crate::DatedFlows;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -79,7 +79,7 @@ pub trait CashflowProvider: Send + Sync {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule>;
+    ) -> finstack_core::Result<crate::builder::CashFlowSchedule>;
 
     /// Convenience: return flattened `(Date, Money)` flows derived from the canonical schedule.
     ///

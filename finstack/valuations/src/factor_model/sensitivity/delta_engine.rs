@@ -166,7 +166,7 @@ impl FactorSensitivityEngine for DeltaBasedEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Attributes;
+    use crate::instruments::common_impl::traits::Attributes;
     use crate::pricer::InstrumentType;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::bumps::BumpUnits;

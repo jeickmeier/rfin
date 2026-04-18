@@ -6,9 +6,10 @@ mod replay_tests {
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
-    use finstack_portfolio::{
-        Entity, Portfolio, Position, PositionUnit, ReplayConfig, ReplayMode, ReplayTimeline,
-    };
+    use finstack_portfolio::position::{Position, PositionUnit};
+    use finstack_portfolio::replay::{ReplayConfig, ReplayMode, ReplayTimeline};
+    use finstack_portfolio::types::Entity;
+    use finstack_portfolio::Portfolio;
     use finstack_valuations::attribution::AttributionMethod;
     use finstack_valuations::instruments::rates::deposit::Deposit;
     use std::sync::Arc;
@@ -153,7 +154,7 @@ mod replay_tests {
             valuation_options: Default::default(),
         };
 
-        let result = finstack_portfolio::replay_portfolio(
+        let result = finstack_portfolio::replay::replay_portfolio(
             &portfolio,
             &timeline,
             &config,
@@ -211,7 +212,7 @@ mod replay_tests {
             valuation_options: Default::default(),
         };
 
-        let result = finstack_portfolio::replay_portfolio(
+        let result = finstack_portfolio::replay::replay_portfolio(
             &portfolio,
             &timeline,
             &config,
@@ -257,7 +258,7 @@ mod replay_tests {
             valuation_options: Default::default(),
         };
 
-        let result = finstack_portfolio::replay_portfolio(
+        let result = finstack_portfolio::replay::replay_portfolio(
             &portfolio,
             &timeline,
             &config,
@@ -309,7 +310,7 @@ mod replay_tests {
             valuation_options: Default::default(),
         };
 
-        let result = finstack_portfolio::replay_portfolio(
+        let result = finstack_portfolio::replay::replay_portfolio(
             &portfolio,
             &timeline,
             &config,
@@ -361,7 +362,7 @@ mod replay_tests {
             valuation_options: Default::default(),
         };
 
-        let result = finstack_portfolio::replay_portfolio(
+        let result = finstack_portfolio::replay::replay_portfolio(
             &portfolio,
             &timeline,
             &config,
@@ -373,7 +374,8 @@ mod replay_tests {
         assert!(!json.is_empty());
 
         // Deserialize back
-        let deserialized: finstack_portfolio::ReplayResult = serde_json::from_str(&json).unwrap();
+        let deserialized: finstack_portfolio::replay::ReplayResult =
+            serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.steps.len(), 2);
         assert_eq!(deserialized.summary.num_steps, 2);
     }

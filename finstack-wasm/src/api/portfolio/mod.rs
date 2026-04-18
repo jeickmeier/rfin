@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 /// Returns the re-serialized canonical JSON form.
 #[wasm_bindgen(js_name = parsePortfolioSpec)]
 pub fn parse_portfolio_spec(json_str: &str) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(json_str).map_err(to_js_err)?;
 
     serde_json::to_string(&spec).map_err(to_js_err)
@@ -23,7 +23,7 @@ pub fn parse_portfolio_spec(json_str: &str) -> Result<String, JsValue> {
 /// validates structural invariants, then re-serializes for confirmation.
 #[wasm_bindgen(js_name = buildPortfolioFromSpec)]
 pub fn build_portfolio_from_spec(spec_json: &str) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
 
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
@@ -35,7 +35,7 @@ pub fn build_portfolio_from_spec(spec_json: &str) -> Result<String, JsValue> {
 /// Extract the total portfolio value from a JSON result.
 #[wasm_bindgen(js_name = portfolioResultTotalValue)]
 pub fn portfolio_result_total_value(result_json: &str) -> Result<f64, JsValue> {
-    let result: finstack_portfolio::PortfolioResult =
+    let result: finstack_portfolio::results::PortfolioResult =
         serde_json::from_str(result_json).map_err(to_js_err)?;
 
     Ok(result.total_value().amount())
@@ -46,7 +46,7 @@ pub fn portfolio_result_total_value(result_json: &str) -> Result<f64, JsValue> {
 /// Returns `undefined` (via `Option`) if the metric was not produced.
 #[wasm_bindgen(js_name = portfolioResultGetMetric)]
 pub fn portfolio_result_get_metric(result_json: &str, metric_id: &str) -> Result<JsValue, JsValue> {
-    let result: finstack_portfolio::PortfolioResult =
+    let result: finstack_portfolio::results::PortfolioResult =
         serde_json::from_str(result_json).map_err(to_js_err)?;
 
     match result.get_metric(metric_id) {
@@ -70,8 +70,8 @@ pub fn aggregate_metrics(
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let format = time::format_description::well_known::Iso8601::DEFAULT;
     let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
-    let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, ccy, &market, date).map_err(to_js_err)?;
+    let metrics = finstack_portfolio::metrics::aggregate_metrics(&valuation, ccy, &market, date)
+        .map_err(to_js_err)?;
     serde_json::to_string(&metrics).map_err(to_js_err)
 }
 
@@ -82,31 +82,32 @@ pub fn value_portfolio(
     market_json: &str,
     strict_risk: bool,
 ) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
     let config = finstack_core::config::FinstackConfig::default();
-    let options = finstack_portfolio::PortfolioValuationOptions {
+    let options = finstack_portfolio::valuation::PortfolioValuationOptions {
         strict_risk,
         ..Default::default()
     };
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config, &options)
-        .map_err(to_js_err)?;
+    let valuation =
+        finstack_portfolio::valuation::value_portfolio(&portfolio, &market, &config, &options)
+            .map_err(to_js_err)?;
     serde_json::to_string(&valuation).map_err(to_js_err)
 }
 
 /// Aggregate cashflows for a portfolio from its spec and market context.
 #[wasm_bindgen(js_name = aggregateCashflows)]
 pub fn aggregate_cashflows(spec_json: &str, market_json: &str) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
-    let cashflows =
-        finstack_portfolio::aggregate_cashflows(&portfolio, &market).map_err(to_js_err)?;
+    let cashflows = finstack_portfolio::cashflows::aggregate_cashflows(&portfolio, &market)
+        .map_err(to_js_err)?;
     serde_json::to_string(&cashflows).map_err(to_js_err)
 }
 
@@ -119,7 +120,7 @@ pub fn apply_scenario_and_revalue(
     scenario_json: &str,
     market_json: &str,
 ) -> Result<JsValue, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
     let scenario: finstack_scenarios::ScenarioSpec =
         serde_json::from_str(scenario_json).map_err(to_js_err)?;
@@ -128,7 +129,7 @@ pub fn apply_scenario_and_revalue(
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
     let config = finstack_core::config::FinstackConfig::default();
     let (valuation, report) =
-        finstack_portfolio::apply_and_revalue(&portfolio, &scenario, &market, &config)
+        finstack_portfolio::scenarios::apply_and_revalue(&portfolio, &scenario, &market, &config)
             .map_err(to_js_err)?;
     let val_json = serde_json::to_string(&valuation).map_err(to_js_err)?;
     let report_json = serde_json::to_string(&report).map_err(to_js_err)?;
@@ -145,13 +146,13 @@ pub fn apply_scenario_and_revalue(
 /// constraints + options) and a `MarketContext` JSON.
 #[wasm_bindgen(js_name = optimizePortfolio)]
 pub fn optimize_portfolio(spec_json: &str, market_json: &str) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioOptimizationSpec =
+    let spec: finstack_portfolio::optimization::PortfolioOptimizationSpec =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let config = finstack_core::config::FinstackConfig::default();
-    let result =
-        finstack_portfolio::optimize_from_spec(&spec, &market, &config).map_err(to_js_err)?;
+    let result = finstack_portfolio::optimization::optimize_from_spec(&spec, &market, &config)
+        .map_err(to_js_err)?;
     serde_json::to_string_pretty(&result).map_err(to_js_err)
 }
 
@@ -165,11 +166,11 @@ pub fn replay_portfolio(
     snapshots_json: &str,
     config_json: &str,
 ) -> Result<String, JsValue> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(to_js_err)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
 
-    let config: finstack_portfolio::ReplayConfig =
+    let config: finstack_portfolio::replay::ReplayConfig =
         serde_json::from_str(config_json).map_err(to_js_err)?;
 
     // Parse snapshots: [{"date": "YYYY-MM-DD", "market": {...}}, ...]
@@ -187,12 +188,16 @@ pub fn replay_portfolio(
         snapshots.push((date, market));
     }
 
-    let timeline = finstack_portfolio::ReplayTimeline::new(snapshots).map_err(to_js_err)?;
+    let timeline = finstack_portfolio::replay::ReplayTimeline::new(snapshots).map_err(to_js_err)?;
     let finstack_config = finstack_core::config::FinstackConfig::default();
 
-    let result =
-        finstack_portfolio::replay_portfolio(&portfolio, &timeline, &config, &finstack_config)
-            .map_err(to_js_err)?;
+    let result = finstack_portfolio::replay::replay_portfolio(
+        &portfolio,
+        &timeline,
+        &config,
+        &finstack_config,
+    )
+    .map_err(to_js_err)?;
 
     serde_json::to_string(&result).map_err(to_js_err)
 }
@@ -268,7 +273,7 @@ mod tests {
         let spec = minimal_portfolio_spec_json();
         let market = empty_market_json();
         let valuation_json = value_portfolio(&spec, &market, false).expect("value");
-        let result = finstack_portfolio::PortfolioResult {
+        let result = finstack_portfolio::results::PortfolioResult {
             valuation: serde_json::from_str(&valuation_json).expect("deser"),
             metrics: Default::default(),
             meta: Default::default(),
@@ -296,7 +301,7 @@ mod tests {
     #[test]
     fn replay_portfolio_empty_portfolio() {
         let spec_json = minimal_portfolio_spec_json();
-        let spec: finstack_portfolio::PortfolioSpec =
+        let spec: finstack_portfolio::portfolio::PortfolioSpec =
             serde_json::from_str(&spec_json).expect("parse spec");
         let portfolio = finstack_portfolio::Portfolio::from_spec(spec).expect("build portfolio");
 
@@ -318,21 +323,26 @@ mod tests {
             snapshots.push((date, market));
         }
 
-        let timeline = finstack_portfolio::ReplayTimeline::new(snapshots).expect("build timeline");
+        let timeline =
+            finstack_portfolio::replay::ReplayTimeline::new(snapshots).expect("build timeline");
 
         let config_json = serde_json::json!({
             "mode": "PvOnly",
             "attribution_method": "Parallel"
         })
         .to_string();
-        let config: finstack_portfolio::ReplayConfig =
+        let config: finstack_portfolio::replay::ReplayConfig =
             serde_json::from_str(&config_json).expect("parse config");
 
         let finstack_config = finstack_core::config::FinstackConfig::default();
 
-        let result =
-            finstack_portfolio::replay_portfolio(&portfolio, &timeline, &config, &finstack_config)
-                .expect("replay");
+        let result = finstack_portfolio::replay::replay_portfolio(
+            &portfolio,
+            &timeline,
+            &config,
+            &finstack_config,
+        )
+        .expect("replay");
 
         let json = serde_json::to_string(&result).expect("serialize");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse json");

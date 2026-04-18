@@ -5,7 +5,7 @@
 
 use finstack_analytics::performance::Performance;
 use finstack_analytics::returns::{clean_returns, simple_returns};
-use finstack_analytics::{RuinDefinition, RuinModel};
+use finstack_analytics::risk_metrics::{RuinDefinition, RuinModel};
 use finstack_core::dates::{Date, FiscalConfig, Month, PeriodKind};
 
 fn calendar_days(start: Date, n: usize) -> Vec<Date> {

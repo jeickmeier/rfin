@@ -178,50 +178,9 @@ pub mod common {
     pub use super::public_traits::Instrument;
     pub use finstack_core::dates::fx::resolve_calendar;
 
-    /// Market dependency types (curves, FX pairs, etc.).
-    pub mod dependencies {
-        pub use super::super::common_impl::dependencies::*;
-    }
-
-    /// Discounting/NPV helper traits and adapters.
-    pub mod discountable {
-        pub use super::super::common_impl::discountable::*;
-    }
-
-    /// FX date and joint-calendar helpers.
-    pub mod fx_dates {
-        pub use super::super::common_impl::fx_dates::*;
-    }
-
-    /// Shared helper functions used across instruments.
-    pub mod helpers {
-        pub use super::super::common_impl::helpers::*;
-    }
-
-    /// Shared parameter types (legs, schedules, market params, conventions).
-    pub mod parameters {
-        pub use super::super::common_impl::parameters::*;
-    }
-
-    /// Periodized PV helpers (per-period contributions, aggregation).
-    pub mod period_pv {
-        pub use super::super::common_impl::period_pv::*;
-    }
-
     /// Shared pricing infrastructure (schedules, generic pricers, TRS engine, etc.).
     pub mod pricing {
         pub use super::super::common_impl::pricing::*;
-    }
-
-    /// Core instrument traits and metadata (`Instrument`, `Attributes`, dependencies).
-    pub mod traits {
-        pub use super::super::common_impl::traits::{
-            Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,
-            EquityInstrumentDeps, EquityInstrumentDepsBuilder, InstrumentCurves,
-            InstrumentCurvesBuilder, OptionGreekKind, OptionGreeks, OptionGreeksProvider,
-            OptionGreeksRequest, PricingOptions, RatesCurveKind,
-        };
-        pub use super::super::public_traits::Instrument;
     }
 
     /// Pricing models (closed-form, trees, volatility, Monte Carlo, etc.).

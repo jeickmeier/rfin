@@ -21,7 +21,7 @@
 //! - `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
 //! - `docs/REFERENCES.md#litterman-1996-hotspots`
 
-use crate::PositionId;
+use crate::types::PositionId;
 use finstack_core::currency::Currency;
 use serde::{Deserialize, Serialize};
 

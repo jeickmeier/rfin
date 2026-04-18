@@ -7,8 +7,9 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, InputError};
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;
@@ -93,9 +94,13 @@ fn valuation_falls_back_when_metrics_fail() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
 
     let pv = valuation.get_position_value("P").unwrap();
     assert_eq!(pv.value_native.currency(), Currency::USD);

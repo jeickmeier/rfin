@@ -22,7 +22,9 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use finstack_portfolio::{Portfolio, Entity, Position, PositionUnit};
+//! use finstack_portfolio::Portfolio;
+//! use finstack_portfolio::position::{Position, PositionUnit};
+//! use finstack_portfolio::types::Entity;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
@@ -90,8 +92,6 @@ pub mod optimization;
 pub mod portfolio;
 /// Position primitives and units.
 pub mod position;
-/// Convenient re-exports for common portfolio types.
-pub mod prelude;
 /// Result envelopes for portfolio operations.
 pub mod results;
 /// Core portfolio entity and ID types.
@@ -114,52 +114,6 @@ pub mod scenarios;
 /// Historical scenario replay for portfolios.
 pub mod replay;
 
-// Re-export key types
-pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution, ReconciliationReport};
-pub use book::{Book, BookId};
 pub use builder::PortfolioBuilder;
-pub use cashflows::{
-    aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
-    PortfolioCashflowBuckets, PortfolioCashflowPositionSummary, PortfolioCashflows,
-};
-pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};
-pub use factor_model::{
-    DecompositionConfig, DecompositionMethod, FactorModel, FactorModelBuilder,
-    HistoricalPositionDecomposer, ParametricPositionDecomposer, PositionEsContribution,
-    PositionRiskDecomposer, PositionRiskDecomposition, PositionVarContribution, RiskBudget,
-    RiskBudgetResult, RiskDecomposition,
-};
-pub use grouping::{
-    aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
-};
-pub use liquidity::{
-    score_portfolio_liquidity, LiquidityConfig, LiquidityProfile, LiquidityTier, LvarCalculator,
-    PortfolioLiquidityReport, SpreadVolatilityKind,
-};
-pub use margin::{
-    NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
-    PortfolioMarginResult,
-};
-pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics, SkippedMetric};
-pub use optimization::{
-    optimize_from_spec, PortfolioOptimizationProblem, PortfolioOptimizationResult,
-    PortfolioOptimizationResultJson, PortfolioOptimizationSpec,
-};
 pub use portfolio::Portfolio;
-pub use portfolio::PortfolioSpec;
-pub use position::{Position, PositionUnit};
-pub use results::PortfolioResult;
-pub use types::{
-    AttributeTest, AttributeValue, ComparisonOp, Entity, EntityId, PositionId, DUMMY_ENTITY_ID,
-};
-pub use valuation::{
-    revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
-};
-
-pub use scenarios::{apply_and_revalue, apply_scenario};
-
-pub use replay::{
-    replay_portfolio, ReplayConfig, ReplayMode, ReplayResult, ReplayStep, ReplaySummary,
-    ReplayTimeline,
-};

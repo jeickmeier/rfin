@@ -6,8 +6,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
 use finstack_valuations::metrics::MetricId;
@@ -126,11 +127,16 @@ fn summable_vs_non_summable_metrics() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
+        finstack_portfolio::metrics::aggregate_metrics(&valuation, Currency::USD, &market, as_of)
+            .unwrap();
 
     // Position should have some metrics recorded (may be empty depending on measure availability)
     assert!(metrics.get_position_metrics("POS_1").is_some());
@@ -185,11 +191,16 @@ fn summable_metrics_scale_with_quantity_and_short_sign() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
+        finstack_portfolio::metrics::aggregate_metrics(&valuation, Currency::USD, &market, as_of)
+            .unwrap();
 
     let long_metrics = metrics.get_position_metrics("LONG").unwrap();
     let short_metrics = metrics.get_position_metrics("SHORT").unwrap();

@@ -12,8 +12,8 @@
 //! - Optional columns (survival_probs, base_rates, spreads, etc.) are conditionally computed
 //! - Facility limits enable undrawn balance calculations for revolving credit facilities
 
-use crate::cashflow::builder::schedule::{amounts_approx_equal, CashFlowSchedule};
-use crate::cashflow::primitives::CFKind;
+use crate::builder::schedule::{amounts_approx_equal, CashFlowSchedule};
+use crate::primitives::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -71,7 +71,7 @@ fn compute_notional_columns(
     outstanding_pre: f64,
     facility_limit: Option<&Money>,
 ) -> (Option<f64>, Option<f64>) {
-    use crate::cashflow::primitives::CFKind;
+    use crate::primitives::CFKind;
 
     // Check if this is an accruing flow that should show notional
     let is_accruing = matches!(
@@ -114,7 +114,7 @@ fn compute_floating_decomposition(
     period_start: Date,
     dc_ctx: DayCountCtx<'_>,
 ) -> finstack_core::Result<(Option<f64>, Option<f64>)> {
-    use crate::cashflow::primitives::CFKind;
+    use crate::primitives::CFKind;
 
     // Only compute for floating rate resets with a forward curve
     if !matches!(cf.kind, CFKind::FloatReset) {
@@ -606,8 +606,8 @@ impl CashFlowSchedule {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
-    use crate::cashflow::builder::Notional;
+    use crate::builder::schedule::{CashFlowMeta, CashFlowSchedule};
+    use crate::builder::Notional;
     use finstack_core::cashflow::CashFlow;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Period, PeriodId};

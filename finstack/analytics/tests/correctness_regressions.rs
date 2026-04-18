@@ -1,7 +1,7 @@
-use finstack_analytics::{
-    align_benchmark_with_policy, group_by_period, value_at_risk, BenchmarkAlignmentPolicy,
-    Performance,
-};
+use finstack_analytics::aggregation::group_by_period;
+use finstack_analytics::benchmark::{align_benchmark_with_policy, BenchmarkAlignmentPolicy};
+use finstack_analytics::risk_metrics::value_at_risk;
+use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
 fn d(year: i32, month: Month, day: u8) -> Date {
@@ -243,10 +243,10 @@ fn max_drawdown_and_calmar_from_returns_match_manual_composition() {
     let returns = [0.10, -0.20, 0.05, -0.10, 0.08];
     let ann = 12.0;
 
-    let drawdown = finstack_analytics::to_drawdown_series(&returns);
+    let drawdown = finstack_analytics::drawdown::to_drawdown_series(&returns);
     let expected_max_drawdown = drawdown.iter().copied().fold(0.0_f64, f64::min);
-    let expected_calmar = finstack_analytics::calmar(
-        finstack_analytics::cagr_from_periods(&returns, ann),
+    let expected_calmar = finstack_analytics::drawdown::calmar(
+        finstack_analytics::risk_metrics::cagr_from_periods(&returns, ann),
         expected_max_drawdown,
     );
 
@@ -362,15 +362,16 @@ fn parametric_var_rejects_non_positive_or_non_finite_horizon() {
     let returns = [-0.03, -0.01, 0.01, 0.02];
 
     assert!(
-        finstack_analytics::parametric_var(&returns, 0.95, Some(0.0)).is_nan(),
+        finstack_analytics::risk_metrics::parametric_var(&returns, 0.95, Some(0.0)).is_nan(),
         "zero annualization horizon should be rejected"
     );
     assert!(
-        finstack_analytics::parametric_var(&returns, 0.95, Some(-12.0)).is_nan(),
+        finstack_analytics::risk_metrics::parametric_var(&returns, 0.95, Some(-12.0)).is_nan(),
         "negative annualization horizon should be rejected"
     );
     assert!(
-        finstack_analytics::parametric_var(&returns, 0.95, Some(f64::INFINITY)).is_nan(),
+        finstack_analytics::risk_metrics::parametric_var(&returns, 0.95, Some(f64::INFINITY))
+            .is_nan(),
         "non-finite annualization horizon should be rejected"
     );
 }
@@ -380,15 +381,16 @@ fn cornish_fisher_var_rejects_non_positive_or_non_finite_horizon() {
     let returns = [-0.03, -0.01, 0.01, 0.02];
 
     assert!(
-        finstack_analytics::cornish_fisher_var(&returns, 0.95, Some(0.0)).is_nan(),
+        finstack_analytics::risk_metrics::cornish_fisher_var(&returns, 0.95, Some(0.0)).is_nan(),
         "zero annualization horizon should be rejected"
     );
     assert!(
-        finstack_analytics::cornish_fisher_var(&returns, 0.95, Some(-12.0)).is_nan(),
+        finstack_analytics::risk_metrics::cornish_fisher_var(&returns, 0.95, Some(-12.0)).is_nan(),
         "negative annualization horizon should be rejected"
     );
     assert!(
-        finstack_analytics::cornish_fisher_var(&returns, 0.95, Some(f64::INFINITY)).is_nan(),
+        finstack_analytics::risk_metrics::cornish_fisher_var(&returns, 0.95, Some(f64::INFINITY))
+            .is_nan(),
         "non-finite annualization horizon should be rejected"
     );
 }

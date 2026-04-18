@@ -21,7 +21,7 @@ use bench_common::{
 };
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::config::FinstackConfig;
-use finstack_portfolio::attribute_portfolio_pnl;
+use finstack_portfolio::attribution::attribute_portfolio_pnl;
 use finstack_valuations::attribution::AttributionMethod;
 use std::hint::black_box;
 

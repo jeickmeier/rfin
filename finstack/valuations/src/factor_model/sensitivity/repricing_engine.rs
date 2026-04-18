@@ -160,7 +160,7 @@ impl FactorSensitivityEngine for FullRepricingEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Attributes;
+    use crate::instruments::common_impl::traits::Attributes;
     use crate::pricer::InstrumentType;
     use finstack_core::currency::Currency;
     use finstack_core::factor_model::{FactorType, MarketMapping};

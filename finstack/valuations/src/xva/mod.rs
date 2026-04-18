@@ -5,8 +5,12 @@
 //! local bridge where valuations still accepts `Arc<dyn Instrument>`.
 
 pub use finstack_margin::xva::{cva, netting, traits, types, Valuable};
-pub use netting::*;
-pub use types::*;
+pub use netting::{apply_collateral, apply_netting};
+pub use types::{
+    CsaTerms, ExposureDiagnostics, ExposureProfile, FundingConfig, NettingSet, XvaConfig, XvaResult,
+};
+#[cfg(feature = "mc")]
+pub use types::{StochasticExposureConfig, StochasticExposureProfile};
 
 pub mod exposure {
     //! Exposure-profile compatibility wrappers.
@@ -43,7 +47,7 @@ pub mod exposure {
     pub use finstack_margin::xva::exposure::compute_stochastic_exposure_profile;
 }
 
-pub use cva::*;
+pub use cva::{compute_bilateral_xva, compute_cva, compute_dva, compute_fva};
 pub use exposure::compute_exposure_profile;
 #[cfg(feature = "mc")]
 pub use exposure::compute_stochastic_exposure_profile;

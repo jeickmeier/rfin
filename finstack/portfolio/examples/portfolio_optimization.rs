@@ -17,12 +17,14 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_portfolio::metrics::aggregate_metrics;
 use finstack_portfolio::optimization::{
     Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
-    WeightingScheme,
+    PortfolioOptimizationProblem, WeightingScheme,
 };
-use finstack_portfolio::PortfolioOptimizationProblem;
-use finstack_portfolio::{aggregate_metrics, Entity, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::position::{Position, PositionUnit};
+use finstack_portfolio::types::Entity;
+use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
@@ -203,7 +205,7 @@ fn main() -> finstack_portfolio::Result<()> {
         &config,
         &Default::default(),
     )?;
-    let metrics: finstack_portfolio::PortfolioMetrics =
+    let metrics: finstack_portfolio::metrics::PortfolioMetrics =
         aggregate_metrics(&valuation, rebalanced.base_ccy, &market, rebalanced.as_of)?;
 
     println!("\nAggregated metrics at optimum (first few):");

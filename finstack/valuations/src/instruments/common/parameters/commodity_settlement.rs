@@ -7,6 +7,7 @@ use finstack_core::dates::BusinessDayConvention;
 ///
 /// Groups settlement-related fields that are often set together or derived
 /// from a commodity convention.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CommoditySettlementSpec {
     /// Settlement type (physical or cash).

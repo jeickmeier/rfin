@@ -21,11 +21,11 @@ use pyo3::prelude::*;
 ///     JSON-serialized ``ReplayResult``.
 #[pyfunction]
 fn replay_portfolio(spec_json: &str, snapshots_json: &str, config_json: &str) -> PyResult<String> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(display_to_py)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
 
-    let config: finstack_portfolio::ReplayConfig =
+    let config: finstack_portfolio::replay::ReplayConfig =
         serde_json::from_str(config_json).map_err(display_to_py)?;
 
     // Parse snapshots: [{"date": "YYYY-MM-DD", "market": {...}}, ...]
@@ -44,12 +44,17 @@ fn replay_portfolio(spec_json: &str, snapshots_json: &str, config_json: &str) ->
         snapshots.push((date, market));
     }
 
-    let timeline = finstack_portfolio::ReplayTimeline::new(snapshots).map_err(display_to_py)?;
+    let timeline =
+        finstack_portfolio::replay::ReplayTimeline::new(snapshots).map_err(display_to_py)?;
     let finstack_config = finstack_core::config::FinstackConfig::default();
 
-    let result =
-        finstack_portfolio::replay_portfolio(&portfolio, &timeline, &config, &finstack_config)
-            .map_err(display_to_py)?;
+    let result = finstack_portfolio::replay::replay_portfolio(
+        &portfolio,
+        &timeline,
+        &config,
+        &finstack_config,
+    )
+    .map_err(display_to_py)?;
 
     serde_json::to_string(&result).map_err(display_to_py)
 }

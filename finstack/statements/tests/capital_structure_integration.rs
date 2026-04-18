@@ -11,11 +11,11 @@ use finstack_statements::capital_structure::aggregate_instrument_cashflows;
 use finstack_statements::capital_structure::integration::{
     build_bond_from_spec, build_swap_from_spec,
 };
+use finstack_statements::types::CapitalStructureSpec;
 use finstack_statements::types::DebtInstrumentSpec;
-use finstack_statements::CapitalStructureSpec;
-use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap};
 use finstack_valuations::instruments::{fixed_income::bond::Bond, PayReceive};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 use rust_decimal::Decimal;
 use time::Month;
 

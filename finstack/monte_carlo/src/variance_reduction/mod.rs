@@ -17,5 +17,7 @@ pub mod moment_matching;
 #[cfg(feature = "mc")]
 pub mod importance_sampling;
 
-pub use antithetic::*;
-pub use control_variate::*;
+pub use antithetic::{antithetic_price, AntitheticConfig};
+pub use control_variate::{
+    apply_control_variate, black_scholes_call, black_scholes_put, covariance,
+};

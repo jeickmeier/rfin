@@ -7,7 +7,7 @@ use finstack_core::HashMap;
 use finstack_margin::{ImMethodology, NettingSetId, SimmRiskClass, SimmSensitivities};
 use std::fmt;
 
-use crate::PositionId;
+use crate::types::PositionId;
 
 /// Error returned when attempting to aggregate margin results with mismatched currencies.
 ///

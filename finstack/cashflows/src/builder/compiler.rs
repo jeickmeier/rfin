@@ -20,7 +20,7 @@
 //! pieces without containment), and every produced schedule must contain at
 //! least two dates.
 
-use crate::cashflow::builder::{AmortizationSpec, Notional};
+use crate::builder::{AmortizationSpec, Notional};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::InputError;
@@ -334,7 +334,7 @@ pub(super) fn collect_dates(
 }
 
 pub(super) fn compute_coupon_schedules(
-    builder: &crate::cashflow::builder::builder::CashFlowBuilder,
+    builder: &crate::builder::builder::CashFlowBuilder,
     issue: Date,
     maturity: Date,
 ) -> finstack_core::Result<CompiledSchedules> {

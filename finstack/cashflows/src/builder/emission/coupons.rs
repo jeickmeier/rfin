@@ -8,7 +8,7 @@
 //! - Real vs nominal rate decomposition
 //! - Support for different inflation indices (CPI-U, HICP, RPI, etc.)
 
-use crate::cashflow::primitives::{CFKind, CashFlow};
+use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
@@ -19,7 +19,7 @@ use tracing::{info, warn};
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
-use crate::cashflow::builder::calendar::resolve_calendar_strict;
+use crate::builder::calendar::resolve_calendar_strict;
 
 /// Emit inflation-linked coupon cashflows.
 ///
@@ -65,11 +65,11 @@ fn rate_when_curve_missing(
     index_id: &str,
     reset_date: Date,
     spread_bp: f64,
-    fallback: &crate::cashflow::builder::specs::FloatingRateFallback,
-    params: &crate::cashflow::builder::rate_helpers::FloatingRateParams,
+    fallback: &crate::builder::specs::FloatingRateFallback,
+    params: &crate::builder::rate_helpers::FloatingRateParams,
     context_suffix: &str,
 ) -> finstack_core::Result<f64> {
-    use crate::cashflow::builder::specs::FloatingRateFallback;
+    use crate::builder::specs::FloatingRateFallback;
 
     match fallback {
         FloatingRateFallback::Error => Err(finstack_core::Error::Input(InputError::NotFound {
@@ -105,10 +105,10 @@ fn rate_when_projection_fails(
     reset_date: Date,
     index_maturity: Date,
     spread_bp: f64,
-    fallback: &crate::cashflow::builder::specs::FloatingRateFallback,
-    params: &crate::cashflow::builder::rate_helpers::FloatingRateParams,
+    fallback: &crate::builder::specs::FloatingRateFallback,
+    params: &crate::builder::rate_helpers::FloatingRateParams,
 ) -> finstack_core::Result<f64> {
-    use crate::cashflow::builder::specs::FloatingRateFallback;
+    use crate::builder::specs::FloatingRateFallback;
 
     match fallback {
         FloatingRateFallback::Error => Err(error.clone()),
@@ -383,7 +383,7 @@ pub(crate) fn emit_float_coupons_on(
             // Use proper error handling for Decimal->f64 conversion.
             let spread_bp = decimal_to_f64(spec.rate_spec.spread_bp, "spread_bp")?;
             let gearing = decimal_to_f64(spec.rate_spec.gearing, "gearing")?;
-            let params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
+            let params = crate::builder::rate_helpers::FloatingRateParams {
                 spread_bp,
                 gearing,
                 gearing_includes_spread: spec.rate_spec.gearing_includes_spread,

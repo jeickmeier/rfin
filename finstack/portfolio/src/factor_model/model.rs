@@ -404,7 +404,9 @@ impl FactorModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Portfolio, Position, PositionId, PositionUnit, DUMMY_ENTITY_ID};
+    use crate::position::{Position, PositionUnit};
+    use crate::types::{PositionId, DUMMY_ENTITY_ID};
+    use crate::Portfolio;
     use finstack_core::currency::Currency;
     use finstack_core::factor_model::matching::{DependencyFilter, MappingRule};
     use finstack_core::factor_model::{
@@ -419,7 +421,7 @@ mod tests {
     use finstack_valuations::factor_model::sensitivity::{
         FactorSensitivityEngine, SensitivityMatrix,
     };
-    use finstack_valuations::instruments::common::dependencies::MarketDependencies;
+    use finstack_valuations::instruments::common::MarketDependencies;
     use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::pricer::InstrumentType;
     use std::any::Any;

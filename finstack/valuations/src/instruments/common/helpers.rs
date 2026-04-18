@@ -70,7 +70,7 @@ where
 /// - **FRAs and same-day settling instruments**: Payment on as_of is part of value
 ///
 /// For holder-view semantics (excludes `date <= as_of`), see
-/// [`crate::instruments::common::discountable::npv_by_date`].
+/// [`crate::instruments::common_impl::discountable::npv_by_date`].
 ///
 /// # Numerical Stability
 ///

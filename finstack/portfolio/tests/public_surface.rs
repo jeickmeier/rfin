@@ -1,5 +1,7 @@
-use finstack_portfolio::factor_model::{FactorAssignmentReport, PositionChange, UnmatchedEntry};
-use finstack_portfolio::{FactorModel, FactorModelBuilder, RiskDecomposition};
+use finstack_portfolio::factor_model::{
+    FactorAssignmentReport, FactorModel, FactorModelBuilder, PositionChange, RiskDecomposition,
+    UnmatchedEntry,
+};
 
 #[test]
 fn portfolio_root_and_factor_model_module_exports_compile() {

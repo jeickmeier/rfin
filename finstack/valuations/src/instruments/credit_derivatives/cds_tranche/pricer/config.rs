@@ -1,6 +1,6 @@
 use crate::cashflow::primitives::CashFlow;
-use crate::instruments::credit_derivatives::cds_tranche::copula::CopulaSpec;
-use crate::instruments::credit_derivatives::cds_tranche::recovery::RecoverySpec;
+use crate::correlation::copula::CopulaSpec;
+use crate::correlation::recovery::RecoverySpec;
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::Percentage;

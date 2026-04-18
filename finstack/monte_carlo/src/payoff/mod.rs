@@ -24,7 +24,7 @@ pub mod lookback;
 pub mod basket;
 
 #[cfg(feature = "mc")]
-pub use basket::*;
+pub use basket::{margrabe_exchange_option, BasketCall, BasketPut, BasketType, ExchangeOption};
 
-pub use traits::*;
-pub use vanilla::*;
+pub use traits::{PayoffBuilder, SimpleTerminalPayoff, TerminalPayoff};
+pub use vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};

@@ -29,17 +29,18 @@ fn value_portfolio(
     market: &Bound<'_, PyAny>,
     strict_risk: bool,
 ) -> PyResult<String> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(display_to_py)?;
     let market = extract_market(market)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
     let config = finstack_core::config::FinstackConfig::default();
-    let options = finstack_portfolio::PortfolioValuationOptions {
+    let options = finstack_portfolio::valuation::PortfolioValuationOptions {
         strict_risk,
         ..Default::default()
     };
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config, &options)
-        .map_err(display_to_py)?;
+    let valuation =
+        finstack_portfolio::valuation::value_portfolio(&portfolio, &market, &config, &options)
+            .map_err(display_to_py)?;
     serde_json::to_string(&valuation).map_err(display_to_py)
 }
 
@@ -58,12 +59,12 @@ fn value_portfolio(
 ///     JSON-serialized ``PortfolioCashflows`` ladder.
 #[pyfunction]
 fn aggregate_cashflows(spec_json: &str, market: &Bound<'_, PyAny>) -> PyResult<String> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(display_to_py)?;
     let market = extract_market(market)?;
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
-    let cashflows =
-        finstack_portfolio::aggregate_cashflows(&portfolio, &market).map_err(display_to_py)?;
+    let cashflows = finstack_portfolio::cashflows::aggregate_cashflows(&portfolio, &market)
+        .map_err(display_to_py)?;
     serde_json::to_string(&cashflows).map_err(display_to_py)
 }
 
@@ -89,7 +90,7 @@ fn apply_scenario_and_revalue(
     scenario_json: &str,
     market: &Bound<'_, PyAny>,
 ) -> PyResult<(String, String)> {
-    let spec: finstack_portfolio::PortfolioSpec =
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(display_to_py)?;
     let scenario: finstack_scenarios::ScenarioSpec =
         serde_json::from_str(scenario_json).map_err(display_to_py)?;
@@ -97,7 +98,7 @@ fn apply_scenario_and_revalue(
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
     let config = finstack_core::config::FinstackConfig::default();
     let (valuation, report) =
-        finstack_portfolio::apply_and_revalue(&portfolio, &scenario, &market, &config)
+        finstack_portfolio::scenarios::apply_and_revalue(&portfolio, &scenario, &market, &config)
             .map_err(display_to_py)?;
     let val_json = serde_json::to_string(&valuation).map_err(display_to_py)?;
     let report_json = serde_json::to_string(&report).map_err(display_to_py)?;

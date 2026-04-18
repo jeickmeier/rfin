@@ -12,7 +12,6 @@ use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation
 use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
@@ -24,6 +23,7 @@ use finstack_valuations::instruments::rates::inflation_swap::{
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::PricingOverrides;
 use rust_decimal::Decimal;
 use std::hint::black_box;

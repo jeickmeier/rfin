@@ -99,7 +99,7 @@ impl PyPeriodStats {
 /// Regression beta with confidence interval.
 #[pyclass(name = "BetaResult", module = "finstack.analytics", frozen)]
 pub struct PyBetaResult {
-    pub(super) inner: fa::BetaResult,
+    pub(super) inner: fa::benchmark::BetaResult,
 }
 
 #[pymethods]
@@ -140,7 +140,7 @@ impl PyBetaResult {
 /// Alpha, beta, and R-squared from a single-index regression.
 #[pyclass(name = "GreeksResult", module = "finstack.analytics", frozen)]
 pub struct PyGreeksResult {
-    pub(super) inner: fa::GreeksResult,
+    pub(super) inner: fa::benchmark::GreeksResult,
 }
 
 #[pymethods]
@@ -176,7 +176,7 @@ impl PyGreeksResult {
 /// Rolling alpha and beta time series.
 #[pyclass(name = "RollingGreeks", module = "finstack.analytics", frozen)]
 pub struct PyRollingGreeks {
-    pub(super) inner: fa::RollingGreeks,
+    pub(super) inner: fa::benchmark::RollingGreeks,
 }
 
 #[pymethods]
@@ -222,7 +222,7 @@ impl PyRollingGreeks {
 /// Multi-factor regression result.
 #[pyclass(name = "MultiFactorResult", module = "finstack.analytics", frozen)]
 pub struct PyMultiFactorResult {
-    pub(super) inner: fa::MultiFactorResult,
+    pub(super) inner: fa::benchmark::MultiFactorResult,
 }
 
 #[pymethods]
@@ -268,7 +268,7 @@ impl PyMultiFactorResult {
 /// A single drawdown episode with timing and depth information.
 #[pyclass(name = "DrawdownEpisode", module = "finstack.analytics", frozen)]
 pub struct PyDrawdownEpisode {
-    pub(super) inner: fa::DrawdownEpisode,
+    pub(super) inner: fa::drawdown::DrawdownEpisode,
 }
 
 #[pymethods]
@@ -380,7 +380,7 @@ impl PyLookbackReturns {
 /// Rolling Sharpe ratio time series.
 #[pyclass(name = "RollingSharpe", module = "finstack.analytics", frozen)]
 pub struct PyRollingSharpe {
-    pub(super) inner: fa::RollingSharpe,
+    pub(super) inner: fa::risk_metrics::RollingSharpe,
 }
 
 #[pymethods]
@@ -416,7 +416,7 @@ impl PyRollingSharpe {
 /// Rolling Sortino ratio time series.
 #[pyclass(name = "RollingSortino", module = "finstack.analytics", frozen)]
 pub struct PyRollingSortino {
-    pub(super) inner: fa::RollingSortino,
+    pub(super) inner: fa::risk_metrics::RollingSortino,
 }
 
 #[pymethods]
@@ -452,7 +452,7 @@ impl PyRollingSortino {
 /// Rolling volatility time series.
 #[pyclass(name = "RollingVolatility", module = "finstack.analytics", frozen)]
 pub struct PyRollingVolatility {
-    pub(super) inner: fa::RollingVolatility,
+    pub(super) inner: fa::risk_metrics::RollingVolatility,
 }
 
 #[pymethods]
@@ -498,7 +498,7 @@ impl PyRollingVolatility {
 )]
 #[derive(Clone)]
 pub struct PyRuinDefinition {
-    pub(super) inner: fa::RuinDefinition,
+    pub(super) inner: fa::risk_metrics::RuinDefinition,
 }
 
 #[pymethods]
@@ -508,7 +508,7 @@ impl PyRuinDefinition {
     #[pyo3(text_signature = "(cls, floor_fraction)")]
     fn wealth_floor(_cls: &Bound<'_, PyType>, floor_fraction: f64) -> Self {
         Self {
-            inner: fa::RuinDefinition::WealthFloor { floor_fraction },
+            inner: fa::risk_metrics::RuinDefinition::WealthFloor { floor_fraction },
         }
     }
 
@@ -517,7 +517,7 @@ impl PyRuinDefinition {
     #[pyo3(text_signature = "(cls, floor_fraction)")]
     fn terminal_floor(_cls: &Bound<'_, PyType>, floor_fraction: f64) -> Self {
         Self {
-            inner: fa::RuinDefinition::TerminalFloor { floor_fraction },
+            inner: fa::risk_metrics::RuinDefinition::TerminalFloor { floor_fraction },
         }
     }
 
@@ -526,7 +526,7 @@ impl PyRuinDefinition {
     #[pyo3(text_signature = "(cls, max_drawdown)")]
     fn drawdown_breach(_cls: &Bound<'_, PyType>, max_drawdown: f64) -> Self {
         Self {
-            inner: fa::RuinDefinition::DrawdownBreach { max_drawdown },
+            inner: fa::risk_metrics::RuinDefinition::DrawdownBreach { max_drawdown },
         }
     }
 
@@ -544,7 +544,7 @@ impl PyRuinDefinition {
 )]
 #[derive(Clone)]
 pub struct PyRuinModel {
-    pub(super) inner: fa::RuinModel,
+    pub(super) inner: fa::risk_metrics::RuinModel,
 }
 
 #[pymethods]
@@ -560,7 +560,7 @@ impl PyRuinModel {
         confidence_level: f64,
     ) -> Self {
         Self {
-            inner: fa::RuinModel {
+            inner: fa::risk_metrics::RuinModel {
                 horizon_periods,
                 n_paths,
                 block_size,
@@ -607,7 +607,7 @@ impl PyRuinModel {
 /// Monte Carlo ruin probability estimate with confidence interval.
 #[pyclass(name = "RuinEstimate", module = "finstack.analytics", frozen)]
 pub struct PyRuinEstimate {
-    pub(super) inner: fa::RuinEstimate,
+    pub(super) inner: fa::risk_metrics::RuinEstimate,
 }
 
 #[pymethods]
@@ -654,7 +654,7 @@ impl PyRuinEstimate {
 )]
 #[derive(Clone)]
 pub struct PyBenchmarkAlignmentPolicy {
-    pub(super) inner: fa::BenchmarkAlignmentPolicy,
+    pub(super) inner: fa::benchmark::BenchmarkAlignmentPolicy,
 }
 
 #[pymethods]
@@ -663,7 +663,7 @@ impl PyBenchmarkAlignmentPolicy {
     #[classmethod]
     fn zero_on_missing(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: fa::BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
+            inner: fa::benchmark::BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
         }
     }
 
@@ -671,7 +671,7 @@ impl PyBenchmarkAlignmentPolicy {
     #[classmethod]
     fn error_on_missing(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: fa::BenchmarkAlignmentPolicy::ErrorOnMissingDates,
+            inner: fa::benchmark::BenchmarkAlignmentPolicy::ErrorOnMissingDates,
         }
     }
 

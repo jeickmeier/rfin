@@ -19,8 +19,9 @@ use finstack_core::market_data::term_structures::{
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{Portfolio, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::{Portfolio, PortfolioBuilder};
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds::{

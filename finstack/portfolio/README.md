@@ -33,8 +33,10 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_portfolio::{Entity, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::position::{Position, PositionUnit};
+use finstack_portfolio::types::Entity;
 use finstack_portfolio::valuation::value_portfolio;
+use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::macros::date;
@@ -136,7 +138,7 @@ Use `Portfolio::to_spec` and `Portfolio::from_spec` for JSON-friendly
 serialization:
 
 ```rust
-use finstack_portfolio::PortfolioSpec;
+use finstack_portfolio::portfolio::PortfolioSpec;
 
 # fn round_trip(portfolio: &finstack_portfolio::Portfolio) -> finstack_portfolio::Result<()> {
 let spec = portfolio.to_spec();

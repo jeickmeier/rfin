@@ -9,6 +9,7 @@ use crate::instruments::fixed_income::inflation_linked_bond::{
 
 /// Inflation indexation parameters that describe how an instrument's
 /// cashflows are adjusted for inflation.
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct IndexationSpec {
     /// Base CPI/index value at issue.

@@ -7,7 +7,7 @@ use crate::impl_instrument_base;
 use crate::{
     cashflow::builder::ScheduleParams,
     cashflow::traits::CashflowProvider,
-    instruments::common::parameters::{
+    instruments::common_impl::parameters::{
         legs::FinancingLegSpec, trs_common::TrsScheduleSpec, trs_common::TrsSide,
         underlying::EquityUnderlyingParams,
     },

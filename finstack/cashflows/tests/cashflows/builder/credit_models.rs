@@ -652,7 +652,7 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
         &disc,
         Some(&hazard),
         Some(0.40),
-        finstack_cashflows::cashflow::aggregation::DateContext::new(
+        finstack_cashflows::aggregation::DateContext::new(
             base,
             DayCount::Act365F,
             DayCountCtx::default(),
@@ -671,7 +671,7 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
             &disc,
             Some(&hazard),
             None,
-            finstack_cashflows::cashflow::aggregation::DateContext::new(
+            finstack_cashflows::aggregation::DateContext::new(
                 base,
                 DayCount::Act365F,
                 DayCountCtx::default(),

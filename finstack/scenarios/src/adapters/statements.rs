@@ -13,7 +13,8 @@ use finstack_core::dates::{BusinessDayConvention, HolidayCalendar, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::Compounding as CoreCompounding;
 use finstack_statements::evaluator::Evaluator;
-use finstack_statements::{AmountOrScalar, FinancialModelSpec};
+use finstack_statements::types::AmountOrScalar;
+use finstack_statements::FinancialModelSpec;
 
 /// Adapter for statement operations.
 pub struct StatementAdapter;
@@ -389,7 +390,7 @@ pub fn reevaluate_model(model: &mut FinancialModelSpec) -> Result<Vec<String>> {
 mod tests {
     use super::*;
     use finstack_core::dates::build_periods;
-    use finstack_statements::{NodeSpec, NodeType};
+    use finstack_statements::types::{NodeSpec, NodeType};
     use indexmap::IndexMap;
 
     #[test]

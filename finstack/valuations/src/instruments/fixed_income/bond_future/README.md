@@ -839,7 +839,8 @@ println!("P&L: {}", shocked_npv - base_npv);
 ### Statement Integration
 
 ```rust
-use finstack_statements::{ModelBuilder, NodeType, ForecastMethod};
+use finstack_statements::builder::ModelBuilder;
+use finstack_statements::types::{NodeType, ForecastMethod};
 
 // Define a financial model with bond future position
 let model = ModelBuilder::new()

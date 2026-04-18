@@ -8,7 +8,7 @@ use finstack_core::HashMap;
 use finstack_margin::{NettingSetId, OtcMarginSpec, SimmSensitivities};
 
 use crate::position::Position;
-use crate::PositionId;
+use crate::types::PositionId;
 
 /// A netting set containing positions for margin aggregation.
 ///

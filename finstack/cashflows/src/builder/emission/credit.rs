@@ -1,6 +1,6 @@
 //! Credit event cashflow emission (defaults, prepayments, recoveries).
 
-use crate::cashflow::primitives::{CFKind, CashFlow};
+use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::DateExt;

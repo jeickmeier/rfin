@@ -3,10 +3,9 @@ mod common;
 use common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
-use finstack_portfolio::{
-    AttributeValue, Error, Portfolio, PortfolioBuilder, Position, PositionUnit,
-};
+use finstack_portfolio::position::{Position, PositionUnit};
+use finstack_portfolio::types::{AttributeValue, Entity, DUMMY_ENTITY_ID};
+use finstack_portfolio::{Error, Portfolio, PortfolioBuilder};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 

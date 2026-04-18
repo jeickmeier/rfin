@@ -8,10 +8,10 @@ use finstack_portfolio::cashflows::{
     PortfolioCashflowPositionSummary, PortfolioCashflows, PortfolioFullCashflows,
 };
 use finstack_portfolio::dependencies::MarketFactorKey;
-use finstack_portfolio::PositionId;
+use finstack_portfolio::types::PositionId;
 use finstack_valuations::cashflow::builder::CashflowRepresentation;
 use finstack_valuations::cashflow::DatedFlows;
-use finstack_valuations::instruments::common::traits::RatesCurveKind;
+use finstack_valuations::instruments::common::RatesCurveKind;
 use indexmap::IndexMap;
 
 fn roundtrip_json<T>(value: &T) -> T

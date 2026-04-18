@@ -8,14 +8,12 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_portfolio::{
-    optimization::{
-        CandidatePosition, Constraint, DefaultLpOptimizer, MetricExpr, Objective,
-        PerPositionMetric, PortfolioOptimizationProblem, PositionFilter, TradeUniverse,
-        WeightingScheme,
-    },
-    PortfolioBuilder, Position, PositionUnit,
+use finstack_portfolio::optimization::{
+    CandidatePosition, Constraint, DefaultLpOptimizer, MetricExpr, Objective, PerPositionMetric,
+    PortfolioOptimizationProblem, PositionFilter, TradeUniverse, WeightingScheme,
 };
+use finstack_portfolio::position::{Position, PositionUnit};
+use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::PricingOverrides;
@@ -149,7 +147,7 @@ fn build_deposit_portfolio() -> finstack_portfolio::Portfolio {
     PortfolioBuilder::new("TEST_PORTFOLIO")
         .base_ccy(Currency::USD)
         .as_of(as_of)
-        .entity(finstack_portfolio::Entity::new("ENTITY_A"))
+        .entity(finstack_portfolio::types::Entity::new("ENTITY_A"))
         .position(pos1)
         .position(pos2)
         .build()
@@ -270,7 +268,7 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
     PortfolioBuilder::new("BOND_FUND")
         .base_ccy(Currency::USD)
         .as_of(as_of)
-        .entity(finstack_portfolio::Entity::new("FUND_A"))
+        .entity(finstack_portfolio::types::Entity::new("FUND_A"))
         .position(pos_aaa)
         .position(pos_bbb)
         .position(pos_ccc)
@@ -371,7 +369,7 @@ fn optimize_partial_trade_universe_keeps_excluded_positions_fixed() {
     let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
         .base_ccy(Currency::USD)
         .as_of(as_of)
-        .entity(finstack_portfolio::Entity::new("ENTITY_A"))
+        .entity(finstack_portfolio::types::Entity::new("ENTITY_A"))
         .position(fixed)
         .position(tradeable)
         .build()

@@ -237,7 +237,7 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 /// ```text
 /// use finstack_core::dates::Date;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
-/// use finstack_valuations::instruments::common::pricing::swap_legs::robust_relative_df;
+/// use finstack_valuations::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 /// use time::Month;
 ///
 /// # fn main() -> finstack_core::Result<()> {
@@ -442,7 +442,7 @@ impl FloatingLegParams {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::pricing::swap_legs::FloatingLegParams;
+    /// use finstack_valuations::instruments::common_impl::pricing::swap_legs::FloatingLegParams;
     ///
     /// // Standard USD SOFR swap: 2-day lookback, 2-day payment delay
     /// let sofr_params = FloatingLegParams::with_ois_compounding(0.0, 2, 2);

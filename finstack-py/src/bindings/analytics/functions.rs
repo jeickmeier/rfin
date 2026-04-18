@@ -21,7 +21,7 @@ fn group_by_period(
 ) -> PyResult<Vec<(String, f64)>> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     let pk = parse_freq(freq)?;
-    let grouped = fa::group_by_period(&rd, &returns, pk, None);
+    let grouped = fa::aggregation::group_by_period(&rd, &returns, pk, None);
     Ok(grouped
         .iter()
         .map(|(pid, r)| (format!("{pid}"), *r))
@@ -43,7 +43,7 @@ fn period_stats(returns: Vec<f64>) -> PyPeriodStats {
         })
         .collect();
     PyPeriodStats {
-        inner: fa::period_stats(&tuples),
+        inner: fa::aggregation::period_stats(&tuples),
     }
 }
 
@@ -66,7 +66,7 @@ fn align_benchmark(
         .iter()
         .map(py_to_date)
         .collect::<PyResult<_>>()?;
-    Ok(fa::align_benchmark(&bench_returns, &bd, &td))
+    Ok(fa::benchmark::align_benchmark(&bench_returns, &bd, &td))
 }
 
 /// Align benchmark returns with a specific missing-date policy.
@@ -85,14 +85,15 @@ fn align_benchmark_with_policy(
         .iter()
         .map(py_to_date)
         .collect::<PyResult<_>>()?;
-    fa::align_benchmark_with_policy(&bench_returns, &bd, &td, policy.inner).map_err(core_to_py)
+    fa::benchmark::align_benchmark_with_policy(&bench_returns, &bd, &td, policy.inner)
+        .map_err(core_to_py)
 }
 
 /// Beta regression of portfolio against benchmark.
 #[pyfunction]
 fn calc_beta(portfolio: Vec<f64>, benchmark: Vec<f64>) -> PyBetaResult {
     PyBetaResult {
-        inner: fa::calc_beta(&portfolio, &benchmark),
+        inner: fa::benchmark::calc_beta(&portfolio, &benchmark),
     }
 }
 
@@ -101,7 +102,7 @@ fn calc_beta(portfolio: Vec<f64>, benchmark: Vec<f64>) -> PyBetaResult {
 #[pyo3(signature = (returns, benchmark, ann_factor = 252.0))]
 fn greeks(returns: Vec<f64>, benchmark: Vec<f64>, ann_factor: f64) -> PyGreeksResult {
     PyGreeksResult {
-        inner: fa::greeks(&returns, &benchmark, ann_factor),
+        inner: fa::benchmark::greeks(&returns, &benchmark, ann_factor),
     }
 }
 
@@ -117,7 +118,7 @@ fn rolling_greeks(
 ) -> PyResult<PyRollingGreeks> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingGreeks {
-        inner: fa::rolling_greeks(&returns, &benchmark, &rd, window, ann_factor),
+        inner: fa::benchmark::rolling_greeks(&returns, &benchmark, &rd, window, ann_factor),
     })
 }
 
@@ -125,7 +126,7 @@ fn rolling_greeks(
 #[pyfunction]
 #[pyo3(signature = (returns, benchmark, annualize = true, ann_factor = 252.0))]
 fn tracking_error(returns: Vec<f64>, benchmark: Vec<f64>, annualize: bool, ann_factor: f64) -> f64 {
-    fa::tracking_error(&returns, &benchmark, annualize, ann_factor)
+    fa::benchmark::tracking_error(&returns, &benchmark, annualize, ann_factor)
 }
 
 /// Information ratio.
@@ -137,37 +138,37 @@ fn information_ratio(
     annualize: bool,
     ann_factor: f64,
 ) -> f64 {
-    fa::information_ratio(&returns, &benchmark, annualize, ann_factor)
+    fa::benchmark::information_ratio(&returns, &benchmark, annualize, ann_factor)
 }
 
 /// R-squared against benchmark.
 #[pyfunction]
 fn r_squared(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
-    fa::r_squared(&returns, &benchmark)
+    fa::benchmark::r_squared(&returns, &benchmark)
 }
 
 /// Up-capture ratio.
 #[pyfunction]
 fn up_capture(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
-    fa::up_capture(&returns, &benchmark)
+    fa::benchmark::up_capture(&returns, &benchmark)
 }
 
 /// Down-capture ratio.
 #[pyfunction]
 fn down_capture(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
-    fa::down_capture(&returns, &benchmark)
+    fa::benchmark::down_capture(&returns, &benchmark)
 }
 
 /// Capture ratio (up/down).
 #[pyfunction]
 fn capture_ratio(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
-    fa::capture_ratio(&returns, &benchmark)
+    fa::benchmark::capture_ratio(&returns, &benchmark)
 }
 
 /// Batting average vs benchmark.
 #[pyfunction]
 fn batting_average(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
-    fa::batting_average(&returns, &benchmark)
+    fa::benchmark::batting_average(&returns, &benchmark)
 }
 
 /// Multi-factor regression.
@@ -179,7 +180,7 @@ fn multi_factor_greeks(
     ann_factor: f64,
 ) -> PyResult<PyMultiFactorResult> {
     let refs: Vec<&[f64]> = factors.iter().map(|v| v.as_slice()).collect();
-    fa::multi_factor_greeks(&returns, &refs, ann_factor)
+    fa::benchmark::multi_factor_greeks(&returns, &refs, ann_factor)
         .map(|r| PyMultiFactorResult { inner: r })
         .map_err(core_to_py)
 }
@@ -187,13 +188,13 @@ fn multi_factor_greeks(
 /// Treynor ratio from pre-computed values.
 #[pyfunction]
 fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
-    fa::treynor(ann_return, risk_free_rate, beta)
+    fa::benchmark::treynor(ann_return, risk_free_rate, beta)
 }
 
 /// M-squared from pre-computed values.
 #[pyfunction]
 fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
-    fa::m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
+    fa::benchmark::m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
 }
 
 /// M-squared from return series.
@@ -205,7 +206,7 @@ fn m_squared_from_returns(
     ann_factor: f64,
     risk_free_rate: f64,
 ) -> f64 {
-    fa::m_squared_from_returns(&portfolio, &benchmark, ann_factor, risk_free_rate)
+    fa::benchmark::m_squared_from_returns(&portfolio, &benchmark, ann_factor, risk_free_rate)
 }
 
 // ===================================================================
@@ -215,7 +216,7 @@ fn m_squared_from_returns(
 /// Count longest consecutive run of positive values.
 #[pyfunction]
 fn count_consecutive(values: Vec<f64>) -> usize {
-    fa::count_consecutive(&values, |x| x > 0.0)
+    fa::consecutive::count_consecutive(&values, |x| x > 0.0)
 }
 
 // ===================================================================
@@ -225,7 +226,7 @@ fn count_consecutive(values: Vec<f64>) -> usize {
 /// Drawdown series from returns.
 #[pyfunction]
 fn to_drawdown_series(returns: Vec<f64>) -> Vec<f64> {
-    fa::to_drawdown_series(&returns)
+    fa::drawdown::to_drawdown_series(&returns)
 }
 
 /// Top-N drawdown episodes with date information.
@@ -237,7 +238,7 @@ fn drawdown_details(
     n: usize,
 ) -> PyResult<Vec<PyDrawdownEpisode>> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
-    Ok(fa::drawdown_details(&drawdown, &rd, n)
+    Ok(fa::drawdown::drawdown_details(&drawdown, &rd, n)
         .into_iter()
         .map(|e| PyDrawdownEpisode { inner: e })
         .collect())
@@ -247,124 +248,124 @@ fn drawdown_details(
 #[pyfunction]
 #[pyo3(signature = (drawdown, n = 5))]
 fn avg_drawdown(drawdown: Vec<f64>, n: usize) -> f64 {
-    fa::avg_drawdown(&drawdown, n)
+    fa::drawdown::avg_drawdown(&drawdown, n)
 }
 
 /// Simple arithmetic average of drawdown values.
 #[pyfunction]
 fn average_drawdown(drawdowns: Vec<f64>) -> f64 {
-    fa::average_drawdown(&drawdowns)
+    fa::drawdown::average_drawdown(&drawdowns)
 }
 
 /// Maximum drawdown from a drawdown series (already computed from returns).
 #[pyfunction]
 fn max_drawdown(drawdown: Vec<f64>) -> f64 {
-    fa::max_drawdown(&drawdown)
+    fa::drawdown::max_drawdown(&drawdown)
 }
 
 /// Maximum drawdown computed directly from returns.
 #[pyfunction]
 fn max_drawdown_from_returns(returns: Vec<f64>) -> f64 {
-    fa::max_drawdown_from_returns(&returns)
+    fa::drawdown::max_drawdown_from_returns(&returns)
 }
 
 /// Maximum drawdown duration in calendar days.
 #[pyfunction]
 fn max_drawdown_duration(drawdown: Vec<f64>, dates: Vec<Bound<'_, PyAny>>) -> PyResult<i64> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
-    Ok(fa::max_drawdown_duration(&drawdown, &rd))
+    Ok(fa::drawdown::max_drawdown_duration(&drawdown, &rd))
 }
 
 /// Conditional Drawdown at Risk.
 #[pyfunction]
 #[pyo3(signature = (drawdown, confidence = 0.95))]
 fn cdar(drawdown: Vec<f64>, confidence: f64) -> f64 {
-    fa::cdar(&drawdown, confidence)
+    fa::drawdown::cdar(&drawdown, confidence)
 }
 
 /// Ulcer index.
 #[pyfunction]
 fn ulcer_index(drawdown: Vec<f64>) -> f64 {
-    fa::ulcer_index(&drawdown)
+    fa::drawdown::ulcer_index(&drawdown)
 }
 
 /// Pain index (average drawdown depth).
 #[pyfunction]
 fn pain_index(drawdown: Vec<f64>) -> f64 {
-    fa::pain_index(&drawdown)
+    fa::drawdown::pain_index(&drawdown)
 }
 
 /// Calmar ratio from pre-computed CAGR and max drawdown.
 #[pyfunction]
 fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
-    fa::calmar(cagr_val, max_dd)
+    fa::drawdown::calmar(cagr_val, max_dd)
 }
 
 /// Calmar ratio from returns.
 #[pyfunction]
 #[pyo3(signature = (returns, ann_factor = 252.0))]
 fn calmar_from_returns(returns: Vec<f64>, ann_factor: f64) -> f64 {
-    fa::calmar_from_returns(&returns, ann_factor)
+    fa::drawdown::calmar_from_returns(&returns, ann_factor)
 }
 
 /// Recovery factor from pre-computed values.
 #[pyfunction]
 fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
-    fa::recovery_factor(total_return, max_dd)
+    fa::drawdown::recovery_factor(total_return, max_dd)
 }
 
 /// Recovery factor from returns.
 #[pyfunction]
 fn recovery_factor_from_returns(returns: Vec<f64>) -> f64 {
-    fa::recovery_factor_from_returns(&returns)
+    fa::drawdown::recovery_factor_from_returns(&returns)
 }
 
 /// Martin ratio from pre-computed values.
 #[pyfunction]
 fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
-    fa::martin_ratio(cagr_val, ulcer)
+    fa::drawdown::martin_ratio(cagr_val, ulcer)
 }
 
 /// Martin ratio from returns.
 #[pyfunction]
 #[pyo3(signature = (returns, ann_factor = 252.0))]
 fn martin_ratio_from_returns(returns: Vec<f64>, ann_factor: f64) -> f64 {
-    fa::martin_ratio_from_returns(&returns, ann_factor)
+    fa::drawdown::martin_ratio_from_returns(&returns, ann_factor)
 }
 
 /// Sterling ratio from pre-computed values.
 #[pyfunction]
 #[pyo3(signature = (cagr_val, avg_dd, risk_free_rate = 0.0))]
 fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
-    fa::sterling_ratio(cagr_val, avg_dd, risk_free_rate)
+    fa::drawdown::sterling_ratio(cagr_val, avg_dd, risk_free_rate)
 }
 
 /// Sterling ratio from returns.
 #[pyfunction]
 #[pyo3(signature = (returns, ann_factor = 252.0, risk_free_rate = 0.0))]
 fn sterling_ratio_from_returns(returns: Vec<f64>, ann_factor: f64, risk_free_rate: f64) -> f64 {
-    fa::sterling_ratio_from_returns(&returns, ann_factor, risk_free_rate)
+    fa::drawdown::sterling_ratio_from_returns(&returns, ann_factor, risk_free_rate)
 }
 
 /// Burke ratio from pre-computed values.
 #[pyfunction]
 #[pyo3(signature = (cagr_val, dd_episodes, risk_free_rate = 0.0))]
 fn burke_ratio(cagr_val: f64, dd_episodes: Vec<f64>, risk_free_rate: f64) -> f64 {
-    fa::burke_ratio(cagr_val, &dd_episodes, risk_free_rate)
+    fa::drawdown::burke_ratio(cagr_val, &dd_episodes, risk_free_rate)
 }
 
 /// Pain ratio from pre-computed values.
 #[pyfunction]
 #[pyo3(signature = (cagr_val, pain, risk_free_rate = 0.0))]
 fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
-    fa::pain_ratio(cagr_val, pain, risk_free_rate)
+    fa::drawdown::pain_ratio(cagr_val, pain, risk_free_rate)
 }
 
 /// Pain ratio from returns.
 #[pyfunction]
 #[pyo3(signature = (returns, ann_factor = 252.0, risk_free_rate = 0.0))]
 fn pain_ratio_from_returns(returns: Vec<f64>, ann_factor: f64, risk_free_rate: f64) -> f64 {
-    fa::pain_ratio_from_returns(&returns, ann_factor, risk_free_rate)
+    fa::drawdown::pain_ratio_from_returns(&returns, ann_factor, risk_free_rate)
 }
 
 // ===================================================================
@@ -374,14 +375,14 @@ fn pain_ratio_from_returns(returns: Vec<f64>, ann_factor: f64, risk_free_rate: f
 /// Simple returns from prices.
 #[pyfunction]
 fn simple_returns(prices: Vec<f64>) -> Vec<f64> {
-    fa::simple_returns(&prices)
+    fa::returns::simple_returns(&prices)
 }
 
 /// Replace NaN/Inf values in returns with zero (in-place semantics via copy).
 #[pyfunction]
 fn clean_returns(returns: Vec<f64>) -> Vec<f64> {
     let mut r = returns;
-    fa::clean_returns(&mut r);
+    fa::returns::clean_returns(&mut r);
     r
 }
 
@@ -389,33 +390,33 @@ fn clean_returns(returns: Vec<f64>) -> Vec<f64> {
 #[pyfunction]
 #[pyo3(signature = (returns, rf, nperiods = None))]
 fn excess_returns(returns: Vec<f64>, rf: Vec<f64>, nperiods: Option<f64>) -> Vec<f64> {
-    fa::excess_returns(&returns, &rf, nperiods)
+    fa::returns::excess_returns(&returns, &rf, nperiods)
 }
 
 /// Convert returns to prices.
 #[pyfunction]
 #[pyo3(signature = (returns, base = 100.0))]
 fn convert_to_prices(returns: Vec<f64>, base: f64) -> Vec<f64> {
-    fa::convert_to_prices(&returns, base)
+    fa::returns::convert_to_prices(&returns, base)
 }
 
 /// Rebase a price series to start at ``base``.
 #[pyfunction]
 #[pyo3(signature = (prices, base = 100.0))]
 fn rebase(prices: Vec<f64>, base: f64) -> Vec<f64> {
-    fa::rebase(&prices, base)
+    fa::returns::rebase(&prices, base)
 }
 
 /// Cumulative compounded returns.
 #[pyfunction]
 fn comp_sum(returns: Vec<f64>) -> Vec<f64> {
-    fa::comp_sum(&returns)
+    fa::returns::comp_sum(&returns)
 }
 
 /// Total compounded return.
 #[pyfunction]
 fn comp_total(returns: Vec<f64>) -> f64 {
-    fa::comp_total(&returns)
+    fa::returns::comp_total(&returns)
 }
 
 // ===================================================================
@@ -427,67 +428,67 @@ fn comp_total(returns: Vec<f64>) -> f64 {
 fn cagr(returns: Vec<f64>, start: Bound<'_, PyAny>, end: Bound<'_, PyAny>) -> PyResult<f64> {
     let s = py_to_date(&start)?;
     let e = py_to_date(&end)?;
-    Ok(fa::cagr(&returns, s, e))
+    Ok(fa::risk_metrics::cagr(&returns, s, e))
 }
 
 /// CAGR from an annualization factor.
 #[pyfunction]
 fn cagr_from_periods(returns: Vec<f64>, ann_factor: f64) -> f64 {
-    fa::cagr_from_periods(&returns, ann_factor)
+    fa::risk_metrics::cagr_from_periods(&returns, ann_factor)
 }
 
 /// Arithmetic mean return.
 #[pyfunction]
 #[pyo3(signature = (returns, annualize = false, ann_factor = 1.0))]
 fn mean_return(returns: Vec<f64>, annualize: bool, ann_factor: f64) -> f64 {
-    fa::mean_return(&returns, annualize, ann_factor)
+    fa::risk_metrics::mean_return(&returns, annualize, ann_factor)
 }
 
 /// Volatility (standard deviation of returns).
 #[pyfunction]
 #[pyo3(signature = (returns, annualize = true, ann_factor = 252.0))]
 fn volatility(returns: Vec<f64>, annualize: bool, ann_factor: f64) -> f64 {
-    fa::volatility(&returns, annualize, ann_factor)
+    fa::risk_metrics::volatility(&returns, annualize, ann_factor)
 }
 
 /// Sharpe ratio from pre-computed annualized return and vol.
 #[pyfunction]
 #[pyo3(signature = (ann_return, ann_vol, risk_free_rate = 0.0))]
 fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
-    fa::sharpe(ann_return, ann_vol, risk_free_rate)
+    fa::risk_metrics::sharpe(ann_return, ann_vol, risk_free_rate)
 }
 
 /// Downside deviation.
 #[pyfunction]
 #[pyo3(signature = (returns, mar = 0.0, annualize = true, ann_factor = 252.0))]
 fn downside_deviation(returns: Vec<f64>, mar: f64, annualize: bool, ann_factor: f64) -> f64 {
-    fa::downside_deviation(&returns, mar, annualize, ann_factor)
+    fa::risk_metrics::downside_deviation(&returns, mar, annualize, ann_factor)
 }
 
 /// Sortino ratio.
 #[pyfunction]
 #[pyo3(signature = (returns, annualize = true, ann_factor = 252.0))]
 fn sortino(returns: Vec<f64>, annualize: bool, ann_factor: f64) -> f64 {
-    fa::sortino(&returns, annualize, ann_factor)
+    fa::risk_metrics::sortino(&returns, annualize, ann_factor)
 }
 
 /// Geometric mean of returns.
 #[pyfunction]
 fn geometric_mean(returns: Vec<f64>) -> f64 {
-    fa::geometric_mean(&returns)
+    fa::risk_metrics::geometric_mean(&returns)
 }
 
 /// Omega ratio.
 #[pyfunction]
 #[pyo3(signature = (returns, threshold = 0.0))]
 fn omega_ratio(returns: Vec<f64>, threshold: f64) -> f64 {
-    fa::omega_ratio(&returns, threshold)
+    fa::risk_metrics::omega_ratio(&returns, threshold)
 }
 
 /// Gain-to-pain ratio.
 #[pyfunction]
 fn gain_to_pain(returns: Vec<f64>) -> f64 {
-    fa::gain_to_pain(&returns)
+    fa::risk_metrics::gain_to_pain(&returns)
 }
 
 /// Modified Sharpe ratio.
@@ -499,7 +500,7 @@ fn modified_sharpe(
     confidence: f64,
     ann_factor: f64,
 ) -> f64 {
-    fa::modified_sharpe(&returns, risk_free_rate, confidence, ann_factor)
+    fa::risk_metrics::modified_sharpe(&returns, risk_free_rate, confidence, ann_factor)
 }
 
 /// Monte Carlo ruin probability estimation.
@@ -510,7 +511,7 @@ fn estimate_ruin(
     model: &PyRuinModel,
 ) -> PyRuinEstimate {
     PyRuinEstimate {
-        inner: fa::estimate_ruin(&returns, definition.inner, &model.inner),
+        inner: fa::risk_metrics::estimate_ruin(&returns, definition.inner, &model.inner),
     }
 }
 
@@ -530,7 +531,7 @@ fn rolling_sharpe(
 ) -> PyResult<PyRollingSharpe> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingSharpe {
-        inner: fa::rolling_sharpe(&returns, &rd, window, ann_factor, risk_free_rate),
+        inner: fa::risk_metrics::rolling_sharpe(&returns, &rd, window, ann_factor, risk_free_rate),
     })
 }
 
@@ -545,7 +546,7 @@ fn rolling_sortino(
 ) -> PyResult<PyRollingSortino> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingSortino {
-        inner: fa::rolling_sortino(&returns, &rd, window, ann_factor),
+        inner: fa::risk_metrics::rolling_sortino(&returns, &rd, window, ann_factor),
     })
 }
 
@@ -560,7 +561,7 @@ fn rolling_volatility(
 ) -> PyResult<PyRollingVolatility> {
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingVolatility {
-        inner: fa::rolling_volatility(&returns, &rd, window, ann_factor),
+        inner: fa::risk_metrics::rolling_volatility(&returns, &rd, window, ann_factor),
     })
 }
 
@@ -573,21 +574,21 @@ fn rolling_sharpe_values(
     ann_factor: f64,
     risk_free_rate: f64,
 ) -> Vec<f64> {
-    fa::rolling_sharpe_values(&returns, window, ann_factor, risk_free_rate)
+    fa::risk_metrics::rolling_sharpe_values(&returns, window, ann_factor, risk_free_rate)
 }
 
 /// Rolling Sortino values only (no dates).
 #[pyfunction]
 #[pyo3(signature = (returns, window = 63, ann_factor = 252.0))]
 fn rolling_sortino_values(returns: Vec<f64>, window: usize, ann_factor: f64) -> Vec<f64> {
-    fa::rolling_sortino_values(&returns, window, ann_factor)
+    fa::risk_metrics::rolling_sortino_values(&returns, window, ann_factor)
 }
 
 /// Rolling volatility values only (no dates).
 #[pyfunction]
 #[pyo3(signature = (returns, window = 63, ann_factor = 252.0))]
 fn rolling_volatility_values(returns: Vec<f64>, window: usize, ann_factor: f64) -> Vec<f64> {
-    fa::rolling_volatility_values(&returns, window, ann_factor)
+    fa::risk_metrics::rolling_volatility_values(&returns, window, ann_factor)
 }
 
 // ===================================================================
@@ -598,61 +599,61 @@ fn rolling_volatility_values(returns: Vec<f64>, window: usize, ann_factor: f64) 
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95, ann_factor = None))]
 fn value_at_risk(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
-    fa::value_at_risk(&returns, confidence, ann_factor)
+    fa::risk_metrics::value_at_risk(&returns, confidence, ann_factor)
 }
 
 /// Expected Shortfall (CVaR).
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95, ann_factor = None))]
 fn expected_shortfall(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
-    fa::expected_shortfall(&returns, confidence, ann_factor)
+    fa::risk_metrics::expected_shortfall(&returns, confidence, ann_factor)
 }
 
 /// Parametric VaR (Gaussian assumption).
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95, ann_factor = None))]
 fn parametric_var(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
-    fa::parametric_var(&returns, confidence, ann_factor)
+    fa::risk_metrics::parametric_var(&returns, confidence, ann_factor)
 }
 
 /// Cornish-Fisher VaR (skewness/kurtosis adjusted).
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95, ann_factor = None))]
 fn cornish_fisher_var(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
-    fa::cornish_fisher_var(&returns, confidence, ann_factor)
+    fa::risk_metrics::cornish_fisher_var(&returns, confidence, ann_factor)
 }
 
 /// Skewness of returns.
 #[pyfunction]
 fn skewness(returns: Vec<f64>) -> f64 {
-    fa::skewness(&returns)
+    fa::risk_metrics::skewness(&returns)
 }
 
 /// Excess kurtosis of returns.
 #[pyfunction]
 fn kurtosis(returns: Vec<f64>) -> f64 {
-    fa::kurtosis(&returns)
+    fa::risk_metrics::kurtosis(&returns)
 }
 
 /// Tail ratio (upper quantile / |lower quantile|).
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95))]
 fn tail_ratio(returns: Vec<f64>, confidence: f64) -> f64 {
-    fa::tail_ratio(&returns, confidence)
+    fa::risk_metrics::tail_ratio(&returns, confidence)
 }
 
 /// Outlier win ratio.
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95))]
 fn outlier_win_ratio(returns: Vec<f64>, confidence: f64) -> f64 {
-    fa::outlier_win_ratio(&returns, confidence)
+    fa::risk_metrics::outlier_win_ratio(&returns, confidence)
 }
 
 /// Outlier loss ratio.
 #[pyfunction]
 #[pyo3(signature = (returns, confidence = 0.95))]
 fn outlier_loss_ratio(returns: Vec<f64>, confidence: f64) -> f64 {
-    fa::outlier_loss_ratio(&returns, confidence)
+    fa::risk_metrics::outlier_loss_ratio(&returns, confidence)
 }
 
 // ===================================================================

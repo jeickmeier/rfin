@@ -2,7 +2,7 @@
 
 use super::position_risk::{DecompositionConfig, PositionRiskDecomposition};
 use super::types::RiskDecomposition;
-use crate::PositionId;
+use crate::types::PositionId;
 use finstack_core::factor_model::{FactorCovarianceMatrix, RiskMeasure};
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 

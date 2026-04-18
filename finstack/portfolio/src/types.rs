@@ -197,7 +197,7 @@ impl Entity {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_portfolio::Entity;
+    /// use finstack_portfolio::types::Entity;
     ///
     /// let entity = Entity::new("ACME");
     /// assert_eq!(entity.id.as_str(), "ACME");
@@ -254,7 +254,7 @@ impl Entity {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_portfolio::Entity;
+    /// use finstack_portfolio::types::Entity;
     ///
     /// let entity = Entity::new("ACME")
     ///     .with_tags([("sector", "Technology"), ("region", "US")]);

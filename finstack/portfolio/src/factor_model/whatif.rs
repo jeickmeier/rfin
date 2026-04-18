@@ -1,7 +1,9 @@
 use super::model::FactorModel;
 use super::RiskDecomposition;
 use crate::error::{Error, Result};
-use crate::{Portfolio, Position, PositionId};
+use crate::position::Position;
+use crate::types::PositionId;
+use crate::Portfolio;
 use finstack_core::dates::Date;
 use finstack_core::factor_model::FactorId;
 use finstack_core::market_data::context::MarketContext;
@@ -243,8 +245,10 @@ fn factor_deltas(
 mod tests {
     use super::*;
     use crate::factor_model::{FactorModel, FactorModelBuilder};
+    use crate::position::{Position, PositionUnit};
     use crate::test_utils::build_test_market_at;
-    use crate::{Portfolio, Position, PositionId, PositionUnit, DUMMY_ENTITY_ID};
+    use crate::types::{PositionId, DUMMY_ENTITY_ID};
+    use crate::Portfolio;
     use finstack_core::currency::Currency;
     use finstack_core::factor_model::matching::{DependencyFilter, MappingRule, MatchingConfig};
     use finstack_core::factor_model::{
@@ -258,7 +262,7 @@ mod tests {
     use finstack_valuations::factor_model::sensitivity::{
         FactorSensitivityEngine, SensitivityMatrix,
     };
-    use finstack_valuations::instruments::common::dependencies::MarketDependencies;
+    use finstack_valuations::instruments::common::MarketDependencies;
     use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::pricer::InstrumentType;
     use std::any::Any;

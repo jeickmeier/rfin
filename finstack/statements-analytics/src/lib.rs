@@ -26,6 +26,3 @@ pub mod extensions;
 
 /// Templates for common financial model structures.
 pub mod templates;
-
-/// Convenient re-exports for common analytics types.
-pub mod prelude;

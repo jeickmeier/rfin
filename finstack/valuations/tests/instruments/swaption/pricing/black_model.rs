@@ -3,9 +3,9 @@
 use crate::common::test_helpers::tolerances;
 use crate::swaption::common::*;
 use finstack_core::currency::Currency;
+use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::helpers::year_fraction;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 
 #[test]
@@ -38,7 +38,10 @@ fn test_black_formula_manual_validation() {
     let pv_inst = swaption.value(&market, as_of).unwrap().amount();
 
     // Manual Black76 calculation
-    let t = year_fraction(swaption.day_count, as_of, expiry).unwrap();
+    let t = swaption
+        .day_count
+        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .unwrap();
     let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
     let disc = market.get_discount("USD_OIS").unwrap();
     let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();

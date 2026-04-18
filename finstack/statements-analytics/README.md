@@ -60,10 +60,10 @@ use finstack_statements_analytics::extensions::*;
 use finstack_statements_analytics::templates::*;
 ```
 
-For a narrower surface, prefer:
+For a narrower surface, prefer importing specific types:
 
 ```rust
-use finstack_statements_analytics::prelude::*;
+use finstack_statements_analytics::analysis::{CorporateAnalysis, CorporateAnalysisBuilder};
 ```
 
 ## Quick Start
@@ -375,10 +375,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Common Import Patterns
 
 Most users start with one of these:
-
-```rust
-use finstack_statements_analytics::prelude::*;
-```
 
 ```rust
 use finstack_statements_analytics::analysis::{

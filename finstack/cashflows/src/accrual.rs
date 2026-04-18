@@ -1,7 +1,7 @@
 //! Generic schedule-driven interest accrual engine.
 //!
 //! This module provides reusable logic to compute accrued interest from a
-//! canonical [`crate::cashflow::builder::CashFlowSchedule`] only, without
+//! canonical [`crate::builder::CashFlowSchedule`] only, without
 //! depending on instrument
 //! specifications. Any instrument that can expose a `CashFlowSchedule`
 //! (via `CashflowProvider::cashflow_schedule` or otherwise) can use this
@@ -18,8 +18,8 @@
 //! semantics (step-ups, amortization, PIK capitalization, etc.) are
 //! respected without re-reading instrument specs.
 
-use crate::cashflow::builder::schedule::CashFlowSchedule;
-use crate::cashflow::primitives::CFKind;
+use crate::builder::schedule::CashFlowSchedule;
+use crate::primitives::CFKind;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
@@ -607,7 +607,7 @@ fn accrue_in_period(
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::{CashFlowSchedule, Notional};
+    use crate::builder::{CashFlowSchedule, Notional};
     use finstack_core::cashflow::CashFlow;
     use finstack_core::currency::Currency;
     use time::Month;

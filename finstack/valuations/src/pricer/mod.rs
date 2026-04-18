@@ -31,9 +31,10 @@ mod errors;
 mod keys;
 mod registry;
 
-pub use errors::*;
-pub use keys::*;
-pub use registry::*;
+pub(crate) use errors::actionable_unknown_pricer_message;
+pub use errors::{PricingContextExt, PricingError, PricingErrorContext, PricingResult};
+pub use keys::{InstrumentType, ModelKey, PricerKey};
+pub use registry::{expect_inst, Pricer, PricerRegistry};
 
 // Fourier pricing methods (COS, Lewis)
 pub mod fourier;

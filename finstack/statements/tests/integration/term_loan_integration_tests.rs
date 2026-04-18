@@ -3,8 +3,8 @@
 //! This test suite validates that TermLoan instruments from the valuations crate
 //! can be properly integrated into financial statement models.
 
+use finstack_statements::types::CapitalStructureSpec;
 use finstack_statements::types::DebtInstrumentSpec;
-use finstack_statements::CapitalStructureSpec;
 
 // ============================================================================
 // TermLoan Variant Tests

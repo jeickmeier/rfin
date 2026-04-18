@@ -47,8 +47,8 @@
 //! ```
 
 use super::schedule::{finalize_flows, CashFlowSchedule};
-use crate::cashflow::builder::{AmortizationSpec, FloatingRateSpec, Notional};
-use crate::cashflow::primitives::{CFKind, CashFlow};
+use crate::builder::{AmortizationSpec, FloatingRateSpec, Notional};
+use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::ForwardCurve;
@@ -1550,8 +1550,8 @@ pub struct PreparedCashFlow {
     maturity: Date,
     fixed_schedules: Vec<FixedSchedule>,
     float_schedules: Vec<FloatSchedule>,
-    used_fixed_specs: Vec<crate::cashflow::builder::specs::FixedCouponSpec>,
-    used_float_specs: Vec<crate::cashflow::builder::specs::FloatingCouponSpec>,
+    used_fixed_specs: Vec<crate::builder::specs::FixedCouponSpec>,
+    used_float_specs: Vec<crate::builder::specs::FloatingCouponSpec>,
     periodic_fees: Vec<PeriodicFee>,
     fixed_fees: Vec<(Date, Money)>,
     principal_events: Vec<PrincipalEvent>,

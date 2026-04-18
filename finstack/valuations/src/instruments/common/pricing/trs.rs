@@ -278,7 +278,7 @@ impl TrsEngine {
     /// # Errors
     ///
     /// Returns an error if the computed annuity is below
-    /// [`crate::instruments::common::pricing::swap_legs::ANNUITY_EPSILON`] (1e-12),
+    /// [`crate::instruments::common_impl::pricing::swap_legs::ANNUITY_EPSILON`] (1e-12),
     /// which would cause divide-by-zero in downstream par spread calculations.
     /// This typically occurs when:
     /// - All periods have already expired (payment dates before as_of)

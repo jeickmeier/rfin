@@ -12,7 +12,7 @@ use time::macros::date;
 
 use super::pricer;
 use crate::impl_instrument_base;
-use crate::{cashflow::traits::CashflowProvider, instruments::common::traits::Attributes};
+use crate::{cashflow::traits::CashflowProvider, instruments::common_impl::traits::Attributes};
 
 pub use crate::instruments::common_impl::parameters::PayReceive;
 

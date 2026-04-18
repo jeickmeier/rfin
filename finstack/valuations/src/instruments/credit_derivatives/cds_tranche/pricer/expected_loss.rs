@@ -1,5 +1,5 @@
 use super::config::CDSTranchePricer;
-use crate::instruments::credit_derivatives::cds_tranche::recovery::RecoveryModel;
+use crate::correlation::recovery::RecoveryModel;
 use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::CreditIndexData;

@@ -4,7 +4,7 @@ use super::config::{
 use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::constants::BASIS_POINTS_PER_UNIT;
-use crate::instruments::credit_derivatives::cds_tranche::copula::{
+use crate::correlation::copula::{
     Copula, CopulaSpec, GaussianCopula, MultiFactorCopula, RandomFactorLoadingCopula,
     StudentTCopula,
 };

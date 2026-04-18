@@ -27,7 +27,7 @@ fn test_results_serialization() {
         eval_time_ms: Some(42),
         num_nodes: 2,
         num_periods: 1,
-        numeric_mode: finstack_statements::NumericMode::Float64,
+        numeric_mode: finstack_statements::evaluator::NumericMode::Float64,
         rounding_context: None,
         parallel: false,
         warnings: Vec::new(),

@@ -271,7 +271,7 @@ pub fn calculate_period_flows(
 ///
 /// ```rust,no_run
 /// use finstack_statements::capital_structure::{aggregate_instrument_cashflows, CapitalStructureCashflows};
-/// use finstack_statements::CapitalStructureSpec;
+/// use finstack_statements::types::CapitalStructureSpec;
 /// use finstack_core::dates::build_periods;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_cashflows::CashflowProvider;

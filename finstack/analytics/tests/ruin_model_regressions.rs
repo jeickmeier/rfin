@@ -1,4 +1,5 @@
-use finstack_analytics::{estimate_ruin, Performance, RuinDefinition, RuinModel};
+use finstack_analytics::risk_metrics::{estimate_ruin, RuinDefinition, RuinModel};
+use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
 fn d(year: i32, month: Month, day: u8) -> Date {

@@ -34,34 +34,6 @@ pub mod returns;
 pub mod risk_metrics;
 pub mod timeseries;
 
-pub use aggregation::{group_by_period, period_stats, PeriodStats};
-pub use backtesting::{run_backtest, BacktestResult, VarBacktestConfig};
-pub use benchmark::{
-    align_benchmark, align_benchmark_with_policy, batting_average, calc_beta, capture_ratio,
-    down_capture, greeks, information_ratio, m_squared, m_squared_from_returns,
-    multi_factor_greeks, r_squared, rolling_greeks, tracking_error, treynor, up_capture,
-    BenchmarkAlignmentPolicy, BetaResult, GreeksResult, MultiFactorResult, RollingGreeks,
-};
-pub use consecutive::count_consecutive;
-pub use drawdown::{
-    average_drawdown, avg_drawdown, burke_ratio, calmar, calmar_from_returns, cdar,
-    drawdown_details, martin_ratio, martin_ratio_from_returns, max_drawdown, max_drawdown_duration,
-    max_drawdown_from_returns, pain_index, pain_ratio, pain_ratio_from_returns, recovery_factor,
-    recovery_factor_from_returns, sterling_ratio, sterling_ratio_from_returns, to_drawdown_series,
-    ulcer_index, DrawdownEpisode,
-};
-pub use lookback::{fytd_select, mtd_select, qtd_select, ytd_select};
+pub use aggregation::PeriodStats;
+pub use backtesting::BacktestResult;
 pub use performance::{LookbackReturns, Performance};
-pub use returns::{
-    clean_returns, comp_sum, comp_total, convert_to_prices, excess_returns, rebase, simple_returns,
-};
-pub use risk_metrics::{
-    cagr, cagr_from_periods, cornish_fisher_var, downside_deviation, estimate_ruin,
-    expected_shortfall, expected_shortfall_with_scratch, gain_to_pain, geometric_mean, kurtosis,
-    mean_return, modified_sharpe, omega_ratio, outlier_loss_ratio, outlier_loss_ratio_with_scratch,
-    outlier_win_ratio, outlier_win_ratio_with_scratch, parametric_var, rolling_sharpe,
-    rolling_sharpe_values, rolling_sortino, rolling_sortino_values, rolling_volatility,
-    rolling_volatility_values, sharpe, skewness, sortino, tail_ratio, tail_ratio_with_scratch,
-    value_at_risk, value_at_risk_with_scratch, volatility, RollingSharpe, RollingSortino,
-    RollingVolatility, RuinDefinition, RuinEstimate, RuinModel,
-};

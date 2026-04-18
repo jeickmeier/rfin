@@ -225,15 +225,14 @@ pub fn compute_factor_sensitivities(
     bump_config_json: Option<String>,
 ) -> Result<String, JsValue> {
     let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(to_js_err)?;
-    let instruments: Vec<Box<finstack_valuations::instruments::common::traits::DynInstrument>> =
-        specs
-            .iter()
-            .map(|p| {
-                let inst: finstack_valuations::instruments::InstrumentJson =
-                    serde_json::from_value(p.instrument.clone()).map_err(to_js_err)?;
-                inst.into_boxed().map_err(to_js_err)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+    let instruments: Vec<Box<finstack_valuations::instruments::common::DynInstrument>> = specs
+        .iter()
+        .map(|p| {
+            let inst: finstack_valuations::instruments::InstrumentJson =
+                serde_json::from_value(p.instrument.clone()).map_err(to_js_err)?;
+            inst.into_boxed().map_err(to_js_err)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let positions: Vec<(
         String,
         &dyn finstack_valuations::instruments::internal::InstrumentExt,
@@ -291,15 +290,14 @@ pub fn compute_pnl_profiles(
 ) -> Result<String, JsValue> {
     let n_points = n_scenario_points.unwrap_or(5);
     let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(to_js_err)?;
-    let instruments: Vec<Box<finstack_valuations::instruments::common::traits::DynInstrument>> =
-        specs
-            .iter()
-            .map(|p| {
-                let inst: finstack_valuations::instruments::InstrumentJson =
-                    serde_json::from_value(p.instrument.clone()).map_err(to_js_err)?;
-                inst.into_boxed().map_err(to_js_err)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+    let instruments: Vec<Box<finstack_valuations::instruments::common::DynInstrument>> = specs
+        .iter()
+        .map(|p| {
+            let inst: finstack_valuations::instruments::InstrumentJson =
+                serde_json::from_value(p.instrument.clone()).map_err(to_js_err)?;
+            inst.into_boxed().map_err(to_js_err)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let positions: Vec<(
         String,
         &dyn finstack_valuations::instruments::internal::InstrumentExt,

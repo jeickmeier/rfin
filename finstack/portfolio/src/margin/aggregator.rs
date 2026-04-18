@@ -11,7 +11,8 @@ use crate::margin::netting_set::{NettingSet, NettingSetManager};
 use crate::margin::results::{NettingSetMargin, PortfolioMarginResult};
 use crate::portfolio::Portfolio;
 use crate::position::Position;
-use crate::{Error, PositionId, Result};
+use crate::types::PositionId;
+use crate::{Error, Result};
 
 // ============================================================================
 // Portfolio Margin Aggregator

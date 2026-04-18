@@ -3,7 +3,8 @@
 use finstack_core::dates::{build_periods, Date};
 use finstack_core::market_data::context::MarketContext;
 use finstack_scenarios::{ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
-use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+use finstack_statements::types::{AmountOrScalar, NodeSpec, NodeType};
+use finstack_statements::FinancialModelSpec;
 use indexmap::IndexMap;
 use time::Month;
 

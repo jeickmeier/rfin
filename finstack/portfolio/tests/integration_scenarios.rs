@@ -4,8 +4,9 @@ use common::*;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::PortfolioBuilder;
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
@@ -42,9 +43,13 @@ fn apply_and_revalue_succeeds() {
     let config = FinstackConfig::default();
 
     // Get base valuation first
-    let base_valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let base_valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
 
     let scenario = ScenarioSpec {
         id: "s".to_string(),
@@ -61,7 +66,8 @@ fn apply_and_revalue_succeeds() {
     };
 
     let (shocked_valuation, report) =
-        finstack_portfolio::apply_and_revalue(&portfolio, &scenario, &market, &config).unwrap();
+        finstack_portfolio::scenarios::apply_and_revalue(&portfolio, &scenario, &market, &config)
+            .unwrap();
     assert!(report.operations_applied > 0);
 
     // Verify the shocked valuation differs from base

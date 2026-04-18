@@ -1097,7 +1097,7 @@ mod tests {
 
     #[test]
     fn test_overnight_compounded_in_arrears() {
-        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        use crate::builder::specs::OvernightCompoundingMethod;
         let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3)];
         let rate = compute_overnight_rate(
             OvernightCompoundingMethod::CompoundedInArrears,
@@ -1113,7 +1113,7 @@ mod tests {
 
     #[test]
     fn test_overnight_lockout() {
-        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        use crate::builder::specs::OvernightCompoundingMethod;
         let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.06, 1), (0.07, 3)];
         let rate = compute_overnight_rate(
             OvernightCompoundingMethod::CompoundedWithLockout { lockout_days: 2 },
@@ -1127,7 +1127,7 @@ mod tests {
 
     #[test]
     fn test_overnight_simple_average() {
-        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        use crate::builder::specs::OvernightCompoundingMethod;
         let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3)];
         let rate = compute_overnight_rate(
             OvernightCompoundingMethod::SimpleAverage,
@@ -1150,7 +1150,7 @@ mod tests {
 
     #[test]
     fn test_overnight_lookback() {
-        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        use crate::builder::specs::OvernightCompoundingMethod;
         let fixings = vec![(0.04, 1u32), (0.05, 1), (0.06, 1), (0.07, 1), (0.08, 3)];
         let rate = compute_overnight_rate(
             OvernightCompoundingMethod::CompoundedWithLookback { lookback_days: 2 },

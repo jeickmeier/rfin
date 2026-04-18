@@ -1,4 +1,4 @@
-use crate::PositionId;
+use crate::types::PositionId;
 use finstack_core::factor_model::matching::FactorMatcher;
 use finstack_core::factor_model::{FactorId, MarketDependency};
 use finstack_core::types::Attributes;

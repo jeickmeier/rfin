@@ -143,7 +143,7 @@ impl Book {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_portfolio::Book;
+    /// use finstack_portfolio::book::Book;
     ///
     /// let book = Book::new("credit", Some("Credit".to_string()));
     /// assert!(book.is_root());

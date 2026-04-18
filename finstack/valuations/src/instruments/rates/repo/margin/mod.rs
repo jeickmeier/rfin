@@ -26,5 +26,7 @@
 
 mod cashflows;
 
-pub use cashflows::*;
+pub use cashflows::{
+    generate_margin_cashflows, generate_margin_interest_cashflows, margin_calls_to_cashflows,
+};
 pub use finstack_margin::{RepoMarginSpec, RepoMarginType};

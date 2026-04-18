@@ -63,7 +63,7 @@ pub(crate) fn derive_instrument_impl(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let expanded = quote! {
-        impl #impl_generics crate::instruments::common::traits::Instrument for #ident #ty_generics #where_clause {
+        impl #impl_generics crate::instruments::common_impl::traits::Instrument for #ident #ty_generics #where_clause {
             fn id(&self) -> &str {
                 self.id.as_str()
             }
@@ -76,15 +76,15 @@ pub(crate) fn derive_instrument_impl(input: TokenStream) -> TokenStream {
                 self
             }
 
-            fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+            fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
                 &self.attributes
             }
 
-            fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+            fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
                 &mut self.attributes
             }
 
-            fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+            fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
                 Box::new(self.clone())
             }
 
@@ -111,9 +111,9 @@ fn market_dependencies_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
     quote! {
         fn market_dependencies(
             &self,
-        ) -> crate::instruments::common::dependencies::MarketDependencies {
+        ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
             let mut deps =
-                crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self);
+                crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(self);
 
             if let Some(spot_id) = #spot_expr {
                 deps.add_spot_id(spot_id);

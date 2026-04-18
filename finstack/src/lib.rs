@@ -24,7 +24,6 @@
 //! | `statements_analytics` | [`finstack_statements_analytics`] |
 //! | `portfolio`        | [`finstack_portfolio`]            |
 //! | `scenarios`        | [`finstack_scenarios`]            |
-//! | `correlation`      | [`finstack_valuations::correlation`] |
 //!
 //! Two pass-through features remain to gate heavy compile-time costs:
 //! `mc` (Monte Carlo + `nalgebra`) and `dataframes` (`polars`).
@@ -38,11 +37,3 @@ pub use finstack_scenarios as scenarios;
 pub use finstack_statements as statements;
 pub use finstack_statements_analytics as statements_analytics;
 pub use finstack_valuations as valuations;
-
-/// Credit correlation infrastructure (copulas, factor models, stochastic recovery).
-///
-/// Re-export of [`finstack_valuations::correlation`], which absorbed the
-/// former standalone `finstack-correlation` crate.
-pub use finstack_valuations::correlation;
-
-pub use finstack_statements_analytics::analysis::covenants;

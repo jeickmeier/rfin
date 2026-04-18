@@ -267,7 +267,7 @@ fn parse_positions(
     positions_json: &str,
 ) -> PyResult<(
     Vec<PositionInput>,
-    Vec<Box<finstack_valuations::instruments::common::traits::DynInstrument>>,
+    Vec<Box<finstack_valuations::instruments::common::DynInstrument>>,
 )> {
     let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(display_to_py)?;
     let instruments = specs

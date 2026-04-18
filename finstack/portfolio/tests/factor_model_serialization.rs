@@ -1,11 +1,12 @@
 use finstack_core::factor_model::{CurveType, FactorId, MarketDependency, RiskMeasure};
 use finstack_core::types::CurveId;
+use finstack_portfolio::factor_model::RiskDecomposition;
 use finstack_portfolio::factor_model::{
     FactorAssignmentReport, FactorConstraint, FactorContribution, FactorContributionDelta,
     FactorOptimizationResult, PositionAssignment, PositionFactorContribution, StressResult,
     UnmatchedEntry, WhatIfResult,
 };
-use finstack_portfolio::{PositionId, RiskDecomposition};
+use finstack_portfolio::types::PositionId;
 
 fn roundtrip_json<T>(value: &T) -> T
 where

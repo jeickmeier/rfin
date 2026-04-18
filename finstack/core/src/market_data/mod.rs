@@ -111,5 +111,5 @@ pub mod traits;
 pub use crate::math::interp::utils::validate_knots;
 pub use context::MarketContext;
 // Re-export dividend schedule types for convenience
-pub use dividends::*;
+pub use dividends::{DividendEvent, DividendKind, DividendSchedule, DividendScheduleBuilder};
 pub use term_structures::DiscountCurve;

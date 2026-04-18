@@ -2,7 +2,7 @@ use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::spec::{OperationSpec, RateBindingSpec};
 use finstack_core::market_data::bumps::MarketBump;
-use finstack_statements::NodeId;
+use finstack_statements::types::NodeId;
 
 /// Represents the outcome of a scenario operation that can be collected and applied later.
 /// This allows the engine to separate the "decision" phase from the "mutation" phase.

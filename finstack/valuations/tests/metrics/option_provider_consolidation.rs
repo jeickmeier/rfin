@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxMatrix, FxQuery, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::{
+use finstack_valuations::instruments::common::{
     OptionGreekKind, OptionGreeksProvider, OptionGreeksRequest,
 };
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;

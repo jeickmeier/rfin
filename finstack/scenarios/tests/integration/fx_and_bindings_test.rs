@@ -10,7 +10,8 @@ use finstack_scenarios::{
     Compounding, CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine,
     ScenarioSpec,
 };
-use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+use finstack_statements::types::{AmountOrScalar, NodeSpec, NodeType};
+use finstack_statements::FinancialModelSpec;
 use indexmap::{indexmap, IndexMap};
 use std::sync::Arc;
 use time::Month;

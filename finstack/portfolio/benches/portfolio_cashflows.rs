@@ -17,8 +17,9 @@ use bench_common::{create_institutional_portfolio, create_market_context};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Period, PeriodId};
-use finstack_portfolio::cashflows::aggregate_full_cashflows;
-use finstack_portfolio::{aggregate_cashflows, cashflows_to_base_by_period};
+use finstack_portfolio::cashflows::{
+    aggregate_cashflows, aggregate_full_cashflows, cashflows_to_base_by_period,
+};
 use std::hint::black_box;
 use time::Month;
 

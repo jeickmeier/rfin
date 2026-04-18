@@ -1,6 +1,6 @@
 //! Fee cashflow emission (periodic, commitment, usage, facility).
 
-use crate::cashflow::primitives::{CFKind, CashFlow};
+use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -275,7 +275,7 @@ fn compute_time_weighted_average(
 /// for the base amount is computed as a time-weighted average over the accrual period,
 /// using the `outstanding_history` map. This is useful for commitment fees on revolving
 /// facilities where the outstanding changes within the fee accrual period.
-pub(in crate::cashflow::builder) fn emit_fees_on(
+pub(in crate::builder) fn emit_fees_on(
     d: Date,
     periodic_fees: &[PeriodicFee],
     fixed_fees: &[(Date, Money)],
@@ -292,8 +292,7 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
         if let Some(period) = pf.prev.get(&d) {
             // Use proper DayCountCtx with calendar and frequency so that
             // conventions like Bus/252 and Act/Act ISMA compute correctly.
-            let calendar =
-                crate::cashflow::builder::calendar::resolve_calendar_strict(&pf.calendar_id)?;
+            let calendar = crate::builder::calendar::resolve_calendar_strict(&pf.calendar_id)?;
             let yf = pf.dc.year_fraction(
                 period.accrual_start,
                 period.accrual_end,
@@ -372,9 +371,9 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::compiler::PeriodicFee;
-    use crate::cashflow::builder::date_generation::SchedulePeriod;
-    use crate::cashflow::builder::specs::{FeeAccrualBasis, FeeBase};
+    use crate::builder::compiler::PeriodicFee;
+    use crate::builder::date_generation::SchedulePeriod;
+    use crate::builder::specs::{FeeAccrualBasis, FeeBase};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
     use rust_decimal_macros::dec;

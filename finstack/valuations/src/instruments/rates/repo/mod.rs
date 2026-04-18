@@ -74,6 +74,6 @@ mod types;
 
 // Re-export main types
 pub use finstack_margin::{RepoMarginSpec, RepoMarginType};
-pub use types::*;
+pub use types::{CollateralSpec, CollateralType, Repo, RepoBuilder, RepoType};
 
 // Builder is generated via derive on `Repo`.

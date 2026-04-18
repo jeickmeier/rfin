@@ -4,8 +4,9 @@ use common::*;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
-use finstack_portfolio::{Error, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::{Error, PortfolioBuilder};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Duration;
@@ -52,9 +53,13 @@ fn cross_currency_conversion_uses_fx_matrix() {
     assert_eq!(portfolio.base_ccy, Currency::USD);
 
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
 
     // With zero-rate curve, PV ~= notional; FX applied to convert to USD
     let pos_val = valuation.get_position_value("POS_EUR").unwrap();
@@ -113,9 +118,13 @@ fn missing_fx_matrix_errors_for_cross_currency() {
     // Market has only EUR curve, no FX
     let market = market_with_eur();
     let config = FinstackConfig::default();
-    let err =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap_err();
+    let err = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap_err();
 
     match err {
         Error::MissingMarketData(msg) => assert!(msg.contains("FX")),
@@ -160,9 +169,13 @@ fn quantity_scaling_and_entity_totals() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
 
     let pv = valuation.get_position_value("POS_SHORT").unwrap();
     // With a negative quantity and positive instrument PV, the position value should be negative

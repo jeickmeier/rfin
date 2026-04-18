@@ -32,7 +32,7 @@ trait HasDate {
     fn flow_date(&self) -> Date;
 }
 
-impl HasDate for crate::cashflow::DatedFlow {
+impl HasDate for crate::DatedFlow {
     fn flow_date(&self) -> Date {
         self.0
     }
@@ -96,7 +96,7 @@ fn iter_by_period<'a, T: HasDate>(
 ///
 /// See unit tests and `examples/` for usage.
 fn aggregate_by_period_sorted(
-    sorted: &[crate::cashflow::DatedFlow],
+    sorted: &[crate::DatedFlow],
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
@@ -167,7 +167,7 @@ fn aggregate_by_period_sorted(
 /// assert!(aggregated.contains_key(&PeriodId::quarter(2025, 1)));
 /// ```
 pub fn aggregate_by_period(
-    flows: &[crate::cashflow::DatedFlow],
+    flows: &[crate::DatedFlow],
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
     if flows.is_empty() || periods.is_empty() {
@@ -177,7 +177,7 @@ pub fn aggregate_by_period(
     if is_sorted {
         return aggregate_by_period_sorted(flows, periods);
     }
-    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
+    let mut sorted: Vec<crate::DatedFlow> = flows.to_vec();
     sorted.sort_unstable_by_key(|(d, _)| *d);
     aggregate_by_period_sorted(&sorted, periods)
 }
@@ -227,7 +227,7 @@ use finstack_core::market_data::traits::{Discounting, Survival};
 /// assert_eq!(total.currency(), Currency::USD);
 /// ```
 pub fn aggregate_cashflows_precise_checked(
-    flows: &[crate::cashflow::DatedFlow],
+    flows: &[crate::DatedFlow],
     target: Currency,
 ) -> finstack_core::Result<Money> {
     let mut acc = NeumaierAccumulator::default();

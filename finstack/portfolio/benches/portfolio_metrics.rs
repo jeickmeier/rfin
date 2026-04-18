@@ -15,7 +15,8 @@ use bench_common::{base_date, create_institutional_portfolio, create_market_cont
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
-use finstack_portfolio::{aggregate_metrics, value_portfolio};
+use finstack_portfolio::metrics::aggregate_metrics;
+use finstack_portfolio::valuation::value_portfolio;
 use std::hint::black_box;
 
 // ============================================================================

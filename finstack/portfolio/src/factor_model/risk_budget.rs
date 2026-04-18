@@ -4,7 +4,7 @@
 //! position (or group of positions). The budgeting engine compares actual
 //! component VaR against targets and computes utilization ratios.
 
-use crate::PositionId;
+use crate::types::PositionId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 

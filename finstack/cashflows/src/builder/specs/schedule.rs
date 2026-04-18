@@ -35,7 +35,7 @@ pub struct ScheduleParams {
     pub payment_lag_days: i32,
 }
 
-const WK: &str = crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID;
+const WK: &str = crate::builder::calendar::WEEKENDS_ONLY_ID;
 
 impl ScheduleParams {
     fn preset(freq: Tenor, dc: DayCount, bdc: BusinessDayConvention, calendar_id: &str) -> Self {

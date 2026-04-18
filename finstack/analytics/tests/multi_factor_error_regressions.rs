@@ -1,4 +1,5 @@
-use finstack_analytics::{multi_factor_greeks, Performance};
+use finstack_analytics::benchmark::multi_factor_greeks;
+use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
 fn d(year: i32, month: Month, day: u8) -> Date {

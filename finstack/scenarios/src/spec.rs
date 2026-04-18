@@ -33,7 +33,7 @@ pub use finstack_core::market_data::hierarchy::HierarchyTarget;
 pub use finstack_valuations::pricer::InstrumentType;
 
 /// Re-export [`NodeId`] for statement node identification.
-pub use finstack_statements::NodeId;
+pub use finstack_statements::types::NodeId;
 
 /// A complete scenario specification with metadata and ordered operations.
 ///

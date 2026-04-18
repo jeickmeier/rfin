@@ -9,7 +9,8 @@ use finstack_core::money::Money;
 use finstack_scenarios::{
     Compounding, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
 };
-use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+use finstack_statements::types::{AmountOrScalar, NodeSpec, NodeType};
+use finstack_statements::FinancialModelSpec;
 use indexmap::{indexmap, IndexMap};
 use time::Month;
 

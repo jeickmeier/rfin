@@ -12,14 +12,23 @@ pub(crate) mod pricing;
 pub(crate) mod risk;
 
 // Re-export all calculators for convenience
-pub use deal_specific::*;
-pub use pool::*;
-pub use pricing::*;
-pub use risk::*;
+pub use deal_specific::{
+    AbsChargeOffCalculator, AbsCreditEnhancementCalculator, AbsDelinquencyCalculator,
+    AbsExcessSpreadCalculator, AbsSpeedCalculator, CloWalCalculator, CmbsDscrCalculator,
+    CmbsLtvCalculator, RmbsFicoCalculator, RmbsLtvCalculator, RmbsWalCalculator,
+};
+pub use pool::{CdrCalculator, CloWarfCalculator, CloWasCalculator, CprCalculator, WamCalculator};
+pub use pricing::{
+    calculate_tranche_wal, AccruedCalculator, CleanPriceCalculator, DirtyPriceCalculator,
+    WalCalculator,
+};
+pub use risk::{
+    calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_z_spread, Cs01Calculator,
+    MacaulayDurationCalculator, ModifiedDurationCalculator, SpreadDurationCalculator,
+    YtmCalculator, ZSpreadCalculator,
+};
 
-// Re-export standalone tranche metric functions for direct access
-pub use pricing::calculate_tranche_wal;
-pub use risk::{calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_z_spread};
+// Standalone tranche metric functions are included in the explicit lists above.
 
 /// Register all structured credit metrics
 pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricRegistry) {

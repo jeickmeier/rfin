@@ -89,14 +89,5 @@ pub mod types;
 /// Internal utilities (constants, formula helpers, graph traversal).
 pub mod utils;
 
-// Re-export core types at crate root for ergonomic imports
-pub use checks::{
-    Check, CheckCategory, CheckConfig, CheckContext, CheckFinding, CheckReport, CheckResult,
-    CheckRunner, CheckSuite, CheckSuiteBuilder, CheckSummary, Materiality, PeriodScope, Severity,
-};
 pub use error::{Error, Result};
-pub use evaluator::NumericMode;
-pub use types::{
-    AmountOrScalar, CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec, ForecastMethod,
-    ForecastSpec, NodeId, NodeSpec, NodeType, NodeValueType, SeasonalMode,
-};
+pub use types::FinancialModelSpec;

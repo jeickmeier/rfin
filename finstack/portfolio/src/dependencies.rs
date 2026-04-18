@@ -11,7 +11,7 @@ use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_core::HashSet;
-use finstack_valuations::instruments::common::traits::RatesCurveKind;
+use finstack_valuations::instruments::common::RatesCurveKind;
 use finstack_valuations::instruments::MarketDependencies;
 
 /// Normalized market factor key for portfolio-level dependency tracking.

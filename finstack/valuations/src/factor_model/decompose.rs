@@ -1,4 +1,4 @@
-use crate::instruments::common::dependencies::MarketDependencies;
+use crate::instruments::common_impl::dependencies::MarketDependencies;
 use finstack_core::factor_model::{CurveType, MarketDependency};
 
 /// Flattens aggregated market dependencies into individually matchable entries.
@@ -49,7 +49,7 @@ pub fn decompose(deps: &MarketDependencies) -> Vec<MarketDependency> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::common::dependencies::MarketDependencies;
+    use crate::instruments::common_impl::dependencies::MarketDependencies;
     use finstack_core::currency::Currency;
     use finstack_core::types::CurveId;
 
@@ -99,7 +99,7 @@ mod tests {
         deps.spot_ids.push("AAPL".into());
         deps.vol_surface_ids.push("AAPL-VOL".into());
         deps.fx_pairs
-            .push(crate::instruments::common::dependencies::FxPair::new(
+            .push(crate::instruments::common_impl::dependencies::FxPair::new(
                 Currency::USD,
                 Currency::EUR,
             ));

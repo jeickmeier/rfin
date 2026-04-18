@@ -32,7 +32,7 @@ use finstack_cashflows::builder::{
     CashFlowMeta, CashFlowSchedule, CashflowRepresentation, CouponType, FixedCouponSpec, Notional,
     OvernightCompoundingMethod, PeriodDataFrameOptions,
 };
-use finstack_cashflows::cashflow::primitives::{CFKind, CashFlow};
+use finstack_cashflows::primitives::{CFKind, CashFlow};
 use finstack_cashflows::DatedFlow;
 use finstack_core::cashflow::Discountable;
 use finstack_core::currency::Currency;

@@ -24,12 +24,12 @@ use pyo3::prelude::*;
 ///     trade list, dual values, and diagnostics.
 #[pyfunction]
 fn optimize_portfolio(spec_json: &str, market: &Bound<'_, PyAny>) -> PyResult<String> {
-    let spec: finstack_portfolio::PortfolioOptimizationSpec =
+    let spec: finstack_portfolio::optimization::PortfolioOptimizationSpec =
         serde_json::from_str(spec_json).map_err(display_to_py)?;
     let market = extract_market(market)?;
     let config = finstack_core::config::FinstackConfig::default();
-    let result =
-        finstack_portfolio::optimize_from_spec(&spec, &market, &config).map_err(display_to_py)?;
+    let result = finstack_portfolio::optimization::optimize_from_spec(&spec, &market, &config)
+        .map_err(display_to_py)?;
     serde_json::to_string_pretty(&result).map_err(display_to_py)
 }
 

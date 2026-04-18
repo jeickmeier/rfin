@@ -7,8 +7,9 @@ use finstack_core::money::Money;
 use finstack_portfolio::grouping::{
     aggregate_by_attribute, aggregate_by_multiple_attributes, group_by_attribute,
 };
+use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Duration;
@@ -61,9 +62,13 @@ fn grouping_and_multi_attribute_aggregation() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
 
     let groups = group_by_attribute(portfolio.positions(), "rating");
     assert!(groups.contains_key("AAA") && groups.contains_key("AA"));
@@ -113,11 +118,16 @@ fn dataframe_exports_have_expected_columns() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation =
-        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
-            .unwrap();
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio,
+        &market,
+        &config,
+        &Default::default(),
+    )
+    .unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
+        finstack_portfolio::metrics::aggregate_metrics(&valuation, Currency::USD, &market, as_of)
+            .unwrap();
 
     let df_pos = finstack_portfolio::dataframe::positions_to_dataframe(&valuation).unwrap();
     let df_ent = finstack_portfolio::dataframe::entities_to_dataframe(&valuation).unwrap();

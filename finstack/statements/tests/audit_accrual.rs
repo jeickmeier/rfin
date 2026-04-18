@@ -29,7 +29,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_statements::capital_structure::aggregate_instrument_cashflows;
-use finstack_statements::CapitalStructureSpec;
+use finstack_statements::types::CapitalStructureSpec;
 use finstack_valuations::instruments::Bond;
 use indexmap::IndexMap;
 use std::sync::Arc;

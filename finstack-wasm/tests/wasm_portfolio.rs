@@ -24,7 +24,7 @@ fn portfolio_result_get_metric_returns_undefined_for_missing() {
     let spec = portfolio_spec_json();
     let market = empty_market_json();
     let valuation_json = value_portfolio(&spec, &market, false).unwrap();
-    let result = finstack_portfolio::PortfolioResult {
+    let result = finstack_portfolio::results::PortfolioResult {
         valuation: serde_json::from_str(&valuation_json).unwrap(),
         metrics: Default::default(),
         meta: Default::default(),

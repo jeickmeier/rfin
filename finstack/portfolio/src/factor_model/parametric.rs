@@ -3,7 +3,7 @@
 use super::simulation::cholesky;
 use super::traits::RiskDecomposer;
 use super::types::{FactorContribution, PositionFactorContribution, RiskDecomposition};
-use crate::PositionId;
+use crate::types::PositionId;
 use finstack_core::factor_model::{FactorCovarianceMatrix, RiskMeasure};
 
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
@@ -311,7 +311,7 @@ impl RiskDecomposer for ParametricDecomposer {
 mod tests {
     use super::ParametricDecomposer;
     use crate::factor_model::RiskDecomposer;
-    use crate::PositionId;
+    use crate::types::PositionId;
     use finstack_core::factor_model::{FactorCovarianceMatrix, FactorId, RiskMeasure};
     use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 

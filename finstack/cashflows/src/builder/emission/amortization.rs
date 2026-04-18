@@ -1,6 +1,6 @@
 //! Amortization cashflow emission.
 
-use crate::cashflow::builder::{AmortizationSpec, Notional};
+use crate::builder::{AmortizationSpec, Notional};
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -11,13 +11,12 @@ use finstack_core::money::Money;
 /// Contains precomputed values and maps needed by `emit_amortization_on` to
 /// process various amortization specifications efficiently.
 #[derive(Debug, Clone)]
-pub(in crate::cashflow::builder) struct AmortizationParams<'a> {
-    pub(in crate::cashflow::builder) ccy: Currency,
-    pub(in crate::cashflow::builder) amort_dates: &'a finstack_core::HashSet<Date>,
-    pub(in crate::cashflow::builder) linear_delta: Option<f64>,
-    pub(in crate::cashflow::builder) percent_per: Option<f64>,
-    pub(in crate::cashflow::builder) step_remaining_map:
-        &'a Option<finstack_core::HashMap<Date, Money>>,
+pub(in crate::builder) struct AmortizationParams<'a> {
+    pub(in crate::builder) ccy: Currency,
+    pub(in crate::builder) amort_dates: &'a finstack_core::HashSet<Date>,
+    pub(in crate::builder) linear_delta: Option<f64>,
+    pub(in crate::builder) percent_per: Option<f64>,
+    pub(in crate::builder) step_remaining_map: &'a Option<finstack_core::HashMap<Date, Money>>,
 }
 
 fn emit_principal_repayment(
@@ -59,7 +58,7 @@ fn emit_principal_repayment(
 /// - StepRemaining: Specific remaining balance targets
 /// - PercentOfOriginalPerPeriod: Percentage of original notional (capped by remaining)
 /// - CustomPrincipal: Explicit payment amounts by date
-pub(in crate::cashflow::builder) fn emit_amortization_on(
+pub(in crate::builder) fn emit_amortization_on(
     d: Date,
     notional: &Notional,
     outstanding: &mut f64,
