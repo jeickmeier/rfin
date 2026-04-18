@@ -119,7 +119,6 @@ pub mod factor_model;
 ///
 /// Enabled by the `golden` cargo feature. Opt in explicitly for builds that
 /// need golden-test infrastructure.
-#[cfg(feature = "golden")]
 pub mod golden;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;

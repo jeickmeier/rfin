@@ -1,5 +1,3 @@
-#![cfg(feature = "golden")]
-
 //! Golden test harness for finstack-core.
 //!
 //! This file includes the golden test modules that load expected values

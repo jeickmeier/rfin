@@ -34,7 +34,6 @@ tracing = { version = "0.1", default-features = false }
 
 [features]
 default = []
-golden = []
 
 [build-dependencies]
 serde = { workspace = true, features = ["alloc"] }
