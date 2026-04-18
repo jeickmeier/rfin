@@ -17,6 +17,8 @@ use finstack_core::InputError;
 use rust_decimal::prelude::ToPrimitive;
 use tracing::{info, warn};
 
+use crate::builder::rate_helpers::FloatingRateParams;
+
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
 use crate::builder::calendar::resolve_calendar_strict;
@@ -379,43 +381,8 @@ pub(crate) fn emit_float_coupons_on(
             // regardless of when the payment actually occurs.
             let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq);
 
-            // Construct params for detailed projection (converting Decimal to f64 for rate_helpers).
-            // Use proper error handling for Decimal->f64 conversion.
-            let spread_bp = decimal_to_f64(spec.rate_spec.spread_bp, "spread_bp")?;
-            let gearing = decimal_to_f64(spec.rate_spec.gearing, "gearing")?;
-            let params = crate::builder::rate_helpers::FloatingRateParams {
-                spread_bp,
-                gearing,
-                gearing_includes_spread: spec.rate_spec.gearing_includes_spread,
-                index_floor_bp: spec.rate_spec.floor_bp.and_then(|d| {
-                    let v = d.to_f64();
-                    if v.is_none() {
-                        warn!(value = %d, "floor_bp Decimal-to-f64 conversion failed; floor will be ignored");
-                    }
-                    v
-                }),
-                index_cap_bp: spec.rate_spec.index_cap_bp.and_then(|d| {
-                    let v = d.to_f64();
-                    if v.is_none() {
-                        warn!(value = %d, "index_cap_bp Decimal-to-f64 conversion failed; cap will be ignored");
-                    }
-                    v
-                }),
-                all_in_floor_bp: spec.rate_spec.all_in_floor_bp.and_then(|d| {
-                    let v = d.to_f64();
-                    if v.is_none() {
-                        warn!(value = %d, "all_in_floor_bp Decimal-to-f64 conversion failed; floor will be ignored");
-                    }
-                    v
-                }),
-                all_in_cap_bp: spec.rate_spec.cap_bp.and_then(|d| {
-                    let v = d.to_f64();
-                    if v.is_none() {
-                        warn!(value = %d, "cap_bp Decimal-to-f64 conversion failed; cap will be ignored");
-                    }
-                    v
-                }),
-            };
+            let params = FloatingRateParams::try_from(&spec.rate_spec)?;
+            let spread_bp = params.spread_bp;
 
             // Compute total rate using centralized projection with floor/cap support.
             // When projection fails (curve error or missing curve), the fallback

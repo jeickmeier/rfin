@@ -37,6 +37,3 @@ pub use tail_risk::{
     cornish_fisher_var, expected_shortfall, kurtosis, moments4, outlier_loss_ratio,
     outlier_win_ratio, parametric_var, skewness, tail_ratio, value_at_risk,
 };
-pub(crate) use tail_risk::{
-    expected_shortfall_with_scratch, tail_ratio_with_scratch, value_at_risk_with_scratch,
-};

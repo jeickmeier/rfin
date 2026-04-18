@@ -129,12 +129,47 @@ pub fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Vec<Drawd
     let dates = &dates[..len];
 
     let mut episodes: Vec<DrawdownEpisode> = Vec::new();
+    for_each_episode(
+        &drawdown[..len],
+        |start_idx, valley_idx, end_idx, valley_val| {
+            episodes.push(make_episode(
+                dates,
+                start_idx,
+                valley_idx,
+                end_idx,
+                valley_val,
+                len - 1,
+            ));
+        },
+    );
+
+    episodes.sort_by(|a, b| {
+        a.max_drawdown
+            .partial_cmp(&b.max_drawdown)
+            .unwrap_or(core::cmp::Ordering::Equal)
+    });
+    episodes.truncate(n);
+    episodes
+}
+
+/// Shared drawdown-episode state machine.
+///
+/// Scans `drawdown` for episodes (contiguous runs where `d < -1e-15`) and
+/// invokes `emit(start_idx, valley_idx, end_idx, valley_val)` for each
+/// detected episode. `start_idx` is the index of the peak that preceded
+/// the episode (or `0` if the series begins in drawdown); `end_idx` is
+/// `Some(i)` when the episode recovers at index `i`, or `None` when the
+/// episode extends to the end of the series.
+fn for_each_episode<F>(drawdown: &[f64], mut emit: F)
+where
+    F: FnMut(usize, usize, Option<usize>, f64),
+{
     let mut in_dd = false;
     let mut start_idx = 0usize;
     let mut valley_idx = 0usize;
     let mut valley_val = 0.0_f64;
 
-    for (i, &d) in drawdown.iter().enumerate().take(len) {
+    for (i, &d) in drawdown.iter().enumerate() {
         if d < -1e-15 {
             if !in_dd {
                 in_dd = true;
@@ -146,23 +181,13 @@ pub fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Vec<Drawd
                 valley_val = d;
             }
         } else if in_dd {
-            let ep = make_episode(dates, start_idx, valley_idx, Some(i), valley_val, len - 1);
-            episodes.push(ep);
+            emit(start_idx, valley_idx, Some(i), valley_val);
             in_dd = false;
         }
     }
     if in_dd {
-        let ep = make_episode(dates, start_idx, valley_idx, None, valley_val, len - 1);
-        episodes.push(ep);
+        emit(start_idx, valley_idx, None, valley_val);
     }
-
-    episodes.sort_by(|a, b| {
-        a.max_drawdown
-            .partial_cmp(&b.max_drawdown)
-            .unwrap_or(core::cmp::Ordering::Equal)
-    });
-    episodes.truncate(n);
-    episodes
 }
 
 fn make_episode(
@@ -236,27 +261,7 @@ fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
     }
 
     let mut depths = Vec::new();
-    let mut in_dd = false;
-    let mut valley_val = 0.0_f64;
-
-    for &d in drawdown {
-        if d < -1e-15 {
-            if !in_dd {
-                in_dd = true;
-                valley_val = d;
-            } else if d < valley_val {
-                valley_val = d;
-            }
-        } else if in_dd {
-            depths.push(valley_val);
-            in_dd = false;
-        }
-    }
-
-    if in_dd {
-        depths.push(valley_val);
-    }
-
+    for_each_episode(drawdown, |_, _, _, valley_val| depths.push(valley_val));
     depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
     depths.truncate(n);
     depths

@@ -926,8 +926,11 @@ impl CashFlowBuilder {
     }
 
     /// Adds a fixed coupon window with its own schedule and payment split (cash/PIK/split).
+    ///
+    /// Internal helper used by `fixed_stepup` / `fixed_to_float` etc. Prefer the
+    /// spec-level entry points (`fixed_cf`, `fixed_stepup`, `fixed_to_float`).
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn add_fixed_coupon_window(
+    pub(crate) fn add_fixed_coupon_window(
         &mut self,
         start: Date,
         end: Date,
@@ -957,8 +960,12 @@ impl CashFlowBuilder {
     }
 
     /// Adds a floating coupon window with its own schedule and payment split.
+    ///
+    /// Internal helper used by `float_margin_stepup` / `fixed_to_float` etc.
+    /// Prefer the spec-level entry points (`floating_cf`, `float_margin_stepup`,
+    /// `fixed_to_float`).
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn add_float_coupon_window(
+    pub(crate) fn add_float_coupon_window(
         &mut self,
         start: Date,
         end: Date,

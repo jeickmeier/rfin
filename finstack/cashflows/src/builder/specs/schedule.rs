@@ -238,6 +238,12 @@ impl ScheduleParams {
 /// These fields describe the floating index, margin, and optional floor/cap
 /// policy for a window. Schedule-generation settings live on the surrounding
 /// [`ScheduleParams`].
+///
+/// Most callers should start from a [`FloatingRateSpec`](super::FloatingRateSpec)
+/// and convert via `FloatCouponParams::from(&spec)`, which copies the rate-only
+/// fields shared between the two types. This keeps `FloatingRateSpec` the
+/// canonical serde-level representation while `FloatCouponParams` is just a
+/// builder convenience for the in-memory segmented-program API.
 #[derive(Debug, Clone)]
 pub struct FloatCouponParams {
     /// Forward-curve identifier for the projected floating index, such as
@@ -275,6 +281,31 @@ pub struct FloatCouponParams {
     pub overnight_basis: Option<finstack_core::dates::DayCount>,
     /// Policy applied when the forward curve cannot be resolved or projected.
     pub fallback: super::FloatingRateFallback,
+}
+
+impl From<&super::FloatingRateSpec> for FloatCouponParams {
+    /// Copy rate-level fields from the canonical `FloatingRateSpec` into the
+    /// builder-facing `FloatCouponParams`. Schedule-gen fields on the spec
+    /// (`reset_freq`, `dc`, `bdc`, `calendar_id`, `end_of_month`,
+    /// `payment_lag_days`) are intentionally not copied — they live on the
+    /// sibling [`ScheduleParams`].
+    fn from(spec: &super::FloatingRateSpec) -> Self {
+        Self {
+            index_id: spec.index_id.clone(),
+            margin_bp: spec.spread_bp,
+            gearing: spec.gearing,
+            reset_lag_days: spec.reset_lag_days,
+            gearing_includes_spread: spec.gearing_includes_spread,
+            floor_bp: spec.floor_bp,
+            cap_bp: spec.cap_bp,
+            all_in_floor_bp: spec.all_in_floor_bp,
+            index_cap_bp: spec.index_cap_bp,
+            fixing_calendar_id: spec.fixing_calendar_id.clone(),
+            overnight_compounding: spec.overnight_compounding,
+            overnight_basis: spec.overnight_basis,
+            fallback: spec.fallback.clone(),
+        }
+    }
 }
 
 /// Fixed-rate coupon window with a shared schedule.

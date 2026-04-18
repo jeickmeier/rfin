@@ -171,8 +171,11 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;
         let schedule = crate::cashflow::traits::schedule_from_dated_flows(
             self.dated_cashflows(market, base)?,
-            self.notional(),
             disc_arc.day_count(),
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                ..Default::default()
+            },
         );
 
         // Keep discounting aligned with the signed canonical dated-flow path while still
@@ -715,8 +718,11 @@ mod tests {
         let direct_signed_canonical = crate::cashflow::traits::schedule_from_dated_flows(
             repo.dated_cashflows(&market, as_of)
                 .expect("Repo dated flows should build"),
-            repo.notional(),
             disc.day_count(),
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: repo.notional(),
+                ..Default::default()
+            },
         )
         .pv_by_period_with_ctx(
             &periods,
@@ -756,8 +762,11 @@ mod tests {
         let direct_signed_canonical = crate::cashflow::traits::schedule_from_dated_flows(
             loan.dated_cashflows(&market, as_of)
                 .expect("Term loan dated flows should build"),
-            loan.notional(),
             disc.day_count(),
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: loan.notional(),
+                ..Default::default()
+            },
         )
         .pv_by_period_with_ctx(
             &periods,

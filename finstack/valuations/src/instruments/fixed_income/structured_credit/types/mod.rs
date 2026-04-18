@@ -88,8 +88,8 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 // IMPORTS FOR STRUCTUREDCREDIT
 // ============================================================================
 
-use crate::cashflow::traits::schedule_from_classified_flows_with_representation;
 use crate::cashflow::traits::CashflowProvider;
+use crate::cashflow::traits::{schedule_from_classified_flows, ScheduleBuildOpts};
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
@@ -810,11 +810,14 @@ impl CashflowProvider for StructuredCredit {
             DealType::RMBS | DealType::CMBS => finstack_core::dates::DayCount::Thirty360,
             _ => finstack_core::dates::DayCount::Act360,
         };
-        Ok(schedule_from_classified_flows_with_representation(
+        Ok(schedule_from_classified_flows(
             detailed_flows,
-            self.notional(),
             dc,
-            crate::cashflow::builder::CashflowRepresentation::Projected,
+            ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                ..Default::default()
+            },
         ))
     }
 }

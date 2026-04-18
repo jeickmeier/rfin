@@ -85,7 +85,9 @@ pub use rate_helpers::{
     compute_compounded_rate, compute_overnight_rate, compute_simple_average_rate,
     project_floating_rate, project_floating_rate_from_market, FloatingRateParams,
 };
-pub use schedule::{CashFlowMeta, CashFlowSchedule, CashflowRepresentation};
+pub use schedule::{
+    require_single_currency, CashFlowMeta, CashFlowSchedule, CashflowRepresentation,
+};
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
     FeeAccrualBasis, FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams,

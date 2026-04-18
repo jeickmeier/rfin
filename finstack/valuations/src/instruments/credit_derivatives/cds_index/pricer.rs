@@ -16,7 +16,9 @@ use crate::calibration::bumps::BumpRequest;
 use crate::cashflow::builder::schedule::merge_cashflow_schedules;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::cashflow::traits::{schedule_from_classified_flows_with_meta, CashflowProvider};
+use crate::cashflow::traits::{
+    schedule_from_classified_flows, CashflowProvider, ScheduleBuildOpts,
+};
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
@@ -344,22 +346,26 @@ impl CDSIndexPricer {
     ) -> Result<CashFlowSchedule> {
         let projected = self.project_resolved_flows(index, curves, as_of)?;
         match projected.single_curve {
-            Some((_, flows)) => Ok(schedule_from_classified_flows_with_meta(
+            Some((_, flows)) => Ok(schedule_from_classified_flows(
                 flows,
-                Notional::par(index.notional.amount(), index.notional.currency()),
                 index.premium.day_count,
-                Default::default(),
+                ScheduleBuildOpts {
+                    notional_hint: Some(index.notional),
+                    ..Default::default()
+                },
             )),
             None => {
                 let schedules = projected
                     .constituents
                     .into_iter()
                     .map(|projection| {
-                        schedule_from_classified_flows_with_meta(
+                        schedule_from_classified_flows(
                             projection.flows,
-                            Notional::par(index.notional.amount(), index.notional.currency()),
                             index.premium.day_count,
-                            Default::default(),
+                            ScheduleBuildOpts {
+                                notional_hint: Some(index.notional),
+                                ..Default::default()
+                            },
                         )
                     })
                     .collect::<Vec<_>>();

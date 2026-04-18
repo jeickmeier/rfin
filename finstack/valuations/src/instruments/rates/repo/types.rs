@@ -725,11 +725,13 @@ impl CashflowProvider for Repo {
             },
         ];
 
-        let schedule = crate::cashflow::traits::schedule_from_classified_flows_with_representation(
+        let schedule = crate::cashflow::traits::schedule_from_classified_flows(
             flows,
-            self.notional(),
             self.day_count,
-            crate::cashflow::builder::CashflowRepresentation::Contractual,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                ..Default::default()
+            },
         );
         Ok(schedule.filter_future(as_of))
     }

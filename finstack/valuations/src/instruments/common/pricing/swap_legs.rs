@@ -1536,7 +1536,11 @@ mod tests {
 
     #[test]
     fn floating_leg_params_from_rate_params() {
-        let rate_params = FloatingRateParams::with_spread_and_floor(200.0, 100.0);
+        let rate_params = FloatingRateParams {
+            spread_bp: 200.0,
+            index_floor_bp: Some(100.0),
+            ..Default::default()
+        };
         let leg_params = FloatingLegParams::from_rate_params(rate_params, 2);
 
         assert_eq!(leg_params.rate_params.spread_bp, 200.0);

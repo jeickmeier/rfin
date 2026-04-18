@@ -375,21 +375,11 @@ pub(crate) fn generate_cashflows(
                 steps.push((loan.maturity, running));
             }
 
-            let base_params = FloatCouponParams {
-                index_id: spec.index_id.clone(),
-                margin_bp: Decimal::ZERO,
-                gearing: spec.gearing,
-                reset_lag_days: spec.reset_lag_days,
-                gearing_includes_spread: spec.gearing_includes_spread,
-                floor_bp: spec.floor_bp,
-                cap_bp: spec.cap_bp,
-                all_in_floor_bp: spec.all_in_floor_bp,
-                index_cap_bp: spec.index_cap_bp,
-                fixing_calendar_id: spec.fixing_calendar_id.clone(),
-                overnight_compounding: spec.overnight_compounding,
-                overnight_basis: spec.overnight_basis,
-                fallback: spec.fallback.clone(),
-            };
+            // Derive rate-only fields from the canonical spec. Step-up margins
+            // are applied inside `float_margin_stepup`, so we reset margin_bp to
+            // zero here and let each step override it.
+            let mut base_params = FloatCouponParams::from(spec);
+            base_params.margin_bp = Decimal::ZERO;
             let sched_params = ScheduleParams {
                 freq: loan.frequency,
                 dc: loan.day_count,

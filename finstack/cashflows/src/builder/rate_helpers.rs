@@ -32,6 +32,9 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
+use tracing::warn;
 
 /// Parameters for floating rate projection.
 #[derive(Debug, Clone)]
@@ -89,100 +92,6 @@ impl FloatingRateParams {
         Self {
             spread_bp,
             ..Default::default()
-        }
-    }
-
-    /// Create standard (gearing includes spread) parameters: `(Index + Spread) * Gearing`.
-    ///
-    /// This is the default market standard for most leveraged floaters.
-    ///
-    /// # Arguments
-    ///
-    /// * `spread_bp` - Contract spread in basis points.
-    /// * `gearing` - Multiplicative leverage applied to the all-in index-plus-spread leg.
-    ///
-    /// # Returns
-    ///
-    /// [`FloatingRateParams`] configured for the standard
-    /// `(index + spread) * gearing` convention.
-    pub fn new_standard(spread_bp: f64, gearing: f64) -> Self {
-        Self {
-            spread_bp,
-            gearing,
-            gearing_includes_spread: true,
-            ..Default::default()
-        }
-    }
-
-    /// Create affine (gearing excludes spread) parameters: `(Index * Gearing) + Spread`.
-    ///
-    /// Use this for models where the spread is additive to the leveraged index.
-    ///
-    /// # Arguments
-    ///
-    /// * `spread_bp` - Contract spread in basis points.
-    /// * `gearing` - Multiplicative leverage applied only to the index leg.
-    ///
-    /// # Returns
-    ///
-    /// [`FloatingRateParams`] configured for the affine
-    /// `(index * gearing) + spread` convention.
-    pub fn new_affine(spread_bp: f64, gearing: f64) -> Self {
-        Self {
-            spread_bp,
-            gearing,
-            gearing_includes_spread: false,
-            ..Default::default()
-        }
-    }
-
-    /// Create params with spread and index floor.
-    ///
-    /// # Example
-    /// ```rust
-    /// use finstack_cashflows::builder::rate_helpers::FloatingRateParams;
-    ///
-    /// let params = FloatingRateParams::with_spread_and_floor(200.0, 0.0); // 200 bps spread, 0% floor
-    /// assert_eq!(params.spread_bp, 200.0);
-    /// assert_eq!(params.index_floor_bp, Some(0.0));
-    /// ```
-    pub fn with_spread_and_floor(spread_bp: f64, floor_bp: f64) -> Self {
-        Self {
-            spread_bp,
-            index_floor_bp: Some(floor_bp),
-            ..Default::default()
-        }
-    }
-
-    /// Create params with spread, gearing, index floor, and all-in cap.
-    ///
-    /// This is the most common configuration for leveraged floaters.
-    ///
-    /// # Arguments
-    ///
-    /// * `spread_bp` - Contract spread in basis points.
-    /// * `gearing` - Multiplicative leverage applied under the standard convention.
-    /// * `index_floor_bp` - Optional floor on the index component in basis points.
-    /// * `all_in_cap_bp` - Optional cap on the final coupon rate in basis points.
-    ///
-    /// # Returns
-    ///
-    /// [`FloatingRateParams`] configured for a standard geared floater with an
-    /// optional index floor and all-in cap.
-    pub fn with_full(
-        spread_bp: f64,
-        gearing: f64,
-        index_floor_bp: Option<f64>,
-        all_in_cap_bp: Option<f64>,
-    ) -> Self {
-        Self {
-            spread_bp,
-            gearing,
-            gearing_includes_spread: true,
-            index_floor_bp,
-            index_cap_bp: None,
-            all_in_floor_bp: None,
-            all_in_cap_bp,
         }
     }
 
@@ -249,6 +158,58 @@ impl FloatingRateParams {
         }
 
         Ok(())
+    }
+}
+
+/// Convert an optional [`Decimal`] constraint (floor/cap in bp) to `f64`.
+///
+/// Returns `None` both when the input is `None` and when the decimal fails
+/// conversion to `f64` (which requires a pathologically out-of-range value).
+/// A `warn!` is emitted for the latter case, matching the pre-existing soft
+/// degradation in coupon emission for optional floor/cap fields.
+fn optional_decimal_to_f64(value: Option<Decimal>, label: &str) -> Option<f64> {
+    value.and_then(|d| {
+        let v = d.to_f64();
+        if v.is_none() {
+            warn!(
+                value = %d,
+                "{label} Decimal-to-f64 conversion failed; constraint will be ignored"
+            );
+        }
+        v
+    })
+}
+
+impl TryFrom<&crate::builder::specs::FloatingRateSpec> for FloatingRateParams {
+    type Error = finstack_core::Error;
+
+    /// Canonical conversion from the serde-level `FloatingRateSpec` (Decimal) to
+    /// the projection-level `FloatingRateParams` (f64).
+    ///
+    /// Required numeric fields (`spread_bp`, `gearing`) error on `Decimal → f64`
+    /// overflow; optional floor/cap fields warn and drop the constraint on
+    /// conversion failure, matching legacy coupon-emission semantics.
+    fn try_from(spec: &crate::builder::specs::FloatingRateSpec) -> Result<Self> {
+        use finstack_core::InputError;
+
+        let spread_bp = spec
+            .spread_bp
+            .to_f64()
+            .ok_or(finstack_core::Error::Input(InputError::ConversionOverflow))?;
+        let gearing = spec
+            .gearing
+            .to_f64()
+            .ok_or(finstack_core::Error::Input(InputError::ConversionOverflow))?;
+
+        Ok(FloatingRateParams {
+            spread_bp,
+            gearing,
+            gearing_includes_spread: spec.gearing_includes_spread,
+            index_floor_bp: optional_decimal_to_f64(spec.floor_bp, "floor_bp"),
+            index_cap_bp: optional_decimal_to_f64(spec.index_cap_bp, "index_cap_bp"),
+            all_in_floor_bp: optional_decimal_to_f64(spec.all_in_floor_bp, "all_in_floor_bp"),
+            all_in_cap_bp: optional_decimal_to_f64(spec.cap_bp, "cap_bp"),
+        })
     }
 }
 
@@ -324,7 +285,11 @@ pub fn calculate_floating_rate(index_rate: f64, params: &FloatingRateParams) -> 
 /// ```rust
 /// use finstack_cashflows::builder::rate_helpers::{project_fallback_rate, FloatingRateParams};
 ///
-/// let params = FloatingRateParams::with_spread_and_floor(200.0, 100.0); // 200 bps spread, 1% floor
+/// let params = FloatingRateParams {
+///     spread_bp: 200.0,
+///     index_floor_bp: Some(100.0), // 1% index floor
+///     ..Default::default()
+/// };
 /// let rate = project_fallback_rate(&params);
 /// // Index floored to 1%, plus 2% spread = 3%
 /// assert!((rate - 0.03).abs() < 0.0001);
@@ -763,7 +728,11 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert(fwd_curve);
 
-        let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
+        let params = FloatingRateParams {
+            spread_bp: 100.0,
+            index_floor_bp: Some(100.0),
+            ..Default::default()
+        }; // 100 bps spread, 1% floor
         let rate =
             project_floating_rate_from_market(reset, period_end, "USD-LIBOR-3M", &params, &market)
                 .expect("Rate projection should succeed in test");
@@ -790,7 +759,11 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert(fwd_curve);
 
-        let params = FloatingRateParams::with_full(200.0, 1.0, None, Some(500.0)); // 200 bps spread, 5% cap
+        let params = FloatingRateParams {
+            spread_bp: 200.0,
+            all_in_cap_bp: Some(500.0),
+            ..Default::default()
+        }; // 200 bps spread, 5% cap
         let rate =
             project_floating_rate_from_market(reset, period_end, "USD-LIBOR-3M", &params, &market)
                 .expect("Rate projection should succeed in test");
@@ -817,7 +790,11 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert(fwd_curve);
 
-        let params = FloatingRateParams::with_spread_and_floor(100.0, 100.0); // 100 bps spread, 1% floor
+        let params = FloatingRateParams {
+            spread_bp: 100.0,
+            index_floor_bp: Some(100.0),
+            ..Default::default()
+        }; // 100 bps spread, 1% floor
         let rate =
             project_floating_rate_from_market(reset, period_end, "TEST-INDEX", &params, &market)
                 .expect("Rate projection should succeed in test");
@@ -843,7 +820,12 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert(fwd_curve);
 
-        let params = FloatingRateParams::with_full(100.0, 2.0, None, Some(600.0)); // 100 bps spread, 2x gearing, 6% cap
+        let params = FloatingRateParams {
+            spread_bp: 100.0,
+            gearing: 2.0,
+            all_in_cap_bp: Some(600.0),
+            ..Default::default()
+        }; // 100 bps spread, 2x gearing, 6% cap
         let rate =
             project_floating_rate_from_market(reset, period_end, "TEST-INDEX", &params, &market)
                 .expect("Rate projection should succeed in test");
@@ -869,7 +851,11 @@ mod tests {
             .expect("ForwardCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert(fwd_curve);
 
-        let params = FloatingRateParams::with_full(100.0, 1.5, None, None); // 100 bps spread, 1.5x gearing
+        let params = FloatingRateParams {
+            spread_bp: 100.0,
+            gearing: 1.5,
+            ..Default::default()
+        }; // 100 bps spread, 1.5x gearing
         let rate =
             project_floating_rate_from_market(reset, period_end, "TEST-INDEX", &params, &market)
                 .expect("Rate projection should succeed in test");
@@ -917,9 +903,14 @@ mod tests {
     }
 
     #[test]
-    fn test_new_standard_applies_gearing_to_spread() {
+    fn test_standard_gearing_applies_to_spread() {
         // Standard: (Index + Spread) * Gearing
-        let params = FloatingRateParams::new_standard(100.0, 2.0); // 100 bps spread, 2x gearing
+        let params = FloatingRateParams {
+            spread_bp: 100.0,
+            gearing: 2.0,
+            gearing_includes_spread: true,
+            ..Default::default()
+        };
         assert!(params.gearing_includes_spread);
         assert_eq!(params.spread_bp, 100.0);
         assert_eq!(params.gearing, 2.0);
@@ -934,9 +925,14 @@ mod tests {
     }
 
     #[test]
-    fn test_new_affine_applies_gearing_only_to_index() {
+    fn test_affine_gearing_applies_only_to_index() {
         // Affine: (Index * Gearing) + Spread
-        let params = FloatingRateParams::new_affine(100.0, 2.0); // 100 bps spread, 2x gearing
+        let params = FloatingRateParams {
+            spread_bp: 100.0,
+            gearing: 2.0,
+            gearing_includes_spread: false,
+            ..Default::default()
+        };
         assert!(!params.gearing_includes_spread);
         assert_eq!(params.spread_bp, 100.0);
         assert_eq!(params.gearing, 2.0);
@@ -954,8 +950,18 @@ mod tests {
     fn test_standard_vs_affine_difference() {
         // The difference between standard and affine is: Spread * (Gearing - 1)
         // With 100 bps spread and 2x gearing: 100 * (2 - 1) = 100 bps = 1%
-        let standard = FloatingRateParams::new_standard(100.0, 2.0);
-        let affine = FloatingRateParams::new_affine(100.0, 2.0);
+        let standard = FloatingRateParams {
+            spread_bp: 100.0,
+            gearing: 2.0,
+            gearing_includes_spread: true,
+            ..Default::default()
+        };
+        let affine = FloatingRateParams {
+            spread_bp: 100.0,
+            gearing: 2.0,
+            gearing_includes_spread: false,
+            ..Default::default()
+        };
 
         let rate_standard = calculate_floating_rate(0.03, &standard);
         let rate_affine = calculate_floating_rate(0.03, &affine);
@@ -1159,5 +1165,83 @@ mod tests {
             360.0,
         );
         assert!(rate > 0.0 && rate.is_finite(), "Lookback rate: {rate:.6}");
+    }
+
+    // =========================================================================
+    // FloatingRateSpec → FloatingRateParams conversion
+    // =========================================================================
+
+    #[test]
+    fn try_from_floating_rate_spec_round_trips_all_fields() {
+        use crate::builder::specs::{FloatingRateFallback, FloatingRateSpec};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+        use rust_decimal_macros::dec;
+
+        let spec = FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp: dec!(200.0),
+            gearing: dec!(1.5),
+            gearing_includes_spread: false,
+            floor_bp: Some(dec!(25.0)),
+            all_in_floor_bp: Some(dec!(50.0)),
+            cap_bp: Some(dec!(1500.0)),
+            index_cap_bp: Some(dec!(1200.0)),
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "usny".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+            overnight_basis: None,
+            fallback: FloatingRateFallback::Error,
+        };
+
+        let params = FloatingRateParams::try_from(&spec).expect("conversion should succeed");
+
+        assert!((params.spread_bp - 200.0).abs() < 1e-12);
+        assert!((params.gearing - 1.5).abs() < 1e-12);
+        assert!(!params.gearing_includes_spread);
+        assert_eq!(params.index_floor_bp, Some(25.0));
+        assert_eq!(params.all_in_floor_bp, Some(50.0));
+        assert_eq!(params.all_in_cap_bp, Some(1500.0));
+        assert_eq!(params.index_cap_bp, Some(1200.0));
+    }
+
+    #[test]
+    fn try_from_floating_rate_spec_maps_none_constraints() {
+        use crate::builder::specs::{FloatingRateFallback, FloatingRateSpec};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+        use rust_decimal_macros::dec;
+
+        let spec = FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp: dec!(100.0),
+            gearing: dec!(1.0),
+            gearing_includes_spread: true,
+            floor_bp: None,
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+            overnight_basis: None,
+            fallback: FloatingRateFallback::Error,
+        };
+
+        let params = FloatingRateParams::try_from(&spec).expect("conversion should succeed");
+        assert_eq!(params.index_floor_bp, None);
+        assert_eq!(params.index_cap_bp, None);
+        assert_eq!(params.all_in_floor_bp, None);
+        assert_eq!(params.all_in_cap_bp, None);
     }
 }

@@ -157,9 +157,8 @@ mod serde_defaults;
 pub use accrual::{accrued_interest_amount, AccrualConfig, AccrualMethod, ExCouponRule};
 pub use builder::CashFlowBuilder;
 pub use traits::{
-    empty_schedule, empty_schedule_with_representation, schedule_from_classified_flows,
-    schedule_from_classified_flows_with_representation, schedule_from_dated_flows,
-    schedule_from_dated_flows_with_representation, CashflowProvider,
+    empty_schedule, schedule_from_classified_flows, schedule_from_dated_flows, CashflowProvider,
+    ScheduleBuildOpts,
 };
 
 pub use finstack_core::dates::Date;

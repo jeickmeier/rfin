@@ -536,14 +536,14 @@ impl crate::cashflow::traits::CashflowProvider for DiscountedCashFlow {
             .map(|(date, amount)| (*date, Money::new(*amount, self.currency)))
             .collect();
 
-        Ok(
-            crate::cashflow::traits::schedule_from_dated_flows_with_representation(
-                flows,
-                None,
-                finstack_core::dates::DayCount::Act365F,
-                crate::cashflow::builder::CashflowRepresentation::Projected,
-            ),
-        )
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            finstack_core::dates::DayCount::Act365F,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                ..Default::default()
+            },
+        ))
     }
 }
 

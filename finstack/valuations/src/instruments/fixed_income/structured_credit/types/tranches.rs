@@ -163,36 +163,12 @@ impl TrancheCoupon {
         match self {
             TrancheCoupon::Fixed { rate } => Ok(*rate),
             TrancheCoupon::Floating(spec) => {
-                // Convert Decimal values to f64 for calculations
-                let spread_bp_f64 = spec
-                    .spread_bp
-                    .to_f64()
-                    .ok_or(finstack_core::InputError::Invalid)?;
-                let gearing_f64 = spec
-                    .gearing
-                    .to_f64()
-                    .ok_or(finstack_core::InputError::Invalid)?;
-                let floor_bp_f64 = spec
-                    .floor_bp
-                    .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
-                    .transpose()?;
-                let cap_bp_f64 = spec
-                    .cap_bp
-                    .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
-                    .transpose()?;
-
-                // Use centralized projection
                 let fwd = context.get_forward(spec.index_id.as_str())?;
                 let tenor = fwd.tenor();
                 let period_end = crate::instruments::fixed_income::structured_credit::utils::rate_helpers::
                     try_tenor_to_period_end(date, tenor, fwd.day_count())?;
 
-                let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                    spread_bp_f64,
-                    gearing_f64,
-                    floor_bp_f64,
-                    cap_bp_f64,
-                );
+                let params = crate::cashflow::builder::FloatingRateParams::try_from(spec)?;
                 crate::cashflow::builder::project_floating_rate(
                     date,
                     period_end,

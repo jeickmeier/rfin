@@ -291,14 +291,14 @@ impl crate::cashflow::traits::CashflowProvider for RealEstateAsset {
         }
         flows.sort_by_key(|(date, _)| *date);
 
-        Ok(
-            crate::cashflow::traits::schedule_from_dated_flows_with_representation(
-                flows,
-                None,
-                self.day_count,
-                crate::cashflow::builder::CashflowRepresentation::Projected,
-            ),
-        )
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.day_count,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                ..Default::default()
+            },
+        ))
     }
 }
 

@@ -179,14 +179,14 @@ impl crate::cashflow::traits::CashflowProvider for LeveredRealEstateEquity {
             .map(|(date, amount)| (date, Money::new(amount, self.currency)))
             .collect();
 
-        Ok(
-            crate::cashflow::traits::schedule_from_dated_flows_with_representation(
-                flows,
-                None,
-                self.asset.day_count,
-                crate::cashflow::builder::CashflowRepresentation::Projected,
-            ),
-        )
+        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+            flows,
+            self.asset.day_count,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                ..Default::default()
+            },
+        ))
     }
 }
 

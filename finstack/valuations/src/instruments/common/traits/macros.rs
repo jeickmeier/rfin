@@ -80,13 +80,14 @@ macro_rules! impl_empty_cashflow_provider {
                 _market: &finstack_core::market_data::context::MarketContext,
                 _as_of: finstack_core::dates::Date,
             ) -> finstack_core::Result<$crate::cashflow::builder::CashFlowSchedule> {
-                Ok(
-                    $crate::cashflow::traits::empty_schedule_with_representation(
-                        self.notional(),
-                        $day_count,
-                        $representation,
-                    ),
-                )
+                Ok($crate::cashflow::traits::empty_schedule(
+                    $day_count,
+                    $crate::cashflow::traits::ScheduleBuildOpts {
+                        notional_hint: self.notional(),
+                        representation: $representation,
+                        ..Default::default()
+                    },
+                ))
             }
         }
     };

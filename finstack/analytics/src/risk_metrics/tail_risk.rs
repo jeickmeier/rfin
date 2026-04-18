@@ -61,25 +61,7 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
         return f64::NAN;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    value_at_risk_with_scratch(&mut data, confidence, ann_factor)
-}
-
-/// Historical VaR using a caller-provided scratch buffer (avoids allocation).
-///
-/// The contents of `scratch` will be partially reordered by `quantile`.
-#[must_use]
-pub(crate) fn value_at_risk_with_scratch(
-    scratch: &mut [f64],
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> f64 {
-    if scratch.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let var = quantile(scratch, 1.0 - confidence);
+    let var = quantile(&mut data, 1.0 - confidence);
     let _ = ann_factor;
     var
 }
@@ -133,41 +115,21 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
         return f64::NAN;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    expected_shortfall_with_scratch(&mut data, confidence, ann_factor)
-}
-
-/// Expected Shortfall using a caller-provided scratch buffer (avoids allocation).
-///
-/// The contents of `scratch` will be partially reordered by `quantile`.
-#[must_use]
-pub(crate) fn expected_shortfall_with_scratch(
-    scratch: &mut [f64],
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> f64 {
-    if scratch.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let p = 1.0 - confidence;
-    let var_threshold = quantile(scratch, p);
+    let var_threshold = quantile(&mut data, 1.0 - confidence);
     let mut tail_sum = 0.0;
     let mut tail_count = 0usize;
-    for &value in scratch.iter() {
+    for &value in data.iter() {
         if value <= var_threshold {
             tail_sum += value;
             tail_count += 1;
         }
     }
-    let es = if tail_count == 0 {
+    let _ = ann_factor;
+    if tail_count == 0 {
         var_threshold
     } else {
         tail_sum / tail_count as f64
-    };
-    let _ = ann_factor;
-    es
+    }
 }
 
 /// Tail ratio = |upper tail| / |lower tail|.
@@ -212,20 +174,8 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
         return f64::NAN;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    tail_ratio_with_scratch(&mut data, confidence)
-}
-
-/// Tail ratio using a caller-provided scratch buffer (avoids allocation).
-#[must_use]
-pub(crate) fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
-    if scratch.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let upper = quantile(scratch, confidence).abs();
-    let lower = quantile(scratch, 1.0 - confidence).abs();
+    let upper = quantile(&mut data, confidence).abs();
+    let lower = quantile(&mut data, 1.0 - confidence).abs();
     if lower == 0.0 {
         return 0.0;
     }
@@ -266,27 +216,9 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
         return f64::NAN;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    outlier_win_ratio_with_scratch(returns, &mut data, confidence)
-}
-
-/// Outlier win ratio using a caller-provided scratch buffer (avoids allocation).
-///
-/// `original` must contain the un-reordered return data for counting.
-#[must_use]
-pub(crate) fn outlier_win_ratio_with_scratch(
-    original: &[f64],
-    scratch: &mut [f64],
-    confidence: f64,
-) -> f64 {
-    if scratch.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let threshold = quantile(scratch, confidence);
-    let count = original.iter().filter(|&&r| r > threshold).count();
-    count as f64 / original.len() as f64
+    let threshold = quantile(&mut data, confidence);
+    let count = returns.iter().filter(|&&r| r > threshold).count();
+    count as f64 / returns.len() as f64
 }
 
 /// Fraction of returns below the lower quantile threshold (outlier losses).
@@ -324,27 +256,9 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
         return f64::NAN;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    outlier_loss_ratio_with_scratch(returns, &mut data, confidence)
-}
-
-/// Outlier loss ratio using a caller-provided scratch buffer (avoids allocation).
-///
-/// `original` must contain the un-reordered return data for counting.
-#[must_use]
-pub(crate) fn outlier_loss_ratio_with_scratch(
-    original: &[f64],
-    scratch: &mut [f64],
-    confidence: f64,
-) -> f64 {
-    if scratch.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let threshold = quantile(scratch, 1.0 - confidence);
-    let count = original.iter().filter(|&&r| r < threshold).count();
-    count as f64 / original.len() as f64
+    let threshold = quantile(&mut data, 1.0 - confidence);
+    let count = returns.iter().filter(|&&r| r < threshold).count();
+    count as f64 / returns.len() as f64
 }
 
 /// Fisher-corrected sample skewness (G₁) of a return distribution.

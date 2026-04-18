@@ -439,10 +439,13 @@ impl CashflowProvider for VolatilityIndexOption {
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(crate::cashflow::traits::empty_schedule_with_representation(
-            self.notional(),
+        Ok(crate::cashflow::traits::empty_schedule(
             self.day_count,
-            crate::cashflow::builder::CashflowRepresentation::Placeholder,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                representation: crate::cashflow::builder::CashflowRepresentation::Placeholder,
+                ..Default::default()
+            },
         ))
     }
 }

@@ -591,10 +591,13 @@ impl CashflowProvider for ForwardRateAgreement {
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Settlement at start of accrual period; if already settled, no flows
         if self.start_date <= as_of {
-            return Ok(crate::cashflow::traits::empty_schedule_with_representation(
-                self.notional(),
+            return Ok(crate::cashflow::traits::empty_schedule(
                 self.day_count,
-                crate::cashflow::builder::CashflowRepresentation::NoResidual,
+                crate::cashflow::traits::ScheduleBuildOpts {
+                    notional_hint: self.notional(),
+                    representation: crate::cashflow::builder::CashflowRepresentation::NoResidual,
+                    ..Default::default()
+                },
             ));
         }
 
@@ -606,11 +609,14 @@ impl CashflowProvider for ForwardRateAgreement {
             )]
         };
 
-        let schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let schedule = crate::cashflow::traits::schedule_from_dated_flows(
             flows,
-            crate::cashflow::primitives::CFKind::Fixed,
-            self.notional(),
             self.day_count,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                kind: Some(crate::cashflow::primitives::CFKind::Fixed),
+                ..Default::default()
+            },
         );
         Ok(schedule.normalize_public(
             as_of,

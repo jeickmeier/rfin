@@ -9,6 +9,41 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
+/// Options bag shared by all `schedule_from_*` helpers.
+///
+/// Gathers the orthogonal knobs (notional hint, default kind, representation,
+/// schedule-level metadata) that previously required a fan-out of
+/// `_with_representation`, `_with_kind`, and `_with_meta` variants. Construct
+/// with struct-update syntax and pass [`Default::default()`] when you only
+/// need the base behavior.
+#[derive(Debug, Clone, Default)]
+pub struct ScheduleBuildOpts {
+    /// Optional notional amount to stamp on the resulting schedule. When
+    /// `None`, the constructor uses a zero notional in the currency of the
+    /// first supplied flow (or USD if the list is empty).
+    pub notional_hint: Option<Money>,
+    /// Override the default [`CFKind`] applied to dated flows that have no
+    /// intrinsic classification. `None` (the default) means [`CFKind::Fixed`].
+    /// Ignored by constructors that already receive pre-classified
+    /// [`CashFlow`] values.
+    pub kind: Option<CFKind>,
+    /// Representation tag (`Contractual` vs `Projected` vs `Placeholder`).
+    pub representation: CashflowRepresentation,
+    /// Schedule-level metadata (calendar IDs, facility limit, issue date).
+    /// When supplied, takes precedence over `representation`.
+    pub meta: Option<CashFlowMeta>,
+}
+
+impl ScheduleBuildOpts {
+    /// Apply the resolved options to build the final `CashFlowMeta`.
+    fn resolved_meta(&self) -> CashFlowMeta {
+        self.meta.clone().unwrap_or_else(|| CashFlowMeta {
+            representation: self.representation,
+            ..Default::default()
+        })
+    }
+}
+
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
 ///
 /// Instruments implement this to generate their canonical signed cashflow schedule
@@ -33,7 +68,7 @@ pub trait CashflowProvider: Send + Sync {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
     /// use finstack_cashflows::builder::CashFlowSchedule;
-    /// use finstack_cashflows::{CashflowProvider, schedule_from_dated_flows};
+    /// use finstack_cashflows::{CashflowProvider, schedule_from_dated_flows, ScheduleBuildOpts};
     ///
     /// struct MyInstrument {
     ///     notional: Money,
@@ -45,7 +80,14 @@ pub trait CashflowProvider: Send + Sync {
     ///         _curves: &MarketContext,
     ///         _as_of: Date,
     ///     ) -> finstack_core::Result<CashFlowSchedule> {
-    ///         Ok(schedule_from_dated_flows(vec![], Some(self.notional), DayCount::Act365F))
+    ///         Ok(schedule_from_dated_flows(
+    ///             vec![],
+    ///             DayCount::Act365F,
+    ///             ScheduleBuildOpts {
+    ///                 notional_hint: Some(self.notional),
+    ///                 ..Default::default()
+    ///             },
+    ///         ))
     ///     }
     ///
     ///     fn notional(&self) -> Option<Money> {
@@ -101,25 +143,33 @@ pub trait CashflowProvider: Send + Sync {
     }
 }
 
-/// Helper to convert instrument-economics-signed `(Date, Money)` flows into a [`CashFlowSchedule`].
+/// Resolve the schedule-level notional from an optional `Money` hint and a
+/// fallback currency inferred from the flow list.
+fn resolve_notional(hint: Option<Money>, fallback_currency: Currency) -> Notional {
+    match hint {
+        Some(money) => Notional::par(money.amount(), money.currency()),
+        None => Notional::par(0.0, fallback_currency),
+    }
+}
+
+/// Build a [`CashFlowSchedule`] from instrument-signed `(Date, Money)` flows.
 ///
-/// This mirrors the legacy default implementation and can be used by instruments that
-/// naturally produce dated flows but still need to return a `CashFlowSchedule`.
+/// All orthogonal knobs (notional hint, default [`CFKind`], representation,
+/// schedule metadata) are configured through [`ScheduleBuildOpts`], which
+/// implements [`Default`] for the common "contractual, fixed, no hint" case.
 ///
 /// # Arguments
 ///
-/// * `flows` - List of dated cashflows as `(Date, Money)` pairs
-/// * `notional_hint` - Optional notional amount; if `None`, uses 0.0 with currency from first flow
-/// * `day_count` - Day count convention for the schedule. **Must be explicitly specified** to avoid
-///   incorrect yield/accrual calculations. Common conventions:
-///   - `DayCount::Act365F` for most bonds
-///   - `DayCount::Thirty360` for US corporate bonds
-///   - `DayCount::Act360` for money markets
+/// * `flows` - List of dated cashflows as `(Date, Money)` pairs.
+/// * `day_count` - Day count convention. **Must be explicitly specified**
+///   to avoid incorrect yield/accrual calculations.
+/// * `opts` - See [`ScheduleBuildOpts`]. Pass [`Default::default()`] for
+///   the standard contractual schedule.
 ///
 /// # Example
 ///
 /// ```rust
-/// use finstack_cashflows::schedule_from_dated_flows;
+/// use finstack_cashflows::{schedule_from_dated_flows, ScheduleBuildOpts};
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
@@ -129,82 +179,24 @@ pub trait CashflowProvider: Send + Sync {
 ///     (Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(50_000.0, Currency::USD)),
 ///     (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(1_050_000.0, Currency::USD)),
 /// ];
-/// let schedule = schedule_from_dated_flows(flows, None, DayCount::Thirty360);
+/// let schedule = schedule_from_dated_flows(flows, DayCount::Thirty360, ScheduleBuildOpts::default());
 /// assert_eq!(schedule.day_count, DayCount::Thirty360);
 /// ```
 pub fn schedule_from_dated_flows(
     flows: DatedFlows,
-    notional_hint: Option<Money>,
     day_count: DayCount,
-) -> CashFlowSchedule {
-    schedule_from_dated_flows_with_representation(
-        flows,
-        notional_hint,
-        day_count,
-        CashflowRepresentation::Contractual,
-    )
-}
-
-/// Helper to convert instrument-economics-signed `(Date, Money)` flows into a schedule with explicit metadata.
-pub fn schedule_from_dated_flows_with_representation(
-    flows: DatedFlows,
-    notional_hint: Option<Money>,
-    day_count: DayCount,
-    representation: CashflowRepresentation,
+    opts: ScheduleBuildOpts,
 ) -> CashFlowSchedule {
     if flows.is_empty() {
-        return empty_schedule_with_representation(notional_hint, day_count, representation);
+        return empty_schedule(day_count, opts);
     }
 
     let first_currency = flows
         .first()
         .map(|(_, m)| m.currency())
         .unwrap_or(Currency::USD);
-    let (notional_amount, notional_currency) = match notional_hint {
-        Some(m) => (m.amount(), m.currency()),
-        None => (0.0, first_currency),
-    };
-
+    let kind = opts.kind.unwrap_or(CFKind::Fixed);
     let cf_flows: Vec<CashFlow> = flows
-        .into_iter()
-        .map(|(date, amount)| CashFlow {
-            date,
-            reset_date: None,
-            amount,
-            kind: CFKind::Fixed,
-            accrual_factor: 0.0,
-            rate: None,
-        })
-        .collect();
-
-    schedule_from_classified_flows_with_representation(
-        cf_flows,
-        Some(Money::new(notional_amount, notional_currency)),
-        day_count,
-        representation,
-    )
-}
-
-/// Helper to convert instrument-economics-signed `(Date, Money)` flows into a schedule with an explicit kind.
-pub fn schedule_from_dated_flows_with_kind(
-    flows: DatedFlows,
-    kind: CFKind,
-    notional_hint: Option<Money>,
-    day_count: DayCount,
-) -> CashFlowSchedule {
-    if flows.is_empty() {
-        return empty_schedule(notional_hint, day_count);
-    }
-
-    let inferred_currency = flows
-        .first()
-        .map(|(_, amount)| amount.currency())
-        .or_else(|| notional_hint.map(|money| money.currency()))
-        .unwrap_or(Currency::USD);
-    let notional = notional_hint
-        .map(|money| Notional::par(money.amount(), money.currency()))
-        .unwrap_or_else(|| Notional::par(0.0, inferred_currency));
-    let cf_flows = flows
         .into_iter()
         .map(|(date, amount)| CashFlow {
             date,
@@ -216,91 +208,29 @@ pub fn schedule_from_dated_flows_with_kind(
         })
         .collect();
 
-    CashFlowSchedule::from_parts(
-        cf_flows,
-        notional,
-        day_count,
-        CashFlowMeta {
-            representation: CashflowRepresentation::Contractual,
-            ..Default::default()
-        },
-    )
+    let notional = resolve_notional(opts.notional_hint, first_currency);
+    CashFlowSchedule::from_parts(cf_flows, notional, day_count, opts.resolved_meta())
 }
 
-/// Helper to convert classified cashflows into a [`CashFlowSchedule`] without losing `CFKind`.
+/// Build a [`CashFlowSchedule`] from pre-classified [`CashFlow`] values.
+///
+/// Preserves the supplied [`CFKind`] on each flow; `opts.kind` is ignored.
 pub fn schedule_from_classified_flows(
     flows: Vec<CashFlow>,
-    notional_hint: Option<Money>,
     day_count: DayCount,
-) -> CashFlowSchedule {
-    schedule_from_classified_flows_with_representation(
-        flows,
-        notional_hint,
-        day_count,
-        CashflowRepresentation::Contractual,
-    )
-}
-
-/// Helper to convert classified cashflows into a schedule with explicit metadata.
-pub fn schedule_from_classified_flows_with_representation(
-    flows: Vec<CashFlow>,
-    notional_hint: Option<Money>,
-    day_count: DayCount,
-    representation: CashflowRepresentation,
+    opts: ScheduleBuildOpts,
 ) -> CashFlowSchedule {
     let inferred_currency = flows
         .first()
         .map(|cf| cf.amount.currency())
         .unwrap_or(Currency::USD);
-    let notional = notional_hint
-        .map(|money| Notional::par(money.amount(), money.currency()))
-        .unwrap_or_else(|| Notional::par(0.0, inferred_currency));
-    CashFlowSchedule::from_parts(
-        flows,
-        notional,
-        day_count,
-        CashFlowMeta {
-            representation,
-            ..Default::default()
-        },
-    )
+    let notional = resolve_notional(opts.notional_hint, inferred_currency);
+    CashFlowSchedule::from_parts(flows, notional, day_count, opts.resolved_meta())
 }
 
-/// Canonical root constructor for provider schedules that already have classified flows and metadata.
-///
-/// Instruments that cannot express their cashflows through `CashFlowSchedule::builder()` should
-/// still terminate in the shared `finstack_cashflows` construction layer via this helper rather
-/// than assembling `CashFlowSchedule` ad hoc in downstream crates.
-pub fn schedule_from_classified_flows_with_meta(
-    flows: Vec<CashFlow>,
-    notional: Notional,
-    day_count: DayCount,
-    meta: CashFlowMeta,
-) -> CashFlowSchedule {
-    CashFlowSchedule::from_parts(flows, notional, day_count, meta)
-}
-
-/// Build an empty schedule while preserving any available notional metadata.
-pub fn empty_schedule(notional_hint: Option<Money>, day_count: DayCount) -> CashFlowSchedule {
-    empty_schedule_with_representation(
-        notional_hint,
-        day_count,
-        CashflowRepresentation::Contractual,
-    )
-}
-
-/// Build an empty schedule with explicit schedule-representation metadata.
-pub fn empty_schedule_with_representation(
-    notional_hint: Option<Money>,
-    day_count: DayCount,
-    representation: CashflowRepresentation,
-) -> CashFlowSchedule {
-    schedule_from_classified_flows_with_representation(
-        Vec::new(),
-        notional_hint,
-        day_count,
-        representation,
-    )
+/// Build an empty [`CashFlowSchedule`] while preserving notional metadata.
+pub fn empty_schedule(day_count: DayCount, opts: ScheduleBuildOpts) -> CashFlowSchedule {
+    schedule_from_classified_flows(Vec::new(), day_count, opts)
 }
 
 #[cfg(test)]
@@ -332,8 +262,11 @@ mod tests {
             ];
             Ok(schedule_from_dated_flows(
                 flows,
-                self.notional(),
                 DayCount::Act365F,
+                ScheduleBuildOpts {
+                    notional_hint: self.notional(),
+                    ..Default::default()
+                },
             ))
         }
     }
@@ -353,10 +286,13 @@ mod tests {
 
     #[test]
     fn empty_schedule_preserves_non_default_representation() {
-        let schedule = empty_schedule_with_representation(
-            Some(Money::new(1_000_000.0, Currency::USD)),
+        let schedule = empty_schedule(
             DayCount::Act365F,
-            CashflowRepresentation::Placeholder,
+            ScheduleBuildOpts {
+                notional_hint: Some(Money::new(1_000_000.0, Currency::USD)),
+                representation: CashflowRepresentation::Placeholder,
+                ..Default::default()
+            },
         );
         assert!(schedule.flows.is_empty());
         assert_eq!(
@@ -372,7 +308,14 @@ mod tests {
             Money::new(100.0, Currency::USD),
         )];
         let notional = Money::new(5_000_000.0, Currency::USD);
-        let schedule = schedule_from_dated_flows(flows, Some(notional), DayCount::Act365F);
+        let schedule = schedule_from_dated_flows(
+            flows,
+            DayCount::Act365F,
+            ScheduleBuildOpts {
+                notional_hint: Some(notional),
+                ..Default::default()
+            },
+        );
         assert_eq!(schedule.notional.initial.amount(), 5_000_000.0);
         assert_eq!(schedule.notional.initial.currency(), Currency::USD);
     }
@@ -383,7 +326,8 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
             Money::new(100.0, Currency::EUR),
         )];
-        let schedule = schedule_from_dated_flows(flows, None, DayCount::Thirty360);
+        let schedule =
+            schedule_from_dated_flows(flows, DayCount::Thirty360, ScheduleBuildOpts::default());
         assert_eq!(schedule.notional.initial.amount(), 0.0);
         assert_eq!(schedule.notional.initial.currency(), Currency::EUR);
         assert_eq!(schedule.day_count, DayCount::Thirty360);
@@ -413,8 +357,11 @@ mod tests {
 
         let schedule = schedule_from_classified_flows(
             flows,
-            Some(Money::new(100.0, Currency::USD)),
             DayCount::Act365F,
+            ScheduleBuildOpts {
+                notional_hint: Some(Money::new(100.0, Currency::USD)),
+                ..Default::default()
+            },
         );
 
         assert_eq!(schedule.flows.len(), 2);
@@ -429,11 +376,14 @@ mod tests {
             Money::new(100.0, Currency::USD),
         )];
 
-        let schedule = schedule_from_dated_flows_with_kind(
+        let schedule = schedule_from_dated_flows(
             flows,
-            CFKind::Notional,
-            Some(Money::new(100.0, Currency::USD)),
             DayCount::Act365F,
+            ScheduleBuildOpts {
+                notional_hint: Some(Money::new(100.0, Currency::USD)),
+                kind: Some(CFKind::Notional),
+                ..Default::default()
+            },
         );
 
         assert_eq!(schedule.flows.len(), 1);
@@ -459,11 +409,14 @@ mod tests {
             issue_date: Some(date),
         };
 
-        let schedule = schedule_from_classified_flows_with_meta(
+        let schedule = schedule_from_classified_flows(
             flows,
-            notional.clone(),
             DayCount::Act365F,
-            meta.clone(),
+            ScheduleBuildOpts {
+                notional_hint: Some(notional.initial),
+                meta: Some(meta.clone()),
+                ..Default::default()
+            },
         );
 
         assert_eq!(

@@ -45,6 +45,18 @@ pub struct RollingSharpe {
     pub dates: Vec<Date>,
 }
 
+impl RollingSharpe {
+    /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
+    ///
+    /// The first `n - values.len()` entries are `f64::NAN`, followed by the
+    /// computed values in order. This matches the output shape of
+    /// [`rolling_sharpe_values`].
+    #[must_use]
+    pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
+        nan_pad(&self.values, n)
+    }
+}
+
 /// Rolling Sharpe ratio over a sliding window.
 ///
 /// Computes the Sharpe ratio independently for each `window`-length sub-slice
@@ -120,6 +132,18 @@ pub struct RollingVolatility {
     pub dates: Vec<Date>,
 }
 
+impl RollingVolatility {
+    /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
+    ///
+    /// The first `n - values.len()` entries are `f64::NAN`, followed by the
+    /// computed values in order. This matches the output shape of
+    /// [`rolling_volatility_values`].
+    #[must_use]
+    pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
+        nan_pad(&self.values, n)
+    }
+}
+
 /// Rolling annualized volatility over a sliding window.
 ///
 /// Computes annualized volatility independently for each `window`-length
@@ -187,6 +211,31 @@ pub struct RollingSortino {
     pub values: Vec<f64>,
     /// End dates for each rolling window.
     pub dates: Vec<Date>,
+}
+
+impl RollingSortino {
+    /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
+    ///
+    /// The first `n - values.len()` entries are `f64::NAN`, followed by the
+    /// computed values in order. This matches the output shape of
+    /// [`rolling_sortino_values`].
+    #[must_use]
+    pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
+        nan_pad(&self.values, n)
+    }
+}
+
+/// Right-align `values` into a `Vec<f64>` of length `n`, left-padding with NaN.
+///
+/// Shared by the `to_nan_padded` methods on rolling-metric structs.
+fn nan_pad(values: &[f64], n: usize) -> Vec<f64> {
+    if values.len() >= n {
+        return values[..n].to_vec();
+    }
+    let mut out = Vec::with_capacity(n);
+    out.resize(n - values.len(), f64::NAN);
+    out.extend_from_slice(values);
+    out
 }
 
 /// Rolling Sortino ratio over a sliding window.

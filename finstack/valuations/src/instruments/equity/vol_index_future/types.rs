@@ -268,10 +268,13 @@ impl CashflowProvider for VolatilityIndexFuture {
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(crate::cashflow::traits::empty_schedule_with_representation(
-            self.notional(),
+        Ok(crate::cashflow::traits::empty_schedule(
             finstack_core::dates::DayCount::Act365F, // Standard for vol index futures
-            crate::cashflow::builder::CashflowRepresentation::NoResidual,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                representation: crate::cashflow::builder::CashflowRepresentation::NoResidual,
+                ..Default::default()
+            },
         ))
     }
 }

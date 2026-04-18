@@ -12,8 +12,11 @@ use super::tail_risk::cornish_fisher_var;
 
 /// True when annualization is requested but `ann_factor` is not a positive finite
 /// periods-per-year count (e.g. zero, negative, NaN, or infinity).
+///
+/// Shared analytics-wide guard; re-exported via [`crate::risk_metrics`] and used
+/// from benchmark-relative metrics to avoid redefining the same check.
 #[inline]
-fn invalid_annualization_factor(annualize: bool, ann_factor: f64) -> bool {
+pub(crate) fn invalid_annualization_factor(annualize: bool, ann_factor: f64) -> bool {
     annualize && (!ann_factor.is_finite() || ann_factor <= 0.0)
 }
 

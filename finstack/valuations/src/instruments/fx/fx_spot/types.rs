@@ -530,10 +530,13 @@ impl CashflowProvider for FxSpot {
         let settle_date = self.effective_settlement_date(as_of)?;
 
         if settle_date <= as_of {
-            return Ok(crate::cashflow::traits::empty_schedule_with_representation(
-                self.notional(),
+            return Ok(crate::cashflow::traits::empty_schedule(
                 finstack_core::dates::DayCount::Act365F,
-                crate::cashflow::builder::CashflowRepresentation::NoResidual,
+                crate::cashflow::traits::ScheduleBuildOpts {
+                    notional_hint: self.notional(),
+                    representation: crate::cashflow::builder::CashflowRepresentation::NoResidual,
+                    ..Default::default()
+                },
             ));
         }
 
@@ -562,14 +565,16 @@ impl CashflowProvider for FxSpot {
             vec![(settle_date, value)]
         };
 
-        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let schedule = crate::cashflow::traits::schedule_from_dated_flows(
             flows,
-            crate::cashflow::primitives::CFKind::Notional,
-            self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for FX spot
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                kind: Some(crate::cashflow::primitives::CFKind::Notional),
+                representation: crate::cashflow::builder::CashflowRepresentation::Contractual,
+                ..Default::default()
+            },
         );
-        schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }

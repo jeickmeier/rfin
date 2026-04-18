@@ -300,13 +300,16 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
             flows.push((*date, Money::new(0.0, self.notional.currency())));
         }
 
-        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let schedule = crate::cashflow::traits::schedule_from_dated_flows(
             flows,
-            crate::cashflow::primitives::CFKind::Fixed,
-            self.notional(),
             self.financing.day_count,
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: self.notional(),
+                kind: Some(crate::cashflow::primitives::CFKind::Fixed),
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                ..Default::default()
+            },
         );
-        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
         Ok(schedule)
     }
 }

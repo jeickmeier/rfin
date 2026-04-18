@@ -118,12 +118,13 @@ pub(crate) fn tranche_all_in_rate(
             let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());
             let fallback_rate = spread_bp_f64 / 10_000.0;
 
-            let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                spread_bp_f64,
-                gearing_f64,
-                floor_bp_f64,
-                cap_bp_f64,
-            );
+            let params = crate::cashflow::builder::FloatingRateParams {
+                spread_bp: spread_bp_f64,
+                gearing: gearing_f64,
+                index_floor_bp: floor_bp_f64,
+                all_in_cap_bp: cap_bp_f64,
+                ..Default::default()
+            };
 
             // Seasoned path: try historical fixings for dates before valuation
             if date < as_of {
@@ -195,12 +196,13 @@ pub(crate) fn try_tranche_all_in_rate(
                 .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
                 .transpose()?;
 
-            let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                spread_bp_f64,
-                gearing_f64,
-                floor_bp_f64,
-                cap_bp_f64,
-            );
+            let params = crate::cashflow::builder::FloatingRateParams {
+                spread_bp: spread_bp_f64,
+                gearing: gearing_f64,
+                index_floor_bp: floor_bp_f64,
+                all_in_cap_bp: cap_bp_f64,
+                ..Default::default()
+            };
 
             // Seasoned path: try historical fixings for dates before valuation
             if date < as_of {

@@ -92,13 +92,16 @@ fn test_single_currency_period_pv_rejects_multi_currency_result() {
     }];
     let curve = FlatRateCurve::new("TEST", d(2024, 1, 1), 0.0);
 
-    let result = schedule.pv_by_period_single_currency_with_ctx(
-        &periods,
-        &curve,
-        d(2024, 1, 1),
-        DayCount::Act365F,
-        DayCountCtx::default(),
-    );
+    let pv_map = schedule
+        .pv_by_period_with_ctx(
+            &periods,
+            &curve,
+            d(2024, 1, 1),
+            DayCount::Act365F,
+            DayCountCtx::default(),
+        )
+        .expect("multi-currency PV map should succeed");
+    let result = finstack_cashflows::builder::schedule::require_single_currency(pv_map);
 
     assert!(
         result.is_err(),
