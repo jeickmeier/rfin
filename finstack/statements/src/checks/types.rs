@@ -177,7 +177,7 @@ impl Default for CheckConfig {
 ///
 /// `|diff| > effective_tolerance(...)` means the check should fire.
 #[must_use]
-pub fn effective_tolerance(
+pub(crate) fn effective_tolerance(
     config: &CheckConfig,
     absolute_override: Option<f64>,
     reference: f64,
