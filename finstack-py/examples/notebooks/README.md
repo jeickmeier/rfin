@@ -44,17 +44,17 @@ listed below) and **deep-dive sub-directories** (jump to as needed).
 | Market Data and Curves | DiscountCurve, ForwardCurve, HazardCurve, FxMatrix, MarketContext |
 | Math Toolkit | Linear algebra, statistics, special functions, compensated summation |
 
-Deep dives: `market_data/` (8 notebooks), `dates/` (3 notebooks)
+Deep dives: `market_data/` (9 notebooks, including dynamic term structure), `dates/` (3 notebooks)
 
 ### Level 2 -- Instrument Pricing (`02_pricing/`)
 
 | Notebook | Topics |
 |----------|--------|
-| Pricing Fundamentals | Instrument JSON, ValuationResult, model keys, metrics |
+| Pricing Fundamentals | Instrument JSON, ValuationResult, model keys, metrics, report components, valuation caching |
 | Pricing Across Asset Classes | Deposit, IRS, CDS, equity option, FX option, exotic |
 | PnL Attribution | Attribution workflows and explain |
 
-Deep dives: `instruments/` (12 notebooks)
+Deep dives: `instruments/` (15 notebooks, including credit events, Fourier pricing, and exotic rates)
 
 ### Level 3 -- Performance and Risk Analytics (`03_analytics/`)
 
@@ -62,6 +62,7 @@ Deep dives: `instruments/` (12 notebooks)
 |----------|--------|
 | Performance Analytics | Performance class, CAGR, Sharpe, drawdowns, rolling metrics |
 | Risk and Factor Analytics | VaR, factor regression, capture ratios, ruin estimation |
+| GARCH Volatility | GARCH, EGARCH, GJR-GARCH fitting, variance forecasts, residual diagnostics |
 
 ### Level 4 -- Financial Statement Modeling (`04_statement_modeling/`)
 
@@ -70,7 +71,7 @@ Deep dives: `instruments/` (12 notebooks)
 | Statement Modeling | ModelBuilder, Evaluator, DSL formulas, Polars export |
 | Statement Analytics | Sensitivity, tornado, variance, goal-seek, dependency tracing |
 
-Deep dives: `models/` (7 notebooks)
+Deep dives: `models/` (10 notebooks, including IFRS 9 / CECL ECL, credit scoring / PD, and comparable-company analysis)
 
 ### Level 5 -- Portfolio and Scenarios (`05_portfolio_and_scenarios/`)
 
@@ -80,6 +81,7 @@ Deep dives: `models/` (7 notebooks)
 | Scenarios and Stress Testing | Templates, composition, application, revaluation |
 | Horizon Total Return | Carry + scenario P&L composition, factor-decomposed total return |
 | Historical Replay | Replay portfolio through dated market snapshots, P&L, attribution |
+| Liquidity Risk | Roll spread, Amihud illiquidity, days-to-liquidate, Bangia LVaR, Almgren-Chriss impact |
 
 Deep dives: `scenarios/` (4 notebooks)
 
