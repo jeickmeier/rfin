@@ -45,6 +45,9 @@ impl RateExoticMcConfig {
     /// - `mc_antithetic`: `bool`
     /// - `mc_min_steps_between_events`: `usize`
     /// - `mc_basis_degree`: `usize`
+    ///
+    /// Currently infallible; the `Result` return is reserved for future validation
+    /// (e.g. range or parse errors).
     pub fn from_overrides(overrides: Option<&serde_json::Value>) -> Result<Self> {
         let mut cfg = Self::default();
         let Some(obj) = overrides.and_then(|v| v.as_object()) else {
@@ -68,7 +71,10 @@ impl RateExoticMcConfig {
         Ok(cfg)
     }
 
-    /// Number of distinct RNG streams required (accounts for antithetic doubling).
+    /// Total effective Monte Carlo paths generated. With `antithetic = true`,
+    /// returns `num_paths` rounded **down to the nearest even number** (antithetic
+    /// paths come in pairs); with `antithetic = false`, returns `num_paths`
+    /// unchanged.
     pub fn effective_path_count(&self) -> usize {
         if self.antithetic {
             self.num_paths / 2 * 2
@@ -77,9 +83,9 @@ impl RateExoticMcConfig {
         }
     }
 
-    /// The number of distinct RNG streams, which equals `num_paths/2` if antithetic
-    /// (each stream is replayed twice, once with negated shocks) or `num_paths`
-    /// otherwise.
+    /// Number of distinct RNG shock streams required. With `antithetic = true`
+    /// each stream is replayed twice (once with negated shocks), so this is
+    /// `num_paths / 2`. With `antithetic = false` it equals `num_paths`.
     pub fn raw_stream_count(&self) -> usize {
         if self.antithetic {
             self.num_paths / 2
@@ -133,5 +139,27 @@ mod tests {
         let cfg = RateExoticMcConfig { num_paths: 101, antithetic: true, ..Default::default() };
         // 101/2 = 50 streams * 2 = 100 (odd half path dropped)
         assert_eq!(cfg.effective_path_count(), 100);
+    }
+
+    #[test]
+    fn raw_stream_count_antithetic_and_non() {
+        let a = RateExoticMcConfig { num_paths: 100, antithetic: true, ..Default::default() };
+        assert_eq!(a.raw_stream_count(), 50);
+        let b = RateExoticMcConfig { num_paths: 100, antithetic: false, ..Default::default() };
+        assert_eq!(b.raw_stream_count(), 100);
+    }
+
+    #[test]
+    fn basis_degree_clamped_low_side() {
+        let overrides = serde_json::json!({ "mc_basis_degree": 0 });
+        let cfg = RateExoticMcConfig::from_overrides(Some(&overrides)).expect("ok");
+        assert_eq!(cfg.basis_degree, 1);
+    }
+
+    #[test]
+    fn min_steps_between_events_floored_at_one() {
+        let overrides = serde_json::json!({ "mc_min_steps_between_events": 0 });
+        let cfg = RateExoticMcConfig::from_overrides(Some(&overrides)).expect("ok");
+        assert_eq!(cfg.min_steps_between_events, 1);
     }
 }
