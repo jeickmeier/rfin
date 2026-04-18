@@ -192,7 +192,7 @@ A bond that pays fixed for an initial period, then switches to floating:
 
 ```python
 from finstack.valuations.cashflow.builder import (
-    FixedWindow, FloatWindow, FloatCouponParams,
+    FixedWindow, FloatingCouponSpec, FloatingRateSpec,
 )
 
 schedule = CashFlowBuilder.new() \
@@ -204,11 +204,20 @@ schedule = CashFlowBuilder.new() \
             rate=0.05,
             schedule=ScheduleParams.semiannual_30360(),
         ),
-        float_win=FloatWindow(
-            params=FloatCouponParams.new("USD-SOFR-3M", margin_bp=200.0),
-            schedule=ScheduleParams.quarterly_act360(),
+        float_spec=FloatingCouponSpec(
+            coupon_type=CouponType.CASH,
+            rate_spec=FloatingRateSpec(
+                index_id="USD-SOFR-3M",
+                spread_bp=200.0,
+                reset_freq="3M",
+                dc="Act360",
+                bdc="modified_following",
+                calendar_id="weekends_only",
+            ),
+            freq="3M",
+            stub="short_front",
         ),
-        default_split=CouponType.CASH,
+        fixed_split=CouponType.CASH,
     ) \
     .build_with_curves(market)
 ```
@@ -247,9 +256,19 @@ schedule = CashFlowBuilder.new() \
             (date(2028, 3, 1), 350.0),   # SOFR + 350bp years 3–4
             (date(2029, 3, 1), 400.0),   # SOFR + 400bp year 5
         ],
-        base_params=FloatCouponParams.new("USD-SOFR-3M", margin_bp=300.0),
-        schedule=ScheduleParams.quarterly_act360(),
-        default_split=CouponType.CASH,
+        base_spec=FloatingCouponSpec(
+            coupon_type=CouponType.CASH,
+            rate_spec=FloatingRateSpec(
+                index_id="USD-SOFR-3M",
+                spread_bp=300.0,
+                reset_freq="3M",
+                dc="Act360",
+                bdc="modified_following",
+                calendar_id="weekends_only",
+            ),
+            freq="3M",
+            stub="short_front",
+        ),
     ) \
     .build_with_curves(market)
 ```

@@ -329,14 +329,14 @@ pub(in crate::builder) fn emit_fees_on(
             // Use Decimal for fee calculation.
             // Propagate errors on NaN/Inf inputs rather than silently producing
             // zero fees, which would create plausible-looking but incorrect valuations.
-            let base_amt_dec = f64_to_decimal(base_amt, "fee base amount")?;
-            let yf_dec = f64_to_decimal(yf, "fee year fraction")?;
+            let base_amt_dec = f64_to_decimal(base_amt)?;
+            let yf_dec = f64_to_decimal(yf)?;
             let fee_amt_dec = base_amt_dec * pf.bps * bp_to_rate * yf_dec;
-            let fee_amt = decimal_to_f64(fee_amt_dec, "fee amount")?;
+            let fee_amt = decimal_to_f64(fee_amt_dec)?;
 
             // Convert rate from bps to decimal for storage
             let rate_dec = pf.bps * bp_to_rate;
-            let rate = decimal_to_f64(rate_dec, "fee rate")?;
+            let rate = decimal_to_f64(rate_dec)?;
 
             if fee_amt > 0.0 {
                 new_flows.push(CashFlow {

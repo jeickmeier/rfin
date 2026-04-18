@@ -221,20 +221,7 @@ pub(super) enum CouponSpec {
         rate: Decimal,
     },
     Float {
-        index_id: finstack_core::types::CurveId,
-        margin_bp: Decimal,
-        gearing: Decimal,
-        reset_freq: Tenor,
-        reset_lag_days: i32,
-        gearing_includes_spread: bool,
-        floor_bp: Option<Decimal>,
-        cap_bp: Option<Decimal>,
-        all_in_floor_bp: Option<Decimal>,
-        index_cap_bp: Option<Decimal>,
-        fixing_calendar_id: Option<String>,
-        overnight_compounding: Option<super::specs::OvernightCompoundingMethod>,
-        overnight_basis: Option<finstack_core::dates::DayCount>,
-        fallback: super::specs::FloatingRateFallback,
+        rate_spec: FloatingRateSpec,
     },
     StepUp {
         initial_rate: Decimal,
@@ -259,8 +246,6 @@ pub(super) struct PaymentProgramPiece {
 pub(super) struct CompiledSchedules {
     pub(super) fixed_schedules: Vec<FixedSchedule>,
     pub(super) float_schedules: Vec<FloatSchedule>,
-    pub(super) used_fixed_specs: Vec<FixedCouponSpec>,
-    pub(super) used_float_specs: Vec<FloatingCouponSpec>,
 }
 
 pub(super) fn collect_dates(
@@ -391,8 +376,6 @@ pub(super) fn compute_coupon_schedules(
         return Ok(CompiledSchedules {
             fixed_schedules: Vec::new(),
             float_schedules: Vec::new(),
-            used_fixed_specs: Vec::new(),
-            used_float_specs: Vec::new(),
         });
     }
 
@@ -426,8 +409,6 @@ pub(super) fn compute_coupon_schedules(
 
     let mut fixed_schedules: Vec<FixedSchedule> = Vec::new();
     let mut float_schedules: Vec<FloatSchedule> = Vec::new();
-    let mut used_fixed_specs: Vec<FixedCouponSpec> = Vec::new();
-    let mut used_float_specs: Vec<FloatingCouponSpec> = Vec::new();
 
     for w in grid.windows(2) {
         let s = w[0];
@@ -500,7 +481,6 @@ pub(super) fn compute_coupon_schedules(
                     end_of_month: chosen_coupon.schedule.end_of_month,
                     payment_lag_days: chosen_coupon.schedule.payment_lag_days,
                 };
-                used_fixed_specs.push(spec.clone());
                 fixed_schedules.push((spec, dates.clone(), prev.clone(), first_or_last));
             }
             CouponSpec::StepUp {
@@ -578,54 +558,17 @@ pub(super) fn compute_coupon_schedules(
                         end_of_month: chosen_coupon.schedule.end_of_month,
                         payment_lag_days: chosen_coupon.schedule.payment_lag_days,
                     };
-                    used_fixed_specs.push(spec.clone());
                     fixed_schedules.push((spec, group_dates, group_prev, group_fol));
                 }
             }
-            CouponSpec::Float {
-                index_id,
-                margin_bp,
-                gearing,
-                reset_freq,
-                reset_lag_days,
-                gearing_includes_spread,
-                floor_bp,
-                cap_bp,
-                all_in_floor_bp,
-                index_cap_bp,
-                fixing_calendar_id,
-                overnight_compounding,
-                overnight_basis,
-                fallback,
-            } => {
+            CouponSpec::Float { rate_spec } => {
                 let spec = FloatingCouponSpec {
-                    rate_spec: FloatingRateSpec {
-                        index_id: index_id.clone(),
-                        spread_bp: *margin_bp,
-                        gearing: *gearing,
-                        gearing_includes_spread: *gearing_includes_spread,
-                        floor_bp: *floor_bp,
-                        cap_bp: *cap_bp,
-                        all_in_floor_bp: *all_in_floor_bp,
-                        index_cap_bp: *index_cap_bp,
-                        reset_freq: *reset_freq,
-                        reset_lag_days: *reset_lag_days,
-                        dc: chosen_coupon.schedule.dc,
-                        bdc: chosen_coupon.schedule.bdc,
-                        calendar_id: chosen_coupon.schedule.calendar_id.clone(),
-                        fixing_calendar_id: fixing_calendar_id.clone(),
-                        end_of_month: chosen_coupon.schedule.end_of_month,
-                        payment_lag_days: chosen_coupon.schedule.payment_lag_days,
-                        overnight_compounding: *overnight_compounding,
-                        overnight_basis: *overnight_basis,
-                        fallback: fallback.clone(),
-                    },
+                    rate_spec: rate_spec.clone(),
                     coupon_type: split,
                     freq: chosen_coupon.schedule.freq,
                     stub: chosen_coupon.schedule.stub,
                 };
                 spec.rate_spec.validate()?;
-                used_float_specs.push(spec.clone());
                 float_schedules.push((spec, dates, prev));
             }
         }
@@ -634,7 +577,5 @@ pub(super) fn compute_coupon_schedules(
     Ok(CompiledSchedules {
         fixed_schedules,
         float_schedules,
-        used_fixed_specs,
-        used_float_specs,
     })
 }

@@ -54,7 +54,7 @@ mod helpers;
 ///
 /// Used by both coupon and fee emission to ensure consistent, audit-visible
 /// handling of degenerate floating-point inputs.
-fn f64_to_decimal(value: f64, _context: &str) -> finstack_core::Result<rust_decimal::Decimal> {
+fn f64_to_decimal(value: f64) -> finstack_core::Result<rust_decimal::Decimal> {
     use finstack_core::{InputError, NonFiniteKind};
     if value.is_nan() {
         return Err(InputError::NonFiniteValue {
@@ -78,7 +78,7 @@ fn f64_to_decimal(value: f64, _context: &str) -> finstack_core::Result<rust_deci
 ///
 /// While `Decimal` values are always finite, conversion to f64 can fail for
 /// very large values that exceed f64's representable range (~1.8 × 10^308).
-fn decimal_to_f64(value: rust_decimal::Decimal, _context: &str) -> finstack_core::Result<f64> {
+fn decimal_to_f64(value: rust_decimal::Decimal) -> finstack_core::Result<f64> {
     use rust_decimal::prelude::ToPrimitive;
     value
         .to_f64()

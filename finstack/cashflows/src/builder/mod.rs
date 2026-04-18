@@ -90,10 +90,9 @@ pub use schedule::{
 };
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
-    FeeAccrualBasis, FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams,
-    FloatWindow, FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec, Notional,
-    OvernightCompoundingMethod, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
-    ScheduleParams, StepUpCouponSpec,
+    FeeAccrualBasis, FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatingCouponSpec,
+    FloatingRateFallback, FloatingRateSpec, Notional, OvernightCompoundingMethod, PrepaymentCurve,
+    PrepaymentModelSpec, RecoveryModelSpec, ScheduleParams, StepUpCouponSpec,
 };
 
 // Re-export credit rate conversions (hazard-style CPR↔SMM helpers)
