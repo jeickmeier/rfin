@@ -30,7 +30,7 @@ ts-rs = { version = "12", optional = true, features = ["serde-compat", "no-serde
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }
-proptest = "1.9"
+proptest = "1.11.0"
 criterion = { workspace = true }
 rust_decimal_macros = { workspace = true }
 finstack-statements = { path = "../statements" }

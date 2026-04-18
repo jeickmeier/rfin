@@ -11,7 +11,7 @@ authors.workspace = true
 finstack-core = { path = "../core" }
 indexmap = { workspace = true, features = ["serde"] }
 nalgebra = "0.34"
-rand = { version = "0.9", default-features = false, features = ["small_rng", "std"] }
+rand = { version = "0.9.3", default-features = false, features = ["small_rng", "std"] }
 serde = { workspace = true }
 
 [dev-dependencies]

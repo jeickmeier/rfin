@@ -28,7 +28,7 @@ statrs = { version = "0.18", default-features = false }
 nalgebra = { version = "0.34", features = ["serde-serialize"] }
 num-complex = "0.4"
 # Production-grade random number generation
-rand = { version = "0.9", default-features = false, features = ["std"] }
+rand = { version = "0.9.3", default-features = false, features = ["std"] }
 rand_pcg = { version = "0.9", features = ["serde"] }
 tracing = { version = "0.1", default-features = false }
 

@@ -20,7 +20,7 @@ tracing = { version = "0.1", default-features = false, features = ["attributes"]
 
 [dev-dependencies]
 criterion = { workspace = true }
-proptest = "1.9"
+proptest = "1.11.0"
 rust_decimal_macros = { workspace = true }
 serde_json = { workspace = true }
 
