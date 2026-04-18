@@ -20,15 +20,15 @@ Building from source requires the Rust toolchain (1.82+):
 git clone https://github.com/your-org/finstack.git
 cd finstack
 
-# Development build (debug, fast compile)
-make python-dev-debug
-
-# Release build (optimized, slower compile, required for portfolio valuation)
+# Development build (dev profile, fast compile)
 make python-dev
+
+# Release build (optimized, slower compile; use for portfolio-scale work)
+make python-dev-release
 ```
 
-The release profile is recommended for anything beyond simple instrument
-pricing — debug builds are too slow for portfolio-level computation.
+The release profile is recommended for heavy portfolio-level computation;
+the dev profile is preferred for day-to-day development and faster rebuilds.
 
 ### Verify Installation
 
@@ -91,7 +91,7 @@ cd finstack
 # Install Python dev dependencies
 uv sync --group dev
 
-# Build Python bindings (release)
+# Build Python bindings (dev profile; use `make python-dev-release` for optimized extension)
 make python-dev
 
 # Run full test suite

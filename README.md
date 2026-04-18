@@ -151,8 +151,9 @@ make wasm-pkg
 | `make fmt` | Format Rust, Python, and WASM code |
 | `make lint` | Run the fast lint pass across Rust, Python, and WASM |
 | `make lint-full` | Run the slower full lint pass including bindings |
-| `make python-dev` | Build the Python extension in release mode |
-| `make python-dev-debug` | Build the Python extension in debug mode |
+| `make python-dev` | Build the Python extension (dev profile, fast compile) |
+| `make python-dev-release` | Build the Python extension in release mode (slow compile, faster runtime) |
+| `make python-dev-debug` | Alias for `make python-dev` |
 | `make wasm-pkg` | Build the web and node WASM packages |
 | `make test-rust` | Run Rust tests with `cargo nextest` |
 | `make test-python` | Run Python tests |

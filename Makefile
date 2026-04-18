@@ -73,8 +73,9 @@ help: ## Display this help message
 	@printf "  \033[36mtest-wasm-cov\033[0m       Run WASM binding tests with coverage report\n\n"
 	@printf "Setup & Maintenance:\n"
 	@printf "  \033[36msetup-python\033[0m        Initialize Python environment with uv\n"
-	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings (release)\n"
-	@printf "  \033[36mpython-dev-debug\033[0m    Install Python deps and build bindings (debug, fast compile)\n"
+	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings (dev, fast compile)\n"
+	@printf "  \033[36mpython-dev-release\033[0m  Install Python deps and build bindings (release, slow compile)\n"
+	@printf "  \033[36mpython-dev-debug\033[0m    Alias for python-dev\n"
 	@printf "  \033[36mclean\033[0m               Remove build artifacts and virtualenvs\n\n"
 	@printf "Documentation:\n"
 	@printf "  \033[36mdoc\033[0m                 Generate Rust documentation\n"
@@ -180,18 +181,21 @@ setup-python: ## Initialize Python environment
 	@printf "Virtual environment created. Now run: source .venv/$(VENV_BIN_DIR)/activate && make python-dev\n"
 
 .PHONY: python-dev
-python-dev: ## Install dependencies and build bindings (release mode)
+python-dev: ## Install dependencies and build bindings (dev profile, fast compile)
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
+	@$(call py_run,uv sync --group dev)
+	@cd finstack-py && $(call py_run,python -m maturin develop)
+
+.PHONY: python-dev-release
+python-dev-release: ## Install dependencies and build bindings (release profile, slow compile)
+	@if [ ! -d "$(VENV)" ]; then uv venv; fi
+	@printf "Installing Python dependencies and building extension (release)...\n"
 	@$(call py_run,uv sync --group dev)
 	@cd finstack-py && $(call py_run,python -m maturin develop --profile $(or $(MATURIN_PROFILE),release))
 
 .PHONY: python-dev-debug
-python-dev-debug: ## Install dependencies and build bindings (debug mode, fast compile)
-	@if [ ! -d "$(VENV)" ]; then uv venv; fi
-	@printf "Installing Python dependencies and building extension (debug)...\n"
-	@$(call py_run,uv sync --group dev)
-	@cd finstack-py && $(call py_run,python -m maturin develop)
+python-dev-debug: python-dev ## Alias for python-dev (dev profile)
 
 .PHONY: test-python
 test-python: ## Run Python tests

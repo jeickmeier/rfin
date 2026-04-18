@@ -31,20 +31,23 @@ make python-dev
 ```
 
 That installs the Python dependencies defined in the root `pyproject.toml` and
-builds the extension in release mode.
+builds the extension with the Rust **dev** profile (fast compile).
+
+For a release build (slower compile, faster runtime — e.g. large portfolio runs):
+
+```bash
+make python-dev-release
+```
 
 If you want to build the extension directly:
 
 ```bash
 cd finstack-py
+uv run python -m maturin develop          # dev (default)
 uv run python -m maturin develop --release
 ```
 
-For a faster debug build during development:
-
-```bash
-make python-dev-debug
-```
+`make python-dev-debug` is an alias for `make python-dev`.
 
 ## Quick Start
 
