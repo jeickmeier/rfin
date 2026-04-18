@@ -33,6 +33,15 @@ pub struct RateExoticHw1fMcPricer {
     pub hw_params: HullWhiteParams,
     /// Initial short rate r(0).
     pub r0: f64,
+    /// Constant mean-reversion level θ for the HW1F short-rate process.
+    ///
+    /// The simulated short rate follows `dr_t = κ·(θ - r_t)·dt + σ·dW_t`.
+    /// Use `0.0` for a pure Ornstein-Uhlenbeck process (mean-reverts to
+    /// zero); use `r0` for a classic Vasicek process (mean-reverts to
+    /// the initial rate). Curve-calibrated products should replace this
+    /// single-θ constant with a time-dependent θ(t) schedule in a
+    /// follow-up; for PR 1 the flat-θ harness is sufficient.
+    pub theta: f64,
     /// Event times (year fractions), strictly increasing and strictly positive.
     pub event_times: Vec<f64>,
     /// Runtime Monte Carlo configuration (paths, seed, antithetic, step density).
@@ -73,11 +82,8 @@ impl RateExoticHw1fMcPricer {
             self.config.min_steps_between_events,
         )?;
 
-        // HW1F requires a θ(t) schedule; without an external curve we default
-        // to an OU/Vasicek process reverting to the initial short rate (flat
-        // implied forward curve). Product-specific pricers that need
-        // curve-consistent θ(t) should plumb it through the payoff/drift.
-        let process = HullWhite1FProcess::vasicek(self.hw_params.kappa, self.r0, self.hw_params.sigma);
+        let process =
+            HullWhite1FProcess::vasicek(self.hw_params.kappa, self.theta, self.hw_params.sigma);
         let disc = ExactHullWhite1F;
         let num_steps = grid.num_steps();
         let work_size = disc.work_size(&process);
@@ -230,6 +236,7 @@ mod tests {
         let pricer = RateExoticHw1fMcPricer {
             hw_params: HullWhiteParams::new(0.05, 0.01),
             r0: 0.03,
+            theta: 0.0,
             event_times: vec![1.0],
             config: RateExoticMcConfig {
                 num_paths: 200,
