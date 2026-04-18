@@ -5,10 +5,10 @@
 //! floating-rate conventions stay consistent across instruments.
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
-use crate::cashflow::builder::specs::{CouponType, FeeBase, FeeSpec, FixedCouponSpec};
-use crate::cashflow::builder::{
-    CashFlowBuilder, FloatCouponParams, PrincipalEvent, ScheduleParams,
+use crate::cashflow::builder::specs::{
+    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
+use crate::cashflow::builder::{CashFlowBuilder, PrincipalEvent};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::fixed_income::term_loan::types::TermLoan;
 use finstack_core::cashflow::InternalRateOfReturn;
@@ -375,24 +375,35 @@ pub(crate) fn generate_cashflows(
                 steps.push((loan.maturity, running));
             }
 
-            // Derive rate-only fields from the canonical spec. Step-up margins
-            // are applied inside `float_margin_stepup`, so we reset margin_bp to
-            // zero here and let each step override it.
-            let mut base_params = FloatCouponParams::from(spec);
-            base_params.margin_bp = Decimal::ZERO;
-            let sched_params = ScheduleParams {
+            let base_spec = FloatingCouponSpec {
+                coupon_type: loan.coupon_type,
+                rate_spec: FloatingRateSpec {
+                    index_id: spec.index_id.clone(),
+                    spread_bp: Decimal::ZERO,
+                    gearing: spec.gearing,
+                    gearing_includes_spread: spec.gearing_includes_spread,
+                    floor_bp: spec.floor_bp,
+                    cap_bp: spec.cap_bp,
+                    all_in_floor_bp: spec.all_in_floor_bp,
+                    index_cap_bp: spec.index_cap_bp,
+                    reset_freq: loan.frequency,
+                    reset_lag_days: spec.reset_lag_days,
+                    dc: loan.day_count,
+                    bdc: loan.bdc,
+                    calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
+                        crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
+                    }),
+                    fixing_calendar_id: spec.fixing_calendar_id.clone(),
+                    end_of_month: false,
+                    payment_lag_days: 0,
+                    overnight_compounding: spec.overnight_compounding,
+                    overnight_basis: spec.overnight_basis,
+                    fallback: spec.fallback.clone(),
+                },
                 freq: loan.frequency,
-                dc: loan.day_count,
-                bdc: loan.bdc,
-                calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
-                    crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
-                }),
                 stub: loan.stub,
-                end_of_month: false,
-                payment_lag_days: 0,
             };
-            let _ =
-                builder.float_margin_stepup(&steps, base_params, sched_params, loan.coupon_type);
+            let _ = builder.float_margin_stepup(&steps, base_spec);
         }
     }
 

@@ -47,7 +47,7 @@
 //! ```
 
 use super::schedule::{finalize_flows, CashFlowSchedule};
-use crate::builder::{AmortizationSpec, FloatingRateSpec, Notional};
+use crate::builder::{AmortizationSpec, Notional};
 use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -68,8 +68,8 @@ use super::emission::{
     AmortizationParams,
 };
 use super::specs::{
-    CouponType, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
-    FloatingCouponSpec, ScheduleParams, StepUpCouponSpec,
+    CouponType, FeeSpec, FixedCouponSpec, FixedWindow, FloatingCouponSpec, ScheduleParams,
+    StepUpCouponSpec,
 };
 use smallvec::SmallVec;
 use tracing::debug;
@@ -655,6 +655,85 @@ impl CashFlowBuilder {
             }
         }
     }
+
+    fn push_coupon_window(
+        &mut self,
+        start: Date,
+        end: Date,
+        schedule: ScheduleParams,
+        coupon: CouponSpec,
+        split: CouponType,
+    ) -> &mut Self {
+        self.coupon_program.push(CouponProgramPiece {
+            window: DateWindow { start, end },
+            schedule,
+            coupon,
+        });
+        self.payment_program.push(PaymentProgramPiece {
+            window: DateWindow { start, end },
+            split,
+        });
+        self
+    }
+
+    fn push_full_horizon_coupon(
+        &mut self,
+        method_name: &str,
+        schedule: ScheduleParams,
+        coupon: CouponSpec,
+        split: CouponType,
+    ) -> &mut Self {
+        let Some((issue, maturity)) = self.issue_maturity_or_record_error(method_name) else {
+            return self;
+        };
+        self.push_coupon_window(issue, maturity, schedule, coupon, split)
+    }
+
+    fn schedule_from_fixed_spec(spec: &FixedCouponSpec) -> ScheduleParams {
+        ScheduleParams {
+            freq: spec.freq,
+            dc: spec.dc,
+            bdc: spec.bdc,
+            calendar_id: spec.calendar_id.clone(),
+            stub: spec.stub,
+            end_of_month: spec.end_of_month,
+            payment_lag_days: spec.payment_lag_days,
+        }
+    }
+
+    fn schedule_from_floating_spec(spec: &FloatingCouponSpec) -> ScheduleParams {
+        ScheduleParams {
+            freq: spec.freq,
+            dc: spec.rate_spec.dc,
+            bdc: spec.rate_spec.bdc,
+            calendar_id: spec.rate_spec.calendar_id.clone(),
+            stub: spec.stub,
+            end_of_month: spec.rate_spec.end_of_month,
+            payment_lag_days: spec.rate_spec.payment_lag_days,
+        }
+    }
+
+    fn schedule_from_step_up_spec(spec: &StepUpCouponSpec) -> ScheduleParams {
+        ScheduleParams {
+            freq: spec.freq,
+            dc: spec.dc,
+            bdc: spec.bdc,
+            calendar_id: spec.calendar_id.clone(),
+            stub: spec.stub,
+            end_of_month: spec.end_of_month,
+            payment_lag_days: spec.payment_lag_days,
+        }
+    }
+
+    fn floating_spec_with_margin(
+        spec: &FloatingCouponSpec,
+        spread_bp: Decimal,
+    ) -> FloatingCouponSpec {
+        let mut next = spec.clone();
+        next.rate_spec.spread_bp = spread_bp;
+        next
+    }
+
     /// Sets principal details and instrument horizon.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
@@ -692,118 +771,25 @@ impl CashFlowBuilder {
     /// Adds a fixed coupon specification.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn fixed_cf(&mut self, spec: FixedCouponSpec) -> &mut Self {
-        let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_cf") else {
-            return self;
-        };
-        let FixedCouponSpec {
-            coupon_type,
-            rate,
-            freq,
-            dc,
-            bdc,
-            calendar_id,
-            stub,
-            end_of_month,
-            payment_lag_days,
-        } = spec;
-        self.coupon_program.push(CouponProgramPiece {
-            window: DateWindow {
-                start: issue,
-                end: maturity,
-            },
-            schedule: ScheduleParams {
-                freq,
-                dc,
-                bdc,
-                calendar_id,
-                stub,
-                end_of_month,
-                payment_lag_days,
-            },
-            coupon: CouponSpec::Fixed { rate },
-        });
-        self.payment_program.push(PaymentProgramPiece {
-            window: DateWindow {
-                start: issue,
-                end: maturity,
-            },
-            split: coupon_type,
-        });
-        self
+        self.push_full_horizon_coupon(
+            "fixed_cf",
+            Self::schedule_from_fixed_spec(&spec),
+            CouponSpec::Fixed { rate: spec.rate },
+            spec.coupon_type,
+        )
     }
 
     /// Adds a floating coupon specification.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn floating_cf(&mut self, spec: FloatingCouponSpec) -> &mut Self {
-        let Some((issue, maturity)) = self.issue_maturity_or_record_error("floating_cf") else {
-            return self;
-        };
-        let FloatingCouponSpec {
-            rate_spec,
-            coupon_type,
-            freq,
-            stub,
-        } = spec;
-        let FloatingRateSpec {
-            index_id,
-            spread_bp,
-            gearing,
-            gearing_includes_spread,
-            floor_bp,
-            cap_bp,
-            all_in_floor_bp,
-            index_cap_bp,
-            reset_freq,
-            reset_lag_days,
-            dc,
-            bdc,
-            calendar_id,
-            fixing_calendar_id,
-            end_of_month,
-            payment_lag_days,
-            overnight_compounding,
-            overnight_basis,
-            fallback,
-        } = rate_spec;
-        self.coupon_program.push(CouponProgramPiece {
-            window: DateWindow {
-                start: issue,
-                end: maturity,
+        self.push_full_horizon_coupon(
+            "floating_cf",
+            Self::schedule_from_floating_spec(&spec),
+            CouponSpec::Float {
+                rate_spec: spec.rate_spec,
             },
-            schedule: ScheduleParams {
-                freq,
-                dc,
-                bdc,
-                calendar_id: calendar_id.clone(),
-                stub,
-                end_of_month,
-                payment_lag_days,
-            },
-            coupon: CouponSpec::Float {
-                index_id,
-                margin_bp: spread_bp,
-                gearing,
-                reset_freq,
-                reset_lag_days,
-                gearing_includes_spread,
-                floor_bp,
-                cap_bp,
-                all_in_floor_bp,
-                index_cap_bp,
-                fixing_calendar_id,
-                overnight_compounding,
-                overnight_basis,
-                fallback,
-            },
-        });
-        self.payment_program.push(PaymentProgramPiece {
-            window: DateWindow {
-                start: issue,
-                end: maturity,
-            },
-            split: coupon_type,
-        });
-        self
+            spec.coupon_type,
+        )
     }
 
     /// Adds a step-up coupon specification.
@@ -813,48 +799,15 @@ impl CashFlowBuilder {
     /// coupon schedules with the appropriate rate for each period.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn step_up_cf(&mut self, spec: StepUpCouponSpec) -> &mut Self {
-        let Some((issue, maturity)) = self.issue_maturity_or_record_error("step_up_cf") else {
-            return self;
-        };
-        let StepUpCouponSpec {
-            coupon_type,
-            initial_rate,
-            step_schedule,
-            freq,
-            dc,
-            bdc,
-            calendar_id,
-            stub,
-            end_of_month,
-            payment_lag_days,
-        } = spec;
-        self.coupon_program.push(CouponProgramPiece {
-            window: DateWindow {
-                start: issue,
-                end: maturity,
+        self.push_full_horizon_coupon(
+            "step_up_cf",
+            Self::schedule_from_step_up_spec(&spec),
+            CouponSpec::StepUp {
+                initial_rate: spec.initial_rate,
+                step_schedule: spec.step_schedule,
             },
-            schedule: ScheduleParams {
-                freq,
-                dc,
-                bdc,
-                calendar_id,
-                stub,
-                end_of_month,
-                payment_lag_days,
-            },
-            coupon: CouponSpec::StepUp {
-                initial_rate,
-                step_schedule,
-            },
-        });
-        self.payment_program.push(PaymentProgramPiece {
-            window: DateWindow {
-                start: issue,
-                end: maturity,
-            },
-            split: coupon_type,
-        });
-        self
+            spec.coupon_type,
+        )
     }
 
     /// Adds a fee specification.
@@ -947,16 +900,13 @@ impl CashFlowBuilder {
         else {
             return self;
         };
-        self.coupon_program.push(CouponProgramPiece {
-            window: DateWindow { start, end },
+        self.push_coupon_window(
+            start,
+            end,
             schedule,
-            coupon: CouponSpec::Fixed { rate: rate_decimal },
-        });
-        self.payment_program.push(PaymentProgramPiece {
-            window: DateWindow { start, end },
+            CouponSpec::Fixed { rate: rate_decimal },
             split,
-        });
-        self
+        )
     }
 
     /// Adds a floating coupon window with its own schedule and payment split.
@@ -969,36 +919,17 @@ impl CashFlowBuilder {
         &mut self,
         start: Date,
         end: Date,
-        params: FloatCouponParams,
-        schedule: ScheduleParams,
-        split: CouponType,
+        spec: FloatingCouponSpec,
     ) -> &mut Self {
-        let reset_freq = schedule.freq;
-        self.coupon_program.push(CouponProgramPiece {
-            window: DateWindow { start, end },
-            schedule,
-            coupon: CouponSpec::Float {
-                index_id: params.index_id,
-                margin_bp: params.margin_bp,
-                gearing: params.gearing,
-                reset_freq,
-                reset_lag_days: params.reset_lag_days,
-                gearing_includes_spread: params.gearing_includes_spread,
-                floor_bp: params.floor_bp,
-                cap_bp: params.cap_bp,
-                all_in_floor_bp: params.all_in_floor_bp,
-                index_cap_bp: params.index_cap_bp,
-                fixing_calendar_id: params.fixing_calendar_id,
-                overnight_compounding: params.overnight_compounding,
-                overnight_basis: params.overnight_basis,
-                fallback: params.fallback,
+        self.push_coupon_window(
+            start,
+            end,
+            Self::schedule_from_floating_spec(&spec),
+            CouponSpec::Float {
+                rate_spec: spec.rate_spec,
             },
-        });
-        self.payment_program.push(PaymentProgramPiece {
-            window: DateWindow { start, end },
-            split,
-        });
-        self
+            spec.coupon_type,
+        )
     }
 
     /// Adds/overrides a payment split (cash/PIK/split) over a window (PIK toggle support).
@@ -1095,9 +1026,8 @@ impl CashFlowBuilder {
     /// # Arguments
     ///
     /// * `steps` - Boundary dates and margins: `&[(end_date, margin_bps)]`
-    /// * `base_params` - Base floating parameters (index, gearing, reset lag)
-    /// * `schedule` - Common schedule parameters
-    /// * `default_split` - Payment type for all windows
+    /// * `base_spec` - Canonical floating coupon spec; step margins replace its
+    ///   `rate_spec.spread_bp` for each window
     ///
     /// # Example
     ///
@@ -1107,7 +1037,7 @@ impl CashFlowBuilder {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
     /// use finstack_cashflows::builder::{
-    ///     CashFlowSchedule, ScheduleParams, FloatCouponParams, CouponType
+    ///     CashFlowSchedule, CouponType, FloatingCouponSpec, FloatingRateSpec
     /// };
     /// use rust_decimal_macros::dec;
     /// use time::Month;
@@ -1123,30 +1053,36 @@ impl CashFlowBuilder {
     ///     (maturity, 400.0),
     /// ];
     ///
-    /// let base = FloatCouponParams {
-    ///     index_id: CurveId::new("USD-SOFR"),
-    ///     margin_bp: dec!(0),  // Will be overridden by steps
-    ///     gearing: dec!(1),
-    ///     reset_lag_days: 2,
-    ///     gearing_includes_spread: true,
-    ///     floor_bp: None,
-    ///     cap_bp: None,
-    ///     all_in_floor_bp: None,
-    ///     index_cap_bp: None,
-    ///     fixing_calendar_id: None,
-    ///     overnight_compounding: None,
-    ///     overnight_basis: None,
-    ///     fallback: Default::default(),
+    /// let base = FloatingCouponSpec {
+    ///     coupon_type: CouponType::Cash,
+    ///     rate_spec: FloatingRateSpec {
+    ///         index_id: CurveId::new("USD-SOFR"),
+    ///         spread_bp: dec!(0),  // Overridden by steps
+    ///         gearing: dec!(1),
+    ///         gearing_includes_spread: true,
+    ///         floor_bp: None,
+    ///         cap_bp: None,
+    ///         all_in_floor_bp: None,
+    ///         index_cap_bp: None,
+    ///         reset_freq: Tenor::quarterly(),
+    ///         reset_lag_days: 2,
+    ///         dc: DayCount::Act360,
+    ///         bdc: BusinessDayConvention::ModifiedFollowing,
+    ///         calendar_id: "weekends_only".to_string(),
+    ///         fixing_calendar_id: None,
+    ///         end_of_month: false,
+    ///         payment_lag_days: 0,
+    ///         overnight_compounding: None,
+    ///         overnight_basis: None,
+    ///         fallback: Default::default(),
+    ///     },
+    ///     freq: Tenor::quarterly(),
+    ///     stub: StubKind::ShortFront,
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(Money::new(5_000_000.0, Currency::USD), issue, maturity)
-    ///     .float_margin_stepup(
-    ///         &steps,
-    ///         base,
-    ///         ScheduleParams::quarterly_act360(),
-    ///         CouponType::Cash,
-    ///     )
+    ///     .float_margin_stepup(&steps, base)
     ///     .build_with_curves(None)?;
     ///
     /// assert!(schedule.flows.len() > 0);
@@ -1157,9 +1093,7 @@ impl CashFlowBuilder {
     pub fn float_margin_stepup(
         &mut self,
         steps: &[(Date, f64)],
-        base_params: FloatCouponParams,
-        schedule: ScheduleParams,
-        default_split: CouponType,
+        base_spec: FloatingCouponSpec,
     ) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("float_margin_stepup")
         else {
@@ -1171,7 +1105,6 @@ impl CashFlowBuilder {
                 margin_bp.is_finite(),
                 "float_margin_stepup: margin_bp is not finite ({margin_bp})"
             );
-            let mut params = base_params.clone();
             let Some(margin_decimal) = self.decimal_from_f64_or_record_error(
                 "float_margin_stepup",
                 "margin_bp",
@@ -1179,33 +1112,31 @@ impl CashFlowBuilder {
             ) else {
                 return self;
             };
-            params.margin_bp = margin_decimal;
-            let _ = self.add_float_coupon_window(
-                prev,
-                end,
-                params.clone(),
-                schedule.clone(),
-                default_split,
-            );
+            let window_spec = Self::floating_spec_with_margin(&base_spec, margin_decimal);
+            let _ = self.add_float_coupon_window(prev, end, window_spec);
             prev = end;
         }
         if prev != maturity {
-            let mut params = base_params.clone();
+            let mut margin_decimal = base_spec.rate_spec.spread_bp;
             if let Some(&(_, margin_bp)) = steps.last() {
                 debug_assert!(
                     margin_bp.is_finite(),
                     "float_margin_stepup: last margin_bp is not finite ({margin_bp})"
                 );
-                let Some(margin_decimal) = self.decimal_from_f64_or_record_error(
+                let Some(last_margin_decimal) = self.decimal_from_f64_or_record_error(
                     "float_margin_stepup",
                     "margin_bp",
                     margin_bp,
                 ) else {
                     return self;
                 };
-                params.margin_bp = margin_decimal;
+                margin_decimal = last_margin_decimal;
             }
-            let _ = self.add_float_coupon_window(prev, maturity, params, schedule, default_split);
+            let _ = self.add_float_coupon_window(
+                prev,
+                maturity,
+                Self::floating_spec_with_margin(&base_spec, margin_decimal),
+            );
         }
         self
     }
@@ -1220,8 +1151,8 @@ impl CashFlowBuilder {
     ///
     /// * `switch` - Date when coupon switches from fixed to floating
     /// * `fixed_win` - Fixed rate and schedule for pre-switch period
-    /// * `float_win` - Floating parameters and schedule for post-switch period
-    /// * `default_split` - Payment type for both periods
+    /// * `float_spec` - Canonical floating coupon spec for the post-switch period
+    /// * `fixed_split` - Payment type for the fixed pre-switch period
     ///
     /// # Example
     ///
@@ -1231,8 +1162,7 @@ impl CashFlowBuilder {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
     /// use finstack_cashflows::builder::{
-    ///     CashFlowSchedule, ScheduleParams, FixedWindow, FloatWindow,
-    ///     FloatCouponParams, CouponType
+    ///     CashFlowSchedule, CouponType, FixedWindow, FloatingCouponSpec, FloatingRateSpec
     /// };
     /// use rust_decimal_macros::dec;
     /// use time::Month;
@@ -1248,28 +1178,36 @@ impl CashFlowBuilder {
     ///     schedule: ScheduleParams::semiannual_30360(),
     /// };
     ///
-    /// let float_win = FloatWindow {
-    ///     params: FloatCouponParams {
+    /// let float_spec = FloatingCouponSpec {
+    ///     coupon_type: CouponType::Cash,
+    ///     rate_spec: FloatingRateSpec {
     ///         index_id: CurveId::new("USD-SOFR"),
-    ///         margin_bp: dec!(250),
+    ///         spread_bp: dec!(250),
     ///         gearing: dec!(1),
-    ///         reset_lag_days: 2,
     ///         gearing_includes_spread: true,
     ///         floor_bp: None,
     ///         cap_bp: None,
     ///         all_in_floor_bp: None,
     ///         index_cap_bp: None,
+    ///         reset_freq: Tenor::quarterly(),
+    ///         reset_lag_days: 2,
+    ///         dc: DayCount::Act360,
+    ///         bdc: BusinessDayConvention::ModifiedFollowing,
+    ///         calendar_id: "weekends_only".to_string(),
     ///         fixing_calendar_id: None,
+    ///         end_of_month: false,
+    ///         payment_lag_days: 0,
     ///         overnight_compounding: None,
     ///         overnight_basis: None,
     ///         fallback: Default::default(),
     ///     },
-    ///     schedule: ScheduleParams::quarterly_act360(),
+    ///     freq: Tenor::quarterly(),
+    ///     stub: StubKind::ShortFront,
     /// };
     ///
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(Money::new(10_000_000.0, Currency::USD), issue, maturity)
-    ///     .fixed_to_float(switch, fixed_win, float_win, CouponType::Cash)
+    ///     .fixed_to_float(switch, fixed_win, float_spec, CouponType::Cash)
     ///     .build_with_curves(None)?;
     ///
     /// assert!(schedule.flows.len() > 0);
@@ -1281,8 +1219,8 @@ impl CashFlowBuilder {
         &mut self,
         switch: Date,
         fixed_win: FixedWindow,
-        float_win: FloatWindow,
-        default_split: CouponType,
+        float_spec: FloatingCouponSpec,
+        fixed_split: CouponType,
     ) -> &mut Self {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_to_float") else {
             return self;
@@ -1294,20 +1232,9 @@ impl CashFlowBuilder {
         ) else {
             return self;
         };
-        let _ = self.add_fixed_coupon_window(
-            issue,
-            switch,
-            rate_f64,
-            fixed_win.schedule,
-            default_split,
-        );
-        let _ = self.add_float_coupon_window(
-            switch,
-            maturity,
-            float_win.params,
-            float_win.schedule,
-            default_split,
-        );
+        let _ =
+            self.add_fixed_coupon_window(issue, switch, rate_f64, fixed_win.schedule, fixed_split);
+        let _ = self.add_float_coupon_window(switch, maturity, float_spec);
         self
     }
 
@@ -1464,8 +1391,6 @@ impl CashFlowBuilder {
             CompiledSchedules {
                 fixed_schedules,
                 float_schedules,
-                used_fixed_specs,
-                used_float_specs,
             },
             periodic_fees,
             fixed_fees,
@@ -1524,8 +1449,6 @@ impl CashFlowBuilder {
             maturity,
             fixed_schedules,
             float_schedules,
-            used_fixed_specs,
-            used_float_specs,
             periodic_fees,
             fixed_fees,
             principal_events,
@@ -1557,8 +1480,6 @@ pub struct PreparedCashFlow {
     maturity: Date,
     fixed_schedules: Vec<FixedSchedule>,
     float_schedules: Vec<FloatSchedule>,
-    used_fixed_specs: Vec<crate::builder::specs::FixedCouponSpec>,
-    used_float_specs: Vec<crate::builder::specs::FloatingCouponSpec>,
     periodic_fees: Vec<PeriodicFee>,
     fixed_fees: Vec<(Date, Money)>,
     principal_events: Vec<PrincipalEvent>,
@@ -1678,11 +1599,11 @@ impl PreparedCashFlow {
             }
         }
 
-        // 7) Finalize flows and produce meta/day count (use actual specs used)
+        // 7) Finalize flows and produce meta/day count from compiled schedules.
         let (flows, meta, out_dc) = finalize_flows(
             state.flows,
-            &self.used_fixed_specs,
-            &self.used_float_specs,
+            &self.fixed_schedules,
+            &self.float_schedules,
             Some(self.issue),
         );
         debug!(flows = flows.len(), "cashflow schedule: project complete");
@@ -1699,6 +1620,7 @@ impl PreparedCashFlow {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::builder::FloatingRateSpec;
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_core::types::CurveId;
     use rust_decimal_macros::dec;
@@ -1744,33 +1666,33 @@ mod tests {
             rate: Decimal::MAX,
             schedule: ScheduleParams::annual_actact(),
         };
-        let float_win = FloatWindow {
-            params: FloatCouponParams {
+        let float_spec = FloatingCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate_spec: FloatingRateSpec {
                 index_id: CurveId::new("USD-SOFR"),
-                margin_bp: dec!(150),
+                spread_bp: dec!(150),
                 gearing: dec!(1),
-                reset_lag_days: 2,
                 gearing_includes_spread: true,
                 floor_bp: None,
                 cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
+                reset_freq: Tenor::annual(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
                 overnight_compounding: None,
                 overnight_basis: None,
                 fallback: Default::default(),
             },
-            schedule: ScheduleParams {
-                freq: Tenor::annual(),
-                dc: DayCount::Act360,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: "weekends_only".to_string(),
-                stub: StubKind::None,
-                end_of_month: false,
-                payment_lag_days: 0,
-            },
+            freq: Tenor::annual(),
+            stub: StubKind::None,
         };
-        let _ = builder.fixed_to_float(switch, fixed_win, float_win, CouponType::Cash);
+        let _ = builder.fixed_to_float(switch, fixed_win, float_spec, CouponType::Cash);
 
         let err = builder
             .build()

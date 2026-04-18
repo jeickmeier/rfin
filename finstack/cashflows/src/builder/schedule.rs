@@ -17,7 +17,7 @@ use finstack_core::types::CurveId;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use super::specs::{FixedCouponSpec, FloatingCouponSpec};
+use super::compiler::{FixedSchedule, FloatSchedule};
 
 /// Stable ordering rank used for deterministic sorting of same-date cashflows.
 ///
@@ -71,16 +71,20 @@ pub fn sort_flows(flows: &mut [CashFlow]) {
 
 pub(crate) fn finalize_flows(
     mut flows: Vec<CashFlow>,
-    fixed: &[FixedCouponSpec],
-    floating: &[FloatingCouponSpec],
+    fixed: &[FixedSchedule],
+    floating: &[FloatSchedule],
     issue_date: Option<Date>,
 ) -> (Vec<CashFlow>, CashFlowMeta, DayCount) {
     sort_flows(&mut flows);
 
     let mut cals: Vec<String> = fixed
         .iter()
-        .map(|s| s.calendar_id.clone())
-        .chain(floating.iter().map(|s| s.rate_spec.calendar_id.clone()))
+        .map(|(spec, _, _, _)| spec.calendar_id.clone())
+        .chain(
+            floating
+                .iter()
+                .map(|(spec, _, _)| spec.rate_spec.calendar_id.clone()),
+        )
         .collect();
     cals.sort_unstable();
     cals.dedup();
@@ -91,10 +95,10 @@ pub(crate) fn finalize_flows(
         representation: CashflowRepresentation::default(),
     };
 
-    let out_dc = if let Some(s) = fixed.first() {
-        s.dc
-    } else if let Some(s) = floating.first() {
-        s.rate_spec.dc
+    let out_dc = if let Some((spec, _, _, _)) = fixed.first() {
+        spec.dc
+    } else if let Some((spec, _, _)) = floating.first() {
+        spec.rate_spec.dc
     } else {
         DayCount::Act365F
     };

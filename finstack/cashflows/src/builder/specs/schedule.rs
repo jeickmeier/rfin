@@ -1,9 +1,7 @@
 //! Schedule parameter types for cashflow generation.
 
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_core::types::CurveId;
 use rust_decimal::Decimal;
-
 /// Canonical schedule-generation parameters for coupons and periodic fees.
 ///
 /// This type controls how accrual boundaries and payment dates are generated.
@@ -185,95 +183,11 @@ impl ScheduleParams {
     }
 }
 
-/// Floating-rate window parameters used by segmented coupon programs.
-///
-/// These fields describe the floating index, margin, and optional floor/cap
-/// policy for a window. Schedule-generation settings live on the surrounding
-/// [`ScheduleParams`].
-///
-/// Most callers should start from a [`FloatingRateSpec`](super::FloatingRateSpec)
-/// and convert via `FloatCouponParams::from(&spec)`, which copies the rate-only
-/// fields shared between the two types. This keeps `FloatingRateSpec` the
-/// canonical serde-level representation while `FloatCouponParams` is just a
-/// builder convenience for the in-memory segmented-program API.
-#[derive(Debug, Clone)]
-pub struct FloatCouponParams {
-    /// Forward-curve identifier for the projected floating index, such as
-    /// `"USD-SOFR-3M"`.
-    pub index_id: CurveId,
-    /// Margin over the index in basis points, stored as `Decimal` for exact
-    /// quote preservation.
-    pub margin_bp: Decimal,
-    /// Gearing or leverage multiplier applied to the floating rate formula.
-    pub gearing: Decimal,
-    /// Reset lag in business days from the accrual start to the fixing date.
-    pub reset_lag_days: i32,
-    /// Whether gearing is applied to `(index + spread)` or only to the index
-    /// leg before the spread is added back.
-    pub gearing_includes_spread: bool,
-    /// Optional floor on the index component in basis points.
-    pub floor_bp: Option<Decimal>,
-    /// Optional cap on the all-in coupon rate in basis points.
-    pub cap_bp: Option<Decimal>,
-    /// Optional floor on the all-in coupon rate in basis points.
-    pub all_in_floor_bp: Option<Decimal>,
-    /// Optional cap on the index component in basis points.
-    pub index_cap_bp: Option<Decimal>,
-    /// Optional fixing calendar distinct from the payment/accrual calendar.
-    ///
-    /// When `None`, the schedule calendar is also used for fixing adjustment.
-    pub fixing_calendar_id: Option<String>,
-    /// Overnight compounding convention for overnight indices such as SOFR,
-    /// ESTR, or SONIA.
-    pub overnight_compounding: Option<super::OvernightCompoundingMethod>,
-    /// Day-count basis for the overnight compounding denominator.
-    ///
-    /// Defaults to `None` (= Act/360). Set to `Some(DayCount::Act365F)`
-    /// for SONIA.
-    pub overnight_basis: Option<finstack_core::dates::DayCount>,
-    /// Policy applied when the forward curve cannot be resolved or projected.
-    pub fallback: super::FloatingRateFallback,
-}
-
-impl From<&super::FloatingRateSpec> for FloatCouponParams {
-    /// Copy rate-level fields from the canonical `FloatingRateSpec` into the
-    /// builder-facing `FloatCouponParams`. Schedule-gen fields on the spec
-    /// (`reset_freq`, `dc`, `bdc`, `calendar_id`, `end_of_month`,
-    /// `payment_lag_days`) are intentionally not copied — they live on the
-    /// sibling [`ScheduleParams`].
-    fn from(spec: &super::FloatingRateSpec) -> Self {
-        Self {
-            index_id: spec.index_id.clone(),
-            margin_bp: spec.spread_bp,
-            gearing: spec.gearing,
-            reset_lag_days: spec.reset_lag_days,
-            gearing_includes_spread: spec.gearing_includes_spread,
-            floor_bp: spec.floor_bp,
-            cap_bp: spec.cap_bp,
-            all_in_floor_bp: spec.all_in_floor_bp,
-            index_cap_bp: spec.index_cap_bp,
-            fixing_calendar_id: spec.fixing_calendar_id.clone(),
-            overnight_compounding: spec.overnight_compounding,
-            overnight_basis: spec.overnight_basis,
-            fallback: spec.fallback.clone(),
-        }
-    }
-}
-
 /// Fixed-rate coupon window with a shared schedule.
 #[derive(Debug, Clone)]
 pub struct FixedWindow {
     /// Annual coupon rate as a decimal, for example `0.05` for 5%.
     pub rate: Decimal,
     /// Schedule-generation parameters for this fixed-rate window.
-    pub schedule: ScheduleParams,
-}
-
-/// Floating-rate coupon window with a shared schedule.
-#[derive(Debug, Clone)]
-pub struct FloatWindow {
-    /// Floating-index, spread, and floor/cap parameters for this window.
-    pub params: FloatCouponParams,
-    /// Schedule-generation parameters for this floating-rate window.
     pub schedule: ScheduleParams,
 }

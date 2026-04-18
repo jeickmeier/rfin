@@ -311,8 +311,8 @@ fn test_fee_tier() {
 }
 
 #[test]
-fn test_schedule_params_usd_standard() {
-    let json = include_str!("examples/schedule_params_usd_standard.example.json");
+fn test_schedule_params_usd_act360() {
+    let json = include_str!("examples/schedule_params_usd_act360.example.json");
 
     // Verify deserialized values match USD market conventions
     let envelope: CashflowEnvelope<ScheduleParamsPayload> =
