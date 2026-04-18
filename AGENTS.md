@@ -13,8 +13,8 @@
 ## Build and Tooling
 
 - `uv` is the Python package manager; use `uv run` when running Python functions
-- Makefile targets: `make fmt`, `make lint`, `make test`, `make python-dev` (release profile), `make python-dev-debug` (fast compile)
-- `make python-dev` uses `MATURIN_PROFILE=release` for runtime performance; debug builds are too slow for portfolio valuation
+- Makefile targets: `make fmt`, `make lint`, `make test`, `make python-dev` (dev profile, fast compile), `make python-dev-release` (release; use for portfolio-scale benchmarks), `make python-dev-debug` (alias of `python-dev`)
+- `make python-dev-release` uses `MATURIN_PROFILE=release` by default (override with `MATURIN_PROFILE`); release is slower to compile but faster at runtime
 - Pre-commit runs `cargo clippy` and `cargo audit`
 - Clippy runs with `-D warnings`; all warnings are treated as errors
 
