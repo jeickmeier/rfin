@@ -15,3 +15,9 @@ pub use mc_config::RateExoticMcConfig;
 pub mod hw1f_calibration;
 #[cfg(feature = "mc")]
 pub use hw1f_calibration::{resolve_hw1f_params, Hw1fResolveRequest};
+
+/// Exercise-boundary protocol and basis helpers for LSMC-priced rate exotics.
+#[cfg(feature = "mc")]
+pub mod exercise;
+#[cfg(feature = "mc")]
+pub use exercise::{extended_basis, standard_basis, ExerciseBoundaryPayoff};
