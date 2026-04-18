@@ -762,12 +762,7 @@ mod credit_pv_tests {
             flow(d(2025, 9, 1), 10_000.0, CFKind::Fee),
             flow(d(2025, 11, 1), 25_000.0, CFKind::Recovery),
         ];
-        let unsorted = vec![
-            sorted[2].clone(),
-            sorted[0].clone(),
-            sorted[3].clone(),
-            sorted[1].clone(),
-        ];
+        let unsorted = vec![sorted[2], sorted[0], sorted[3], sorted[1]];
 
         let sorted_result = pv_by_period_credit_adjusted_detailed(
             &sorted,

@@ -171,5 +171,3 @@ class TestGbmProcess:
         assert p.rate == pytest.approx(0.05)
         assert p.div_yield == pytest.approx(0.02)
         assert p.vol == pytest.approx(0.25)
-
-

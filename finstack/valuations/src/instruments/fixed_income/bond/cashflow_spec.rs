@@ -762,7 +762,6 @@ impl Default for CashflowSpec {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
-    use rust_decimal_macros::dec;
     use time::Month;
 
     #[test]
