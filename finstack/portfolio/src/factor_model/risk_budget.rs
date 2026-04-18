@@ -241,7 +241,6 @@ mod tests {
         DecompositionConfig, DecompositionMethod, ParametricPositionDecomposer,
         PositionRiskDecomposition, PositionVarContribution,
     };
-    use crate::factor_model::traits::PositionRiskDecomposer;
 
     type TestResult = finstack_core::Result<()>;
 

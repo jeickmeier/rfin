@@ -254,12 +254,14 @@ impl PortfolioMarginAggregator {
         // VM is the net MTM (positive = we owe, negative = they owe)
         let vm = Money::new(total_mtm, self.base_currency);
 
-        // Calculate IM from aggregated sensitivities
-        let im = if let Some(ref sensitivities) = netting_set.aggregated_sensitivities {
-            self.calculate_simm_from_sensitivities(sensitivities)
-        } else {
-            Money::new(0.0, self.base_currency)
-        };
+        // Calculate IM + breakdown from aggregated sensitivities in a single pass.
+        let (im, simm_breakdown) =
+            if let Some(ref sensitivities) = netting_set.aggregated_sensitivities {
+                let (im, breakdown) = self.calculate_simm_with_breakdown(sensitivities);
+                (im, Some((sensitivities.clone(), breakdown)))
+            } else {
+                (Money::new(0.0, self.base_currency), None)
+            };
 
         // Determine methodology
         let methodology = if netting_set.is_cleared() {
@@ -277,10 +279,8 @@ impl PortfolioMarginAggregator {
             methodology,
         );
 
-        // Add SIMM breakdown if available
-        if let Some(ref sensitivities) = netting_set.aggregated_sensitivities {
-            let breakdown = self.calculate_simm_breakdown(sensitivities);
-            result = result.with_simm_breakdown(sensitivities.clone(), breakdown);
+        if let Some((sensitivities, breakdown)) = simm_breakdown {
+            result = result.with_simm_breakdown(sensitivities, breakdown);
         }
 
         Ok((result, degraded_positions))
@@ -319,26 +319,10 @@ impl PortfolioMarginAggregator {
         Ok(amount.amount() * rate_result.rate)
     }
 
-    /// Calculate SIMM from aggregated sensitivities.
+    /// Calculate SIMM total IM and breakdown by risk class in a single pass.
     ///
-    /// Uses the cached `SimmCalculator` for efficiency.
-    fn calculate_simm_from_sensitivities(&self, sensitivities: &SimmSensitivities) -> Money {
-        let (total, _) = self.calculate_simm_with_breakdown(sensitivities);
-        total
-    }
-
-    /// Calculate SIMM breakdown by risk class.
-    fn calculate_simm_breakdown(
-        &self,
-        sensitivities: &SimmSensitivities,
-    ) -> finstack_core::HashMap<String, Money> {
-        let (_, breakdown) = self.calculate_simm_with_breakdown(sensitivities);
-        breakdown
-    }
-
-    /// Calculate SIMM and breakdown in a single pass.
-    ///
-    /// Returns (total_im, breakdown_by_risk_class).
+    /// Returns (total_im, breakdown_by_risk_class). Uses the cached
+    /// `SimmCalculator` for efficiency.
     fn calculate_simm_with_breakdown(
         &self,
         sensitivities: &SimmSensitivities,

@@ -19,22 +19,11 @@ use indexmap::IndexMap;
 #[derive(Default)]
 pub struct DefaultLpOptimizer;
 
-/// Relation for LP constraints.
-#[derive(Clone, Copy, Debug)]
-enum LpRelation {
-    /// `lhs <= rhs`.
-    Le,
-    /// `lhs >= rhs`.
-    Ge,
-    /// `lhs == rhs`.
-    Eq,
-}
-
 /// Linear constraint: `coefficients · w (<=,>=,=) rhs`.
 #[derive(Clone, Debug)]
 struct LpConstraint {
     coefficients: Vec<f64>,
-    relation: LpRelation,
+    relation: Inequality,
     rhs: f64,
     /// Optional name (constraint label) for diagnostics.
     name: Option<String>,
@@ -326,14 +315,9 @@ impl DefaultLpOptimizer {
                         &decision_items,
                         &problem.portfolio,
                     )?;
-                    let relation = match op {
-                        Inequality::Le => LpRelation::Le,
-                        Inequality::Ge => LpRelation::Ge,
-                        Inequality::Eq => LpRelation::Eq,
-                    };
                     lp_constraints.push(LpConstraint {
                         coefficients: a,
-                        relation,
+                        relation: *op,
                         rhs: *rhs,
                         name: label.clone(),
                         is_turnover_placeholder: false,
@@ -348,7 +332,7 @@ impl DefaultLpOptimizer {
                 } => {
                     lp_constraints.push(LpConstraint {
                         coefficients: vec![0.0; n_vars],
-                        relation: LpRelation::Le,
+                        relation: Inequality::Le,
                         rhs: *max_turnover,
                         name: label.clone().or_else(|| Some("turnover".to_string())),
                         is_turnover_placeholder: true,
@@ -358,7 +342,7 @@ impl DefaultLpOptimizer {
                     let coefficients = vec![1.0; n_vars];
                     lp_constraints.push(LpConstraint {
                         coefficients,
-                        relation: LpRelation::Eq,
+                        relation: Inequality::Eq,
                         rhs: *rhs,
                         name: Some("budget".to_string()),
                         is_turnover_placeholder: false,
@@ -370,7 +354,7 @@ impl DefaultLpOptimizer {
         if !has_budget {
             lp_constraints.push(LpConstraint {
                 coefficients: vec![1.0; n_vars],
-                relation: LpRelation::Eq,
+                relation: Inequality::Eq,
                 rhs: 1.0,
                 name: Some("budget".to_string()),
                 is_turnover_placeholder: false,
@@ -471,9 +455,9 @@ impl DefaultLpOptimizer {
             }
 
             problem_model = match lc.relation {
-                LpRelation::Le => problem_model.with(constraint!(lhs <= lc.rhs)),
-                LpRelation::Ge => problem_model.with(constraint!(lhs >= lc.rhs)),
-                LpRelation::Eq => problem_model.with(constraint!(lhs == lc.rhs)),
+                Inequality::Le => problem_model.with(constraint!(lhs <= lc.rhs)),
+                Inequality::Ge => problem_model.with(constraint!(lhs >= lc.rhs)),
+                Inequality::Eq => problem_model.with(constraint!(lhs == lc.rhs)),
             };
         }
 
@@ -610,9 +594,9 @@ impl DefaultLpOptimizer {
                 }
 
                 let slack = match lc.relation {
-                    LpRelation::Le => lc.rhs - lhs_val,
-                    LpRelation::Ge => lhs_val - lc.rhs,
-                    LpRelation::Eq => (lhs_val - lc.rhs).abs(),
+                    Inequality::Le => lc.rhs - lhs_val,
+                    Inequality::Ge => lhs_val - lc.rhs,
+                    Inequality::Eq => (lhs_val - lc.rhs).abs(),
                 };
                 constraint_slacks.insert(name.clone(), slack);
             }

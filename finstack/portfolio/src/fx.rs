@@ -66,34 +66,3 @@ pub fn convert_to_base(
 
     Ok(Money::new(amount.amount() * rate_result.rate, base_ccy))
 }
-
-/// Convenience: return only the scalar FX rate from native currency to
-/// `base_ccy` on `as_of`.
-///
-/// Equivalent to `convert_to_base(Money::new(1.0, from), ...)` but avoids
-/// allocating a throw-away `Money`.
-///
-/// # Errors
-///
-/// Same as [`convert_to_base`].
-pub fn rate_to_base(
-    from: Currency,
-    base_ccy: Currency,
-    as_of: Date,
-    market: &MarketContext,
-) -> Result<f64> {
-    if from == base_ccy {
-        return Ok(1.0);
-    }
-    let fx_matrix = market
-        .fx()
-        .ok_or_else(|| Error::MissingMarketData("FX matrix not available".to_string()))?;
-    let query = FxQuery::new(from, base_ccy, as_of);
-    let rate_result = fx_matrix
-        .rate(query)
-        .map_err(|_| Error::FxConversionFailed {
-            from,
-            to: base_ccy,
-        })?;
-    Ok(rate_result.rate)
-}

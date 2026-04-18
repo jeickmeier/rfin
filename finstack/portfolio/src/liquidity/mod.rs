@@ -48,7 +48,7 @@ pub use types::{
 };
 
 // Re-export estimators
-pub use estimators::{amihud_illiquidity, roll_effective_spread, spread_with_size_impact};
+pub use estimators::{amihud_illiquidity, roll_effective_spread};
 
 // Re-export LVaR
 pub use lvar::{LvarCalculator, LvarResult, PortfolioLvarReport};

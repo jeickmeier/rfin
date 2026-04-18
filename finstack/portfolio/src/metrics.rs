@@ -255,7 +255,37 @@ pub fn aggregate_metrics(
     market: &MarketContext,
     as_of: finstack_core::dates::Date,
 ) -> Result<PortfolioMetrics> {
-    aggregate_metrics_parallel(valuation, base_ccy, market, as_of)
+    use rayon::prelude::*;
+
+    let position_entries: Vec<_> = valuation.position_values.iter().collect();
+
+    let collected: Vec<PositionMetricData> = position_entries
+        .par_iter()
+        .filter_map(|(position_id, position_value)| {
+            position_value.valuation_result.as_ref().map(|val_result| {
+                let metrics: IndexMap<String, f64> = val_result
+                    .measures
+                    .iter()
+                    .map(|(id, v)| {
+                        let metric_id = id.as_str().to_string();
+                        let scaled =
+                            scale_position_metric(&metric_id, *v, position_value.metric_scale);
+                        (metric_id, scaled)
+                    })
+                    .collect();
+                let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of)?;
+                Ok(PositionMetricData {
+                    position_id: (*position_id).clone(),
+                    entity_id: position_value.entity_id.clone(),
+                    currency: position_value.value_native.currency(),
+                    metrics,
+                    fx_rate,
+                })
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(aggregate_collected_metrics(collected))
 }
 
 /// Compute the FX conversion factor from a position's native currency to base currency.
@@ -306,46 +336,6 @@ fn scale_position_metric(metric_id: &str, value: f64, metric_scale: f64) -> f64 
     } else {
         value
     }
-}
-
-/// Parallel implementation of metrics aggregation.
-fn aggregate_metrics_parallel(
-    valuation: &PortfolioValuation,
-    base_ccy: Currency,
-    market: &MarketContext,
-    as_of: finstack_core::dates::Date,
-) -> Result<PortfolioMetrics> {
-    use rayon::prelude::*;
-
-    let position_entries: Vec<_> = valuation.position_values.iter().collect();
-
-    let collected: Vec<PositionMetricData> = position_entries
-        .par_iter()
-        .filter_map(|(position_id, position_value)| {
-            position_value.valuation_result.as_ref().map(|val_result| {
-                let metrics: IndexMap<String, f64> = val_result
-                    .measures
-                    .iter()
-                    .map(|(id, v)| {
-                        let metric_id = id.as_str().to_string();
-                        let scaled =
-                            scale_position_metric(&metric_id, *v, position_value.metric_scale);
-                        (metric_id, scaled)
-                    })
-                    .collect();
-                let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of)?;
-                Ok(PositionMetricData {
-                    position_id: (*position_id).clone(),
-                    entity_id: position_value.entity_id.clone(),
-                    currency: position_value.value_native.currency(),
-                    metrics,
-                    fx_rate,
-                })
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(aggregate_collected_metrics(collected))
 }
 
 /// Collected per-position metric data ready for aggregation.
