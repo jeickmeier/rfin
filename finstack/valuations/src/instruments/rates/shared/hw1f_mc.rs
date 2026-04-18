@@ -208,6 +208,19 @@ fn build_event_aligned_grid(
     Ok((grid, event_indices))
 }
 
+/// Test-only re-export of the event-aligned grid builder used by LSMC.
+///
+/// Not part of the public API; exists to avoid duplicating grid construction
+/// between the MC and LSMC harnesses.
+#[doc(hidden)]
+pub fn __test_only_build_event_aligned_grid(
+    event_times: &[f64],
+    maturity: f64,
+    min_steps_between: usize,
+) -> Result<(TimeGrid, Vec<usize>)> {
+    build_event_aligned_grid(event_times, maturity, min_steps_between)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

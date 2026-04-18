@@ -27,3 +27,9 @@ pub use exercise::{extended_basis, standard_basis, ExerciseBoundaryPayoff};
 pub mod hw1f_mc;
 #[cfg(feature = "mc")]
 pub use hw1f_mc::RateExoticHw1fMcPricer;
+
+/// HW1F Longstaff-Schwartz MC pricer for callable rate exotics.
+#[cfg(feature = "mc")]
+pub mod hw1f_lsmc;
+#[cfg(feature = "mc")]
+pub use hw1f_lsmc::RateExoticHw1fLsmcPricer;
