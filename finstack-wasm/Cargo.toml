@@ -31,6 +31,7 @@ serde_json = { workspace = true }
 getrandom = { version = "0.2", features = ["js"] }
 indexmap = { workspace = true }
 ts-rs = { version = "12", optional = true, features = ["serde-compat"] }
+console_error_panic_hook = "0.1"
 
 # Month enum required by Date bindings
 time = { workspace = true }
@@ -46,18 +47,13 @@ wasm-bindgen-test = "0.3"
 
 # Features
 #
-# - `default`: Enables console panic hook and scenarios support for standard usage
-# - `console_error_panic_hook`: Better panic messages in browser console (recommended for development)
+# - `default`: Enables scenarios support for standard usage
 # - `scenarios`: Portfolio scenario analysis and stress testing (requires finstack-portfolio scenarios)
+# - `ts_export`: Emit TypeScript type definitions at build time (opt-in, writes files to disk)
 [features]
-default = ["console_error_panic_hook", "scenarios"]
+default = ["scenarios"]
 scenarios = ["finstack-portfolio/scenarios"]
-console_error_panic_hook = ["dep:console_error_panic_hook"]
 ts_export = ["dep:ts-rs", "finstack-valuations/ts_export"]
-
-[dependencies.console_error_panic_hook]
-version = "0.1"
-optional = true
 
 [package.metadata.wasm-pack.profile.release]
 # Keep this feature allowlist in sync with the wasm features emitted by the
