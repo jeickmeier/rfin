@@ -28,7 +28,6 @@ pub mod types;
 pub mod xva;
 
 /// Regulatory capital frameworks (FRTB SBA, SA-CCR).
-#[cfg(feature = "regulatory")]
 pub mod regulatory;
 
 pub use calculators::im::schedule::{ScheduleAssetClass, BCBS_IOSCO_SCHEDULE_ID};
