@@ -5,8 +5,7 @@
 //! replicate their VaR/SPAN-based calculations.
 
 use crate::calculators::traits::{ImCalculator, ImResult};
-use crate::config::margin_registry_from_config;
-use crate::registry::{embedded_registry, CcpParams, MarginRegistry};
+use crate::registry::{embedded_registry, margin_registry_from_config, CcpParams, MarginRegistry};
 use crate::traits::Marginable;
 use crate::types::ImMethodology;
 use finstack_core::config::FinstackConfig;
@@ -152,25 +151,13 @@ impl CcpMethodology {
     }
 }
 
-/// CCP margin input source for external VaR or SPAN results.
-pub trait CcpMarginInputSource: Send + Sync {
-    /// Return a CCP-supplied IM amount when available.
-    ///
-    /// Returned amounts are expected to be final margin amounts in the currency
-    /// carried by the [`Money`] value, not percentages or risk weights.
-    fn initial_margin(
-        &self,
-        instrument: &dyn Marginable,
-        context: &MarketContext,
-        as_of: Date,
-        methodology: &CcpMethodology,
-    ) -> Option<Money>;
-
-    /// Optional MPOR override supplied by the CCP.
-    fn mpor_days(&self, _methodology: &CcpMethodology) -> Option<u32> {
-        None
-    }
-}
+/// Legacy alias for the unified [`super::ExternalImSource`] trait.
+///
+/// Kept so downstream callers that imported `CcpMarginInputSource`
+/// continue to compile. The methodology argument previously threaded
+/// through the trait is redundant (the implementer already knows which
+/// CCP it represents) and has been dropped.
+pub use super::ExternalImSource as CcpMarginInputSource;
 
 /// Clearing house IM calculator.
 ///
@@ -227,7 +214,7 @@ pub struct ClearingHouseImCalculator {
     /// CCP methodology
     pub methodology: CcpMethodology,
     /// Optional external CCP margin input source
-    pub input_source: Option<Arc<dyn CcpMarginInputSource>>,
+    pub input_source: Option<Arc<dyn super::ExternalImSource>>,
     /// Optional resolved parameters (overrides or pre-fetched config)
     pub params_override: Option<CcpParams>,
 }
@@ -239,10 +226,7 @@ impl std::fmt::Debug for ClearingHouseImCalculator {
             .field("params_override", &self.params_override)
             .field(
                 "input_source",
-                &self
-                    .input_source
-                    .as_ref()
-                    .map(|_| "<dyn CcpMarginInputSource>"),
+                &self.input_source.as_ref().map(|_| "<dyn ExternalImSource>"),
             )
             .finish()
     }
@@ -363,7 +347,7 @@ impl ClearingHouseImCalculator {
     ///
     /// The updated calculator.
     #[must_use]
-    pub fn with_input_source(mut self, source: Arc<dyn CcpMarginInputSource>) -> Self {
+    pub fn with_input_source(mut self, source: Arc<dyn super::ExternalImSource>) -> Self {
         self.input_source = Some(source);
         self
     }
@@ -378,8 +362,7 @@ impl ClearingHouseImCalculator {
     ///
     /// `|exposure_base| × conservative_rate`, where the rate is a decimal fraction.
     pub fn calculate_conservative(&self, exposure_base: Money) -> Money {
-        Money::new(exposure_base.amount().abs(), exposure_base.currency())
-            * self.params().conservative_rate
+        super::conservative_im(exposure_base, self.params().conservative_rate)
     }
 }
 
@@ -396,12 +379,10 @@ impl ImCalculator for ClearingHouseImCalculator {
         let mut im_amount = self.calculate_conservative(notional);
         let mut mpor_days = self.params().mpor_days;
         if let Some(source) = &self.input_source {
-            if let Some(amount) =
-                source.initial_margin(instrument, context, as_of, &self.methodology)
-            {
+            if let Some(amount) = source.external_initial_margin(instrument, context, as_of) {
                 im_amount = amount;
             }
-            if let Some(override_mpor) = source.mpor_days(&self.methodology) {
+            if let Some(override_mpor) = source.external_mpor_days() {
                 mpor_days = override_mpor;
             }
         }
@@ -551,18 +532,17 @@ mod tests {
         mpor_days: u32,
     }
 
-    impl CcpMarginInputSource for TestInputSource {
-        fn initial_margin(
+    impl super::super::ExternalImSource for TestInputSource {
+        fn external_initial_margin(
             &self,
             _instrument: &dyn Marginable,
             _context: &MarketContext,
             _as_of: Date,
-            _methodology: &CcpMethodology,
         ) -> Option<Money> {
             Some(self.amount)
         }
 
-        fn mpor_days(&self, _methodology: &CcpMethodology) -> Option<u32> {
+        fn external_mpor_days(&self) -> Option<u32> {
             Some(self.mpor_days)
         }
     }

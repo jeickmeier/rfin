@@ -16,7 +16,8 @@
 //!
 //! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 //! # let mut model: ModelBuilder<Ready> = unimplemented!("build a ModelBuilder<Ready>");
-//! model.add_metric("fin.gross_profit")?;
+//! let registry = Registry::with_builtins()?;
+//! model.add_metric_from_registry("fin.gross_profit", &registry)?;
 //! model.compute("margin", "fin.gross_profit / revenue")?;
 //! # Ok(())
 //! # }

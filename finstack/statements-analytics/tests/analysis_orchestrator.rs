@@ -206,7 +206,7 @@ fn test_mixed_currency_capital_structure_does_not_panic_in_dynamic_evaluator() {
         .insert(flat_discount_curve(0.03, as_of, "EUR-OIS"));
     let mut evaluator = Evaluator::new();
     let results = evaluator
-        .evaluate_with_market_context(&model, Some(&market), Some(as_of))
+        .evaluate_with_market(&model, &market, as_of)
         .expect("evaluation should succeed");
 
     let cs = results.cs_cashflows.expect("capital structure cashflows");

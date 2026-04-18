@@ -62,6 +62,10 @@ use finstack_core::dates::PeriodId;
 
 /// Apply a forecast method to generate values for forecast periods.
 ///
+/// Use this for the standalone deterministic forecast path. Statistical
+/// methods use the seed recorded in `spec.params`. Monte Carlo evaluation
+/// calls [`apply_forecast_seeded`] to layer an additional per-path seed.
+///
 /// # Arguments
 ///
 /// * `spec` - Forecast specification with method and parameters
@@ -76,35 +80,38 @@ pub fn apply_forecast(
     base_value: f64,
     forecast_periods: &[PeriodId],
 ) -> Result<indexmap::IndexMap<PeriodId, f64>> {
-    use crate::types::ForecastMethod;
-
-    match spec.method {
-        ForecastMethod::ForwardFill => forward_fill(base_value, forecast_periods),
-        ForecastMethod::GrowthPct => growth_pct(base_value, forecast_periods, &spec.params),
-        ForecastMethod::CurvePct => curve_pct(base_value, forecast_periods, &spec.params),
-        ForecastMethod::Override => apply_override(base_value, forecast_periods, &spec.params),
-        ForecastMethod::Normal => normal_forecast(base_value, forecast_periods, &spec.params),
-        ForecastMethod::LogNormal => lognormal_forecast(base_value, forecast_periods, &spec.params),
-        ForecastMethod::TimeSeries => {
-            timeseries_forecast(base_value, forecast_periods, &spec.params)
-        }
-        ForecastMethod::Seasonal => seasonal_forecast(base_value, forecast_periods, &spec.params),
-    }
+    apply_forecast_internal(spec, base_value, forecast_periods, None)
 }
 
 /// Apply a forecast method with an additional seed offset for statistical
 /// methods.
 ///
-/// This is used by Monte Carlo evaluation to derive independent, but still
+/// Used by Monte Carlo evaluation to derive independent, but still
 /// deterministic, per-path seeds from the base seed configured in the
-/// [`ForecastSpec`]. The `node_id` argument is mixed into the effective RNG seed
-/// so different stochastic nodes on the same path do not reuse identical draws.
-pub(crate) fn apply_forecast_with_seed_offset(
+/// [`ForecastSpec`]. The `node_id` argument is mixed into the effective RNG
+/// seed so different stochastic nodes on the same path do not reuse identical
+/// draws. Deterministic methods ignore the seed and behave identically to
+/// [`apply_forecast`].
+pub(crate) fn apply_forecast_seeded(
     spec: &ForecastSpec,
     base_value: f64,
     forecast_periods: &[PeriodId],
     seed_offset: u64,
     node_id: &str,
+) -> Result<indexmap::IndexMap<PeriodId, f64>> {
+    apply_forecast_internal(
+        spec,
+        base_value,
+        forecast_periods,
+        Some((seed_offset, node_id)),
+    )
+}
+
+fn apply_forecast_internal(
+    spec: &ForecastSpec,
+    base_value: f64,
+    forecast_periods: &[PeriodId],
+    seed_ctx: Option<(u64, &str)>,
 ) -> Result<indexmap::IndexMap<PeriodId, f64>> {
     use crate::types::ForecastMethod;
     use statistical::{
@@ -112,30 +119,46 @@ pub(crate) fn apply_forecast_with_seed_offset(
         stable_hash_u64,
     };
 
-    match spec.method {
-        ForecastMethod::Normal => {
-            // Clone params so we can override the seed without mutating the spec.
-            let mut params = spec.params.clone();
-            if let Some(seed_val) = params.get_mut("seed") {
-                if let Some(seed) = parse_seed_json(seed_val) {
-                    let effective_seed = seed ^ stable_hash_u64(node_id);
-                    *seed_val = serde_json::json!(effective_seed);
-                }
-            }
+    match (spec.method, seed_ctx) {
+        (ForecastMethod::Normal, Some((seed_offset, node_id))) => {
+            let params = mix_node_seed(&spec.params, node_id, parse_seed_json, stable_hash_u64);
             normal_forecast_with_stream(base_value, forecast_periods, &params, Some(seed_offset))
         }
-        ForecastMethod::LogNormal => {
-            let mut params = spec.params.clone();
-            if let Some(seed_val) = params.get_mut("seed") {
-                if let Some(seed) = parse_seed_json(seed_val) {
-                    let effective_seed = seed ^ stable_hash_u64(node_id);
-                    *seed_val = serde_json::json!(effective_seed);
-                }
-            }
+        (ForecastMethod::LogNormal, Some((seed_offset, node_id))) => {
+            let params = mix_node_seed(&spec.params, node_id, parse_seed_json, stable_hash_u64);
             lognormal_forecast_with_stream(base_value, forecast_periods, &params, Some(seed_offset))
         }
-        // Deterministic methods ignore the seed offset and reuse the
-        // standard apply_forecast implementation.
-        _ => apply_forecast(spec, base_value, forecast_periods),
+        (ForecastMethod::ForwardFill, _) => forward_fill(base_value, forecast_periods),
+        (ForecastMethod::GrowthPct, _) => growth_pct(base_value, forecast_periods, &spec.params),
+        (ForecastMethod::CurvePct, _) => curve_pct(base_value, forecast_periods, &spec.params),
+        (ForecastMethod::Override, _) => apply_override(base_value, forecast_periods, &spec.params),
+        (ForecastMethod::Normal, None) => {
+            normal_forecast(base_value, forecast_periods, &spec.params)
+        }
+        (ForecastMethod::LogNormal, None) => {
+            lognormal_forecast(base_value, forecast_periods, &spec.params)
+        }
+        (ForecastMethod::TimeSeries, _) => {
+            timeseries_forecast(base_value, forecast_periods, &spec.params)
+        }
+        (ForecastMethod::Seasonal, _) => {
+            seasonal_forecast(base_value, forecast_periods, &spec.params)
+        }
     }
+}
+
+fn mix_node_seed(
+    params: &indexmap::IndexMap<String, serde_json::Value>,
+    node_id: &str,
+    parse_seed: fn(&serde_json::Value) -> Option<u64>,
+    hash_node: fn(&str) -> u64,
+) -> indexmap::IndexMap<String, serde_json::Value> {
+    let mut params = params.clone();
+    if let Some(seed_val) = params.get_mut("seed") {
+        if let Some(seed) = parse_seed(seed_val) {
+            let effective_seed = seed ^ hash_node(node_id);
+            *seed_val = serde_json::json!(effective_seed);
+        }
+    }
+    params
 }

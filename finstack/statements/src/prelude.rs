@@ -18,13 +18,11 @@ pub use crate::checks::builtins::{
 };
 pub use crate::checks::{
     BuiltinCheckSpec, Check, CheckCategory, CheckConfig, CheckContext, CheckFinding, CheckReport,
-    CheckResult, CheckRunner, CheckSuite, CheckSuiteBuilder, CheckSuiteSpec, CheckSummary,
-    FormulaCheckSpec, Materiality, PeriodScope, Severity,
+    CheckResult, CheckSuite, CheckSuiteBuilder, CheckSuiteSpec, CheckSummary, FormulaCheckSpec,
+    Materiality, PeriodScope, Severity,
 };
 pub use crate::error::{Error, Result};
-pub use crate::evaluator::{
-    Evaluator, EvaluatorWithContext, NumericMode, PreparedEvaluation, StatementResult,
-};
+pub use crate::evaluator::{Evaluator, NumericMode, PreparedEvaluation, StatementResult};
 pub use crate::registry::Registry;
 pub use crate::types::{
     AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeId, NodeSpec, NodeType,

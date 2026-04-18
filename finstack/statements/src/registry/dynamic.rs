@@ -39,6 +39,28 @@ impl Registry {
         }
     }
 
+    /// Create a new registry preloaded with built-in metrics (fin.* namespace).
+    ///
+    /// This is a shortcut for `Registry::new().load_builtins()` that avoids the
+    /// two-step pattern in call sites.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_statements::registry::Registry;
+    ///
+    /// # fn main() -> finstack_statements::Result<()> {
+    /// let registry = Registry::with_builtins()?;
+    /// assert!(registry.has("fin.gross_profit"));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_builtins() -> Result<Self> {
+        let mut registry = Self::new();
+        registry.load_builtins()?;
+        Ok(registry)
+    }
+
     /// Load built-in metrics (fin.* namespace).
     ///
     /// This loads standard financial metrics from embedded JSON files.

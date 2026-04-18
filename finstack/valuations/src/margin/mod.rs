@@ -4,7 +4,6 @@
 //! concrete `Marginable` implementations for valuations instruments.
 
 pub use finstack_margin::calculators;
-pub use finstack_margin::config;
 pub use finstack_margin::constants;
 pub use finstack_margin::metrics;
 pub use finstack_margin::registry;

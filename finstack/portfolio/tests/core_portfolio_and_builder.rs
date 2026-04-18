@@ -64,7 +64,7 @@ fn validate_unknown_entity_fails() {
     let p = Position::new("P", "UNKNOWN", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
 
     let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
-    portfolio.add_position(p);
+    portfolio.add_position(p).unwrap();
 
     let err = portfolio.validate().unwrap_err();
     match err {
@@ -103,7 +103,7 @@ fn explicit_position_mutators_keep_lookup_index_in_sync() {
     let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
     portfolio.entities.insert("E".into(), Entity::new("E"));
 
-    portfolio.add_position(pos1);
+    portfolio.add_position(pos1).unwrap();
     assert_eq!(portfolio.positions().len(), 1);
     assert!(portfolio.get_position("P1").is_some());
 

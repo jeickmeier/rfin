@@ -12,9 +12,9 @@
 //! allowing callers to handle missing registry data gracefully.
 
 use crate::calculators::traits::{ImCalculator, ImResult};
+use crate::registry::{embedded_registry, margin_registry_from_config};
 use crate::traits::Marginable;
 use crate::types::ImMethodology;
-use crate::{config::margin_registry_from_config, registry::embedded_registry};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;

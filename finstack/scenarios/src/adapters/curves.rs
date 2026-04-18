@@ -10,7 +10,7 @@ use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::{Error, Result};
 use crate::spec::{CurveKind, OperationSpec, TenorMatchMode};
-use crate::utils::{calculate_interpolation_weights_with_info, parse_tenor_to_years_with_context};
+use crate::utils::{calculate_interpolation_weights, parse_tenor_to_years_with_context};
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
@@ -108,7 +108,7 @@ fn resolve_bump_targets(
                 };
 
                 // Use extrapolation-aware weight calculation
-                let result = calculate_interpolation_weights_with_info(use_years, knots);
+                let result = calculate_interpolation_weights(use_years, knots);
 
                 // Emit warning if extrapolating beyond curve range
                 if result.is_extrapolation {

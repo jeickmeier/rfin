@@ -7,7 +7,9 @@ use super::builtins::{
     RetainedEarningsReconciliation, SignConventionCheck,
 };
 use super::traits::{Check, CheckContext};
-use super::types::{CheckCategory, CheckConfig, CheckReport, CheckResult, PeriodScope, Severity};
+use super::types::{
+    CheckCategory, CheckConfig, CheckReport, CheckResult, CheckSummary, PeriodScope, Severity,
+};
 use crate::evaluator::StatementResult;
 use crate::types::{FinancialModelSpec, NodeId};
 use crate::Result;
@@ -49,41 +51,13 @@ impl CheckSuite {
         results: &StatementResult,
     ) -> Result<CheckReport> {
         let context = CheckContext::with_config(model, results, self.config.clone());
-        self.run_internal(&context)
-    }
-
-    /// Number of checks in the suite.
-    pub fn len(&self) -> usize {
-        self.checks.len()
-    }
-
-    /// True when the suite contains no checks.
-    pub fn is_empty(&self) -> bool {
-        self.checks.is_empty()
-    }
-
-    /// Suite name.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Suite description, if set.
-    pub fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
-
-    // ------------------------------------------------------------------
-    // Internal
-    // ------------------------------------------------------------------
-
-    fn run_internal(&self, context: &CheckContext) -> Result<CheckReport> {
         let min_severity = context.config.min_severity;
         let mat_threshold = context.config.materiality_threshold;
 
         let mut filtered_results: Vec<CheckResult> = Vec::with_capacity(self.checks.len());
 
         for check in &self.checks {
-            let mut result = check.execute(context)?;
+            let mut result = check.execute(&context)?;
 
             result.findings.retain(|f| {
                 if f.severity < min_severity {
@@ -107,11 +81,52 @@ impl CheckSuite {
             filtered_results.push(result);
         }
 
-        let summary = crate::checks::runner::build_summary(&filtered_results);
+        let total_checks = filtered_results.len();
+        let passed = filtered_results.iter().filter(|r| r.passed).count();
+        let failed = total_checks - passed;
+
+        let mut errors: usize = 0;
+        let mut warnings: usize = 0;
+        let mut infos: usize = 0;
+        for finding in filtered_results.iter().flat_map(|r| &r.findings) {
+            match finding.severity {
+                Severity::Error => errors += 1,
+                Severity::Warning => warnings += 1,
+                Severity::Info => infos += 1,
+            }
+        }
+
         Ok(CheckReport {
             results: filtered_results,
-            summary,
+            summary: CheckSummary {
+                total_checks,
+                passed,
+                failed,
+                errors,
+                warnings,
+                infos,
+            },
         })
+    }
+
+    /// Number of checks in the suite.
+    pub fn len(&self) -> usize {
+        self.checks.len()
+    }
+
+    /// True when the suite contains no checks.
+    pub fn is_empty(&self) -> bool {
+        self.checks.is_empty()
+    }
+
+    /// Suite name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Suite description, if set.
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
     }
 }
 

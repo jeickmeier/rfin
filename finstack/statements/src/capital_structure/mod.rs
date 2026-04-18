@@ -68,8 +68,7 @@ mod waterfall_spec;
 // Curated public facade — preserves the same public type set as the old `types.rs`.
 pub use cashflows::{CapitalStructureCashflows, CashflowBreakdown};
 pub use integration::{
-    aggregate_instrument_cashflows, build_any_instrument_from_spec, build_bond_from_spec,
-    build_swap_from_spec, build_term_loan_from_spec, calculate_period_flows,
+    aggregate_instrument_cashflows, build_any_instrument_from_spec, calculate_period_flows,
 };
 pub use state::CapitalStructureState;
 pub use waterfall::execute_waterfall;

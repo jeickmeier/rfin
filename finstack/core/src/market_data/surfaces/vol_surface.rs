@@ -901,52 +901,39 @@ impl VolSurfaceBuilder {
     }
 }
 
-impl VolSurface {
-    /// Construct directly from axes and a row-major flat values array.
-    pub fn from_grid(
-        id: impl AsRef<str>,
-        expiries: &[f64],
-        strikes: &[f64],
-        vols_row_major: &[f64],
-    ) -> crate::Result<Self> {
-        Self::from_grid_with_axis_and_mode(
-            id,
-            expiries,
-            strikes,
-            vols_row_major,
-            VolSurfaceAxis::Strike,
-            VolInterpolationMode::Vol,
-        )
-    }
+/// Options bundle for [`VolSurface::from_grid_opts`].
+///
+/// This is the canonical entry for grid construction. The historical
+/// `from_grid`, `from_grid_with_axis`, and `from_grid_with_axis_and_mode`
+/// helpers now delegate here.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct VolGridOpts {
+    /// Semantic meaning of the secondary axis (strike vs tenor).
+    pub secondary_axis: VolSurfaceAxis,
+    /// Interpolation contract (direct vol vs total-variance).
+    pub interpolation_mode: VolInterpolationMode,
+}
 
-    /// Construct directly from axes and a row-major flat values array with an
-    /// explicit secondary-axis contract.
-    pub fn from_grid_with_axis(
-        id: impl AsRef<str>,
-        expiries: &[f64],
-        strikes: &[f64],
-        vols_row_major: &[f64],
-        secondary_axis: VolSurfaceAxis,
-    ) -> crate::Result<Self> {
-        Self::from_grid_with_axis_and_mode(
-            id,
-            expiries,
-            strikes,
-            vols_row_major,
+impl VolGridOpts {
+    /// Shorthand constructor.
+    pub fn new(secondary_axis: VolSurfaceAxis, interpolation_mode: VolInterpolationMode) -> Self {
+        Self {
             secondary_axis,
-            VolInterpolationMode::Vol,
-        )
+            interpolation_mode,
+        }
     }
+}
 
-    /// Construct directly from axes and a row-major flat values array with an
-    /// explicit secondary-axis contract and interpolation mode.
-    pub fn from_grid_with_axis_and_mode(
+impl VolSurface {
+    /// Canonical grid constructor. Prefer this over [`VolSurface::from_grid`],
+    /// [`VolSurface::from_grid_with_axis`], and
+    /// [`VolSurface::from_grid_with_axis_and_mode`], which now delegate here.
+    pub fn from_grid_opts(
         id: impl AsRef<str>,
         expiries: &[f64],
         strikes: &[f64],
         vols_row_major: &[f64],
-        secondary_axis: VolSurfaceAxis,
-        interpolation_mode: VolInterpolationMode,
+        opts: VolGridOpts,
     ) -> crate::Result<Self> {
         if expiries.is_empty() || strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
@@ -969,10 +956,76 @@ impl VolSurface {
             id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),
             strikes: strikes.to_vec().into_boxed_slice(),
-            secondary_axis,
-            interpolation_mode,
+            secondary_axis: opts.secondary_axis,
+            interpolation_mode: opts.interpolation_mode,
             vols: vols_row_major.to_vec(),
         })
+    }
+
+    /// Construct directly from axes and a row-major flat values array.
+    ///
+    /// Equivalent to [`from_grid_opts`](Self::from_grid_opts) with
+    /// [`VolGridOpts::default()`].
+    pub fn from_grid(
+        id: impl AsRef<str>,
+        expiries: &[f64],
+        strikes: &[f64],
+        vols_row_major: &[f64],
+    ) -> crate::Result<Self> {
+        Self::from_grid_opts(
+            id,
+            expiries,
+            strikes,
+            vols_row_major,
+            VolGridOpts::default(),
+        )
+    }
+
+    /// Construct directly from axes and a row-major flat values array with an
+    /// explicit secondary-axis contract.
+    ///
+    /// New callers should prefer [`from_grid_opts`](Self::from_grid_opts).
+    pub fn from_grid_with_axis(
+        id: impl AsRef<str>,
+        expiries: &[f64],
+        strikes: &[f64],
+        vols_row_major: &[f64],
+        secondary_axis: VolSurfaceAxis,
+    ) -> crate::Result<Self> {
+        Self::from_grid_opts(
+            id,
+            expiries,
+            strikes,
+            vols_row_major,
+            VolGridOpts {
+                secondary_axis,
+                interpolation_mode: VolInterpolationMode::Vol,
+            },
+        )
+    }
+
+    /// Construct directly from axes and a row-major flat values array with an
+    /// explicit secondary-axis contract and interpolation mode.
+    ///
+    /// New callers should prefer [`from_grid_opts`](Self::from_grid_opts).
+    pub fn from_grid_with_axis_and_mode(
+        id: impl AsRef<str>,
+        expiries: &[f64],
+        strikes: &[f64],
+        vols_row_major: &[f64],
+        secondary_axis: VolSurfaceAxis,
+        interpolation_mode: VolInterpolationMode,
+    ) -> crate::Result<Self> {
+        Self::from_grid_opts(
+            id,
+            expiries,
+            strikes,
+            vols_row_major,
+            VolGridOpts {
+                secondary_axis,
+                interpolation_mode,
+            },
+        )
     }
 }
 

@@ -93,7 +93,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{InputError, NonFiniteKind};
+use crate::error::{Error, InputError, NonFiniteKind};
 use crate::Result;
 
 /// Classify a non-finite `f64` value into a `NonFiniteKind`.
@@ -262,6 +262,9 @@ impl fmt::Display for Rate {
 }
 
 impl From<f64> for Rate {
+    /// Prefer [`TryFrom<f64>`] for untrusted inputs; this panics on non-finite
+    /// values and is retained only for backward compatibility with
+    /// `rate.into()` call sites.
     fn from(decimal: f64) -> Self {
         Self::from_decimal(decimal)
     }
@@ -603,8 +606,20 @@ impl fmt::Display for Percentage {
 }
 
 impl From<f64> for Percentage {
+    /// Prefer [`TryFrom<f64>`]; this panics on non-finite input and remains
+    /// only for backward compatibility.
     fn from(percent: f64) -> Self {
         Self::new(percent)
+    }
+}
+
+impl TryFrom<f64> for Bps {
+    type Error = Error;
+
+    /// Fallible conversion from basis-point `f64`. Rejects `NaN` and
+    /// `±Infinity`.
+    fn try_from(bps: f64) -> Result<Self> {
+        Self::try_new(bps)
     }
 }
 

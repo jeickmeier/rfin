@@ -41,7 +41,7 @@ The crate covers three related workflows:
 ### Configuration and data
 
 - Embedded registry loading via `registry::embedded_registry()`
-- Config-driven overlays via `config::margin_registry_from_config()`
+- Config-driven overlays via `registry::margin_registry_from_config()`
 - JSON schema for external margin specs and overlays
 
 ### XVA surface
@@ -316,7 +316,7 @@ through `registry::embedded_registry()`.
 | `data/margin/simm.v1.json` | Registry-backed SIMM weights, correlations, and concentration thresholds |
 | `schemas/margin/1/margin.schema.json` | Schema for external margin specifications and related JSON payloads |
 
-Use `config::margin_registry_from_config()` when you need to apply a JSON
+Use `registry::margin_registry_from_config()` when you need to apply a JSON
 overlay from `FinstackConfig`. The extension key is
 `valuations.margin_registry.v1`.
 

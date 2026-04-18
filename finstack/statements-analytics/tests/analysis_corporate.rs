@@ -101,7 +101,7 @@ fn test_cs_cashflows_populated_on_statement_result() {
 
     let mut evaluator = Evaluator::new();
     let result = evaluator
-        .evaluate_with_market_context(&model, Some(&market_ctx), Some(issue))
+        .evaluate_with_market(&model, &market_ctx, issue)
         .expect("evaluation should succeed");
 
     // cs_cashflows should be populated when model has a capital structure

@@ -62,8 +62,17 @@ pub struct HaircutImCalculator {
     /// Default collateral asset class to assume
     default_asset_class: CollateralAssetClass,
 
-    /// Whether to apply FX haircut addon
+    /// Policy flag: whether FX add-ons should be applied when a currency
+    /// mismatch exists. This is a configuration knob distinct from the
+    /// runtime state represented by [`Self::currency_mismatch`].
     apply_fx_addon: bool,
+
+    /// Runtime flag: whether the posted collateral's currency differs from
+    /// the exposure currency. Defaults to `false`; callers that detect an FX
+    /// mismatch must flip this via [`Self::with_currency_mismatch`]. The FX
+    /// add-on is only applied when both this flag and `apply_fx_addon` are
+    /// `true`.
+    currency_mismatch: bool,
 }
 
 impl HaircutImCalculator {
@@ -74,6 +83,7 @@ impl HaircutImCalculator {
             eligible_collateral,
             default_asset_class: CollateralAssetClass::GovernmentBonds,
             apply_fx_addon: false,
+            currency_mismatch: false,
         }
     }
 
@@ -99,6 +109,15 @@ impl HaircutImCalculator {
     #[must_use]
     pub fn with_fx_addon(mut self, apply: bool) -> Self {
         self.apply_fx_addon = apply;
+        self
+    }
+
+    /// Set whether the posted collateral's currency differs from the
+    /// exposure currency. Only consulted when [`Self::with_fx_addon`] is
+    /// also `true`.
+    #[must_use]
+    pub fn with_currency_mismatch(mut self, mismatch: bool) -> Self {
+        self.currency_mismatch = mismatch;
         self
     }
 
@@ -152,7 +171,7 @@ impl ImCalculator for HaircutImCalculator {
         let im_amount = self.calculate_for_collateral(
             collateral_value,
             &self.default_asset_class,
-            self.apply_fx_addon,
+            self.currency_mismatch,
         )?;
 
         let mut breakdown = finstack_core::HashMap::default();
@@ -211,6 +230,69 @@ mod tests {
         // Cash with FX mismatch should have 8% haircut
         assert_eq!(im_no_fx.amount(), 0.0); // Cash has 0% haircut
         assert_eq!(im_with_fx.amount(), 800_000.0); // 8% FX addon
+    }
+
+    #[test]
+    fn calculate_respects_currency_mismatch_runtime_flag() {
+        use crate::traits::Marginable;
+        use finstack_core::market_data::context::MarketContext;
+        use time::macros::date;
+
+        struct TestMarginable {
+            value: Money,
+        }
+        impl Marginable for TestMarginable {
+            fn id(&self) -> &str {
+                "TEST"
+            }
+            fn margin_spec(&self) -> Option<&crate::OtcMarginSpec> {
+                None
+            }
+            fn netting_set_id(&self) -> Option<crate::NettingSetId> {
+                None
+            }
+            fn simm_sensitivities(
+                &self,
+                _m: &MarketContext,
+                _a: Date,
+            ) -> Result<crate::SimmSensitivities> {
+                Ok(crate::SimmSensitivities::new(self.value.currency()))
+            }
+            fn mtm_for_vm(&self, _m: &MarketContext, _a: Date) -> Result<Money> {
+                Ok(self.value)
+            }
+        }
+
+        let instrument = TestMarginable {
+            value: Money::new(10_000_000.0, Currency::USD),
+        };
+        let context = MarketContext::new();
+        let as_of: Date = date!(2025 - 01 - 01);
+
+        let base_calc = HaircutImCalculator::bcbs_standard()
+            .expect("registry should load")
+            .with_default_asset_class(CollateralAssetClass::Cash)
+            .with_fx_addon(true);
+
+        let im_same_ccy = base_calc
+            .clone()
+            .calculate(&instrument, &context, as_of)
+            .expect("calculation ok");
+        assert_eq!(
+            im_same_ccy.amount.amount(),
+            0.0,
+            "with_fx_addon=true but currency_mismatch=false must not apply FX addon"
+        );
+
+        let im_mismatch = base_calc
+            .with_currency_mismatch(true)
+            .calculate(&instrument, &context, as_of)
+            .expect("calculation ok");
+        assert_eq!(
+            im_mismatch.amount.amount(),
+            800_000.0,
+            "currency_mismatch=true with_fx_addon=true must apply 8% FX addon to cash"
+        );
     }
 
     #[test]

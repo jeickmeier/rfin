@@ -197,9 +197,12 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 ///
 /// # Returns
 ///
-/// The Information Ratio. Returns `0.0` if tracking error is zero or the
-/// series are empty. When `annualize` is `true`, returns [`f64::NAN`] if
-/// `ann_factor` is not finite or is `<= 0`.
+/// The Information Ratio. Returns `0.0` when the series are empty, or when
+/// tracking error is zero and mean active return is also zero. When the
+/// tracking error is zero but mean active return is nonzero, returns
+/// `+∞` or `-∞` matching the sign of the excess (consistent with
+/// [`crate::risk_metrics::return_based::sharpe`]). When `annualize` is
+/// `true`, returns [`f64::NAN`] if `ann_factor` is not finite or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -236,7 +239,13 @@ pub fn information_ratio(
     let er = os.mean();
     let te = os.std_dev();
     if te == 0.0 {
-        return 0.0;
+        return if er > 0.0 {
+            f64::INFINITY
+        } else if er < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     if annualize {
         (er * ann_factor) / (te * ann_factor.sqrt())

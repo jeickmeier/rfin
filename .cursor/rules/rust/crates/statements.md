@@ -31,7 +31,7 @@ This document defines Cursor rules for the `finstack/statements/` crate. It expl
   - `ast.rs`: `StmtExpr` AST representation.
   - `compiler.rs`: compiles `StmtExpr` → `finstack_core::expr::Expr`.
 - `src/evaluator/`: evaluation engine for models.
-  - `engine.rs`: `Evaluator` and `EvaluatorWithContext` (main public APIs).
+  - `engine.rs`: `Evaluator` (main public API) with `evaluate` and `evaluate_with_market`.
   - `dag.rs`: dependency graph construction and topological sort.
   - `precedence.rs`: precedence resolution (Value > Forecast > Formula) per period.
   - `context.rs`: `EvaluationContext` for variable/function lookups during formula evaluation.

@@ -14,7 +14,7 @@ use finstack_core::market_data::hierarchy::{
     HierarchyNode, HierarchyTarget, MarketDataHierarchy, ResolutionMode, TagFilter,
 };
 use finstack_core::types::CurveId;
-use finstack_core::HashMap;
+use finstack_core::{HashMap, HashSet};
 use finstack_statements::types::NodeId;
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
@@ -208,7 +208,35 @@ fn resolve_hierarchy_matches(
         None => collect_subtree_matches(node, start_depth, &mut matches),
         Some(filter) => collect_filtered_matches(node, filter, start_depth, &mut matches),
     }
-    matches
+    dedup_matches_keep_deepest(matches)
+}
+
+/// Collapse duplicate curve hits to a single match per `curve_id`, keeping the
+/// deepest `matched_depth` seen for each. Required when a tag filter matches
+/// both an ancestor node and one of its descendants: `collect_filtered_matches`
+/// pushes the curves in the overlap twice (once as part of the ancestor's
+/// subtree, once via the descendant match), which under `ResolutionMode::Cumulative`
+/// would apply the same shock multiple times to one curve. Retaining the deepest
+/// depth preserves `MostSpecificWins` semantics for cross-operation dedup.
+fn dedup_matches_keep_deepest(matches: Vec<HierarchyResolvedMatch>) -> Vec<HierarchyResolvedMatch> {
+    let mut best: HashMap<CurveId, usize> = HashMap::default();
+    for m in &matches {
+        best.entry(m.curve_id.clone())
+            .and_modify(|d| *d = (*d).max(m.matched_depth))
+            .or_insert(m.matched_depth);
+    }
+    let mut seen: HashSet<CurveId> = HashSet::default();
+    let mut out = Vec::with_capacity(best.len());
+    for m in matches {
+        if seen.insert(m.curve_id.clone()) {
+            let depth = best[&m.curve_id];
+            out.push(HierarchyResolvedMatch {
+                curve_id: m.curve_id,
+                matched_depth: depth,
+            });
+        }
+    }
+    out
 }
 
 /// Expand hierarchy-targeted operations into direct-targeted operations.
@@ -730,19 +758,6 @@ impl ScenarioEngine {
                             applied += count;
                             warnings.extend(ws);
                         }
-                        // RecoveryCorrelationShock / PrepayFactorLoadingShock are
-                        // rejected at OperationSpec::validate() time and the
-                        // adapter no longer emits them. If validation is
-                        // bypassed they still fall through here with a loud
-                        // warning rather than a silent no-op.
-                        crate::adapters::traits::ScenarioEffect::RecoveryCorrelationShock { .. }
-                        | crate::adapters::traits::ScenarioEffect::PrepayFactorLoadingShock { .. } => {
-                            warnings.push(format!(
-                                "Correlation effect {:?} is not supported by CorrelationStructure; \
-                                 validate() should have rejected the originating OperationSpec",
-                                std::mem::discriminant(&effect)
-                            ));
-                        }
                         crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
                         | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
                         | crate::adapters::traits::ScenarioEffect::RateBinding { .. } => {
@@ -968,10 +983,9 @@ fn apply_instrument_shock(
 
 /// Apply a correlation shock effect to StructuredCredit instruments via downcast.
 ///
-/// Only handles [`ScenarioEffect::AssetCorrelationShock`] and
-/// [`ScenarioEffect::PrepayDefaultCorrelationShock`]. The recovery and
-/// prepay-factor-loading variants are rejected at `OperationSpec::validate()`
-/// time and should never reach this function.
+/// Handles [`ScenarioEffect::AssetCorrelationShock`] and
+/// [`ScenarioEffect::PrepayDefaultCorrelationShock`]; any other variant is a
+/// no-op so the caller can pass it through a generic dispatch loop.
 ///
 /// Clamping is detected at the primitive field level (via
 /// [`CorrelationStructure::bump_asset_with_clamp_info`]) so warnings fire only

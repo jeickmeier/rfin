@@ -12,8 +12,6 @@
 
 /// Margin calculation engines.
 pub mod calculators;
-/// Margin registry/configuration helpers.
-pub mod config;
 /// Shared margin constants and heuristics.
 pub mod constants;
 /// Margin-specific analytics and instrument metrics.
@@ -33,9 +31,9 @@ pub mod regulatory;
 pub use calculators::im::schedule::{ScheduleAssetClass, BCBS_IOSCO_SCHEDULE_ID};
 pub use calculators::im::simm::SimmVersion;
 pub use calculators::{
-    CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, HaircutImCalculator,
-    ImCalculator, ImResult, InternalModelImCalculator, InternalModelInputSource,
-    ScheduleImCalculator, SimmCalculator, VmCalculator, VmResult,
+    CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, ExternalImSource,
+    HaircutImCalculator, ImCalculator, ImResult, InternalModelImCalculator,
+    InternalModelInputSource, ScheduleImCalculator, SimmCalculator, VmCalculator, VmResult,
 };
 pub use traits::Marginable;
 pub use types::{

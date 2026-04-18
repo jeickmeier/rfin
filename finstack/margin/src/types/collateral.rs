@@ -6,8 +6,8 @@
 
 use std::fmt;
 
-use crate::config::margin_registry_from_config;
 use crate::registry::embedded_registry;
+use crate::registry::margin_registry_from_config;
 use finstack_core::config::FinstackConfig;
 use serde::de::Error as DeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

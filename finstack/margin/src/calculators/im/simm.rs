@@ -41,11 +41,13 @@
 //! - BCBS-IOSCO uncleared margin framework: `docs/REFERENCES.md#bcbs-iosco-uncleared-margin`
 
 use crate::calculators::traits::{ImCalculator, ImResult};
-use crate::config::margin_registry_from_config;
-use crate::registry::{embedded_registry, MarginRegistry, SimmParams};
+use crate::registry::{embedded_registry, margin_registry_from_config, MarginRegistry, SimmParams};
 use crate::traits::Marginable;
 use crate::types::ImMethodology;
-use crate::types::{SimmCreditSector, SimmRiskClass, SimmSensitivities};
+use crate::types::{
+    ordered_credit_sector_pair, ordered_risk_class_pair, ordered_tenor_pair, SimmCreditSector,
+    SimmRiskClass, SimmSensitivities,
+};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -94,7 +96,7 @@ impl SimmParams {
         if a == b {
             return 1.0;
         }
-        let key = ordered_pair(a, b);
+        let key = ordered_risk_class_pair(a, b);
         self.risk_class_correlations
             .get(&key)
             .copied()
@@ -149,17 +151,6 @@ impl SimmParams {
         } else {
             1.0
         }
-    }
-}
-
-fn ordered_credit_sector_pair(
-    a: SimmCreditSector,
-    b: SimmCreditSector,
-) -> (SimmCreditSector, SimmCreditSector) {
-    if (a as u8) <= (b as u8) {
-        (a, b)
-    } else {
-        (b, a)
     }
 }
 
@@ -310,22 +301,6 @@ fn validate_simm_params(params: &SimmParams) -> finstack_core::Result<()> {
     Ok(())
 }
 
-fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskClass) {
-    if (a as u8) <= (b as u8) {
-        (a, b)
-    } else {
-        (b, a)
-    }
-}
-
-fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
-    if a <= b {
-        (a.to_string(), b.to_string())
-    } else {
-        (b.to_string(), a.to_string())
-    }
-}
-
 /// Pre-computed flat correlation matrix for IR tenor lookups.
 /// Avoids per-lookup String allocations in the O(n^2) delta/vega loops.
 #[derive(Debug, Clone)]
@@ -430,14 +405,7 @@ impl SimmCalculator {
     /// the resolved [`SimmParams`] fails the completeness invariants checked by
     /// `validate_simm_params`.
     pub fn new(version: SimmVersion) -> Result<Self> {
-        let registry = embedded_registry()?;
-        let params = resolve_simm_params(version, registry)?.clone();
-        validate_simm_params(&params)?;
-        let ir_corr_matrix = IrTenorCorrelationMatrix::build(&params);
-        Ok(Self {
-            params,
-            ir_corr_matrix,
-        })
+        Self::build_from_registry(version, embedded_registry()?)
     }
 
     /// Create a new SIMM calculator resolved from a `FinstackConfig`.
@@ -462,7 +430,12 @@ impl SimmCalculator {
         cfg: &finstack_core::config::FinstackConfig,
     ) -> finstack_core::Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
-        let params = resolve_simm_params(version, &registry)?.clone();
+        Self::build_from_registry(version, &registry)
+    }
+
+    /// Shared construction path for [`Self::new`] and [`Self::from_finstack_config`].
+    fn build_from_registry(version: SimmVersion, registry: &MarginRegistry) -> Result<Self> {
+        let params = resolve_simm_params(version, registry)?.clone();
         validate_simm_params(&params)?;
         let ir_corr_matrix = IrTenorCorrelationMatrix::build(&params);
         Ok(Self {

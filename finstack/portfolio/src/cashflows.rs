@@ -29,7 +29,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CashflowRepresentation};
-use finstack_valuations::cashflow::{DatedFlow, DatedFlows};
+use finstack_valuations::cashflow::DatedFlows;
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use std::collections::HashSet;
@@ -82,10 +82,11 @@ fn should_warn_far_future_fx_conversion(
     payment_date > add_years_clamped(reference_date, 30)
 }
 
-/// Aggregated portfolio cashflows by date and currency.
+/// Legacy cashflow extraction warning attached to [`PortfolioCashflows`].
 ///
-/// The `by_date` map preserves chronological ordering of payment dates and
-/// aggregates per-currency amounts for each date across all positions.
+/// This is a lossy projection of [`CashflowExtractionIssue`] kept only for
+/// backwards compatibility with the legacy [`PortfolioCashflows`] surface.
+/// New code should consume [`PortfolioFullCashflows::issues`] directly.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CashflowWarning {
     /// Position whose cashflow extraction failed.
@@ -224,6 +225,151 @@ fn instrument_cashflow_schedule(
     instrument.cashflow_schedule(market, as_of)
 }
 
+impl PortfolioFullCashflows {
+    /// Project the classified ladder into the legacy [`PortfolioCashflows`]
+    /// view, discarding `CFKind` information.
+    ///
+    /// This is the canonical path from the rich multi-currency event view to
+    /// the flat date/currency summary. Callers that need classification should
+    /// consume [`PortfolioFullCashflows`] directly.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when monetary aggregation fails (e.g. currency
+    /// mismatch in `checked_add`).
+    pub fn to_simple(&self) -> Result<PortfolioCashflows> {
+        let by_position: IndexMap<PositionId, DatedFlows> = self
+            .by_position
+            .iter()
+            .map(|(position_id, events)| {
+                (
+                    position_id.clone(),
+                    events
+                        .iter()
+                        .map(|event| (event.date, event.amount))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        let warnings = self
+            .issues
+            .iter()
+            .filter(|issue| issue.kind == CashflowExtractionIssueKind::BuildFailed)
+            .map(|issue| CashflowWarning {
+                position_id: issue.position_id.clone(),
+                instrument_id: issue.instrument_id.clone(),
+                instrument_type: issue.instrument_type.clone(),
+                message: issue.message.clone(),
+            })
+            .collect();
+
+        let mut by_date: IndexMap<Date, IndexMap<Currency, Money>> = IndexMap::new();
+        for event in &self.events {
+            let per_ccy = by_date.entry(event.date).or_default();
+            let ccy = event.amount.currency();
+            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
+            *entry = entry.checked_add(event.amount).map_err(Error::Core)?;
+        }
+
+        Ok(PortfolioCashflows {
+            by_date,
+            by_position,
+            position_summaries: self.position_summaries.clone(),
+            warnings,
+        })
+    }
+
+    /// Collapse classified multi-currency flows into base currency bucketed by
+    /// (date, [`CFKind`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when FX conversion or monetary aggregation fails.
+    pub fn collapse_to_base_by_date_kind(
+        &self,
+        market: &MarketContext,
+        base_ccy: Currency,
+    ) -> Result<IndexMap<Date, IndexMap<CFKind, Money>>> {
+        let mut by_date_base: IndexMap<Date, IndexMap<CFKind, Money>> = IndexMap::new();
+        let mut warned_pairs: HashSet<(Currency, Currency, Date)> = HashSet::new();
+
+        for (date, per_ccy) in &self.by_date {
+            let mut per_kind_base: IndexMap<CFKind, Money> = IndexMap::new();
+
+            for per_kind in per_ccy.values() {
+                for (kind, money) in per_kind {
+                    let converted = convert_money_to_base_on_date(
+                        *money,
+                        *date,
+                        market,
+                        base_ccy,
+                        &mut warned_pairs,
+                    )?;
+                    let entry = per_kind_base
+                        .entry(*kind)
+                        .or_insert_with(|| Money::new(0.0, base_ccy));
+                    *entry = entry.checked_add(converted).map_err(Error::Core)?;
+                }
+            }
+
+            if !per_kind_base.is_empty() {
+                by_date_base.insert(*date, per_kind_base);
+            }
+        }
+
+        Ok(by_date_base)
+    }
+
+    /// Bucket classified full cashflows by reporting period in base currency.
+    ///
+    /// Dates outside all period windows are dropped with a `tracing::warn!`
+    /// aggregating the count and absolute total.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when FX conversion or monetary aggregation fails.
+    pub fn bucket_by_period_kind(
+        &self,
+        market: &MarketContext,
+        base_ccy: Currency,
+        periods: &[finstack_core::dates::Period],
+    ) -> Result<PortfolioCashflowKindBuckets> {
+        let by_date_base = self.collapse_to_base_by_date_kind(market, base_ccy)?;
+
+        let mut by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>> =
+            IndexMap::new();
+
+        let mut unbucketed_count: usize = 0;
+        let mut unbucketed_total = 0.0_f64;
+
+        for (date, per_kind) in by_date_base {
+            if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
+                let period_entry = by_period.entry(period.id).or_default();
+                for (kind, amount) in per_kind {
+                    let entry = period_entry
+                        .entry(kind)
+                        .or_insert_with(|| Money::new(0.0, base_ccy));
+                    *entry = entry.checked_add(amount).map_err(Error::Core)?;
+                }
+            } else {
+                unbucketed_count += 1;
+                unbucketed_total += per_kind.values().map(|m| m.amount().abs()).sum::<f64>();
+            }
+        }
+
+        if unbucketed_count > 0 {
+            tracing::warn!(
+                count = unbucketed_count,
+                total_abs = unbucketed_total,
+                "bucket_by_period_kind: {unbucketed_count} cashflow dates fell outside all period boundaries and were dropped"
+            );
+        }
+
+        Ok(PortfolioCashflowKindBuckets { by_period })
+    }
+}
+
 /// Aggregate full portfolio cashflows while preserving `CFKind` classification.
 pub fn aggregate_full_cashflows(
     portfolio: &Portfolio,
@@ -314,20 +460,10 @@ pub fn aggregate_full_cashflows(
 
 /// Aggregate portfolio cashflows by payment date and currency.
 ///
-/// This function:
-/// 1. Collects signed canonical schedule cashflows for each position (when supported)
-/// 2. Scales flows by position quantity
-/// 3. Aggregates by date and currency across the entire portfolio
-///
-/// # Arguments
-///
-/// * `portfolio` - Portfolio whose positions will be traversed
-/// * `market` - Market context providing curves/indexes required for schedules
-///
-/// # Returns
-///
-/// [`Result`] containing [`PortfolioCashflows`] with both portfolio-level and
-/// per-position views.
+/// Thin wrapper around [`aggregate_full_cashflows`] followed by
+/// [`PortfolioFullCashflows::to_simple`]. Prefer the two-step form for new
+/// code that also wants classification metadata; this function remains for
+/// backwards compatibility.
 ///
 /// # References
 ///
@@ -337,57 +473,7 @@ pub fn aggregate_cashflows(
     portfolio: &Portfolio,
     market: &MarketContext,
 ) -> Result<PortfolioCashflows> {
-    let PortfolioFullCashflows {
-        events,
-        by_position,
-        position_summaries,
-        issues,
-        ..
-    } = aggregate_full_cashflows(portfolio, market)?;
-
-    let mut all_flows: Vec<DatedFlow> = events
-        .iter()
-        .map(|event| (event.date, event.amount))
-        .collect();
-    let by_position: IndexMap<PositionId, DatedFlows> = by_position
-        .iter()
-        .map(|(position_id, events)| {
-            (
-                position_id.clone(),
-                events
-                    .iter()
-                    .map(|event| (event.date, event.amount))
-                    .collect(),
-            )
-        })
-        .collect();
-    let warnings = issues
-        .into_iter()
-        .filter(|issue| issue.kind == CashflowExtractionIssueKind::BuildFailed)
-        .map(|issue| CashflowWarning {
-            position_id: issue.position_id,
-            instrument_id: issue.instrument_id,
-            instrument_type: issue.instrument_type,
-            message: issue.message,
-        })
-        .collect();
-    all_flows.sort_by_key(|(d, _)| *d);
-
-    let mut by_date: IndexMap<Date, IndexMap<Currency, Money>> = IndexMap::new();
-
-    for (date, money) in all_flows {
-        let per_ccy = by_date.entry(date).or_default();
-        let ccy = money.currency();
-        let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-        *entry = entry.checked_add(money).map_err(Error::Core)?;
-    }
-
-    Ok(PortfolioCashflows {
-        by_date,
-        by_position,
-        position_summaries,
-        warnings,
-    })
+    aggregate_full_cashflows(portfolio, market)?.to_simple()
 }
 
 fn convert_money_to_base_on_date(
@@ -429,39 +515,15 @@ fn convert_money_to_base_on_date(
 }
 
 /// Collapse classified multi-currency cashflows into base currency by date and `CFKind`.
+///
+/// Thin wrapper around [`PortfolioFullCashflows::collapse_to_base_by_date_kind`]
+/// retained for backwards compatibility. New code should call the method form.
 pub fn collapse_full_cashflows_to_base_by_date_kind(
     ladder: &PortfolioFullCashflows,
     market: &MarketContext,
     base_ccy: Currency,
 ) -> Result<IndexMap<Date, IndexMap<CFKind, Money>>> {
-    let mut by_date_base: IndexMap<Date, IndexMap<CFKind, Money>> = IndexMap::new();
-    let mut warned_pairs: HashSet<(Currency, Currency, Date)> = HashSet::new();
-
-    for (date, per_ccy) in &ladder.by_date {
-        let mut per_kind_base: IndexMap<CFKind, Money> = IndexMap::new();
-
-        for per_kind in per_ccy.values() {
-            for (kind, money) in per_kind {
-                let converted = convert_money_to_base_on_date(
-                    *money,
-                    *date,
-                    market,
-                    base_ccy,
-                    &mut warned_pairs,
-                )?;
-                let entry = per_kind_base
-                    .entry(*kind)
-                    .or_insert_with(|| Money::new(0.0, base_ccy));
-                *entry = entry.checked_add(converted).map_err(Error::Core)?;
-            }
-        }
-
-        if !per_kind_base.is_empty() {
-            by_date_base.insert(*date, per_kind_base);
-        }
-    }
-
-    Ok(by_date_base)
+    ladder.collapse_to_base_by_date_kind(market, base_ccy)
 }
 
 /// Collapse a multi-currency cashflow ladder into base currency by date.
@@ -587,44 +649,16 @@ pub fn cashflows_to_base_by_period(
 }
 
 /// Bucket classified full cashflows by reporting period in base currency.
+///
+/// Thin wrapper around [`PortfolioFullCashflows::bucket_by_period_kind`]
+/// retained for backwards compatibility. New code should call the method form.
 pub fn cashflows_to_base_by_period_kind(
     ladder: &PortfolioFullCashflows,
     market: &MarketContext,
     base_ccy: Currency,
     periods: &[finstack_core::dates::Period],
 ) -> Result<PortfolioCashflowKindBuckets> {
-    let by_date_base = collapse_full_cashflows_to_base_by_date_kind(ladder, market, base_ccy)?;
-
-    let mut by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>> =
-        IndexMap::new();
-
-    let mut unbucketed_count: usize = 0;
-    let mut unbucketed_total = 0.0_f64;
-
-    for (date, per_kind) in by_date_base {
-        if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
-            let period_entry = by_period.entry(period.id).or_default();
-            for (kind, amount) in per_kind {
-                let entry = period_entry
-                    .entry(kind)
-                    .or_insert_with(|| Money::new(0.0, base_ccy));
-                *entry = entry.checked_add(amount).map_err(Error::Core)?;
-            }
-        } else {
-            unbucketed_count += 1;
-            unbucketed_total += per_kind.values().map(|m| m.amount().abs()).sum::<f64>();
-        }
-    }
-
-    if unbucketed_count > 0 {
-        tracing::warn!(
-            count = unbucketed_count,
-            total_abs = unbucketed_total,
-            "cashflows_to_base_by_period_kind: {unbucketed_count} cashflow dates fell outside all period boundaries and were dropped"
-        );
-    }
-
-    Ok(PortfolioCashflowKindBuckets { by_period })
+    ladder.bucket_by_period_kind(market, base_ccy, periods)
 }
 
 #[cfg(test)]

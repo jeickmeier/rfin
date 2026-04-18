@@ -186,12 +186,27 @@ impl Portfolio {
     /// # Arguments
     ///
     /// * `position` - Position to append to the portfolio.
-    pub fn add_position(&mut self, position: Position) {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] if a position with the same
+    /// `position_id` is already present. Silently appending would leave a
+    /// duplicate row in [`Self::positions`] that all iteration-based
+    /// aggregators would double-count, while [`Self::position_index`] and
+    /// [`Self::get_position`] would only see the new row.
+    pub fn add_position(&mut self, position: Position) -> Result<()> {
+        if self.position_index.contains_key(&position.position_id) {
+            return Err(Error::validation(format!(
+                "Duplicate position ID: {}",
+                position.position_id
+            )));
+        }
         let idx = self.positions.len();
         self.position_index
             .insert(position.position_id.clone(), idx);
         self.dependency_index.add_position(idx, &position);
         self.positions.push(position);
+        Ok(())
     }
 
     /// Replace all positions and refresh derived indices.

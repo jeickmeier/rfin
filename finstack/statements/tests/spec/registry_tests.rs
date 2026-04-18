@@ -699,9 +699,10 @@ fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
         .build()
         .unwrap();
 
-    // Path 2: add_metric("fin.gross_profit") — adds just one specific metric
+    // Path 2: add_metric_from_registry("fin.gross_profit") — adds just one specific metric
+    let registry = Registry::with_builtins().unwrap();
     let model_select = base_model_fn()
-        .add_metric("fin.gross_profit")
+        .add_metric_from_registry("fin.gross_profit", &registry)
         .unwrap()
         .build()
         .unwrap();
@@ -721,14 +722,16 @@ fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
 
     assert!(
         (bulk_val - select_val).abs() < 1e-9,
-        "with_builtin_metrics and add_metric must produce the same gross_profit value: {} vs {}",
+        "with_builtin_metrics and add_metric_from_registry must produce the same gross_profit value: {} vs {}",
         bulk_val,
         select_val
     );
 }
 
 #[test]
-fn parity_add_metric_convenience_matches_add_metric_from_registry() {
+fn registry_with_builtins_matches_new_then_load() {
+    // Parity check between the convenience `Registry::with_builtins` and the
+    // explicit two-step `Registry::new(); load_builtins()` pattern.
     let base_model_fn = || {
         ModelBuilder::new("base")
             .periods("2025Q1..Q2", None)
@@ -755,34 +758,34 @@ fn parity_add_metric_convenience_matches_add_metric_from_registry() {
             )
     };
 
-    // Path 1: convenience add_metric (loads builtins internally each call)
-    let model_convenience = base_model_fn()
-        .add_metric("fin.gross_profit")
+    // Path 1: Registry::with_builtins()
+    let registry_a = Registry::with_builtins().unwrap();
+    let model_a = base_model_fn()
+        .add_metric_from_registry("fin.gross_profit", &registry_a)
         .unwrap()
         .build()
         .unwrap();
 
-    // Path 2: explicit registry then add_metric_from_registry
-    let mut registry = Registry::new();
-    registry.load_builtins().unwrap();
-
-    let model_explicit = base_model_fn()
-        .add_metric_from_registry("fin.gross_profit", &registry)
+    // Path 2: explicit registry then load_builtins
+    let mut registry_b = Registry::new();
+    registry_b.load_builtins().unwrap();
+    let model_b = base_model_fn()
+        .add_metric_from_registry("fin.gross_profit", &registry_b)
         .unwrap()
         .build()
         .unwrap();
 
     let mut eval = Evaluator::new();
-    let r_convenience = eval.evaluate(&model_convenience).unwrap();
-    let r_explicit = eval.evaluate(&model_explicit).unwrap();
+    let r_a = eval.evaluate(&model_a).unwrap();
+    let r_b = eval.evaluate(&model_b).unwrap();
 
     let q1 = PeriodId::quarter(2025, 1);
-    let v1 = r_convenience.get("fin.gross_profit", &q1).unwrap();
-    let v2 = r_explicit.get("fin.gross_profit", &q1).unwrap();
+    let v1 = r_a.get("fin.gross_profit", &q1).unwrap();
+    let v2 = r_b.get("fin.gross_profit", &q1).unwrap();
 
     assert!(
         (v1 - v2).abs() < 1e-9,
-        "add_metric and add_metric_from_registry must produce identical results: {} vs {}",
+        "Registry::with_builtins and Registry::new+load_builtins must be equivalent: {} vs {}",
         v1,
         v2
     );

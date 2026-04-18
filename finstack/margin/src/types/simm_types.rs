@@ -398,6 +398,50 @@ impl SimmSensitivities {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Symmetric-map ordering helpers
+// ---------------------------------------------------------------------------
+
+/// Canonical ordering of a risk-class pair for symmetric correlation lookups.
+///
+/// SIMM correlation matrices are symmetric, so only `(min, max)` keys are
+/// stored in the registry. All callers MUST route pair lookups through this
+/// helper to avoid missing entries.
+#[must_use]
+pub fn ordered_risk_class_pair(
+    a: SimmRiskClass,
+    b: SimmRiskClass,
+) -> (SimmRiskClass, SimmRiskClass) {
+    if (a as u8) <= (b as u8) {
+        (a, b)
+    } else {
+        (b, a)
+    }
+}
+
+/// Canonical ordering of a tenor-label pair for symmetric correlation lookups.
+#[must_use]
+pub fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
+    if a <= b {
+        (a.to_string(), b.to_string())
+    } else {
+        (b.to_string(), a.to_string())
+    }
+}
+
+/// Canonical ordering of a credit-sector pair for symmetric correlation lookups.
+#[must_use]
+pub fn ordered_credit_sector_pair(
+    a: SimmCreditSector,
+    b: SimmCreditSector,
+) -> (SimmCreditSector, SimmCreditSector) {
+    if (a as u8) <= (b as u8) {
+        (a, b)
+    } else {
+        (b, a)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

@@ -217,11 +217,12 @@ impl CorporateAnalysisBuilder {
     pub fn analyze(self) -> Result<CorporateAnalysis> {
         // Step 1: Evaluate statement
         let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-        let statement = evaluator.evaluate_with_market_context(
-            &self.model,
-            self.market.as_ref(),
-            self.as_of,
-        )?;
+        let statement = match (self.market.as_ref(), self.as_of) {
+            (Some(market), Some(as_of)) => {
+                evaluator.evaluate_with_market(&self.model, market, as_of)?
+            }
+            _ => evaluator.evaluate(&self.model)?,
+        };
 
         // Step 2: Equity valuation (if configured)
         let equity = match self.equity_mode {

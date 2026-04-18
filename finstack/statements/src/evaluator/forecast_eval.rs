@@ -95,7 +95,7 @@ pub(crate) fn evaluate_forecast(
                             .extend(z_map);
                         series
                     } else {
-                        let series = forecast::apply_forecast_with_seed_offset(
+                        let series = forecast::apply_forecast_seeded(
                             forecast_spec,
                             base_value,
                             &forecast_periods,
@@ -114,7 +114,7 @@ pub(crate) fn evaluate_forecast(
                         series
                     }
                 }
-                _ => forecast::apply_forecast_with_seed_offset(
+                _ => forecast::apply_forecast_seeded(
                     forecast_spec,
                     base_value,
                     &forecast_periods,
@@ -122,7 +122,7 @@ pub(crate) fn evaluate_forecast(
                     node_spec.node_id.as_str(),
                 )?,
             },
-            None => forecast::apply_forecast_with_seed_offset(
+            None => forecast::apply_forecast_seeded(
                 forecast_spec,
                 base_value,
                 &forecast_periods,

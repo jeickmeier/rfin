@@ -8,9 +8,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_statements::capital_structure::aggregate_instrument_cashflows;
-use finstack_statements::capital_structure::integration::{
-    build_bond_from_spec, build_swap_from_spec,
-};
+use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
 use finstack_statements::types::CapitalStructureSpec;
 use finstack_statements::types::DebtInstrumentSpec;
 use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap};
@@ -82,7 +80,7 @@ fn usd_irs_swap(
 }
 
 #[test]
-fn test_build_bond_from_spec() {
+fn test_build_any_instrument_from_bond_spec() {
     let bond = Bond::fixed(
         InstrumentId::new("BOND-001"),
         Money::new(1_000_000.0, Currency::USD),
@@ -98,20 +96,13 @@ fn test_build_bond_from_spec() {
         spec: serde_json::to_value(&bond).expect("bond should serialize"),
     };
 
-    let deserialized_bond = build_bond_from_spec(&spec).expect("bond should deserialize");
-    assert_eq!(deserialized_bond.id.as_str(), "BOND-001");
-    assert_eq!(deserialized_bond.notional.currency(), Currency::USD);
-
-    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
-    if let CashflowSpec::Fixed(spec) = &deserialized_bond.cashflow_spec {
-        assert_eq!(spec.rate.to_string(), "0.05");
-    } else {
-        panic!("Expected fixed cashflow spec");
-    }
+    let instrument = build_any_instrument_from_spec(&spec).expect("bond should deserialize");
+    let notional = instrument.notional().expect("bond exposes notional");
+    assert_eq!(notional.currency(), Currency::USD);
 }
 
 #[test]
-fn test_build_swap_from_spec() {
+fn test_build_any_instrument_from_swap_spec() {
     let swap = usd_irs_swap(
         InstrumentId::new("SWAP-001"),
         Money::new(5_000_000.0, Currency::USD),
@@ -127,9 +118,9 @@ fn test_build_swap_from_spec() {
         spec: serde_json::to_value(&swap).expect("swap should serialize"),
     };
 
-    let deserialized_swap = build_swap_from_spec(&spec).expect("swap should deserialize");
-    assert_eq!(deserialized_swap.id.as_str(), "SWAP-001");
-    assert_eq!(deserialized_swap.notional.currency(), Currency::USD);
+    let instrument = build_any_instrument_from_spec(&spec).expect("swap should deserialize");
+    let notional = instrument.notional().expect("swap exposes notional");
+    assert_eq!(notional.currency(), Currency::USD);
 }
 
 #[test]

@@ -554,33 +554,6 @@ pub enum OperationSpec {
         delta_pts: f64,
     },
 
-    /// Shock recovery-default correlation for structured credit instruments.
-    ///
-    /// **Not yet supported.** [`OperationSpec::validate`] returns an error for
-    /// this variant because the underlying
-    /// [`finstack_valuations::instruments::fixed_income::structured_credit::CorrelationStructure`]
-    /// does not expose a recovery-default correlation field. The variant is
-    /// retained so scenario configurations can serialize round-trip, but any
-    /// attempt to apply it fails loudly at `validate()` time.
-    RecoveryCorrelationPts {
-        /// Additive shock in correlation points.
-        delta_pts: f64,
-    },
-
-    /// Shock prepayment factor loading (sensitivity to systematic factors).
-    ///
-    /// **Not yet supported.** Prepay factor loading is a *derived* quantity
-    /// (`prepay_default_correlation / sqrt(asset_correlation)`); inverting a
-    /// direct shock to recover the pair of underlying correlations is
-    /// under-determined. Use [`OperationSpec::AssetCorrelationPts`] and
-    /// [`OperationSpec::PrepayDefaultCorrelationPts`] together to reshape the
-    /// implied factor loading. [`OperationSpec::validate`] returns an error
-    /// for this variant.
-    PrepayFactorLoadingPts {
-        /// Additive shock to factor loading.
-        delta_pts: f64,
-    },
-
     // ========================================================================
     // Hierarchy-targeted operations (expanded to direct ops at execution time)
     // ========================================================================
@@ -1052,28 +1025,6 @@ impl OperationSpec {
             }
             OperationSpec::PrepayDefaultCorrelationPts { delta_pts } => {
                 check_finite(*delta_pts, "delta_pts")?;
-            }
-            OperationSpec::RecoveryCorrelationPts { delta_pts } => {
-                check_finite(*delta_pts, "delta_pts")?;
-                return Err(crate::error::Error::Validation(
-                    "RecoveryCorrelationPts is not yet supported: \
-                     CorrelationStructure in finstack_valuations does not expose a \
-                     recovery-default correlation field. Remove this operation from \
-                     the scenario or track the ticket that adds \
-                     CorrelationStructure::bump_recovery_default()."
-                        .into(),
-                ));
-            }
-            OperationSpec::PrepayFactorLoadingPts { delta_pts } => {
-                check_finite(*delta_pts, "delta_pts")?;
-                return Err(crate::error::Error::Validation(
-                    "PrepayFactorLoadingPts is not yet supported: prepay factor loading \
-                     is a *derived* quantity (prepay_default_correlation / \
-                     sqrt(asset_correlation)); bumping it directly is under-determined. \
-                     Shock asset correlation and prepay-default correlation instead, \
-                     or track the ticket that adds direct factor-loading support."
-                        .into(),
-                ));
             }
             OperationSpec::HierarchyCurveParallelBp {
                 target,

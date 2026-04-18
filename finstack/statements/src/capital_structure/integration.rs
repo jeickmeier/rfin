@@ -636,7 +636,7 @@ pub(crate) fn convert_to_reporting(
 ///
 /// # Errors
 /// Returns an error when the payload cannot be deserialized as a `Bond`.
-pub fn build_bond_from_spec(spec: &DebtInstrumentSpec) -> Result<Bond> {
+pub(crate) fn build_bond_from_spec(spec: &DebtInstrumentSpec) -> Result<Bond> {
     match spec {
         DebtInstrumentSpec::Bond {
             id,
@@ -659,7 +659,7 @@ pub fn build_bond_from_spec(spec: &DebtInstrumentSpec) -> Result<Bond> {
 ///
 /// # Errors
 /// Returns an error when the payload cannot be deserialized as an `InterestRateSwap`.
-pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwap> {
+pub(crate) fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwap> {
     match spec {
         DebtInstrumentSpec::Swap {
             id,
@@ -682,7 +682,7 @@ pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwa
 ///
 /// # Errors
 /// Returns an error when the payload cannot be deserialized as a `TermLoan`.
-pub fn build_term_loan_from_spec(spec: &DebtInstrumentSpec) -> Result<TermLoan> {
+pub(crate) fn build_term_loan_from_spec(spec: &DebtInstrumentSpec) -> Result<TermLoan> {
     match spec {
         DebtInstrumentSpec::TermLoan {
             id,

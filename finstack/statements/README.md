@@ -5,7 +5,7 @@
 ## Operational Notes
 
 - Built-in metrics are compile-time embedded. Deployments do not need a runtime `data/metrics` directory.
-- Capital-structure-aware formulas require `Evaluator::evaluate_with_market_context()` with both `market_ctx` and `as_of`.
+- Capital-structure-aware formulas require `Evaluator::evaluate_with_market(&model, &market_ctx, as_of)`.
 - DCF valuation now fails closed on missing `currency`, `debt`, or `cash` inputs unless the caller provides explicit overrides.
 - Monte Carlo results preserve path-evaluation warnings when the simulated paths remain finite. Non-finite Monte Carlo path values are treated as hard failures during aggregation.
 

@@ -8,8 +8,8 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-use crate::config::margin_registry_from_config;
 use crate::registry::embedded_registry;
+use crate::registry::margin_registry_from_config;
 use finstack_core::config::FinstackConfig;
 
 /// Variation margin parameters.
@@ -286,77 +286,100 @@ pub struct ImParameters {
 }
 
 impl ImParameters {
+    /// Canonical constructor: build IM parameters for a given methodology
+    /// from the embedded margin registry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn for_methodology(methodology: ImMethodology, currency: Currency) -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(Self::from_registry_defaults(
+            methodology,
+            currency,
+            registry,
+        ))
+    }
+
     /// Create IM parameters using ISDA SIMM methodology.
+    ///
+    /// Thin convenience wrapper around [`Self::for_methodology`].
     ///
     /// # Errors
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn simm_standard(currency: Currency) -> Result<Self> {
-        let registry = embedded_registry()?;
-        Ok(registry
-            .defaults
-            .im
-            .simm
-            .to_im_params(ImMethodology::Simm, currency))
+        Self::for_methodology(ImMethodology::Simm, currency)
     }
 
     /// Create IM parameters using schedule-based methodology.
+    ///
+    /// Thin convenience wrapper around [`Self::for_methodology`].
     ///
     /// # Errors
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn schedule_based(currency: Currency) -> Result<Self> {
-        let registry = embedded_registry()?;
-        Ok(registry
-            .defaults
-            .im
-            .schedule
-            .to_im_params(ImMethodology::Schedule, currency))
+        Self::for_methodology(ImMethodology::Schedule, currency)
     }
 
     /// Create IM parameters for cleared trades (CCP methodology).
+    ///
+    /// Thin convenience wrapper around [`Self::for_methodology`].
     ///
     /// # Errors
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn cleared(currency: Currency) -> Result<Self> {
-        let registry = embedded_registry()?;
-        Ok(registry
-            .defaults
-            .im
-            .cleared
-            .to_im_params(ImMethodology::ClearingHouse, currency))
+        Self::for_methodology(ImMethodology::ClearingHouse, currency)
     }
 
     /// Create IM parameters for repos using haircut methodology.
+    ///
+    /// Thin convenience wrapper around [`Self::for_methodology`].
     ///
     /// # Errors
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn repo_haircut(currency: Currency) -> Result<Self> {
-        let registry = embedded_registry()?;
-        Ok(registry
-            .defaults
-            .im
-            .repo_haircut
-            .to_im_params(ImMethodology::Haircut, currency))
+        Self::for_methodology(ImMethodology::Haircut, currency)
     }
 
     /// Create IM parameters using defaults resolved from a config.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the margin registry cannot be loaded from `cfg`.
     pub fn from_finstack_config(
         cfg: &FinstackConfig,
         methodology: ImMethodology,
         currency: Currency,
     ) -> Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
+        Ok(Self::from_registry_defaults(
+            methodology,
+            currency,
+            &registry,
+        ))
+    }
+
+    /// Shared construction path for the methodology-keyed constructors.
+    ///
+    /// [`ImMethodology::InternalModel`] reuses the SIMM defaults because the
+    /// internal-model calculator is a stub — when a dedicated defaults block
+    /// is added to the registry, update this match arm.
+    fn from_registry_defaults(
+        methodology: ImMethodology,
+        currency: Currency,
+        registry: &crate::registry::MarginRegistry,
+    ) -> Self {
         let defaults = match methodology {
-            ImMethodology::Simm => &registry.defaults.im.simm,
+            ImMethodology::Simm | ImMethodology::InternalModel => &registry.defaults.im.simm,
             ImMethodology::Schedule => &registry.defaults.im.schedule,
             ImMethodology::ClearingHouse => &registry.defaults.im.cleared,
             ImMethodology::Haircut => &registry.defaults.im.repo_haircut,
-            ImMethodology::InternalModel => &registry.defaults.im.simm,
         };
-        Ok(defaults.to_im_params(methodology, currency))
+        defaults.to_im_params(methodology, currency)
     }
 }
 

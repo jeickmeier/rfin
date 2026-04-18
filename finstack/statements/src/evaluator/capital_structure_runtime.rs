@@ -86,7 +86,6 @@ impl Evaluator {
         );
         context.capital_structure_cashflows = Some(cs_cashflows.clone());
 
-        let mut z_dummy = IndexMap::new();
         self.evaluate_nodes_in_order(
             model,
             &period_id,
@@ -95,8 +94,7 @@ impl Evaluator {
             &mut context,
             None,
             None,
-            false,
-            &mut z_dummy,
+            None,
         )?;
 
         if let Some(cs_spec) = &model.capital_structure {
@@ -116,7 +114,6 @@ impl Evaluator {
         }
 
         if context.capital_structure_cashflows.is_some() && !cs_affected_nodes.is_empty() {
-            let mut z_dummy = IndexMap::new();
             self.evaluate_nodes_in_order(
                 model,
                 &period_id,
@@ -125,8 +122,7 @@ impl Evaluator {
                 &mut context,
                 None,
                 Some(cs_affected_nodes),
-                false,
-                &mut z_dummy,
+                None,
             )?;
         }
 

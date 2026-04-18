@@ -10,8 +10,7 @@ use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
 
-use crate::config::margin_registry_from_config;
-use crate::registry::embedded_registry;
+use crate::registry::{embedded_registry, margin_registry_from_config};
 use finstack_core::config::FinstackConfig;
 
 /// Margin call timing parameters.
@@ -163,15 +162,7 @@ impl CsaSpec {
         id: &str,
         collateral_curve: &str,
     ) -> Result<Self> {
-        Ok(Self {
-            id: id.to_string(),
-            base_currency: currency,
-            vm_params: VmParameters::regulatory_standard(currency)?,
-            im_params: Some(ImParameters::simm_standard(currency)?),
-            eligible_collateral: EligibleCollateralSchedule::bcbs_standard()?,
-            call_timing: MarginCallTiming::regulatory_standard()?,
-            collateral_curve_id: CurveId::new(collateral_curve),
-        })
+        Self::regulatory_inner(None, currency, id, collateral_curve)
     }
 
     /// Create a CSA using overrides resolved from a config.
@@ -181,21 +172,42 @@ impl CsaSpec {
         id: &str,
         collateral_curve: &str,
     ) -> Result<Self> {
-        let registry = margin_registry_from_config(cfg)?;
+        Self::regulatory_inner(Some(cfg), currency, id, collateral_curve)
+    }
+
+    /// Shared construction path for the `*_regulatory` and `regulatory_from_config`
+    /// constructors. Passing `Some(cfg)` selects the config-driven registry;
+    /// `None` uses the embedded defaults.
+    fn regulatory_inner(
+        cfg: Option<&FinstackConfig>,
+        currency: Currency,
+        id: &str,
+        collateral_curve: &str,
+    ) -> Result<Self> {
+        let (vm_params, im_params, eligible_collateral, call_timing) = match cfg {
+            Some(cfg) => {
+                let registry = margin_registry_from_config(cfg)?;
+                (
+                    VmParameters::from_finstack_config(cfg, currency)?,
+                    ImParameters::from_finstack_config(cfg, ImMethodology::Simm, currency)?,
+                    EligibleCollateralSchedule::from_finstack_config(cfg, "bcbs_standard")?,
+                    registry.defaults.timing.regulatory_vm.clone(),
+                )
+            }
+            None => (
+                VmParameters::regulatory_standard(currency)?,
+                ImParameters::simm_standard(currency)?,
+                EligibleCollateralSchedule::bcbs_standard()?,
+                MarginCallTiming::regulatory_standard()?,
+            ),
+        };
         Ok(Self {
             id: id.to_string(),
             base_currency: currency,
-            vm_params: VmParameters::from_finstack_config(cfg, currency)?,
-            im_params: Some(ImParameters::from_finstack_config(
-                cfg,
-                ImMethodology::Simm,
-                currency,
-            )?),
-            eligible_collateral: EligibleCollateralSchedule::from_finstack_config(
-                cfg,
-                "bcbs_standard",
-            )?,
-            call_timing: registry.defaults.timing.regulatory_vm.clone(),
+            vm_params,
+            im_params: Some(im_params),
+            eligible_collateral,
+            call_timing,
             collateral_curve_id: CurveId::new(collateral_curve),
         })
     }

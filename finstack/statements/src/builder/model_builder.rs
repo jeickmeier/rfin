@@ -603,10 +603,11 @@ impl ModelBuilder<Ready> {
 
     /// Load built-in metrics (fin.* namespace) and add them to the model.
     ///
-    /// This is a convenience method that loads standard financial metrics
-    /// and adds all of them to the model.
+    /// Convenience wrapper over
+    /// [`Registry::with_builtins`](crate::registry::Registry::with_builtins).
     ///
-    /// For selective loading, prefer [`add_metric`] or [`add_metric_from_registry`].
+    /// For selective loading, build a [`Registry`](crate::registry::Registry)
+    /// yourself and call [`add_metric_from_registry`] for each metric.
     ///
     /// # Example
     ///
@@ -626,81 +627,11 @@ impl ModelBuilder<Ready> {
     /// # }
     /// ```
     ///
-    /// [`add_metric`]: ModelBuilder::add_metric
     /// [`add_metric_from_registry`]: ModelBuilder::add_metric_from_registry
     #[must_use = "builder methods must be chained"]
     pub fn with_builtin_metrics(self) -> Result<Self> {
-        let mut registry = crate::registry::Registry::new();
-        registry.load_builtins()?;
+        let registry = crate::registry::Registry::with_builtins()?;
         self.add_all_metrics_from_registry_internal(&registry)
-    }
-
-    /// Load metrics from a JSON file and add them to the model.
-    ///
-    /// For selective loading, prefer [`add_metric_from_registry`] after loading the file
-    /// yourself via [`Registry::load_from_json`].
-    ///
-    /// # Arguments
-    /// * `path` - Path to a metrics JSON definition file
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use finstack_statements::builder::ModelBuilder;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let model = ModelBuilder::new("test")
-    ///     .periods("2025Q1..Q2", None)?
-    ///     .with_metrics("metrics/custom.json")?
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// [`add_metric_from_registry`]: ModelBuilder::add_metric_from_registry
-    /// [`Registry::load_from_json`]: crate::registry::Registry::load_from_json
-    #[must_use = "builder methods must be chained"]
-    pub fn with_metrics(self, path: &str) -> Result<Self> {
-        let mut registry = crate::registry::Registry::new();
-        registry.load_from_json(path)?;
-        self.add_all_metrics_from_registry_internal(&registry)
-    }
-
-    /// Add a specific metric from the built-in registry.
-    ///
-    /// This is a convenience method that loads the built-in metrics registry
-    /// and adds a specific metric to the model. For adding multiple metrics,
-    /// prefer loading the registry once and calling [`add_metric_from_registry`]
-    /// for each metric to avoid repeated I/O.
-    ///
-    /// [`add_metric_from_registry`]: ModelBuilder::add_metric_from_registry
-    ///
-    /// # Arguments
-    /// * `qualified_id` - Fully qualified metric identifier (e.g., `"fin.gross_margin"`)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use finstack_statements::builder::ModelBuilder;
-    /// # use finstack_statements::registry::Registry;
-    /// # fn main() -> finstack_statements::Result<()> {
-    /// // Preferred: load registry once for multiple metrics
-    /// let mut registry = Registry::new();
-    /// registry.load_builtins()?;
-    ///
-    /// let model = ModelBuilder::new("test")
-    ///     .periods("2025Q1..Q2", None)?
-    ///     .value("revenue", &[])
-    ///     .value("cogs", &[])
-    ///     .add_metric_from_registry("fin.gross_profit", &registry)?
-    ///     .add_metric_from_registry("fin.gross_margin", &registry)?
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn add_metric(self, qualified_id: &str) -> Result<Self> {
-        let mut registry = crate::registry::Registry::new();
-        registry.load_builtins()?;
-        self.add_metric_from_registry(qualified_id, &registry)
     }
 
     /// Add a specific metric from a registry.

@@ -33,20 +33,21 @@ use super::rounding::{
     try_amount_from_repr, try_repr_div_f64, try_repr_mul_f64, AmountRepr,
 };
 
-/// Helper function to format an integer string (optionally prefixed by `-`) with thousands separators.
-fn format_with_separators(int_str: &str) -> String {
+/// Format an integer string (optionally prefixed by `-`) with thousands
+/// separator `sep`.
+fn group_thousands(int_str: &str, sep: char) -> String {
     let (is_neg, digits) = match int_str.strip_prefix('-') {
         Some(rest) => (true, rest),
         None => (false, int_str),
     };
 
     let bytes = digits.as_bytes();
-    let mut rev: Vec<u8> = Vec::with_capacity(bytes.len() + bytes.len() / 3 + 1);
+    let mut rev: Vec<char> = Vec::with_capacity(bytes.len() + bytes.len() / 3 + 1);
     for (i, &b) in bytes.iter().rev().enumerate() {
         if i > 0 && i % 3 == 0 {
-            rev.push(b',');
+            rev.push(sep);
         }
-        rev.push(b);
+        rev.push(b as char);
     }
     rev.reverse();
 
@@ -54,11 +55,40 @@ fn format_with_separators(int_str: &str) -> String {
     if is_neg {
         out.push('-');
     }
-    for b in rev {
-        // We only ever push ASCII digits and commas.
-        out.push(b as char);
+    for c in rev {
+        out.push(c);
     }
     out
+}
+
+/// Formatting options for [`Money::format_with`].
+///
+/// `format_with` is the canonical formatter entry for [`Money`]. The older
+/// [`Money::format`], [`Money::format_with_separators`], and
+/// [`Money::format_with_config`] helpers delegate here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FormatOpts {
+    /// Number of fractional digits. `None` means "use currency default" (from
+    /// [`Currency::decimals`]).
+    pub decimals: Option<usize>,
+    /// Whether to prepend the ISO-4217 currency code.
+    pub show_currency: bool,
+    /// Optional thousands separator (e.g., `Some(',')`). `None` disables grouping.
+    pub group: Option<char>,
+    /// Rounding mode for the displayed value.
+    pub rounding: RoundingMode,
+}
+
+impl Default for FormatOpts {
+    /// Defaults: 2 decimals, currency code shown, `','` grouping, Bankers rounding.
+    fn default() -> Self {
+        Self {
+            decimals: Some(2),
+            show_currency: true,
+            group: Some(','),
+            rounding: RoundingMode::Bankers,
+        }
+    }
 }
 
 /// Currency-tagged monetary amount with safe arithmetic.
@@ -114,14 +144,39 @@ impl Money {
     /// assert_eq!(amount.format(0, true), "USD 1042316");
     /// ```
     pub fn format(&self, decimals: usize, show_currency: bool) -> String {
+        self.format_with(FormatOpts {
+            decimals: Some(decimals),
+            show_currency,
+            group: None,
+            rounding: RoundingMode::Bankers,
+        })
+    }
+
+    /// Canonical formatter. Prefer this over [`Money::format`] /
+    /// [`Money::format_with_separators`] / [`Money::format_with_config`] —
+    /// those methods delegate here.
+    pub fn format_with(&self, opts: FormatOpts) -> String {
         use super::rounding::round_decimal;
-        let rounded = round_decimal(
-            self.amount,
-            decimals as i32,
-            crate::config::RoundingMode::Bankers,
-        );
-        let value = format!("{val:.prec$}", val = rounded, prec = decimals);
-        if show_currency {
+        let dp = opts
+            .decimals
+            .unwrap_or_else(|| usize::from(self.currency.decimals()));
+        let rounded = round_decimal(self.amount, dp as i32, opts.rounding);
+        let raw = format!("{val:.prec$}", val = rounded, prec = dp);
+        let value = match opts.group {
+            Some(sep) => {
+                let (int_part, frac_part) = match raw.split_once('.') {
+                    Some((i, f)) => (i, Some(f)),
+                    None => (raw.as_str(), None),
+                };
+                let int_fmt = group_thousands(int_part, sep);
+                match frac_part {
+                    Some(frac) => format!("{int_fmt}.{frac}"),
+                    None => int_fmt,
+                }
+            }
+            None => raw,
+        };
+        if opts.show_currency {
             format!("{} {}", self.currency(), value)
         } else {
             value
@@ -143,24 +198,12 @@ impl Money {
     /// assert_eq!(formatted, "USD 1,042,315.67");
     /// ```
     pub fn format_with_separators(&self, decimals: usize) -> String {
-        use super::rounding::round_decimal;
-        let rounded = round_decimal(
-            self.amount,
-            decimals as i32,
-            crate::config::RoundingMode::Bankers,
-        );
-        let s = format!("{val:.prec$}", val = rounded, prec = decimals);
-        let (int_part, frac_part) = match s.split_once('.') {
-            Some((i, f)) => (i, Some(f)),
-            None => (s.as_str(), None),
-        };
-        let int_fmt = format_with_separators(int_part);
-        let value = if let Some(frac) = frac_part {
-            format!("{int_fmt}.{frac}")
-        } else {
-            int_fmt
-        };
-        format!("{} {}", self.currency(), value)
+        self.format_with(FormatOpts {
+            decimals: Some(decimals),
+            show_currency: true,
+            group: Some(','),
+            rounding: RoundingMode::Bankers,
+        })
     }
 
     /// Create a new [`Money`] value using ISO-4217 minor units and bankers rounding.
@@ -602,10 +645,12 @@ impl Money {
     /// assert_eq!(amt.format_with_config(&cfg), "USD 10.0000");
     /// ```
     pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
-        use super::rounding::round_decimal;
-        let dp = cfg.output_scale(self.currency) as usize;
-        let rounded = round_decimal(self.amount, dp as i32, cfg.rounding.mode);
-        format!("{} {val:.prec$}", self.currency, val = rounded, prec = dp)
+        self.format_with(FormatOpts {
+            decimals: Some(cfg.output_scale(self.currency) as usize),
+            show_currency: true,
+            group: None,
+            rounding: cfg.rounding.mode,
+        })
     }
 }
 

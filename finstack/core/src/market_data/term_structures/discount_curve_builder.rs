@@ -9,6 +9,37 @@ use crate::{
 
 use super::discount_curve::DiscountCurve;
 
+/// Canonical validation preset for [`DiscountCurveBuilder::validation`].
+///
+/// Consolidates the booleans and knobs previously exposed as
+/// [`DiscountCurveBuilder::enforce_no_arbitrage`],
+/// [`DiscountCurveBuilder::allow_non_monotonic`],
+/// [`DiscountCurveBuilder::allow_non_monotonic_with_floor`], and
+/// [`DiscountCurveBuilder::min_forward_rate`] into a single, labelled choice.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ValidationMode {
+    /// Enforce monotonic (non-increasing) discount factors and a -50bp
+    /// forward-rate floor. Matches the long-standing
+    /// `enforce_no_arbitrage` preset and is the recommended default for
+    /// production curves.
+    MarketStandard,
+    /// Relax monotonicity to support negative-rate regimes while keeping a
+    /// safety floor on implied forwards. Equivalent to
+    /// `allow_non_monotonic_with_floor`.
+    NegativeRateFriendly {
+        /// Minimum allowed implied forward rate (in decimal).
+        forward_floor: f64,
+    },
+    /// Fully raw mode for solver / calibration use: explicit over both
+    /// monotonicity and (optional) forward-rate floor.
+    Raw {
+        /// Skip monotonicity checks when `true`.
+        allow_non_monotonic: bool,
+        /// Optional implied forward-rate floor.
+        forward_floor: Option<f64>,
+    },
+}
+
 /// Fluent builder for [`DiscountCurve`].
 ///
 /// Typical usage chains `base_date`, `knots`, and `interp` (optional)
@@ -73,6 +104,34 @@ impl DiscountCurveBuilder {
     /// Set the extrapolation policy for out-of-bounds evaluation.
     pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
         self.extrapolation = policy;
+        self
+    }
+
+    /// Canonical validation selector. Prefer this over
+    /// [`enforce_no_arbitrage`](Self::enforce_no_arbitrage),
+    /// [`allow_non_monotonic`](Self::allow_non_monotonic),
+    /// [`allow_non_monotonic_with_floor`](Self::allow_non_monotonic_with_floor),
+    /// and [`min_forward_rate`](Self::min_forward_rate), which now each map to
+    /// a specific [`ValidationMode`] variant and are retained only for
+    /// backward compatibility.
+    pub fn validation(mut self, mode: ValidationMode) -> Self {
+        match mode {
+            ValidationMode::MarketStandard => {
+                self.allow_non_monotonic = false;
+                self.min_forward_rate = Some(-0.005);
+            }
+            ValidationMode::NegativeRateFriendly { forward_floor } => {
+                self.allow_non_monotonic = true;
+                self.min_forward_rate = Some(forward_floor);
+            }
+            ValidationMode::Raw {
+                allow_non_monotonic,
+                forward_floor,
+            } => {
+                self.allow_non_monotonic = allow_non_monotonic;
+                self.min_forward_rate = forward_floor;
+            }
+        }
         self
     }
 

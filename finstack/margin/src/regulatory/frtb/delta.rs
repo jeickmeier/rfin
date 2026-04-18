@@ -3,6 +3,7 @@
 //! Two-level aggregation (intra-bucket then inter-bucket) with
 //! correlation scenario scaling.
 
+use super::aggregation::{inter_bucket, intra_bucket_uniform_map};
 use super::params::{commodity, csr, equity, fx, girr};
 use super::types::{CorrelationScenario, FrtbRiskClass, FrtbSensitivities};
 use finstack_core::HashMap;
@@ -115,7 +116,7 @@ fn girr_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
 
     // Inter-bucket aggregation across currencies.
     let gamma = scenario.scale_correlation(girr::GIRR_INTER_BUCKET_CORRELATION);
-    inter_bucket_aggregate(&bucket_results, gamma)
+    inter_bucket(&bucket_results, gamma)
 }
 
 /// Intra-GIRR correlation between two risk factors (MAR21.46-21.49).
@@ -205,8 +206,8 @@ fn equity_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 
     let intra_rho = scenario.scale_correlation(equity::EQUITY_INTRA_BUCKET_CORRELATION);
     let inter_gamma = scenario.scale_correlation(equity::EQUITY_INTER_BUCKET_CORRELATION);
 
-    let bucket_results = intra_bucket_aggregate_simple(&by_bucket, intra_rho);
-    inter_bucket_aggregate(&bucket_results, inter_gamma)
+    let bucket_results = intra_bucket_uniform_map(&by_bucket, intra_rho);
+    inter_bucket(&bucket_results, inter_gamma)
 }
 
 // ---------------------------------------------------------------------------
@@ -228,8 +229,8 @@ fn commodity_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f
     let intra_rho = scenario.scale_correlation(commodity::COMMODITY_INTRA_BUCKET_CORRELATION);
     let inter_gamma = scenario.scale_correlation(commodity::COMMODITY_INTER_BUCKET_CORRELATION);
 
-    let bucket_results = intra_bucket_aggregate_simple(&by_bucket, intra_rho);
-    inter_bucket_aggregate(&bucket_results, inter_gamma)
+    let bucket_results = intra_bucket_uniform_map(&by_bucket, intra_rho);
+    inter_bucket(&bucket_results, inter_gamma)
 }
 
 // ---------------------------------------------------------------------------
@@ -271,72 +272,6 @@ fn girr_risk_weight(tenor: &str) -> f64 {
         .find(|(t, _)| *t == tenor)
         .map(|(_, w)| *w)
         .unwrap_or(1.1) // Default to 1.1 for unknown tenors
-}
-
-/// Intra-bucket aggregation with uniform correlation.
-///
-/// Returns `(K_b, S_b)` for each bucket, where `S_b` is the uncapped sum
-/// of weighted sensitivities (capping is deferred to the inter-bucket
-/// fallback per MAR21.6).
-fn intra_bucket_aggregate_simple(
-    by_bucket: &HashMap<u8, Vec<f64>>,
-    intra_rho: f64,
-) -> Vec<(f64, f64)> {
-    let mut results = Vec::new();
-    for entries in by_bucket.values() {
-        let mut k_squared = 0.0;
-        for (i, ws_i) in entries.iter().enumerate() {
-            for (j, ws_j) in entries.iter().enumerate() {
-                let rho = if i == j { 1.0 } else { intra_rho };
-                k_squared += rho * ws_i * ws_j;
-            }
-        }
-        let k_b = k_squared.max(0.0).sqrt();
-        let s_b: f64 = entries.iter().sum();
-        results.push((k_b, s_b));
-    }
-    results
-}
-
-/// Inter-bucket aggregation following MAR21.4-21.6.
-///
-/// Tries the standard formula first with uncapped `S_b = sum WS`:
-/// `Delta² = sum_b K_b² + sum_{b != c} gamma * S_b * S_c`.
-///
-/// If `Delta²` is non-negative the result is `sqrt(Delta²)`. Otherwise
-/// the alternative formula is applied: every `S_b` is replaced by
-/// `S_b_capped = max(-K_b, min(S_b, K_b))` and the quadratic form is
-/// recomputed. The alternative form is provably non-negative.
-fn inter_bucket_aggregate(bucket_results: &[(f64, f64)], gamma: f64) -> f64 {
-    let compute = |cap: bool| -> f64 {
-        let mut total = 0.0;
-        for (i, &(k_i, s_i_raw)) in bucket_results.iter().enumerate() {
-            total += k_i * k_i;
-            let s_i = if cap {
-                s_i_raw.clamp(-k_i, k_i)
-            } else {
-                s_i_raw
-            };
-            for (j, &(k_j, s_j_raw)) in bucket_results.iter().enumerate() {
-                if i != j {
-                    let s_j = if cap {
-                        s_j_raw.clamp(-k_j, k_j)
-                    } else {
-                        s_j_raw
-                    };
-                    total += gamma * s_i * s_j;
-                }
-            }
-        }
-        total
-    };
-
-    let standard = compute(false);
-    if standard >= 0.0 {
-        standard.sqrt()
-    } else {
-        compute(true).max(0.0).sqrt()
-    }
 }
 
 /// CSR-specific delta aggregation with full intra-bucket `rho = rho_name * rho_tenor`.
@@ -408,5 +343,5 @@ fn csr_bucketed_delta(
         bucket_results.push((k_b, s_b));
     }
 
-    inter_bucket_aggregate(&bucket_results, scaled_inter)
+    inter_bucket(&bucket_results, scaled_inter)
 }

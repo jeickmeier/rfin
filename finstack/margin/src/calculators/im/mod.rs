@@ -21,3 +21,49 @@ pub use haircut::HaircutImCalculator;
 pub use internal::{InternalModelImCalculator, InternalModelInputSource};
 pub use schedule::ScheduleImCalculator;
 pub use simm::SimmCalculator;
+
+use crate::traits::Marginable;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+
+/// Conservative fallback IM: `|exposure_base| × conservative_rate`.
+///
+/// Shared by [`ClearingHouseImCalculator`] and [`InternalModelImCalculator`]
+/// — any IM calculator that falls back to a pure percentage-of-exposure
+/// heuristic should route through this helper to keep the formula in one
+/// place.
+#[must_use]
+pub(crate) fn conservative_im(exposure_base: Money, conservative_rate: f64) -> Money {
+    Money::new(exposure_base.amount().abs(), exposure_base.currency()) * conservative_rate
+}
+
+/// Unified external-IM input source used by calculators that can be driven
+/// by an externally provided IM number (CCP feed, internal VaR/ES model).
+///
+/// Implementers typically already know which methodology / model they
+/// represent — the previous trait variants that threaded a methodology tag
+/// through every call were redundant and have been collapsed into this
+/// single interface.
+pub trait ExternalImSource: Send + Sync {
+    /// Return the externally sourced IM amount for `instrument`, if
+    /// available. Returning `None` causes the calculator to fall back to
+    /// its conservative proxy.
+    fn external_initial_margin(
+        &self,
+        instrument: &dyn Marginable,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Option<Money>;
+
+    /// Optional MPOR override in calendar days.
+    fn external_mpor_days(&self) -> Option<u32> {
+        None
+    }
+
+    /// Optional label (model/methodology) surfaced in the IM result
+    /// breakdown map.
+    fn external_model_name(&self) -> Option<String> {
+        None
+    }
+}

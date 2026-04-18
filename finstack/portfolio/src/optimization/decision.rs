@@ -208,12 +208,11 @@ pub(crate) fn build_decision_space(
 
         let options = crate::valuation::PortfolioValuationOptions {
             strict_risk: matches!(problem.missing_metric_policy, MissingMetricPolicy::Strict),
-            additional_metrics: if required_metrics.is_empty() {
-                None
+            metrics: if required_metrics.is_empty() {
+                crate::valuation::RequestedMetrics::Standard
             } else {
-                Some(required_metrics.to_vec())
+                crate::valuation::RequestedMetrics::StandardPlus(required_metrics.to_vec())
             },
-            replace_standard_metrics: false,
         };
 
         Some(crate::valuation::value_portfolio(

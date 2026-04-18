@@ -40,7 +40,7 @@ use polars::prelude::*;
 /// // └─────────────┴───────────┴────────────┴──────────────┴──────────┴────────────┘
 /// ```
 #[cfg(feature = "dataframes")]
-pub fn to_polars_long(results: &StatementResult) -> Result<DataFrame> {
+pub(crate) fn to_polars_long(results: &StatementResult) -> Result<DataFrame> {
     use crate::types::NodeValueType;
 
     let mut node_ids = Vec::new();
@@ -107,7 +107,7 @@ pub fn to_polars_long(results: &StatementResult) -> Result<DataFrame> {
 /// let df = to_polars_long_filtered(&results, &["revenue", "cogs"])?;
 /// ```
 #[cfg(feature = "dataframes")]
-pub fn to_polars_long_filtered(
+pub(crate) fn to_polars_long_filtered(
     results: &StatementResult,
     node_filter: &[&str],
 ) -> Result<DataFrame> {
@@ -188,7 +188,7 @@ pub fn to_polars_long_filtered(
 /// // └───────────┴────────────┴──────────┘
 /// ```
 #[cfg(feature = "dataframes")]
-pub fn to_polars_wide(results: &StatementResult) -> Result<DataFrame> {
+pub(crate) fn to_polars_wide(results: &StatementResult) -> Result<DataFrame> {
     // Collect all unique periods in order
     let mut all_periods: Vec<PeriodId> = results
         .nodes

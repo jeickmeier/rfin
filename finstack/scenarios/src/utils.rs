@@ -16,7 +16,6 @@
 use crate::error::{Error, Result};
 use crate::spec::RateBindingSpec;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, HolidayCalendar, Tenor};
-use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 
 /// Parse a tenor string to a fractional number of years using simple approximations.
 ///
@@ -122,58 +121,6 @@ pub fn parse_day_count_override(raw: &str) -> Result<DayCount> {
         }
     };
     Ok(parsed)
-}
-
-/// Calendar-aware tenor conversion using the conventions of a discount curve.
-///
-/// # Arguments
-///
-/// - `tenor`: Tenor string to convert.
-/// - `curve`: Discount curve supplying the base date and day-count convention.
-/// - `calendar`: Optional holiday calendar for business-day adjustment.
-/// - `bdc`: Business-day convention to apply when `calendar` is present.
-///
-/// # Returns
-///
-/// The year fraction implied by `tenor` under the curve's base date and day
-/// count.
-///
-/// # Errors
-///
-/// Propagates any tenor parsing or calendar-aware date-conversion error.
-pub fn tenor_years_from_discount_curve(
-    tenor: &str,
-    curve: &DiscountCurve,
-    calendar: Option<&dyn HolidayCalendar>,
-    bdc: BusinessDayConvention,
-) -> Result<f64> {
-    parse_tenor_to_years_with_context(tenor, curve.base_date(), calendar, bdc, curve.day_count())
-}
-
-/// Calendar-aware tenor conversion using the conventions of a forward curve.
-///
-/// # Arguments
-///
-/// - `tenor`: Tenor string to convert.
-/// - `curve`: Forward curve supplying the base date and day-count convention.
-/// - `calendar`: Optional holiday calendar for business-day adjustment.
-/// - `bdc`: Business-day convention to apply when `calendar` is present.
-///
-/// # Returns
-///
-/// The year fraction implied by `tenor` under the curve's base date and day
-/// count.
-///
-/// # Errors
-///
-/// Propagates any tenor parsing or calendar-aware date-conversion error.
-pub fn tenor_years_from_forward_curve(
-    tenor: &str,
-    curve: &ForwardCurve,
-    calendar: Option<&dyn HolidayCalendar>,
-    bdc: BusinessDayConvention,
-) -> Result<f64> {
-    parse_tenor_to_years_with_context(tenor, curve.base_date(), calendar, bdc, curve.day_count())
 }
 
 /// Resolve the effective day-count and tenor length for a rate binding.
@@ -282,34 +229,13 @@ pub struct InterpolationResult {
     pub extrapolation_distance: Option<f64>,
 }
 
-/// Calculate weights for distributing a bump at `target` year to adjacent curve pillars.
+/// Calculate linear interpolation weights with detailed extrapolation information.
 ///
-/// This provides standard linear interpolation weights to distribute a shock at `target`
-/// onto the nearest knot points `t0` and `t1` such that the weighted average time matches
-/// `target`.
-///
-/// # Arguments
-/// - `target`: The time (in years) where the shock is applied.
-/// - `knots`: Sorted slice of knot times (in years).
-///
-/// # Returns
-/// A vector of `(index, weight)` tuples. Usually contains 1 (exact match or extrapolation)
-/// or 2 (interpolation) elements.
-///
-/// # Extrapolation Behavior
-///
-/// When `target` exceeds the curve's maximum knot, flat extrapolation is used:
-/// - All weight is assigned to the last knot point
-/// - This is consistent with standard curve extrapolation conventions
-/// - For extrapolation detection, use [`calculate_interpolation_weights_with_info`]
-pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> Vec<(usize, f64)> {
-    calculate_interpolation_weights_with_info(target, knots).weights
-}
-
-/// Calculate interpolation weights with detailed extrapolation information.
-///
-/// Like [`calculate_interpolation_weights`], but also returns information about
-/// whether extrapolation occurred and how far beyond the curve the target is.
+/// Produces `(index, weight)` pairs that distribute a bump at `target` onto the
+/// nearest knot points so the weighted average time matches `target`. Also
+/// reports whether extrapolation occurred and how far beyond the curve the
+/// target lies so callers can emit warnings when applying shocks outside the
+/// supported knot range.
 ///
 /// # Arguments
 /// - `target`: The time (in years) where the shock is applied.
@@ -318,26 +244,30 @@ pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> Vec<(usize
 /// # Returns
 /// [`InterpolationResult`] containing weights and extrapolation metadata.
 ///
+/// # Extrapolation Behavior
+///
+/// When `target` falls outside the curve's knot range, flat extrapolation is
+/// used: all weight is assigned to the nearest endpoint knot and
+/// `is_extrapolation` is set to `true` with the gap recorded in
+/// `extrapolation_distance`.
+///
 /// # Example
 ///
 /// ```rust
-/// use finstack_scenarios::utils::calculate_interpolation_weights_with_info;
+/// use finstack_scenarios::utils::calculate_interpolation_weights;
 ///
 /// let knots = vec![1.0, 2.0, 5.0, 10.0];
 ///
 /// // Interpolation case
-/// let result = calculate_interpolation_weights_with_info(3.0, &knots);
+/// let result = calculate_interpolation_weights(3.0, &knots);
 /// assert!(!result.is_extrapolation);
 ///
 /// // Extrapolation case (beyond 10Y curve)
-/// let result = calculate_interpolation_weights_with_info(15.0, &knots);
+/// let result = calculate_interpolation_weights(15.0, &knots);
 /// assert!(result.is_extrapolation);
 /// assert!((result.extrapolation_distance.unwrap() - 5.0).abs() < 1e-6);
 /// ```
-pub fn calculate_interpolation_weights_with_info(
-    target: f64,
-    knots: &[f64],
-) -> InterpolationResult {
+pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> InterpolationResult {
     if knots.is_empty() {
         return InterpolationResult {
             weights: vec![],

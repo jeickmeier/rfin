@@ -8,16 +8,14 @@
 //! # Quick start
 //!
 //! ```rust,ignore
-//! use finstack_statements::checks::{CheckRunner, CheckSuite};
+//! use finstack_statements::checks::CheckSuite;
 //! ```
 
 pub mod builtins;
-pub mod runner;
 pub mod suite;
 pub mod traits;
 pub mod types;
 
-pub use runner::CheckRunner;
 pub use suite::{
     BuiltinCheckSpec, CheckSuite, CheckSuiteBuilder, CheckSuiteSpec, FormulaCheckSpec,
 };

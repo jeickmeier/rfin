@@ -37,6 +37,7 @@
 
 use super::common::{
     build_interp_allow_any_values, default_curve_base_date, roll_knots, split_points,
+    year_fraction_to,
 };
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
@@ -194,8 +195,12 @@ impl BasisSpreadCurve {
     }
 
     /// Roll the curve forward by `days` calendar days.
+    ///
+    /// The time shift uses the curve's own `day_count`, matching
+    /// `DiscountCurve::roll_forward` and siblings.
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
-        let dt = days as f64 / 365.25;
+        let new_base = self.base + time::Duration::days(days);
+        let dt = year_fraction_to(self.base, new_base, self.day_count)?;
         let rolled = roll_knots(&self.knots, &self.spreads, dt);
         if rolled.is_empty() {
             return Err(crate::Error::Validation(
@@ -203,7 +208,7 @@ impl BasisSpreadCurve {
             ));
         }
         Self::builder(self.id.clone())
-            .base_date(self.base + time::Duration::days(days))
+            .base_date(new_base)
             .day_count(self.day_count)
             .knots(rolled)
             .interp(self.interp.style())

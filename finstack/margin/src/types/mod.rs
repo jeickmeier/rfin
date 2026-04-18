@@ -33,5 +33,8 @@ pub use enums::{ClearingStatus, ImMethodology, MarginTenor};
 pub use netting::{InstrumentMarginResult, NettingSetId};
 pub use otc::OtcMarginSpec;
 pub use repo_margin::{RepoMarginSpec, RepoMarginType};
-pub use simm_types::{SimmCreditSector, SimmRiskClass, SimmSensitivities};
+pub use simm_types::{
+    ordered_credit_sector_pair, ordered_risk_class_pair, ordered_tenor_pair, SimmCreditSector,
+    SimmRiskClass, SimmSensitivities,
+};
 pub use thresholds::{ImParameters, VmParameters};

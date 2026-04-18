@@ -19,8 +19,9 @@ mod vm;
 
 // Re-export main types
 pub use im::{
-    CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, HaircutImCalculator,
-    InternalModelImCalculator, InternalModelInputSource, ScheduleImCalculator, SimmCalculator,
+    CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, ExternalImSource,
+    HaircutImCalculator, InternalModelImCalculator, InternalModelInputSource, ScheduleImCalculator,
+    SimmCalculator,
 };
 pub use traits::{ImCalculator, ImResult};
 pub use vm::{VmCalculator, VmResult};

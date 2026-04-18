@@ -24,8 +24,9 @@ use tracing::{debug, info};
 use crate::calculators::im::schedule::{MaturityBucket, ScheduleAssetClass};
 use crate::calculators::im::simm::SimmVersion;
 use crate::types::{
-    CollateralAssetClass, CollateralEligibility, EligibleCollateralSchedule, ImMethodology,
-    ImParameters, MarginCallTiming, MarginTenor, MaturityConstraints, VmParameters,
+    ordered_credit_sector_pair, ordered_risk_class_pair, ordered_tenor_pair, CollateralAssetClass,
+    CollateralEligibility, EligibleCollateralSchedule, ImMethodology, ImParameters,
+    MarginCallTiming, MarginTenor, MaturityConstraints, VmParameters,
 };
 use crate::{SimmCreditSector, SimmRiskClass};
 
@@ -534,7 +535,7 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
                     "simm correlation for ({a:?},{b:?}) must be in [-1,1]"
                 )));
             }
-            let key = ordered_pair(a, b);
+            let key = ordered_risk_class_pair(a, b);
             correlations.insert(key, cor.rho);
         }
 
@@ -726,14 +727,6 @@ fn parse_ir_tenor_correlations(value: &Value) -> Result<HashMap<(String, String)
     Ok(out)
 }
 
-fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
-    if a <= b {
-        (a.to_string(), b.to_string())
-    } else {
-        (b.to_string(), a.to_string())
-    }
-}
-
 fn parse_concentration_thresholds(value: &Value) -> Result<HashMap<SimmRiskClass, f64>> {
     if value.is_null() {
         return Ok(HashMap::default());
@@ -769,14 +762,6 @@ fn to_timing(record: &wire::MarginCallTimingRecord) -> MarginCallTiming {
         response_deadline_hours: record.response_deadline_hours,
         dispute_resolution_days: record.dispute_resolution_days,
         delivery_grace_days: record.delivery_grace_days,
-    }
-}
-
-fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskClass) {
-    if (a as u8) <= (b as u8) {
-        (a, b)
-    } else {
-        (b, a)
     }
 }
 
@@ -863,17 +848,6 @@ fn default_cq_concentration_thresholds(aggregate_threshold: f64) -> HashMap<Simm
     .into_iter()
     .map(|sector| (sector, aggregate_threshold))
     .collect()
-}
-
-fn ordered_credit_sector_pair(
-    a: SimmCreditSector,
-    b: SimmCreditSector,
-) -> (SimmCreditSector, SimmCreditSector) {
-    if (a as u8) <= (b as u8) {
-        (a, b)
-    } else {
-        (b, a)
-    }
 }
 
 fn validate_simm_params(p: &SimmParams) -> Result<()> {

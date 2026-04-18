@@ -230,12 +230,11 @@ impl DefaultLpOptimizer {
         let required_metrics = Self::required_metrics(problem);
         let options = crate::valuation::PortfolioValuationOptions {
             strict_risk: matches!(problem.missing_metric_policy, MissingMetricPolicy::Strict),
-            additional_metrics: if required_metrics.is_empty() {
-                None
+            metrics: if required_metrics.is_empty() {
+                crate::valuation::RequestedMetrics::Standard
             } else {
-                Some(required_metrics.clone())
+                crate::valuation::RequestedMetrics::StandardPlus(required_metrics.clone())
             },
-            replace_standard_metrics: false,
         };
 
         let valuation =

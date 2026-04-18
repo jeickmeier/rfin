@@ -4,6 +4,7 @@
 //! the same two-level (intra-bucket, inter-bucket) formula as delta,
 //! but with vega-specific risk weights and correlations.
 
+use super::aggregation::{inter_bucket, intra_bucket_uniform_map};
 use super::params::{commodity, csr, equity, fx, girr};
 use super::types::{CorrelationScenario, FrtbRiskClass, FrtbSensitivities};
 use finstack_core::HashMap;
@@ -82,7 +83,7 @@ fn girr_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
         bucket_results.push((k_b, s_b));
     }
 
-    inter_bucket_agg(&bucket_results, inter_gamma)
+    inter_bucket(&bucket_results, inter_gamma)
 }
 
 /// Exponential-decay correlation between two tenors / maturities.
@@ -148,8 +149,8 @@ fn equity_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
     let intra_rho = scenario.scale_correlation(equity::EQUITY_INTRA_BUCKET_CORRELATION);
     let inter_gamma = scenario.scale_correlation(equity::EQUITY_INTER_BUCKET_CORRELATION);
 
-    let bucket_results = intra_bucket_aggregate_u8(&by_bucket, intra_rho);
-    inter_bucket_agg(&bucket_results, inter_gamma)
+    let bucket_results = intra_bucket_uniform_map(&by_bucket, intra_rho);
+    inter_bucket(&bucket_results, inter_gamma)
 }
 
 // ---------------------------------------------------------------------------
@@ -170,8 +171,8 @@ fn commodity_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f6
     let intra_rho = scenario.scale_correlation(commodity::COMMODITY_INTRA_BUCKET_CORRELATION);
     let inter_gamma = scenario.scale_correlation(commodity::COMMODITY_INTER_BUCKET_CORRELATION);
 
-    let bucket_results = intra_bucket_aggregate_u8(&by_bucket, intra_rho);
-    inter_bucket_agg(&bucket_results, inter_gamma)
+    let bucket_results = intra_bucket_uniform_map(&by_bucket, intra_rho);
+    inter_bucket(&bucket_results, inter_gamma)
 }
 
 // ---------------------------------------------------------------------------
@@ -226,66 +227,6 @@ fn generic_bucketed_vega(
     let scaled_intra = scenario.scale_correlation(intra_rho);
     let scaled_inter = scenario.scale_correlation(inter_gamma);
 
-    let bucket_results = intra_bucket_aggregate_u8(&by_bucket, scaled_intra);
-    inter_bucket_agg(&bucket_results, scaled_inter)
-}
-
-/// Intra-bucket aggregation for u8-keyed data.
-fn intra_bucket_aggregate_u8(by_bucket: &HashMap<u8, Vec<f64>>, intra_rho: f64) -> Vec<(f64, f64)> {
-    let mut results = Vec::new();
-    for entries in by_bucket.values() {
-        let (k_b, s_b) = aggregate_within_bucket(entries, intra_rho);
-        results.push((k_b, s_b));
-    }
-    results
-}
-
-fn aggregate_within_bucket(entries: &[f64], intra_rho: f64) -> (f64, f64) {
-    let mut k_squared = 0.0;
-    for (i, ws_i) in entries.iter().enumerate() {
-        for (j, ws_j) in entries.iter().enumerate() {
-            let rho = if i == j { 1.0 } else { intra_rho };
-            k_squared += rho * ws_i * ws_j;
-        }
-    }
-    let k_b = k_squared.max(0.0).sqrt();
-    let s_b: f64 = entries.iter().sum();
-    (k_b, s_b)
-}
-
-/// Inter-bucket aggregation per MAR21.4-21.6.
-///
-/// Tries the standard quadratic form with uncapped `S_b = sum WS` first.
-/// Only if it comes out negative does the alternative formula (MAR21.6)
-/// fire, in which every `S_b` is capped to `[-K_b, K_b]`.
-fn inter_bucket_agg(bucket_results: &[(f64, f64)], gamma: f64) -> f64 {
-    let compute = |cap: bool| -> f64 {
-        let mut total = 0.0;
-        for (i, &(k_i, s_i_raw)) in bucket_results.iter().enumerate() {
-            total += k_i * k_i;
-            let s_i = if cap {
-                s_i_raw.clamp(-k_i, k_i)
-            } else {
-                s_i_raw
-            };
-            for (j, &(k_j, s_j_raw)) in bucket_results.iter().enumerate() {
-                if i != j {
-                    let s_j = if cap {
-                        s_j_raw.clamp(-k_j, k_j)
-                    } else {
-                        s_j_raw
-                    };
-                    total += gamma * s_i * s_j;
-                }
-            }
-        }
-        total
-    };
-
-    let standard = compute(false);
-    if standard >= 0.0 {
-        standard.sqrt()
-    } else {
-        compute(true).max(0.0).sqrt()
-    }
+    let bucket_results = intra_bucket_uniform_map(&by_bucket, scaled_intra);
+    inter_bucket(&bucket_results, scaled_inter)
 }

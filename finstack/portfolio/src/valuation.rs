@@ -131,21 +131,18 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 
 /// Resolve the metric set to request based on valuation options.
 fn resolve_metrics(options: &PortfolioValuationOptions) -> Vec<MetricId> {
-    match (
-        &options.additional_metrics,
-        options.replace_standard_metrics,
-    ) {
-        (Some(additional), true) => additional.clone(),
-        (Some(additional), false) => {
+    match &options.metrics {
+        RequestedMetrics::Standard => standard_portfolio_metrics(),
+        RequestedMetrics::Only(metrics) => metrics.clone(),
+        RequestedMetrics::StandardPlus(extra) => {
             let mut merged = standard_portfolio_metrics();
-            for m in additional {
+            for m in extra {
                 if !merged.contains(m) {
                     merged.push(m.clone());
                 }
             }
             merged
         }
-        (None, _) => standard_portfolio_metrics(),
     }
 }
 
@@ -190,14 +187,27 @@ fn assemble_valuation(
     })
 }
 
+/// Which metric set to request for every position in the portfolio.
+///
+/// This replaces the legacy tri-state combination of `additional_metrics`
+/// and `replace_standard_metrics` with a single explicit enum that has one
+/// obvious interpretation for each variant.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(tag = "mode", content = "metrics", rename_all = "snake_case")]
+pub enum RequestedMetrics {
+    /// Standard portfolio metric set only (see [`standard_portfolio_metrics`]).
+    #[default]
+    Standard,
+    /// Standard set plus the listed extra metrics (de-duplicated).
+    StandardPlus(Vec<MetricId>),
+    /// Only the listed metrics; the standard set is not included.
+    Only(Vec<MetricId>),
+}
+
 /// Options controlling portfolio valuation behaviour.
 ///
-/// This structure allows callers to configure how strictly risk metric
-/// errors are handled and which additional metrics to request.
-///
-/// By default, risk metrics are treated as best-effort: if metrics fail
-/// for a position, the engine falls back to PV-only valuation for that
-/// position.
+/// By default, risk metrics are treated as best-effort: if metrics fail for
+/// a position, the engine falls back to PV-only valuation for that position.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PortfolioValuationOptions {
     /// When `true`, any failure to compute requested risk metrics for a
@@ -208,18 +218,9 @@ pub struct PortfolioValuationOptions {
     /// aggregate PV but potentially leaving some risk metrics missing.
     pub strict_risk: bool,
 
-    /// Optional list of additional metrics to request from instruments.
-    ///
-    /// When `None`, only the standard portfolio metrics (see
-    /// `standard_portfolio_metrics`) are requested.
-    /// When `Some`, the metrics are merged with the standard set unless
-    /// [`PortfolioValuationOptions::replace_standard_metrics`] is `true`.
-    pub additional_metrics: Option<Vec<MetricId>>,
-
-    /// When `true`, [`PortfolioValuationOptions::additional_metrics`]
-    /// replaces the standard metric set entirely rather than being
-    /// merged with it.
-    pub replace_standard_metrics: bool,
+    /// Which metric set to request. See [`RequestedMetrics`].
+    #[serde(default)]
+    pub metrics: RequestedMetrics,
 }
 
 /// Value all positions in a portfolio with full metrics.

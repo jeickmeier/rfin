@@ -12,26 +12,11 @@ use finstack_core::HashMap;
 use finstack_core::Result;
 use std::sync::Arc;
 
-/// Internal model input source for VaR/ES outputs.
-pub trait InternalModelInputSource: Send + Sync {
-    /// Return an internal model IM amount when available.
-    fn initial_margin(
-        &self,
-        instrument: &dyn Marginable,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Option<Money>;
-
-    /// Optional MPOR override for internal model calculations.
-    fn mpor_days(&self) -> Option<u32> {
-        None
-    }
-
-    /// Optional label for the model used.
-    fn model_name(&self) -> Option<String> {
-        None
-    }
-}
+/// Legacy alias for the unified [`super::ExternalImSource`] trait.
+///
+/// Kept so downstream callers that imported `InternalModelInputSource`
+/// continue to compile.
+pub use super::ExternalImSource as InternalModelInputSource;
 
 /// Internal model IM calculator.
 #[derive(Clone)]
@@ -40,8 +25,8 @@ pub struct InternalModelImCalculator {
     pub mpor_days: u32,
     /// Conservative fallback rate applied to notional proxy
     pub conservative_rate: f64,
-    /// Optional external internal model input source
-    pub input_source: Option<Arc<dyn InternalModelInputSource>>,
+    /// Optional external internal-model input source
+    pub input_source: Option<Arc<dyn super::ExternalImSource>>,
 }
 
 impl std::fmt::Debug for InternalModelImCalculator {
@@ -51,10 +36,7 @@ impl std::fmt::Debug for InternalModelImCalculator {
             .field("conservative_rate", &self.conservative_rate)
             .field(
                 "input_source",
-                &self
-                    .input_source
-                    .as_ref()
-                    .map(|_| "<dyn InternalModelInputSource>"),
+                &self.input_source.as_ref().map(|_| "<dyn ExternalImSource>"),
             )
             .finish()
     }
@@ -77,9 +59,9 @@ impl InternalModelImCalculator {
         Self::default()
     }
 
-    /// Attach an internal model input source.
+    /// Attach an internal-model input source.
     #[must_use]
-    pub fn with_input_source(mut self, source: Arc<dyn InternalModelInputSource>) -> Self {
+    pub fn with_input_source(mut self, source: Arc<dyn super::ExternalImSource>) -> Self {
         self.input_source = Some(source);
         self
     }
@@ -100,7 +82,7 @@ impl InternalModelImCalculator {
 
     /// Calculate IM using conservative estimate.
     pub fn calculate_conservative(&self, notional: Money) -> Money {
-        Money::new(notional.amount().abs(), notional.currency()) * self.conservative_rate
+        super::conservative_im(notional, self.conservative_rate)
     }
 }
 
@@ -121,13 +103,13 @@ impl ImCalculator for InternalModelImCalculator {
         let mut label = "internal_model".to_string();
 
         if let Some(source) = &self.input_source {
-            if let Some(amount) = source.initial_margin(instrument, context, as_of) {
+            if let Some(amount) = source.external_initial_margin(instrument, context, as_of) {
                 im_amount = amount;
             }
-            if let Some(override_mpor) = source.mpor_days() {
+            if let Some(override_mpor) = source.external_mpor_days() {
                 mpor_days = override_mpor;
             }
-            if let Some(name) = source.model_name() {
+            if let Some(name) = source.external_model_name() {
                 label = name;
             }
         }
@@ -203,8 +185,8 @@ mod tests {
         amount: Money,
     }
 
-    impl InternalModelInputSource for TestInputSource {
-        fn initial_margin(
+    impl super::super::ExternalImSource for TestInputSource {
+        fn external_initial_margin(
             &self,
             _instrument: &dyn Marginable,
             _context: &MarketContext,
@@ -213,7 +195,7 @@ mod tests {
             Some(self.amount)
         }
 
-        fn model_name(&self) -> Option<String> {
+        fn external_model_name(&self) -> Option<String> {
             Some("internal_var".to_string())
         }
     }

@@ -575,11 +575,11 @@ fn test_results_metadata() {
 }
 
 // ============================================================================
-// EvaluatorWithContext Tests
+// evaluate_with_market Tests
 // ============================================================================
 
 #[test]
-fn test_evaluator_with_market_context() {
+fn test_evaluate_with_market_basic() {
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use time::Month;
@@ -606,9 +606,10 @@ fn test_evaluator_with_market_context() {
     let market_ctx = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    let mut evaluator =
-        finstack_statements::evaluator::Evaluator::with_market_context(&market_ctx, as_of);
-    let results = evaluator.evaluate(&model).unwrap();
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator
+        .evaluate_with_market(&model, &market_ctx, as_of)
+        .unwrap();
 
     assert_eq!(
         results.get("revenue", &PeriodId::quarter(2025, 1)),
@@ -617,7 +618,7 @@ fn test_evaluator_with_market_context() {
 }
 
 #[test]
-fn test_evaluate_with_market_context_no_capital_structure() {
+fn test_evaluate_with_market_no_capital_structure() {
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use time::Month;
@@ -637,7 +638,7 @@ fn test_evaluate_with_market_context_no_capital_structure() {
 
     let mut evaluator = finstack_statements::evaluator::Evaluator::new();
     let results = evaluator
-        .evaluate_with_market_context(&model, Some(&market_ctx), Some(as_of))
+        .evaluate_with_market(&model, &market_ctx, as_of)
         .unwrap();
 
     assert_eq!(

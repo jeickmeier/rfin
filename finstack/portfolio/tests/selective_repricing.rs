@@ -134,7 +134,7 @@ fn dependency_index_rebuilt_after_mutation() {
     )
     .unwrap();
 
-    portfolio.add_position(pos3);
+    portfolio.add_position(pos3).unwrap();
 
     assert!(
         portfolio.dependency_index().factor_count() > count_before,

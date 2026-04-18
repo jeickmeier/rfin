@@ -224,9 +224,11 @@ fn evaluate_dcf_impl(
     ufcf_node: &str,
     context: DcfEvalContext<'_>,
 ) -> Result<(CorporateValuationResult, ExplanationTrace)> {
-    // Create evaluator and evaluate the model
+    // Create evaluator and evaluate the model. Market context is applied later
+    // during DCF discounting; passing market here with `as_of = None` is a no-op
+    // in the evaluator, so we use plain `evaluate` for clarity.
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate_with_market_context(model, context.market, None)?;
+    let results = evaluator.evaluate(model)?;
 
     evaluate_dcf_from_results_impl(model, &results, wacc, terminal_value, ufcf_node, context)
 }
