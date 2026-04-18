@@ -865,6 +865,14 @@ export interface ScenariosNamespace {
     marketJson: string,
     asOf: string
   ): ScenarioApplyMarketResult;
+  computeHorizonReturn(
+    instrumentJson: string,
+    market: unknown,
+    asOf: string,
+    scenarioJson: string,
+    method?: string,
+    config?: string
+  ): string;
 }
 
 export declare const scenarios: ScenariosNamespace;

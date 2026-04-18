@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from finstack.valuations import PnlAttribution
+
 __all__ = [
     "parse_scenario_spec",
     "build_scenario_spec",
@@ -16,6 +18,8 @@ __all__ = [
     "build_template_component",
     "apply_scenario",
     "apply_scenario_to_market",
+    "compute_horizon_return",
+    "HorizonResult",
 ]
 
 def parse_scenario_spec(json_str: str) -> str:
@@ -216,5 +220,105 @@ def apply_scenario_to_market(
         >>> from finstack.scenarios import apply_scenario_to_market
         >>> apply_scenario_to_market(sj, mj, "2025-01-15")  # doctest: +SKIP
         {}
+    """
+    ...
+
+class HorizonResult:
+    """Horizon total return result with full P&L attribution."""
+
+    @property
+    def attribution(self) -> PnlAttribution:
+        """Full P&L attribution breakdown."""
+        ...
+
+    @property
+    def initial_value(self) -> float:
+        """Initial instrument value."""
+        ...
+
+    @property
+    def terminal_value(self) -> float:
+        """Final instrument value after the scenario is applied."""
+        ...
+
+    @property
+    def horizon_days(self) -> int | None:
+        """Horizon in calendar days (``None`` if no time-roll)."""
+        ...
+
+    @property
+    def total_return_pct(self) -> float:
+        """Total return as decimal fraction (0.05 = 5%)."""
+        ...
+
+    @property
+    def annualized_return(self) -> float | None:
+        """Annualized return (``None`` if no time-roll)."""
+        ...
+
+    @property
+    def operations_applied(self) -> int:
+        """Number of scenario operations applied."""
+        ...
+
+    @property
+    def user_operations(self) -> int:
+        """Number of user-provided scenario operations before hierarchy expansion."""
+        ...
+
+    @property
+    def expanded_operations(self) -> int:
+        """Number of direct operations after hierarchy expansion and deduplication."""
+        ...
+
+    @property
+    def warnings(self) -> list[str]:
+        """Warnings emitted during scenario application."""
+        ...
+
+    def factor_contribution(self, factor: str) -> float:
+        """Factor contribution as decimal fraction of initial value.
+
+        Args:
+            factor: One of ``"carry"``, ``"rates"``/``"rates_curves"``,
+                ``"credit"``/``"credit_curves"``, ``"inflation"``/``"inflation_curves"``,
+                ``"correlations"``, ``"fx"``, ``"volatility"``/``"vol"``,
+                ``"model_parameters"``/``"model_params"``, or
+                ``"market_scalars"``/``"scalars"``.
+
+        Returns:
+            Contribution of the given factor as a decimal fraction.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Serialize the result to JSON."""
+        ...
+
+    def explain(self) -> str:
+        """Human-readable summary of horizon return and attribution."""
+        ...
+
+def compute_horizon_return(
+    instrument_json: str,
+    market: Any,
+    as_of: str,
+    scenario_json: str,
+    method: str = "parallel",
+    config: str | None = None,
+) -> HorizonResult:
+    """Compute horizon total return under a scenario.
+
+    Args:
+        instrument_json: JSON-serialized instrument (tagged ``{"type": ..., "spec": {...}}``).
+        market: ``MarketContext`` object or JSON string.
+        as_of: Valuation date in ISO 8601 format.
+        scenario_json: JSON-serialized ``ScenarioSpec``.
+        method: Attribution method — ``"parallel"`` (default), ``"waterfall"``,
+            ``"metrics_based"``, or ``"taylor"``.
+        config: Optional JSON-serialized ``FinstackConfig``.
+
+    Returns:
+        ``HorizonResult`` with decomposed total return and factor attribution.
     """
     ...
