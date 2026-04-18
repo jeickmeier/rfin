@@ -3,11 +3,54 @@
 //! traffic-light classification.
 
 use super::types::{
-    PyBacktestResult, PyChristoffersenResult, PyKupiecResult, PyTrafficLightResult,
+    PyBacktestResult, PyChristoffersenResult, PyKupiecResult, PyMultiModelComparison,
+    PyPnlExplanation, PyTrafficLightResult,
 };
+use crate::bindings::core::dates::utils::py_to_date;
+use crate::errors::core_to_py;
 use finstack_analytics::backtesting as bt;
 use finstack_analytics::backtesting::Breach;
+use finstack_analytics::lookback as lb;
 use pyo3::prelude::*;
+use pyo3::types::PyAny;
+
+fn parse_var_method(method: &str) -> PyResult<bt::VarMethod> {
+    match method.to_ascii_lowercase().as_str() {
+        "historical" | "hist" => Ok(bt::VarMethod::Historical),
+        "parametric" | "gaussian" | "normal" => Ok(bt::VarMethod::Parametric),
+        "cornishfisher" | "cornish_fisher" | "cornish-fisher" | "cf" => {
+            Ok(bt::VarMethod::CornishFisher)
+        }
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "unknown VaR method '{other}' (expected Historical, Parametric, or CornishFisher)"
+        ))),
+    }
+}
+
+fn run_rolling_var(
+    returns: &[f64],
+    lookback: usize,
+    confidence: f64,
+    method: bt::VarMethod,
+) -> (Vec<f64>, Vec<f64>) {
+    match method {
+        bt::VarMethod::Historical => {
+            bt::rolling_var_forecasts(returns, lookback, confidence, |window, level| {
+                finstack_analytics::risk_metrics::value_at_risk(window, level, None)
+            })
+        }
+        bt::VarMethod::Parametric => {
+            bt::rolling_var_forecasts(returns, lookback, confidence, |window, level| {
+                finstack_analytics::risk_metrics::parametric_var(window, level, None)
+            })
+        }
+        bt::VarMethod::CornishFisher => {
+            bt::rolling_var_forecasts(returns, lookback, confidence, |window, level| {
+                finstack_analytics::risk_metrics::cornish_fisher_var(window, level, None)
+            })
+        }
+    }
+}
 
 // -------------------------------------------------------------------
 // classify_breaches
@@ -151,6 +194,137 @@ fn run_backtest(
     }
 }
 
+/// Build rolling VaR forecasts and aligned realized P&L using a canonical Rust method.
+#[pyfunction]
+#[pyo3(signature = (returns, lookback, confidence = 0.99, method = "Historical"))]
+fn rolling_var_forecasts(
+    returns: Vec<f64>,
+    lookback: usize,
+    confidence: f64,
+    method: &str,
+) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    let parsed_method = parse_var_method(method)?;
+    Ok(run_rolling_var(
+        &returns,
+        lookback,
+        confidence,
+        parsed_method,
+    ))
+}
+
+/// Compare multiple model forecast series against the same realized P&L.
+#[pyfunction]
+#[pyo3(signature = (models, realized_pnl, confidence = 0.99, window_size = 250))]
+fn compare_var_backtests(
+    models: Vec<(String, Vec<f64>)>,
+    realized_pnl: Vec<f64>,
+    confidence: f64,
+    window_size: usize,
+) -> PyResult<PyMultiModelComparison> {
+    let cfg = bt::VarBacktestConfig::new()
+        .with_confidence(confidence)
+        .with_window_size(window_size);
+    let parsed_models: Vec<(bt::VarMethod, Vec<f64>)> = models
+        .into_iter()
+        .map(|(method, forecasts)| Ok((parse_var_method(&method)?, forecasts)))
+        .collect::<PyResult<_>>()?;
+    let refs: Vec<(bt::VarMethod, &[f64])> = parsed_models
+        .iter()
+        .map(|(method, forecasts)| (*method, forecasts.as_slice()))
+        .collect();
+    Ok(PyMultiModelComparison {
+        inner: bt::compare_var_backtests(&refs, &realized_pnl, &cfg),
+    })
+}
+
+/// Basel FRTB-style P&L explanation diagnostics.
+#[pyfunction]
+fn pnl_explanation(
+    hypothetical_pnl: Vec<f64>,
+    risk_theoretical_pnl: Vec<f64>,
+    var: Vec<f64>,
+) -> PyPnlExplanation {
+    PyPnlExplanation {
+        inner: bt::pnl_explanation(&hypothetical_pnl, &risk_theoretical_pnl, &var),
+    }
+}
+
+/// Month-to-date index range into a sorted date array.
+#[pyfunction]
+#[pyo3(signature = (dates, as_of, offset_days = 0))]
+fn mtd_select(
+    py: Python<'_>,
+    dates: Vec<Py<PyAny>>,
+    as_of: Py<PyAny>,
+    offset_days: i64,
+) -> PyResult<(usize, usize)> {
+    let parsed_dates = dates
+        .into_iter()
+        .map(|date| py_to_date(&date.bind(py)))
+        .collect::<PyResult<Vec<_>>>()?;
+    let as_of = py_to_date(&as_of.bind(py))?;
+    let range = lb::mtd_select(&parsed_dates, as_of, offset_days);
+    Ok((range.start, range.end))
+}
+
+/// Quarter-to-date index range into a sorted date array.
+#[pyfunction]
+#[pyo3(signature = (dates, as_of, offset_days = 0))]
+fn qtd_select(
+    py: Python<'_>,
+    dates: Vec<Py<PyAny>>,
+    as_of: Py<PyAny>,
+    offset_days: i64,
+) -> PyResult<(usize, usize)> {
+    let parsed_dates = dates
+        .into_iter()
+        .map(|date| py_to_date(&date.bind(py)))
+        .collect::<PyResult<Vec<_>>>()?;
+    let as_of = py_to_date(&as_of.bind(py))?;
+    let range = lb::qtd_select(&parsed_dates, as_of, offset_days);
+    Ok((range.start, range.end))
+}
+
+/// Year-to-date index range into a sorted date array.
+#[pyfunction]
+#[pyo3(signature = (dates, as_of, offset_days = 0))]
+fn ytd_select(
+    py: Python<'_>,
+    dates: Vec<Py<PyAny>>,
+    as_of: Py<PyAny>,
+    offset_days: i64,
+) -> PyResult<(usize, usize)> {
+    let parsed_dates = dates
+        .into_iter()
+        .map(|date| py_to_date(&date.bind(py)))
+        .collect::<PyResult<Vec<_>>>()?;
+    let as_of = py_to_date(&as_of.bind(py))?;
+    let range = lb::ytd_select(&parsed_dates, as_of, offset_days);
+    Ok((range.start, range.end))
+}
+
+/// Fiscal-year-to-date index range into a sorted date array.
+#[pyfunction]
+#[pyo3(signature = (dates, as_of, fiscal_start_month, fiscal_start_day = 1, offset_days = 0))]
+fn fytd_select(
+    py: Python<'_>,
+    dates: Vec<Py<PyAny>>,
+    as_of: Py<PyAny>,
+    fiscal_start_month: u8,
+    fiscal_start_day: u8,
+    offset_days: i64,
+) -> PyResult<(usize, usize)> {
+    let parsed_dates = dates
+        .into_iter()
+        .map(|date| py_to_date(&date.bind(py)))
+        .collect::<PyResult<Vec<_>>>()?;
+    let as_of = py_to_date(&as_of.bind(py))?;
+    let config = finstack_core::dates::FiscalConfig::new(fiscal_start_month, fiscal_start_day)
+        .map_err(core_to_py)?;
+    let range = lb::fytd_select(&parsed_dates, as_of, config, offset_days);
+    Ok((range.start, range.end))
+}
+
 // -------------------------------------------------------------------
 // Registration
 // -------------------------------------------------------------------
@@ -161,5 +335,12 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(christoffersen_test, m)?)?;
     m.add_function(wrap_pyfunction!(traffic_light, m)?)?;
     m.add_function(wrap_pyfunction!(run_backtest, m)?)?;
+    m.add_function(wrap_pyfunction!(rolling_var_forecasts, m)?)?;
+    m.add_function(wrap_pyfunction!(compare_var_backtests, m)?)?;
+    m.add_function(wrap_pyfunction!(pnl_explanation, m)?)?;
+    m.add_function(wrap_pyfunction!(mtd_select, m)?)?;
+    m.add_function(wrap_pyfunction!(qtd_select, m)?)?;
+    m.add_function(wrap_pyfunction!(ytd_select, m)?)?;
+    m.add_function(wrap_pyfunction!(fytd_select, m)?)?;
     Ok(())
 }

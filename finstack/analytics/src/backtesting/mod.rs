@@ -22,14 +22,15 @@
 //! );
 //! ```
 
+mod metrics;
 mod orchestrator;
 mod tests;
 mod types;
 
-pub use orchestrator::{compare_var_backtests, rolling_var_forecasts, run_backtest};
-pub use tests::{
+pub use metrics::{
     christoffersen_test, classify_breaches, kupiec_test, pnl_explanation, traffic_light,
 };
+pub use orchestrator::{compare_var_backtests, rolling_var_forecasts, run_backtest};
 pub use types::{
     BacktestResult, Breach, ChristoffersenResult, KupiecResult, MultiModelComparison,
     PnlExplanation, TrafficLightResult, TrafficLightZone, VarBacktestConfig, VarMethod,

@@ -5,7 +5,7 @@
 //! - Descriptive peer statistics (`peer_stats`).
 //! - Percentile rank and z-score of a subject within a peer distribution.
 //! - Single-factor OLS regression for fair-value estimation.
-//! - Safe division helper (`compute_multiple`).
+//! - Canonical valuation multiple computation on `CompanyMetrics`.
 //! - Multi-dimension composite rich/cheap scoring (`score_relative_value`).
 //!
 //! The scoring API takes plain dicts/lists from Python rather than the
@@ -15,15 +15,15 @@
 //! underlying `finstack_analytics::comps::score_relative_value` logic.
 
 use finstack_analytics::comps::{
-    peer_stats as core_peer_stats, percentile_rank as core_percentile_rank,
-    regression_fair_value as core_regression, score_relative_value as core_score,
-    z_score as core_z_score, CompanyMetrics, MetricExtractor, PeerSet, PeriodBasis,
-    ScoringDimension,
+    compute_multiple as core_compute_multiple, peer_stats as core_peer_stats,
+    percentile_rank as core_percentile_rank, regression_fair_value as core_regression,
+    score_relative_value as core_score, z_score as core_z_score, CompanyMetrics, MetricExtractor,
+    Multiple, PeerSet, PeriodBasis, ScoringDimension,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, display_to_py};
 
 // ---------------------------------------------------------------------------
 // Statistics
@@ -96,15 +96,14 @@ fn peer_stats<'py>(py: Python<'py>, peer_values: Vec<f64>) -> PyResult<Bound<'py
 /// and residual for the subject. Conventions:
 ///
 /// - ``fitted_value = intercept + slope * subject_x``
-/// - ``residual = subject_y - fitted_value`` if a subject Y is known,
-///   otherwise ``0.0`` (this binding only receives ``subject_x`` and
-///   computes the fitted value).
+/// - ``residual = subject_y - fitted_value``.
 ///
 /// Arguments:
 ///     x_values: Peer X observations (independent variable).
 ///     y_values: Peer Y observations (dependent variable). Must be
 ///         the same length as ``x_values``.
 ///     subject_x: Subject's X value at which to evaluate the fit.
+///     subject_y: Subject's observed Y value for residual computation.
 ///
 /// Returns:
 ///     Dict with keys ``{"slope", "intercept", "r_squared",
@@ -112,26 +111,20 @@ fn peer_stats<'py>(py: Python<'py>, peer_values: Vec<f64>) -> PyResult<Bound<'py
 ///     fewer than three observations are available or the regression
 ///     cannot be computed (e.g., zero variance in X).
 #[pyfunction]
-#[pyo3(text_signature = "(x_values, y_values, subject_x)")]
+#[pyo3(text_signature = "(x_values, y_values, subject_x, subject_y)")]
 fn regression_fair_value<'py>(
     py: Python<'py>,
     x_values: Vec<f64>,
     y_values: Vec<f64>,
     subject_x: f64,
+    subject_y: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
     let d = PyDict::new(py);
-    // The core function needs a subject_y to compute the residual. Since
-    // this minimal binding asks the caller for only subject_x, pass 0.0
-    // and report the raw fitted_value. Callers that care about residual
-    // can subtract the fitted_value from their own observed subject_y.
-    if let Some(reg) = core_regression(&x_values, &y_values, subject_x, 0.0) {
+    if let Some(reg) = core_regression(&x_values, &y_values, subject_x, subject_y) {
         d.set_item("slope", reg.slope)?;
         d.set_item("intercept", reg.intercept)?;
         d.set_item("r_squared", reg.r_squared)?;
         d.set_item("fitted_value", reg.fitted_value)?;
-        // residual here is (0 - fitted_value); expose as the raw fitted
-        // value's negation so callers see something meaningful, but the
-        // more useful interpretation is: residual = subject_y - fitted.
         d.set_item("residual", reg.residual)?;
         d.set_item("n", reg.n)?;
     }
@@ -142,28 +135,24 @@ fn regression_fair_value<'py>(
 // Multiples
 // ---------------------------------------------------------------------------
 
-/// Safe division: ``numerator / denominator`` with guards.
+/// Compute a canonical valuation multiple for one company.
 ///
-/// Returns ``f64::NAN`` if the denominator is non-positive or either
-/// input is non-finite. This mirrors the guard used inside
-/// ``finstack_analytics::comps::multiples::compute_multiple`` for the
-/// denominator term of a valuation multiple.
+/// ``company_metrics`` is a Python dict matching the Rust
+/// ``CompanyMetrics`` shape; only the fields needed for the chosen
+/// multiple must be populated.
 ///
 /// Arguments:
-///     numerator: Typically EV, market cap, price, or spread.
-///     denominator: Typically EBITDA, earnings, book value, or leverage.
+///     company_metrics: Dict of company metrics keyed by canonical field name.
+///     multiple: Canonical multiple selector such as ``"EvEbitda"`` or ``"Pe"``.
 ///
 /// Returns:
-///     ``numerator / denominator`` when the inputs are valid, otherwise
-///     ``NaN``.
+///     Multiple value, or ``None`` when required inputs are missing or invalid.
 #[pyfunction]
-#[pyo3(text_signature = "(numerator, denominator)")]
-fn compute_multiple(numerator: f64, denominator: f64) -> f64 {
-    if denominator <= 0.0 || !denominator.is_finite() || !numerator.is_finite() {
-        f64::NAN
-    } else {
-        numerator / denominator
-    }
+#[pyo3(text_signature = "(company_metrics, multiple)")]
+fn compute_multiple(company_metrics: &Bound<'_, PyDict>, multiple: &str) -> PyResult<Option<f64>> {
+    let metrics = dict_to_company_metrics("subject", company_metrics)?;
+    let multiple: Multiple = multiple.parse().map_err(display_to_py)?;
+    Ok(core_compute_multiple(&metrics, multiple))
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 //! Orchestrators: single-model backtest, rolling VaR forecasts, and
 //! multi-model comparison.
 
-use super::tests::{christoffersen_test, classify_breaches, kupiec_test, traffic_light};
+use super::metrics::{christoffersen_test, classify_breaches, kupiec_test, traffic_light};
 use super::types::{BacktestResult, Breach, MultiModelComparison, VarBacktestConfig, VarMethod};
 
 /// Run a complete VaR backtest on a single forecast series.

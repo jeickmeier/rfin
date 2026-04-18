@@ -7,6 +7,7 @@ use finstack_core::types::Attributes;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 
 /// Opaque company identifier within a peer set.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -111,6 +112,33 @@ impl Multiple {
             Self::DividendYield => "Div Yield",
             Self::SpreadPerTurn => "Spread/Turn",
             Self::YieldPerCoverage => "Yield/Coverage",
+        }
+    }
+}
+
+impl FromStr for Multiple {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "evebitda" | "ev_ebitda" | "ev/ebitda" => Ok(Self::EvEbitda),
+            "evrevenue" | "ev_revenue" | "ev/revenue" => Ok(Self::EvRevenue),
+            "evebit" | "ev_ebit" | "ev/ebit" => Ok(Self::EvEbit),
+            "evfcf" | "ev_fcf" | "ev/fcf" => Ok(Self::EvFcf),
+            "pe" | "p_e" | "p/e" => Ok(Self::Pe),
+            "pb" | "p_b" | "p/b" => Ok(Self::Pb),
+            "ptbv" | "p_tbv" | "p/tbv" => Ok(Self::Ptbv),
+            "pfcf" | "p_fcf" | "p/fcf" => Ok(Self::PFcf),
+            "dividendyield" | "dividend_yield" | "dividend/yield" | "div_yield" => {
+                Ok(Self::DividendYield)
+            }
+            "spreadperturn" | "spread_per_turn" | "spread/turn" => Ok(Self::SpreadPerTurn),
+            "yieldpercoverage" | "yield_per_coverage" | "yield/coverage" => {
+                Ok(Self::YieldPerCoverage)
+            }
+            other => Err(format!(
+                "unknown multiple {other:?}; expected one of EvEbitda, EvRevenue, EvEbit, EvFcf, Pe, Pb, Ptbv, PFcf, DividendYield, SpreadPerTurn, YieldPerCoverage"
+            )),
         }
     }
 }
