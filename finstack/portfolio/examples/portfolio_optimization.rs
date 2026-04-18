@@ -154,8 +154,9 @@ fn main() -> finstack_portfolio::Result<()> {
 
     // Constraint: CCC exposure <= 20% of the portfolio.
     problem = problem.with_constraint(
-        Constraint::exposure_limit_with_label(Some("ccc_limit".to_string()), "rating", "CCC", 0.20)
-            .expect("valid constraint"),
+        Constraint::exposure_limit("rating", "CCC", 0.20)
+            .expect("valid constraint")
+            .with_label("ccc_limit"),
     );
 
     let optimizer = DefaultLpOptimizer;

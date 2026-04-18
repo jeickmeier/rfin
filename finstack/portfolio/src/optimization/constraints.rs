@@ -82,6 +82,27 @@ impl Constraint {
         }
     }
 
+    /// Attach a diagnostic label to this constraint.
+    ///
+    /// Chain after a constructor, e.g.
+    /// `Constraint::exposure_limit("rating", "CCC", 0.2)?.with_label("ccc_limit")`.
+    ///
+    /// No-op for [`Constraint::Budget`], which always reports the fixed label
+    /// `"budget"` via [`Constraint::label`].
+    #[must_use]
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        let label_str = label.into();
+        match &mut self {
+            Self::MetricBound { label, .. }
+            | Self::WeightBounds { label, .. }
+            | Self::MaxTurnover { label, .. } => {
+                *label = Some(label_str);
+            }
+            Self::Budget { .. } => {}
+        }
+        self
+    }
+
     /// Shorthand for attribute exposure limit: `sum w_i * I[attr == value] <= max_share`.
     ///
     /// # Errors
@@ -92,27 +113,13 @@ impl Constraint {
         value: impl Into<String>,
         max_share: f64,
     ) -> Result<Self, ConstraintValidationError> {
-        Self::exposure_limit_with_label(None, key, value, max_share)
-    }
-
-    /// Shorthand for attribute exposure limit with a label.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConstraintValidationError`] if `max_share` is not in `[0, 1]`.
-    pub fn exposure_limit_with_label(
-        label: Option<String>,
-        key: impl Into<String>,
-        value: impl Into<String>,
-        max_share: f64,
-    ) -> Result<Self, ConstraintValidationError> {
         if !(0.0..=1.0).contains(&max_share) {
             return Err(ConstraintValidationError {
                 message: format!("max_share must be in [0, 1], got {max_share}"),
             });
         }
         Ok(Self::MetricBound {
-            label,
+            label: None,
             metric: super::types::MetricExpr::WeightedSum {
                 metric: super::types::PerPositionMetric::AttributeIndicator(
                     crate::types::AttributeTest::text_eq(key, value),
@@ -134,27 +141,13 @@ impl Constraint {
         value: impl Into<String>,
         min_share: f64,
     ) -> Result<Self, ConstraintValidationError> {
-        Self::exposure_minimum_with_label(None, key, value, min_share)
-    }
-
-    /// Shorthand for attribute exposure minimum with a label.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConstraintValidationError`] if `min_share` is not in `[0, 1]`.
-    pub fn exposure_minimum_with_label(
-        label: Option<String>,
-        key: impl Into<String>,
-        value: impl Into<String>,
-        min_share: f64,
-    ) -> Result<Self, ConstraintValidationError> {
         if !(0.0..=1.0).contains(&min_share) {
             return Err(ConstraintValidationError {
                 message: format!("min_share must be in [0, 1], got {min_share}"),
             });
         }
         Ok(Self::MetricBound {
-            label,
+            label: None,
             metric: super::types::MetricExpr::WeightedSum {
                 metric: super::types::PerPositionMetric::AttributeIndicator(
                     crate::types::AttributeTest::text_eq(key, value),
@@ -182,28 +175,13 @@ impl Constraint {
         min: f64,
         max: f64,
     ) -> Result<Self, ConstraintValidationError> {
-        Self::weight_bounds_with_label(None, filter, min, max)
-    }
-
-    /// Create a weight bounds constraint with a label and validation.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConstraintValidationError`] if `min > max`.
-    pub fn weight_bounds_with_label(
-        label: Option<String>,
-        filter: PositionFilter,
-        min: f64,
-        max: f64,
-    ) -> Result<Self, ConstraintValidationError> {
         if min > max {
             return Err(ConstraintValidationError {
                 message: format!("weight bounds min ({}) must be <= max ({})", min, max),
             });
         }
-
         Ok(Self::WeightBounds {
-            label,
+            label: None,
             filter,
             min,
             max,
@@ -220,26 +198,13 @@ impl Constraint {
     ///
     /// Returns [`ConstraintValidationError`] if `max_turnover` is negative.
     pub fn max_turnover(max_turnover: f64) -> Result<Self, ConstraintValidationError> {
-        Self::max_turnover_with_label(None, max_turnover)
-    }
-
-    /// Create a max turnover constraint with a label and validation.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConstraintValidationError`] if `max_turnover` is negative.
-    pub fn max_turnover_with_label(
-        label: Option<String>,
-        max_turnover: f64,
-    ) -> Result<Self, ConstraintValidationError> {
         if max_turnover < 0.0 {
             return Err(ConstraintValidationError {
                 message: format!("max_turnover must be non-negative, got {}", max_turnover),
             });
         }
-
         Ok(Self::MaxTurnover {
-            label,
+            label: None,
             max_turnover,
         })
     }
