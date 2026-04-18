@@ -36,6 +36,7 @@
 //!   `docs/REFERENCES.md#artzner1999CoherentRisk`
 
 mod assignment;
+mod math;
 mod model;
 mod optimization;
 mod parametric;
