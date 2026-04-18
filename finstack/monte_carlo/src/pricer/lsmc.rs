@@ -35,9 +35,11 @@ pub struct AmericanPut {
 
 impl AmericanPut {
     /// Create a validated American put with a positive strike.
-    pub fn new(strike: f64) -> std::result::Result<Self, String> {
+    pub fn new(strike: f64) -> finstack_core::Result<Self> {
         if strike <= 0.0 {
-            return Err("strike must be positive".to_string());
+            return Err(finstack_core::Error::Validation(
+                "strike must be positive".to_string(),
+            ));
         }
         Ok(Self { strike })
     }
@@ -58,9 +60,11 @@ pub struct AmericanCall {
 
 impl AmericanCall {
     /// Create a validated American call with a positive strike.
-    pub fn new(strike: f64) -> std::result::Result<Self, String> {
+    pub fn new(strike: f64) -> finstack_core::Result<Self> {
         if strike <= 0.0 {
-            return Err("strike must be positive".to_string());
+            return Err(finstack_core::Error::Validation(
+                "strike must be positive".to_string(),
+            ));
         }
         Ok(Self { strike })
     }
@@ -86,61 +90,46 @@ pub struct LsmcConfig {
 }
 
 impl LsmcConfig {
-    /// Create a new LSMC configuration (unchecked).
-    pub fn new(num_paths: usize, exercise_dates: Vec<usize>) -> Self {
-        Self {
+    /// Create a validated LSMC configuration.
+    ///
+    /// Verifies that `num_paths > 0`, `exercise_dates` is non-empty with
+    /// strictly positive step indices, and every date satisfies
+    /// `0 < date <= num_steps`. An index of `num_steps` corresponds to the
+    /// terminal exercise (European boundary condition); any index strictly
+    /// greater is a caller bug.
+    pub fn new(
+        num_paths: usize,
+        exercise_dates: Vec<usize>,
+        num_steps: usize,
+    ) -> finstack_core::Result<Self> {
+        if num_paths == 0 {
+            return Err(finstack_core::Error::Validation(
+                "num_paths must be positive".to_string(),
+            ));
+        }
+        if exercise_dates.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "exercise_dates must have at least one element".to_string(),
+            ));
+        }
+        if let Some(pos) = exercise_dates.iter().position(|&d| d == 0) {
+            return Err(finstack_core::Error::Validation(format!(
+                "exercise_dates must be strictly positive step indices (exercise_dates[{pos}] = 0 \
+                 implies exercise before the first simulated step)"
+            )));
+        }
+        if let Some(&bad) = exercise_dates.iter().find(|&&d| d > num_steps) {
+            return Err(finstack_core::Error::Validation(format!(
+                "exercise_dates contain {bad} which exceeds num_steps={num_steps}; each date \
+                 must satisfy 0 < date <= num_steps"
+            )));
+        }
+        Ok(Self {
             num_paths,
             seed: 42,
             exercise_dates,
             use_parallel: false,
-        }
-    }
-
-    /// Create a validated LSMC configuration.
-    ///
-    /// Validates that `num_paths > 0` and that `exercise_dates` is non-empty
-    /// and contains no zero values. Zero step indices imply exercise *before*
-    /// the first simulated timestep and would silently be dropped by the
-    /// backward-induction loop.
-    pub fn try_new(
-        num_paths: usize,
-        exercise_dates: Vec<usize>,
-    ) -> std::result::Result<Self, String> {
-        if num_paths == 0 {
-            return Err("num_paths must be positive".to_string());
-        }
-        if exercise_dates.is_empty() {
-            return Err("exercise_dates must have at least one element".to_string());
-        }
-        if let Some(pos) = exercise_dates.iter().position(|&d| d == 0) {
-            return Err(format!(
-                "exercise_dates must be strictly positive step indices (exercise_dates[{pos}] = 0 \
-                 implies exercise before the first simulated step)"
-            ));
-        }
-        Ok(Self::new(num_paths, exercise_dates))
-    }
-
-    /// Create a validated LSMC configuration with known `num_steps`.
-    ///
-    /// This is the preferred constructor: it additionally verifies that every
-    /// exercise date is in the half-open range `(0, num_steps]`. An index of
-    /// `num_steps` corresponds to the terminal exercise (European boundary
-    /// condition); any index strictly greater is silently dropped by
-    /// backward induction and almost certainly indicates a caller bug.
-    pub fn try_new_at_steps(
-        num_paths: usize,
-        exercise_dates: Vec<usize>,
-        num_steps: usize,
-    ) -> std::result::Result<Self, String> {
-        let cfg = Self::try_new(num_paths, exercise_dates)?;
-        if let Some(&bad) = cfg.exercise_dates.iter().find(|&&d| d > num_steps) {
-            return Err(format!(
-                "exercise_dates contain {bad} which exceeds num_steps={num_steps}; each date \
-                 must satisfy 0 < date <= num_steps"
-            ));
-        }
-        Ok(cfg)
+        })
     }
 
     /// Set random seed.
@@ -536,7 +525,9 @@ mod tests {
     fn test_lsmc_basic() {
         // Basic test of LSMC infrastructure
         let exercise_dates = vec![50, 100];
-        let config = LsmcConfig::new(1_000, exercise_dates).with_seed(42);
+        let config = LsmcConfig::new(1_000, exercise_dates, 100)
+            .unwrap()
+            .with_seed(42);
         let pricer = LsmcPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3).unwrap());
@@ -557,7 +548,9 @@ mod tests {
         // Test with degree-5 polynomial (can be ill-conditioned)
         // This tests QR robustness vs Cholesky
         let exercise_dates = vec![25, 50, 75, 100];
-        let config = LsmcConfig::new(5_000, exercise_dates).with_seed(42);
+        let config = LsmcConfig::new(5_000, exercise_dates, 100)
+            .unwrap()
+            .with_seed(42);
         let pricer = LsmcPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3).unwrap());
@@ -582,7 +575,9 @@ mod tests {
         // Test with paths spanning wide spot range (10 to 1000)
         // This can cause numerical issues with polynomial basis
         let exercise_dates = vec![50, 100];
-        let config = LsmcConfig::new(5_000, exercise_dates).with_seed(123);
+        let config = LsmcConfig::new(5_000, exercise_dates, 100)
+            .unwrap()
+            .with_seed(123);
         let pricer = LsmcPricer::new(config);
 
         // High volatility to get wide spot range
@@ -606,7 +601,9 @@ mod tests {
         // Deep OTM put with few ITM paths
         // Tests regression fallback when insufficient data
         let exercise_dates = vec![50, 100];
-        let config = LsmcConfig::new(1_000, exercise_dates).with_seed(456);
+        let config = LsmcConfig::new(1_000, exercise_dates, 100)
+            .unwrap()
+            .with_seed(456);
         let pricer = LsmcPricer::new(config);
 
         // Low volatility, deep OTM
@@ -629,7 +626,7 @@ mod tests {
 
     #[test]
     fn test_lsmc_insufficient_itm_paths_preserves_continuation() {
-        let config = LsmcConfig::new(1, vec![1]);
+        let config = LsmcConfig::new(1, vec![1], 2).unwrap();
         let pricer = LsmcPricer::new(config);
         let exercise = AmericanCall { strike: 100.0 };
         let basis = PolynomialBasis::new(2);
@@ -645,7 +642,9 @@ mod tests {
 
     #[test]
     fn test_lsmc_config_rejects_zero_exercise_date() {
-        let err = LsmcConfig::try_new(100, vec![0, 10, 20]).expect_err("should reject zero step");
+        let err = LsmcConfig::new(100, vec![0, 10, 20], 100)
+            .expect_err("should reject zero step")
+            .to_string();
         assert!(
             err.contains("strictly positive"),
             "unexpected error message: {err}"
@@ -654,8 +653,9 @@ mod tests {
 
     #[test]
     fn test_lsmc_config_rejects_date_beyond_num_steps() {
-        let err = LsmcConfig::try_new_at_steps(100, vec![5, 15, 42], 20)
-            .expect_err("should reject date > num_steps");
+        let err = LsmcConfig::new(100, vec![5, 15, 42], 20)
+            .expect_err("should reject date > num_steps")
+            .to_string();
         assert!(
             err.contains("42") && err.contains("num_steps=20"),
             "unexpected error message: {err}"
@@ -664,14 +664,14 @@ mod tests {
 
     #[test]
     fn test_lsmc_config_accepts_terminal_date() {
-        let cfg = LsmcConfig::try_new_at_steps(100, vec![5, 10, 20], 20)
-            .expect("terminal date should be accepted");
+        let cfg =
+            LsmcConfig::new(100, vec![5, 10, 20], 20).expect("terminal date should be accepted");
         assert_eq!(cfg.exercise_dates, vec![5, 10, 20]);
     }
 
     #[test]
     fn test_lsmc_tiny_positive_intrinsic_values_are_treated_as_itm() {
-        let config = LsmcConfig::new(16, vec![1]);
+        let config = LsmcConfig::new(16, vec![1], 2).unwrap();
         let pricer = LsmcPricer::new(config);
         let exercise = AmericanCall { strike: 100.0 };
         let basis = PolynomialBasis::new(1);

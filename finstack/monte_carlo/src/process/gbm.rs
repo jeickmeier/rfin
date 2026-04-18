@@ -224,16 +224,12 @@ impl MultiGbmProcess {
     ///
     /// * `params` - Parameters for each asset
     /// * `correlation` - Optional correlation matrix (if None, assumes independence)
-    pub fn new(params: Vec<GbmParams>, correlation: Option<Vec<f64>>) -> Self {
-        #[allow(clippy::panic)]
-        match Self::try_new(params, correlation) {
-            Ok(process) => process,
-            Err(err) => panic!("invalid MultiGBM process configuration: {err}"),
-        }
-    }
-
-    /// Create a multi-factor GBM process with explicit validation.
-    pub fn try_new(
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a supplied correlation matrix is malformed or not
+    /// positive semi-definite.
+    pub fn new(
         params: Vec<GbmParams>,
         correlation: Option<Vec<f64>>,
     ) -> finstack_core::Result<Self> {
@@ -362,7 +358,7 @@ mod tests {
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
-        let multi_gbm = MultiGbmProcess::new(params, None);
+        let multi_gbm = MultiGbmProcess::new(params, None).unwrap();
 
         assert_eq!(multi_gbm.dim(), 2);
         assert_eq!(multi_gbm.num_assets(), 2);
@@ -377,7 +373,7 @@ mod tests {
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let multi_gbm = MultiGbmProcess::new(params, Some(corr));
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr)).unwrap();
 
         assert!(!multi_gbm.is_diagonal());
         assert!(multi_gbm.correlation().is_some());
@@ -389,7 +385,7 @@ mod tests {
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
-        let process = MultiGbmProcess::new(params, None);
+        let process = MultiGbmProcess::new(params, None).unwrap();
         let mut state = PathState::new(0, 0.0);
 
         process.populate_path_state(&[100.0, 120.0], &mut state);
@@ -400,13 +396,13 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_gbm_try_new_rejects_asymmetric_correlation() {
+    fn test_multi_gbm_new_rejects_asymmetric_correlation() {
         let params = vec![
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.2, 0.4, 1.0];
 
-        assert!(MultiGbmProcess::try_new(params, Some(corr)).is_err());
+        assert!(MultiGbmProcess::new(params, Some(corr)).is_err());
     }
 }

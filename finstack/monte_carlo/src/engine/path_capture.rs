@@ -96,15 +96,6 @@ impl PathCaptureConfig {
         self
     }
 
-    /// Disable path capture explicitly.
-    ///
-    /// # Returns
-    ///
-    /// A disabled path-capture configuration.
-    pub fn disabled() -> Self {
-        Self::new()
-    }
-
     /// Decide whether a particular path should be captured.
     ///
     /// # Arguments

@@ -17,7 +17,6 @@ Estimate = _mc.Estimate
 TimeGrid = _mc.TimeGrid
 
 # Engine
-McEngineConfig = _mc.McEngineConfig
 McEngine = _mc.McEngine
 
 # Processes
@@ -96,7 +95,6 @@ __all__: list[str] = [
     "LogEuler",
     "LsmcPricer",
     "McEngine",
-    "McEngineConfig",
     "MertonJumpProcess",
     "Milstein",
     "MonteCarloResult",

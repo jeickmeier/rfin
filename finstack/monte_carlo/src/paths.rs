@@ -26,7 +26,7 @@ use smallvec::SmallVec;
 /// less standard models should prefer
 /// [`PathDataset::process_params.factor_names`](PathDataset::process_params) or
 /// [`PathDataset::state_var_keys`] to interpret captured state vectors.
-pub mod state_indices {
+pub(crate) mod state_indices {
     /// Spot price (equity/FX) - index 0
     pub const IDX_SPOT: usize = 0;
     /// Stochastic variance (Heston, etc.) - index 1
@@ -34,6 +34,7 @@ pub mod state_indices {
     /// Short rate (Hull-White, etc.) - index 1 (aliases variance in current engine)
     pub const IDX_SHORT_RATE: usize = 1;
     /// Credit spread - index 2
+    #[allow(dead_code)]
     pub const IDX_CREDIT_SPREAD: usize = 2;
 }
 
@@ -497,21 +498,6 @@ impl PathDataset {
         };
         Self {
             paths: Vec::with_capacity(estimated_capacity),
-            num_paths_total,
-            sampling_method,
-            process_params,
-        }
-    }
-
-    /// Create an empty dataset with explicit vector capacity.
-    pub fn with_capacity(
-        capacity: usize,
-        num_paths_total: usize,
-        sampling_method: PathSamplingMethod,
-        process_params: ProcessParams,
-    ) -> Self {
-        Self {
-            paths: Vec::with_capacity(capacity),
             num_paths_total,
             sampling_method,
             process_params,

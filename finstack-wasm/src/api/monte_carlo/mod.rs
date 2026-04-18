@@ -8,7 +8,6 @@ use std::str::FromStr;
 
 use crate::utils::to_js_err;
 use finstack_core::currency::Currency;
-use finstack_monte_carlo::payoff::vanilla::{EuropeanCall, EuropeanPut};
 use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use finstack_monte_carlo::results::MoneyEstimate;
@@ -68,11 +67,9 @@ pub fn price_european_call(
 ) -> Result<JsValue, JsValue> {
     let ccy = resolve_currency(currency.as_deref())?;
     let steps = num_steps.unwrap_or(252);
-    let payoff = EuropeanCall::new(strike, 1.0, steps);
-    let df = (-rate * expiry).exp();
-    let est = run_pricer(
-        spot, rate, div_yield, vol, expiry, num_paths, seed, steps, ccy, &payoff, df,
-    )?;
+    let est = build_pricer(num_paths, seed)
+        .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, steps, ccy)
+        .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
@@ -97,11 +94,9 @@ pub fn price_european_put(
 ) -> Result<JsValue, JsValue> {
     let ccy = resolve_currency(currency.as_deref())?;
     let steps = num_steps.unwrap_or(252);
-    let payoff = EuropeanPut::new(strike, 1.0, steps);
-    let df = (-rate * expiry).exp();
-    let est = run_pricer(
-        spot, rate, div_yield, vol, expiry, num_paths, seed, steps, ccy, &payoff, df,
-    )?;
+    let est = build_pricer(num_paths, seed)
+        .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, steps, ccy)
+        .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
@@ -236,7 +231,9 @@ pub fn price_american_put(
     let steps = num_steps.unwrap_or(50);
     let exercise_dates: Vec<usize> = (1..=steps).collect();
     let exercise = AmericanPut::new(strike).map_err(to_js_err)?;
-    let config = LsmcConfig::new(num_paths, exercise_dates).with_seed(seed);
+    let config = LsmcConfig::new(num_paths, exercise_dates, steps)
+        .map_err(to_js_err)?
+        .with_seed(seed);
     let pricer = LsmcPricer::new(config);
     let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
     let est = pricer
@@ -265,38 +262,13 @@ fn resolve_currency(code: Option<&str>) -> Result<Currency, JsValue> {
     Currency::from_str(s).map_err(to_js_err)
 }
 
-/// Shared European pricer runner.
-#[allow(clippy::too_many_arguments)]
-fn run_pricer(
-    spot: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
-    expiry: f64,
-    num_paths: usize,
-    seed: u64,
-    num_steps: usize,
-    currency: Currency,
-    payoff: &impl finstack_monte_carlo::traits::Payoff,
-    discount_factor: f64,
-) -> Result<MoneyEstimate, JsValue> {
-    let config = EuropeanPricerConfig::new(num_paths)
-        .with_seed(seed)
-        .with_parallel(false);
-    let pricer = EuropeanPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
-
-    pricer
-        .price(
-            &process,
-            spot,
-            expiry,
-            num_steps,
-            payoff,
-            currency,
-            discount_factor,
-        )
-        .map_err(to_js_err)
+/// Shared European pricer builder.
+fn build_pricer(num_paths: usize, seed: u64) -> EuropeanPricer {
+    EuropeanPricer::new(
+        EuropeanPricerConfig::new(num_paths)
+            .with_seed(seed)
+            .with_parallel(false),
+    )
 }
 
 #[cfg(test)]
@@ -305,7 +277,6 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
-    use finstack_monte_carlo::payoff::vanilla::EuropeanCall;
 
     #[test]
     fn black_scholes_call_atm_reasonable() {
@@ -361,25 +332,18 @@ mod tests {
     }
 
     #[test]
-    fn run_pricer_european_call_positive_mean() {
-        let payoff = EuropeanCall::new(100.0, 1.0, 252);
-        let process = GbmProcess::with_params(0.05, 0.0, 0.2).unwrap();
-        assert!((process.volatility() - 0.2).abs() < 1e-12);
-        let df = (-0.05_f64 * 1.0_f64).exp();
-        let Ok(est) = run_pricer(
+    fn build_pricer_european_call_positive_mean() {
+        let Ok(est) = build_pricer(1000, 42).price_gbm_call(
+            100.0,
             100.0,
             0.05,
             0.0,
             0.2,
             1.0,
-            1000,
-            42,
             252,
             Currency::USD,
-            &payoff,
-            df,
         ) else {
-            panic!("run_pricer should succeed");
+            panic!("price_gbm_call should succeed");
         };
         assert!(est.mean.amount() > 0.0);
     }

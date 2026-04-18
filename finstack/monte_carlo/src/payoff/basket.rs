@@ -485,7 +485,8 @@ mod tests {
                 GbmParams::new(0.0, 0.0, 0.0).unwrap(),
             ],
             None,
-        );
+        )
+        .unwrap();
         let disc = ExactMultiGbm::new();
         let initial_state = vec![100.0, 120.0];
         let payoff = BasketCall::new(100.0, 1.0, BasketType::Average, 2, 1, Currency::USD);
@@ -526,7 +527,8 @@ mod tests {
                 GbmParams::new(0.0, 0.0, sigma2).unwrap(),
             ],
             Some(corr.clone()),
-        );
+        )
+        .unwrap();
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("correlated discretization");
         let payoff = ExchangeOption::new(0, 1, 1.0, 252, Currency::USD);
 

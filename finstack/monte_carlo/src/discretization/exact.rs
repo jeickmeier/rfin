@@ -323,7 +323,7 @@ mod tests {
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
-        let process = MultiGbmProcess::new(params, None);
+        let process = MultiGbmProcess::new(params, None).unwrap();
         let disc = ExactMultiGbm::new();
 
         let small_positive = 1e-300;
@@ -346,7 +346,7 @@ mod tests {
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
-        let process = MultiGbmProcess::new(params, None);
+        let process = MultiGbmProcess::new(params, None).unwrap();
         let disc = ExactMultiGbm::new();
 
         let smallest_subnormal = f64::from_bits(1);
@@ -368,7 +368,7 @@ mod tests {
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 1.5).unwrap(),
         ];
-        let process = MultiGbmProcess::new(params, None);
+        let process = MultiGbmProcess::new(params, None).unwrap();
         let disc = ExactMultiGbm::new();
 
         let smallest_subnormal = f64::from_bits(1);
@@ -392,7 +392,7 @@ mod tests {
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
 
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
         assert_eq!(disc.dim, 2);
@@ -412,7 +412,7 @@ mod tests {
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
 
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
@@ -438,7 +438,7 @@ mod tests {
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let process = MultiGbmProcess::new(params, Some(corr.clone()));
+        let process = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
         let small_positive = 1e-300;
@@ -462,7 +462,7 @@ mod tests {
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.0, 0.0, 1.0];
-        let process = MultiGbmProcess::new(params, Some(corr.clone()));
+        let process = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
         let smallest_subnormal = f64::from_bits(1);
@@ -485,7 +485,7 @@ mod tests {
             GbmParams::new(0.05, 0.03, 1.5).unwrap(),
         ];
         let corr = vec![1.0, 0.0, 0.0, 1.0];
-        let process = MultiGbmProcess::new(params, Some(corr.clone()));
+        let process = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
         let smallest_subnormal = f64::from_bits(1);
@@ -509,7 +509,7 @@ mod tests {
         ];
         // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
 
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
@@ -535,7 +535,7 @@ mod tests {
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
         let corr = vec![1.0, 0.5, 0.5, 1.0];
-        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
 
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
         assert_eq!(disc.work_size(&multi_gbm), 6); // 3 * 2 = 6 (drift + diffusion + z_corr)
@@ -547,7 +547,7 @@ mod tests {
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             GbmParams::new(0.05, 0.03, 0.3).unwrap(),
         ];
-        let multi_gbm = MultiGbmProcess::new(params, None); // No correlation
+        let multi_gbm = MultiGbmProcess::new(params, None).unwrap(); // No correlation
 
         let disc_from_process =
             ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");

@@ -1,387 +1,18 @@
-use super::path_capture::PathCaptureMode;
+//! Per-path simulation primitives used by the `McEngine` pricing loops.
+//!
+//! The three methods exposed here (`simulate_path`, `simulate_path_with_capture`,
+//! and `simulate_antithetic_pair`) are pure per-path helpers. The outer loops
+//! (serial / parallel, with or without capture) live in
+//! [`super::pricing`] and call these primitives.
+
 use super::pricing::McEngine;
-use crate::captured_path_stats::apply_captured_path_statistics;
-use crate::estimate::Estimate;
-use crate::online_stats::OnlineStats;
-use crate::paths::{PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath};
+use crate::paths::{PathPoint, SimulatedPath};
 use crate::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use smallvec::SmallVec;
 
-use super::pricing::{adaptive_chunk_size, parallel_path_chunks};
-use rayon::prelude::*;
-use std::sync::Mutex;
-
 impl McEngine {
-    /// Serial pricing with path capture.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn price_serial_with_capture<R, P, D, F>(
-        &self,
-        rng: &R,
-        process: &P,
-        disc: &D,
-        initial_state: &[f64],
-        payoff: &F,
-        currency: Currency,
-        discount_factor: f64,
-        process_params: ProcessParams,
-    ) -> Result<(Estimate, Option<PathDataset>)>
-    where
-        R: RandomStream,
-        P: StochasticProcess,
-        D: Discretization<P>,
-        F: Payoff,
-    {
-        let mut stats = OnlineStats::new();
-        let dim = process.dim();
-        let num_factors = process.num_factors();
-        let work_size = disc.work_size(process);
-
-        // Pre-allocate buffers (reused across paths)
-        let mut state = vec![0.0; dim];
-        let mut z = vec![0.0; num_factors];
-        let mut work = vec![0.0; work_size];
-        let mut state_a = vec![0.0; dim];
-        let mut z_anti = vec![0.0; num_factors];
-        let mut work_anti = vec![0.0; work_size];
-
-        // Path capture setup
-        let capture_enabled = self.config.path_capture.enabled;
-        let sampling_method = match &self.config.path_capture.capture_mode {
-            PathCaptureMode::All => PathSamplingMethod::All,
-            PathCaptureMode::Sample { count, seed } => PathSamplingMethod::RandomSample {
-                count: *count,
-                seed: *seed,
-            },
-        };
-
-        let mut captured_paths = if capture_enabled {
-            let estimated_capacity = match self.config.path_capture.capture_mode {
-                PathCaptureMode::All => self.config.num_paths,
-                PathCaptureMode::Sample { count, .. } => count,
-            };
-            Vec::with_capacity(estimated_capacity)
-        } else {
-            Vec::new()
-        };
-
-        let mut payoff_local = payoff.clone();
-        let mut num_skipped: usize = 0;
-
-        for path_id in 0..self.config.num_paths {
-            let mut path_rng = rng.split(path_id as u64);
-
-            payoff_local.reset();
-            payoff_local.on_path_start(&mut path_rng);
-
-            let should_capture = capture_enabled
-                && self
-                    .config
-                    .path_capture
-                    .should_capture(path_id, self.config.num_paths);
-
-            let (payoff_value, captured_path) = if should_capture {
-                self.simulate_path_with_capture(
-                    &mut path_rng,
-                    process,
-                    disc,
-                    initial_state,
-                    &mut payoff_local,
-                    &mut state,
-                    &mut z,
-                    &mut work,
-                    path_id,
-                    discount_factor,
-                    currency,
-                )?
-            } else {
-                let val = if self.config.antithetic {
-                    self.simulate_antithetic_pair(
-                        &mut path_rng,
-                        process,
-                        disc,
-                        initial_state,
-                        &mut payoff_local,
-                        &mut state,
-                        &mut state_a,
-                        &mut z,
-                        &mut z_anti,
-                        &mut work,
-                        &mut work_anti,
-                        currency,
-                    )?
-                } else {
-                    self.simulate_path(
-                        &mut path_rng,
-                        process,
-                        disc,
-                        initial_state,
-                        &mut payoff_local,
-                        &mut state,
-                        &mut z,
-                        &mut work,
-                        currency,
-                    )?
-                };
-                (val, None)
-            };
-
-            // Accumulate statistics (skip non-finite values to prevent NaN poisoning)
-            let discounted_value = payoff_value * discount_factor;
-            if discounted_value.is_finite() {
-                stats.update(discounted_value);
-            } else {
-                num_skipped += 1;
-                tracing::warn!(
-                    path_id,
-                    payoff_value,
-                    discount_factor,
-                    "Skipping non-finite payoff value in MC statistics"
-                );
-            }
-
-            // Store captured path
-            if let Some(path) = captured_path {
-                captured_paths.push(path);
-            }
-
-            // Check auto-stop condition (see AUTO_STOP_MIN_SAMPLES rationale
-            // in the pricing module — 5 000 samples reduces stderr noise to
-            // ≈ 1 %, so the threshold stops firing on transient dips).
-            if let Some(target) = self.config.target_ci_half_width {
-                if stats.count() >= super::pricing::AUTO_STOP_MIN_SAMPLES
-                    && stats.ci_half_width() < target
-                {
-                    break;
-                }
-            }
-        }
-
-        // Compute median and percentiles if paths were captured
-        let mut estimate = Estimate::new(
-            stats.mean(),
-            stats.stderr(),
-            stats.confidence_interval(0.05),
-            stats.count(),
-        )
-        .with_std_dev(stats.std_dev())
-        .with_num_skipped(num_skipped);
-
-        let paths = if capture_enabled {
-            let mut dataset = PathDataset::new(stats.count(), sampling_method, process_params);
-            for path in captured_paths {
-                dataset.add_path(path);
-            }
-            estimate = apply_captured_path_statistics(estimate, &dataset.paths);
-            Some(dataset)
-        } else {
-            None
-        };
-
-        Ok((estimate, paths))
-    }
-
-    /// Parallel pricing with path capture.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn price_parallel_with_capture<R, P, D, F>(
-        &self,
-        rng: &R,
-        process: &P,
-        disc: &D,
-        initial_state: &[f64],
-        payoff: &F,
-        currency: Currency,
-        discount_factor: f64,
-        process_params: ProcessParams,
-    ) -> Result<(Estimate, Option<PathDataset>)>
-    where
-        R: RandomStream,
-        P: StochasticProcess,
-        D: Discretization<P>,
-        F: Payoff,
-    {
-        // For parallel execution with path capture, we need thread-safe collection
-        let capture_enabled = self.config.path_capture.enabled;
-        let sampling_method = match &self.config.path_capture.capture_mode {
-            PathCaptureMode::All => PathSamplingMethod::All,
-            PathCaptureMode::Sample { count, seed } => PathSamplingMethod::RandomSample {
-                count: *count,
-                seed: *seed,
-            },
-        };
-
-        let captured_paths: Mutex<Vec<SimulatedPath>> = Mutex::new(Vec::new());
-
-        // Split paths into chunks for parallel processing
-        // Use adaptive chunk size if default (1000), otherwise use configured size
-        let effective_chunk_size = if self.config.chunk_size == 1000 {
-            adaptive_chunk_size(self.config.num_paths)
-        } else {
-            self.config.chunk_size
-        };
-
-        let chunks = parallel_path_chunks(self.config.num_paths, effective_chunk_size);
-
-        // Process chunks in parallel
-        let chunk_results: Vec<Result<(OnlineStats, usize)>> = chunks
-            .par_iter()
-            .map(|range| {
-                let mut stats = OnlineStats::new();
-                let mut chunk_skipped: usize = 0;
-                let dim = process.dim();
-                let num_factors = process.num_factors();
-                let work_size = disc.work_size(process);
-
-                let mut state = vec![0.0; dim];
-                let mut z = vec![0.0; num_factors];
-                let mut work = vec![0.0; work_size];
-                let mut state_a = vec![0.0; dim];
-                let mut z_anti = vec![0.0; num_factors];
-                let mut work_anti = vec![0.0; work_size];
-                let mut chunk_paths = if capture_enabled {
-                    Vec::with_capacity(range.len() / 10 + 1)
-                } else {
-                    Vec::new()
-                };
-                let mut payoff_clone = payoff.clone();
-
-                for path_id in range.clone() {
-                    let mut path_rng = rng.split(path_id as u64);
-                    payoff_clone.reset();
-                    payoff_clone.on_path_start(&mut path_rng);
-
-                    let should_capture = capture_enabled
-                        && self
-                            .config
-                            .path_capture
-                            .should_capture(path_id, self.config.num_paths);
-
-                    let (payoff_value, captured_path) = if should_capture {
-                        self.simulate_path_with_capture(
-                            &mut path_rng,
-                            process,
-                            disc,
-                            initial_state,
-                            &mut payoff_clone,
-                            &mut state,
-                            &mut z,
-                            &mut work,
-                            path_id,
-                            discount_factor,
-                            currency,
-                        )?
-                    } else {
-                        let val = if self.config.antithetic {
-                            self.simulate_antithetic_pair(
-                                &mut path_rng,
-                                process,
-                                disc,
-                                initial_state,
-                                &mut payoff_clone,
-                                &mut state,
-                                &mut state_a,
-                                &mut z,
-                                &mut z_anti,
-                                &mut work,
-                                &mut work_anti,
-                                currency,
-                            )?
-                        } else {
-                            self.simulate_path(
-                                &mut path_rng,
-                                process,
-                                disc,
-                                initial_state,
-                                &mut payoff_clone,
-                                &mut state,
-                                &mut z,
-                                &mut work,
-                                currency,
-                            )?
-                        };
-                        (val, None)
-                    };
-
-                    let discounted_value = payoff_value * discount_factor;
-                    if discounted_value.is_finite() {
-                        stats.update(discounted_value);
-                    } else {
-                        chunk_skipped += 1;
-                        tracing::warn!(
-                            path_id,
-                            payoff_value,
-                            discount_factor,
-                            "Skipping non-finite payoff value in MC statistics"
-                        );
-                    }
-
-                    if let Some(path) = captured_path {
-                        chunk_paths.push(path);
-                    }
-                }
-
-                // Store paths from this chunk
-                if !chunk_paths.is_empty() {
-                    // SAFETY: A poisoned mutex indicates a prior panic in another thread.
-                    // Re-panicking here propagates that failure rather than silently continuing
-                    // with potentially corrupted state.
-                    #[allow(clippy::expect_used)]
-                    captured_paths
-                        .lock()
-                        .expect("Mutex should not be poisoned")
-                        .extend(chunk_paths);
-                }
-
-                Ok((stats, chunk_skipped))
-            })
-            .collect();
-
-        // Collect and handle errors
-        let chunk_stats: Vec<(OnlineStats, usize)> =
-            chunk_results.into_iter().collect::<Result<Vec<_>>>()?;
-
-        // Deterministically reduce chunk statistics
-        let mut combined = OnlineStats::new();
-        let mut num_skipped: usize = 0;
-        for (chunk_stat, chunk_skipped) in chunk_stats {
-            combined.merge(&chunk_stat);
-            num_skipped += chunk_skipped;
-        }
-
-        let mut estimate = Estimate::new(
-            combined.mean(),
-            combined.stderr(),
-            combined.confidence_interval(0.05),
-            combined.count(),
-        )
-        .with_std_dev(combined.std_dev())
-        .with_num_skipped(num_skipped);
-
-        let paths = if capture_enabled {
-            let mut dataset = PathDataset::new(combined.count(), sampling_method, process_params);
-            // SAFETY: A poisoned mutex indicates a prior panic in another thread.
-            // Re-panicking here propagates that failure rather than silently continuing
-            // with potentially corrupted state.
-            #[allow(clippy::expect_used)]
-            let mut collected_paths = captured_paths
-                .into_inner()
-                .expect("Mutex should not be poisoned");
-            // Sort by path_id for deterministic ordering across parallel runs
-            collected_paths.sort_by_key(|p| p.path_id);
-            for path in collected_paths {
-                dataset.add_path(path);
-            }
-            estimate = apply_captured_path_statistics(estimate, &dataset.paths);
-
-            Some(dataset)
-        } else {
-            None
-        };
-
-        Ok((estimate, paths))
-    }
-
     /// Simulate a single Monte Carlo path.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_path<R, P, D, F>(
@@ -434,9 +65,9 @@ impl McEngine {
 
     /// Simulate a single Monte Carlo path with full capture.
     ///
-    /// Returns the payoff value and optionally the captured path data.
+    /// Returns the payoff value and the captured path data.
     #[allow(clippy::too_many_arguments)]
-    fn simulate_path_with_capture<R, P, D, F>(
+    pub(super) fn simulate_path_with_capture<R, P, D, F>(
         &self,
         rng: &mut R,
         process: &P,
@@ -449,7 +80,7 @@ impl McEngine {
         path_id: usize,
         discount_factor: f64,
         currency: Currency,
-    ) -> Result<(f64, Option<SimulatedPath>)>
+    ) -> Result<(f64, SimulatedPath)>
     where
         R: RandomStream,
         P: StochasticProcess,
@@ -523,14 +154,13 @@ impl McEngine {
         let cashflow_amounts = simulated_path.extract_cashflow_amounts();
         if cashflow_amounts.len() >= 2 {
             // Use periodic IRR approximation (assumes roughly equal spacing)
-            // Use finstack_core IRR calculation
             use finstack_core::cashflow::InternalRateOfReturn;
             if let Ok(irr) = cashflow_amounts.irr(None) {
                 simulated_path.set_irr(irr);
             }
         }
 
-        Ok((payoff_value, Some(simulated_path)))
+        Ok((payoff_value, simulated_path))
     }
 
     /// Simulate one antithetic pair and return the average payoff (in amount).

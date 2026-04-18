@@ -47,9 +47,9 @@
 //!
 //! - [`philox::PhiloxRng`]: Counter-based PRNG for parallel pseudo-random simulation
 //! - [`sobol::SobolRng`]: Low-discrepancy sequence for quasi-Monte Carlo (when `mc` feature enabled)
-//! - [`sobol_pca::effective_dimension`], [`sobol_pca::pca_ordering`], and
-//!   [`sobol_pca::transform_pca_to_assets`]: Sobol PCA utilities (when `mc` feature enabled)
 //! - [`brownian_bridge::BrownianBridge`]: Path construction with variance reduction (when `mc` feature enabled)
+//!
+//! For Sobol PCA utilities, see [`finstack_core::math::random::sobol_pca`].
 //!
 //! # References
 //!
@@ -64,9 +64,6 @@ pub mod philox;
 
 #[cfg(feature = "mc")]
 pub mod sobol;
-
-#[cfg(feature = "mc")]
-pub mod sobol_pca;
 
 #[cfg(feature = "mc")]
 pub mod poisson;

@@ -66,7 +66,9 @@ fn bench_lsmc_pricer(c: &mut Criterion) {
 
     for &num_paths in &[1_000, 5_000, 10_000] {
         group.bench_with_input(BenchmarkId::new("paths", num_paths), &num_paths, |b, &n| {
-            let config = LsmcConfig::new(n, exercise_dates.clone()).with_seed(42);
+            let config = LsmcConfig::new(n, exercise_dates.clone(), num_steps)
+                .expect("valid LSMC config")
+                .with_seed(42);
             let pricer = LsmcPricer::new(config);
             b.iter(|| {
                 pricer

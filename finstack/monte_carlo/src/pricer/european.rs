@@ -9,6 +9,7 @@ use super::super::engine::{McEngine, McEngineConfig};
 use super::super::results::MoneyEstimate;
 use super::super::traits::Payoff;
 use crate::discretization::exact::ExactGbm;
+use crate::payoff::vanilla::{EuropeanCall, EuropeanPut};
 use crate::process::gbm::GbmProcess;
 use crate::rng::philox::PhiloxRng;
 use crate::time_grid::TimeGrid;
@@ -171,6 +172,66 @@ impl EuropeanPricer {
     /// Borrow the current pricer configuration.
     pub fn config(&self) -> &EuropeanPricerConfig {
         &self.config
+    }
+
+    /// Price a European call under risk-neutral GBM with flat continuous
+    /// discounting `exp(-rT)`.
+    ///
+    /// This is a scalar-arg convenience for the common binding case where the
+    /// caller supplies raw floats rather than pre-built `GbmProcess` / `EuropeanCall`
+    /// instances.
+    #[allow(clippy::too_many_arguments)]
+    pub fn price_gbm_call(
+        &self,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        dividend_yield: f64,
+        volatility: f64,
+        expiry: f64,
+        num_steps: usize,
+        currency: Currency,
+    ) -> Result<MoneyEstimate> {
+        let process = GbmProcess::with_params(rate, dividend_yield, volatility)?;
+        let payoff = EuropeanCall::new(strike, 1.0, num_steps);
+        let discount_factor = (-rate * expiry).exp();
+        self.price(
+            &process,
+            spot,
+            expiry,
+            num_steps,
+            &payoff,
+            currency,
+            discount_factor,
+        )
+    }
+
+    /// Price a European put under risk-neutral GBM with flat continuous
+    /// discounting `exp(-rT)`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn price_gbm_put(
+        &self,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        dividend_yield: f64,
+        volatility: f64,
+        expiry: f64,
+        num_steps: usize,
+        currency: Currency,
+    ) -> Result<MoneyEstimate> {
+        let process = GbmProcess::with_params(rate, dividend_yield, volatility)?;
+        let payoff = EuropeanPut::new(strike, 1.0, num_steps);
+        let discount_factor = (-rate * expiry).exp();
+        self.price(
+            &process,
+            spot,
+            expiry,
+            num_steps,
+            &payoff,
+            currency,
+            discount_factor,
+        )
     }
 }
 

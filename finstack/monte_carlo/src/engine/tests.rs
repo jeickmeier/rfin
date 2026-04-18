@@ -451,7 +451,7 @@ fn test_price_rejects_zero_paths() {
         target_ci_half_width: None,
         use_parallel: false,
         chunk_size: 1,
-        path_capture: PathCaptureConfig::disabled(),
+        path_capture: PathCaptureConfig::new(),
         antithetic: false,
     });
 
@@ -480,7 +480,7 @@ fn test_price_rejects_zero_chunk_size() {
         target_ci_half_width: None,
         use_parallel: false,
         chunk_size: 0,
-        path_capture: PathCaptureConfig::disabled(),
+        path_capture: PathCaptureConfig::new(),
         antithetic: false,
     });
 
@@ -591,7 +591,7 @@ fn test_price_rejects_parallel_auto_stop_configuration() {
         target_ci_half_width: Some(0.01),
         use_parallel: true,
         chunk_size: 2,
-        path_capture: PathCaptureConfig::disabled(),
+        path_capture: PathCaptureConfig::new(),
         antithetic: false,
     });
 

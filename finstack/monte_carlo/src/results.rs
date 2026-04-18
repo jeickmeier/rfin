@@ -114,18 +114,6 @@ pub struct MonteCarloResult {
     pub paths: Option<PathDataset>,
 }
 
-/// Container for simulation-based Greeks reported by higher-level APIs.
-///
-/// The generic engine in this module does not populate this struct directly.
-/// Downstream pricers or bindings may use it as a convenience result type.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct MonteCarloGreeks {
-    /// Delta estimate in price units per unit change in spot.
-    pub delta: Option<f64>,
-    /// Vega estimate. Individual estimator docs define the quoting convention.
-    pub vega: Option<f64>,
-}
-
 impl MonteCarloResult {
     /// Create a result that only contains the aggregate estimate.
     pub fn new(estimate: MoneyEstimate) -> Self {

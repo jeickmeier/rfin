@@ -7,7 +7,6 @@ import pytest
 from finstack.monte_carlo import (
     EuropeanPricer,
     GbmProcess,
-    McEngineConfig,
     price_european_call,
     price_european_put,
 )
@@ -174,39 +173,3 @@ class TestGbmProcess:
         assert p.vol == pytest.approx(0.25)
 
 
-class TestMcEngineConfig:
-    """McEngineConfig parameter wrapper."""
-
-    def test_properties(self) -> None:
-        """Constructor args are accessible via getters."""
-        cfg = McEngineConfig(num_paths=50_000, seed=99, time_to_maturity=2.0, num_steps=504)
-        assert cfg.num_paths == 50_000
-        assert cfg.seed == 99
-        assert cfg.time_to_maturity == pytest.approx(2.0)
-        assert cfg.num_steps == 504
-
-    def test_price_call(self) -> None:
-        """McEngineConfig.price_call produces a positive result."""
-        cfg = McEngineConfig(num_paths=10_000, seed=42)
-        result = cfg.price_call(
-            spot=100.0,
-            strike=100.0,
-            rate=0.05,
-            div_yield=0.0,
-            vol=0.20,
-            currency="USD",
-        )
-        assert result.mean.amount > 0.0
-
-    def test_price_put(self) -> None:
-        """McEngineConfig.price_put produces a positive result."""
-        cfg = McEngineConfig(num_paths=10_000, seed=42)
-        result = cfg.price_put(
-            spot=100.0,
-            strike=100.0,
-            rate=0.05,
-            div_yield=0.0,
-            vol=0.20,
-            currency="USD",
-        )
-        assert result.mean.amount > 0.0

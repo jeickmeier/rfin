@@ -3,7 +3,6 @@
 use super::engine::resolve_currency;
 use super::results::PyMonteCarloResult;
 use crate::errors::core_to_py;
-use finstack_monte_carlo::payoff::vanilla::{EuropeanCall, EuropeanPut};
 use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use pyo3::prelude::*;
@@ -47,11 +46,10 @@ impl PyEuropeanPricer {
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
-        let payoff = EuropeanCall::new(strike, 1.0, num_steps);
-        let df = (-rate * expiry).exp();
-        self.run(
-            &payoff, spot, rate, div_yield, vol, expiry, num_steps, ccy, df,
-        )
+        self.build_pricer()
+            .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+            .map(PyMonteCarloResult::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Price a European put option under GBM.
@@ -69,11 +67,10 @@ impl PyEuropeanPricer {
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
-        let payoff = EuropeanPut::new(strike, 1.0, num_steps);
-        let df = (-rate * expiry).exp();
-        self.run(
-            &payoff, spot, rate, div_yield, vol, expiry, num_steps, ccy, df,
-        )
+        self.build_pricer()
+            .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+            .map(PyMonteCarloResult::from_inner)
+            .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {
@@ -85,36 +82,12 @@ impl PyEuropeanPricer {
 }
 
 impl PyEuropeanPricer {
-    #[allow(clippy::too_many_arguments)]
-    fn run(
-        &self,
-        payoff: &impl finstack_monte_carlo::traits::Payoff,
-        spot: f64,
-        rate: f64,
-        div_yield: f64,
-        vol: f64,
-        expiry: f64,
-        num_steps: usize,
-        currency: finstack_core::currency::Currency,
-        discount_factor: f64,
-    ) -> PyResult<PyMonteCarloResult> {
-        let config = EuropeanPricerConfig::new(self.num_paths)
-            .with_seed(self.seed)
-            .with_parallel(false);
-        let pricer = EuropeanPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
-        pricer
-            .price(
-                &process,
-                spot,
-                expiry,
-                num_steps,
-                payoff,
-                currency,
-                discount_factor,
-            )
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+    fn build_pricer(&self) -> EuropeanPricer {
+        EuropeanPricer::new(
+            EuropeanPricerConfig::new(self.num_paths)
+                .with_seed(self.seed)
+                .with_parallel(false),
+        )
     }
 }
 
@@ -281,11 +254,11 @@ impl PyLsmcPricer {
         use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
 
         let ccy = resolve_currency(currency)?;
-        let exercise = AmericanPut::new(strike).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Invalid AmericanPut: {e}"))
-        })?;
+        let exercise = AmericanPut::new(strike).map_err(core_to_py)?;
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
-        let config = LsmcConfig::new(self.num_paths, exercise_dates).with_seed(self.seed);
+        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
+            .map_err(core_to_py)?
+            .with_seed(self.seed);
         let pricer = LsmcPricer::new(config);
         let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 
@@ -321,11 +294,11 @@ impl PyLsmcPricer {
         use finstack_monte_carlo::pricer::lsmc::{AmericanCall, LsmcConfig, LsmcPricer};
 
         let ccy = resolve_currency(currency)?;
-        let exercise = AmericanCall::new(strike).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Invalid AmericanCall: {e}"))
-        })?;
+        let exercise = AmericanCall::new(strike).map_err(core_to_py)?;
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
-        let config = LsmcConfig::new(self.num_paths, exercise_dates).with_seed(self.seed);
+        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
+            .map_err(core_to_py)?
+            .with_seed(self.seed);
         let pricer = LsmcPricer::new(config);
         let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 

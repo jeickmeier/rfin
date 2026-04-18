@@ -41,7 +41,7 @@ Without `mc`, the crate still supports vanilla GBM-style pricing with
 
 ### Requires `mc`
 
-- `rng::sobol`, `rng::sobol_pca`, `rng::poisson`
+- `rng::sobol`, `rng::poisson`
 - `process`: Heston, CIR, Hull-White / Vasicek, Bates, Merton jump diffusion,
   Schwartz-Smith
 - `discretization`: Euler, Milstein, QE-CIR, QE-Heston, jump-Euler,

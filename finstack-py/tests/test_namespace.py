@@ -119,7 +119,7 @@ class TestMonteCarloNamespace:
             EuropeanPricer,
             EuropeanPut,
             GbmProcess,
-            McEngineConfig,
+            McEngine,
             MonteCarloResult,
             price_european_call,
             price_european_put,

@@ -41,7 +41,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             // Time grid
             "TimeGrid",
             // Engine
-            "McEngineConfig",
             "McEngine",
             // Processes
             "GbmProcess",

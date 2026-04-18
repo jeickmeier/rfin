@@ -8,7 +8,6 @@
 //! are evaluated on a mutable [`crate::traits::PathState`], which lets them
 //! inspect named state variables and record path-level cashflows.
 
-pub mod traits;
 pub mod vanilla;
 
 #[cfg(feature = "mc")]
@@ -26,5 +25,4 @@ pub mod basket;
 #[cfg(feature = "mc")]
 pub use basket::{margrabe_exchange_option, BasketCall, BasketPut, BasketType, ExchangeOption};
 
-pub use traits::{PayoffBuilder, SimpleTerminalPayoff, TerminalPayoff};
 pub use vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};

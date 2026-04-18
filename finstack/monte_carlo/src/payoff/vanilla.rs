@@ -14,7 +14,6 @@
 //!   vanilla payoff to trigger on the terminal simulation point, it should
 //!   usually equal `TimeGrid::num_steps()`.
 
-use super::traits::TerminalPayoff;
 use crate::traits::PathState;
 use crate::traits::Payoff;
 use finstack_core::currency::Currency;
@@ -81,12 +80,6 @@ impl Payoff for EuropeanCall {
     }
 }
 
-impl TerminalPayoff for EuropeanCall {
-    fn maturity_step(&self) -> usize {
-        self.maturity_step
-    }
-}
-
 /// European put option payoff.
 ///
 /// Pays `max(K - S_T, 0) * notional` at `maturity_step`.
@@ -139,12 +132,6 @@ impl Payoff for EuropeanPut {
 
     fn reset(&mut self) {
         self.terminal_spot = 0.0;
-    }
-}
-
-impl TerminalPayoff for EuropeanPut {
-    fn maturity_step(&self) -> usize {
-        self.maturity_step
     }
 }
 
@@ -224,12 +211,6 @@ impl Payoff for Digital {
     }
 }
 
-impl TerminalPayoff for Digital {
-    fn maturity_step(&self) -> usize {
-        self.maturity_step
-    }
-}
-
 /// Forward contract payoff.
 ///
 /// Pays `(S_T - F) * notional` for a long position and `(F - S_T) * notional`
@@ -294,12 +275,6 @@ impl Payoff for Forward {
 
     fn reset(&mut self) {
         self.terminal_spot = 0.0;
-    }
-}
-
-impl TerminalPayoff for Forward {
-    fn maturity_step(&self) -> usize {
-        self.maturity_step
     }
 }
 

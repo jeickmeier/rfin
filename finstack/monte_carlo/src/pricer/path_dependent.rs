@@ -481,7 +481,9 @@ impl PathDependentPricer {
                 .map(|result| result.estimate);
         }
 
-        // Create MC engine
+        // Create MC engine. Antithetic pairing is handled inline by the engine
+        // (see McEngine::simulate_antithetic_pair); path-capture + antithetic
+        // is rejected at validate_runtime.
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
             seed: self.config.seed,
@@ -490,20 +492,16 @@ impl PathDependentPricer {
             use_parallel: self.config.use_parallel,
             chunk_size: self.config.chunk_size,
             path_capture: self.config.path_capture.clone(),
-            antithetic: false,
+            antithetic: self.config.antithetic,
         };
 
-        // If path capture is enabled, use price_with_capture
-        if engine_config.path_capture.enabled {
-            let engine = McEngine::new(engine_config);
-            let disc = ExactGbm::new();
-            let initial_state = vec![initial_spot];
+        let engine = McEngine::new(engine_config);
+        let disc = ExactGbm::new();
+        let initial_state = vec![initial_spot];
+        let rng = PhiloxRng::new(self.config.seed);
 
-            // Get process metadata
+        if engine.config().path_capture.enabled {
             let process_params = process.metadata();
-
-            // Price with path capture
-            let rng = PhiloxRng::new(self.config.seed);
             let result = engine.price_with_capture(
                 &rng,
                 process,
@@ -516,42 +514,15 @@ impl PathDependentPricer {
             )?;
             Ok(result.estimate)
         } else {
-            // Use regular pricing without path capture
-            let engine = McEngine::new(engine_config); // engine takes ownership of time_grid from config
-            let disc = ExactGbm::new();
-            let initial_state = vec![initial_spot];
-
-            let rng = PhiloxRng::new(self.config.seed);
-            if self.config.antithetic {
-                use crate::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
-                let time_grid_ref = &engine.config().time_grid;
-                let mut rng_clone = rng.clone();
-                let cfg = AntitheticConfig {
-                    num_pairs: self.config.num_paths / 2,
-                    time_grid: time_grid_ref,
-                    currency,
-                    discount_factor,
-                };
-                let stats =
-                    antithetic_price(&mut rng_clone, process, &disc, &initial_state, payoff, &cfg);
-                let est = crate::estimate::Estimate::new(
-                    stats.mean(),
-                    stats.stderr(),
-                    stats.confidence_interval(0.05),
-                    stats.count(),
-                );
-                Ok(MoneyEstimate::from_estimate(est, currency))
-            } else {
-                engine.price(
-                    &rng,
-                    process,
-                    &disc,
-                    &initial_state,
-                    payoff,
-                    currency,
-                    discount_factor,
-                )
-            }
+            engine.price(
+                &rng,
+                process,
+                &disc,
+                &initial_state,
+                payoff,
+                currency,
+                discount_factor,
+            )
         }
     }
 

@@ -116,7 +116,6 @@ pub mod greeks;
 pub mod payoff;
 pub mod pricer;
 pub mod results;
-#[cfg(feature = "mc")]
 pub mod seed;
 pub mod variance_reduction;
 
@@ -228,6 +227,5 @@ pub mod prelude {
     pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
 
     // --- Variance reduction ---
-    pub use super::variance_reduction::antithetic::AntitheticConfig;
     pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};
 }
