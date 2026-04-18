@@ -231,33 +231,6 @@ impl CheckReport {
             .collect()
     }
 
-    /// Return all findings from checks in the given category.
-    pub fn findings_by_category(&self, category: CheckCategory) -> Vec<&CheckFinding> {
-        self.results
-            .iter()
-            .filter(|r| r.category == category)
-            .flat_map(|r| &r.findings)
-            .collect()
-    }
-
-    /// Return all findings that reference the given period.
-    pub fn findings_by_period(&self, period: &PeriodId) -> Vec<&CheckFinding> {
-        self.results
-            .iter()
-            .flat_map(|r| &r.findings)
-            .filter(|f| f.period.as_ref() == Some(period))
-            .collect()
-    }
-
-    /// Return all findings that reference a specific node.
-    pub fn findings_by_node(&self, node_id: &NodeId) -> Vec<&CheckFinding> {
-        self.results
-            .iter()
-            .flat_map(|r| &r.findings)
-            .filter(|f| f.nodes.contains(node_id))
-            .collect()
-    }
-
     /// True if the report contains at least one error-severity finding.
     pub fn has_errors(&self) -> bool {
         self.summary.errors > 0
@@ -266,18 +239,5 @@ impl CheckReport {
     /// True if the report contains at least one warning-severity finding.
     pub fn has_warnings(&self) -> bool {
         self.summary.warnings > 0
-    }
-
-    /// Return findings whose absolute materiality is at least the given threshold.
-    pub fn material_findings(&self, threshold: f64) -> Vec<&CheckFinding> {
-        self.results
-            .iter()
-            .flat_map(|r| &r.findings)
-            .filter(|f| {
-                f.materiality
-                    .as_ref()
-                    .is_some_and(|m| m.absolute.abs() >= threshold)
-            })
-            .collect()
     }
 }

@@ -314,44 +314,6 @@ fn findings_by_severity() {
 }
 
 #[test]
-fn findings_by_category() {
-    let report = sample_report();
-    assert_eq!(
-        report
-            .findings_by_category(CheckCategory::AccountingIdentity)
-            .len(),
-        1
-    );
-    assert_eq!(
-        report
-            .findings_by_category(CheckCategory::CreditReasonableness)
-            .len(),
-        1
-    );
-    assert!(report
-        .findings_by_category(CheckCategory::CrossStatementReconciliation)
-        .is_empty());
-}
-
-#[test]
-fn findings_by_period() {
-    let report = sample_report();
-    let q1 = PeriodId::quarter(2025, 1);
-    let q3 = PeriodId::quarter(2025, 3);
-    assert_eq!(report.findings_by_period(&q1).len(), 1);
-    assert!(report.findings_by_period(&q3).is_empty());
-}
-
-#[test]
-fn findings_by_node() {
-    let report = sample_report();
-    let node = NodeId::new("total_assets");
-    assert_eq!(report.findings_by_node(&node).len(), 1);
-    let missing = NodeId::new("nonexistent");
-    assert!(report.findings_by_node(&missing).is_empty());
-}
-
-#[test]
 fn has_errors_and_warnings() {
     let report = sample_report();
     assert!(report.has_errors());
@@ -373,15 +335,4 @@ fn has_errors_false_when_no_errors() {
     };
     assert!(!report.has_errors());
     assert!(!report.has_warnings());
-}
-
-#[test]
-fn material_findings_above_threshold() {
-    let report = sample_report();
-    let high = report.material_findings(500.0);
-    assert_eq!(high.len(), 1);
-    assert_eq!(high[0].check_id, "bs");
-
-    let low = report.material_findings(10.0);
-    assert_eq!(low.len(), 2);
 }
