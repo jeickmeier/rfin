@@ -4,7 +4,7 @@ Use this format verbatim. The user will read many of these; consistency matters.
 
 ---
 
-# Audit Report: `<crate>::<module>`
+## Audit Report: `<crate>::<module>`
 
 **Scope:** `<relative path, e.g. finstack/statements/src/checks/>`
 **Bindings in scope:**

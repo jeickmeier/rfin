@@ -4,7 +4,7 @@ One of these per slice. Short. The code is the source of truth; this note explai
 
 ---
 
-# Slice N — <theme>
+## Slice N — <theme>
 
 **Plan reference:** Consolidation Plan dated YYYY-MM-DD, Slice N.
 **Tier:** <1/2/3/4>

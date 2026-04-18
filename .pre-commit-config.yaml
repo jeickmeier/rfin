@@ -54,7 +54,7 @@ repos:
 
       - id: wasm-format
         name: WASM format (prettier)
-        entry: bash -c 'cd finstack-wasm && npm run format .'
+        entry: bash -c 'cd finstack-wasm && npm run format:fix'
         language: system
         files: ^finstack-wasm/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false

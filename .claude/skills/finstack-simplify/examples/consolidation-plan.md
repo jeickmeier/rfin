@@ -4,7 +4,7 @@ Use this format verbatim.
 
 ---
 
-# Consolidation Plan: `<crate>::<module>`
+## Consolidation Plan: `<crate>::<module>`
 
 **Based on:** Audit Report dated YYYY-MM-DD
 **User priorities:** <short summary of what the user said to focus on>
