@@ -12,4 +12,5 @@ export const scenarios = {
   buildScenarioSpec: wasm.buildScenarioSpec,
   applyScenario: wasm.applyScenario,
   applyScenarioToMarket: wasm.applyScenarioToMarket,
+  computeHorizonReturn: wasm.computeHorizonReturn,
 };

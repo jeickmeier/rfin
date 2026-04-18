@@ -5,12 +5,6 @@
 //! variants. The helpers rebuild the vol surface from the shocked grid so that
 //! the resulting object remains Serde-friendly and deterministic.
 //!
-//! # Tolerances
-//!
-//! Bucket matching uses relative tolerances to handle various strike scales:
-//! - Expiry: 2% relative tolerance (e.g., 0.5Y matches 0.49-0.51Y)
-//! - Strike: 0.5% relative tolerance (e.g., 100 matches 99.5-100.5)
-//!
 //! # Arbitrage Detection
 //!
 //! The [`check_arbitrage`] function can validate vol surface grids for common
@@ -42,26 +36,6 @@ use finstack_core::market_data::bumps::{
     BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable, MarketBump,
 };
 use finstack_core::market_data::surfaces::VolSurface;
-
-// Tolerance constants and matching helpers used only in tests.
-// Bucket matching for vol surface shocks is delegated to the market context
-// via MarketBump::VolBucketPct; these helpers are retained for test validation.
-#[cfg(test)]
-const EXPIRY_REL_TOL: f64 = 0.02;
-#[cfg(test)]
-const STRIKE_REL_TOL: f64 = 0.005;
-
-#[cfg(test)]
-fn matches_expiry(target: f64, actual: f64) -> bool {
-    let base = target.abs().max(0.01);
-    (target - actual).abs() < base * EXPIRY_REL_TOL
-}
-
-#[cfg(test)]
-fn matches_strike(target: f64, actual: f64) -> bool {
-    let base = actual.abs().max(1e-6);
-    (target - actual).abs() / base < STRIKE_REL_TOL
-}
 
 /// Arbitrage violation types detected in volatility surfaces.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -380,23 +354,6 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::surfaces::VolSurface;
     use time::macros::date;
-
-    #[test]
-    fn test_matches_expiry() {
-        // 1Y should match within 2%
-        assert!(matches_expiry(1.0, 1.0));
-        assert!(matches_expiry(1.0, 1.01)); // 1% diff
-        assert!(matches_expiry(1.0, 0.99)); // 1% diff
-        assert!(!matches_expiry(1.0, 1.05)); // 5% diff
-    }
-
-    #[test]
-    fn test_matches_strike() {
-        // 100 should match within 0.5%
-        assert!(matches_strike(100.0, 100.0));
-        assert!(matches_strike(100.0, 100.4)); // 0.4% diff
-        assert!(!matches_strike(100.0, 101.0)); // 1% diff
-    }
 
     #[test]
     fn test_arbitrage_detection_calendar_spread() {

@@ -96,6 +96,88 @@ impl ScenarioAdapter for InstrumentAdapter {
     }
 }
 
+/// Kind of instrument shock: price (percent) or spread (bp).
+#[derive(Clone, Copy)]
+enum ShockKind {
+    /// Percentage-point price shock. Raw input is divided by 100 before storage.
+    Price,
+    /// Additive spread shock in basis points. Raw input is stored as-is.
+    Spread,
+}
+
+impl ShockKind {
+    fn meta_key(self) -> &'static str {
+        match self {
+            ShockKind::Price => "scenario_price_shock_pct",
+            ShockKind::Spread => "scenario_spread_shock_bp",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            ShockKind::Price => "price",
+            ShockKind::Spread => "spread",
+        }
+    }
+
+    fn internal_value(self, raw: f64) -> f64 {
+        match self {
+            ShockKind::Price => raw / 100.0,
+            ShockKind::Spread => raw,
+        }
+    }
+}
+
+/// Apply a shock to every instrument matching `matcher`.
+///
+/// When the pricer exposes `scenario_overrides_mut()`, the shock is accumulated
+/// into the corresponding override field. Otherwise it is recorded under the
+/// instrument's metadata key (with a warning).
+fn apply_shock<M>(
+    instruments: &mut [Box<DynInstrument>],
+    matcher: M,
+    kind: ShockKind,
+    raw_value: f64,
+) -> (usize, Vec<String>)
+where
+    M: Fn(&Box<DynInstrument>) -> bool,
+{
+    let delta = kind.internal_value(raw_value);
+    let mut count = 0;
+    let mut warnings = Vec::new();
+
+    for instrument in instruments.iter_mut() {
+        if !matcher(instrument) {
+            continue;
+        }
+
+        if let Some(overrides) = instrument.scenario_overrides_mut() {
+            match kind {
+                ShockKind::Price => {
+                    overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
+                        overrides.scenario_price_shock_pct,
+                        delta,
+                    ));
+                }
+                ShockKind::Spread => {
+                    overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
+                        overrides.scenario_spread_shock_bp,
+                        delta,
+                    ));
+                }
+            }
+        } else {
+            let label = instrument_label(instrument.attributes());
+            let type_name = format!("{:?}", instrument.key());
+            accumulate_meta_shock(instrument.attributes_mut(), kind.meta_key(), delta);
+            warnings.push(fallback_warning(kind.label(), &type_name, &label));
+        }
+        count += 1;
+    }
+
+    (count, warnings)
+}
+
 /// Apply a percentage price shock to instruments matching the provided types.
 ///
 /// `pct` is supplied in percentage points (`5.0 = +5%`) and converted into a
@@ -118,34 +200,12 @@ pub fn apply_instrument_type_price_shock(
     instrument_types: &[InstrumentType],
     pct: f64,
 ) -> Result<(usize, Vec<String>)> {
-    let mut count = 0;
-    let mut warnings = Vec::new();
-    let shock_decimal = pct / 100.0;
-
-    for instrument in instruments.iter_mut() {
-        let inst_type = instrument.key();
-
-        if instrument_types.contains(&inst_type) {
-            if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
-                    overrides.scenario_price_shock_pct,
-                    shock_decimal,
-                ));
-            } else {
-                let label = instrument_label(instrument.attributes());
-                let type_name = format!("{inst_type:?}");
-                accumulate_meta_shock(
-                    instrument.attributes_mut(),
-                    "scenario_price_shock_pct",
-                    shock_decimal,
-                );
-                warnings.push(fallback_warning("price", &type_name, &label));
-            }
-            count += 1;
-        }
-    }
-
-    Ok((count, warnings))
+    Ok(apply_shock(
+        instruments,
+        |inst| instrument_types.contains(&inst.key()),
+        ShockKind::Price,
+        pct,
+    ))
 }
 
 /// Apply a spread shock (basis points) to instruments matching the provided types.
@@ -168,29 +228,12 @@ pub fn apply_instrument_type_spread_shock(
     instrument_types: &[InstrumentType],
     bp: f64,
 ) -> Result<(usize, Vec<String>)> {
-    let mut count = 0;
-    let mut warnings = Vec::new();
-
-    for instrument in instruments.iter_mut() {
-        let inst_type = instrument.key();
-
-        if instrument_types.contains(&inst_type) {
-            if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
-                    overrides.scenario_spread_shock_bp,
-                    bp,
-                ));
-            } else {
-                let label = instrument_label(instrument.attributes());
-                let type_name = format!("{inst_type:?}");
-                accumulate_meta_shock(instrument.attributes_mut(), "scenario_spread_shock_bp", bp);
-                warnings.push(fallback_warning("spread", &type_name, &label));
-            }
-            count += 1;
-        }
-    }
-
-    Ok((count, warnings))
+    Ok(apply_shock(
+        instruments,
+        |inst| instrument_types.contains(&inst.key()),
+        ShockKind::Spread,
+        bp,
+    ))
 }
 
 /// Apply a percentage price shock to instruments matching the provided attributes.
@@ -215,39 +258,19 @@ pub fn apply_instrument_attr_price_shock(
     attrs: &indexmap::IndexMap<String, String>,
     pct: f64,
 ) -> Result<(usize, Vec<String>)> {
-    let mut warnings = Vec::new();
-    let shock_decimal = pct / 100.0;
     let filters = normalise_filters(attrs);
-    let mut count = 0;
-
-    for instrument in instruments.iter_mut() {
-        if matches_attr_filter(instrument.attributes(), &filters) {
-            if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
-                    overrides.scenario_price_shock_pct,
-                    shock_decimal,
-                ));
-            } else {
-                let label = instrument_label(instrument.attributes());
-                let type_name = format!("{:?}", instrument.key());
-                accumulate_meta_shock(
-                    instrument.attributes_mut(),
-                    "scenario_price_shock_pct",
-                    shock_decimal,
-                );
-                warnings.push(fallback_warning("price", &type_name, &label));
-            }
-            count += 1;
-        }
-    }
-
+    let (count, mut warnings) = apply_shock(
+        instruments,
+        |inst| matches_attr_filter(inst.attributes(), &filters),
+        ShockKind::Price,
+        pct,
+    );
     if count == 0 {
         warnings.push(format!(
             "No instruments matched attribute filter {:?}",
             attrs
         ));
     }
-
     Ok((count, warnings))
 }
 
@@ -272,34 +295,19 @@ pub fn apply_instrument_attr_spread_shock(
     attrs: &indexmap::IndexMap<String, String>,
     bp: f64,
 ) -> Result<(usize, Vec<String>)> {
-    let mut warnings = Vec::new();
     let filters = normalise_filters(attrs);
-    let mut count = 0;
-
-    for instrument in instruments.iter_mut() {
-        if matches_attr_filter(instrument.attributes(), &filters) {
-            if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
-                    overrides.scenario_spread_shock_bp,
-                    bp,
-                ));
-            } else {
-                let label = instrument_label(instrument.attributes());
-                let type_name = format!("{:?}", instrument.key());
-                accumulate_meta_shock(instrument.attributes_mut(), "scenario_spread_shock_bp", bp);
-                warnings.push(fallback_warning("spread", &type_name, &label));
-            }
-            count += 1;
-        }
-    }
-
+    let (count, mut warnings) = apply_shock(
+        instruments,
+        |inst| matches_attr_filter(inst.attributes(), &filters),
+        ShockKind::Spread,
+        bp,
+    );
     if count == 0 {
         warnings.push(format!(
             "No instruments matched attribute filter {:?}",
             attrs
         ));
     }
-
     Ok((count, warnings))
 }
 

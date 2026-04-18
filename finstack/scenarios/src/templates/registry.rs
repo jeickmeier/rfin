@@ -1,8 +1,8 @@
 //! Template registry for stress test template metadata and builder factories.
 
 use super::{
-    json::JsonTemplateDocument, register_builtins, AssetClass, ScenarioSpecBuilder, Severity,
-    TemplateMetadata,
+    json::JsonTemplateDocument, loader::parse_template_document, register_builtins, AssetClass,
+    ScenarioSpecBuilder, Severity, TemplateMetadata,
 };
 use crate::{Error, Result, ScenarioSpec};
 use indexmap::IndexMap;
@@ -23,7 +23,6 @@ pub struct RegisteredTemplate {
 
 impl RegisteredTemplate {
     /// Build a registered template entry from a validated JSON template document.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn from_json_document(document: JsonTemplateDocument) -> Result<Self> {
         document.validate()?;
 
@@ -225,7 +224,6 @@ impl TemplateRegistry {
     }
 
     /// Register or replace a template from a parsed JSON document.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn register_json_document(&mut self, document: JsonTemplateDocument) -> Result<()> {
         let entry = RegisteredTemplate::from_json_document(document)?;
         self.entries.insert(entry.metadata.id.clone(), entry);
@@ -245,7 +243,7 @@ impl TemplateRegistry {
     /// cannot be parsed, fails template validation, or duplicates an existing
     /// template identifier.
     pub fn register_json_template_str(&mut self, name: &str, json: &str) -> Result<()> {
-        let document = parse_json_template_document(name, json)?;
+        let document = parse_template_document(name, json)?;
         let entry = self.registered_runtime_json_entry(document)?;
         self.entries.insert(entry.metadata.id.clone(), entry);
         Ok(())
@@ -303,7 +301,7 @@ impl TemplateRegistry {
                 ))
             })?;
             let name = json_path.display().to_string();
-            let document = parse_json_template_document(&name, &json)?;
+            let document = parse_template_document(&name, &json)?;
             let template_id = document.metadata.id.clone();
             if !staged_ids.insert(template_id.clone()) {
                 return Err(Error::validation(format!(
@@ -422,7 +420,6 @@ impl Default for TemplateRegistry {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn scenario_spec_to_builder(spec: ScenarioSpec) -> ScenarioSpecBuilder {
     let mut builder = ScenarioSpecBuilder::new(spec.id)
         .with_operations(spec.operations)
@@ -434,21 +431,6 @@ fn scenario_spec_to_builder(spec: ScenarioSpec) -> ScenarioSpecBuilder {
         builder = builder.description(description);
     }
     builder
-}
-
-fn parse_json_template_document(name: &str, json: &str) -> Result<JsonTemplateDocument> {
-    let document: JsonTemplateDocument = serde_json::from_str(json).map_err(|error| {
-        Error::validation(format!("failed to parse JSON template '{name}': {error}"))
-    })?;
-
-    document.validate().map_err(|error| match error {
-        Error::Validation(message) => Error::validation(format!(
-            "JSON template '{name}' failed validation: {message}"
-        )),
-        other => other,
-    })?;
-
-    Ok(document)
 }
 
 #[cfg(test)]
