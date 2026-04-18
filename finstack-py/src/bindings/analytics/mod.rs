@@ -47,6 +47,12 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "RuinModel",
             "RuinEstimate",
             "BenchmarkAlignmentPolicy",
+            "KupiecResult",
+            "ChristoffersenResult",
+            "TrafficLightResult",
+            "BacktestResult",
+            "PnlExplanation",
+            "MultiModelComparison",
             // Performance class
             "Performance",
             // Aggregation
@@ -123,6 +129,13 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "christoffersen_test",
             "traffic_light",
             "run_backtest",
+            "rolling_var_forecasts",
+            "compare_var_backtests",
+            "pnl_explanation",
+            "mtd_select",
+            "qtd_select",
+            "ytd_select",
+            "fytd_select",
             // GARCH volatility models
             "fit_garch11",
             "fit_egarch11",

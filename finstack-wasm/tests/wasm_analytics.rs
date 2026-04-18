@@ -22,6 +22,22 @@ fn benchmark_js() -> JsValue {
     .unwrap()
 }
 
+fn dates_js() -> JsValue {
+    serde_wasm_bindgen::to_value(&vec![
+        "2025-01-01",
+        "2025-01-02",
+        "2025-01-03",
+        "2025-01-04",
+        "2025-01-05",
+        "2025-01-06",
+        "2025-01-07",
+        "2025-01-08",
+        "2025-01-09",
+        "2025-01-10",
+    ])
+    .unwrap()
+}
+
 fn prices_js() -> JsValue {
     serde_wasm_bindgen::to_value(&vec![100.0, 102.0, 101.0, 103.0, 102.5]).unwrap()
 }
@@ -295,4 +311,72 @@ fn capture_ratio_finite() {
 fn batting_average_between_0_and_1() {
     let v = batting_average(returns_js(), benchmark_js()).unwrap();
     assert!((0.0..=1.0).contains(&v));
+}
+
+#[wasm_bindgen_test]
+fn rolling_greeks_returns_dates_alphas_and_betas() {
+    let v = rolling_greeks(returns_js(), benchmark_js(), dates_js(), 5, 252.0).unwrap();
+    let value: serde_json::Value = serde_wasm_bindgen::from_value(v).unwrap();
+    let dates = value["dates"].as_array().unwrap();
+    let alphas = value["alphas"].as_array().unwrap();
+    let betas = value["betas"].as_array().unwrap();
+    assert_eq!(dates.len(), 6);
+    assert_eq!(alphas.len(), 6);
+    assert_eq!(betas.len(), 6);
+}
+
+#[wasm_bindgen_test]
+fn compute_multiple_uses_company_metrics_shape() {
+    let metrics = serde_wasm_bindgen::to_value(&serde_json::json!({
+        "enterprise_value": 8500.0,
+        "ebitda": 1000.0,
+    }))
+    .unwrap();
+    let v = compute_multiple(metrics, "EvEbitda").unwrap();
+    let parsed: Option<f64> = serde_wasm_bindgen::from_value(v).unwrap();
+    assert_eq!(parsed, Some(8.5));
+}
+
+#[wasm_bindgen_test]
+fn rolling_var_forecasts_returns_two_aligned_series() {
+    let v = rolling_var_forecasts(returns_js(), 5, 0.99, "Historical").unwrap();
+    let parsed: (Vec<f64>, Vec<f64>) = serde_wasm_bindgen::from_value(v).unwrap();
+    assert_eq!(parsed.0.len(), 5);
+    assert_eq!(parsed.1.len(), 5);
+}
+
+#[wasm_bindgen_test]
+fn compare_var_backtests_returns_two_models() {
+    let models = serde_wasm_bindgen::to_value(&serde_json::json!([
+        ["Historical", [-0.02, -0.02, -0.02]],
+        ["Parametric", [-0.015, -0.015, -0.015]]
+    ]))
+    .unwrap();
+    let realized = serde_wasm_bindgen::to_value(&vec![-0.01, -0.03, -0.01]).unwrap();
+    let v = compare_var_backtests(models, realized, 0.99, 250).unwrap();
+    let value: serde_json::Value = serde_wasm_bindgen::from_value(v).unwrap();
+    let results = value["results"].as_array().unwrap();
+    assert_eq!(results.len(), 2);
+}
+
+#[wasm_bindgen_test]
+fn pnl_explanation_returns_struct() {
+    let hypothetical = serde_wasm_bindgen::to_value(&vec![100.0, 110.0, 105.0]).unwrap();
+    let risk_theoretical = serde_wasm_bindgen::to_value(&vec![99.0, 109.0, 104.0]).unwrap();
+    let var = serde_wasm_bindgen::to_value(&vec![10.0, 10.0, 10.0]).unwrap();
+    let v = pnl_explanation(hypothetical, risk_theoretical, var).unwrap();
+    let value: serde_json::Value = serde_wasm_bindgen::from_value(v).unwrap();
+    assert_eq!(value["n"], 3);
+    assert_eq!(value["mean_abs_unexplained"], 1.0);
+}
+
+#[wasm_bindgen_test]
+fn lookback_selectors_return_ranges() {
+    let range: [usize; 2] =
+        serde_wasm_bindgen::from_value(mtd_select(dates_js(), "2025-01-10", 0).unwrap()).unwrap();
+    assert_eq!(range, [0, 10]);
+
+    let ytd: [usize; 2] =
+        serde_wasm_bindgen::from_value(ytd_select(dates_js(), "2025-01-10", 0).unwrap()).unwrap();
+    assert_eq!(ytd, [0, 10]);
 }

@@ -32,12 +32,21 @@ __all__ = [
     "ChristoffersenResult",
     "TrafficLightResult",
     "BacktestResult",
+    "PnlExplanation",
+    "MultiModelComparison",
     "Performance",
     "classify_breaches",
     "kupiec_test",
     "christoffersen_test",
     "traffic_light",
     "run_backtest",
+    "rolling_var_forecasts",
+    "compare_var_backtests",
+    "pnl_explanation",
+    "mtd_select",
+    "qtd_select",
+    "ytd_select",
+    "fytd_select",
     "group_by_period",
     "period_stats",
     "align_benchmark",
@@ -662,6 +671,36 @@ class BacktestResult:
     @property
     def confidence(self) -> float:
         """VaR confidence level used for the backtest."""
+
+    def __repr__(self) -> str: ...
+
+class PnlExplanation:
+    """P&L explanation metrics for VaR model validation."""
+
+    @property
+    def explanation_ratio(self) -> float:
+        """Mean normalized unexplained P&L relative to VaR."""
+
+    @property
+    def mean_abs_unexplained(self) -> float:
+        """Mean absolute unexplained P&L."""
+
+    @property
+    def std_unexplained(self) -> float:
+        """Standard deviation of unexplained P&L."""
+
+    @property
+    def n(self) -> int:
+        """Number of observations used."""
+
+    def __repr__(self) -> str: ...
+
+class MultiModelComparison:
+    """Side-by-side VaR backtest comparison across multiple model methods."""
+
+    @property
+    def results(self) -> list[tuple[str, BacktestResult]]:
+        """Model-labelled backtest results."""
 
     def __repr__(self) -> str: ...
 
@@ -2484,3 +2523,100 @@ def run_backtest(
         >>> result.confidence
         0.99
     """
+
+def rolling_var_forecasts(
+    returns: list[float],
+    lookback: int,
+    confidence: float = 0.99,
+    method: str = "Historical",
+) -> tuple[list[float], list[float]]:
+    """Build rolling VaR forecasts and aligned realized P&L.
+
+    Args:
+        returns: Return series used for rolling estimation.
+        lookback: Number of trailing observations per VaR estimate.
+        confidence: VaR confidence level.
+        method: One of ``Historical``, ``Parametric``, or ``CornishFisher``.
+
+    Returns:
+        Pair ``(var_forecasts, realized_pnl)`` aligned by date.
+    """
+
+def compare_var_backtests(
+    models: list[tuple[str, list[float]]],
+    realized_pnl: list[float],
+    confidence: float = 0.99,
+    window_size: int = 250,
+) -> MultiModelComparison:
+    """Compare multiple model forecast series against the same realized P&L."""
+
+def pnl_explanation(
+    hypothetical_pnl: list[float],
+    risk_theoretical_pnl: list[float],
+    var: list[float],
+) -> PnlExplanation:
+    """Basel FRTB-style P&L explanation diagnostics."""
+
+def mtd_select(
+    dates: list[datetime.date],
+    as_of: datetime.date,
+    offset_days: int = 0,
+) -> tuple[int, int]:
+    """Month-to-date index range into a sorted date array."""
+
+def qtd_select(
+    dates: list[datetime.date],
+    as_of: datetime.date,
+    offset_days: int = 0,
+) -> tuple[int, int]:
+    """Quarter-to-date index range into a sorted date array."""
+
+def ytd_select(
+    dates: list[datetime.date],
+    as_of: datetime.date,
+    offset_days: int = 0,
+) -> tuple[int, int]:
+    """Year-to-date index range into a sorted date array."""
+
+def fytd_select(
+    dates: list[datetime.date],
+    as_of: datetime.date,
+    fiscal_start_month: int,
+    fiscal_start_day: int = 1,
+    offset_days: int = 0,
+) -> tuple[int, int]:
+    """Fiscal-year-to-date index range into a sorted date array."""
+
+# ---------------------------------------------------------------------------
+# Comparable company analysis
+# ---------------------------------------------------------------------------
+
+def percentile_rank(value: float, peer_values: list[float]) -> float:
+    """Percentile rank of ``value`` within ``peer_values`` on a 0-100 scale."""
+
+def z_score(value: float, peer_values: list[float]) -> float:
+    """Standard score of ``value`` within the peer distribution."""
+
+def peer_stats(peer_values: list[float]) -> dict[str, float]:
+    """Descriptive statistics for a peer distribution."""
+
+def regression_fair_value(
+    x_values: list[float],
+    y_values: list[float],
+    subject_x: float,
+    subject_y: float,
+) -> dict[str, float]:
+    """Single-factor OLS regression fair value with canonical residual semantics."""
+
+def compute_multiple(
+    company_metrics: dict[str, float],
+    multiple: str,
+) -> float | None:
+    """Canonical multiple computation for one company."""
+
+def score_relative_value(
+    subject_metrics: dict[str, float],
+    peer_metrics: Sequence[dict[str, float]],
+    dimensions: Sequence[tuple[str, float]],
+) -> dict[str, object]:
+    """Composite relative-value score across weighted dimensions."""

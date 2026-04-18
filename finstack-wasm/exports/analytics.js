@@ -79,6 +79,9 @@ export const analytics = {
   christoffersenTest: wasm.christoffersenTest,
   trafficLight: wasm.trafficLight,
   runBacktest: wasm.runBacktest,
+  rollingVarForecasts: wasm.rollingVarForecasts,
+  compareVarBacktests: wasm.compareVarBacktests,
+  pnlExplanation: wasm.pnlExplanation,
   // GARCH volatility models
   fitGarch11: wasm.fitGarch11,
   fitEgarch11: wasm.fitEgarch11,

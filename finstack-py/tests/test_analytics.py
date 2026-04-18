@@ -7,13 +7,22 @@ import pytest
 from finstack.analytics import (
     comp_sum,
     comp_total,
+    compare_var_backtests,
+    compute_multiple,
+    fytd_select,
     max_drawdown,
     mean_return,
+    mtd_select,
+    pnl_explanation,
+    qtd_select,
+    regression_fair_value,
+    rolling_var_forecasts,
     sharpe,
     simple_returns,
     sortino,
     to_drawdown_series,
     volatility,
+    ytd_select,
 )
 
 
@@ -198,3 +207,88 @@ class TestDrawdownSeries:
         """Drawdown series has the same length as the input."""
         rets = [0.01, -0.02, 0.015]
         assert len(to_drawdown_series(rets)) == len(rets)
+
+
+class TestCompsBindings:
+    """Validate canonical comps binding behavior."""
+
+    def test_compute_multiple_uses_company_metrics_and_multiple(self) -> None:
+        """compute_multiple mirrors the Rust CompanyMetrics + Multiple API."""
+        metrics = {"enterprise_value": 8_500.0, "ebitda": 1_000.0}
+        value = compute_multiple(metrics, "EvEbitda")
+        assert value == pytest.approx(8.5)
+
+    def test_compute_multiple_returns_none_for_missing_inputs(self) -> None:
+        """Missing denominator fields yield None instead of NaN sentinel values."""
+        metrics = {"enterprise_value": 8_500.0}
+        assert compute_multiple(metrics, "EvEbitda") is None
+
+    def test_regression_fair_value_uses_subject_y_for_residual(self) -> None:
+        """Residual matches actual minus fitted, not a binding-invented placeholder."""
+        result = regression_fair_value(
+            [1.0, 2.0, 3.0, 4.0],
+            [3.0, 5.0, 7.0, 9.0],
+            3.0,
+            10.0,
+        )
+        assert result["fitted_value"] == pytest.approx(7.0)
+        assert result["residual"] == pytest.approx(3.0)
+
+
+class TestLookbackBindings:
+    """Validate Python lookback selector bindings."""
+
+    @staticmethod
+    def _dates() -> list[date]:
+        return [
+            date(2024, 12, 31),
+            date(2025, 1, 1),
+            date(2025, 1, 2),
+            date(2025, 1, 31),
+            date(2025, 2, 1),
+            date(2025, 2, 15),
+        ]
+
+    def test_mtd_select_returns_index_range(self) -> None:
+        assert mtd_select(self._dates(), date(2025, 2, 15)) == (4, 6)
+
+    def test_qtd_select_returns_index_range(self) -> None:
+        assert qtd_select(self._dates(), date(2025, 2, 15)) == (1, 6)
+
+    def test_ytd_select_returns_index_range(self) -> None:
+        assert ytd_select(self._dates(), date(2025, 2, 15)) == (1, 6)
+
+    def test_fytd_select_returns_index_range(self) -> None:
+        assert fytd_select(self._dates(), date(2025, 2, 15), 10, 1) == (0, 6)
+
+
+class TestBacktestingBindings:
+    """Validate extended Python backtesting bindings."""
+
+    def test_rolling_var_forecasts_historical(self) -> None:
+        forecasts, realized = rolling_var_forecasts(
+            [0.01, -0.02, 0.015, -0.01, 0.02, -0.03],
+            3,
+            method="Historical",
+        )
+        assert len(forecasts) == 3
+        assert len(realized) == 3
+
+    def test_compare_var_backtests_returns_model_labels(self) -> None:
+        comparison = compare_var_backtests(
+            [
+                ("Historical", [-0.02, -0.02, -0.02]),
+                ("Parametric", [-0.015, -0.015, -0.015]),
+            ],
+            [-0.01, -0.03, -0.01],
+        )
+        assert [label for label, _ in comparison.results] == ["Historical", "Parametric"]
+
+    def test_pnl_explanation_wraps_struct(self) -> None:
+        result = pnl_explanation(
+            [100.0, 110.0, 105.0],
+            [99.0, 109.0, 104.0],
+            [10.0, 10.0, 10.0],
+        )
+        assert result.n == 3
+        assert result.mean_abs_unexplained == pytest.approx(1.0)

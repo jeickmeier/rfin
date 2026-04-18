@@ -974,6 +974,91 @@ impl PyBacktestResult {
 }
 
 // ---------------------------------------------------------------------------
+// PnlExplanation
+// ---------------------------------------------------------------------------
+
+/// P&L explanation metrics for VaR model validation.
+#[pyclass(name = "PnlExplanation", module = "finstack.analytics", frozen)]
+pub struct PyPnlExplanation {
+    /// Wrapped Rust value.
+    pub(super) inner: fa::backtesting::PnlExplanation,
+}
+
+#[pymethods]
+impl PyPnlExplanation {
+    /// Mean normalized unexplained P&L relative to VaR.
+    #[getter]
+    fn explanation_ratio(&self) -> f64 {
+        self.inner.explanation_ratio
+    }
+
+    /// Mean absolute unexplained P&L.
+    #[getter]
+    fn mean_abs_unexplained(&self) -> f64 {
+        self.inner.mean_abs_unexplained
+    }
+
+    /// Standard deviation of unexplained P&L.
+    #[getter]
+    fn std_unexplained(&self) -> f64 {
+        self.inner.std_unexplained
+    }
+
+    /// Number of observations used.
+    #[getter]
+    fn n(&self) -> usize {
+        self.inner.n
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PnlExplanation(ratio={:.4}, mean_abs={:.4}, n={})",
+            self.inner.explanation_ratio, self.inner.mean_abs_unexplained, self.inner.n
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MultiModelComparison
+// ---------------------------------------------------------------------------
+
+/// Side-by-side VaR backtest comparison across multiple model methods.
+#[pyclass(name = "MultiModelComparison", module = "finstack.analytics", frozen)]
+pub struct PyMultiModelComparison {
+    /// Wrapped Rust value.
+    pub(super) inner: fa::backtesting::MultiModelComparison,
+}
+
+#[pymethods]
+impl PyMultiModelComparison {
+    /// Model-labelled backtest results.
+    #[getter]
+    fn results(&self) -> Vec<(String, PyBacktestResult)> {
+        self.inner
+            .results
+            .iter()
+            .map(|(method, result)| {
+                (
+                    match method {
+                        fa::backtesting::VarMethod::Historical => "Historical",
+                        fa::backtesting::VarMethod::Parametric => "Parametric",
+                        fa::backtesting::VarMethod::CornishFisher => "CornishFisher",
+                    }
+                    .to_string(),
+                    PyBacktestResult {
+                        inner: result.clone(),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("MultiModelComparison(models={})", self.inner.results.len())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -997,6 +1082,8 @@ pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyChristoffersenResult>()?;
     m.add_class::<PyTrafficLightResult>()?;
     m.add_class::<PyBacktestResult>()?;
+    m.add_class::<PyPnlExplanation>()?;
+    m.add_class::<PyMultiModelComparison>()?;
     let _ = py;
     Ok(())
 }

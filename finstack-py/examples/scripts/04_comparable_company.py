@@ -58,11 +58,12 @@ def main() -> None:
     for k, v in subject.items():
         print(f"  {k:<20}: {v:>8.2f}")
 
-    # Sanity-check compute_multiple helper: EV 8500 / EBITDA 1000 = 8.5x.
+    # Sanity-check canonical compute_multiple helper: EV 8500 / EBITDA 1000 = 8.5x.
     ev, ebitda = 8_500.0, 1_000.0
+    subject_company = {"enterprise_value": ev, "ebitda": ebitda}
     print(
-        f"  compute_multiple({ev}, {ebitda}) = "
-        f"{compute_multiple(ev, ebitda):.2f}x"
+        f"  compute_multiple({subject_company}, 'EvEbitda') = "
+        f"{compute_multiple(subject_company, 'EvEbitda'):.2f}x"
     )
 
     # ------------------------------------------------------------------
@@ -110,13 +111,14 @@ def main() -> None:
         peer_series["leverage"],
         peer_series["oas_bps"],
         subject["leverage"],
+        subject["oas_bps"],
     )
     slope = reg["slope"]
     intercept = reg["intercept"]
     r_squared = reg["r_squared"]
     fitted = reg["fitted_value"]
     actual = subject["oas_bps"]
-    residual = actual - fitted  # positive = cheap (wider than fair)
+    residual = reg["residual"]
 
     print(f"  slope              : {slope:>8.2f} bps / turn")
     print(f"  intercept          : {intercept:>8.2f} bps")

@@ -105,6 +105,8 @@ KupiecResult = _analytics.KupiecResult
 ChristoffersenResult = _analytics.ChristoffersenResult
 TrafficLightResult = _analytics.TrafficLightResult
 BacktestResult = _analytics.BacktestResult
+PnlExplanation = _analytics.PnlExplanation
+MultiModelComparison = _analytics.MultiModelComparison
 
 # VaR backtesting — functions
 classify_breaches = _analytics.classify_breaches
@@ -112,6 +114,13 @@ kupiec_test = _analytics.kupiec_test
 christoffersen_test = _analytics.christoffersen_test
 traffic_light = _analytics.traffic_light
 run_backtest = _analytics.run_backtest
+rolling_var_forecasts = _analytics.rolling_var_forecasts
+compare_var_backtests = _analytics.compare_var_backtests
+pnl_explanation = _analytics.pnl_explanation
+mtd_select = _analytics.mtd_select
+qtd_select = _analytics.qtd_select
+ytd_select = _analytics.ytd_select
+fytd_select = _analytics.fytd_select
 
 # GARCH volatility models
 GarchFit = _analytics.GarchFit
@@ -147,8 +156,10 @@ __all__: list[str] = [
     "KupiecResult",
     "LookbackReturns",
     "MultiFactorResult",
+    "MultiModelComparison",
     "Performance",
     "PeriodStats",
+    "PnlExplanation",
     "RollingGreeks",
     "RollingSharpe",
     "RollingSortino",
@@ -173,6 +184,7 @@ __all__: list[str] = [
     "clean_returns",
     "comp_sum",
     "comp_total",
+    "compare_var_backtests",
     "compute_multiple",
     "convert_to_prices",
     "cornish_fisher_var",
@@ -185,6 +197,7 @@ __all__: list[str] = [
     "fit_egarch11",
     "fit_garch11",
     "fit_gjr_garch11",
+    "fytd_select",
     "gain_to_pain",
     "garch11_forecast",
     "geometric_mean",
@@ -203,6 +216,7 @@ __all__: list[str] = [
     "mean_episode_drawdown",
     "mean_return",
     "modified_sharpe",
+    "mtd_select",
     "multi_factor_greeks",
     "omega_ratio",
     "outlier_loss_ratio",
@@ -213,6 +227,8 @@ __all__: list[str] = [
     "peer_stats",
     "percentile_rank",
     "period_stats",
+    "pnl_explanation",
+    "qtd_select",
     "r_squared",
     "rebase",
     "recovery_factor",
@@ -220,6 +236,7 @@ __all__: list[str] = [
     "rolling_greeks",
     "rolling_sharpe",
     "rolling_sortino",
+    "rolling_var_forecasts",
     "rolling_volatility",
     "run_backtest",
     "score_relative_value",
@@ -237,5 +254,6 @@ __all__: list[str] = [
     "up_capture",
     "value_at_risk",
     "volatility",
+    "ytd_select",
     "z_score",
 ]
