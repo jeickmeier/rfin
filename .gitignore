@@ -105,9 +105,6 @@ finstack-py/examples/outputs/
 .zenflow/
 .codex/
 .worktrees/
-.claude/
-.cursor/
-.agents/
 
 # Database files
 *.db
