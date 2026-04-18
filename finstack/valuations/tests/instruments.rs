@@ -86,6 +86,12 @@ mod irs;
 #[path = "instruments/swaption/mod.rs"]
 mod swaption;
 
+/// Exotic-rate MC/LSMC harness validation tests
+/// (gated on the `mc` feature; see `instruments/exotic_harness/mod.rs`)
+#[cfg(feature = "mc")]
+#[path = "instruments/exotic_harness/mod.rs"]
+mod exotic_harness;
+
 // ============================================================================
 // Credit Derivatives
 // ============================================================================

@@ -30,8 +30,7 @@ period_stats = _analytics.period_stats
 
 # Benchmark
 align_benchmark = _analytics.align_benchmark
-align_benchmark_with_policy = _analytics.align_benchmark_with_policy
-calc_beta = _analytics.calc_beta
+beta = _analytics.beta
 greeks = _analytics.greeks
 rolling_greeks = _analytics.rolling_greeks
 tracking_error = _analytics.tracking_error
@@ -44,33 +43,25 @@ batting_average = _analytics.batting_average
 multi_factor_greeks = _analytics.multi_factor_greeks
 treynor = _analytics.treynor
 m_squared = _analytics.m_squared
-m_squared_from_returns = _analytics.m_squared_from_returns
-
 # Consecutive
 count_consecutive = _analytics.count_consecutive
 
 # Drawdown
 to_drawdown_series = _analytics.to_drawdown_series
 drawdown_details = _analytics.drawdown_details
-avg_drawdown = _analytics.avg_drawdown
-average_drawdown = _analytics.average_drawdown
+mean_episode_drawdown = _analytics.mean_episode_drawdown
+mean_drawdown = _analytics.mean_drawdown
 max_drawdown = _analytics.max_drawdown
-max_drawdown_from_returns = _analytics.max_drawdown_from_returns
 max_drawdown_duration = _analytics.max_drawdown_duration
 cdar = _analytics.cdar
 ulcer_index = _analytics.ulcer_index
 pain_index = _analytics.pain_index
 calmar = _analytics.calmar
-calmar_from_returns = _analytics.calmar_from_returns
 recovery_factor = _analytics.recovery_factor
-recovery_factor_from_returns = _analytics.recovery_factor_from_returns
 martin_ratio = _analytics.martin_ratio
-martin_ratio_from_returns = _analytics.martin_ratio_from_returns
 sterling_ratio = _analytics.sterling_ratio
-sterling_ratio_from_returns = _analytics.sterling_ratio_from_returns
 burke_ratio = _analytics.burke_ratio
 pain_ratio = _analytics.pain_ratio
-pain_ratio_from_returns = _analytics.pain_ratio_from_returns
 
 # Returns
 simple_returns = _analytics.simple_returns
@@ -158,18 +149,14 @@ __all__: list[str] = [
     "RuinModel",
     "aic",
     "align_benchmark",
-    "align_benchmark_with_policy",
     "arch_lm",
-    "average_drawdown",
-    "avg_drawdown",
     "batting_average",
+    "beta",
     "bic",
     "burke_ratio",
     "cagr",
     "cagr_from_periods",
-    "calc_beta",
     "calmar",
-    "calmar_from_returns",
     "capture_ratio",
     "cdar",
     "christoffersen_test",
@@ -201,12 +188,11 @@ __all__: list[str] = [
     "kurtosis",
     "ljung_box",
     "m_squared",
-    "m_squared_from_returns",
     "martin_ratio",
-    "martin_ratio_from_returns",
     "max_drawdown",
     "max_drawdown_duration",
-    "max_drawdown_from_returns",
+    "mean_drawdown",
+    "mean_episode_drawdown",
     "mean_return",
     "modified_sharpe",
     "multi_factor_greeks",
@@ -215,7 +201,6 @@ __all__: list[str] = [
     "outlier_win_ratio",
     "pain_index",
     "pain_ratio",
-    "pain_ratio_from_returns",
     "parametric_var",
     "peer_stats",
     "percentile_rank",
@@ -223,7 +208,6 @@ __all__: list[str] = [
     "r_squared",
     "rebase",
     "recovery_factor",
-    "recovery_factor_from_returns",
     "regression_fair_value",
     "rolling_greeks",
     "rolling_sharpe",
@@ -239,7 +223,6 @@ __all__: list[str] = [
     "skewness",
     "sortino",
     "sterling_ratio",
-    "sterling_ratio_from_returns",
     "tail_ratio",
     "to_drawdown_series",
     "tracking_error",

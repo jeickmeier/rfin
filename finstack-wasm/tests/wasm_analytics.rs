@@ -237,20 +237,14 @@ fn max_drawdown_non_positive() {
 }
 
 #[wasm_bindgen_test]
-fn max_drawdown_from_returns_non_positive() {
-    let v = max_drawdown_from_returns(returns_js()).unwrap();
-    assert!(v <= 0.0);
-}
-
-#[wasm_bindgen_test]
-fn avg_drawdown_finite() {
-    let v = avg_drawdown(drawdown_js(), 2).unwrap();
+fn mean_episode_drawdown_finite() {
+    let v = mean_episode_drawdown(drawdown_js(), 2).unwrap();
     assert!(v.is_finite());
 }
 
 #[wasm_bindgen_test]
-fn average_drawdown_finite() {
-    let v = average_drawdown(drawdown_js()).unwrap();
+fn mean_drawdown_finite() {
+    let v = mean_drawdown(drawdown_js()).unwrap();
     assert!(v.is_finite());
 }
 
@@ -273,39 +267,9 @@ fn pain_index_non_negative() {
 }
 
 #[wasm_bindgen_test]
-fn calmar_from_returns_finite() {
-    let v = calmar_from_returns(returns_js(), 252.0).unwrap();
-    assert!(v.is_finite());
-}
-
-#[wasm_bindgen_test]
-fn recovery_factor_from_returns_finite() {
-    let v = recovery_factor_from_returns(returns_js()).unwrap();
-    assert!(v.is_finite());
-}
-
-#[wasm_bindgen_test]
-fn martin_ratio_from_returns_finite() {
-    let v = martin_ratio_from_returns(returns_js(), 252.0).unwrap();
-    assert!(v.is_finite());
-}
-
-#[wasm_bindgen_test]
-fn sterling_ratio_from_returns_finite() {
-    let v = sterling_ratio_from_returns(returns_js(), 252.0, 0.02).unwrap();
-    assert!(v.is_finite());
-}
-
-#[wasm_bindgen_test]
 fn burke_ratio_finite() {
     let dd = serde_wasm_bindgen::to_value(&vec![-0.02, -0.05, -0.01]).unwrap();
     let v = burke_ratio(0.10, dd, 0.02).unwrap();
-    assert!(v.is_finite());
-}
-
-#[wasm_bindgen_test]
-fn pain_ratio_from_returns_finite() {
-    let v = pain_ratio_from_returns(returns_js(), 252.0, 0.02).unwrap();
     assert!(v.is_finite());
 }
 
@@ -351,12 +315,6 @@ fn capture_ratio_finite() {
 fn batting_average_between_0_and_1() {
     let v = batting_average(returns_js(), benchmark_js()).unwrap();
     assert!((0.0..=1.0).contains(&v));
-}
-
-#[wasm_bindgen_test]
-fn m_squared_from_returns_finite() {
-    let v = m_squared_from_returns(returns_js(), benchmark_js(), 252.0, 0.02).unwrap();
-    assert!(v.is_finite());
 }
 
 #[wasm_bindgen_test]

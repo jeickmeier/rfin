@@ -25,8 +25,8 @@ pub mod tail_risk;
 
 pub use return_based::{
     cagr, cagr_from_periods, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean,
-    mean_return, modified_sharpe, omega_ratio, sharpe, sortino, volatility, RuinDefinition,
-    RuinEstimate, RuinModel,
+    mean_return, modified_sharpe, omega_ratio, sharpe, sortino, volatility,
+    AnnualizationConvention, RuinDefinition, RuinEstimate, RuinModel,
 };
 pub use rolling::{
     rolling_sharpe, rolling_sharpe_values, rolling_sortino, rolling_sortino_values,
@@ -34,8 +34,9 @@ pub use rolling::{
     RollingVolatility,
 };
 pub use tail_risk::{
-    cornish_fisher_var, expected_shortfall, expected_shortfall_with_scratch, kurtosis, moments4,
-    outlier_loss_ratio, outlier_loss_ratio_with_scratch, outlier_win_ratio,
-    outlier_win_ratio_with_scratch, parametric_var, skewness, tail_ratio, tail_ratio_with_scratch,
-    value_at_risk, value_at_risk_with_scratch,
+    cornish_fisher_var, expected_shortfall, kurtosis, moments4, outlier_loss_ratio,
+    outlier_win_ratio, parametric_var, skewness, tail_ratio, value_at_risk,
+};
+pub(crate) use tail_risk::{
+    expected_shortfall_with_scratch, tail_ratio_with_scratch, value_at_risk_with_scratch,
 };

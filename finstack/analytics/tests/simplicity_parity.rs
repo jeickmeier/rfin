@@ -13,11 +13,9 @@
 //!    is stable.
 
 use finstack_analytics::risk_metrics::{
-    expected_shortfall, expected_shortfall_with_scratch, outlier_loss_ratio,
-    outlier_loss_ratio_with_scratch, outlier_win_ratio, outlier_win_ratio_with_scratch,
-    rolling_sharpe, rolling_sharpe_values, rolling_sortino, rolling_sortino_values,
-    rolling_volatility, rolling_volatility_values, tail_ratio, tail_ratio_with_scratch,
-    value_at_risk, value_at_risk_with_scratch,
+    expected_shortfall, outlier_loss_ratio, outlier_win_ratio, rolling_sharpe,
+    rolling_sharpe_values, rolling_sortino, rolling_sortino_values, rolling_volatility,
+    rolling_volatility_values, tail_ratio, value_at_risk,
 };
 use finstack_core::dates::{Date, Duration, Month};
 use finstack_core::market_data::term_structures::{PriceCurve, VolatilityIndexCurve};
@@ -280,137 +278,38 @@ mod rolling_parity {
 }
 
 // =============================================================================
-// 2. Scratch / non-scratch equivalence
+// 2. Tail-risk public API invariants
 // =============================================================================
+//
+// The internal `*_with_scratch` variants are `pub(crate)` implementation
+// details consumed by the `Performance` facade. The allocating public
+// functions remain the canonical API and are tested here for the key
+// coherent-risk invariants and empty-input behavior.
 
-mod scratch_parity {
+mod tail_risk_api {
     use super::*;
 
     fn large_data() -> Vec<f64> {
         (0..201).map(|i| (i as f64 - 100.0) / 100.0).collect()
     }
 
-    /// `value_at_risk` equals `value_at_risk_with_scratch` on the same data.
+    /// ES ≤ VaR (coherent risk property).
     #[test]
-    fn var_scratch_equals_allocating() {
+    fn es_le_var() {
         let data = large_data();
         let confidence = 0.95;
-
-        let via_alloc = value_at_risk(&data, confidence, None);
-        let via_scratch = {
-            let mut scratch = data.clone();
-            value_at_risk_with_scratch(&mut scratch, confidence, None)
-        };
-        assert!(
-            (via_alloc - via_scratch).abs() < TOL,
-            "VaR alloc={via_alloc} scratch={via_scratch}"
-        );
-    }
-
-    /// `expected_shortfall` equals `expected_shortfall_with_scratch`.
-    #[test]
-    fn es_scratch_equals_allocating() {
-        let data = large_data();
-        let confidence = 0.95;
-
-        let via_alloc = expected_shortfall(&data, confidence, None);
-        let via_scratch = {
-            let mut scratch = data.clone();
-            expected_shortfall_with_scratch(&mut scratch, confidence, None)
-        };
-        assert!(
-            (via_alloc - via_scratch).abs() < TOL,
-            "ES alloc={via_alloc} scratch={via_scratch}"
-        );
-    }
-
-    /// `tail_ratio` equals `tail_ratio_with_scratch`.
-    #[test]
-    fn tail_ratio_scratch_equals_allocating() {
-        let data = large_data();
-        let confidence = 0.95;
-
-        let via_alloc = tail_ratio(&data, confidence);
-        let via_scratch = {
-            let mut scratch = data.clone();
-            tail_ratio_with_scratch(&mut scratch, confidence)
-        };
-        assert!(
-            (via_alloc - via_scratch).abs() < TOL,
-            "tail_ratio alloc={via_alloc} scratch={via_scratch}"
-        );
-    }
-
-    /// `outlier_win_ratio` equals `outlier_win_ratio_with_scratch`.
-    #[test]
-    fn outlier_win_ratio_scratch_equals_allocating() {
-        let data = large_data();
-        let confidence = 0.95;
-
-        let via_alloc = outlier_win_ratio(&data, confidence);
-        let via_scratch = {
-            let mut scratch = data.clone();
-            outlier_win_ratio_with_scratch(&data, &mut scratch, confidence)
-        };
-        assert!(
-            (via_alloc - via_scratch).abs() < TOL,
-            "outlier_win_ratio alloc={via_alloc} scratch={via_scratch}"
-        );
-    }
-
-    /// `outlier_loss_ratio` equals `outlier_loss_ratio_with_scratch`.
-    #[test]
-    fn outlier_loss_ratio_scratch_equals_allocating() {
-        let data = large_data();
-        let confidence = 0.95;
-
-        let via_alloc = outlier_loss_ratio(&data, confidence);
-        let via_scratch = {
-            let mut scratch = data.clone();
-            outlier_loss_ratio_with_scratch(&data, &mut scratch, confidence)
-        };
-        assert!(
-            (via_alloc - via_scratch).abs() < TOL,
-            "outlier_loss_ratio alloc={via_alloc} scratch={via_scratch}"
-        );
-    }
-
-    /// ES ≤ VaR (coherent risk property) holds for both paths.
-    #[test]
-    fn es_le_var_both_paths() {
-        let data = large_data();
-        let confidence = 0.95;
-
         let var = value_at_risk(&data, confidence, None);
         let es = expected_shortfall(&data, confidence, None);
         assert!(es <= var + TOL, "ES must be ≤ VaR: es={es}, var={var}");
-        let var_s = {
-            let mut s = data.clone();
-            value_at_risk_with_scratch(&mut s, confidence, None)
-        };
-        let es_s = {
-            let mut s = data.clone();
-            expected_shortfall_with_scratch(&mut s, confidence, None)
-        };
-        assert!(es_s <= var_s + TOL, "scratch: ES must be ≤ VaR");
     }
 
-    /// Empty input is handled consistently across scratch and allocating paths.
+    /// Empty input returns 0.0 uniformly for all tail-risk metrics.
     #[test]
     fn empty_input_consistency() {
         let empty: Vec<f64> = vec![];
         assert_eq!(value_at_risk(&empty, 0.95, None), 0.0);
-        assert_eq!(
-            value_at_risk_with_scratch(&mut empty.clone(), 0.95, None),
-            0.0
-        );
         assert_eq!(expected_shortfall(&empty, 0.95, None), 0.0);
-        assert_eq!(
-            expected_shortfall_with_scratch(&mut empty.clone(), 0.95, None),
-            0.0
-        );
         assert_eq!(tail_ratio(&empty, 0.95), 0.0);
-        assert_eq!(tail_ratio_with_scratch(&mut empty.clone(), 0.95), 0.0);
         assert_eq!(outlier_win_ratio(&empty, 0.95), 0.0);
         assert_eq!(outlier_loss_ratio(&empty, 0.95), 0.0);
     }

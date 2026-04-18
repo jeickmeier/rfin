@@ -7,7 +7,7 @@ use crate::dates::{Date, FiscalConfig, PeriodKind};
 
 use super::aggregation::{group_by_period, period_stats, PeriodStats};
 use super::benchmark::{
-    batting_average, calc_beta, capture_ratio, down_capture, greeks, information_ratio,
+    batting_average, beta, capture_ratio, down_capture, greeks, information_ratio,
     multi_factor_greeks, r_squared, rolling_greeks, tracking_error, up_capture, BetaResult,
     GreeksResult, MultiFactorResult, RollingGreeks,
 };
@@ -348,8 +348,9 @@ impl Performance {
         let Some((start, end)) = self.active_holding_period() else {
             return vec![0.0; self.ticker_names.len()];
         };
+        let conv = risk_metrics::AnnualizationConvention::default();
         (0..self.ticker_names.len())
-            .map(|i| risk_metrics::cagr(self.active_returns(i), start, end))
+            .map(|i| risk_metrics::cagr(self.active_returns(i), start, end, conv))
             .collect()
     }
 
@@ -806,7 +807,7 @@ impl Performance {
         (0..self.ticker_names.len())
             .map(|i| {
                 let dd = self.active_drawdown_values(i);
-                let avg = super::drawdown::avg_drawdown(dd, n);
+                let avg = super::drawdown::mean_episode_drawdown(dd, n);
                 sterling_ratio(cagrs[i], avg, risk_free_rate)
             })
             .collect()
@@ -978,7 +979,7 @@ impl Performance {
     pub fn beta(&self) -> Vec<BetaResult> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
-            .map(|i| calc_beta(self.active_returns(i), bench))
+            .map(|i| beta(self.active_returns(i), bench))
             .collect()
     }
 

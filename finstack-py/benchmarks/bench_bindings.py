@@ -48,13 +48,15 @@ import pytest
 
 from finstack.analytics import (
     Performance,
-    calc_beta,
-    calmar_from_returns,
+    beta,
+    cagr_from_periods,
+    calmar,
     comp_sum,
     count_consecutive,
     drawdown_details,
     expected_shortfall,
     kurtosis,
+    max_drawdown,
     mean_return,
     period_stats,
     rolling_sharpe_values,
@@ -398,8 +400,8 @@ class TestAnalyticsBenchmarks:
     def test_sortino(self, benchmark) -> None:
         benchmark(sortino, RETURNS_10K)
 
-    def test_calc_beta(self, benchmark) -> None:
-        benchmark(calc_beta, RETURNS_10K, RETURNS_10K_ALT)
+    def test_beta(self, benchmark) -> None:
+        benchmark(beta, RETURNS_10K, RETURNS_10K_ALT)
 
     def test_tracking_error(self, benchmark) -> None:
         benchmark(tracking_error, RETURNS_10K, RETURNS_10K_ALT)
@@ -409,8 +411,11 @@ class TestAnalyticsBenchmarks:
         dates_dd = [date(2000, 1, 1) + timedelta(days=i) for i in range(len(dd))]
         benchmark(drawdown_details, dd, dates_dd)
 
-    def test_calmar_from_returns(self, benchmark) -> None:
-        benchmark(calmar_from_returns, RETURNS_10K)
+    def test_calmar(self, benchmark) -> None:
+        dd = to_drawdown_series(RETURNS_10K)
+        cg = cagr_from_periods(RETURNS_10K, 252.0)
+        md = max_drawdown(dd)
+        benchmark(calmar, cg, md)
 
     def test_period_stats(self, benchmark) -> None:
         benchmark(period_stats, RETURNS_10K[:252])

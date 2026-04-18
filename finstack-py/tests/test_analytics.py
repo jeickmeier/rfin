@@ -5,7 +5,7 @@ import pytest
 from finstack.analytics import (
     comp_sum,
     comp_total,
-    max_drawdown_from_returns,
+    max_drawdown,
     mean_return,
     sharpe,
     simple_returns,
@@ -13,6 +13,11 @@ from finstack.analytics import (
     to_drawdown_series,
     volatility,
 )
+
+
+def _max_dd(returns: list[float]) -> float:
+    """Convenience: compose max_drawdown with to_drawdown_series."""
+    return max_drawdown(to_drawdown_series(returns))
 
 
 class TestSimpleReturns:
@@ -114,19 +119,19 @@ class TestMaxDrawdown:
     def test_no_drawdown(self) -> None:
         """Monotone positive returns yield zero drawdown."""
         rets = [0.01, 0.01, 0.01, 0.01]
-        assert max_drawdown_from_returns(rets) == pytest.approx(0.0)
+        assert _max_dd(rets) == pytest.approx(0.0)
 
     def test_known_drawdown(self) -> None:
         """A large drop creates a measurable drawdown (negative by convention)."""
         rets = [0.10, -0.20, 0.05, -0.05]
-        dd = max_drawdown_from_returns(rets)
+        dd = _max_dd(rets)
         assert dd < 0.0
         assert dd >= -1.0
 
     def test_full_loss(self) -> None:
         """A -100% return produces a -1.0 drawdown."""
         rets = [0.0, -1.0]
-        assert max_drawdown_from_returns(rets) == pytest.approx(-1.0)
+        assert _max_dd(rets) == pytest.approx(-1.0)
 
 
 class TestCompSum:

@@ -117,7 +117,7 @@ pub fn rolling_var_forecasts(
 ///
 /// `MultiModelComparison` containing one `BacktestResult` per model.
 #[must_use]
-pub fn compare_models(
+pub fn compare_var_backtests(
     models: &[(VarMethod, &[f64])],
     realized_pnl: &[f64],
     config: &VarBacktestConfig,
@@ -226,7 +226,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn compare_models_basic() {
+    fn compare_var_backtests_basic() {
         let var_hist = vec![-0.02; 100];
         let var_param = vec![-0.015; 100];
         let mut realized = vec![-0.01; 100];
@@ -242,7 +242,7 @@ mod unit_tests {
             (VarMethod::Parametric, &var_param),
         ];
 
-        let comparison = compare_models(&models, &realized, &config);
+        let comparison = compare_var_backtests(&models, &realized, &config);
         assert_eq!(comparison.results.len(), 2);
         assert_eq!(comparison.results[0].0, VarMethod::Historical);
         assert_eq!(comparison.results[1].0, VarMethod::Parametric);
@@ -257,7 +257,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn compare_models_three_methods() {
+    fn compare_var_backtests_three_methods() {
         let var_a = vec![-0.02; 50];
         let var_b = vec![-0.02; 50];
         let var_c = vec![-0.02; 50];
@@ -271,7 +271,7 @@ mod unit_tests {
             (VarMethod::CornishFisher, &var_c),
         ];
 
-        let comparison = compare_models(&models, &realized, &config);
+        let comparison = compare_var_backtests(&models, &realized, &config);
         assert_eq!(comparison.results.len(), 3);
     }
 

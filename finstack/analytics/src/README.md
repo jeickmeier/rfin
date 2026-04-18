@@ -35,13 +35,13 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 - **`risk_metrics/`** (directory module)
   - **`mod.rs`**: Public facade, re-exports from all three submodules.
   - **`return_based.rs`**: `cagr`, `cagr_from_periods`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `estimate_ruin`, `RuinDefinition`, `RuinModel`, `RuinEstimate`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
-  - **`tail_risk.rs`**: `skewness`, `kurtosis`, `value_at_risk`, `value_at_risk_with_scratch`, `expected_shortfall`, `expected_shortfall_with_scratch`, `parametric_var`, `cornish_fisher_var`, `tail_ratio`, `tail_ratio_with_scratch`, `outlier_win_ratio`, `outlier_win_ratio_with_scratch`, `outlier_loss_ratio`, `outlier_loss_ratio_with_scratch`.
+  - **`tail_risk.rs`**: `skewness`, `kurtosis`, `value_at_risk`, `expected_shortfall`, `parametric_var`, `cornish_fisher_var`, `tail_ratio`, `outlier_win_ratio`, `outlier_loss_ratio` (`_with_scratch` variants are crate-internal optimizations used by the `Performance` facade).
   - **`rolling.rs`**: `RollingSharpe`, `RollingVolatility`, `RollingSortino`, `rolling_sharpe`, `rolling_volatility`, `rolling_sortino`, `rolling_sharpe_values`, `rolling_volatility_values`, `rolling_sortino_values`.
   - All functions take `&[f64]` and return `f64` or a small struct.
 
 - **`benchmark.rs`**
-  - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `calc_beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
-  - Benchmark-relative risk ratios: `treynor`, `m_squared`, `m_squared_from_returns`.
+  - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
+  - Benchmark-relative risk ratios: `treynor`, `m_squared` (compose with `mean_return` / `volatility` for series-based inputs).
   - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
   - Invalid, mismatched, or singular multi-factor regressions return an error instead of silently zero-filling the output.
 
@@ -54,10 +54,11 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 - **`drawdown.rs`**
   - `to_drawdown_series`: per-period drawdown depth `(wealth / peak - 1)`.
   - `drawdown_details`: structured episodes (start/valley/end dates, duration, depth) sorted by severity.
-  - `avg_drawdown`: mean of the N worst episodes.
+  - `mean_episode_drawdown`: mean of the N worst drawdown episodes.
+  - `mean_drawdown`: arithmetic mean of a drawdown series (path-weighted).
   - `max_drawdown_duration`: longest drawdown duration in calendar days.
   - `cdar`: Conditional Drawdown at Risk at a given confidence level.
-  - Drawdown-derived risk ratios: `ulcer_index`, `pain_index`, `average_drawdown`, `calmar`, `recovery_factor`, `recovery_factor_from_returns`, `martin_ratio`, `martin_ratio_from_returns`, `sterling_ratio`, `sterling_ratio_from_returns`, `burke_ratio`, `pain_ratio`, `pain_ratio_from_returns`.
+  - Drawdown-derived risk ratios (compose from primitives): `ulcer_index`, `pain_index`, `calmar`, `recovery_factor`, `martin_ratio`, `sterling_ratio`, `burke_ratio`, `pain_ratio`.
   - Output type: `DrawdownEpisode { start, valley, end, duration_days, max_drawdown, near_recovery_threshold }`.
 
 - **`aggregation.rs`**
@@ -225,7 +226,6 @@ pub struct PeriodStats {
     pub avg_win: f64,
     pub avg_loss: f64,
     pub payoff_ratio: f64,    // avg_win / |avg_loss|
-    pub profit_ratio: f64,    // sum(wins) / sum(|losses|)
     pub profit_factor: f64,   // sum(wins) / sum(|losses|)
     pub cpc_ratio: f64,       // profit_factor × win_rate × payoff_ratio
     pub kelly_criterion: f64, // win_rate − loss_rate / payoff_ratio
@@ -306,7 +306,7 @@ assert!(es <= var); // ES is always at least as bad as VaR
 ### 3. Drawdown Analysis
 
 ```rust
-use finstack_analytics::{to_drawdown_series, drawdown_details, avg_drawdown};
+use finstack_analytics::{to_drawdown_series, drawdown_details, mean_episode_drawdown};
 use time::{Date, Month};
 
 let returns = vec![0.05, -0.12, 0.03, -0.08, 0.10, -0.20, 0.15];
@@ -328,8 +328,8 @@ for ep in &episodes {
     );
 }
 
-// Average of the 3 worst drawdowns
-let avg_dd = avg_drawdown(&dd_series, &dates, 3);
+// Average depth of the 3 worst drawdown episodes
+let avg_dd = mean_episode_drawdown(&dd_series, 3);
 ```
 
 ### 4. Period Aggregation and Kelly Criterion

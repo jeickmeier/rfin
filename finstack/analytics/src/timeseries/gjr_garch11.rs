@@ -17,7 +17,7 @@
 //!   on Stocks." Journal of Finance, 48(5), 1779-1801.
 
 use super::forecast::VarianceForecast;
-use super::garch::{fit_garch_mle, FitConfig, GarchFit, GarchModel, GarchParams};
+use super::garch::{GarchFit, GarchModel, GarchParams};
 use super::innovations::InnovationDist;
 
 /// GJR-GARCH(1,1) model.
@@ -38,6 +38,27 @@ impl GarchModel for GjrGarch11 {
 
     fn param_names(&self) -> Vec<&'static str> {
         vec!["omega", "alpha", "beta", "gamma"]
+    }
+
+    fn has_gamma(&self) -> bool {
+        true
+    }
+
+    fn parameter_bounds(&self, sample_var: f64) -> Vec<(f64, f64)> {
+        vec![
+            (1e-10, 10.0 * sample_var), // omega
+            (1e-6, 0.50),               // alpha
+            (1e-6, 0.9999),             // beta
+            (0.0, 0.50),                // gamma (GJR: non-negative leverage)
+        ]
+    }
+
+    fn is_stationary(&self, params: &[f64]) -> bool {
+        let alpha = params[1];
+        let beta = params[2];
+        let gamma = params[3];
+        // GJR stationarity: alpha + beta + gamma/2 < 1
+        alpha + beta + gamma / 2.0 < 0.9999 && params[0] > 0.0
     }
 
     fn filter(&self, returns: &[f64], params: &GarchParams, sigma2_out: &mut [f64]) {
@@ -93,50 +114,6 @@ impl GarchModel for GjrGarch11 {
         } else {
             f64::NEG_INFINITY
         }
-    }
-
-    fn fit(
-        &self,
-        returns: &[f64],
-        dist: InnovationDist,
-        config: Option<&FitConfig>,
-    ) -> crate::Result<GarchFit> {
-        let default_config = FitConfig::default();
-        let config = config.unwrap_or(&default_config);
-
-        let sample_var = {
-            let n = returns.len() as f64;
-            let mean = returns.iter().sum::<f64>() / n;
-            returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n - 1.0)
-        };
-
-        let mut bounds = vec![
-            (1e-10, 10.0 * sample_var), // omega
-            (1e-6, 0.50),               // alpha
-            (1e-6, 0.9999),             // beta
-            (0.0, 0.50),                // gamma (GJR: non-negative leverage)
-        ];
-        if let InnovationDist::StudentT(_) = dist {
-            bounds.push((InnovationDist::dof_lower_bound(), 100.0));
-        }
-
-        let stationarity_check = |x: &[f64]| -> bool {
-            let alpha = x[1];
-            let beta = x[2];
-            let gamma = x[3];
-            // GJR stationarity: alpha + beta + gamma/2 < 1
-            alpha + beta + gamma / 2.0 < 0.9999 && x[0] > 0.0
-        };
-
-        fit_garch_mle(
-            self,
-            returns,
-            dist,
-            config,
-            true,
-            &bounds,
-            stationarity_check,
-        )
     }
 
     fn forecast(

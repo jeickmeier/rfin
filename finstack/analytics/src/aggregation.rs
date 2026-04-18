@@ -29,9 +29,7 @@ pub struct PeriodStats {
     pub avg_loss: f64,
     /// avg_win / |avg_loss|.
     pub payoff_ratio: f64,
-    /// Sum of wins / sum of |losses|.
-    pub profit_ratio: f64,
-    /// Same as `profit_ratio` (alias).
+    /// Sum of wins / sum of |losses| (gross profit / gross loss).
     pub profit_factor: f64,
     /// CPC index (Common Sense Ratio): profit_factor × win_rate × payoff_ratio.
     pub cpc_ratio: f64,
@@ -187,7 +185,6 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
             avg_win: 0.0,
             avg_loss: 0.0,
             payoff_ratio: 0.0,
-            profit_ratio: 0.0,
             profit_factor: 0.0,
             cpc_ratio: 0.0,
             kelly_criterion: 0.0,
@@ -268,7 +265,7 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     let total_profit = win_sum;
     let total_loss = loss_sum.abs();
 
-    let profit_ratio = if total_loss == 0.0 {
+    let profit_factor = if total_loss == 0.0 {
         if total_profit > 0.0 {
             f64::INFINITY
         } else {
@@ -277,8 +274,6 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     } else {
         total_profit / total_loss
     };
-
-    let profit_factor = profit_ratio;
 
     let cpc_ratio = profit_factor * win_rate * payoff_ratio;
 
@@ -301,7 +296,6 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
         avg_win,
         avg_loss,
         payoff_ratio,
-        profit_ratio,
         profit_factor,
         cpc_ratio,
         kelly_criterion,
@@ -358,7 +352,7 @@ mod tests {
         ];
         let stats = period_stats(&grouped);
         assert!(stats.payoff_ratio.is_infinite());
-        assert!(stats.profit_ratio.is_infinite());
+        assert!(stats.profit_factor.is_infinite());
         assert!(stats.cpc_ratio.is_infinite());
         assert_eq!(stats.kelly_criterion, 1.0);
     }

@@ -68,7 +68,7 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
 ///
 /// The contents of `scratch` will be partially reordered by `quantile`.
 #[must_use]
-pub fn value_at_risk_with_scratch(
+pub(crate) fn value_at_risk_with_scratch(
     scratch: &mut [f64],
     confidence: f64,
     ann_factor: Option<f64>,
@@ -140,7 +140,7 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
 ///
 /// The contents of `scratch` will be partially reordered by `quantile`.
 #[must_use]
-pub fn expected_shortfall_with_scratch(
+pub(crate) fn expected_shortfall_with_scratch(
     scratch: &mut [f64],
     confidence: f64,
     ann_factor: Option<f64>,
@@ -217,7 +217,7 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
 
 /// Tail ratio using a caller-provided scratch buffer (avoids allocation).
 #[must_use]
-pub fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
+pub(crate) fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
     if scratch.is_empty() {
         return 0.0;
     }
@@ -273,7 +273,7 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// `original` must contain the un-reordered return data for counting.
 #[must_use]
-pub fn outlier_win_ratio_with_scratch(
+pub(crate) fn outlier_win_ratio_with_scratch(
     original: &[f64],
     scratch: &mut [f64],
     confidence: f64,
@@ -331,7 +331,7 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// `original` must contain the un-reordered return data for counting.
 #[must_use]
-pub fn outlier_loss_ratio_with_scratch(
+pub(crate) fn outlier_loss_ratio_with_scratch(
     original: &[f64],
     scratch: &mut [f64],
     confidence: f64,

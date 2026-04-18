@@ -278,25 +278,18 @@ pub fn max_drawdown(drawdown: JsValue) -> Result<f64, JsValue> {
     Ok(fa::drawdown::max_drawdown(&dd))
 }
 
-/// Maximum drawdown from returns directly.
-#[wasm_bindgen(js_name = maxDrawdownFromReturns)]
-pub fn max_drawdown_from_returns(returns: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::drawdown::max_drawdown_from_returns(&r))
-}
-
 /// Average of N deepest drawdowns.
-#[wasm_bindgen(js_name = avgDrawdown)]
-pub fn avg_drawdown(drawdown: JsValue, n: usize) -> Result<f64, JsValue> {
+#[wasm_bindgen(js_name = meanEpisodeDrawdown)]
+pub fn mean_episode_drawdown(drawdown: JsValue, n: usize) -> Result<f64, JsValue> {
     let dd: Vec<f64> = serde_wasm_bindgen::from_value(drawdown).map_err(to_js_err)?;
-    Ok(fa::drawdown::avg_drawdown(&dd, n))
+    Ok(fa::drawdown::mean_episode_drawdown(&dd, n))
 }
 
-/// Average drawdown depth.
-#[wasm_bindgen(js_name = averageDrawdown)]
-pub fn average_drawdown(drawdowns: JsValue) -> Result<f64, JsValue> {
+/// Arithmetic mean of a drawdown series.
+#[wasm_bindgen(js_name = meanDrawdown)]
+pub fn mean_drawdown(drawdowns: JsValue) -> Result<f64, JsValue> {
     let dd: Vec<f64> = serde_wasm_bindgen::from_value(drawdowns).map_err(to_js_err)?;
-    Ok(fa::drawdown::average_drawdown(&dd))
+    Ok(fa::drawdown::mean_drawdown(&dd))
 }
 
 /// CDaR at confidence level.
@@ -326,24 +319,10 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
     fa::drawdown::calmar(cagr_val, max_dd)
 }
 
-/// Calmar ratio from returns.
-#[wasm_bindgen(js_name = calmarFromReturns)]
-pub fn calmar_from_returns(returns: JsValue, ann_factor: f64) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::drawdown::calmar_from_returns(&r, ann_factor))
-}
-
 /// Recovery factor from pre-computed values.
 #[wasm_bindgen(js_name = recoveryFactor)]
 pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
     fa::drawdown::recovery_factor(total_return, max_dd)
-}
-
-/// Recovery factor from returns.
-#[wasm_bindgen(js_name = recoveryFactorFromReturns)]
-pub fn recovery_factor_from_returns(returns: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::drawdown::recovery_factor_from_returns(&r))
 }
 
 /// Martin ratio from pre-computed values.
@@ -352,32 +331,10 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
     fa::drawdown::martin_ratio(cagr_val, ulcer)
 }
 
-/// Martin ratio from returns.
-#[wasm_bindgen(js_name = martinRatioFromReturns)]
-pub fn martin_ratio_from_returns(returns: JsValue, ann_factor: f64) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::drawdown::martin_ratio_from_returns(&r, ann_factor))
-}
-
 /// Sterling ratio from pre-computed values.
 #[wasm_bindgen(js_name = sterlingRatio)]
 pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
     fa::drawdown::sterling_ratio(cagr_val, avg_dd, risk_free_rate)
-}
-
-/// Sterling ratio from returns.
-#[wasm_bindgen(js_name = sterlingRatioFromReturns)]
-pub fn sterling_ratio_from_returns(
-    returns: JsValue,
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::drawdown::sterling_ratio_from_returns(
-        &r,
-        ann_factor,
-        risk_free_rate,
-    ))
 }
 
 /// Burke ratio from pre-computed values.
@@ -395,21 +352,6 @@ pub fn burke_ratio(
 #[wasm_bindgen(js_name = painRatio)]
 pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
     fa::drawdown::pain_ratio(cagr_val, pain, risk_free_rate)
-}
-
-/// Pain ratio from returns.
-#[wasm_bindgen(js_name = painRatioFromReturns)]
-pub fn pain_ratio_from_returns(
-    returns: JsValue,
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::drawdown::pain_ratio_from_returns(
-        &r,
-        ann_factor,
-        risk_free_rate,
-    ))
 }
 
 // ===================================================================
@@ -494,24 +436,6 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 #[wasm_bindgen(js_name = mSquared)]
 pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
     fa::benchmark::m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
-}
-
-/// M-squared from returns.
-#[wasm_bindgen(js_name = mSquaredFromReturns)]
-pub fn m_squared_from_returns(
-    portfolio: JsValue,
-    benchmark: JsValue,
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> Result<f64, JsValue> {
-    let p: Vec<f64> = serde_wasm_bindgen::from_value(portfolio).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
-    Ok(fa::benchmark::m_squared_from_returns(
-        &p,
-        &b,
-        ann_factor,
-        risk_free_rate,
-    ))
 }
 
 // ===================================================================
@@ -744,12 +668,10 @@ mod tests {
         let r = vec![0.01, -0.02, 0.03, -0.05, 0.02];
         let dd = fa::drawdown::to_drawdown_series(&r);
         let max_dd = fa::drawdown::max_drawdown(&dd);
-        let max_dd_r = fa::drawdown::max_drawdown_from_returns(&r);
         assert!(max_dd <= 0.0);
-        assert!(max_dd_r <= 0.0);
-        let avg = fa::drawdown::avg_drawdown(&dd, 2);
+        let avg = fa::drawdown::mean_episode_drawdown(&dd, 2);
         assert!(avg.is_finite());
-        let avg_depth = fa::drawdown::average_drawdown(&dd);
+        let avg_depth = fa::drawdown::mean_drawdown(&dd);
         assert!(avg_depth.is_finite());
         let cdar_val = fa::drawdown::cdar(&dd, 0.95);
         assert!(cdar_val.is_finite());
@@ -760,45 +682,10 @@ mod tests {
     }
 
     #[test]
-    fn underlying_calmar_from_returns() {
-        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let c = fa::drawdown::calmar_from_returns(&r, 252.0);
-        assert!(c.is_finite());
-    }
-
-    #[test]
-    fn underlying_recovery_from_returns() {
-        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let rf = fa::drawdown::recovery_factor_from_returns(&r);
-        assert!(rf.is_finite());
-    }
-
-    #[test]
-    fn underlying_martin_from_returns() {
-        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let mr = fa::drawdown::martin_ratio_from_returns(&r, 252.0);
-        assert!(mr.is_finite());
-    }
-
-    #[test]
-    fn underlying_sterling_from_returns() {
-        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let sr = fa::drawdown::sterling_ratio_from_returns(&r, 252.0, 0.02);
-        assert!(sr.is_finite());
-    }
-
-    #[test]
     fn underlying_burke_ratio() {
         let dd = vec![-0.02, -0.05, -0.01];
         let br = fa::drawdown::burke_ratio(0.10, &dd, 0.02);
         assert!(br.is_finite());
-    }
-
-    #[test]
-    fn underlying_pain_from_returns() {
-        let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let pr = fa::drawdown::pain_ratio_from_returns(&r, 252.0, 0.02);
-        assert!(pr.is_finite());
     }
 
     #[test]
@@ -822,10 +709,14 @@ mod tests {
     }
 
     #[test]
-    fn underlying_m_squared_from_returns() {
+    fn underlying_m_squared_composes_from_primitives() {
         let p = vec![0.01, -0.02, 0.03, -0.01, 0.02];
         let b = vec![0.005, -0.01, 0.02, -0.005, 0.015];
-        let ms = fa::benchmark::m_squared_from_returns(&p, &b, 252.0, 0.02);
+        let ann = 252.0;
+        let ann_return = fa::risk_metrics::mean_return(&p, true, ann);
+        let ann_vol = fa::risk_metrics::volatility(&p, true, ann);
+        let bench_vol = fa::risk_metrics::volatility(&b, true, ann);
+        let ms = fa::benchmark::m_squared(ann_return, ann_vol, bench_vol, 0.02);
         assert!(ms.is_finite());
     }
 

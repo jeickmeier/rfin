@@ -4,7 +4,8 @@
 //! This module provides four levels of granularity:
 //! - [`to_drawdown_series`]: per-period drawdown depth as a time series.
 //! - [`drawdown_details`]: structured episodes (start, valley, recovery).
-//! - [`avg_drawdown`]: scalar average of the worst N episodes.
+//! - [`mean_episode_drawdown`]: scalar average of the worst N episode minima.
+//! - [`mean_drawdown`]: arithmetic mean of a drawdown path.
 //! - [`cdar`]: Conditional Drawdown at Risk at a given confidence level.
 
 use crate::dates::Date;
@@ -187,14 +188,14 @@ fn make_episode(
     }
 }
 
-/// Average of the top-N worst drawdown episodes.
+/// Average of the top-N worst drawdown episode minima.
 ///
 /// Identifies the `n` largest drawdown episodes directly from the drawdown
 /// path and returns the arithmetic mean of their episode minima.
 ///
 /// This is the **episode-based** average used in the Sterling ratio
 /// (Kestner, 1996). For the simple arithmetic mean of the full drawdown
-/// path, use [`average_drawdown`] instead.
+/// path, use [`mean_drawdown`] instead.
 ///
 /// # Arguments
 ///
@@ -209,15 +210,15 @@ fn make_episode(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::drawdown::{avg_drawdown, to_drawdown_series};
+/// use finstack_analytics::drawdown::{mean_episode_drawdown, to_drawdown_series};
 ///
 /// let returns = [0.05, -0.15, 0.10, -0.08, 0.03];
 /// let dd = to_drawdown_series(&returns);
-/// let avg = avg_drawdown(&dd, 3);
+/// let avg = mean_episode_drawdown(&dd, 3);
 /// assert!(avg < 0.0);
 /// ```
 #[must_use]
-pub fn avg_drawdown(drawdown: &[f64], n: usize) -> f64 {
+pub fn mean_episode_drawdown(drawdown: &[f64], n: usize) -> f64 {
     let episode_depths = worst_episode_depths(drawdown, n);
     if episode_depths.is_empty() {
         return 0.0;
@@ -227,7 +228,7 @@ pub fn avg_drawdown(drawdown: &[f64], n: usize) -> f64 {
 }
 
 /// Extract the worst `n` episode depths from a drawdown series, sorted
-/// ascending (most severe first). Shared by [`avg_drawdown`] and
+/// ascending (most severe first). Shared by [`mean_episode_drawdown`] and
 /// [`drawdown_details`]-derived callers.
 fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
     if drawdown.is_empty() {
@@ -315,7 +316,7 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// The CDaR as a **non-negative** scalar (expressed as an absolute drawdown
 /// depth). Note that this differs from the non-positive convention used by
-/// [`max_drawdown`] and [`average_drawdown`]; callers combining CDaR with
+/// [`max_drawdown`] and [`mean_drawdown`]; callers combining CDaR with
 /// those metrics should account for the sign difference.
 /// Returns `0.0` for an empty slice.
 ///
@@ -407,15 +408,15 @@ mod tests {
     }
 
     #[test]
-    fn avg_drawdown_empty() {
-        assert_eq!(avg_drawdown(&[], 5), 0.0);
+    fn mean_episode_drawdown_empty() {
+        assert_eq!(mean_episode_drawdown(&[], 5), 0.0);
     }
 
     #[test]
-    fn avg_drawdown_deterministic() {
+    fn mean_episode_drawdown_deterministic() {
         let drawdown = [0.0, -0.10, -0.20, 0.0, -0.15, 0.0];
         // Two episodes: depths −0.20 and −0.15; average of worst 2 = (−0.20 + −0.15)/2
-        let avg = avg_drawdown(&drawdown, 2);
+        let avg = mean_episode_drawdown(&drawdown, 2);
         assert!((avg - (-0.175)).abs() < 1e-12);
     }
 
@@ -551,32 +552,28 @@ pub fn pain_index(drawdown: &[f64]) -> f64 {
 /// Maximum drawdown depth from a pre-computed drawdown series.
 ///
 /// Returns the most negative value in `drawdown`, or `0.0` for an empty slice.
+///
+/// To compute directly from a returns series, compose with
+/// [`to_drawdown_series`]: `max_drawdown(&to_drawdown_series(&returns))`.
 #[must_use]
 pub fn max_drawdown(drawdown: &[f64]) -> f64 {
     drawdown.iter().copied().fold(0.0_f64, f64::min)
 }
 
-/// Maximum drawdown computed directly from a returns series.
+/// Arithmetic mean of a pre-computed drawdown path.
 ///
-/// Builds the drawdown path with [`to_drawdown_series`] and returns the worst
-/// observed drawdown depth.
-#[must_use]
-pub fn max_drawdown_from_returns(returns: &[f64]) -> f64 {
-    max_drawdown(&to_drawdown_series(returns))
-}
-
-/// Average drawdown depth across all periods.
+/// Since drawdown values are non-positive, the result is typically negative
+/// or zero. Returns `0.0` for an empty slice.
 ///
-/// Returns the arithmetic mean of the drawdown series. Since drawdown
-/// values are non-positive, the result is typically negative or zero.
-/// Returns `0.0` for an empty slice.
+/// For the average of the worst-N *episode* minima (the Sterling-style
+/// measure), use [`mean_episode_drawdown`] instead.
 ///
 /// # Arguments
 ///
 /// * `drawdowns` - Slice of per-period drawdown depths (from
 ///   [`to_drawdown_series`]).
 #[must_use]
-pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
+pub fn mean_drawdown(drawdowns: &[f64]) -> f64 {
     if drawdowns.is_empty() {
         0.0
     } else {
@@ -628,23 +625,6 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
     cagr_val / max_dd.abs()
 }
 
-/// Calmar ratio computed directly from a returns series.
-///
-/// Annualizes the returns with [`crate::risk_metrics::cagr_from_periods`],
-/// derives the worst drawdown from [`to_drawdown_series`], then delegates to
-/// [`calmar`].
-///
-/// Returns `f64::NAN` when `cagr_from_periods` cannot compute an annualized
-/// return (e.g., fewer than 2 observations or invalid `ann_factor`).
-#[must_use]
-pub fn calmar_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
-    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
-    if cagr_val.is_nan() {
-        return f64::NAN;
-    }
-    calmar(cagr_val, max_drawdown_from_returns(returns))
-}
-
 /// Recovery factor: total return / |max drawdown|.
 ///
 /// Measures how many times the portfolio has recovered its worst loss.
@@ -682,39 +662,6 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
         };
     }
     total_return / max_dd.abs()
-}
-
-/// Recovery factor computed directly from a returns series.
-///
-/// Computes total compounded return with [`crate::returns::comp_total`],
-/// derives the worst drawdown from [`to_drawdown_series`], then applies
-/// [`recovery_factor`].
-///
-/// # Arguments
-///
-/// * `returns` - Slice of simple period returns in decimal form.
-///
-/// # Returns
-///
-/// The recovery factor `total_return / |max_drawdown|`. Returns `0.0` for an
-/// empty slice or when no drawdown is observed.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::drawdown::{recovery_factor, recovery_factor_from_returns, to_drawdown_series};
-/// use finstack_analytics::returns::comp_total;
-///
-/// let returns = [0.10, -0.05, 0.08, -0.02];
-/// let direct = recovery_factor_from_returns(&returns);
-/// let max_dd = to_drawdown_series(&returns).into_iter().fold(0.0_f64, f64::min);
-/// let expected = recovery_factor(comp_total(&returns), max_dd);
-/// assert!((direct - expected).abs() < 1e-12);
-/// ```
-#[must_use]
-pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
-    let total_return = crate::returns::comp_total(returns);
-    recovery_factor(total_return, max_drawdown_from_returns(returns))
 }
 
 /// Martin ratio (Ulcer Performance Index): CAGR / Ulcer Index.
@@ -757,54 +704,10 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
     cagr_val / ulcer
 }
 
-/// Martin ratio computed directly from a returns series.
-///
-/// Annualizes the return series with [`crate::risk_metrics::cagr_from_periods`],
-/// computes the associated drawdown path and Ulcer Index, then delegates to
-/// [`martin_ratio`].
-///
-/// # Arguments
-///
-/// * `returns` - Slice of simple period returns in decimal form.
-/// * `ann_factor` - Number of periods per year used for CAGR annualization.
-///
-/// # Returns
-///
-/// The Martin ratio. Returns `0.0` for empty slices, `±∞` for zero Ulcer Index with nonzero CAGR, and
-/// propagates `NaN` when `ann_factor` is invalid through
-/// [`crate::risk_metrics::cagr_from_periods`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::drawdown::{martin_ratio, martin_ratio_from_returns, to_drawdown_series, ulcer_index};
-/// use finstack_analytics::risk_metrics::cagr_from_periods;
-///
-/// let returns = [0.01, -0.02, 0.015, 0.01, -0.005];
-/// let ann_factor = 252.0;
-/// let direct = martin_ratio_from_returns(&returns, ann_factor);
-/// let expected = martin_ratio(
-///     cagr_from_periods(&returns, ann_factor),
-///     ulcer_index(&to_drawdown_series(&returns)),
-/// );
-/// assert!((direct - expected).abs() < 1e-12);
-/// ```
-///
-/// # References
-///
-/// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
-#[must_use]
-pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
-    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
-    let drawdowns = to_drawdown_series(returns);
-    let ulcer = ulcer_index(&drawdowns);
-    martin_ratio(cagr_val, ulcer)
-}
-
 /// Sterling ratio: risk-adjusted return using average drawdown.
 ///
 /// ```text
-/// Sterling = (CAGR − R_f) / |avg_drawdown|
+/// Sterling = (CAGR − R_f) / |mean_episode_drawdown|
 /// ```
 ///
 /// # Arguments
@@ -843,53 +746,6 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
         };
     }
     (cagr_val - risk_free_rate) / avg_dd.abs()
-}
-
-/// Sterling ratio computed directly from a returns series.
-///
-/// Computes CAGR from the return history, derives the drawdown series, averages
-/// all detected drawdown episodes via [`avg_drawdown`], then applies
-/// [`sterling_ratio`].
-///
-/// # Arguments
-///
-/// * `returns` - Slice of simple period returns in decimal form.
-/// * `ann_factor` - Number of periods per year used for CAGR annualization.
-/// * `risk_free_rate` - Annualized risk-free rate in decimal form.
-///
-/// # Returns
-///
-/// The Sterling ratio. Returns `0.0` if no drawdowns are detected, `±∞`
-/// if the average drawdown is zero with nonzero excess return. Propagates `NaN` when `ann_factor` is invalid
-/// through [`crate::risk_metrics::cagr_from_periods`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::drawdown::{avg_drawdown, sterling_ratio, sterling_ratio_from_returns, to_drawdown_series};
-/// use finstack_analytics::risk_metrics::cagr_from_periods;
-///
-/// let returns = [0.02, -0.04, 0.015, -0.01, 0.03];
-/// let ann_factor = 252.0;
-/// let risk_free_rate = 0.01;
-/// let direct = sterling_ratio_from_returns(&returns, ann_factor, risk_free_rate);
-/// let expected = sterling_ratio(
-///     cagr_from_periods(&returns, ann_factor),
-///     avg_drawdown(&to_drawdown_series(&returns), usize::MAX),
-///     risk_free_rate,
-/// );
-/// assert!((direct - expected).abs() < 1e-12);
-/// ```
-///
-/// # References
-///
-/// - Kestner (1996): see docs/REFERENCES.md#kestner1996
-#[must_use]
-pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
-    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
-    let drawdowns = to_drawdown_series(returns);
-    let avg_dd = avg_drawdown(&drawdowns, usize::MAX);
-    sterling_ratio(cagr_val, avg_dd, risk_free_rate)
 }
 
 /// Burke ratio: return per unit of drawdown-based risk (RMS of drawdowns).
@@ -982,48 +838,6 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
         };
     }
     (cagr_val - risk_free_rate) / pain
-}
-
-/// Pain ratio computed directly from a returns series.
-///
-/// Annualizes the return history with [`crate::risk_metrics::cagr_from_periods`],
-/// computes the drawdown path and Pain Index, then delegates to [`pain_ratio`].
-///
-/// # Arguments
-///
-/// * `returns` - Slice of simple period returns in decimal form.
-/// * `ann_factor` - Number of periods per year used for CAGR annualization.
-/// * `risk_free_rate` - Annualized risk-free rate in decimal form.
-///
-/// # Returns
-///
-/// The Pain ratio. Returns `±∞` if the Pain Index is zero with nonzero
-/// excess return. Propagates `NaN`
-/// when `ann_factor` is invalid through [`crate::risk_metrics::cagr_from_periods`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::drawdown::{pain_index, pain_ratio, pain_ratio_from_returns, to_drawdown_series};
-/// use finstack_analytics::risk_metrics::cagr_from_periods;
-///
-/// let returns = [0.015, -0.02, 0.01, -0.005, 0.02];
-/// let ann_factor = 252.0;
-/// let risk_free_rate = 0.01;
-/// let direct = pain_ratio_from_returns(&returns, ann_factor, risk_free_rate);
-/// let expected = pain_ratio(
-///     cagr_from_periods(&returns, ann_factor),
-///     pain_index(&to_drawdown_series(&returns)),
-///     risk_free_rate,
-/// );
-/// assert!((direct - expected).abs() < 1e-12);
-/// ```
-#[must_use]
-pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
-    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
-    let drawdowns = to_drawdown_series(returns);
-    let pain = pain_index(&drawdowns);
-    pain_ratio(cagr_val, pain, risk_free_rate)
 }
 
 #[cfg(test)]
@@ -1125,7 +939,7 @@ mod drawdown_ratio_tests {
     }
 
     #[test]
-    fn drawdown_composite_helpers_match_composed_formulas() {
+    fn drawdown_composite_helpers_compose_correctly() {
         let returns = [0.01, -0.02, 0.015, -0.005, 0.012, 0.008];
         let ann = 252.0;
         let cagr_val = crate::risk_metrics::cagr_from_periods(&returns, ann);
@@ -1133,43 +947,11 @@ mod drawdown_ratio_tests {
         let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
         let ulcer = ulcer_index(&dd);
         let pain = pain_index(&dd);
-        let avg_episode_dd = avg_drawdown(&dd, usize::MAX);
+        let avg_episode_dd = mean_episode_drawdown(&dd, usize::MAX);
 
-        assert!(
-            (recovery_factor_from_returns(&returns)
-                - recovery_factor(crate::returns::comp_total(&returns), max_dd))
-            .abs()
-                < 1e-12
-        );
-        assert!(
-            (martin_ratio_from_returns(&returns, ann) - martin_ratio(cagr_val, ulcer)).abs()
-                < 1e-12
-        );
-        assert!(
-            (sterling_ratio_from_returns(&returns, ann, 0.01)
-                - sterling_ratio(cagr_val, avg_episode_dd, 0.01))
-            .abs()
-                < 1e-12
-        );
-        assert!(
-            (pain_ratio_from_returns(&returns, ann, 0.01) - pain_ratio(cagr_val, pain, 0.01)).abs()
-                < 1e-12
-        );
-    }
-
-    #[test]
-    fn sterling_ratio_helper_uses_episode_average_not_path_average() {
-        let returns = [0.10, -0.20, 0.15, -0.10, 0.05, -0.08, 0.12];
-        let ann = 252.0;
-        let dd = to_drawdown_series(&returns);
-        let avg_episode_dd = avg_drawdown(&dd, usize::MAX);
-        let cagr_val = crate::risk_metrics::cagr_from_periods(&returns, ann);
-
-        let expected = sterling_ratio(cagr_val, avg_episode_dd, 0.01);
-        let actual = sterling_ratio_from_returns(&returns, ann, 0.01);
-        assert!(
-            (actual - expected).abs() < 1e-12,
-            "sterling_ratio_from_returns should match the episode-based Sterling definition"
-        );
+        assert!(recovery_factor(crate::returns::comp_total(&returns), max_dd).is_finite());
+        assert!(martin_ratio(cagr_val, ulcer).is_finite());
+        assert!(sterling_ratio(cagr_val, avg_episode_dd, 0.01).is_finite());
+        assert!(pain_ratio(cagr_val, pain, 0.01).is_finite());
     }
 }

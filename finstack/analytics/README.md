@@ -164,7 +164,7 @@ assert!(stats.win_rate >= 0.0);
 | `risk_metrics::tail_risk` | Distribution and downside-tail metrics | `value_at_risk`, `expected_shortfall`, `parametric_var`, `cornish_fisher_var`, `skewness`, `kurtosis`, `tail_ratio` |
 | `risk_metrics::rolling` | Rolling series outputs | `rolling_sharpe`, `rolling_sortino`, `rolling_volatility` |
 | `drawdown` | Drawdown paths, episodes, and drawdown-derived ratios | `to_drawdown_series`, `drawdown_details`, `cdar`, `ulcer_index`, `calmar`, `martin_ratio`, `sterling_ratio` |
-| `benchmark` | Benchmark-relative and regression-style analytics | `tracking_error`, `information_ratio`, `calc_beta`, `greeks`, `rolling_greeks`, `multi_factor_greeks`, `align_benchmark_with_policy` |
+| `benchmark` | Benchmark-relative and regression-style analytics | `tracking_error`, `information_ratio`, `beta`, `greeks`, `rolling_greeks`, `multi_factor_greeks`, `align_benchmark` |
 | `aggregation` | Period compounding and trading statistics | `group_by_period`, `period_stats`, `PeriodStats` |
 | `lookback` | Index-range selectors for dated arrays | `mtd_select`, `qtd_select`, `ytd_select`, `fytd_select` |
 | `consecutive` | Predicate-based streak counting | `count_consecutive` |
