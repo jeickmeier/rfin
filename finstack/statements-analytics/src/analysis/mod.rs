@@ -46,7 +46,6 @@ pub mod scenarios;
 pub mod checks;
 
 /// Expected credit loss: IFRS 9 staging, ECL calculation, CECL, portfolio aggregation.
-#[cfg(feature = "ecl")]
 pub mod ecl;
 
 // ---- Flat submodules ----
@@ -102,9 +101,8 @@ pub use checks::{
     CheckReportRenderer, CreditMapping, FormulaCheck, ThreeStatementMapping, TrendDirection,
 };
 
-// ---- ECL re-exports (feature-gated) ----
+// ---- ECL re-exports ----
 
-#[cfg(feature = "ecl")]
 pub use ecl::{
     classify_stage, compute_ecl_single, compute_ecl_weighted, compute_waterfall, CeclConfig,
     CeclEngine, CeclMethodology, CeclResult, EclBucket, EclConfig, EclConfigBuilder, EclEngine,

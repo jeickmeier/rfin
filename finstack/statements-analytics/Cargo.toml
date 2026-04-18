@@ -26,4 +26,3 @@ time = { workspace = true, features = ["macros"] }
 default = []
 dataframes = ["finstack-statements/dataframes", "dep:polars"]
 parallel = ["finstack-statements/parallel", "dep:rayon"]
-ecl = []

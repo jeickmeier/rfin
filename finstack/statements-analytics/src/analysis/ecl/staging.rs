@@ -359,6 +359,7 @@ pub fn classify_stage(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::analysis::ecl::types::{QualitativeFlags, RawPdCurve};
@@ -505,8 +506,10 @@ mod tests {
     #[test]
     fn test_stage2_qualitative_disabled() {
         let curve = make_pd_curve();
-        let mut config = StagingConfig::default();
-        config.qualitative_triggers_enabled = false;
+        let config = StagingConfig {
+            qualitative_triggers_enabled: false,
+            ..Default::default()
+        };
         let mut exposure = base_exposure();
         exposure.qualitative_flags.watchlist = true;
 

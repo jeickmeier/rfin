@@ -27,7 +27,7 @@ finstack-margin = { path = "../finstack/margin" }
 finstack-monte-carlo = { path = "../finstack/monte_carlo", features = ["mc"] }
 finstack-valuations = { path = "../finstack/valuations", features = ["mc"] }
 finstack-statements = { path = "../finstack/statements", features = ["dataframes"] }
-finstack-statements-analytics = { path = "../finstack/statements-analytics", features = ["dataframes", "ecl"] }
+finstack-statements-analytics = { path = "../finstack/statements-analytics", features = ["dataframes"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
 nalgebra = "0.34"
