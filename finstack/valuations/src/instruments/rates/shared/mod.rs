@@ -6,3 +6,6 @@ pub mod bermudan_call;
 pub mod cumulative_coupon;
 /// Forward swap rate and annuity helpers shared by CMS instruments.
 pub mod forward_swap_rate;
+/// Monte Carlo configuration shared across rate exotic pricers.
+pub mod mc_config;
+pub use mc_config::RateExoticMcConfig;
