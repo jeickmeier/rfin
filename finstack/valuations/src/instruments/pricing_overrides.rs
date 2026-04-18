@@ -3,7 +3,6 @@
 use crate::instruments::common_impl::parameters::{SABRParameters, VolatilityModel};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::{Bps, Percentage};
 
 /// Policy for evaluating volatility surfaces outside their calibrated grid.
 ///
@@ -607,6 +606,11 @@ pub struct PricingOverrides {
 }
 
 impl PricingOverrides {
+    /// Create empty pricing overrides
+    pub fn none() -> Self {
+        Self::default()
+    }
+
     /// Rho bump size expressed in **basis points** (bp) suitable for curve bump APIs.
     ///
     /// Conversions:
@@ -617,13 +621,6 @@ impl PricingOverrides {
     /// calling APIs that expect bp units.
     pub fn rho_bump_bp(&self) -> f64 {
         self.metrics.bump_config.rho_bump_decimal.unwrap_or(0.0001) * 10000.0
-    }
-}
-
-impl PricingOverrides {
-    /// Create empty pricing overrides
-    pub fn none() -> Self {
-        Self::default()
     }
 
     // -- Market Quote builders -----------------------------------------------
@@ -640,21 +637,9 @@ impl PricingOverrides {
         self
     }
 
-    /// Set implied volatility using a typed percentage.
-    pub fn with_implied_vol_pct(mut self, vol: Percentage) -> Self {
-        self.market_quotes.implied_volatility = Some(vol.as_decimal());
-        self
-    }
-
     /// Set quoted spread
     pub fn with_spread_bp(mut self, spread_bp: f64) -> Self {
         self.market_quotes.quoted_spread_bp = Some(spread_bp);
-        self
-    }
-
-    /// Set quoted spread using a typed basis-point value.
-    pub fn with_spread_bps(mut self, spread_bp: Bps) -> Self {
-        self.market_quotes.quoted_spread_bp = Some(spread_bp.as_bps() as f64);
         self
     }
 
@@ -701,12 +686,6 @@ impl PricingOverrides {
         self
     }
 
-    /// Set volatility for tree-based pricing using a typed percentage.
-    pub fn with_tree_volatility_pct(mut self, vol: Percentage) -> Self {
-        self.model_config.tree_volatility = Some(vol.as_decimal());
-        self
-    }
-
     /// Set issuer/borrower call exercise friction, in **cents per 100** of par.
     pub fn with_call_friction_cents(mut self, cents: f64) -> Self {
         self.model_config.call_friction_cents = Some(cents);
@@ -737,12 +716,6 @@ impl PricingOverrides {
         self
     }
 
-    /// Set custom YTM bump size using basis points.
-    pub fn with_ytm_bump_bps(mut self, bump: Bps) -> Self {
-        self.metrics.bump_config.ytm_bump_decimal = Some(bump.as_decimal());
-        self
-    }
-
     /// Enable adaptive bump sizes for greek calculations.
     ///
     /// Adaptive bumps scale based on volatility, time to expiry, and moneyness
@@ -760,23 +733,11 @@ impl PricingOverrides {
         self
     }
 
-    /// Set custom spot bump size using a typed percentage.
-    pub fn with_spot_bump_pct(mut self, bump_pct: Percentage) -> Self {
-        self.metrics.bump_config.spot_bump_pct = Some(bump_pct.as_decimal());
-        self
-    }
-
     /// Set custom volatility bump size (as absolute vol, e.g., 0.01 for 1% vol).
     ///
     /// Overrides both standard and adaptive calculations when set.
     pub fn with_vol_bump(mut self, bump_pct: f64) -> Self {
         self.metrics.bump_config.vol_bump_pct = Some(bump_pct);
-        self
-    }
-
-    /// Set custom volatility bump size using a typed percentage.
-    pub fn with_vol_bump_pct(mut self, bump_pct: Percentage) -> Self {
-        self.metrics.bump_config.vol_bump_pct = Some(bump_pct.as_decimal());
         self
     }
 
@@ -788,21 +749,9 @@ impl PricingOverrides {
         self
     }
 
-    /// Set custom rate bump size using a typed basis-point value.
-    pub fn with_rate_bump_bps(mut self, bump_bp: Bps) -> Self {
-        self.metrics.bump_config.rate_bump_bp = Some(bump_bp.as_bps() as f64);
-        self
-    }
-
     /// Set custom credit spread bump size (in basis points, e.g., 1.0 for 1bp).
     pub fn with_credit_spread_bump(mut self, bump_bp: f64) -> Self {
         self.metrics.bump_config.credit_spread_bump_bp = Some(bump_bp);
-        self
-    }
-
-    /// Set custom credit spread bump size using a typed basis-point value.
-    pub fn with_credit_spread_bump_bps(mut self, bump_bp: Bps) -> Self {
-        self.metrics.bump_config.credit_spread_bump_bp = Some(bump_bp.as_bps() as f64);
         self
     }
 
@@ -865,12 +814,6 @@ impl PricingOverrides {
         self
     }
 
-    /// Apply a scenario spread shock using a typed basis-point value.
-    pub fn with_spread_shock_bps(mut self, shock_bp: Bps) -> Self {
-        self.scenario.scenario_spread_shock_bp = Some(shock_bp.as_bps() as f64);
-        self
-    }
-
     /// Clear any scenario shocks applied to this override.
     pub fn clear_scenario_shocks(&mut self) {
         self.scenario.scenario_price_shock_pct = None;
@@ -882,9 +825,7 @@ impl PricingOverrides {
         self.scenario.scenario_price_shock_pct.is_some()
             || self.scenario.scenario_spread_shock_bp.is_some()
     }
-}
 
-impl PricingOverrides {
     /// Validate override values for finiteness and non-negativity; basic `theta_period` sanity.
     pub fn validate(&self) -> finstack_core::Result<()> {
         self.market_quotes.validate()?;
