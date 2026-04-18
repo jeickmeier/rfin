@@ -96,7 +96,7 @@ fn emit_fee_generic(
 /// # Returns
 ///
 /// Optional cashflow (`None` if fee amount is zero)
-pub fn emit_commitment_fee_on(
+pub(crate) fn emit_commitment_fee_on(
     d: Date,
     undrawn_balance: f64,
     commitment_fee_bp: f64,
@@ -129,7 +129,7 @@ pub fn emit_commitment_fee_on(
 /// # Returns
 ///
 /// Optional cashflow (`None` if fee amount is zero)
-pub fn emit_usage_fee_on(
+pub(crate) fn emit_usage_fee_on(
     d: Date,
     drawn_balance: f64,
     usage_fee_bp: f64,
@@ -162,7 +162,7 @@ pub fn emit_usage_fee_on(
 /// # Returns
 ///
 /// Optional cashflow (`None` if fee amount is zero)
-pub fn emit_facility_fee_on(
+pub(crate) fn emit_facility_fee_on(
     d: Date,
     commitment_amount: f64,
     facility_fee_bp: f64,

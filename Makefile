@@ -183,14 +183,14 @@ setup-python: ## Initialize Python environment
 python-dev: ## Install dependencies and build bindings (release mode)
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
-	@$(call py_run,uv pip install maturin pytest pytest-benchmark ty ruff ipython jupyter)
+	@$(call py_run,uv sync --group dev)
 	@cd finstack-py && $(call py_run,python -m maturin develop --profile $(or $(MATURIN_PROFILE),release))
 
 .PHONY: python-dev-debug
 python-dev-debug: ## Install dependencies and build bindings (debug mode, fast compile)
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension (debug)...\n"
-	@$(call py_run,uv pip install maturin pytest pytest-benchmark ty ruff ipython jupyter)
+	@$(call py_run,uv sync --group dev)
 	@cd finstack-py && $(call py_run,python -m maturin develop)
 
 .PHONY: test-python

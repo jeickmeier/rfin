@@ -24,8 +24,9 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::cashflow::builder::CashFlowSchedule;
-use crate::cashflow::builder::Notional;
+use crate::cashflow::builder::{
+    emit_revolving_credit_fees, CashFlowSchedule, Notional, RevolvingFeeEmissionConfig,
+};
 use finstack_core::cashflow::{CFKind, CashFlow};
 
 use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
@@ -686,37 +687,20 @@ impl<'a> CashflowEngine<'a> {
             // Use average utilization for fee tier determination to match the interest
             // calculation above and avoid tier-boundary artifacts.
             let avg_util = (utilization_start + utilization_end) / 2.0;
-            let commitment_fee_bp = self.facility.fees.commitment_fee_bps(avg_util);
-            if let Some(cf) = crate::cashflow::builder::emit_commitment_fee_on(
-                period_end,
-                undrawn_balance.amount(),
-                commitment_fee_bp,
-                dt,
-                ccy,
-            ) {
-                flows.push(cf);
-            }
-
-            let usage_fee_bp = self.facility.fees.usage_fee_bps(avg_util);
-            if let Some(cf) = crate::cashflow::builder::emit_usage_fee_on(
-                period_end,
-                drawn_balance.amount(),
-                usage_fee_bp,
-                dt,
-                ccy,
-            ) {
-                flows.push(cf);
-            }
-
-            if let Some(cf) = crate::cashflow::builder::emit_facility_fee_on(
-                period_end,
-                self.facility.commitment_amount.amount(),
-                self.facility.fees.facility_fee_bp,
-                dt,
-                ccy,
-            ) {
-                flows.push(cf);
-            }
+            emit_revolving_credit_fees(
+                &mut flows,
+                &RevolvingFeeEmissionConfig {
+                    payment_date: period_end,
+                    drawn_balance: drawn_balance.amount(),
+                    undrawn_balance: undrawn_balance.amount(),
+                    commitment_amount: self.facility.commitment_amount.amount(),
+                    commitment_fee_bp: self.facility.fees.commitment_fee_bps(avg_util),
+                    usage_fee_bp: self.facility.fees.usage_fee_bps(avg_util),
+                    facility_fee_bp: self.facility.fees.facility_fee_bp,
+                    year_fraction: dt,
+                    currency: ccy,
+                },
+            );
 
             // Handle principal flows from utilization changes
             // At period_end, utilization changes from start to end value for use in the next period
