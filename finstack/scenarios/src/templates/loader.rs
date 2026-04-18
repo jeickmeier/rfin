@@ -1,4 +1,4 @@
-//! Embedded JSON loader for built-in stress templates.
+//! JSON loader and shared parser for stress template documents.
 
 use super::json::JsonTemplateDocument;
 use crate::{Error, Result};
@@ -27,13 +27,30 @@ const EMBEDDED_TEMPLATE_JSONS: [(&str, &str); 5] = [
 ];
 
 /// Return the embedded built-in template JSON payloads.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn embedded_template_jsons() -> &'static [(&'static str, &'static str)] {
     &EMBEDDED_TEMPLATE_JSONS
 }
 
+/// Parse and validate a JSON template document.
+///
+/// Shared by the embedded built-in loader and the runtime registration paths.
+/// `name` is only used to produce readable error messages.
+pub(crate) fn parse_template_document(name: &str, json: &str) -> Result<JsonTemplateDocument> {
+    let document: JsonTemplateDocument = serde_json::from_str(json).map_err(|error| {
+        Error::validation(format!("failed to parse JSON template '{name}': {error}"))
+    })?;
+
+    document.validate().map_err(|error| match error {
+        Error::Validation(message) => Error::validation(format!(
+            "JSON template '{name}' failed validation: {message}"
+        )),
+        other => other,
+    })?;
+
+    Ok(document)
+}
+
 /// Load and validate all embedded built-in template documents.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_embedded_documents() -> Result<Vec<JsonTemplateDocument>> {
     embedded_template_jsons()
         .iter()
@@ -42,7 +59,10 @@ pub(crate) fn load_embedded_documents() -> Result<Vec<JsonTemplateDocument>> {
 }
 
 /// Load and validate a single embedded built-in template document by name.
-#[cfg_attr(not(test), allow(dead_code))]
+///
+/// Only used by tests; production code loads all embedded documents in bulk via
+/// [`load_embedded_documents`].
+#[cfg(test)]
 pub(crate) fn load_embedded_document(name: &str) -> Result<JsonTemplateDocument> {
     let (_, json) = embedded_template_jsons()
         .iter()

@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Serde-facing JSON document for a composable stress template.
 ///
-/// Phase 1 stages the document layer before the loader/runtime integration lands,
-/// so this internal type is only exercised by unit tests for now.
-#[cfg_attr(not(test), allow(dead_code))]
+/// Drives both the embedded built-in loader and runtime JSON registration paths.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct JsonTemplateDocument {
@@ -20,8 +18,6 @@ pub(crate) struct JsonTemplateDocument {
     pub(crate) composite: JsonCompositeTemplate,
 }
 
-/// Phase 1 stages document validation ahead of runtime usage.
-#[cfg_attr(not(test), allow(dead_code))]
 impl JsonTemplateDocument {
     /// Validate document-level consistency across metadata, components, and composite.
     pub(crate) fn validate(&self) -> Result<()> {
@@ -84,9 +80,6 @@ impl JsonTemplateDocument {
 }
 
 /// Composite scenario identity plus ordered component references.
-///
-/// Phase 1 stages the serde/document shape before runtime loading is wired up.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct JsonCompositeTemplate {
@@ -100,10 +93,11 @@ pub(crate) struct JsonCompositeTemplate {
     component_ids: Vec<String>,
 }
 
-/// Phase 1 stages document validation ahead of runtime usage.
-#[cfg_attr(not(test), allow(dead_code))]
 impl JsonCompositeTemplate {
     /// Create a composite template from top-level identity fields and ordered references.
+    ///
+    /// Only used by tests; production paths construct `JsonCompositeTemplate` via serde.
+    #[cfg(test)]
     pub(crate) fn new(
         id: impl Into<String>,
         name: Option<&str>,
