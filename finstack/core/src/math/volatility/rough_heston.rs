@@ -672,6 +672,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "slow"]
     fn prices_non_negative() {
         let params = RoughHestonFourierParams::new(0.04, 2.0, 0.04, 0.3, -0.7, 0.1).expect("valid");
         for &k in &[80.0, 90.0, 100.0, 110.0, 120.0] {

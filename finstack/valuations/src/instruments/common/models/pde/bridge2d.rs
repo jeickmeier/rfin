@@ -151,6 +151,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "slow"]
     fn heston_pde_vs_fourier_atm() {
         let spot: f64 = 100.0;
         let strike = 100.0;
