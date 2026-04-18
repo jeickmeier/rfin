@@ -746,10 +746,9 @@ mod tests {
     use crate::time_grid::TimeGrid;
     use finstack_core::currency::Currency;
 
-    #[cfg(feature = "slow")]
     use crate::payoff::lookback::{Lookback, LookbackDirection};
 
-    #[cfg(feature = "slow")]
+    #[ignore = "slow"]
     #[test]
     fn test_path_dependent_pricer_asian() {
         let config = PathDependentPricerConfig::new(10_000)
@@ -772,7 +771,7 @@ mod tests {
         assert!(result.mean.amount() < 20.0);
     }
 
-    #[cfg(feature = "slow")]
+    #[ignore = "slow"]
     #[test]
     fn test_path_dependent_pricer_lookback() {
         let config = PathDependentPricerConfig::new(10_000)

@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! FRA pricing and NPV calculation tests.
 //!
 //! Validates the core NPV calculation, including:
@@ -14,6 +13,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::macros::date;
 
+#[ignore = "slow"]
 #[test]
 fn test_at_market_fra_near_zero_pv() {
     // FRA struck at market forward rate should have ~zero PV
@@ -27,6 +27,7 @@ fn test_at_market_fra_near_zero_pv() {
     assert_near_zero(pv.amount(), 1.0, "At-market FRA should have near-zero PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_receive_fixed_off_market_positive_pv() {
     // Receive 6% when market is 5% → positive PV (standard convention)
@@ -45,6 +46,7 @@ fn test_receive_fixed_off_market_positive_pv() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_receive_fixed_off_market_negative_pv() {
     // Receive 4% when market is 5% → negative PV (standard convention)
@@ -63,6 +65,7 @@ fn test_receive_fixed_off_market_negative_pv() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_pay_fixed_off_market_positive_pv() {
     // Pay 4% when market is 5% → positive PV (standard convention)
@@ -78,6 +81,7 @@ fn test_pay_fixed_off_market_positive_pv() {
     assert_positive(pv.amount(), "Pay below-market rate should have positive PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_pay_fixed_off_market_negative_pv() {
     // Pay 6% when market is 5% → negative PV (standard convention)
@@ -93,6 +97,7 @@ fn test_pay_fixed_off_market_negative_pv() {
     assert_negative(pv.amount(), "Pay above-market rate should have negative PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_pv_scales_with_notional() {
     let market = standard_market();
@@ -118,6 +123,7 @@ fn test_pv_scales_with_notional() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_settlement_adjustment_present() {
     // FRA settlement includes 1/(1 + F*tau) adjustment
@@ -141,6 +147,7 @@ fn test_settlement_adjustment_present() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_zero_tau_returns_zero_pv() {
     // FRA with same start and end date should have zero PV
@@ -157,6 +164,7 @@ fn test_zero_tau_returns_zero_pv() {
     assert_eq!(pv.amount(), 0.0, "Zero tau should produce zero PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_short_period_1m() {
     let market = standard_market();
@@ -174,6 +182,7 @@ fn test_short_period_1m() {
     assert_finite(pv.amount(), "1M FRA should have finite PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_long_period_12m() {
     let market = standard_market();
@@ -191,6 +200,7 @@ fn test_long_period_12m() {
     assert_finite(pv.amount(), "12M FRA should have finite PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_upward_sloping_curve() {
     let disc = build_flat_discount_curve(0.05, BASE_DATE, "USD_OIS");
@@ -204,6 +214,7 @@ fn test_upward_sloping_curve() {
     assert_finite(pv.amount(), "Upward sloping curve should produce finite PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_inverted_curve() {
     let disc = build_flat_discount_curve(0.05, BASE_DATE, "USD_OIS");
@@ -217,6 +228,7 @@ fn test_inverted_curve() {
     assert_finite(pv.amount(), "Inverted curve should produce finite PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_negative_rate_environment() {
     let disc = build_flat_discount_curve(-0.01, BASE_DATE, "USD_OIS");
@@ -233,6 +245,7 @@ fn test_negative_rate_environment() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_high_rate_environment() {
     let disc = build_flat_discount_curve(0.15, BASE_DATE, "USD_OIS");
@@ -251,6 +264,7 @@ fn test_high_rate_environment() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_different_curve_base_dates() {
     // Curves with different base dates should still work
@@ -267,6 +281,7 @@ fn test_different_curve_base_dates() {
     assert_finite(pv.amount(), "Different curve base dates should work");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_act_365_day_count() {
     let market = standard_market();
@@ -281,6 +296,7 @@ fn test_act_365_day_count() {
     assert_finite(pv.amount(), "ACT/365 day count should work");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_30_360_day_count() {
     let market = standard_market();
@@ -295,6 +311,7 @@ fn test_30_360_day_count() {
     assert_finite(pv.amount(), "30/360 day count should work");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_currency_preserved_in_pv() {
     let market = standard_market();

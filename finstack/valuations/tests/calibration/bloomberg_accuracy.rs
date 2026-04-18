@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Bloomberg calibration accuracy tests.
 //!
 //! Validates calibrated curves against Bloomberg reference data to ensure
@@ -50,6 +49,7 @@ fn ois_swap(maturity: Date, rate: f64) -> RateQuote {
 /// within acceptable tolerance of Bloomberg's values.
 ///
 /// Data source: Bloomberg USD OIS curve (USSOC Curncy)
+#[ignore = "slow"]
 #[test]
 fn test_bloomberg_usd_ois_calibration_accuracy() {
     // Bloomberg curve date: 2025-12-10 (pricing date; instruments are spot-start in USD).
@@ -449,6 +449,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_interpolation_method_comparison() {
     let base_date = Date::from_calendar_date(2025, Month::December, 10).expect("Valid test date");

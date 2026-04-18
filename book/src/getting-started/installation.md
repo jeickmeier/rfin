@@ -43,27 +43,24 @@ Add Finstack to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-finstack = { version = "0.1", features = ["all"] }
+finstack = { version = "0.1" }
 ```
 
-Or pick individual feature flags to compile only what you need:
+The umbrella crate re-exports every sub-crate (core, analytics, margin,
+valuations, portfolio, statements, statements_analytics, scenarios,
+monte_carlo, correlation) unconditionally.
 
-| Feature | What It Includes |
-|---------|-----------------|
-| `core` | Currency, money, dates, calendars, market data, math |
-| `analytics` | Expression engine, computed metrics |
-| `margin` | ISDA SIMM, variation margin |
-| `valuations` | Instruments, pricing, calibration, risk (includes cashflows, correlation, monte-carlo) |
-| `portfolio` | Portfolio valuation, grouping |
-| `statements` | Financial statement modeling, waterfalls, covenants |
-| `scenarios` | Scenario engine, stress testing |
-| `all` | Everything above |
+Two pass-through features are available to opt in to heavier compile-time
+costs:
 
-### Minimum Example
+| Feature | Effect |
+|---------|--------|
+| `mc` | Enables Monte Carlo pricers across `monte_carlo`, `margin`, `valuations` (pulls in `nalgebra`). |
+| `dataframes` | Enables the `polars`-based DataFrame surfaces in `statements` and `portfolio`. |
 
 ```toml
 [dependencies]
-finstack = { version = "0.1", features = ["core", "valuations"] }
+finstack = { version = "0.1", features = ["mc", "dataframes"] }
 ```
 
 ## WASM / TypeScript

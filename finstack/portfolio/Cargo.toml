@@ -11,8 +11,8 @@ authors.workspace = true
 finstack-core = { path = "../core" }
 finstack-margin = { path = "../margin" }
 finstack-valuations = { path = "../valuations" }
-finstack-scenarios = { path = "../scenarios", optional = true }
-finstack-statements = { path = "../statements", optional = true }
+finstack-scenarios = { path = "../scenarios" }
+finstack-statements = { path = "../statements" }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -29,8 +29,7 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 
 [features]
-default = ["scenarios", "dataframes"]
-scenarios = ["dep:finstack-scenarios", "dep:finstack-statements"]
+default = ["dataframes"]
 dataframes = ["dep:polars"]
 
 [[bench]]

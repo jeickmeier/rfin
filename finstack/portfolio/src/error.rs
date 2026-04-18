@@ -55,7 +55,6 @@ pub enum Error {
     },
 
     /// Scenario application error
-    #[cfg(feature = "scenarios")]
     #[error("Scenario application failed: {0}")]
     ScenarioError(String),
 
@@ -186,7 +185,6 @@ impl Error {
     /// # Returns
     ///
     /// [`Error::ScenarioError`] carrying the supplied message.
-    #[cfg(feature = "scenarios")]
     pub fn scenario_error(msg: impl Into<String>) -> Self {
         Self::ScenarioError(msg.into())
     }

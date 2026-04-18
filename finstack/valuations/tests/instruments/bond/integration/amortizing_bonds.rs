@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Amortizing bond integration tests.
 
 use finstack_core::currency::Currency;
@@ -20,6 +19,7 @@ fn create_curve(base_date: Date) -> MarketContext {
     MarketContext::new().insert(curve)
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_linear_amortization() {
     use finstack_core::dates::{DayCount, Tenor};
@@ -52,6 +52,7 @@ fn test_linear_amortization() {
     assert!(pv_amount.is_finite(), "PV should be finite");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_full_amortization() {
     use finstack_core::dates::{DayCount, Tenor};

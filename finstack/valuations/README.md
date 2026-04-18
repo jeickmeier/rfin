@@ -66,8 +66,6 @@ This crate is also surfaced through:
 | `mc` | no | Enables advanced Monte Carlo workflows via `finstack-monte-carlo` and margin/XVA MC support. |
 | `slow` | no | Enables slower long-running tests and benchmarks. |
 | `ts_export` | no | Enables TypeScript export support for selected schema-oriented workflows. |
-| `test-utils` | no | Enables helpers used by external test suites and selected benches. |
-
 ## Typical Dependency Setup
 
 Depend on the crate directly:

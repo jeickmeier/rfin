@@ -4,7 +4,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
-#[cfg(all(feature = "mc", feature = "slow"))]
+#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -346,14 +346,14 @@ fn test_bermudan_to_european_conversion() {
 // LSMC Tests (requires "mc" feature)
 // ============================================================================
 
-#[cfg(all(feature = "mc", feature = "slow"))]
+#[cfg(feature = "mc")]
 fn build_market_context() -> MarketContext {
     let curve = test_discount_curve();
     MarketContext::new().insert(curve)
 }
 
 /// Test LSMC vs Tree: prices should be in same ballpark.
-#[cfg(all(feature = "mc", feature = "slow"))]
+#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_vs_tree_sanity() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -457,7 +457,7 @@ fn test_lsmc_vs_tree_sanity() {
 }
 
 /// Test LSMC determinism: same seed produces identical results.
-#[cfg(all(feature = "mc", feature = "slow"))]
+#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_determinism() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -495,7 +495,7 @@ fn test_lsmc_determinism() {
 }
 
 /// Test LSMC with different seeds produces different results.
-#[cfg(all(feature = "mc", feature = "slow"))]
+#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_different_seeds() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");

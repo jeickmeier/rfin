@@ -1,7 +1,6 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::bond_valuator::BondValuator;
-#[cfg(feature = "slow")]
 use super::tree_pricer::TreePricer;
 use crate::instruments::fixed_income::bond::types::{Bond, CallPut, CallPutSchedule};
 use crate::instruments::PricingOverrides;
@@ -103,7 +102,7 @@ fn test_bond_valuator_creation() {
     assert!(market_context.get_discount("USD-OIS").is_ok());
 }
 #[test]
-#[cfg(feature = "slow")]
+#[ignore = "slow"]
 fn test_oas_calculator_plain_bond() {
     let bond = create_test_bond();
     let market_context = create_test_market_context();
@@ -116,7 +115,7 @@ fn test_oas_calculator_plain_bond() {
     assert!(oas_bp < 5000.0);
 }
 #[test]
-#[cfg(feature = "slow")]
+#[ignore = "slow"]
 fn test_oas_calculator_callable_bond() {
     let bond = create_callable_bond();
     let market_context = create_test_market_context();
@@ -165,7 +164,7 @@ fn test_bond_valuator_make_whole_call_exceeds_floor_when_reference_curve_is_low(
 }
 
 #[test]
-#[cfg(feature = "slow")]
+#[ignore = "slow"]
 fn test_rates_credit_default_lowers_price() {
     use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
         RatesCreditConfig, RatesCreditTree,

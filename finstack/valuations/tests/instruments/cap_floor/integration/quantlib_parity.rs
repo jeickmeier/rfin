@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! QuantLib parity tests for interest rate options (caps/floors).
 //!
 //! These tests validate our cap/floor implementation against QuantLib's behavior
@@ -54,6 +53,7 @@ fn build_flat_vol_surface(vol: f64, _base_date: Date, surface_id: &str) -> VolSu
         .unwrap()
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_atm_cap() {
     // Test ATM cap pricing matches expected Black model results
@@ -105,6 +105,7 @@ fn test_quantlib_parity_atm_cap() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_cap_floor_parity() {
     // Test cap-floor parity: Cap - Floor = Swap
@@ -187,6 +188,7 @@ fn test_quantlib_parity_cap_floor_parity() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_vol_sensitivity() {
     // Test that vega is positive and reasonable
@@ -255,6 +257,7 @@ fn test_quantlib_parity_vol_sensitivity() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_caplet_pricing() {
     // Test single period caplet pricing matches Black formula
@@ -307,6 +310,7 @@ fn test_quantlib_parity_caplet_pricing() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_moneyness() {
     // Test that ITM > ATM > OTM for caps
@@ -414,6 +418,7 @@ fn test_quantlib_parity_moneyness() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_delta_sign() {
     // Test that cap has positive delta, floor has negative delta
@@ -513,6 +518,7 @@ fn test_quantlib_parity_delta_sign() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_gamma_positive() {
     // Test that gamma is positive for both caps and floors
@@ -610,6 +616,7 @@ fn test_quantlib_parity_gamma_positive() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_time_to_maturity() {
     // Test that longer maturity caps are more valuable
@@ -685,6 +692,7 @@ fn test_quantlib_parity_time_to_maturity() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_zero_vol_itm() {
     // Test that with zero vol, ITM cap has intrinsic value
@@ -737,6 +745,7 @@ fn test_quantlib_parity_zero_vol_itm() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_frequency_impact() {
     // Test that payment frequency affects cap value

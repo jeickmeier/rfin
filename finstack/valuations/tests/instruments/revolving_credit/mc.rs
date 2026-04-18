@@ -404,7 +404,7 @@ fn test_mc_utilization_mean_reversion() {
 /// Near-zero utilization volatility ensures deterministic paths so the
 /// difference is entirely due to the cap reducing the interest rate.
 #[test]
-#[cfg(all(feature = "mc", feature = "slow"))]
+#[cfg(feature = "mc")]
 fn test_mc_stochastic_floating_rate_index_cap() {
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_valuations::cashflow::builder::FloatingRateSpec;

@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Callable and putable bond integration tests.
 
 use finstack_core::currency::Currency;
@@ -19,6 +18,7 @@ fn create_curve(base_date: Date) -> MarketContext {
     MarketContext::new().insert(curve)
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_callable_bond_basic() {
     let as_of = date!(2025 - 01 - 01);
@@ -48,6 +48,7 @@ fn test_callable_bond_basic() {
     assert!(pv.amount() < 1200.0);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_putable_bond_basic() {
     let as_of = date!(2025 - 01 - 01);

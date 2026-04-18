@@ -41,9 +41,7 @@ finstack-statements-analytics = { path = "../statements-analytics" }
 [features]
 default = []
 mc = ["finstack-monte-carlo/mc", "finstack-margin/mc"]
-slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 ts_export = ["dep:ts-rs"]
-test-utils = []  # Opt-in for external test suites and benchmarks
 
 [[bench]]
 name = "bond_pricing"
@@ -118,17 +116,14 @@ harness = false
 [[bench]]
 name = "df_bootstrap"
 harness = false
-required-features = ["test-utils"]
 
 [[bench]]
 name = "fwd_curve"
 harness = false
-required-features = ["test-utils"]
 
 [[bench]]
 name = "sabr_slice"
 harness = false
-required-features = ["test-utils"]
 
 [[bench]]
 name = "bond_future_bench"

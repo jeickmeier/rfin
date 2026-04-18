@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Integration tests for complex bond structures.
 
 mod amortizing_bonds;

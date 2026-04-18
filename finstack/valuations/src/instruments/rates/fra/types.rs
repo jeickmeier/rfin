@@ -622,25 +622,17 @@ impl CashflowProvider for ForwardRateAgreement {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
-    #[cfg(feature = "slow")]
     use super::*;
-    #[cfg(feature = "slow")]
     use crate::instruments::common_impl::traits::Instrument;
-    #[cfg(feature = "slow")]
     use finstack_core::currency::Currency;
-    #[cfg(feature = "slow")]
     use finstack_core::dates::{Date, DateExt};
-    #[cfg(feature = "slow")]
     use finstack_core::market_data::term_structures::DiscountCurve;
-    #[cfg(feature = "slow")]
     use finstack_core::market_data::term_structures::ForwardCurve;
-    #[cfg(feature = "slow")]
     use finstack_core::math::interp::InterpStyle;
-    #[cfg(feature = "slow")]
     use time::Month;
 
     #[test]
-    #[cfg(feature = "slow")]
+    #[ignore = "slow"]
     fn fra_par_pv_near_zero_with_settlement_adjustment() {
         // Build simple flat curves: 5% forward, discount with reasonable decay
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -694,7 +686,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "slow")]
+    #[ignore = "slow"]
     fn fra_par_rate_metric() {
         // Build simple flat curves
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");

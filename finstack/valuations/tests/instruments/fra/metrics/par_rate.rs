@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! FRA par rate metric tests.
 //!
 //! Par rate is the fixed rate that makes the FRA's PV zero under
@@ -13,6 +12,7 @@ use finstack_valuations::metrics::MetricId;
 use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_matches_forward_curve() {
     let market = standard_market(); // 5% flat
@@ -37,6 +37,7 @@ fn test_par_rate_matches_forward_curve() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_at_market_fra_is_fixed_rate() {
     // For at-market FRA, par rate should equal the fixed rate
@@ -62,6 +63,7 @@ fn test_par_rate_at_market_fra_is_fixed_rate() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_independent_of_fixed_rate() {
     // Par rate depends only on curves, not the FRA's fixed rate
@@ -98,6 +100,7 @@ fn test_par_rate_independent_of_fixed_rate() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_upward_sloping_curve() {
     let disc = build_flat_discount_curve(0.05, BASE_DATE, "USD_OIS");
@@ -126,6 +129,7 @@ fn test_par_rate_upward_sloping_curve() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_inverted_curve() {
     let disc = build_flat_discount_curve(0.05, BASE_DATE, "USD_OIS");
@@ -148,6 +152,7 @@ fn test_par_rate_inverted_curve() {
     assert_finite(par_rate, "Par rate should be finite for inverted curve");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_short_period() {
     let market = standard_market();
@@ -170,6 +175,7 @@ fn test_par_rate_short_period() {
     assert_finite(par_rate, "Par rate should be finite for short period");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_long_period() {
     let market = standard_market();
@@ -192,6 +198,7 @@ fn test_par_rate_long_period() {
     assert_finite(par_rate, "Par rate should be finite for long period");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_zero_tau_returns_error() {
     let market = standard_market();
@@ -223,6 +230,7 @@ fn test_par_rate_zero_tau_returns_error() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_different_day_counts() {
     let market = standard_market();
@@ -259,6 +267,7 @@ fn test_par_rate_different_day_counts() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_rate_negative_rate_environment() {
     let disc = build_flat_discount_curve(-0.01, BASE_DATE, "USD_OIS");

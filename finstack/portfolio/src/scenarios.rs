@@ -4,21 +4,13 @@
 //! It provides helpers to apply scenario specifications to portfolios and
 //! optionally re-value them using the modified market data.
 
-#[cfg(feature = "scenarios")]
 use crate::error::{Error, Result};
-#[cfg(feature = "scenarios")]
 use crate::portfolio::Portfolio;
-#[cfg(feature = "scenarios")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "scenarios")]
 use finstack_scenarios::engine::{ApplicationReport, ExecutionContext, ScenarioEngine};
-#[cfg(feature = "scenarios")]
 use finstack_scenarios::spec::ScenarioSpec;
-#[cfg(feature = "scenarios")]
 use finstack_statements::types::FinancialModelSpec;
-#[cfg(feature = "scenarios")]
 use finstack_valuations::instruments::DynInstrument;
-#[cfg(feature = "scenarios")]
 use std::sync::Arc;
 
 /// Apply a scenario to a portfolio.
@@ -61,7 +53,6 @@ use std::sync::Arc;
 /// # Ok(())
 /// # }
 /// ```
-#[cfg(feature = "scenarios")]
 pub fn apply_scenario(
     portfolio: &Portfolio,
     scenario: &ScenarioSpec,
@@ -151,7 +142,6 @@ pub fn apply_scenario(
 /// # Ok(())
 /// # }
 /// ```
-#[cfg(feature = "scenarios")]
 pub fn apply_and_revalue(
     portfolio: &Portfolio,
     scenario: &ScenarioSpec,
@@ -172,7 +162,6 @@ pub fn apply_and_revalue(
 }
 
 #[cfg(test)]
-#[cfg(feature = "scenarios")]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;

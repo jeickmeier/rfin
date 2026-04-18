@@ -1,28 +1,16 @@
-#[cfg(feature = "scenarios")]
 mod common;
 
-#[cfg(feature = "scenarios")]
 use common::*;
-#[cfg(feature = "scenarios")]
 use finstack_core::config::FinstackConfig;
-#[cfg(feature = "scenarios")]
 use finstack_core::currency::Currency;
-#[cfg(feature = "scenarios")]
 use finstack_core::money::Money;
-#[cfg(feature = "scenarios")]
 use finstack_portfolio::types::Entity;
-#[cfg(feature = "scenarios")]
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
-#[cfg(feature = "scenarios")]
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
-#[cfg(feature = "scenarios")]
 use finstack_valuations::instruments::rates::deposit::Deposit;
-#[cfg(feature = "scenarios")]
 use std::sync::Arc;
-#[cfg(feature = "scenarios")]
 use time::Duration;
 
-#[cfg(feature = "scenarios")]
 #[test]
 fn apply_and_revalue_succeeds() {
     let as_of = base_date();

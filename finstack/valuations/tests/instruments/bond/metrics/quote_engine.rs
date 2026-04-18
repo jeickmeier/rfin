@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Bond quote engine round-trip tests for price / yield / spread metrics.
 //!
 //! These tests verify that using a metric as the *input* to the quote
@@ -31,6 +30,7 @@ fn build_simple_discount_curve(as_of: time::Date) -> DiscountCurve {
         .expect("discount curve builder should succeed in test")
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
     let as_of = date!(2025 - 01 - 01);
@@ -107,6 +107,7 @@ fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_roundtrip_dm_for_frn() {
     use finstack_valuations::instruments::PricingOverrides;
@@ -175,6 +176,7 @@ fn test_quote_engine_roundtrip_dm_for_frn() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_roundtrip_oas_and_asw_market_fixed_bond() {
     use finstack_valuations::instruments::PricingOverrides;
@@ -267,6 +269,7 @@ fn test_quote_engine_roundtrip_oas_and_asw_market_fixed_bond() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_roundtrip_i_spread_fixed_bond() {
     use finstack_valuations::instruments::PricingOverrides;
@@ -311,6 +314,7 @@ fn test_quote_engine_roundtrip_i_spread_fixed_bond() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_asw_market_rejects_matured_schedule() {
     let issue = date!(2020 - 01 - 01);
@@ -338,6 +342,7 @@ fn test_quote_engine_asw_market_rejects_matured_schedule() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_spread_and_yield_paths_reprice_to_same_clean_price() {
     let as_of = date!(2025 - 01 - 01);
@@ -396,6 +401,7 @@ fn test_quote_engine_spread_and_yield_paths_reprice_to_same_clean_price() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_quote_engine_i_spread_rejects_matured_schedule() {
     let issue = date!(2020 - 01 - 01);

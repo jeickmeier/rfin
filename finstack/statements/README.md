@@ -22,8 +22,8 @@ Recommended verification matrix:
 ```bash
 cargo test -p finstack-statements
 cargo test -p finstack-statements --features dataframes
-cargo test -p finstack-statements --features parallel
-cargo test -p finstack-statements --features "dataframes parallel"
+cargo test -p finstack-statements
+cargo test -p finstack-statements --features dataframes
 ```
 
 ## Key Docs

@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! CDS Index constituents pricing mode tests.
 //!
 //! Tests cover:
@@ -40,6 +39,7 @@ fn metric_value(
     result.measures[&metric]
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_mode_pricing() {
     // Test: Basic constituents pricing works
@@ -56,6 +56,7 @@ fn test_constituents_mode_pricing() {
     assert_eq!(idx.pricing, IndexPricing::Constituents);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_weight_based_allocation() {
     // Test: Notional is allocated according to weights
@@ -77,6 +78,7 @@ fn test_constituents_weight_based_allocation() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_npv_components() {
     // Test: NPV = Protection PV - Premium PV (for protection buyer)
@@ -98,6 +100,7 @@ fn test_constituents_npv_components() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_par_spread() {
     // Test: Par spread calculation with constituents
@@ -120,6 +123,7 @@ fn test_constituents_par_spread() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_risky_pv01() {
     // Test: Risky PV01 aggregation
@@ -136,6 +140,7 @@ fn test_constituents_risky_pv01() {
     assert_in_range(rpv01, 3_500.0, 5_500.0, "Risky PV01 magnitude");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_cs01() {
     // Test: CS01 aggregation across constituents
@@ -151,6 +156,7 @@ fn test_constituents_cs01() {
     assert_positive(cs01, "CS01");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_weights_sum_to_one() {
     // Test: Constituent weights must sum to 1.0
@@ -171,6 +177,7 @@ fn test_constituents_weights_sum_to_one() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_unequal_weights() {
     // Test: Support for unequal constituent weights
@@ -212,6 +219,7 @@ fn test_constituents_unequal_weights() {
     assert!(result.is_ok(), "Unequal weights should be supported");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_index_factor_application() {
     // Test: Index factor scales effective notional
@@ -244,6 +252,7 @@ fn test_constituents_index_factor_application() {
     assert!(result.is_ok());
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_npv_scales_with_notional() {
     // Test: NPV scales linearly with notional in constituents mode
@@ -261,6 +270,7 @@ fn test_constituents_npv_scales_with_notional() {
     assert_linear_scaling(npv_10mm, 10_000_000.0, npv_20mm, 20_000_000.0, "NPV", 0.01);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_risky_pv01_scales_with_notional() {
     // Test: Risky PV01 scales linearly with notional
@@ -285,6 +295,7 @@ fn test_constituents_risky_pv01_scales_with_notional() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_cs01_scales_with_notional() {
     // Test: CS01 scales linearly with notional
@@ -309,6 +320,7 @@ fn test_constituents_cs01_scales_with_notional() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_par_spread_independent_of_notional() {
     // Test: Par spread independent of notional
@@ -326,6 +338,7 @@ fn test_constituents_par_spread_independent_of_notional() {
     assert_relative_eq(par_1mm, par_100mm, 0.001, "Par spread notional-independent");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_different_counts() {
     // Test: Various constituent counts work correctly
@@ -347,6 +360,7 @@ fn test_constituents_different_counts() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_pricing_mode_verification() {
     // Test: Constituents index has correct pricing mode
@@ -359,6 +373,7 @@ fn test_constituents_pricing_mode_verification() {
     assert_eq!(idx.constituents.len(), 5);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_protection_leg_positive() {
     // Test: Protection leg PV is positive
@@ -374,6 +389,7 @@ fn test_constituents_protection_leg_positive() {
     assert_positive(pv_prot, "Protection leg PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_premium_leg_positive() {
     // Test: Premium leg PV is positive
@@ -389,6 +405,7 @@ fn test_constituents_premium_leg_positive() {
     assert_positive(pv_prem, "Premium leg PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_single_constituent() {
     // Test: Single constituent case works (edge case)
@@ -411,6 +428,7 @@ fn test_constituents_single_constituent() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_large_basket() {
     // Test: Large basket (125 names) works efficiently
@@ -427,6 +445,7 @@ fn test_constituents_large_basket() {
     assert_eq!(idx.constituents.len(), 125);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_detailed_additive_metrics() {
     let start = date!(2025 - 01 - 01);
@@ -482,6 +501,7 @@ fn test_constituents_detailed_additive_metrics() {
     assert_relative_eq(cs01.total, cs01_sum, 1e-10, "CS01 total equals sum");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_detailed_weights_and_ids() {
     let start = date!(2025 - 01 - 01);
@@ -508,6 +528,7 @@ fn test_constituents_detailed_weights_and_ids() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_constituents_par_spread_detailed_non_additive() {
     let start = date!(2025 - 01 - 01);

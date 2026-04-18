@@ -37,7 +37,6 @@ pub use crate::valuation::{
     revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };
 
-#[cfg(feature = "scenarios")]
 pub use crate::scenarios::{apply_and_revalue, apply_scenario};
 
 // Re-export the full core prelude for a unified foundation

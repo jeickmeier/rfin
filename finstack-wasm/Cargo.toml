@@ -20,7 +20,7 @@ finstack-statements-analytics = { path = "../finstack/statements-analytics" }
 finstack-valuations = { path = "../finstack/valuations", default-features = false, features = ["mc"] }
 finstack-monte-carlo = { path = "../finstack/monte_carlo", default-features = false, features = ["mc"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
-finstack-portfolio = { path = "../finstack/portfolio", default-features = false, features = ["scenarios"] }
+finstack-portfolio = { path = "../finstack/portfolio", default-features = false }
 # Pinned: extract_instrument relies on WasmRefCell internal layout (see mod.rs:260-393).
 # Bump only after verifying pointer-based extraction still works.
 wasm-bindgen = "=0.2.114"
@@ -47,12 +47,10 @@ wasm-bindgen-test = "0.3"
 
 # Features
 #
-# - `default`: Enables scenarios support for standard usage
-# - `scenarios`: Portfolio scenario analysis and stress testing (requires finstack-portfolio scenarios)
+# - `default`: No feature overrides.
 # - `ts_export`: Emit TypeScript type definitions at build time (opt-in, writes files to disk)
 [features]
-default = ["scenarios"]
-scenarios = ["finstack-portfolio/scenarios"]
+default = []
 ts_export = ["dep:ts-rs", "finstack-valuations/ts_export"]
 
 [package.metadata.wasm-pack.profile.release]

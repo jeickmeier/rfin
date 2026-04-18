@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! QuantLib Parity Tests for Convertible Bonds
 //!
 //! Test cases based on QuantLib test suite principles: `convertiblebonds.cpp`
@@ -124,6 +123,7 @@ fn create_quantlib_convertible(
 // QuantLib reference: convertiblebonds.cpp, testBond()
 // A convertible bond should price above max(bond_floor, conversion_value)
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_basic_convertible() {
     let base = date!(2024 - 01 - 01);
@@ -178,6 +178,7 @@ fn quantlib_parity_basic_convertible() {
 // QuantLib reference: convertiblebonds.cpp, testParity()
 // Parity = (spot * conversion_ratio) / notional
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_at_the_money() {
     let base = date!(2024 - 01 - 01);
@@ -208,6 +209,7 @@ fn quantlib_parity_at_the_money() {
 // QuantLib reference: convertiblebonds.cpp, testParity()
 // ITM: spot price above conversion price
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_in_the_money() {
     let base = date!(2024 - 01 - 01);
@@ -238,6 +240,7 @@ fn quantlib_parity_in_the_money() {
 // QuantLib reference: convertiblebonds.cpp, testParity()
 // OTM: spot price below conversion price
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_out_of_the_money() {
     let base = date!(2024 - 01 - 01);
@@ -268,6 +271,7 @@ fn quantlib_parity_out_of_the_money() {
 // QuantLib reference: convertiblebonds.cpp, testGreeks()
 // Delta measures sensitivity to equity price
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_delta_in_the_money() {
     let base = date!(2024 - 01 - 01);
@@ -316,6 +320,7 @@ fn quantlib_parity_delta_in_the_money() {
 // QuantLib reference: convertiblebonds.cpp, testGreeks()
 // OTM delta should be smaller (bond-like behavior)
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_delta_out_of_the_money() {
     let base = date!(2024 - 01 - 01);
@@ -363,6 +368,7 @@ fn quantlib_parity_delta_out_of_the_money() {
 // QuantLib reference: convertiblebonds.cpp, testGreeks()
 // Gamma should be positive (convexity benefit)
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_gamma() {
     let base = date!(2024 - 01 - 01);
@@ -399,6 +405,7 @@ fn quantlib_parity_gamma() {
 // QuantLib reference: convertiblebonds.cpp, testGreeks()
 // Vega should be positive (higher vol increases option value)
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_vega() {
     let base = date!(2024 - 01 - 01);
@@ -434,6 +441,7 @@ fn quantlib_parity_vega() {
 // QuantLib reference: convertiblebonds.cpp, testGreeks()
 // Theta can be positive or negative for convertibles (coupon vs time decay)
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_theta() {
     let base = date!(2024 - 01 - 01);
@@ -475,6 +483,7 @@ fn quantlib_parity_theta() {
 // QuantLib reference: convertiblebonds.cpp, testGreeks()
 // Rho measures sensitivity to risk-free rate
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_rho() {
     let base = date!(2024 - 01 - 01);
@@ -510,6 +519,7 @@ fn quantlib_parity_rho() {
 // QuantLib reference: convertiblebonds.cpp, testCallableConvertible()
 // Callable convertible should be worth less than non-callable
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_callable_convertible() {
     let base = date!(2024 - 01 - 01);
@@ -564,6 +574,7 @@ fn quantlib_parity_callable_convertible() {
 // QuantLib reference: convertiblebonds.cpp, testPutableConvertible()
 // Puttable convertible should be worth more than non-puttable
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_puttable_convertible() {
     let base = date!(2024 - 01 - 01);
@@ -619,6 +630,7 @@ fn quantlib_parity_puttable_convertible() {
 // QuantLib reference: convertiblebonds.cpp, testZeroCouponConvertible()
 // Zero coupon convertible pricing
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_zero_coupon_convertible() {
     let base = date!(2024 - 01 - 01);
@@ -684,6 +696,7 @@ fn quantlib_parity_zero_coupon_convertible() {
 // QuantLib reference: convertiblebonds.cpp, testVolatilitySensitivity()
 // Higher volatility should increase convertible value
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_volatility_sensitivity() {
     let base = date!(2024 - 01 - 01);
@@ -728,6 +741,7 @@ fn quantlib_parity_volatility_sensitivity() {
 // QuantLib reference: convertiblebonds.cpp, testTreeConvergence()
 // Different tree methods should converge to similar values
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_tree_convergence() {
     let base = date!(2024 - 01 - 01);
@@ -761,6 +775,7 @@ fn quantlib_parity_tree_convergence() {
 // QuantLib reference: convertiblebonds.cpp, testConversionPremium()
 // Conversion premium = (bond_price / conversion_value) - 1
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_conversion_premium() {
     let base = date!(2024 - 01 - 01);
@@ -800,6 +815,7 @@ fn quantlib_parity_conversion_premium() {
 // QuantLib reference: convertiblebonds.cpp, testDeepITM()
 // Deep ITM convertible should track equity closely
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_deep_itm() {
     let base = date!(2024 - 01 - 01);
@@ -840,6 +856,7 @@ fn quantlib_parity_deep_itm() {
 // QuantLib reference: convertiblebonds.cpp, testDeepOTM()
 // Deep OTM convertible should track bond floor
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_deep_otm() {
     let base = date!(2024 - 01 - 01);
@@ -885,6 +902,7 @@ fn quantlib_parity_deep_otm() {
 // QuantLib reference: convertiblebonds.cpp, testMandatoryConversion()
 // Mandatory conversion at maturity
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_mandatory_conversion() {
     let base = date!(2024 - 01 - 01);
@@ -960,6 +978,7 @@ fn quantlib_parity_mandatory_conversion() {
 // QuantLib reference: convertiblebonds.cpp, testWindowConversion()
 // Conversion allowed only within a window
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_window_conversion() {
     let base = date!(2024 - 01 - 01);

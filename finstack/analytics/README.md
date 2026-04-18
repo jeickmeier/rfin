@@ -54,7 +54,7 @@ Or use the umbrella crate:
 
 ```toml
 [dependencies]
-finstack = { path = "../finstack", features = ["analytics"] }
+finstack = { path = "../finstack" }
 ```
 
 Import paths use underscores even though the package name uses hyphens:

@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Tests for option behavior across different moneyness levels (ITM/ATM/OTM).
 
 use super::helpers::*;
@@ -8,6 +7,7 @@ use time::macros::date;
 
 // ==================== VALUE TESTS ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_moneyness_ordering_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -39,6 +39,7 @@ fn test_moneyness_ordering_call() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_moneyness_ordering_put() {
     let as_of = date!(2024 - 01 - 01);
@@ -72,6 +73,7 @@ fn test_moneyness_ordering_put() {
 
 // ==================== DELTA TESTS ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_delta_increases_with_moneyness_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -106,6 +108,7 @@ fn test_delta_increases_with_moneyness_call() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_delta_behavior_put() {
     let as_of = date!(2024 - 01 - 01);
@@ -144,6 +147,7 @@ fn test_delta_behavior_put() {
 
 // ==================== INTRINSIC VS TIME VALUE ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_itm_call_exceeds_intrinsic() {
     let as_of = date!(2024 - 01 - 01);
@@ -165,6 +169,7 @@ fn test_itm_call_exceeds_intrinsic() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_otm_call_is_all_time_value() {
     let as_of = date!(2024 - 01 - 01);
@@ -184,6 +189,7 @@ fn test_otm_call_is_all_time_value() {
     assert_positive(pv, "OTM call time value");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_atm_call_maximizes_time_value() {
     let as_of = date!(2024 - 01 - 01);
@@ -226,6 +232,7 @@ fn test_atm_call_maximizes_time_value() {
 
 // ==================== MONEYNESS TRANSITIONS ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_smooth_transition_across_moneyness() {
     let as_of = date!(2024 - 01 - 01);
@@ -252,6 +259,7 @@ fn test_smooth_transition_across_moneyness() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_deep_itm_approaches_forward() {
     let as_of = date!(2024 - 01 - 01);
@@ -276,6 +284,7 @@ fn test_deep_itm_approaches_forward() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_deep_otm_approaches_zero() {
     let as_of = date!(2024 - 01 - 01);

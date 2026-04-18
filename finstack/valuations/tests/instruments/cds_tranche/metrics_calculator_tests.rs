@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Metric framework integration tests for CDS Tranche.
 //!
 //! Tests the integration between CDS Tranche instrument and the metric calculation framework.
@@ -10,6 +9,7 @@ use finstack_valuations::metrics::MetricId;
 
 // ==================== Individual Metric Calculation Tests ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_upfront_metric_via_price_with_metrics() {
     // Arrange
@@ -35,6 +35,7 @@ fn test_upfront_metric_via_price_with_metrics() {
     assert!(upfront.is_finite(), "Upfront should be finite");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_spread_dv01_metric_via_price_with_metrics() {
     // Arrange
@@ -64,6 +65,7 @@ fn test_spread_dv01_metric_via_price_with_metrics() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_correlation_delta_metric_via_price_with_metrics() {
     // Arrange
@@ -92,6 +94,7 @@ fn test_correlation_delta_metric_via_price_with_metrics() {
     assert!(corr_delta.is_finite(), "Correlation delta should be finite");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_cs01_metric_via_price_with_metrics() {
     // Arrange
@@ -121,6 +124,7 @@ fn test_cs01_metric_via_price_with_metrics() {
     assert!(cs01.is_finite(), "CS01 should be finite");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_par_spread_metric_via_price_with_metrics() {
     // Arrange
@@ -146,6 +150,7 @@ fn test_par_spread_metric_via_price_with_metrics() {
     assert_finite_non_negative(par_spread, "Par spread");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_expected_loss_metric_via_price_with_metrics() {
     // Arrange
@@ -171,6 +176,7 @@ fn test_expected_loss_metric_via_price_with_metrics() {
     assert_finite_non_negative(el, "Expected loss");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_jump_to_default_metric_via_price_with_metrics() {
     // Arrange
@@ -196,6 +202,7 @@ fn test_jump_to_default_metric_via_price_with_metrics() {
     assert_finite_non_negative(jtd, "Jump-to-default");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_dv01_metric_via_price_with_metrics() {
     // Arrange
@@ -222,6 +229,7 @@ fn test_dv01_metric_via_price_with_metrics() {
     assert!(dv01.is_finite(), "DV01 should be finite");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_theta_metric_via_price_with_metrics() {
     // Arrange
@@ -247,6 +255,7 @@ fn test_theta_metric_via_price_with_metrics() {
     assert!(theta.is_finite(), "Theta should be finite");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_bucketed_dv01_metric_via_price_with_metrics() {
     // Arrange
@@ -274,6 +283,7 @@ fn test_bucketed_dv01_metric_via_price_with_metrics() {
 
 // ==================== Multiple Metrics Calculation Tests ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_calculate_multiple_metrics_simultaneously() {
     // Arrange
@@ -318,6 +328,7 @@ fn test_calculate_multiple_metrics_simultaneously() {
     assert!(valuation.measures.get("jump_to_default").is_some());
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_all_standard_metrics_calculable() {
     // Arrange
@@ -364,6 +375,7 @@ fn test_all_standard_metrics_calculable() {
 
 // ==================== Edge Case: Missing Market Data ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_metrics_with_missing_credit_index() {
     // Arrange
@@ -406,6 +418,7 @@ fn test_metrics_with_missing_credit_index() {
 
 // ==================== Metric Calculation Order Independence ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_metrics_order_independence() {
     // Arrange
@@ -455,6 +468,7 @@ fn test_metrics_order_independence() {
 
 // ==================== Instrument Trait Integration ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_price_with_metrics_returns_pv_and_metrics() {
     // Arrange
@@ -489,6 +503,7 @@ fn test_price_with_metrics_returns_pv_and_metrics() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_equity_tranche_metrics() {
     // Arrange
@@ -517,6 +532,7 @@ fn test_equity_tranche_metrics() {
     assert_finite_non_negative(expected_loss, "Equity expected loss");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_senior_tranche_metrics() {
     // Arrange
@@ -547,6 +563,7 @@ fn test_senior_tranche_metrics() {
 
 // ==================== Metrics Scaling Tests ====================
 
+#[ignore = "slow"]
 #[test]
 fn test_metrics_scale_with_notional() {
     // Arrange

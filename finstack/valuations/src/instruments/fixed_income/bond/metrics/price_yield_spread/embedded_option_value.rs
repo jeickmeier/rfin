@@ -271,7 +271,6 @@ mod tests {
     use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fixed_income::bond::BondSettlementConvention;
     use crate::instruments::fixed_income::bond::CashflowSpec;
-    #[cfg(feature = "slow")]
     use crate::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
     use crate::instruments::PricingOverrides;
     use finstack_core::dates::Date;
@@ -293,7 +292,6 @@ mod tests {
         MarketContext::new().insert(discount_curve)
     }
 
-    #[cfg(feature = "slow")]
     fn create_callable_bond() -> Bond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
@@ -331,7 +329,6 @@ mod tests {
             .expect("Valid bond")
     }
 
-    #[cfg(feature = "slow")]
     fn create_putable_bond() -> Bond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
@@ -423,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "slow")]
+    #[ignore = "slow"]
     fn test_callable_bond_positive_option_value() {
         let bond = create_callable_bond();
         let market = create_test_market();
@@ -449,7 +446,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "slow")]
+    #[ignore = "slow"]
     fn test_putable_bond_positive_option_value() {
         let bond = create_putable_bond();
         let market = create_test_market();

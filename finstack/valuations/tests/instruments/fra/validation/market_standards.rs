@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Market-standard FRA validation tests.
 //!
 //! Validates FRA implementation against market conventions:
@@ -15,6 +14,7 @@ use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
+#[ignore = "slow"]
 #[test]
 fn test_settlement_adjustment_formula() {
     // Validate the market-standard settlement adjustment: 1 / (1 + F * tau)
@@ -70,6 +70,7 @@ fn test_settlement_adjustment_formula() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_usd_market_convention_act360() {
     // USD FRAs typically use ACT/360
@@ -83,6 +84,7 @@ fn test_usd_market_convention_act360() {
     assert_eq!(_fra.day_count, DayCount::Act360);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_gbp_market_convention_act365() {
     // GBP FRAs typically use ACT/365
@@ -96,6 +98,7 @@ fn test_gbp_market_convention_act365() {
     assert_eq!(fra.day_count, DayCount::Act365F);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_eur_market_convention_act360() {
     // EUR FRAs typically use ACT/360
@@ -109,6 +112,7 @@ fn test_eur_market_convention_act360() {
     assert_eq!(_fra.day_count, DayCount::Act360);
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_sign_convention_receive_fixed_positive_when_above_market() {
     // Standard convention: receive fixed above market → positive PV
@@ -127,6 +131,7 @@ fn test_sign_convention_receive_fixed_positive_when_above_market() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_sign_convention_pay_fixed_negative_when_above_market() {
     // Standard convention: pay fixed above market → negative PV
@@ -145,6 +150,7 @@ fn test_sign_convention_pay_fixed_negative_when_above_market() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_forward_rate_matches_par_rate() {
     // Par rate should equal the forward rate from the curve
@@ -171,6 +177,7 @@ fn test_forward_rate_matches_par_rate() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_standard_3x6_fra_convention() {
     // 3x6 FRA: 3M forward, 3M tenor
@@ -196,6 +203,7 @@ fn test_standard_3x6_fra_convention() {
     assert_in_range(days_tenor as f64, 85.0, 95.0, "3M tenor should be ~90 days");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_standard_6x12_fra_convention() {
     // 6x12 FRA: 6M forward, 6M tenor
@@ -225,6 +233,7 @@ fn test_standard_6x12_fra_convention() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_dv01_sign_convention() {
     // Standard convention: receive fixed → negative DV01, pay fixed → positive DV01
@@ -263,6 +272,7 @@ fn test_dv01_sign_convention() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_zero_curve_zero_pv() {
     let disc = build_flat_discount_curve(0.0, BASE_DATE, "USD_OIS");
@@ -275,6 +285,7 @@ fn test_zero_curve_zero_pv() {
     assert_near_zero(pv.amount(), 1.0, "Zero curve should imply near-zero PV");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_pv_independent_of_notional_currency() {
     // PV calculation should be independent of currency (same rate environment)

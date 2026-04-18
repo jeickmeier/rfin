@@ -29,7 +29,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - `src/metrics.rs`: metrics aggregation logic (`aggregate_metrics`, `AggregatedMetric`, `PortfolioMetrics`).
 - `src/grouping.rs`: attribute-based grouping (`aggregate_by_attribute`, `group_by_attribute`).
 - `src/results.rs`: additional result types and utilities (if needed beyond valuation types).
-- `src/scenarios.rs`: scenario application and revaluation (feature-gated, requires `scenarios` feature).
+- `src/scenarios.rs`: scenario application and revaluation.
 - `src/dataframe.rs`: Polars DataFrame exports for positions and entities (feature-gated, requires `dataframes` feature).
 - `src/error.rs`: `PortfolioError` enum and `Result<T>` type alias.
 - `tests/`: integration tests covering builder, valuation, FX conversion, grouping, metrics, scenarios.
@@ -59,7 +59,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - **Concurrency**: Respect the `parallel` feature flag (inherited from core); do not change outputs when toggled. Valuation can be parallelized per-position in future without changing results.
 - **Performance**: Preallocate `IndexMap` where sizes are known; avoid redundant FX lookups (cache rates if needed); use `Arc` to share instrument references across positions.
 - **No implicit FX**: Never auto-convert `Money` across currencies; require explicit `FxMatrix` and `FxQuery` with policy stamping where appropriate.
-- **Dependencies**: Core dependencies are `finstack-core`, `finstack-valuations`, `indexmap`, `serde`, `thiserror`, `time`, `tracing`. Optional: `finstack-scenarios`, `finstack-statements`, `polars` (for dataframes).
+- **Dependencies**: Core dependencies are `finstack-core`, `finstack-valuations`, `finstack-scenarios`, `finstack-statements`, `indexmap`, `serde`, `thiserror`, `time`, `tracing`. Optional: `polars` (for dataframes).
 - **Tests**: Add unit tests in module files and integration tests in `tests/` directory. Ensure cross-currency, multi-entity, and edge cases are covered. Validate FX fallback behavior.
 
 ### Feature Design Patterns
@@ -69,7 +69,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - **Valuation flow**: (1) Iterate positions, (2) Price each instrument with metrics via `instrument.price_with_metrics()`, (3) Scale by quantity, (4) Convert to base currency via `FxMatrix`, (5) Aggregate by entity.
 - **Metrics handling**: Standard summable metrics (DV01, CS01, Theta) are aggregated; non-summable metrics (YTM, Duration) are position-specific. Use `aggregate_metrics` to sum compatible metrics across positions.
 - **Attribute-based grouping**: Positions have `tags: IndexMap<String, String>` for flexible grouping (rating, sector, asset_class, etc.). Functions `group_by_attribute` and `aggregate_by_attribute` enable rollups by any tag.
-- **Scenario integration**: `apply_scenario` (feature-gated) applies scenario to market data and re-values portfolio; `apply_and_revalue` is a convenience wrapper. Requires `scenarios` feature.
+- **Scenario integration**: `apply_scenario` applies scenario to market data and re-values portfolio; `apply_and_revalue` is a convenience wrapper.
 - **DataFrame exports**: `positions_to_dataframe` and `entities_to_dataframe` (feature-gated) convert results to Polars DataFrames for analysis. Requires `dataframes` feature.
 - **Builder ergonomics**: `PortfolioBuilder` uses method chaining (`.entity()`, `.position()`, `.base_ccy()`, `.as_of()`) and auto-creates dummy entity if positions reference it. Final `build()` validates entity integrity.
 
@@ -112,7 +112,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 
 1) Scenario Application Enhancements
 
-- Extend `scenarios.rs` (requires `scenarios` feature):
+- Extend `scenarios.rs`:
   - Add multi-scenario valuation (e.g., `apply_scenarios` for batch processing).
   - Support scenario composition and chaining.
   - Cache base market state to avoid rebuilding for each scenario.
@@ -147,7 +147,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 - Entity integrity validated (all position references are valid).
 - Builder validation enforced (duplicate checks, entity existence).
 - Integration tests cover multi-entity, cross-currency, and edge cases.
-- Scenarios integration tested (if `scenarios` feature is enabled).
+- Scenarios integration tested.
 - DataFrame exports tested (if `dataframes` feature is enabled).
 - Benchmarks updated if performance-critical paths are modified.
 
@@ -178,12 +178,15 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 
 ### Cargo Features
 
-The `finstack-portfolio` crate supports the following features:
+The `finstack-portfolio` crate supports a single optional feature:
 
-- `scenarios` (default): Enables scenario application and revaluation via `finstack-scenarios` and `finstack-statements` dependencies. Provides `apply_scenario` and `apply_and_revalue` functions.
 - `dataframes` (default): Enables Polars DataFrame exports via `dep:polars`. Provides `positions_to_dataframe` and `entities_to_dataframe` functions.
 
-Default features: `["scenarios", "dataframes"]`
+Scenario application and revaluation (`apply_scenario`, `apply_and_revalue`)
+are always available; `finstack-scenarios` and `finstack-statements` are
+unconditional dependencies.
+
+Default features: `["dataframes"]`
 
 ### Available Types and Functions
 

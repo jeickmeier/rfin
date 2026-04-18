@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Integration test for base correlation calibration (v2).
 
 use finstack_core::currency::Currency;
@@ -150,6 +149,7 @@ fn fixture_upfronts(
     (UPFRONT_0_3_PCT, UPFRONT_3_7_PCT)
 }
 
+#[ignore = "slow"]
 #[test]
 fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let base_date = Date::from_calendar_date(2025, Month::March, 20).expect("base_date");

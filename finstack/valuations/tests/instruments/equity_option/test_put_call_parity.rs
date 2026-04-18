@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Tests for put-call parity relationships.
 //!
 //! Put-call parity for European options:
@@ -49,6 +48,7 @@ mod parity_tolerances {
     pub const HIGH_DIVIDEND: f64 = 15.0;
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_atm() {
     let as_of = date!(2024 - 01 - 01);
@@ -84,6 +84,7 @@ fn test_put_call_parity_atm() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_itm_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -118,6 +119,7 @@ fn test_put_call_parity_itm_call() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_otm_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -152,6 +154,7 @@ fn test_put_call_parity_otm_call() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_short_dated() {
     let as_of = date!(2024 - 01 - 01);
@@ -185,6 +188,7 @@ fn test_put_call_parity_short_dated() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_long_dated() {
     let as_of = date!(2024 - 01 - 01);
@@ -218,6 +222,7 @@ fn test_put_call_parity_long_dated() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_with_high_dividends() {
     let as_of = date!(2024 - 01 - 01);
@@ -251,6 +256,7 @@ fn test_put_call_parity_with_high_dividends() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_zero_rates() {
     let as_of = date!(2024 - 01 - 01);
@@ -282,6 +288,7 @@ fn test_put_call_parity_zero_rates() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_across_volatilities() {
     let as_of = date!(2024 - 01 - 01);
@@ -318,6 +325,7 @@ fn test_put_call_parity_across_volatilities() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_put_call_parity_across_spot_levels() {
     let as_of = date!(2024 - 01 - 01);

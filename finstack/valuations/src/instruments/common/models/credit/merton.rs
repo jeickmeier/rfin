@@ -1393,7 +1393,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "mc", feature = "slow"))]
+    #[cfg(feature = "mc")]
     #[test]
     fn simulate_paths_gbm_mean_converges() {
         use finstack_core::math::random::Pcg64Rng;

@@ -287,19 +287,17 @@ Equity instruments include DV01 metrics despite not having direct interest rate 
 ### Slow Tests
 
 Tests that take longer to run (property-based tests, comprehensive parity checks, multi-scenario
-validation) are gated behind the `slow` feature:
+validation) are marked with `#[ignore = "slow"]` so they are skipped by default:
 
 ```rust
-#![cfg(feature = "slow")]
-//! Put-call parity tests for equity options.
-
 #[test]
+#[ignore = "slow"]
 fn test_put_call_parity_atm() {
     // Comprehensive parity test...
 }
 ```
 
-**When to use `slow` feature:**
+**When to mark a test `#[ignore = "slow"]`:**
 - Property-based tests with 50+ cases
 - Multi-scenario validation loops
 - Parity tests that create multiple instruments per test
@@ -312,11 +310,11 @@ fn test_put_call_parity_atm() {
 # Run fast tests only (default CI)
 cargo test --lib instruments
 
-# Run all tests including slow
-cargo test --lib instruments --features slow
+# Run all tests including slow (via `cargo test`)
+cargo test --lib instruments -- --include-ignored
 
-# Run slow tests for specific instrument
-cargo test --lib instruments::equity_option --features slow
+# Run slow tests only
+cargo test --lib instruments -- --ignored
 ```
 
 ### Monte Carlo Tests

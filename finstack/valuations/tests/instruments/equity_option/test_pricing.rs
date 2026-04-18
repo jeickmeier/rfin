@@ -1,10 +1,10 @@
-#![cfg(feature = "slow")]
 //! Tests for Black-Scholes pricing implementation.
 
 use super::helpers::*;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::macros::date;
 
+#[ignore = "slow"]
 #[test]
 fn test_atm_call_has_positive_value() {
     let as_of = date!(2024 - 01 - 01);
@@ -23,6 +23,7 @@ fn test_atm_call_has_positive_value() {
     assert_in_range(pv.amount(), 500.0, 2000.0, "ATM call PV range");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_atm_put_has_positive_value() {
     let as_of = date!(2024 - 01 - 01);
@@ -39,6 +40,7 @@ fn test_atm_put_has_positive_value() {
     assert_in_range(pv.amount(), 500.0, 2000.0, "ATM put PV range");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_itm_call_worth_more_than_atm() {
     let as_of = date!(2024 - 01 - 01);
@@ -61,6 +63,7 @@ fn test_itm_call_worth_more_than_atm() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_otm_call_worth_less_than_atm() {
     let as_of = date!(2024 - 01 - 01);
@@ -83,6 +86,7 @@ fn test_otm_call_worth_less_than_atm() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_longer_maturity_increases_value() {
     let as_of = date!(2024 - 01 - 01);
@@ -107,6 +111,7 @@ fn test_longer_maturity_increases_value() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_higher_volatility_increases_value() {
     let as_of = date!(2024 - 01 - 01);
@@ -130,6 +135,7 @@ fn test_higher_volatility_increases_value() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_contract_size_scales_value_linearly() {
     let as_of = date!(2024 - 01 - 01);
@@ -156,6 +162,7 @@ fn test_contract_size_scales_value_linearly() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_pricing_with_dividend_yield() {
     let as_of = date!(2024 - 01 - 01);
@@ -180,6 +187,7 @@ fn test_pricing_with_dividend_yield() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_pricing_with_interest_rates() {
     let as_of = date!(2024 - 01 - 01);
@@ -204,6 +212,7 @@ fn test_pricing_with_interest_rates() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_deep_itm_call_approaches_intrinsic() {
     let as_of = date!(2024 - 01 - 01);
@@ -233,6 +242,7 @@ fn test_deep_itm_call_approaches_intrinsic() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_deep_otm_call_has_small_value() {
     let as_of = date!(2024 - 01 - 01);

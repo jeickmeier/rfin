@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! QuantLib Parity Tests for Forward Rate Agreements (FRA)
 //!
 //! Test cases based on QuantLib test suite: `forwardrateagreement.cpp`
@@ -94,6 +93,7 @@ fn dec(value: f64) -> Decimal {
 // Tests basic FRA NPV calculation with flat curves. At-market FRA (strike = forward)
 // should have NPV ≈ 0, accounting for settlement adjustment.
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_at_market_valuation() {
     let base = date!(2024 - 01 - 01);
@@ -139,6 +139,7 @@ fn quantlib_parity_fra_at_market_valuation() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_off_market_valuation() {
     let base = date!(2024 - 01 - 01);
@@ -202,6 +203,7 @@ fn quantlib_parity_fra_off_market_valuation() {
 // Tests that the par rate (rate that makes NPV = 0) equals the forward rate
 // from the curve.
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_implied_rate() {
     let base = date!(2024 - 01 - 01);
@@ -262,6 +264,7 @@ fn quantlib_parity_fra_implied_rate() {
 // Validates that the settlement adjustment factor 1/(1 + F×τ) is correctly
 // applied to the FRA NPV.
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_settlement_adjustment() {
     let base = date!(2024 - 01 - 01);
@@ -335,6 +338,7 @@ fn quantlib_parity_fra_settlement_adjustment() {
 //
 // Tests that buying and selling FRAs produce opposite NPVs (zero-sum game).
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_buy_sell_symmetry() {
     let base = date!(2024 - 01 - 01);
@@ -408,6 +412,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
 //
 // Tests FRA valuation across standard market tenors (3x6, 6x9, 6x12, etc.)
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_standard_tenor_3x6() {
     let base = date!(2024 - 01 - 01);
@@ -444,6 +449,7 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_standard_tenor_6x9() {
     let base = date!(2024 - 01 - 01);
@@ -480,6 +486,7 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_standard_tenor_6x12() {
     let base = date!(2024 - 01 - 01);
@@ -523,6 +530,7 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
 //
 // Tests that DV01 has correct sign and magnitude
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_dv01_sign_convention() {
     let base = date!(2024 - 01 - 01);
@@ -612,6 +620,7 @@ fn quantlib_parity_fra_dv01_sign_convention() {
 //
 // Tests that different day count conventions produce expected differences
 
+#[ignore = "slow"]
 #[test]
 fn quantlib_parity_fra_day_count_act360_vs_act365() {
     let base = date!(2024 - 01 - 01);

@@ -133,11 +133,11 @@ lint-full: lint-rust-full lint-python lint-wasm ## Check all code including bind
 
 .PHONY: test-rust
 test-rust: install-nextest
-	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,test-utils --lib --test '*' --no-fail-fast
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --no-fail-fast
 
 .PHONY: test-rust-slow
 test-rust-slow: install-nextest
-	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow,test-utils --lib --test '*'
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --run-ignored all
 
 .PHONY: test-rust-doc
 test-rust-doc: check-no-doctest-ignore
@@ -146,12 +146,12 @@ test-rust-doc: check-no-doctest-ignore
 .PHONY: fmt-rust
 fmt-rust: ## Format and fix Rust code
 	cargo fmt --all
-	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils --fix --allow-dirty -- -D warnings
+	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc --fix --allow-dirty -- -D warnings
 
 .PHONY: lint-rust
 lint-rust: ## Lint core Rust crates (fast: excludes bindings)
 	cargo fmt --all -- --check
-	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils
+	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc
 
 .PHONY: lint-rust-full
 lint-rust-full: ## Lint all Rust crates including bindings with all features (slow)
@@ -326,7 +326,7 @@ COV_JSON_SUMMARY := $(COV_OUTPUT_DIR)/rust-summary.json
 COV_MIN_LINES := 75.0
 COV_PROFILE_DIR := $(abspath $(COV_OUTPUT_DIR))/profraw
 COV_PROFILE_PATTERN := $(COV_PROFILE_DIR)/default_%m_%p.profraw
-COV_BASE := LLVM_PROFILE_FILE="$(COV_PROFILE_PATTERN)" CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --features mc,test-utils --ignore-filename-regex $(COV_IGNORE)
+COV_BASE := LLVM_PROFILE_FILE="$(COV_PROFILE_PATTERN)" CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --features mc --ignore-filename-regex $(COV_IGNORE)
 
 .PHONY: coverage coverage-rust coverage-rust-json coverage-rust-gate coverage-python coverage-html coverage-lcov
 coverage: coverage-rust coverage-python ## Run all coverage reports

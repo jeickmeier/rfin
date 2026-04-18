@@ -15,5 +15,4 @@ mod daycount_consistency;
 mod market_benchmarks;
 mod metric_relationships;
 mod settlement_conventions;
-#[cfg(feature = "slow")]
 mod tree_calibration;

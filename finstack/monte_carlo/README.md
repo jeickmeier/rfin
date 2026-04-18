@@ -406,7 +406,7 @@ From the workspace root:
 ```bash
 cargo test -p finstack-monte-carlo
 cargo test -p finstack-monte-carlo --features mc
-cargo test -p finstack-monte-carlo --features "mc slow"
+cargo test -p finstack-monte-carlo --features mc -- --ignored
 cargo doc -p finstack-monte-carlo --no-deps
 ```
 

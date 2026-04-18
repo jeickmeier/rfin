@@ -625,5 +625,4 @@ impl McEngine {
         .with_std_dev(combined.std_dev())
         .with_num_skipped(num_skipped))
     }
-
 }

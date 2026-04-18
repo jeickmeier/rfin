@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! CDS par spread round-trip tests.
 //!
 //! Validates that:
@@ -43,6 +42,7 @@ fn create_discount_curve(base_date: Date) -> DiscountCurve {
         .unwrap()
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_cds_par_spread_roundtrip_1y() {
     let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
@@ -122,6 +122,7 @@ fn test_cds_par_spread_roundtrip_1y() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_cds_par_spread_roundtrip_multi_tenor() {
     let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
@@ -220,6 +221,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
     }
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_cds_par_spread_calculation_consistency() {
     // Test that calculating par spread from a hazard curve, then repricing

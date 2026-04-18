@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 //! Expiry-related edge cases
 
 use crate::swaption::common::*;
@@ -9,6 +8,7 @@ use finstack_valuations::metrics::MetricId;
 // swaptions with expiry before as_of date as an invalid date range.
 // This is the expected behavior for the pricing engine.
 
+#[ignore = "slow"]
 #[test]
 fn test_expired_swaption_zero_value() {
     let as_of = time::macros::date!(2024 - 01 - 01);
@@ -26,6 +26,7 @@ fn test_expired_swaption_zero_value() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_expired_swaption_zero_greeks() {
     let as_of = time::macros::date!(2024 - 01 - 01);
@@ -50,6 +51,7 @@ fn test_expired_swaption_zero_greeks() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_at_expiry_pricing() {
     let as_of = time::macros::date!(2024 - 01 - 01);
@@ -66,6 +68,7 @@ fn test_at_expiry_pricing() {
     assert!(pv >= 0.0, "At expiry value should be non-negative");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_very_short_expiry() {
     let as_of = time::macros::date!(2024 - 01 - 01);
@@ -82,6 +85,7 @@ fn test_very_short_expiry() {
     assert!(pv > 0.0 && pv.is_finite(), "1-day expiry should price");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_very_long_expiry() {
     let as_of = time::macros::date!(2024 - 01 - 01);
@@ -98,6 +102,7 @@ fn test_very_long_expiry() {
     assert!(pv > 0.0 && pv.is_finite(), "5Y expiry should price");
 }
 
+#[ignore = "slow"]
 #[test]
 fn test_forward_starting_swaption() {
     let as_of = time::macros::date!(2024 - 01 - 01);

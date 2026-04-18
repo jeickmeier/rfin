@@ -1,4 +1,3 @@
-#[cfg(feature = "scenarios")]
 mod replay_tests {
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;

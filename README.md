@@ -62,35 +62,23 @@ rfin/
 
 ## Umbrella Crate
 
-The top-level Rust crate is `finstack`, which re-exports the main crates behind
-feature flags so downstream consumers can opt into only the domains they need.
+The top-level Rust crate is `finstack`, which re-exports every sub-crate so
+downstream consumers reach the full API through a single dependency.
 
 ```toml
 [dependencies]
-finstack = { path = "finstack", features = ["analytics", "valuations", "portfolio", "scenarios"] }
+finstack = { path = "finstack" }
 ```
 
-Current domain features:
+Two pass-through features remain to gate heavy compile-time costs:
 
-- `core`
-- `analytics`
-- `correlation`
-- `margin`
-- `monte_carlo`
-- `statements`
-- `valuations`
-- `portfolio`
-- `scenarios`
-- `all`
-
-Cross-cutting features:
-
-- `serde`
-- `parallel`
-- `dataframes`
+- `mc` — enables `finstack-monte-carlo`/`margin`/`valuations` Monte Carlo paths
+  (pulls in `nalgebra`).
+- `dataframes` — enables the `polars`-based DataFrame surfaces in
+  `finstack-statements`/`finstack-portfolio`.
 
 `finstack-cashflows` is a standalone workspace crate and a direct dependency of
-`finstack-valuations`, but it is not exposed as a separate umbrella feature.
+`finstack-valuations`.
 
 ## Python Bindings
 

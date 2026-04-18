@@ -1,4 +1,3 @@
-#![cfg(feature = "slow")]
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -60,6 +59,7 @@ fn base_market(as_of: Date) -> MarketContext {
     MarketContext::new().insert(disc)
 }
 
+#[ignore = "slow"]
 #[test]
 fn callable_loan_tree_pv_is_below_straight() {
     let as_of = date!(2025 - 01 - 01);
@@ -89,6 +89,7 @@ fn callable_loan_tree_pv_is_below_straight() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn friction_cost_increases_callable_value_monotonically() {
     let as_of = date!(2025 - 01 - 01);
@@ -131,6 +132,7 @@ fn friction_cost_increases_callable_value_monotonically() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn huge_friction_matches_straight_loan() {
     let as_of = date!(2025 - 01 - 01);
@@ -160,6 +162,7 @@ fn huge_friction_matches_straight_loan() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn oas_round_trip_near_zero_at_model_price() {
     let as_of = date!(2025 - 01 - 01);
@@ -184,6 +187,7 @@ fn oas_round_trip_near_zero_at_model_price() {
     );
 }
 
+#[ignore = "slow"]
 #[test]
 fn credit_tree_higher_hazard_lowers_price() {
     use finstack_core::market_data::term_structures::HazardCurve;
@@ -238,6 +242,7 @@ fn credit_tree_higher_hazard_lowers_price() {
 /// Regression: call at first callable date (= settlement) must produce non-zero PV.
 /// Previously `outstanding_before` was initialised to 0.0, returning zero when the
 /// first entry in the outstanding path matched the target date.
+#[ignore = "slow"]
 #[test]
 fn call_at_settlement_date_produces_nonzero_pv() {
     let as_of = date!(2025 - 01 - 01);

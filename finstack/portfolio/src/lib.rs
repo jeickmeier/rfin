@@ -108,11 +108,9 @@ pub mod dependencies;
 #[allow(clippy::expect_used)]
 mod test_utils;
 
-#[cfg(feature = "scenarios")]
 /// Scenario application for portfolios.
 pub mod scenarios;
 
-#[cfg(feature = "scenarios")]
 /// Historical scenario replay for portfolios.
 pub mod replay;
 
@@ -159,10 +157,8 @@ pub use valuation::{
     revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };
 
-#[cfg(feature = "scenarios")]
 pub use scenarios::{apply_and_revalue, apply_scenario};
 
-#[cfg(feature = "scenarios")]
 pub use replay::{
     replay_portfolio, ReplayConfig, ReplayMode, ReplayResult, ReplayStep, ReplaySummary,
     ReplayTimeline,

@@ -38,8 +38,6 @@ Recommended verification matrix:
 ```bash
 cargo test -p finstack-statements-analytics
 cargo test -p finstack-statements-analytics --features dataframes
-cargo test -p finstack-statements-analytics --features parallel
-cargo test -p finstack-statements-analytics --features "dataframes parallel"
 ```
 
 ## Installation
@@ -407,8 +405,6 @@ For feature-gated surfaces:
 
 ```bash
 cargo test -p finstack-statements-analytics --features dataframes
-cargo test -p finstack-statements-analytics --features parallel
-cargo test -p finstack-statements-analytics --features "dataframes parallel"
 ```
 
 ## See Also
