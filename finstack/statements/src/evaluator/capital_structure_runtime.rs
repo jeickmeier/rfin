@@ -10,8 +10,7 @@ use indexmap::IndexMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-type Instruments =
-    IndexMap<String, Arc<dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync>>;
+type Instruments = IndexMap<String, Arc<dyn finstack_cashflows::CashflowProvider + Send + Sync>>;
 
 impl Evaluator {
     /// Build instruments from model specifications.
@@ -21,7 +20,7 @@ impl Evaluator {
     ) -> Result<Option<Instruments>> {
         use crate::capital_structure::integration;
         use crate::types::DebtInstrumentSpec;
-        use finstack_valuations::cashflow::CashflowProvider;
+        use finstack_cashflows::CashflowProvider;
 
         let cs_spec = match &model.capital_structure {
             Some(cs) => cs,
@@ -162,7 +161,7 @@ pub(crate) fn dependent_closure(
 }
 
 pub(crate) fn resolve_opening_balance(
-    instrument: &(dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync),
+    instrument: &(dyn finstack_cashflows::CashflowProvider + Send + Sync),
     market_ctx: &finstack_core::market_data::context::MarketContext,
     as_of: Date,
     period_start: Date,

@@ -22,6 +22,7 @@
 //! - ISDA 2006 Definitions for day count conventions
 //! - Bond market conventions per SIFMA guidelines
 
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{build_periods, Date};
 use finstack_core::market_data::context::MarketContext;
@@ -29,7 +30,6 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_statements::capital_structure::aggregate_instrument_cashflows;
 use finstack_statements::CapitalStructureSpec;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Bond;
 use indexmap::IndexMap;
 use std::sync::Arc;

@@ -393,12 +393,12 @@ fn test_compile_multiple_instruments() {
 
 #[test]
 fn test_aggregate_instrument_cashflows() {
+    use finstack_cashflows::CashflowProvider;
     use finstack_core::dates::{build_periods, Date};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::types::{CurveId, InstrumentId};
     use finstack_statements::capital_structure::aggregate_instrument_cashflows;
     use finstack_statements::types::CapitalStructureSpec;
-    use finstack_valuations::cashflow::CashflowProvider;
     use finstack_valuations::instruments::Bond;
     use indexmap::IndexMap;
     use std::sync::Arc;

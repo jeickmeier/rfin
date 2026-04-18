@@ -1,6 +1,7 @@
 //! Capital structure integration tests for spec builders.
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{build_periods, BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -12,7 +13,6 @@ use finstack_statements::capital_structure::integration::{
 };
 use finstack_statements::types::DebtInstrumentSpec;
 use finstack_statements::CapitalStructureSpec;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap};
 use finstack_valuations::instruments::{fixed_income::bond::Bond, PayReceive};

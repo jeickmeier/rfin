@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core" }
+finstack-cashflows = { path = "../cashflows" }
 finstack-valuations = { path = "../valuations" }
 serde = { workspace = true }
 serde_json = { workspace = true }

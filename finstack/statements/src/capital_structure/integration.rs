@@ -7,13 +7,13 @@ use crate::capital_structure::cashflows::{CapitalStructureCashflows, CashflowBre
 use crate::error::Result;
 use crate::evaluator::EvalWarning;
 use crate::types::DebtInstrumentSpec;
+use finstack_cashflows::primitives::CFKind;
+use finstack_cashflows::CashflowProvider;
+use finstack_cashflows::{accrued_interest_amount, AccrualConfig};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxQuery, Money};
-use finstack_valuations::cashflow::primitives::CFKind;
-use finstack_valuations::cashflow::CashflowProvider;
-use finstack_valuations::cashflow::{accrued_interest_amount, AccrualConfig};
 use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -274,7 +274,7 @@ pub fn calculate_period_flows(
 /// use finstack_statements::CapitalStructureSpec;
 /// use finstack_core::dates::build_periods;
 /// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::cashflow::CashflowProvider;
+/// use finstack_cashflows::CashflowProvider;
 /// use indexmap::IndexMap;
 /// use std::sync::Arc;
 /// use time::macros::date;
@@ -790,12 +790,12 @@ pub fn build_any_instrument_from_spec(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_cashflows::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+    use finstack_cashflows::primitives::CFKind;
     use finstack_core::cashflow::CashFlow;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, PeriodId};
     use finstack_core::money::Money;
-    use finstack_valuations::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
-    use finstack_valuations::cashflow::primitives::CFKind;
     use time::Month;
 
     struct SignedFlowInstrument {
