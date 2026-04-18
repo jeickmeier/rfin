@@ -239,7 +239,6 @@ impl CompiledExpr {
             self.cache.clone()
         };
 
-        #[cfg(feature = "tracing")]
         tracing::debug!(
             row_count = cols.first().map(|c| c.len()).unwrap_or(0),
             plan_nodes = plan_to_use.nodes.len(),

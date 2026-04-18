@@ -149,11 +149,9 @@ impl MarketContext {
         let mut vol_bumps = Vec::new();
         let mut base_corr_bumps = Vec::new();
         let mut needs_credit_rebind = false;
-        #[cfg(feature = "tracing")]
         let mut processed_bumps = 0usize;
 
         for bump in bumps {
-            #[cfg(feature = "tracing")]
             {
                 processed_bumps += 1;
             }
@@ -260,7 +258,6 @@ impl MarketContext {
             }
         }
 
-        #[cfg(feature = "tracing")]
         tracing::debug!(
             processed_bumps,
             needs_credit_rebind,

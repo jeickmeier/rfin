@@ -418,7 +418,6 @@ impl TryFrom<MarketContextState> for MarketContext {
         // Reconstruct FX matrix as a quote-only snapshot. Persisted state does not
         // encode the original live provider, only the captured explicit quotes.
         if let Some(fx_state) = state.fx {
-            #[cfg(feature = "tracing")]
             tracing::info!(
                 explicit_quote_count = fx_state.quotes.len(),
                 "restoring MarketContext FX as quote-only snapshot"

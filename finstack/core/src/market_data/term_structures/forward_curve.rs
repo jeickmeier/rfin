@@ -280,7 +280,6 @@ impl ForwardCurve {
     #[must_use]
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         if t2 < t1 {
-            #[cfg(feature = "tracing")]
             tracing::warn!(
                 curve_id = %self.id,
                 t1 = t1,

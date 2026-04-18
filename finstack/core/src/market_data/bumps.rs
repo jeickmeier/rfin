@@ -531,7 +531,6 @@ impl Bumpable for HazardCurve {
 
         let bumped_id = spec.hazard_shift_id(self.id());
 
-        #[cfg(feature = "tracing")]
         for (t, lambda) in self.knot_points() {
             let shifted = lambda + shift;
             if shifted < 0.0 {

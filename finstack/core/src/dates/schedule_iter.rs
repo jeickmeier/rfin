@@ -884,7 +884,6 @@ impl<'a> ScheduleBuilder<'a> {
         match result {
             Ok(schedule) => Ok(schedule),
             Err(e) if error_policy == ScheduleErrorPolicy::GracefulEmpty => {
-                #[cfg(feature = "tracing")]
                 tracing::warn!(error = %e, "schedule build fell back to empty schedule");
                 // Capture the error as a warning instead of propagating
                 Ok(Schedule {
@@ -915,7 +914,6 @@ impl<'a> ScheduleBuilder<'a> {
                     Some(cal) => Some(cal),
                     None => {
                         if self.error_policy == ScheduleErrorPolicy::MissingCalendarWarning {
-                            #[cfg(feature = "tracing")]
                             tracing::warn!(
                                 calendar_id,
                                 "schedule build skipped missing calendar due to warning policy"

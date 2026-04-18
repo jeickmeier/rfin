@@ -30,12 +30,11 @@ num-complex = "0.4"
 # Production-grade random number generation
 rand = { version = "0.9", default-features = false, features = ["std"] }
 rand_pcg = { version = "0.9", features = ["serde"] }
-tracing = { version = "0.1", optional = true, default-features = false }
+tracing = { version = "0.1", default-features = false }
 
 [features]
-default = ["tracing"]
+default = []
 golden = []
-tracing = ["dep:tracing"]
 
 [build-dependencies]
 serde = { workspace = true, features = ["alloc"] }

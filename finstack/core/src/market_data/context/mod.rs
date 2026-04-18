@@ -367,7 +367,6 @@ impl MarketContext {
                 }
                 Err(_err) => {
                     invalidated.push(id.clone());
-                    #[cfg(feature = "tracing")]
                     tracing::warn!(
                         credit_index_id = id.as_str(),
                         error = %_err,

@@ -328,7 +328,6 @@ impl HestonParams {
             rho,
         };
 
-        #[cfg(feature = "tracing")]
         if !params.satisfies_feller_condition() {
             tracing::warn!(
                 v0 = v0,

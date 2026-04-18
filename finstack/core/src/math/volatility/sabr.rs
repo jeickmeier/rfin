@@ -371,7 +371,6 @@ impl SabrParams {
             let d2c_dk2 = (c_hi - 2.0 * c_mid + c_lo) / (dk * dk);
 
             if d2c_dk2 < -1e-10 {
-                #[cfg(feature = "tracing")]
                 tracing::warn!(
                     alpha = self.alpha,
                     beta = self.beta,

@@ -71,7 +71,6 @@ impl MarketContext {
         &self,
         days: i64,
     ) -> crate::Result<(Self, super::ContextMutationInfo)> {
-        #[cfg(feature = "tracing")]
         tracing::debug!(
             days,
             curve_count = self.curves.len(),

@@ -468,7 +468,6 @@ impl NewtonSolver {
     {
         use crate::error::InputError;
 
-        #[cfg(feature = "tracing")]
         tracing::debug!(
             x0,
             tol = self.tolerance,
@@ -495,7 +494,6 @@ impl NewtonSolver {
             }
 
             if fx.abs() < self.tolerance {
-                #[cfg(feature = "tracing")]
                 tracing::debug!(iteration, x, residual = fx.abs(), "newton: converged");
                 return Ok(x);
             }
@@ -871,7 +869,6 @@ impl BrentSolver {
     {
         use crate::error::InputError;
 
-        #[cfg(feature = "tracing")]
         tracing::debug!(
             lo,
             hi,
@@ -942,7 +939,6 @@ impl BrentSolver {
             let tol1 = 2.0 * f64::EPSILON * b.abs() + 0.5 * self.tolerance;
             let xm = 0.5 * (c - b);
             if xm.abs() <= tol1 || fb == 0.0 {
-                #[cfg(feature = "tracing")]
                 tracing::debug!(x = b, residual = fb.abs(), "brent: converged");
                 return Ok(b);
             }

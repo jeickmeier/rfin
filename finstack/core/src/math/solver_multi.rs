@@ -516,7 +516,6 @@ impl LevenbergMarquardtSolver {
         let mut last_step_norm = 0.0_f64;
         let mut lambda_bound_hits = 0usize;
 
-        #[cfg(feature = "tracing")]
         tracing::debug!(
             n_params,
             n_residuals,
@@ -530,7 +529,6 @@ impl LevenbergMarquardtSolver {
             jacobian_func(&params, &resid_vec, &mut residual_evals, &mut jacobian);
 
             if let Some(reason) = convergence_check(&params, &resid_vec, &jacobian[..]) {
-                #[cfg(feature = "tracing")]
                 tracing::debug!(iterations, resid_norm, ?reason, "lm: converged");
                 return Ok(LmSolution {
                     params,

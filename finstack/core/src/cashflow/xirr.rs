@@ -323,7 +323,6 @@ where
         return Err(InputError::Invalid.into());
     }
     if has_multiple_sign_changes(data.iter().map(|&(_, amt)| amt)) {
-        #[cfg(feature = "tracing")]
         tracing::warn!(
             "Cashflows contain multiple sign changes; IRR may be non-unique, returning the first converged solution"
         );

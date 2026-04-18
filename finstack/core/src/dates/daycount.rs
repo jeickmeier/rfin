@@ -807,7 +807,6 @@ pub fn act_act_isma_year_fraction_with_reference_period(
             return Ok(0.0);
         }
         if depth >= MAX_ACT_ACT_ISMA_RECURSION_DEPTH {
-            #[cfg(feature = "tracing")]
             tracing::warn!(
                 "ACT/ACT ISMA reference-period traversal exceeded maximum depth of {MAX_ACT_ACT_ISMA_RECURSION_DEPTH}"
             );
