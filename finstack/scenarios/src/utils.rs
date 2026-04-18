@@ -58,6 +58,12 @@ pub fn parse_tenor_to_years(tenor: &str) -> Result<f64> {
     Ok(parsed.to_years_simple())
 }
 
+/// Convert basis-point integers to absolute fractions (e.g., `300 bp` → `0.03`).
+#[inline]
+pub(crate) fn bps_to_fractions(bps: &[i32]) -> Vec<f64> {
+    bps.iter().map(|bp| f64::from(*bp) / 10_000.0).collect()
+}
+
 /// Parse a tenor string to a year fraction using calendar-aware computation.
 ///
 /// This function computes actual year fractions by:
@@ -335,6 +341,14 @@ mod tests {
         assert!((parse_tenor_to_years("5Y").expect("valid tenor") - 5.0).abs() < 1e-6);
         assert!((parse_tenor_to_years("6M").expect("valid tenor") - 0.5).abs() < 1e-6);
         assert!((parse_tenor_to_years("3M").expect("valid tenor") - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_bps_to_fractions() {
+        let out = bps_to_fractions(&[300, 700]);
+        assert!((out[0] - 0.03).abs() < 1e-9);
+        assert!((out[1] - 0.07).abs() < 1e-9);
+        assert!(bps_to_fractions(&[]).is_empty());
     }
 
     #[test]

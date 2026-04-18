@@ -873,6 +873,7 @@ impl ScenarioEngine {
                         ctx.model,
                         node_id.as_str(),
                         value,
+                        None,
                     ) {
                         Ok(true) => {
                             applied += 1;

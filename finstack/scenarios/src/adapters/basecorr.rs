@@ -45,7 +45,7 @@ impl ScenarioAdapter for BaseCorrAdapter {
             } => {
                 let dets = detachment_bps
                     .as_ref()
-                    .map(|v| v.iter().map(|bp| *bp as f64 / 10000.0).collect());
+                    .map(|v| crate::utils::bps_to_fractions(v));
 
                 if let Some(mats) = maturities {
                     if !mats.is_empty() {
@@ -71,18 +71,3 @@ impl ScenarioAdapter for BaseCorrAdapter {
     }
 }
 
-#[cfg(test)]
-#[allow(clippy::expect_used)]
-mod tests {
-    fn create_basecorr_bucket_bump(detachment_bps: Option<&[i32]>) -> Option<Vec<f64>> {
-        detachment_bps.map(|v| v.iter().map(|bp| *bp as f64 / 10000.0).collect())
-    }
-
-    #[test]
-    fn test_unit_conversion() {
-        let input = vec![300, 700];
-        let output = create_basecorr_bucket_bump(Some(&input)).expect("Failed to create bump");
-        assert!((output[0] - 0.03).abs() < 1e-6);
-        assert!((output[1] - 0.07).abs() < 1e-6);
-    }
-}

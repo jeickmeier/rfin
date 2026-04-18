@@ -99,28 +99,6 @@ pub fn apply_forecast_percent(
     })
 }
 
-/// Assign a uniform scalar value to all explicit forecasts in a node.
-///
-/// Returns `true` if the node had explicit values that were modified, `false`
-/// if the node exists but has no values (a no-op).
-///
-/// # Arguments
-///
-/// - `model`: Statement model containing the target node.
-/// - `node_id`: Identifier of the statement node to overwrite.
-/// - `value`: Scalar value to assign to every explicit forecast period.
-///
-/// # Errors
-///
-/// Returns [`Error::NodeNotFound`] if `node_id` is not present in `model`.
-pub fn apply_forecast_assign(
-    model: &mut FinancialModelSpec,
-    node_id: &str,
-    value: f64,
-) -> Result<bool> {
-    apply_forecast_assign_filtered(model, node_id, value, None)
-}
-
 /// Assign a scalar value to explicit forecasts in a node, optionally filtering periods.
 ///
 /// Returns `true` if the node had explicit values that were modified, `false`
@@ -132,12 +110,13 @@ pub fn apply_forecast_assign(
 /// - `node_id`: Identifier of the statement node to overwrite.
 /// - `value`: Scalar value to assign to the selected periods.
 /// - `period_filter`: Optional inclusive `(start, end)` date window used to
-///   select forecast periods by their statement-period boundaries.
+///   select forecast periods by their statement-period boundaries. Pass `None`
+///   to assign to every explicit forecast period.
 ///
 /// # Errors
 ///
 /// Returns [`Error::NodeNotFound`] if `node_id` is not present in `model`.
-pub fn apply_forecast_assign_filtered(
+pub fn apply_forecast_assign(
     model: &mut FinancialModelSpec,
     node_id: &str,
     value: f64,
@@ -257,7 +236,7 @@ pub fn update_rate_from_binding(
 
         let zero = curve.zero(tenor_years);
         let converted = convert_continuous_rate(zero, binding.compounding, tenor_years)?;
-        return apply_forecast_assign(model, binding.node_id.as_str(), converted);
+        return apply_forecast_assign(model, binding.node_id.as_str(), converted, None);
     }
 
     if let Ok(curve) = market.get_forward(curve_id) {
@@ -314,7 +293,7 @@ pub fn update_rate_from_binding(
         );
         let converted =
             convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?;
-        return apply_forecast_assign(model, binding.node_id.as_str(), converted);
+        return apply_forecast_assign(model, binding.node_id.as_str(), converted, None);
     }
 
     Err(Error::MarketDataNotFound {
@@ -394,7 +373,7 @@ mod tests {
     use indexmap::IndexMap;
 
     #[test]
-    fn test_apply_forecast_assign_filtered_updates_only_selected_periods() {
+    fn test_apply_forecast_assign_updates_only_selected_periods() {
         let period_plan = build_periods("2025Q1..Q4", None).expect("periods should build");
         let periods = period_plan.periods;
         let mut model = FinancialModelSpec::new("test", periods.clone());
@@ -406,7 +385,7 @@ mod tests {
 
         model.add_node(NodeSpec::new("Revenue", NodeType::Value).with_values(values));
 
-        apply_forecast_assign_filtered(
+        apply_forecast_assign(
             &mut model,
             "Revenue",
             500.0,
