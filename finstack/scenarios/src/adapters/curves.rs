@@ -258,7 +258,10 @@ impl ScenarioAdapter for CurveAdapter {
 
                 match curve_kind {
                     CurveKind::Discount => {
-                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_discount(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let currency = infer_currency_from_discount_curve_id(&base_curve);
                         let new_curve = bump_discount_curve_synthetic(
@@ -291,7 +294,10 @@ impl ScenarioAdapter for CurveAdapter {
                         //
                         // For DV01 consistency when using both curve types, ensure the underlying
                         // market data construction is compatible with the bump methodology.
-                        let _base_curve = ctx.market.get_forward(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let _base_curve = ctx
+                            .market
+                            .get_forward(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let spec = BumpSpec::parallel_bp(*bp);
                         let bump = MarketBump::Curve {
@@ -301,7 +307,10 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
                     }
                     CurveKind::ParCDS => {
-                        let base_curve = ctx.market.get_hazard(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_hazard(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
                         let (discount_id, warning) = resolve_discount_curve_id(
                             ctx.market,
                             discount_curve_id.as_deref(),
@@ -347,8 +356,10 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(effects))
                     }
                     CurveKind::Inflation => {
-                        let base_curve =
-                            ctx.market.get_inflation_curve(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_inflation_curve(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let (discount_id, warning) = resolve_discount_curve_id(
                             ctx.market,
@@ -383,7 +394,10 @@ impl ScenarioAdapter for CurveAdapter {
                         // Commodity curves stored as DiscountCurve (convenience yields/cost-of-carry).
                         // Use direct additive rate shifts, NOT solve-to-par (which would
                         // incorrectly apply swap-rate calibration to commodity yields).
-                        let _base_curve = ctx.market.get_discount(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let _base_curve = ctx
+                            .market
+                            .get_discount(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let spec = BumpSpec::parallel_bp(*bp);
                         let bump = MarketBump::Curve {
@@ -403,8 +417,10 @@ impl ScenarioAdapter for CurveAdapter {
                         // This intentionally differs from rate curves where `bp` means 1e-4 in
                         // fractional rate space. Emit a warning so the convention is auditable
                         // in the ApplicationReport.
-                        let base_curve =
-                            ctx.market.get_vol_index_curve(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_vol_index_curve(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let pts = *bp / 100.0;
                         let new_curve = base_curve.with_parallel_bump(pts).map_err(|e| {
@@ -442,7 +458,10 @@ impl ScenarioAdapter for CurveAdapter {
 
                 match curve_kind {
                     CurveKind::Discount => {
-                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_discount(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(
@@ -479,7 +498,10 @@ impl ScenarioAdapter for CurveAdapter {
                         // where bp is in basis points. This differs from discount curve
                         // node bumps which use solve-to-par methodology. See the parallel
                         // bump documentation above for rationale.
-                        let base_curve = ctx.market.get_forward(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_forward(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let knots = base_curve.knots().to_vec();
                         let mut forwards = base_curve.forwards().to_vec();
@@ -517,7 +539,10 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(update_effects(new_curve, result.warnings)))
                     }
                     CurveKind::ParCDS => {
-                        let base_curve = ctx.market.get_hazard(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_hazard(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let knots: Vec<f64> = base_curve.knot_points().map(|(t, _)| t).collect();
                         let result = resolve_bump_targets(
@@ -580,8 +605,10 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(effects))
                     }
                     CurveKind::Inflation => {
-                        let base_curve =
-                            ctx.market.get_inflation_curve(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_inflation_curve(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
 
@@ -641,7 +668,10 @@ impl ScenarioAdapter for CurveAdapter {
                         // Commodity curves stored as DiscountCurve (convenience yields).
                         // Apply node-specific additive zero-rate shifts rather than
                         // solve-to-par, preserving curve shape at unshocked tenors.
-                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_discount(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(
@@ -697,8 +727,10 @@ impl ScenarioAdapter for CurveAdapter {
                         //
                         // This differs from rate curves where bp represents basis points (1bp = 0.01%).
                         // The division by 100 converts the input to a direct index level change.
-                        let base_curve =
-                            ctx.market.get_vol_index_curve(curve_id).map_err(|_| missing_market_err(curve_id))?;
+                        let base_curve = ctx
+                            .market
+                            .get_vol_index_curve(curve_id)
+                            .map_err(|_| missing_market_err(curve_id))?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(

@@ -70,4 +70,3 @@ impl ScenarioAdapter for BaseCorrAdapter {
         }
     }
 }
-
