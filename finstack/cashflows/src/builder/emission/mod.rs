@@ -29,6 +29,10 @@
 //! appropriate cashflows for that date, and returns both the flows and any PIK
 //! amount that should capitalize into the outstanding balance.
 
+use crate::primitives::CashFlow;
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+
 mod amortization;
 pub(crate) mod coupons;
 pub(crate) mod credit;
@@ -81,6 +85,62 @@ fn decimal_to_f64(value: rust_decimal::Decimal, _context: &str) -> finstack_core
         .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::ConversionOverflow))
 }
 
+/// Parameters for emitting revolving-credit fee cashflows for one accrual period.
+#[derive(Debug, Clone, Copy)]
+pub struct RevolvingFeeEmissionConfig {
+    /// Payment date for all emitted fee cashflows.
+    pub payment_date: Date,
+    /// Drawn balance used as the base for usage fees.
+    pub drawn_balance: f64,
+    /// Undrawn balance used as the base for commitment fees.
+    pub undrawn_balance: f64,
+    /// Total commitment amount used as the base for facility fees.
+    pub commitment_amount: f64,
+    /// Commitment fee quote in basis points.
+    pub commitment_fee_bp: f64,
+    /// Usage fee quote in basis points.
+    pub usage_fee_bp: f64,
+    /// Facility fee quote in basis points.
+    pub facility_fee_bp: f64,
+    /// Accrual factor for the period, expressed in years.
+    pub year_fraction: f64,
+    /// Currency applied to all emitted fee cashflows.
+    pub currency: Currency,
+}
+
+/// Emit all revolving-credit fee cashflows for a single accrual period.
+pub fn emit_revolving_credit_fees(flows: &mut Vec<CashFlow>, cfg: &RevolvingFeeEmissionConfig) {
+    if let Some(cf) = fees::emit_commitment_fee_on(
+        cfg.payment_date,
+        cfg.undrawn_balance,
+        cfg.commitment_fee_bp,
+        cfg.year_fraction,
+        cfg.currency,
+    ) {
+        flows.push(cf);
+    }
+
+    if let Some(cf) = fees::emit_usage_fee_on(
+        cfg.payment_date,
+        cfg.drawn_balance,
+        cfg.usage_fee_bp,
+        cfg.year_fraction,
+        cfg.currency,
+    ) {
+        flows.push(cf);
+    }
+
+    if let Some(cf) = fees::emit_facility_fee_on(
+        cfg.payment_date,
+        cfg.commitment_amount,
+        cfg.facility_fee_bp,
+        cfg.year_fraction,
+        cfg.currency,
+    ) {
+        flows.push(cf);
+    }
+}
+
 // Re-export coupon emission (internal to builder module)
 pub(crate) use coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
 
@@ -93,10 +153,44 @@ pub(super) use fees::emit_fees_on;
 // Re-export helper utilities (internal to builder module)
 pub(super) use helpers::compute_reset_date;
 
-// Re-export fee emission functions (used by revolving_credit engine and tests)
-pub use fees::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};
 // Re-export inflation coupon emission for inflation-linked instruments.
 pub use coupons::emit_inflation_coupons;
 
 // Re-export credit event emission (used by credit model tests)
 pub use credit::{emit_default_on, emit_prepayment_on};
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod revolving_credit_fee_tests {
+    use super::{emit_revolving_credit_fees, RevolvingFeeEmissionConfig};
+    use crate::primitives::CFKind;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use time::Month;
+
+    #[test]
+    fn emits_all_non_zero_revolving_fee_kinds() {
+        let payment_date = Date::from_calendar_date(2025, Month::March, 31).expect("valid date");
+        let mut flows = Vec::new();
+
+        emit_revolving_credit_fees(
+            &mut flows,
+            &RevolvingFeeEmissionConfig {
+                payment_date,
+                drawn_balance: 400_000.0,
+                undrawn_balance: 600_000.0,
+                commitment_amount: 1_000_000.0,
+                commitment_fee_bp: 25.0,
+                usage_fee_bp: 15.0,
+                facility_fee_bp: 10.0,
+                year_fraction: 0.25,
+                currency: Currency::USD,
+            },
+        );
+
+        assert_eq!(flows.len(), 3);
+        assert_eq!(flows[0].kind, CFKind::CommitmentFee);
+        assert_eq!(flows[1].kind, CFKind::UsageFee);
+        assert_eq!(flows[2].kind, CFKind::FacilityFee);
+    }
+}

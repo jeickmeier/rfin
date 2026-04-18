@@ -356,6 +356,33 @@ impl<'a> DateContext<'a> {
     }
 }
 
+fn credit_adjusted_period_pv(cf: &CashFlow, df: f64, sp: f64, recovery_rate: Option<f64>) -> Money {
+    if cf.kind == CFKind::DefaultedNotional {
+        return Money::new(0.0, cf.amount.currency());
+    }
+
+    // Recovery and AccruedOnDefault are realized post-default cash flows
+    // from the already-defaulted portion of the notional. They are
+    // discounted at their scheduled dates without survival adjustment
+    // because default has already occurred for this portion.
+    if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
+        return Money::new(cf.amount.amount() * df, cf.amount.currency());
+    }
+
+    let recovery_term = if let Some(r) = recovery_rate {
+        match cf.kind {
+            CFKind::Amortization | CFKind::Notional | CFKind::PrePayment => r * (1.0 - sp),
+            _ => 0.0,
+        }
+    } else {
+        0.0
+    };
+
+    let pv_factor = df * (sp + recovery_term);
+    let amount = cf.amount;
+    Money::new(amount.amount() * pv_factor, amount.currency())
+}
+
 /// Compute signed year fraction, discount factor, and survival probability
 /// for a given cashflow date.
 fn time_discount_survival(
@@ -500,82 +527,14 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
         })
     })?;
     let is_sorted = flows.windows(2).all(|w| w[0].date <= w[1].date);
+    let pv_fn =
+        |cf: &CashFlow, df: f64, sp: f64| credit_adjusted_period_pv(cf, df, sp, recovery_rate);
     if is_sorted {
-        return pv_by_period_generic(
-            flows,
-            periods,
-            disc,
-            Some(hazard),
-            &date_ctx,
-            |cf, df, sp| {
-                if cf.kind == CFKind::DefaultedNotional {
-                    return Money::new(0.0, cf.amount.currency());
-                }
-
-                if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
-                    return Money::new(cf.amount.amount() * df, cf.amount.currency());
-                }
-
-                let recovery_term = if let Some(r) = recovery_rate {
-                    match cf.kind {
-                        CFKind::Amortization | CFKind::Notional | CFKind::PrePayment => {
-                            r * (1.0 - sp)
-                        }
-                        _ => 0.0,
-                    }
-                } else {
-                    0.0
-                };
-
-                let pv_factor = df * (sp + recovery_term);
-                let m = cf.amount;
-                let pv_amount = m.amount() * pv_factor;
-                Money::new(pv_amount, m.currency())
-            },
-        );
+        return pv_by_period_generic(flows, periods, disc, Some(hazard), &date_ctx, pv_fn);
     }
     let mut sorted: Vec<CashFlow> = flows.to_vec();
     sorted.sort_unstable_by_key(|cf| cf.date);
-    pv_by_period_generic(
-        &sorted,
-        periods,
-        disc,
-        Some(hazard),
-        &date_ctx,
-        |cf, df, sp| {
-            if cf.kind == CFKind::DefaultedNotional {
-                return Money::new(0.0, cf.amount.currency());
-            }
-
-            // Recovery and AccruedOnDefault are realized post-default cash flows
-            // from the already-defaulted portion of the notional. They are
-            // discounted at their scheduled dates without survival adjustment
-            // because default has already occurred for this portion.
-            //
-            // This does NOT double-count recovery with the `recovery_rate` term
-            // on principal flows: `DefaultedNotional` removes the defaulted
-            // portion from surviving principal, so the `R * (1 - SP)` credit
-            // adjustment only applies to the still-outstanding principal, while
-            // explicit `Recovery` flows cover the already-defaulted portion.
-            if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
-                return Money::new(cf.amount.amount() * df, cf.amount.currency());
-            }
-
-            let recovery_term = if let Some(r) = recovery_rate {
-                match cf.kind {
-                    CFKind::Amortization | CFKind::Notional | CFKind::PrePayment => r * (1.0 - sp),
-                    _ => 0.0,
-                }
-            } else {
-                0.0
-            };
-
-            let pv_factor = df * (sp + recovery_term);
-            let m = cf.amount;
-            let pv_amount = m.amount() * pv_factor;
-            Money::new(pv_amount, m.currency())
-        },
-    )
+    pv_by_period_generic(&sorted, periods, disc, Some(hazard), &date_ctx, pv_fn)
 }
 
 #[cfg(test)]
@@ -694,6 +653,17 @@ mod credit_pv_tests {
         }
     }
 
+    fn flow(date: Date, amount: f64, kind: CFKind) -> CashFlow {
+        CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(amount, Currency::USD),
+            kind,
+            accrual_factor: 0.0,
+            rate: None,
+        }
+    }
+
     #[test]
     fn rejects_defaulted_notional_with_recovery_rate() {
         let base = d(2025, 1, 1);
@@ -778,5 +748,46 @@ mod credit_pv_tests {
             result.is_ok(),
             "should allow DefaultedNotional without recovery_rate"
         );
+    }
+
+    #[test]
+    fn credit_adjusted_period_pv_matches_for_sorted_and_unsorted_flows() {
+        let base = d(2025, 1, 1);
+        let periods = vec![make_period(base, d(2026, 1, 1))];
+        let disc = FlatDiscount { base };
+        let hazard = FlatSurvival;
+        let sorted = vec![
+            flow(d(2025, 3, 1), 1_000_000.0, CFKind::Amortization),
+            flow(d(2025, 6, 1), 50_000.0, CFKind::Fixed),
+            flow(d(2025, 9, 1), 10_000.0, CFKind::Fee),
+            flow(d(2025, 11, 1), 25_000.0, CFKind::Recovery),
+        ];
+        let unsorted = vec![
+            sorted[2].clone(),
+            sorted[0].clone(),
+            sorted[3].clone(),
+            sorted[1].clone(),
+        ];
+
+        let sorted_result = pv_by_period_credit_adjusted_detailed(
+            &sorted,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+        )
+        .expect("sorted flows should price");
+        let unsorted_result = pv_by_period_credit_adjusted_detailed(
+            &unsorted,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+        )
+        .expect("unsorted flows should price");
+
+        assert_eq!(sorted_result, unsorted_result);
     }
 }

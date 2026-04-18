@@ -50,7 +50,15 @@ fn bridge_builder_schedule_builds() {
 fn bridge_date_generation_build_dates_works() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
     let maturity = Date::from_calendar_date(2026, Month::January, 15).expect("valid date");
-    let params = ScheduleParams::usd_standard();
+    let params = ScheduleParams {
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: "usny".to_string(),
+        stub: StubKind::ShortFront,
+        end_of_month: false,
+        payment_lag_days: 0,
+    };
 
     let dates = finstack_valuations::cashflow::builder::date_generation::build_dates(
         issue,

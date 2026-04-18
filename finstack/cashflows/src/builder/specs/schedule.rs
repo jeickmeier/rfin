@@ -130,19 +130,6 @@ impl ScheduleParams {
         )
     }
 
-    /// USD market standard (quarterly, Act/360, Modified Following, USNY).
-    ///
-    /// Generic USD preset; for specific products use [`usd_sofr_swap`](Self::usd_sofr_swap),
-    /// [`usd_corporate_bond`](Self::usd_corporate_bond), or [`usd_treasury`](Self::usd_treasury).
-    pub fn usd_standard() -> Self {
-        Self::preset(
-            Tenor::quarterly(),
-            DayCount::Act360,
-            BusinessDayConvention::ModifiedFollowing,
-            "usny",
-        )
-    }
-
     // ── EUR ──────────────────────────────────────────────────────────────────
 
     /// EUR ESTR swap (annual, Act/360, Modified Following, TARGET2, T+2 payment lag).
@@ -168,19 +155,6 @@ impl ScheduleParams {
         )
     }
 
-    /// EUR market standard (semi-annual, 30/360, Modified Following, TARGET2).
-    ///
-    /// Generic EUR preset suitable for EUR corporate bonds. For swaps use
-    /// [`eur_estr_swap`](Self::eur_estr_swap).
-    pub fn eur_standard() -> Self {
-        Self::preset(
-            Tenor::semi_annual(),
-            DayCount::Thirty360,
-            BusinessDayConvention::ModifiedFollowing,
-            "target2",
-        )
-    }
-
     // ── GBP ──────────────────────────────────────────────────────────────────
 
     /// GBP SONIA swap (annual, Act/365F, Modified Following, GBLO, no payment lag).
@@ -189,18 +163,6 @@ impl ScheduleParams {
     pub fn gbp_sonia_swap() -> Self {
         Self::preset(
             Tenor::annual(),
-            DayCount::Act365F,
-            BusinessDayConvention::ModifiedFollowing,
-            "gblo",
-        )
-    }
-
-    /// GBP market standard (semi-annual, Act/365F, Modified Following, GBLO).
-    ///
-    /// Suitable for UK Gilts and GBP corporate bonds.
-    pub fn gbp_standard() -> Self {
-        Self::preset(
-            Tenor::semi_annual(),
             DayCount::Act365F,
             BusinessDayConvention::ModifiedFollowing,
             "gblo",
@@ -219,16 +181,6 @@ impl ScheduleParams {
             BusinessDayConvention::ModifiedFollowing,
             "jpto",
             2,
-        )
-    }
-
-    /// JPY market standard (semi-annual, Act/365F, Modified Following, JPTO).
-    pub fn jpy_standard() -> Self {
-        Self::preset(
-            Tenor::semi_annual(),
-            DayCount::Act365F,
-            BusinessDayConvention::ModifiedFollowing,
-            "jpto",
         )
     }
 }
