@@ -22,5 +22,5 @@ time = { workspace = true, features = ["macros"] }
 
 [features]
 default = []
-mc = ["dep:finstack-monte-carlo", "finstack-monte-carlo/advanced"]
+mc = ["dep:finstack-monte-carlo", "finstack-monte-carlo/mc"]
 regulatory = []   # FRTB-SBA + SA-CCR
