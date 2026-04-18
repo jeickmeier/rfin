@@ -130,8 +130,6 @@ pub mod money;
 pub mod parse;
 /// Convenient re-exports of commonly used types
 pub mod prelude;
-/// JSON Schema helpers for external types.
-pub mod schema_defs;
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
 /// Generic validation helpers for checking invariants.

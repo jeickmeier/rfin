@@ -9,7 +9,9 @@ The `dates` module in `finstack-core` provides **time and calendar primitives** 
 - **Tenors and period systems** (quarterly/monthly/weekly/fiscal)
 - **IMM and option expiry helpers**
 - **FX settlement helpers** (joint calendars and spot rolls)
-- **Rate conversion utilities** between simple / periodic / continuous compounding
+
+For compounding-convention rate conversions (simple ↔ periodic ↔ continuous), use
+[`finstack_core::math::Compounding::convert_rate`](../math/compounding.rs).
 
 Everything is accessible via `finstack_core::dates`, and is designed to be:
 
@@ -27,7 +29,6 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
     - `time::{Date, OffsetDateTime, PrimitiveDateTime}`
     - Extension traits: `DateExt`, `OffsetDateTimeExt`
     - Day‑count types: `DayCount`, `DayCountCtx`, `DayCountCtxState`, `Thirty360Convention`
-    - Rate utilities: `rate_conversions::*`
     - Calendars and business days:
       - `HolidayCalendar`, `BusinessDayConvention`, `adjust`, `available_calendars`
       - `CompositeCalendar`, `CalendarRegistry`
@@ -111,13 +112,9 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
     - `third_friday(month, year)`
     - `next_imm_option_expiry(date)` – next IMM option expiry (quarterly)
     - `next_equity_option_expiry(date)` – next equity option expiry (3rd Friday monthly)
-- **`rate_conversions.rs`**
-  - **Deprecated** free functions retained for backward compatibility; prefer
-    [`Compounding::convert_rate`](crate::math::Compounding::convert_rate).
-  - Legacy wrappers: `simple_to_periodic`, `periodic_to_simple`,
-    `periodic_to_continuous`, `continuous_to_periodic`,
-    `simple_to_continuous`, `continuous_to_simple`
-  - All legacy functions return `Result<f64>` and validate inputs (non‑negative year fractions, positive frequencies, etc.).
+
+Compounding-convention rate conversions live in
+[`finstack_core::math::Compounding`](../math/compounding.rs), not in `dates`.
 
 ---
 
@@ -338,8 +335,6 @@ The `Compounding` enum:
 - Preserves precision under realistic rates (round‑trip tests)
 - Supports negative rates, which are common in modern markets
 
-The legacy free functions in `dates::rate_conversions` are deprecated thin wrappers.
-
 ---
 
 ## Usage Examples
@@ -478,13 +473,9 @@ The `dates` module is **core infrastructure** shared by curves, cashflows, state
 
 ### New Rate Conversion Helpers
 
-- Keep all compounding logic in `rate_conversions.rs`.
-- Follow patterns already used:
-  - Validate arguments early (`periods_per_year > 0`, finite values, no negative discount factors).
-  - Prefer **mathematically stable** forms (`ln`, `exp`) and add tests for high/low rates and high compounding frequencies.
-- Add tests that:
-  - Round‑trip across conversion pairs (simple ↔ periodic, periodic ↔ continuous, simple ↔ continuous).
-  - Verify behavior for zero and negative rates.
+Rate compounding conversions live in
+[`finstack_core::math::Compounding`](../math/compounding.rs). Extend that enum
+(and its `convert_rate` method) rather than adding new helpers under `dates`.
 
 ---
 

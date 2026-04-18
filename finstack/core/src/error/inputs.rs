@@ -278,15 +278,6 @@ pub enum InputError {
         basis: u16,
     },
 
-    /// Invalid parameter combination in a rate conversion helper.
-    #[error("Invalid rate conversion inputs for {function}: {reason}")]
-    RateConversionInvalidParams {
-        /// Function name (e.g., "simple_to_periodic").
-        function: String,
-        /// Human-readable reason.
-        reason: String,
-    },
-
     // ─────────────────────────────────────────────────────────────────────────
     // Volatility
     // ─────────────────────────────────────────────────────────────────────────
