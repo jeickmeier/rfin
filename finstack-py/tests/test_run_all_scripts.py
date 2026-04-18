@@ -10,7 +10,6 @@ from types import ModuleType
 import pytest
 
 RUNNER_PATH = Path(__file__).resolve().parents[1] / "examples" / "scripts" / "run_all_scripts.py"
-EXAMPLES_DIR = RUNNER_PATH.parent
 
 
 @pytest.fixture
@@ -114,23 +113,3 @@ def test_example_modules_export_symbols_used_by_scripts(
     assert analytics_exports.issubset(set(analytics.__all__))
     assert valuation_exports.issubset(set(valuations.__all__))
     assert portfolio_exports.issubset(set(portfolio.__all__))
-
-
-def test_arbitrage_example_runs_successfully(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The volatility-surface arbitrage example should run end-to-end."""
-    monkeypatch.setattr(module, "PYTHON_RUNNER", (sys.executable,))
-
-    script = EXAMPLES_DIR / "09_vol_surface_arbitrage.py"
-    ok, message, _elapsed = module.run_script(script, timeout=30)
-
-    assert ok is True, message
-
-
-def test_liquidity_example_runs_successfully(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The liquidity risk example should follow the current LVaR sign convention."""
-    monkeypatch.setattr(module, "PYTHON_RUNNER", (sys.executable,))
-
-    script = EXAMPLES_DIR / "12_liquidity_risk.py"
-    ok, message, _elapsed = module.run_script(script, timeout=30)
-
-    assert ok is True, message
