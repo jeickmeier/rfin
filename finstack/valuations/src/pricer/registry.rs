@@ -395,21 +395,11 @@ impl PricerRegistry {
         as_of: finstack_core::dates::Date,
         cfg: Option<&FinstackConfig>,
     ) -> Vec<PricingResult<crate::results::ValuationResult>> {
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            instruments
-                .par_iter()
-                .map(|&instrument| self.price(instrument, model, market, as_of, cfg))
-                .collect()
-        }
-        #[cfg(not(feature = "parallel"))]
-        {
-            instruments
-                .iter()
-                .map(|&instrument| self.price(instrument, model, market, as_of, cfg))
-                .collect()
-        }
+        use rayon::prelude::*;
+        instruments
+            .par_iter()
+            .map(|&instrument| self.price(instrument, model, market, as_of, cfg))
+            .collect()
     }
 }
 

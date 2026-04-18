@@ -602,7 +602,6 @@ fn test_price_batch_preserves_order() {
     assert_eq!(ids, vec![bond_one.id(), deposit.id(), bond_two.id()]);
 }
 
-#[cfg(feature = "parallel")]
 #[test]
 fn test_price_batch_matches_serial_results() {
     let registry = standard_registry();

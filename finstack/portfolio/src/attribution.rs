@@ -407,24 +407,10 @@ pub fn attribute_portfolio_pnl(
 ) -> Result<PortfolioAttribution> {
     let base_ccy = portfolio.base_ccy;
 
-    #[cfg(feature = "parallel")]
-    let position_data: Vec<PositionAttributionData> = {
-        use rayon::prelude::*;
-        portfolio
-            .positions
-            .par_iter()
-            .map(|position| {
-                attribute_single_position(
-                    position, market_t0, market_t1, as_of_t0, as_of_t1, config, &method,
-                )
-            })
-            .collect::<Result<Vec<_>>>()?
-    };
-
-    #[cfg(not(feature = "parallel"))]
+    use rayon::prelude::*;
     let position_data: Vec<PositionAttributionData> = portfolio
         .positions
-        .iter()
+        .par_iter()
         .map(|position| {
             attribute_single_position(
                 position, market_t0, market_t1, as_of_t0, as_of_t1, config, &method,

@@ -255,15 +255,7 @@ pub fn aggregate_metrics(
     market: &MarketContext,
     as_of: finstack_core::dates::Date,
 ) -> Result<PortfolioMetrics> {
-    #[cfg(feature = "parallel")]
-    {
-        aggregate_metrics_parallel(valuation, base_ccy, market, as_of)
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        aggregate_metrics_serial(valuation, base_ccy, market, as_of)
-    }
+    aggregate_metrics_parallel(valuation, base_ccy, market, as_of)
 }
 
 /// Compute the FX conversion factor from a position's native currency to base currency.
@@ -316,43 +308,7 @@ fn scale_position_metric(metric_id: &str, value: f64, metric_scale: f64) -> f64 
     }
 }
 
-/// Serial implementation of metrics aggregation.
-#[cfg(not(feature = "parallel"))]
-fn aggregate_metrics_serial(
-    valuation: &PortfolioValuation,
-    base_ccy: Currency,
-    market: &MarketContext,
-    as_of: finstack_core::dates::Date,
-) -> Result<PortfolioMetrics> {
-    let mut collected = Vec::new();
-
-    for (position_id, position_value) in &valuation.position_values {
-        if let Some(val_result) = &position_value.valuation_result {
-            let metrics: IndexMap<String, f64> = val_result
-                .measures
-                .iter()
-                .map(|(id, v)| {
-                    let metric_id = id.as_str().to_string();
-                    let scaled = scale_position_metric(&metric_id, *v, position_value.metric_scale);
-                    (metric_id, scaled)
-                })
-                .collect();
-            let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of)?;
-            collected.push(PositionMetricData {
-                position_id: position_id.clone(),
-                entity_id: position_value.entity_id.clone(),
-                currency: position_value.value_native.currency(),
-                metrics,
-                fx_rate,
-            });
-        }
-    }
-
-    Ok(aggregate_collected_metrics(collected))
-}
-
 /// Parallel implementation of metrics aggregation.
-#[cfg(feature = "parallel")]
 fn aggregate_metrics_parallel(
     valuation: &PortfolioValuation,
     base_ccy: Currency,

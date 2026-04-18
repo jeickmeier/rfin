@@ -8,7 +8,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::{Error, InputError, Result};
 
-#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Finite-difference sensitivity engine using central bumps around the base market.
@@ -149,15 +148,8 @@ impl FactorSensitivityEngine for DeltaBasedEngine {
         let factor_ids = factors.iter().map(|factor| factor.id.clone()).collect();
         let mut matrix = SensitivityMatrix::zeros(position_ids, factor_ids);
 
-        #[cfg(feature = "parallel")]
         let columns: Result<Vec<Vec<f64>>> = factors
             .par_iter()
-            .map(|factor| self.compute_factor_column(positions, factor, market, as_of))
-            .collect();
-
-        #[cfg(not(feature = "parallel"))]
-        let columns: Result<Vec<Vec<f64>>> = factors
-            .iter()
             .map(|factor| self.compute_factor_column(positions, factor, market, as_of))
             .collect();
 

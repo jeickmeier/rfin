@@ -17,7 +17,7 @@ thiserror = { workspace = true }
 nom = "8.0"
 tracing = { version = "0.1", default-features = false }
 polars = { version = "0.53", optional = true, default-features = false }
-rayon = { version = "1.11", optional = true }
+rayon = "1.11"
 time = { workspace = true }
 rust_decimal = { workspace = true }
 
@@ -29,7 +29,6 @@ proptest = "1"
 [features]
 default = []
 dataframes = ["dep:polars"]
-parallel = ["dep:rayon"]
 
 [[bench]]
 name = "statements_operations"

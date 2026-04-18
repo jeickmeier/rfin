@@ -54,7 +54,7 @@ impl Default for PathDependentPricerConfig {
         Self {
             num_paths: 100_000,
             seed: 42,
-            use_parallel: cfg!(feature = "parallel"),
+            use_parallel: true,
             chunk_size: 1000,
             path_capture: PathCaptureConfig::default(),
             steps_per_year: 252.0,

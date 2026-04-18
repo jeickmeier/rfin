@@ -214,7 +214,6 @@ fn test_basic_pricing() {
 }
 
 #[test]
-#[cfg(feature = "parallel")]
 fn test_parallel_execution_error_propagation() {
     // Test that parallel execution properly propagates errors instead of panicking.
     // The key change is that we replaced .expect() with ? operator, which ensures
@@ -270,7 +269,6 @@ fn test_serial_vs_parallel_consistency() {
         .build()
         .expect("McEngine builder should succeed with valid test data");
 
-    #[cfg(feature = "parallel")]
     let engine_parallel = McEngine::builder()
         .num_paths(1000)
         .uniform_grid(1.0, 10)
@@ -281,7 +279,6 @@ fn test_serial_vs_parallel_consistency() {
         .expect("McEngine builder should succeed with valid test data");
 
     let rng_serial = DummyRng;
-    #[cfg(feature = "parallel")]
     let rng_parallel = DummyRng;
     let process = DummyProcess;
     let disc = DummyDisc;
@@ -300,7 +297,6 @@ fn test_serial_vs_parallel_consistency() {
         )
         .expect("should succeed");
 
-    #[cfg(feature = "parallel")]
     let parallel_result = engine_parallel
         .price(
             &rng_parallel,
@@ -315,9 +311,7 @@ fn test_serial_vs_parallel_consistency() {
 
     // Both should succeed and produce same results (deterministic RNG)
     assert_eq!(serial_result.num_paths, 1000);
-    #[cfg(feature = "parallel")]
     assert_eq!(parallel_result.num_paths, 1000);
-    #[cfg(feature = "parallel")]
     assert_eq!(serial_result.mean.amount(), parallel_result.mean.amount());
 }
 
@@ -373,7 +367,6 @@ fn test_parallel_with_non_splittable_rng_returns_error() {
     // When the parallel feature is enabled this must be an Err; when it is
     // disabled the engine falls back to serial, so the guard is never
     // reached and the call succeeds.
-    #[cfg(feature = "parallel")]
     {
         assert!(
             result.is_err(),
@@ -385,11 +378,6 @@ fn test_parallel_with_non_splittable_rng_returns_error() {
             err_str.contains("splittable RNG"),
             "Error message should mention splittable RNG, got: {err_str}"
         );
-    }
-    #[cfg(not(feature = "parallel"))]
-    {
-        // Serial fallback — guard never fires
-        assert!(result.is_ok());
     }
 }
 
@@ -421,16 +409,11 @@ fn test_price_with_capture_parallel_non_splittable_returns_error() {
         params,
     );
 
-    #[cfg(feature = "parallel")]
     {
         assert!(
             result.is_err(),
             "Expected Err for parallel + non-splittable RNG in price_with_capture, got Ok"
         );
-    }
-    #[cfg(not(feature = "parallel"))]
-    {
-        assert!(result.is_ok());
     }
 }
 
@@ -622,14 +605,9 @@ fn test_price_rejects_parallel_auto_stop_configuration() {
         1.0,
     );
 
-    #[cfg(feature = "parallel")]
     {
         let err = result.expect_err("parallel auto-stop should be rejected");
         assert!(err.to_string().contains("target_ci_half_width"));
-    }
-    #[cfg(not(feature = "parallel"))]
-    {
-        assert!(result.is_ok());
     }
 }
 
@@ -789,7 +767,6 @@ fn test_price_with_capture_serial_populates_captured_path_statistics() {
     assert_captured_path_statistics(&result);
 }
 
-#[cfg(feature = "parallel")]
 #[test]
 fn test_price_with_capture_parallel_populates_captured_path_statistics() {
     let engine = McEngine::builder()

@@ -347,7 +347,6 @@ impl MonteCarloAccumulator {
         })
     }
 
-    #[cfg_attr(not(feature = "parallel"), allow(dead_code))]
     pub(crate) fn merge(mut self, other: Self) -> Result<Self> {
         if self.expected_paths != other.expected_paths
             || self.percentiles != other.percentiles
@@ -379,7 +378,6 @@ impl MonteCarloAccumulator {
         Ok(self)
     }
 
-    #[cfg_attr(not(feature = "parallel"), allow(dead_code))]
     pub(crate) fn empty_like(&self) -> Self {
         Self {
             expected_paths: self.expected_paths,

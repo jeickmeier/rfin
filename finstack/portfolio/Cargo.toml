@@ -20,7 +20,7 @@ indexmap = { workspace = true, features = ["serde"] }
 tracing = "0.1"
 time = { workspace = true, features = ["macros", "serde", "parsing", "formatting"] }
 polars = { version = "0.53", default-features = false, features = ["fmt", "dtype-date"], optional = true }
-rayon = { version = "1.11", optional = true }
+rayon = "1.11"
 good_lp = { version = "1.15", default-features = false, features = ["microlp"] }
 
 [dev-dependencies]
@@ -29,10 +29,9 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 
 [features]
-default = ["scenarios", "dataframes", "parallel"]
+default = ["scenarios", "dataframes"]
 scenarios = ["dep:finstack-scenarios", "dep:finstack-statements"]
 dataframes = ["dep:polars"]
-parallel = ["dep:rayon"]
 
 [[bench]]
 name = "portfolio_valuation"

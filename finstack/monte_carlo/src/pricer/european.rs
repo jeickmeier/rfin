@@ -31,7 +31,7 @@ impl Default for EuropeanPricerConfig {
         Self {
             num_paths: 100_000,
             seed: 42,
-            use_parallel: cfg!(feature = "parallel"),
+            use_parallel: true,
         }
     }
 }

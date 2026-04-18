@@ -8,10 +8,8 @@ use crate::traits::{Discretization, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
-#[cfg(feature = "parallel")]
 use std::ops::Range;
 
-#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Generic Monte Carlo execution engine.
@@ -38,7 +36,6 @@ pub(super) const AUTO_STOP_MIN_SAMPLES: usize = 5_000;
 ///
 /// Balances load distribution across cores with cache efficiency.
 /// Target: 4 chunks per thread for good load balancing.
-#[cfg(feature = "parallel")]
 pub(super) fn adaptive_chunk_size(num_paths: usize) -> usize {
     let num_cpus = rayon::current_num_threads();
     // Target 4 chunks per thread for load balancing
@@ -48,7 +45,6 @@ pub(super) fn adaptive_chunk_size(num_paths: usize) -> usize {
 }
 
 /// Pre-sized chunk index ranges for parallel path loops (avoids `Vec` reallocations).
-#[cfg(feature = "parallel")]
 pub(super) fn parallel_path_chunks(num_paths: usize, chunk_size: usize) -> Vec<Range<usize>> {
     let num_chunks = num_paths.div_ceil(chunk_size);
     let mut chunks = Vec::with_capacity(num_chunks);
@@ -510,7 +506,6 @@ impl McEngine {
     }
 
     /// Parallel pricing implementation.
-    #[cfg(feature = "parallel")]
     #[allow(clippy::too_many_arguments)]
     fn price_parallel<R, P, D, F>(
         &self,
@@ -631,33 +626,4 @@ impl McEngine {
         .with_num_skipped(num_skipped))
     }
 
-    /// Parallel pricing (fallback when parallel feature disabled).
-    #[cfg(not(feature = "parallel"))]
-    fn price_parallel<R, P, D, F>(
-        &self,
-        rng: &R,
-        process: &P,
-        disc: &D,
-        initial_state: &[f64],
-        payoff: &F,
-        currency: Currency,
-        discount_factor: f64,
-    ) -> Result<Estimate>
-    where
-        R: RandomStream,
-        P: StochasticProcess,
-        D: Discretization<P>,
-        F: Payoff,
-    {
-        // Fall back to serial when parallel feature is disabled
-        self.price_serial(
-            rng,
-            process,
-            disc,
-            initial_state,
-            payoff,
-            currency,
-            discount_factor,
-        )
-    }
 }

@@ -58,7 +58,7 @@ impl McEngineConfig {
             seed: 42,
             time_grid,
             target_ci_half_width: None,
-            use_parallel: cfg!(feature = "parallel"),
+            use_parallel: true,
             chunk_size: 1000,
             path_capture: PathCaptureConfig::default(),
             antithetic: false,
@@ -84,11 +84,8 @@ impl McEngineConfig {
     }
 
     /// Enable or disable parallel execution.
-    ///
-    /// If the crate is built without the `parallel` feature this setter leaves
-    /// `use_parallel` as `false` even when `parallel` is `true`.
     pub fn with_parallel(mut self, parallel: bool) -> Self {
-        self.use_parallel = parallel && cfg!(feature = "parallel");
+        self.use_parallel = parallel;
         self
     }
 
@@ -152,7 +149,7 @@ impl McEngineBuilder {
             seed: 42,
             time_grid: None,
             target_ci: None,
-            parallel: cfg!(feature = "parallel"),
+            parallel: true,
             chunk_size: 1000,
             path_capture: PathCaptureConfig::default(),
             antithetic: false,
@@ -205,7 +202,7 @@ impl McEngineBuilder {
 
     /// Enable or disable parallel execution.
     pub fn parallel(mut self, enable: bool) -> Self {
-        self.parallel = enable && cfg!(feature = "parallel");
+        self.parallel = enable;
         self
     }
 

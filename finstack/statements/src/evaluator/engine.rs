@@ -573,36 +573,23 @@ impl Evaluator {
             Ok((node_map, all_warnings))
         };
 
-        #[cfg(feature = "parallel")]
-        {
-            use rayon::prelude::*;
-            let accumulator_seed = MonteCarloAccumulator::new(model, config)?;
-            let accumulator = (0..config.n_paths)
-                .into_par_iter()
-                .try_fold(
-                    || accumulator_seed.empty_like(),
-                    |mut acc, path_idx| {
-                        let (path_results, warnings) = run_single_path(path_idx)?;
-                        acc.push_path(path_idx, path_results, warnings)?;
-                        Ok(acc)
-                    },
-                )
-                .try_reduce(
-                    || accumulator_seed.empty_like(),
-                    |left, right| left.merge(right),
-                )?;
-            accumulator.finish()
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            let mut accumulator = MonteCarloAccumulator::new(model, config)?;
-            for path_idx in 0..config.n_paths {
-                let (path_results, warnings) = run_single_path(path_idx)?;
-                accumulator.push_path(path_idx, path_results, warnings)?;
-            }
-            accumulator.finish()
-        }
+        use rayon::prelude::*;
+        let accumulator_seed = MonteCarloAccumulator::new(model, config)?;
+        let accumulator = (0..config.n_paths)
+            .into_par_iter()
+            .try_fold(
+                || accumulator_seed.empty_like(),
+                |mut acc, path_idx| {
+                    let (path_results, warnings) = run_single_path(path_idx)?;
+                    acc.push_path(path_idx, path_results, warnings)?;
+                    Ok(acc)
+                },
+            )
+            .try_reduce(
+                || accumulator_seed.empty_like(),
+                |left, right| left.merge(right),
+            )?;
+        accumulator.finish()
     }
 
     /// Compile all formulas in the model.

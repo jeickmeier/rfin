@@ -429,7 +429,7 @@ impl CommodityOption {
                 let time_grid = TimeGrid::uniform(t, mc_params.n_steps)?;
                 let engine_config = McEngineConfig::new(mc_params.n_paths, time_grid)
                     .with_seed(seed)
-                    .with_parallel(cfg!(feature = "parallel"));
+                    .with_parallel(true);
                 let engine = McEngine::new(engine_config);
 
                 let rng = PhiloxRng::new(seed);

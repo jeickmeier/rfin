@@ -9,11 +9,8 @@ use finstack_core::currency::Currency;
 use finstack_core::Result;
 use smallvec::SmallVec;
 
-#[cfg(feature = "parallel")]
 use super::pricing::{adaptive_chunk_size, parallel_path_chunks};
-#[cfg(feature = "parallel")]
 use rayon::prelude::*;
-#[cfg(feature = "parallel")]
 use std::sync::Mutex;
 
 impl McEngine {
@@ -186,7 +183,6 @@ impl McEngine {
     }
 
     /// Parallel pricing with path capture.
-    #[cfg(feature = "parallel")]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn price_parallel_with_capture<R, P, D, F>(
         &self,
@@ -384,39 +380,6 @@ impl McEngine {
         };
 
         Ok((estimate, paths))
-    }
-
-    /// Parallel pricing with path capture (fallback).
-    #[cfg(not(feature = "parallel"))]
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn price_parallel_with_capture<R, P, D, F>(
-        &self,
-        rng: &R,
-        process: &P,
-        disc: &D,
-        initial_state: &[f64],
-        payoff: &F,
-        currency: Currency,
-        discount_factor: f64,
-        process_params: ProcessParams,
-    ) -> Result<(Estimate, Option<PathDataset>)>
-    where
-        R: RandomStream,
-        P: StochasticProcess,
-        D: Discretization<P>,
-        F: Payoff,
-    {
-        // Fall back to serial
-        self.price_serial_with_capture(
-            rng,
-            process,
-            disc,
-            initial_state,
-            payoff,
-            currency,
-            discount_factor,
-            process_params,
-        )
     }
 
     /// Simulate a single Monte Carlo path.

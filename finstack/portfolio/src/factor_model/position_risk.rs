@@ -495,16 +495,8 @@ fn compute_incremental_var(
         portfolio_var - var_excl
     };
 
-    #[cfg(feature = "parallel")]
-    {
-        use rayon::prelude::*;
-        (0..n).into_par_iter().map(compute_one).collect()
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        (0..n).map(compute_one).collect()
-    }
+    use rayon::prelude::*;
+    (0..n).into_par_iter().map(compute_one).collect()
 }
 
 // ---------------------------------------------------------------------------

@@ -155,31 +155,18 @@ pub fn score_portfolio_liquidity(
         })
     };
 
-    #[cfg(feature = "parallel")]
-    {
-        use rayon::prelude::*;
+    use rayon::prelude::*;
 
-        let results: Vec<_> = portfolio
-            .positions()
-            .par_iter()
-            .map(|pos| (pos.position_id.clone(), score_fn(pos)))
-            .collect();
+    let results: Vec<_> = portfolio
+        .positions()
+        .par_iter()
+        .map(|pos| (pos.position_id.clone(), score_fn(pos)))
+        .collect();
 
-        for (pos_id, score) in results {
-            match score {
-                Some(s) => position_scores.push(s),
-                None => unscored_positions.push(pos_id),
-            }
-        }
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        for pos in portfolio.positions() {
-            match score_fn(pos) {
-                Some(s) => position_scores.push(s),
-                None => unscored_positions.push(pos.position_id.clone()),
-            }
+    for (pos_id, score) in results {
+        match score {
+            Some(s) => position_scores.push(s),
+            None => unscored_positions.push(pos_id),
         }
     }
 

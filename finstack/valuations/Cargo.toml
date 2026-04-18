@@ -11,11 +11,11 @@ authors.workspace = true
 finstack-core = { path = "../core" }
 finstack-cashflows = { path = "../cashflows" }
 finstack-margin = { path = "../margin" }
-finstack-monte-carlo = { path = "../monte_carlo", default-features = false, features = ["parallel"] }
+finstack-monte-carlo = { path = "../monte_carlo", default-features = false }
 finstack-valuations-macros = { path = "macros" }
 indexmap = { workspace = true, features = ["serde"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
-rayon = { version = "1.11", optional = true }
+rayon = "1.11"
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["raw_value"] }
 time = { workspace = true }
@@ -39,8 +39,7 @@ finstack-statements-analytics = { path = "../statements-analytics" }
 
 
 [features]
-default = ["parallel"]
-parallel = ["dep:rayon"]
+default = []
 mc = ["finstack-monte-carlo/mc", "finstack-margin/mc"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 ts_export = ["dep:ts-rs"]

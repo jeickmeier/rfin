@@ -294,22 +294,10 @@ pub fn value_portfolio(
 ) -> Result<PortfolioValuation> {
     let metrics = resolve_metrics(options);
 
-    #[cfg(feature = "parallel")]
-    let position_values_vec: Vec<PositionValue> = {
-        use rayon::prelude::*;
-        portfolio
-            .positions
-            .par_iter()
-            .map(|position| {
-                value_single_position(position, market, portfolio, &metrics, options.strict_risk)
-            })
-            .collect::<Result<Vec<_>>>()?
-    };
-
-    #[cfg(not(feature = "parallel"))]
+    use rayon::prelude::*;
     let position_values_vec: Vec<PositionValue> = portfolio
         .positions
-        .iter()
+        .par_iter()
         .map(|position| {
             value_single_position(position, market, portfolio, &metrics, options.strict_risk)
         })

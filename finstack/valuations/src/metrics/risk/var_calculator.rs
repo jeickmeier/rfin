@@ -321,35 +321,11 @@ fn reprice_with_dispatch(
     instrument.value(market, as_of)
 }
 
-/// Utility helper to aggregate scenario P&Ls for both single-instrument and portfolio VaR.
-#[cfg(not(feature = "parallel"))]
-fn aggregate_scenario_pnls<F>(
-    history: &MarketHistory,
-    base_market: &MarketContext,
-    mut scenario_pnl: F,
-) -> Result<Vec<f64>>
-where
-    F: FnMut(&MarketContext) -> Result<f64>,
-{
-    let mut pnls = Vec::with_capacity(history.len());
-
-    for scenario in history.iter() {
-        // Apply historical shifts to create scenario market
-        let scenario_market = scenario.apply(base_market)?;
-
-        // Delegate P&L calculation to caller-provided closure
-        pnls.push(scenario_pnl(&scenario_market)?);
-    }
-
-    Ok(pnls)
-}
-
-/// Parallel version of [`aggregate_scenario_pnls`] using rayon.
+/// Aggregate scenario P&Ls in parallel using rayon.
 ///
 /// Each scenario is independent (creates its own `MarketContext`), making this
 /// embarrassingly parallel. The closure must be `Fn + Send + Sync` (not `FnMut`)
 /// because multiple threads may invoke it concurrently.
-#[cfg(feature = "parallel")]
 fn aggregate_scenario_pnls_par<F>(
     history: &MarketHistory,
     base_market: &MarketContext,
@@ -431,11 +407,7 @@ fn calculate_var_full_revaluation(
         Ok(acc.total())
     };
 
-    #[cfg(feature = "parallel")]
     let pnls = aggregate_scenario_pnls_par(history, base_market, scenario_pnl)?;
-
-    #[cfg(not(feature = "parallel"))]
-    let pnls = aggregate_scenario_pnls(history, base_market, scenario_pnl)?;
 
     // Calculate VaR and ES from P&L distribution
     VarResult::from_distribution(pnls, config.confidence_level)

@@ -236,7 +236,6 @@ impl LsmcPricer {
     ) -> Result<Vec<Vec<f64>>> {
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
 
-        #[cfg(feature = "parallel")]
         if self.config.use_parallel {
             return self.generate_paths_parallel(process, initial_spot, &time_grid, num_steps);
         }
@@ -282,7 +281,6 @@ impl LsmcPricer {
     }
 
     /// Parallel path generation using rayon with deterministic per-path RNG.
-    #[cfg(feature = "parallel")]
     fn generate_paths_parallel(
         &self,
         process: &GbmProcess,

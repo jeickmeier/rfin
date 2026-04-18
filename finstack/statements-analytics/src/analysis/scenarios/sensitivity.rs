@@ -78,16 +78,7 @@ impl<'a> SensitivityAnalyzer<'a> {
     /// and tornado delegates to the diagonal path internally.
     pub fn run(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
         match config.mode {
-            SensitivityMode::Diagonal => {
-                #[cfg(feature = "parallel")]
-                {
-                    self.run_diagonal_parallel(config)
-                }
-                #[cfg(not(feature = "parallel"))]
-                {
-                    self.run_diagonal(config)
-                }
-            }
+            SensitivityMode::Diagonal => self.run_diagonal_parallel(config),
             SensitivityMode::FullGrid => self.run_full_grid(config),
             SensitivityMode::Tornado => self.run_tornado(config),
         }
@@ -149,9 +140,6 @@ impl<'a> SensitivityAnalyzer<'a> {
     /// an independently-cloned model and evaluator, so there is no shared
     /// mutable state and no need for the serial path's apply/restore
     /// bookkeeping. Ordering is preserved to match the serial output.
-    ///
-    /// Enabled via the `parallel` crate feature.
-    #[cfg(feature = "parallel")]
     fn run_diagonal_parallel(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
         use rayon::prelude::*;
 

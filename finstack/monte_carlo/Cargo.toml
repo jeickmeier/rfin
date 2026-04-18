@@ -13,7 +13,7 @@ finstack-core = { path = "../core" }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 serde = { workspace = true }
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
-rayon = { version = "1.11", optional = true }
+rayon = "1.11"
 nalgebra = { version = "0.34", optional = true }
 
 [dev-dependencies]
@@ -26,7 +26,6 @@ harness = false
 required-features = ["mc"]
 
 [features]
-default = ["parallel"]
-parallel = ["dep:rayon"]
+default = []
 mc = ["dep:nalgebra"]
 slow = []
