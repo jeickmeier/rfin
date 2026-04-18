@@ -58,7 +58,7 @@ pub use position_risk::{
 };
 pub use risk_budget::{PositionBudgetEntry, RiskBudget, RiskBudgetResult};
 pub use simulation::SimulationDecomposer;
-pub use traits::{PositionRiskDecomposer, RiskDecomposer};
+pub use traits::RiskDecomposer;
 pub use types::{FactorContribution, PositionFactorContribution, RiskDecomposition};
 pub use whatif::{
     FactorContributionDelta, PositionChange, StressResult, WhatIfEngine, WhatIfResult,

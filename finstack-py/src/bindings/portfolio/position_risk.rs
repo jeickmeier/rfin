@@ -9,7 +9,7 @@
 use crate::errors::core_to_py;
 use finstack_portfolio::factor_model::{
     DecompositionConfig, HistoricalPositionDecomposer, ParametricPositionDecomposer,
-    PositionRiskDecomposer, PositionRiskDecomposition, RiskBudget,
+    PositionRiskDecomposition, RiskBudget,
 };
 use finstack_portfolio::types::PositionId;
 use indexmap::IndexMap;

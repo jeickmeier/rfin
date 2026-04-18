@@ -25,8 +25,6 @@ use crate::types::PositionId;
 use finstack_core::currency::Currency;
 use serde::{Deserialize, Serialize};
 
-use super::traits::PositionRiskDecomposer;
-
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -483,8 +481,21 @@ fn compute_incremental_var(
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ParametricPositionDecomposer;
 
-impl PositionRiskDecomposer for ParametricPositionDecomposer {
-    fn decompose_positions(
+impl ParametricPositionDecomposer {
+    /// Decompose portfolio VaR and ES into per-position contributions using Euler allocation.
+    ///
+    /// # Arguments
+    ///
+    /// * `weights` - Position weights as fraction of portfolio value (length `n_positions`).
+    /// * `covariance` - Position-return covariance matrix (n x n, row-major, symmetric PSD).
+    /// * `position_ids` - Position identifiers, aligned with `weights`.
+    /// * `config` - Decomposition parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if dimensions are inconsistent, the covariance matrix is invalid, or
+    /// the confidence level is out of bounds.
+    pub fn decompose_positions(
         &self,
         weights: &[f64],
         covariance: &[f64],
