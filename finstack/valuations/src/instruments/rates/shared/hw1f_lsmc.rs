@@ -206,12 +206,8 @@ impl RateExoticHw1fLsmcPricer {
             }
 
             if itm_paths.len() > num_basis + 2 {
-                let coeffs = solve_least_squares(
-                    &itm_basis,
-                    &itm_continuation,
-                    itm_paths.len(),
-                    num_basis,
-                )?;
+                let coeffs =
+                    solve_least_squares(&itm_basis, &itm_continuation, itm_paths.len(), num_basis)?;
                 for (k, &p) in itm_paths.iter().enumerate() {
                     let offset = k * num_basis;
                     let basis_row = &itm_basis[offset..offset + num_basis];

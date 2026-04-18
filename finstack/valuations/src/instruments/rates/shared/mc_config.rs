@@ -62,7 +62,10 @@ impl RateExoticMcConfig {
         if let Some(v) = obj.get("mc_antithetic").and_then(|x| x.as_bool()) {
             cfg.antithetic = v;
         }
-        if let Some(v) = obj.get("mc_min_steps_between_events").and_then(|x| x.as_u64()) {
+        if let Some(v) = obj
+            .get("mc_min_steps_between_events")
+            .and_then(|x| x.as_u64())
+        {
             cfg.min_steps_between_events = (v as usize).max(1);
         }
         if let Some(v) = obj.get("mc_basis_degree").and_then(|x| x.as_u64()) {
@@ -136,16 +139,28 @@ mod tests {
 
     #[test]
     fn effective_path_count_antithetic() {
-        let cfg = RateExoticMcConfig { num_paths: 101, antithetic: true, ..Default::default() };
+        let cfg = RateExoticMcConfig {
+            num_paths: 101,
+            antithetic: true,
+            ..Default::default()
+        };
         // 101/2 = 50 streams * 2 = 100 (odd half path dropped)
         assert_eq!(cfg.effective_path_count(), 100);
     }
 
     #[test]
     fn raw_stream_count_antithetic_and_non() {
-        let a = RateExoticMcConfig { num_paths: 100, antithetic: true, ..Default::default() };
+        let a = RateExoticMcConfig {
+            num_paths: 100,
+            antithetic: true,
+            ..Default::default()
+        };
         assert_eq!(a.raw_stream_count(), 50);
-        let b = RateExoticMcConfig { num_paths: 100, antithetic: false, ..Default::default() };
+        let b = RateExoticMcConfig {
+            num_paths: 100,
+            antithetic: false,
+            ..Default::default()
+        };
         assert_eq!(b.raw_stream_count(), 100);
     }
 
