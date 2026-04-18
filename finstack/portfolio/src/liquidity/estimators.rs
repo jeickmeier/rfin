@@ -103,48 +103,6 @@ pub fn amihud_illiquidity(returns: &[f64], volumes: &[f64]) -> Option<f64> {
     Some(sum / returns.len() as f64)
 }
 
-/// Model the widening of the bid-ask spread as a function of order size.
-///
-/// ```text
-/// spread(q) = s_0 + k * (q / ADV)^alpha
-/// ```
-///
-/// where:
-/// - `s_0` is the quoted spread at zero size
-/// - `q` is the order quantity
-/// - `ADV` is average daily volume
-/// - `k` is the impact coefficient
-/// - `alpha` is the concavity exponent (typically 0.5-0.6)
-///
-/// The concave shape reflects the empirical observation that the first
-/// units of a large order have more impact than subsequent units
-/// (diminishing marginal impact).
-///
-/// # Arguments
-///
-/// * `quoted_spread` - Quoted spread at zero order size (absolute, same units as price).
-/// * `order_quantity` - Size of the order in shares/contracts (absolute value used).
-/// * `adv` - Average daily volume.
-/// * `impact_coeff` - Impact coefficient `k`. Default suggestion: 0.1 * quoted_spread.
-/// * `alpha` - Concavity exponent. Default: 0.5.
-///
-/// # Returns
-///
-/// Effective spread inclusive of the size-dependent widening.
-pub fn spread_with_size_impact(
-    quoted_spread: f64,
-    order_quantity: f64,
-    adv: f64,
-    impact_coeff: f64,
-    alpha: f64,
-) -> f64 {
-    if adv <= 0.0 {
-        return quoted_spread;
-    }
-    let ratio = order_quantity.abs() / adv;
-    quoted_spread + impact_coeff * ratio.powf(alpha)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,40 +193,5 @@ mod tests {
     #[test]
     fn amihud_nan_return() {
         assert!(amihud_illiquidity(&[f64::NAN], &[100.0]).is_none());
-    }
-
-    #[test]
-    fn spread_with_size_impact_zero_quantity() {
-        let s = spread_with_size_impact(0.02, 0.0, 1_000_000.0, 0.002, 0.5);
-        assert!(
-            (s - 0.02).abs() < 1e-10,
-            "zero order should equal quoted spread"
-        );
-    }
-
-    #[test]
-    fn spread_with_size_impact_increases_with_size() {
-        let small = spread_with_size_impact(0.02, 10_000.0, 1_000_000.0, 0.002, 0.5);
-        let large = spread_with_size_impact(0.02, 500_000.0, 1_000_000.0, 0.002, 0.5);
-        assert!(large > small, "larger order should produce wider spread");
-    }
-
-    #[test]
-    fn spread_with_size_impact_zero_adv() {
-        let s = spread_with_size_impact(0.02, 1000.0, 0.0, 0.002, 0.5);
-        assert!(
-            (s - 0.02).abs() < 1e-10,
-            "zero ADV should return quoted spread"
-        );
-    }
-
-    #[test]
-    fn spread_with_size_impact_known_value() {
-        // s_0=0.02, q=100k, ADV=1M, k=0.01, alpha=0.5
-        // ratio = 0.1, 0.1^0.5 = sqrt(0.1) ~ 0.31623
-        // spread = 0.02 + 0.01 * 0.31623 = 0.0231623
-        let s = spread_with_size_impact(0.02, 100_000.0, 1_000_000.0, 0.01, 0.5);
-        let expected = 0.02 + 0.01 * (0.1_f64).sqrt();
-        assert!((s - expected).abs() < 1e-10, "expected {expected}, got {s}");
     }
 }
