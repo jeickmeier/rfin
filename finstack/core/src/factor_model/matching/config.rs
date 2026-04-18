@@ -1,8 +1,8 @@
-use super::cascade::CascadeMatcher;
 use super::filter::DependencyFilter;
-use super::hierarchical::{FactorNode, HierarchicalMatcher};
-use super::mapping_table::{MappingRule, MappingTableMatcher};
-use super::traits::FactorMatcher;
+use super::matchers::{
+    CascadeMatcher, FactorMatcher, FactorNode, HierarchicalMatcher, MappingRule,
+    MappingTableMatcher,
+};
 use serde::{Deserialize, Serialize};
 
 /// Declarative configuration for a dependency-scoped hierarchical matcher.

@@ -86,8 +86,6 @@ pub use daycount::{
     Thirty360Convention,
 };
 
-pub mod rate_conversions;
-
 // Re-export new holiday calendars at the top level for convenience
 pub use calendar::business_days::{
     adjust, BusinessDayConvention, CalendarMetadata, HolidayCalendar,

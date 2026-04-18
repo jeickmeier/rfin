@@ -1,7 +1,7 @@
 //! Tests for calendar registry functionality
 
 use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2};
-use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeMode};
+use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
 use finstack_core::dates::{Date, HolidayCalendar};
 use time::Month;
 
@@ -83,8 +83,8 @@ fn registry_resolve_many_into_composite() {
 
     let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
 
-    let mut storage = Vec::new();
-    let composite = registry.resolve_many(&ids, CompositeMode::Union, &mut storage);
+    let calendars = registry.resolve_many_vec(&ids);
+    let composite = CompositeCalendar::with_mode(&calendars[..], CompositeMode::Union);
 
     // Test that composite works
     let jan1 = make_date(2025, 1, 1);

@@ -116,8 +116,6 @@ pub(crate) mod common;
 mod credit_index;
 /// Discount factor curves.
 mod discount_curve;
-/// Builder for discount factor curves.
-mod discount_curve_builder;
 /// Flat forward/discount curves.
 mod flat;
 /// Forward‐rate curves.
@@ -142,8 +140,9 @@ pub use base_correlation::{
 };
 pub use basis_spread_curve::{BasisSpreadCurve, BasisSpreadCurveBuilder};
 pub use credit_index::{CreditIndexData, CreditIndexDataBuilder};
-pub use discount_curve::{DiscountCurve, DiscountCurveBuilder, DEFAULT_MIN_FORWARD_TENOR};
-pub use discount_curve_builder::ValidationMode;
+pub use discount_curve::{
+    DiscountCurve, DiscountCurveBuilder, ValidationMode, DEFAULT_MIN_FORWARD_TENOR,
+};
 pub use flat::FlatCurve;
 pub use forward_curve::{ForwardCurve, ForwardCurveBuilder};
 pub use forward_variance::ForwardVarianceCurve;
