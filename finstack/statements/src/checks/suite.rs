@@ -151,12 +151,6 @@ impl CheckSuiteBuilder {
         self
     }
 
-    /// Add an already-boxed check to the suite.
-    pub fn add_boxed_check(mut self, check: Box<dyn Check>) -> Self {
-        self.checks.push(check);
-        self
-    }
-
     /// Override the default configuration.
     pub fn config(mut self, config: CheckConfig) -> Self {
         self.config = config;
@@ -209,15 +203,17 @@ impl CheckSuiteSpec {
     /// require the analytics crate's `FormulaCheck` and must be resolved
     /// separately.
     pub fn resolve(&self) -> Result<CheckSuite> {
-        let mut builder = CheckSuite::builder(&self.name);
-        if let Some(desc) = &self.description {
-            builder = builder.description(desc);
-        }
-        builder = builder.config(self.config.clone());
-        for spec in &self.builtin_checks {
-            builder = builder.add_boxed_check(spec.to_check());
-        }
-        Ok(builder.build())
+        let checks: Vec<Box<dyn Check>> = self
+            .builtin_checks
+            .iter()
+            .map(BuiltinCheckSpec::to_check)
+            .collect();
+        Ok(CheckSuite {
+            name: self.name.clone(),
+            description: self.description.clone(),
+            checks,
+            config: self.config.clone(),
+        })
     }
 }
 
