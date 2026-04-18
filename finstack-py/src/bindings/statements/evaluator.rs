@@ -105,7 +105,11 @@ impl PyStatementResult {
         selected_table_to_dataframe(
             py,
             &table,
-            &[("node_id", "node_id"), ("period_id", "period"), ("value", "value")],
+            &[
+                ("node_id", "node_id"),
+                ("period_id", "period"),
+                ("value", "value"),
+            ],
         )
     }
 
