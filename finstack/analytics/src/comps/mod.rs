@@ -19,8 +19,7 @@ pub use scoring::{
     score_relative_value, DimensionScore, MetricExtractor, RelativeValueResult, ScoringDimension,
 };
 pub use stats::{
-    historical_percentile, peer_stats, percentile_rank, regression_fair_value, z_score, PeerStats,
-    RegressionResult,
+    peer_stats, percentile_rank, regression_fair_value, z_score, PeerStats, RegressionResult,
 };
 pub use types::{CompanyId, CompanyMetrics, Multiple, PeriodBasis};
 
@@ -257,17 +256,6 @@ mod tests {
         assert!((stats.median - 42.0).abs() < 1e-10);
         assert!((stats.min - 42.0).abs() < 1e-10);
         assert!((stats.max - 42.0).abs() < 1e-10);
-    }
-
-    // -----------------------------------------------------------------------
-    // Historical percentile tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn historical_percentile_example() {
-        let history = [100.0, 200.0, 300.0, 400.0, 500.0];
-        // 250 => 2 values (100, 200) are <= 250, so 2/5 = 0.4
-        assert_eq!(historical_percentile(&history, 250.0), Some(0.4));
     }
 
     // -----------------------------------------------------------------------

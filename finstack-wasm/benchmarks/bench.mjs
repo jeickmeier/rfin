@@ -415,8 +415,8 @@ async function main() {
     w.toDrawdownSeries(returns);
   });
 
-  bench('analytics', 'maxDrawdownFromReturns', 8000, () => {
-    w.maxDrawdownFromReturns(returns);
+  bench('analytics', 'maxDrawdown', 8000, () => {
+    w.maxDrawdown(w.toDrawdownSeries(returns));
   });
 
   bench('correlation', 'correlationBounds', 20000, () => {
@@ -647,16 +647,12 @@ async function main() {
     w.rSquared(benchReturns, benchBm);
   });
 
-  bench('analytics', 'avgDrawdown', 4000, () => {
-    w.avgDrawdown(ddSeries, 3);
+  bench('analytics', 'meanEpisodeDrawdown', 4000, () => {
+    w.meanEpisodeDrawdown(ddSeries, 3);
   });
 
   bench('analytics', 'calmar', 20000, () => {
     w.calmar(0.08, 0.12);
-  });
-
-  bench('analytics', 'calmarFromReturns', 4000, () => {
-    w.calmarFromReturns(benchReturns, 252);
   });
 
   bench('analytics', 'countConsecutive', 8000, () => {

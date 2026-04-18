@@ -302,13 +302,64 @@ pub trait GarchModel: Send + Sync {
     /// Number of model-specific parameters (excludes innovation distribution params).
     fn num_params(&self) -> usize;
 
+    /// Whether the model includes a leverage/asymmetry parameter (`gamma`).
+    fn has_gamma(&self) -> bool;
+
+    /// Parameter bounds for the optimizer in canonical order
+    /// (`omega`, `alpha`, `beta`, optional `gamma`). The innovation-distribution
+    /// bound (e.g. Student-t dof) is appended by the default [`Self::fit`]
+    /// implementation and must not be included here.
+    ///
+    /// `sample_var` is supplied for models that anchor `omega` bounds to the
+    /// sample variance of returns (e.g. symmetric GARCH / GJR).
+    fn parameter_bounds(&self, sample_var: f64) -> Vec<(f64, f64)>;
+
+    /// Stationarity check on a packed parameter slice (same order as
+    /// [`Self::parameter_bounds`]). Returning `false` makes the optimizer
+    /// assign a large penalty to that point.
+    fn is_stationary(&self, params: &[f64]) -> bool;
+
     /// Fit the model to a return series via maximum likelihood.
+    ///
+    /// The default implementation wires the model-specific hooks
+    /// ([`Self::has_gamma`], [`Self::parameter_bounds`],
+    /// [`Self::is_stationary`]) into the shared [`fit_garch_mle`]
+    /// driver. Models override only when they need non-standard
+    /// initial-value or optimizer strategies.
     fn fit(
         &self,
         returns: &[f64],
         dist: InnovationDist,
         config: Option<&FitConfig>,
-    ) -> crate::Result<GarchFit>;
+    ) -> crate::Result<GarchFit> {
+        let default_config = FitConfig::default();
+        let config = config.unwrap_or(&default_config);
+
+        let sample_var = {
+            let n = returns.len() as f64;
+            if n < 2.0 {
+                0.0
+            } else {
+                let mean = returns.iter().sum::<f64>() / n;
+                returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n - 1.0)
+            }
+        };
+
+        let mut bounds = self.parameter_bounds(sample_var);
+        if let InnovationDist::StudentT(_) = dist {
+            bounds.push((InnovationDist::dof_lower_bound(), 100.0));
+        }
+
+        fit_garch_mle(
+            self,
+            returns,
+            dist,
+            config,
+            self.has_gamma(),
+            &bounds,
+            |x| self.is_stationary(x),
+        )
+    }
 
     /// Compute conditional variance series given parameters and returns.
     fn filter(&self, returns: &[f64], params: &GarchParams, sigma2_out: &mut [f64]);
@@ -333,7 +384,7 @@ pub trait GarchModel: Send + Sync {
 /// Implements variance targeting grid search for initial parameters,
 /// Nelder-Mead optimization, Hessian-based standard errors, and
 /// information criteria computation.
-pub(crate) fn fit_garch_mle<M: GarchModel>(
+pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
     model: &M,
     returns: &[f64],
     dist: InnovationDist,

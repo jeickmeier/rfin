@@ -31,8 +31,7 @@ __all__ = [
     "group_by_period",
     "period_stats",
     "align_benchmark",
-    "align_benchmark_with_policy",
-    "calc_beta",
+    "beta",
     "greeks",
     "rolling_greeks",
     "tracking_error",
@@ -45,29 +44,22 @@ __all__ = [
     "multi_factor_greeks",
     "treynor",
     "m_squared",
-    "m_squared_from_returns",
     "count_consecutive",
     "to_drawdown_series",
     "drawdown_details",
-    "avg_drawdown",
-    "average_drawdown",
+    "mean_episode_drawdown",
+    "mean_drawdown",
     "max_drawdown",
-    "max_drawdown_from_returns",
     "max_drawdown_duration",
     "cdar",
     "ulcer_index",
     "pain_index",
     "calmar",
-    "calmar_from_returns",
     "recovery_factor",
-    "recovery_factor_from_returns",
     "martin_ratio",
-    "martin_ratio_from_returns",
     "sterling_ratio",
-    "sterling_ratio_from_returns",
     "burke_ratio",
     "pain_ratio",
-    "pain_ratio_from_returns",
     "simple_returns",
     "clean_returns",
     "excess_returns",
@@ -146,10 +138,6 @@ class PeriodStats:
     @property
     def payoff_ratio(self) -> float:
         """Payoff ratio (avg win / |avg loss|)."""
-
-    @property
-    def profit_ratio(self) -> float:
-        """Profit ratio (sum wins / |sum losses|)."""
 
     @property
     def profit_factor(self) -> float:
@@ -935,49 +923,28 @@ def align_benchmark(
     bench_returns: list[float],
     bench_dates: Sequence[object],
     target_dates: Sequence[object],
+    policy: BenchmarkAlignmentPolicy,
 ) -> list[float]:
-    """Align benchmark returns to target dates using zero-fill for missing.
+    """Align benchmark returns to target dates using an explicit missing-date policy.
 
     Args:
         bench_returns: Benchmark returns.
-        bench_dates: Dates for benchmark series.
+        bench_dates: Benchmark dates (sorted ascending).
         target_dates: Dates to align onto.
+        policy: Alignment policy (zero-fill or error on missing).
 
     Returns:
         Aligned benchmark returns.
 
     Example:
         >>> import datetime
-        >>> align_benchmark([0.01], [datetime.date(2024, 1, 1)], [datetime.date(2024, 1, 1)])
-        [0.01]
-    """
-
-def align_benchmark_with_policy(
-    bench_returns: list[float],
-    bench_dates: Sequence[object],
-    target_dates: Sequence[object],
-    policy: BenchmarkAlignmentPolicy,
-) -> list[float]:
-    """Align benchmark returns using a missing-date policy.
-
-    Args:
-        bench_returns: Benchmark returns.
-        bench_dates: Benchmark dates.
-        target_dates: Target dates.
-        policy: Alignment policy.
-
-    Returns:
-        Aligned returns.
-
-    Example:
-        >>> import datetime
         >>> p = BenchmarkAlignmentPolicy.zero_on_missing()
-        >>> align_benchmark_with_policy([0.01], [datetime.date(2024, 1, 1)], [datetime.date(2024, 1, 1)], p)
+        >>> align_benchmark([0.01], [datetime.date(2024, 1, 1)], [datetime.date(2024, 1, 1)], p)
         [0.01]
     """
 
-def calc_beta(portfolio: list[float], benchmark: list[float]) -> BetaResult:
-    """Beta regression of portfolio against benchmark.
+def beta(portfolio: list[float], benchmark: list[float]) -> BetaResult:
+    """OLS beta regression of portfolio against benchmark, with SE and 95% CI.
 
     Args:
         portfolio: Portfolio returns.
@@ -987,7 +954,7 @@ def calc_beta(portfolio: list[float], benchmark: list[float]) -> BetaResult:
         :class:`BetaResult`.
 
     Example:
-        >>> calc_beta([0.01, 0.02], [0.005, 0.015]).beta > 0
+        >>> beta([0.01, 0.02], [0.005, 0.015]).beta > 0
         True
     """
 
@@ -1210,28 +1177,6 @@ def m_squared(ann_return: float, ann_vol: float, bench_vol: float, risk_free_rat
         True
     """
 
-def m_squared_from_returns(
-    portfolio: list[float],
-    benchmark: list[float],
-    ann_factor: float = 252.0,
-    risk_free_rate: float = 0.0,
-) -> float:
-    """M-squared from return series.
-
-    Args:
-        portfolio: Portfolio returns.
-        benchmark: Benchmark returns.
-        ann_factor: Annualization factor.
-        risk_free_rate: Risk-free rate.
-
-    Returns:
-        M².
-
-    Example:
-        >>> isinstance(m_squared_from_returns([0.01, 0.0], [0.005, 0.0]), float)
-        True
-    """
-
 def count_consecutive(values: list[float]) -> int:
     """Count longest consecutive run of strictly positive values.
 
@@ -1283,23 +1228,23 @@ def drawdown_details(
         True
     """
 
-def avg_drawdown(drawdown: list[float], n: int = 5) -> float:
-    """Average of the N deepest drawdowns.
+def mean_episode_drawdown(drawdown: list[float], n: int = 5) -> float:
+    """Mean depth of the N deepest drawdown episodes.
 
     Args:
         drawdown: Drawdown series.
-        n: Number of drawdowns to average.
+        n: Number of deepest episodes to average.
 
     Returns:
-        Average depth.
+        Mean episode depth (negative).
 
     Example:
-        >>> avg_drawdown(to_drawdown_series([0.1, -0.2]), 1) < 0
+        >>> mean_episode_drawdown(to_drawdown_series([0.1, -0.2]), 1) < 0
         True
     """
 
-def average_drawdown(drawdowns: list[float]) -> float:
-    """Simple arithmetic average of drawdown values.
+def mean_drawdown(drawdowns: list[float]) -> float:
+    """Arithmetic mean of a drawdown series (per-sample, path-weighted).
 
     Args:
         drawdowns: Drawdown samples.
@@ -1308,12 +1253,14 @@ def average_drawdown(drawdowns: list[float]) -> float:
         Mean drawdown.
 
     Example:
-        >>> average_drawdown([-0.1, -0.2]) < 0
+        >>> mean_drawdown([-0.1, -0.2]) < 0
         True
     """
 
 def max_drawdown(drawdown: list[float]) -> float:
     """Maximum drawdown from an existing drawdown series.
+
+    Compose ``max_drawdown(to_drawdown_series(returns))`` when starting from returns.
 
     Args:
         drawdown: Drawdown series.
@@ -1323,20 +1270,6 @@ def max_drawdown(drawdown: list[float]) -> float:
 
     Example:
         >>> max_drawdown(to_drawdown_series([0.5, -0.9])) < 0
-        True
-    """
-
-def max_drawdown_from_returns(returns: list[float]) -> float:
-    """Maximum drawdown computed directly from returns.
-
-    Args:
-        returns: Simple returns.
-
-    Returns:
-        Max drawdown.
-
-    Example:
-        >>> max_drawdown_from_returns([0.1, -0.5]) < 0
         True
     """
 
@@ -1416,21 +1349,6 @@ def calmar(cagr_val: float, max_dd: float) -> float:
         True
     """
 
-def calmar_from_returns(returns: list[float], ann_factor: float = 252.0) -> float:
-    """Calmar ratio from returns.
-
-    Args:
-        returns: Simple returns.
-        ann_factor: Annualization factor.
-
-    Returns:
-        Calmar ratio.
-
-    Example:
-        >>> isinstance(calmar_from_returns([0.001] * 252), float)
-        True
-    """
-
 def recovery_factor(total_return: float, max_dd: float) -> float:
     """Recovery factor from pre-computed values.
 
@@ -1443,20 +1361,6 @@ def recovery_factor(total_return: float, max_dd: float) -> float:
 
     Example:
         >>> isinstance(recovery_factor(0.5, -0.2), float)
-        True
-    """
-
-def recovery_factor_from_returns(returns: list[float]) -> float:
-    """Recovery factor from returns.
-
-    Args:
-        returns: Simple returns.
-
-    Returns:
-        Recovery factor.
-
-    Example:
-        >>> isinstance(recovery_factor_from_returns([0.01, -0.02]), float)
         True
     """
 
@@ -1475,21 +1379,6 @@ def martin_ratio(cagr_val: float, ulcer: float) -> float:
         True
     """
 
-def martin_ratio_from_returns(returns: list[float], ann_factor: float = 252.0) -> float:
-    """Martin ratio from returns.
-
-    Args:
-        returns: Simple returns.
-        ann_factor: Annualization factor.
-
-    Returns:
-        Martin ratio.
-
-    Example:
-        >>> isinstance(martin_ratio_from_returns([0.001] * 100), float)
-        True
-    """
-
 def sterling_ratio(cagr_val: float, avg_dd: float, risk_free_rate: float = 0.0) -> float:
     """Sterling ratio from pre-computed values.
 
@@ -1503,26 +1392,6 @@ def sterling_ratio(cagr_val: float, avg_dd: float, risk_free_rate: float = 0.0) 
 
     Example:
         >>> isinstance(sterling_ratio(0.1, 0.05), float)
-        True
-    """
-
-def sterling_ratio_from_returns(
-    returns: list[float],
-    ann_factor: float = 252.0,
-    risk_free_rate: float = 0.0,
-) -> float:
-    """Sterling ratio from returns.
-
-    Args:
-        returns: Simple returns.
-        ann_factor: Annualization factor.
-        risk_free_rate: Risk-free rate.
-
-    Returns:
-        Sterling ratio.
-
-    Example:
-        >>> isinstance(sterling_ratio_from_returns([0.001] * 200), float)
         True
     """
 
@@ -1555,26 +1424,6 @@ def pain_ratio(cagr_val: float, pain: float, risk_free_rate: float = 0.0) -> flo
 
     Example:
         >>> isinstance(pain_ratio(0.1, 0.05), float)
-        True
-    """
-
-def pain_ratio_from_returns(
-    returns: list[float],
-    ann_factor: float = 252.0,
-    risk_free_rate: float = 0.0,
-) -> float:
-    """Pain ratio from returns.
-
-    Args:
-        returns: Simple returns.
-        ann_factor: Annualization factor.
-        risk_free_rate: Risk-free rate.
-
-    Returns:
-        Pain ratio.
-
-    Example:
-        >>> isinstance(pain_ratio_from_returns([0.001] * 120), float)
         True
     """
 

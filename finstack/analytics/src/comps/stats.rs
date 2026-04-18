@@ -152,18 +152,6 @@ pub fn regression_fair_value(
     })
 }
 
-/// Compute the historical percentile of the current value within a
-/// time series of past observations.
-///
-/// Returns the fraction of historical values that are <= current_value.
-/// Useful for answering "is this name's spread wide or tight relative
-/// to its own history?"
-///
-/// Returns `None` if history is empty.
-pub fn historical_percentile(history: &[f64], current_value: f64) -> Option<f64> {
-    percentile_rank(history, current_value)
-}
-
 /// Interpolated percentile from a pre-sorted slice.
 ///
 /// Uses linear interpolation between adjacent ranks.

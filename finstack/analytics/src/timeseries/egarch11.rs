@@ -17,7 +17,7 @@
 //!   A New Approach." Econometrica, 59(2), 347-370.
 
 use super::forecast::VarianceForecast;
-use super::garch::{fit_garch_mle, FitConfig, GarchFit, GarchModel, GarchParams};
+use super::garch::{GarchFit, GarchModel, GarchParams};
 use super::innovations::InnovationDist;
 
 /// Exponential GARCH(1,1) model.
@@ -38,6 +38,25 @@ impl GarchModel for Egarch11 {
 
     fn param_names(&self) -> Vec<&'static str> {
         vec!["omega", "alpha", "beta", "gamma"]
+    }
+
+    fn has_gamma(&self) -> bool {
+        true
+    }
+
+    fn parameter_bounds(&self, _sample_var: f64) -> Vec<(f64, f64)> {
+        // EGARCH operates in log-variance space, so omega bounds are different
+        vec![
+            (-5.0, 5.0),       // omega (log-variance intercept)
+            (0.0, 1.0),        // alpha (magnitude effect)
+            (-0.9999, 0.9999), // beta (persistence in log-variance)
+            (-0.50, 0.50),     // gamma (leverage)
+        ]
+    }
+
+    fn is_stationary(&self, params: &[f64]) -> bool {
+        let beta = params[2];
+        beta.abs() < 0.9999
     }
 
     fn filter(&self, returns: &[f64], params: &GarchParams, sigma2_out: &mut [f64]) {
@@ -100,50 +119,6 @@ impl GarchModel for Egarch11 {
         } else {
             f64::NEG_INFINITY
         }
-    }
-
-    fn fit(
-        &self,
-        returns: &[f64],
-        dist: InnovationDist,
-        config: Option<&FitConfig>,
-    ) -> crate::Result<GarchFit> {
-        let default_config = FitConfig::default();
-        let config = config.unwrap_or(&default_config);
-
-        let sample_var = {
-            let n = returns.len() as f64;
-            let mean = returns.iter().sum::<f64>() / n;
-            returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n - 1.0)
-        };
-
-        // EGARCH operates in log-variance space, so omega bounds are different
-        let mut bounds = vec![
-            (-5.0, 5.0),       // omega (log-variance intercept)
-            (0.0, 1.0),        // alpha (magnitude effect)
-            (-0.9999, 0.9999), // beta (persistence in log-variance)
-            (-0.50, 0.50),     // gamma (leverage)
-        ];
-        if let InnovationDist::StudentT(_) = dist {
-            bounds.push((InnovationDist::dof_lower_bound(), 100.0));
-        }
-
-        let stationarity_check = |x: &[f64]| -> bool {
-            let beta = x[2];
-            beta.abs() < 0.9999
-        };
-
-        // Override the grid search with EGARCH-specific initial values
-        let _ = sample_var;
-        fit_garch_mle(
-            self,
-            returns,
-            dist,
-            config,
-            true,
-            &bounds,
-            stationarity_check,
-        )
     }
 
     fn forecast(

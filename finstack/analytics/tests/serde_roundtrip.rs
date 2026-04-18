@@ -80,7 +80,6 @@ fn test_analytics_results_and_configs_roundtrip() {
         avg_win: 0.04,
         avg_loss: -0.02,
         payoff_ratio: 2.0,
-        profit_ratio: 1.5,
         profit_factor: 1.5,
         cpc_ratio: 1.8,
         kelly_criterion: 0.3,

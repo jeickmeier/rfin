@@ -26,7 +26,7 @@ mod orchestrator;
 mod tests;
 mod types;
 
-pub use orchestrator::{compare_models, rolling_var_forecasts, run_backtest};
+pub use orchestrator::{compare_var_backtests, rolling_var_forecasts, run_backtest};
 pub use tests::{
     christoffersen_test, classify_breaches, kupiec_test, pnl_explanation, traffic_light,
 };

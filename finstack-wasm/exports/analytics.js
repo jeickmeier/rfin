@@ -37,23 +37,17 @@ export const analytics = {
   // Drawdown
   toDrawdownSeries: wasm.toDrawdownSeries,
   maxDrawdown: wasm.maxDrawdown,
-  maxDrawdownFromReturns: wasm.maxDrawdownFromReturns,
-  avgDrawdown: wasm.avgDrawdown,
-  averageDrawdown: wasm.averageDrawdown,
+  meanEpisodeDrawdown: wasm.meanEpisodeDrawdown,
+  meanDrawdown: wasm.meanDrawdown,
   cdar: wasm.cdar,
   ulcerIndex: wasm.ulcerIndex,
   painIndex: wasm.painIndex,
   calmar: wasm.calmar,
-  calmarFromReturns: wasm.calmarFromReturns,
   recoveryFactor: wasm.recoveryFactor,
-  recoveryFactorFromReturns: wasm.recoveryFactorFromReturns,
   martinRatio: wasm.martinRatio,
-  martinRatioFromReturns: wasm.martinRatioFromReturns,
   sterlingRatio: wasm.sterlingRatio,
-  sterlingRatioFromReturns: wasm.sterlingRatioFromReturns,
   burkeRatio: wasm.burkeRatio,
   painRatio: wasm.painRatio,
-  painRatioFromReturns: wasm.painRatioFromReturns,
   // Benchmark
   trackingError: wasm.trackingError,
   informationRatio: wasm.informationRatio,
@@ -64,7 +58,6 @@ export const analytics = {
   battingAverage: wasm.battingAverage,
   treynor: wasm.treynor,
   mSquared: wasm.mSquared,
-  mSquaredFromReturns: wasm.mSquaredFromReturns,
   // Consecutive
   countConsecutive: wasm.countConsecutive,
 };

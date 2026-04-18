@@ -36,72 +36,16 @@ pub enum BenchmarkAlignmentPolicy {
     ErrorOnMissingDates,
 }
 
-/// Align a benchmark return series to the target date grid via date lookup.
-///
-/// For each date in `target_dates`, binary-searches `bench_dates` for an
-/// exact match and returns the corresponding benchmark return. Dates present
-/// in `target_dates` but absent from `bench_dates` are filled with `0.0`.
-///
-/// The zero-fill is correct because this function operates in **return
-/// space**: a missing date means no trading occurred for the benchmark on
-/// that day, so the return is 0.0 (no change in value). For price/index
-/// data, use fill-forward instead before converting to returns.
-///
-/// # Arguments
-///
-/// * `bench_returns` - Benchmark return series. Length is truncated to
-///   `min(bench_returns.len(), bench_dates.len())`.
-/// * `bench_dates` - Sorted slice of dates for the benchmark series.
-///   **Must be sorted ascending** — binary search is used.
-/// * `target_dates` - The date grid to align to.
-///
-/// # Returns
-///
-/// A `Vec<f64>` of length `target_dates.len()` with aligned benchmark returns.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::benchmark::align_benchmark;
-/// use finstack_core::dates::{Date, Month};
-///
-/// let bd = vec![
-///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     Date::from_calendar_date(2025, Month::January, 2).unwrap(),
-///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
-/// ];
-/// let br = vec![0.01, 0.02, 0.03];
-/// let td = vec![
-///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
-///     Date::from_calendar_date(2025, Month::January, 5).unwrap(), // missing → 0.0
-/// ];
-/// let aligned = align_benchmark(&br, &bd, &td);
-/// assert_eq!(aligned, vec![0.01, 0.03, 0.0]);
-/// ```
-pub fn align_benchmark(
-    bench_returns: &[f64],
-    bench_dates: &[Date],
-    target_dates: &[Date],
-) -> Vec<f64> {
-    align_benchmark_with_policy(
-        bench_returns,
-        bench_dates,
-        target_dates,
-        BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
-    )
-    .unwrap_or_else(|_| vec![0.0; target_dates.len()])
-}
-
 /// Align a benchmark return series to the target date grid using an explicit policy.
 ///
-/// This is the fallible variant of [`align_benchmark`]. It performs the same
-/// exact-date lookup, but lets the caller decide whether missing benchmark
-/// dates should be synthesized as `0.0` returns or rejected as invalid input.
+/// For each date in `target_dates`, binary-searches `bench_dates` for an exact
+/// match and returns the corresponding benchmark return. The `policy` argument
+/// controls behavior for target dates absent from the benchmark grid.
 ///
-/// The function operates in return space, not price space: `0.0` means "no
-/// return observed on that target date", not "price unchanged after fill-forward
-/// interpolation".
+/// The function operates in return space, not price space: a zero-fill means
+/// "no return observed on that target date", not "price unchanged after
+/// fill-forward interpolation". For price/index data, use fill-forward before
+/// converting to returns.
 ///
 /// # Arguments
 ///
@@ -110,7 +54,10 @@ pub fn align_benchmark(
 /// * `bench_dates` - Sorted benchmark dates corresponding to `bench_returns`.
 ///   Dates must be strictly ascending for binary search to behave correctly.
 /// * `target_dates` - Sorted target date grid to align onto.
-/// * `policy` - Behavior when a target date is absent from the benchmark grid.
+/// * `policy` - Behavior when a target date is absent from the benchmark grid:
+///   [`BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates`] fills missing
+///   dates with `0.0`; [`BenchmarkAlignmentPolicy::ErrorOnMissingDates`]
+///   rejects the request.
 ///
 /// # Returns
 ///
@@ -126,30 +73,29 @@ pub fn align_benchmark(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::benchmark::{
-///     align_benchmark_with_policy, BenchmarkAlignmentPolicy,
-/// };
+/// use finstack_analytics::benchmark::{align_benchmark, BenchmarkAlignmentPolicy};
 /// use finstack_core::dates::{Date, Month};
 ///
-/// let bench_dates = vec![
-///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
-/// ];
-/// let bench_returns = vec![0.01, 0.03];
-/// let target_dates = vec![
+/// let bd = vec![
 ///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
 ///     Date::from_calendar_date(2025, Month::January, 2).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
 /// ];
-///
-/// let err = align_benchmark_with_policy(
-///     &bench_returns,
-///     &bench_dates,
-///     &target_dates,
-///     BenchmarkAlignmentPolicy::ErrorOnMissingDates,
-/// );
-/// assert!(err.is_err());
+/// let br = vec![0.01, 0.02, 0.03];
+/// let td = vec![
+///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 5).unwrap(), // missing → 0.0
+/// ];
+/// let aligned = align_benchmark(
+///     &br,
+///     &bd,
+///     &td,
+///     BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
+/// ).unwrap();
+/// assert_eq!(aligned, vec![0.01, 0.03, 0.0]);
 /// ```
-pub fn align_benchmark_with_policy(
+pub fn align_benchmark(
     bench_returns: &[f64],
     bench_dates: &[Date],
     target_dates: &[Date],
@@ -428,17 +374,17 @@ fn beta_ci_critical_value(sample_size: usize) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::benchmark::calc_beta;
+/// use finstack_analytics::benchmark::beta;
 ///
 /// // Portfolio returns are approximately 2× the benchmark with noise.
 /// let port  = [0.020, 0.042, 0.058, 0.081, 0.099];
 /// let bench = [0.010, 0.020, 0.030, 0.040, 0.050];
-/// let result = calc_beta(&port, &bench);
+/// let result = beta(&port, &bench);
 /// assert!((result.beta - 2.0).abs() < 0.1);
 /// assert!(result.ci_lower <= result.ci_upper);
 /// assert!(result.std_err.is_finite());
 /// ```
-pub fn calc_beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
+pub fn beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
     let n = portfolio.len().min(benchmark.len());
     if n < 3 {
         return BetaResult {
@@ -498,7 +444,7 @@ pub struct GreeksResult {
 /// Runs a simple OLS regression `r_portfolio = α + β × r_benchmark` and
 /// returns the annualized alpha, beta, and R² from that fit.
 ///
-/// Unlike [`calc_beta`], this function does not compute standard errors
+/// Unlike [`beta`], this function does not compute standard errors
 /// and is lighter-weight for scenarios where the point estimates are
 /// sufficient (e.g., rolling window computations).
 ///
@@ -1117,18 +1063,18 @@ mod tests {
     }
 
     #[test]
-    fn calc_beta_basic() {
+    fn beta_basic() {
         let y = [0.02, 0.04, 0.06, 0.08, 0.10];
         let x = [0.01, 0.02, 0.03, 0.04, 0.05];
-        let result = calc_beta(&y, &x);
+        let result = beta(&y, &x);
         assert!((result.beta - 2.0).abs() < 1e-10);
     }
 
     #[test]
-    fn calc_beta_uses_t_critical_value_for_small_samples() {
+    fn beta_uses_t_critical_value_for_small_samples() {
         let y = [0.020, 0.041, 0.059, 0.082, 0.099];
         let x = [0.010, 0.020, 0.030, 0.040, 0.050];
-        let result = calc_beta(&y, &x);
+        let result = beta(&y, &x);
         let expected_t_critical_df3 = 3.182_446_305_284_263_f64;
         let expected_half_width = expected_t_critical_df3 * result.std_err;
         let actual_half_width = result.ci_upper - result.beta;
@@ -1228,7 +1174,13 @@ mod tests {
         let bd = vec![jan(1), jan(2), jan(3)];
         let br = vec![0.01, 0.02, 0.03];
         let td = vec![jan(1), jan(3), jan(5)];
-        let aligned = align_benchmark(&br, &bd, &td);
+        let aligned = align_benchmark(
+            &br,
+            &bd,
+            &td,
+            BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
+        )
+        .expect("zero-return policy is infallible");
         assert_eq!(aligned, vec![0.01, 0.03, 0.0]);
     }
 
@@ -1494,64 +1446,6 @@ pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: 
     risk_free_rate + (ann_return - risk_free_rate) * (bench_vol / ann_vol)
 }
 
-/// M-squared computed directly from portfolio and benchmark return series.
-///
-/// This convenience wrapper annualizes the portfolio arithmetic mean return,
-/// portfolio volatility, and benchmark volatility from the supplied return
-/// series, then delegates to [`m_squared`].
-///
-/// # Arguments
-///
-/// * `portfolio` - Portfolio simple-return series in decimal form.
-/// * `benchmark` - Benchmark simple-return series in decimal form.
-/// * `ann_factor` - Number of periods per year used for annualization.
-/// * `risk_free_rate` - Annualized risk-free rate in decimal form.
-///
-/// # Returns
-///
-/// The M-squared return on the benchmark-volatility scale. Returns the
-/// risk-free rate if the annualized portfolio volatility is zero. Propagates
-/// `NaN` from the underlying annualized return or volatility calculations when
-/// `ann_factor` is invalid.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::benchmark::{m_squared, m_squared_from_returns};
-/// use finstack_analytics::risk_metrics::{mean_return, volatility};
-///
-/// let portfolio = [0.01, -0.015, 0.012, 0.008, -0.004, 0.009];
-/// let benchmark = [0.008, -0.01, 0.01, 0.006, -0.003, 0.007];
-/// let ann_factor = 252.0;
-/// let risk_free_rate = 0.01;
-///
-/// let direct = m_squared_from_returns(&portfolio, &benchmark, ann_factor, risk_free_rate);
-/// let expected = m_squared(
-///     mean_return(&portfolio, true, ann_factor),
-///     volatility(&portfolio, true, ann_factor),
-///     volatility(&benchmark, true, ann_factor),
-///     risk_free_rate,
-/// );
-///
-/// assert!((direct - expected).abs() < 1e-12);
-/// ```
-///
-/// # References
-///
-/// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
-#[must_use]
-pub fn m_squared_from_returns(
-    portfolio: &[f64],
-    benchmark: &[f64],
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> f64 {
-    let ann_return = crate::risk_metrics::mean_return(portfolio, true, ann_factor);
-    let ann_vol = crate::risk_metrics::volatility(portfolio, true, ann_factor);
-    let bench_vol = crate::risk_metrics::volatility(benchmark, true, ann_factor);
-    m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
-}
-
 #[cfg(test)]
 mod benchmark_ratio_tests {
     use super::*;
@@ -1584,18 +1478,5 @@ mod benchmark_ratio_tests {
     #[test]
     fn m_squared_zero_vol() {
         assert_eq!(m_squared(0.10, 0.0, 0.15, 0.02), 0.02);
-    }
-
-    #[test]
-    fn m_squared_from_returns_matches_composed_formula() {
-        let portfolio = [0.01, -0.015, 0.012, 0.008, -0.004, 0.009];
-        let benchmark = [0.008, -0.01, 0.01, 0.006, -0.003, 0.007];
-        let ann = 252.0;
-        let ann_ret = crate::risk_metrics::mean_return(&portfolio, true, ann);
-        let ann_vol = crate::risk_metrics::volatility(&portfolio, true, ann);
-        let bench_vol = crate::risk_metrics::volatility(&benchmark, true, ann);
-        let expected = m_squared(ann_ret, ann_vol, bench_vol, 0.01);
-        let actual = m_squared_from_returns(&portfolio, &benchmark, ann, 0.01);
-        assert!((actual - expected).abs() < 1e-12);
     }
 }

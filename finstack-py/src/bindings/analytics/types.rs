@@ -63,11 +63,6 @@ impl PyPeriodStats {
     fn payoff_ratio(&self) -> f64 {
         self.inner.payoff_ratio
     }
-    /// Profit ratio (sum wins / |sum losses|).
-    #[getter]
-    fn profit_ratio(&self) -> f64 {
-        self.inner.profit_ratio
-    }
     /// Profit factor (gross profits / gross losses).
     #[getter]
     fn profit_factor(&self) -> f64 {

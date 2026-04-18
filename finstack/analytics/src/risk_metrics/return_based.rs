@@ -18,11 +18,12 @@ fn invalid_annualization_factor(annualize: bool, ann_factor: f64) -> bool {
 }
 
 /// Day-count convention for CAGR annualization over explicit calendar dates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum AnnualizationConvention {
     /// Actual calendar days divided by 365.0.
     Act365Fixed,
-    /// Actual calendar days divided by 365.25.
+    /// Actual calendar days divided by 365.25 (default).
+    #[default]
     Act365_25,
     /// Actual/Actual using the actual number of days in each calendar year.
     ActAct,
@@ -36,14 +37,17 @@ pub enum AnnualizationConvention {
 /// CAGR = (Π(1 + r_i))^(1/years) - 1
 /// ```
 ///
-/// where `years = (end - start).days / 365.25` using the default
-/// `AnnualizationConvention::Act365_25`.
+/// where `years` depends on `convention` (see [`AnnualizationConvention`]).
+/// Pass `AnnualizationConvention::default()` (= `Act365_25`) for the most
+/// common default, or an explicit variant when a different day-count is
+/// required.
 ///
 /// # Arguments
 ///
-/// * `returns` - Slice of simple period returns.
-/// * `start`   - Start date of the series (inclusive).
-/// * `end`     - End date of the series (inclusive).
+/// * `returns`    - Slice of simple period returns.
+/// * `start`      - Start date of the series (inclusive).
+/// * `end`        - End date of the series (inclusive).
+/// * `convention` - How calendar span maps to year fraction for the exponent.
 ///
 /// # Returns
 ///
@@ -53,51 +57,17 @@ pub enum AnnualizationConvention {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::risk_metrics::cagr;
+/// use finstack_analytics::risk_metrics::{cagr, AnnualizationConvention};
 /// use finstack_core::dates::{Date, Month};
 ///
 /// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
 /// let end   = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 /// // Single 10% return over one year → CAGR ≈ 10%.
-/// let c = cagr(&[0.10], start, end);
+/// let c = cagr(&[0.10], start, end, AnnualizationConvention::default());
 /// assert!((c - 0.10).abs() < 0.01);
 /// ```
 #[must_use]
-pub fn cagr(returns: &[f64], start: crate::dates::Date, end: crate::dates::Date) -> f64 {
-    cagr_with_convention(returns, start, end, AnnualizationConvention::Act365_25)
-}
-
-/// Compound annual growth rate from a return series over a date range using an explicit convention.
-///
-/// Same compounding formula as [`cagr`], but `years` in the annualization denominator
-/// follows `convention` (see [`AnnualizationConvention`]) instead of the default
-/// `Act365_25` used by [`cagr`].
-///
-/// # Arguments
-///
-/// * `returns` - Slice of simple period returns.
-/// * `start`   - Start date of the series (inclusive).
-/// * `end`     - End date of the series (inclusive).
-/// * `convention` - How calendar span maps to year fraction for the exponent.
-///
-/// # Returns
-///
-/// Annualized growth rate as a decimal. Returns `0.0` if `returns` is empty or if the
-/// implied year fraction is zero or negative.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::risk_metrics::return_based::{cagr_with_convention, AnnualizationConvention};
-/// use finstack_core::dates::{Date, Month};
-///
-/// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-/// let end   = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let c = cagr_with_convention(&[0.10], start, end, AnnualizationConvention::Act365Fixed);
-/// assert!((c - 0.10).abs() < 0.01);
-/// ```
-#[must_use]
-pub fn cagr_with_convention(
+pub fn cagr(
     returns: &[f64],
     start: crate::dates::Date,
     end: crate::dates::Date,
@@ -895,14 +865,19 @@ mod tests {
     #[test]
     fn cagr_basic() {
         let r = [0.10];
-        let c = cagr(&r, jan1(2024), jan1(2025));
+        let c = cagr(
+            &r,
+            jan1(2024),
+            jan1(2025),
+            AnnualizationConvention::default(),
+        );
         assert!((c - 0.10).abs() < 0.01);
     }
 
     #[test]
     fn cagr_with_act_365_fixed() {
         let r = [0.10];
-        let c = cagr_with_convention(
+        let c = cagr(
             &r,
             jan1(2024),
             jan1(2025),
@@ -912,10 +887,15 @@ mod tests {
     }
 
     #[test]
-    fn cagr_defaults_to_365_25_for_leap_year_spans() {
+    fn cagr_default_convention_is_act_365_25() {
         let r = [0.10];
-        let c_default = cagr(&r, jan1(2024), jan1(2025));
-        let c_fixed = cagr_with_convention(
+        let c_default = cagr(
+            &r,
+            jan1(2024),
+            jan1(2025),
+            AnnualizationConvention::default(),
+        );
+        let c_fixed = cagr(
             &r,
             jan1(2024),
             jan1(2025),
@@ -928,7 +908,7 @@ mod tests {
     #[test]
     fn cagr_act_act_matches_full_leap_year() {
         let r = [0.10];
-        let c = cagr_with_convention(&r, jan1(2024), jan1(2025), AnnualizationConvention::ActAct);
+        let c = cagr(&r, jan1(2024), jan1(2025), AnnualizationConvention::ActAct);
         assert!((c - 0.10).abs() < 1.0e-12);
     }
 

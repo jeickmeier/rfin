@@ -255,23 +255,17 @@ export interface AnalyticsNamespace {
   // Drawdown
   toDrawdownSeries(returns: number[]): number[];
   maxDrawdown(drawdownSeries: number[]): number;
-  maxDrawdownFromReturns(returns: number[]): number;
-  avgDrawdown(drawdownSeries: number[], count: number): number;
-  averageDrawdown(drawdownSeries: number[]): number;
+  meanEpisodeDrawdown(drawdownSeries: number[], count: number): number;
+  meanDrawdown(drawdownSeries: number[]): number;
   cdar(drawdownSeries: number[], confidence: number): number;
   ulcerIndex(drawdownSeries: number[]): number;
   painIndex(drawdownSeries: number[]): number;
   calmar(cagr: number, maxDd: number): number;
-  calmarFromReturns(returns: number[], periodsPerYear: number): number;
   recoveryFactor(totalReturn: number, maxDd: number): number;
-  recoveryFactorFromReturns(returns: number[]): number;
   martinRatio(annReturn: number, ulcerIdx: number, riskFreeRate: number): number;
-  martinRatioFromReturns(returns: number[], periodsPerYear: number, riskFreeRate: number): number;
   sterlingRatio(annReturn: number, avgDd: number, riskFreeRate: number): number;
-  sterlingRatioFromReturns(returns: number[], periodsPerYear: number, riskFreeRate: number, numDrawdowns: number): number;
   burkeRatio(annReturn: number, drawdownSeries: number[], riskFreeRate: number): number;
   painRatio(annReturn: number, painIdx: number, riskFreeRate: number): number;
-  painRatioFromReturns(returns: number[], periodsPerYear: number, riskFreeRate: number): number;
   // Benchmark
   trackingError(returns: number[], benchmark: number[], periodsPerYear: number): number;
   informationRatio(annReturn: number, benchAnnReturn: number, te: number): number;
@@ -282,7 +276,6 @@ export interface AnalyticsNamespace {
   battingAverage(returns: number[], benchmark: number[]): number;
   treynor(annReturn: number, riskFreeRate: number, beta: number): number;
   mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
-  mSquaredFromReturns(returns: number[], benchmark: number[], periodsPerYear: number, riskFreeRate: number): number;
   // Consecutive
   countConsecutive(returns: number[]): number[];
 }

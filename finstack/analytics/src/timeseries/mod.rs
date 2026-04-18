@@ -56,7 +56,7 @@ pub use innovations::InnovationDist;
 ///
 /// # Returns
 /// Vector of `GarchFit` sorted by BIC ascending.
-pub fn compare_models(
+pub fn compare_garch_models(
     returns: &[f64],
     dist: InnovationDist,
     config: Option<&FitConfig>,
@@ -89,13 +89,13 @@ pub fn compare_models(
 
 /// Fit the best GARCH model by BIC from the standard set.
 ///
-/// Equivalent to `compare_models(...)?[0]` but returns just the best fit.
+/// Equivalent to `compare_garch_models(...)?[0]` but returns just the best fit.
 pub fn auto_garch(
     returns: &[f64],
     dist: InnovationDist,
     config: Option<&FitConfig>,
 ) -> crate::Result<GarchFit> {
-    let results = compare_models(returns, dist, config)?;
+    let results = compare_garch_models(returns, dist, config)?;
     // results is sorted by BIC ascending, first is best
     Ok(results.into_iter().next().unwrap_or_else(|| unreachable!()))
 }
@@ -208,11 +208,11 @@ mod tests {
     }
 
     #[test]
-    fn compare_models_returns_sorted_by_bic() {
+    fn compare_garch_models_returns_sorted_by_bic() {
         let returns = generate_garch_data(0.00001, 0.08, 0.88, 1000, 99);
 
-        let results = compare_models(&returns, InnovationDist::Gaussian, None)
-            .expect("compare_models should succeed");
+        let results = compare_garch_models(&returns, InnovationDist::Gaussian, None)
+            .expect("compare_garch_models should succeed");
 
         assert!(!results.is_empty());
 
@@ -232,7 +232,7 @@ mod tests {
             .expect("auto_garch should succeed");
 
         // The best model should have the lowest BIC
-        let all = compare_models(&returns, InnovationDist::Gaussian, None).unwrap();
+        let all = compare_garch_models(&returns, InnovationDist::Gaussian, None).unwrap();
         assert!(
             (best.bic - all[0].bic).abs() < 1e-10,
             "auto_garch should return the model with lowest BIC"
