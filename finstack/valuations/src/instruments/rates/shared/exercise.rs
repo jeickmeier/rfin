@@ -9,6 +9,10 @@ use finstack_monte_carlo::traits::Payoff;
 ///
 /// The harness handles path simulation, discounting, and backward regression;
 /// each product implements the three product-specific hooks below.
+///
+/// Implementors must also satisfy [`Payoff`]'s `Send + Sync + Clone` bounds
+/// (required because the harness clones payoffs per-path and may simulate
+/// paths across threads).
 pub trait ExerciseBoundaryPayoff: Payoff {
     /// The intrinsic value (i.e., "what the issuer receives on call") at the
     /// specified exercise-date index, evaluated along a single path whose
@@ -19,12 +23,19 @@ pub trait ExerciseBoundaryPayoff: Payoff {
     fn intrinsic_at(&self, exercise_idx: usize, short_rate: f64, currency: Currency) -> Money;
 
     /// Regression basis used for continuation-value estimation at the
-    /// specified exercise date. Standard basis is `[1, r, r², t·r]`.
+    /// specified exercise date. A canonical implementation returns
+    /// [`standard_basis`]`(t_years, short_rate)` (`[1, r, r², t·r]`).
     /// Longer basis improves accuracy but adds variance.
     fn continuation_basis(&self, exercise_idx: usize, t_years: f64, short_rate: f64) -> Vec<f64>;
 
     /// Whether the path has reached a state where exercise is not allowed
-    /// (e.g., knocked out). When `true`, the path is excluded from regression.
+    /// (e.g., knocked out). When `true`, the path is excluded from the
+    /// continuation-value regression.
+    ///
+    /// The harness calls this at each exercise date after `Payoff::on_event`
+    /// has processed any events on that date. Products that track knockout
+    /// state internally (e.g., via path-dependent flags updated inside
+    /// `Payoff::on_event`) should return the current path's status from here.
     fn is_path_inactive(&self) -> bool {
         false
     }
@@ -52,13 +63,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn standard_basis_dimension() {
-        assert_eq!(standard_basis(0.5, 0.03).len(), 4);
+    fn standard_basis_values() {
+        let b = standard_basis(0.5, 0.03);
+        assert_eq!(b, vec![1.0, 0.03, 0.03 * 0.03, 0.5 * 0.03]);
     }
 
     #[test]
-    fn extended_basis_dimension() {
-        assert_eq!(extended_basis(0.5, 0.03).len(), 6);
+    fn extended_basis_values() {
+        let b = extended_basis(0.5, 0.03);
+        let r = 0.03_f64;
+        let t = 0.5_f64;
+        assert_eq!(b, vec![1.0, r, r * r, r * r * r, t * r, t * r * r]);
     }
 
     #[test]
