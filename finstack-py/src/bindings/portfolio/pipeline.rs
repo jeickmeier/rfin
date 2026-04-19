@@ -68,6 +68,30 @@ fn aggregate_cashflows(spec_json: &str, market: &Bound<'_, PyAny>) -> PyResult<S
     serde_json::to_string(&cashflows).map_err(display_to_py)
 }
 
+/// Aggregate the full classified cashflow ladder for a portfolio.
+///
+/// Parameters
+/// ----------
+/// spec_json : str
+///     JSON-serialized ``PortfolioSpec``.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
+///
+/// Returns
+/// -------
+/// str
+///     JSON-serialized ``PortfolioFullCashflows`` ladder.
+#[pyfunction]
+fn aggregate_full_cashflows(spec_json: &str, market: &Bound<'_, PyAny>) -> PyResult<String> {
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
+        serde_json::from_str(spec_json).map_err(display_to_py)?;
+    let market = extract_market(market)?;
+    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
+    let cashflows = finstack_portfolio::cashflows::aggregate_full_cashflows(&portfolio, &market)
+        .map_err(display_to_py)?;
+    serde_json::to_string(&cashflows).map_err(display_to_py)
+}
+
 /// Apply a scenario to a portfolio and revalue it.
 ///
 /// Parameters
@@ -108,6 +132,7 @@ fn apply_scenario_and_revalue(
 /// Register pipeline functions on the portfolio submodule.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(value_portfolio, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(aggregate_full_cashflows, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(aggregate_cashflows, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(apply_scenario_and_revalue, m)?)?;
     Ok(())

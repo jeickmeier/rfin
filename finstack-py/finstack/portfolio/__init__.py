@@ -13,6 +13,7 @@ portfolio_result_total_value = _portfolio.portfolio_result_total_value
 portfolio_result_get_metric = _portfolio.portfolio_result_get_metric
 aggregate_metrics = _portfolio.aggregate_metrics
 value_portfolio = _portfolio.value_portfolio
+aggregate_full_cashflows = _portfolio.aggregate_full_cashflows
 aggregate_cashflows = _portfolio.aggregate_cashflows
 apply_scenario_and_revalue = _portfolio.apply_scenario_and_revalue
 optimize_portfolio = _portfolio.optimize_portfolio
@@ -31,6 +32,7 @@ kyle_lambda = _portfolio.kyle_lambda
 
 __all__: list[str] = [
     "aggregate_cashflows",
+    "aggregate_full_cashflows",
     "aggregate_metrics",
     "almgren_chriss_impact",
     "amihud_illiquidity",

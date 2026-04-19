@@ -111,6 +111,19 @@ pub fn aggregate_cashflows(spec_json: &str, market_json: &str) -> Result<String,
     serde_json::to_string(&cashflows).map_err(to_js_err)
 }
 
+/// Aggregate the full classified cashflow ladder for a portfolio.
+#[wasm_bindgen(js_name = aggregateFullCashflows)]
+pub fn aggregate_full_cashflows(spec_json: &str, market_json: &str) -> Result<String, JsValue> {
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
+        serde_json::from_str(spec_json).map_err(to_js_err)?;
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
+    let cashflows = finstack_portfolio::cashflows::aggregate_full_cashflows(&portfolio, &market)
+        .map_err(to_js_err)?;
+    serde_json::to_string(&cashflows).map_err(to_js_err)
+}
+
 /// Apply a scenario to a portfolio and revalue.
 ///
 /// Returns a JSON object with `valuation` and `report` string keys.
@@ -266,6 +279,20 @@ mod tests {
         let result = aggregate_cashflows(&spec, &market).expect("aggregate");
         let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
         assert!(parsed.is_object() || parsed.is_array());
+    }
+
+    #[test]
+    fn aggregate_full_cashflows_empty_portfolio() {
+        let spec = minimal_portfolio_spec_json();
+        let market = empty_market_json();
+        let result = aggregate_full_cashflows(&spec, &market).expect("aggregate full");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+
+        assert_eq!(parsed["events"], serde_json::json!([]));
+        assert_eq!(parsed["by_position"], serde_json::json!({}));
+        assert_eq!(parsed["by_date"], serde_json::json!({}));
+        assert_eq!(parsed["position_summaries"], serde_json::json!({}));
+        assert_eq!(parsed["issues"], serde_json::json!([]));
     }
 
     #[test]

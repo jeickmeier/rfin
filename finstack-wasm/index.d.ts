@@ -807,6 +807,7 @@ export interface PortfolioNamespace {
     marketJson: string,
     strictRisk: boolean
   ): string;
+  aggregateFullCashflows(specJson: string, marketJson: string): string;
   aggregateCashflows(specJson: string, marketJson: string): string;
   applyScenarioAndRevalue(
     specJson: string,
