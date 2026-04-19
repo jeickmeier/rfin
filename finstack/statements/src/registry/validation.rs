@@ -1,6 +1,6 @@
 //! Validation for metric definitions.
 
-use crate::dsl::parse_formula;
+use crate::dsl::parse_and_compile;
 use crate::error::{Error, Result};
 use crate::registry::schema::MetricDefinition;
 
@@ -13,7 +13,7 @@ use crate::registry::schema::MetricDefinition;
 /// # Validation Rules
 /// - ID must be non-empty and contain only `[a-zA-Z0-9_-]`
 /// - Name must be non-empty
-/// - Formula must be non-empty and parseable
+/// - Formula must be non-empty, parseable, and compilable
 ///
 /// Returns `Ok(())` when the definition passes all checks.
 pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) -> Result<()> {
@@ -53,8 +53,8 @@ pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) ->
         )));
     }
 
-    // Validate formula syntax by parsing it
-    parse_formula(&metric.formula).map_err(|e| {
+    // Validate formula syntax and compilation in one pass.
+    parse_and_compile(&metric.formula).map_err(|e| {
         Error::registry(format!(
             "Invalid formula for metric '{}.{}': {}",
             namespace, metric.id, e
@@ -111,6 +111,12 @@ mod tests {
     #[test]
     fn test_invalid_formula_error() {
         let metric = create_metric("test", "Test", "a + + b");
+        assert!(validate_metric_definition(&metric, "fin").is_err());
+    }
+
+    #[test]
+    fn test_compile_time_formula_error() {
+        let metric = create_metric("test", "Test", "sum()");
         assert!(validate_metric_definition(&metric, "fin").is_err());
     }
 

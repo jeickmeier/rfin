@@ -1,6 +1,5 @@
 //! Dynamic metric registry implementation.
 
-use crate::dsl::{compile, parse_formula};
 use crate::error::{Error, Result};
 use crate::registry::schema::{MetricDefinition, MetricRegistry};
 use crate::registry::validation::validate_metric_definition;
@@ -149,10 +148,6 @@ impl Registry {
                     qualified_id
                 )));
             }
-
-            // Parse and compile formula
-            let ast = parse_formula(&metric.formula)?;
-            compile(&ast)?;
 
             // Store metric
             self.metrics.insert(
