@@ -331,7 +331,7 @@ pub use taylor::{
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
 // Market snapshot helpers
 pub use factors::{
-    restore_scalars, CurveRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
+    CurveRestoreFlags, MarketRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
 };
 pub use helpers::{compute_pnl, compute_pnl_with_fx, convert_currency, reprice_instrument};
 

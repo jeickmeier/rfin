@@ -319,9 +319,10 @@ pub fn attribute_pnl_parallel(
     //
     // For single-currency instruments in their native reporting currency, this step
     // produces zero P&L as expected.
-    let fx_t0 = extract_fx(market_t0);
-    if fx_t0.is_some() {
-        let market_with_t0_fx = restore_fx(market_t1, fx_t0.clone());
+    let fx_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::FX);
+    if fx_snapshot.fx.is_some() {
+        let market_with_t0_fx =
+            MarketSnapshot::restore_market(market_t1, &fx_snapshot, CurveRestoreFlags::FX);
         let fx_reprice = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
         val_with_t0_fx = Some(fx_reprice);
@@ -347,9 +348,10 @@ pub fn attribute_pnl_parallel(
     }
 
     // Step 8: Volatility attribution
-    let vol_snapshot = VolatilitySnapshot::extract(market_t0);
+    let vol_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::VOL);
     if !vol_snapshot.surfaces.is_empty() {
-        let market_with_t0_vol = restore_volatility(market_t1, &vol_snapshot);
+        let market_with_t0_vol =
+            MarketSnapshot::restore_market(market_t1, &vol_snapshot, CurveRestoreFlags::VOL);
         let vol_reprice = reprice_instrument(instrument, &market_with_t0_vol, as_of_t1)?;
         num_repricings += 1;
         val_with_t0_vol = Some(vol_reprice);
@@ -397,14 +399,18 @@ pub fn attribute_pnl_parallel(
     }
 
     // Step 10: Market scalars attribution
-    let scalars_snapshot = ScalarsSnapshot::extract(market_t0);
+    let scalars_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::SCALARS);
     let has_scalars = !scalars_snapshot.prices.is_empty()
         || !scalars_snapshot.series.is_empty()
         || !scalars_snapshot.inflation_indices.is_empty()
         || !scalars_snapshot.dividends.is_empty();
 
     if has_scalars {
-        let market_with_t0_scalars = restore_scalars(market_t1, &scalars_snapshot);
+        let market_with_t0_scalars = MarketSnapshot::restore_market(
+            market_t1,
+            &scalars_snapshot,
+            CurveRestoreFlags::SCALARS,
+        );
         let scalars_reprice = reprice_instrument(instrument, &market_with_t0_scalars, as_of_t1)?;
         num_repricings += 1;
         val_with_t0_scalars = Some(scalars_reprice);
@@ -445,7 +451,11 @@ pub fn attribute_pnl_parallel(
     }
 
     if let Some(vol_reprice) = val_with_t0_vol {
-        let market_with_t0_rates_vol = restore_volatility(&market_with_t0_rates, &vol_snapshot);
+        let market_with_t0_rates_vol = MarketSnapshot::restore_market(
+            &market_with_t0_rates,
+            &vol_snapshot,
+            CurveRestoreFlags::VOL,
+        );
         let val_with_t0_rates_vol =
             reprice_instrument(instrument, &market_with_t0_rates_vol, as_of_t1)?;
         num_repricings += 1;
@@ -463,9 +473,19 @@ pub fn attribute_pnl_parallel(
     }
 
     if let (Some(scalars_reprice), Some(vol_reprice)) = (val_with_t0_scalars, val_with_t0_vol) {
-        let market_with_t0_spot_vol = restore_volatility(
-            &restore_scalars(market_t1, &scalars_snapshot),
-            &vol_snapshot,
+        // Combine SCALARS + VOL into a single restore_market call.
+        let spot_vol_snapshot = MarketSnapshot {
+            surfaces: vol_snapshot.surfaces.clone(),
+            prices: scalars_snapshot.prices.clone(),
+            series: scalars_snapshot.series.clone(),
+            inflation_indices: scalars_snapshot.inflation_indices.clone(),
+            dividends: scalars_snapshot.dividends.clone(),
+            ..MarketSnapshot::default()
+        };
+        let market_with_t0_spot_vol = MarketSnapshot::restore_market(
+            market_t1,
+            &spot_vol_snapshot,
+            CurveRestoreFlags::SCALARS | CurveRestoreFlags::VOL,
         );
         let val_with_t0_spot_vol =
             reprice_instrument(instrument, &market_with_t0_spot_vol, as_of_t1)?;
@@ -481,9 +501,19 @@ pub fn attribute_pnl_parallel(
 
     if let (Some(scalars_reprice), Some(credit_reprice)) = (val_with_t0_scalars, val_with_t0_credit)
     {
-        let market_with_t0_spot_credit = restore_scalars(
-            &MarketSnapshot::restore_market(market_t1, &credit_snapshot, CurveRestoreFlags::CREDIT),
-            &scalars_snapshot,
+        // Combine CREDIT + SCALARS into a single restore_market call.
+        let credit_spot_snapshot = MarketSnapshot {
+            hazard_curves: credit_snapshot.hazard_curves.clone(),
+            prices: scalars_snapshot.prices.clone(),
+            series: scalars_snapshot.series.clone(),
+            inflation_indices: scalars_snapshot.inflation_indices.clone(),
+            dividends: scalars_snapshot.dividends.clone(),
+            ..MarketSnapshot::default()
+        };
+        let market_with_t0_spot_credit = MarketSnapshot::restore_market(
+            market_t1,
+            &credit_spot_snapshot,
+            CurveRestoreFlags::CREDIT | CurveRestoreFlags::SCALARS,
         );
         let val_with_t0_spot_credit =
             reprice_instrument(instrument, &market_with_t0_spot_credit, as_of_t1)?;
@@ -502,8 +532,17 @@ pub fn attribute_pnl_parallel(
     }
 
     if let (Some(fx_reprice), Some(vol_reprice)) = (val_with_t0_fx, val_with_t0_vol) {
-        let market_with_t0_fx_vol =
-            restore_volatility(&restore_fx(market_t1, fx_t0.clone()), &vol_snapshot);
+        // Combine FX + VOL into a single restore_market call.
+        let fx_vol_snapshot = MarketSnapshot {
+            fx: fx_snapshot.fx.clone(),
+            surfaces: vol_snapshot.surfaces.clone(),
+            ..MarketSnapshot::default()
+        };
+        let market_with_t0_fx_vol = MarketSnapshot::restore_market(
+            market_t1,
+            &fx_vol_snapshot,
+            CurveRestoreFlags::FX | CurveRestoreFlags::VOL,
+        );
         let val_with_t0_fx_vol = reprice_instrument(instrument, &market_with_t0_fx_vol, as_of_t1)?;
         num_repricings += 1;
 
@@ -515,10 +554,17 @@ pub fn attribute_pnl_parallel(
     }
 
     if let Some(fx_reprice) = val_with_t0_fx {
+        // Combine RATES + FX into a single restore_market call.
+        let fx_rates_snapshot = MarketSnapshot {
+            discount_curves: rates_snapshot.discount_curves.clone(),
+            forward_curves: rates_snapshot.forward_curves.clone(),
+            fx: fx_snapshot.fx.clone(),
+            ..MarketSnapshot::default()
+        };
         let market_with_t0_fx_rates = MarketSnapshot::restore_market(
-            &restore_fx(market_t1, fx_t0),
-            &rates_snapshot,
-            CurveRestoreFlags::RATES,
+            market_t1,
+            &fx_rates_snapshot,
+            CurveRestoreFlags::RATES | CurveRestoreFlags::FX,
         );
         let val_with_t0_fx_rates =
             reprice_instrument(instrument, &market_with_t0_fx_rates, as_of_t1)?;

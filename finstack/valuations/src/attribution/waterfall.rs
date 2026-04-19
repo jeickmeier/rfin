@@ -408,16 +408,29 @@ impl<'a> WaterfallContext<'a> {
                 ))
             }
             AttributionFactor::Fx => {
-                let fx_t1 = extract_fx(self.market_t1);
-                Ok(restore_fx(&self.current_market, fx_t1))
+                let fx_t1 = MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::FX);
+                Ok(MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &fx_t1,
+                    CurveRestoreFlags::FX,
+                ))
             }
             AttributionFactor::Volatility => {
-                let vol_t1 = VolatilitySnapshot::extract(self.market_t1);
-                Ok(restore_volatility(&self.current_market, &vol_t1))
+                let vol_t1 = MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::VOL);
+                Ok(MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &vol_t1,
+                    CurveRestoreFlags::VOL,
+                ))
             }
             AttributionFactor::MarketScalars => {
-                let scalars_t1 = ScalarsSnapshot::extract(self.market_t1);
-                Ok(restore_scalars(&self.current_market, &scalars_t1))
+                let scalars_t1 =
+                    MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::SCALARS);
+                Ok(MarketSnapshot::restore_market(
+                    &self.current_market,
+                    &scalars_t1,
+                    CurveRestoreFlags::SCALARS,
+                ))
             }
             AttributionFactor::ModelParameters => Err(Error::internal(
                 "model parameter restoration is not implemented for attribution waterfall",
