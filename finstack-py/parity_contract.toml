@@ -97,6 +97,7 @@ status = "exists"
 
 [crates.valuations.modules]
 # Top-level public modules — detailed symbol mapping to follow in Wave 3
+attribution  = { python = "finstack.valuations",              status = "exists", note = "JSON-first helpers and the PnlAttribution wrapper are flattened onto finstack.valuations" }
 instruments  = { python = "finstack.valuations.instruments",  status = "exists" }
 calibration  = { python = "finstack.valuations.calibration",  status = "exists" }
 correlation  = { python = "finstack.valuations.correlation",  status = "exists", note = "Former standalone finstack-correlation crate; nested under valuations" }

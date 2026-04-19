@@ -13,11 +13,12 @@ use pyo3::types::PyDict;
 // Ergonomic entry point
 // ---------------------------------------------------------------------------
 
-/// Run P&L attribution for a single instrument and return a ``PnlAttribution``.
+/// Run P&L attribution for a single instrument and return JSON.
 ///
 /// This is the main entry point. It accepts the instrument, two market
 /// snapshots, valuation dates, and a method descriptor — all as simple
-/// Python objects — and returns a ready-to-use result.
+/// Python objects — and returns the canonical JSON form of the attribution.
+/// Use ``PnlAttribution.from_json(...)`` when you want the richer Python wrapper.
 ///
 /// Parameters
 /// ----------
@@ -43,12 +44,13 @@ use pyo3::types::PyDict;
 ///
 /// Returns
 /// -------
-/// PnlAttribution
-///     Fully populated attribution result with factor P&Ls and metadata.
+/// str
+///     Pretty-printed JSON ``PnlAttribution`` payload.
 ///
 /// Examples
 /// --------
-/// >>> attr = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
+/// >>> attr_json = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
+/// >>> attr = PnlAttribution.from_json(attr_json)
 /// >>> print(attr.explain())
 /// >>> attr.to_dataframe()
 #[pyfunction]
@@ -63,7 +65,7 @@ fn attribute_pnl(
     as_of_t1: &str,
     method: &Bound<'_, PyAny>,
     config: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyPnlAttribution> {
+) -> PyResult<String> {
     let method_json = py_to_json_string(py, method, "method")?;
     let config_json = config
         .map(|value| py_to_json_string(py, value, "config"))
@@ -80,9 +82,7 @@ fn attribute_pnl(
     .map_err(display_to_py)?;
 
     let result = spec.execute().map_err(display_to_py)?;
-    Ok(PyPnlAttribution {
-        inner: result.attribution,
-    })
+    serde_json::to_string_pretty(&result.attribution).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------

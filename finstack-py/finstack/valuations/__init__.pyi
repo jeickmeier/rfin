@@ -558,12 +558,13 @@ def attribute_pnl(
     as_of_t1: str,
     method: str | dict,
     config: dict | None = None,
-) -> PnlAttribution:
+) -> str:
     """Run P&L attribution for a single instrument.
 
     This is the main entry point. Accepts the instrument, two market
-    snapshots, valuation dates, and a method descriptor and returns a
-    ready-to-use ``PnlAttribution``.
+    snapshots, valuation dates, and a method descriptor and returns the
+    canonical JSON form of the attribution. Use
+    ``PnlAttribution.from_json(...)`` when you want the richer wrapper.
 
     Args:
         instrument_json: Tagged instrument JSON (``{"type": "bond", ...}``).
@@ -577,10 +578,11 @@ def attribute_pnl(
         config: Optional config overrides (tolerance, metrics, bump sizes).
 
     Returns:
-        Fully populated ``PnlAttribution`` with factor P&Ls and metadata.
+        Pretty-printed JSON ``PnlAttribution`` payload.
 
     Example:
-        >>> attr = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
+        >>> attr_json = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
+        >>> attr = PnlAttribution.from_json(attr_json)  # doctest: +SKIP
         >>> print(attr.explain())  # doctest: +SKIP
     """
     ...
