@@ -306,11 +306,6 @@ impl CalibrationReport {
         self
     }
 
-    /// Create a successful calibration report with no residuals.
-    pub fn success_empty(reason: impl Into<String>) -> Self {
-        Self::new(BTreeMap::new(), 0, true, reason)
-    }
-
     /// Add metadata key-value pair to the report (builder pattern).
     #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
