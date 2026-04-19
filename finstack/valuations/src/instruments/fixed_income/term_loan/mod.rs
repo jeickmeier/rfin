@@ -79,11 +79,13 @@
 
 pub(crate) mod cashflows;
 pub(crate) mod metrics;
+pub mod overrides;
 pub(crate) mod pricing;
 pub mod spec;
 pub(crate) mod types;
 
 // Re-export main type
+pub use overrides::TermLoanOverrides;
 pub use spec::{
     AmortizationSpec, CashSweepEvent, CommitmentFeeBase, CommitmentStepDown, CovenantSpec,
     DdtlSpec, DrawEvent, LoanCall, LoanCallSchedule, LoanCallType, OidEirSpec, OidPolicy,

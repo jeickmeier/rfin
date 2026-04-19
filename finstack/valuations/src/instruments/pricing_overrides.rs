@@ -1,7 +1,7 @@
 //! Pricing overrides for market-quoted instruments.
 
 use crate::instruments::common_impl::parameters::{SABRParameters, VolatilityModel};
-use finstack_core::dates::Date;
+use crate::instruments::fixed_income::term_loan::TermLoanOverrides;
 use finstack_core::money::Money;
 
 /// Policy for evaluating volatility surfaces outside their calibrated grid.
@@ -362,69 +362,11 @@ impl InstrumentPricingOverrides {
 // Sub-struct: Metric configuration
 // ---------------------------------------------------------------------------
 
-/// Which valuation parameter to solve the breakeven for.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum BreakevenTarget {
-    /// Z-spread breakeven (sensitivity: CS01).
-    ZSpread,
-    /// Yield-to-maturity breakeven (sensitivity: DV01).
-    Ytm,
-    /// Implied volatility breakeven (sensitivity: Vega).
-    ImpliedVol,
-    /// Base correlation breakeven (sensitivity: Correlation01).
-    BaseCorrelation,
-    /// OAS breakeven (sensitivity: CS01).
-    Oas,
-}
-
-impl BreakevenTarget {
-    /// Returns the sensitivity `MetricId` used to compute the linear breakeven.
-    pub fn sensitivity_metric(&self) -> crate::metrics::MetricId {
-        use crate::metrics::MetricId;
-        match self {
-            Self::ZSpread | Self::Oas => MetricId::Cs01,
-            Self::Ytm => MetricId::Dv01,
-            Self::ImpliedVol => MetricId::Vega,
-            Self::BaseCorrelation => MetricId::Correlation01,
-        }
-    }
-}
-
-/// Linear (first-order) or iterative (full-reprice root-find) solve mode.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Default,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum BreakevenMode {
-    /// `-(carry_total) / sensitivity`. Fast, ignores convexity.
-    #[default]
-    Linear,
-    /// Brent root-find with full reprice at horizon. Accounts for convexity.
-    Iterative,
-}
-
-/// Configuration for the breakeven calculator.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-pub struct BreakevenConfig {
-    /// Which valuation parameter to solve for.
-    pub target: BreakevenTarget,
-    /// Solve mode (default: linear).
-    #[serde(default)]
-    pub mode: BreakevenMode,
-}
+// Breakeven types live in the breakeven calculator module; re-exported here
+// for backward compatibility (they ship as part of the overrides public API).
+pub use crate::metrics::sensitivities::breakeven::{
+    BreakevenConfig, BreakevenMode, BreakevenTarget,
+};
 
 /// Metric-time overrides derived from an instrument's pricing metadata.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -834,24 +776,6 @@ impl PricingOverrides {
         self.scenario.validate()?;
         Ok(())
     }
-}
-
-/// Term loan specific overrides for covenants and schedule adjustments.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct TermLoanOverrides {
-    /// Additional margin step-ups by date (bps)
-    #[schemars(with = "Vec<(String, i32)>")]
-    pub margin_add_bp_by_date: Vec<(Date, i32)>,
-    /// Force PIK toggles by date
-    #[schemars(with = "Vec<(String, bool)>")]
-    pub pik_toggle_by_date: Vec<(Date, bool)>,
-    /// Extra cash sweeps by date
-    #[schemars(with = "Vec<(String, Money)>")]
-    pub extra_cash_sweeps: Vec<(Date, Money)>,
-    /// Draw stop date (earliest date after which draws are blocked)
-    #[schemars(with = "Option<String>")]
-    pub draw_stop_date: Option<Date>,
 }
 
 #[cfg(test)]

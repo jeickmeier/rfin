@@ -3,7 +3,6 @@
 //! Computes how much a valuation parameter (spread, yield, vol, correlation)
 //! can move before carry + roll-down is wiped out over the configured horizon.
 
-use crate::instruments::{BreakevenConfig, BreakevenTarget};
 use crate::metrics::sensitivities::theta::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::context::MarketContext;
@@ -12,6 +11,69 @@ use finstack_core::Result;
 
 /// Minimum absolute sensitivity value below which breakeven is undefined.
 const SENSITIVITY_FLOOR: f64 = 1e-12;
+
+/// Which valuation parameter to solve the breakeven for.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum BreakevenTarget {
+    /// Z-spread breakeven (sensitivity: CS01).
+    ZSpread,
+    /// Yield-to-maturity breakeven (sensitivity: DV01).
+    Ytm,
+    /// Implied volatility breakeven (sensitivity: Vega).
+    ImpliedVol,
+    /// Base correlation breakeven (sensitivity: Correlation01).
+    BaseCorrelation,
+    /// OAS breakeven (sensitivity: CS01).
+    Oas,
+}
+
+impl BreakevenTarget {
+    /// Returns the sensitivity [`MetricId`] used to compute the linear breakeven.
+    pub fn sensitivity_metric(&self) -> MetricId {
+        match self {
+            Self::ZSpread | Self::Oas => MetricId::Cs01,
+            Self::Ytm => MetricId::Dv01,
+            Self::ImpliedVol => MetricId::Vega,
+            Self::BaseCorrelation => MetricId::Correlation01,
+        }
+    }
+}
+
+/// Linear (first-order) or iterative (full-reprice root-find) solve mode.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum BreakevenMode {
+    /// `-(carry_total) / sensitivity`. Fast, ignores convexity.
+    #[default]
+    Linear,
+    /// Brent root-find with full reprice at horizon. Accounts for convexity.
+    Iterative,
+}
+
+/// Configuration for the breakeven calculator.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct BreakevenConfig {
+    /// Which valuation parameter to solve for.
+    pub target: BreakevenTarget,
+    /// Solve mode (default: linear).
+    #[serde(default)]
+    pub mode: BreakevenMode,
+}
 
 /// Computes breakeven parameter shift from carry and sensitivity.
 pub(crate) struct BreakevenCalculator;
@@ -51,8 +113,8 @@ impl MetricCalculator for BreakevenCalculator {
         }
 
         match config.mode {
-            crate::instruments::BreakevenMode::Linear => Ok(-carry_total / sensitivity),
-            crate::instruments::BreakevenMode::Iterative => {
+            BreakevenMode::Linear => Ok(-carry_total / sensitivity),
+            BreakevenMode::Iterative => {
                 iterative_breakeven(context, carry_total, sensitivity, &config)
             }
         }
