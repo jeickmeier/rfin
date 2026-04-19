@@ -188,7 +188,7 @@ pub fn schedule_from_dated_flows(
     opts: ScheduleBuildOpts,
 ) -> CashFlowSchedule {
     if flows.is_empty() {
-        return empty_schedule(day_count, opts);
+        return schedule_from_classified_flows(Vec::new(), day_count, opts);
     }
 
     let first_currency = flows
@@ -226,11 +226,6 @@ pub fn schedule_from_classified_flows(
         .unwrap_or(Currency::USD);
     let notional = resolve_notional(opts.notional_hint, inferred_currency);
     CashFlowSchedule::from_parts(flows, notional, day_count, opts.resolved_meta())
-}
-
-/// Convenience wrapper for an empty [`CashFlowSchedule`] with preserved metadata.
-pub fn empty_schedule(day_count: DayCount, opts: ScheduleBuildOpts) -> CashFlowSchedule {
-    schedule_from_classified_flows(Vec::new(), day_count, opts)
 }
 
 #[cfg(test)]
@@ -285,8 +280,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_schedule_preserves_non_default_representation() {
-        let schedule = empty_schedule(
+    fn empty_classified_schedule_preserves_non_default_representation() {
+        let schedule = schedule_from_classified_flows(
+            Vec::new(),
             DayCount::Act365F,
             ScheduleBuildOpts {
                 notional_hint: Some(Money::new(1_000_000.0, Currency::USD)),

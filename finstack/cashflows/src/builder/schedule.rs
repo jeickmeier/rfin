@@ -601,25 +601,98 @@ pub fn require_single_currency(
     Ok(result)
 }
 
+/// Credit-adjustment inputs for periodized PV aggregation.
+#[derive(Clone, Copy)]
+pub struct PvCreditAdjustment<'a> {
+    /// Optional hazard curve used to survival-adjust cashflows.
+    pub hazard: Option<&'a dyn Survival>,
+    /// Optional recovery rate applied to principal-like flows.
+    pub recovery_rate: Option<f64>,
+}
+
+/// Discount-source variants for periodized PV aggregation.
+#[derive(Clone, Copy)]
+pub enum PvDiscountSource<'a> {
+    /// Use already-resolved discounting and optional credit-adjustment handles.
+    Discount {
+        /// Discount curve for present value calculation.
+        disc: &'a dyn Discounting,
+        /// Optional credit-adjustment inputs.
+        credit: Option<PvCreditAdjustment<'a>>,
+    },
+    /// Resolve discount and optional hazard curves from a market context.
+    Market {
+        /// Market context containing the required curves.
+        market: &'a MarketContext,
+        /// Discount curve identifier.
+        disc_curve_id: &'a CurveId,
+        /// Optional hazard curve identifier.
+        hazard_curve_id: Option<&'a CurveId>,
+    },
+}
+
 impl CashFlowSchedule {
-    /// Compute pre-period present values with explicit day-count context.
-    ///
-    /// Like `pv_by_period`, but accepts a `DayCountCtx` for conventions
-    /// requiring frequency (Act/Act ISMA) or calendar (Bus/252).
-    ///
-    /// # Arguments
-    /// * `periods` - Period definitions with start/end boundaries
-    /// * `disc` - Discount curve for present value calculation
-    /// * `base` - Base date for discounting (typically valuation date)
-    /// * `dc` - Day count convention for year fraction calculation
-    /// * `dc_ctx` - Day count context (frequency, calendar, bus_basis)
-    ///
-    /// # Returns
-    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
-    /// are omitted from the result.
-    ///
-    /// # Errors
-    /// Returns error if day-count calculation fails (e.g., missing required context).
+    /// Compute periodized PVs from either resolved discount handles or a market context.
+    pub fn pv_by_period(
+        &self,
+        periods: &[Period],
+        source: PvDiscountSource<'_>,
+        date_ctx: crate::aggregation::DateContext<'_>,
+    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+        if self.flows.is_empty() || periods.is_empty() {
+            return Ok(IndexMap::new());
+        }
+
+        match source {
+            PvDiscountSource::Discount { disc, credit } => {
+                if let Some(PvCreditAdjustment {
+                    hazard: Some(hazard_curve),
+                    recovery_rate,
+                }) = credit
+                {
+                    crate::aggregation::pv_by_period_credit_adjusted_detailed(
+                        &self.flows,
+                        periods,
+                        disc,
+                        Some(hazard_curve),
+                        recovery_rate,
+                        date_ctx,
+                    )
+                } else {
+                    crate::aggregation::pv_by_period_cashflows_sorted_checked(
+                        &self.flows,
+                        periods,
+                        disc,
+                        date_ctx.base,
+                        date_ctx.dc,
+                        date_ctx.dc_ctx,
+                        None,
+                    )
+                }
+            }
+            PvDiscountSource::Market {
+                market,
+                disc_curve_id,
+                hazard_curve_id,
+            } => {
+                let curves = resolve_credit_curves(market, disc_curve_id, hazard_curve_id)?;
+                self.pv_by_period(
+                    periods,
+                    PvDiscountSource::Discount {
+                        disc: curves.discounting(),
+                        credit: Some(PvCreditAdjustment {
+                            hazard: curves.hazard_survival(),
+                            recovery_rate: curves.recovery_rate(),
+                        }),
+                    },
+                    date_ctx,
+                )
+            }
+        }
+    }
+
+    /// Deprecated wrapper around [`CashFlowSchedule::pv_by_period`].
+    #[deprecated(note = "use pv_by_period with PvDiscountSource::Discount")]
     pub fn pv_by_period_with_ctx(
         &self,
         periods: &[Period],
@@ -628,48 +701,16 @@ impl CashFlowSchedule {
         dc: DayCount,
         dc_ctx: DayCountCtx,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        if self.flows.is_empty() || periods.is_empty() {
-            return Ok(IndexMap::new());
-        }
-        // Schedule flows are always sorted at construction (maintained by sort_flows).
-        // Use the CashFlow-native path to avoid intermediate Vec<DatedFlow> allocation.
-        crate::aggregation::pv_by_period_cashflows_sorted_checked(
-            &self.flows,
+        self.pv_by_period(
             periods,
-            disc,
-            base,
-            dc,
-            dc_ctx,
-            None,
+            PvDiscountSource::Discount { disc, credit: None },
+            crate::aggregation::DateContext::new(base, dc, dc_ctx),
         )
     }
 
-    /// Compute pre-period present values with market context and explicit day-count context.
-    ///
-    /// Compute present values with market context and explicit day-count context.
-    ///
-    /// When a hazard curve is provided, this function applies credit adjustment with
-    /// recovery-of-par semantics: principal-like flows (Amortization, Notional) get
-    /// `PV = Amount * DF * (SP + R * (1 - SP))` while interest/fee flows get
-    /// `PV = Amount * DF * SP` (zero recovery).
-    ///
-    /// # Arguments
-    /// * `periods` - Period definitions with start/end boundaries
-    /// * `market` - Market context containing discount and optional hazard curves
-    /// * `disc_curve_id` - Identifier for the discount curve in the market context
-    /// * `hazard_curve_id` - Optional identifier for hazard curve (credit adjustment)
-    /// * `base` - Base date for discounting (typically valuation date)
-    /// * `dc` - Day count convention for year fraction calculation
-    /// * `dc_ctx` - Day count context (frequency, calendar, bus_basis)
-    ///
-    /// # Returns
-    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
-    /// are omitted from the result.
-    ///
-    /// # Errors
-    /// Returns an error if the discount curve is not found, if hazard_curve_id is provided
-    /// but the curve is not found, or if day-count calculation fails.
+    /// Deprecated wrapper around [`CashFlowSchedule::pv_by_period`].
     #[allow(clippy::too_many_arguments)]
+    #[deprecated(note = "use pv_by_period with PvDiscountSource::Market")]
     pub fn pv_by_period_with_market_and_ctx(
         &self,
         periods: &[Period],
@@ -680,22 +721,20 @@ impl CashFlowSchedule {
         dc: DayCount,
         dc_ctx: DayCountCtx,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let curves = resolve_credit_curves(market, disc_curve_id, hazard_curve_id)?;
-        let disc: &dyn Discounting = curves.discounting();
-        let hazard = curves.hazard_survival();
-
-        let date_ctx = crate::aggregation::DateContext::new(base, dc, dc_ctx);
-        self.pv_by_period_with_survival_and_ctx(
+        self.pv_by_period(
             periods,
-            disc,
-            hazard,
-            curves.recovery_rate(),
-            date_ctx,
+            PvDiscountSource::Market {
+                market,
+                disc_curve_id,
+                hazard_curve_id,
+            },
+            crate::aggregation::DateContext::new(base, dc, dc_ctx),
         )
     }
 
-    /// Compute period PVs from resolved discount/survival curves.
+    /// Deprecated wrapper around [`CashFlowSchedule::pv_by_period`].
     #[allow(clippy::too_many_arguments)]
+    #[deprecated(note = "use pv_by_period with PvDiscountSource::Discount and PvCreditAdjustment")]
     pub fn pv_by_period_with_survival_and_ctx(
         &self,
         periods: &[Period],
@@ -704,18 +743,17 @@ impl CashFlowSchedule {
         recovery_rate: Option<f64>,
         date_ctx: crate::aggregation::DateContext<'_>,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        if let Some(hazard_curve) = hazard {
-            crate::aggregation::pv_by_period_credit_adjusted_detailed(
-                &self.flows,
-                periods,
+        self.pv_by_period(
+            periods,
+            PvDiscountSource::Discount {
                 disc,
-                Some(hazard_curve),
-                recovery_rate,
-                date_ctx,
-            )
-        } else {
-            self.pv_by_period_with_ctx(periods, disc, date_ctx.base, date_ctx.dc, date_ctx.dc_ctx)
-        }
+                credit: Some(PvCreditAdjustment {
+                    hazard,
+                    recovery_rate,
+                }),
+            },
+            date_ctx,
+        )
     }
 }
 

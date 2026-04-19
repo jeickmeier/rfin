@@ -250,10 +250,11 @@ jobs:
       contents: read
       security-events: write
     with:
+      # Explicit lockfiles (stable; avoids walking into .worktree/ or other sibling checkouts).
       scan-args: |-
-        --recursive
-        --skip-git
-        ./
+        --lockfile=Cargo.lock
+        --lockfile=uv.lock
+        --lockfile=finstack-wasm/package-lock.json
 
   osv-scan-full:
     name: Supply-chain Security (OSV-Scanner, full)
@@ -265,9 +266,9 @@ jobs:
       security-events: write
     with:
       scan-args: |-
-        --recursive
-        --skip-git
-        ./
+        --lockfile=Cargo.lock
+        --lockfile=uv.lock
+        --lockfile=finstack-wasm/package-lock.json
 
   # ============================================
   # Semver checks for API stability

@@ -136,8 +136,8 @@ fn test_tranche_floating_coupon() {
             spread_bp: rust_decimal::Decimal::try_from(150.0).expect("valid"),
             gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
-            floor_bp: Some(rust_decimal::Decimal::try_from(0.0).expect("valid")), // 0 bps floor
-            cap_bp: None,
+            index_floor_bp: Some(rust_decimal::Decimal::try_from(0.0).expect("valid")), // 0 bps floor
+            all_in_cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
             reset_freq: finstack_core::dates::Tenor::quarterly(),
@@ -160,8 +160,8 @@ fn test_tranche_floating_coupon() {
     match &tranche.coupon {
         TrancheCoupon::Floating(spec) => {
             assert_eq!(spec.spread_bp, dec!(150.0));
-            assert_eq!(spec.floor_bp, Some(dec!(0.0)));
-            assert_eq!(spec.cap_bp, None);
+            assert_eq!(spec.index_floor_bp, Some(dec!(0.0)));
+            assert_eq!(spec.all_in_cap_bp, None);
         }
         _ => panic!("Expected floating coupon"),
     }

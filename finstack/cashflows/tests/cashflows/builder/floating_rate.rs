@@ -27,8 +27,8 @@ fn make_float_spec(fallback: FloatingRateFallback, spread_bp: Decimal) -> Floati
             spread_bp,
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: None,
-            cap_bp: None,
+            index_floor_bp: None,
+            all_in_cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
@@ -244,7 +244,7 @@ fn test_floating_rate_fallback_fixed_rate_with_floor_cap() {
 
     // Fixed index of 4.5% + 200bp spread = 6.5%, but cap at 5%
     let mut spec = make_float_spec(FloatingRateFallback::FixedRate(dec!(0.045)), dec!(200.0));
-    spec.rate_spec.cap_bp = Some(dec!(500.0)); // all-in cap at 5%
+    spec.rate_spec.all_in_cap_bp = Some(dec!(500.0)); // all-in cap at 5%
 
     let mut b = CashFlowSchedule::builder();
     let _ = b.principal(init, issue, maturity).floating_cf(spec);
@@ -712,7 +712,7 @@ fn test_floating_rate_index_floor_zero() {
 
     // Build FloatingRateSpec with index floor at 0% and flat curve at -0.4%
     let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(300.0)); // 3% spread
-    spec.rate_spec.floor_bp = Some(dec!(0)); // index floored at 0%
+    spec.rate_spec.index_floor_bp = Some(dec!(0)); // index floored at 0%
 
     let market = make_flat_forward_market(issue, -0.004); // -0.4% flat curve
 
@@ -808,7 +808,7 @@ fn test_floating_rate_all_in_cap() {
 
     // Build FloatingRateSpec with all-in cap at 7%
     let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(200.0)); // 2% spread
-    spec.rate_spec.cap_bp = Some(dec!(700)); // 7% all-in cap
+    spec.rate_spec.all_in_cap_bp = Some(dec!(700)); // 7% all-in cap
 
     let market = make_flat_forward_market(issue, 0.06); // 6% flat curve
 
@@ -955,8 +955,8 @@ fn make_overnight_float_spec(
             spread_bp,
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: None,
-            cap_bp: None,
+            index_floor_bp: None,
+            all_in_cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
@@ -1314,8 +1314,8 @@ fn test_overnight_compounding_weekend_start_no_lost_days() {
             spread_bp: dec!(0),
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: None,
-            cap_bp: None,
+            index_floor_bp: None,
+            all_in_cap_bp: None,
             all_in_floor_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),

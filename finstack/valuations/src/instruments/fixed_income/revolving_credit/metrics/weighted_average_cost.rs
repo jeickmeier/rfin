@@ -40,7 +40,7 @@ impl MetricCalculator for ApproxWeightedAverageCostCalculator {
 
                 // Apply floor/cap to the index rate before adding spread,
                 // consistent with the cashflow engines.
-                if let Some(floor) = spec.floor_bp {
+                if let Some(floor) = spec.index_floor_bp {
                     let floor_f64 = floor.to_f64().unwrap_or(0.0);
                     index_rate = index_rate.max(floor_f64 * 1e-4);
                 }

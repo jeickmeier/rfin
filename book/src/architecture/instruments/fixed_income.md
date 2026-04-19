@@ -115,8 +115,8 @@ float_spec = FloatingRateSpec.new(
     index_id="USD-SOFR-3M",
     spread_bp=150.0,              # SOFR + 150bp
     schedule=ScheduleParams.quarterly_act360(),
-    floor_bp=0.0,                 # SOFR floor at 0%
-    cap_bp=500.0,                 # cap at 5%
+    index_floor_bp=0.0,                 # SOFR floor at 0%
+    all_in_cap_bp=500.0,                 # cap at 5%
     reset_lag_days=2,             # T-2 reset
 )
 
@@ -596,7 +596,7 @@ loan = TermLoan.builder("TL-ACME") \
         spread_bp=325.0,
         reset_freq="3M",
         reset_lag_days=2,
-        floor_bp=0.0,
+        index_floor_bp=0.0,
     )) \
     .issue(date(2024, 3, 1)) \
     .maturity(date(2029, 3, 1)) \

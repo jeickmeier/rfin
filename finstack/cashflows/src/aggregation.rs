@@ -211,7 +211,7 @@ use finstack_core::market_data::traits::{Discounting, Survival};
 /// # Examples
 ///
 /// ```rust
-/// use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
+/// use finstack_cashflows::aggregation::aggregate_cashflows_checked;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::money::Money;
@@ -223,10 +223,10 @@ use finstack_core::market_data::traits::{Discounting, Survival};
 /// )];
 ///
 /// let total =
-///     aggregate_cashflows_precise_checked(&flows, Currency::USD).expect("aggregation succeeds");
+///     aggregate_cashflows_checked(&flows, Currency::USD).expect("aggregation succeeds");
 /// assert_eq!(total.currency(), Currency::USD);
 /// ```
-pub fn aggregate_cashflows_precise_checked(
+pub fn aggregate_cashflows_checked(
     flows: &[crate::DatedFlow],
     target: Currency,
 ) -> finstack_core::Result<Money> {
@@ -241,6 +241,15 @@ pub fn aggregate_cashflows_precise_checked(
         acc.add(m.amount());
     }
     Ok(Money::new(acc.total(), target))
+}
+
+/// Deprecated alias for [`aggregate_cashflows_checked`].
+#[deprecated(note = "use aggregate_cashflows_checked")]
+pub fn aggregate_cashflows_precise_checked(
+    flows: &[crate::DatedFlow],
+    target: Currency,
+) -> finstack_core::Result<Money> {
+    aggregate_cashflows_checked(flows, target)
 }
 
 // =============================================================================

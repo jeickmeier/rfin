@@ -35,7 +35,7 @@ let facility = RevolvingCredit::builder()
         index_id: "USD-SOFR-3M".into(),
         margin_bp: 200.0,
         reset_freq: Tenor::quarterly(),
-        floor_bp: Some(0.0),
+        index_floor_bp: Some(0.0),
     })
     .day_count(DayCount::Act360)
     .payment_frequency(Tenor::quarterly())
@@ -53,7 +53,7 @@ let facility = RevolvingCredit::builder()
 
 Inputs of note:
 
-- Base rate: `Fixed { rate }` or `Floating { index_id, margin_bp, reset_freq, floor_bp }`
+- Base rate: `Fixed { rate }` or `Floating { index_id, margin_bp, reset_freq, index_floor_bp }`
 - Fees: `upfront_fee`, `commitment_fee_tiers`, `usage_fee_tiers`, `facility_fee_bp`
 - Draw/repay regime: `DrawRepaySpec::Deterministic(Vec<DrawRepayEvent>)` or `DrawRepaySpec::Stochastic(...)`
 - Optional `hazard_curve_id` and `recovery_rate` to enable survival weighting

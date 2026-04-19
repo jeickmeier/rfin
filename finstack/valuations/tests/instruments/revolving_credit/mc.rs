@@ -428,16 +428,16 @@ fn test_mc_stochastic_floating_rate_index_cap() {
     let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     // Helper to build a floating rate spec with optional index cap
-    let make_float_spec = |cap_bp: Option<Decimal>| -> FloatingRateSpec {
+    let make_float_spec = |all_in_cap_bp: Option<Decimal>| -> FloatingRateSpec {
         FloatingRateSpec {
             index_id: "USD-SOFR-3M".into(),
             spread_bp: Decimal::try_from(100.0).expect("valid"), // 100 bps spread
             gearing: Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
-            floor_bp: None,
+            index_floor_bp: None,
             all_in_floor_bp: None,
-            cap_bp: None,
-            index_cap_bp: cap_bp,
+            all_in_cap_bp: None,
+            index_cap_bp: all_in_cap_bp,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,
             dc: DayCount::Act360,
@@ -453,14 +453,14 @@ fn test_mc_stochastic_floating_rate_index_cap() {
     };
 
     // Near-zero vol stochastic spec for deterministic-like utilization
-    let make_stoch_spec = |id: &str, cap_bp: Option<Decimal>| -> RevolvingCredit {
+    let make_stoch_spec = |id: &str, all_in_cap_bp: Option<Decimal>| -> RevolvingCredit {
         RevolvingCredit::builder()
             .id(id.into())
             .commitment_amount(Money::new(10_000_000.0, Currency::USD))
             .drawn_amount(Money::new(5_000_000.0, Currency::USD))
             .commitment_date(commitment_date)
             .maturity(maturity_date)
-            .base_rate_spec(BaseRateSpec::Floating(make_float_spec(cap_bp)))
+            .base_rate_spec(BaseRateSpec::Floating(make_float_spec(all_in_cap_bp)))
             .day_count(DayCount::Act360)
             .frequency(Tenor::quarterly())
             .fees(RevolvingCreditFees::default())

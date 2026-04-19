@@ -591,7 +591,8 @@ impl CashflowProvider for ForwardRateAgreement {
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Settlement at start of accrual period; if already settled, no flows
         if self.start_date <= as_of {
-            return Ok(crate::cashflow::traits::empty_schedule(
+            return Ok(crate::cashflow::traits::schedule_from_classified_flows(
+                Vec::new(),
                 self.day_count,
                 crate::cashflow::traits::ScheduleBuildOpts {
                     notional_hint: self.notional(),

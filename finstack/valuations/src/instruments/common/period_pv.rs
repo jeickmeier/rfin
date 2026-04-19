@@ -80,6 +80,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::CurveDependencies;
+use finstack_cashflows::aggregation::DateContext;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
@@ -181,12 +182,13 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         // Keep discounting aligned with the signed canonical dated-flow path while still
         // using the discount curve's own day-count basis for year fractions.
         let curve_dc = disc_arc.day_count();
-        schedule.pv_by_period_with_ctx(
+        schedule.pv_by_period(
             periods,
-            disc_arc.as_ref(),
-            base,
-            curve_dc,
-            DayCountCtx::default(),
+            crate::cashflow::builder::PvDiscountSource::Discount {
+                disc: disc_arc.as_ref(),
+                credit: None,
+            },
+            DateContext::new(base, curve_dc, DayCountCtx::default()),
         )
     }
 
@@ -283,14 +285,14 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         use finstack_core::dates::DayCountCtx;
 
-        schedule.pv_by_period_with_market_and_ctx(
+        schedule.pv_by_period(
             periods,
-            market,
-            disc_curve_id,
-            Some(hazard_curve_id),
-            base,
-            dc,
-            DayCountCtx::default(),
+            crate::cashflow::builder::PvDiscountSource::Market {
+                market,
+                disc_curve_id,
+                hazard_curve_id: Some(hazard_curve_id),
+            },
+            DateContext::new(base, dc, DayCountCtx::default()),
         )
     }
 }
@@ -646,11 +648,15 @@ mod tests {
 
         let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
         let detailed = schedule
-            .pv_by_period_with_survival_and_ctx(
+            .pv_by_period(
                 &periods,
-                disc_ref,
-                Some(hazard_ref),
-                Some(hazard_curve.recovery_rate()),
+                crate::cashflow::builder::PvDiscountSource::Discount {
+                    disc: disc_ref,
+                    credit: Some(crate::cashflow::builder::PvCreditAdjustment {
+                        hazard: Some(hazard_ref),
+                        recovery_rate: Some(hazard_curve.recovery_rate()),
+                    }),
+                },
                 date_ctx,
             )
             .expect("Detailed aggregation should succeed");
@@ -724,12 +730,13 @@ mod tests {
                 ..Default::default()
             },
         )
-        .pv_by_period_with_ctx(
+        .pv_by_period(
             &periods,
-            disc.as_ref(),
-            as_of,
-            disc.day_count(),
-            DayCountCtx::default(),
+            crate::cashflow::builder::PvDiscountSource::Discount {
+                disc: disc.as_ref(),
+                credit: None,
+            },
+            DateContext::new(as_of, disc.day_count(), DayCountCtx::default()),
         )
         .expect("Direct signed canonical aggregation should succeed");
 
@@ -768,12 +775,13 @@ mod tests {
                 ..Default::default()
             },
         )
-        .pv_by_period_with_ctx(
+        .pv_by_period(
             &periods,
-            disc.as_ref(),
-            as_of,
-            disc.day_count(),
-            DayCountCtx::default(),
+            crate::cashflow::builder::PvDiscountSource::Discount {
+                disc: disc.as_ref(),
+                credit: None,
+            },
+            DateContext::new(as_of, disc.day_count(), DayCountCtx::default()),
         )
         .expect("Direct signed canonical aggregation should succeed");
 

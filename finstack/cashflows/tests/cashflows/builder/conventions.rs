@@ -24,28 +24,28 @@ fn d(year: i32, month: u8, day: u8) -> Date {
 /// Aggregating flows in different currencies should error.
 #[test]
 fn test_cross_currency_aggregation_error() {
-    use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
+    use finstack_cashflows::aggregation::aggregate_cashflows_checked;
 
     let flows = vec![
         (d(2024, 6, 15), Money::new(100.0, Currency::USD)),
         (d(2024, 9, 15), Money::new(100.0, Currency::EUR)),
     ];
 
-    let result = aggregate_cashflows_precise_checked(&flows, Currency::USD);
+    let result = aggregate_cashflows_checked(&flows, Currency::USD);
     assert!(result.is_err(), "Cross-currency aggregation should fail");
 }
 
 /// Aggregating flows in the same currency should succeed.
 #[test]
 fn test_single_currency_aggregation() {
-    use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
+    use finstack_cashflows::aggregation::aggregate_cashflows_checked;
 
     let flows = vec![
         (d(2024, 6, 15), Money::new(100.0, Currency::USD)),
         (d(2024, 9, 15), Money::new(200.0, Currency::USD)),
     ];
 
-    let result = aggregate_cashflows_precise_checked(&flows, Currency::USD)
+    let result = aggregate_cashflows_checked(&flows, Currency::USD)
         .expect("same-currency aggregation should succeed");
     assert!(
         (result.amount() - 300.0).abs() < 1e-10,
@@ -93,12 +93,17 @@ fn test_single_currency_period_pv_rejects_multi_currency_result() {
     let curve = FlatRateCurve::new("TEST", d(2024, 1, 1), 0.0);
 
     let pv_map = schedule
-        .pv_by_period_with_ctx(
+        .pv_by_period(
             &periods,
-            &curve,
-            d(2024, 1, 1),
-            DayCount::Act365F,
-            DayCountCtx::default(),
+            finstack_cashflows::builder::PvDiscountSource::Discount {
+                disc: &curve,
+                credit: None,
+            },
+            finstack_cashflows::aggregation::DateContext::new(
+                d(2024, 1, 1),
+                DayCount::Act365F,
+                DayCountCtx::default(),
+            ),
         )
         .expect("multi-currency PV map should succeed");
     let result = finstack_cashflows::builder::schedule::require_single_currency(pv_map);

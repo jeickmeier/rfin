@@ -23,7 +23,9 @@
 #![allow(clippy::expect_used)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use finstack_cashflows::aggregation::{aggregate_by_period, aggregate_cashflows_precise_checked};
+use finstack_cashflows::aggregation::{
+    aggregate_by_period, aggregate_cashflows_checked, DateContext,
+};
 use finstack_cashflows::builder::rate_helpers::{
     compute_compounded_rate, compute_overnight_rate, compute_simple_average_rate,
 };
@@ -252,12 +254,17 @@ fn bench_pv_by_period(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
             b.iter(|| {
                 black_box(&schedule)
-                    .pv_by_period_with_ctx(
+                    .pv_by_period(
                         black_box(&periods),
-                        black_box(disc.as_ref()),
-                        black_box(base),
-                        DayCount::Act365F,
-                        DayCountCtx::default(),
+                        finstack_cashflows::builder::PvDiscountSource::Discount {
+                            disc: black_box(disc.as_ref()),
+                            credit: None,
+                        },
+                        DateContext::new(
+                            black_box(base),
+                            DayCount::Act365F,
+                            DayCountCtx::default(),
+                        ),
                     )
                     .unwrap()
             });
@@ -293,11 +300,15 @@ fn bench_pv_by_period_credit(c: &mut Criterion) {
             b.iter(|| {
                 let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
                 black_box(&schedule)
-                    .pv_by_period_with_survival_and_ctx(
+                    .pv_by_period(
                         black_box(&periods),
-                        black_box(disc.as_ref()),
-                        Some(black_box(hazard.as_ref() as &dyn Survival)),
-                        None,
+                        finstack_cashflows::builder::PvDiscountSource::Discount {
+                            disc: black_box(disc.as_ref()),
+                            credit: Some(finstack_cashflows::builder::PvCreditAdjustment {
+                                hazard: Some(black_box(hazard.as_ref() as &dyn Survival)),
+                                recovery_rate: None,
+                            }),
+                        },
                         black_box(ctx),
                     )
                     .unwrap()
@@ -309,11 +320,15 @@ fn bench_pv_by_period_credit(c: &mut Criterion) {
             b.iter(|| {
                 let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
                 black_box(&schedule)
-                    .pv_by_period_with_survival_and_ctx(
+                    .pv_by_period(
                         black_box(&periods),
-                        black_box(disc.as_ref()),
-                        Some(black_box(hazard.as_ref() as &dyn Survival)),
-                        Some(0.40),
+                        finstack_cashflows::builder::PvDiscountSource::Discount {
+                            disc: black_box(disc.as_ref()),
+                            credit: Some(finstack_cashflows::builder::PvCreditAdjustment {
+                                hazard: Some(black_box(hazard.as_ref() as &dyn Survival)),
+                                recovery_rate: Some(0.40),
+                            }),
+                        },
                         black_box(ctx),
                     )
                     .unwrap()
@@ -454,7 +469,7 @@ fn bench_aggregate_by_period(c: &mut Criterion) {
 }
 
 // =============================================================================
-// Benchmark: aggregate_cashflows_precise_checked (compensated single-ccy sum)
+// Benchmark: aggregate_cashflows_checked (compensated single-ccy sum)
 // =============================================================================
 
 fn bench_aggregate_precise(c: &mut Criterion) {
@@ -465,9 +480,7 @@ fn bench_aggregate_precise(c: &mut Criterion) {
         let flows = make_dated_flows(n, base);
         group.throughput(Throughput::Elements(n as u64));
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
-            b.iter(|| {
-                aggregate_cashflows_precise_checked(black_box(&flows), Currency::USD).unwrap()
-            });
+            b.iter(|| aggregate_cashflows_checked(black_box(&flows), Currency::USD).unwrap());
         });
     }
 

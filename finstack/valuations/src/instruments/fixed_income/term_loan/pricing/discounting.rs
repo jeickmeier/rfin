@@ -242,10 +242,10 @@ impl TermLoanDiscountingPricer {
         // consistent rate calculation between forward projection and fixing paths.
         let spread_bp_f64 = float_spec.spread_bp.to_f64().unwrap_or_default();
         let gearing_f64 = float_spec.gearing.to_f64().unwrap_or(1.0);
-        let index_floor_bp = float_spec.floor_bp.and_then(|d| d.to_f64());
+        let index_floor_bp = float_spec.index_floor_bp.and_then(|d| d.to_f64());
         let index_cap_bp = float_spec.index_cap_bp.and_then(|d| d.to_f64());
         let all_in_floor_bp = float_spec.all_in_floor_bp.and_then(|d| d.to_f64());
-        let all_in_cap_bp = float_spec.cap_bp.and_then(|d| d.to_f64());
+        let all_in_cap_bp = float_spec.all_in_cap_bp.and_then(|d| d.to_f64());
 
         let params = crate::cashflow::builder::FloatingRateParams {
             spread_bp: spread_bp_f64,
@@ -414,9 +414,9 @@ mod tests {
             spread_bp: Decimal::new(300, 0),
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: Some(Decimal::ZERO),
+            index_floor_bp: Some(Decimal::ZERO),
             all_in_floor_bp: None,
-            cap_bp: None,
+            all_in_cap_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 0,

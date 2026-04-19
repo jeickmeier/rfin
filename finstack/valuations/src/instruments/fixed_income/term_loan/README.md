@@ -79,8 +79,8 @@ RateSpec::Floating(FloatingRateSpec {
     index_id: CurveId::new("USD-SOFR-3M"),
     spread_bp: 300.0,        // +300 bps spread
     gearing: 1.0,
-    floor_bp: Some(0.0),     // 0% floor
-    cap_bp: Some(500.0),     // 5% cap
+    index_floor_bp: Some(0.0),     // 0% floor
+    all_in_cap_bp: Some(500.0),     // 5% cap
     reset_freq: Tenor::quarterly(),
     reset_lag_days: 2,
     dc: DayCount::Act360,
@@ -292,8 +292,8 @@ let floating_spec = FloatingRateSpec {
     index_id: CurveId::new("USD-SOFR-3M"),
     spread_bp: 300.0,
     gearing: 1.0,
-    floor_bp: Some(0.0),
-    cap_bp: None,
+    index_floor_bp: Some(0.0),
+    all_in_cap_bp: None,
     reset_freq: Tenor::quarterly(),
     reset_lag_days: 2,
     dc: DayCount::Act360,

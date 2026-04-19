@@ -57,9 +57,9 @@ fn test_builder_floating_rate_loan() {
             spread_bp: rust_decimal::Decimal::try_from(250.0).expect("valid"), // +250 bps
             gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
-            floor_bp: None,
+            index_floor_bp: None,
             all_in_floor_bp: None,
-            cap_bp: None,
+            all_in_cap_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,

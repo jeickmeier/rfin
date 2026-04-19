@@ -112,6 +112,28 @@ where
     );
 }
 
+fn canonicalize_floating_rate_keys(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            if let Some(legacy_floor) = map.remove("floor_bp") {
+                map.insert("index_floor_bp".to_string(), legacy_floor);
+            }
+            if let Some(legacy_cap) = map.remove("cap_bp") {
+                map.insert("all_in_cap_bp".to_string(), legacy_cap);
+            }
+            for nested in map.values_mut() {
+                canonicalize_floating_rate_keys(nested);
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for nested in values {
+                canonicalize_floating_rate_keys(nested);
+            }
+        }
+        _ => {}
+    }
+}
+
 #[test]
 fn test_notional_par() {
     let json = include_str!("examples/notional_par.example.json");
@@ -190,7 +212,20 @@ fn test_fixed_coupon_spec() {
 #[test]
 fn test_floating_rate_spec() {
     let json = include_str!("examples/floating_rate_spec.example.json");
-    test_roundtrip::<CashflowEnvelope<FloatingRateSpecPayload>>(json);
+    let envelope: CashflowEnvelope<FloatingRateSpecPayload> =
+        serde_json::from_str(json).expect("Failed to deserialize");
+    let reserialized = serde_json::to_string(&envelope).expect("Failed to serialize");
+
+    let mut expected_value: serde_json::Value =
+        serde_json::from_str(json).expect("Failed to parse original JSON");
+    canonicalize_floating_rate_keys(&mut expected_value);
+    let reserialized_value: serde_json::Value =
+        serde_json::from_str(&reserialized).expect("Failed to parse reserialized JSON");
+
+    assert_eq!(
+        expected_value, reserialized_value,
+        "Roundtrip mismatch for envelope"
+    );
 }
 
 #[test]
@@ -228,7 +263,18 @@ fn test_floating_coupon_spec() {
         "Gearing should be 1.0"
     );
 
-    test_roundtrip::<CashflowEnvelope<FloatingCouponSpecPayload>>(json);
+    let reserialized = serde_json::to_string(&envelope).expect("Failed to serialize");
+
+    let mut expected_value: serde_json::Value =
+        serde_json::from_str(json).expect("Failed to parse original JSON");
+    canonicalize_floating_rate_keys(&mut expected_value);
+    let reserialized_value: serde_json::Value =
+        serde_json::from_str(&reserialized).expect("Failed to parse reserialized JSON");
+
+    assert_eq!(
+        expected_value, reserialized_value,
+        "Roundtrip mismatch for envelope"
+    );
 }
 
 #[test]

@@ -459,9 +459,9 @@ impl AmortizationSpec {
 ///     spread_bp: dec!(300),
 ///     gearing: dec!(1),
 ///     gearing_includes_spread: true,
-///     floor_bp: Some(dec!(0)),  // 0% floor
+///     index_floor_bp: Some(dec!(0)),  // 0% floor
 ///     all_in_floor_bp: None,
-///     cap_bp: None,
+///     all_in_cap_bp: None,
 ///     index_cap_bp: None,
 ///     reset_freq: Tenor::quarterly(),
 ///     reset_lag_days: 2,

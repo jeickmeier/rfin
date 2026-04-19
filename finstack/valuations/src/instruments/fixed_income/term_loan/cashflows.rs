@@ -309,8 +309,10 @@ pub(crate) fn generate_cashflows(
             loan.issue_date,
             loan.maturity,
         )
-        .amortization(crate::cashflow::builder::AmortizationSpec::None)
-        .principal_events(&principal_events);
+        .amortization(crate::cashflow::builder::AmortizationSpec::None);
+    for event in &principal_events {
+        let _ = builder.add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
+    }
 
     match &loan.rate {
         super::types::RateSpec::Fixed { rate_bp } => {
@@ -382,8 +384,8 @@ pub(crate) fn generate_cashflows(
                     spread_bp: Decimal::ZERO,
                     gearing: spec.gearing,
                     gearing_includes_spread: spec.gearing_includes_spread,
-                    floor_bp: spec.floor_bp,
-                    cap_bp: spec.cap_bp,
+                    index_floor_bp: spec.index_floor_bp,
+                    all_in_cap_bp: spec.all_in_cap_bp,
                     all_in_floor_bp: spec.all_in_floor_bp,
                     index_cap_bp: spec.index_cap_bp,
                     reset_freq: loan.frequency,

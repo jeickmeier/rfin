@@ -275,7 +275,7 @@ struct CouponBucket {
 
 /// A single coupon period derived from the schedule.
 #[derive(Debug, Clone)]
-struct Period {
+struct CouponPeriod {
     start: Date,
     end: Date,
     dc: DayCount,
@@ -342,7 +342,7 @@ fn derive_horizon_start(
 }
 
 /// Build coupon buckets grouped by date from the schedule.
-fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<Period> {
+fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<CouponPeriod> {
     let mut buckets: Vec<CouponBucket> = Vec::new();
 
     // Cash and PIK coupon flows are grouped by payment date.
@@ -415,7 +415,7 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
         let start = prev;
         let end = bucket.date;
         if start < end {
-            periods.push(Period {
+            periods.push(CouponPeriod {
                 start,
                 end,
                 dc,
@@ -441,7 +441,7 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<P
 /// represents the principal on which interest accrues during the period.
 fn build_period_inputs(
     schedule: &CashFlowSchedule,
-    periods: &[Period],
+    periods: &[CouponPeriod],
     outstanding_path: &[(Date, Money)],
     frequency: Option<Tenor>,
 ) -> finstack_core::Result<Vec<PeriodInputs>> {

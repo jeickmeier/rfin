@@ -530,7 +530,8 @@ impl CashflowProvider for FxSpot {
         let settle_date = self.effective_settlement_date(as_of)?;
 
         if settle_date <= as_of {
-            return Ok(crate::cashflow::traits::empty_schedule(
+            return Ok(crate::cashflow::traits::schedule_from_classified_flows(
+                Vec::new(),
                 finstack_core::dates::DayCount::Act365F,
                 crate::cashflow::traits::ScheduleBuildOpts {
                     notional_hint: self.notional(),

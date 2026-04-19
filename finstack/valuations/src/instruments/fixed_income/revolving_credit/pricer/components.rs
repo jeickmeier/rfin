@@ -232,7 +232,7 @@ pub(crate) struct FloatingRateProjector {
     /// Margin over the index rate (in basis points)
     margin_bp: f64,
     /// Optional floor on the index rate (in basis points)
-    floor_bp: Option<f64>,
+    index_floor_bp: Option<f64>,
 }
 
 impl FloatingRateProjector {
@@ -240,12 +240,12 @@ impl FloatingRateProjector {
     pub(crate) fn new(
         forward_curve: Arc<dyn Forward + Send + Sync>,
         margin_bp: f64,
-        floor_bp: Option<f64>,
+        index_floor_bp: Option<f64>,
     ) -> Self {
         Self {
             forward_curve,
             margin_bp,
-            floor_bp,
+            index_floor_bp,
         }
     }
 
@@ -253,12 +253,12 @@ impl FloatingRateProjector {
     pub(crate) fn new_bps(
         forward_curve: Arc<dyn Forward + Send + Sync>,
         margin_bp: Bps,
-        floor_bp: Option<Bps>,
+        index_floor_bp: Option<Bps>,
     ) -> Self {
         Self {
             forward_curve,
             margin_bp: margin_bp.as_bps() as f64,
-            floor_bp: floor_bp.map(|bps| bps.as_bps() as f64),
+            index_floor_bp: index_floor_bp.map(|bps| bps.as_bps() as f64),
         }
     }
 
@@ -268,8 +268,8 @@ impl FloatingRateProjector {
         let mut index_rate = self.forward_curve.rate_period(t0, t1);
 
         // Apply floor if specified (before adding margin)
-        if let Some(floor_bp) = self.floor_bp {
-            let floor_rate = floor_bp / 10000.0;
+        if let Some(index_floor_bp) = self.index_floor_bp {
+            let floor_rate = index_floor_bp / 10000.0;
             index_rate = index_rate.max(floor_rate);
         }
 

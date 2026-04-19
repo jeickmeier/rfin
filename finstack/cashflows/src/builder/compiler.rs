@@ -460,17 +460,8 @@ pub(super) fn compute_coupon_schedules(
 
         match &chosen_coupon.coupon {
             CouponSpec::Fixed { rate } => {
-                let spec = FixedCouponSpec {
-                    coupon_type: split,
-                    rate: *rate,
-                    freq: chosen_coupon.schedule.freq,
-                    dc: chosen_coupon.schedule.dc,
-                    bdc: chosen_coupon.schedule.bdc,
-                    calendar_id: chosen_coupon.schedule.calendar_id.clone(),
-                    stub: chosen_coupon.schedule.stub,
-                    end_of_month: chosen_coupon.schedule.end_of_month,
-                    payment_lag_days: chosen_coupon.schedule.payment_lag_days,
-                };
+                let spec =
+                    FixedCouponSpec::from_parts(split, *rate, chosen_coupon.schedule.clone());
                 fixed_schedules.push((spec, dates.clone(), prev.clone(), first_or_last));
             }
             CouponSpec::StepUp {
@@ -537,17 +528,11 @@ pub(super) fn compute_coupon_schedules(
                 }
 
                 for (group_rate, group_dates, group_prev, group_fol) in rate_groups {
-                    let spec = FixedCouponSpec {
-                        coupon_type: split,
-                        rate: group_rate,
-                        freq: chosen_coupon.schedule.freq,
-                        dc: chosen_coupon.schedule.dc,
-                        bdc: chosen_coupon.schedule.bdc,
-                        calendar_id: chosen_coupon.schedule.calendar_id.clone(),
-                        stub: chosen_coupon.schedule.stub,
-                        end_of_month: chosen_coupon.schedule.end_of_month,
-                        payment_lag_days: chosen_coupon.schedule.payment_lag_days,
-                    };
+                    let spec = FixedCouponSpec::from_parts(
+                        split,
+                        group_rate,
+                        chosen_coupon.schedule.clone(),
+                    );
                     fixed_schedules.push((spec, group_dates, group_prev, group_fol));
                 }
             }

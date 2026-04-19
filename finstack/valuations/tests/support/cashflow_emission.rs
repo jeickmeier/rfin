@@ -90,8 +90,8 @@ mod accrual_context_tests {
                 spread_bp: Decimal::try_from(200.0).expect("valid spread"),
                 gearing: Decimal::ONE,
                 gearing_includes_spread: true,
-                floor_bp: None,
-                cap_bp: None,
+                index_floor_bp: None,
+                all_in_cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
                 reset_freq: finstack_core::dates::Tenor::new(

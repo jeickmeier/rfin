@@ -187,9 +187,9 @@ fn test_floating_vs_margin_only() {
                 spread_bp: rust_decimal::Decimal::try_from(100.0).expect("valid"), // 100 bps margin
                 gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
-                floor_bp: None,
+                index_floor_bp: None,
                 all_in_floor_bp: None,
-                cap_bp: None,
+                all_in_cap_bp: None,
                 index_cap_bp: None,
                 reset_freq: Tenor::quarterly(),
                 reset_lag_days: 2,
@@ -267,9 +267,9 @@ fn test_reset_frequency_mismatch() {
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"), // No margin to isolate reset effect
                 gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
-                floor_bp: None,
+                index_floor_bp: None,
                 all_in_floor_bp: None,
-                cap_bp: None,
+                all_in_cap_bp: None,
                 index_cap_bp: None,
                 reset_freq: Tenor::monthly(), // Monthly resets
                 reset_lag_days: 2,

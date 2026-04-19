@@ -391,9 +391,9 @@ fn test_term_forward_with_floor() {
                 spread_bp: rust_decimal::Decimal::try_from(500.0).expect("valid"), // +500 bps margin = +5%
                 gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
-                floor_bp: Some(rust_decimal::Decimal::try_from(100.0).expect("valid")), // 1% floor on base rate (floors 1bp to 1%)
+                index_floor_bp: Some(rust_decimal::Decimal::try_from(100.0).expect("valid")), // 1% floor on base rate (floors 1bp to 1%)
                 all_in_floor_bp: None,
-                cap_bp: None,
+                all_in_cap_bp: None,
                 index_cap_bp: None,
                 reset_freq: Tenor::quarterly(),
                 reset_lag_days: 2,
@@ -429,9 +429,9 @@ fn test_term_forward_with_floor() {
                 spread_bp: rust_decimal::Decimal::try_from(500.0).expect("valid"), // +500 bps margin = +5%
                 gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
                 gearing_includes_spread: true,
-                floor_bp: None, // No floor, so 1bp base passes through
+                index_floor_bp: None, // No floor, so 1bp base passes through
                 all_in_floor_bp: None,
-                cap_bp: None,
+                all_in_cap_bp: None,
                 index_cap_bp: None,
                 reset_freq: Tenor::quarterly(),
                 reset_lag_days: 2,

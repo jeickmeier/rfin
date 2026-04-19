@@ -91,9 +91,9 @@ fn default_settlement_days() -> u32 {
 ///     spread_bp: dec!(300),     // +300 bps spread
 ///     gearing: dec!(1),
 ///     gearing_includes_spread: true,
-///     floor_bp: Some(dec!(0)),  // 0% floor
+///     index_floor_bp: Some(dec!(0)),  // 0% floor
 ///     all_in_floor_bp: None,
-///     cap_bp: None,
+///     all_in_cap_bp: None,
 ///     index_cap_bp: None,
 ///     reset_freq: Tenor::quarterly(),
 ///     reset_lag_days: 2,
@@ -126,7 +126,7 @@ pub enum RateSpec {
     /// **Note on calendars**: The `FloatingRateSpec.calendar_id` field is ignored
     /// for term loans. The loan-level `TermLoan::calendar_id` drives the payment
     /// schedule and business-day adjustments. Only `index_id`, `spread_bp`,
-    /// `gearing`, `floor_bp`, `cap_bp`, and `reset_lag_days` are used from this
+    /// `gearing`, `index_floor_bp`, `all_in_cap_bp`, and `reset_lag_days` are used from this
     /// specification.
     Floating(FloatingRateSpec),
 }
@@ -355,9 +355,9 @@ impl TermLoan {
             spread_bp: Decimal::new(400, 0),
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: Some(Decimal::ZERO),
+            index_floor_bp: Some(Decimal::ZERO),
             all_in_floor_bp: None,
-            cap_bp: None,
+            all_in_cap_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,

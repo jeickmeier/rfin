@@ -16,7 +16,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
+use finstack_valuations::cashflow::aggregation::aggregate_cashflows_checked;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
@@ -180,8 +180,7 @@ fn bench_kahan_summation(c: &mut Criterion) {
             num_flows,
             |b, _| {
                 b.iter(|| {
-                    let _ = aggregate_cashflows_precise_checked(black_box(&flows), Currency::USD)
-                        .unwrap();
+                    let _ = aggregate_cashflows_checked(black_box(&flows), Currency::USD).unwrap();
                 });
             },
         );

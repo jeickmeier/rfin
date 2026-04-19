@@ -481,7 +481,8 @@ impl CashflowProvider for EquityIndexFuture {
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Futures are daily settled (mark-to-market). There are no residual flows.
-        Ok(crate::cashflow::traits::empty_schedule(
+        Ok(crate::cashflow::traits::schedule_from_classified_flows(
+            Vec::new(),
             finstack_core::dates::DayCount::Act365F, // Standard for equity futures
             crate::cashflow::traits::ScheduleBuildOpts {
                 notional_hint: self.notional(),

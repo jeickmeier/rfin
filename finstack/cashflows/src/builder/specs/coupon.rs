@@ -5,6 +5,8 @@ use finstack_core::types::CurveId;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
 
+use super::schedule::ScheduleParams;
+
 /// Coupon cashflow type for fixed/floating coupons.
 ///
 /// - `Cash`: 100% paid in cash.
@@ -96,6 +98,38 @@ pub struct FixedCouponSpec {
     pub end_of_month: bool,
     /// Payment lag in business days after the adjusted accrual end date.
     pub payment_lag_days: i32,
+}
+
+impl FixedCouponSpec {
+    pub(crate) fn from_parts(
+        coupon_type: CouponType,
+        rate: Decimal,
+        schedule: ScheduleParams,
+    ) -> Self {
+        Self {
+            coupon_type,
+            rate,
+            freq: schedule.freq,
+            dc: schedule.dc,
+            bdc: schedule.bdc,
+            calendar_id: schedule.calendar_id,
+            stub: schedule.stub,
+            end_of_month: schedule.end_of_month,
+            payment_lag_days: schedule.payment_lag_days,
+        }
+    }
+
+    pub(crate) fn schedule_params(&self) -> ScheduleParams {
+        ScheduleParams {
+            freq: self.freq,
+            dc: self.dc,
+            bdc: self.bdc,
+            calendar_id: self.calendar_id.clone(),
+            stub: self.stub,
+            end_of_month: self.end_of_month,
+            payment_lag_days: self.payment_lag_days,
+        }
+    }
 }
 
 /// Compounding method for overnight rate indices (SOFR, ESTR, SONIA).
@@ -223,10 +257,10 @@ impl FloatingRateFallback {
 ///
 /// The all-in rate is computed as:
 /// 1. Look up forward rate from `index_id` curve for the accrual period
-/// 2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread
+/// 2. Apply `index_floor_bp` to index rate (if specified) - applied BEFORE adding spread
 /// 3. Add `spread_bp` to get base rate
 /// 4. Multiply by `gearing` (typically 1.0)
-/// 5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing
+/// 5. Apply `all_in_cap_bp` to final rate (if specified) - applied AFTER spread and gearing
 ///
 /// Formula: `cap(gearing * (floor(index) + spread))`
 ///
@@ -235,7 +269,7 @@ impl FloatingRateFallback {
 /// Negative index rates are supported and will flow through calculations
 /// unless constrained by floors. For markets with negative rates (EUR, JPY, CHF):
 ///
-/// - Set `floor_bp: Some(0.0)` to floor the index at zero
+/// - Set `index_floor_bp: Some(0.0)` to floor the index at zero
 /// - Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero
 /// - Omit floors to allow negative coupons (rare but valid in some structures)
 ///
@@ -255,9 +289,9 @@ impl FloatingRateFallback {
 ///     spread_bp: dec!(200.0),
 ///     gearing: dec!(1.0),
 ///     gearing_includes_spread: true,
-///     floor_bp: Some(dec!(0.0)),
+///     index_floor_bp: Some(dec!(0.0)),
 ///     all_in_floor_bp: None,
-///     cap_bp: None,
+///     all_in_cap_bp: None,
 ///     index_cap_bp: None,
 ///     reset_freq: Tenor::quarterly(),
 ///     reset_lag_days: 2,
@@ -295,9 +329,9 @@ pub struct FloatingRateSpec {
 
     /// Floor on index rate in basis points (applied to index component).
     ///
-    /// Example: floor_bp = Some(0.0) ensures index rate >= 0%.
-    #[serde(default)]
-    pub floor_bp: Option<Decimal>,
+    /// Example: index_floor_bp = Some(0.0) ensures index rate >= 0%.
+    #[serde(default, alias = "floor_bp")]
+    pub index_floor_bp: Option<Decimal>,
 
     /// Floor on all-in rate in basis points (Min Coupon).
     ///
@@ -307,9 +341,9 @@ pub struct FloatingRateSpec {
 
     /// Cap on all-in rate in basis points (applied after spread and gearing).
     ///
-    /// Example: cap_bp = Some(1000.0) ensures all-in rate <= 10%.
-    #[serde(default)]
-    pub cap_bp: Option<Decimal>,
+    /// Example: all_in_cap_bp = Some(1000.0) ensures all-in rate <= 10%.
+    #[serde(default, alias = "cap_bp")]
+    pub all_in_cap_bp: Option<Decimal>,
 
     /// Cap on index rate in basis points (applied to index component).
     #[serde(default)]
@@ -390,19 +424,19 @@ impl FloatingRateSpec {
             )));
         }
 
-        if let (Some(floor), Some(cap)) = (self.floor_bp, self.index_cap_bp) {
+        if let (Some(floor), Some(cap)) = (self.index_floor_bp, self.index_cap_bp) {
             if floor > cap {
                 return Err(finstack_core::Error::Validation(format!(
-                    "index floor_bp ({}) must not exceed index_cap_bp ({})",
+                    "index_floor_bp ({}) must not exceed index_cap_bp ({})",
                     floor, cap
                 )));
             }
         }
 
-        if let (Some(floor), Some(cap)) = (self.all_in_floor_bp, self.cap_bp) {
+        if let (Some(floor), Some(cap)) = (self.all_in_floor_bp, self.all_in_cap_bp) {
             if floor > cap {
                 return Err(finstack_core::Error::Validation(format!(
-                    "all_in_floor_bp ({}) must not exceed cap_bp ({})",
+                    "all_in_floor_bp ({}) must not exceed all_in_cap_bp ({})",
                     floor, cap
                 )));
             }
@@ -497,4 +531,18 @@ pub struct StepUpCouponSpec {
     pub end_of_month: bool,
     /// Payment lag in business days after accrual end.
     pub payment_lag_days: i32,
+}
+
+impl StepUpCouponSpec {
+    pub(crate) fn schedule_params(&self) -> ScheduleParams {
+        ScheduleParams {
+            freq: self.freq,
+            dc: self.dc,
+            bdc: self.bdc,
+            calendar_id: self.calendar_id.clone(),
+            stub: self.stub,
+            end_of_month: self.end_of_month,
+            payment_lag_days: self.payment_lag_days,
+        }
+    }
 }

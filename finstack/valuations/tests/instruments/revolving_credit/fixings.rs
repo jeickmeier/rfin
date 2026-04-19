@@ -60,9 +60,9 @@ fn build_seasoned_floating_facility(
             spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"), // +200 bps
             gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
-            floor_bp: Some(rust_decimal::Decimal::try_from(0.0).expect("valid")), // 0% floor on index
+            index_floor_bp: Some(rust_decimal::Decimal::try_from(0.0).expect("valid")), // 0% floor on index
             all_in_floor_bp: None,
-            cap_bp: None,
+            all_in_cap_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 0,
@@ -277,9 +277,9 @@ fn test_fixings_respect_floor() {
             spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"), // +200 bps
             gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
             gearing_includes_spread: true,
-            floor_bp: Some(rust_decimal::Decimal::try_from(300.0).expect("valid")), // 3% floor
+            index_floor_bp: Some(rust_decimal::Decimal::try_from(300.0).expect("valid")), // 3% floor
             all_in_floor_bp: None,
-            cap_bp: None,
+            all_in_cap_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 0,

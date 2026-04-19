@@ -64,7 +64,7 @@
 //! ## Aggregating Cashflows
 //!
 //! ```rust
-//! use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
+//! use finstack_cashflows::aggregation::aggregate_cashflows_checked;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
@@ -80,7 +80,7 @@
 //! ];
 //!
 //! // Aggregate using explicit target currency
-//! let aggregated = aggregate_cashflows_precise_checked(&flows, Currency::USD)?;
+//! let aggregated = aggregate_cashflows_checked(&flows, Currency::USD)?;
 //! assert_eq!(aggregated.amount(), Money::new(100_000.0, Currency::USD).amount());
 //! # Ok(())
 //! # }
@@ -157,8 +157,7 @@ mod serde_defaults;
 pub use accrual::{accrued_interest_amount, AccrualConfig, AccrualMethod, ExCouponRule};
 pub use builder::CashFlowBuilder;
 pub use traits::{
-    empty_schedule, schedule_from_classified_flows, schedule_from_dated_flows, CashflowProvider,
-    ScheduleBuildOpts,
+    schedule_from_classified_flows, schedule_from_dated_flows, CashflowProvider, ScheduleBuildOpts,
 };
 
 pub use finstack_core::dates::Date;

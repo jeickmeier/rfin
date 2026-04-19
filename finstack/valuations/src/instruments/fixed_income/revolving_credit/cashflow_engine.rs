@@ -342,7 +342,7 @@ impl<'a> CashflowEngine<'a> {
                     }
                     BaseRateSpec::Floating(spec) => {
                         let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
-                        let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
+                        let floor_bp_f64 = spec.index_floor_bp.and_then(|d| d.to_f64());
                         let reset_d = sub_reset_date.unwrap_or(period_start);
 
                         // For past resets, use historical fixings if available;
@@ -651,7 +651,7 @@ impl<'a> CashflowEngine<'a> {
                     // spread, matching ISDA floating rate convention and the deterministic
                     // engine's use of index_floor_bp / index_cap_bp in project_floating_rate.
                     let mut index_rate = short_rate;
-                    if let Some(floor) = spec.floor_bp {
+                    if let Some(floor) = spec.index_floor_bp {
                         let floor_f64 = floor.to_f64().unwrap_or(0.0);
                         index_rate = index_rate.max(floor_f64 * 1e-4);
                     }

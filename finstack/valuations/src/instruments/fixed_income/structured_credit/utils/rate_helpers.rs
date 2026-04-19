@@ -114,8 +114,8 @@ pub(crate) fn tranche_all_in_rate(
         TrancheCoupon::Floating(spec) => {
             let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
             let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
-            let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
-            let cap_bp_f64 = spec.cap_bp.and_then(|d| d.to_f64());
+            let floor_bp_f64 = spec.index_floor_bp.and_then(|d| d.to_f64());
+            let cap_bp_f64 = spec.all_in_cap_bp.and_then(|d| d.to_f64());
             let fallback_rate = spread_bp_f64 / 10_000.0;
 
             let params = crate::cashflow::builder::FloatingRateParams {
@@ -188,11 +188,11 @@ pub(crate) fn try_tranche_all_in_rate(
                 .to_f64()
                 .ok_or(finstack_core::InputError::Invalid)?;
             let floor_bp_f64 = spec
-                .floor_bp
+                .index_floor_bp
                 .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
                 .transpose()?;
             let cap_bp_f64 = spec
-                .cap_bp
+                .all_in_cap_bp
                 .map(|d| d.to_f64().ok_or(finstack_core::InputError::Invalid))
                 .transpose()?;
 
@@ -346,9 +346,9 @@ mod tests {
             spread_bp: Decimal::new(150, 0),
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
-            floor_bp: Some(Decimal::ZERO),
+            index_floor_bp: Some(Decimal::ZERO),
             all_in_floor_bp: None,
-            cap_bp: None,
+            all_in_cap_bp: None,
             index_cap_bp: None,
             reset_freq: Tenor::quarterly(),
             reset_lag_days: 2,

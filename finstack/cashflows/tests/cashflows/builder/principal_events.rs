@@ -45,7 +45,7 @@ fn principal_events_after_maturity_rejected() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let result = builder.build_with_curves(None);
     assert!(
@@ -83,7 +83,7 @@ fn principal_events_at_maturity_accepted() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let result = builder.build_with_curves(None);
     assert!(
@@ -118,7 +118,7 @@ fn principal_events_before_issue_included_and_adjusts_outstanding() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let schedule = builder.build_with_curves(None).unwrap();
 
@@ -164,7 +164,7 @@ fn principal_events_at_issue_accepted() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let result = builder.build_with_curves(None);
     assert!(
@@ -199,7 +199,7 @@ fn principal_events_currency_mismatch_rejected() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let result = builder.build_with_curves(None);
     assert!(
@@ -227,7 +227,7 @@ fn principal_event_delta_cash_currency_mismatch_rejected() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let result = builder.build_with_curves(None);
     assert!(
@@ -270,7 +270,18 @@ fn multiple_principal_events_same_date_accepted() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&events);
+        .add_principal_event(
+            events[0].date,
+            events[0].delta,
+            Some(events[0].cash),
+            events[0].kind,
+        )
+        .add_principal_event(
+            events[1].date,
+            events[1].delta,
+            Some(events[1].cash),
+            events[1].kind,
+        );
 
     let result = builder.build_with_curves(None);
     assert!(
@@ -336,7 +347,7 @@ fn principal_event_draw_increases_outstanding() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let schedule = builder.build_with_curves(None).unwrap();
     let outstanding = schedule.outstanding_by_date().unwrap();
@@ -380,7 +391,7 @@ fn principal_event_repay_effect_on_outstanding() {
     let mut builder = CashFlowSchedule::builder();
     let _ = builder
         .principal(init, issue, maturity)
-        .principal_events(&[event]);
+        .add_principal_event(event.date, event.delta, Some(event.cash), event.kind);
 
     let schedule = builder.build_with_curves(None).unwrap();
 
@@ -439,9 +450,7 @@ fn empty_principal_events_accepted() {
     let init = Money::new(1_000_000.0, Currency::USD);
 
     let mut builder = CashFlowSchedule::builder();
-    let _ = builder
-        .principal(init, issue, maturity)
-        .principal_events(&[]);
+    let _ = builder.principal(init, issue, maturity);
 
     let result = builder.build_with_curves(None);
     assert!(

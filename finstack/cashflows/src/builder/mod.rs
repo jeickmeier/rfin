@@ -87,6 +87,7 @@ pub use rate_helpers::{
 };
 pub use schedule::{
     require_single_currency, CashFlowMeta, CashFlowSchedule, CashflowRepresentation,
+    PvCreditAdjustment, PvDiscountSource,
 };
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,

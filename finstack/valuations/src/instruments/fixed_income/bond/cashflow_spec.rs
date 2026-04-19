@@ -230,8 +230,8 @@ impl CashflowSpec {
     /// - `coupon_type`: Cash (100% cash payment)
     /// - `gearing`: 1.0
     /// - `reset_lag_days`: Market default from index registry (fallback: T-2)
-    /// - `floor_bp`: None
-    /// - `cap_bp`: None
+    /// - `index_floor_bp`: None
+    /// - `all_in_cap_bp`: None
     /// - `reset_freq`: Same as payment frequency
     /// - `bdc`: Following
     /// - `stub`: None
@@ -297,8 +297,8 @@ impl CashflowSpec {
                 spread_bp,
                 gearing: Decimal::ONE,
                 gearing_includes_spread: true,
-                floor_bp: None,
-                cap_bp: None,
+                index_floor_bp: None,
+                all_in_cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
                 reset_freq: freq,
@@ -396,8 +396,8 @@ impl CashflowSpec {
                 spread_bp,
                 gearing: Decimal::ONE,
                 gearing_includes_spread: true,
-                floor_bp: None,
-                cap_bp: None,
+                index_floor_bp: None,
+                all_in_cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
                 reset_freq: freq,
@@ -436,8 +436,8 @@ impl CashflowSpec {
                 spread_bp,
                 gearing: Decimal::ONE,
                 gearing_includes_spread: true,
-                floor_bp: None,
-                cap_bp: None,
+                index_floor_bp: None,
+                all_in_cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
                 reset_freq: freq,
@@ -501,7 +501,7 @@ impl CashflowSpec {
     /// # Defaults filled in
     ///
     /// - `gearing_includes_spread`: `true`
-    /// - `floor_bp` / `cap_bp` / `all_in_floor_bp` / `index_cap_bp`: `None`
+    /// - `index_floor_bp` / `all_in_cap_bp` / `all_in_floor_bp` / `index_cap_bp`: `None`
     /// - `fixing_calendar_id`: `None` (falls back to `calendar_id`)
     /// - `end_of_month`: `false`
     /// - `payment_lag_days`: `0`
@@ -515,9 +515,9 @@ impl CashflowSpec {
                 spread_bp: params.spread_bp,
                 gearing: params.gearing,
                 gearing_includes_spread: true,
-                floor_bp: None,
+                index_floor_bp: None,
                 all_in_floor_bp: None,
-                cap_bp: None,
+                all_in_cap_bp: None,
                 index_cap_bp: None,
                 reset_freq: params.freq,
                 reset_lag_days: params.reset_lag_days,

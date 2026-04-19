@@ -647,11 +647,15 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
     // Combining DefaultedNotional flows with recovery_rate is now rejected
     // to prevent double-counting recovery from both explicit flows and the
     // hazard-curve adjustment.
-    let err_result = schedule.pv_by_period_with_survival_and_ctx(
+    let err_result = schedule.pv_by_period(
         &periods,
-        &disc,
-        Some(&hazard),
-        Some(0.40),
+        finstack_cashflows::builder::PvDiscountSource::Discount {
+            disc: &disc,
+            credit: Some(finstack_cashflows::builder::PvCreditAdjustment {
+                hazard: Some(&hazard),
+                recovery_rate: Some(0.40),
+            }),
+        },
         finstack_cashflows::aggregation::DateContext::new(
             base,
             DayCount::Act365F,
@@ -666,11 +670,15 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
     // When recovery_rate is None, the call succeeds and the explicit
     // Recovery flow is discounted normally.
     let pv_map = schedule
-        .pv_by_period_with_survival_and_ctx(
+        .pv_by_period(
             &periods,
-            &disc,
-            Some(&hazard),
-            None,
+            finstack_cashflows::builder::PvDiscountSource::Discount {
+                disc: &disc,
+                credit: Some(finstack_cashflows::builder::PvCreditAdjustment {
+                    hazard: Some(&hazard),
+                    recovery_rate: None,
+                }),
+            },
             finstack_cashflows::aggregation::DateContext::new(
                 base,
                 DayCount::Act365F,
