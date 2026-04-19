@@ -48,7 +48,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             // Adjustments
             "NormalizationConfig",
             "normalize",
-            "normalize_to_dicts",
             // Checks
             "CheckSuiteSpec",
             "CheckReport",

@@ -3,7 +3,6 @@
 use super::evaluator::PyStatementResult;
 use crate::errors::display_to_py;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 
 // ---------------------------------------------------------------------------
 // NormalizationConfig — JSON wrapper
@@ -92,62 +91,9 @@ fn normalize(results: &PyStatementResult, config: &PyNormalizationConfig) -> PyR
     serde_json::to_string(&norm_results).map_err(display_to_py)
 }
 
-/// Run normalization and return results as a list of dicts.
-///
-/// Parameters
-/// ----------
-/// results : StatementResult
-///     Evaluated statement results.
-/// config : NormalizationConfig
-///     Normalization configuration.
-///
-/// Returns
-/// -------
-/// list[dict]
-///     List of normalization result dictionaries with keys:
-///     ``period``, ``base_value``, ``final_value``, ``adjustments``.
-#[pyfunction]
-fn normalize_to_dicts<'py>(
-    py: Python<'py>,
-    results: &PyStatementResult,
-    config: &PyNormalizationConfig,
-) -> PyResult<Vec<Bound<'py, PyDict>>> {
-    let norm_results = finstack_statements::adjustments::engine::NormalizationEngine::normalize(
-        &results.inner,
-        &config.inner,
-    )
-    .map_err(display_to_py)?;
-
-    let mut out = Vec::with_capacity(norm_results.len());
-    for nr in &norm_results {
-        let dict = PyDict::new(py);
-        dict.set_item("period", nr.period.to_string())?;
-        dict.set_item("base_value", nr.base_value)?;
-        dict.set_item("final_value", nr.final_value)?;
-
-        let adj_list: Vec<Bound<'py, PyDict>> = nr
-            .adjustments
-            .iter()
-            .map(|a| {
-                let d = PyDict::new(py);
-                d.set_item("id", &a.adjustment_id)?;
-                d.set_item("name", &a.name)?;
-                d.set_item("raw_amount", a.raw_amount)?;
-                d.set_item("capped_amount", a.capped_amount)?;
-                d.set_item("is_capped", a.is_capped)?;
-                Ok(d)
-            })
-            .collect::<PyResult<Vec<_>>>()?;
-        dict.set_item("adjustments", adj_list)?;
-        out.push(dict);
-    }
-    Ok(out)
-}
-
 /// Register adjustment classes and functions.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyNormalizationConfig>()?;
     m.add_function(pyo3::wrap_pyfunction!(normalize, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(normalize_to_dicts, m)?)?;
     Ok(())
 }
