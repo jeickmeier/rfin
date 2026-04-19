@@ -78,14 +78,13 @@ pub use ast::{BinOp, EvaluationResult, Expr, ExprNode, Function, UnaryOp};
 pub use context::SimpleContext;
 pub use eval::{CompiledExpr, EvalOpts};
 
-/// DAG planning types are considered internal to the expression engine.
+/// Serialized DAG plan structures used by advanced evaluation and serde tests.
 ///
-/// They remain public for bindings/tests that need them, but are hidden from
-/// the primary docs and are not a stable surface.
-#[doc(hidden)]
+/// These plan/result carrier types remain public because they appear in
+/// [`CompiledExpr`] and [`EvalOpts`]. The builder used to create them stays
+/// internal to the expression engine.
 pub use dag::{
-    BoundaryType, CacheStrategy, DagBuilder, DagNode, ExecutionPlan, PushdownBoundaries,
-    PushdownBoundary,
+    BoundaryType, CacheStrategy, DagNode, ExecutionPlan, PushdownBoundaries, PushdownBoundary,
 };
 
 // Polars Series no longer part of public API surface here
