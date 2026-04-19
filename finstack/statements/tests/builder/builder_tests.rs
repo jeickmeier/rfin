@@ -605,7 +605,7 @@ fn test_reserved_prefix_rejected_in_mixed_node() {
         .unwrap()
         .mixed("__bad_mixed")
         .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
-        .try_build();
+        .build();
 
     assert!(result.is_err());
 }

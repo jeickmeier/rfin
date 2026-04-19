@@ -26,6 +26,7 @@ fn test_mixed_builder_basic() {
         .formula("lag(revenue, 1) * 1.05")
         .unwrap()
         .build()
+        .unwrap()
         .build()
         .unwrap();
 
@@ -48,6 +49,7 @@ fn test_mixed_builder_with_name() {
             AmountOrScalar::scalar(100_000.0),
         )])
         .build()
+        .unwrap()
         .build()
         .unwrap();
 
@@ -76,6 +78,7 @@ fn test_mixed_builder_evaluation() {
             params: indexmap! { "rate".into() => serde_json::json!(0.05) },
         })
         .build()
+        .unwrap()
         .build()
         .unwrap();
 
@@ -120,6 +123,7 @@ fn test_mixed_builder_formula_fallback() {
         .formula("base * 0.5")
         .unwrap()
         .build()
+        .unwrap()
         .build()
         .unwrap();
 
@@ -167,6 +171,7 @@ fn test_mixed_builder_minimal() {
         .mixed("revenue")
         .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
         .build()
+        .unwrap()
         .build()
         .unwrap();
 

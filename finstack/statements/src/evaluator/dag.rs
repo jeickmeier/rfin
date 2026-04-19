@@ -469,6 +469,7 @@ mod tests {
             .formula("1.0")
             .expect("test should succeed")
             .build()
+            .expect("test should succeed")
             .where_clause("revenue > 0.0")
             .build()
             .expect("test should succeed");
