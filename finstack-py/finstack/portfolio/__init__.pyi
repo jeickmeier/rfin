@@ -99,9 +99,7 @@ def portfolio_result_total_value(result: PortfolioResult | str) -> float:
     """
     ...
 
-def portfolio_result_get_metric(
-    result: PortfolioResult | str, metric_id: str
-) -> float | None:
+def portfolio_result_get_metric(result: PortfolioResult | str, metric_id: str) -> float | None:
     """Read one metric from a ``PortfolioResult``.
 
     Accepts a typed :class:`PortfolioResult` or a JSON string.
@@ -135,15 +133,11 @@ def value_portfolio(
     """
     ...
 
-def aggregate_cashflows(
-    portfolio: Portfolio | str, market: MarketContext | str
-) -> str:
+def aggregate_cashflows(portfolio: Portfolio | str, market: MarketContext | str) -> str:
     """Build the simple cashflow ladder for the portfolio."""
     ...
 
-def aggregate_full_cashflows(
-    portfolio: Portfolio | str, market: MarketContext | str
-) -> str:
+def aggregate_full_cashflows(portfolio: Portfolio | str, market: MarketContext | str) -> str:
     """Build the full classified cashflow ladder for the portfolio."""
     ...
 

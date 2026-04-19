@@ -235,7 +235,9 @@ impl LvarCalculator {
 
     /// Compute LVaR for all positions in a portfolio.
     ///
-    /// Runs in parallel when the `parallel` feature is enabled.
+    /// Runs serially; per-position work is dominated by a small closed-form
+    /// computation, and the aggregated totals are accumulated into a running
+    /// sum, which is trivially serial.
     ///
     /// # Arguments
     ///

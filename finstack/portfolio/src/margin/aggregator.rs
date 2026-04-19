@@ -137,22 +137,42 @@ impl PortfolioMarginAggregator {
     ) -> Result<PortfolioMarginResult> {
         let mut result = PortfolioMarginResult::new(as_of, self.base_currency);
 
-        // Calculate sensitivities for each position and aggregate by netting set
-        for (pos_id, ns_id) in &self.positions {
-            if let Some(position) = portfolio.get_position(pos_id.as_str()) {
-                // Calculate sensitivities and aggregate
-                match self.calculate_position_sensitivities(position, market, as_of) {
-                    Ok(sensitivities) => {
-                        self.netting_sets.merge_sensitivities(ns_id, &sensitivities);
-                    }
-                    Err(err) => {
-                        tracing::warn!(
-                            position_id = %position.position_id,
-                            error = %err,
-                            "Failed to calculate SIMM sensitivities for margin aggregation"
-                        );
-                        result.add_degraded_position(position.position_id.clone(), err.to_string());
-                    }
+        // Phase A (parallel): compute SIMM sensitivities for every tracked
+        // position. Each `simm_sensitivities` call is a read-only function of
+        // the shared `MarketContext` and position state; per-call work
+        // (sensitivity extraction across the ISDA SIMM risk classes) dwarfs
+        // the Rayon dispatch overhead, so par_iter is a clear win for large
+        // margin portfolios. Results are collected positionally so the
+        // downstream merge keeps the same deterministic order the serial
+        // version produced.
+        use rayon::prelude::*;
+        let position_sensitivities: Vec<(PositionId, NettingSetId, Result<SimmSensitivities>)> =
+            self.positions
+                .par_iter()
+                .filter_map(|(pos_id, ns_id)| {
+                    portfolio.get_position(pos_id.as_str()).map(|position| {
+                        let sens = self.calculate_position_sensitivities(position, market, as_of);
+                        (position.position_id.clone(), ns_id.clone(), sens)
+                    })
+                })
+                .collect();
+
+        // Phase B (serial): merge into the netting set map. Serial keeps
+        // mutation to `self.netting_sets` trivially correct and preserves the
+        // tracing warn order callers expect from the prior implementation.
+        for (position_id, ns_id, sens_result) in position_sensitivities {
+            match sens_result {
+                Ok(sensitivities) => {
+                    self.netting_sets
+                        .merge_sensitivities(&ns_id, &sensitivities);
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        position_id = %position_id,
+                        error = %err,
+                        "Failed to calculate SIMM sensitivities for margin aggregation"
+                    );
+                    result.add_degraded_position(position_id, err.to_string());
                 }
             }
         }

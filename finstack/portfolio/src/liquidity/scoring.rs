@@ -15,6 +15,12 @@ use super::types::{
     TierAllocation,
 };
 
+/// Minimum portfolio size at which per-position liquidity scoring is run in
+/// parallel. Below this threshold the work per position (a few lookups and
+/// divisions) is too small to amortize Rayon's thread-pool dispatch overhead,
+/// so a serial iterator is used instead.
+const PARALLEL_SCORING_THRESHOLD: usize = 512;
+
 /// Liquidity score for a single position.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PositionLiquidityScore {
@@ -96,9 +102,11 @@ pub struct PortfolioLiquidityReport {
 ///
 /// # Parallelism
 ///
-/// When the `parallel` feature is enabled, position scoring runs via
-/// Rayon's parallel iterator. Results are sorted deterministically
-/// after collection.
+/// For portfolios with at least [`PARALLEL_SCORING_THRESHOLD`] positions,
+/// per-position scoring runs via Rayon's parallel iterator. For smaller
+/// portfolios the work per position is too small to amortize the thread-pool
+/// overhead, so a serial iterator is used. Results are sorted deterministically
+/// after collection regardless of code path.
 pub fn score_portfolio_liquidity(
     portfolio: &Portfolio,
     valuation: &PortfolioValuation,
@@ -155,13 +163,19 @@ pub fn score_portfolio_liquidity(
         })
     };
 
-    use rayon::prelude::*;
-
-    let results: Vec<_> = portfolio
-        .positions()
-        .par_iter()
-        .map(|pos| (pos.position_id.clone(), score_fn(pos)))
-        .collect();
+    let positions = portfolio.positions();
+    let results: Vec<_> = if positions.len() >= PARALLEL_SCORING_THRESHOLD {
+        use rayon::prelude::*;
+        positions
+            .par_iter()
+            .map(|pos| (pos.position_id.clone(), score_fn(pos)))
+            .collect()
+    } else {
+        positions
+            .iter()
+            .map(|pos| (pos.position_id.clone(), score_fn(pos)))
+            .collect()
+    };
 
     for (pos_id, score) in results {
         match score {

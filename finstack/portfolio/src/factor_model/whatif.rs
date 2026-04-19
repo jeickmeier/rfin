@@ -181,17 +181,30 @@ impl<'a> WhatIfEngine<'a> {
         }
 
         let stressed_market = self.market.bump(bumps)?;
-        let mut position_pnl = Vec::with_capacity(self.portfolio.positions.len());
-        let mut total_pnl_acc = NeumaierAccumulator::new();
 
-        for position in &self.portfolio.positions {
-            let base_value = position.instrument.value_raw(self.market, self.as_of)?;
-            let stressed_value = position
-                .instrument
-                .value_raw(&stressed_market, self.as_of)?;
-            let pnl = (stressed_value - base_value) * position.quantity;
-            position_pnl.push((position.position_id.clone(), pnl));
-            total_pnl_acc.add(pnl);
+        // Per-position base/stressed pricing runs in parallel (Rayon) since
+        // `value_raw` is a read-only function of &MarketContext and the
+        // per-position work dominates thread-pool overhead. Results are
+        // collected in positional order so the subsequent serial Neumaier
+        // fold produces a bit-deterministic `total_pnl`.
+        use rayon::prelude::*;
+        let position_pnl: Vec<(PositionId, f64)> = self
+            .portfolio
+            .positions
+            .par_iter()
+            .map(|position| -> Result<(PositionId, f64)> {
+                let base_value = position.instrument.value_raw(self.market, self.as_of)?;
+                let stressed_value = position
+                    .instrument
+                    .value_raw(&stressed_market, self.as_of)?;
+                let pnl = (stressed_value - base_value) * position.quantity;
+                Ok((position.position_id.clone(), pnl))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut total_pnl_acc = NeumaierAccumulator::new();
+        for (_, pnl) in &position_pnl {
+            total_pnl_acc.add(*pnl);
         }
 
         let stressed_decomposition =

@@ -71,11 +71,32 @@ pub(crate) fn cholesky(data: &[f64], n: usize) -> finstack_core::Result<Vec<f64>
     Ok(lower)
 }
 
+/// Monte Carlo scenario output using scenario-major flat buffers.
+///
+/// The factor-pnls and factor-shocks buffers each have length
+/// `n_scenarios * n_factors` and are indexed by `s * n_factors + i`. This
+/// layout is cache-friendly for the per-scenario Cholesky transform (each
+/// scenario writes a contiguous `[n_factors]` slice) and makes
+/// `par_chunks_mut(n_factors)` a natural way to distribute work across
+/// threads without any shared mutable state.
 #[derive(Debug, Clone)]
 struct ScenarioSet {
     portfolio_pnls: Vec<f64>,
-    factor_pnls: Vec<Vec<f64>>,
-    factor_shocks: Vec<Vec<f64>>,
+    factor_pnls: Vec<f64>,
+    factor_shocks: Vec<f64>,
+    n_factors: usize,
+}
+
+impl ScenarioSet {
+    #[inline]
+    fn factor_pnl(&self, scenario: usize, factor: usize) -> f64 {
+        self.factor_pnls[scenario * self.n_factors + factor]
+    }
+
+    #[inline]
+    fn factor_shock(&self, scenario: usize, factor: usize) -> f64 {
+        self.factor_shocks[scenario * self.n_factors + factor]
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -276,37 +297,48 @@ impl SimulationDecomposer {
         exposures: &[f64],
         n_factors: usize,
     ) -> ScenarioSet {
-        let normals = self.generate_standard_normals(self.n_scenarios * n_factors);
-        let mut portfolio_pnls = Vec::with_capacity(self.n_scenarios);
-        let mut factor_pnls = vec![vec![0.0; self.n_scenarios]; n_factors];
-        let mut factor_shocks = vec![vec![0.0; self.n_scenarios]; n_factors];
+        // The standard-normal source is drawn serially so the RNG stream is
+        // exactly the same every run. The Cholesky / P&L transform below is
+        // a pure function of this `normals` buffer plus `lower` and
+        // `exposures`, so distributing it across Rayon threads produces
+        // bit-identical results regardless of scheduling.
+        let n = self.n_scenarios;
+        let normals = self.generate_standard_normals(n * n_factors);
 
-        for scenario_idx in 0..self.n_scenarios {
-            let z = &normals[scenario_idx * n_factors..(scenario_idx + 1) * n_factors];
-            let mut shocks = vec![0.0; n_factors];
+        let mut portfolio_pnls = vec![0.0; n];
+        let mut factor_pnls = vec![0.0; n * n_factors];
+        let mut factor_shocks = vec![0.0; n * n_factors];
 
-            for i in 0..n_factors {
-                let mut shock = 0.0;
-                for j in 0..=i {
-                    shock += lower[i * n_factors + j] * z[j];
+        use rayon::prelude::*;
+        portfolio_pnls
+            .par_iter_mut()
+            .zip(factor_pnls.par_chunks_mut(n_factors))
+            .zip(factor_shocks.par_chunks_mut(n_factors))
+            .enumerate()
+            .for_each(|(s, ((p_pnl, f_pnls), f_shocks))| {
+                let z = &normals[s * n_factors..(s + 1) * n_factors];
+                let mut total = 0.0;
+                for i in 0..n_factors {
+                    // Cholesky-triangular multiply:
+                    //   shock_i = sum_{j<=i} L[i,j] * z[j]
+                    let row_start = i * n_factors;
+                    let mut shock = 0.0;
+                    for j in 0..=i {
+                        shock += lower[row_start + j] * z[j];
+                    }
+                    f_shocks[i] = shock;
+                    let pnl_i = exposures[i] * shock;
+                    f_pnls[i] = pnl_i;
+                    total += pnl_i;
                 }
-                shocks[i] = shock;
-                factor_shocks[i][scenario_idx] = shock;
-                factor_pnls[i][scenario_idx] = exposures[i] * shock;
-            }
-
-            let portfolio_pnl = exposures
-                .iter()
-                .zip(shocks.iter())
-                .map(|(exposure, shock)| exposure * shock)
-                .sum();
-            portfolio_pnls.push(portfolio_pnl);
-        }
+                *p_pnl = total;
+            });
 
         ScenarioSet {
             portfolio_pnls,
             factor_pnls,
             factor_shocks,
+            n_factors,
         }
     }
 
@@ -323,6 +355,27 @@ impl SimulationDecomposer {
             .map(|(lhs_value, rhs_value)| (lhs_value - lhs_mean) * (rhs_value - rhs_mean))
             .sum();
         centered_sum / (lhs.len() - 1) as f64
+    }
+
+    /// Sample covariance of `lhs` against a strided view over a
+    /// scenario-major buffer: column `factor` of a `(n_scenarios x n_factors)`
+    /// matrix stored as `buffer[s * n_factors + factor]`. Avoids the
+    /// allocation-and-copy cost of materializing the column, which matters
+    /// because these routines are called once per factor on hot paths.
+    fn sample_covariance_strided(
+        lhs: &[f64],
+        buffer: &[f64],
+        factor: usize,
+        n_factors: usize,
+    ) -> f64 {
+        let n = lhs.len();
+        let lhs_mean = Self::sample_mean(lhs);
+        let rhs_sum: f64 = (0..n).map(|s| buffer[s * n_factors + factor]).sum();
+        let rhs_mean = rhs_sum / n as f64;
+        let centered_sum: f64 = (0..n)
+            .map(|s| (lhs[s] - lhs_mean) * (buffer[s * n_factors + factor] - rhs_mean))
+            .sum();
+        centered_sum / (n - 1) as f64
     }
 
     fn build_factor_contributions(
@@ -360,15 +413,26 @@ impl SimulationDecomposer {
             Self::sample_covariance(&scenarios.portfolio_pnls, &scenarios.portfolio_pnls).max(0.0);
         let sigma = variance.sqrt();
 
-        let component_variances: Vec<f64> = scenarios
-            .factor_pnls
-            .iter()
-            .map(|factor_pnl| Self::sample_covariance(&scenarios.portfolio_pnls, factor_pnl))
+        let n_factors = scenarios.n_factors;
+        let component_variances: Vec<f64> = (0..n_factors)
+            .map(|factor| {
+                Self::sample_covariance_strided(
+                    &scenarios.portfolio_pnls,
+                    &scenarios.factor_pnls,
+                    factor,
+                    n_factors,
+                )
+            })
             .collect();
-        let marginal_component_variances: Vec<f64> = scenarios
-            .factor_shocks
-            .iter()
-            .map(|factor_shock| Self::sample_covariance(&scenarios.portfolio_pnls, factor_shock))
+        let marginal_component_variances: Vec<f64> = (0..n_factors)
+            .map(|factor| {
+                Self::sample_covariance_strided(
+                    &scenarios.portfolio_pnls,
+                    &scenarios.factor_shocks,
+                    factor,
+                    n_factors,
+                )
+            })
             .collect();
 
         let (total_risk, scale) = match measure {
@@ -430,24 +494,21 @@ impl SimulationDecomposer {
             .sum::<f64>()
             / tail_count as f64;
 
-        let component_es: Vec<f64> = scenarios
-            .factor_pnls
-            .iter()
-            .map(|factor_pnl| {
+        let n_factors = scenarios.n_factors;
+        let component_es: Vec<f64> = (0..n_factors)
+            .map(|factor| {
                 tail_indices
                     .iter()
-                    .map(|index| factor_pnl[*index])
+                    .map(|&index| scenarios.factor_pnl(index, factor))
                     .sum::<f64>()
                     / tail_count as f64
             })
             .collect();
-        let marginal_es: Vec<f64> = scenarios
-            .factor_shocks
-            .iter()
-            .map(|factor_shock| {
+        let marginal_es: Vec<f64> = (0..n_factors)
+            .map(|factor| {
                 tail_indices
                     .iter()
-                    .map(|index| factor_shock[*index])
+                    .map(|&index| scenarios.factor_shock(index, factor))
                     .sum::<f64>()
                     / tail_count as f64
             })

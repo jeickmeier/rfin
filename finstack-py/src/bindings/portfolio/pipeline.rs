@@ -32,6 +32,7 @@ use pyo3::prelude::*;
 #[pyfunction]
 #[pyo3(signature = (portfolio, market, strict_risk=false))]
 fn value_portfolio(
+    py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     market: &Bound<'_, PyAny>,
     strict_risk: bool,
@@ -43,9 +44,23 @@ fn value_portfolio(
         strict_risk,
         ..Default::default()
     };
-    let valuation =
-        finstack_portfolio::valuation::value_portfolio(&portfolio, &market, &config, &options)
-            .map_err(display_to_py)?;
+    // Release the GIL (PyO3 `detach`) while the CPU-bound Rust valuation runs
+    // so other Python threads can execute concurrently. The `*Access` wrappers
+    // contain a `PyRef` (not `Ungil`), so we deref to plain Rust references
+    // before entering the closure — these are `Send + Sync` and therefore
+    // `Ungil`. No Python state is touched inside.
+    let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
+    let market_ref: &finstack_core::market_data::context::MarketContext = &market;
+    let valuation = py
+        .detach(|| {
+            finstack_portfolio::valuation::value_portfolio(
+                portfolio_ref,
+                market_ref,
+                &config,
+                &options,
+            )
+        })
+        .map_err(display_to_py)?;
     serde_json::to_string(&valuation).map_err(display_to_py)
 }
 
@@ -62,12 +77,16 @@ fn value_portfolio(
 ///     JSON-serialized ``PortfolioCashflows`` ladder.
 #[pyfunction]
 fn aggregate_cashflows(
+    py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     market: &Bound<'_, PyAny>,
 ) -> PyResult<String> {
     let portfolio = extract_portfolio_ref(portfolio)?;
     let market = extract_market_ref(market)?;
-    let cashflows = finstack_portfolio::cashflows::aggregate_cashflows(&portfolio, &market)
+    let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
+    let market_ref: &finstack_core::market_data::context::MarketContext = &market;
+    let cashflows = py
+        .detach(|| finstack_portfolio::cashflows::aggregate_cashflows(portfolio_ref, market_ref))
         .map_err(display_to_py)?;
     serde_json::to_string(&cashflows).map_err(display_to_py)
 }
@@ -85,12 +104,18 @@ fn aggregate_cashflows(
 ///     JSON-serialized ``PortfolioFullCashflows`` ladder.
 #[pyfunction]
 fn aggregate_full_cashflows(
+    py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     market: &Bound<'_, PyAny>,
 ) -> PyResult<String> {
     let portfolio = extract_portfolio_ref(portfolio)?;
     let market = extract_market_ref(market)?;
-    let cashflows = finstack_portfolio::cashflows::aggregate_full_cashflows(&portfolio, &market)
+    let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
+    let market_ref: &finstack_core::market_data::context::MarketContext = &market;
+    let cashflows = py
+        .detach(|| {
+            finstack_portfolio::cashflows::aggregate_full_cashflows(portfolio_ref, market_ref)
+        })
         .map_err(display_to_py)?;
     serde_json::to_string(&cashflows).map_err(display_to_py)
 }
@@ -111,6 +136,7 @@ fn aggregate_full_cashflows(
 ///     and the scenario application report.
 #[pyfunction]
 fn apply_scenario_and_revalue(
+    py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     scenario_json: &str,
     market: &Bound<'_, PyAny>,
@@ -120,9 +146,18 @@ fn apply_scenario_and_revalue(
         serde_json::from_str(scenario_json).map_err(display_to_py)?;
     let market = extract_market_ref(market)?;
     let config = finstack_core::config::FinstackConfig::default();
-    let (valuation, report) =
-        finstack_portfolio::scenarios::apply_and_revalue(&portfolio, &scenario, &market, &config)
-            .map_err(display_to_py)?;
+    let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
+    let market_ref: &finstack_core::market_data::context::MarketContext = &market;
+    let (valuation, report) = py
+        .detach(|| {
+            finstack_portfolio::scenarios::apply_and_revalue(
+                portfolio_ref,
+                &scenario,
+                market_ref,
+                &config,
+            )
+        })
+        .map_err(display_to_py)?;
     let val_json = serde_json::to_string(&valuation).map_err(display_to_py)?;
     let report_json = serde_json::to_string(&report).map_err(display_to_py)?;
     Ok((val_json, report_json))

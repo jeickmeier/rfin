@@ -18,10 +18,11 @@ from __future__ import annotations
 from datetime import date, timedelta
 from itertools import accumulate
 import json
+import math
 
 from finstack.core.currency import Currency
 from finstack.core.dates import DayCount, Tenor
-from finstack.core.market_data import DiscountCurve, ForwardCurve, FxMatrix
+from finstack.core.market_data import DiscountCurve, ForwardCurve, FxMatrix, MarketContext
 from finstack.core.math import count_consecutive, linalg, stats
 from finstack.core.money import Money
 from finstack.core.types import Rate
@@ -253,7 +254,6 @@ def _build_bench_market() -> MarketContext:
     """
     base = date(2025, 1, 15)
     # Flat 5% act/360 ≈ df = exp(-0.05 * t) for a reasonable approximation.
-    import math
     knots = [(t, math.exp(-0.05 * t)) for t in (0.0, 0.25, 0.5, 1.0, 2.0)]
     curve = DiscountCurve("USD-OIS", base, knots)
     return MarketContext().insert(curve)

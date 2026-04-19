@@ -70,6 +70,7 @@ pub fn portfolio_result_get_metric(
 ///     Valuation date in ISO 8601 format.
 #[pyfunction]
 pub fn aggregate_metrics(
+    py: Python<'_>,
     valuation: &Bound<'_, PyAny>,
     base_ccy: &str,
     market: &Bound<'_, PyAny>,
@@ -79,7 +80,12 @@ pub fn aggregate_metrics(
     let ccy: finstack_core::currency::Currency = base_ccy.parse().map_err(display_to_py)?;
     let market = extract_market_ref(market)?;
     let date = super::parse_date(as_of)?;
-    let metrics = finstack_portfolio::metrics::aggregate_metrics(&valuation, ccy, &market, date)
+    let valuation_ref: &finstack_portfolio::valuation::PortfolioValuation = &valuation;
+    let market_ref: &finstack_core::market_data::context::MarketContext = &market;
+    let metrics = py
+        .detach(|| {
+            finstack_portfolio::metrics::aggregate_metrics(valuation_ref, ccy, market_ref, date)
+        })
         .map_err(display_to_py)?;
     serde_json::to_string(&metrics).map_err(display_to_py)
 }

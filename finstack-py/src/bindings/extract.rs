@@ -15,9 +15,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::bindings::core::market_data::context::PyMarketContext;
-use crate::bindings::portfolio::types::{
-    PyPortfolio, PyPortfolioResult, PyPortfolioValuation,
-};
+use crate::bindings::portfolio::types::{PyPortfolio, PyPortfolioResult, PyPortfolioValuation};
 use crate::bindings::statements::evaluator::PyStatementResult;
 use crate::bindings::statements::types::PyFinancialModelSpec;
 
@@ -268,9 +266,7 @@ impl std::ops::Deref for ValuationAccess<'_> {
 }
 
 /// Extract a [`PortfolioValuation`] from a typed Python object or a JSON string.
-pub fn extract_valuation_ref<'py>(
-    obj: &Bound<'py, PyAny>,
-) -> PyResult<ValuationAccess<'py>> {
+pub fn extract_valuation_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<ValuationAccess<'py>> {
     if let Ok(v) = obj.cast::<PyPortfolioValuation>() {
         return Ok(ValuationAccess::Borrowed(v.borrow()));
     }

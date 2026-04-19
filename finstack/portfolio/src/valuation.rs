@@ -257,8 +257,10 @@ pub struct PortfolioValuationOptions {
 ///
 /// # Parallelism
 ///
-/// When the `parallel` feature is enabled, position valuations are computed in parallel
-/// using rayon. Results are deterministically reduced to ensure consistency across runs.
+/// Position valuations are computed in parallel using rayon. Results are
+/// deterministically reduced to ensure consistency across runs (per-position
+/// results are collected in input order, then a serial Neumaier fold produces
+/// the aggregate totals).
 ///
 /// # Examples
 ///
@@ -299,6 +301,36 @@ pub fn value_portfolio(
     let position_values_vec: Vec<PositionValue> = portfolio
         .positions
         .par_iter()
+        .map(|position| {
+            value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
+}
+
+/// Serial counterpart to [`value_portfolio`] for nested-parallel call sites.
+///
+/// When an outer loop (e.g. [`crate::replay::replay_portfolio`] over a
+/// historical timeline of snapshots) is parallelized across its own work
+/// items, calling the parallel [`value_portfolio`] for each item would spawn
+/// nested Rayon work and often hurt throughput due to thread-pool contention.
+/// This variant runs the per-position pricing step serially so the outer
+/// `par_iter` owns the available parallelism.
+///
+/// Results are numerically identical to [`value_portfolio`] (same Neumaier
+/// aggregation of per-position contributions in positional order).
+pub(crate) fn value_portfolio_serial(
+    portfolio: &Portfolio,
+    market: &MarketContext,
+    _config: &FinstackConfig,
+    options: &PortfolioValuationOptions,
+) -> Result<PortfolioValuation> {
+    let metrics = resolve_metrics(options);
+
+    let position_values_vec: Vec<PositionValue> = portfolio
+        .positions
+        .iter()
         .map(|position| {
             value_single_position(position, market, portfolio, &metrics, options.strict_risk)
         })
@@ -472,29 +504,27 @@ pub fn revalue_affected(
 
     let metrics = resolve_metrics(options);
 
-    let mut position_values_vec: Vec<PositionValue> = Vec::with_capacity(portfolio.positions.len());
+    use rayon::prelude::*;
 
-    for (idx, position) in portfolio.positions.iter().enumerate() {
-        if affected_indices.binary_search(&idx).is_ok() {
-            position_values_vec.push(value_single_position(
-                position,
-                market,
-                portfolio,
-                &metrics,
-                options.strict_risk,
-            )?);
-        } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
-            position_values_vec.push(pv.clone());
-        } else {
-            position_values_vec.push(value_single_position(
-                position,
-                market,
-                portfolio,
-                &metrics,
-                options.strict_risk,
-            )?);
-        }
-    }
+    // Parallel revaluation of each position. Positions whose dependencies
+    // were not touched by `changed` are cloned from the prior valuation;
+    // affected positions (and any position without a prior entry, e.g. on
+    // first call) are repriced via `value_single_position`. The resulting
+    // order matches `portfolio.positions` so downstream ordering is preserved.
+    let position_values_vec: Vec<PositionValue> = portfolio
+        .positions
+        .par_iter()
+        .enumerate()
+        .map(|(idx, position)| {
+            if affected_indices.binary_search(&idx).is_ok() {
+                value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+            } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
+                Ok(pv.clone())
+            } else {
+                value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
 }

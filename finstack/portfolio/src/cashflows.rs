@@ -375,27 +375,81 @@ pub fn aggregate_full_cashflows(
     portfolio: &Portfolio,
     market: &MarketContext,
 ) -> Result<PortfolioFullCashflows> {
+    // Phase A (parallel): build per-position cashflow schedules. Each call to
+    // `instrument_cashflow_schedule` is an independent, read-only function of
+    // the shared `MarketContext` and the per-position instrument, so scheduling
+    // it in parallel yields near-linear speedup for portfolios with many
+    // instruments. Results are collected in positional order to preserve the
+    // deterministic event/merge ordering that the existing tests encode.
+    struct PositionCashflowResult {
+        position_id: PositionId,
+        instrument_id: String,
+        instrument_type: String,
+        instrument_type_debug: String,
+        schedule: std::result::Result<CashFlowSchedule, finstack_core::Error>,
+        scaled_flows: Vec<(finstack_core::cashflow::CashFlow, Money)>,
+    }
+
+    use rayon::prelude::*;
+    let per_position: Vec<PositionCashflowResult> = portfolio
+        .positions
+        .par_iter()
+        .map(|position| {
+            let instrument_id = position.instrument.id().to_string();
+            let instrument_type = format!("{:?}", position.instrument.key());
+            let instrument_type_debug = instrument_type.clone();
+            match instrument_cashflow_schedule(
+                position.instrument.as_ref(),
+                market,
+                portfolio.as_of,
+            ) {
+                Ok(schedule) => {
+                    let scaled_flows: Vec<_> = schedule
+                        .flows
+                        .iter()
+                        .map(|flow| (*flow, position.scale_value(flow.amount)))
+                        .collect();
+                    PositionCashflowResult {
+                        position_id: position.position_id.clone(),
+                        instrument_id,
+                        instrument_type,
+                        instrument_type_debug,
+                        schedule: Ok(schedule),
+                        scaled_flows,
+                    }
+                }
+                Err(err) => PositionCashflowResult {
+                    position_id: position.position_id.clone(),
+                    instrument_id,
+                    instrument_type,
+                    instrument_type_debug,
+                    schedule: Err(err),
+                    scaled_flows: Vec::new(),
+                },
+            }
+        })
+        .collect();
+
+    // Phase B (serial): merge per-position results into the aggregated
+    // structures. Serial keeps `events` / `by_position` / `by_date` ordering
+    // deterministic and preserves the existing tracing log order.
     let mut events = Vec::new();
     let mut by_position: IndexMap<PositionId, Vec<PortfolioCashflowEvent>> = IndexMap::new();
     let mut position_summaries: IndexMap<PositionId, PortfolioCashflowPositionSummary> =
         IndexMap::new();
     let mut issues = Vec::new();
 
-    for position in &portfolio.positions {
-        let instrument_id = position.instrument.id().to_string();
-        let instrument_type = format!("{:?}", position.instrument.key());
-
-        match instrument_cashflow_schedule(position.instrument.as_ref(), market, portfolio.as_of) {
+    for result in per_position {
+        match result.schedule {
             Ok(schedule) => {
                 let event_count = schedule.flows.len();
                 let representation = schedule.meta.representation;
                 let mut position_events = Vec::with_capacity(schedule.flows.len());
-                for flow in schedule.flows {
-                    let scaled_amount = position.scale_value(flow.amount);
+                for (flow, scaled_amount) in result.scaled_flows {
                     let event = PortfolioCashflowEvent {
-                        position_id: position.position_id.clone(),
-                        instrument_id: instrument_id.clone(),
-                        instrument_type: instrument_type.clone(),
+                        position_id: result.position_id.clone(),
+                        instrument_id: result.instrument_id.clone(),
+                        instrument_type: result.instrument_type.clone(),
                         date: flow.date,
                         amount: scaled_amount,
                         kind: flow.kind,
@@ -406,13 +460,13 @@ pub fn aggregate_full_cashflows(
                     events.push(event.clone());
                     position_events.push(event);
                 }
-                by_position.insert(position.position_id.clone(), position_events);
+                by_position.insert(result.position_id.clone(), position_events);
                 position_summaries.insert(
-                    position.position_id.clone(),
+                    result.position_id.clone(),
                     PortfolioCashflowPositionSummary {
-                        position_id: position.position_id.clone(),
-                        instrument_id: instrument_id.clone(),
-                        instrument_type: instrument_type.clone(),
+                        position_id: result.position_id.clone(),
+                        instrument_id: result.instrument_id.clone(),
+                        instrument_type: result.instrument_type.clone(),
                         representation,
                         event_count,
                     },
@@ -420,16 +474,16 @@ pub fn aggregate_full_cashflows(
             }
             Err(err) => {
                 tracing::warn!(
-                    position_id = %position.position_id,
-                    instrument_id = %position.instrument.id(),
-                    instrument_type = ?position.instrument.key(),
+                    position_id = %result.position_id,
+                    instrument_id = %result.instrument_id,
+                    instrument_type = %result.instrument_type_debug,
                     error = %err,
                     "Skipping position during portfolio cashflow aggregation because contractual cashflows could not be built"
                 );
                 issues.push(CashflowExtractionIssue {
-                    position_id: position.position_id.clone(),
-                    instrument_id,
-                    instrument_type,
+                    position_id: result.position_id,
+                    instrument_id: result.instrument_id,
+                    instrument_type: result.instrument_type,
                     kind: CashflowExtractionIssueKind::BuildFailed,
                     message: err.to_string(),
                 });

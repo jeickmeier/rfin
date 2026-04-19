@@ -315,20 +315,6 @@ const VARIANCE_TOLERANCE: f64 = 1e-12;
 
 use super::math::{normal_pdf, normal_quantile};
 
-/// Compute parametric portfolio VaR from weights and covariance.
-fn parametric_portfolio_var(weights: &[f64], covariance: &[f64], confidence: f64) -> f64 {
-    let n = weights.len();
-    let z = normal_quantile(confidence);
-    let mut variance = 0.0;
-    for i in 0..n {
-        for j in 0..n {
-            variance += weights[i] * covariance[i * n + j] * weights[j];
-        }
-    }
-    let sigma = variance.max(0.0).sqrt();
-    sigma * z
-}
-
 // ---------------------------------------------------------------------------
 // Validation helpers
 // ---------------------------------------------------------------------------
@@ -405,51 +391,60 @@ fn validate_decomposition_inputs(
 // Incremental VaR
 // ---------------------------------------------------------------------------
 
-/// Compute incremental VaR for all positions via leave-one-out.
+/// Compute incremental VaR for all positions in O(n) total.
+///
+/// The naive leave-one-out algorithm rebuilds an `(n-1) x (n-1)` covariance
+/// submatrix per position and recomputes `w' Σ w` from scratch, which is
+/// `O(n²)` per position and `O(n³)` overall. Because the reduced variance is
+/// an algebraic function of the full `w' Σ w` and the already-computed
+/// matrix-vector product `Σ w`, we can derive it in closed form.
+///
+/// Let `S = Σ_i w_i` (total_weights). When position `k` is excluded and the
+/// remaining weights are renormalized to sum to one of the original total
+/// (matching the prior behavior of normalizing by `S_k = S - w_k`):
+///
+/// ```text
+///   variance_k_unnorm = w' Σ w  -  2 w_k (Σ w)_k  +  w_k²  Σ_{kk}
+///   variance_excl_k   = variance_k_unnorm / S_k²            (when S_k ≠ 0)
+///   var_excl_k        = z_α · sqrt(max(variance_excl_k, 0))
+///   incremental_k     = portfolio_var - var_excl_k
+/// ```
+///
+/// The sigma_w argument must equal `Σ w`; this keeps the routine allocation-
+/// and-matrix-free and preserves the original fallback (no renormalization
+/// when `S_k == 0`, matching the prior implementation).
 fn compute_incremental_var(
     weights: &[f64],
+    sigma_w: &[f64],
     covariance: &[f64],
+    portfolio_variance: f64,
     portfolio_var: f64,
     confidence: f64,
     n: usize,
 ) -> Vec<f64> {
-    let compute_one = |exclude_idx: usize| -> f64 {
-        // Build (n-1) weight vector.
-        let mut w_excl = Vec::with_capacity(n - 1);
-        for (i, &w) in weights.iter().enumerate() {
-            if i != exclude_idx {
-                w_excl.push(w);
-            }
-        }
-        // Renormalize weights.
-        let sum: f64 = w_excl.iter().sum();
-        if sum.abs() > 0.0 {
-            for w in w_excl.iter_mut() {
-                *w /= sum;
-            }
-        }
+    let z_alpha = normal_quantile(confidence);
+    let total_weights: f64 = weights.iter().sum();
 
-        // Extract (n-1)x(n-1) submatrix.
-        let mut cov_excl = Vec::with_capacity((n - 1) * (n - 1));
-        for i in 0..n {
-            if i == exclude_idx {
-                continue;
-            }
-            for j in 0..n {
-                if j == exclude_idx {
-                    continue;
-                }
-                cov_excl.push(covariance[i * n + j]);
-            }
-        }
+    (0..n)
+        .map(|k| {
+            let w_k = weights[k];
+            let sw_k = sigma_w[k];
+            let cov_kk = covariance[k * n + k];
 
-        // Compute VaR of reduced portfolio.
-        let var_excl = parametric_portfolio_var(&w_excl, &cov_excl, confidence);
-        portfolio_var - var_excl
-    };
+            let variance_unnorm =
+                (portfolio_variance - 2.0 * w_k * sw_k + w_k * w_k * cov_kk).max(0.0);
 
-    use rayon::prelude::*;
-    (0..n).into_par_iter().map(compute_one).collect()
+            let s_k = total_weights - w_k;
+            let variance_excl = if s_k.abs() > 0.0 {
+                variance_unnorm / (s_k * s_k)
+            } else {
+                variance_unnorm
+            };
+
+            let var_excl = z_alpha * variance_excl.sqrt();
+            portfolio_var - var_excl
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -604,8 +599,15 @@ impl ParametricPositionDecomposer {
 
         // Incremental VaR (expensive leave-one-out).
         if config.compute_incremental && n > 1 {
-            let incremental =
-                compute_incremental_var(weights, covariance, portfolio_var, config.confidence, n);
+            let incremental = compute_incremental_var(
+                weights,
+                &sigma_w,
+                covariance,
+                variance,
+                portfolio_var,
+                config.confidence,
+                n,
+            );
             for (contribution, ivar) in var_contributions.iter_mut().zip(incremental.into_iter()) {
                 contribution.incremental_var = Some(ivar);
             }
@@ -739,11 +741,34 @@ impl HistoricalPositionDecomposer {
             / n_tail as f64;
 
         // Per-position Component ES: average of position-level losses in tail.
+        // For large (n_tail * n) problems, reading the per-tail-scenario loss
+        // rows in parallel is worthwhile; the subsequent accumulation runs
+        // serially in input order so the floating-point sum is bit-identical
+        // across runs. For small problems the allocation overhead of the
+        // intermediate `tail_rows` Vec outweighs any gain, so we fall back to
+        // an in-place serial accumulation that matches the original behavior.
+        const PARALLEL_TAIL_THRESHOLD: usize = 100_000;
         let mut component_es_vec = vec![0.0; n];
-        for &(s, _) in &portfolio_pnls[..n_tail] {
-            let row_start = s * n;
-            for i in 0..n {
-                component_es_vec[i] += -position_pnls[row_start + i];
+        if n_tail.saturating_mul(n) >= PARALLEL_TAIL_THRESHOLD {
+            use rayon::prelude::*;
+            let tail_rows: Vec<Vec<f64>> = portfolio_pnls[..n_tail]
+                .par_iter()
+                .map(|&(s, _)| {
+                    let row_start = s * n;
+                    (0..n).map(|i| -position_pnls[row_start + i]).collect()
+                })
+                .collect();
+            for row in &tail_rows {
+                for i in 0..n {
+                    component_es_vec[i] += row[i];
+                }
+            }
+        } else {
+            for &(s, _) in &portfolio_pnls[..n_tail] {
+                let row_start = s * n;
+                for i in 0..n {
+                    component_es_vec[i] += -position_pnls[row_start + i];
+                }
             }
         }
         for ces in component_es_vec.iter_mut() {

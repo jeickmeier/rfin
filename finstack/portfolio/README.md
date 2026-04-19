@@ -157,8 +157,9 @@ an external instrument registry is required to rebuild it.
 ## Feature Flags
 
 - `scenarios`: enables scenario application helpers.
-- `parallel`: enables rayon-backed portfolio valuation and metric collection in
-  selected paths.
+
+Rayon-backed parallel valuation and metric collection are always enabled (the
+crate depends on `rayon` directly); there is no opt-in feature gate.
 
 ## Examples and Verification
 

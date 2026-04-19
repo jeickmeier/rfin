@@ -240,8 +240,9 @@ pub fn is_summable(metric_id: &str) -> bool {
 ///
 /// # Parallelism
 ///
-/// When the `parallel` feature is enabled, metrics are collected in parallel
-/// and then deterministically aggregated to ensure consistency across runs.
+/// Per-position metrics are collected in parallel using rayon and then
+/// deterministically aggregated with a serial Neumaier fold to ensure
+/// consistency across runs.
 ///
 /// # References
 ///

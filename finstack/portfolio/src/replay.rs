@@ -146,8 +146,20 @@ pub struct ReplayResult {
 }
 
 use crate::portfolio::Portfolio;
-use crate::valuation::value_portfolio;
+use crate::valuation::{value_portfolio, value_portfolio_serial};
 use finstack_core::config::FinstackConfig;
+
+/// Portfolios below this position count benefit more from parallelizing the
+/// outer replay loop (one Rayon task per timeline snapshot) than from the
+/// inner per-position parallelism inside [`value_portfolio`]. Above the
+/// threshold the inner parallelism is left in place to avoid oversubscribing
+/// the Rayon thread pool.
+const REPLAY_OUTER_PARALLEL_POSITION_THRESHOLD: usize = 256;
+
+/// Minimum number of replay snapshots at which outer-loop parallelism is
+/// considered; for very short timelines the serial path is clearer and the
+/// work per date is amortized by the benchmark loop anyway.
+const REPLAY_OUTER_PARALLEL_SNAPSHOT_THRESHOLD: usize = 8;
 
 /// Replay a portfolio through a sequence of dated market snapshots.
 ///
@@ -172,17 +184,56 @@ pub fn replay_portfolio(
     );
     let compute_attribution = matches!(config.mode, ReplayMode::FullAttribution);
 
+    // Decide where to spend Rayon parallelism: small portfolios benefit from
+    // parallelizing the outer (per-date) loop and running each valuation
+    // serially; large portfolios already saturate the thread pool via
+    // per-position parallelism inside `value_portfolio`, so the outer loop
+    // runs serially to avoid nested dispatch overhead.
+    let use_outer_parallel = portfolio.positions.len() < REPLAY_OUTER_PARALLEL_POSITION_THRESHOLD
+        && timeline.snapshots.len() >= REPLAY_OUTER_PARALLEL_SNAPSHOT_THRESHOLD;
+
+    // Phase A: value the portfolio at every snapshot date.
+    let valuations: Vec<PortfolioValuation> = if use_outer_parallel {
+        use rayon::prelude::*;
+        timeline
+            .snapshots
+            .par_iter()
+            .map(|(_date, market)| {
+                value_portfolio_serial(
+                    portfolio,
+                    market,
+                    finstack_config,
+                    &config.valuation_options,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        timeline
+            .snapshots
+            .iter()
+            .map(|(_date, market)| {
+                value_portfolio(
+                    portfolio,
+                    market,
+                    finstack_config,
+                    &config.valuation_options,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?
+    };
+
+    // Phase B: assemble ReplayStep entries with P&L and (optionally)
+    // attribution. Runs serially — the per-step work is cheap (subtractions
+    // and one attribution call) and serial ordering keeps tracing output
+    // deterministic. Attribution itself already fans out over positions via
+    // `attribute_portfolio_pnl`.
     let mut steps = Vec::with_capacity(timeline.len());
 
-    // Step 0: anchor valuation
-    let (first_date, first_market) = &timeline.snapshots[0];
-    let val_0 = value_portfolio(
-        portfolio,
-        first_market,
-        finstack_config,
-        &config.valuation_options,
-    )?;
-
+    let (first_date, _) = &timeline.snapshots[0];
+    let mut valuations_iter = valuations.into_iter();
+    let val_0 = valuations_iter.next().ok_or_else(|| {
+        Error::InvalidInput("ReplayTimeline must be non-empty (unreachable)".into())
+    })?;
     steps.push(ReplayStep {
         date: *first_date,
         valuation: val_0,
@@ -191,15 +242,7 @@ pub fn replay_portfolio(
         attribution: None,
     });
 
-    // Steps 1..N
-    for (date, market) in timeline.snapshots.iter().skip(1) {
-        let val_i = value_portfolio(
-            portfolio,
-            market,
-            finstack_config,
-            &config.valuation_options,
-        )?;
-
+    for ((date, market), val_i) in timeline.snapshots.iter().skip(1).zip(valuations_iter) {
         let prev_step = &steps[steps.len() - 1];
 
         let daily_pnl = if compute_pnl {
