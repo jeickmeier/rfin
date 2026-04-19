@@ -6,7 +6,7 @@ use super::time_grid::PyTimeGrid;
 use crate::bindings::core::currency::extract_currency;
 use crate::errors::core_to_py;
 use finstack_monte_carlo::engine::{McEngine, McEngineConfig};
-use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+use finstack_monte_carlo::pricer::european::EuropeanPricer;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::str::FromStr;
@@ -55,11 +55,9 @@ impl PyMcEngine {
         let ccy = resolve_currency(currency)?;
         let t_max = self.inner.config().time_grid.t_max();
         let num_steps = self.inner.config().time_grid.num_steps();
-        let pricer = EuropeanPricer::new(
-            EuropeanPricerConfig::new(self.inner.config().num_paths)
-                .with_seed(self.seed)
-                .with_parallel(self.inner.config().use_parallel),
-        );
+        let pricer = EuropeanPricer::new(self.inner.config().num_paths)
+            .with_seed(self.seed)
+            .with_parallel(self.inner.config().use_parallel);
         pricer
             .price_gbm_call(spot, strike, rate, div_yield, vol, t_max, num_steps, ccy)
             .map(PyMonteCarloResult::from_inner)
@@ -81,11 +79,9 @@ impl PyMcEngine {
         let ccy = resolve_currency(currency)?;
         let t_max = self.inner.config().time_grid.t_max();
         let num_steps = self.inner.config().time_grid.num_steps();
-        let pricer = EuropeanPricer::new(
-            EuropeanPricerConfig::new(self.inner.config().num_paths)
-                .with_seed(self.seed)
-                .with_parallel(self.inner.config().use_parallel),
-        );
+        let pricer = EuropeanPricer::new(self.inner.config().num_paths)
+            .with_seed(self.seed)
+            .with_parallel(self.inner.config().use_parallel);
         pricer
             .price_gbm_put(spot, strike, rate, div_yield, vol, t_max, num_steps, ccy)
             .map(PyMonteCarloResult::from_inner)
@@ -135,11 +131,9 @@ fn price_european_call(
     currency: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyMonteCarloResult> {
     let ccy = resolve_currency(currency)?;
-    let pricer = EuropeanPricer::new(
-        EuropeanPricerConfig::new(num_paths)
-            .with_seed(seed)
-            .with_parallel(false),
-    );
+    let pricer = EuropeanPricer::new(num_paths)
+        .with_seed(seed)
+        .with_parallel(false);
     pricer
         .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
         .map(PyMonteCarloResult::from_inner)
@@ -163,11 +157,9 @@ fn price_european_put(
     currency: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyMonteCarloResult> {
     let ccy = resolve_currency(currency)?;
-    let pricer = EuropeanPricer::new(
-        EuropeanPricerConfig::new(num_paths)
-            .with_seed(seed)
-            .with_parallel(false),
-    );
+    let pricer = EuropeanPricer::new(num_paths)
+        .with_seed(seed)
+        .with_parallel(false);
     pricer
         .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
         .map(PyMonteCarloResult::from_inner)

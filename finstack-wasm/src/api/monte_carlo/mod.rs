@@ -8,12 +8,15 @@ use std::str::FromStr;
 
 use crate::utils::to_js_err;
 use finstack_core::currency::Currency;
-use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+use finstack_monte_carlo::pricer::european::EuropeanPricer;
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use finstack_monte_carlo::results::MoneyEstimate;
 use wasm_bindgen::prelude::*;
 
 /// Serializable result shape returned to JavaScript.
+///
+/// Field layout mirrors the accessors on the Python `MonteCarloResult`
+/// binding so both hosts see the same vocabulary.
 #[derive(serde::Serialize)]
 struct McResultJs {
     /// Discounted mean present value.
@@ -30,6 +33,20 @@ struct McResultJs {
     ci_upper: f64,
     /// Number of paths simulated.
     num_paths: usize,
+    /// Number of paths skipped due to non-finite payoffs.
+    num_skipped: usize,
+    /// Median of captured discounted path values (if captured).
+    median: Option<f64>,
+    /// 25th percentile of captured discounted path values (if captured).
+    percentile_25: Option<f64>,
+    /// 75th percentile of captured discounted path values (if captured).
+    percentile_75: Option<f64>,
+    /// Minimum of captured discounted path values (if captured).
+    min: Option<f64>,
+    /// Maximum of captured discounted path values (if captured).
+    max: Option<f64>,
+    /// Relative standard error (`stderr / |mean|`); `f64::INFINITY` near zero.
+    relative_stderr: f64,
 }
 
 impl McResultJs {
@@ -43,6 +60,13 @@ impl McResultJs {
             ci_lower: est.ci_95.0.amount(),
             ci_upper: est.ci_95.1.amount(),
             num_paths: est.num_paths,
+            num_skipped: est.num_skipped,
+            median: est.median,
+            percentile_25: est.percentile_25,
+            percentile_75: est.percentile_75,
+            min: est.min,
+            max: est.max,
+            relative_stderr: est.relative_stderr(),
         }
     }
 }
@@ -50,7 +74,8 @@ impl McResultJs {
 /// Price a European call option via Monte Carlo under GBM dynamics.
 ///
 /// Returns a JSON object with `mean`, `currency`, `stderr`, `std_dev`,
-/// `ci_lower`, `ci_upper`, and `num_paths`.
+/// `ci_lower`, `ci_upper`, `num_paths`, `num_skipped`, `median`,
+/// `percentile_25`, `percentile_75`, `min`, `max`, and `relative_stderr`.
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = priceEuropeanCall)]
 pub fn price_european_call(
@@ -77,7 +102,8 @@ pub fn price_european_call(
 /// Price a European put option via Monte Carlo under GBM dynamics.
 ///
 /// Returns a JSON object with `mean`, `currency`, `stderr`, `std_dev`,
-/// `ci_lower`, `ci_upper`, and `num_paths`.
+/// `ci_lower`, `ci_upper`, `num_paths`, `num_skipped`, `median`,
+/// `percentile_25`, `percentile_75`, `min`, `max`, and `relative_stderr`.
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = priceEuropeanPut)]
 pub fn price_european_put(
@@ -264,11 +290,9 @@ fn resolve_currency(code: Option<&str>) -> Result<Currency, JsValue> {
 
 /// Shared European pricer builder.
 fn build_pricer(num_paths: usize, seed: u64) -> EuropeanPricer {
-    EuropeanPricer::new(
-        EuropeanPricerConfig::new(num_paths)
-            .with_seed(seed)
-            .with_parallel(false),
-    )
+    EuropeanPricer::new(num_paths)
+        .with_seed(seed)
+        .with_parallel(false)
 }
 
 #[cfg(test)]

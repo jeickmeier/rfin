@@ -54,6 +54,42 @@ impl PyMonteCarloResult {
         self.inner.num_paths
     }
 
+    /// Number of paths skipped due to non-finite payoffs.
+    #[getter]
+    fn num_skipped(&self) -> usize {
+        self.inner.num_skipped
+    }
+
+    /// Median of captured discounted path values (if captured).
+    #[getter]
+    fn median(&self) -> Option<f64> {
+        self.inner.median
+    }
+
+    /// 25th percentile of captured discounted path values (if captured).
+    #[getter]
+    fn percentile_25(&self) -> Option<f64> {
+        self.inner.percentile_25
+    }
+
+    /// 75th percentile of captured discounted path values (if captured).
+    #[getter]
+    fn percentile_75(&self) -> Option<f64> {
+        self.inner.percentile_75
+    }
+
+    /// Minimum of captured discounted path values (if captured).
+    #[getter]
+    fn min(&self) -> Option<f64> {
+        self.inner.min
+    }
+
+    /// Maximum of captured discounted path values (if captured).
+    #[getter]
+    fn max(&self) -> Option<f64> {
+        self.inner.max
+    }
+
     /// Relative standard error (stderr / |mean|).
     fn relative_stderr(&self) -> f64 {
         self.inner.relative_stderr()
@@ -116,6 +152,42 @@ impl PyEstimate {
     #[getter]
     fn num_paths(&self) -> usize {
         self.inner.num_paths
+    }
+
+    /// Number of paths skipped due to non-finite payoffs.
+    #[getter]
+    fn num_skipped(&self) -> usize {
+        self.inner.num_skipped
+    }
+
+    /// Median of captured path values (if captured).
+    #[getter]
+    fn median(&self) -> Option<f64> {
+        self.inner.median
+    }
+
+    /// 25th percentile of captured path values (if captured).
+    #[getter]
+    fn percentile_25(&self) -> Option<f64> {
+        self.inner.percentile_25
+    }
+
+    /// 75th percentile of captured path values (if captured).
+    #[getter]
+    fn percentile_75(&self) -> Option<f64> {
+        self.inner.percentile_75
+    }
+
+    /// Minimum of captured path values (if captured).
+    #[getter]
+    fn min(&self) -> Option<f64> {
+        self.inner.min
+    }
+
+    /// Maximum of captured path values (if captured).
+    #[getter]
+    fn max(&self) -> Option<f64> {
+        self.inner.max
     }
 
     fn __repr__(&self) -> String {

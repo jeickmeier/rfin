@@ -119,14 +119,13 @@ class TestMonteCarloNamespace:
     """Verify the monte_carlo subpackage."""
 
     def test_monte_carlo_exports(self) -> None:
-        """Monte Carlo should export engine, process, payoff, and pricer types."""
+        """Monte Carlo should export engine, pricer, and result types."""
         from finstack.monte_carlo import (  # noqa: F401
-            EuropeanCall,
             EuropeanPricer,
-            EuropeanPut,
-            GbmProcess,
+            LsmcPricer,
             McEngine,
             MonteCarloResult,
+            PathDependentPricer,
             price_european_call,
             price_european_put,
         )

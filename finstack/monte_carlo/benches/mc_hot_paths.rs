@@ -18,7 +18,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_monte_carlo::payoff::vanilla::EuropeanCall;
 use finstack_monte_carlo::pricer::basis::PolynomialBasis;
-use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+use finstack_monte_carlo::pricer::european::EuropeanPricer;
 use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
 use finstack_monte_carlo::pricer::lsq::solve_least_squares;
 use finstack_monte_carlo::process::gbm::GbmProcess;
@@ -35,11 +35,7 @@ fn bench_european_pricer(c: &mut Criterion) {
 
     for &num_paths in &[1_000, 10_000, 50_000] {
         group.bench_with_input(BenchmarkId::new("paths", num_paths), &num_paths, |b, &n| {
-            let pricer = EuropeanPricer::new(
-                EuropeanPricerConfig::new(n)
-                    .with_seed(42)
-                    .with_parallel(false),
-            );
+            let pricer = EuropeanPricer::new(n).with_seed(42).with_parallel(false);
             b.iter(|| {
                 pricer
                     .price(&process, 100.0, 1.0, 252, &payoff, Currency::USD, df)

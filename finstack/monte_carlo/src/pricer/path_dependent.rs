@@ -6,11 +6,9 @@
 use super::super::engine::{McEngine, McEngineConfig, PathCaptureConfig};
 use super::super::results::{MoneyEstimate, MonteCarloResult};
 use super::super::traits::Payoff;
-use crate::captured_path_stats::apply_captured_path_statistics;
 use crate::discretization::exact::ExactGbm;
 use crate::estimate::Estimate;
 use crate::online_stats::OnlineStats;
-use crate::paths::{PathDataset, PathPoint, PathSamplingMethod, SimulatedPath};
 use crate::process::gbm::GbmProcess;
 use crate::process::metadata::ProcessMetadata;
 #[cfg(feature = "mc")]
@@ -19,10 +17,9 @@ use crate::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
 use crate::rng::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 use crate::time_grid::TimeGrid;
-use crate::traits::{Discretization, PathState, RandomStream, StochasticProcess};
+use crate::traits::{Discretization, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::{Error, Result};
-use smallvec::SmallVec;
 
 /// Configuration for path-dependent option pricing.
 #[derive(Debug, Clone)]
@@ -268,26 +265,38 @@ impl PathDependentPricer {
         let disc = ExactGbm::new();
         let initial_state = vec![initial_spot];
         let capture_enabled = self.config.path_capture.enabled;
-        let sampling_method = match &self.config.path_capture.capture_mode {
-            crate::engine::PathCaptureMode::All => PathSamplingMethod::All,
-            crate::engine::PathCaptureMode::Sample { count, seed } => {
-                PathSamplingMethod::RandomSample {
-                    count: *count,
-                    seed: *seed,
-                }
-            }
-        };
 
-        let mut stats = OnlineStats::new();
-        let mut state = vec![0.0; process.dim()];
-        let mut work = vec![0.0; disc.work_size(process)];
-        let mut z_path = vec![0.0; sobol_dimension];
-        let mut z_step = vec![0.0; process.num_factors()];
-        let mut w_path = vec![0.0; time_grid.num_steps() + 1];
+        // Reuse the generic McEngine stepping/capture helpers; we drive a Sobol
+        // RNG adapter per path, but the per-step simulate/capture logic lives
+        // on the engine so there is a single code path for path construction
+        // and path bookkeeping.
+        let engine_config = McEngineConfig {
+            num_paths: self.config.num_paths,
+            seed: self.config.seed,
+            time_grid: time_grid.clone(),
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: self.config.chunk_size,
+            path_capture: self.config.path_capture.clone(),
+            antithetic: false,
+        };
+        let engine = McEngine::new(engine_config);
+
+        let num_factors = process.num_factors();
+        let num_steps = time_grid.num_steps();
         let bridge = self
             .config
             .use_brownian_bridge
-            .then(|| BrownianBridge::new(time_grid.num_steps()));
+            .then(|| BrownianBridge::new(num_steps));
+
+        let mut stats = OnlineStats::new();
+        let mut num_skipped: usize = 0;
+        let mut state = vec![0.0; process.dim()];
+        let mut work = vec![0.0; disc.work_size(process)];
+        let mut z_step = vec![0.0; num_factors];
+        let mut z_path = vec![0.0; sobol_dimension];
+        let mut z_increments = vec![0.0; num_steps * num_factors];
+        let mut w_path = vec![0.0; num_steps + 1];
         let mut captured_paths = if capture_enabled {
             let estimated_capacity = match self.config.path_capture.capture_mode {
                 crate::engine::PathCaptureMode::All => self.config.num_paths,
@@ -297,96 +306,76 @@ impl PathDependentPricer {
         } else {
             Vec::new()
         };
+        let mut payoff_local = payoff.clone();
 
         for path_id in 0..self.config.num_paths {
             sobol.fill_std_normals(&mut z_path);
+            fill_sobol_increments(
+                &z_path,
+                &mut z_increments,
+                &mut w_path,
+                bridge.as_ref(),
+                &time_grid,
+                num_factors,
+            );
 
-            let mut payoff_local = payoff.clone();
+            // Auxiliary uniforms are drawn from a per-path Philox so the Sobol
+            // stream only carries asset-dimension normals.
+            let mut adapter = SobolPathStream::new(
+                &z_increments,
+                PhiloxRng::new(self.config.seed ^ ((path_id as u64) << 1)),
+            );
+
             payoff_local.reset();
+            payoff_local.on_path_start(&mut adapter);
 
-            // Keep auxiliary uniforms off the Sobol stream so asset dimensions remain stable.
-            let mut aux_rng = PhiloxRng::new(self.config.seed ^ ((path_id as u64) << 1));
-            payoff_local.on_path_start(&mut aux_rng);
-
-            state.copy_from_slice(&initial_state);
             let should_capture = capture_enabled
                 && self
                     .config
                     .path_capture
                     .should_capture(path_id, self.config.num_paths);
-            let mut path_state = PathState::new(0, 0.0);
-            process.populate_path_state(&state, &mut path_state);
-            path_state.set_uniform_random(aux_rng.next_u01());
-            payoff_local.on_event(&mut path_state);
 
-            let mut simulated_path = if should_capture {
-                let mut simulated =
-                    SimulatedPath::with_capacity(path_id, time_grid.num_steps() + 1);
-                let initial_state_vec = SmallVec::from_slice(&state);
-                let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
-                path_state.drain_cashflows(|time, amount, cf_type| {
-                    initial_point.add_typed_cashflow(time, amount, cf_type);
-                });
-                if self.config.path_capture.capture_payoffs {
-                    initial_point.set_payoff(payoff_local.value(currency).amount());
-                }
-                simulated.add_point(initial_point);
-                Some(simulated)
+            let payoff_value = if should_capture {
+                let (value, path) = engine.simulate_path_with_capture(
+                    &mut adapter,
+                    process,
+                    &disc,
+                    &initial_state,
+                    &mut payoff_local,
+                    &mut state,
+                    &mut z_step,
+                    &mut work,
+                    path_id,
+                    discount_factor,
+                    currency,
+                )?;
+                captured_paths.push(path);
+                value
             } else {
-                None
+                engine.simulate_path(
+                    &mut adapter,
+                    process,
+                    &disc,
+                    &initial_state,
+                    &mut payoff_local,
+                    &mut state,
+                    &mut z_step,
+                    &mut work,
+                    currency,
+                )?
             };
 
-            if let Some(bridge) = &bridge {
-                if time_grid.is_uniform() {
-                    bridge.construct_path(&z_path, &mut w_path, time_grid.dt(0));
-                } else {
-                    bridge.construct_path_irregular(&z_path, &mut w_path, time_grid.times());
-                }
-            }
-
-            for step in 0..time_grid.num_steps() {
-                let t = time_grid.time(step);
-                let dt = time_grid.dt(step);
-
-                if bridge.is_some() {
-                    z_step[0] = (w_path[step + 1] - w_path[step]) / dt.sqrt();
-                } else {
-                    let offset = step * process.num_factors();
-                    z_step.copy_from_slice(&z_path[offset..offset + process.num_factors()]);
-                }
-
-                disc.step(process, t, dt, &mut state, &z_step, &mut work);
-                path_state.set_step_time(step + 1, t + dt);
-                process.populate_path_state(&state, &mut path_state);
-                path_state.set_uniform_random(aux_rng.next_u01());
-                payoff_local.on_event(&mut path_state);
-
-                if let Some(simulated_path) = &mut simulated_path {
-                    let state_vec = SmallVec::from_slice(&state);
-                    let mut point = PathPoint::with_state(step + 1, t + dt, state_vec);
-                    path_state.drain_cashflows(|time, amount, cf_type| {
-                        point.add_typed_cashflow(time, amount, cf_type);
-                    });
-                    if self.config.path_capture.capture_payoffs {
-                        point.set_payoff(payoff_local.value(currency).amount());
-                    }
-                    simulated_path.add_point(point);
-                }
-            }
-
-            let payoff_value = payoff_local.value(currency).amount();
-            stats.update(payoff_value * discount_factor);
-
-            if let Some(mut simulated_path) = simulated_path {
-                simulated_path.set_final_value(payoff_value * discount_factor);
-                let cashflow_amounts = simulated_path.extract_cashflow_amounts();
-                if cashflow_amounts.len() >= 2 {
-                    use finstack_core::cashflow::InternalRateOfReturn;
-                    if let Ok(irr) = cashflow_amounts.irr(None) {
-                        simulated_path.set_irr(irr);
-                    }
-                }
-                captured_paths.push(simulated_path);
+            let discounted_value = payoff_value * discount_factor;
+            if discounted_value.is_finite() {
+                stats.update(discounted_value);
+            } else {
+                num_skipped += 1;
+                tracing::warn!(
+                    path_id,
+                    payoff_value,
+                    discount_factor,
+                    "Skipping non-finite payoff value in MC statistics"
+                );
             }
         }
 
@@ -396,24 +385,15 @@ impl PathDependentPricer {
             stats.confidence_interval(0.05),
             stats.count(),
         )
-        .with_std_dev(stats.std_dev());
-        let process_params = process.metadata();
+        .with_std_dev(stats.std_dev())
+        .with_num_skipped(num_skipped);
 
-        if capture_enabled {
-            let mut dataset = PathDataset::new(stats.count(), sampling_method, process_params);
-            for path in &captured_paths {
-                dataset.add_path(path.clone());
-            }
-            let estimate = apply_captured_path_statistics(estimate, &captured_paths);
-            Ok(MonteCarloResult::with_paths(
-                MoneyEstimate::from_estimate(estimate, currency),
-                dataset,
-            ))
-        } else {
-            Ok(MonteCarloResult::new(MoneyEstimate::from_estimate(
-                estimate, currency,
-            )))
-        }
+        Ok(engine.finalize_captured_result(
+            estimate,
+            captured_paths,
+            currency,
+            Some(process.metadata()),
+        ))
     }
 
     /// Price a path-dependent option.
@@ -704,6 +684,102 @@ impl PathDependentPricer {
     /// Get configuration.
     pub fn config(&self) -> &PathDependentPricerConfig {
         &self.config
+    }
+}
+
+/// Fill `z_increments` with per-step standard normals derived from a single
+/// Sobol path draw.
+///
+/// Without a Brownian bridge the Sobol draw is already laid out in
+/// `step-major × factor-major` order, so it is copied directly. With a
+/// Brownian bridge (single-factor only, as enforced by
+/// [`PathDependentPricer::validate_sobol_configuration`]) the draw is
+/// converted to a scalar Brownian motion `w_path` and then scaled to standard
+/// normals per step by `(w[i+1] - w[i]) / sqrt(dt_i)`.
+#[cfg(feature = "mc")]
+fn fill_sobol_increments(
+    z_path: &[f64],
+    z_increments: &mut [f64],
+    w_path: &mut [f64],
+    bridge: Option<&BrownianBridge>,
+    time_grid: &TimeGrid,
+    num_factors: usize,
+) {
+    let num_steps = time_grid.num_steps();
+    match bridge {
+        Some(bridge) => {
+            debug_assert_eq!(num_factors, 1, "Brownian bridge only supports 1 factor");
+            if time_grid.is_uniform() {
+                bridge.construct_path(z_path, w_path, time_grid.dt(0));
+            } else {
+                bridge.construct_path_irregular(z_path, w_path, time_grid.times());
+            }
+            for step in 0..num_steps {
+                let dt = time_grid.dt(step);
+                z_increments[step] = (w_path[step + 1] - w_path[step]) / dt.sqrt();
+            }
+        }
+        None => {
+            z_increments.copy_from_slice(&z_path[..num_steps * num_factors]);
+        }
+    }
+}
+
+/// Per-path [`RandomStream`] adapter that feeds pre-computed standard normals
+/// from a Sobol draw into the generic [`McEngine`] step loop while routing
+/// uniform draws to an independent Philox stream.
+///
+/// The adapter cannot be split: each path gets a fresh adapter constructed by
+/// the Sobol pricer outer loop, so the engine's per-path `rng.split(..)` call
+/// is bypassed by delegating to `simulate_path`/`simulate_path_with_capture`
+/// directly.
+#[cfg(feature = "mc")]
+struct SobolPathStream<'a> {
+    z_increments: &'a [f64],
+    cursor: usize,
+    aux: PhiloxRng,
+}
+
+#[cfg(feature = "mc")]
+impl<'a> SobolPathStream<'a> {
+    fn new(z_increments: &'a [f64], aux: PhiloxRng) -> Self {
+        Self {
+            z_increments,
+            cursor: 0,
+            aux,
+        }
+    }
+}
+
+#[cfg(feature = "mc")]
+impl<'a> RandomStream for SobolPathStream<'a> {
+    /// Per-path Sobol adapters never split; the outer Sobol pricer owns a
+    /// single adapter per path.
+    fn split(&self, stream_id: u64) -> Self {
+        panic!(
+            "SobolPathStream::split called with stream_id={stream_id}; the adapter is \
+             constructed per path and cannot be split."
+        );
+    }
+
+    fn fill_u01(&mut self, out: &mut [f64]) {
+        self.aux.fill_u01(out);
+    }
+
+    fn fill_std_normals(&mut self, out: &mut [f64]) {
+        let n = out.len();
+        let end = self.cursor + n;
+        debug_assert!(
+            end <= self.z_increments.len(),
+            "SobolPathStream exhausted: requested {n} beyond remaining {}",
+            self.z_increments.len() - self.cursor
+        );
+        out.copy_from_slice(&self.z_increments[self.cursor..end]);
+        self.cursor = end;
+    }
+
+    fn supports_splitting(&self) -> bool {
+        false
     }
 }
 

@@ -166,27 +166,16 @@ pub mod prelude {
     pub use super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
 
     // --- Discretization schemes ---
+    //
+    // Route everything through the `discretization` module's own re-exports
+    // (see `src/discretization/mod.rs`) so there is one canonical public path
+    // per scheme. The prelude is a curated list on top of that.
     #[cfg(feature = "mc")]
-    pub use super::discretization::cheyette_rough::CheyetteRoughEuler;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::euler::{EulerMaruyama, LogEuler};
-    pub use super::discretization::exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
-    #[cfg(feature = "mc")]
-    pub use super::discretization::exact_hw1f::ExactHullWhite1F;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::jump_euler::JumpEuler;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::milstein::{LogMilstein, Milstein};
-    #[cfg(feature = "mc")]
-    pub use super::discretization::qe_cir::QeCir;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::qe_heston::QeHeston;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::rough_bergomi::RoughBergomiEuler;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::rough_heston::RoughHestonHybrid;
-    #[cfg(feature = "mc")]
-    pub use super::discretization::schwartz_smith::ExactSchwartzSmith;
+    pub use super::discretization::{
+        CheyetteRoughEuler, EulerMaruyama, ExactHullWhite1F, ExactSchwartzSmith, JumpEuler,
+        LogEuler, LogMilstein, Milstein, QeCir, QeHeston, RoughBergomiEuler, RoughHestonHybrid,
+    };
+    pub use super::discretization::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 
     // --- Engine and configuration ---
     pub use super::engine::{
@@ -220,7 +209,7 @@ pub mod prelude {
     // --- Pricers ---
     #[cfg(feature = "mc")]
     pub use super::pricer::basis::{LaguerreBasis, PolynomialBasis};
-    pub use super::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+    pub use super::pricer::european::EuropeanPricer;
     #[cfg(feature = "mc")]
     pub use super::pricer::lsmc::{AmericanCall, AmericanPut, LsmcConfig, LsmcPricer};
     #[cfg(feature = "mc")]
