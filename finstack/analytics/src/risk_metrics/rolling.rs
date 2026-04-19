@@ -33,25 +33,43 @@ fn recompute_sum_sum_ds(window: &[f64]) -> (f64, f64) {
     )
 }
 
-/// Output of a rolling Sharpe ratio computation.
+/// A dated time-series column: scalar values aligned with window-end dates.
 ///
-/// Contains parallel vectors of Sharpe values and their corresponding
-/// window-end dates, suitable for time-series charting.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RollingSharpe {
-    /// Rolling Sharpe ratio values.
+/// Shared carrier type for rolling analytics outputs. Concrete metrics
+/// (rolling Sharpe, Sortino, volatility, etc.) re-use this struct via
+/// type aliases so they share field names, serde shape, and helper methods.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct DatedSeries {
+    /// Computed metric values, one per completed rolling window.
     pub values: Vec<f64>,
-    /// End dates for each rolling window.
+    /// Window-end dates aligned 1:1 with `values`.
     pub dates: Vec<Date>,
 }
 
-impl RollingSharpe {
-    /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
+impl DatedSeries {
+    /// Allocate an empty series with capacity for `cap` points.
+    #[inline]
+    #[must_use]
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            values: Vec::with_capacity(cap),
+            dates: Vec::with_capacity(cap),
+        }
+    }
+
+    /// Right-align `values` into a `Vec<f64>` of length `n`, left-padding with NaN.
+    ///
+    /// Useful when callers expect a single flat column of length
+    /// equal to the original input series, with leading NaNs for the
+    /// warm-up period before the first full window.
     #[must_use]
     pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
         nan_pad(&self.values, n)
     }
 }
+
+/// Output of a rolling Sharpe ratio computation (see [`DatedSeries`]).
+pub type RollingSharpe = DatedSeries;
 
 /// Rolling Sharpe ratio over a sliding window.
 ///
@@ -96,45 +114,24 @@ pub fn rolling_sharpe(
 ) -> RollingSharpe {
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
-        return RollingSharpe {
-            values: vec![],
-            dates: vec![],
-        };
+        return DatedSeries::default();
     }
     let w = window as f64;
-    let mut values = Vec::with_capacity(n - window + 1);
-    let mut out_dates = Vec::with_capacity(n - window + 1);
+    let mut out = DatedSeries::with_capacity(n - window + 1);
     let mut date_idx = window - 1;
     rolling_sum_sum_sq_kernel(returns, n, window, |sum, sum_sq| {
         let ann_mean = (sum / w) * ann_factor;
         let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
         let ann_vol = var.sqrt() * ann_factor.sqrt();
-        values.push(sharpe(ann_mean, ann_vol, risk_free_rate));
-        out_dates.push(dates[date_idx]);
+        out.values.push(sharpe(ann_mean, ann_vol, risk_free_rate));
+        out.dates.push(dates[date_idx]);
         date_idx += 1;
     });
-    RollingSharpe {
-        values,
-        dates: out_dates,
-    }
+    out
 }
 
-/// Output of a rolling volatility computation.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RollingVolatility {
-    /// Rolling annualized volatility values.
-    pub values: Vec<f64>,
-    /// End dates for each rolling window.
-    pub dates: Vec<Date>,
-}
-
-impl RollingVolatility {
-    /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
-    #[must_use]
-    pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
-        nan_pad(&self.values, n)
-    }
-}
+/// Output of a rolling volatility computation (see [`DatedSeries`]).
+pub type RollingVolatility = DatedSeries;
 
 /// Rolling annualized volatility over a sliding window.
 ///
@@ -175,43 +172,22 @@ pub fn rolling_volatility(
 ) -> RollingVolatility {
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
-        return RollingVolatility {
-            values: vec![],
-            dates: vec![],
-        };
+        return DatedSeries::default();
     }
     let w = window as f64;
-    let mut values = Vec::with_capacity(n - window + 1);
-    let mut out_dates = Vec::with_capacity(n - window + 1);
+    let mut out = DatedSeries::with_capacity(n - window + 1);
     let mut date_idx = window - 1;
     rolling_sum_sum_sq_kernel(returns, n, window, |sum, sum_sq| {
         let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
-        values.push(var.sqrt() * ann_factor.sqrt());
-        out_dates.push(dates[date_idx]);
+        out.values.push(var.sqrt() * ann_factor.sqrt());
+        out.dates.push(dates[date_idx]);
         date_idx += 1;
     });
-    RollingVolatility {
-        values,
-        dates: out_dates,
-    }
+    out
 }
 
-/// Output of a rolling Sortino ratio computation.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RollingSortino {
-    /// Rolling Sortino ratio values.
-    pub values: Vec<f64>,
-    /// End dates for each rolling window.
-    pub dates: Vec<Date>,
-}
-
-impl RollingSortino {
-    /// Convert the computed values to a NaN-padded `Vec<f64>` of length `n`.
-    #[must_use]
-    pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
-        nan_pad(&self.values, n)
-    }
-}
+/// Output of a rolling Sortino ratio computation (see [`DatedSeries`]).
+pub type RollingSortino = DatedSeries;
 
 /// Right-align `values` into a `Vec<f64>` of length `n`, left-padding with NaN.
 ///
@@ -265,19 +241,15 @@ pub fn rolling_sortino(
 ) -> RollingSortino {
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
-        return RollingSortino {
-            values: vec![],
-            dates: vec![],
-        };
+        return DatedSeries::default();
     }
     let w = window as f64;
-    let mut values = Vec::with_capacity(n - window + 1);
-    let mut out_dates = Vec::with_capacity(n - window + 1);
+    let mut out = DatedSeries::with_capacity(n - window + 1);
     let mut date_idx = window - 1;
     rolling_sortino_kernel(returns, n, window, |sum, sum_ds| {
         let m = sum / w;
         let dd = (sum_ds / w).sqrt();
-        values.push(if dd == 0.0 {
+        out.values.push(if dd == 0.0 {
             if m > 0.0 {
                 f64::INFINITY
             } else if m < 0.0 {
@@ -288,13 +260,10 @@ pub fn rolling_sortino(
         } else {
             (m * ann_factor) / (dd * ann_factor.sqrt())
         });
-        out_dates.push(dates[date_idx]);
+        out.dates.push(dates[date_idx]);
         date_idx += 1;
     });
-    RollingSortino {
-        values,
-        dates: out_dates,
-    }
+    out
 }
 
 // ── Internal rolling kernels ──

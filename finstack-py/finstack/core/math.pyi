@@ -6,7 +6,7 @@ Provides pure-function submodules for numerical computation backed by
 
 from __future__ import annotations
 
-__all__ = ["consecutive", "linalg", "stats", "special_functions", "summation"]
+__all__ = ["count_consecutive", "linalg", "stats", "special_functions", "summation"]
 
 def count_consecutive(values: list[float]) -> int:
     """Count longest consecutive run of strictly positive values.

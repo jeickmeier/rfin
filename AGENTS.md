@@ -44,6 +44,19 @@
 - Z-spread CS01 for bonds uses instrument ID as key (e.g., `cs01::BOND_A`), not `z_spread`
 - Bond CS01 without a hazard curve uses z-spread bump method (market convention)
 
+## Naming Strategy
+
+- **Prefer simple, short names across Rust / Python / WASM.** The canonical Rust name should read well as the Python and WASM binding name. If a Rust name is long or awkward (e.g. `period_stats_from_returns`, `rolling_var_forecasts_with_method`), that is a signal the Rust name itself should be shortened, not that the binding should rename it.
+- **Triplet consistency is mandatory.** Rust `snake_case` ↔ Python `snake_case` (identical) ↔ WASM `camelCase` (via `#[wasm_bindgen(js_name = ...)]`). `period_stats` / `period_stats` / `periodStats`, not a mix.
+- **Short name = canonical / most-common variant.** When multiple variants of one concept exist, give the short name to the variant most binding users will call. Example:
+  - `period_stats(returns: &[f64])` — canonical, takes raw flat returns (exposed in Python/WASM)
+  - `period_stats_from_grouped(grouped: &[(PeriodId, f64)])` — specialized grouped-input variant (Rust-internal)
+  - `rolling_var_forecasts(..., VarMethod)` — canonical, enum-dispatched (exposed)
+  - `rolling_var_forecasts_with_fn(..., fn)` — specialized closure variant (Rust-internal)
+- **Descriptive suffixes for specialized variants:** use `_from_<input>` (alternate input shape), `_with_<thing>` (alternate dispatch mechanism), `_unchecked` (invariant-skipping). Suffixes are only for the non-canonical variants; the short base name belongs to the one exposed through bindings.
+- **Accessors still use `get_*`** (see above) — naming-strategy shortening does not override the `get_*` convention.
+- **When renaming, propagate everywhere in one slice:** Rust source + Rust tests + re-exports → PyO3 `#[pyfunction]` + `__all__` + `.pyi` + `__init__.py` → WASM `#[wasm_bindgen(js_name=...)]` + `index.d.ts` + `exports/*.js` → `parity_contract.toml` + benchmarks + notebooks. Verify with `make fmt && make lint && make test && make python-dev`.
+
 ## Workflow Preferences
 
 - Preferred flow: Audit/Review → Plan → Implement (in that order)

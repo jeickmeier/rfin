@@ -4,6 +4,8 @@
 //! function-based fitting API.  Mirrors the public API in
 //! `finstack_analytics::timeseries`.
 
+use std::str::FromStr;
+
 use crate::errors::core_to_py;
 use finstack_analytics::timeseries as ts;
 use finstack_analytics::timeseries::{Egarch11, Garch11, GarchModel, GjrGarch11, InnovationDist};
@@ -253,16 +255,10 @@ impl PyGarchFit {
 
 /// Parse an innovation distribution string.
 ///
-/// Accepts ``"gaussian"``/``"normal"`` and ``"student_t"``/``"t"`` (case
-/// insensitive). For Student-t, an optional ``nu`` initial guess is used.
+/// Delegates to [`InnovationDist::from_str`], which accepts
+/// ``"gaussian"``/``"normal"`` and ``"student_t"``/``"t"`` (case insensitive).
 fn parse_dist(s: &str) -> PyResult<InnovationDist> {
-    match s.to_ascii_lowercase().as_str() {
-        "gaussian" | "normal" | "gauss" | "n" => Ok(InnovationDist::Gaussian),
-        "student_t" | "student-t" | "studentt" | "t" => Ok(InnovationDist::StudentT(8.0)),
-        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown distribution '{other}'; expected 'gaussian' or 'student_t'"
-        ))),
-    }
+    InnovationDist::from_str(s).map_err(pyo3::exceptions::PyValueError::new_err)
 }
 
 // -------------------------------------------------------------------

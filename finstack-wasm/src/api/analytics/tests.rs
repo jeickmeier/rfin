@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, clippy::module_inception)]
 mod tests {
     use finstack_analytics as fa;
 

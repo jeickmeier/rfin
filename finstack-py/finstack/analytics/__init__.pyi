@@ -813,7 +813,12 @@ class Performance:
 
     @property
     def freq(self) -> str:
-        """Observation frequency (debug string)."""
+        """Observation frequency as the canonical lowercase token.
+
+        Returns one of ``daily``, ``weekly``, ``monthly``, ``quarterly``,
+        ``semiannual``, or ``annual`` — matching the values accepted by the
+        ``freq`` constructor argument and :meth:`period_stats` ``agg_freq``.
+        """
 
     @property
     def uses_log_returns(self) -> bool:
@@ -1112,6 +1117,10 @@ def group_by_period(
 
 def period_stats(returns: list[float]) -> PeriodStats:
     """Compute period statistics from a flat list of periodic returns.
+
+    Mirrors ``finstack_analytics::aggregation::period_stats``. Use
+    :meth:`Performance.period_stats` when starting from a ticker panel
+    instead of a pre-computed list of returns.
 
     Args:
         returns: Return values (synthetic period labels are used internally).

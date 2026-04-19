@@ -2,46 +2,7 @@ use crate::utils::to_js_err;
 use finstack_analytics as fa;
 use wasm_bindgen::prelude::*;
 
-fn parse_var_method(method: &str) -> Result<fa::backtesting::VarMethod, JsValue> {
-    match method.to_ascii_lowercase().as_str() {
-        "historical" | "hist" => Ok(fa::backtesting::VarMethod::Historical),
-        "parametric" | "gaussian" | "normal" => Ok(fa::backtesting::VarMethod::Parametric),
-        "cornishfisher" | "cornish_fisher" | "cornish-fisher" | "cf" => {
-            Ok(fa::backtesting::VarMethod::CornishFisher)
-        }
-        other => Err(JsValue::from_str(&format!(
-            "unknown VaR method '{other}' (expected Historical, Parametric, or CornishFisher)"
-        ))),
-    }
-}
-
-fn run_rolling_var(
-    returns: &[f64],
-    lookback: usize,
-    confidence: f64,
-    method: fa::backtesting::VarMethod,
-) -> (Vec<f64>, Vec<f64>) {
-    match method {
-        fa::backtesting::VarMethod::Historical => fa::backtesting::rolling_var_forecasts(
-            returns,
-            lookback,
-            confidence,
-            |window, level| fa::risk_metrics::value_at_risk(window, level, None),
-        ),
-        fa::backtesting::VarMethod::Parametric => fa::backtesting::rolling_var_forecasts(
-            returns,
-            lookback,
-            confidence,
-            |window, level| fa::risk_metrics::parametric_var(window, level, None),
-        ),
-        fa::backtesting::VarMethod::CornishFisher => fa::backtesting::rolling_var_forecasts(
-            returns,
-            lookback,
-            confidence,
-            |window, level| fa::risk_metrics::cornish_fisher_var(window, level, None),
-        ),
-    }
-}
+use super::support::parse_var_method;
 
 #[wasm_bindgen(js_name = classifyBreaches)]
 pub fn classify_breaches(
@@ -116,7 +77,7 @@ pub fn rolling_var_forecasts(
 ) -> Result<JsValue, JsValue> {
     let returns: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
     let method = parse_var_method(method)?;
-    let result = run_rolling_var(&returns, lookback, confidence, method);
+    let result = fa::backtesting::rolling_var_forecasts(&returns, lookback, confidence, method);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
 

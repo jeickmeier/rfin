@@ -21,6 +21,6 @@ pub fn group_by_period(
 #[wasm_bindgen(js_name = periodStats)]
 pub fn period_stats(returns: JsValue) -> Result<JsValue, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let stats = fa::aggregation::period_stats_from_returns(&r);
+    let stats = fa::aggregation::period_stats(&r);
     serde_wasm_bindgen::to_value(&stats).map_err(to_js_err)
 }

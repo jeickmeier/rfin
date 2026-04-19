@@ -186,10 +186,12 @@ impl PyPerformance {
         self.inner.benchmark_idx()
     }
 
-    /// Observation frequency.
+    /// Observation frequency, as the canonical lowercase token (e.g. ``"daily"``,
+    /// ``"monthly"``, ``"semiannual"``) that round-trips through the ``freq``
+    /// constructor argument and :meth:`period_stats` ``agg_freq`` parameter.
     #[getter]
     fn freq(&self) -> String {
-        format!("{:?}", self.inner.freq())
+        self.inner.freq().to_string()
     }
 
     /// Whether log returns are used internally.

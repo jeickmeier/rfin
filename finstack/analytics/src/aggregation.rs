@@ -142,19 +142,20 @@ pub fn group_by_period(
 
 /// Compute period-level statistics from a flat list of periodic returns.
 ///
-/// This is a convenience wrapper for host bindings that already have
-/// per-period compounded returns and do not care about concrete `PeriodId`
-/// labels. Synthetic month identifiers are used internally because
-/// [`period_stats`] only consumes the return values.
+/// This is the canonical, binding-friendly entry point: hosts that already
+/// have per-period compounded returns and do not care about concrete
+/// `PeriodId` labels pass them in directly. Synthetic month identifiers are
+/// used internally because [`period_stats_from_grouped`] only consumes the
+/// return values.
 #[must_use]
-pub fn period_stats_from_returns(returns: &[f64]) -> PeriodStats {
+pub fn period_stats(returns: &[f64]) -> PeriodStats {
     let grouped: Vec<(PeriodId, f64)> = returns
         .iter()
         .copied()
         .enumerate()
         .map(|(index, ret)| (PeriodId::month(2000, (index as u8 % 12) + 1), ret))
         .collect();
-    period_stats(&grouped)
+    period_stats_from_grouped(&grouped)
 }
 
 /// Compute period-level statistics from grouped returns.
@@ -176,7 +177,7 @@ pub fn period_stats_from_returns(returns: &[f64]) -> PeriodStats {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::aggregation::period_stats;
+/// use finstack_analytics::aggregation::period_stats_from_grouped;
 /// use finstack_core::dates::PeriodId;
 ///
 /// let grouped = vec![
@@ -185,12 +186,12 @@ pub fn period_stats_from_returns(returns: &[f64]) -> PeriodStats {
 ///     (PeriodId::month(2025, 3),  0.03),
 ///     (PeriodId::month(2025, 4),  0.01),
 /// ];
-/// let stats = period_stats(&grouped);
+/// let stats = period_stats_from_grouped(&grouped);
 /// assert!((stats.best  - 0.05).abs() < 1e-12);
 /// assert!((stats.worst - (-0.02)).abs() < 1e-12);
 /// assert!((stats.win_rate - 0.75).abs() < 1e-12);
 /// ```
-pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
+pub fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     if grouped.is_empty() {
         return PeriodStats {
             best: 0.0,
@@ -341,27 +342,27 @@ mod tests {
     }
 
     #[test]
-    fn period_stats_basic() {
+    fn period_stats_from_grouped_basic() {
         let grouped = vec![
             (PeriodId::month(2025, 1), 0.05),
             (PeriodId::month(2025, 2), -0.02),
             (PeriodId::month(2025, 3), 0.03),
             (PeriodId::month(2025, 4), 0.01),
         ];
-        let stats = period_stats(&grouped);
+        let stats = period_stats_from_grouped(&grouped);
         assert!((stats.best - 0.05).abs() < 1e-12);
         assert!((stats.worst - (-0.02)).abs() < 1e-12);
         assert!((stats.win_rate - 0.75).abs() < 1e-12);
     }
 
     #[test]
-    fn period_stats_empty() {
-        let stats = period_stats(&[]);
+    fn period_stats_from_grouped_empty() {
+        let stats = period_stats_from_grouped(&[]);
         assert_eq!(stats.win_rate, 0.0);
     }
 
     #[test]
-    fn period_stats_from_returns_matches_grouped_version() {
+    fn period_stats_matches_grouped_version() {
         let returns = vec![0.05, -0.02, 0.03, 0.01];
         let grouped = vec![
             (PeriodId::month(2025, 1), 0.05),
@@ -370,8 +371,8 @@ mod tests {
             (PeriodId::month(2025, 4), 0.01),
         ];
 
-        let from_returns = period_stats_from_returns(&returns);
-        let from_grouped = period_stats(&grouped);
+        let from_returns = period_stats(&returns);
+        let from_grouped = period_stats_from_grouped(&grouped);
 
         assert!((from_returns.best - from_grouped.best).abs() < 1e-12);
         assert!((from_returns.worst - from_grouped.worst).abs() < 1e-12);
@@ -384,13 +385,13 @@ mod tests {
     }
 
     #[test]
-    fn period_stats_all_winning_reports_full_kelly() {
+    fn period_stats_from_grouped_all_winning_reports_full_kelly() {
         let grouped = vec![
             (PeriodId::month(2025, 1), 0.02),
             (PeriodId::month(2025, 2), 0.01),
             (PeriodId::month(2025, 3), 0.03),
         ];
-        let stats = period_stats(&grouped);
+        let stats = period_stats_from_grouped(&grouped);
         assert!(stats.payoff_ratio.is_infinite());
         assert!(stats.profit_factor.is_infinite());
         assert!(stats.cpc_ratio.is_infinite());

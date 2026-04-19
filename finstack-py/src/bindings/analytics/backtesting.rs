@@ -2,6 +2,8 @@
 //! Kupiec POF, Christoffersen conditional coverage, and Basel
 //! traffic-light classification.
 
+use std::str::FromStr;
+
 use super::types::{
     PyBacktestResult, PyChristoffersenResult, PyKupiecResult, PyMultiModelComparison,
     PyPnlExplanation, PyTrafficLightResult,
@@ -15,41 +17,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
 fn parse_var_method(method: &str) -> PyResult<bt::VarMethod> {
-    match method.to_ascii_lowercase().as_str() {
-        "historical" | "hist" => Ok(bt::VarMethod::Historical),
-        "parametric" | "gaussian" | "normal" => Ok(bt::VarMethod::Parametric),
-        "cornishfisher" | "cornish_fisher" | "cornish-fisher" | "cf" => {
-            Ok(bt::VarMethod::CornishFisher)
-        }
-        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown VaR method '{other}' (expected Historical, Parametric, or CornishFisher)"
-        ))),
-    }
-}
-
-fn run_rolling_var(
-    returns: &[f64],
-    lookback: usize,
-    confidence: f64,
-    method: bt::VarMethod,
-) -> (Vec<f64>, Vec<f64>) {
-    match method {
-        bt::VarMethod::Historical => {
-            bt::rolling_var_forecasts(returns, lookback, confidence, |window, level| {
-                finstack_analytics::risk_metrics::value_at_risk(window, level, None)
-            })
-        }
-        bt::VarMethod::Parametric => {
-            bt::rolling_var_forecasts(returns, lookback, confidence, |window, level| {
-                finstack_analytics::risk_metrics::parametric_var(window, level, None)
-            })
-        }
-        bt::VarMethod::CornishFisher => {
-            bt::rolling_var_forecasts(returns, lookback, confidence, |window, level| {
-                finstack_analytics::risk_metrics::cornish_fisher_var(window, level, None)
-            })
-        }
-    }
+    bt::VarMethod::from_str(method).map_err(pyo3::exceptions::PyValueError::new_err)
 }
 
 // -------------------------------------------------------------------
@@ -204,7 +172,7 @@ fn rolling_var_forecasts(
     method: &str,
 ) -> PyResult<(Vec<f64>, Vec<f64>)> {
     let parsed_method = parse_var_method(method)?;
-    Ok(run_rolling_var(
+    Ok(bt::rolling_var_forecasts(
         &returns,
         lookback,
         confidence,
@@ -260,9 +228,9 @@ fn mtd_select(
 ) -> PyResult<(usize, usize)> {
     let parsed_dates = dates
         .into_iter()
-        .map(|date| py_to_date(&date.bind(py)))
+        .map(|date| py_to_date(date.bind(py)))
         .collect::<PyResult<Vec<_>>>()?;
-    let as_of = py_to_date(&as_of.bind(py))?;
+    let as_of = py_to_date(as_of.bind(py))?;
     let range = lb::mtd_select(&parsed_dates, as_of, offset_days);
     Ok((range.start, range.end))
 }
@@ -278,9 +246,9 @@ fn qtd_select(
 ) -> PyResult<(usize, usize)> {
     let parsed_dates = dates
         .into_iter()
-        .map(|date| py_to_date(&date.bind(py)))
+        .map(|date| py_to_date(date.bind(py)))
         .collect::<PyResult<Vec<_>>>()?;
-    let as_of = py_to_date(&as_of.bind(py))?;
+    let as_of = py_to_date(as_of.bind(py))?;
     let range = lb::qtd_select(&parsed_dates, as_of, offset_days);
     Ok((range.start, range.end))
 }
@@ -296,9 +264,9 @@ fn ytd_select(
 ) -> PyResult<(usize, usize)> {
     let parsed_dates = dates
         .into_iter()
-        .map(|date| py_to_date(&date.bind(py)))
+        .map(|date| py_to_date(date.bind(py)))
         .collect::<PyResult<Vec<_>>>()?;
-    let as_of = py_to_date(&as_of.bind(py))?;
+    let as_of = py_to_date(as_of.bind(py))?;
     let range = lb::ytd_select(&parsed_dates, as_of, offset_days);
     Ok((range.start, range.end))
 }
@@ -316,9 +284,9 @@ fn fytd_select(
 ) -> PyResult<(usize, usize)> {
     let parsed_dates = dates
         .into_iter()
-        .map(|date| py_to_date(&date.bind(py)))
+        .map(|date| py_to_date(date.bind(py)))
         .collect::<PyResult<Vec<_>>>()?;
-    let as_of = py_to_date(&as_of.bind(py))?;
+    let as_of = py_to_date(as_of.bind(py))?;
     let config = finstack_core::dates::FiscalConfig::new(fiscal_start_month, fiscal_start_day)
         .map_err(core_to_py)?;
     let range = lb::fytd_select(&parsed_dates, as_of, config, offset_days);

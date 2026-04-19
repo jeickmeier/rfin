@@ -21,14 +21,19 @@ fn group_by_period(
         .collect())
 }
 
-/// Compute period statistics from a list of periodic return values.
+/// Compute period statistics from a flat list of periodic returns.
 ///
-/// Accepts a flat list of returns (e.g. monthly returns). The PeriodId
-/// labels are synthetic — only the return values matter for statistics.
+/// Accepts a list of per-period compounded returns (e.g. monthly returns).
+/// PeriodId labels are synthetic — only the return values matter.
+///
+/// Mirrors ``finstack_analytics::aggregation::period_stats``. The free
+/// function lives in its own namespace and does not collide with the
+/// ``Performance.period_stats`` method, which derives stats from grouped
+/// ticker returns via the stateful engine.
 #[pyfunction]
 fn period_stats(returns: Vec<f64>) -> PyPeriodStats {
     PyPeriodStats {
-        inner: fa::aggregation::period_stats_from_returns(&returns),
+        inner: fa::aggregation::period_stats(&returns),
     }
 }
 

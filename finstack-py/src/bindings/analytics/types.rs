@@ -1,5 +1,7 @@
 //! Result structs and enums for the analytics domain.
 
+use std::str::FromStr;
+
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use finstack_analytics as fa;
@@ -487,25 +489,8 @@ impl PyRollingVolatility {
 fn parse_cagr_convention(
     convention: Option<&str>,
 ) -> PyResult<fa::risk_metrics::AnnualizationConvention> {
-    match convention
-        .unwrap_or("act365_25")
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "act365_25" | "act36525" | "act/365.25" | "default" => {
-            Ok(fa::risk_metrics::AnnualizationConvention::Act365_25)
-        }
-        "act365fixed" | "act365_fixed" | "act/365f" | "act365f" => {
-            Ok(fa::risk_metrics::AnnualizationConvention::Act365Fixed)
-        }
-        "actact" | "act_act" | "actualactual" | "actual_actual" => {
-            Ok(fa::risk_metrics::AnnualizationConvention::ActAct)
-        }
-        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, actact"
-        ))),
-    }
+    fa::risk_metrics::AnnualizationConvention::from_str(convention.unwrap_or("act365_25"))
+        .map_err(pyo3::exceptions::PyValueError::new_err)
 }
 
 /// CAGR annualization basis.

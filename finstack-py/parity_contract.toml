@@ -52,16 +52,24 @@ rust_crate = "finstack-analytics"
 rust_lib   = "finstack/analytics/src/lib.rs"
 python_package = "finstack.analytics"
 visibility = "pub"
-status = "exists"   # Wave 2: finstack/analytics/ canonical package created
+status = "exists"
+# NOTE: the Python surface for finstack-analytics is intentionally flat — all
+# functions and classes live directly under `finstack.analytics` regardless of
+# their Rust submodule. Submodules below are recorded for traceability, with
+# status="flattened" signalling the agreed single-pathway convention rather
+# than a missing shim.
 
 [crates.analytics.modules]
-aggregation  = { python = "finstack.analytics.aggregation",  status = "missing" }
-benchmark    = { python = "finstack.analytics.benchmark",    status = "missing" }
-drawdown     = { python = "finstack.analytics.drawdown",     status = "missing" }
-lookback     = { python = "finstack.analytics.lookback",     status = "missing" }
-performance  = { python = "finstack.analytics.performance",  status = "missing" }
-returns      = { python = "finstack.analytics.returns",      status = "missing" }
-risk_metrics = { python = "finstack.analytics.risk_metrics", status = "missing" }
+aggregation  = { python = "finstack.analytics", status = "flattened", note = "PeriodStats / period_stats / group_by_period exposed flat on finstack.analytics; period_stats_from_grouped (grouped-returns variant) is available from the Rust crate only" }
+backtesting  = { python = "finstack.analytics", status = "flattened", note = "VaR backtesting functions exposed flat on finstack.analytics" }
+benchmark    = { python = "finstack.analytics", status = "flattened", note = "Benchmark-relative metrics exposed flat on finstack.analytics" }
+comps        = { python = "finstack.analytics", status = "flattened", note = "Comparable-company analysis exposed flat on finstack.analytics" }
+drawdown     = { python = "finstack.analytics", status = "flattened", note = "Drawdown analytics exposed flat on finstack.analytics" }
+lookback     = { python = "finstack.analytics", status = "flattened", note = "Lookback window helpers exposed flat on finstack.analytics" }
+performance  = { python = "finstack.analytics", status = "flattened", note = "Performance class and helpers exposed flat on finstack.analytics" }
+returns      = { python = "finstack.analytics", status = "flattened", note = "Return transform helpers exposed flat on finstack.analytics" }
+risk_metrics = { python = "finstack.analytics", status = "flattened", note = "Risk-metric scalars and rolling series exposed flat on finstack.analytics" }
+timeseries   = { python = "finstack.analytics", status = "flattened", note = "GARCH-family models and diagnostics exposed flat on finstack.analytics" }
 
 # ---------------------------------------------------------------------------
 # finstack-margin  →  finstack.margin

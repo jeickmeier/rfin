@@ -4,6 +4,8 @@
 //! including log-PDF evaluation and expected absolute value calculations
 //! required by EGARCH models.
 
+use std::str::FromStr;
+
 use finstack_core::math::special_functions::ln_gamma;
 
 /// Innovation distribution for GARCH likelihood.
@@ -14,6 +16,28 @@ pub enum InnovationDist {
     /// Student-t innovations with estimated degrees of freedom.
     /// The `f64` field is the degrees-of-freedom parameter (nu > 2).
     StudentT(f64),
+}
+
+impl FromStr for InnovationDist {
+    type Err = String;
+
+    /// Parse a human-friendly innovation distribution label.
+    ///
+    /// Accepted (case-insensitive) aliases:
+    /// - `Gaussian`: `"gaussian"`, `"normal"`, `"gauss"`, `"n"`
+    /// - `StudentT`: `"student_t"`, `"student-t"`, `"studentt"`, `"t"`.
+    ///   The degrees-of-freedom parameter is seeded at 8.0 and is typically
+    ///   re-estimated by the MLE routine; callers that need a specific initial
+    ///   `nu` should construct the variant directly.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "gaussian" | "normal" | "gauss" | "n" => Ok(InnovationDist::Gaussian),
+            "student_t" | "student-t" | "studentt" | "t" => Ok(InnovationDist::StudentT(8.0)),
+            other => Err(format!(
+                "unknown distribution '{other}'; expected 'gaussian' or 'student_t'"
+            )),
+        }
+    }
 }
 
 impl InnovationDist {
@@ -130,5 +154,25 @@ mod tests {
     fn num_params_correct() {
         assert_eq!(InnovationDist::Gaussian.num_params(), 0);
         assert_eq!(InnovationDist::StudentT(5.0).num_params(), 1);
+    }
+
+    #[test]
+    fn parses_aliases() {
+        assert_eq!(
+            "gaussian".parse::<InnovationDist>().unwrap(),
+            InnovationDist::Gaussian
+        );
+        assert_eq!(
+            "Normal".parse::<InnovationDist>().unwrap(),
+            InnovationDist::Gaussian
+        );
+        let InnovationDist::StudentT(nu) = "student_t".parse::<InnovationDist>().unwrap() else {
+            panic!("expected StudentT variant");
+        };
+        assert!((nu - 8.0).abs() < 1e-12);
+        let InnovationDist::StudentT(_) = "  T  ".parse::<InnovationDist>().unwrap() else {
+            panic!("expected StudentT variant");
+        };
+        assert!("nope".parse::<InnovationDist>().is_err());
     }
 }

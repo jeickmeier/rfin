@@ -1,6 +1,8 @@
 //! Core types for VaR backtesting: breach indicators, test results,
 //! traffic-light zones, and configuration.
 
+use std::str::FromStr;
+
 /// Whether a realized P&L breached the VaR forecast on a given day.
 ///
 /// A breach (hit) occurs when the realized P&L is more negative than
@@ -20,6 +22,29 @@ pub enum VarMethod {
     Historical,
     Parametric,
     CornishFisher,
+}
+
+impl FromStr for VarMethod {
+    type Err = String;
+
+    /// Parse a human-friendly VaR method label.
+    ///
+    /// Accepted (case-insensitive) aliases:
+    /// - `Historical`: `"historical"`, `"hist"`
+    /// - `Parametric`: `"parametric"`, `"gaussian"`, `"normal"`
+    /// - `CornishFisher`: `"cornishfisher"`, `"cornish_fisher"`, `"cornish-fisher"`, `"cf"`
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "historical" | "hist" => Ok(VarMethod::Historical),
+            "parametric" | "gaussian" | "normal" => Ok(VarMethod::Parametric),
+            "cornishfisher" | "cornish_fisher" | "cornish-fisher" | "cf" => {
+                Ok(VarMethod::CornishFisher)
+            }
+            other => Err(format!(
+                "unknown VaR method '{other}' (expected Historical, Parametric, or CornishFisher)"
+            )),
+        }
+    }
 }
 
 /// Basel Committee traffic-light classification for VaR model adequacy.
@@ -236,5 +261,42 @@ impl VarBacktestConfig {
     pub fn with_significance(mut self, significance: f64) -> Self {
         self.significance = significance;
         self
+    }
+}
+
+#[cfg(test)]
+mod parse_tests {
+    use super::*;
+
+    #[test]
+    fn var_method_parses_aliases() {
+        assert_eq!(
+            "Historical".parse::<VarMethod>().unwrap(),
+            VarMethod::Historical
+        );
+        assert_eq!("hist".parse::<VarMethod>().unwrap(), VarMethod::Historical);
+        assert_eq!(
+            "parametric".parse::<VarMethod>().unwrap(),
+            VarMethod::Parametric
+        );
+        assert_eq!(
+            "Normal".parse::<VarMethod>().unwrap(),
+            VarMethod::Parametric
+        );
+        assert_eq!(
+            "Cornish-Fisher".parse::<VarMethod>().unwrap(),
+            VarMethod::CornishFisher
+        );
+        assert_eq!("cf".parse::<VarMethod>().unwrap(), VarMethod::CornishFisher);
+        assert_eq!(
+            "  hist  ".parse::<VarMethod>().unwrap(),
+            VarMethod::Historical
+        );
+    }
+
+    #[test]
+    fn var_method_rejects_unknown() {
+        let err = "nope".parse::<VarMethod>().unwrap_err();
+        assert!(err.contains("unknown VaR method"));
     }
 }

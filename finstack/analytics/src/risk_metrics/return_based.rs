@@ -4,6 +4,8 @@
 //! Annualization uses the caller-supplied factor (typically from
 //! `PeriodKind::annualization_factor()`).
 
+use std::str::FromStr;
+
 use crate::math::stats::{mean, variance};
 use crate::math::summation::kahan_sum;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
@@ -30,6 +32,33 @@ pub enum AnnualizationConvention {
     Act365_25,
     /// Actual/Actual using the actual number of days in each calendar year.
     ActAct,
+}
+
+impl FromStr for AnnualizationConvention {
+    type Err = String;
+
+    /// Parse a human-friendly annualization convention label.
+    ///
+    /// Accepted (case-insensitive, leading/trailing whitespace allowed) aliases:
+    /// - `Act365_25`: `"act365_25"`, `"act36525"`, `"act/365.25"`, `"default"`
+    /// - `Act365Fixed`: `"act365fixed"`, `"act365_fixed"`, `"act/365f"`, `"act365f"`
+    /// - `ActAct`: `"actact"`, `"act_act"`, `"actualactual"`, `"actual_actual"`
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "act365_25" | "act36525" | "act/365.25" | "default" => {
+                Ok(AnnualizationConvention::Act365_25)
+            }
+            "act365fixed" | "act365_fixed" | "act/365f" | "act365f" => {
+                Ok(AnnualizationConvention::Act365Fixed)
+            }
+            "actact" | "act_act" | "actualactual" | "actual_actual" => {
+                Ok(AnnualizationConvention::ActAct)
+            }
+            other => Err(format!(
+                "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, actact"
+            )),
+        }
+    }
 }
 
 /// Basis used to annualize CAGR from either explicit dates or a periods-per-year factor.
@@ -907,6 +936,31 @@ mod tests {
 
     fn jan1(year: i32) -> crate::dates::Date {
         crate::dates::Date::from_calendar_date(year, Month::January, 1).expect("valid date")
+    }
+
+    #[test]
+    fn annualization_convention_parses_aliases() {
+        assert_eq!(
+            "act365_25".parse::<AnnualizationConvention>().unwrap(),
+            AnnualizationConvention::Act365_25
+        );
+        assert_eq!(
+            "default".parse::<AnnualizationConvention>().unwrap(),
+            AnnualizationConvention::Act365_25
+        );
+        assert_eq!(
+            "Act/365F".parse::<AnnualizationConvention>().unwrap(),
+            AnnualizationConvention::Act365Fixed
+        );
+        assert_eq!(
+            "  ActAct  ".parse::<AnnualizationConvention>().unwrap(),
+            AnnualizationConvention::ActAct
+        );
+        assert_eq!(
+            "actual_actual".parse::<AnnualizationConvention>().unwrap(),
+            AnnualizationConvention::ActAct
+        );
+        assert!("nope".parse::<AnnualizationConvention>().is_err());
     }
 
     #[test]

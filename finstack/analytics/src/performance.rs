@@ -5,7 +5,7 @@
 
 use crate::dates::{Date, FiscalConfig, PeriodKind};
 
-use super::aggregation::{group_by_period, period_stats, PeriodStats};
+use super::aggregation::{group_by_period, period_stats_from_grouped, PeriodStats};
 use super::benchmark::{
     batting_average, beta, capture_ratio, down_capture, greeks, information_ratio,
     multi_factor_greeks, r_squared, rolling_greeks, tracking_error, up_capture, BetaResult,
@@ -1083,7 +1083,7 @@ impl Performance {
             agg_freq,
             fiscal_config,
         );
-        period_stats(&grouped)
+        period_stats_from_grouped(&grouped)
     }
 
     /// Pearson correlation matrix of all tickers.

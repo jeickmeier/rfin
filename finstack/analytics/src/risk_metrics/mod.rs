@@ -29,8 +29,8 @@ pub use return_based::{
     RuinDefinition, RuinEstimate, RuinModel,
 };
 pub use rolling::{
-    rolling_sharpe, rolling_sortino, rolling_volatility, RollingSharpe, RollingSortino,
-    RollingVolatility,
+    rolling_sharpe, rolling_sortino, rolling_volatility, DatedSeries, RollingSharpe,
+    RollingSortino, RollingVolatility,
 };
 pub use tail_risk::{
     cornish_fisher_var, expected_shortfall, kurtosis, moments4, outlier_loss_ratio,

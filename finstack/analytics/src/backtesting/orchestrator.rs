@@ -68,12 +68,16 @@ pub fn run_backtest(
     }
 }
 
-/// Rolling-window VaR backtester.
+/// Rolling-window VaR backtester parametrized by an explicit VaR estimator.
 ///
 /// Computes VaR at each time step using a trailing window of returns,
 /// then evaluates the VaR forecast against the next day's realized P&L.
 /// This produces the paired (forecast, realized) series that feeds into
 /// `run_backtest()`.
+///
+/// Most callers should use [`rolling_var_forecasts`], which dispatches on
+/// the canonical [`VarMethod`] enum; this lower-level entry point is kept
+/// for callers that need to plug in a custom estimator.
 ///
 /// # Arguments
 ///
@@ -88,7 +92,7 @@ pub fn run_backtest(
 /// `var_forecasts[i]` is the VaR computed from `returns[i-lookback..i]`
 /// and `realized_pnl[i]` is `returns[i]`.
 #[must_use]
-pub fn rolling_var_forecasts(
+pub fn rolling_var_forecasts_with_fn(
     returns: &[f64],
     lookback: usize,
     confidence: f64,
@@ -109,6 +113,28 @@ pub fn rolling_var_forecasts(
     }
 
     (forecasts, realized)
+}
+
+/// Rolling VaR forecasts dispatched by canonical [`VarMethod`].
+///
+/// Canonical, binding-friendly entry point: picks the corresponding
+/// estimator from [`crate::risk_metrics`] (`value_at_risk`,
+/// `parametric_var`, or `cornish_fisher_var`) and forwards to
+/// [`rolling_var_forecasts_with_fn`]. Bindings should call this rather than
+/// re-implementing the dispatch.
+#[must_use]
+pub fn rolling_var_forecasts(
+    returns: &[f64],
+    lookback: usize,
+    confidence: f64,
+    method: VarMethod,
+) -> (Vec<f64>, Vec<f64>) {
+    let var_fn: fn(&[f64], f64) -> f64 = match method {
+        VarMethod::Historical => |w, c| crate::risk_metrics::value_at_risk(w, c, None),
+        VarMethod::Parametric => |w, c| crate::risk_metrics::parametric_var(w, c, None),
+        VarMethod::CornishFisher => |w, c| crate::risk_metrics::cornish_fisher_var(w, c, None),
+    };
+    rolling_var_forecasts_with_fn(returns, lookback, confidence, var_fn)
 }
 
 /// Run the same realized P&L through multiple VaR model forecasts.
@@ -177,8 +203,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn rolling_var_forecasts_basic() {
-        // Simple VaR function: returns the minimum of the window
+    fn rolling_var_forecasts_with_fn_basic() {
         fn simple_var(returns: &[f64], _confidence: f64) -> f64 {
             returns.iter().cloned().fold(f64::INFINITY, f64::min)
         }
@@ -186,26 +211,25 @@ mod unit_tests {
         let returns = vec![
             -0.01, 0.02, -0.03, 0.01, -0.02, 0.03, -0.01, 0.02, -0.04, 0.01,
         ];
-        let (forecasts, realized) = rolling_var_forecasts(&returns, 5, 0.99, simple_var);
+        let (forecasts, realized) = rolling_var_forecasts_with_fn(&returns, 5, 0.99, simple_var);
 
         assert_eq!(forecasts.len(), 5);
         assert_eq!(realized.len(), 5);
-        // First forecast uses returns[0..5], realized is returns[5]
         assert!((realized[0] - returns[5]).abs() < 1e-10);
     }
 
     #[test]
-    fn rolling_var_forecasts_insufficient_data() {
+    fn rolling_var_forecasts_with_fn_insufficient_data() {
         let returns = vec![-0.01; 5];
-        let (forecasts, realized) = rolling_var_forecasts(&returns, 10, 0.99, |_, _| 0.0);
+        let (forecasts, realized) = rolling_var_forecasts_with_fn(&returns, 10, 0.99, |_, _| 0.0);
         assert!(forecasts.is_empty());
         assert!(realized.is_empty());
     }
 
     #[test]
-    fn rolling_var_forecasts_exact_lookback() {
+    fn rolling_var_forecasts_with_fn_exact_lookback() {
         let returns = vec![-0.01; 10];
-        let (forecasts, realized) = rolling_var_forecasts(&returns, 10, 0.99, |_, _| 0.0);
+        let (forecasts, realized) = rolling_var_forecasts_with_fn(&returns, 10, 0.99, |_, _| 0.0);
         assert!(forecasts.is_empty());
         assert!(realized.is_empty());
     }
@@ -214,17 +238,16 @@ mod unit_tests {
     fn rolling_var_with_historical_var() {
         use crate::risk_metrics::value_at_risk;
 
-        // Wrapper matching the expected fn signature
         fn hist_var(returns: &[f64], confidence: f64) -> f64 {
             value_at_risk(returns, confidence, None)
         }
 
-        // Generate a simple return series
         let n = 300;
         let returns: Vec<f64> = (0..n).map(|i| ((i as f64 * 7.3).sin()) * 0.02).collect();
         let lookback = 250;
 
-        let (forecasts, realized) = rolling_var_forecasts(&returns, lookback, 0.99, hist_var);
+        let (forecasts, realized) =
+            rolling_var_forecasts_with_fn(&returns, lookback, 0.99, hist_var);
         assert_eq!(forecasts.len(), n - lookback);
         assert_eq!(realized.len(), n - lookback);
 
