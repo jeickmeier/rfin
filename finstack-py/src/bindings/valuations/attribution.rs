@@ -9,22 +9,16 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-/// Parse an ISO 8601 date string into a `time::Date`.
-fn parse_date(s: &str) -> PyResult<time::Date> {
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    time::Date::parse(s, &format)
-        .map_err(|e| PyValueError::new_err(format!("Invalid date '{s}': {e}")))
-}
-
 // ---------------------------------------------------------------------------
 // Ergonomic entry point
 // ---------------------------------------------------------------------------
 
-/// Run P&L attribution for a single instrument and return a ``PnlAttribution``.
+/// Run P&L attribution for a single instrument and return JSON.
 ///
 /// This is the main entry point. It accepts the instrument, two market
 /// snapshots, valuation dates, and a method descriptor — all as simple
-/// Python objects — and returns a ready-to-use result.
+/// Python objects — and returns the canonical JSON form of the attribution.
+/// Use ``PnlAttribution.from_json(...)`` when you want the richer Python wrapper.
 ///
 /// Parameters
 /// ----------
@@ -50,12 +44,13 @@ fn parse_date(s: &str) -> PyResult<time::Date> {
 ///
 /// Returns
 /// -------
-/// PnlAttribution
-///     Fully populated attribution result with factor P&Ls and metadata.
+/// str
+///     Pretty-printed JSON ``PnlAttribution`` payload.
 ///
 /// Examples
 /// --------
-/// >>> attr = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
+/// >>> attr_json = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
+/// >>> attr = PnlAttribution.from_json(attr_json)
 /// >>> print(attr.explain())
 /// >>> attr.to_dataframe()
 #[pyfunction]
@@ -70,22 +65,24 @@ fn attribute_pnl(
     as_of_t1: &str,
     method: &Bound<'_, PyAny>,
     config: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyPnlAttribution> {
-    let args = AttributionArgs {
+) -> PyResult<String> {
+    let method_json = py_to_json_string(py, method, "method")?;
+    let config_json = config
+        .map(|value| py_to_json_string(py, value, "config"))
+        .transpose()?;
+    let spec = finstack_valuations::attribution::AttributionSpec::from_json_inputs(
         instrument_json,
         market_t0_json,
         market_t1_json,
         as_of_t0,
         as_of_t1,
-        method,
-        config,
-    };
-    let spec = build_attribution_spec(py, &args)?;
+        &method_json,
+        config_json.as_deref(),
+    )
+    .map_err(display_to_py)?;
 
     let result = spec.execute().map_err(display_to_py)?;
-    Ok(PyPnlAttribution {
-        inner: result.attribution,
-    })
+    serde_json::to_string_pretty(&result.attribution).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -170,75 +167,16 @@ fn default_attribution_metrics() -> Vec<String> {
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// Internal: build an AttributionSpec from Python arguments
-// ---------------------------------------------------------------------------
-
-/// Bundle the raw string arguments for `build_attribution_spec`.
-struct AttributionArgs<'a, 'py> {
-    /// Tagged instrument JSON.
-    instrument_json: &'a str,
-    /// Market context at T₀ (JSON).
-    market_t0_json: &'a str,
-    /// Market context at T₁ (JSON).
-    market_t1_json: &'a str,
-    /// Valuation date T₀ (ISO 8601).
-    as_of_t0: &'a str,
-    /// Valuation date T₁ (ISO 8601).
-    as_of_t1: &'a str,
-    /// Method descriptor (Python str or dict).
-    method: &'a Bound<'py, PyAny>,
-    /// Optional config overrides (Python dict).
-    config: Option<&'a Bound<'py, PyAny>>,
-}
-
-/// Convert Python arguments into a Rust `AttributionSpec`.
-fn build_attribution_spec(
-    py: Python<'_>,
-    args: &AttributionArgs<'_, '_>,
-) -> PyResult<finstack_valuations::attribution::AttributionSpec> {
-    use finstack_valuations::attribution::{AttributionConfig, AttributionMethod, AttributionSpec};
-
-    let instrument: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(args.instrument_json).map_err(display_to_py)?;
-
-    let market_t0: finstack_core::market_data::context::MarketContextState =
-        serde_json::from_str(args.market_t0_json).map_err(display_to_py)?;
-
-    let market_t1: finstack_core::market_data::context::MarketContextState =
-        serde_json::from_str(args.market_t1_json).map_err(display_to_py)?;
-
-    let t0 = parse_date(args.as_of_t0)?;
-    let t1 = parse_date(args.as_of_t1)?;
-
-    let method: AttributionMethod = py_to_serde(py, args.method, "method")?;
-
-    let config: Option<AttributionConfig> = match args.config {
-        Some(c) => Some(py_to_serde(py, c, "config")?),
-        None => None,
-    };
-
-    Ok(AttributionSpec {
-        instrument,
-        market_t0,
-        market_t1,
-        as_of_t0: t0,
-        as_of_t1: t1,
-        method,
-        model_params_t0: None,
-        config,
-    })
-}
-
-/// Serialize a Python object to JSON via `json.dumps`, then deserialize into `T`.
-fn py_to_serde<'py, T: serde::de::DeserializeOwned>(
+/// Serialize a Python object to JSON via `json.dumps`.
+fn py_to_json_string<'py>(
     py: Python<'py>,
     obj: &Bound<'py, PyAny>,
     label: &str,
-) -> PyResult<T> {
+) -> PyResult<String> {
     let json_mod = py.import("json")?;
-    let json_str: String = json_mod.call_method1("dumps", (obj,))?.extract()?;
-    serde_json::from_str(&json_str)
+    json_mod
+        .call_method1("dumps", (obj,))
+        .and_then(|value| value.extract())
         .map_err(|e| PyValueError::new_err(format!("invalid {label}: {e}")))
 }
 

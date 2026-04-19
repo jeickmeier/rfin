@@ -314,13 +314,13 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         as_of_t1,
     )?;
 
-    // Initialize attribution result
-    let mut attribution = PnlAttribution::new(
+    let mut attribution = init_attribution(
         total_pnl,
         instrument.id(),
         as_of_t0,
         as_of_t1,
         AttributionMethod::MetricsBased,
+        None,
     );
 
     // Extract time period in days
@@ -925,15 +925,16 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         }
     }
 
-    // Compute residual
-    // Ignore error as notes will be populated
-    let _ = attribution.compute_residual();
-
-    // Metadata - use reasonable tolerances for metrics-based attribution
-    // Note: Metrics-based attribution is inherently approximate, so larger residuals are expected
-    attribution.meta.num_repricings = 0; // Metrics-based doesn't reprice
-    attribution.meta.tolerance_abs = 10.0; // $10 absolute tolerance
-    attribution.meta.tolerance_pct = 1.0; // 1% relative tolerance
+    // Metadata - use reasonable tolerances for metrics-based attribution.
+    // Note: Metrics-based attribution is inherently approximate, so larger residuals are expected.
+    finalize_attribution(
+        &mut attribution,
+        instrument.id(),
+        "metrics_based",
+        0,    // Metrics-based doesn't reprice
+        10.0, // $10 absolute tolerance
+        1.0,  // 1% relative tolerance
+    );
 
     // Note: For tighter tolerances, consider using waterfall or parallel attribution methods
 

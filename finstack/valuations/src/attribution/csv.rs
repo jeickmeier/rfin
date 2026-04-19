@@ -1,27 +1,10 @@
-//! DataFrame export utilities for P&L attribution.
+//! CSV export utilities for P&L attribution.
 //!
-//! Provides methods to export attribution results to structured formats for
-//! analysis and reporting.
-//!
-//! Note: Full Polars DataFrame integration pending. Current implementation
-//! provides JSON-based exports.
+//! Provides CSV-oriented exports for attribution summaries and detail reports.
 
 use super::types::*;
 
 impl PnlAttribution {
-    /// Export attribution summary as JSON.
-    ///
-    /// Returns a JSON object with all attribution factors.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if JSON serialization fails.
-    pub fn to_json(&self) -> finstack_core::Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| {
-            finstack_core::Error::Validation(format!("JSON serialization failed: {}", e))
-        })
-    }
-
     /// Export attribution summary as a CSV-compatible string.
     ///
     /// Returns a string with headers and one row of data.
@@ -138,6 +121,7 @@ impl PnlAttribution {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::attribution::JsonEnvelope;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
     use time::macros::date;
