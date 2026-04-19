@@ -4,7 +4,7 @@
 //! revolving credit cashflows. For general IRR calculations, use the functions
 //! from `finstack_core::cashflow`:
 //!
-//! - [`finstack_core::cashflow::InternalRateOfReturn`] - IRR/XIRR trait
+//! - [`finstack_core::cashflow::xirr_with_daycount`] - explicit-daycount XIRR helper
 //!
 //! # Facility-Specific Function
 //!
@@ -16,7 +16,7 @@
 //!
 //! ```text
 //! use finstack_valuations::instruments::fixed_income::revolving_credit::metrics::irr::calculate_path_irr;
-//! use finstack_core::cashflow::InternalRateOfReturn;
+//! use finstack_core::cashflow::xirr_with_daycount;
 //! use finstack_core::dates::{Date, DayCount};
 //! use time::Month;
 //!
@@ -25,7 +25,7 @@
 //!     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), -1_000_000.0),
 //!     (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 1_050_000.0),
 //! ];
-//! let irr = dated_cashflows.irr(None).ok();
+//! let irr = xirr_with_daycount(&dated_cashflows, DayCount::Act365F, None).ok();
 //!
 //! // For MC path data with time fractions:
 //! let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -33,19 +33,19 @@
 //! let irr = calculate_path_irr(&path_cashflows, base_date, DayCount::Act365F);
 //! ```
 
-use finstack_core::cashflow::InternalRateOfReturn;
+use finstack_core::cashflow::xirr_with_daycount;
 use finstack_core::dates::{Date, DayCount};
 
 /// Calculate IRR from Monte Carlo path cashflows (time fractions).
 ///
 /// Convenience function that converts time-fraction cashflows to dates and
-/// computes XIRR using `finstack_core::cashflow::InternalRateOfReturn`.
+/// computes XIRR using `finstack_core::cashflow::xirr_with_daycount`.
 ///
 /// This is primarily useful for revolving credit Monte Carlo simulations where
 /// cashflows are generated as `(time_in_years, amount)` tuples relative to
 /// a base date.
 ///
-/// For dated cashflows, use `finstack_core::cashflow::InternalRateOfReturn` directly.
+/// For dated cashflows, use `finstack_core::cashflow::xirr_with_daycount` directly.
 ///
 /// # Arguments
 ///
@@ -104,8 +104,8 @@ pub(crate) fn calculate_path_irr(
         return None;
     }
 
-    // Delegate to core's trait
-    dated_cashflows.irr(None).ok()
+    // Use the explicit-daycount XIRR path so the caller's convention is preserved.
+    xirr_with_daycount(&dated_cashflows, day_count, None).ok()
 }
 
 #[cfg(test)]
@@ -163,5 +163,19 @@ mod tests {
 
         let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
         assert!(irr.is_none());
+    }
+
+    #[test]
+    fn test_calculate_path_irr_respects_day_count() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let cashflows = vec![(0.0, -1_000_000.0), (0.5, 1_025_000.0)];
+
+        let irr_365 = calculate_path_irr(&cashflows, base, DayCount::Act365F).expect("Act365F IRR");
+        let irr_360 = calculate_path_irr(&cashflows, base, DayCount::Act360).expect("Act360 IRR");
+
+        assert!(
+            (irr_365 - irr_360).abs() > 1e-4,
+            "expected day count to influence path IRR"
+        );
     }
 }

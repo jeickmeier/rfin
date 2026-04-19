@@ -117,7 +117,7 @@ pub use imm::{
 };
 
 pub mod calendar;
-pub use calendar::registry::{CalendarId, CalendarRegistry};
+pub use calendar::registry::CalendarRegistry;
 
 // Calendar rule system is intentionally public, but only via the `dates` facade.
 pub use calendar::rule::{Direction, Observed, Rule};

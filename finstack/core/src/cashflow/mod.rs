@@ -10,9 +10,11 @@
 //!   market curve. This is the pricing-oriented path used by most instruments.
 //! - Use [`crate::cashflow::npv_amounts`] / [`crate::cashflow::npv_amounts_with_ctx`] for scalar cashflow studies
 //!   driven by a single continuously compounded annual rate.
-//! - Use [`crate::cashflow::InternalRateOfReturn`] or [`crate::cashflow::xirr_with_daycount_ctx`] for investment
-//!   analytics where the unknown quantity is the rate that makes NPV equal to
-//!   zero.
+//! - Use [`crate::cashflow::irr`] for periodic cashflows and
+//!   [`crate::cashflow::xirr_with_daycount`] / [`crate::cashflow::xirr_with_daycount_ctx`]
+//!   for dated cashflows when the unknown quantity is the rate that makes NPV equal
+//!   to zero. [`crate::cashflow::InternalRateOfReturn`] remains available as a
+//!   compatibility trait.
 //!
 //! # Components
 //!
@@ -119,6 +121,6 @@ pub use discounting::{
 };
 pub use primitives::{CFKind, CashFlow};
 pub use xirr::{
-    count_sign_changes, irr_detailed, xirr_detailed, xirr_with_daycount_ctx, InternalRateOfReturn,
-    IrrResult,
+    count_sign_changes, irr, irr_detailed, xirr, xirr_detailed, xirr_with_daycount,
+    xirr_with_daycount_ctx, InternalRateOfReturn, IrrResult,
 };

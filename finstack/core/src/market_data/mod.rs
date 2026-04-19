@@ -101,14 +101,6 @@ pub mod term_structures;
 /// These traits define the interface for curve types used in pricing.
 /// Useful for generic programming and custom curve implementations.
 pub mod traits;
-// Re-export selected helpers for convenience at `market_data::*` level.
-///
-/// Validates a knot set used by curve builders.
-///
-/// The helper checks that times are sorted, finite, and structurally valid for
-/// interpolation. Curves may impose additional domain-specific constraints
-/// beyond these generic knot checks.
-pub use crate::math::interp::utils::validate_knots;
 pub use context::MarketContext;
 // Re-export dividend schedule types for convenience
 pub use dividends::{DividendEvent, DividendKind, DividendSchedule, DividendScheduleBuilder};

@@ -60,15 +60,42 @@ pub(crate) const DEFAULT_GUESS: f64 = 0.1;
 /// The solver rejects any root at or below this threshold.
 pub(crate) const MIN_VALID_RATE: f64 = -0.999;
 
+/// Calculate IRR for periodic cashflows.
+#[inline]
+pub fn irr(cashflows: &[f64], guess: Option<f64>) -> crate::Result<f64> {
+    solve_rate_of_return(
+        cashflows.iter().enumerate().map(|(i, &amt)| (i as f64, amt)),
+        guess,
+    )
+}
+
+/// Calculate XIRR for dated cashflows using the default `Act365F` convention.
+#[inline]
+pub fn xirr(cashflows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64> {
+    xirr_with_daycount(cashflows, DayCount::Act365F, guess)
+}
+
+/// Calculate XIRR for dated cashflows with an explicit day count convention.
+#[inline]
+pub fn xirr_with_daycount(
+    cashflows: &[(Date, f64)],
+    day_count: DayCount,
+    guess: Option<f64>,
+) -> crate::Result<f64> {
+    xirr_with_daycount_ctx(cashflows, day_count, DayCountCtx::default(), guess)
+}
+
 /// Trait for calculating the Internal Rate of Return (IRR).
 ///
-/// This trait provides a unified interface for calculating IRR for both periodic
-/// cashflows (represented as `[f64]`) and irregular cashflows (represented as `[(Date, f64)]`).
+/// This trait provides a compatibility entry point for periodic cashflows
+/// (represented as `[f64]`) and irregular cashflows (represented as `[(Date, f64)]`).
+/// For dated cashflows, prefer the explicit free functions [`xirr`] and
+/// [`xirr_with_daycount`] so the day-count choice is visible at the call site.
 ///
 /// # Required Methods
 ///
-/// - [`irr`](Self::irr) - Calculate IRR (for dated flows, prefer `irr_with_daycount` for explicit control)
-/// - `irr_with_daycount` - Calculate IRR with specific day count
+/// - [`irr`](Self::irr) - Calculate IRR for periodic cashflows, or compatibility XIRR for dated flows
+/// - [`irr_with_daycount`](Self::irr_with_daycount) - Compatibility entry point for explicit-daycount XIRR
 ///
 /// # Provided Implementations
 ///
@@ -101,7 +128,7 @@ pub(crate) const MIN_VALID_RATE: f64 = -0.999;
 ///
 /// ## Irregular Cashflows (XIRR)
 ///
-/// For dated cashflows, prefer `irr_with_daycount()` for explicit day count:
+/// For dated cashflows, prefer [`xirr_with_daycount()`] for explicit day count:
 ///
 /// ```rust
 /// use finstack_core::cashflow::InternalRateOfReturn;
@@ -113,8 +140,9 @@ pub(crate) const MIN_VALID_RATE: f64 = -0.999;
 ///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
 /// ];
 ///
-/// // Use irr_with_daycount for explicit day count
-/// let xirr = flows.irr_with_daycount(DayCount::Act365F, None).expect("XIRR converges");
+/// // Use xirr_with_daycount for explicit day count
+/// let xirr = finstack_core::cashflow::xirr_with_daycount(&flows, DayCount::Act365F, None)
+///     .expect("XIRR converges");
 /// assert!(xirr > 0.09 && xirr < 0.11);
 /// ```
 pub trait InternalRateOfReturn {
@@ -123,7 +151,7 @@ pub trait InternalRateOfReturn {
     /// # Deprecation Note (for dated cashflows)
     ///
     /// For `[(Date, f64)]` cashflows, this method uses a hidden default of `Act365F`.
-    /// Prefer `irr_with_daycount` for explicit day count:
+    /// Prefer [`xirr_with_daycount`] for explicit day count:
     ///
     /// ```rust
     /// use finstack_core::cashflow::InternalRateOfReturn;
@@ -136,7 +164,7 @@ pub trait InternalRateOfReturn {
     /// ];
     ///
     /// // Preferred: explicit day count
-    /// let xirr = flows.irr_with_daycount(DayCount::Act365F, None)?;
+    /// let xirr = finstack_core::cashflow::xirr_with_daycount(&flows, DayCount::Act365F, None)?;
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
     ///
@@ -184,10 +212,7 @@ pub trait InternalRateOfReturn {
 /// Implementation for periodic cashflows.
 impl InternalRateOfReturn for [f64] {
     fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
-        solve_rate_of_return(
-            self.iter().enumerate().map(|(i, &amt)| (i as f64, amt)),
-            guess,
-        )
+        irr(self, guess)
     }
 
     fn irr_with_daycount(&self, _day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
@@ -202,11 +227,11 @@ impl InternalRateOfReturn for [f64] {
 ///
 /// # Recommended Usage
 ///
-/// For dated cashflows, prefer using [`irr_with_daycount()`](InternalRateOfReturn::irr_with_daycount)
+/// For dated cashflows, prefer using [`xirr_with_daycount()`]
 /// with an explicit day count to avoid confusion about the default convention:
 ///
 /// ```rust
-/// use finstack_core::cashflow::InternalRateOfReturn;
+/// use finstack_core::cashflow::xirr_with_daycount;
 /// use finstack_core::dates::{Date, DayCount};
 /// use time::Month;
 ///
@@ -216,17 +241,17 @@ impl InternalRateOfReturn for [f64] {
 /// ];
 ///
 /// // Explicit day count (recommended)
-/// let xirr = flows.irr_with_daycount(DayCount::Act365F, None)?;
+/// let xirr = xirr_with_daycount(&flows, DayCount::Act365F, None)?;
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
 impl InternalRateOfReturn for [(Date, f64)] {
     /// Calculate XIRR with default Act365F day count.
     ///
     /// **Note**: This method uses a hidden default of `Act365F`. For explicit
-    /// control over the day count convention, use `irr_with_daycount`
+    /// control over the day count convention, use [`xirr_with_daycount`]
     /// instead.
     fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
-        self.irr_with_daycount(DayCount::Act365F, guess)
+        xirr(self, guess)
     }
 
     /// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows
@@ -235,7 +260,7 @@ impl InternalRateOfReturn for [(Date, f64)] {
     /// For day-count conventions that require extra context (for example
     /// `ActActIsma` or `Bus252`), use [`xirr_with_daycount_ctx`] instead.
     fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
-        xirr_with_daycount_ctx(self, day_count, DayCountCtx::default(), guess)
+        xirr_with_daycount(self, day_count, guess)
     }
 }
 

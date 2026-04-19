@@ -14,10 +14,13 @@
 //! # API boundaries
 //!
 //! - **Public surface**: `new`, `insert_*`, typed getters (`get_discount`, `surface`,
-//!   `price`, `series`, etc.), scenario helper (`bump`), stats (`stats`) and
-//!   serde states (`CurveState`, `MarketContextState`).
-//! - **Internal details**: storage layout (HashMaps, caches)
-//!   is not a stable API. Prefer the public methods above for all access and mutation.
+//!   `price`, `series`, etc.), scenario helpers (`bump`, scratch bump tokens),
+//!   stats (`stats`) and serde states (`CurveState`, `MarketContextState`).
+//! - **Advanced plumbing**: [`CurveStorage`] is intentionally public because
+//!   scenario adapters and snapshot serde use it across crate boundaries, but
+//!   most callers should prefer the typed insert/getter methods.
+//! - **Internal details**: map layout, caches, and rebind mechanics are not a
+//!   stable API. Prefer the public methods above for all access and mutation.
 //!
 //! # Examples
 //! ```rust
@@ -50,7 +53,10 @@ mod stats;
 
 mod state_serde;
 
-#[doc(hidden)]
+/// Advanced heterogeneous curve container used by scenario plumbing and serde.
+///
+/// Most callers should work through the typed `MarketContext` APIs instead of
+/// constructing or matching on this enum directly.
 pub use curve_storage::CurveStorage;
 pub use stats::ContextStats;
 
@@ -82,7 +88,6 @@ impl ContextMutationInfo {
 /// This is intended for hot-path finite-difference calculations that need to
 /// apply a small number of bumps to a reusable scratch `MarketContext` and then
 /// restore the previous state without cloning the full context.
-#[doc(hidden)]
 #[derive(Clone)]
 pub enum ContextScratchBump {
     /// A bumped curve plus the credit-index snapshot needed to restore it.

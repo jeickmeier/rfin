@@ -28,10 +28,26 @@ pub struct DagNode {
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
-    use crate::config::ResultsMeta;
+    use crate::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig};
 
     fn meta() -> ResultsMeta {
         crate::config::results_meta(&crate::config::FinstackConfig::default())
+    }
+
+    fn explicit_meta() -> ResultsMeta {
+        ResultsMeta {
+            numeric_mode: NumericMode::F64,
+            rounding: RoundingContext {
+                mode: RoundingMode::Bankers,
+                ingest_scale_by_ccy: Default::default(),
+                output_scale_by_ccy: Default::default(),
+                tolerances: ToleranceConfig::default(),
+                version: 1,
+            },
+            fx_policy_applied: None,
+            timestamp: None,
+            version: None,
+        }
     }
 
     #[test]
@@ -114,6 +130,132 @@ mod tests {
             "unexpected error: {err}"
         );
     }
+
+    #[test]
+    fn dag_builder_tracks_shared_subexpressions() {
+        let mut builder = DagBuilder::new();
+        let col_x = Expr::column("x");
+        let lit_3 = Expr::literal(3.0);
+        let rolling_mean = Expr::call(Function::RollingMean, vec![col_x.clone(), lit_3.clone()]);
+        let rolling_sum = Expr::call(Function::RollingSum, vec![col_x, lit_3]);
+
+        let plan = builder
+            .build_plan(vec![rolling_mean, rolling_sum], explicit_meta())
+            .expect("valid expressions should build a DAG plan");
+
+        assert_eq!(plan.nodes.len(), 4);
+        assert_eq!(plan.roots.len(), 2);
+
+        let col_node = plan
+            .nodes
+            .iter()
+            .find(|node| matches!(node.expr.node, ExprNode::Column(_)))
+            .expect("column node should be present");
+        assert!(
+            col_node.ref_count > 1,
+            "shared column should be referenced twice"
+        );
+        assert!(plan.cache_strategy.expected_hit_rate >= 0.0);
+    }
+
+    #[test]
+    fn dag_builder_costs_reflect_function_complexity() {
+        let mut builder = DagBuilder::new();
+        let col_x = Expr::column("x");
+        let lit_5 = Expr::literal(5.0);
+        let lag = Expr::call(Function::Lag, vec![col_x.clone(), lit_5.clone()]);
+        let rolling_std = Expr::call(Function::RollingStd, vec![col_x, lit_5]);
+
+        let plan = builder
+            .build_plan(vec![lag, rolling_std], explicit_meta())
+            .expect("valid expressions should build a DAG plan");
+
+        let lag_node = plan
+            .nodes
+            .iter()
+            .find(|node| matches!(node.expr.node, ExprNode::Call(Function::Lag, _)))
+            .expect("lag node should be present");
+        let rolling_std_node = plan
+            .nodes
+            .iter()
+            .find(|node| matches!(node.expr.node, ExprNode::Call(Function::RollingStd, _)))
+            .expect("rolling std node should be present");
+
+        assert!(rolling_std_node.cost > lag_node.cost);
+    }
+
+    #[test]
+    fn dag_builder_prefers_caching_expensive_shared_nodes() {
+        let mut builder = DagBuilder::new();
+        let col_x = Expr::column("x");
+        let rolling_std = Expr::call(
+            Function::RollingStd,
+            vec![col_x.clone(), Expr::literal(10.0)],
+        );
+        let expr1 = Expr::call(
+            Function::RollingMean,
+            vec![rolling_std.clone(), Expr::literal(5.0)],
+        );
+        let expr2 = Expr::call(
+            Function::RollingSum,
+            vec![rolling_std.clone(), Expr::literal(3.0)],
+        );
+
+        let plan = builder
+            .build_plan(vec![expr1, expr2], explicit_meta())
+            .expect("valid expressions should build a DAG plan");
+
+        let rolling_std_node = plan
+            .nodes
+            .iter()
+            .find(|node| matches!(node.expr.node, ExprNode::Call(Function::RollingStd, _)))
+            .expect("shared rolling std node should be present");
+        assert!(rolling_std_node.ref_count > 1);
+        assert!(plan.cache_strategy.expected_hit_rate > 0.0);
+    }
+
+    #[test]
+    fn dag_builder_keeps_dependency_chain_in_topological_order() {
+        let mut builder = DagBuilder::new();
+        let col_x = Expr::column("x");
+        let lag_x = Expr::call(Function::Lag, vec![col_x.clone(), Expr::literal(1.0)]);
+        let diff_lag = Expr::call(Function::Diff, vec![lag_x, Expr::literal(1.0)]);
+
+        let plan = builder
+            .build_plan(vec![diff_lag], explicit_meta())
+            .expect("valid expressions should build a DAG plan");
+
+        let mut found_column = false;
+        let mut found_lag = false;
+        for node in &plan.nodes {
+            match &node.expr.node {
+                ExprNode::Column(_) => {
+                    assert!(!found_column && !found_lag);
+                    found_column = true;
+                }
+                ExprNode::Call(Function::Lag, _) => {
+                    assert!(found_column && !found_lag);
+                    found_lag = true;
+                }
+                ExprNode::Call(Function::Diff, _) => {
+                    assert!(found_column && found_lag);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn dag_builder_allows_empty_plans() {
+        let mut builder = DagBuilder::new();
+        let plan = builder
+            .build_plan(vec![], explicit_meta())
+            .expect("empty root list should still produce a valid plan");
+
+        assert!(plan.nodes.is_empty());
+        assert!(plan.roots.is_empty());
+        assert_eq!(plan.cache_strategy.expected_hit_rate, 0.0);
+    }
 }
 
 const MAX_DAG_RECURSION_DEPTH: usize = 512;
@@ -144,7 +286,7 @@ pub struct CacheStrategy {
 
 /// DAG builder that detects shared sub-expressions and builds optimized execution plans.
 #[derive(Default)]
-pub struct DagBuilder {
+pub(crate) struct DagBuilder {
     /// Expression cache for deduplication.
     expr_cache: HashMap<Expr, u64>,
     /// Node storage.
@@ -155,12 +297,12 @@ pub struct DagBuilder {
 
 impl DagBuilder {
     /// Create a new DAG builder.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Build an execution plan from a list of root expressions.
-    pub fn build_plan(
+    pub(crate) fn build_plan(
         &mut self,
         exprs: Vec<Expr>,
         meta: crate::config::ResultsMeta,

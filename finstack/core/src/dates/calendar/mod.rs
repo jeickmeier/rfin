@@ -91,12 +91,15 @@ pub(crate) mod rule;
 pub(crate) mod types;
 
 // -----------------------------------------------------------------------------
-// Public re-exports (facade)
+// Public re-exports
 // -----------------------------------------------------------------------------
 
+// `finstack_core::dates::*` is the canonical facade for adjustment, registry, and
+// calendar traits. This namespace keeps the generated calendars and related
+// implementation types available for callers that need them directly.
 pub use business_days::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
 pub use composite::{CompositeCalendar, CompositeMode};
-pub use registry::{CalendarId, CalendarRegistry};
+pub use registry::CalendarRegistry;
 pub use rule::{Direction, Observed, Rule};
 pub use types::{Calendar, WeekendRule};
 

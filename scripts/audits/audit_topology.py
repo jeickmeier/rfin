@@ -220,10 +220,20 @@ def _python_all_for_module(python_module: str) -> set[str] | None:
     """
     try:
         import importlib
+        import types
 
         m = importlib.import_module(python_module)
         if hasattr(m, "__all__"):
-            return set(m.__all__)
+            exports = set()
+            for name in m.__all__:
+                if name.startswith("_"):
+                    continue
+                value = getattr(m, name, None)
+                # Ignore wrapper-only submodule re-exports and absent lazy placeholders.
+                if value is None or isinstance(value, types.ModuleType):
+                    continue
+                exports.add(name)
+            return exports
         return {n for n in dir(m) if not n.startswith("_")}
     except Exception:
         return None

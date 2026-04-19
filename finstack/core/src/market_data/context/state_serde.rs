@@ -55,46 +55,30 @@ macro_rules! define_curve_state {
                 $( CurveState::$variant(curve) => curve.id(), )*
             }
         }
+
+        impl CurveStorage {
+            /// Convert to serializable state.
+            ///
+            /// This conversion is infallible - all curve types can be converted to their state representation.
+            pub fn to_state(&self) -> CurveState {
+                match self {
+                    $( Self::$variant(curve) => CurveState::$variant((**curve).clone()), )*
+                }
+            }
+
+            /// Reconstruct from serializable state.
+            ///
+            /// This conversion is infallible - all state variants map directly to storage variants.
+            pub fn from_state(state: CurveState) -> Self {
+                match state {
+                    $( CurveState::$variant(curve) => Self::$variant(Arc::new(curve)), )*
+                }
+            }
+        }
     };
 }
 
 super::curve_storage::for_each_context_curve!(define_curve_state);
-
-impl CurveStorage {
-    /// Convert to serializable state.
-    ///
-    /// This conversion is infallible - all curve types can be converted to their state representation.
-    pub fn to_state(&self) -> CurveState {
-        match self {
-            Self::Discount(curve) => CurveState::Discount((**curve).clone()),
-            Self::Forward(curve) => CurveState::Forward((**curve).clone()),
-            Self::Hazard(curve) => CurveState::Hazard((**curve).clone()),
-            Self::Inflation(curve) => CurveState::Inflation((**curve).clone()),
-            Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
-            Self::Price(curve) => CurveState::Price((**curve).clone()),
-            Self::VolIndex(curve) => CurveState::VolIndex((**curve).clone()),
-            Self::BasisSpread(curve) => CurveState::BasisSpread((**curve).clone()),
-            Self::Parametric(curve) => CurveState::Parametric((**curve).clone()),
-        }
-    }
-
-    /// Reconstruct from serializable state.
-    ///
-    /// This conversion is infallible - all state variants map directly to storage variants.
-    pub fn from_state(state: CurveState) -> Self {
-        match state {
-            CurveState::Discount(curve) => Self::Discount(Arc::new(curve)),
-            CurveState::Forward(curve) => Self::Forward(Arc::new(curve)),
-            CurveState::Hazard(curve) => Self::Hazard(Arc::new(curve)),
-            CurveState::Inflation(curve) => Self::Inflation(Arc::new(curve)),
-            CurveState::BaseCorrelation(curve) => Self::BaseCorrelation(Arc::new(curve)),
-            CurveState::Price(curve) => Self::Price(Arc::new(curve)),
-            CurveState::VolIndex(curve) => Self::VolIndex(Arc::new(curve)),
-            CurveState::BasisSpread(curve) => Self::BasisSpread(Arc::new(curve)),
-            CurveState::Parametric(curve) => Self::Parametric(Arc::new(curve)),
-        }
-    }
-}
 
 impl serde::Serialize for CurveStorage {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
