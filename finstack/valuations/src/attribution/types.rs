@@ -4,18 +4,13 @@
 //! constituent factors: carry, curve shifts, credit spreads, FX, volatility,
 //! cross-factor interactions, model parameters, and market scalars.
 
-use finstack_core::config::{FinstackConfig, RoundingContext};
+use finstack_core::config::RoundingContext;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxPolicyMeta, Money};
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
 use indexmap::IndexMap;
-use std::sync::Arc;
-
-use crate::instruments::common_impl::traits::Instrument;
-use crate::results::ValuationResult;
 
 use serde::{Deserialize, Serialize};
 
@@ -98,59 +93,6 @@ pub enum AttributionFactor {
 
     /// Market scalars (dividends, equity/commodity prices, inflation indices).
     MarketScalars,
-}
-
-/// Input parameters for P&L attribution.
-///
-/// Consolidates common parameters used across all attribution methods
-/// (parallel, waterfall, metrics-based) to reduce function parameter counts.
-///
-/// Different methods use different subsets:
-/// - **Parallel/Waterfall**: `config`, `model_params_t0`
-/// - **MetricsBased**: `val_t0`, `val_t1`
-#[derive(Clone)]
-pub struct AttributionInput<'a> {
-    /// Instrument to attribute P&L for.
-    pub instrument: &'a Arc<dyn Instrument>,
-
-    /// Market state at time T₀.
-    pub market_t0: &'a MarketContext,
-
-    /// Market state at time T₁.
-    pub market_t1: &'a MarketContext,
-
-    /// Valuation date T₀.
-    pub as_of_t0: Date,
-
-    /// Valuation date T₁.
-    pub as_of_t1: Date,
-
-    /// Configuration for rounding context (used by parallel and waterfall).
-    ///
-    /// Set to `None` for metrics-based attribution.
-    pub config: Option<&'a FinstackConfig>,
-
-    /// Model parameters snapshot at T₀ (used by parallel and waterfall).
-    ///
-    /// If provided, T₀ valuation will use these model parameters.
-    /// Set to `None` for metrics-based attribution or when using current model parameters.
-    pub model_params_t0: Option<&'a crate::attribution::ModelParamsSnapshot>,
-
-    /// Pre-computed valuation at T₀ (used by metrics-based).
-    ///
-    /// Set to `None` for parallel and waterfall attribution.
-    pub val_t0: Option<&'a ValuationResult>,
-
-    /// Pre-computed valuation at T₁ (used by metrics-based).
-    ///
-    /// Set to `None` for parallel and waterfall attribution.
-    pub val_t1: Option<&'a ValuationResult>,
-
-    /// Strict validation for waterfall attribution (default: false).
-    ///
-    /// When true, waterfall attribution will error if factor order is incomplete.
-    /// When false, missing factors are silently ignored.
-    pub strict_validation: bool,
 }
 
 /// Complete P&L attribution result for a single instrument.

@@ -309,10 +309,10 @@ pub(crate) mod waterfall;
 // Re-export core types
 pub use json_envelope::JsonEnvelope;
 pub use types::{
-    AttributionFactor, AttributionInput, AttributionMeta, AttributionMethod, CarryDetail,
-    CorrelationsAttribution, CreditCurvesAttribution, CrossFactorDetail, FxAttribution,
-    InflationCurvesAttribution, ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution,
-    ScalarsAttribution, VolAttribution,
+    AttributionFactor, AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
+    CreditCurvesAttribution, CrossFactorDetail, FxAttribution, InflationCurvesAttribution,
+    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
+    VolAttribution,
 };
 
 // Re-export attribution functions
