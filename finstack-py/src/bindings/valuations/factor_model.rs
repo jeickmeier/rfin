@@ -10,7 +10,6 @@ use finstack_valuations::factor_model::FactorSensitivityEngine;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use serde::Deserialize;
 
 /// Serialize a Python object to JSON via `json.dumps`, then deserialize into `T`.
 fn py_to_serde<'py, T: serde::de::DeserializeOwned>(
@@ -22,14 +21,6 @@ fn py_to_serde<'py, T: serde::de::DeserializeOwned>(
     let json_str: String = json_mod.call_method1("dumps", (obj,))?.extract()?;
     serde_json::from_str(&json_str)
         .map_err(|e| PyValueError::new_err(format!("invalid {label}: {e}")))
-}
-
-/// JSON input for a single position in the factor-sensitivity pipeline.
-#[derive(Deserialize)]
-struct PositionInput {
-    id: String,
-    instrument: serde_json::Value,
-    weight: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -260,28 +251,6 @@ impl PyFactorPnlProfile {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: parse positions + instruments
-// ---------------------------------------------------------------------------
-
-fn parse_positions(
-    positions_json: &str,
-) -> PyResult<(
-    Vec<PositionInput>,
-    Vec<Box<finstack_valuations::instruments::DynInstrument>>,
-)> {
-    let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(display_to_py)?;
-    let instruments = specs
-        .iter()
-        .map(|p| {
-            let inst: finstack_valuations::instruments::InstrumentJson =
-                serde_json::from_value(p.instrument.clone()).map_err(display_to_py)?;
-            inst.into_boxed().map_err(display_to_py)
-        })
-        .collect::<PyResult<Vec<_>>>()?;
-    Ok((specs, instruments))
-}
-
-// ---------------------------------------------------------------------------
 // compute_factor_sensitivities
 // ---------------------------------------------------------------------------
 
@@ -315,22 +284,9 @@ fn compute_factor_sensitivities(
     as_of: &str,
     bump_config_json: Option<&str>,
 ) -> PyResult<PySensitivityMatrix> {
-    let (specs, instruments) = parse_positions(positions_json)?;
-    let positions: Vec<(
-        String,
-        &dyn finstack_valuations::instruments::Instrument,
-        f64,
-    )> = specs
-        .iter()
-        .zip(instruments.iter())
-        .map(|(s, inst)| {
-            (
-                s.id.clone(),
-                inst.as_ref() as &dyn finstack_valuations::instruments::Instrument,
-                s.weight,
-            )
-        })
-        .collect();
+    let parsed_positions = finstack_valuations::factor_model::parse_positions_json(positions_json)
+        .map_err(display_to_py)?;
+    let positions = finstack_valuations::factor_model::pricing_positions(&parsed_positions);
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
         serde_json::from_str(factors_json).map_err(display_to_py)?;
@@ -385,22 +341,9 @@ fn compute_pnl_profiles(
     bump_config_json: Option<&str>,
     n_scenario_points: usize,
 ) -> PyResult<Vec<PyFactorPnlProfile>> {
-    let (specs, instruments) = parse_positions(positions_json)?;
-    let positions: Vec<(
-        String,
-        &dyn finstack_valuations::instruments::Instrument,
-        f64,
-    )> = specs
-        .iter()
-        .zip(instruments.iter())
-        .map(|(s, inst)| {
-            (
-                s.id.clone(),
-                inst.as_ref() as &dyn finstack_valuations::instruments::Instrument,
-                s.weight,
-            )
-        })
-        .collect();
+    let parsed_positions = finstack_valuations::factor_model::parse_positions_json(positions_json)
+        .map_err(display_to_py)?;
+    let positions = finstack_valuations::factor_model::pricing_positions(&parsed_positions);
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
         serde_json::from_str(factors_json).map_err(display_to_py)?;

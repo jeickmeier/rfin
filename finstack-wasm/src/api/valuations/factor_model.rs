@@ -4,17 +4,6 @@ use crate::utils::to_js_err;
 use finstack_valuations::factor_model::FactorSensitivityEngine;
 use wasm_bindgen::prelude::*;
 
-/// JSON input for a single position in the factor-sensitivity pipeline.
-#[derive(serde::Deserialize)]
-struct PositionInput {
-    /// Position identifier.
-    id: String,
-    /// Tagged instrument JSON.
-    instrument: serde_json::Value,
-    /// Position weight (notional multiplier).
-    weight: f64,
-}
-
 /// Compute first-order factor sensitivities and return the matrix as JSON.
 ///
 /// Accepts a JSON array of positions, a JSON array of `FactorDefinition`,
@@ -29,37 +18,15 @@ pub fn compute_factor_sensitivities(
     as_of: &str,
     bump_config_json: Option<String>,
 ) -> Result<String, JsValue> {
-    let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(to_js_err)?;
-    let instruments: Vec<Box<finstack_valuations::instruments::DynInstrument>> = specs
-        .iter()
-        .map(|p| {
-            let inst: finstack_valuations::instruments::InstrumentJson =
-                serde_json::from_value(p.instrument.clone()).map_err(to_js_err)?;
-            inst.into_boxed().map_err(to_js_err)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let positions: Vec<(
-        String,
-        &dyn finstack_valuations::instruments::Instrument,
-        f64,
-    )> = specs
-        .iter()
-        .zip(instruments.iter())
-        .map(|(s, inst)| {
-            (
-                s.id.clone(),
-                inst.as_ref() as &dyn finstack_valuations::instruments::Instrument,
-                s.weight,
-            )
-        })
-        .collect();
+    let parsed_positions = finstack_valuations::factor_model::parse_positions_json(positions_json)
+        .map_err(to_js_err)?;
+    let positions = finstack_valuations::factor_model::pricing_positions(&parsed_positions);
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
         serde_json::from_str(factors_json).map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
+    let date = finstack_valuations::pricer::parse_as_of_date(as_of).map_err(to_js_err)?;
     let bump_config: finstack_core::factor_model::BumpSizeConfig = match bump_config_json {
         Some(ref json) => serde_json::from_str(json).map_err(to_js_err)?,
         None => finstack_core::factor_model::BumpSizeConfig::default(),
@@ -94,37 +61,15 @@ pub fn compute_pnl_profiles(
     n_scenario_points: Option<usize>,
 ) -> Result<String, JsValue> {
     let n_points = n_scenario_points.unwrap_or(5);
-    let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(to_js_err)?;
-    let instruments: Vec<Box<finstack_valuations::instruments::DynInstrument>> = specs
-        .iter()
-        .map(|p| {
-            let inst: finstack_valuations::instruments::InstrumentJson =
-                serde_json::from_value(p.instrument.clone()).map_err(to_js_err)?;
-            inst.into_boxed().map_err(to_js_err)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let positions: Vec<(
-        String,
-        &dyn finstack_valuations::instruments::Instrument,
-        f64,
-    )> = specs
-        .iter()
-        .zip(instruments.iter())
-        .map(|(s, inst)| {
-            (
-                s.id.clone(),
-                inst.as_ref() as &dyn finstack_valuations::instruments::Instrument,
-                s.weight,
-            )
-        })
-        .collect();
+    let parsed_positions = finstack_valuations::factor_model::parse_positions_json(positions_json)
+        .map_err(to_js_err)?;
+    let positions = finstack_valuations::factor_model::pricing_positions(&parsed_positions);
 
     let factors: Vec<finstack_core::factor_model::FactorDefinition> =
         serde_json::from_str(factors_json).map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
+    let date = finstack_valuations::pricer::parse_as_of_date(as_of).map_err(to_js_err)?;
     let bump_config: finstack_core::factor_model::BumpSizeConfig = match bump_config_json {
         Some(ref json) => serde_json::from_str(json).map_err(to_js_err)?,
         None => finstack_core::factor_model::BumpSizeConfig::default(),
