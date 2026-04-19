@@ -26,19 +26,22 @@
 //! let best = auto_garch(&log_returns, InnovationDist::Gaussian, None)?;
 //! ```
 
-pub mod diagnostics;
-pub mod egarch11;
-pub mod forecast;
-pub mod garch;
-pub mod garch11;
-pub mod gjr_garch11;
-pub mod innovations;
-pub mod optimizer;
+mod diagnostics;
+mod egarch11;
+mod forecast;
+mod garch;
+mod garch11;
+mod gjr_garch11;
+mod innovations;
+mod optimizer;
 
-// Re-exports for convenience
+// Curated public surface: downstream callers should use these re-exports
+// rather than mixing and matching submodule paths.
 pub use diagnostics::{aic, arch_lm, bic, hqic, ljung_box};
 pub use egarch11::Egarch11;
-pub use forecast::{vol_term_structure, VarianceForecast, VolTermStructure, STANDARD_HORIZONS};
+pub use forecast::{
+    garch11_forecast, vol_term_structure, VarianceForecast, VolTermStructure, STANDARD_HORIZONS,
+};
 pub use garch::{FitConfig, GarchFit, GarchModel, GarchParams};
 pub use garch11::Garch11;
 pub use gjr_garch11::GjrGarch11;

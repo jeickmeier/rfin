@@ -361,6 +361,22 @@ export interface DrawdownEpisode {
   near_recovery_threshold: number;
 }
 
+/** Aggregate statistics for grouped periodic returns. */
+export interface PeriodStats {
+  best: number;
+  worst: number;
+  consecutive_wins: number;
+  consecutive_losses: number;
+  win_rate: number;
+  avg_return: number;
+  avg_win: number;
+  avg_loss: number;
+  payoff_ratio: number;
+  profit_factor: number;
+  cpc_ratio: number;
+  kelly_criterion: number;
+}
+
 /** Dated rolling Sharpe result returned by `rollingSharpe`. */
 export interface RollingSharpe {
   values: number[];
@@ -417,29 +433,67 @@ export interface CagrBasisConstructor {
   dates(start: string, end: string, convention?: string): CagrBasis;
 }
 
+export interface BenchmarkAlignmentPolicyConstructor {
+  zeroOnMissing(): BenchmarkAlignmentPolicy;
+  errorOnMissing(): BenchmarkAlignmentPolicy;
+}
+
+export interface BenchmarkAlignmentPolicy {}
+
+export interface RuinDefinitionConstructor {
+  wealthFloor(floorFraction: number): RuinDefinition;
+  terminalFloor(floorFraction: number): RuinDefinition;
+  drawdownBreach(maxDrawdown: number): RuinDefinition;
+}
+
+export interface RuinDefinition {}
+
+export interface RuinModelConstructor {
+  new (
+    horizonPeriods?: number,
+    nPaths?: number,
+    blockSize?: number,
+    seed?: number,
+    confidenceLevel?: number
+  ): RuinModel;
+}
+
+export interface RuinModel {}
+
+export interface RuinEstimateJson {
+  probability: number;
+  std_err: number;
+  ci_lower: number;
+  ci_upper: number;
+}
+
 export interface AnalyticsNamespace {
   // Risk metrics — return-based
   CagrBasis: CagrBasisConstructor;
+  BenchmarkAlignmentPolicy: BenchmarkAlignmentPolicyConstructor;
+  RuinDefinition: RuinDefinitionConstructor;
+  RuinModel: RuinModelConstructor;
   sharpe(annReturn: number, annVol: number, riskFreeRate: number): number;
-  sortino(annReturn: number, downsideDev: number, riskFreeRate: number): number;
-  volatility(returns: number[], periodsPerYear: number): number;
-  meanReturn(returns: number[]): number;
+  sortino(returns: number[], annualize: boolean, annFactor: number): number;
+  volatility(returns: number[], annualize: boolean, annFactor: number): number;
+  meanReturn(returns: number[], annualize: boolean, annFactor: number): number;
   cagr(returns: number[], basis: CagrBasis): number;
-  downsideDeviation(returns: number[], threshold: number, periodsPerYear: number): number;
+  downsideDeviation(returns: number[], threshold: number, annualize: boolean, annFactor: number): number;
   geometricMean(returns: number[]): number;
   omegaRatio(returns: number[], threshold: number): number;
   gainToPain(returns: number[]): number;
-  modifiedSharpe(annReturn: number, annVol: number, skew: number, kurt: number, riskFreeRate: number): number;
+  modifiedSharpe(returns: number[], riskFreeRate: number, confidence: number, annFactor: number): number;
+  estimateRuin(returns: number[], definition: RuinDefinition, model: RuinModel): RuinEstimateJson;
   // Risk metrics — tail
-  valueAtRisk(returns: number[], confidence: number): number;
-  expectedShortfall(returns: number[], confidence: number): number;
-  parametricVar(mean: number, std: number, confidence: number): number;
-  cornishFisherVar(mean: number, std: number, skew: number, kurt: number, confidence: number): number;
-  skewness(data: number[]): number;
-  kurtosis(data: number[]): number;
+  valueAtRisk(returns: number[], confidence: number, annFactor?: number): number;
+  expectedShortfall(returns: number[], confidence: number, annFactor?: number): number;
+  parametricVar(returns: number[], confidence: number, annFactor?: number): number;
+  cornishFisherVar(returns: number[], confidence: number, annFactor?: number): number;
+  skewness(returns: number[]): number;
+  kurtosis(returns: number[]): number;
   tailRatio(returns: number[], confidence: number): number;
-  outlierWinRatio(returns: number[], threshold: number): number;
-  outlierLossRatio(returns: number[], threshold: number): number;
+  outlierWinRatio(returns: number[], confidence: number): number;
+  outlierLossRatio(returns: number[], confidence: number): number;
   // Risk metrics — rolling (dated structs)
   rollingSharpe(returns: number[], dates: string[], window: number, annFactor: number, riskFreeRate: number): RollingSharpe;
   rollingSortino(returns: number[], dates: string[], window: number, annFactor: number): RollingSortino;
@@ -469,12 +523,18 @@ export interface AnalyticsNamespace {
   burkeRatio(annReturn: number, drawdownSeries: number[], riskFreeRate: number): number;
   painRatio(annReturn: number, painIdx: number, riskFreeRate: number): number;
   // Benchmark
-  trackingError(returns: number[], benchmark: number[], periodsPerYear: number): number;
-  informationRatio(annReturn: number, benchAnnReturn: number, te: number): number;
+  alignBenchmark(
+    benchReturns: number[],
+    benchDates: string[],
+    targetDates: string[],
+    policy: BenchmarkAlignmentPolicy
+  ): number[];
+  trackingError(returns: number[], benchmark: number[], annualize: boolean, annFactor: number): number;
+  informationRatio(returns: number[], benchmark: number[], annualize: boolean, annFactor: number): number;
   rSquared(returns: number[], benchmark: number[]): number;
   upCapture(returns: number[], benchmark: number[]): number;
   downCapture(returns: number[], benchmark: number[]): number;
-  captureRatio(upCap: number, downCap: number): number;
+  captureRatio(returns: number[], benchmark: number[]): number;
   battingAverage(returns: number[], benchmark: number[]): number;
   treynor(annReturn: number, riskFreeRate: number, beta: number): number;
   mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
@@ -483,8 +543,8 @@ export interface AnalyticsNamespace {
   rollingGreeks(returns: number[], benchmark: number[], window: number, annFactor: number): RollingGreeksResult;
   multiFactorGreeks(returns: number[], factors: number[][], annFactor: number): MultiFactorResult;
   // Aggregation
-  groupByPeriod(returns: number[], dates: string[], periodKind: string): [string, number][];
-  periodStats(grouped: [string, number][]): PeriodStats;
+  groupByPeriod(dates: string[], returns: number[], periodKind: string): [string, number][];
+  periodStats(returns: number[]): PeriodStats;
   // Lookback selectors
   mtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
   qtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];

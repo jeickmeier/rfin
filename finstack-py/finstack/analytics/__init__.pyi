@@ -119,6 +119,12 @@ __all__ = [
     "aic",
     "bic",
     "hqic",
+    "percentile_rank",
+    "z_score",
+    "peer_stats",
+    "regression_fair_value",
+    "compute_multiple",
+    "score_relative_value",
 ]
 
 # ---------------------------------------------------------------------------

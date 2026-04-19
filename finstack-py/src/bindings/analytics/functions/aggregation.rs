@@ -27,16 +27,8 @@ fn group_by_period(
 /// labels are synthetic — only the return values matter for statistics.
 #[pyfunction]
 fn period_stats(returns: Vec<f64>) -> PyPeriodStats {
-    let tuples: Vec<(finstack_core::dates::PeriodId, f64)> = returns
-        .into_iter()
-        .enumerate()
-        .map(|(i, r)| {
-            let pid = finstack_core::dates::PeriodId::month(2000, (i as u8 % 12) + 1);
-            (pid, r)
-        })
-        .collect();
     PyPeriodStats {
-        inner: fa::aggregation::period_stats(&tuples),
+        inner: fa::aggregation::period_stats_from_returns(&returns),
     }
 }
 

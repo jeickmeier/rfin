@@ -370,18 +370,7 @@ fn garch11_forecast(
     last_return: f64,
     horizon: usize,
 ) -> Vec<f64> {
-    if horizon == 0 {
-        return Vec::new();
-    }
-    let mut out = Vec::with_capacity(horizon);
-    let mut s2 = omega + alpha * last_return * last_return + beta * last_variance;
-    out.push(s2.max(0.0));
-    let persistence = alpha + beta;
-    for _ in 1..horizon {
-        s2 = omega + persistence * s2;
-        out.push(s2.max(0.0));
-    }
-    out
+    ts::garch11_forecast(omega, alpha, beta, last_variance, last_return, horizon)
 }
 
 // -------------------------------------------------------------------

@@ -106,29 +106,38 @@ fn modified_sharpe_finite() {
     assert!(v.is_finite() || v.is_nan());
 }
 
+#[wasm_bindgen_test]
+fn estimate_ruin_returns_struct_like_object() {
+    let definition = WasmRuinDefinition::wealth_floor(0.8);
+    let model = WasmRuinModel::new(Some(30), Some(1_000), Some(3), Some(7), Some(0.95));
+    let estimate = estimate_ruin(returns_js(), &definition, &model).unwrap();
+    let json: serde_json::Value = serde_wasm_bindgen::from_value(estimate).unwrap();
+    assert!(json["probability"].as_f64().is_some());
+}
+
 // ---- Tail risk ----
 
 #[wasm_bindgen_test]
 fn value_at_risk_finite() {
-    let v = value_at_risk(returns_js(), 0.95).unwrap();
+    let v = value_at_risk(returns_js(), 0.95, None).unwrap();
     assert!(v.is_finite());
 }
 
 #[wasm_bindgen_test]
 fn expected_shortfall_finite() {
-    let v = expected_shortfall(returns_js(), 0.95).unwrap();
+    let v = expected_shortfall(returns_js(), 0.95, Some(252.0)).unwrap();
     assert!(v.is_finite());
 }
 
 #[wasm_bindgen_test]
 fn parametric_var_finite() {
-    let v = parametric_var(returns_js(), 0.95).unwrap();
+    let v = parametric_var(returns_js(), 0.95, Some(252.0)).unwrap();
     assert!(v.is_finite());
 }
 
 #[wasm_bindgen_test]
 fn cornish_fisher_var_finite() {
-    let v = cornish_fisher_var(returns_js(), 0.95).unwrap();
+    let v = cornish_fisher_var(returns_js(), 0.95, Some(252.0)).unwrap();
     assert!(v.is_finite());
 }
 
@@ -215,6 +224,35 @@ fn excess_returns_correct_length() {
     let v = excess_returns(returns_js(), benchmark_js()).unwrap();
     let arr: Vec<f64> = serde_wasm_bindgen::from_value(v).unwrap();
     assert_eq!(arr.len(), 10);
+}
+
+// ---- Aggregation ----
+
+#[wasm_bindgen_test]
+fn group_by_period_accepts_dates_first() {
+    let grouped = group_by_period(dates_js(), returns_js(), "weekly").unwrap();
+    let tuples: Vec<(String, f64)> = serde_wasm_bindgen::from_value(grouped).unwrap();
+    assert!(!tuples.is_empty());
+}
+
+#[wasm_bindgen_test]
+fn period_stats_accepts_flat_returns() {
+    let stats = period_stats(returns_js()).unwrap();
+    let json: serde_json::Value = serde_wasm_bindgen::from_value(stats).unwrap();
+    assert!(json["win_rate"].as_f64().is_some());
+}
+
+#[wasm_bindgen_test]
+fn align_benchmark_zero_fills_missing_dates() {
+    let bench_returns = serde_wasm_bindgen::to_value(&vec![0.01, 0.03]).unwrap();
+    let bench_dates = serde_wasm_bindgen::to_value(&vec!["2025-01-01", "2025-01-03"]).unwrap();
+    let target_dates =
+        serde_wasm_bindgen::to_value(&vec!["2025-01-01", "2025-01-02", "2025-01-03"]).unwrap();
+    let policy = WasmBenchmarkAlignmentPolicy::zero_on_missing();
+
+    let aligned = align_benchmark(bench_returns, bench_dates, target_dates, &policy).unwrap();
+    let values: Vec<f64> = serde_wasm_bindgen::from_value(aligned).unwrap();
+    assert_eq!(values, vec![0.01, 0.0, 0.03]);
 }
 
 // ---- Drawdown ----

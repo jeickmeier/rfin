@@ -160,7 +160,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
     if n == 0 {
         return 0.0;
     }
-    if crate::risk_metrics::return_based::invalid_annualization_factor(annualize, ann_factor) {
+    if crate::risk_metrics::invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
     }
     let mut os = OnlineStats::new();
@@ -229,7 +229,7 @@ pub fn information_ratio(
     if n == 0 {
         return 0.0;
     }
-    if crate::risk_metrics::return_based::invalid_annualization_factor(annualize, ann_factor) {
+    if crate::risk_metrics::invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
     }
     let mut os = OnlineStats::new();

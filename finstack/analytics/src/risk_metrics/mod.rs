@@ -4,10 +4,9 @@
 //! scalar or rolling risk/performance metric without constructing
 //! [`crate::performance::Performance`].
 //!
-//! Submodules are organized by domain:
-//! - [`return_based`]: CAGR, mean return, volatility, Sharpe, Sortino, ruin estimation, and other return-level ratios
-//! - [`tail_risk`]: VaR, Expected Shortfall, Cornish-Fisher VaR, skewness, kurtosis, and tail-shape metrics
-//! - [`rolling`]: rolling Sharpe, Sortino, and volatility over sliding windows
+//! Internally, the implementation is organized by return-based, tail-risk, and
+//! rolling metrics. The public surface is the curated re-export list below so
+//! callers have one obvious path per metric.
 //!
 //! Important conventions:
 //! - returns are simple decimal returns, such as `0.01` for +1%
@@ -19,10 +18,11 @@
 //! Recovery Factor live in [`crate::drawdown`]. Benchmark-relative ratios such
 //! as Treynor and M-squared live in [`crate::benchmark`].
 
-pub mod return_based;
-pub mod rolling;
-pub mod tail_risk;
+mod return_based;
+mod rolling;
+mod tail_risk;
 
+pub(crate) use return_based::invalid_annualization_factor;
 pub use return_based::{
     cagr, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean, mean_return,
     modified_sharpe, omega_ratio, sharpe, sortino, volatility, AnnualizationConvention, CagrBasis,

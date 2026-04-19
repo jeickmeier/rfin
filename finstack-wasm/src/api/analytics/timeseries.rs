@@ -44,18 +44,9 @@ pub fn garch11_forecast(
     last_return: f64,
     horizon: usize,
 ) -> Result<JsValue, JsValue> {
-    if horizon == 0 {
-        return serde_wasm_bindgen::to_value(&Vec::<f64>::new()).map_err(to_js_err);
-    }
-    let mut out = Vec::with_capacity(horizon);
-    let mut s2 = omega + alpha * last_return * last_return + beta * last_variance;
-    out.push(s2.max(0.0));
-    let persistence = alpha + beta;
-    for _ in 1..horizon {
-        s2 = omega + persistence * s2;
-        out.push(s2.max(0.0));
-    }
-    serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
+    let forecasts =
+        fa::timeseries::garch11_forecast(omega, alpha, beta, last_variance, last_return, horizon);
+    serde_wasm_bindgen::to_value(&forecasts).map_err(to_js_err)
 }
 
 #[wasm_bindgen(js_name = ljungBox)]

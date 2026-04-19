@@ -57,7 +57,6 @@ status = "exists"   # Wave 2: finstack/analytics/ canonical package created
 [crates.analytics.modules]
 aggregation  = { python = "finstack.analytics.aggregation",  status = "missing" }
 benchmark    = { python = "finstack.analytics.benchmark",    status = "missing" }
-consecutive  = { python = "finstack.analytics.consecutive",  status = "missing" }
 drawdown     = { python = "finstack.analytics.drawdown",     status = "missing" }
 lookback     = { python = "finstack.analytics.lookback",     status = "missing" }
 performance  = { python = "finstack.analytics.performance",  status = "missing" }

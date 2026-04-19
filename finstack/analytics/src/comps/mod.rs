@@ -7,11 +7,11 @@
 //! then use [`compute_peer_multiples`] for multiples and
 //! [`score_relative_value`] for the composite rich/cheap signal.
 
-pub mod multiples;
-pub mod peer_set;
-pub mod scoring;
-pub mod stats;
-pub mod types;
+mod multiples;
+mod peer_set;
+mod scoring;
+mod stats;
+mod types;
 
 pub use multiples::{compute_multiple, compute_peer_multiples};
 pub use peer_set::{PeerFilter, PeerSet};

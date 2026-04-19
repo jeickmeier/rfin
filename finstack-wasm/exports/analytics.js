@@ -2,6 +2,8 @@ import * as wasm from '../pkg/finstack_wasm.js';
 
 export const analytics = {
   // Risk metrics — return-based
+  RuinDefinition: wasm.RuinDefinition,
+  RuinModel: wasm.RuinModel,
   sharpe: wasm.sharpe,
   sortino: wasm.sortino,
   volatility: wasm.volatility,
@@ -13,6 +15,7 @@ export const analytics = {
   omegaRatio: wasm.omegaRatio,
   gainToPain: wasm.gainToPain,
   modifiedSharpe: wasm.modifiedSharpe,
+  estimateRuin: wasm.estimateRuin,
   // Risk metrics — tail
   valueAtRisk: wasm.valueAtRisk,
   expectedShortfall: wasm.expectedShortfall,
@@ -52,6 +55,8 @@ export const analytics = {
   burkeRatio: wasm.burkeRatio,
   painRatio: wasm.painRatio,
   // Benchmark
+  BenchmarkAlignmentPolicy: wasm.BenchmarkAlignmentPolicy,
+  alignBenchmark: wasm.alignBenchmark,
   trackingError: wasm.trackingError,
   informationRatio: wasm.informationRatio,
   rSquared: wasm.rSquared,

@@ -33,6 +33,63 @@ impl WasmCagrBasis {
     }
 }
 
+#[wasm_bindgen(js_name = RuinDefinition)]
+pub struct WasmRuinDefinition {
+    inner: fa::risk_metrics::RuinDefinition,
+}
+
+#[wasm_bindgen(js_class = RuinDefinition)]
+impl WasmRuinDefinition {
+    #[wasm_bindgen(js_name = wealthFloor)]
+    pub fn wealth_floor(floor_fraction: f64) -> Self {
+        Self {
+            inner: fa::risk_metrics::RuinDefinition::WealthFloor { floor_fraction },
+        }
+    }
+
+    #[wasm_bindgen(js_name = terminalFloor)]
+    pub fn terminal_floor(floor_fraction: f64) -> Self {
+        Self {
+            inner: fa::risk_metrics::RuinDefinition::TerminalFloor { floor_fraction },
+        }
+    }
+
+    #[wasm_bindgen(js_name = drawdownBreach)]
+    pub fn drawdown_breach(max_drawdown: f64) -> Self {
+        Self {
+            inner: fa::risk_metrics::RuinDefinition::DrawdownBreach { max_drawdown },
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = RuinModel)]
+pub struct WasmRuinModel {
+    inner: fa::risk_metrics::RuinModel,
+}
+
+#[wasm_bindgen(js_class = RuinModel)]
+impl WasmRuinModel {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        horizon_periods: Option<usize>,
+        n_paths: Option<usize>,
+        block_size: Option<usize>,
+        seed: Option<u64>,
+        confidence_level: Option<f64>,
+    ) -> Self {
+        let defaults = fa::risk_metrics::RuinModel::default();
+        Self {
+            inner: fa::risk_metrics::RuinModel {
+                horizon_periods: horizon_periods.unwrap_or(defaults.horizon_periods),
+                n_paths: n_paths.unwrap_or(defaults.n_paths),
+                block_size: block_size.unwrap_or(defaults.block_size),
+                seed: seed.unwrap_or(defaults.seed),
+                confidence_level: confidence_level.unwrap_or(defaults.confidence_level),
+            },
+        }
+    }
+}
+
 #[wasm_bindgen(js_name = sharpe)]
 pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
     fa::risk_metrics::sharpe(ann_return, ann_vol, risk_free_rate)
@@ -110,27 +167,47 @@ pub fn modified_sharpe(
 }
 
 #[wasm_bindgen(js_name = valueAtRisk)]
-pub fn value_at_risk(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
+pub fn value_at_risk(
+    returns: JsValue,
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::value_at_risk(&r, confidence, None))
+    Ok(fa::risk_metrics::value_at_risk(&r, confidence, ann_factor))
 }
 
 #[wasm_bindgen(js_name = expectedShortfall)]
-pub fn expected_shortfall(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
+pub fn expected_shortfall(
+    returns: JsValue,
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::expected_shortfall(&r, confidence, None))
+    Ok(fa::risk_metrics::expected_shortfall(
+        &r, confidence, ann_factor,
+    ))
 }
 
 #[wasm_bindgen(js_name = parametricVar)]
-pub fn parametric_var(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
+pub fn parametric_var(
+    returns: JsValue,
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::parametric_var(&r, confidence, None))
+    Ok(fa::risk_metrics::parametric_var(&r, confidence, ann_factor))
 }
 
 #[wasm_bindgen(js_name = cornishFisherVar)]
-pub fn cornish_fisher_var(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
+pub fn cornish_fisher_var(
+    returns: JsValue,
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::cornish_fisher_var(&r, confidence, None))
+    Ok(fa::risk_metrics::cornish_fisher_var(
+        &r, confidence, ann_factor,
+    ))
 }
 
 #[wasm_bindgen(js_name = skewness)]
@@ -161,6 +238,17 @@ pub fn outlier_win_ratio(returns: JsValue, confidence: f64) -> Result<f64, JsVal
 pub fn outlier_loss_ratio(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
     Ok(fa::risk_metrics::outlier_loss_ratio(&r, confidence))
+}
+
+#[wasm_bindgen(js_name = estimateRuin)]
+pub fn estimate_ruin(
+    returns: JsValue,
+    definition: &WasmRuinDefinition,
+    model: &WasmRuinModel,
+) -> Result<JsValue, JsValue> {
+    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
+    let estimate = fa::risk_metrics::estimate_ruin(&r, definition.inner, &model.inner);
+    serde_wasm_bindgen::to_value(&estimate).map_err(to_js_err)
 }
 
 #[wasm_bindgen(js_name = rollingSharpe)]

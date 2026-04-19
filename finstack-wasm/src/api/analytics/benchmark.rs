@@ -4,6 +4,47 @@ use wasm_bindgen::prelude::*;
 
 use super::support::parse_iso_dates;
 
+#[wasm_bindgen(js_name = BenchmarkAlignmentPolicy)]
+pub struct WasmBenchmarkAlignmentPolicy {
+    inner: fa::benchmark::BenchmarkAlignmentPolicy,
+}
+
+#[wasm_bindgen(js_class = BenchmarkAlignmentPolicy)]
+impl WasmBenchmarkAlignmentPolicy {
+    #[wasm_bindgen(js_name = zeroOnMissing)]
+    pub fn zero_on_missing() -> Self {
+        Self {
+            inner: fa::benchmark::BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
+        }
+    }
+
+    #[wasm_bindgen(js_name = errorOnMissing)]
+    pub fn error_on_missing() -> Self {
+        Self {
+            inner: fa::benchmark::BenchmarkAlignmentPolicy::ErrorOnMissingDates,
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = alignBenchmark)]
+pub fn align_benchmark(
+    bench_returns: JsValue,
+    bench_dates: JsValue,
+    target_dates: JsValue,
+    policy: &WasmBenchmarkAlignmentPolicy,
+) -> Result<JsValue, JsValue> {
+    let returns: Vec<f64> = serde_wasm_bindgen::from_value(bench_returns).map_err(to_js_err)?;
+    let bench_date_strs: Vec<String> =
+        serde_wasm_bindgen::from_value(bench_dates).map_err(to_js_err)?;
+    let target_date_strs: Vec<String> =
+        serde_wasm_bindgen::from_value(target_dates).map_err(to_js_err)?;
+    let bench = parse_iso_dates(&bench_date_strs)?;
+    let target = parse_iso_dates(&target_date_strs)?;
+    let aligned = fa::benchmark::align_benchmark(&returns, &bench, &target, policy.inner)
+        .map_err(to_js_err)?;
+    serde_wasm_bindgen::to_value(&aligned).map_err(to_js_err)
+}
+
 #[wasm_bindgen(js_name = trackingError)]
 pub fn tracking_error(
     returns: JsValue,
