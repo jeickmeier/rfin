@@ -1,13 +1,24 @@
-//! Shared logic for curve bumping via re-calibration.
+//! Re-calibration helpers for curve and surface bumping.
 //!
-//! This module provides infrastructure for performing "what-if" analysis by
-//! applying shifts to market data and observing the impact on calibrated objects.
+//! Supports "what-if" risk analysis: apply a `BumpRequest` (parallel or
+//! per-tenor) to a calibrated market object and re-run the matching
+//! calibration step to produce a new curve/surface. Used by the scenarios
+//! engine and per-instrument risk metrics (CS01, key-rate duration, vega).
 //!
-//! # Submodules
-//! - `rates`: Bumping logic for Interest Rate curves.
-//! - `hazard`: Bumping logic for Credit (Hazard) curves.
-//! - `inflation`: Bumping logic for Inflation curves.
-//! - `vol`: Bumping logic for Volatility surfaces (vega risk).
+//! # Entry points by asset class
+//!
+//! | Asset class       | Functions                                                   |
+//! |-------------------|-------------------------------------------------------------|
+//! | Discount rates    | `bump_discount_curve`, `bump_discount_curve_synthetic`      |
+//! | Credit hazard     | `bump_hazard_spreads`, `bump_hazard_shift`                  |
+//! | Inflation         | `bump_inflation_rates`                                      |
+//! | Volatility        | `bump_vol_surface` (uses `VolBumpRequest`)                  |
+//!
+//! # Convention
+//!
+//! Rate/spread bumps are specified in basis points. Vol bumps use
+//! `VolBumpRequest` because the semantics differ (absolute vol points vs
+//! relative shifts) — see that type for details.
 
 mod currency;
 pub(crate) mod hazard;
