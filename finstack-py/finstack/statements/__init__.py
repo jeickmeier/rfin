@@ -19,7 +19,6 @@ parse_formula = _statements.parse_formula
 validate_formula = _statements.validate_formula
 NormalizationConfig = _statements.NormalizationConfig
 normalize = _statements.normalize
-normalize_to_dicts = _statements.normalize_to_dicts
 CheckSuiteSpec = _statements.CheckSuiteSpec
 CheckReport = _statements.CheckReport
 
@@ -36,7 +35,6 @@ __all__: list[str] = [
     "NumericMode",
     "StatementResult",
     "normalize",
-    "normalize_to_dicts",
     "parse_formula",
     "validate_formula",
 ]

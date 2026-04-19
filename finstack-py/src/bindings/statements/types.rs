@@ -184,6 +184,13 @@ impl PyNumericMode {
         }
     }
 
+    #[staticmethod]
+    fn decimal() -> Self {
+        Self {
+            inner: finstack_statements::evaluator::NumericMode::Decimal,
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!("NumericMode({:?})", self.inner)
     }

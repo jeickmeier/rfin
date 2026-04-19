@@ -3,9 +3,9 @@
 use crate::errors::display_to_py;
 use pyo3::prelude::*;
 
-/// Parse a DSL formula string and return its string representation.
+/// Parse a DSL formula string and return the AST as canonical JSON.
 ///
-/// Useful for validating formula syntax without compiling.
+/// Useful for inspecting formula structure without compiling.
 ///
 /// Parameters
 /// ----------
@@ -15,11 +15,11 @@ use pyo3::prelude::*;
 /// Returns
 /// -------
 /// str
-///     String representation of the parsed AST.
+///     JSON-serialized AST.
 #[pyfunction]
 fn parse_formula(formula: &str) -> PyResult<String> {
     let ast = finstack_statements::dsl::parse_formula(formula).map_err(display_to_py)?;
-    Ok(format!("{ast:?}"))
+    serde_json::to_string(&ast).map_err(display_to_py)
 }
 
 /// Validate that a formula parses and compiles successfully.

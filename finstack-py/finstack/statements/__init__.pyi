@@ -24,7 +24,6 @@ __all__ = [
     "validate_formula",
     "NormalizationConfig",
     "normalize",
-    "normalize_to_dicts",
     "CheckSuiteSpec",
     "CheckReport",
 ]
@@ -885,40 +884,6 @@ def normalize(results: StatementResult, config: NormalizationConfig) -> str:
     >>> # payload = normalize(evaluator_output, NormalizationConfig("ebitda"))  # doctest: +SKIP
     >>> NormalizationConfig("ebitda").target_node
     'ebitda'
-    """
-    ...
-
-def normalize_to_dicts(
-    results: StatementResult,
-    config: NormalizationConfig,
-) -> list[dict[str, Any]]:
-    """Run normalization and return one dict per period.
-
-    Parameters
-    ----------
-    results:
-        Evaluated statement output.
-    config:
-        Target node and adjustment definitions.
-
-    Returns
-    -------
-    list[dict[str, Any]]
-        Each dict has keys ``period`` (``str``), ``base_value`` (``float``),
-        ``final_value`` (``float``), and ``adjustments`` (``list[dict[str, Any]]``).
-        Each adjustment dict includes ``id``, ``name``, ``raw_amount``,
-        ``capped_amount``, and ``is_capped``.
-
-    Raises
-    ------
-    ValueError
-        If the engine fails.
-
-    Example
-    -------
-    >>> # rows = normalize_to_dicts(r, cfg); rows[0]["period"]  # doctest: +SKIP
-    >>> NormalizationConfig.from_json('{"target_node":"n"}').target_node
-    'n'
     """
     ...
 

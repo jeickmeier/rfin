@@ -445,7 +445,7 @@ impl ModelBuilder<Ready> {
     ///             params: indexmap! { "rate".into() => serde_json::json!(0.05) },
     ///         })
     ///         .formula("lag(revenue, 1) * 1.05")?
-    ///         .build()
+    ///         .build()?
     ///     .build()?;
     /// # Ok(())
     /// # }
@@ -867,7 +867,7 @@ impl MixedNodeBuilder {
     ///     .periods("2025Q1..Q2", None)?
     ///     .mixed("revenue")
     ///     .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
-    ///     .build();
+    ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -892,7 +892,7 @@ impl MixedNodeBuilder {
     ///     .periods("2025Q1..Q2", None)?
     ///     .mixed("revenue")
     ///     .forecast(ForecastSpec::forward_fill())
-    ///     .build();
+    ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -919,7 +919,7 @@ impl MixedNodeBuilder {
     ///     .mixed("revenue")
     ///     .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
     ///     .formula("lag(revenue, 1)")?
-    ///     .build();
+    ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -951,7 +951,7 @@ impl MixedNodeBuilder {
     ///     .periods("2025Q1..Q2", None)?
     ///     .mixed("revenue")
     ///     .name("Revenue (actual + forecast)")
-    ///     .build();
+    ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -963,8 +963,8 @@ impl MixedNodeBuilder {
 
     /// Build the mixed node and return to the parent model builder.
     ///
-    /// Note: Node ID validation happens in `ModelBuilder::build()`. If you need
-    /// early validation, use `try_build()` instead.
+    /// This validates the mixed node ID eagerly before attaching it to the
+    /// parent builder so there is a single completion path for mixed nodes.
     ///
     /// # Example
     ///
@@ -979,13 +979,15 @@ impl MixedNodeBuilder {
     ///         .values(&[(PeriodId::quarter(2025, 1), 100.0.into())])
     ///         .forecast(ForecastSpec::forward_fill())
     ///         .formula("lag(revenue, 1)")?
-    ///         .build()
+    ///         .build()?
     ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
     #[must_use = "builder methods must be chained"]
-    pub fn build(mut self) -> ModelBuilder<Ready> {
+    pub fn build(mut self) -> Result<ModelBuilder<Ready>> {
+        validate_node_id(self.node_id.as_str())?;
+
         let mut node = NodeSpec::new(self.node_id.clone(), NodeType::Mixed);
 
         if let Some(name) = self.name {
@@ -1002,19 +1004,7 @@ impl MixedNodeBuilder {
         }
 
         self.parent.nodes.insert(self.node_id, node);
-        self.parent
-    }
-
-    /// Build the mixed node with validation.
-    ///
-    /// This is like `build()` but validates the node ID eagerly, returning a `Result`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the node ID uses a reserved prefix (`__cs__` or `__`).
-    pub fn try_build(self) -> Result<ModelBuilder<Ready>> {
-        validate_node_id(self.node_id.as_str())?;
-        Ok(self.build())
+        Ok(self.parent)
     }
 }
 

@@ -174,6 +174,24 @@ fn test_invalid_formula_error() {
 }
 
 #[test]
+fn test_compile_time_formula_error() {
+    let json = r#"{
+        "namespace": "test",
+        "metrics": [
+            {
+                "id": "invalid",
+                "name": "Invalid",
+                "formula": "sum()"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    let result = registry.load_from_json_str(json);
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_multiple_namespaces() {
     let json1 = r#"{
         "namespace": "test1",

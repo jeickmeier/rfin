@@ -24,6 +24,7 @@ fn evaluate_monte_carlo_produces_deterministic_results() {
         ])
         .forecast(ForecastSpec::normal(120_000.0, 10_000.0, 42))
         .build()
+        .expect("valid mixed node")
         .build()
         .expect("valid model");
 
@@ -76,6 +77,7 @@ fn evaluate_monte_carlo_correlated_normals_constant_spread() {
         ])
         .forecast(ForecastSpec::normal(100.0, 10.0, 42))
         .build()
+        .expect("valid mixed node")
         .mixed("b")
         .values(&[
             (
@@ -91,6 +93,7 @@ fn evaluate_monte_carlo_correlated_normals_constant_spread() {
         .formula("a")
         .expect("valid formula")
         .build()
+        .expect("valid mixed node")
         .build()
         .expect("valid model");
 
@@ -141,6 +144,7 @@ fn evaluate_monte_carlo_correlated_lognormals_preserve_ratio() {
         ])
         .forecast(ForecastSpec::lognormal(3.0, 0.2, 42))
         .build()
+        .expect("valid mixed node")
         .mixed("b")
         .values(&[
             (
@@ -156,6 +160,7 @@ fn evaluate_monte_carlo_correlated_lognormals_preserve_ratio() {
         .formula("a")
         .expect("valid formula")
         .build()
+        .expect("valid mixed node")
         .build()
         .expect("valid model");
 
@@ -206,6 +211,7 @@ fn evaluate_monte_carlo_correlated_forecast_rejects_unknown_peer() {
         ])
         .forecast(fp)
         .build()
+        .expect("valid mixed node")
         .build()
         .expect("valid model");
 

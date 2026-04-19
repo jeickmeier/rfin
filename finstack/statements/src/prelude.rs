@@ -6,10 +6,11 @@
 //! use finstack_statements::prelude::*;
 //! ```
 //!
-//! This prelude is intentionally broad: it re-exports the most common
-//! `finstack-statements` types plus the full `finstack_core::prelude::*`.
-//! Prefer importing from the source module directly when you want a narrower API
-//! boundary in libraries or examples aimed at teaching a specific subsystem.
+//! This prelude re-exports the most common `finstack-statements` types plus
+//! the core money/date primitives that statements-centric models typically
+//! need. Prefer importing from the source module directly when you want a
+//! narrower API boundary in libraries or examples aimed at teaching a
+//! specific subsystem.
 
 pub use crate::builder::{MixedNodeBuilder, ModelBuilder};
 pub use crate::checks::builtins::{
@@ -28,8 +29,12 @@ pub use crate::types::{
     NodeValueType, SeasonalMode,
 };
 
-// Re-export the full core prelude for a unified foundation
-pub use finstack_core::prelude::*;
-
-// Additional date types used by statements but not in the core prelude
-pub use finstack_core::dates::{build_periods, Period, PeriodId, PeriodKind};
+pub use finstack_core::currency::Currency;
+pub use finstack_core::dates::{
+    adjust, build_periods, BusinessDayConvention, Calendar, Date, DayCount, Period, PeriodId,
+    PeriodKind, ScheduleBuilder, Tenor,
+};
+pub use finstack_core::money::{
+    fx::{FxConversionPolicy, FxMatrix, FxProvider},
+    Money,
+};
