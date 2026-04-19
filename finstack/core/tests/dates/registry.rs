@@ -1,8 +1,9 @@
 //! Tests for calendar registry functionality
 
 use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2};
-use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
 use finstack_core::dates::{Date, HolidayCalendar};
+use finstack_core::dates::{CalendarRegistry, CompositeCalendar, CompositeMode};
+use finstack_core::types::CalendarId;
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -47,8 +48,8 @@ fn registry_resolve_returns_none_for_unknown() {
 fn registry_resolve_with_calendar_id() {
     let registry = CalendarRegistry::global();
 
-    let id = CalendarId(TARGET2.id());
-    let cal = registry.resolve(id);
+    let id = CalendarId::from(TARGET2.id());
+    let cal = registry.resolve(&id);
     assert!(cal.is_some());
 
     // Verify the calendar works
@@ -61,9 +62,9 @@ fn registry_resolve_many_vec_builds_list() {
     let registry = CalendarRegistry::global();
 
     let ids = [
-        CalendarId(TARGET2.id()),
-        CalendarId(GBLO.id()),
-        CalendarId(NYSE.id()),
+        CalendarId::from(TARGET2.id()),
+        CalendarId::from(GBLO.id()),
+        CalendarId::from(NYSE.id()),
     ];
 
     let calendars = registry.resolve_many_vec(&ids);
@@ -81,7 +82,7 @@ fn registry_resolve_many_vec_builds_list() {
 fn registry_resolve_many_into_composite() {
     let registry = CalendarRegistry::global();
 
-    let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
+    let ids = [CalendarId::from(TARGET2.id()), CalendarId::from(GBLO.id())];
 
     let calendars = registry.resolve_many_vec(&ids);
     let composite = CompositeCalendar::with_mode(&calendars[..], CompositeMode::Union);
@@ -100,9 +101,9 @@ fn registry_resolve_many_handles_unknown_ids() {
     let registry = CalendarRegistry::global();
 
     let ids = [
-        CalendarId(TARGET2.id()),
-        CalendarId("unknown_calendar"),
-        CalendarId(GBLO.id()),
+        CalendarId::from(TARGET2.id()),
+        CalendarId::from("unknown_calendar"),
+        CalendarId::from(GBLO.id()),
     ];
 
     let calendars = registry.resolve_many_vec(&ids);
@@ -138,9 +139,9 @@ fn registry_is_singleton() {
 fn calendar_id_equality_and_hashing() {
     use std::collections::HashSet;
 
-    let id1 = CalendarId("gblo");
-    let id2 = CalendarId("gblo");
-    let id3 = CalendarId("target2");
+    let id1 = CalendarId::from("gblo");
+    let id2 = CalendarId::from("gblo");
+    let id3 = CalendarId::from("target2");
 
     assert_eq!(id1, id2);
     assert_ne!(id1, id3);
@@ -156,9 +157,9 @@ fn resolve_many_preserves_order() {
     let registry = CalendarRegistry::global();
 
     let ids = [
-        CalendarId(GBLO.id()),
-        CalendarId(TARGET2.id()),
-        CalendarId(NYSE.id()),
+        CalendarId::from(GBLO.id()),
+        CalendarId::from(TARGET2.id()),
+        CalendarId::from(NYSE.id()),
     ];
 
     let calendars = registry.resolve_many_vec(&ids);

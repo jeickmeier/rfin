@@ -6,18 +6,9 @@
 
 use crate::dates::calendar::calendar_by_id;
 use crate::dates::calendar::HolidayCalendar;
+use crate::types::CalendarId;
 use core::marker::PhantomData;
 use std::sync::OnceLock;
-
-/// Strongly-typed calendar identifier to avoid stringly-typed lookups.
-///
-/// The wrapped string is the canonical lowercase calendar code used by
-/// [`CalendarRegistry::resolve_str`], such as `"target2"` or `"nyse"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct CalendarId(
-    /// Canonical lowercase calendar code understood by the global registry.
-    pub &'static str,
-);
 
 /// Global, immutable registry for resolving calendars by typed ID.
 ///
@@ -43,10 +34,10 @@ impl CalendarRegistry<'_> {
         calendar_by_id(code)
     }
 
-    /// Resolve a calendar by `CalendarId`.
+    /// Resolve a calendar by the canonical typed calendar identifier.
     #[inline]
-    pub fn resolve(&self, id: CalendarId) -> Option<&'static dyn HolidayCalendar> {
-        self.resolve_str(id.0)
+    pub fn resolve(&self, id: &CalendarId) -> Option<&'static dyn HolidayCalendar> {
+        self.resolve_str(id.as_str())
     }
 
     /// Resolve many calendars by id, returning them as an owned `Vec`.
@@ -56,12 +47,13 @@ impl CalendarRegistry<'_> {
     /// the returned `Vec` as a slice:
     ///
     /// ```
-    /// # use finstack_core::dates::{CalendarId, CalendarRegistry, CompositeCalendar, CompositeMode};
+    /// # use finstack_core::dates::{CalendarRegistry, CompositeCalendar, CompositeMode};
     /// # use finstack_core::dates::calendar::{TARGET2, GBLO};
+    /// # use finstack_core::types::CalendarId;
     /// # use finstack_core::dates::HolidayCalendar;
     /// let ids = [
-    ///     CalendarId(TARGET2.id()),
-    ///     CalendarId(GBLO.id()),
+    ///     CalendarId::from(TARGET2.id()),
+    ///     CalendarId::from(GBLO.id()),
     /// ];
     /// let regs = CalendarRegistry::global();
     /// let v = regs.resolve_many_vec(&ids);
@@ -72,7 +64,7 @@ impl CalendarRegistry<'_> {
     pub fn resolve_many_vec(&self, ids: &[CalendarId]) -> Vec<&'static dyn HolidayCalendar> {
         let mut out: Vec<&'static dyn HolidayCalendar> = Vec::with_capacity(ids.len());
         for id in ids {
-            if let Some(c) = self.resolve(*id) {
+            if let Some(c) = self.resolve(id) {
                 out.push(c);
             }
         }
@@ -94,11 +86,12 @@ impl CalendarRegistry<'_> {
 mod tests {
     use super::*;
     use crate::dates::calendar::{CompositeCalendar, CompositeMode, GBLO, TARGET2};
+    use crate::types::CalendarId;
     use time::{Date, Month};
 
     #[test]
     fn resolve_many_vec_builds_composite_without_leak() {
-        let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
+        let ids = [CalendarId::from(TARGET2.id()), CalendarId::from(GBLO.id())];
         let regs = CalendarRegistry::global();
         let v = regs.resolve_many_vec(&ids);
         assert_eq!(v.len(), 2);

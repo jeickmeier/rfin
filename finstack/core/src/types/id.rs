@@ -405,7 +405,10 @@ pub type IndexId = Id<IndexTag>;
 pub type PriceId = Id<PriceTag>;
 /// Type-safe identifier for underlying assets
 pub type UnderlyingId = Id<UnderlyingTag>;
-/// Type-safe identifier for holiday calendars
+/// Type-safe identifier for holiday calendars and registry lookups.
+///
+/// This is the canonical calendar identity type used by instrument fields and
+/// by [`crate::dates::CalendarRegistry`] resolution helpers.
 pub type CalendarId = Id<CalendarTag>;
 /// Type-safe identifier for securitized pools
 pub type PoolId = Id<PoolTag>;

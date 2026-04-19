@@ -27,8 +27,7 @@
 //!   *Quantitative Finance*, 16(6), 887–904.
 
 use finstack_core::math::fractional::{
-    fbm_increment_covariance, fbm_increment_covariance_matrix, FractionalKernel, HurstExponent,
-    MolchanGolosovKernel,
+    fbm_increment_covariance, fbm_increment_covariance_matrix, HurstExponent, MolchanGolosovKernel,
 };
 use finstack_core::{Error, Result};
 use nalgebra::DMatrix;

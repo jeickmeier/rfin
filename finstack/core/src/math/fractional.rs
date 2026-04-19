@@ -88,25 +88,6 @@ impl HurstExponent {
 }
 
 // ---------------------------------------------------------------------------
-// FractionalKernel trait
-// ---------------------------------------------------------------------------
-
-/// Kernel function K(t, s) used in the Volterra representation of fBM.
-///
-/// The fBM admits an integral representation
-///
-/// $$B_H(t) = \int_0^t K(t, s)\, \mathrm{d}W(s)$$
-///
-/// where W is a standard Brownian motion and K is the kernel function.
-pub trait FractionalKernel: Send + Sync {
-    /// Evaluate the kernel K(t, s).
-    fn evaluate(&self, t: f64, s: f64) -> f64;
-
-    /// The Hurst exponent associated with this kernel.
-    fn hurst(&self) -> HurstExponent;
-}
-
-// ---------------------------------------------------------------------------
 // MolchanGolosovKernel
 // ---------------------------------------------------------------------------
 
@@ -132,17 +113,17 @@ impl MolchanGolosovKernel {
         let c_h = (2.0 * h.value()).sqrt();
         Self { hurst_exp: h, c_h }
     }
-}
 
-impl FractionalKernel for MolchanGolosovKernel {
-    fn evaluate(&self, t: f64, s: f64) -> f64 {
+    /// Evaluate the kernel K(t, s).
+    pub fn evaluate(&self, t: f64, s: f64) -> f64 {
         if t <= s {
             return 0.0;
         }
         self.c_h * (t - s).powf(self.hurst_exp.value() - 0.5)
     }
 
-    fn hurst(&self) -> HurstExponent {
+    /// The Hurst exponent associated with this kernel.
+    pub fn hurst(&self) -> HurstExponent {
         self.hurst_exp
     }
 }

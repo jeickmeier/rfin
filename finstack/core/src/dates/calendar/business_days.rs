@@ -377,10 +377,12 @@ pub(crate) fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
 ///
 /// Example using the registry:
 /// ```
-/// use finstack_core::dates::{CalendarId, CalendarRegistry};
+/// use finstack_core::dates::CalendarRegistry;
+/// use finstack_core::types::CalendarId;
 /// let regs = CalendarRegistry::global();
 /// let ids = regs.available_ids();
-/// let maybe = regs.resolve(CalendarId(ids[0]));
+/// let id = CalendarId::from(ids[0]);
+/// let maybe = regs.resolve(&id);
 /// assert!(maybe.is_some());
 /// ```
 #[inline]
