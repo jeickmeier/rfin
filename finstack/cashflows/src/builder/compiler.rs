@@ -26,7 +26,7 @@ use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
 
-use super::date_generation::{build_dates, SchedulePeriod};
+use super::date_generation::{build_dates, index_period_schedule, SchedulePeriod};
 use super::specs::{
     CouponType, FeeAccrualBasis, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec,
     FloatingRateSpec, ScheduleParams,
@@ -54,7 +54,7 @@ fn build_dates_with_meta(
     payment_lag_days: i32,
     calendar_id: &str,
 ) -> finstack_core::Result<ScheduleWithMeta> {
-    let sched = build_dates(
+    let schedule = build_dates(
         start,
         end,
         freq,
@@ -64,17 +64,7 @@ fn build_dates_with_meta(
         payment_lag_days,
         calendar_id,
     )?;
-
-    let mut dates: Vec<Date> = Vec::with_capacity(sched.periods.len());
-    let mut period_map: finstack_core::HashMap<Date, SchedulePeriod> =
-        finstack_core::HashMap::default();
-    period_map.reserve(sched.periods.len());
-    for p in &sched.periods {
-        dates.push(p.payment_date);
-        period_map.insert(p.payment_date, *p);
-    }
-
-    Ok((dates, period_map, sched.first_or_last))
+    Ok(index_period_schedule(schedule))
 }
 
 pub(crate) type FixedSchedule = (

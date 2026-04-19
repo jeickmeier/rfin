@@ -241,11 +241,13 @@ pub(crate) fn projected_compounded_float_leg_schedule(
         reset_lag_days: None,
     })?;
     if periods.is_empty() {
-        return Ok(CashFlowSchedule::from_parts(
+        return Ok(crate::cashflow::traits::schedule_from_classified_flows(
             Vec::new(),
-            Notional::par(irs.notional.amount(), irs.notional.currency()),
             float.day_count,
-            Default::default(),
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: Some(irs.notional),
+                ..Default::default()
+            },
         ));
     }
 
@@ -365,11 +367,13 @@ pub(crate) fn projected_compounded_float_leg_schedule(
         });
     }
 
-    Ok(CashFlowSchedule::from_parts(
+    Ok(crate::cashflow::traits::schedule_from_classified_flows(
         flows,
-        Notional::par(irs.notional.amount(), irs.notional.currency()),
         float.day_count,
-        Default::default(),
+        crate::cashflow::traits::ScheduleBuildOpts {
+            notional_hint: Some(irs.notional),
+            ..Default::default()
+        },
     ))
 }
 

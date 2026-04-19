@@ -11,7 +11,7 @@
 //! settlement and pool allocation.
 
 use super::AgencyMbsPassthrough;
-use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -208,15 +208,18 @@ pub(crate) fn build_projected_schedule(
         }
     }
 
-    Ok(CashFlowSchedule::from_parts(
+    Ok(crate::cashflow::traits::schedule_from_classified_flows(
         flows,
-        Notional::par(mbs.current_face.amount(), mbs.current_face.currency()),
         mbs.day_count,
-        CashFlowMeta {
-            representation: crate::cashflow::builder::CashflowRepresentation::Projected,
-            calendar_ids: Vec::new(),
-            facility_limit: None,
-            issue_date: Some(mbs.issue_date),
+        crate::cashflow::traits::ScheduleBuildOpts {
+            notional_hint: Some(mbs.current_face),
+            meta: Some(CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                calendar_ids: Vec::new(),
+                facility_limit: None,
+                issue_date: Some(mbs.issue_date),
+            }),
+            ..Default::default()
         },
     ))
 }

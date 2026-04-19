@@ -1,5 +1,11 @@
 """Test that all 10 domain subpackages are importable with expected exports."""
 
+import json
+
+from finstack.core.market_data import MarketContext
+
+from finstack.portfolio import aggregate_full_cashflows
+
 
 class TestCoreNamespace:
     """Verify the core subpackage and its nested modules."""
@@ -147,12 +153,31 @@ class TestPortfolioNamespace:
     def test_portfolio_exports(self) -> None:
         """Portfolio should export parsing, building, and metric functions."""
         from finstack.portfolio import (  # noqa: F401
+            aggregate_full_cashflows,
             aggregate_metrics,
             build_portfolio_from_spec,
             parse_portfolio_spec,
             portfolio_result_get_metric,
             portfolio_result_total_value,
         )
+
+    def test_portfolio_full_cashflows_empty_portfolio(self) -> None:
+        """Full cashflow ladder should be exposed and preserve the rich empty shape."""
+        spec_json = json.dumps({
+            "id": "test_portfolio",
+            "name": "Test",
+            "base_ccy": "USD",
+            "as_of": "2024-01-15",
+            "entities": {},
+            "positions": [],
+        })
+        result = json.loads(aggregate_full_cashflows(spec_json, MarketContext()))
+
+        assert result["events"] == []
+        assert result["by_position"] == {}
+        assert result["by_date"] == {}
+        assert result["position_summaries"] == {}
+        assert result["issues"] == []
 
 
 class TestScenariosNamespace:

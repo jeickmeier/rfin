@@ -14,10 +14,9 @@ use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_core::InputError;
-use rust_decimal::prelude::ToPrimitive;
 use tracing::{info, warn};
 
-use crate::builder::rate_helpers::FloatingRateParams;
+use crate::builder::rate_helpers::{ResolvedFloatingRateFallback, ResolvedFloatingRateSpec};
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
@@ -67,37 +66,38 @@ fn rate_when_curve_missing(
     index_id: &str,
     reset_date: Date,
     spread_bp: f64,
-    fallback: &crate::builder::specs::FloatingRateFallback,
+    fallback: &ResolvedFloatingRateFallback,
     params: &crate::builder::rate_helpers::FloatingRateParams,
     context_suffix: &str,
 ) -> finstack_core::Result<f64> {
-    use crate::builder::specs::FloatingRateFallback;
-
     match fallback {
-        FloatingRateFallback::Error => Err(finstack_core::Error::Input(InputError::NotFound {
-            id: format!(
-                "forward curve '{}' not found for reset date {}{}",
-                index_id, reset_date, context_suffix
-            ),
-        })),
-        FloatingRateFallback::SpreadOnly => {
+        ResolvedFloatingRateFallback::Error => {
+            Err(finstack_core::Error::Input(InputError::NotFound {
+                id: format!(
+                    "forward curve '{}' not found for reset date {}{}",
+                    index_id, reset_date, context_suffix
+                ),
+            }))
+        }
+        ResolvedFloatingRateFallback::SpreadOnly => {
             warn!(
                 reset_date = %reset_date,
                 spread_bp = %spread_bp,
                 "No forward curve resolved{context_suffix}, using fallback (spread-only) rate"
             );
-            Ok(super::super::rate_helpers::project_fallback_rate(params))
+            fallback
+                .fallback_rate(params)
+                .ok_or(finstack_core::Error::Input(InputError::Invalid))
         }
-        FloatingRateFallback::FixedRate(r) => {
-            let index_rate = r.to_f64().unwrap_or(0.0);
+        ResolvedFloatingRateFallback::FixedRate(index_rate) => {
             info!(
                 reset_date = %reset_date,
-                fixed_rate = %r,
+                fixed_rate = %index_rate,
                 "No forward curve resolved{context_suffix}, using fixed index rate"
             );
-            Ok(super::super::rate_helpers::calculate_floating_rate(
-                index_rate, params,
-            ))
+            fallback
+                .fallback_rate(params)
+                .ok_or(finstack_core::Error::Input(InputError::Invalid))
         }
     }
 }
@@ -107,14 +107,12 @@ fn rate_when_projection_fails(
     reset_date: Date,
     index_maturity: Date,
     spread_bp: f64,
-    fallback: &crate::builder::specs::FloatingRateFallback,
+    fallback: &ResolvedFloatingRateFallback,
     params: &crate::builder::rate_helpers::FloatingRateParams,
 ) -> finstack_core::Result<f64> {
-    use crate::builder::specs::FloatingRateFallback;
-
     match fallback {
-        FloatingRateFallback::Error => Err(error.clone()),
-        FloatingRateFallback::SpreadOnly => {
+        ResolvedFloatingRateFallback::Error => Err(error.clone()),
+        ResolvedFloatingRateFallback::SpreadOnly => {
             warn!(
                 reset_date = %reset_date,
                 index_maturity = %index_maturity,
@@ -122,19 +120,20 @@ fn rate_when_projection_fails(
                 error = %error,
                 "Floating rate projection failed, using fallback (spread-only) rate"
             );
-            Ok(super::super::rate_helpers::project_fallback_rate(params))
+            fallback
+                .fallback_rate(params)
+                .ok_or(finstack_core::Error::Input(InputError::Invalid))
         }
-        FloatingRateFallback::FixedRate(r) => {
-            let index_rate = r.to_f64().unwrap_or(0.0);
+        ResolvedFloatingRateFallback::FixedRate(index_rate) => {
             info!(
                 reset_date = %reset_date,
-                fixed_rate = %r,
+                fixed_rate = %index_rate,
                 error = %error,
                 "Floating rate projection failed, using fixed index rate"
             );
-            Ok(super::super::rate_helpers::calculate_floating_rate(
-                index_rate, params,
-            ))
+            fallback
+                .fallback_rate(params)
+                .ok_or(finstack_core::Error::Input(InputError::Invalid))
         }
     }
 }
@@ -381,7 +380,8 @@ pub(crate) fn emit_float_coupons_on(
             // regardless of when the payment actually occurs.
             let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq);
 
-            let params = FloatingRateParams::try_from(&spec.rate_spec)?;
+            let runtime_spec = ResolvedFloatingRateSpec::try_from(&spec.rate_spec)?;
+            let params = &runtime_spec.params;
             let spread_bp = params.spread_bp;
 
             // Compute total rate using centralized projection with floor/cap support.
@@ -422,14 +422,14 @@ pub(crate) fn emit_float_coupons_on(
                     );
 
                     // Apply floor/cap/gearing/spread to the compounded index rate.
-                    super::super::rate_helpers::calculate_floating_rate(compounded_index, &params)
+                    super::super::rate_helpers::calculate_floating_rate(compounded_index, params)
                 } else {
                     rate_when_curve_missing(
                         spec.rate_spec.index_id.as_str(),
                         reset_date,
                         spread_bp,
-                        &spec.rate_spec.fallback,
-                        &params,
+                        &runtime_spec.fallback,
+                        params,
                         " (overnight compounding)",
                     )?
                 }
@@ -440,7 +440,7 @@ pub(crate) fn emit_float_coupons_on(
                     reset_date,
                     index_maturity, // Use index tenor end, not payment date
                     fwd,
-                    &params,
+                    params,
                 ) {
                     Ok(rate) => rate,
                     Err(error) => rate_when_projection_fails(
@@ -448,8 +448,8 @@ pub(crate) fn emit_float_coupons_on(
                         reset_date,
                         index_maturity,
                         spread_bp,
-                        &spec.rate_spec.fallback,
-                        &params,
+                        &runtime_spec.fallback,
+                        params,
                     )?,
                 }
             } else {
@@ -457,8 +457,8 @@ pub(crate) fn emit_float_coupons_on(
                     spec.rate_spec.index_id.as_str(),
                     reset_date,
                     spread_bp,
-                    &spec.rate_spec.fallback,
-                    &params,
+                    &runtime_spec.fallback,
+                    params,
                     "",
                 )?
             };

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "aggregate_full_cashflows",
     "aggregate_cashflows",
     "aggregate_metrics",
     "apply_scenario_and_revalue",
@@ -135,6 +136,23 @@ def aggregate_cashflows(spec_json: str, market_json: str) -> str:
     Example:
         >>> from finstack.portfolio import aggregate_cashflows
         >>> aggregate_cashflows(spec_json, market_json)
+        '{}'
+    """
+    ...
+
+def aggregate_full_cashflows(spec_json: str, market_json: str) -> str:
+    """Build the full classified cashflow ladder for the portfolio.
+
+    Args:
+        spec_json: JSON-serialized ``PortfolioSpec``.
+        market_json: JSON-serialized ``MarketContext``.
+
+    Returns:
+        JSON-serialized ``PortfolioFullCashflows`` ladder.
+
+    Example:
+        >>> from finstack.portfolio import aggregate_full_cashflows
+        >>> aggregate_full_cashflows(spec_json, market_json)
         '{}'
     """
     ...

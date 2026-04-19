@@ -733,7 +733,10 @@ impl CashflowProvider for Repo {
                 ..Default::default()
             },
         );
-        Ok(schedule.filter_future(as_of))
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Contractual,
+        ))
     }
 }
 

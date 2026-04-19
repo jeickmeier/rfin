@@ -7,6 +7,7 @@ export const portfolio = {
   portfolioResultGetMetric: wasm.portfolioResultGetMetric,
   aggregateMetrics: wasm.aggregateMetrics,
   valuePortfolio: wasm.valuePortfolio,
+  aggregateFullCashflows: wasm.aggregateFullCashflows,
   aggregateCashflows: wasm.aggregateCashflows,
   applyScenarioAndRevalue: wasm.applyScenarioAndRevalue,
   optimizePortfolio: wasm.optimizePortfolio,

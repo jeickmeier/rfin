@@ -3,12 +3,11 @@
 //! Provides canonical accrual/payment periods built on top of the cashflow
 //! builder's date generation and calendar policy.
 
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
-};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::InputError;
 
 use super::calendar::{adjust_date, resolve_calendar_strict};
-use super::date_generation::build_dates;
+use super::date_generation::{build_dates, build_schedule_period, PeriodSchedule};
 use super::emission::compute_reset_date;
 
 pub use super::date_generation::SchedulePeriod;
@@ -38,6 +37,52 @@ pub struct BuildPeriodsParams<'a> {
     pub payment_lag_days: i32,
     /// Optional reset lag in business days before accrual start.
     pub reset_lag_days: Option<i32>,
+}
+
+fn build_day_count_ctx<'a>(
+    params: &BuildPeriodsParams<'a>,
+    cal: &'a dyn finstack_core::dates::HolidayCalendar,
+) -> DayCountCtx<'a> {
+    DayCountCtx {
+        calendar: Some(cal),
+        frequency: Some(params.frequency),
+        bus_basis: None,
+        coupon_period: None,
+    }
+}
+
+fn enrich_period(
+    mut period: SchedulePeriod,
+    params: &BuildPeriodsParams<'_>,
+    dc_ctx: DayCountCtx<'_>,
+) -> finstack_core::Result<SchedulePeriod> {
+    period.accrual_year_fraction =
+        params
+            .day_count
+            .year_fraction(period.accrual_start, period.accrual_end, dc_ctx)?;
+    period.reset_date = params
+        .reset_lag_days
+        .map(|lag| compute_reset_date(period.accrual_start, lag, params.bdc, params.calendar_id))
+        .transpose()?;
+    Ok(period)
+}
+
+fn enrich_period_schedule(
+    schedule: PeriodSchedule,
+    params: &BuildPeriodsParams<'_>,
+) -> finstack_core::Result<PeriodSchedule> {
+    let cal = resolve_calendar_strict(params.calendar_id)?;
+    let dc_ctx = build_day_count_ctx(params, cal);
+    let periods = schedule
+        .periods
+        .into_iter()
+        .map(|period| enrich_period(period, params, dc_ctx))
+        .collect::<finstack_core::Result<Vec<_>>>()?;
+    Ok(PeriodSchedule {
+        periods,
+        dates: schedule.dates,
+        first_or_last: schedule.first_or_last,
+    })
 }
 
 /// Build one canonical schedule period from explicit start and end dates.
@@ -94,37 +139,19 @@ pub fn build_single_period(
     let cal = resolve_calendar_strict(params.calendar_id)?;
     let accrual_start = adjust_date(params.start, params.bdc, params.calendar_id)?;
     let accrual_end = adjust_date(params.end, params.bdc, params.calendar_id)?;
-
-    let dc_ctx = DayCountCtx {
-        calendar: Some(cal),
-        frequency: Some(params.frequency),
-        bus_basis: None,
-        coupon_period: None,
+    let period = build_schedule_period(accrual_start, accrual_end, params.payment_lag_days, cal)?;
+    let payment_date = period.payment_date;
+    let schedule = PeriodSchedule {
+        periods: vec![period],
+        dates: vec![payment_date],
+        first_or_last: [payment_date].into_iter().collect(),
     };
-
-    let accrual_year_fraction =
-        params
-            .day_count
-            .year_fraction(accrual_start, accrual_end, dc_ctx)?;
-
-    let payment_date = if params.payment_lag_days == 0 {
-        accrual_end
-    } else {
-        accrual_end.add_business_days(params.payment_lag_days, cal)?
-    };
-
-    let reset_date = params
-        .reset_lag_days
-        .map(|lag| compute_reset_date(accrual_start, lag, params.bdc, params.calendar_id))
-        .transpose()?;
-
-    Ok(SchedulePeriod {
-        accrual_start,
-        accrual_end,
-        payment_date,
-        reset_date,
-        accrual_year_fraction,
-    })
+    let mut enriched = enrich_period_schedule(schedule, &params)?
+        .periods
+        .into_iter();
+    enriched
+        .next()
+        .ok_or_else(|| InputError::TooFewPoints.into())
 }
 
 /// Build canonical schedule periods with consistent market conventions.
@@ -173,8 +200,7 @@ pub fn build_single_period(
 /// assert!(!periods.is_empty());
 /// ```
 pub fn build_periods(params: BuildPeriodsParams<'_>) -> finstack_core::Result<Vec<SchedulePeriod>> {
-    let cal = resolve_calendar_strict(params.calendar_id)?;
-    let sched = build_dates(
+    let schedule = build_dates(
         params.start,
         params.end,
         params.frequency,
@@ -184,39 +210,46 @@ pub fn build_periods(params: BuildPeriodsParams<'_>) -> finstack_core::Result<Ve
         params.payment_lag_days,
         params.calendar_id,
     )?;
+    Ok(enrich_period_schedule(schedule, &params)?.periods)
+}
 
-    if sched.periods.is_empty() {
-        return Ok(Vec::new());
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    fn params() -> BuildPeriodsParams<'static> {
+        BuildPeriodsParams {
+            start: Date::from_calendar_date(2025, Month::January, 15).expect("valid date"),
+            end: Date::from_calendar_date(2025, Month::April, 15).expect("valid date"),
+            frequency: Tenor::quarterly(),
+            stub: StubKind::None,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only",
+            end_of_month: false,
+            day_count: DayCount::Act360,
+            payment_lag_days: 2,
+            reset_lag_days: Some(2),
+        }
     }
 
-    let dc_ctx = DayCountCtx {
-        calendar: Some(cal),
-        frequency: Some(params.frequency),
-        bus_basis: None,
-        coupon_period: None,
-    };
-    let mut periods = Vec::with_capacity(sched.periods.len());
-    for period in sched.periods {
-        let accrual_year_fraction =
-            params
-                .day_count
-                .year_fraction(period.accrual_start, period.accrual_end, dc_ctx)?;
+    #[test]
+    fn single_period_matches_one_period_schedule() {
+        let single = build_single_period(params()).expect("single period");
+        let mut schedule = build_periods(params())
+            .expect("period schedule")
+            .into_iter();
+        let scheduled = schedule.next().expect("one period");
+        assert!(schedule.next().is_none());
 
-        let reset_date = params
-            .reset_lag_days
-            .map(|lag| {
-                compute_reset_date(period.accrual_start, lag, params.bdc, params.calendar_id)
-            })
-            .transpose()?;
-
-        periods.push(SchedulePeriod {
-            accrual_start: period.accrual_start,
-            accrual_end: period.accrual_end,
-            payment_date: period.payment_date,
-            reset_date,
-            accrual_year_fraction,
-        });
+        assert_eq!(single.accrual_start, scheduled.accrual_start);
+        assert_eq!(single.accrual_end, scheduled.accrual_end);
+        assert_eq!(single.payment_date, scheduled.payment_date);
+        assert_eq!(single.reset_date, scheduled.reset_date);
+        assert_eq!(
+            single.accrual_year_fraction,
+            scheduled.accrual_year_fraction
+        );
     }
-
-    Ok(periods)
 }
