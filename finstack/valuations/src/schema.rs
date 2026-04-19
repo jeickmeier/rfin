@@ -22,91 +22,18 @@ macro_rules! try_include_schema {
     };
 }
 
-macro_rules! with_instrument_schema_registry {
-    ($callback:ident $(, $extra:expr )* $(,)?) => {
-        $callback!(
-            [$($extra),*]
-            "agency_cmo" => "../schemas/instruments/1/fixed_income/agency_cmo.schema.json";
-            "agency_mbs_passthrough" => "../schemas/instruments/1/fixed_income/agency_mbs_passthrough.schema.json";
-            "agency_tba" => "../schemas/instruments/1/fixed_income/agency_tba.schema.json";
-            "asian_option" => "../schemas/instruments/1/exotics/asian_option.schema.json";
-            "autocallable" => "../schemas/instruments/1/equity/autocallable.schema.json";
-            "barrier_option" => "../schemas/instruments/1/exotics/barrier_option.schema.json";
-            "basis_swap" => "../schemas/instruments/1/rates/basis_swap.schema.json";
-            "basket" => "../schemas/instruments/1/exotics/basket.schema.json";
-            "bond" => "../schemas/instruments/1/fixed_income/bond.schema.json";
-            "bond_future" => "../schemas/instruments/1/fixed_income/bond_future.schema.json";
-            "callable_range_accrual" => "../schemas/instruments/1/rates/callable_range_accrual.schema.json";
-            "cds_index" => "../schemas/instruments/1/credit_derivatives/cds_index.schema.json";
-            "cds_option" => "../schemas/instruments/1/credit_derivatives/cds_option.schema.json";
-            "cds_tranche" => "../schemas/instruments/1/credit_derivatives/cds_tranche.schema.json";
-            "cliquet_option" => "../schemas/instruments/1/equity/cliquet_option.schema.json";
-            "cms_option" => "../schemas/instruments/1/rates/cms_option.schema.json";
-            "cms_spread_option" => "../schemas/instruments/1/rates/cms_spread_option.schema.json";
-            "cms_swap" => "../schemas/instruments/1/rates/cms_swap.schema.json";
-            "commodity_asian_option" => "../schemas/instruments/1/commodity/commodity_asian_option.schema.json";
-            "commodity_forward" => "../schemas/instruments/1/commodity/commodity_forward.schema.json";
-            "commodity_option" => "../schemas/instruments/1/commodity/commodity_option.schema.json";
-            "commodity_spread_option" => "../schemas/instruments/1/commodity/commodity_spread_option.schema.json";
-            "commodity_swap" => "../schemas/instruments/1/commodity/commodity_swap.schema.json";
-            "commodity_swaption" => "../schemas/instruments/1/commodity/commodity_swaption.schema.json";
-            "convertible_bond" => "../schemas/instruments/1/fixed_income/convertible_bond.schema.json";
-            "credit_default_swap" => "../schemas/instruments/1/credit_derivatives/credit_default_swap.schema.json";
-            "deposit" => "../schemas/instruments/1/rates/deposit.schema.json";
-            "discounted_cash_flow" => "../schemas/instruments/1/equity/discounted_cash_flow.schema.json";
-            "dollar_roll" => "../schemas/instruments/1/fixed_income/dollar_roll.schema.json";
-            "equity" => "../schemas/instruments/1/equity/equity.schema.json";
-            "equity_index_future" => "../schemas/instruments/1/equity/equity_index_future.schema.json";
-            "equity_option" => "../schemas/instruments/1/equity/equity_option.schema.json";
-            "forward_rate_agreement" => "../schemas/instruments/1/rates/forward_rate_agreement.schema.json";
-            "fx_barrier_option" => "../schemas/instruments/1/fx/fx_barrier_option.schema.json";
-            "fx_digital_option" => "../schemas/instruments/1/fx/fx_digital_option.schema.json";
-            "fx_forward" => "../schemas/instruments/1/fx/fx_forward.schema.json";
-            "fx_option" => "../schemas/instruments/1/fx/fx_option.schema.json";
-            "fx_spot" => "../schemas/instruments/1/fx/fx_spot.schema.json";
-            "fx_swap" => "../schemas/instruments/1/fx/fx_swap.schema.json";
-            "fx_touch_option" => "../schemas/instruments/1/fx/fx_touch_option.schema.json";
-            "fx_variance_swap" => "../schemas/instruments/1/fx/fx_variance_swap.schema.json";
-            "inflation_cap_floor" => "../schemas/instruments/1/rates/inflation_cap_floor.schema.json";
-            "inflation_linked_bond" => "../schemas/instruments/1/fixed_income/inflation_linked_bond.schema.json";
-            "inflation_swap" => "../schemas/instruments/1/rates/inflation_swap.schema.json";
-            "interest_rate_future" => "../schemas/instruments/1/rates/interest_rate_future.schema.json";
-            "interest_rate_option" => "../schemas/instruments/1/rates/interest_rate_option.schema.json";
-            "interest_rate_swap" => "../schemas/instruments/1/rates/interest_rate_swap.schema.json";
-            "ir_future_option" => "../schemas/instruments/1/rates/ir_future_option.schema.json";
-            "levered_real_estate_equity" => "../schemas/instruments/1/equity/levered_real_estate_equity.schema.json";
-            "lookback_option" => "../schemas/instruments/1/exotics/lookback_option.schema.json";
-            "ndf" => "../schemas/instruments/1/fx/ndf.schema.json";
-            "private_markets_fund" => "../schemas/instruments/1/equity/private_markets_fund.schema.json";
-            "quanto_option" => "../schemas/instruments/1/fx/quanto_option.schema.json";
-            "range_accrual" => "../schemas/instruments/1/rates/range_accrual.schema.json";
-            "real_estate_asset" => "../schemas/instruments/1/equity/real_estate_asset.schema.json";
-            "repo" => "../schemas/instruments/1/rates/repo.schema.json";
-            "revolving_credit" => "../schemas/instruments/1/fixed_income/revolving_credit.schema.json";
-            "snowball" => "../schemas/instruments/1/rates/snowball.schema.json";
-            "structured_credit" => "../schemas/instruments/1/fixed_income/structured_credit.schema.json";
-            "swaption" => "../schemas/instruments/1/rates/swaption.schema.json";
-            "tarn" => "../schemas/instruments/1/rates/tarn.schema.json";
-            "term_loan" => "../schemas/instruments/1/fixed_income/term_loan.schema.json";
-            "trs_equity" => "../schemas/instruments/1/equity/trs_equity.schema.json";
-            "trs_fixed_income_index" => "../schemas/instruments/1/fixed_income/trs_fixed_income_index.schema.json";
-            "variance_swap" => "../schemas/instruments/1/equity/variance_swap.schema.json";
-            "volatility_index_future" => "../schemas/instruments/1/equity/volatility_index_future.schema.json";
-            "volatility_index_option" => "../schemas/instruments/1/equity/volatility_index_option.schema.json";
-            "xccy_swap" => "../schemas/instruments/1/rates/xccy_swap.schema.json";
-            "yoy_inflation_swap" => "../schemas/instruments/1/rates/yoy_inflation_swap.schema.json";
-        )
-    };
-}
-
 macro_rules! build_schema_cache {
     (
         []
-        $($name:literal => $path:literal;)*
+        $(plain: $variant:ident($ty:ty) => $tag:literal @ $schema_path:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal @ $boxed_schema_path:literal $(, $boxed_alias:literal)*;)*
     ) => {{
         let mut cache = std::collections::BTreeMap::new();
         $(
-            cache.insert($name, try_include_schema!($path));
+            cache.insert($tag, try_include_schema!($schema_path));
+        )*
+        $(
+            cache.insert($boxed_tag, try_include_schema!($boxed_schema_path));
         )*
         cache
     }};
@@ -147,7 +74,9 @@ fn instrument_schema_cache(
 ) -> &'static std::collections::BTreeMap<&'static str, Result<Value, String>> {
     static CACHE: OnceLock<std::collections::BTreeMap<&'static str, Result<Value, String>>> =
         OnceLock::new();
-    CACHE.get_or_init(|| with_instrument_schema_registry!(build_schema_cache))
+    CACHE.get_or_init(|| {
+        crate::instruments::json_loader::with_instrument_json_registry!(build_schema_cache)
+    })
 }
 
 fn fallback_instrument_schema(instrument_type: &str) -> Value {
@@ -263,13 +192,13 @@ pub fn valuation_result_schema() -> finstack_core::Result<&'static Value> {
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_valuations::schema::validate_instrument_json;
+/// use finstack_valuations::schema::validate_instrument_envelope_json;
 ///
 /// let json: serde_json::Value = serde_json::json!({
 ///     "schema": "finstack.instrument/1",
 ///     "instrument": { "type": "bond", "spec": {} }
 /// });
-/// if let Err(e) = validate_instrument_json(&json) {
+/// if let Err(e) = validate_instrument_envelope_json(&json) {
 ///     eprintln!("Validation errors: {e}");
 /// }
 /// ```
@@ -277,9 +206,15 @@ pub fn valuation_result_schema() -> finstack_core::Result<&'static Value> {
 /// # Errors
 ///
 /// Returns `Error::Validation` if the JSON does not conform to the schema.
-pub fn validate_instrument_json(instance: &Value) -> finstack_core::Result<()> {
+pub fn validate_instrument_envelope_json(instance: &Value) -> finstack_core::Result<()> {
     let schema = instrument_envelope_schema()?;
     validate_against_schema(instance, schema, "instrument envelope")
+}
+
+/// Validate an instrument envelope JSON value against the envelope schema.
+#[deprecated(note = "use validate_instrument_envelope_json")]
+pub fn validate_instrument_json(instance: &Value) -> finstack_core::Result<()> {
+    validate_instrument_envelope_json(instance)
 }
 
 /// Validate a JSON value against a specific instrument type's schema.
@@ -423,7 +358,7 @@ mod tests {
             }
         });
         assert!(
-            validate_instrument_json(&valid).is_ok(),
+            validate_instrument_envelope_json(&valid).is_ok(),
             "valid envelope should pass validation"
         );
     }
@@ -433,7 +368,7 @@ mod tests {
         let invalid = serde_json::json!({
             "instrument": { "type": "bond", "spec": {} }
         });
-        let msg = validate_instrument_json(&invalid)
+        let msg = validate_instrument_envelope_json(&invalid)
             .expect_err("missing 'schema' field should fail")
             .to_string();
         assert!(
@@ -448,7 +383,7 @@ mod tests {
             "schema": "finstack.instrument/1",
             "instrument": { "type": "not_real", "spec": {} }
         });
-        let err = validate_instrument_json(&invalid);
+        let err = validate_instrument_envelope_json(&invalid);
         assert!(err.is_err(), "unknown instrument type should fail");
     }
 }

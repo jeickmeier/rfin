@@ -233,3 +233,12 @@ class TestValuationsNamespace:
             ValuationResult,
             validate_instrument_json,
         )
+
+    def test_valuations_instruments_namespace_exports(self) -> None:
+        """Instrument helpers should be available from valuations.instruments."""
+        from finstack.valuations import instruments
+
+        assert hasattr(instruments, "validate_instrument_json")
+        assert hasattr(instruments, "price_instrument")
+        assert hasattr(instruments, "price_instrument_with_metrics")
+        assert hasattr(instruments, "list_standard_metrics")

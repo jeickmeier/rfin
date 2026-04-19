@@ -214,84 +214,85 @@ macro_rules! with_instrument_json_registry {
     ($callback:ident $(, $extra:expr )* $(,)?) => {
         $callback!(
             [$($extra),*]
-            plain: Bond(Bond) => "bond";
-            plain: ConvertibleBond(ConvertibleBond) => "convertible_bond";
-            plain: InflationLinkedBond(InflationLinkedBond) => "inflation_linked_bond";
-            plain: TermLoan(TermLoan) => "term_loan";
-            plain: RevolvingCredit(RevolvingCredit) => "revolving_credit";
-            plain: AgencyMbsPassthrough(AgencyMbsPassthrough) => "agency_mbs_passthrough";
-            plain: AgencyTba(AgencyTba) => "agency_tba";
-            plain: AgencyCmo(AgencyCmo) => "agency_cmo";
-            plain: DollarRoll(DollarRoll) => "dollar_roll";
-            plain: InterestRateSwap(InterestRateSwap) => "interest_rate_swap";
-            plain: BasisSwap(BasisSwap) => "basis_swap";
-            plain: XccySwap(XccySwap) => "xccy_swap";
-            plain: InflationSwap(InflationSwap) => "inflation_swap";
-            plain: YoYInflationSwap(YoYInflationSwap) => "yoy_inflation_swap", "yo_y_inflation_swap";
-            plain: InflationCapFloor(InflationCapFloor) => "inflation_cap_floor";
-            plain: ForwardRateAgreement(ForwardRateAgreement) => "forward_rate_agreement";
-            plain: Swaption(Swaption) => "swaption";
-            plain: InterestRateFuture(InterestRateFuture) => "interest_rate_future";
-            plain: InterestRateOption(InterestRateOption) => "interest_rate_option";
-            plain: CmsSwap(CmsSwap) => "cms_swap";
-            plain: CmsOption(CmsOption) => "cms_option";
-            plain: IrFutureOption(IrFutureOption) => "ir_future_option";
-            plain: Deposit(Deposit) => "deposit";
-            plain: Repo(Repo) => "repo";
-            plain: CreditDefaultSwap(CreditDefaultSwap) => "credit_default_swap";
-            plain: CDSIndex(CDSIndex) => "cds_index";
-            plain: CDSTranche(CDSTranche) => "cds_tranche";
-            plain: CDSOption(CDSOption) => "cds_option";
-            plain: Equity(Equity) => "equity";
-            plain: EquityOption(EquityOption) => "equity_option";
-            plain: AsianOption(AsianOption) => "asian_option";
-            plain: BarrierOption(BarrierOption) => "barrier_option";
-            plain: LookbackOption(LookbackOption) => "lookback_option";
-            plain: VarianceSwap(VarianceSwap) => "variance_swap";
-            plain: EquityIndexFuture(EquityIndexFuture) => "equity_index_future";
-            plain: VolatilityIndexFuture(VolatilityIndexFuture) => "volatility_index_future";
-            plain: VolatilityIndexOption(VolatilityIndexOption) => "volatility_index_option";
-            plain: FxSpot(FxSpot) => "fx_spot";
-            plain: FxSwap(FxSwap) => "fx_swap";
-            plain: FxForward(FxForward) => "fx_forward";
-            plain: Ndf(Ndf) => "ndf";
-            plain: FxOption(FxOption) => "fx_option";
-            plain: FxDigitalOption(FxDigitalOption) => "fx_digital_option";
-            plain: FxTouchOption(FxTouchOption) => "fx_touch_option";
-            plain: FxBarrierOption(FxBarrierOption) => "fx_barrier_option";
-            plain: FxVarianceSwap(FxVarianceSwap) => "fx_variance_swap";
-            plain: QuantoOption(QuantoOption) => "quanto_option";
-            plain: CommodityOption(CommodityOption) => "commodity_option";
-            plain: CommodityAsianOption(CommodityAsianOption) => "commodity_asian_option";
-            plain: CommodityForward(CommodityForward) => "commodity_forward";
-            plain: CommoditySwap(CommoditySwap) => "commodity_swap";
-            plain: CommoditySwaption(CommoditySwaption) => "commodity_swaption";
-            plain: CommoditySpreadOption(CommoditySpreadOption) => "commodity_spread_option";
-            plain: Autocallable(Autocallable) => "autocallable";
-            plain: CliquetOption(CliquetOption) => "cliquet_option";
-            plain: RangeAccrual(RangeAccrual) => "range_accrual";
-            plain: Tarn(Tarn) => "tarn";
-            plain: Snowball(Snowball) => "snowball";
-            plain: CmsSpreadOption(CmsSpreadOption) => "cms_spread_option";
-            plain: CallableRangeAccrual(CallableRangeAccrual) => "callable_range_accrual";
-            plain: TrsEquity(EquityTotalReturnSwap) => "trs_equity", "equity_trs";
-            plain: TrsFixedIncomeIndex(FIIndexTotalReturnSwap) => "trs_fixed_income_index", "fi_trs", "fixed_income_trs";
-            plain: Basket(Basket) => "basket";
-            plain: PrivateMarketsFund(PrivateMarketsFund) => "private_markets_fund";
-            plain: RealEstateAsset(RealEstateAsset) => "real_estate_asset";
-            plain: DiscountedCashFlow(DiscountedCashFlow) => "discounted_cash_flow";
-            boxed: BondFuture(BondFuture) => "bond_future";
-            boxed: StructuredCredit(StructuredCredit) => "structured_credit";
-            boxed: LeveredRealEstateEquity(crate::instruments::equity::real_estate::LeveredRealEstateEquity) => "levered_real_estate_equity";
+            plain: Bond(Bond) => "bond" @ "../schemas/instruments/1/fixed_income/bond.schema.json";
+            plain: ConvertibleBond(ConvertibleBond) => "convertible_bond" @ "../schemas/instruments/1/fixed_income/convertible_bond.schema.json";
+            plain: InflationLinkedBond(InflationLinkedBond) => "inflation_linked_bond" @ "../schemas/instruments/1/fixed_income/inflation_linked_bond.schema.json";
+            plain: TermLoan(TermLoan) => "term_loan" @ "../schemas/instruments/1/fixed_income/term_loan.schema.json";
+            plain: RevolvingCredit(RevolvingCredit) => "revolving_credit" @ "../schemas/instruments/1/fixed_income/revolving_credit.schema.json";
+            plain: AgencyMbsPassthrough(AgencyMbsPassthrough) => "agency_mbs_passthrough" @ "../schemas/instruments/1/fixed_income/agency_mbs_passthrough.schema.json";
+            plain: AgencyTba(AgencyTba) => "agency_tba" @ "../schemas/instruments/1/fixed_income/agency_tba.schema.json";
+            plain: AgencyCmo(AgencyCmo) => "agency_cmo" @ "../schemas/instruments/1/fixed_income/agency_cmo.schema.json";
+            plain: DollarRoll(DollarRoll) => "dollar_roll" @ "../schemas/instruments/1/fixed_income/dollar_roll.schema.json";
+            plain: InterestRateSwap(InterestRateSwap) => "interest_rate_swap" @ "../schemas/instruments/1/rates/interest_rate_swap.schema.json";
+            plain: BasisSwap(BasisSwap) => "basis_swap" @ "../schemas/instruments/1/rates/basis_swap.schema.json";
+            plain: XccySwap(XccySwap) => "xccy_swap" @ "../schemas/instruments/1/rates/xccy_swap.schema.json";
+            plain: InflationSwap(InflationSwap) => "inflation_swap" @ "../schemas/instruments/1/rates/inflation_swap.schema.json";
+            plain: YoYInflationSwap(YoYInflationSwap) => "yoy_inflation_swap" @ "../schemas/instruments/1/rates/yoy_inflation_swap.schema.json", "yo_y_inflation_swap";
+            plain: InflationCapFloor(InflationCapFloor) => "inflation_cap_floor" @ "../schemas/instruments/1/rates/inflation_cap_floor.schema.json";
+            plain: ForwardRateAgreement(ForwardRateAgreement) => "forward_rate_agreement" @ "../schemas/instruments/1/rates/forward_rate_agreement.schema.json";
+            plain: Swaption(Swaption) => "swaption" @ "../schemas/instruments/1/rates/swaption.schema.json";
+            plain: InterestRateFuture(InterestRateFuture) => "interest_rate_future" @ "../schemas/instruments/1/rates/interest_rate_future.schema.json";
+            plain: InterestRateOption(InterestRateOption) => "interest_rate_option" @ "../schemas/instruments/1/rates/interest_rate_option.schema.json";
+            plain: CmsSwap(CmsSwap) => "cms_swap" @ "../schemas/instruments/1/rates/cms_swap.schema.json";
+            plain: CmsOption(CmsOption) => "cms_option" @ "../schemas/instruments/1/rates/cms_option.schema.json";
+            plain: IrFutureOption(IrFutureOption) => "ir_future_option" @ "../schemas/instruments/1/rates/ir_future_option.schema.json";
+            plain: Deposit(Deposit) => "deposit" @ "../schemas/instruments/1/rates/deposit.schema.json";
+            plain: Repo(Repo) => "repo" @ "../schemas/instruments/1/rates/repo.schema.json";
+            plain: CreditDefaultSwap(CreditDefaultSwap) => "credit_default_swap" @ "../schemas/instruments/1/credit_derivatives/credit_default_swap.schema.json";
+            plain: CDSIndex(CDSIndex) => "cds_index" @ "../schemas/instruments/1/credit_derivatives/cds_index.schema.json";
+            plain: CDSTranche(CDSTranche) => "cds_tranche" @ "../schemas/instruments/1/credit_derivatives/cds_tranche.schema.json";
+            plain: CDSOption(CDSOption) => "cds_option" @ "../schemas/instruments/1/credit_derivatives/cds_option.schema.json";
+            plain: Equity(Equity) => "equity" @ "../schemas/instruments/1/equity/equity.schema.json";
+            plain: EquityOption(EquityOption) => "equity_option" @ "../schemas/instruments/1/equity/equity_option.schema.json";
+            plain: AsianOption(AsianOption) => "asian_option" @ "../schemas/instruments/1/exotics/asian_option.schema.json";
+            plain: BarrierOption(BarrierOption) => "barrier_option" @ "../schemas/instruments/1/exotics/barrier_option.schema.json";
+            plain: LookbackOption(LookbackOption) => "lookback_option" @ "../schemas/instruments/1/exotics/lookback_option.schema.json";
+            plain: VarianceSwap(VarianceSwap) => "variance_swap" @ "../schemas/instruments/1/equity/variance_swap.schema.json";
+            plain: EquityIndexFuture(EquityIndexFuture) => "equity_index_future" @ "../schemas/instruments/1/equity/equity_index_future.schema.json";
+            plain: VolatilityIndexFuture(VolatilityIndexFuture) => "volatility_index_future" @ "../schemas/instruments/1/equity/volatility_index_future.schema.json";
+            plain: VolatilityIndexOption(VolatilityIndexOption) => "volatility_index_option" @ "../schemas/instruments/1/equity/volatility_index_option.schema.json";
+            plain: FxSpot(FxSpot) => "fx_spot" @ "../schemas/instruments/1/fx/fx_spot.schema.json";
+            plain: FxSwap(FxSwap) => "fx_swap" @ "../schemas/instruments/1/fx/fx_swap.schema.json";
+            plain: FxForward(FxForward) => "fx_forward" @ "../schemas/instruments/1/fx/fx_forward.schema.json";
+            plain: Ndf(Ndf) => "ndf" @ "../schemas/instruments/1/fx/ndf.schema.json";
+            plain: FxOption(FxOption) => "fx_option" @ "../schemas/instruments/1/fx/fx_option.schema.json";
+            plain: FxDigitalOption(FxDigitalOption) => "fx_digital_option" @ "../schemas/instruments/1/fx/fx_digital_option.schema.json";
+            plain: FxTouchOption(FxTouchOption) => "fx_touch_option" @ "../schemas/instruments/1/fx/fx_touch_option.schema.json";
+            plain: FxBarrierOption(FxBarrierOption) => "fx_barrier_option" @ "../schemas/instruments/1/fx/fx_barrier_option.schema.json";
+            plain: FxVarianceSwap(FxVarianceSwap) => "fx_variance_swap" @ "../schemas/instruments/1/fx/fx_variance_swap.schema.json";
+            plain: QuantoOption(QuantoOption) => "quanto_option" @ "../schemas/instruments/1/fx/quanto_option.schema.json";
+            plain: CommodityOption(CommodityOption) => "commodity_option" @ "../schemas/instruments/1/commodity/commodity_option.schema.json";
+            plain: CommodityAsianOption(CommodityAsianOption) => "commodity_asian_option" @ "../schemas/instruments/1/commodity/commodity_asian_option.schema.json";
+            plain: CommodityForward(CommodityForward) => "commodity_forward" @ "../schemas/instruments/1/commodity/commodity_forward.schema.json";
+            plain: CommoditySwap(CommoditySwap) => "commodity_swap" @ "../schemas/instruments/1/commodity/commodity_swap.schema.json";
+            plain: CommoditySwaption(CommoditySwaption) => "commodity_swaption" @ "../schemas/instruments/1/commodity/commodity_swaption.schema.json";
+            plain: CommoditySpreadOption(CommoditySpreadOption) => "commodity_spread_option" @ "../schemas/instruments/1/commodity/commodity_spread_option.schema.json";
+            plain: Autocallable(Autocallable) => "autocallable" @ "../schemas/instruments/1/equity/autocallable.schema.json";
+            plain: CliquetOption(CliquetOption) => "cliquet_option" @ "../schemas/instruments/1/equity/cliquet_option.schema.json";
+            plain: RangeAccrual(RangeAccrual) => "range_accrual" @ "../schemas/instruments/1/rates/range_accrual.schema.json";
+            plain: Tarn(Tarn) => "tarn" @ "../schemas/instruments/1/rates/tarn.schema.json";
+            plain: Snowball(Snowball) => "snowball" @ "../schemas/instruments/1/rates/snowball.schema.json";
+            plain: CmsSpreadOption(CmsSpreadOption) => "cms_spread_option" @ "../schemas/instruments/1/rates/cms_spread_option.schema.json";
+            plain: CallableRangeAccrual(CallableRangeAccrual) => "callable_range_accrual" @ "../schemas/instruments/1/rates/callable_range_accrual.schema.json";
+            plain: TrsEquity(EquityTotalReturnSwap) => "trs_equity" @ "../schemas/instruments/1/equity/trs_equity.schema.json", "equity_trs";
+            plain: TrsFixedIncomeIndex(FIIndexTotalReturnSwap) => "trs_fixed_income_index" @ "../schemas/instruments/1/fixed_income/trs_fixed_income_index.schema.json", "fi_trs", "fixed_income_trs";
+            plain: Basket(Basket) => "basket" @ "../schemas/instruments/1/exotics/basket.schema.json";
+            plain: PrivateMarketsFund(PrivateMarketsFund) => "private_markets_fund" @ "../schemas/instruments/1/equity/private_markets_fund.schema.json";
+            plain: RealEstateAsset(RealEstateAsset) => "real_estate_asset" @ "../schemas/instruments/1/equity/real_estate_asset.schema.json";
+            plain: DiscountedCashFlow(DiscountedCashFlow) => "discounted_cash_flow" @ "../schemas/instruments/1/equity/discounted_cash_flow.schema.json";
+            boxed: BondFuture(BondFuture) => "bond_future" @ "../schemas/instruments/1/fixed_income/bond_future.schema.json";
+            boxed: StructuredCredit(StructuredCredit) => "structured_credit" @ "../schemas/instruments/1/fixed_income/structured_credit.schema.json";
+            boxed: LeveredRealEstateEquity(crate::instruments::equity::real_estate::LeveredRealEstateEquity) => "levered_real_estate_equity" @ "../schemas/instruments/1/equity/levered_real_estate_equity.schema.json";
         )
     };
 }
+pub(crate) use with_instrument_json_registry;
 
 macro_rules! instrument_json_into_boxed_match {
     (
         [$instrument_json:expr]
-        $(plain: $variant:ident($ty:ty) => $tag:literal $(, $alias:literal)*;)*
-        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+        $(plain: $variant:ident($ty:ty) => $tag:literal @ $schema_path:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal @ $boxed_schema_path:literal $(, $boxed_alias:literal)*;)*
     ) => {
         match $instrument_json {
             $(InstrumentJson::$variant(instrument) => Ok(Box::new(instrument)),)*
@@ -303,8 +304,8 @@ macro_rules! instrument_json_into_boxed_match {
 macro_rules! instrument_json_from_dyn_match {
     (
         [$instrument:expr]
-        $(plain: $variant:ident($ty:ty) => $tag:literal $(, $alias:literal)*;)*
-        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+        $(plain: $variant:ident($ty:ty) => $tag:literal @ $schema_path:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal @ $boxed_schema_path:literal $(, $boxed_alias:literal)*;)*
     ) => {{
         let instrument = $instrument;
         'match_instrument: {
@@ -329,8 +330,8 @@ macro_rules! instrument_json_from_dyn_match {
 macro_rules! instrument_json_canonical_types {
     (
         []
-        $(plain: $variant:ident($ty:ty) => $tag:literal $(, $alias:literal)*;)*
-        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+        $(plain: $variant:ident($ty:ty) => $tag:literal @ $schema_path:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal @ $boxed_schema_path:literal $(, $boxed_alias:literal)*;)*
     ) => {
         &[
             $($tag,)*
@@ -1518,14 +1519,6 @@ mod tests {
         }
     }
 
-    /// Canonical list of primary instrument type discriminators.
-    ///
-    /// This list is derived from the same registry that powers manual
-    /// `InstrumentJson` deserialization, so the schema parity test validates the
-    /// public primary tags without duplicating that inventory again.
-    const CANONICAL_INSTRUMENT_TYPES: &[&str] =
-        with_instrument_json_registry!(instrument_json_canonical_types);
-
     /// Verifies that the instrument.schema.json enum matches the canonical list.
     ///
     /// This test ensures that the JSON schema stays in sync with the Rust code.
@@ -1546,7 +1539,8 @@ mod tests {
             .collect();
 
         // Sort both lists for comparison
-        let mut expected: Vec<&str> = CANONICAL_INSTRUMENT_TYPES.to_vec();
+        let mut expected: Vec<&str> =
+            with_instrument_json_registry!(instrument_json_canonical_types).to_vec();
         expected.sort();
         let mut actual: Vec<&str> = schema_types.clone();
         actual.sort();

@@ -731,9 +731,31 @@ export declare const margin: MarginNamespace;
 
 // --- valuations ------------------------------------------------------------
 
+export interface ValuationInstrumentsNamespace {
+  validateInstrumentJson(json: string): string;
+  priceInstrument(
+    instrumentJson: string,
+    marketJson: string,
+    asOf: string,
+    model: string
+  ): string;
+  priceInstrumentWithMetrics(
+    instrumentJson: string,
+    marketJson: string,
+    asOf: string,
+    model: string,
+    metrics: string[],
+    pricingOptions?: string | null
+  ): string;
+  listStandardMetrics(): string[];
+  listStandardMetricsGrouped(): Record<string, string[]>;
+}
+
 export interface ValuationsNamespace {
   /** Credit-correlation infrastructure (copulas, recovery, factor models). */
   correlation: CorrelationNamespace;
+  /** Instrument JSON validation and pricing helpers. */
+  instruments: ValuationInstrumentsNamespace;
   validateValuationResultJson(json: string): string;
   validateInstrumentJson(json: string): string;
   priceInstrument(
@@ -747,7 +769,8 @@ export interface ValuationsNamespace {
     marketJson: string,
     asOf: string,
     model: string,
-    metrics: string[]
+    metrics: string[],
+    pricingOptions?: string | null
   ): string;
   listStandardMetrics(): string[];
   /** List all standard metrics organized by group.

@@ -28,11 +28,16 @@
 
 // Core submodules
 mod errors;
+pub mod json;
 mod keys;
 mod registry;
 
 pub(crate) use errors::actionable_unknown_pricer_message;
 pub use errors::{PricingContextExt, PricingError, PricingErrorContext, PricingResult};
+pub use json::{
+    parse_as_of_date, parse_boxed_instrument_json, parse_instrument_json, parse_model_key,
+    price_instrument_json, price_instrument_json_with_metrics, validate_instrument_json,
+};
 pub use keys::{InstrumentType, ModelKey, PricerKey};
 pub use registry::{expect_inst, Pricer, PricerRegistry};
 

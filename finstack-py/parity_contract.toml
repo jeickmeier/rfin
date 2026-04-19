@@ -100,13 +100,13 @@ rust_lib   = "finstack/valuations/src/lib.rs"
 python_package = "finstack.valuations"
 visibility = "pub"
 status = "exists"
-# NOTE: valuations currently exposes a mostly flat Python package plus the
-# dedicated `correlation` subpackage. Additional submodule shims are deferred.
+# NOTE: valuations still exposes compatibility aliases at the package root, but
+# instrument helpers now also live under the dedicated `instruments` submodule.
 
 [crates.valuations.modules]
 # Top-level public modules — detailed symbol mapping to follow in Wave 3
 attribution  = { python = "finstack.valuations",              status = "exists", note = "JSON-first helpers and the PnlAttribution wrapper are flattened onto finstack.valuations" }
-instruments  = { python = "finstack.valuations.instruments",  status = "missing", note = "Bindings are currently exported from finstack.valuations root" }
+instruments  = { python = "finstack.valuations.instruments",  status = "exists", note = "Instrument JSON validation and pricing helpers live under finstack.valuations.instruments; root aliases remain for compatibility" }
 calibration  = { python = "finstack.valuations.calibration",  status = "missing", note = "Bindings are currently exported from finstack.valuations root" }
 correlation  = { python = "finstack.valuations.correlation",  status = "exists", note = "Former standalone finstack-correlation crate; nested under valuations" }
 # All other valuations submodules are deferred pending detailed lib.rs audit (Wave 3)

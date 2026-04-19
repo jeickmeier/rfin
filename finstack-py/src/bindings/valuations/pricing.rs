@@ -2,7 +2,6 @@
 
 use crate::bindings::extract::extract_market;
 use crate::errors::display_to_py;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 /// Price an instrument from its tagged JSON and return a ``ValuationResult`` JSON.
@@ -31,20 +30,10 @@ fn price_instrument(
     as_of: &str,
     model: &str,
 ) -> PyResult<String> {
-    let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(display_to_py)?;
-    let boxed = inst.into_boxed().map_err(display_to_py)?;
-
     let market = extract_market(market)?;
-
-    let date = super::parse_date(as_of)?;
-    let model_key = parse_model_key(model)?;
-
-    let registry = finstack_valuations::pricer::standard_registry();
-    let result = registry
-        .price(boxed.as_ref(), model_key, &market, date, None)
-        .map_err(display_to_py)?;
-
+    let result =
+        finstack_valuations::pricer::price_instrument_json(instrument_json, &market, as_of, model)
+            .map_err(display_to_py)?;
     serde_json::to_string_pretty(&result).map_err(display_to_py)
 }
 
@@ -83,63 +72,16 @@ fn price_instrument_with_metrics(
     metrics: Vec<String>,
     pricing_options: Option<&str>,
 ) -> PyResult<String> {
-    // If pricing_options is provided, merge its fields into the instrument's
-    // pricing_overrides so that metric calculators (theta, breakeven, etc.) pick
-    // them up from the instrument context as expected by the architecture.
-    let effective_instrument_json: std::borrow::Cow<str> = match pricing_options {
-        None => std::borrow::Cow::Borrowed(instrument_json),
-        Some(opts_json) => {
-            let opts: finstack_valuations::instruments::MetricPricingOverrides =
-                serde_json::from_str(opts_json).map_err(display_to_py)?;
-            let mut doc: serde_json::Value =
-                serde_json::from_str(instrument_json).map_err(display_to_py)?;
-            // Merge opts into doc["spec"]["pricing_overrides"] (create if absent).
-            let overrides_patch = serde_json::to_value(&opts).map_err(display_to_py)?;
-            if let serde_json::Value::Object(patch) = overrides_patch {
-                let po = doc
-                    .get_mut("spec")
-                    .and_then(|s| s.get_mut("pricing_overrides"))
-                    .and_then(|v| v.as_object_mut());
-                if let Some(po_map) = po {
-                    for (k, v) in patch {
-                        po_map.insert(k, v);
-                    }
-                } else if let Some(spec) = doc.get_mut("spec").and_then(|s| s.as_object_mut()) {
-                    spec.insert(
-                        "pricing_overrides".to_string(),
-                        serde_json::Value::Object(patch),
-                    );
-                }
-            }
-            std::borrow::Cow::Owned(serde_json::to_string(&doc).map_err(display_to_py)?)
-        }
-    };
-
-    let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(&effective_instrument_json).map_err(display_to_py)?;
-    let boxed = inst.into_boxed().map_err(display_to_py)?;
-
     let market = extract_market(market)?;
-
-    let date = super::parse_date(as_of)?;
-    let model_key = parse_model_key(model)?;
-    let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
-        .iter()
-        .map(|m| finstack_valuations::metrics::MetricId::custom(m.as_str()))
-        .collect();
-
-    let registry = finstack_valuations::pricer::standard_registry();
-    let result = registry
-        .price_with_metrics(
-            boxed.as_ref(),
-            model_key,
-            &market,
-            date,
-            &metric_ids,
-            Default::default(),
-        )
-        .map_err(display_to_py)?;
-
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+        instrument_json,
+        &market,
+        as_of,
+        model,
+        &metrics,
+        pricing_options,
+    )
+    .map_err(display_to_py)?;
     serde_json::to_string_pretty(&result).map_err(display_to_py)
 }
 
@@ -180,11 +122,6 @@ fn list_standard_metrics_grouped() -> std::collections::HashMap<String, Vec<Stri
             )
         })
         .collect()
-}
-
-fn parse_model_key(s: &str) -> PyResult<finstack_valuations::pricer::ModelKey> {
-    s.parse::<finstack_valuations::pricer::ModelKey>()
-        .map_err(|e| PyValueError::new_err(format!("Unknown model key: '{s}'. {e}")))
 }
 
 /// Register pricing functions on the valuations submodule.
