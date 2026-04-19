@@ -16,6 +16,7 @@ use finstack_core::{
     market_data::context::{MarketContext, MarketContextState},
     Result,
 };
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
@@ -127,6 +128,30 @@ pub struct AttributionConfig {
 }
 
 impl AttributionSpec {
+    /// Build an attribution spec from the JSON-friendly inputs used by bindings.
+    pub fn from_json_inputs(
+        instrument_json: &str,
+        market_t0_json: &str,
+        market_t1_json: &str,
+        as_of_t0: &str,
+        as_of_t1: &str,
+        method_json: &str,
+        config_json: Option<&str>,
+    ) -> Result<Self> {
+        Ok(Self {
+            instrument: parse_input_json("instrument", instrument_json)?,
+            market_t0: parse_input_json("market_t0", market_t0_json)?,
+            market_t1: parse_input_json("market_t1", market_t1_json)?,
+            as_of_t0: parse_iso_date("as_of_t0", as_of_t0)?,
+            as_of_t1: parse_iso_date("as_of_t1", as_of_t1)?,
+            method: parse_input_json("method", method_json)?,
+            model_params_t0: None,
+            config: config_json
+                .map(|json| parse_input_json("config", json))
+                .transpose()?,
+        })
+    }
+
     /// Execute the attribution specification.
     ///
     /// Returns a complete result with the P&L attribution and metadata.
@@ -261,6 +286,19 @@ impl AttributionSpec {
             results_meta,
         })
     }
+}
+
+fn parse_input_json<T: DeserializeOwned>(label: &str, json: &str) -> Result<T> {
+    serde_json::from_str(json).map_err(|e| {
+        finstack_core::Error::Validation(format!("invalid attribution {label} JSON: {e}"))
+    })
+}
+
+fn parse_iso_date(label: &str, value: &str) -> Result<Date> {
+    let format = time::format_description::well_known::Iso8601::DEFAULT;
+    Date::parse(value, &format).map_err(|e| {
+        finstack_core::Error::Validation(format!("invalid attribution {label} date '{value}': {e}"))
+    })
 }
 
 impl AttributionSpec {
@@ -431,6 +469,75 @@ mod tests {
         assert!(json.get("strict_validation").is_some());
         // metrics should not be present when None
         assert!(json.get("metrics").is_none());
+    }
+
+    #[test]
+    fn test_attribution_spec_from_json_inputs() {
+        use crate::instruments::Bond;
+
+        let bond = Bond::fixed(
+            "TEST-BOND",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            create_date(2024, Month::January, 1).expect("Valid test date"),
+            create_date(2034, Month::January, 1).expect("Valid test date"),
+            "USD-OIS",
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
+
+        let market_state = MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
+            curves: vec![],
+            fx: None,
+            surfaces: vec![],
+            prices: std::collections::BTreeMap::new(),
+            series: vec![],
+            inflation_indices: vec![],
+            dividends: vec![],
+            credit_indices: vec![],
+            collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
+            vol_cubes: vec![],
+            hierarchy: None,
+        };
+        let config = AttributionConfig {
+            tolerance_abs: Some(0.01),
+            tolerance_pct: None,
+            metrics: None,
+            strict_validation: Some(true),
+            rounding_scale: Some(6),
+            rate_bump_bp: None,
+        };
+
+        let spec = AttributionSpec::from_json_inputs(
+            &serde_json::to_string(&InstrumentJson::Bond(bond))
+                .expect("instrument JSON should serialize"),
+            &serde_json::to_string(&market_state).expect("market_t0 JSON should serialize"),
+            &serde_json::to_string(&market_state).expect("market_t1 JSON should serialize"),
+            "2025-01-01",
+            "2025-01-02",
+            &serde_json::to_string(&AttributionMethod::Parallel)
+                .expect("method JSON should serialize"),
+            Some(&serde_json::to_string(&config).expect("config JSON should serialize")),
+        )
+        .expect("binding-friendly spec constructor should succeed");
+
+        assert!(matches!(spec.method, AttributionMethod::Parallel));
+        assert_eq!(
+            spec.as_of_t0,
+            create_date(2025, Month::January, 1).expect("Valid test date")
+        );
+        assert_eq!(
+            spec.as_of_t1,
+            create_date(2025, Month::January, 2).expect("Valid test date")
+        );
+        assert_eq!(
+            spec.config
+                .as_ref()
+                .and_then(|cfg| cfg.strict_validation)
+                .expect("strict_validation should be preserved"),
+            true
+        );
     }
 
     #[test]
