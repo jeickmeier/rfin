@@ -20,6 +20,14 @@ pub fn parse_instrument_json(json: &str) -> finstack_core::Result<InstrumentJson
         .map_err(|e| Error::Validation(format!("invalid instrument JSON: {e}")))
 }
 
+/// Validate tagged instrument JSON against the pricing contract and return its
+/// canonical JSON representation.
+pub fn validate_instrument_json(json: &str) -> finstack_core::Result<String> {
+    let parsed = parse_instrument_json(json)?;
+    serde_json::to_string(&parsed)
+        .map_err(|e| Error::Validation(format!("invalid instrument JSON: {e}")))
+}
+
 /// Parse tagged instrument JSON, optionally merge metric pricing overrides, and
 /// box the concrete instrument for pricing dispatch.
 pub fn parse_boxed_instrument_json(

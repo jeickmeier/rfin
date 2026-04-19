@@ -125,8 +125,10 @@ impl PyValuationResult {
 
 #[pyfunction]
 fn validate_instrument_json(json: &str) -> PyResult<String> {
-    let parsed = finstack_valuations::pricer::parse_instrument_json(json)
+    let canonical = finstack_valuations::pricer::validate_instrument_json(json)
         .map_err(crate::errors::display_to_py)?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&canonical).map_err(|e| PyValueError::new_err(e.to_string()))?;
     serde_json::to_string_pretty(&parsed).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 

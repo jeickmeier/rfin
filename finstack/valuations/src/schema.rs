@@ -192,13 +192,13 @@ pub fn valuation_result_schema() -> finstack_core::Result<&'static Value> {
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_valuations::schema::validate_instrument_json;
+/// use finstack_valuations::schema::validate_instrument_envelope_json;
 ///
 /// let json: serde_json::Value = serde_json::json!({
 ///     "schema": "finstack.instrument/1",
 ///     "instrument": { "type": "bond", "spec": {} }
 /// });
-/// if let Err(e) = validate_instrument_json(&json) {
+/// if let Err(e) = validate_instrument_envelope_json(&json) {
 ///     eprintln!("Validation errors: {e}");
 /// }
 /// ```
@@ -206,9 +206,15 @@ pub fn valuation_result_schema() -> finstack_core::Result<&'static Value> {
 /// # Errors
 ///
 /// Returns `Error::Validation` if the JSON does not conform to the schema.
-pub fn validate_instrument_json(instance: &Value) -> finstack_core::Result<()> {
+pub fn validate_instrument_envelope_json(instance: &Value) -> finstack_core::Result<()> {
     let schema = instrument_envelope_schema()?;
     validate_against_schema(instance, schema, "instrument envelope")
+}
+
+/// Validate an instrument envelope JSON value against the envelope schema.
+#[deprecated(note = "use validate_instrument_envelope_json")]
+pub fn validate_instrument_json(instance: &Value) -> finstack_core::Result<()> {
+    validate_instrument_envelope_json(instance)
 }
 
 /// Validate a JSON value against a specific instrument type's schema.
@@ -352,7 +358,7 @@ mod tests {
             }
         });
         assert!(
-            validate_instrument_json(&valid).is_ok(),
+            validate_instrument_envelope_json(&valid).is_ok(),
             "valid envelope should pass validation"
         );
     }
@@ -362,7 +368,7 @@ mod tests {
         let invalid = serde_json::json!({
             "instrument": { "type": "bond", "spec": {} }
         });
-        let msg = validate_instrument_json(&invalid)
+        let msg = validate_instrument_envelope_json(&invalid)
             .expect_err("missing 'schema' field should fail")
             .to_string();
         assert!(
@@ -377,7 +383,7 @@ mod tests {
             "schema": "finstack.instrument/1",
             "instrument": { "type": "not_real", "spec": {} }
         });
-        let err = validate_instrument_json(&invalid);
+        let err = validate_instrument_envelope_json(&invalid);
         assert!(err.is_err(), "unknown instrument type should fail");
     }
 }

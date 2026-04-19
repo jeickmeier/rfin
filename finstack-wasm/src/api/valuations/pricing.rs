@@ -19,8 +19,7 @@ pub fn validate_valuation_result_json(json: &str) -> Result<String, JsValue> {
 /// returns the canonical (re-serialized) JSON.
 #[wasm_bindgen(js_name = validateInstrumentJson)]
 pub fn validate_instrument_json(json: &str) -> Result<String, JsValue> {
-    let parsed = finstack_valuations::pricer::parse_instrument_json(json).map_err(to_js_err)?;
-    serde_json::to_string(&parsed).map_err(to_js_err)
+    finstack_valuations::pricer::validate_instrument_json(json).map_err(to_js_err)
 }
 
 /// Price an instrument from its tagged JSON and return a ValuationResult JSON.
