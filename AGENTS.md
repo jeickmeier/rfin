@@ -15,7 +15,8 @@
 - `uv` is the Python package manager; use `uv run` when running Python functions
 - Makefile targets: `make fmt`, `make lint`, `make test`, `make python-dev` (dev profile, fast compile), `make python-dev-release` (release; use for portfolio-scale benchmarks), `make python-dev-debug` (alias of `python-dev`)
 - `make python-dev-release` uses `MATURIN_PROFILE=release` by default (override with `MATURIN_PROFILE`); release is slower to compile but faster at runtime
-- Pre-commit runs `cargo clippy` and `cargo audit`
+- Pre-commit runs `cargo clippy` and `cargo deny check` (Rust supply-chain: advisories + licenses + bans)
+- CI additionally runs OSV-Scanner across `Cargo.lock`, `uv.lock`, and `package-lock.json` for cross-ecosystem CVE coverage
 - Clippy runs with `-D warnings`; all warnings are treated as errors
 
 ## Clippy Strictness
@@ -61,5 +62,5 @@
 
 - Preferred flow: Audit/Review → Plan → Implement (in that order)
 - When a plan file exists: do NOT edit the plan file; do not recreate todos that already exist; mark todos as `in_progress` when starting each one
-- User reports issues by pasting terminal output (clippy, cargo audit, test failures) rather than describing them
+- User reports issues by pasting terminal output (clippy, cargo deny, test failures) rather than describing them
 - When moving files, use `mv` in terminal and update all import references; then lint and format

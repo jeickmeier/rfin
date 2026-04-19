@@ -389,9 +389,9 @@ check-dups:
 .PHONY: audit audit-rust audit-python
 audit: audit-rust audit-python ## Run security audits on all components
 audit-rust:
-	@printf "Auditing Rust dependencies...\n"
-	@command -v cargo-audit >/dev/null 2>&1 || { printf "cargo-audit not found. Install with: cargo install cargo-audit\n"; exit 1; }
-	cargo audit
+	@printf "Auditing Rust dependencies (cargo-deny)...\n"
+	@command -v cargo-deny >/dev/null 2>&1 || { printf "cargo-deny not found. Install with: cargo install cargo-deny --locked\n"; exit 1; }
+	cargo deny check
 audit-python:
 	@printf "Auditing Python dependencies...\n"
 	@$(call py_run,bandit -r finstack-py -c pyproject.toml)

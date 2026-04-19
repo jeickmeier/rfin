@@ -1,8 +1,0 @@
-# cargo-audit configuration for finstack workspace
-# Mirrors deny.toml ignore list for transitive dependencies we cannot update.
-
-[advisories]
-ignore = [
-    # Transitive via nalgebra/simba; no safe upgrade path published by advisory.
-    "RUSTSEC-2024-0436", # paste (unmaintained)
-]
