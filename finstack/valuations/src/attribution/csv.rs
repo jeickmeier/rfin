@@ -1,10 +1,6 @@
-//! DataFrame export utilities for P&L attribution.
+//! CSV export utilities for P&L attribution.
 //!
-//! Provides methods to export attribution results to structured formats for
-//! analysis and reporting.
-//!
-//! Note: Full Polars DataFrame integration pending. Current implementation
-//! provides JSON-based exports.
+//! Provides CSV-oriented exports for attribution summaries and detail reports.
 
 use super::types::*;
 
