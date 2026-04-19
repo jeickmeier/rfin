@@ -19,10 +19,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, ParRateMethod, PayReceive,
 };
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::conventions::ConventionRegistry;
 use finstack_valuations::metrics::MetricId;

@@ -99,7 +99,7 @@ pub fn default_waterfall_order() -> Vec<AttributionFactor> {
 /// use finstack_valuations::attribution::{
 ///     attribute_pnl_waterfall, default_waterfall_order
 /// };
-/// use finstack_valuations::instruments::internal::InstrumentExt;
+/// use finstack_valuations::instruments::Instrument;
 /// use finstack_valuations::instruments::rates::deposit::Deposit;
 /// use finstack_core::config::FinstackConfig;
 /// use finstack_core::currency::Currency;
@@ -125,7 +125,7 @@ pub fn default_waterfall_order() -> Vec<AttributionFactor> {
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()
 ///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn InstrumentExt>;
+/// ) as Arc<dyn Instrument>;
 ///
 /// let attribution = attribute_pnl_waterfall(
 ///     &instrument,

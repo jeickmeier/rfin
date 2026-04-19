@@ -228,7 +228,7 @@ fn test_swap_with_attributes() {
 
 #[test]
 fn test_instrument_trait_implementations() {
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
 
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();

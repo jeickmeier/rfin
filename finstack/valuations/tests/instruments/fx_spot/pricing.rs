@@ -4,7 +4,7 @@ use super::common::*;
 use finstack_core::{
     currency::Currency, market_data::context::MarketContext, money::Money, types::InstrumentId,
 };
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, FxSpot};
+use finstack_valuations::instruments::{FxSpot, Instrument};
 
 #[test]
 fn test_npv_with_explicit_rate() {

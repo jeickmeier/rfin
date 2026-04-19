@@ -15,7 +15,7 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use proptest::prelude::*;
 use time::Month;
 

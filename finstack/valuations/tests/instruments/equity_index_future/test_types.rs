@@ -205,7 +205,7 @@ fn test_num_contracts() {
 
 #[test]
 fn test_instrument_trait() {
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let future = EquityIndexFuture::example().unwrap();

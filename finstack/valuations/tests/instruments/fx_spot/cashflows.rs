@@ -8,8 +8,8 @@ use finstack_core::{
     money::Money,
 };
 use finstack_valuations::cashflow::CashflowProvider;
-use finstack_valuations::instruments::internal::InstrumentExt;
 use finstack_valuations::instruments::FxSpot;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_settlement_explicit_date() {

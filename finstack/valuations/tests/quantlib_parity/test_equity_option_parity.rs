@@ -17,9 +17,7 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::{currency::Currency, money::Money};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::{
-    internal::InstrumentExt as Instrument, Attributes, PricingOverrides, SettlementType,
-};
+use finstack_valuations::instruments::{Attributes, Instrument, PricingOverrides, SettlementType};
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::metrics::MetricId;
 use time::Month;

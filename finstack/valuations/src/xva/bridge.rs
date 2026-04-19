@@ -11,11 +11,11 @@ use finstack_margin::xva::Valuable;
 
 impl Valuable for DynInstrument {
     fn id(&self) -> &str {
-        crate::instruments::internal::InstrumentExt::id(self)
+        crate::instruments::Instrument::id(self)
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        crate::instruments::internal::InstrumentExt::value(self, market, as_of)
+        crate::instruments::Instrument::value(self, market, as_of)
     }
 }
 

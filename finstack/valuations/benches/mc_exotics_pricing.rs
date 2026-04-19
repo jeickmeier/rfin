@@ -235,13 +235,11 @@ fn bench_cliquet_option_mc(c: &mut Criterion) {
             &n_resets,
             |b, _| {
                 b.iter(|| {
-                    black_box(
-                        finstack_valuations::instruments::internal::InstrumentExt::value(
-                            &option,
-                            black_box(&market),
-                            black_box(as_of),
-                        ),
-                    )
+                    black_box(finstack_valuations::instruments::Instrument::value(
+                        &option,
+                        black_box(&market),
+                        black_box(as_of),
+                    ))
                     .unwrap()
                 })
             },

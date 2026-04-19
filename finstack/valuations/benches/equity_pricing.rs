@@ -37,8 +37,8 @@ use finstack_valuations::instruments::equity::vol_index_option::{
     VolIndexOptionSpecs, VolatilityIndexOption,
 };
 use finstack_valuations::instruments::equity::Equity;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::ir_future::Position;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{Attributes, ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     EquityUnderlyingParams, FinancingLegSpec, TrsScheduleSpec, TrsSide,

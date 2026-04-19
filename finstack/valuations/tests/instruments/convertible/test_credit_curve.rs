@@ -11,7 +11,7 @@ use super::fixtures::*;
 use finstack_valuations::instruments::fixed_income::convertible::{
     price_convertible_bond, ConvertibleTreeType,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 const TREE: ConvertibleTreeType = ConvertibleTreeType::Binomial(100);

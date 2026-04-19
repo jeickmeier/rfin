@@ -24,10 +24,10 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::xccy_swap::{
     LegSide, NotionalExchange, XccySwap, XccySwapLeg,
 };
+use finstack_valuations::instruments::Instrument;
 use rust_decimal::Decimal;
 use std::hint::black_box;
 use std::sync::Arc;

@@ -13,7 +13,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use proptest::prelude::*;
 use std::sync::Arc;
@@ -190,7 +190,7 @@ mod mc_invariants {
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
     use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::instruments::OptionType;
     use time::macros::date;
 
@@ -338,7 +338,7 @@ mod cds_invariants {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::MetricId;
 
     use proptest::prelude::*;
@@ -494,7 +494,7 @@ mod cs01_invariants {
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
 
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use proptest::prelude::*;
     use std::sync::Arc;
@@ -594,7 +594,7 @@ mod bucketed_cs01_invariants {
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
 
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
     use time::macros::date;

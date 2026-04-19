@@ -16,7 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{Bond, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;

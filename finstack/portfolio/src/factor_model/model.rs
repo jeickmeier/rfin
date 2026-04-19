@@ -34,7 +34,7 @@ use finstack_valuations::factor_model::decompose as flatten_dependencies;
 use finstack_valuations::factor_model::sensitivity::{
     DeltaBasedEngine, FactorSensitivityEngine, FullRepricingEngine, SensitivityMatrix,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 
 /// Builder for the top-level portfolio factor-model orchestrator.
 ///
@@ -422,7 +422,7 @@ mod tests {
         FactorSensitivityEngine, SensitivityMatrix,
     };
     use finstack_valuations::instruments::common::MarketDependencies;
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
     use std::any::Any;
     use std::sync::Arc;

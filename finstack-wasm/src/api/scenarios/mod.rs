@@ -260,8 +260,7 @@ pub fn compute_horizon_return(
     // Parse instrument
     let inst: InstrumentJson = serde_json::from_str(instrument_json).map_err(to_js_err)?;
     let boxed = inst.into_boxed().map_err(to_js_err)?;
-    let instrument: Arc<dyn finstack_valuations::instruments::internal::InstrumentExt> =
-        Arc::from(boxed);
+    let instrument: Arc<dyn finstack_valuations::instruments::Instrument> = Arc::from(boxed);
 
     // Parse market
     let market: finstack_core::market_data::context::MarketContext =

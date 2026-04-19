@@ -14,7 +14,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::*;
 use finstack_valuations::results::ValuationResult;
 use std::str::FromStr;

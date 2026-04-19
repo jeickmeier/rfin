@@ -4,7 +4,7 @@
 //! real estate deal inputs like cap rates and appraisal discount rates.
 
 use crate::instruments::equity::real_estate::{LeveredRealEstateEquity, RealEstateAsset};
-use crate::instruments::internal::InstrumentExt as Instrument;
+use crate::instruments::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Error as CoreError;
 

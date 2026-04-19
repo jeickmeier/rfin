@@ -33,7 +33,7 @@ mod tests {
     #[allow(unused_imports)]
     use finstack_core::money::Money;
     #[allow(unused_imports)]
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     #[allow(unused_imports)]
     use finstack_valuations::instruments::OptionType;
     #[allow(unused_imports)]

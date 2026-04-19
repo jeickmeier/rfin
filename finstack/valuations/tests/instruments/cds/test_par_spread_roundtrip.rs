@@ -20,7 +20,7 @@ use finstack_core::money::Money;
 use finstack_valuations::calibration::api::schema::{HazardCurveParams, StepParams};
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::CalibrationMethod;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};

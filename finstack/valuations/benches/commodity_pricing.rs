@@ -24,8 +24,8 @@ use finstack_valuations::instruments::commodity::commodity_spread_option::Commod
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::commodity::commodity_swaption::CommoditySwaption;
 use finstack_valuations::instruments::exotics::asian_option::AveragingMethod;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     Attributes, ExerciseStyle, OptionType, PayReceive, PricingOptions, PricingOverrides,
     SettlementType,

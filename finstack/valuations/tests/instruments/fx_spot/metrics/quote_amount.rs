@@ -5,7 +5,7 @@
 
 use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::context::MarketContext, money::Money};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_quote_amount_basic() {

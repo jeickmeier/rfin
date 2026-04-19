@@ -23,7 +23,7 @@ use finstack_valuations::instruments::exotics::basket::{
     AssetType, Basket, BasketConstituent, BasketPricingConfig, ConstituentReference,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 use std::sync::Arc;
 use time::Month;

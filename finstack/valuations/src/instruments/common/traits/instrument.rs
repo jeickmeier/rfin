@@ -54,7 +54,7 @@ use super::pricing_options::{DynInstrument, PricingOptions};
 ///
 /// ```rust
 /// use finstack_valuations::instruments::Bond;
-/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+/// use finstack_valuations::instruments::Instrument;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 /// use finstack_core::dates::create_date;
@@ -88,7 +88,7 @@ use super::pricing_options::{DynInstrument, PricingOptions};
 ///
 /// ```rust
 /// use finstack_valuations::instruments::Bond;
-/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+/// use finstack_valuations::instruments::Instrument;
 /// use finstack_valuations::metrics::MetricId;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
@@ -120,7 +120,7 @@ use super::pricing_options::{DynInstrument, PricingOptions};
 ///
 /// ```rust
 /// use finstack_valuations::instruments::Bond;
-/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+/// use finstack_valuations::instruments::Instrument;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
 /// # use finstack_core::dates::create_date;
@@ -164,7 +164,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -203,7 +203,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// use finstack_valuations::pricer::InstrumentType;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
@@ -236,7 +236,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -354,7 +354,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// fn apply_price_shock(instrument: &mut dyn Instrument, shock_pct: f64) {
     ///     if let Some(overrides) = instrument.scenario_overrides_mut() {
     ///         overrides.scenario_price_shock_pct = Some(shock_pct);
@@ -394,7 +394,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -468,7 +468,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
@@ -527,7 +527,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::Rate;
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -813,7 +813,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     ///
     /// ```rust,ignore
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    /// use finstack_valuations::instruments::Instrument;
     ///
     /// let bond = Bond::example().unwrap();
     /// if let Some(maturity) = bond.expiry() {

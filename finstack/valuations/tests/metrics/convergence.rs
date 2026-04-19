@@ -20,7 +20,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};

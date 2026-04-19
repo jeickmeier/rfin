@@ -30,7 +30,7 @@ use finstack_valuations::attribution::{
     attribute_pnl_waterfall, default_waterfall_order, simple_pnl_bridge, TaylorAttributionConfig,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::internal::InstrumentExt;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOptions;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
@@ -83,7 +83,7 @@ fn sample_bond(idx: usize) -> Bond {
 /// Shared inputs for every methodology. Built once per N per benchmark run
 /// so we don't re-allocate curves inside `b.iter`.
 struct Fixture {
-    bonds: Vec<Arc<dyn InstrumentExt>>,
+    bonds: Vec<Arc<dyn Instrument>>,
     market_t0: MarketContext,
     market_t1: MarketContext,
     as_of_t0: Date,
@@ -102,8 +102,8 @@ impl Fixture {
         let market_t0 = MarketContext::new().insert(curve_t0);
         let market_t1 = MarketContext::new().insert(curve_t1);
 
-        let bonds: Vec<Arc<dyn InstrumentExt>> = (0..n)
-            .map(|i| Arc::new(sample_bond(i)) as Arc<dyn InstrumentExt>)
+        let bonds: Vec<Arc<dyn Instrument>> = (0..n)
+            .map(|i| Arc::new(sample_bond(i)) as Arc<dyn Instrument>)
             .collect();
 
         Self {

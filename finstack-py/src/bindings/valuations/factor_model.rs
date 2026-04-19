@@ -318,7 +318,7 @@ fn compute_factor_sensitivities(
     let (specs, instruments) = parse_positions(positions_json)?;
     let positions: Vec<(
         String,
-        &dyn finstack_valuations::instruments::internal::InstrumentExt,
+        &dyn finstack_valuations::instruments::Instrument,
         f64,
     )> = specs
         .iter()
@@ -326,7 +326,7 @@ fn compute_factor_sensitivities(
         .map(|(s, inst)| {
             (
                 s.id.clone(),
-                inst.as_ref() as &dyn finstack_valuations::instruments::internal::InstrumentExt,
+                inst.as_ref() as &dyn finstack_valuations::instruments::Instrument,
                 s.weight,
             )
         })
@@ -388,7 +388,7 @@ fn compute_pnl_profiles(
     let (specs, instruments) = parse_positions(positions_json)?;
     let positions: Vec<(
         String,
-        &dyn finstack_valuations::instruments::internal::InstrumentExt,
+        &dyn finstack_valuations::instruments::Instrument,
         f64,
     )> = specs
         .iter()
@@ -396,7 +396,7 @@ fn compute_pnl_profiles(
         .map(|(s, inst)| {
             (
                 s.id.clone(),
-                inst.as_ref() as &dyn finstack_valuations::instruments::internal::InstrumentExt,
+                inst.as_ref() as &dyn finstack_valuations::instruments::Instrument,
                 s.weight,
             )
         })

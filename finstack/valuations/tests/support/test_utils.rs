@@ -15,7 +15,7 @@ use time::Month;
 
 use finstack_valuations::instruments::common::CurveIdVec;
 use finstack_valuations::instruments::{EquityUnderlyingParams, FixedLegSpec, FloatLegSpec, FxUnderlyingParams};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec,
     ProtectionLegSpec, RECOVERY_SENIOR_UNSECURED,

@@ -141,7 +141,7 @@ fn find_surrounding_dates(flows: &[(Date, Money)], as_of: Date) -> Result<(Date,
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::structured_credit::{StructuredCredit, TrancheCashflows};
-    use crate::instruments::internal::InstrumentExt as Instrument;
+    use crate::instruments::Instrument;
     use crate::metrics::MetricContext;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;

@@ -10,7 +10,7 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[ignore = "slow"]

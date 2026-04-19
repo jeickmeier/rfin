@@ -9,7 +9,7 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

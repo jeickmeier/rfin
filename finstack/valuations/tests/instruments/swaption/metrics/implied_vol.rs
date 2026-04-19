@@ -5,7 +5,7 @@
 //! should be very precise. Market standard tolerance is 1bp of vol (0.01% relative).
 
 use crate::swaption::common::*;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 /// Tolerance for implied vol round-trip (same pricing path): 1e-6 relative

@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 fn create_curve(base_date: Date) -> MarketContext {

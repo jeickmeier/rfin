@@ -15,8 +15,8 @@ use finstack_portfolio::types::Entity;
 use finstack_portfolio::valuation::{revalue_affected, value_portfolio, PortfolioValuationOptions};
 use finstack_portfolio::{Portfolio, PortfolioBuilder};
 use finstack_valuations::instruments::common::RatesCurveKind;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::Instrument;
 use std::sync::Arc;
 
 // ---------------------------------------------------------------------------

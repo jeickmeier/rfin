@@ -10,7 +10,7 @@ use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::rates::deposit::Deposit;
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;

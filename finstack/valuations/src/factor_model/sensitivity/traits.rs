@@ -1,5 +1,5 @@
 use super::matrix::SensitivityMatrix;
-use crate::instruments::internal::InstrumentExt as Instrument;
+use crate::instruments::Instrument;
 use finstack_core::dates::Date;
 use finstack_core::factor_model::FactorDefinition;
 use finstack_core::market_data::context::MarketContext;

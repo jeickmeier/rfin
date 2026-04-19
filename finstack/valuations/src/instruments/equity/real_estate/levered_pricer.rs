@@ -2,7 +2,7 @@
 
 use super::levered::LeveredRealEstateEquity;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::{internal::InstrumentExt as Instrument, InstrumentJson};
+use crate::instruments::{Instrument, InstrumentJson};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

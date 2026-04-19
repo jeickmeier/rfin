@@ -4,7 +4,7 @@ use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::context::MarketContext, money::Money};
 use finstack_valuations::{
     instruments::equity::Equity,
-    instruments::{fx::fx_spot::FxSpotPricer, internal::InstrumentExt as Instrument},
+    instruments::{fx::fx_spot::FxSpotPricer, Instrument},
     pricer::{InstrumentType, ModelKey, Pricer},
 };
 

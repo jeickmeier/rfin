@@ -4,7 +4,7 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::attribution::{attribute_pnl_parallel, AttributionMethod, PnlAttribution};
 use crate::common::test_utils::TestInstrument;
 use std::sync::Arc;

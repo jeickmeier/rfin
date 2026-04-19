@@ -677,8 +677,8 @@ mod tests {
     use finstack_valuations::instruments::credit_derivatives::CDSIndex;
     use finstack_valuations::instruments::fixed_income::bond;
     use finstack_valuations::instruments::fixed_income::AgencyMbsPassthrough;
-    use finstack_valuations::instruments::internal::InstrumentExt as InternalInstrument;
     use finstack_valuations::instruments::rates::Swaption;
+    use finstack_valuations::instruments::Instrument as InternalInstrument;
     use finstack_valuations::pricer::InstrumentType;
     use std::any::Any;
     use std::sync::Arc;

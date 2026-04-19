@@ -16,7 +16,7 @@ use finstack_valuations::instruments::credit_derivatives::cds::{
     PayReceive, RECOVERY_SENIOR_UNSECURED,
 };
 use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, IndexPricing};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

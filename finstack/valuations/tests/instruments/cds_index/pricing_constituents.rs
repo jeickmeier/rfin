@@ -17,8 +17,8 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndexCon
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndex, IndexPricing, ParSpreadMethod,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

@@ -1,7 +1,7 @@
 //! Expiry-related edge cases
 
 use crate::swaption::common::*;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 // Note: These tests are disabled because the implementation correctly rejects

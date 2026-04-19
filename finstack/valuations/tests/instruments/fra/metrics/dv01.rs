@@ -8,7 +8,7 @@
 use crate::fra::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

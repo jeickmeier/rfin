@@ -8,8 +8,8 @@ use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::{PayReceive, VarianceSwap};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::Instrument;
 
 // ============================================================================
 // Historical Prices Tests

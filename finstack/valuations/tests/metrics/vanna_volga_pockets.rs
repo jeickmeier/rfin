@@ -17,7 +17,7 @@ use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
 

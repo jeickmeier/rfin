@@ -11,9 +11,9 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::math::norm_cdf;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };

@@ -36,7 +36,7 @@ impl MetricCalculator for GenericDfStartCalculator {
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::GenericDfStartCalculator;
-    use crate::instruments::{internal::InstrumentExt as Instrument, Deposit};
+    use crate::instruments::{Deposit, Instrument};
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;

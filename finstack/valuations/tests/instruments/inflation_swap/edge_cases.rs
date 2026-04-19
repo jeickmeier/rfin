@@ -6,7 +6,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::inflation_swap::InflationSwap;
 use finstack_valuations::instruments::PayReceive;
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use rust_decimal::Decimal;
 use time::Month;
 

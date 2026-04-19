@@ -195,7 +195,7 @@ fn df_second_derivative(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::instruments::fixed_income::bond::Bond;
-    use crate::instruments::internal::InstrumentExt as Instrument;
+    use crate::instruments::Instrument;
     use crate::metrics::MetricId;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;

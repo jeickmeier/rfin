@@ -11,7 +11,7 @@ use crate::instruments::common_impl::models::closed_form::barrier::{
 };
 use crate::instruments::exotics::barrier_option::BarrierType;
 use crate::instruments::fx::fx_barrier_option::FxBarrierOption;
-use crate::instruments::{Attributes, internal::InstrumentExt as Instrument};
+use crate::instruments::{Attributes, Instrument};
 use crate::instruments::{OptionType, PricingOverrides};
 use test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use finstack_core::currency::Currency;

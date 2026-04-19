@@ -20,7 +20,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_valuations::results::ValuationResult;
 use indexmap::IndexMap;

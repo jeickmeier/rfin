@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{FxForward, InstrumentJson};
 use finstack_valuations::instruments::{FxPair, MarketDependencies};
 use std::sync::Arc;

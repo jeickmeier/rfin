@@ -18,12 +18,12 @@
 //! use finstack_scenarios::horizon::HorizonAnalysis;
 //! use finstack_scenarios::{OperationSpec, ScenarioSpec, TimeRollMode};
 //! use finstack_core::market_data::context::MarketContext;
-//! use finstack_valuations::instruments::internal::InstrumentExt;
+//! use finstack_valuations::instruments::Instrument;
 //! use std::sync::Arc;
 //! use time::macros::date;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let instrument: Arc<dyn InstrumentExt> = todo!("your instrument");
+//! let instrument: Arc<dyn Instrument> = todo!("your instrument");
 //! let market = MarketContext::new();
 //! let as_of = date!(2025-01-15);
 //!
@@ -70,7 +70,7 @@ use finstack_valuations::attribution::{
     attribute_pnl_waterfall, default_attribution_metrics, AttributionFactor, AttributionMethod,
     PnlAttribution,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOptions;
 
 use crate::engine::ApplicationReport;

@@ -11,8 +11,8 @@ use finstack_valuations::cashflow::builder::FloatingRateSpec;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::pricing_overrides::{MarketQuoteOverrides, PricingOverrides};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::Decimal;
 use time::macros::date;

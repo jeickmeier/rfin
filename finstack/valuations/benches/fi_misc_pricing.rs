@@ -29,7 +29,7 @@ use finstack_valuations::instruments::fixed_income::tba::AgencyTba;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, RateSpec, TermLoan,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use rust_decimal::Decimal;
 use std::hint::black_box;
 use time::Month;

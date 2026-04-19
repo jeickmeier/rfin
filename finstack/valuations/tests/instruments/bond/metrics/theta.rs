@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -93,9 +93,10 @@ fn test_theta_sign_diagnostic() {
     eprintln!("df_on_curve(rolled_date) = {df_base_to_rolled}");
     eprintln!("df_on_curve(as_of) = {df_base_to_as_of}");
 
-    use finstack_valuations::instruments::Instrument as InstrumentPub;
-    let dated_flows_base = InstrumentPub::dated_cashflows(&bond, &market, as_of).unwrap();
-    let dated_flows_rolled = InstrumentPub::dated_cashflows(&bond, &market, rolled_date).unwrap();
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+    let dated_flows_base = CashflowProvider::dated_cashflows(&bond, &market, as_of).unwrap();
+    let dated_flows_rolled =
+        CashflowProvider::dated_cashflows(&bond, &market, rolled_date).unwrap();
     eprintln!("dated_flows at as_of: {} items", dated_flows_base.len());
     for (d, m) in &dated_flows_base {
         eprintln!("  {d}: {}", m.amount());

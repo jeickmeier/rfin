@@ -165,7 +165,7 @@ mod tests {
 
         fn price_dyn(
             &self,
-            _instrument: &dyn crate::instruments::internal::InstrumentExt,
+            _instrument: &dyn crate::instruments::Instrument,
             _market: &finstack_core::market_data::MarketContext,
             as_of: finstack_core::dates::Date,
         ) -> PricingResult<ValuationResult> {

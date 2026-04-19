@@ -1,7 +1,7 @@
 //! Market validation tests for CDS index option specific features.
 
 use super::common::*;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::SettlementType;
 use time::macros::date;
 

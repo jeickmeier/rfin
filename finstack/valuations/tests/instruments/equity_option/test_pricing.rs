@@ -1,7 +1,7 @@
 //! Tests for Black-Scholes pricing implementation.
 
 use super::helpers::*;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[ignore = "slow"]

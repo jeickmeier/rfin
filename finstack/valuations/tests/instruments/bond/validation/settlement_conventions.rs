@@ -16,7 +16,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::{
     Bond, CallPut, CallPutSchedule, CashflowSpec,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use time::Month;
 

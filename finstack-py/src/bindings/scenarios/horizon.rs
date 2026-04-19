@@ -50,8 +50,7 @@ pub(crate) fn compute_horizon_return<'py>(
     // Parse instrument
     let inst: InstrumentJson = serde_json::from_str(instrument_json).map_err(display_to_py)?;
     let boxed = inst.into_boxed().map_err(display_to_py)?;
-    let instrument: Arc<dyn finstack_valuations::instruments::internal::InstrumentExt> =
-        Arc::from(boxed);
+    let instrument: Arc<dyn finstack_valuations::instruments::Instrument> = Arc::from(boxed);
 
     // Parse market
     let market_ctx = extract_market(market)?;

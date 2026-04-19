@@ -1,7 +1,7 @@
 //! Gamma tests
 
 use crate::swaption::common::*;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 #[test]

@@ -16,9 +16,9 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::common::pricing::swap_legs::add_payment_delay;
-use finstack_valuations::instruments::internal::InstrumentExt;
 use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 fn build_test_curves() -> MarketContext {

@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::RealizedVarMethod;
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use std::sync::Arc;
 
 #[test]

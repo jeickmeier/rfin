@@ -418,7 +418,7 @@ fn test_non_seasoned_facility_ignores_fixings() {
 /// with fixings in the market context.
 #[test]
 fn test_pricer_integration_with_fixings() {
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
 
     let commitment_date = date!(2024 - 07 - 01);
     let maturity_date = date!(2025 - 07 - 01);

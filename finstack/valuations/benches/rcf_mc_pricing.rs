@@ -29,7 +29,7 @@ use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, CreditSpreadProcessSpec, DrawRepaySpec, McConfig, RevolvingCredit,
     RevolvingCreditFees, StochasticUtilizationSpec, UtilizationProcess,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use std::hint::black_box;
 use time::Month;
 

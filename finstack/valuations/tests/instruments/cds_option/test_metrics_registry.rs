@@ -1,7 +1,7 @@
 //! Tests for CDS Option metrics framework integration.
 
 use super::common::*;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use time::macros::date;
 

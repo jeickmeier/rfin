@@ -847,7 +847,7 @@ fn test_conversion_factor_calculation_accuracy() {
 /// 4. DV01 magnitude is reasonable for a 10-year futures contract
 #[test]
 fn test_bond_future_dv01_calculation() {
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
 
@@ -1009,7 +1009,7 @@ fn test_bond_future_dv01_calculation() {
 /// DV01 should have opposite sign for short vs long positions.
 #[test]
 fn test_bond_future_dv01_sign_convention() {
-    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
 

@@ -42,7 +42,7 @@ use finstack_core::dates::Date;
 use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::norm_cdf;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;

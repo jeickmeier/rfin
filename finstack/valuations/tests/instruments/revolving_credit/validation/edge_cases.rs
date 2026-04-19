@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;

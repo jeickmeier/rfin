@@ -6,7 +6,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::repo::{CollateralSpec, Repo, RepoType};
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use rust_decimal::Decimal;
 
 #[test]

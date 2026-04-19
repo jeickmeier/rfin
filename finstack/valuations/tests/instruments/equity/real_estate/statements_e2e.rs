@@ -9,7 +9,7 @@ use finstack_statements_analytics::templates::RealEstateExtension;
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn e2e_statements_to_real_estate_asset_cashflows_prices() {

@@ -10,7 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::{
     OptionGreekKind, OptionGreeksProvider, OptionGreeksRequest,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{Attributes, ExerciseStyle, FxOption, OptionType};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;

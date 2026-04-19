@@ -10,7 +10,7 @@ use finstack_core::{
 };
 use finstack_valuations::{
     cashflow::CashflowProvider,
-    instruments::{internal::InstrumentExt as Instrument, FxSpot},
+    instruments::{FxSpot, Instrument},
     pricer::InstrumentType,
 };
 use std::sync::Arc;

@@ -17,7 +17,7 @@ use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;

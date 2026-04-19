@@ -26,7 +26,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::pe_fund::{
     ClawbackSettle, ClawbackSpec, FundEvent, PrivateMarketsFund, WaterfallSpec, WaterfallStyle,
 };
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use std::hint::black_box;
 use time::macros::date;
 use time::{Date, Month};

@@ -29,7 +29,7 @@ use finstack_valuations::instruments::fx::fx_touch_option::{
 };
 use finstack_valuations::instruments::fx::fx_variance_swap::FxVarianceSwap;
 use finstack_valuations::instruments::fx::quanto_option::QuantoOption;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{Attributes, OptionType, PricingOverrides};
 use std::hint::black_box;
 use std::sync::Arc;

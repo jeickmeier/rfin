@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_breakeven_via_standard_registry() {
-        use crate::instruments::common_impl::traits::Instrument as InstrumentExt;
+        use crate::instruments::common_impl::traits::Instrument;
         use crate::instruments::PricingOptions;
         use crate::instruments::PricingOverrides;
 
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_breakeven_horizon_matches_carry_horizon() {
-        use crate::instruments::common_impl::traits::Instrument as InstrumentExt;
+        use crate::instruments::common_impl::traits::Instrument;
         use crate::instruments::PricingOptions;
         use crate::instruments::PricingOverrides;
 

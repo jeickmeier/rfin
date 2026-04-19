@@ -5,8 +5,8 @@
 
 use super::utils::*;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::ir_future::{FutureContractSpecs, Position};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

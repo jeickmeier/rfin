@@ -13,7 +13,7 @@ use finstack_valuations::attribution::{
     attribute_pnl_parallel, attribute_pnl_waterfall, default_waterfall_order,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::internal::InstrumentExt;
+use finstack_valuations::instruments::Instrument;
 use std::hint::black_box;
 use std::sync::Arc;
 use time::Date;
@@ -72,7 +72,7 @@ fn bench_attribution_parallel_1_bond(c: &mut Criterion) {
     let as_of_t1 = test_utils::date(2025, 1, 16);
     let (market_t0, market_t1) = markets_t0_t1(as_of_t0, as_of_t1);
     let config = FinstackConfig::default();
-    let bond: Arc<dyn InstrumentExt> = Arc::new(sample_bond("BENCH-BOND-1", 5));
+    let bond: Arc<dyn Instrument> = Arc::new(sample_bond("BENCH-BOND-1", 5));
 
     c.bench_function("parallel_1_bond", |b| {
         b.iter(|| {
@@ -96,7 +96,7 @@ fn bench_attribution_waterfall_1_bond(c: &mut Criterion) {
     let as_of_t1 = test_utils::date(2025, 1, 16);
     let (market_t0, market_t1) = markets_t0_t1(as_of_t0, as_of_t1);
     let config = FinstackConfig::default();
-    let bond: Arc<dyn InstrumentExt> = Arc::new(sample_bond("BENCH-BOND-1", 5));
+    let bond: Arc<dyn Instrument> = Arc::new(sample_bond("BENCH-BOND-1", 5));
     let factor_order = default_waterfall_order();
 
     c.bench_function("waterfall_1_bond", |b| {
@@ -123,10 +123,10 @@ fn bench_attribution_parallel_5_bonds(c: &mut Criterion) {
     let as_of_t1 = test_utils::date(2025, 1, 16);
     let (market_t0, market_t1) = markets_t0_t1(as_of_t0, as_of_t1);
     let config = FinstackConfig::default();
-    let bonds: Vec<Arc<dyn InstrumentExt>> = (0..5)
+    let bonds: Vec<Arc<dyn Instrument>> = (0..5)
         .map(|i| {
             let id = format!("BENCH-BOND-{i}");
-            Arc::new(sample_bond(id.as_str(), 3 + i * 2)) as Arc<dyn InstrumentExt>
+            Arc::new(sample_bond(id.as_str(), 3 + i * 2)) as Arc<dyn Instrument>
         })
         .collect();
 
