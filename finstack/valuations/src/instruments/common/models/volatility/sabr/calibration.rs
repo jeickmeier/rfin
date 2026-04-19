@@ -50,7 +50,7 @@ impl SABRCalibrator {
     /// consider using tighter tolerance:
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::common::models::volatility::sabr::SABRCalibrator;
+    /// use finstack_valuations::instruments::models::volatility::sabr::SABRCalibrator;
     ///
     /// let _calibrator = SABRCalibrator::new();
     ///
@@ -310,7 +310,7 @@ impl SABRCalibrator {
         }
 
         // Use analytical derivatives from the parent module
-        use crate::instruments::common::models::volatility::sabr_derivatives::{
+        use crate::instruments::models::volatility::sabr_derivatives::{
             SABRCalibrationDerivatives, SABRMarketData,
         };
         use finstack_core::math::solver_multi::LevenbergMarquardtSolver;

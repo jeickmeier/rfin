@@ -1,9 +1,9 @@
 //! Merton Monte Carlo engine for PIK bonds with structural credit risk.
 //!
-//! Orchestrates [`crate::instruments::common::models::credit::MertonModel`],
-//! [`crate::instruments::common::models::credit::EndogenousHazardSpec`],
-//! [`crate::instruments::common::models::credit::DynamicRecoverySpec`], and
-//! [`crate::instruments::common::models::credit::ToggleExerciseModel`] into a
+//! Orchestrates [`crate::instruments::models::credit::MertonModel`],
+//! [`crate::instruments::models::credit::EndogenousHazardSpec`],
+//! [`crate::instruments::models::credit::DynamicRecoverySpec`], and
+//! [`crate::instruments::models::credit::ToggleExerciseModel`] into a
 //! unified Monte Carlo simulation for pricing bonds with PIK (payment-in-kind)
 //! features.
 //!
@@ -23,7 +23,7 @@
 //!
 //! This module requires the `mc` feature.
 
-use crate::instruments::common::models::credit::{
+use crate::instruments::models::credit::{
     AssetDynamics, BarrierType, CreditState, DynamicRecoverySpec, EndogenousHazardSpec,
     MertonModel, ToggleExerciseModel,
 };
@@ -988,13 +988,13 @@ pub mod calibration {
         CalibrationParameter, MertonMcCalibrationSpec, MertonMcConfig, PikMode, PikSchedule,
     };
     use crate::cashflow::builder::specs::CouponType;
-    use crate::instruments::common::models::credit::{AssetDynamics, BarrierType, MertonModel};
     use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
         price_from_ytm, price_from_z_spread, BondQuoteInput,
     };
     use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
     use crate::instruments::fixed_income::bond::types::Bond;
     use crate::instruments::fixed_income::bond::CashflowSpec;
+    use crate::instruments::models::credit::{AssetDynamics, BarrierType, MertonModel};
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::{InputError, Result};
@@ -1253,8 +1253,8 @@ pub mod calibration {
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::models::credit::toggle_exercise::ThresholdDirection;
-    use crate::instruments::common::models::credit::{
+    use crate::instruments::models::credit::toggle_exercise::ThresholdDirection;
+    use crate::instruments::models::credit::{
         AssetDynamics, BarrierType, CreditStateVariable, DynamicRecoverySpec, EndogenousHazardSpec,
         MertonModel, ToggleExerciseModel,
     };

@@ -234,8 +234,8 @@ fn test_bond_serde_roundtrip_preserves_funding_curve_id() {
 #[cfg(feature = "mc")]
 #[test]
 fn bond_price_merton_mc_api() {
-    use crate::instruments::common::models::credit::MertonModel;
     use crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig;
+    use crate::instruments::models::credit::MertonModel;
 
     // Use Corporate convention (30/360) to avoid ActActIsma frequency requirement
     let bond = Bond::with_convention(

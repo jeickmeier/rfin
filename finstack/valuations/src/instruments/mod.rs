@@ -78,24 +78,11 @@
 //!
 //! # API Layers
 //!
-//! - **Layer 1 (ergonomic)**: `finstack_valuations::instruments::*` for instrument types and
-//!   convenience re-exports.
-//! - **Layer 2 (canonical shared API)**: `finstack_valuations::instruments::common` for shared
-//!   traits, parameters, schedules, models, and Monte Carlo primitives.
-//! - **Internal**: `common_impl` is crate-private plumbing.
-//!
-//! ## Migration
-//!
-//! ```rust,ignore
-//! // Before
-//! use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec, Instrument};
-//!
-//! // After
-//! use finstack_valuations::instruments::common::{
-//!     parameters::*,
-//!     traits::Instrument,
-//! };
-//! ```
+//! - **Public**: `finstack_valuations::instruments::*` — instrument types, shared traits
+//!   (`Instrument`, `CurveDependencies`, ...), parameter types, and the `pricing`/`models`
+//!   sub-modules for shared pricing infrastructure and model primitives.
+//! - **Internal**: `common_impl` is crate-private plumbing; nothing below it needs to be
+//!   referenced from outside the crate.
 //!
 //! # Supported Instrument Types
 //!
@@ -139,8 +126,8 @@
 //!
 //! # See Also
 //!
-//! - [`crate::instruments::common::traits::Instrument`] for the core instrument trait
-//! - [`crate::instruments::common::traits::Attributes`] for tagging and scenario selection
+//! - [`crate::instruments::traits::Instrument`] for the core instrument trait
+//! - [`crate::instruments::traits::Attributes`] for tagging and scenario selection
 //! - [`crate::pricer`] for pricing registry and dispatch
 //! - [`crate::metrics`] for risk metric calculations
 //!
@@ -155,37 +142,21 @@
 #[path = "common/mod.rs"]
 pub(crate) mod common_impl;
 
-/// Shared functionality used across multiple instruments.
-///
-/// This module groups reusable building blocks (traits, parameters, schedules, models, etc.)
-/// behind a single stable namespace: `finstack_valuations::instruments::common`.
-/// Prefer this module for shared parameters/traits and advanced model access.
-pub mod common {
-    pub use super::common_impl::dependencies::{FxPair, MarketDependencies};
-    pub use super::common_impl::discountable::Discountable;
-    pub use super::common_impl::fx_dates::{
-        add_joint_business_days, adjust_joint_calendar, roll_spot_date, ResolvedCalendarPair,
-    };
-    pub use super::common_impl::helpers::validate_currency_consistency;
-    pub use super::common_impl::period_pv::PeriodizedPvExt;
-    pub use super::common_impl::traits::{
-        Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,
-        EquityInstrumentDeps, EquityInstrumentDepsBuilder, Instrument, InstrumentCurves,
-        InstrumentCurvesBuilder, OptionGreekKind, OptionGreeks, OptionGreeksProvider,
-        OptionGreeksRequest, PricingOptions, RatesCurveKind,
-    };
-    pub use finstack_core::dates::fx::resolve_calendar;
-
-    /// Shared pricing infrastructure (schedules, generic pricers, TRS engine, etc.).
-    pub mod pricing {
-        pub use super::super::common_impl::pricing::*;
-    }
-
-    /// Pricing models (closed-form, trees, volatility, Monte Carlo, etc.).
-    pub mod models {
-        pub use super::super::common_impl::models::*;
-    }
+/// Shared pricing infrastructure (schedules, generic pricers, TRS engine, etc.).
+pub mod pricing {
+    pub use super::common_impl::pricing::*;
 }
+
+/// Pricing models (closed-form, trees, volatility, Monte Carlo, etc.).
+pub mod models {
+    pub use super::common_impl::models::*;
+}
+
+pub use common_impl::fx_dates::{
+    add_joint_business_days, adjust_joint_calendar, roll_spot_date, ResolvedCalendarPair,
+};
+pub use common_impl::helpers::validate_currency_consistency;
+pub use finstack_core::dates::fx::resolve_calendar;
 
 // === Category Modules ===
 /// Commodity derivatives.
@@ -258,7 +229,9 @@ pub use common_impl::period_pv::PeriodizedPvExt;
 pub use common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
 pub use common_impl::traits::{
     Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,
-    EquityInstrumentDeps, Instrument, InstrumentCurves, PricingOptions, RatesCurveKind,
+    EquityInstrumentDeps, EquityInstrumentDepsBuilder, Instrument, InstrumentCurves,
+    InstrumentCurvesBuilder, OptionGreekKind, OptionGreeks, OptionGreeksProvider,
+    OptionGreeksRequest, PricingOptions, RatesCurveKind,
 };
 
 // === Parameter Types ===

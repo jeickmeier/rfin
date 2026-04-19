@@ -421,8 +421,8 @@ mod tests {
     use finstack_valuations::factor_model::sensitivity::{
         FactorSensitivityEngine, SensitivityMatrix,
     };
-    use finstack_valuations::instruments::common::MarketDependencies;
     use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::MarketDependencies;
     use finstack_valuations::pricer::InstrumentType;
     use std::any::Any;
     use std::sync::Arc;

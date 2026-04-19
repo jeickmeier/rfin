@@ -629,7 +629,7 @@ fn heston_pj(
 /// # Example
 ///
 /// ```text
-/// use finstack_valuations::instruments::common::models::closed_form::heston::{
+/// use finstack_valuations::instruments::models::closed_form::heston::{
 ///     heston_call_price_fourier, HestonParams,
 /// };
 ///

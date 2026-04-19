@@ -33,7 +33,7 @@ use super::problem2d::PdeProblem2D;
 /// # Fields
 ///
 /// All parameters follow the conventions in
-/// [`crate::instruments::common::models::closed_form::heston::HestonParams`].
+/// [`crate::instruments::models::closed_form::heston::HestonParams`].
 pub struct HestonPde {
     /// Risk-free interest rate (continuous, decimal).
     pub r: f64,
@@ -142,7 +142,7 @@ mod tests {
         rho: f64,
         v0: f64,
     ) -> f64 {
-        use crate::instruments::common::models::closed_form::heston::{
+        use crate::instruments::models::closed_form::heston::{
             heston_call_price_fourier, HestonParams,
         };
         let params =

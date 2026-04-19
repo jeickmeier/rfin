@@ -7,11 +7,11 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxMatrix, FxQuery, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::{
-    OptionGreekKind, OptionGreeksProvider, OptionGreeksRequest,
-};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{Attributes, ExerciseStyle, FxOption, OptionType};
+use finstack_valuations::instruments::{
+    OptionGreekKind, OptionGreeksProvider, OptionGreeksRequest,
+};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;

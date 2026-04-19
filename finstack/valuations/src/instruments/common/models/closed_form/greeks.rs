@@ -70,7 +70,7 @@
 //! ## Computing All Greeks
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::common::models::closed_form::greeks::{
+//! use finstack_valuations::instruments::models::closed_form::greeks::{
 //!     bs_call_greeks, BsGreeks
 //! };
 //!
@@ -88,7 +88,7 @@
 //! ## Individual Greek Calculations
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::common::models::closed_form::greeks::{
+//! use finstack_valuations::instruments::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
 //!
@@ -148,7 +148,7 @@ use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
 /// # Examples
 ///
 /// ```rust,ignore
-/// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_call_delta;
+/// use finstack_valuations::instruments::models::closed_form::greeks::bs_call_delta;
 ///
 /// let spot = 100.0;
 /// let strike = 100.0;    // ATM
@@ -211,7 +211,7 @@ pub fn bs_call_delta(
 /// # Examples
 ///
 /// ```rust,ignore
-/// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_put_delta;
+/// use finstack_valuations::instruments::models::closed_form::greeks::bs_put_delta;
 ///
 /// let spot = 100.0;
 /// let strike = 100.0;    // ATM
@@ -270,7 +270,7 @@ pub fn bs_put_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
 /// # Examples
 ///
 /// ```rust,ignore
-/// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_gamma;
+/// use finstack_valuations::instruments::models::closed_form::greeks::bs_gamma;
 ///
 /// let spot = 100.0;
 /// let strike = 100.0;    // ATM has highest gamma
@@ -335,7 +335,7 @@ pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vo
 /// # Examples
 ///
 /// ```rust,ignore
-/// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_vega;
+/// use finstack_valuations::instruments::models::closed_form::greeks::bs_vega;
 ///
 /// let spot = 100.0;
 /// let strike = 100.0;

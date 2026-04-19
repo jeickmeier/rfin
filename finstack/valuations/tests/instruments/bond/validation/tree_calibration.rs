@@ -8,10 +8,10 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::models::{
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::models::{
     NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel, TreeValuator,
 };
-use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 

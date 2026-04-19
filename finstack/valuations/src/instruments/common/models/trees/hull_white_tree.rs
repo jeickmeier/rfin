@@ -173,8 +173,8 @@ impl HullWhiteTree {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::trees::HullWhiteTree;
-    /// use finstack_valuations::instruments::common::models::trees::HullWhiteTreeConfig;
+    /// use finstack_valuations::instruments::models::trees::HullWhiteTree;
+    /// use finstack_valuations::instruments::models::trees::HullWhiteTreeConfig;
     ///
     /// let config = HullWhiteTreeConfig::default();
     /// # let discount_curve: &dyn finstack_core::market_data::traits::Discounting = todo!();

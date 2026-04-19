@@ -81,7 +81,7 @@ impl BinomialTree {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::common::models::trees::BinomialTree;
+    /// use finstack_valuations::instruments::models::trees::BinomialTree;
     ///
     /// let tree = BinomialTree::leisen_reimer_odd(100);
     /// assert_eq!(tree.steps, 101);

@@ -5,7 +5,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::{BusinessDayConvention, Date};
-use finstack_valuations::instruments::common::{add_joint_business_days, roll_spot_date};
+use finstack_valuations::instruments::{add_joint_business_days, roll_spot_date};
 use std::hint::black_box;
 use time::Month;
 

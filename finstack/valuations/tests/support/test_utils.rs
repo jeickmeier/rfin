@@ -13,7 +13,7 @@ use finstack_core::{
 use rust_decimal::Decimal;
 use time::Month;
 
-use finstack_valuations::instruments::common::CurveIdVec;
+use finstack_valuations::instruments::CurveIdVec;
 use finstack_valuations::instruments::{EquityUnderlyingParams, FixedLegSpec, FloatLegSpec, FxUnderlyingParams};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::credit_derivatives::cds::{
@@ -151,12 +151,12 @@ impl Instrument for TestInstrument {
 
     fn market_dependencies(
         &self,
-    ) -> finstack_core::Result<finstack_valuations::instruments::common::MarketDependencies> {
+    ) -> finstack_core::Result<finstack_valuations::instruments::MarketDependencies> {
         let mut deps =
-            finstack_valuations::instruments::common::MarketDependencies::new();
+            finstack_valuations::instruments::MarketDependencies::new();
         for curve in &self.discount_curves {
             deps.add_curves(
-                finstack_valuations::instruments::common::InstrumentCurves::builder()
+                finstack_valuations::instruments::InstrumentCurves::builder()
                     .discount(curve.clone())
                     .build()?,
             );

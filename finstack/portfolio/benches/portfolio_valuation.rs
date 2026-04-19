@@ -37,7 +37,6 @@ use finstack_portfolio::valuation::{revalue_affected, value_portfolio};
 use finstack_portfolio::PortfolioBuilder;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::common::RatesCurveKind;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
@@ -69,6 +68,7 @@ use finstack_valuations::instruments::rates::swaption::SwaptionParams;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::EquityUnderlyingParams;
+use finstack_valuations::instruments::RatesCurveKind;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
 use rust_decimal_macros::dec;
 use std::hint::black_box;

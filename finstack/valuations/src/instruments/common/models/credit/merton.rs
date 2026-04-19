@@ -13,7 +13,7 @@
 //! # Examples
 //!
 //! ```
-//! use finstack_valuations::instruments::common::models::credit::MertonModel;
+//! use finstack_valuations::instruments::models::credit::MertonModel;
 //!
 //! let model = MertonModel::new(100.0, 0.20, 80.0, 0.05).unwrap();
 //! let dd = model.distance_to_default(1.0);

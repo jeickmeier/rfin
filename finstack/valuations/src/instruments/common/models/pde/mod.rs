@@ -22,7 +22,7 @@
 //! For standard Black-Scholes pricing, use the [`BlackScholesPde`] bridge:
 //!
 //! ```rust,ignore
-//! use finstack_valuations::instruments::common::models::pde::*;
+//! use finstack_valuations::instruments::models::pde::*;
 //!
 //! let pde = BlackScholesPde {
 //!     sigma: 0.2, rate: 0.05, dividend: 0.0,

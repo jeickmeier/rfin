@@ -13,11 +13,11 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, BondFutureSpecs, DeliverableBond, Position,
 };
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;

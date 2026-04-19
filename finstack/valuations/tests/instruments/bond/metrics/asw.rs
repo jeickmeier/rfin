@@ -182,7 +182,7 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
     let annuity: f64 = periods
         .iter()
         .map(|p| {
-            finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+            finstack_valuations::instruments::pricing::time::relative_df_discount_curve(
                 &disc,
                 as_of,
                 p.payment_date,
@@ -191,13 +191,13 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
                 * p.accrual_year_fraction
         })
         .sum();
-    let p0 = finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+    let p0 = finstack_valuations::instruments::pricing::time::relative_df_discount_curve(
         &disc,
         as_of,
         bond.issue_date,
     )
     .expect("df");
-    let pn = finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+    let pn = finstack_valuations::instruments::pricing::time::relative_df_discount_curve(
         &disc,
         as_of,
         periods.last().expect("periods").payment_date,

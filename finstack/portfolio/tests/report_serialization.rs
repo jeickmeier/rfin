@@ -11,7 +11,7 @@ use finstack_portfolio::dependencies::MarketFactorKey;
 use finstack_portfolio::types::PositionId;
 use finstack_valuations::cashflow::builder::CashflowRepresentation;
 use finstack_valuations::cashflow::DatedFlows;
-use finstack_valuations::instruments::common::RatesCurveKind;
+use finstack_valuations::instruments::RatesCurveKind;
 use indexmap::IndexMap;
 
 fn roundtrip_json<T>(value: &T) -> T

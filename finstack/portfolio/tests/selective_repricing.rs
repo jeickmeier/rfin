@@ -14,9 +14,9 @@ use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::valuation::{revalue_affected, value_portfolio, PortfolioValuationOptions};
 use finstack_portfolio::{Portfolio, PortfolioBuilder};
-use finstack_valuations::instruments::common::RatesCurveKind;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::RatesCurveKind;
 use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
@@ -359,7 +359,7 @@ fn base_then_selective_reprice_round_trip() {
 /// Stub instrument whose `market_dependencies()` always fails.
 #[derive(Clone)]
 struct UnresolvableInstrument {
-    attributes: finstack_valuations::instruments::common::Attributes,
+    attributes: finstack_valuations::instruments::Attributes,
 }
 
 finstack_valuations::impl_empty_cashflow_provider!(
@@ -370,7 +370,7 @@ finstack_valuations::impl_empty_cashflow_provider!(
 impl UnresolvableInstrument {
     fn new() -> Self {
         Self {
-            attributes: finstack_valuations::instruments::common::Attributes::default(),
+            attributes: finstack_valuations::instruments::Attributes::default(),
         }
     }
 }
@@ -388,10 +388,10 @@ impl Instrument for UnresolvableInstrument {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
-    fn attributes(&self) -> &finstack_valuations::instruments::common::Attributes {
+    fn attributes(&self) -> &finstack_valuations::instruments::Attributes {
         &self.attributes
     }
-    fn attributes_mut(&mut self) -> &mut finstack_valuations::instruments::common::Attributes {
+    fn attributes_mut(&mut self) -> &mut finstack_valuations::instruments::Attributes {
         &mut self.attributes
     }
     fn clone_box(&self) -> Box<dyn Instrument> {

@@ -155,7 +155,7 @@ impl BsGreeks {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::common::models::closed_form::vanilla::bs_price;
+/// use finstack_valuations::instruments::models::closed_form::vanilla::bs_price;
 /// use finstack_valuations::instruments::OptionType;
 ///
 /// let price = bs_price(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call);
@@ -258,7 +258,7 @@ pub fn bs_price(
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::common::models::closed_form::vanilla::{bs_greeks, BsGreeks};
+/// use finstack_valuations::instruments::models::closed_form::vanilla::{bs_greeks, BsGreeks};
 /// use finstack_valuations::instruments::OptionType;
 ///
 /// let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);

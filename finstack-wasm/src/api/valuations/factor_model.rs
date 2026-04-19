@@ -30,7 +30,7 @@ pub fn compute_factor_sensitivities(
     bump_config_json: Option<String>,
 ) -> Result<String, JsValue> {
     let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(to_js_err)?;
-    let instruments: Vec<Box<finstack_valuations::instruments::common::DynInstrument>> = specs
+    let instruments: Vec<Box<finstack_valuations::instruments::DynInstrument>> = specs
         .iter()
         .map(|p| {
             let inst: finstack_valuations::instruments::InstrumentJson =
@@ -95,7 +95,7 @@ pub fn compute_pnl_profiles(
 ) -> Result<String, JsValue> {
     let n_points = n_scenario_points.unwrap_or(5);
     let specs: Vec<PositionInput> = serde_json::from_str(positions_json).map_err(to_js_err)?;
-    let instruments: Vec<Box<finstack_valuations::instruments::common::DynInstrument>> = specs
+    let instruments: Vec<Box<finstack_valuations::instruments::DynInstrument>> = specs
         .iter()
         .map(|p| {
             let inst: finstack_valuations::instruments::InstrumentJson =

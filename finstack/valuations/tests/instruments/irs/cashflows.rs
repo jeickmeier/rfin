@@ -15,7 +15,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use finstack_valuations::cashflow::CashflowProvider;
-use finstack_valuations::instruments::common::pricing::swap_legs::add_payment_delay;
+use finstack_valuations::instruments::pricing::swap_legs::add_payment_delay;
 use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::instruments::Instrument;

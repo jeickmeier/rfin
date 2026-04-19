@@ -88,7 +88,7 @@ pub fn d2(spot: f64, strike: f64, r: f64, sigma: f64, t: f64, q: f64) -> f64 {
 ///
 /// # Example
 /// ```rust,no_run
-/// use finstack_valuations::instruments::common::models::volatility::black::d1_d2;
+/// use finstack_valuations::instruments::models::volatility::black::d1_d2;
 ///
 /// let (d1, d2) = d1_d2(100.0, 100.0, 0.05, 0.20, 1.0, 0.02);
 /// assert!(d1 > d2);
@@ -166,7 +166,7 @@ pub fn d2_black76(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
 ///
 /// # Example
 /// ```rust,no_run
-/// use finstack_valuations::instruments::common::models::volatility::black::d1_d2_black76;
+/// use finstack_valuations::instruments::models::volatility::black::d1_d2_black76;
 ///
 /// let (d1, d2) = d1_d2_black76(0.05, 0.05, 0.20, 1.0);
 /// assert!(d1 > d2);

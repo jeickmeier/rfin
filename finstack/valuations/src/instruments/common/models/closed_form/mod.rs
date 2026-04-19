@@ -92,7 +92,7 @@
 //! ## Black-Scholes Greeks
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::common::models::closed_form::greeks::{
+//! use finstack_valuations::instruments::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
 //!
@@ -113,7 +113,7 @@
 //! ## Barrier Option
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::common::models::closed_form::barrier::down_out_call;
+//! use finstack_valuations::instruments::models::closed_form::barrier::down_out_call;
 //!
 //! let spot = 100.0;
 //! let strike = 100.0;

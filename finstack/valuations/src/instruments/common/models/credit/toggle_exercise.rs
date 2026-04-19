@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```
-//! use finstack_valuations::instruments::common::models::credit::toggle_exercise::{
+//! use finstack_valuations::instruments::models::credit::toggle_exercise::{
 //!     CreditState, CreditStateVariable, ThresholdDirection, ToggleExerciseModel,
 //! };
 //! use finstack_core::math::random::Pcg64Rng;

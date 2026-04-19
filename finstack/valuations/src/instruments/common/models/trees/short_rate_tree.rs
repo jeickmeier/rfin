@@ -151,7 +151,7 @@ pub enum ShortRateModel {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
+/// use finstack_valuations::instruments::models::trees::short_rate_tree::{
 ///     ShortRateTreeConfig, ShortRateModel, DEFAULT_NORMAL_VOL, DEFAULT_LOGNORMAL_VOL,
 /// };
 ///
@@ -231,7 +231,7 @@ impl ShortRateTreeConfig {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTreeConfig;
+    /// use finstack_valuations::instruments::models::trees::short_rate_tree::ShortRateTreeConfig;
     ///
     /// // 100 steps, 80 bps normal vol
     /// let config = ShortRateTreeConfig::ho_lee(100, 0.008);
@@ -260,7 +260,7 @@ impl ShortRateTreeConfig {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTreeConfig;
+    /// use finstack_valuations::instruments::models::trees::short_rate_tree::ShortRateTreeConfig;
     ///
     /// // 100 steps, 20% lognormal vol, 3% mean reversion
     /// let config = ShortRateTreeConfig::bdt(100, 0.20, 0.03);
@@ -325,7 +325,7 @@ impl ShortRateTreeConfig {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
+    /// use finstack_valuations::instruments::models::trees::short_rate_tree::{
     ///     ShortRateTreeConfig, ShortRateModel,
     /// };
     ///
@@ -440,7 +440,7 @@ impl ShortRateTree {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTree;
+    /// use finstack_valuations::instruments::models::trees::short_rate_tree::ShortRateTree;
     ///
     /// // Ho-Lee with 100 bps annual volatility
     /// let tree = ShortRateTree::ho_lee(100, 0.01);
@@ -460,7 +460,7 @@ impl ShortRateTree {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTree;
+    /// use finstack_valuations::instruments::models::trees::short_rate_tree::ShortRateTree;
     ///
     /// // BDT with 20% lognormal volatility, 3% mean reversion
     /// let tree = ShortRateTree::black_derman_toy(100, 0.20, 0.03);

@@ -1,5 +1,5 @@
 use super::model::SABRModel;
-use crate::instruments::common::models::volatility::black::d1_d2;
+use crate::instruments::models::volatility::black::d1_d2;
 use finstack_core::{Error, Result};
 
 /// SABR smile generator for creating volatility surfaces
@@ -85,7 +85,7 @@ impl SABRSmile {
     /// # Example
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::common::models::volatility::sabr::{
+    /// use finstack_valuations::instruments::models::volatility::sabr::{
     ///     SABRParameters, SABRModel, SABRSmile,
     /// };
     ///
