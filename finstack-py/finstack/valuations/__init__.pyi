@@ -6,9 +6,11 @@ import pandas as pd
 
 from finstack.core.market_data import MarketContext
 from finstack.valuations import correlation as correlation
+from finstack.valuations import instruments as instruments
 
 __all__ = [
     "correlation",
+    "instruments",
     "ValuationResult",
     "validate_instrument_json",
     "price_instrument",

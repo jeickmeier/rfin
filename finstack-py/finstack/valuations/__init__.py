@@ -6,7 +6,7 @@ Bindings for the ``finstack-valuations`` Rust crate.
 from __future__ import annotations
 
 from finstack.finstack import valuations as _valuations
-from finstack.valuations import correlation as correlation
+from finstack.valuations import correlation as correlation, instruments as instruments
 
 ValuationResult = _valuations.ValuationResult
 validate_instrument_json = _valuations.validate_instrument_json
@@ -81,6 +81,7 @@ __all__: list[str] = [
     "format_pct",
     "format_ratio",
     "format_scientific",
+    "instruments",
     "list_standard_metrics",
     "list_standard_metrics_grouped",
     "merton_jump_cos_price",
