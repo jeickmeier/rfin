@@ -66,6 +66,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "HazardCurve",
             "InflationCurve",
             "PriceCurve",
+            "VolCube",
             "VolSurface",
             "VolatilityIndexCurve",
             "FxMatrix",

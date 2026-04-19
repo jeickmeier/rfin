@@ -28,13 +28,13 @@ visibility = "pub"
 status = "exists"  # Python package already present
 
 [crates.core.modules]
-cashflow     = { python = "finstack.core.cashflow",     status = "exists" }
+cashflow     = { python = "finstack.core.cashflow",     status = "missing", note = "Core cashflow APIs are not yet materialized as a dedicated Python submodule" }
 config       = { python = "finstack.core.config",       status = "exists" }
 currency     = { python = "finstack.core.currency",     status = "exists" }
 dates        = { python = "finstack.core.dates",        status = "exists" }
 error        = { python = "finstack.core.error",        status = "missing" }
-explain      = { python = "finstack.core.explain",      status = "exists" }
-expr         = { python = "finstack.core.expr",         status = "exists" }
+explain      = { python = "finstack.core.explain",      status = "missing", note = "Explain helpers are not yet surfaced as a dedicated Python submodule" }
+expr         = { python = "finstack.core.expr",         status = "missing", note = "Expression APIs are not yet surfaced as a dedicated Python submodule" }
 factor_model = { python = "finstack.core.factor_model", status = "missing" }
 market_data  = { python = "finstack.core.market_data",  status = "exists" }
 math         = { python = "finstack.core.math",         status = "exists" }
@@ -72,7 +72,7 @@ rust_crate = "finstack-margin"
 rust_lib   = "finstack/margin/src/lib.rs"
 python_package = "finstack.margin"
 visibility = "pub"
-status = "missing"  # Deferred to Wave 3 — margin types scattered in portfolio/valuations
+status = "exists"
 
 [crates.margin.modules]
 calculators = { python = "finstack.margin.calculators", status = "missing" }
@@ -93,12 +93,13 @@ rust_lib   = "finstack/valuations/src/lib.rs"
 python_package = "finstack.valuations"
 visibility = "pub"
 status = "exists"
-# NOTE: valuations lib.rs is large; module-level detail deferred to Wave 3 symbol audit.
+# NOTE: valuations currently exposes a mostly flat Python package plus the
+# dedicated `correlation` subpackage. Additional submodule shims are deferred.
 
 [crates.valuations.modules]
 # Top-level public modules — detailed symbol mapping to follow in Wave 3
-instruments  = { python = "finstack.valuations.instruments",  status = "exists" }
-calibration  = { python = "finstack.valuations.calibration",  status = "exists" }
+instruments  = { python = "finstack.valuations.instruments",  status = "missing", note = "Bindings are currently exported from finstack.valuations root" }
+calibration  = { python = "finstack.valuations.calibration",  status = "missing", note = "Bindings are currently exported from finstack.valuations root" }
 correlation  = { python = "finstack.valuations.correlation",  status = "exists", note = "Former standalone finstack-correlation crate; nested under valuations" }
 # All other valuations submodules are deferred pending detailed lib.rs audit (Wave 3)
 
@@ -113,38 +114,34 @@ visibility = "pub"
 status = "exists"
 
 [crates.statements.modules]
-adjustments      = { python = "finstack.statements.adjustments",       status = "exists" }
-builder          = { python = "finstack.statements.builder",           status = "exists" }
-capital_structure = { python = "finstack.statements.capital_structure", status = "exists" }
-checks           = { python = "finstack.statements.checks",            status = "exists" }
-dsl              = { python = "finstack.statements.dsl",               status = "exists" }
+adjustments      = { python = "finstack.statements.adjustments",       status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+builder          = { python = "finstack.statements.builder",           status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+capital_structure = { python = "finstack.statements.capital_structure", status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+checks           = { python = "finstack.statements.checks",            status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+dsl              = { python = "finstack.statements.dsl",               status = "missing", note = "Bindings are currently exported from finstack.statements root" }
 error            = { python = "finstack.statements.error",             status = "missing" }
-evaluator        = { python = "finstack.statements.evaluator",         status = "exists" }
-extensions       = { python = "finstack.statements.extensions",        status = "exists" }
-forecast         = { python = "finstack.statements.forecast",          status = "exists" }
+evaluator        = { python = "finstack.statements.evaluator",         status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+extensions       = { python = "finstack.statements.extensions",        status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+forecast         = { python = "finstack.statements.forecast",          status = "missing", note = "Bindings are currently exported from finstack.statements root" }
 prelude          = { python = "finstack.statements.prelude",           status = "missing" }
-registry         = { python = "finstack.statements.registry",          status = "exists" }
-types            = { python = "finstack.statements.types",             status = "exists" }
+registry         = { python = "finstack.statements.registry",          status = "missing", note = "Bindings are currently exported from finstack.statements root" }
+types            = { python = "finstack.statements.types",             status = "missing", note = "Bindings are currently exported from finstack.statements root" }
 utils            = { python = "finstack.statements.utils",             status = "missing" }
 
 # ---------------------------------------------------------------------------
-# finstack-statements-analytics  →  finstack.statements.{analysis,templates,extensions}
-#
-# The statements-analytics crate's Rust submodules surface directly under
-# finstack.statements via the umbrella extension module — there is no separate
-# finstack.statements_analytics Python package.
+# finstack-statements-analytics  →  finstack.statements_analytics
 # ---------------------------------------------------------------------------
 [crates.statements_analytics]
 rust_crate = "finstack-statements-analytics"
 rust_lib   = "finstack/statements-analytics/src/lib.rs"
-python_package = "finstack.statements"
+python_package = "finstack.statements_analytics"
 visibility = "pub"
 status = "exists"
 
 [crates.statements_analytics.modules]
-analysis                    = { python = "finstack.statements.analysis",                    status = "exists" }
-extensions                  = { python = "finstack.statements.extensions",                  status = "exists" }
-templates                   = { python = "finstack.statements.templates",                   status = "exists" }
+analysis                    = { python = "finstack.statements_analytics.analysis",         status = "missing", note = "Bindings are currently exported from finstack.statements_analytics root" }
+extensions                  = { python = "finstack.statements_analytics.extensions",       status = "missing", note = "Bindings are currently exported from finstack.statements_analytics root" }
+templates                   = { python = "finstack.statements_analytics.templates",        status = "missing", note = "Bindings are currently exported from finstack.statements_analytics root" }
 
 # ---------------------------------------------------------------------------
 # finstack-portfolio  →  finstack.portfolio
@@ -157,25 +154,25 @@ visibility = "pub"
 status = "exists"
 
 [crates.portfolio.modules]
-attribution  = { python = "finstack.portfolio.attribution",  status = "exists" }
-book         = { python = "finstack.portfolio.book",         status = "exists" }
-builder      = { python = "finstack.portfolio.builder",      status = "exists" }
-cashflows    = { python = "finstack.portfolio.cashflows",    status = "exists" }
-dataframe    = { python = "finstack.portfolio.dataframe",    status = "exists",  note = "Exposes table-envelope helpers" }
+attribution  = { python = "finstack.portfolio.attribution",  status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+book         = { python = "finstack.portfolio.book",         status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+builder      = { python = "finstack.portfolio.builder",      status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+cashflows    = { python = "finstack.portfolio.cashflows",    status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+dataframe    = { python = "finstack.portfolio.dataframe",    status = "missing", note = "Table-envelope helpers are currently exported from finstack.portfolio root" }
 dependencies = { python = "finstack.portfolio.dependencies", status = "missing" }
 error        = { python = "finstack.portfolio.error",        status = "missing" }
-factor_model = { python = "finstack.portfolio.factor_model", status = "exists" }
-grouping     = { python = "finstack.portfolio.grouping",     status = "exists" }
-margin       = { python = "finstack.portfolio.margin",       status = "exists",  note = "Shim → finstack.margin after Wave 3" }
-metrics      = { python = "finstack.portfolio.metrics",      status = "exists" }
-optimization = { python = "finstack.portfolio.optimization", status = "exists" }
-portfolio    = { python = "finstack.portfolio.portfolio",    status = "exists" }
+factor_model = { python = "finstack.portfolio.factor_model", status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+grouping     = { python = "finstack.portfolio.grouping",     status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+margin       = { python = "finstack.portfolio.margin",       status = "missing", note = "Portfolio margin helpers are not materialized as a dedicated submodule" }
+metrics      = { python = "finstack.portfolio.metrics",      status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+optimization = { python = "finstack.portfolio.optimization", status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+portfolio    = { python = "finstack.portfolio.portfolio",    status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
 position     = { python = "finstack.portfolio.position",     status = "missing" }
 prelude      = { python = "finstack.portfolio.prelude",      status = "missing" }
-results      = { python = "finstack.portfolio.results",      status = "exists" }
-types        = { python = "finstack.portfolio.types",        status = "exists" }
-valuation    = { python = "finstack.portfolio.valuation",    status = "exists" }
-scenarios    = { python = "finstack.portfolio.scenarios",    status = "exists",  note = "Feature-gated: scenarios" }
+results      = { python = "finstack.portfolio.results",      status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+types        = { python = "finstack.portfolio.types",        status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+valuation    = { python = "finstack.portfolio.valuation",    status = "missing", note = "Bindings are currently exported from finstack.portfolio root" }
+scenarios    = { python = "finstack.portfolio.scenarios",    status = "missing", note = "Scenario support is exposed via root helpers rather than a dedicated submodule" }
 
 # ---------------------------------------------------------------------------
 # finstack-scenarios  →  finstack.scenarios

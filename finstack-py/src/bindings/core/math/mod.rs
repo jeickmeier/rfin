@@ -36,6 +36,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let all = PyList::new(
         py,
         [
+            "count_consecutive",
             "consecutive",
             "linalg",
             "stats",

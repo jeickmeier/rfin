@@ -20,8 +20,12 @@ validate_formula = _statements.validate_formula
 NormalizationConfig = _statements.NormalizationConfig
 normalize = _statements.normalize
 normalize_to_dicts = _statements.normalize_to_dicts
+CheckSuiteSpec = _statements.CheckSuiteSpec
+CheckReport = _statements.CheckReport
 
 __all__: list[str] = [
+    "CheckReport",
+    "CheckSuiteSpec",
     "Evaluator",
     "FinancialModelSpec",
     "ForecastMethod",
