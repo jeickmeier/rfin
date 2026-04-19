@@ -219,34 +219,6 @@ fn calibrate(json: &str) -> PyResult<PyCalibrationResult> {
     Ok(PyCalibrationResult { inner: result })
 }
 
-/// Execute a calibration plan and return only the calibrated ``MarketContext``.
-///
-/// Convenience wrapper around :func:`calibrate` for the common case where
-/// you only need the resulting curves.
-///
-/// Parameters
-/// ----------
-/// json : str
-///     JSON-serialized ``CalibrationEnvelope``.
-///
-/// Returns
-/// -------
-/// MarketContext
-///     The calibrated market context.
-///
-/// Raises
-/// ------
-/// ValueError
-///     If calibration fails or the result market cannot be constructed.
-#[pyfunction]
-fn calibrate_to_market(json: &str) -> PyResult<PyMarketContext> {
-    let envelope: CalibrationEnvelope = serde_json::from_str(json)
-        .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
-    let result = engine::execute(&envelope).map_err(display_to_py)?;
-    let ctx = MarketContext::try_from(result.result.final_market).map_err(display_to_py)?;
-    Ok(PyMarketContext::from_inner(ctx))
-}
-
 // ---------------------------------------------------------------------------
 // Module registration
 // ---------------------------------------------------------------------------
@@ -256,6 +228,5 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCalibrationResult>()?;
     m.add_function(pyo3::wrap_pyfunction!(validate_calibration_json, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(calibrate, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(calibrate_to_market, m)?)?;
     Ok(())
 }

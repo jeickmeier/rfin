@@ -179,7 +179,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "CalibrationResult",
             "validate_calibration_json",
             "calibrate",
-            "calibrate_to_market",
             "metrics_table_from_dict",
             "cashflow_ladder",
             "scenario_matrix",

@@ -30,7 +30,6 @@ __all__ = [
     "CalibrationResult",
     "validate_calibration_json",
     "calibrate",
-    "calibrate_to_market",
     "metrics_table_from_dict",
     "cashflow_ladder",
     "scenario_matrix",
@@ -1086,29 +1085,6 @@ def calibrate(json: str) -> CalibrationResult:
         >>> result.success  # doctest: +SKIP
         True
         >>> curve = result.market.get_discount("USD-OIS")  # doctest: +SKIP
-    """
-    ...
-
-def calibrate_to_market(json: str) -> MarketContext:
-    """Execute a calibration plan and return only the calibrated ``MarketContext``.
-
-    Convenience wrapper around :func:`calibrate` for the common case where
-    you only need the resulting curves.
-
-    Args:
-        json: JSON-serialized ``CalibrationEnvelope``.
-
-    Returns:
-        The calibrated market context.
-
-    Raises:
-        ValueError: If calibration fails or the result market cannot be constructed.
-
-    Example:
-        >>> import json as _json
-        >>> from finstack.valuations import calibrate_to_market
-        >>> market = calibrate_to_market(_json.dumps(plan))  # doctest: +SKIP
-        >>> market.get_discount("USD-OIS")  # doctest: +SKIP
     """
     ...
 

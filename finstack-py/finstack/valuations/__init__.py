@@ -29,7 +29,6 @@ decompose_factor_risk = _valuations.decompose_factor_risk
 CalibrationResult = _valuations.CalibrationResult
 validate_calibration_json = _valuations.validate_calibration_json
 calibrate = _valuations.calibrate
-calibrate_to_market = _valuations.calibrate_to_market
 metrics_table_from_dict = _valuations.metrics_table_from_dict
 cashflow_ladder = _valuations.cashflow_ladder
 scenario_matrix = _valuations.scenario_matrix
@@ -67,7 +66,6 @@ __all__: list[str] = [
     "bs_cos_price",
     "bs_lewis_price",
     "calibrate",
-    "calibrate_to_market",
     "callable_range_accrual_accrued",
     "cashflow_ladder",
     "cms_spread_option_intrinsic",

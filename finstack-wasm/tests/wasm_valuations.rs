@@ -5,7 +5,9 @@
 
 #![cfg(target_arch = "wasm32")]
 
-use finstack_wasm::api::valuations::*;
+use finstack_wasm::api::valuations::pricing::{
+    list_standard_metrics, price_instrument_with_metrics,
+};
 use wasm_bindgen_test::*;
 
 fn bond_instrument_json() -> String {
