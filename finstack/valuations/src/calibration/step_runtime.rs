@@ -1,8 +1,7 @@
 use crate::calibration::api::schema::{CalibrationStep, StepParams};
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::hull_white::{
-    calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess, HullWhiteParams,
-    SwapFrequency, SwaptionQuote,
+    calibrate_hull_white_to_swaptions, HullWhiteParams, SwapFrequency, SwaptionQuote,
 };
 use crate::calibration::targets::base_correlation::BaseCorrelationTarget;
 use crate::calibration::targets::discount::DiscountCurveTarget;
@@ -330,12 +329,7 @@ pub(crate) fn execute_params(
                 _ => SwapFrequency::SemiAnnual,
             };
             let (hw_params, report) =
-                calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
-                    &df,
-                    &hw_quotes,
-                    frequency,
-                    initial_guess,
-                )?;
+                calibrate_hull_white_to_swaptions(&df, &hw_quotes, frequency, initial_guess)?;
 
             Ok(StepOutcome {
                 output: StepOutput::Scalars(vec![

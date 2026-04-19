@@ -310,7 +310,7 @@ impl TreePricer {
         time_to_maturity: f64,
     ) -> TreeModelChoice {
         use crate::calibration::hull_white::{
-            calibrate_hull_white_to_swaptions_with_frequency, SwapFrequency, SwaptionQuote,
+            calibrate_hull_white_to_swaptions, SwapFrequency, SwaptionQuote,
         };
 
         let surface = match market_context.get_surface(swaption_vol_surface_id) {
@@ -366,11 +366,7 @@ impl TreePricer {
         let dc = discount_curve.clone();
         let df_fn = move |t: f64| dc.df(t);
 
-        match calibrate_hull_white_to_swaptions_with_frequency(
-            &df_fn,
-            &quotes,
-            SwapFrequency::SemiAnnual,
-        ) {
+        match calibrate_hull_white_to_swaptions(&df_fn, &quotes, SwapFrequency::SemiAnnual, None) {
             Ok((params, report)) => {
                 if report.success {
                     tracing::info!(

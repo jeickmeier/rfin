@@ -92,8 +92,17 @@ mod report;
 pub(crate) mod step_runtime;
 pub(crate) mod validation;
 
-/// Curve bumping helpers used by scenarios and risk metrics (re-calibration).
-#[doc(hidden)]
+/// Curve and surface bumping helpers for re-calibration.
+///
+/// Provides the supported surface for "what-if" risk analysis: applying a
+/// `BumpRequest` (parallel or per-tenor) to a calibrated market object and
+/// re-running the corresponding calibration step. Used by `finstack_scenarios`,
+/// per-instrument risk metrics (CS01, key-rate duration, vega), and anything
+/// else that needs to re-calibrate under perturbed quotes without redefining
+/// the calibration plan from scratch.
+///
+/// Each asset class has its own entry point; see the `bumps` module docs for
+/// the full table.
 pub mod bumps;
 
 /// Shared constants (tolerances, magic numbers).

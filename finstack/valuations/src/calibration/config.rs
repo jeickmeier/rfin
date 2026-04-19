@@ -196,10 +196,9 @@ impl HazardCurveSolveConfig {
     /// (e.g., distressed sovereigns, near-default corporates).
     pub fn distressed() -> Self {
         Self {
-            hazard_hard_min: 0.0,
             hazard_hard_max: 100.0,
-            weighting_scheme: ResidualWeightingScheme::default(),
             validation_tolerance: 1e-6, // Slightly relaxed for distressed
+            ..Self::default()
         }
     }
 }
@@ -267,10 +266,10 @@ impl InflationCurveSolveConfig {
     /// the validation tolerance for noisier inflation markets.
     pub fn hyperinflation() -> Self {
         Self {
-            weighting_scheme: ResidualWeightingScheme::default(),
             validation_tolerance: 1e-6,
             cpi_hard_min: 0.01,
             cpi_hard_max: 1e9,
+            ..Self::default()
         }
     }
 }
@@ -687,21 +686,12 @@ impl CalibrationConfig {
             solver: SolverConfig::brent_default()
                 .with_tolerance(1e-12)
                 .with_max_iterations(100),
-            use_parallel: false, // Deterministic
-            verbose: false,
-            explain: ExplainOpts::default(),
-            validation_mode: ValidationMode::Error,
-            validation: crate::calibration::validation::ValidationConfig::default(),
             rate_bounds_policy: RateBoundsPolicy::Explicit,
             rate_bounds: RateBounds {
                 min_rate: -0.05,
                 max_rate: 1.00, // Allow up to 100% for conservative edge cases
             },
-            calibration_method: CalibrationMethod::default(),
-            compute_diagnostics: false,
-            discount_curve: DiscountCurveSolveConfig::default(),
-            hazard_curve: HazardCurveSolveConfig::default(),
-            inflation_curve: InflationCurveSolveConfig::default(),
+            ..Self::default()
         }
     }
 
@@ -731,18 +721,9 @@ impl CalibrationConfig {
             solver: SolverConfig::brent_default()
                 .with_tolerance(1e-6)
                 .with_max_iterations(1000),
-            use_parallel: false, // Keep deterministic by default
-            verbose: false,
-            explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
-            validation: crate::calibration::validation::ValidationConfig::default(),
             rate_bounds_policy: RateBoundsPolicy::Explicit,
-            rate_bounds: RateBounds::default(),
-            calibration_method: CalibrationMethod::default(),
-            compute_diagnostics: false,
-            discount_curve: DiscountCurveSolveConfig::default(),
-            hazard_curve: HazardCurveSolveConfig::default(),
-            inflation_curve: InflationCurveSolveConfig::default(),
+            ..Self::default()
         }
     }
 
@@ -772,18 +753,9 @@ impl CalibrationConfig {
             solver: SolverConfig::brent_default()
                 .with_tolerance(1e-4)
                 .with_max_iterations(50),
-            use_parallel: false,
-            verbose: false,
-            explain: ExplainOpts::default(),
             validation_mode: ValidationMode::Warn,
-            validation: crate::calibration::validation::ValidationConfig::default(),
             rate_bounds_policy: RateBoundsPolicy::Explicit,
-            rate_bounds: RateBounds::default(),
-            calibration_method: CalibrationMethod::default(),
-            compute_diagnostics: false,
-            discount_curve: DiscountCurveSolveConfig::default(),
-            hazard_curve: HazardCurveSolveConfig::default(),
-            inflation_curve: InflationCurveSolveConfig::default(),
+            ..Self::default()
         }
     }
 

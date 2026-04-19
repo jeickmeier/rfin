@@ -79,20 +79,6 @@ impl SolverConfig {
         }
     }
 
-    /// Create from a NewtonSolver instance.
-    pub fn from_newton(solver: &NewtonSolver) -> Self {
-        Self::Newton {
-            solver: solver.clone(),
-        }
-    }
-
-    /// Create from a BrentSolver instance.
-    pub fn from_brent(solver: &BrentSolver) -> Self {
-        Self::Brent {
-            solver: solver.clone(),
-        }
-    }
-
     /// Get the convergence tolerance.
     pub fn tolerance(&self) -> f64 {
         match self {
@@ -134,6 +120,18 @@ impl Default for SolverConfig {
     }
 }
 
+impl From<NewtonSolver> for SolverConfig {
+    fn from(solver: NewtonSolver) -> Self {
+        Self::Newton { solver }
+    }
+}
+
+impl From<BrentSolver> for SolverConfig {
+    fn from(solver: BrentSolver) -> Self {
+        Self::Brent { solver }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -152,7 +150,7 @@ mod tests {
     #[test]
     fn test_solver_config_from_instances() {
         let newton = NewtonSolver::new().tolerance(1e-15);
-        let config = SolverConfig::from_newton(&newton);
+        let config: SolverConfig = newton.into();
 
         if let SolverConfig::Newton { solver } = config {
             assert_eq!(solver.tolerance, 1e-15);
