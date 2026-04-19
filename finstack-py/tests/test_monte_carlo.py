@@ -6,7 +6,6 @@ import pytest
 
 from finstack.monte_carlo import (
     EuropeanPricer,
-    GbmProcess,
     price_european_call,
     price_european_put,
 )
@@ -160,14 +159,3 @@ class TestPriceEuropeanPutFunction:
             seed=42,
         )
         assert result.mean.amount > 0.0
-
-
-class TestGbmProcess:
-    """GbmProcess parameter wrapper."""
-
-    def test_properties(self) -> None:
-        """Rate, div_yield, vol survive the round trip."""
-        p = GbmProcess(rate=0.05, div_yield=0.02, vol=0.25)
-        assert p.rate == pytest.approx(0.05)
-        assert p.div_yield == pytest.approx(0.02)
-        assert p.vol == pytest.approx(0.25)

@@ -1,13 +1,13 @@
 //! Python bindings for the `finstack-monte-carlo` crate.
 //!
-//! Exposes Monte Carlo pricing infrastructure: engine, processes,
-//! payoffs, pricers, and analytical formulas.
+//! Exposes Monte Carlo pricing infrastructure: engine, pricers, and
+//! analytical formulas. Process and payoff parameters are passed
+//! directly as numeric arguments to the pricer constructors and
+//! methods; they are not exposed as standalone Python types.
 
 mod analytical;
 mod engine;
-mod payoffs;
 mod pricers;
-mod processes;
 mod results;
 mod time_grid;
 
@@ -25,52 +25,21 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     results::register(py, &m)?;
     time_grid::register(py, &m)?;
     engine::register(py, &m)?;
-    processes::register(py, &m)?;
-    payoffs::register(py, &m)?;
     pricers::register(py, &m)?;
     analytical::register(py, &m)?;
 
     let all = PyList::new(
         py,
         [
-            // Results
             "MonteCarloResult",
             "Estimate",
-            // Time grid
             "TimeGrid",
-            // Engine
             "McEngine",
-            // Processes
-            "GbmProcess",
-            "MultiGbmProcess",
-            "BrownianProcess",
-            "HestonProcess",
-            "CirProcess",
-            "MertonJumpProcess",
-            "BatesProcess",
-            "SchwartzSmithProcess",
-            // Payoffs
-            "EuropeanCall",
-            "EuropeanPut",
-            "DigitalCall",
-            "DigitalPut",
-            "ForwardLong",
-            "ForwardShort",
-            "AsianCall",
-            "AsianPut",
-            "BarrierOption",
-            "BasketCall",
-            "BasketPut",
-            "AmericanPut",
-            "AmericanCall",
-            // Pricers
             "EuropeanPricer",
             "PathDependentPricer",
             "LsmcPricer",
-            // Analytical
             "black_scholes_call",
             "black_scholes_put",
-            // Convenience
             "price_european_call",
             "price_european_put",
         ],
