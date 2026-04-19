@@ -10,7 +10,7 @@
 //! - Apply business day adjustments using calendars
 
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, ScheduleBuilder, StubKind, Tenor,
+    BusinessDayConvention, Date, DateExt, HolidayCalendar, ScheduleBuilder, StubKind, Tenor,
 };
 
 use super::calendar::resolve_calendar_strict;
@@ -44,6 +44,49 @@ pub struct PeriodSchedule {
     pub dates: Vec<Date>,
     /// Set of payment dates that correspond to first or last periods.
     pub first_or_last: finstack_core::HashSet<Date>,
+}
+
+/// Build one skeletal schedule period from accrual bounds and payment lag.
+pub(crate) fn build_schedule_period(
+    accrual_start: Date,
+    accrual_end: Date,
+    payment_lag_days: i32,
+    cal: &dyn HolidayCalendar,
+) -> finstack_core::Result<SchedulePeriod> {
+    let payment_date = if payment_lag_days == 0 {
+        accrual_end
+    } else {
+        accrual_end.add_business_days(payment_lag_days, cal)?
+    };
+    Ok(SchedulePeriod {
+        accrual_start,
+        accrual_end,
+        payment_date,
+        reset_date: None,
+        accrual_year_fraction: 0.0,
+    })
+}
+
+/// Convert a generated schedule into the compiler's payment-date index form.
+pub(crate) fn index_period_schedule(
+    schedule: PeriodSchedule,
+) -> (
+    Vec<Date>,
+    finstack_core::HashMap<Date, SchedulePeriod>,
+    finstack_core::HashSet<Date>,
+) {
+    let PeriodSchedule {
+        periods,
+        dates,
+        first_or_last,
+    } = schedule;
+    let mut period_map: finstack_core::HashMap<Date, SchedulePeriod> =
+        finstack_core::HashMap::default();
+    period_map.reserve(periods.len());
+    for period in &periods {
+        period_map.insert(period.payment_date, *period);
+    }
+    (dates, period_map, first_or_last)
 }
 
 /// Build a schedule between start/end with strict error handling.
@@ -119,21 +162,9 @@ pub fn build_dates(
     let mut first_or_last = finstack_core::HashSet::default();
 
     for window in dates.windows(2) {
-        let accrual_start = window[0];
-        let accrual_end = window[1];
-        let payment_date = if payment_lag_days == 0 {
-            accrual_end
-        } else {
-            accrual_end.add_business_days(payment_lag_days, cal)?
-        };
-        periods.push(SchedulePeriod {
-            accrual_start,
-            accrual_end,
-            payment_date,
-            reset_date: None,
-            accrual_year_fraction: 0.0,
-        });
-        payment_dates.push(payment_date);
+        let period = build_schedule_period(window[0], window[1], payment_lag_days, cal)?;
+        payment_dates.push(period.payment_date);
+        periods.push(period);
     }
 
     if let Some(first) = payment_dates.first() {

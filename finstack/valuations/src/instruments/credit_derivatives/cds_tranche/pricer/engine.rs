@@ -1,7 +1,7 @@
 use super::config::{
     CDSTranchePricer, CDSTranchePricerConfig, ProjectedDiscountedRow, ProjectionInputs,
 };
-use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::correlation::copula::{
@@ -131,15 +131,18 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<CashFlowSchedule> {
         if as_of >= tranche.maturity {
-            return Ok(CashFlowSchedule::from_parts(
+            return Ok(crate::cashflow::traits::schedule_from_classified_flows(
                 Vec::new(),
-                Notional::par(tranche.notional.amount(), tranche.notional.currency()),
                 tranche.day_count,
-                CashFlowMeta {
-                    representation: crate::cashflow::builder::CashflowRepresentation::Projected,
-                    calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
-                    facility_limit: None,
-                    issue_date: tranche.contractual_effective_date(as_of),
+                crate::cashflow::traits::ScheduleBuildOpts {
+                    notional_hint: Some(tranche.notional),
+                    meta: Some(CashFlowMeta {
+                        representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                        calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
+                        facility_limit: None,
+                        issue_date: tranche.contractual_effective_date(as_of),
+                    }),
+                    ..Default::default()
                 },
             ));
         }
@@ -151,15 +154,18 @@ impl CDSTranchePricer {
             .map(|row| row.cashflow)
             .collect();
 
-        Ok(CashFlowSchedule::from_parts(
+        Ok(crate::cashflow::traits::schedule_from_classified_flows(
             flows,
-            Notional::par(tranche.notional.amount(), tranche.notional.currency()),
             tranche.day_count,
-            CashFlowMeta {
-                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
-                calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
-                facility_limit: None,
-                issue_date: tranche.contractual_effective_date(valuation_date),
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: Some(tranche.notional),
+                meta: Some(CashFlowMeta {
+                    representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                    calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
+                    facility_limit: None,
+                    issue_date: tranche.contractual_effective_date(valuation_date),
+                }),
+                ..Default::default()
             },
         ))
     }

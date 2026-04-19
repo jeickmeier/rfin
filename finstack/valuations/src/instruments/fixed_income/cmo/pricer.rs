@@ -6,7 +6,7 @@
 use super::types::{AgencyCmo, CmoTrancheType};
 use super::waterfall::{allocate_io_cashflow, execute_waterfall_with_principal_breakdown};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::fixed_income::mbs_passthrough::pricer::generate_cashflows;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, PoolType};
@@ -176,18 +176,18 @@ pub(crate) fn build_reference_tranche_schedule(
         }
     }
 
-    Ok(CashFlowSchedule::from_parts(
+    Ok(crate::cashflow::traits::schedule_from_classified_flows(
         flows,
-        Notional::par(
-            tranche.current_face.amount(),
-            tranche.current_face.currency(),
-        ),
         DayCount::Thirty360,
-        CashFlowMeta {
-            representation: crate::cashflow::builder::CashflowRepresentation::Projected,
-            calendar_ids: Vec::new(),
-            facility_limit: None,
-            issue_date: Some(cmo.issue_date),
+        crate::cashflow::traits::ScheduleBuildOpts {
+            notional_hint: Some(tranche.current_face),
+            meta: Some(CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                calendar_ids: Vec::new(),
+                facility_limit: None,
+                issue_date: Some(cmo.issue_date),
+            }),
+            ..Default::default()
         },
     ))
 }

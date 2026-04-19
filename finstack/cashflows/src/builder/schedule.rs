@@ -189,8 +189,8 @@ impl Discountable for CashFlowSchedule {
 }
 
 impl CashFlowSchedule {
-    /// Construct a schedule directly from classified cashflows.
-    pub fn from_parts(
+    /// Internal raw constructor for already-classified flows.
+    pub(crate) fn from_parts(
         mut flows: Vec<CashFlow>,
         notional: Notional,
         day_count: DayCount,
@@ -253,23 +253,16 @@ impl CashFlowSchedule {
         self.flows.iter().map(|cf| cf.date).collect()
     }
 
-    /// Remove flows strictly before `as_of`, keeping only future-dated events.
-    ///
-    /// This is the canonical future-filtering step for public schedule surfaces.
-    /// Flows on or after `as_of` are retained.
+    /// Internal future-flow filtering step for composed schedule normalization.
     #[must_use]
-    pub fn filter_future(mut self, as_of: Date) -> Self {
+    pub(crate) fn filter_future(mut self, as_of: Date) -> Self {
         self.flows.retain(|cf| cf.date >= as_of);
         self
     }
 
-    /// Remove pure PIK accretion flows from the schedule.
-    ///
-    /// PIK entries represent notional capitalisation without cash movement.
-    /// They are omitted from the public schedule by default; the notional
-    /// evolution they drive is already captured in the balance path.
+    /// Internal PIK-omission step for composed schedule normalization.
     #[must_use]
-    pub fn omit_pure_pik(mut self) -> Self {
+    pub(crate) fn omit_pure_pik(mut self) -> Self {
         self.flows.retain(|cf| cf.kind != CFKind::PIK);
         self
     }
@@ -282,12 +275,11 @@ impl CashFlowSchedule {
     /// 3. Re-sort (defensive, in case instrument code appended unsorted flows)
     /// 4. Attach the given representation tag
     #[must_use]
-    pub fn normalize_public(mut self, as_of: Date, representation: CashflowRepresentation) -> Self {
-        self.flows
-            .retain(|cf| cf.date >= as_of && cf.kind != CFKind::PIK);
-        sort_flows(&mut self.flows);
-        self.meta.representation = representation;
-        self
+    pub fn normalize_public(self, as_of: Date, representation: CashflowRepresentation) -> Self {
+        let mut normalized = self.filter_future(as_of).omit_pure_pik();
+        sort_flows(&mut normalized.flows);
+        normalized.meta.representation = representation;
+        normalized
     }
 
     /// Outstanding principal path tracking Amortization and PIK flows only.

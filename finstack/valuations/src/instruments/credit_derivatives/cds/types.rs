@@ -931,14 +931,13 @@ impl CreditDefaultSwap {
             })
             .collect::<finstack_core::Result<Vec<_>>>()?;
 
-        Ok(crate::cashflow::builder::CashFlowSchedule::from_parts(
+        Ok(crate::cashflow::traits::schedule_from_classified_flows(
             flows,
-            crate::cashflow::builder::Notional::par(
-                self.notional.amount(),
-                self.notional.currency(),
-            ),
             self.premium.day_count,
-            Default::default(),
+            crate::cashflow::traits::ScheduleBuildOpts {
+                notional_hint: Some(self.notional),
+                ..Default::default()
+            },
         ))
     }
 

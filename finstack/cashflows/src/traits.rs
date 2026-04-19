@@ -9,7 +9,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-/// Options bag shared by all `schedule_from_*` helpers.
+/// Options bag shared by the canonical public `schedule_from_*` constructors.
 ///
 /// Gathers the orthogonal knobs (notional hint, default kind, representation,
 /// schedule-level metadata) that previously required a fan-out of
@@ -228,7 +228,7 @@ pub fn schedule_from_classified_flows(
     CashFlowSchedule::from_parts(flows, notional, day_count, opts.resolved_meta())
 }
 
-/// Build an empty [`CashFlowSchedule`] while preserving notional metadata.
+/// Convenience wrapper for an empty [`CashFlowSchedule`] with preserved metadata.
 pub fn empty_schedule(day_count: DayCount, opts: ScheduleBuildOpts) -> CashFlowSchedule {
     schedule_from_classified_flows(Vec::new(), day_count, opts)
 }

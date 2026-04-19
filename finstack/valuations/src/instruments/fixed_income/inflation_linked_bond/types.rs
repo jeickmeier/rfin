@@ -1010,14 +1010,13 @@ impl CashflowProvider for InflationLinkedBond {
         as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         if self.issue_date >= self.maturity {
-            return Ok(crate::cashflow::builder::CashFlowSchedule::from_parts(
+            return Ok(crate::cashflow::traits::schedule_from_classified_flows(
                 Vec::new(),
-                crate::cashflow::builder::Notional::par(
-                    self.notional.amount(),
-                    self.notional.currency(),
-                ),
                 self.day_count,
-                Default::default(),
+                crate::cashflow::traits::ScheduleBuildOpts {
+                    notional_hint: Some(self.notional),
+                    ..Default::default()
+                },
             ));
         }
         let inflation_source = self.inflation_source(curves)?;

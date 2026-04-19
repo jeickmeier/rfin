@@ -63,6 +63,38 @@ pub struct FloatingRateParams {
     pub all_in_cap_bp: Option<f64>,
 }
 
+/// Runtime-resolved fallback policy for floating-rate projection.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResolvedFloatingRateFallback {
+    /// Propagate the original error.
+    Error,
+    /// Use the spread-only fallback implied by the projection params.
+    SpreadOnly,
+    /// Use a fixed index rate, already converted to `f64`.
+    FixedRate(f64),
+}
+
+impl ResolvedFloatingRateFallback {
+    /// Return the fallback all-in rate when the policy permits it.
+    #[must_use]
+    pub fn fallback_rate(&self, params: &FloatingRateParams) -> Option<f64> {
+        match self {
+            Self::Error => None,
+            Self::SpreadOnly => Some(project_fallback_rate(params)),
+            Self::FixedRate(index_rate) => Some(calculate_floating_rate(*index_rate, params)),
+        }
+    }
+}
+
+/// Validated runtime floating-rate configuration used by coupon emission.
+#[derive(Debug, Clone)]
+pub struct ResolvedFloatingRateSpec {
+    /// Projection parameters consumed by the numerical helpers.
+    pub params: FloatingRateParams,
+    /// Runtime-resolved fallback policy.
+    pub fallback: ResolvedFloatingRateFallback,
+}
+
 impl Default for FloatingRateParams {
     fn default() -> Self {
         Self {
@@ -192,6 +224,7 @@ impl TryFrom<&crate::builder::specs::FloatingRateSpec> for FloatingRateParams {
     fn try_from(spec: &crate::builder::specs::FloatingRateSpec) -> Result<Self> {
         use finstack_core::InputError;
 
+        spec.validate()?;
         let spread_bp = spec
             .spread_bp
             .to_f64()
@@ -201,7 +234,7 @@ impl TryFrom<&crate::builder::specs::FloatingRateSpec> for FloatingRateParams {
             .to_f64()
             .ok_or(finstack_core::Error::Input(InputError::ConversionOverflow))?;
 
-        Ok(FloatingRateParams {
+        let params = FloatingRateParams {
             spread_bp,
             gearing,
             gearing_includes_spread: spec.gearing_includes_spread,
@@ -209,7 +242,30 @@ impl TryFrom<&crate::builder::specs::FloatingRateSpec> for FloatingRateParams {
             index_cap_bp: optional_decimal_to_f64(spec.index_cap_bp, "index_cap_bp"),
             all_in_floor_bp: optional_decimal_to_f64(spec.all_in_floor_bp, "all_in_floor_bp"),
             all_in_cap_bp: optional_decimal_to_f64(spec.cap_bp, "cap_bp"),
-        })
+        };
+        params.validate()?;
+        Ok(params)
+    }
+}
+
+impl TryFrom<&crate::builder::specs::FloatingRateSpec> for ResolvedFloatingRateSpec {
+    type Error = finstack_core::Error;
+
+    fn try_from(spec: &crate::builder::specs::FloatingRateSpec) -> Result<Self> {
+        use crate::builder::specs::FloatingRateFallback;
+        use finstack_core::InputError;
+
+        let params = FloatingRateParams::try_from(spec)?;
+        let fallback = match &spec.fallback {
+            FloatingRateFallback::Error => ResolvedFloatingRateFallback::Error,
+            FloatingRateFallback::SpreadOnly => ResolvedFloatingRateFallback::SpreadOnly,
+            FloatingRateFallback::FixedRate(rate) => ResolvedFloatingRateFallback::FixedRate(
+                rate.to_f64()
+                    .ok_or(finstack_core::Error::Input(InputError::ConversionOverflow))?,
+            ),
+        };
+
+        Ok(Self { params, fallback })
     }
 }
 
@@ -1243,5 +1299,39 @@ mod tests {
         assert_eq!(params.index_cap_bp, None);
         assert_eq!(params.all_in_floor_bp, None);
         assert_eq!(params.all_in_cap_bp, None);
+    }
+
+    #[test]
+    fn try_from_floating_rate_spec_rejects_contradictory_caps_and_floors() {
+        use crate::builder::specs::{FloatingRateFallback, FloatingRateSpec};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+        use rust_decimal_macros::dec;
+
+        let spec = FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp: dec!(100.0),
+            gearing: dec!(1.0),
+            gearing_includes_spread: true,
+            floor_bp: Some(dec!(200.0)),
+            all_in_floor_bp: Some(dec!(600.0)),
+            cap_bp: Some(dec!(500.0)),
+            index_cap_bp: Some(dec!(100.0)),
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+            overnight_basis: None,
+            fallback: FloatingRateFallback::SpreadOnly,
+        };
+
+        assert!(
+            FloatingRateParams::try_from(&spec).is_err(),
+            "runtime conversion should reject contradictory floating-rate constraints"
+        );
     }
 }

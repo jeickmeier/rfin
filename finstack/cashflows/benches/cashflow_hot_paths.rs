@@ -188,11 +188,14 @@ fn make_amortizing_schedule(base: Date, n_periods: usize) -> CashFlowSchedule {
         })
         .collect();
 
-    CashFlowSchedule::from_parts(
+    finstack_cashflows::schedule_from_classified_flows(
         flows,
-        Notional::par(1_000_000.0, Currency::USD),
         DayCount::Act365F,
-        CashFlowMeta::default(),
+        finstack_cashflows::ScheduleBuildOpts {
+            notional_hint: Some(Money::new(1_000_000.0, Currency::USD)),
+            meta: Some(CashFlowMeta::default()),
+            ..Default::default()
+        },
     )
 }
 
