@@ -47,20 +47,6 @@ impl PyMoney {
             .map_err(core_to_py)
     }
 
-    /// Fallible constructor; rejects non-finite ``amount`` values.
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, amount, currency)")]
-    fn try_new(
-        _cls: &Bound<'_, PyType>,
-        amount: f64,
-        currency: &Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let ccy = extract_currency(currency)?;
-        Money::try_new(amount, ccy)
-            .map(Self::from_inner)
-            .map_err(core_to_py)
-    }
-
     /// Zero amount in the given currency.
     #[classmethod]
     #[pyo3(text_signature = "(cls, currency)")]

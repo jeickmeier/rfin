@@ -8,7 +8,7 @@
 use crate::error::Result;
 use crate::evaluator::context::EvaluationContext;
 use finstack_core::dates::PeriodId;
-use finstack_core::math::kahan_sum;
+use finstack_core::math::{mean_or_nan, median_or_nan, sample_std_or_nan, sample_variance_or_nan};
 use std::collections::BTreeMap;
 
 /// Coerce a numeric value into DSL boolean semantics.
@@ -130,21 +130,14 @@ pub(crate) fn collect_period_range_values(
 
 /// Calculate mean of values.
 pub(crate) fn calculate_mean(values: &[f64]) -> Result<f64> {
-    if values.is_empty() {
-        return Ok(f64::NAN);
-    }
-    Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
+    Ok(mean_or_nan(values))
 }
 
 /// Calculate standard deviation of values.
 ///
 /// Uses sample standard deviation (sqrt of sample variance) per financial industry standards.
 pub(crate) fn calculate_std(values: &[f64]) -> Result<f64> {
-    if values.len() < 2 {
-        return Ok(f64::NAN);
-    }
-    let variance = calculate_variance(values)?;
-    Ok(variance.sqrt())
+    Ok(sample_std_or_nan(values))
 }
 
 /// Calculate variance of values.
@@ -152,28 +145,10 @@ pub(crate) fn calculate_std(values: &[f64]) -> Result<f64> {
 /// Uses sample variance (Bessel's correction with n-1 denominator) per financial industry standards.
 /// This is the unbiased estimator required by Bloomberg, Excel VAR.S(), pandas.var(ddof=1), etc.
 pub(crate) fn calculate_variance(values: &[f64]) -> Result<f64> {
-    if values.is_empty() {
-        return Ok(f64::NAN);
-    }
-    if values.len() == 1 {
-        return Ok(f64::NAN);
-    }
-    let mean = calculate_mean(values)?;
-    let squared_diffs = values.iter().map(|v| (v - mean).powi(2));
-    Ok(kahan_sum(squared_diffs) / (values.len() - 1) as f64)
+    Ok(sample_variance_or_nan(values))
 }
 
 /// Calculate median of values.
 pub(crate) fn calculate_median(values: &[f64]) -> Result<f64> {
-    if values.is_empty() {
-        return Ok(f64::NAN);
-    }
-    let mut sorted = values.to_vec();
-    sorted.sort_by(|a, b| a.total_cmp(b));
-    let len = sorted.len();
-    if len.is_multiple_of(2) {
-        Ok((sorted[len / 2 - 1] + sorted[len / 2]) / 2.0)
-    } else {
-        Ok(sorted[len / 2])
-    }
+    Ok(median_or_nan(values))
 }

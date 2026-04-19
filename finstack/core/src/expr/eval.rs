@@ -57,7 +57,7 @@ pub struct EvalOpts {
     /// Optional pre-built execution plan to follow. If not provided, the
     /// evaluator will either use the internal plan (if present) or fallback to
     /// a minimal evaluation path for the expression.
-    pub plan: Option<ExecutionPlan>,
+    pub(crate) plan: Option<ExecutionPlan>,
     /// Optional cache budget in megabytes. When provided, a cache will be
     /// instantiated (and sized for the plan when available) and cache stats
     /// will be embedded in the returned metadata.
@@ -79,6 +79,13 @@ impl Default for EvalOpts {
             cache_budget_mb: None,
             max_arena_bytes: default_max_arena_bytes(),
         }
+    }
+}
+
+impl EvalOpts {
+    /// Return whether an explicit execution plan is attached.
+    pub fn has_plan(&self) -> bool {
+        self.plan.is_some()
     }
 }
 
@@ -112,7 +119,7 @@ pub struct CompiledExpr {
     /// Underlying expression AST.
     pub ast: Expr,
     /// Optional execution plan for complex expressions.
-    pub plan: Option<ExecutionPlan>,
+    pub(crate) plan: Option<ExecutionPlan>,
     /// Cache manager for intermediate results.
     #[serde(skip)]
     pub(crate) cache: Option<CacheManager>,
@@ -191,6 +198,11 @@ impl CompiledExpr {
     /// Return whether this compiled expression currently has an attached cache.
     pub fn has_cache(&self) -> bool {
         self.cache.is_some()
+    }
+
+    /// Return whether this compiled expression has a pre-built execution plan.
+    pub fn has_plan(&self) -> bool {
+        self.plan.is_some()
     }
 
     /// Unified evaluation entrypoint returning values with execution metadata.

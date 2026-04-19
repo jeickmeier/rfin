@@ -105,10 +105,10 @@ pub mod error;
 ///
 /// Provides opt-in tracing for debugging and auditing financial computations.
 pub mod explain;
-/// Expression engine (AST, evaluator, Polars lowering).
+/// Expression engine (AST, planning, and evaluation).
 ///
-/// Used by the statements crate for formula evaluation and time-series operations.
-/// Generally not needed by end users unless building custom evaluation logic.
+/// Internal expression engine used by statements for formula evaluation and
+/// time-series operations.
 pub mod expr;
 /// Factor-model primitives for statistical risk decomposition.
 pub mod factor_model;

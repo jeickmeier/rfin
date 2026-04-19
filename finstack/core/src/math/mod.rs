@@ -146,8 +146,10 @@ pub use special_functions::{
     erf, ln_gamma, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
 };
 pub use stats::{
-    correlation, covariance, mean, mean_var, moment_match, population_variance, quantile,
-    required_samples, variance, OnlineCovariance, OnlineStats,
+    correlation, covariance, finite_count, finite_max_or_nan, finite_min_or_nan, mean, mean_or_nan,
+    mean_var, median_or_nan, moment_match, population_variance, quantile, quantile_linear_or_nan,
+    required_samples, sample_std_or_nan, sample_variance_or_nan, variance, OnlineCovariance,
+    OnlineStats,
 };
 pub use summation::{kahan_sum, neumaier_sum, NeumaierAccumulator};
 pub use time_grid::{

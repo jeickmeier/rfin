@@ -30,8 +30,7 @@ use crate::evaluator::formula_helpers::{
 use crate::evaluator::results::EvalWarning;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
-use finstack_core::math::kahan_sum;
-use finstack_core::math::ZERO_TOLERANCE;
+use finstack_core::math::{kahan_sum, quantile_linear_or_nan, ZERO_TOLERANCE};
 use indexmap::IndexMap;
 use std::collections::BTreeMap;
 
@@ -893,28 +892,15 @@ fn evaluate_function(
                 ));
             };
 
-            // Collect and sort all values
-            let mut all_values = collect_all_historical_values(node_name, context)?;
-
-            if all_values.is_empty() {
+            // Collect all values, then delegate the interpolation math to the
+            // shared core kernel after dropping non-finite entries.
+            let all_values = collect_all_historical_values(node_name, context)?;
+            let finite_values: Vec<f64> =
+                all_values.into_iter().filter(|v| v.is_finite()).collect();
+            if finite_values.is_empty() {
                 return Ok(f64::NAN);
             }
-
-            all_values.sort_by(|a, b| a.total_cmp(b));
-
-            // Calculate quantile using linear interpolation (R-7 / Excel / numpy default)
-            let n = all_values.len() as f64;
-            let index = quantile * (n - 1.0);
-            let lower = index.floor() as usize;
-            let upper = index.ceil() as usize;
-
-            if lower == upper {
-                Ok(all_values[lower])
-            } else {
-                // Linear interpolation between adjacent values
-                let weight = index - lower as f64;
-                Ok(all_values[lower] * (1.0 - weight) + all_values[upper] * weight)
-            }
+            Ok(quantile_linear_or_nan(&finite_values, quantile))
         }
 
         Function::EwmMean => {

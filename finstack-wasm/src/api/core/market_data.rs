@@ -14,7 +14,7 @@ use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::math::volatility::sabr::SabrParams;
 use finstack_core::money::fx::{
     FxConversionPolicy as RustFxConversionPolicy, FxMatrix as RustFxMatrix, FxQuery,
-    SimpleFxProvider,
+    FxRateResult as RustFxRateResult, SimpleFxProvider,
 };
 use wasm_bindgen::prelude::*;
 
@@ -235,14 +235,107 @@ impl ForwardCurve {
 }
 
 // ---------------------------------------------------------------------------
+// FxConversionPolicy / FxRateResult
+// ---------------------------------------------------------------------------
+
+/// Typed FX conversion policy wrapper for WASM callers.
+#[wasm_bindgen(js_name = FxConversionPolicy)]
+#[derive(Clone, Copy, Debug)]
+pub struct FxConversionPolicy {
+    inner: RustFxConversionPolicy,
+}
+
+#[wasm_bindgen(js_class = FxConversionPolicy)]
+impl FxConversionPolicy {
+    /// Use spot/forward on the cashflow date.
+    #[wasm_bindgen(js_name = cashflowDate)]
+    pub fn cashflow_date() -> Self {
+        Self {
+            inner: RustFxConversionPolicy::CashflowDate,
+        }
+    }
+
+    /// Use period end date.
+    #[wasm_bindgen(js_name = periodEnd)]
+    pub fn period_end() -> Self {
+        Self {
+            inner: RustFxConversionPolicy::PeriodEnd,
+        }
+    }
+
+    /// Use an average over the period.
+    #[wasm_bindgen(js_name = periodAverage)]
+    pub fn period_average() -> Self {
+        Self {
+            inner: RustFxConversionPolicy::PeriodAverage,
+        }
+    }
+
+    /// Use a custom provider-defined strategy.
+    #[wasm_bindgen(js_name = custom)]
+    pub fn custom() -> Self {
+        Self {
+            inner: RustFxConversionPolicy::Custom,
+        }
+    }
+
+    /// Parse from a string label such as ``\"cashflow_date\"``.
+    #[wasm_bindgen(js_name = fromName)]
+    pub fn from_name(name: &str) -> Result<Self, JsValue> {
+        Ok(Self {
+            inner: name.parse().map_err(to_js_err)?,
+        })
+    }
+
+    /// Return the canonical string label for this policy.
+    #[wasm_bindgen(js_name = getName)]
+    pub fn get_name(&self) -> String {
+        self.inner.to_string()
+    }
+
+    /// String form of the conversion policy.
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+/// Structured FX lookup result for WASM callers.
+#[wasm_bindgen(js_name = FxRateResult)]
+pub struct FxRateResult {
+    inner: RustFxRateResult,
+    policy: RustFxConversionPolicy,
+}
+
+#[wasm_bindgen(js_class = FxRateResult)]
+impl FxRateResult {
+    /// The FX conversion rate.
+    #[wasm_bindgen(js_name = getRate)]
+    pub fn get_rate(&self) -> f64 {
+        self.inner.rate
+    }
+
+    /// Whether the rate was obtained via triangulation.
+    #[wasm_bindgen(js_name = getTriangulated)]
+    pub fn get_triangulated(&self) -> bool {
+        self.inner.triangulated
+    }
+
+    /// The applied conversion policy.
+    #[wasm_bindgen(js_name = getPolicy)]
+    pub fn get_policy(&self) -> FxConversionPolicy {
+        FxConversionPolicy { inner: self.policy }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // FxMatrix
 // ---------------------------------------------------------------------------
 
 /// Foreign-exchange rate matrix for currency conversion.
 #[wasm_bindgen(js_name = FxMatrix)]
 pub struct FxMatrix {
-    provider: Arc<SimpleFxProvider>,
-    inner: RustFxMatrix,
+    inner: Arc<RustFxMatrix>,
 }
 
 impl Default for FxMatrix {
@@ -256,32 +349,25 @@ impl FxMatrix {
     /// Create an empty FX matrix.
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        let provider = Arc::new(SimpleFxProvider::new());
-        let matrix = RustFxMatrix::new(provider.clone());
+        let matrix = RustFxMatrix::new(Arc::new(SimpleFxProvider::new()));
         Self {
-            provider,
-            inner: matrix,
+            inner: Arc::new(matrix),
         }
     }
 
     /// Set an explicit FX quote.
-    ///
-    /// **Note:** Each call rebuilds the internal rate matrix.  When setting
-    /// many quotes at once, prefer calling `setQuote` in a batch and
-    /// querying rates only after all quotes are loaded.
     ///
     /// # Arguments
     /// * `base` - Base (from) currency ISO code.
     /// * `quote` - Quote (to) currency ISO code.
     /// * `rate` - Conversion rate.
     #[wasm_bindgen(js_name = setQuote)]
-    pub fn set_quote(&mut self, base: &str, quote: &str, rate: f64) -> Result<(), JsValue> {
+    pub fn set_quote(&self, base: &str, quote: &str, rate: f64) -> Result<(), JsValue> {
         let base_ccy: RustCurrency = base.parse().map_err(to_js_err)?;
         let quote_ccy: RustCurrency = quote.parse().map_err(to_js_err)?;
-        self.provider
+        self.inner
             .set_quote(base_ccy, quote_ccy, rate)
             .map_err(to_js_err)?;
-        self.inner = RustFxMatrix::new(self.provider.clone());
         Ok(())
     }
 
@@ -291,25 +377,25 @@ impl FxMatrix {
     /// * `base` - Base (from) currency ISO code.
     /// * `quote` - Quote (to) currency ISO code.
     /// * `date` - ISO date string.
-    /// * `policy` - Conversion policy string (default ``"cashflow_date"``).
+    /// * `policy` - Conversion policy (default cashflow-date semantics).
     pub fn rate(
         &self,
         base: &str,
         quote: &str,
         date: &str,
-        policy: Option<String>,
-    ) -> Result<f64, JsValue> {
+        policy: Option<FxConversionPolicy>,
+    ) -> Result<FxRateResult, JsValue> {
         let base_ccy: RustCurrency = base.parse().map_err(to_js_err)?;
         let quote_ccy: RustCurrency = quote.parse().map_err(to_js_err)?;
         let d = parse_iso_date(date)?;
-        let pol: RustFxConversionPolicy = match policy {
-            Some(ref s) => s.parse().map_err(to_js_err)?,
-            None => RustFxConversionPolicy::CashflowDate,
-        };
+        let pol = policy.map_or(RustFxConversionPolicy::CashflowDate, |value| value.inner);
 
         let query = FxQuery::with_policy(base_ccy, quote_ccy, d, pol);
         let result = self.inner.rate(query).map_err(to_js_err)?;
-        Ok(result.rate)
+        Ok(FxRateResult {
+            inner: result,
+            policy: pol,
+        })
     }
 }
 
@@ -505,7 +591,9 @@ mod tests {
         let mut m = FxMatrix::new();
         m.set_quote("USD", "EUR", 0.92).expect("set quote");
         let r = m.rate("USD", "EUR", "2024-01-15", None).expect("fx rate");
-        assert!((r - 0.92).abs() < 1e-9);
+        assert!((r.get_rate() - 0.92).abs() < 1e-9);
+        assert!(!r.get_triangulated());
+        assert_eq!(r.get_policy().get_name(), "cashflow_date");
     }
 
     // VolCube tests require a WASM runtime (JsValue) — run via wasm-pack test.

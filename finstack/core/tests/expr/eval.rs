@@ -272,18 +272,11 @@ fn with_cache_configuration() {
         .unwrap()
         .with_cache(1);
 
-    let result = compiled
-        .eval(
-            &ctx,
-            &cols,
-            EvalOpts {
-                plan: None,
-                cache_budget_mb: Some(1),
-                max_arena_bytes: 1_073_741_824,
-            },
-        )
-        .unwrap()
-        .values;
+    let mut opts = EvalOpts::default();
+    opts.cache_budget_mb = Some(1);
+    opts.max_arena_bytes = 1_073_741_824;
+
+    let result = compiled.eval(&ctx, &cols, opts).unwrap().values;
 
     assert!(result[0].is_nan());
     assert!((result[1] - 3.0).abs() < 1e-12);

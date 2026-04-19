@@ -41,7 +41,7 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
 - **Currency‑tagged**: every `Money` value carries a `Currency` tag; all arithmetic preserves the currency.
 - **No implicit FX**: adding or subtracting amounts with different currencies is rejected:
   - `Money::checked_add` / `checked_sub` return `Error::CurrencyMismatch`.
-  - The `Add`/`Sub` trait impls (`lhs + rhs`) also return `Result<Money, Error>`.
+  - The in-place `AddAssign` / `SubAssign` trait impls (`lhs += rhs`, `lhs -= rhs`) assert same-currency and panic on mismatch.
 - **Deterministic rounding**:
   - Internally, amounts are stored as `Decimal` (`AmountRepr`).
   - Ingestion and formatting use configurable `RoundingMode` and per‑currency scales from `FinstackConfig`.

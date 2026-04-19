@@ -133,14 +133,33 @@ export interface ForwardCurveConstructor {
   ): ForwardCurve;
 }
 
+export interface FxConversionPolicy {
+  getName(): string;
+  toString(): string;
+}
+
+export interface FxConversionPolicyConstructor {
+  cashflowDate(): FxConversionPolicy;
+  periodEnd(): FxConversionPolicy;
+  periodAverage(): FxConversionPolicy;
+  custom(): FxConversionPolicy;
+  fromName(name: string): FxConversionPolicy;
+}
+
+export interface FxRateResult {
+  getRate(): number;
+  getTriangulated(): boolean;
+  getPolicy(): FxConversionPolicy;
+}
+
 export interface FxMatrix {
   setQuote(base: string, quote: string, rate: number): void;
   rate(
     base: string,
     quote: string,
     date: string,
-    policy?: string
-  ): number;
+    policy?: FxConversionPolicy
+  ): FxRateResult;
 }
 
 export interface FxMatrixConstructor {
@@ -194,6 +213,7 @@ export interface CoreNamespace {
   availableCalendars(): string[];
   DiscountCurve: DiscountCurveConstructor;
   ForwardCurve: ForwardCurveConstructor;
+  FxConversionPolicy: FxConversionPolicyConstructor;
   FxMatrix: FxMatrixConstructor;
   choleskyDecomposition(matrix: number[][]): number[][];
   choleskySolve(chol: number[][], b: number[]): number[];

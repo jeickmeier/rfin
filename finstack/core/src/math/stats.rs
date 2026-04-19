@@ -124,6 +124,86 @@ pub fn mean_var(xs: &[f64]) -> (f64, f64) {
     (m, var)
 }
 
+/// Arithmetic mean, returning [`f64::NAN`] for empty input.
+pub fn mean_or_nan(xs: &[f64]) -> f64 {
+    if xs.is_empty() {
+        f64::NAN
+    } else {
+        mean(xs)
+    }
+}
+
+/// Sample variance, returning [`f64::NAN`] for fewer than 2 observations.
+pub fn sample_variance_or_nan(xs: &[f64]) -> f64 {
+    if xs.len() < 2 {
+        f64::NAN
+    } else {
+        variance(xs)
+    }
+}
+
+/// Sample standard deviation, returning [`f64::NAN`] for fewer than 2 observations.
+pub fn sample_std_or_nan(xs: &[f64]) -> f64 {
+    sample_variance_or_nan(xs).sqrt()
+}
+
+/// Median of the input values, returning [`f64::NAN`] for empty input.
+pub fn median_or_nan(xs: &[f64]) -> f64 {
+    if xs.is_empty() {
+        return f64::NAN;
+    }
+    let mut sorted = xs.to_vec();
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    let len = sorted.len();
+    if len.is_multiple_of(2) {
+        (sorted[len / 2 - 1] + sorted[len / 2]) / 2.0
+    } else {
+        sorted[len / 2]
+    }
+}
+
+/// Linear-interpolation quantile (R-7 / NumPy / Excel style), returning [`f64::NAN`] for empty input.
+pub fn quantile_linear_or_nan(xs: &[f64], q: f64) -> f64 {
+    if xs.is_empty() {
+        return f64::NAN;
+    }
+    let mut sorted = xs.to_vec();
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    let q = q.clamp(0.0, 1.0);
+    let index = q * (sorted.len() - 1) as f64;
+    let lower = index.floor() as usize;
+    let upper = index.ceil() as usize;
+    if lower == upper {
+        sorted[lower]
+    } else {
+        let weight = index - lower as f64;
+        sorted[lower] * (1.0 - weight) + sorted[upper] * weight
+    }
+}
+
+/// Minimum finite value, ignoring NaN / infinite entries. Returns [`f64::NAN`] if none are finite.
+pub fn finite_min_or_nan(xs: &[f64]) -> f64 {
+    xs.iter()
+        .copied()
+        .filter(|x| x.is_finite())
+        .min_by(|a, b| a.total_cmp(b))
+        .unwrap_or(f64::NAN)
+}
+
+/// Maximum finite value, ignoring NaN / infinite entries. Returns [`f64::NAN`] if none are finite.
+pub fn finite_max_or_nan(xs: &[f64]) -> f64 {
+    xs.iter()
+        .copied()
+        .filter(|x| x.is_finite())
+        .max_by(|a, b| a.total_cmp(b))
+        .unwrap_or(f64::NAN)
+}
+
+/// Count finite observations, excluding NaN / infinite entries.
+pub fn finite_count(xs: &[f64]) -> usize {
+    xs.iter().copied().filter(|x| x.is_finite()).count()
+}
+
 /// Sample covariance (unbiased, n-1 denominator) between two equal-length slices.
 ///
 /// Matches `OnlineCovariance::covariance()` convention. Returns `0.0` for
@@ -1181,6 +1261,29 @@ mod tests {
         let mut data = vec![7.0; 10];
         assert!((super::quantile(&mut data, 0.25) - 7.0).abs() < 1e-12);
         assert!((super::quantile(&mut data, 0.75) - 7.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn helper_kernels_match_expected_nan_contracts() {
+        assert!(super::mean_or_nan(&[]).is_nan());
+        assert!(super::sample_variance_or_nan(&[42.0]).is_nan());
+        assert!(super::sample_std_or_nan(&[42.0]).is_nan());
+        assert!(super::median_or_nan(&[]).is_nan());
+        assert!(super::quantile_linear_or_nan(&[], 0.5).is_nan());
+    }
+
+    #[test]
+    fn helper_kernels_skip_non_finite_for_extrema_and_count() {
+        let values = [3.0, f64::NAN, -1.0, f64::INFINITY, 5.0];
+        assert_eq!(super::finite_min_or_nan(&values), -1.0);
+        assert_eq!(super::finite_max_or_nan(&values), 5.0);
+        assert_eq!(super::finite_count(&values), 3);
+    }
+
+    #[test]
+    fn quantile_linear_helper_matches_r7_interpolation() {
+        let values = [1.0, 2.0, 3.0, 4.0];
+        assert!((super::quantile_linear_or_nan(&values, 0.5) - 2.5).abs() < 1e-12);
     }
 
     // ── RealizedVarMethod FromStr / Display roundtrip ──
