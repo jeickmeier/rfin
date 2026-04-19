@@ -219,15 +219,13 @@ fn attribute_pnl_waterfall_impl(
         as_of_t1,
     )?;
 
-    // Initialize attribution result with configured rounding context
-    let rounding = finstack_core::config::rounding_context_from(_config);
-    let mut attribution = PnlAttribution::new_with_rounding(
+    let mut attribution = init_attribution(
         total_pnl,
         instrument.id(),
         as_of_t0,
         as_of_t1,
         AttributionMethod::Waterfall(factor_order.clone()),
-        rounding,
+        Some(_config),
     );
 
     // Build hybrid market: start with all T₀, progressively apply T₁
@@ -260,18 +258,7 @@ fn attribute_pnl_waterfall_impl(
                 )
                 .unwrap_or(0.0);
                 let coupon_income = Money::new(coupon_income_value, factor_pnl.currency());
-                attribution.carry = theta.checked_add(coupon_income)?;
-                if coupon_income_value.abs() > 0.0 {
-                    attribution.total_pnl = attribution.total_pnl.checked_add(coupon_income)?;
-                }
-                attribution.carry_detail = Some(CarryDetail {
-                    total: attribution.carry,
-                    coupon_income: Some(coupon_income),
-                    pull_to_par: None,
-                    roll_down: None,
-                    funding_cost: None,
-                    theta: Some(theta),
-                });
+                apply_total_return_carry(&mut attribution, theta, coupon_income)?;
             }
             AttributionFactor::RatesCurves => attribution.rates_curves_pnl = factor_pnl,
             AttributionFactor::CreditCurves => attribution.credit_curves_pnl = factor_pnl,
@@ -280,11 +267,12 @@ fn attribute_pnl_waterfall_impl(
             AttributionFactor::Fx => {
                 attribution.fx_pnl = factor_pnl;
                 // Stamp FX policy when FX factor is applied
-                attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
-                    strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                    target_ccy: Some(attribution.fx_pnl.currency()),
-                    notes: "Waterfall FX attribution with full translation".to_string(),
-                });
+                let target_ccy = attribution.fx_pnl.currency();
+                stamp_fx_policy(
+                    &mut attribution,
+                    target_ccy,
+                    "Waterfall FX attribution with full translation",
+                );
             }
             AttributionFactor::Volatility => attribution.vol_pnl = factor_pnl,
             AttributionFactor::ModelParameters => {
@@ -301,19 +289,14 @@ fn attribute_pnl_waterfall_impl(
         }
     }
 
-    // Compute residual (should be minimal for waterfall)
-    if let Err(e) = attribution.compute_residual() {
-        tracing::warn!(
-            error = %e,
-            instrument_id = %instrument.id(),
-            "Residual computation failed; attribution may be incomplete"
-        );
-    }
-
-    // Update metadata
-    attribution.meta.num_repricings = ctx.num_repricings();
-    attribution.meta.tolerance_abs = 0.01;
-    attribution.meta.tolerance_pct = 0.001; // Waterfall should have very small residual
+    finalize_attribution(
+        &mut attribution,
+        instrument.id(),
+        "waterfall",
+        ctx.num_repricings(),
+        0.01,
+        0.001, // Waterfall should have very small residual
+    );
 
     Ok(attribution)
 }

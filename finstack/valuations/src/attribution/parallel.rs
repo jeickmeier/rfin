@@ -192,15 +192,13 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         as_of_t1,
     )?;
 
-    // Initialize attribution result with configured rounding context
-    let rounding = finstack_core::config::rounding_context_from(_config);
-    let mut attribution = PnlAttribution::new_with_rounding(
+    let mut attribution = init_attribution(
         total_pnl,
         instrument.id(),
         as_of_t0,
         as_of_t1,
         AttributionMethod::Parallel,
-        rounding,
+        Some(_config),
     );
 
     let mut val_with_t0_credit = None;
@@ -242,20 +240,9 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     .unwrap_or(0.0);
     let coupon_income = Money::new(coupon_income_value, val_t1.currency());
 
-    attribution.carry = theta.checked_add(coupon_income)?;
     // Include cashflows in total_pnl so that residual stays consistent:
     // total_pnl now represents economic (total-return) P&L.
-    if coupon_income_value.abs() > 0.0 {
-        attribution.total_pnl = attribution.total_pnl.checked_add(coupon_income)?;
-    }
-    attribution.carry_detail = Some(CarryDetail {
-        total: attribution.carry,
-        coupon_income: Some(coupon_income),
-        pull_to_par: None,
-        roll_down: None,
-        funding_cost: None,
-        theta: Some(theta),
-    });
+    apply_total_return_carry(&mut attribution, theta, coupon_income)?;
 
     // Step 3: Rates curves attribution (discount + forward)
     let rates_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::RATES);
@@ -382,12 +369,11 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         )?;
 
         // Stamp FX policy metadata for audit trail
-        attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
-            strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            target_ccy: Some(val_t1.currency()),
-            notes: "Combined FX exposure and translation P&L (see parallel.rs for details)"
-                .to_string(),
-        });
+        stamp_fx_policy(
+            &mut attribution,
+            val_t1.currency(),
+            "Combined FX exposure and translation P&L (see parallel.rs for details)",
+        );
     }
 
     // Step 8: Volatility attribution
@@ -584,19 +570,14 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         });
     }
 
-    // Step 11: Compute residual
-    if let Err(e) = attribution.compute_residual() {
-        tracing::warn!(
-            error = %e,
-            instrument_id = %instrument.id(),
-            "Residual computation failed; attribution may be incomplete"
-        );
-    }
-
-    // Update metadata
-    attribution.meta.num_repricings = num_repricings;
-    attribution.meta.tolerance_abs = 1.0;
-    attribution.meta.tolerance_pct = 0.1;
+    finalize_attribution(
+        &mut attribution,
+        instrument.id(),
+        "parallel",
+        num_repricings,
+        1.0,
+        0.1,
+    );
 
     Ok(attribution)
 }

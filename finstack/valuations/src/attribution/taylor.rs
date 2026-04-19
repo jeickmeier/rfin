@@ -304,12 +304,13 @@ pub fn attribute_pnl_taylor_standard(
     )?;
 
     let ccy = total_pnl.currency();
-    let mut attribution = PnlAttribution::new(
+    let mut attribution = init_attribution(
         total_pnl,
         instrument.id(),
         as_of_t0,
         as_of_t1,
         AttributionMethod::Taylor(config.clone()),
+        None,
     );
 
     for factor in &taylor.factors {
@@ -330,7 +331,6 @@ pub fn attribute_pnl_taylor_standard(
             attribution.vol_pnl =
                 Money::new(attribution.vol_pnl.amount() + factor_money.amount(), ccy);
         } else if factor.factor_name == "Theta" {
-            attribution.carry = factor_money;
             // Taylor theta already includes cashflows from compute_theta_factor.
             // Compute the PV-only portion for carry_detail.theta by subtracting
             // coupon income.
@@ -347,34 +347,18 @@ pub fn attribute_pnl_taylor_standard(
                 Money::new(ci_val, ccy)
             };
             let theta_only = Money::new(factor_money.amount() - ci.amount(), ccy);
-            if ci.amount().abs() > 0.0 {
-                attribution.total_pnl = attribution
-                    .total_pnl
-                    .checked_add(ci)
-                    .unwrap_or(attribution.total_pnl);
-            }
-            attribution.carry_detail = Some(CarryDetail {
-                total: factor_money,
-                coupon_income: Some(ci),
-                pull_to_par: None,
-                theta: Some(theta_only),
-                roll_down: None,
-                funding_cost: None,
-            });
+            apply_total_return_carry(&mut attribution, theta_only, ci)?;
         }
     }
 
-    if let Err(e) = attribution.compute_residual() {
-        tracing::warn!(
-            error = %e,
-            instrument_id = %instrument.id(),
-            "Taylor compat: residual computation failed"
-        );
-    }
-
-    attribution.meta.num_repricings = taylor.num_repricings;
-    attribution.meta.tolerance_abs = 10.0;
-    attribution.meta.tolerance_pct = 5.0;
+    finalize_attribution(
+        &mut attribution,
+        instrument.id(),
+        "taylor",
+        taylor.num_repricings,
+        10.0,
+        5.0,
+    );
     attribution.meta.notes.push(format!(
         "Taylor attribution: {:.2}% unexplained ({} factors, {} repricings)",
         taylor.unexplained_pct,

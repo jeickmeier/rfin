@@ -1,13 +1,16 @@
 //! Helper utilities for P&L attribution.
 //!
 //! Provides shared functions for market context manipulation, instrument repricing,
-//! and currency conversion.
+//! currency conversion, and common `PnlAttribution` assembly.
 
+use super::types::{AttributionMethod, CarryDetail, PnlAttribution};
 use crate::instruments::common_impl::traits::Instrument;
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::{fx::FxQuery, Money};
+use finstack_core::money::fx::{FxConversionPolicy, FxPolicyMeta, FxQuery};
+use finstack_core::money::Money;
 use finstack_core::Error;
 use finstack_core::Result;
 use std::sync::Arc;
@@ -165,6 +168,81 @@ pub fn compute_pnl_with_fx(
     let val_t1_converted = convert_currency(val_t1, target_ccy, market_fx_t1, as_of_t1)?;
 
     val_t1_converted.checked_sub(val_t0_converted)
+}
+
+pub(crate) fn init_attribution(
+    total_pnl: Money,
+    instrument_id: &str,
+    as_of_t0: Date,
+    as_of_t1: Date,
+    method: AttributionMethod,
+    config: Option<&FinstackConfig>,
+) -> PnlAttribution {
+    match config {
+        Some(config) => PnlAttribution::new_with_rounding(
+            total_pnl,
+            instrument_id,
+            as_of_t0,
+            as_of_t1,
+            method,
+            finstack_core::config::rounding_context_from(config),
+        ),
+        None => PnlAttribution::new(total_pnl, instrument_id, as_of_t0, as_of_t1, method),
+    }
+}
+
+pub(crate) fn apply_total_return_carry(
+    attribution: &mut PnlAttribution,
+    theta: Money,
+    coupon_income: Money,
+) -> Result<()> {
+    attribution.carry = theta.checked_add(coupon_income)?;
+    if coupon_income.amount().abs() > 0.0 {
+        attribution.total_pnl = attribution.total_pnl.checked_add(coupon_income)?;
+    }
+    attribution.carry_detail = Some(CarryDetail {
+        total: attribution.carry,
+        coupon_income: Some(coupon_income),
+        pull_to_par: None,
+        roll_down: None,
+        funding_cost: None,
+        theta: Some(theta),
+    });
+    Ok(())
+}
+
+pub(crate) fn stamp_fx_policy(
+    attribution: &mut PnlAttribution,
+    target_ccy: Currency,
+    notes: impl Into<String>,
+) {
+    attribution.meta.fx_policy = Some(FxPolicyMeta {
+        strategy: FxConversionPolicy::CashflowDate,
+        target_ccy: Some(target_ccy),
+        notes: notes.into(),
+    });
+}
+
+pub(crate) fn finalize_attribution(
+    attribution: &mut PnlAttribution,
+    instrument_id: &str,
+    method: &str,
+    num_repricings: usize,
+    tolerance_abs: f64,
+    tolerance_pct: f64,
+) {
+    if let Err(e) = attribution.compute_residual() {
+        tracing::warn!(
+            error = %e,
+            instrument_id = %instrument_id,
+            method,
+            "Residual computation failed; attribution may be incomplete"
+        );
+    }
+
+    attribution.meta.num_repricings = num_repricings;
+    attribution.meta.tolerance_abs = tolerance_abs;
+    attribution.meta.tolerance_pct = tolerance_pct;
 }
 
 #[cfg(test)]
