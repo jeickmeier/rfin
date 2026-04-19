@@ -80,14 +80,16 @@ pub mod error;
 pub mod evaluator;
 /// Forecast methods and time-series drivers.
 pub mod forecast;
+/// Public formula helper functions for identifier extraction and qualification.
+pub mod formula;
 /// Convenient re-exports for common statement types.
 pub mod prelude;
 /// Metric registry and namespace management.
 pub mod registry;
 /// Core statement model types.
 pub mod types;
-/// Internal utilities (constants, formula helpers, graph traversal).
-pub mod utils;
+/// Internal utilities used within the crate implementation.
+pub(crate) mod utils;
 
 pub use error::{Error, Result};
 pub use types::FinancialModelSpec;

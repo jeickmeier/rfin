@@ -526,8 +526,7 @@ impl<'a> FormulaExplainer<'a> {
         let mut breakdown = Vec::new();
 
         if let Some(formula_text) = formula {
-            let identifiers =
-                finstack_statements::utils::formula::extract_all_identifiers(formula_text)?;
+            let identifiers = finstack_statements::formula::extract_all_identifiers(formula_text)?;
 
             for identifier in identifiers {
                 if identifier.starts_with("cs.") {

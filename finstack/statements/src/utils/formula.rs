@@ -76,7 +76,7 @@ pub fn is_standalone_identifier(
 ///
 /// ```rust,ignore
 /// // Low-level helper; prefer higher-level APIs when possible.
-/// use finstack_statements::utils::formula::extract_all_identifiers;
+/// use finstack_statements::formula::extract_all_identifiers;
 /// ```
 pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<String>> {
     let ast = parse_formula(formula)?;
@@ -189,7 +189,7 @@ fn collect_identifiers_from_ast(
 ///
 /// ```rust,ignore
 /// // Low-level helper; prefer higher-level APIs when possible.
-/// use finstack_statements::utils::formula::extract_identifiers;
+/// use finstack_statements::formula::extract_identifiers;
 /// ```
 pub fn extract_identifiers(
     formula: &str,
@@ -268,7 +268,7 @@ fn extract_identifiers_by_scanning(
 ///
 /// ```rust,ignore
 /// // Low-level helper; prefer higher-level APIs when possible.
-/// use finstack_statements::utils::formula::qualify_identifiers;
+/// use finstack_statements::formula::qualify_identifiers;
 /// ```
 pub fn qualify_identifiers(
     formula: &str,
