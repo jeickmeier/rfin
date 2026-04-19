@@ -1,5 +1,6 @@
 //! Shared inflation curve bumping logic.
 
+use super::currency::infer_currency_from_id;
 use super::BumpRequest;
 use crate::calibration::api::schema::{InflationCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
@@ -14,21 +15,12 @@ use finstack_core::market_data::term_structures::InflationCurve;
 
 use finstack_core::dates::Date;
 
-/// Infer currency from an inflation curve ID using string heuristics.
+/// Infer currency from an inflation curve ID using token-by-token heuristics.
 ///
-/// This is a best-effort fallback for callers that don't have explicit currency
-/// metadata. Returns USD if the curve ID doesn't match a known pattern.
+/// Best-effort fallback for callers that don't have explicit currency metadata.
+/// Returns USD if no known currency or benchmark-rate token appears in the ID.
 pub fn infer_currency_from_curve_id(curve: &InflationCurve) -> Currency {
-    let id_str = curve.id().as_str();
-    if id_str.contains("USD") {
-        Currency::USD
-    } else if id_str.contains("EUR") {
-        Currency::EUR
-    } else if id_str.contains("GBP") {
-        Currency::GBP
-    } else {
-        Currency::USD
-    }
+    infer_currency_from_id(curve.id().as_str())
 }
 
 /// Derive the observation lag string from the curve's `indexation_lag_months`.

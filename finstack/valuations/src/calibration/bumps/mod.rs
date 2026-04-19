@@ -9,6 +9,7 @@
 //! - `inflation`: Bumping logic for Inflation curves.
 //! - `vol`: Bumping logic for Volatility surfaces (vega risk).
 
+mod currency;
 pub(crate) mod hazard;
 pub(crate) mod inflation;
 pub(crate) mod rates;

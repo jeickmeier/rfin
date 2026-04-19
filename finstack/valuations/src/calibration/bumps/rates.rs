@@ -1,5 +1,6 @@
 //! Shared rates curve bumping logic (plan-driven calibration).
 
+use super::currency::infer_currency_from_id;
 use super::BumpRequest;
 use crate::calibration::api::schema::{DiscountCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
@@ -15,28 +16,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::ExtrapolationPolicy;
 
-/// Infer currency from a discount curve ID using string heuristics.
+/// Infer currency from a discount curve ID using token-by-token heuristics.
 ///
-/// This is a best-effort fallback for callers that don't have explicit currency
-/// metadata. Returns USD if the curve ID doesn't match a known pattern.
+/// Best-effort fallback for callers that don't have explicit currency metadata.
+/// Returns USD if no known currency or benchmark-rate token appears in the ID.
 pub fn infer_currency_from_discount_curve_id(curve: &DiscountCurve) -> Currency {
-    let id_str = curve.id().as_str();
-    let uppercase = id_str.to_ascii_uppercase();
-    let tokens = uppercase
-        .split(|ch: char| !ch.is_ascii_alphanumeric())
-        .filter(|token| !token.is_empty());
-
-    for token in tokens {
-        match token {
-            "USD" | "USDOIS" | "SOFR" => return Currency::USD,
-            "EUR" | "EUROIS" | "ESTR" | "ESTER" => return Currency::EUR,
-            "GBP" | "GBPOIS" | "SONIA" => return Currency::GBP,
-            "JPY" | "JPYOIS" | "TONA" => return Currency::JPY,
-            _ => {}
-        }
-    }
-
-    Currency::USD
+    infer_currency_from_id(curve.id().as_str())
 }
 
 /// Bump a discount curve by shocking rate quotes and re-calibrating.
