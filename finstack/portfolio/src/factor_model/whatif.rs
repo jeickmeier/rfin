@@ -11,6 +11,9 @@ use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_valuations::factor_model::mapping_to_market_bumps;
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 
+/// Minimum portfolio size at which factor-stress repricing is run in parallel.
+const PARALLEL_FACTOR_STRESS_THRESHOLD: usize = 64;
+
 /// Base/after delta for a single factor contribution.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FactorContributionDelta {
@@ -182,25 +185,36 @@ impl<'a> WhatIfEngine<'a> {
 
         let stressed_market = self.market.bump(bumps)?;
 
-        // Per-position base/stressed pricing runs in parallel (Rayon) since
-        // `value_raw` is a read-only function of &MarketContext and the
-        // per-position work dominates thread-pool overhead. Results are
-        // collected in positional order so the subsequent serial Neumaier
-        // fold produces a bit-deterministic `total_pnl`.
-        use rayon::prelude::*;
-        let position_pnl: Vec<(PositionId, f64)> = self
-            .portfolio
-            .positions
-            .par_iter()
-            .map(|position| -> Result<(PositionId, f64)> {
-                let base_value = position.instrument.value_raw(self.market, self.as_of)?;
-                let stressed_value = position
-                    .instrument
-                    .value_raw(&stressed_market, self.as_of)?;
-                let pnl = (stressed_value - base_value) * position.quantity;
-                Ok((position.position_id.clone(), pnl))
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let positions = &self.portfolio.positions;
+        let position_pnl: Vec<(PositionId, f64)> =
+            if positions.len() >= PARALLEL_FACTOR_STRESS_THRESHOLD {
+                // For larger books, the cost of repricing both the base and
+                // stressed market per position is enough to amortize Rayon.
+                use rayon::prelude::*;
+                positions
+                    .par_iter()
+                    .map(|position| -> Result<(PositionId, f64)> {
+                        let base_value = position.instrument.value_raw(self.market, self.as_of)?;
+                        let stressed_value = position
+                            .instrument
+                            .value_raw(&stressed_market, self.as_of)?;
+                        let pnl = (stressed_value - base_value) * position.quantity;
+                        Ok((position.position_id.clone(), pnl))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            } else {
+                positions
+                    .iter()
+                    .map(|position| -> Result<(PositionId, f64)> {
+                        let base_value = position.instrument.value_raw(self.market, self.as_of)?;
+                        let stressed_value = position
+                            .instrument
+                            .value_raw(&stressed_market, self.as_of)?;
+                        let pnl = (stressed_value - base_value) * position.quantity;
+                        Ok((position.position_id.clone(), pnl))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
 
         let mut total_pnl_acc = NeumaierAccumulator::new();
         for (_, pnl) in &position_pnl {
@@ -496,9 +510,15 @@ mod tests {
             return None;
         };
 
-        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        portfolio.positions.push(position);
-        portfolio.rebuild_index();
+        let portfolio_result = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .position(position)
+            .build();
+        assert!(portfolio_result.is_ok());
+        let Ok(portfolio) = portfolio_result else {
+            return None;
+        };
 
         Some((
             model,

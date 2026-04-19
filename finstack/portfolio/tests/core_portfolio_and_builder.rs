@@ -63,10 +63,12 @@ fn validate_unknown_entity_fails() {
 
     let p = Position::new("P", "UNKNOWN", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
 
-    let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
-    portfolio.add_position(p).unwrap();
-
-    let err = portfolio.validate().unwrap_err();
+    let err = Portfolio::builder("P")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .position(p)
+        .build()
+        .unwrap_err();
     match err {
         Error::UnknownEntity { .. } => {}
         other => panic!("unexpected error: {:?}", other),
@@ -100,8 +102,12 @@ fn explicit_position_mutators_keep_lookup_index_in_sync() {
     let pos1 = Position::new("P1", "E", "D1", Arc::new(dep1), 1.0, PositionUnit::Units).unwrap();
     let pos2 = Position::new("P2", "E", "D2", Arc::new(dep2), 1.0, PositionUnit::Units).unwrap();
 
-    let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
-    portfolio.entities.insert("E".into(), Entity::new("E"));
+    let mut portfolio = Portfolio::builder("P")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("E"))
+        .build()
+        .unwrap();
 
     portfolio.add_position(pos1).unwrap();
     assert_eq!(portfolio.positions().len(), 1);

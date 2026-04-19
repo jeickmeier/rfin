@@ -6,17 +6,13 @@
 
 use super::{
     Constraint, DefaultLpOptimizer, MissingMetricPolicy, Objective, PortfolioOptimizationProblem,
-    WeightingScheme,
+    PortfolioOptimizationResult, WeightingScheme,
 };
 use crate::error::Result;
 use crate::portfolio::{Portfolio, PortfolioSpec};
-use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-
-use super::result::TradeSpec;
 
 // ---------------------------------------------------------------------------
 // General-purpose optimization spec (JSON-friendly)
@@ -52,53 +48,17 @@ fn default_weighting() -> WeightingScheme {
     WeightingScheme::ValueWeight
 }
 
-/// JSON-serializable result of a portfolio optimization.
-///
-/// Extracts the key fields from [`super::PortfolioOptimizationResult`] into a
-/// serde-friendly structure suitable for Python/WASM round-trips.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PortfolioOptimizationResultJson {
-    /// Optimization status.
-    pub status: super::OptimizationStatus,
-    /// Human-readable status string.
-    pub status_label: String,
-    /// Whether the result is feasible (usable).
-    pub is_feasible: bool,
-    /// Objective value at the solution.
-    pub objective_value: f64,
-    /// Total one-way turnover.
-    pub turnover: f64,
-    /// Optimal weights per position.
-    pub optimal_weights: IndexMap<PositionId, f64>,
-    /// Current weights per position (pre-trade).
-    pub current_weights: IndexMap<PositionId, f64>,
-    /// Weight deltas (`optimal - current`).
-    pub weight_deltas: IndexMap<PositionId, f64>,
-    /// Implied target quantities.
-    pub implied_quantities: IndexMap<PositionId, f64>,
-    /// Evaluated portfolio-level metrics at the solution.
-    pub metric_values: IndexMap<String, f64>,
-    /// Trade list (sorted by absolute delta, largest first).
-    pub trades: Vec<TradeSpec>,
-    /// Shadow prices / dual values for constraints.
-    pub dual_values: IndexMap<String, f64>,
-    /// Constraint slack values.
-    pub constraint_slacks: IndexMap<String, f64>,
-    /// Binding constraints (slack near zero).
-    pub binding_constraints: Vec<String>,
-    /// Optional label from the problem.
-    pub label: Option<String>,
-}
-
 /// Run portfolio optimization from a JSON-friendly spec.
 ///
 /// Builds the `Portfolio` from the embedded `PortfolioSpec`, constructs the
-/// optimization problem, and returns a serializable result.
+/// optimization problem, and returns the native
+/// [`PortfolioOptimizationResult`] — which serializes to the canonical JSON
+/// wire format via its `Serialize` impl.
 pub fn optimize_from_spec(
     spec: &PortfolioOptimizationSpec,
     market: &MarketContext,
     config: &FinstackConfig,
-) -> Result<PortfolioOptimizationResultJson> {
+) -> Result<PortfolioOptimizationResult> {
     let portfolio = Portfolio::from_spec(spec.portfolio.clone())?;
 
     let mut problem = PortfolioOptimizationProblem::new(portfolio, spec.objective.clone());
@@ -108,29 +68,5 @@ pub fn optimize_from_spec(
     problem = problem.with_constraints(spec.constraints.clone());
 
     let optimizer = DefaultLpOptimizer;
-    let result = optimizer.optimize(&problem, market, config)?;
-
-    let binding = result
-        .binding_constraints()
-        .iter()
-        .map(|(name, _)| name.to_string())
-        .collect();
-
-    Ok(PortfolioOptimizationResultJson {
-        status_label: format!("{:?}", result.status),
-        is_feasible: result.status.is_feasible(),
-        status: result.status.clone(),
-        objective_value: result.objective_value,
-        turnover: result.turnover(),
-        optimal_weights: result.optimal_weights.clone(),
-        current_weights: result.current_weights.clone(),
-        weight_deltas: result.weight_deltas.clone(),
-        implied_quantities: result.implied_quantities.clone(),
-        metric_values: result.metric_values.clone(),
-        trades: result.to_trade_list(),
-        dual_values: result.dual_values.clone(),
-        constraint_slacks: result.constraint_slacks.clone(),
-        binding_constraints: binding,
-        label: result.problem.label.clone(),
-    })
+    optimizer.optimize(&problem, market, config)
 }

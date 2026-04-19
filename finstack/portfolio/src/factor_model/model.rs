@@ -38,12 +38,13 @@ use finstack_valuations::instruments::Instrument;
 
 /// Builder for the top-level portfolio factor-model orchestrator.
 ///
-/// Use this type to inject a declarative factor-model configuration and, when
-/// needed, override the matcher, sensitivity engine, or decomposition engine.
+/// Use this type to inject a declarative factor-model configuration and, in
+/// tests, override the sensitivity engine or decomposition engine.
 pub struct FactorModelBuilder {
     config: Option<FactorModelConfig>,
-    custom_matcher: Option<Box<dyn finstack_core::factor_model::FactorMatcher>>,
+    #[cfg(test)]
     custom_sensitivity_engine: Option<Box<dyn FactorSensitivityEngine>>,
+    #[cfg(test)]
     custom_decomposer: Option<Box<dyn RiskDecomposer>>,
 }
 
@@ -57,8 +58,9 @@ impl FactorModelBuilder {
     pub fn new() -> Self {
         Self {
             config: None,
-            custom_matcher: None,
+            #[cfg(test)]
             custom_sensitivity_engine: None,
+            #[cfg(test)]
             custom_decomposer: None,
         }
     }
@@ -79,35 +81,10 @@ impl FactorModelBuilder {
         self
     }
 
-    /// Override the matcher built from `FactorModelConfig::matching`.
-    ///
-    /// # Arguments
-    ///
-    /// * `matcher` - Custom dependency matcher used instead of the config-built matcher.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder for fluent chaining.
+    /// Override the sensitivity engine selected from the pricing mode (test-only).
+    #[cfg(test)]
     #[must_use]
-    pub fn with_custom_matcher(
-        mut self,
-        matcher: impl finstack_core::factor_model::FactorMatcher + 'static,
-    ) -> Self {
-        self.custom_matcher = Some(Box::new(matcher));
-        self
-    }
-
-    /// Override the sensitivity engine selected from the pricing mode.
-    ///
-    /// # Arguments
-    ///
-    /// * `sensitivity_engine` - Custom engine producing weighted factor sensitivities.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder for fluent chaining.
-    #[must_use]
-    pub fn with_custom_sensitivity_engine(
+    pub(crate) fn with_custom_sensitivity_engine(
         mut self,
         sensitivity_engine: impl FactorSensitivityEngine + 'static,
     ) -> Self {
@@ -115,18 +92,13 @@ impl FactorModelBuilder {
         self
     }
 
-    /// Override the risk decomposer used by the model.
-    ///
-    /// # Arguments
-    ///
-    /// * `decomposer` - Custom decomposition engine for converting sensitivities
-    ///   into portfolio risk contributions.
-    ///
-    /// # Returns
-    ///
-    /// The updated builder for fluent chaining.
+    /// Override the risk decomposer used by the model (test-only).
+    #[cfg(test)]
     #[must_use]
-    pub fn with_custom_decomposer(mut self, decomposer: impl RiskDecomposer + 'static) -> Self {
+    pub(crate) fn with_custom_decomposer(
+        mut self,
+        decomposer: impl RiskDecomposer + 'static,
+    ) -> Self {
         self.custom_decomposer = Some(Box::new(decomposer));
         self
     }
@@ -159,16 +131,26 @@ impl FactorModelBuilder {
             ));
         }
 
-        let matcher = self
-            .custom_matcher
-            .unwrap_or_else(|| build_matcher(&config.matching));
+        let matcher = build_matcher(&config.matching);
         let bump_config = config.bump_size.clone().unwrap_or_default();
-        let sensitivity_engine = self
-            .custom_sensitivity_engine
-            .unwrap_or_else(|| default_sensitivity_engine(config.pricing_mode, &bump_config));
-        let decomposer = self
-            .custom_decomposer
-            .unwrap_or_else(|| Box::new(ParametricDecomposer));
+        let sensitivity_engine = {
+            #[cfg(test)]
+            let engine = self
+                .custom_sensitivity_engine
+                .unwrap_or_else(|| default_sensitivity_engine(config.pricing_mode, &bump_config));
+            #[cfg(not(test))]
+            let engine = default_sensitivity_engine(config.pricing_mode, &bump_config);
+            engine
+        };
+        let decomposer: Box<dyn RiskDecomposer> = {
+            #[cfg(test)]
+            let d = self
+                .custom_decomposer
+                .unwrap_or_else(|| Box::new(ParametricDecomposer));
+            #[cfg(not(test))]
+            let d = Box::new(ParametricDecomposer);
+            d
+        };
 
         Ok(FactorModel {
             factors: config.factors,
@@ -402,6 +384,7 @@ impl FactorModel {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::position::{Position, PositionUnit};
@@ -563,9 +546,12 @@ mod tests {
             return;
         };
 
-        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        portfolio.positions.push(position);
-        portfolio.rebuild_index();
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .position(position)
+            .build()
+            .expect("test should succeed");
 
         let report_result = model.assign_factors(&portfolio);
         assert!(report_result.is_ok());
@@ -624,7 +610,11 @@ mod tests {
             return;
         };
 
-        let portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .build()
+            .expect("test should succeed");
         let analysis_result =
             model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
         assert!(analysis_result.is_ok());
@@ -689,9 +679,12 @@ mod tests {
             return;
         };
 
-        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        portfolio.positions.push(position);
-        portfolio.rebuild_index();
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .position(position)
+            .build()
+            .expect("test should succeed");
 
         let analysis_result =
             model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
@@ -871,9 +864,12 @@ mod tests {
             return;
         };
 
-        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        portfolio.positions.push(position);
-        portfolio.rebuild_index();
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .position(position)
+            .build()
+            .expect("test should succeed");
 
         let result = model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
         assert!(result.is_ok());
@@ -961,9 +957,12 @@ mod tests {
             return;
         };
 
-        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        portfolio.positions.push(position);
-        portfolio.rebuild_index();
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .position(position)
+            .build()
+            .expect("test should succeed");
 
         let result = model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
         assert!(result.is_ok());

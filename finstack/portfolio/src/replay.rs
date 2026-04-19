@@ -37,6 +37,15 @@ pub struct ReplayConfig {
     pub valuation_options: crate::valuation::PortfolioValuationOptions,
 }
 
+/// A dated snapshot in the JSON wire format used by bindings.
+///
+/// Shape: `{"date": "YYYY-MM-DD", "market": <MarketContext JSON>}`.
+#[derive(Deserialize)]
+struct JsonSnapshot {
+    date: String,
+    market: MarketContext,
+}
+
 /// A dated sequence of market snapshots.
 ///
 /// Invariants enforced by [`ReplayTimeline::new`]:
@@ -48,6 +57,25 @@ pub struct ReplayTimeline {
 }
 
 impl ReplayTimeline {
+    /// Parse a JSON array of `{"date": ..., "market": ...}` snapshots
+    /// and construct a validated timeline.
+    ///
+    /// This is the canonical entry point used by the Python and WASM bindings;
+    /// they do not parse snapshots themselves.
+    pub fn from_json_snapshots(json: &str) -> Result<Self> {
+        let format = time::format_description::well_known::Iso8601::DEFAULT;
+        let raw: Vec<JsonSnapshot> = serde_json::from_str(json)
+            .map_err(|e| Error::InvalidInput(format!("invalid snapshots JSON: {e}")))?;
+        let mut snapshots = Vec::with_capacity(raw.len());
+        for entry in raw {
+            let date = Date::parse(&entry.date, &format).map_err(|e| {
+                Error::InvalidInput(format!("invalid snapshot date '{}': {e}", entry.date))
+            })?;
+            snapshots.push((date, entry.market));
+        }
+        Self::new(snapshots)
+    }
+
     /// Create a new timeline from a vector of `(date, market)` pairs.
     ///
     /// Returns an error if the vector is empty, not sorted by date, or

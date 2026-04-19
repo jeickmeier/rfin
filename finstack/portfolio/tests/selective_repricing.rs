@@ -176,7 +176,11 @@ fn affected_positions_deduplicates() {
 
 #[test]
 fn empty_portfolio_has_empty_index() {
-    let portfolio = Portfolio::new("EMPTY", Currency::USD, base_date());
+    let portfolio = Portfolio::builder("EMPTY")
+        .base_ccy(Currency::USD)
+        .as_of(base_date())
+        .build()
+        .unwrap();
     assert!(portfolio.dependency_index().is_empty());
     assert_eq!(portfolio.dependency_index().factor_count(), 0);
 }

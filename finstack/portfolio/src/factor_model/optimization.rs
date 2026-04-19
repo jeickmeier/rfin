@@ -194,9 +194,15 @@ mod tests {
             return None;
         };
 
-        let mut portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        portfolio.positions.push(position);
-        portfolio.rebuild_index();
+        let portfolio_result = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .position(position)
+            .build();
+        assert!(portfolio_result.is_ok());
+        let Ok(portfolio) = portfolio_result else {
+            return None;
+        };
 
         Some((
             model,

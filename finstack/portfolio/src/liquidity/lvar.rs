@@ -107,6 +107,89 @@ pub struct PortfolioLvarReport {
     pub failed_positions: Vec<(PositionId, String)>,
 }
 
+/// Scalar Bangia LVaR outputs for an isolated position where relative spread
+/// statistics are already known. Used by bindings that don't carry a full
+/// `LiquidityProfile`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LvarBangiaScalar {
+    /// Input VaR (non-positive loss number), echoed back for convenience.
+    pub var: f64,
+    /// Non-negative magnitude of the Bangia spread-cost add-on.
+    pub spread_cost: f64,
+    /// Bangia-adjusted LVaR (non-positive loss number, `lvar <= var <= 0`).
+    pub lvar: f64,
+    /// Ratio `lvar / var`. `NaN` when `var == 0`.
+    pub lvar_ratio: f64,
+}
+
+/// Bangia, Diebold, Schuermann & Stroughair (1999) LVaR from scalar spread
+/// statistics, for an isolated position where the caller already has
+/// `spread_mean` and `spread_vol` in relative (fraction-of-mid) terms.
+///
+/// Formula:
+/// ```text
+/// spread_cost = (0.5 * spread_mean + 0.5 * z_alpha * spread_vol) * |position_value|
+/// lvar        = var - spread_cost
+/// ```
+///
+/// # Errors
+///
+/// Returns `Error::InvalidInput` if `var` is positive or non-finite, if
+/// `spread_mean` or `spread_vol` are negative or non-finite, if `confidence`
+/// is outside `(0, 1)`, or if `position_value` is non-finite.
+///
+/// # References
+///
+/// - Bangia et al. (1999). `docs/REFERENCES.md#bangia1999LiquidityRisk`
+pub fn lvar_bangia_scalar(
+    var: f64,
+    spread_mean: f64,
+    spread_vol: f64,
+    confidence: f64,
+    position_value: f64,
+) -> Result<LvarBangiaScalar> {
+    if !var.is_finite() || var > 0.0 {
+        return Err(Error::invalid_input(format!(
+            "var must be non-positive and finite (loss sign convention), got {var}"
+        )));
+    }
+    if !spread_mean.is_finite() || spread_mean < 0.0 {
+        return Err(Error::invalid_input(
+            "spread_mean must be non-negative and finite",
+        ));
+    }
+    if !spread_vol.is_finite() || spread_vol < 0.0 {
+        return Err(Error::invalid_input(
+            "spread_vol must be non-negative and finite",
+        ));
+    }
+    if !confidence.is_finite() || !(0.0..1.0).contains(&confidence) {
+        return Err(Error::invalid_input(
+            "confidence must be finite and in the open interval (0, 1)",
+        ));
+    }
+    if !position_value.is_finite() {
+        return Err(Error::invalid_input("position_value must be finite"));
+    }
+
+    let pv = position_value.abs();
+    let z_alpha = standard_normal_inv_cdf(confidence);
+    let spread_cost = (0.5 * spread_mean + 0.5 * z_alpha * spread_vol) * pv;
+    let lvar = var - spread_cost;
+    let lvar_ratio = if var.abs() > 1e-15 {
+        lvar / var
+    } else {
+        f64::NAN
+    };
+
+    Ok(LvarBangiaScalar {
+        var,
+        spread_cost,
+        lvar,
+        lvar_ratio,
+    })
+}
+
 /// Calculator for liquidity-adjusted VaR.
 ///
 /// This calculator does not compute VaR itself -- it takes VaR as an input

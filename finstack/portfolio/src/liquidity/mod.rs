@@ -51,7 +51,9 @@ pub use types::{
 pub use estimators::{amihud_illiquidity, roll_effective_spread};
 
 // Re-export LVaR
-pub use lvar::{LvarCalculator, LvarResult, PortfolioLvarReport};
+pub use lvar::{
+    lvar_bangia_scalar, LvarBangiaScalar, LvarCalculator, LvarResult, PortfolioLvarReport,
+};
 
 // Re-export impact models
 pub use almgren_chriss::AlmgrenChrissModel;

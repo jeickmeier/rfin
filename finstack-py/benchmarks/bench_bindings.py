@@ -93,7 +93,7 @@ from finstack.monte_carlo import (
 from finstack.portfolio import (
     Portfolio,
     PortfolioValuation,
-    aggregate_cashflows,
+    aggregate_full_cashflows,
     aggregate_metrics,
     build_portfolio_from_spec,
     parse_portfolio_spec,
@@ -853,7 +853,7 @@ class TestPortfolioCompoundWorkflow:
         def _run():
             val = value_portfolio(_BENCH_SPEC_JSON_500, _BENCH_MARKET_JSON)
             agg = aggregate_metrics(val, "USD", _BENCH_MARKET_JSON, "2025-01-15")
-            cf = aggregate_cashflows(_BENCH_SPEC_JSON_500, _BENCH_MARKET_JSON)
+            cf = aggregate_full_cashflows(_BENCH_SPEC_JSON_500, _BENCH_MARKET_JSON)
             return val, agg, cf
 
         benchmark.pedantic(_run, rounds=5, warmup_rounds=1)
@@ -866,7 +866,7 @@ class TestPortfolioCompoundWorkflow:
             val_json = value_portfolio(portfolio, _BENCH_MARKET)
             val = PortfolioValuation.from_json(val_json)
             agg = aggregate_metrics(val, "USD", _BENCH_MARKET, "2025-01-15")
-            cf = aggregate_cashflows(portfolio, _BENCH_MARKET)
+            cf = aggregate_full_cashflows(portfolio, _BENCH_MARKET)
             return val, agg, cf
 
         benchmark.pedantic(_run, rounds=5, warmup_rounds=1)

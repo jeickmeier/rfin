@@ -13,6 +13,10 @@ use finstack_valuations::results::ValuationResult;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+/// Minimum number of dirty positions before `revalue_affected` considers
+/// parallel repricing.
+const REVALUE_AFFECTED_PARALLEL_MIN_AFFECTED: usize = 64;
+
 /// Result of valuing a single position.
 ///
 /// Holds both native-currency and base-currency valuations along with
@@ -503,28 +507,81 @@ pub fn revalue_affected(
     }
 
     let metrics = resolve_metrics(options);
+    let positions = &portfolio.positions;
+    let use_parallel = affected_indices.len() >= REVALUE_AFFECTED_PARALLEL_MIN_AFFECTED
+        && affected_indices.len().saturating_mul(4) >= positions.len();
 
-    use rayon::prelude::*;
+    let position_values_vec: Vec<PositionValue> = if use_parallel {
+        use rayon::prelude::*;
 
-    // Parallel revaluation of each position. Positions whose dependencies
-    // were not touched by `changed` are cloned from the prior valuation;
-    // affected positions (and any position without a prior entry, e.g. on
-    // first call) are repriced via `value_single_position`. The resulting
-    // order matches `portfolio.positions` so downstream ordering is preserved.
-    let position_values_vec: Vec<PositionValue> = portfolio
-        .positions
-        .par_iter()
-        .enumerate()
-        .map(|(idx, position)| {
-            if affected_indices.binary_search(&idx).is_ok() {
-                value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+        let mut affected_mask = vec![false; positions.len()];
+        for &idx in &affected_indices {
+            affected_mask[idx] = true;
+        }
+
+        // Broad shocks dirty enough of the book that it is worth building a
+        // one-byte mask and letting Rayon fan out across positions. Unaffected
+        // rows still reuse the prior valuation result in place.
+        positions
+            .par_iter()
+            .enumerate()
+            .map(|(idx, position)| {
+                if affected_mask[idx] {
+                    value_single_position(
+                        position,
+                        market,
+                        portfolio,
+                        &metrics,
+                        options.strict_risk,
+                    )
+                } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
+                    Ok(pv.clone())
+                } else {
+                    value_single_position(
+                        position,
+                        market,
+                        portfolio,
+                        &metrics,
+                        options.strict_risk,
+                    )
+                }
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        // Sparse shocks stay on a cheap serial path so the work remains
+        // proportional to the dirty subset instead of paying Rayon overhead on
+        // every position. `affected_indices` is sorted, so a single forward
+        // scan avoids per-row binary searches.
+        let mut next_affected = affected_indices.iter().copied().peekable();
+        let mut values = Vec::with_capacity(positions.len());
+
+        for (idx, position) in positions.iter().enumerate() {
+            let should_reprice =
+                matches!(next_affected.peek(), Some(&affected_idx) if affected_idx == idx);
+            if should_reprice {
+                next_affected.next();
+                values.push(value_single_position(
+                    position,
+                    market,
+                    portfolio,
+                    &metrics,
+                    options.strict_risk,
+                )?);
             } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
-                Ok(pv.clone())
+                values.push(pv.clone());
             } else {
-                value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+                values.push(value_single_position(
+                    position,
+                    market,
+                    portfolio,
+                    &metrics,
+                    options.strict_risk,
+                )?);
             }
-        })
-        .collect::<Result<Vec<_>>>()?;
+        }
+
+        values
+    };
 
     assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
 }

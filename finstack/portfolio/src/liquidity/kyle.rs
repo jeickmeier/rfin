@@ -45,6 +45,27 @@ impl KyleLambdaModel {
         Ok(Self { lambda })
     }
 
+    /// Estimate lambda directly from observed volume and return series using
+    /// the Amihud-ratio proxy.
+    ///
+    /// ```text
+    /// lambda ~= mean(|r_t| / V_t) * mean(V_t)
+    /// ```
+    ///
+    /// Returns `None` when the inputs are empty, mismatched in length, or
+    /// otherwise invalid (zero/non-finite mean volume, ill-defined Amihud ratio).
+    pub fn lambda_from_series(volumes: &[f64], returns: &[f64]) -> Option<f64> {
+        if volumes.is_empty() || volumes.len() != returns.len() {
+            return None;
+        }
+        let illiq = super::amihud_illiquidity(returns, volumes)?;
+        let mean_vol: f64 = volumes.iter().sum::<f64>() / volumes.len() as f64;
+        if !mean_vol.is_finite() || mean_vol <= 0.0 {
+            return None;
+        }
+        Self::from_amihud(illiq, mean_vol).ok().map(|m| m.lambda())
+    }
+
     /// Estimate lambda from a liquidity profile using the Amihud proxy.
     ///
     /// ```text

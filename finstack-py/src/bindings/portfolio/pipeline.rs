@@ -64,33 +64,6 @@ fn value_portfolio(
     serde_json::to_string(&valuation).map_err(display_to_py)
 }
 
-/// Aggregate the simple (by-date, by-currency) cashflow ladder.
-///
-/// Parameters
-/// ----------
-/// portfolio : Portfolio | str
-/// market : MarketContext | str
-///
-/// Returns
-/// -------
-/// str
-///     JSON-serialized ``PortfolioCashflows`` ladder.
-#[pyfunction]
-fn aggregate_cashflows(
-    py: Python<'_>,
-    portfolio: &Bound<'_, PyAny>,
-    market: &Bound<'_, PyAny>,
-) -> PyResult<String> {
-    let portfolio = extract_portfolio_ref(portfolio)?;
-    let market = extract_market_ref(market)?;
-    let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
-    let market_ref: &finstack_core::market_data::context::MarketContext = &market;
-    let cashflows = py
-        .detach(|| finstack_portfolio::cashflows::aggregate_cashflows(portfolio_ref, market_ref))
-        .map_err(display_to_py)?;
-    serde_json::to_string(&cashflows).map_err(display_to_py)
-}
-
 /// Aggregate the full classified cashflow ladder.
 ///
 /// Parameters
@@ -167,7 +140,6 @@ fn apply_scenario_and_revalue(
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(value_portfolio, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(aggregate_full_cashflows, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(aggregate_cashflows, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(apply_scenario_and_revalue, m)?)?;
     Ok(())
 }

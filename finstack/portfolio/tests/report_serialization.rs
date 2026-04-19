@@ -1,16 +1,14 @@
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, Month, PeriodId};
+use finstack_core::dates::{Date, Month};
 use finstack_core::money::Money;
 use finstack_portfolio::cashflows::{
-    CashflowExtractionIssue, CashflowExtractionIssueKind, CashflowWarning,
-    PortfolioCashflowBuckets, PortfolioCashflowEvent, PortfolioCashflowKindBuckets,
-    PortfolioCashflowPositionSummary, PortfolioCashflows, PortfolioFullCashflows,
+    CashflowExtractionIssue, CashflowExtractionIssueKind, PortfolioCashflowEvent,
+    PortfolioCashflowPositionSummary, PortfolioFullCashflows,
 };
 use finstack_portfolio::dependencies::MarketFactorKey;
 use finstack_portfolio::types::PositionId;
 use finstack_valuations::cashflow::builder::CashflowRepresentation;
-use finstack_valuations::cashflow::DatedFlows;
 use finstack_valuations::instruments::RatesCurveKind;
 use indexmap::IndexMap;
 
@@ -41,13 +39,6 @@ fn make_date(day: u8) -> Date {
 fn test_cashflow_report_types_roundtrip() {
     let position_id = PositionId::new("POS_1");
     let payment_date = make_date(15);
-
-    assert_roundtrip_value(&CashflowWarning {
-        position_id: position_id.clone(),
-        instrument_id: "BOND_A".to_string(),
-        instrument_type: "Bond".to_string(),
-        message: "schedule construction failed".to_string(),
-    });
 
     assert_roundtrip_value(&CashflowExtractionIssue {
         position_id: position_id.clone(),
@@ -90,13 +81,13 @@ fn test_cashflow_report_types_roundtrip() {
     full_by_date.insert(payment_date, per_currency);
 
     let mut summaries = IndexMap::new();
-    summaries.insert(position_id.clone(), summary.clone());
+    summaries.insert(position_id, summary);
 
     assert_roundtrip_value(&PortfolioFullCashflows {
-        events: vec![event.clone()],
+        events: vec![event],
         by_position: full_by_position,
         by_date: full_by_date,
-        position_summaries: summaries.clone(),
+        position_summaries: summaries,
         issues: vec![CashflowExtractionIssue {
             position_id: PositionId::new("POS_2"),
             instrument_id: "SWAP_C".to_string(),
@@ -104,43 +95,6 @@ fn test_cashflow_report_types_roundtrip() {
             kind: CashflowExtractionIssueKind::Unsupported,
             message: "cashflow provider unavailable".to_string(),
         }],
-    });
-
-    let dated_flows: DatedFlows = vec![(payment_date, Money::new(12_500.0, Currency::USD))];
-    let mut ladder_by_position = IndexMap::new();
-    ladder_by_position.insert(position_id.clone(), dated_flows);
-
-    let mut ladder_by_date = IndexMap::new();
-    let mut totals = IndexMap::new();
-    totals.insert(Currency::USD, Money::new(12_500.0, Currency::USD));
-    ladder_by_date.insert(payment_date, totals);
-
-    assert_roundtrip_value(&PortfolioCashflows {
-        by_date: ladder_by_date,
-        by_position: ladder_by_position,
-        position_summaries: summaries,
-        warnings: vec![CashflowWarning {
-            position_id,
-            instrument_id: "BOND_A".to_string(),
-            instrument_type: "Bond".to_string(),
-            message: "used placeholder schedule".to_string(),
-        }],
-    });
-
-    let mut by_period = IndexMap::new();
-    by_period.insert(
-        PeriodId::month(2025, 1),
-        Money::new(50_000.0, Currency::USD),
-    );
-    assert_roundtrip_value(&PortfolioCashflowBuckets { by_period });
-
-    let mut by_kind_period = IndexMap::new();
-    let mut period_totals = IndexMap::new();
-    period_totals.insert(CFKind::Fixed, Money::new(40_000.0, Currency::USD));
-    period_totals.insert(CFKind::Notional, Money::new(-10_000.0, Currency::USD));
-    by_kind_period.insert(PeriodId::month(2025, 1), period_totals);
-    assert_roundtrip_value(&PortfolioCashflowKindBuckets {
-        by_period: by_kind_period,
     });
 }
 

@@ -9,7 +9,6 @@ __all__ = [
     "PortfolioResult",
     "PortfolioValuation",
     "aggregate_full_cashflows",
-    "aggregate_cashflows",
     "aggregate_metrics",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",
@@ -24,7 +23,7 @@ class Portfolio:
     """Built runtime portfolio. Cheap to clone; pass directly to pipeline functions.
 
     Build once with :meth:`from_spec` and reuse across ``value_portfolio``,
-    ``aggregate_cashflows``, ``aggregate_metrics``, and
+    ``aggregate_full_cashflows``, ``aggregate_metrics``, and
     ``apply_scenario_and_revalue`` to skip the per-call spec parse + index
     rebuild.
     """
@@ -131,10 +130,6 @@ def value_portfolio(
     :meth:`PortfolioValuation.from_json` once to enable the fast downstream
     path into ``aggregate_metrics``.
     """
-    ...
-
-def aggregate_cashflows(portfolio: Portfolio | str, market: MarketContext | str) -> str:
-    """Build the simple cashflow ladder for the portfolio."""
     ...
 
 def aggregate_full_cashflows(portfolio: Portfolio | str, market: MarketContext | str) -> str:

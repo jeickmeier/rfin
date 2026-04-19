@@ -153,8 +153,7 @@ This document defines Cursor rules for the `finstack/portfolio/` crate. It expla
 
 ### Practical Tips
 
-- Use `PortfolioBuilder` for all portfolio construction; avoid direct `Portfolio::new()` unless you have a specific reason.
-- Always call `portfolio.validate()` before valuation if constructing manually; builder does this automatically.
+- Use `PortfolioBuilder` (via `Portfolio::builder(id)`) for all portfolio construction; it validates on `build()`.
 - For standalone instruments, use `DUMMY_ENTITY_ID` as entity_id; builder will auto-create this entity.
 - Position tags are flexible; establish conventions for your use case (e.g., `"asset_class"`, `"rating"`, `"sector"`, `"strategy"`).
 - When adding metrics, classify as summable or non-summable; only aggregate summable metrics across positions.

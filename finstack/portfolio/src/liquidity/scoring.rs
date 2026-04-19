@@ -87,6 +87,11 @@ pub struct PortfolioLiquidityReport {
     pub unscored_positions: Vec<PositionId>,
 }
 
+enum PositionLiquidityOutcome {
+    Scored(PositionLiquidityScore),
+    Unscored(PositionId),
+}
+
 /// Score portfolio liquidity across all positions.
 ///
 /// # Arguments
@@ -120,8 +125,10 @@ pub fn score_portfolio_liquidity(
     let mut unscored_positions = Vec::new();
 
     // Score each position
-    let score_fn = |pos: &crate::position::Position| -> Option<PositionLiquidityScore> {
-        let profile = profiles.get(&pos.instrument_id)?;
+    let score_fn = |pos: &crate::position::Position| -> PositionLiquidityOutcome {
+        let Some(profile) = profiles.get(&pos.instrument_id) else {
+            return PositionLiquidityOutcome::Unscored(pos.position_id.clone());
+        };
 
         let pv = valuation
             .get_position_value(pos.position_id.as_str())
@@ -152,7 +159,7 @@ pub fn score_portfolio_liquidity(
         // Liquidation cost: half-spread as basis points
         let liquidation_cost_bps = profile.relative_spread() * 0.5 * 10_000.0;
 
-        Some(PositionLiquidityScore {
+        PositionLiquidityOutcome::Scored(PositionLiquidityScore {
             position_id: pos.position_id.clone(),
             instrument_id: pos.instrument_id.clone(),
             position_value: pv,
@@ -166,21 +173,17 @@ pub fn score_portfolio_liquidity(
     let positions = portfolio.positions();
     let results: Vec<_> = if positions.len() >= PARALLEL_SCORING_THRESHOLD {
         use rayon::prelude::*;
-        positions
-            .par_iter()
-            .map(|pos| (pos.position_id.clone(), score_fn(pos)))
-            .collect()
+        positions.par_iter().map(score_fn).collect()
     } else {
-        positions
-            .iter()
-            .map(|pos| (pos.position_id.clone(), score_fn(pos)))
-            .collect()
+        positions.iter().map(score_fn).collect()
     };
 
-    for (pos_id, score) in results {
-        match score {
-            Some(s) => position_scores.push(s),
-            None => unscored_positions.push(pos_id),
+    for result in results {
+        match result {
+            PositionLiquidityOutcome::Scored(score) => position_scores.push(score),
+            PositionLiquidityOutcome::Unscored(position_id) => {
+                unscored_positions.push(position_id);
+            }
         }
     }
 

@@ -51,7 +51,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "aggregate_metrics",
         "value_portfolio",
         "aggregate_full_cashflows",
-        "aggregate_cashflows",
         "apply_scenario_and_revalue",
         "optimize_portfolio",
         "replay_portfolio",

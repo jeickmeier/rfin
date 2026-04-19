@@ -18,7 +18,6 @@ portfolio_result_get_metric = _portfolio.portfolio_result_get_metric
 aggregate_metrics = _portfolio.aggregate_metrics
 value_portfolio = _portfolio.value_portfolio
 aggregate_full_cashflows = _portfolio.aggregate_full_cashflows
-aggregate_cashflows = _portfolio.aggregate_cashflows
 apply_scenario_and_revalue = _portfolio.apply_scenario_and_revalue
 optimize_portfolio = _portfolio.optimize_portfolio
 replay_portfolio = _portfolio.replay_portfolio
@@ -38,7 +37,6 @@ __all__: list[str] = [
     "Portfolio",
     "PortfolioResult",
     "PortfolioValuation",
-    "aggregate_cashflows",
     "aggregate_full_cashflows",
     "aggregate_metrics",
     "almgren_chriss_impact",

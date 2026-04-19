@@ -107,51 +107,11 @@ pub struct PortfolioSpec {
 impl Portfolio {
     /// Create a [`crate::builder::PortfolioBuilder`] for constructing a portfolio.
     ///
-    /// This is the preferred entry point for validated portfolio creation when
-    /// the identifier is known up front but the remaining required fields are
-    /// filled in fluently.
+    /// This is the single canonical entry point for portfolio construction.
+    /// The builder validates invariants on [`crate::builder::PortfolioBuilder::build`].
     #[must_use]
     pub fn builder(id: impl Into<String>) -> crate::builder::PortfolioBuilder {
         crate::builder::PortfolioBuilder::new(id)
-    }
-
-    /// Create a new empty portfolio.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - Unique portfolio identifier.
-    /// * `base_ccy` - Reporting currency.
-    /// * `as_of` - Valuation date.
-    ///
-    /// # Returns
-    ///
-    /// An empty portfolio with no entities, positions, books, tags, or metadata.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_core::currency::Currency;
-    /// use finstack_portfolio::Portfolio;
-    /// use time::macros::date;
-    ///
-    /// let portfolio = Portfolio::new("FUND_A", Currency::USD, date!(2024-01-01));
-    /// assert_eq!(portfolio.id, "FUND_A");
-    /// assert!(portfolio.positions().is_empty());
-    /// ```
-    pub fn new(id: impl Into<String>, base_ccy: Currency, as_of: Date) -> Self {
-        Self {
-            id: id.into(),
-            name: None,
-            base_ccy,
-            as_of,
-            entities: IndexMap::new(),
-            positions: Vec::new(),
-            position_index: HashMap::default(),
-            dependency_index: DependencyIndex::default(),
-            books: IndexMap::new(),
-            tags: IndexMap::new(),
-            meta: IndexMap::new(),
-        }
     }
 
     /// Rebuild both derived caches: the position-ID lookup and the
@@ -453,6 +413,7 @@ impl Portfolio {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::types::Entity;
@@ -460,7 +421,11 @@ mod tests {
 
     #[test]
     fn test_portfolio_creation() {
-        let portfolio = Portfolio::new("FUND_A", Currency::USD, date!(2024 - 01 - 01));
+        let portfolio = Portfolio::builder("FUND_A")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .build()
+            .expect("test should succeed");
 
         assert_eq!(portfolio.id, "FUND_A");
         assert_eq!(portfolio.base_ccy, Currency::USD);
@@ -471,11 +436,12 @@ mod tests {
 
     #[test]
     fn test_portfolio_validation() {
-        let mut portfolio = Portfolio::new("FUND_A", Currency::USD, date!(2024 - 01 - 01));
-
-        // Add entity
-        let entity = Entity::new("ACME");
-        portfolio.entities.insert(entity.id.clone(), entity);
+        let portfolio = Portfolio::builder("FUND_A")
+            .base_ccy(Currency::USD)
+            .as_of(date!(2024 - 01 - 01))
+            .entity(Entity::new("ACME"))
+            .build()
+            .expect("test should succeed");
 
         // Valid portfolio
         assert!(portfolio.validate().is_ok());

@@ -22,7 +22,7 @@ use pyo3::prelude::*;
 /// Returns
 /// -------
 /// str
-///     JSON-serialized ``PortfolioOptimizationResultJson`` with optimal weights,
+///     JSON-serialized ``PortfolioOptimizationResult`` with optimal weights,
 ///     trade list, dual values, and diagnostics. Compact JSON — use
 ///     :func:`json.dumps(json.loads(result), indent=2)` to pretty-print.
 #[pyfunction]

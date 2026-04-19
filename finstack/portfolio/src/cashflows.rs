@@ -6,18 +6,15 @@
 //!
 //! The aggregation is **currency-preserving**: no implicit FX conversion is
 //! applied. Consumers can apply explicit FX policies on top if a base-currency
-//! ladder is required.
+//! ladder is required. Use
+//! [`PortfolioFullCashflows::collapse_to_base_by_date_kind`] for a
+//! base-currency projection that preserves [`CFKind`] classification.
 //!
-//! # FX Conversion Warning
-//!
-//! The convenience functions
-//! [`collapse_cashflows_to_base_by_date`](crate::cashflows::collapse_cashflows_to_base_by_date)
-//! and [`cashflows_to_base_by_period`](crate::cashflows::cashflows_to_base_by_period)
-//! convert using the spot-equivalent rate from
-//! the [`FxMatrix`](finstack_core::money::fx::FxMatrix) for every cashflow date.
-//! This is **not** the same as discounting future foreign-currency cashflows at
-//! the appropriate forward FX rate. For NPV-grade accuracy, derive forward FX
-//! rates from the relevant discount curves instead.
+//! Spot-equivalent FX is used for every cashflow date in base-currency
+//! projections, which is **not** the same as discounting future
+//! foreign-currency cashflows at the appropriate forward FX rate. For
+//! NPV-grade accuracy, derive forward FX rates from the relevant discount
+//! curves instead.
 
 use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
@@ -29,7 +26,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CashflowRepresentation};
-use finstack_valuations::cashflow::DatedFlows;
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use std::collections::HashSet;
@@ -80,23 +76,6 @@ fn should_warn_far_future_fx_conversion(
         return false;
     };
     payment_date > add_years_clamped(reference_date, 30)
-}
-
-/// Legacy cashflow extraction warning attached to [`PortfolioCashflows`].
-///
-/// This is a lossy projection of [`CashflowExtractionIssue`] kept only for
-/// backwards compatibility with the legacy [`PortfolioCashflows`] surface.
-/// New code should consume [`PortfolioFullCashflows::issues`] directly.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CashflowWarning {
-    /// Position whose cashflow extraction failed.
-    pub position_id: PositionId,
-    /// Underlying instrument identifier.
-    pub instrument_id: String,
-    /// Underlying instrument type key.
-    pub instrument_type: String,
-    /// Human-readable failure detail.
-    pub message: String,
 }
 
 /// Why a position did not contribute classified cashflows to a portfolio ladder.
@@ -180,42 +159,6 @@ pub struct PortfolioFullCashflows {
     pub issues: Vec<CashflowExtractionIssue>,
 }
 
-/// Aggregated portfolio cashflows by date and currency, plus extraction warnings.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct PortfolioCashflows {
-    /// Map from payment date to per-currency totals.
-    pub by_date: IndexMap<Date, IndexMap<Currency, Money>>,
-
-    /// Optional per-position cashflow schedules for drill-down.
-    ///
-    /// This is keyed by position ID and contains instrument-economics-signed
-    /// cashflows in the instrument's native currency, scaled by position quantity.
-    pub by_position: IndexMap<PositionId, DatedFlows>,
-
-    /// Per-position cashflow metadata, including empty-schedule visibility.
-    pub position_summaries: IndexMap<PositionId, PortfolioCashflowPositionSummary>,
-
-    /// Cashflow extraction warnings captured during aggregation.
-    pub warnings: Vec<CashflowWarning>,
-}
-
-/// Aggregated portfolio cashflows by reporting period in base currency.
-///
-/// Each period total is expressed in a single reporting currency and is
-/// suitable for liquidity analysis and cashflow ladder reporting.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct PortfolioCashflowBuckets {
-    /// Map from period identifier to total cashflow in reporting currency.
-    pub by_period: IndexMap<finstack_core::dates::PeriodId, Money>,
-}
-
-/// Aggregated base-currency cashflows bucketed by period and `CFKind`.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct PortfolioCashflowKindBuckets {
-    /// Map from period identifier to base-currency totals per cashflow kind.
-    pub by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>>,
-}
-
 /// Build the canonical signed schedule for a single instrument.
 fn instrument_cashflow_schedule(
     instrument: &DynInstrument,
@@ -226,60 +169,6 @@ fn instrument_cashflow_schedule(
 }
 
 impl PortfolioFullCashflows {
-    /// Project the classified ladder into the legacy [`PortfolioCashflows`]
-    /// view, discarding `CFKind` information.
-    ///
-    /// This is the canonical path from the rich multi-currency event view to
-    /// the flat date/currency summary. Callers that need classification should
-    /// consume [`PortfolioFullCashflows`] directly.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when monetary aggregation fails (e.g. currency
-    /// mismatch in `checked_add`).
-    pub fn to_simple(&self) -> Result<PortfolioCashflows> {
-        let by_position: IndexMap<PositionId, DatedFlows> = self
-            .by_position
-            .iter()
-            .map(|(position_id, events)| {
-                (
-                    position_id.clone(),
-                    events
-                        .iter()
-                        .map(|event| (event.date, event.amount))
-                        .collect(),
-                )
-            })
-            .collect();
-
-        let warnings = self
-            .issues
-            .iter()
-            .filter(|issue| issue.kind == CashflowExtractionIssueKind::BuildFailed)
-            .map(|issue| CashflowWarning {
-                position_id: issue.position_id.clone(),
-                instrument_id: issue.instrument_id.clone(),
-                instrument_type: issue.instrument_type.clone(),
-                message: issue.message.clone(),
-            })
-            .collect();
-
-        let mut by_date: IndexMap<Date, IndexMap<Currency, Money>> = IndexMap::new();
-        for event in &self.events {
-            let per_ccy = by_date.entry(event.date).or_default();
-            let ccy = event.amount.currency();
-            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
-            *entry = entry.checked_add(event.amount).map_err(Error::Core)?;
-        }
-
-        Ok(PortfolioCashflows {
-            by_date,
-            by_position,
-            position_summaries: self.position_summaries.clone(),
-            warnings,
-        })
-    }
-
     /// Collapse classified multi-currency flows into base currency bucketed by
     /// (date, [`CFKind`]).
     ///
@@ -319,54 +208,6 @@ impl PortfolioFullCashflows {
         }
 
         Ok(by_date_base)
-    }
-
-    /// Bucket classified full cashflows by reporting period in base currency.
-    ///
-    /// Dates outside all period windows are dropped with a `tracing::warn!`
-    /// aggregating the count and absolute total.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when FX conversion or monetary aggregation fails.
-    pub fn bucket_by_period_kind(
-        &self,
-        market: &MarketContext,
-        base_ccy: Currency,
-        periods: &[finstack_core::dates::Period],
-    ) -> Result<PortfolioCashflowKindBuckets> {
-        let by_date_base = self.collapse_to_base_by_date_kind(market, base_ccy)?;
-
-        let mut by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>> =
-            IndexMap::new();
-
-        let mut unbucketed_count: usize = 0;
-        let mut unbucketed_total = 0.0_f64;
-
-        for (date, per_kind) in by_date_base {
-            if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
-                let period_entry = by_period.entry(period.id).or_default();
-                for (kind, amount) in per_kind {
-                    let entry = period_entry
-                        .entry(kind)
-                        .or_insert_with(|| Money::new(0.0, base_ccy));
-                    *entry = entry.checked_add(amount).map_err(Error::Core)?;
-                }
-            } else {
-                unbucketed_count += 1;
-                unbucketed_total += per_kind.values().map(|m| m.amount().abs()).sum::<f64>();
-            }
-        }
-
-        if unbucketed_count > 0 {
-            tracing::warn!(
-                count = unbucketed_count,
-                total_abs = unbucketed_total,
-                "bucket_by_period_kind: {unbucketed_count} cashflow dates fell outside all period boundaries and were dropped"
-            );
-        }
-
-        Ok(PortfolioCashflowKindBuckets { by_period })
     }
 }
 
@@ -519,17 +360,6 @@ pub fn aggregate_full_cashflows(
 /// code that also wants classification metadata; this function remains for
 /// backwards compatibility.
 ///
-/// # References
-///
-/// - Bond and cashflow conventions:
-///   `docs/REFERENCES.md#icma-rule-book`
-pub fn aggregate_cashflows(
-    portfolio: &Portfolio,
-    market: &MarketContext,
-) -> Result<PortfolioCashflows> {
-    aggregate_full_cashflows(portfolio, market)?.to_simple()
-}
-
 fn convert_money_to_base_on_date(
     money: Money,
     payment_date: Date,
@@ -566,153 +396,6 @@ fn convert_money_to_base_on_date(
     }
 
     Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
-}
-
-/// Collapse classified multi-currency cashflows into base currency by date and `CFKind`.
-///
-/// Thin wrapper around [`PortfolioFullCashflows::collapse_to_base_by_date_kind`]
-/// retained for backwards compatibility. New code should call the method form.
-pub fn collapse_full_cashflows_to_base_by_date_kind(
-    ladder: &PortfolioFullCashflows,
-    market: &MarketContext,
-    base_ccy: Currency,
-) -> Result<IndexMap<Date, IndexMap<CFKind, Money>>> {
-    ladder.collapse_to_base_by_date_kind(market, base_ccy)
-}
-
-/// Collapse a multi-currency cashflow ladder into base currency by date.
-///
-/// This helper applies an explicit FX policy using the cashflow date as the
-/// FX fixing date. It requires an `FxMatrix` in the market context.
-///
-/// # FX Conversion Note
-///
-/// The conversion uses spot-equivalent rates from
-/// [`FxMatrix`](finstack_core::money::fx::FxMatrix) for **all**
-/// cashflow dates, including future dates. In practice, the FX matrix typically
-/// stores today's spot rate and may not account for the forward basis (interest
-/// rate differential between currencies). For precise NPV-of-cashflows analysis
-/// where the forward FX curve matters, convert future cashflows using forward
-/// FX rates derived from the appropriate discount curves instead.
-///
-/// # Arguments
-///
-/// * `ladder` - Multi-currency cashflow ladder to convert.
-/// * `market` - Market context providing FX rates.
-/// * `base_ccy` - Reporting currency to convert into.
-///
-/// # Returns
-///
-/// Base-currency cashflow totals keyed by payment date.
-///
-/// # Errors
-///
-/// Returns an error when FX rates needed for conversion are unavailable.
-pub fn collapse_cashflows_to_base_by_date(
-    ladder: &PortfolioCashflows,
-    market: &MarketContext,
-    base_ccy: Currency,
-) -> Result<IndexMap<Date, Money>> {
-    let mut by_date_base: IndexMap<Date, Money> = IndexMap::new();
-    let mut warned_pairs: HashSet<(Currency, Currency, Date)> = HashSet::new();
-
-    for (date, per_ccy) in &ladder.by_date {
-        let mut total = Money::new(0.0, base_ccy);
-
-        for (ccy, money) in per_ccy {
-            debug_assert_eq!(*ccy, money.currency());
-            let converted =
-                convert_money_to_base_on_date(*money, *date, market, base_ccy, &mut warned_pairs)?;
-            total = total.checked_add(converted).map_err(Error::Core)?;
-        }
-
-        if total.amount().is_nan() {
-            // NaN totals indicate upstream data quality problems (e.g. a
-            // position priced with NaN cashflows, or an unresolvable FX rate
-            // path); surface them instead of silently dropping the bucket.
-            tracing::warn!(
-                date = %date,
-                base_ccy = %base_ccy,
-                "Dropping cashflow bucket because aggregated amount is NaN"
-            );
-        } else {
-            by_date_base.insert(*date, total);
-        }
-    }
-
-    Ok(by_date_base)
-}
-
-/// Bucket base-currency cashflows by reporting period.
-///
-/// This function assumes its input ladder has already been converted to
-/// base currency via
-/// [`collapse_cashflows_to_base_by_date`].
-///
-/// See that function's documentation for important notes on the use of
-/// spot-equivalent FX rates for future cashflow conversion.
-///
-/// # Arguments
-///
-/// * `ladder` - Multi-currency cashflow ladder to bucket.
-/// * `market` - Market context providing FX rates for conversion.
-/// * `base_ccy` - Reporting currency for the bucket totals.
-/// * `periods` - Reporting periods used to bucket converted cashflows.
-///
-/// # Returns
-///
-/// Base-currency cashflows bucketed by reporting period.
-///
-/// # Errors
-///
-/// Returns an error when FX conversion or monetary aggregation fails.
-pub fn cashflows_to_base_by_period(
-    ladder: &PortfolioCashflows,
-    market: &MarketContext,
-    base_ccy: Currency,
-    periods: &[finstack_core::dates::Period],
-) -> Result<PortfolioCashflowBuckets> {
-    let by_date_base = collapse_cashflows_to_base_by_date(ladder, market, base_ccy)?;
-
-    let mut by_period: IndexMap<finstack_core::dates::PeriodId, Money> = IndexMap::new();
-
-    let mut unbucketed_count: usize = 0;
-    let mut unbucketed_total = 0.0_f64;
-
-    for (date, amount) in by_date_base {
-        if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
-            let entry = by_period
-                .entry(period.id)
-                .or_insert_with(|| Money::new(0.0, base_ccy));
-            *entry = entry.checked_add(amount).map_err(Error::Core)?;
-        } else {
-            unbucketed_count += 1;
-            unbucketed_total += amount.amount().abs();
-        }
-    }
-
-    if unbucketed_count > 0 {
-        tracing::warn!(
-            count = unbucketed_count,
-            total_abs = unbucketed_total,
-            "cashflows_to_base_by_period: {unbucketed_count} cashflows fell outside all period boundaries and were dropped"
-        );
-    }
-
-    Ok(PortfolioCashflowBuckets { by_period })
-}
-
-/// Bucket classified full cashflows by reporting period in base currency.
-///
-/// Thin wrapper around [`PortfolioFullCashflows::bucket_by_period_kind`]
-/// retained for backwards compatibility. New code should call the method form.
-pub fn cashflows_to_base_by_period_kind(
-    ladder: &PortfolioFullCashflows,
-    market: &MarketContext,
-    base_ccy: Currency,
-    periods: &[finstack_core::dates::Period],
-) -> Result<PortfolioCashflowKindBuckets> {
-    ladder.bucket_by_period_kind(market, base_ccy, periods)
 }
 
 #[cfg(test)]
@@ -850,19 +533,14 @@ mod tests {
     }
 
     #[test]
-    fn test_aggregate_cashflows_basic() {
+    fn aggregate_full_cashflows_bond_ladder_has_usd_flows_and_contractual_summary() {
         let as_of = date!(2025 - 01 - 01);
-
-        // Simple fixed-rate bond with annual coupons
-        let issue = as_of;
-        let maturity = date!(2027 - 01 - 01);
-
         let bond = bond::Bond::fixed(
             "BOND_001",
             Money::new(1_000_000.0, Currency::USD),
             0.05,
-            issue,
-            maturity,
+            as_of,
+            date!(2027 - 01 - 01),
             "USD-OIS",
         )
         .expect("Bond::fixed should succeed with valid parameters");
@@ -885,99 +563,24 @@ mod tests {
             .build()
             .expect("test should succeed");
 
-        let market = build_test_market_at(as_of);
+        let full = aggregate_full_cashflows(&portfolio, &build_test_market_at(as_of))
+            .expect("cashflow aggregation");
 
-        let ladder = aggregate_cashflows(&portfolio, &market).expect("cashflow aggregation");
-
-        // There should be at least one payment date with USD flows
+        assert!(!full.events.is_empty(), "expected non-empty events");
         assert!(
-            !ladder.by_date.is_empty(),
-            "Expected non-empty cashflow ladder"
+            full.events
+                .iter()
+                .any(|e| e.amount.currency() == Currency::USD),
+            "expected at least one USD cashflow"
         );
-
-        let mut has_usd = false;
-        for map in ladder.by_date.values() {
-            if map.contains_key(&Currency::USD) {
-                has_usd = true;
-                break;
-            }
-        }
-        assert!(has_usd, "Expected at least one USD cashflow");
-
-        // Position-level drill-down should have exactly one entry
-        assert_eq!(ladder.by_position.len(), 1);
-        assert!(ladder.by_position.contains_key("POS_001"));
-        assert_eq!(ladder.position_summaries.len(), 1);
+        assert_eq!(full.by_position.len(), 1);
+        assert!(full.by_position.contains_key("POS_001"));
+        assert_eq!(full.position_summaries.len(), 1);
         assert_eq!(
-            ladder.position_summaries["POS_001"].representation,
+            full.position_summaries["POS_001"].representation,
             CashflowRepresentation::Contractual
         );
-        assert!(
-            ladder.warnings.is_empty(),
-            "expected no aggregation warnings"
-        );
-    }
-
-    #[test]
-    fn test_cashflows_to_base_by_period() {
-        let as_of = date!(2025 - 01 - 01);
-
-        // Reuse the USD bond setup
-        let issue = as_of;
-        let maturity = date!(2027 - 01 - 01);
-
-        let bond = bond::Bond::fixed(
-            "BOND_001",
-            Money::new(1_000_000.0, Currency::USD),
-            0.05,
-            issue,
-            maturity,
-            "USD-OIS",
-        )
-        .expect("Bond::fixed should succeed with valid parameters");
-
-        let position = Position::new(
-            "POS_001",
-            "ENTITY_A",
-            "BOND_001",
-            Arc::new(bond),
-            1.0,
-            PositionUnit::FaceValue,
-        )
-        .expect("test should succeed");
-
-        let portfolio = PortfolioBuilder::new("TEST")
-            .base_ccy(Currency::USD)
-            .as_of(as_of)
-            .entity(Entity::new("ENTITY_A"))
-            .position(position)
-            .build()
-            .expect("test should succeed");
-
-        let market = build_test_market_at(as_of);
-
-        let ladder = aggregate_cashflows(&portfolio, &market).expect("cashflow aggregation");
-
-        // Define a simple annual period covering the bond horizon
-        let periods = vec![finstack_core::dates::Period {
-            id: finstack_core::dates::PeriodId::annual(2025),
-            start: as_of,
-            end: date!(2026 - 01 - 01),
-            is_actual: true,
-        }];
-
-        let buckets = cashflows_to_base_by_period(&ladder, &market, Currency::USD, &periods)
-            .expect("bucketed cashflows");
-
-        // There should be at most one entry for the defined period
-        assert!(buckets.by_period.len() <= 1);
-        if let Some(total) = buckets
-            .by_period
-            .get(&finstack_core::dates::PeriodId::annual(2025))
-        {
-            // Total should be in USD
-            assert_eq!(total.currency(), Currency::USD);
-        }
+        assert!(full.issues.is_empty(), "expected no extraction issues");
     }
 
     #[test]
@@ -995,7 +598,7 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_cashflows_surfaces_provider_failures_as_warnings() {
+    fn aggregate_full_cashflows_surfaces_provider_failures_as_issues() {
         let as_of = date!(2025 - 01 - 01);
         let position = Position::new(
             "POS_SWAP",
@@ -1014,28 +617,29 @@ mod tests {
             .build()
             .expect("test should succeed");
 
-        let ladder = aggregate_cashflows(&portfolio, &MarketContext::new())
-            .expect("aggregation should succeed with warnings");
+        let full = aggregate_full_cashflows(&portfolio, &MarketContext::new())
+            .expect("aggregation should succeed with issues");
 
+        assert!(full.events.is_empty(), "failed cashflows should be skipped");
         assert!(
-            ladder.by_date.is_empty(),
-            "failed cashflows should be skipped"
-        );
-        assert!(
-            ladder.by_position.is_empty(),
+            full.by_position.is_empty(),
             "failed position should not emit flows"
         );
-        assert_eq!(ladder.warnings.len(), 1, "expected one warning");
-        assert_eq!(ladder.warnings[0].position_id.as_str(), "POS_SWAP");
+        assert_eq!(full.issues.len(), 1, "expected one extraction issue");
+        assert_eq!(full.issues[0].position_id.as_str(), "POS_SWAP");
+        assert_eq!(
+            full.issues[0].kind,
+            CashflowExtractionIssueKind::BuildFailed
+        );
         assert!(
-            ladder.warnings[0].message.contains("NG-SPOT-AVG"),
-            "unexpected warning message: {}",
-            ladder.warnings[0].message
+            full.issues[0].message.contains("NG-SPOT-AVG"),
+            "unexpected issue message: {}",
+            full.issues[0].message
         );
     }
 
     #[test]
-    fn aggregate_cashflows_preserves_empty_placeholder_position_summaries() {
+    fn aggregate_full_cashflows_preserves_empty_placeholder_position_summaries() {
         let as_of = date!(2025 - 01 - 01);
         let position = Position::new(
             "POS_SWAPTION",
@@ -1054,89 +658,24 @@ mod tests {
             .build()
             .expect("test should succeed");
 
-        let ladder = aggregate_cashflows(&portfolio, &build_test_market_at(as_of))
+        let full = aggregate_full_cashflows(&portfolio, &build_test_market_at(as_of))
             .expect("placeholder aggregation");
 
-        assert!(
-            ladder.by_date.is_empty(),
-            "empty placeholder schedule has no events"
-        );
-        assert!(ladder.by_position["POS_SWAPTION"].is_empty());
+        assert!(full.events.is_empty(), "empty placeholder emits no events");
+        assert!(full.by_position["POS_SWAPTION"].is_empty());
         assert_eq!(
-            ladder.position_summaries["POS_SWAPTION"].representation,
+            full.position_summaries["POS_SWAPTION"].representation,
             CashflowRepresentation::Placeholder
         );
-        assert_eq!(ladder.position_summaries["POS_SWAPTION"].event_count, 0);
+        assert_eq!(full.position_summaries["POS_SWAPTION"].event_count, 0);
         assert!(
-            ladder.warnings.is_empty(),
-            "placeholder schedules should not warn"
+            full.issues.is_empty(),
+            "placeholder schedules should not raise issues"
         );
     }
 
     #[test]
-    fn collapsed_and_bucketed_views_project_from_same_canonical_event_set() {
-        let as_of = date!(2025 - 01 - 01);
-        let bond = bond::Bond::fixed(
-            "BOND_001",
-            Money::new(1_000_000.0, Currency::USD),
-            0.05,
-            as_of,
-            date!(2027 - 01 - 01),
-            "USD-OIS",
-        )
-        .expect("Bond::fixed should succeed with valid parameters");
-        let position = Position::new(
-            "POS_001",
-            "ENTITY_A",
-            "BOND_001",
-            Arc::new(bond),
-            1.0,
-            PositionUnit::FaceValue,
-        )
-        .expect("test should succeed");
-        let portfolio = PortfolioBuilder::new("TEST")
-            .base_ccy(Currency::USD)
-            .as_of(as_of)
-            .entity(Entity::new("ENTITY_A"))
-            .position(position)
-            .build()
-            .expect("test should succeed");
-        let market = build_test_market_at(as_of);
-        let ladder = aggregate_cashflows(&portfolio, &market).expect("cashflow aggregation");
-
-        let collapsed = collapse_cashflows_to_base_by_date(&ladder, &market, Currency::USD)
-            .expect("collapse to base");
-        let periods = vec![
-            finstack_core::dates::Period {
-                id: finstack_core::dates::PeriodId::annual(2025),
-                start: date!(2025 - 01 - 01),
-                end: date!(2026 - 01 - 01),
-                is_actual: true,
-            },
-            finstack_core::dates::Period {
-                id: finstack_core::dates::PeriodId::annual(2026),
-                start: date!(2026 - 01 - 01),
-                end: date!(2027 - 01 - 01),
-                is_actual: true,
-            },
-            finstack_core::dates::Period {
-                id: finstack_core::dates::PeriodId::annual(2027),
-                start: date!(2027 - 01 - 01),
-                end: date!(2028 - 01 - 01),
-                is_actual: true,
-            },
-        ];
-        let buckets = cashflows_to_base_by_period(&ladder, &market, Currency::USD, &periods)
-            .expect("bucketed cashflows");
-
-        let collapsed_total: f64 = collapsed.values().map(Money::amount).sum();
-        let bucket_total: f64 = buckets.by_period.values().map(Money::amount).sum();
-        assert_eq!(collapsed.len(), ladder.by_date.len());
-        assert_eq!(bucket_total, collapsed_total);
-    }
-
-    #[test]
-    fn aggregate_cashflows_includes_deferred_agency_provider() {
+    fn aggregate_full_cashflows_includes_deferred_agency_provider() {
         let as_of = date!(2025 - 01 - 01);
         let position = Position::new(
             "POS_MBS",
@@ -1155,21 +694,18 @@ mod tests {
             .build()
             .expect("test should succeed");
 
-        let ladder = aggregate_cashflows(&portfolio, &build_test_market_at(as_of))
+        let full = aggregate_full_cashflows(&portfolio, &build_test_market_at(as_of))
             .expect("agency cashflow aggregation");
 
+        assert!(!full.events.is_empty(), "agency provider should emit flows");
         assert!(
-            !ladder.by_date.is_empty(),
-            "agency provider should emit flows"
-        );
-        assert!(
-            ladder.warnings.is_empty(),
-            "agency provider should not warn"
+            full.issues.is_empty(),
+            "agency provider should not raise issues"
         );
     }
 
     #[test]
-    fn aggregate_cashflows_includes_deferred_credit_composite_provider() {
+    fn aggregate_full_cashflows_includes_deferred_credit_composite_provider() {
         let as_of = date!(2025 - 01 - 01);
         let position = Position::new(
             "POS_CDX",
@@ -1197,15 +733,15 @@ mod tests {
                 .expect("hazard curve should build"),
         );
 
-        let ladder = aggregate_cashflows(&portfolio, &market).expect("cdx cashflow aggregation");
+        let full = aggregate_full_cashflows(&portfolio, &market).expect("cdx cashflow aggregation");
 
         assert!(
-            !ladder.by_date.is_empty(),
+            !full.events.is_empty(),
             "credit composite provider should emit flows"
         );
         assert!(
-            ladder.warnings.is_empty(),
-            "credit composite provider should not warn"
+            full.issues.is_empty(),
+            "credit composite provider should not raise issues"
         );
     }
 
@@ -1306,66 +842,14 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_cashflows_matches_full_cashflow_projection() {
-        let as_of = date!(2025 - 01 - 01);
-        let issue = as_of;
-        let maturity = date!(2027 - 01 - 01);
-        let bond = bond::Bond::fixed(
-            "BOND_COMPARE",
-            Money::new(1_000_000.0, Currency::USD),
-            0.05,
-            issue,
-            maturity,
-            "USD-OIS",
-        )
-        .expect("Bond::fixed should succeed with valid parameters");
-        let position = Position::new(
-            "POS_COMPARE",
-            "ENTITY_A",
-            "BOND_COMPARE",
-            Arc::new(bond),
-            1.0,
-            PositionUnit::FaceValue,
-        )
-        .expect("test should succeed");
-        let portfolio = PortfolioBuilder::new("COMPARE")
-            .base_ccy(Currency::USD)
-            .as_of(as_of)
-            .entity(Entity::new("ENTITY_A"))
-            .position(position)
-            .build()
-            .expect("test should succeed");
-        let market = build_test_market_at(as_of);
-
-        let ladder = aggregate_cashflows(&portfolio, &market).expect("dated ladder");
-        let full = aggregate_full_cashflows(&portfolio, &market).expect("full ladder");
-
-        let mut collapsed: IndexMap<Date, IndexMap<Currency, Money>> = IndexMap::new();
-        for event in &full.events {
-            let per_ccy = collapsed.entry(event.date).or_default();
-            let entry = per_ccy
-                .entry(event.amount.currency())
-                .or_insert_with(|| Money::new(0.0, event.amount.currency()));
-            *entry = entry
-                .checked_add(event.amount)
-                .expect("single-currency sum");
-        }
-
-        assert_eq!(
-            ladder.by_date, collapsed,
-            "dated ladder should derive from full events"
-        );
-    }
-
-    #[test]
-    fn collapse_full_cashflows_to_base_by_date_kind_preserves_cfkind() {
+    fn full_cashflows_collapse_to_base_by_date_kind_preserves_cfkind() {
         let as_of = date!(2025 - 01 - 01);
         let full = full_cashflow_ladder_fixture();
         let market = market_with_eurusd_fx(as_of, 1.20);
 
-        let by_date_kind =
-            collapse_full_cashflows_to_base_by_date_kind(&full, &market, Currency::USD)
-                .expect("base currency conversion by kind");
+        let by_date_kind = full
+            .collapse_to_base_by_date_kind(&market, Currency::USD)
+            .expect("base currency conversion by kind");
 
         let march = by_date_kind
             .get(&date!(2025 - 03 - 15))
@@ -1379,43 +863,5 @@ mod tests {
             .expect("august bucket should exist");
         assert_eq!(august[&CFKind::Fixed], Money::new(50.0, Currency::USD));
         assert_eq!(august[&CFKind::Fee], Money::new(-6.0, Currency::USD));
-    }
-
-    #[test]
-    fn cashflows_to_base_by_period_kind_aggregates_each_kind() {
-        let as_of = date!(2025 - 01 - 01);
-        let full = full_cashflow_ladder_fixture();
-        let market = market_with_eurusd_fx(as_of, 1.20);
-        let periods = vec![
-            finstack_core::dates::Period {
-                id: finstack_core::dates::PeriodId::annual(2025),
-                start: as_of,
-                end: date!(2026 - 01 - 01),
-                is_actual: true,
-            },
-            finstack_core::dates::Period {
-                id: finstack_core::dates::PeriodId::annual(2026),
-                start: date!(2026 - 01 - 01),
-                end: date!(2027 - 01 - 01),
-                is_actual: true,
-            },
-        ];
-
-        let buckets = cashflows_to_base_by_period_kind(&full, &market, Currency::USD, &periods)
-            .expect("period bucketing by kind");
-
-        let y2025 = buckets
-            .by_period
-            .get(&finstack_core::dates::PeriodId::annual(2025))
-            .expect("2025 bucket should exist");
-        assert_eq!(y2025[&CFKind::Fixed], Money::new(170.0, Currency::USD));
-        assert_eq!(y2025[&CFKind::Notional], Money::new(240.0, Currency::USD));
-        assert_eq!(y2025[&CFKind::Fee], Money::new(-16.0, Currency::USD));
-
-        let y2026 = buckets
-            .by_period
-            .get(&finstack_core::dates::PeriodId::annual(2026))
-            .expect("2026 bucket should exist");
-        assert_eq!(y2026[&CFKind::Fixed], Money::new(30.0, Currency::USD));
     }
 }

@@ -9,7 +9,6 @@
 //! than opaque `#[pyclass]` wrappers to keep the API numpy-friendly.
 
 use crate::errors::display_to_py;
-use finstack_core::math::special_functions::standard_normal_inv_cdf;
 use finstack_portfolio::liquidity::{
     self, AlmgrenChrissModel, KyleLambdaModel, LiquidityProfile, MarketImpactModel, TradeParams,
 };
@@ -168,45 +167,15 @@ fn lvar_bangia<'py>(
     confidence: f64,
     position_value: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
-    if !var.is_finite() || var > 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "var must be non-positive and finite (loss sign convention), got {var}"
-        )));
-    }
-    if !spread_mean.is_finite() || spread_mean < 0.0 {
-        return Err(PyValueError::new_err(
-            "spread_mean must be non-negative and finite",
-        ));
-    }
-    if !spread_vol.is_finite() || spread_vol < 0.0 {
-        return Err(PyValueError::new_err(
-            "spread_vol must be non-negative and finite",
-        ));
-    }
-    if !(0.0..1.0).contains(&confidence) || !confidence.is_finite() {
-        return Err(PyValueError::new_err(
-            "confidence must be in the open interval (0, 1)",
-        ));
-    }
-    if !position_value.is_finite() {
-        return Err(PyValueError::new_err("position_value must be finite"));
-    }
-
-    let pv = position_value.abs();
-    let z_alpha = standard_normal_inv_cdf(confidence);
-    let spread_cost = (0.5 * spread_mean + 0.5 * z_alpha * spread_vol) * pv;
-    let lvar = var - spread_cost;
-    let lvar_ratio = if var.abs() > 1e-15 {
-        lvar / var
-    } else {
-        f64::NAN
-    };
+    let result =
+        liquidity::lvar_bangia_scalar(var, spread_mean, spread_vol, confidence, position_value)
+            .map_err(display_to_py)?;
 
     let out = PyDict::new(py);
-    out.set_item("var", var)?;
-    out.set_item("spread_cost", spread_cost)?;
-    out.set_item("lvar", lvar)?;
-    out.set_item("lvar_ratio", lvar_ratio)?;
+    out.set_item("var", result.var)?;
+    out.set_item("spread_cost", result.spread_cost)?;
+    out.set_item("lvar", result.lvar)?;
+    out.set_item("lvar_ratio", result.lvar_ratio)?;
     Ok(out)
 }
 
@@ -330,21 +299,7 @@ fn almgren_chriss_impact<'py>(
 ///     mismatched length, non-finite, or contain zero volumes).
 #[pyfunction]
 fn kyle_lambda(volumes: Vec<f64>, returns: Vec<f64>) -> f64 {
-    if volumes.is_empty() || volumes.len() != returns.len() {
-        return f64::NAN;
-    }
-    let illiq = match liquidity::amihud_illiquidity(&returns, &volumes) {
-        Some(v) => v,
-        None => return f64::NAN,
-    };
-    let mean_vol: f64 = volumes.iter().sum::<f64>() / volumes.len() as f64;
-    if !mean_vol.is_finite() || mean_vol <= 0.0 {
-        return f64::NAN;
-    }
-    match KyleLambdaModel::from_amihud(illiq, mean_vol) {
-        Ok(m) => m.lambda(),
-        Err(_) => f64::NAN,
-    }
+    KyleLambdaModel::lambda_from_series(&volumes, &returns).unwrap_or(f64::NAN)
 }
 
 // ---------------------------------------------------------------------------

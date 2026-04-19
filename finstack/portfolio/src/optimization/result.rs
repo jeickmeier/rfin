@@ -4,7 +4,8 @@ use crate::portfolio::Portfolio;
 use crate::types::PositionId;
 use finstack_core::config::ResultsMeta;
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize, Serializer};
 
 /// Status of an optimization run.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -291,5 +292,38 @@ impl PortfolioOptimizationResult {
     #[must_use]
     pub fn turnover(&self) -> f64 {
         self.weight_deltas.values().map(|d| d.abs()).sum()
+    }
+}
+
+/// Serialize the canonical JSON wire format.
+///
+/// Emits all stored fields plus derived fields (`status_label`, `is_feasible`,
+/// `turnover`, `trades`, `binding_constraints`, `label`). The `problem` field
+/// is intentionally omitted — it contains `Arc<dyn Instrument>` values that do
+/// not round-trip through serde.
+impl Serialize for PortfolioOptimizationResult {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        let binding_constraints: Vec<String> = self
+            .binding_constraints()
+            .into_iter()
+            .map(|(name, _)| name.to_string())
+            .collect();
+        let mut st = serializer.serialize_struct("PortfolioOptimizationResult", 15)?;
+        st.serialize_field("status", &self.status)?;
+        st.serialize_field("status_label", &format!("{:?}", self.status))?;
+        st.serialize_field("is_feasible", &self.status.is_feasible())?;
+        st.serialize_field("objective_value", &self.objective_value)?;
+        st.serialize_field("turnover", &self.turnover())?;
+        st.serialize_field("optimal_weights", &self.optimal_weights)?;
+        st.serialize_field("current_weights", &self.current_weights)?;
+        st.serialize_field("weight_deltas", &self.weight_deltas)?;
+        st.serialize_field("implied_quantities", &self.implied_quantities)?;
+        st.serialize_field("metric_values", &self.metric_values)?;
+        st.serialize_field("trades", &self.to_trade_list())?;
+        st.serialize_field("dual_values", &self.dual_values)?;
+        st.serialize_field("constraint_slacks", &self.constraint_slacks)?;
+        st.serialize_field("binding_constraints", &binding_constraints)?;
+        st.serialize_field("label", &self.problem.label)?;
+        st.end()
     }
 }
