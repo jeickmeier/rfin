@@ -1,0 +1,15 @@
+# OSV-Scanner configuration for finstack workspace.
+# See https://google.github.io/osv-scanner/configuration/
+
+# Ignored advisories. Each entry MUST include a reason and a reviewDate so we
+# can re-check periodically and drop the ignore once upstream fixes land.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste crate is unmaintained. Transitive via nalgebra/simba; no safe upgrade path published by the advisory. Mirrored in deny.toml."
+ignoreUntil = 2026-10-19
+
+[[IgnoredVulns]]
+id = "GHSA-cq8v-f236-94qc"
+reason = "LOW-severity rand 0.8.6 soundness bug (fixed in rand 0.9.3). Triggered only when a custom `log` logger calls `rand::rng()` while ThreadRng reseeds — not a pattern we use. Transitive via rust_decimal 1.41.0 (current latest); can be dropped when rust_decimal bumps to rand 0.9+."
+ignoreUntil = 2026-10-19
