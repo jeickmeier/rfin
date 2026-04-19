@@ -7,6 +7,7 @@
 use super::ast::Function;
 use super::context::SimpleContext;
 use super::eval::CompiledExpr;
+use crate::math::{finite_count, finite_max_or_nan, finite_min_or_nan, quantile_linear_or_nan};
 
 impl CompiledExpr {
     // --- Scalar evaluator helpers ---
@@ -629,22 +630,13 @@ impl CompiledExpr {
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
             let q = arg_results[1][0].clamp(0.0, 1.0);
-            let mut valid_values: Vec<f64> = base
+            let valid_values: Vec<f64> = base
                 .iter()
                 .filter_map(|&x| if x.is_nan() { None } else { Some(x) })
                 .collect();
             let mut out = vec![0.0; len];
             if !valid_values.is_empty() {
-                valid_values.sort_unstable_by(|a, b| a.total_cmp(b));
-                let index = q * (valid_values.len() - 1) as f64;
-                let lower = index.floor() as usize;
-                let upper = index.ceil() as usize;
-                let quantile_value = if lower == upper {
-                    valid_values[lower]
-                } else {
-                    let weight = index - lower as f64;
-                    valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
-                };
+                let quantile_value = quantile_linear_or_nan(&valid_values, q);
                 for v in out.iter_mut().take(len) {
                     *v = quantile_value;
                 }
@@ -669,13 +661,7 @@ impl CompiledExpr {
             Err(_) => return Self::nan_output(len),
         };
         let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            w.iter()
-                .copied()
-                .filter(|x| !x.is_nan())
-                .min_by(|a, b| a.total_cmp(b))
-                .unwrap_or(f64::NAN)
-        });
+        Self::rolling_apply_into(base, win, &mut out, &mut finite_min_or_nan);
         out
     }
 
@@ -690,13 +676,7 @@ impl CompiledExpr {
             Err(_) => return Self::nan_output(len),
         };
         let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            w.iter()
-                .copied()
-                .filter(|x| !x.is_nan())
-                .max_by(|a, b| a.total_cmp(b))
-                .unwrap_or(f64::NAN)
-        });
+        Self::rolling_apply_into(base, win, &mut out, &mut finite_max_or_nan);
         out
     }
 
@@ -711,9 +691,7 @@ impl CompiledExpr {
             Err(_) => return Self::nan_output(len),
         };
         let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            w.iter().copied().filter(|x| !x.is_nan()).count() as f64
-        });
+        Self::rolling_apply_into(base, win, &mut out, &mut |w| finite_count(w) as f64);
         out
     }
 

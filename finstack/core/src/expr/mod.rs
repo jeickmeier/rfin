@@ -29,6 +29,9 @@
 //! [`crate::expr::EvaluationResult`] containing both values and
 //! metadata describing the run.
 //!
+//! For the higher-level architecture split between this vector engine and the
+//! statements period-aware evaluator, see `book/src/architecture/analytics/expressions.md`.
+//!
 //! Windowed functions in this module use row-count windows rather than
 //! calendar-time windows. Reducers such as `quantile` broadcast a single scalar
 //! back across the output vector unless the function name explicitly says
@@ -77,14 +80,5 @@ mod eval_functions;
 pub use ast::{BinOp, EvaluationResult, Expr, ExprNode, Function, UnaryOp};
 pub use context::SimpleContext;
 pub use eval::{CompiledExpr, EvalOpts};
-
-/// Serialized DAG plan structures used by advanced evaluation and serde tests.
-///
-/// These plan/result carrier types remain public because they appear in
-/// [`CompiledExpr`] and [`EvalOpts`]. The builder used to create them stays
-/// internal to the expression engine.
-pub use dag::{
-    BoundaryType, CacheStrategy, DagNode, ExecutionPlan, PushdownBoundaries, PushdownBoundary,
-};
 
 // Polars Series no longer part of public API surface here

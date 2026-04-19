@@ -14,6 +14,7 @@ export const core = {
   availableCalendars: wasm.availableCalendars,
   DiscountCurve: wasm.DiscountCurve,
   ForwardCurve: wasm.ForwardCurve,
+  FxConversionPolicy: wasm.FxConversionPolicy,
   FxMatrix: wasm.FxMatrix,
   choleskyDecomposition: wasm.choleskyDecomposition,
   choleskySolve: wasm.choleskySolve,

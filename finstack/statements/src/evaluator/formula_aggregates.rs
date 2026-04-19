@@ -9,7 +9,7 @@ use super::EvaluationContext;
 use crate::error::Result;
 use finstack_core::dates::PeriodKind;
 use finstack_core::expr::{Expr, ExprNode, Function};
-use finstack_core::math::neumaier_sum;
+use finstack_core::math::{finite_count, finite_max_or_nan, finite_min_or_nan, neumaier_sum};
 
 /// NaN policy for aggregate helpers: **skip non-finite values** (pandas
 /// `skipna=True`).
@@ -90,9 +90,9 @@ fn evaluate_rolling_function(
         Function::RollingStd => calculate_std(&values),
         Function::RollingVar => calculate_variance(&values),
         Function::RollingMedian => calculate_median(&values),
-        Function::RollingMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
-        Function::RollingMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
-        Function::RollingCount => Ok(values.len() as f64),
+        Function::RollingMin => Ok(finite_min_or_nan(&values)),
+        Function::RollingMax => Ok(finite_max_or_nan(&values)),
+        Function::RollingCount => Ok(finite_count(&values) as f64),
         _ => Err(eval_error(
             node_id,
             format!("Function {:?} is not a rolling window function", func),
@@ -172,8 +172,8 @@ fn evaluate_cumulative_function(
             }
             Ok(product)
         }
-        Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
-        Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
+        Function::CumMin => Ok(finite_min_or_nan(&values)),
+        Function::CumMax => Ok(finite_max_or_nan(&values)),
         _ => Err(eval_error(
             node_id,
             format!("Function {:?} is not a cumulative function", func),

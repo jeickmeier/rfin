@@ -64,16 +64,16 @@ market = MarketContext() \
 ## 4. Cross-Currency Setup
 
 ```python
-from finstack.core.money import SimpleFxProvider, FxMatrix
+from finstack.core.market_data import FxMatrix
 from finstack.core.currency import Currency
 
 eur_ois = DiscountCurve("EUR-OIS", as_of, eur_knots)
 
-fx = SimpleFxProvider()
+fx = FxMatrix()
 fx.set_quote(Currency("EUR"), Currency("USD"), 1.10)
 
 market = MarketContext() \
     .add_discount_curve(ois) \
     .add_discount_curve(eur_ois) \
-    .add_fx_provider(FxMatrix(fx))
+    .add_fx_provider(fx)
 ```

@@ -587,15 +587,11 @@ impl Money {
         if self.currency == to {
             return Ok(self);
         }
-        let rate = provider.rate(self.currency, to, on, policy)?;
-        if !rate.is_finite() || rate <= 0.0 {
-            return Err(crate::error::InputError::InvalidFxRate {
-                from: self.currency,
-                to,
-                rate,
-            }
-            .into());
-        }
+        let rate = crate::money::fx::validate_fx_rate(
+            self.currency,
+            to,
+            provider.rate(self.currency, to, on, policy)?,
+        )?;
         let new_amount = super::rounding::try_repr_mul_f64(self.amount, rate)?;
         let rounded = super::rounding::round_decimal(
             new_amount,

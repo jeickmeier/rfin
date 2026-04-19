@@ -13,6 +13,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_statements::prelude::*;
+//! use finstack_statements::builder::Ready;
 //!
 //! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 //! # let mut model: ModelBuilder<Ready> = unimplemented!("build a ModelBuilder<Ready>");
@@ -50,6 +51,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_statements::prelude::*;
+//! use finstack_statements::builder::Ready;
 //!
 //! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 //! # let mut model: ModelBuilder<Ready> = unimplemented!("build a ModelBuilder<Ready>");

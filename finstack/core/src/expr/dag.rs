@@ -11,7 +11,7 @@ use std::vec::Vec;
 
 /// A node in the execution DAG.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct DagNode {
+pub(crate) struct DagNode {
     /// Unique identifier for this node.
     pub id: u64,
     /// The expression this node represents.
@@ -23,7 +23,6 @@ pub struct DagNode {
     /// Estimated cost of computing this node.
     pub cost: usize,
 }
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
@@ -262,7 +261,7 @@ const MAX_DAG_RECURSION_DEPTH: usize = 512;
 
 /// Execution plan for a DAG of expressions.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ExecutionPlan {
+pub(crate) struct ExecutionPlan {
     /// All nodes in topological order.
     pub nodes: Vec<DagNode>,
     /// Root node IDs (final outputs).
@@ -275,7 +274,7 @@ pub struct ExecutionPlan {
 
 /// Cache strategy for the execution plan.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct CacheStrategy {
+pub(crate) struct CacheStrategy {
     /// Nodes that should be cached (high ref count or expensive).
     pub cache_nodes: HashSet<u64>,
     /// Expected cache hit rate.
@@ -565,35 +564,4 @@ impl DagBuilder {
             memory_budget: nodes.len() * 100, // Rough estimate
         }
     }
-}
-
-/// Analysis of pushdown boundaries in an execution plan.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct PushdownBoundaries {
-    /// Specific boundary points.
-    pub boundaries: Vec<PushdownBoundary>,
-    /// Optimized execution subtrees.
-    pub optimized_subtrees: Vec<Vec<u64>>,
-    /// Estimated speedup from optimization.
-    pub estimated_speedup: f64,
-}
-
-/// A specific boundary point in the execution.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct PushdownBoundary {
-    /// Node ID where boundary occurs.
-    pub node_id: u64,
-    /// Type of boundary.
-    pub boundary_type: BoundaryType,
-    /// Whether materialization is required at this boundary.
-    pub materialization_required: bool,
-}
-
-/// Types of execution boundaries.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub enum BoundaryType {
-    /// Transition point between execution strategies.
-    OptimizedToScalar,
-    /// Transition from scalar back to optimized execution.
-    ScalarToOptimized,
 }

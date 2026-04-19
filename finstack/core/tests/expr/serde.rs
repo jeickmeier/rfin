@@ -3,18 +3,15 @@
 //! This module tests serde roundtrip for:
 //! - Expression AST nodes (Column, Literal, Call, BinOp, IfThenElse)
 //! - Function enum variants
-//! - DAG structures (DagNode, ExecutionPlan, CacheStrategy)
 //! - Evaluation types (CompiledExpr, EvalOpts, EvaluationResult)
 //! - Context types (SimpleContext)
 
 use finstack_core::config::{
     NumericMode, ResultsMeta, RoundingContext, RoundingMode, ToleranceConfig,
 };
-use finstack_core::expr::{BoundaryType, CacheStrategy, DagNode, ExecutionPlan};
 use finstack_core::expr::{
     CompiledExpr, EvalOpts, EvaluationResult, Expr, ExprNode, Function, SimpleContext,
 };
-use finstack_core::HashSet;
 use std::collections::BTreeMap;
 
 #[test]
@@ -151,92 +148,10 @@ fn test_evaluation_result_serde() {
 }
 
 #[test]
-fn test_dag_node_serde() {
-    let node = DagNode {
-        id: 1,
-        expr: Expr::column("x"),
-        dependencies: vec![2, 3],
-        ref_count: 2,
-        cost: 10,
-    };
-
-    let json = serde_json::to_string(&node).expect("Failed to serialize DagNode");
-    let deserialized: DagNode = serde_json::from_str(&json).expect("Failed to deserialize DagNode");
-
-    assert_eq!(node.id, deserialized.id);
-    assert_eq!(node.dependencies, deserialized.dependencies);
-    assert_eq!(node.ref_count, deserialized.ref_count);
-    assert_eq!(node.cost, deserialized.cost);
-}
-
-#[test]
-fn test_execution_plan_serde() {
-    let nodes = vec![
-        DagNode {
-            id: 1,
-            expr: Expr::column("x"),
-            dependencies: vec![],
-            ref_count: 1,
-            cost: 1,
-        },
-        DagNode {
-            id: 2,
-            expr: Expr::literal(5.0),
-            dependencies: vec![],
-            ref_count: 1,
-            cost: 1,
-        },
-    ];
-
-    let mut cache_nodes = HashSet::default();
-    cache_nodes.insert(1);
-
-    let plan = ExecutionPlan {
-        nodes: nodes.clone(),
-        roots: vec![1, 2],
-        meta: ResultsMeta {
-            numeric_mode: NumericMode::F64,
-            rounding: RoundingContext {
-                mode: RoundingMode::Bankers,
-                ingest_scale_by_ccy: BTreeMap::new(),
-                output_scale_by_ccy: BTreeMap::new(),
-                tolerances: ToleranceConfig::default(),
-                version: 1,
-            },
-            fx_policy_applied: None,
-            timestamp: None,
-            version: None,
-        },
-        cache_strategy: CacheStrategy {
-            cache_nodes,
-            expected_hit_rate: 0.75,
-            memory_budget: 1000,
-        },
-    };
-
-    let json = serde_json::to_string(&plan).expect("Failed to serialize ExecutionPlan");
-    let deserialized: ExecutionPlan =
-        serde_json::from_str(&json).expect("Failed to deserialize ExecutionPlan");
-
-    assert_eq!(plan.nodes.len(), deserialized.nodes.len());
-    assert_eq!(plan.roots, deserialized.roots);
-    assert_eq!(
-        plan.cache_strategy.expected_hit_rate,
-        deserialized.cache_strategy.expected_hit_rate
-    );
-    assert_eq!(
-        plan.cache_strategy.memory_budget,
-        deserialized.cache_strategy.memory_budget
-    );
-}
-
-#[test]
 fn test_eval_opts_serde() {
-    let opts = EvalOpts {
-        plan: None,
-        cache_budget_mb: Some(256),
-        max_arena_bytes: 1_073_741_824,
-    };
+    let mut opts = EvalOpts::default();
+    opts.cache_budget_mb = Some(256);
+    opts.max_arena_bytes = 1_073_741_824;
 
     let json = serde_json::to_string(&opts).expect("Failed to serialize EvalOpts");
     let deserialized: EvalOpts =
@@ -244,7 +159,7 @@ fn test_eval_opts_serde() {
 
     assert_eq!(opts.cache_budget_mb, deserialized.cache_budget_mb);
     assert_eq!(opts.max_arena_bytes, deserialized.max_arena_bytes);
-    assert!(deserialized.plan.is_none());
+    assert!(!deserialized.has_plan());
 }
 
 #[test]
@@ -279,7 +194,7 @@ fn test_compiled_expr_serde() {
     assert_eq!(compiled.ast.id, deserialized.ast.id);
 
     // Verify plan is preserved if it existed
-    assert_eq!(compiled.plan.is_some(), deserialized.plan.is_some());
+    assert_eq!(compiled.has_plan(), deserialized.has_plan());
 
     // Cache should be None after deserialization (it's skipped)
     assert!(!deserialized.has_cache());
@@ -309,30 +224,6 @@ fn test_simple_context_serde() {
 // Note: CachedResult and CacheStats are internal types (pub(crate))
 // and cannot be tested from external tests. Their serialization is
 // tested indirectly through the public API types that use them.
-
-#[test]
-fn test_boundary_type_serde() {
-    let boundary1 = BoundaryType::OptimizedToScalar;
-    let boundary2 = BoundaryType::ScalarToOptimized;
-
-    let json1 = serde_json::to_string(&boundary1).expect("Failed to serialize BoundaryType");
-    let deserialized1: BoundaryType =
-        serde_json::from_str(&json1).expect("Failed to deserialize BoundaryType");
-
-    let json2 = serde_json::to_string(&boundary2).expect("Failed to serialize BoundaryType");
-    let deserialized2: BoundaryType =
-        serde_json::from_str(&json2).expect("Failed to deserialize BoundaryType");
-
-    match deserialized1 {
-        BoundaryType::OptimizedToScalar => {}
-        _ => panic!("Expected OptimizedToScalar"),
-    }
-
-    match deserialized2 {
-        BoundaryType::ScalarToOptimized => {}
-        _ => panic!("Expected ScalarToOptimized"),
-    }
-}
 
 #[test]
 fn test_complex_expression_tree_serde() {
