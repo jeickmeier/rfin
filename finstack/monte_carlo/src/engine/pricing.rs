@@ -359,7 +359,7 @@ impl McEngine {
 
         let capture_enabled = self.config.path_capture.enabled;
 
-        let (mut estimate, mut collected_paths) = self.run_loops(
+        let (estimate, collected_paths) = self.run_loops(
             rng,
             process,
             disc,
@@ -370,6 +370,36 @@ impl McEngine {
             capture_enabled,
         )?;
 
+        Ok(
+            self.finalize_captured_result(
+                estimate,
+                collected_paths,
+                currency,
+                Some(process_params),
+            ),
+        )
+    }
+
+    /// Assemble a [`MonteCarloResult`] from a raw [`Estimate`] and the paths
+    /// collected by a per-path loop.
+    ///
+    /// Used by both the generic engine loops in this module and the Sobol
+    /// path-dependent pricer so that result formatting (path sorting,
+    /// captured-path statistics, currency tagging, dataset construction) lives
+    /// in exactly one place.
+    ///
+    /// `process_params` is optional because Sobol validation currently happens
+    /// in the pricer layer and does not require the engine to revalidate the
+    /// metadata; supplying `Some(..)` is equivalent to calling the public
+    /// [`Self::price_with_capture`] entry point.
+    pub(crate) fn finalize_captured_result(
+        &self,
+        mut estimate: Estimate,
+        mut collected_paths: Vec<SimulatedPath>,
+        currency: Currency,
+        process_params: Option<ProcessParams>,
+    ) -> MonteCarloResult {
+        let capture_enabled = self.config.path_capture.enabled;
         let paths = if capture_enabled {
             let sampling_method = match &self.config.path_capture.capture_mode {
                 PathCaptureMode::All => PathSamplingMethod::All,
@@ -381,7 +411,8 @@ impl McEngine {
             // Sort for deterministic ordering (parallel chunks arrive out of order;
             // serial is already sorted so this is O(n) in that case).
             collected_paths.sort_by_key(|p| p.path_id);
-            let mut dataset = PathDataset::new(estimate.num_paths, sampling_method, process_params);
+            let params = process_params.unwrap_or_else(|| ProcessParams::new("unspecified"));
+            let mut dataset = PathDataset::new(estimate.num_paths, sampling_method, params);
             for path in collected_paths {
                 dataset.add_path(path);
             }
@@ -393,8 +424,8 @@ impl McEngine {
 
         let money_estimate = MoneyEstimate::from_estimate(estimate, currency);
         match paths {
-            Some(paths) => Ok(MonteCarloResult::with_paths(money_estimate, paths)),
-            None => Ok(MonteCarloResult::new(money_estimate)),
+            Some(paths) => MonteCarloResult::with_paths(money_estimate, paths),
+            None => MonteCarloResult::new(money_estimate),
         }
     }
 

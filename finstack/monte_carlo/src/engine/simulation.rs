@@ -14,8 +14,12 @@ use smallvec::SmallVec;
 
 impl McEngine {
     /// Simulate a single Monte Carlo path.
+    ///
+    /// Visibility is `pub(crate)` so pricer modules (e.g. the Sobol loop in
+    /// [`crate::pricer::path_dependent`]) can drive one path at a time with a
+    /// custom RNG while still reusing the engine's canonical stepping logic.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn simulate_path<R, P, D, F>(
+    pub(crate) fn simulate_path<R, P, D, F>(
         &self,
         rng: &mut R,
         process: &P,
@@ -65,9 +69,12 @@ impl McEngine {
 
     /// Simulate a single Monte Carlo path with full capture.
     ///
-    /// Returns the payoff value and the captured path data.
+    /// Returns the payoff value and the captured path data. Visibility is
+    /// `pub(crate)` for the same reason as [`Self::simulate_path`]: specialised
+    /// pricer loops (e.g. Sobol path-dependent pricing) drive per-path RNGs
+    /// themselves while reusing the engine's capture bookkeeping.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn simulate_path_with_capture<R, P, D, F>(
+    pub(crate) fn simulate_path_with_capture<R, P, D, F>(
         &self,
         rng: &mut R,
         process: &P,
