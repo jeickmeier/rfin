@@ -1,8 +1,7 @@
 """Monte Carlo pricing bindings (``finstack-monte-carlo``).
 
 Exposes simulation primitives: time grids, engine configuration, stochastic
-process parameters, discretisation schemes, payoffs, pricers, and closed-form
-Black–Scholes helpers.
+process parameters, payoffs, pricers, and closed-form Black–Scholes helpers.
 """
 
 from __future__ import annotations
@@ -24,11 +23,6 @@ __all__ = [
     "MertonJumpProcess",
     "BatesProcess",
     "SchwartzSmithProcess",
-    "ExactGbm",
-    "ExactMultiGbm",
-    "EulerMaruyama",
-    "LogEuler",
-    "Milstein",
     "EuropeanCall",
     "EuropeanPut",
     "DigitalCall",
@@ -1511,161 +1505,6 @@ class SchwartzSmithProcess:
             >>> from finstack.monte_carlo import SchwartzSmithProcess
             >>> SchwartzSmithProcess(1.0, 0.2, 0.1, 0.25, 0.03, 0.01).rho
             0.25
-        """
-        ...
-
-class ExactGbm:
-    """Exact single-asset GBM discretisation scheme handle.
-
-    Args:
-        None
-
-    Returns:
-        N/A (instance type).
-
-    Example:
-        >>> from finstack.monte_carlo import ExactGbm
-        >>> ExactGbm()  # doctest: +ELLIPSIS
-        ExactGbm()
-    """
-
-    def __init__(self) -> None:
-        """Create the scheme marker.
-
-        Args:
-            None
-
-        Returns:
-            None
-
-        Example:
-            >>> from finstack.monte_carlo import ExactGbm
-            >>> isinstance(ExactGbm(), ExactGbm)
-            True
-        """
-        ...
-
-class ExactMultiGbm:
-    """Exact multi-asset GBM discretisation scheme handle.
-
-    Args:
-        None
-
-    Returns:
-        N/A (instance type).
-
-    Example:
-        >>> from finstack.monte_carlo import ExactMultiGbm
-        >>> ExactMultiGbm()  # doctest: +ELLIPSIS
-        ExactMultiGbm()
-    """
-
-    def __init__(self) -> None:
-        """Create the scheme marker.
-
-        Args:
-            None
-
-        Returns:
-            None
-
-        Example:
-            >>> from finstack.monte_carlo import ExactMultiGbm
-            >>> isinstance(ExactMultiGbm(), ExactMultiGbm)
-            True
-        """
-        ...
-
-class EulerMaruyama:
-    """Euler–Maruyama discretisation scheme handle.
-
-    Args:
-        None
-
-    Returns:
-        N/A (instance type).
-
-    Example:
-        >>> from finstack.monte_carlo import EulerMaruyama
-        >>> EulerMaruyama()  # doctest: +ELLIPSIS
-        EulerMaruyama()
-    """
-
-    def __init__(self) -> None:
-        """Create the scheme marker.
-
-        Args:
-            None
-
-        Returns:
-            None
-
-        Example:
-            >>> from finstack.monte_carlo import EulerMaruyama
-            >>> isinstance(EulerMaruyama(), EulerMaruyama)
-            True
-        """
-        ...
-
-class LogEuler:
-    """Log-Euler (log-space Euler) discretisation scheme handle.
-
-    Args:
-        None
-
-    Returns:
-        N/A (instance type).
-
-    Example:
-        >>> from finstack.monte_carlo import LogEuler
-        >>> LogEuler()  # doctest: +ELLIPSIS
-        LogEuler()
-    """
-
-    def __init__(self) -> None:
-        """Create the scheme marker.
-
-        Args:
-            None
-
-        Returns:
-            None
-
-        Example:
-            >>> from finstack.monte_carlo import LogEuler
-            >>> isinstance(LogEuler(), LogEuler)
-            True
-        """
-        ...
-
-class Milstein:
-    """Milstein discretisation scheme handle.
-
-    Args:
-        None
-
-    Returns:
-        N/A (instance type).
-
-    Example:
-        >>> from finstack.monte_carlo import Milstein
-        >>> Milstein()  # doctest: +ELLIPSIS
-        Milstein()
-    """
-
-    def __init__(self) -> None:
-        """Create the scheme marker.
-
-        Args:
-            None
-
-        Returns:
-            None
-
-        Example:
-            >>> from finstack.monte_carlo import Milstein
-            >>> isinstance(Milstein(), Milstein)
-            True
         """
         ...
 

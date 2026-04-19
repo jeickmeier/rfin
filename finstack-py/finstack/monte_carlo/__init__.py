@@ -29,13 +29,6 @@ MertonJumpProcess = _mc.MertonJumpProcess
 BatesProcess = _mc.BatesProcess
 SchwartzSmithProcess = _mc.SchwartzSmithProcess
 
-# Discretisation
-ExactGbm = _mc.ExactGbm
-ExactMultiGbm = _mc.ExactMultiGbm
-EulerMaruyama = _mc.EulerMaruyama
-LogEuler = _mc.LogEuler
-Milstein = _mc.Milstein
-
 # Payoffs
 EuropeanCall = _mc.EuropeanCall
 EuropeanPut = _mc.EuropeanPut
@@ -82,21 +75,16 @@ __all__: list[str] = [
     "DigitalCall",
     "DigitalPut",
     "Estimate",
-    "EulerMaruyama",
     "EuropeanCall",
     "EuropeanPricer",
     "EuropeanPut",
-    "ExactGbm",
-    "ExactMultiGbm",
     "ForwardLong",
     "ForwardShort",
     "GbmProcess",
     "HestonProcess",
-    "LogEuler",
     "LsmcPricer",
     "McEngine",
     "MertonJumpProcess",
-    "Milstein",
     "MonteCarloResult",
     "MultiGbmProcess",
     "PathDependentPricer",

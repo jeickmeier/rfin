@@ -1,10 +1,9 @@
 //! Python bindings for the `finstack-monte-carlo` crate.
 //!
 //! Exposes Monte Carlo pricing infrastructure: engine, processes,
-//! discretisation schemes, payoffs, pricers, and analytical formulas.
+//! payoffs, pricers, and analytical formulas.
 
 mod analytical;
-mod discretization;
 mod engine;
 mod payoffs;
 mod pricers;
@@ -27,7 +26,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     time_grid::register(py, &m)?;
     engine::register(py, &m)?;
     processes::register(py, &m)?;
-    discretization::register(py, &m)?;
     payoffs::register(py, &m)?;
     pricers::register(py, &m)?;
     analytical::register(py, &m)?;
@@ -51,12 +49,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "MertonJumpProcess",
             "BatesProcess",
             "SchwartzSmithProcess",
-            // Discretisation
-            "ExactGbm",
-            "ExactMultiGbm",
-            "EulerMaruyama",
-            "LogEuler",
-            "Milstein",
             // Payoffs
             "EuropeanCall",
             "EuropeanPut",
