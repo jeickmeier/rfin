@@ -182,21 +182,6 @@ impl SwapFrequency {
     }
 }
 
-/// Convenience wrapper that uses [`SwapFrequency::SemiAnnual`] (USD standard).
-///
-/// See [`calibrate_hull_white_to_swaptions_with_frequency`] for full documentation.
-pub fn calibrate_hull_white_to_swaptions(
-    df: &dyn Fn(f64) -> f64,
-    quotes: &[SwaptionQuote],
-) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
-    calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
-        df,
-        quotes,
-        SwapFrequency::default(),
-        None,
-    )
-}
-
 /// Calibrate Hull-White 1-factor parameters to European swaption market data.
 ///
 /// Fits κ (mean reversion) and σ (short rate volatility) by minimising
@@ -205,9 +190,10 @@ pub fn calibrate_hull_white_to_swaptions(
 /// # Arguments
 ///
 /// * `df` - Discount factor function: `df(t)` returns P(0, t). Must satisfy `df(0) ≈ 1`.
-/// * `quotes` - Swaption market data
+/// * `quotes` - Swaption market data.
 /// * `frequency` - Coupon frequency of the underlying swap (e.g., semi-annual for USD,
 ///   annual for EUR). This materially affects the annuity factor and forward swap rate.
+/// * `initial_guess` - Optional seed for (κ, σ). Pass `None` to use built-in defaults.
 ///
 /// # Returns
 ///
@@ -231,7 +217,7 @@ pub fn calibrate_hull_white_to_swaptions(
 ///
 /// ```rust,no_run
 /// use finstack_valuations::calibration::hull_white::{
-///     calibrate_hull_white_to_swaptions_with_frequency, SwaptionQuote, SwapFrequency,
+///     calibrate_hull_white_to_swaptions, SwaptionQuote, SwapFrequency,
 /// };
 ///
 /// let quotes = vec![
@@ -242,21 +228,12 @@ pub fn calibrate_hull_white_to_swaptions(
 ///
 /// // Flat 3% discount curve, semi-annual USD convention
 /// let df = |t: f64| (-0.03 * t).exp();
-/// let (params, report) = calibrate_hull_white_to_swaptions_with_frequency(
-///     &df, &quotes, SwapFrequency::SemiAnnual,
+/// let (params, report) = calibrate_hull_white_to_swaptions(
+///     &df, &quotes, SwapFrequency::SemiAnnual, None,
 /// ).unwrap();
 /// assert!(report.success);
 /// ```
-pub fn calibrate_hull_white_to_swaptions_with_frequency(
-    df: &dyn Fn(f64) -> f64,
-    quotes: &[SwaptionQuote],
-    frequency: SwapFrequency,
-) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
-    calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(df, quotes, frequency, None)
-}
-
-/// Variant of Hull-White calibration that accepts optional initial guesses.
-pub fn calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
+pub fn calibrate_hull_white_to_swaptions(
     df: &dyn Fn(f64) -> f64,
     quotes: &[SwaptionQuote],
     frequency: SwapFrequency,
@@ -785,7 +762,8 @@ mod tests {
             .collect();
 
         let (params, report) =
-            calibrate_hull_white_to_swaptions(&df_fn, &quotes).expect("Calibration should succeed");
+            calibrate_hull_white_to_swaptions(&df_fn, &quotes, SwapFrequency::default(), None)
+                .expect("Calibration should succeed");
 
         assert!(
             report.success,
@@ -828,18 +806,12 @@ mod tests {
             },
         ];
 
-        let (params_semi, _) = calibrate_hull_white_to_swaptions_with_frequency(
-            &df_fn,
-            &quotes,
-            SwapFrequency::SemiAnnual,
-        )
-        .expect("semi-annual");
-        let (params_ann, _) = calibrate_hull_white_to_swaptions_with_frequency(
-            &df_fn,
-            &quotes,
-            SwapFrequency::Annual,
-        )
-        .expect("annual");
+        let (params_semi, _) =
+            calibrate_hull_white_to_swaptions(&df_fn, &quotes, SwapFrequency::SemiAnnual, None)
+                .expect("semi-annual");
+        let (params_ann, _) =
+            calibrate_hull_white_to_swaptions(&df_fn, &quotes, SwapFrequency::Annual, None)
+                .expect("annual");
 
         assert!(
             (params_semi.kappa - params_ann.kappa).abs() > 1e-6
@@ -873,7 +845,8 @@ mod tests {
             is_normal_vol: true,
         }];
         let df_fn = flat_df(0.03);
-        let result = calibrate_hull_white_to_swaptions(&df_fn, &quotes);
+        let result =
+            calibrate_hull_white_to_swaptions(&df_fn, &quotes, SwapFrequency::default(), None);
         assert!(result.is_err(), "Should reject < 2 quotes");
     }
 }
