@@ -3,7 +3,7 @@
 use super::engine::resolve_currency;
 use super::results::PyMonteCarloResult;
 use crate::errors::core_to_py;
-use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+use finstack_monte_carlo::pricer::european::EuropeanPricer;
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use pyo3::prelude::*;
 
@@ -83,11 +83,9 @@ impl PyEuropeanPricer {
 
 impl PyEuropeanPricer {
     fn build_pricer(&self) -> EuropeanPricer {
-        EuropeanPricer::new(
-            EuropeanPricerConfig::new(self.num_paths)
-                .with_seed(self.seed)
-                .with_parallel(false),
-        )
+        EuropeanPricer::new(self.num_paths)
+            .with_seed(self.seed)
+            .with_parallel(false)
     }
 }
 

@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use crate::utils::to_js_err;
 use finstack_core::currency::Currency;
-use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+use finstack_monte_carlo::pricer::european::EuropeanPricer;
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use finstack_monte_carlo::results::MoneyEstimate;
 use wasm_bindgen::prelude::*;
@@ -290,11 +290,9 @@ fn resolve_currency(code: Option<&str>) -> Result<Currency, JsValue> {
 
 /// Shared European pricer builder.
 fn build_pricer(num_paths: usize, seed: u64) -> EuropeanPricer {
-    EuropeanPricer::new(
-        EuropeanPricerConfig::new(num_paths)
-            .with_seed(seed)
-            .with_parallel(false),
-    )
+    EuropeanPricer::new(num_paths)
+        .with_seed(seed)
+        .with_parallel(false)
 }
 
 #[cfg(test)]

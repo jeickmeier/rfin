@@ -16,18 +16,21 @@ use crate::time_grid::TimeGrid;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
-/// Configuration for [`EuropeanPricer`].
+/// Compact GBM-only pricer for European-style contracts.
+///
+/// The pricer always uses exact GBM transitions and delegates the simulation
+/// loop to [`crate::engine::McEngine`]. Its simulation vocabulary is
+/// deliberately a subset of [`McEngineConfig`] (`num_paths`, `seed`,
+/// `use_parallel`) carried inline rather than through a separate config
+/// struct, so there is one obvious way to describe a European run.
 #[derive(Debug, Clone)]
-pub struct EuropeanPricerConfig {
-    /// Number of Monte Carlo paths.
-    pub num_paths: usize,
-    /// Root RNG seed for deterministic replay.
-    pub seed: u64,
-    /// Whether to request parallel execution.
-    pub use_parallel: bool,
+pub struct EuropeanPricer {
+    num_paths: usize,
+    seed: u64,
+    use_parallel: bool,
 }
 
-impl Default for EuropeanPricerConfig {
+impl Default for EuropeanPricer {
     fn default() -> Self {
         Self {
             num_paths: 100_000,
@@ -37,12 +40,15 @@ impl Default for EuropeanPricerConfig {
     }
 }
 
-impl EuropeanPricerConfig {
-    /// Create a configuration with the given path count.
+impl EuropeanPricer {
+    /// Create a pricer with the given path count and defaults for the rest.
+    ///
+    /// Defaults are seed `42` and parallel execution enabled (which quietly
+    /// degrades to serial when the `parallel` feature is absent).
     pub fn new(num_paths: usize) -> Self {
         Self {
             num_paths,
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -55,25 +61,25 @@ impl EuropeanPricerConfig {
     /// Enable or disable parallel execution.
     ///
     /// If the crate is built without the `parallel` feature the underlying
-    /// engine falls back to serial execution.
+    /// engine falls back to serial execution regardless of this flag.
     pub fn with_parallel(mut self, parallel: bool) -> Self {
         self.use_parallel = parallel;
         self
     }
-}
 
-/// Compact GBM-only pricer for European-style contracts.
-///
-/// The pricer always uses exact GBM transitions and delegates the simulation
-/// loop to [`crate::engine::McEngine`].
-pub struct EuropeanPricer {
-    config: EuropeanPricerConfig,
-}
+    /// Requested number of Monte Carlo paths.
+    pub fn num_paths(&self) -> usize {
+        self.num_paths
+    }
 
-impl EuropeanPricer {
-    /// Create a pricer from an explicit configuration.
-    pub fn new(config: EuropeanPricerConfig) -> Self {
-        Self { config }
+    /// Root RNG seed for deterministic replay.
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    /// Whether parallel execution was requested.
+    pub fn use_parallel(&self) -> bool {
+        self.use_parallel
     }
 
     /// Price a European-style payoff under GBM.
@@ -102,14 +108,12 @@ impl EuropeanPricer {
     /// ```rust,no_run
     /// use finstack_core::currency::Currency;
     /// use finstack_monte_carlo::payoff::vanilla::EuropeanCall;
-    /// use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+    /// use finstack_monte_carlo::pricer::european::EuropeanPricer;
     /// use finstack_monte_carlo::process::gbm::GbmProcess;
     ///
-    /// let pricer = EuropeanPricer::new(
-    ///     EuropeanPricerConfig::new(25_000)
-    ///         .with_seed(19)
-    ///         .with_parallel(false),
-    /// );
+    /// let pricer = EuropeanPricer::new(25_000)
+    ///     .with_seed(19)
+    ///     .with_parallel(false);
     /// let process = GbmProcess::with_params(0.03, 0.01, 0.20).unwrap();
     /// let payoff = EuropeanCall::new(100.0, 1.0, 252);
     /// let discount_factor = (-0.03_f64).exp();
@@ -134,30 +138,16 @@ impl EuropeanPricer {
     where
         P: Payoff,
     {
-        // Create time grid
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
-
-        // Create MC engine
-        let engine_config = McEngineConfig {
-            num_paths: self.config.num_paths,
-            seed: self.config.seed,
-            time_grid,
-            target_ci_half_width: None,
-            use_parallel: self.config.use_parallel,
-            chunk_size: 1000,
-            path_capture: crate::engine::PathCaptureConfig::default(),
-            antithetic: false,
-        };
+        let engine_config = McEngineConfig::new(self.num_paths, time_grid)
+            .with_seed(self.seed)
+            .with_parallel(self.use_parallel);
         let engine = McEngine::new(engine_config);
 
-        // Create RNG and discretization
-        let rng = PhiloxRng::new(self.config.seed);
+        let rng = PhiloxRng::new(self.seed);
         let disc = ExactGbm::new();
-
-        // Initial state (just spot price for 1D GBM)
         let initial_state = vec![initial_spot];
 
-        // Price using engine
         engine.price(
             &rng,
             process,
@@ -167,11 +157,6 @@ impl EuropeanPricer {
             currency,
             discount_factor,
         )
-    }
-
-    /// Borrow the current pricer configuration.
-    pub fn config(&self) -> &EuropeanPricerConfig {
-        &self.config
     }
 
     /// Price a European call under risk-neutral GBM with flat continuous
@@ -244,10 +229,7 @@ mod tests {
 
     #[test]
     fn test_european_pricer_basic() {
-        let config = EuropeanPricerConfig::new(1000)
-            .with_seed(42)
-            .with_parallel(false);
-        let pricer = EuropeanPricer::new(config);
+        let pricer = EuropeanPricer::new(1000).with_seed(42).with_parallel(false);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
         let call = EuropeanCall::new(100.0, 1.0, 10);
@@ -265,11 +247,9 @@ mod tests {
     #[ignore = "slow"]
     #[test]
     fn test_european_pricer_atm_call() {
-        // ATM call should have value > intrinsic value of 0
-        let config = EuropeanPricerConfig::new(10000)
+        let pricer = EuropeanPricer::new(10000)
             .with_seed(42)
             .with_parallel(false);
-        let pricer = EuropeanPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2).unwrap());
         let call = EuropeanCall::new(100.0, 1.0, 252);
@@ -285,13 +265,11 @@ mod tests {
     #[ignore = "slow"]
     #[test]
     fn test_european_pricer_deep_itm() {
-        // Deep ITM call should be close to intrinsic value
-        let config = EuropeanPricerConfig::new(10000)
+        let pricer = EuropeanPricer::new(10000)
             .with_seed(42)
             .with_parallel(false);
-        let pricer = EuropeanPricer::new(config);
 
-        let gbm = GbmProcess::new(GbmParams::new(0.0, 0.0, 0.01).unwrap()); // Very low vol, no drift
+        let gbm = GbmProcess::new(GbmParams::new(0.0, 0.0, 0.01).unwrap());
         let call = EuropeanCall::new(50.0, 1.0, 100);
 
         let result = pricer

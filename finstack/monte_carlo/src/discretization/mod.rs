@@ -60,6 +60,9 @@ pub use milstein::{LogMilstein, Milstein};
 pub use qe_cir::QeCir;
 
 #[cfg(feature = "mc")]
+pub use qe_heston::QeHeston;
+
+#[cfg(feature = "mc")]
 pub use jump_euler::JumpEuler;
 
 #[cfg(feature = "mc")]
