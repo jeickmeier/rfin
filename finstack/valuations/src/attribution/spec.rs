@@ -531,13 +531,11 @@ mod tests {
             spec.as_of_t1,
             create_date(2025, Month::January, 2).expect("Valid test date")
         );
-        assert_eq!(
-            spec.config
-                .as_ref()
-                .and_then(|cfg| cfg.strict_validation)
-                .expect("strict_validation should be preserved"),
-            true
-        );
+        assert!(spec
+            .config
+            .as_ref()
+            .and_then(|cfg| cfg.strict_validation)
+            .expect("strict_validation should be preserved"));
     }
 
     #[test]

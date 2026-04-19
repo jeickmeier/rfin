@@ -64,7 +64,10 @@ pub(crate) const MIN_VALID_RATE: f64 = -0.999;
 #[inline]
 pub fn irr(cashflows: &[f64], guess: Option<f64>) -> crate::Result<f64> {
     solve_rate_of_return(
-        cashflows.iter().enumerate().map(|(i, &amt)| (i as f64, amt)),
+        cashflows
+            .iter()
+            .enumerate()
+            .map(|(i, &amt)| (i as f64, amt)),
         guess,
     )
 }
