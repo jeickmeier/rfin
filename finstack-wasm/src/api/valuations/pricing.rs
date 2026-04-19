@@ -19,8 +19,7 @@ pub fn validate_valuation_result_json(json: &str) -> Result<String, JsValue> {
 /// returns the canonical (re-serialized) JSON.
 #[wasm_bindgen(js_name = validateInstrumentJson)]
 pub fn validate_instrument_json(json: &str) -> Result<String, JsValue> {
-    let parsed: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(json).map_err(to_js_err)?;
+    let parsed = finstack_valuations::pricer::parse_instrument_json(json).map_err(to_js_err)?;
     serde_json::to_string(&parsed).map_err(to_js_err)
 }
 
@@ -32,18 +31,11 @@ pub fn price_instrument(
     as_of: &str,
     model: &str,
 ) -> Result<String, JsValue> {
-    let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(to_js_err)?;
-    let boxed = inst.into_boxed().map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
-    let model_key = parse_model_key(model)?;
-    let registry = finstack_valuations::pricer::standard_registry();
-    let result = registry
-        .price(boxed.as_ref(), model_key, &market, date, None)
-        .map_err(to_js_err)?;
+    let result =
+        finstack_valuations::pricer::price_instrument_json(instrument_json, &market, as_of, model)
+            .map_err(to_js_err)?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -55,31 +47,20 @@ pub fn price_instrument_with_metrics(
     as_of: &str,
     model: &str,
     metrics: JsValue,
+    pricing_options: Option<String>,
 ) -> Result<String, JsValue> {
-    let inst: finstack_valuations::instruments::InstrumentJson =
-        serde_json::from_str(instrument_json).map_err(to_js_err)?;
-    let boxed = inst.into_boxed().map_err(to_js_err)?;
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
-    let model_key = parse_model_key(model)?;
     let metric_strs: Vec<String> = serde_wasm_bindgen::from_value(metrics).map_err(to_js_err)?;
-    let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metric_strs
-        .iter()
-        .map(|m| finstack_valuations::metrics::MetricId::custom(m.as_str()))
-        .collect();
-    let registry = finstack_valuations::pricer::standard_registry();
-    let result = registry
-        .price_with_metrics(
-            boxed.as_ref(),
-            model_key,
-            &market,
-            date,
-            &metric_ids,
-            Default::default(),
-        )
-        .map_err(to_js_err)?;
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+        instrument_json,
+        &market,
+        as_of,
+        model,
+        &metric_strs,
+        pricing_options.as_deref(),
+    )
+    .map_err(to_js_err)?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -115,37 +96,40 @@ pub fn list_standard_metrics_grouped() -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&map).map_err(to_js_err)
 }
 
-pub(super) fn parse_model_key(s: &str) -> Result<finstack_valuations::pricer::ModelKey, JsValue> {
-    s.parse::<finstack_valuations::pricer::ModelKey>()
-        .map_err(|e| to_js_err(format!("Unknown model key: '{s}'. {e}")))
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use finstack_valuations::pricer::ModelKey;
 
     #[test]
     fn parse_model_key_recognizes_standard_keys() {
         assert_eq!(
-            parse_model_key("discounting").expect("ok"),
-            ModelKey::Discounting
-        );
-        assert_eq!(parse_model_key("tree").expect("ok"), ModelKey::Tree);
-        assert_eq!(parse_model_key("black76").expect("ok"), ModelKey::Black76);
-        assert_eq!(
-            parse_model_key("hull_white_1f").expect("ok"),
-            ModelKey::HullWhite1F
+            finstack_valuations::pricer::parse_model_key("discounting").expect("ok"),
+            finstack_valuations::pricer::ModelKey::Discounting
         );
         assert_eq!(
-            parse_model_key("hazard_rate").expect("ok"),
-            ModelKey::HazardRate
+            finstack_valuations::pricer::parse_model_key("tree").expect("ok"),
+            finstack_valuations::pricer::ModelKey::Tree
         );
-        assert_eq!(parse_model_key("normal").expect("ok"), ModelKey::Normal);
         assert_eq!(
-            parse_model_key("monte_carlo_gbm").expect("ok"),
-            ModelKey::MonteCarloGBM
+            finstack_valuations::pricer::parse_model_key("black76").expect("ok"),
+            finstack_valuations::pricer::ModelKey::Black76
+        );
+        assert_eq!(
+            finstack_valuations::pricer::parse_model_key("hull_white_1f").expect("ok"),
+            finstack_valuations::pricer::ModelKey::HullWhite1F
+        );
+        assert_eq!(
+            finstack_valuations::pricer::parse_model_key("hazard_rate").expect("ok"),
+            finstack_valuations::pricer::ModelKey::HazardRate
+        );
+        assert_eq!(
+            finstack_valuations::pricer::parse_model_key("normal").expect("ok"),
+            finstack_valuations::pricer::ModelKey::Normal
+        );
+        assert_eq!(
+            finstack_valuations::pricer::parse_model_key("monte_carlo_gbm").expect("ok"),
+            finstack_valuations::pricer::ModelKey::MonteCarloGBM
         );
     }
 

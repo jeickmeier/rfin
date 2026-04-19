@@ -22,9 +22,8 @@ use pyo3::types::{PyDict, PyList};
 
 /// Parse an ISO 8601 date string into a `time::Date`.
 fn parse_date(s: &str) -> PyResult<time::Date> {
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    time::Date::parse(s, &format)
-        .map_err(|e| PyValueError::new_err(format!("Invalid date '{s}': {e}")))
+    finstack_valuations::pricer::parse_as_of_date(s)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -126,8 +125,8 @@ impl PyValuationResult {
 
 #[pyfunction]
 fn validate_instrument_json(json: &str) -> PyResult<String> {
-    let parsed: finstack_valuations::instruments::InstrumentJson = serde_json::from_str(json)
-        .map_err(|e| PyValueError::new_err(format!("invalid instrument JSON: {e}")))?;
+    let parsed = finstack_valuations::pricer::parse_instrument_json(json)
+        .map_err(crate::errors::display_to_py)?;
     serde_json::to_string_pretty(&parsed).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 

@@ -727,7 +727,8 @@ export interface ValuationsNamespace {
     marketJson: string,
     asOf: string,
     model: string,
-    metrics: string[]
+    metrics: string[],
+    pricingOptions?: string | null
   ): string;
   listStandardMetrics(): string[];
   /** List all standard metrics organized by group.
