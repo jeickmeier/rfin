@@ -14,7 +14,6 @@ use indexmap::IndexMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::attribution::json_envelope::JsonEnvelope;
 use crate::attribution::taylor::TaylorAttributionConfig;
 
 /// Attribution methodology for decomposing P&L.
@@ -915,22 +914,6 @@ impl PnlAttribution {
         ));
 
         lines.join("\n")
-    }
-}
-
-impl JsonEnvelope for PnlAttribution {
-    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-        finstack_core::Error::Calibration {
-            message: format!("Failed to parse P&L attribution JSON: {}", e),
-            category: "json_parse".to_string(),
-        }
-    }
-
-    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-        finstack_core::Error::Calibration {
-            message: format!("Failed to serialize P&L attribution: {}", e),
-            category: "json_serialize".to_string(),
-        }
     }
 }
 

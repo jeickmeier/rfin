@@ -121,7 +121,6 @@ impl PnlAttribution {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::attribution::JsonEnvelope;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
     use time::macros::date;
@@ -163,8 +162,7 @@ mod tests {
             AttributionMethod::Parallel,
         );
 
-        let json = attribution
-            .to_json()
+        let json = serde_json::to_string_pretty(&attribution)
             .expect("JSON serialization should succeed in test");
         assert!(json.contains("BOND-001"));
         assert!(json.contains("total_pnl"));
