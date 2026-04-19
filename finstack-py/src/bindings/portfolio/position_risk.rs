@@ -252,8 +252,8 @@ fn historical_var_decomposition<'py>(
     // Transpose to row-major scenarios x positions layout expected by the engine.
     let mut flat = Vec::with_capacity(n_scenarios * n);
     for s in 0..n_scenarios {
-        for position_row in position_pnls.iter().take(n) {
-            flat.push(position_row[s]);
+        for row in &position_pnls {
+            flat.push(row[s]);
         }
     }
 
@@ -322,14 +322,21 @@ fn evaluate_risk_budget<'py>(
     }
 
     // Synthesize a decomposition so we can reuse the Rust budget engine.
+    //
+    // Each `PositionId` is constructed once per slot from a shared
+    // `PositionId` vec (built in a single pass over the caller's ids) rather
+    // than re-allocating the id string for each of the three containers
+    // (var_contribs, es_contribs, targets).
     use finstack_portfolio::factor_model::{
         DecompositionMethod, PositionEsContribution, PositionVarContribution,
     };
-    let var_contributions: Vec<PositionVarContribution> = position_ids
+    let shared_ids: Vec<PositionId> = position_ids.into_iter().map(PositionId::new).collect();
+
+    let var_contributions: Vec<PositionVarContribution> = shared_ids
         .iter()
         .zip(actual_var.iter())
         .map(|(id, &cv)| PositionVarContribution {
-            position_id: PositionId::new(id.clone()),
+            position_id: id.clone(),
             component_var: cv,
             relative_var: if portfolio_var.abs() > 1e-15 {
                 cv / portfolio_var
@@ -340,10 +347,10 @@ fn evaluate_risk_budget<'py>(
             incremental_var: None,
         })
         .collect();
-    let es_contributions: Vec<PositionEsContribution> = position_ids
+    let es_contributions: Vec<PositionEsContribution> = shared_ids
         .iter()
         .map(|id| PositionEsContribution {
-            position_id: PositionId::new(id.clone()),
+            position_id: id.clone(),
             component_es: 0.0,
             relative_es: 0.0,
             marginal_es: 0.0,
@@ -363,8 +370,8 @@ fn evaluate_risk_budget<'py>(
     };
 
     let mut targets: IndexMap<PositionId, f64> = IndexMap::with_capacity(n);
-    for (id, &pct) in position_ids.iter().zip(target_var_pct.iter()) {
-        targets.insert(PositionId::new(id.clone()), pct);
+    for (id, &pct) in shared_ids.into_iter().zip(target_var_pct.iter()) {
+        targets.insert(id, pct);
     }
     let budget = RiskBudget::new(targets).with_threshold(utilization_threshold);
     let result = budget.evaluate(&decomp).map_err(core_to_py)?;

@@ -1,9 +1,17 @@
 //! JSON round-trip helpers for portfolio specs and results.
+//!
+//! These entry points retain the historical JSON-only API for compatibility;
+//! prefer the typed :class:`Portfolio`, :class:`PortfolioValuation`, and
+//! :class:`PortfolioResult` classes (see ``types.rs``) and the pipeline
+//! functions, which skip the JSON round-trip entirely.
 
+use crate::bindings::extract::{
+    extract_market_ref, extract_portfolio_result_ref, extract_valuation_ref,
+};
 use crate::errors::display_to_py;
 use pyo3::prelude::*;
 
-/// Parse a portfolio specification from JSON.
+/// Parse a portfolio specification from JSON and return the canonical form.
 #[pyfunction]
 pub fn parse_portfolio_spec(json_str: &str) -> PyResult<String> {
     let spec: finstack_portfolio::portfolio::PortfolioSpec =
@@ -12,6 +20,10 @@ pub fn parse_portfolio_spec(json_str: &str) -> PyResult<String> {
 }
 
 /// Build a runtime portfolio from a JSON spec and round-trip the spec.
+///
+/// Returns the JSON form after `Portfolio::from_spec` → `Portfolio::to_spec`.
+/// Prefer :meth:`Portfolio.from_spec` for real work — it returns the typed
+/// object that pipeline functions reuse without rebuilding.
 #[pyfunction]
 pub fn build_portfolio_from_spec(spec_json: &str) -> PyResult<String> {
     let spec: finstack_portfolio::portfolio::PortfolioSpec =
@@ -21,28 +33,35 @@ pub fn build_portfolio_from_spec(spec_json: &str) -> PyResult<String> {
     serde_json::to_string(&round_tripped).map_err(display_to_py)
 }
 
-/// Extract total portfolio value from a ``PortfolioResult`` JSON.
+/// Extract total portfolio value from a ``PortfolioResult``.
+///
+/// Accepts either a :class:`PortfolioResult` object (no parse) or a JSON
+/// string. The typed path is O(1); the JSON path parses the full result.
 #[pyfunction]
-pub fn portfolio_result_total_value(result_json: &str) -> PyResult<f64> {
-    let result: finstack_portfolio::results::PortfolioResult =
-        serde_json::from_str(result_json).map_err(display_to_py)?;
+pub fn portfolio_result_total_value(result: &Bound<'_, PyAny>) -> PyResult<f64> {
+    let result = extract_portfolio_result_ref(result)?;
     Ok(result.total_value().amount())
 }
 
-/// Extract a specific metric from a ``PortfolioResult`` JSON.
+/// Extract a specific metric from a ``PortfolioResult``.
+///
+/// Accepts either a :class:`PortfolioResult` object (no parse) or a JSON
+/// string.
 #[pyfunction]
-pub fn portfolio_result_get_metric(result_json: &str, metric_id: &str) -> PyResult<Option<f64>> {
-    let result: finstack_portfolio::results::PortfolioResult =
-        serde_json::from_str(result_json).map_err(display_to_py)?;
+pub fn portfolio_result_get_metric(
+    result: &Bound<'_, PyAny>,
+    metric_id: &str,
+) -> PyResult<Option<f64>> {
+    let result = extract_portfolio_result_ref(result)?;
     Ok(result.get_metric(metric_id))
 }
 
-/// Aggregate portfolio metrics from a valuation JSON.
+/// Aggregate portfolio metrics from a valuation.
 ///
 /// Parameters
 /// ----------
-/// valuation_json : str
-///     JSON-serialized ``PortfolioValuation``.
+/// valuation : PortfolioValuation | str
+///     A :class:`PortfolioValuation` object (fast path) or JSON string.
 /// base_ccy : str
 ///     Base currency code.
 /// market : MarketContext | str
@@ -51,16 +70,14 @@ pub fn portfolio_result_get_metric(result_json: &str, metric_id: &str) -> PyResu
 ///     Valuation date in ISO 8601 format.
 #[pyfunction]
 pub fn aggregate_metrics(
-    valuation_json: &str,
+    valuation: &Bound<'_, PyAny>,
     base_ccy: &str,
     market: &Bound<'_, PyAny>,
     as_of: &str,
 ) -> PyResult<String> {
-    use crate::bindings::extract::extract_market;
-    let valuation: finstack_portfolio::valuation::PortfolioValuation =
-        serde_json::from_str(valuation_json).map_err(display_to_py)?;
+    let valuation = extract_valuation_ref(valuation)?;
     let ccy: finstack_core::currency::Currency = base_ccy.parse().map_err(display_to_py)?;
-    let market = extract_market(market)?;
+    let market = extract_market_ref(market)?;
     let date = super::parse_date(as_of)?;
     let metrics = finstack_portfolio::metrics::aggregate_metrics(&valuation, ccy, &market, date)
         .map_err(display_to_py)?;

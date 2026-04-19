@@ -71,29 +71,6 @@ class Money:
         ...
 
     @classmethod
-    def try_new(cls, amount: float, currency: Union[Currency, str]) -> Money:
-        """Fallible constructor; rejects non-finite amount values.
-
-        Parameters
-        ----------
-        amount : float
-            Monetary amount.
-        currency : Currency | str
-            Currency object or ISO-4217 code string.
-
-        Returns
-        -------
-        Money
-            The constructed money value.
-
-        Raises
-        ------
-        ValueError
-            If *amount* is not finite or *currency* is unrecognised.
-        """
-        ...
-
-    @classmethod
     def zero(cls, currency: Union[Currency, str]) -> Money:
         """Zero amount in the given currency.
 

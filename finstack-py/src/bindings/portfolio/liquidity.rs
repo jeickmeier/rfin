@@ -113,15 +113,14 @@ fn days_to_liquidate(position_value: f64, avg_daily_volume: f64, participation_r
 ///     One of ``"tier1"``, ``"tier2"``, ``"tier3"``, ``"tier4"``, ``"tier5"``
 ///     with Tier 1 most liquid and Tier 5 least liquid.
 #[pyfunction]
-fn liquidity_tier(days_to_liquidate: f64) -> String {
+fn liquidity_tier(days_to_liquidate: f64) -> &'static str {
     let thresholds = [1.0, 5.0, 20.0, 60.0];
-    let tier = liquidity::classify_tier(days_to_liquidate, &thresholds);
-    match tier {
-        liquidity::LiquidityTier::Tier1 => "tier1".to_string(),
-        liquidity::LiquidityTier::Tier2 => "tier2".to_string(),
-        liquidity::LiquidityTier::Tier3 => "tier3".to_string(),
-        liquidity::LiquidityTier::Tier4 => "tier4".to_string(),
-        liquidity::LiquidityTier::Tier5 => "tier5".to_string(),
+    match liquidity::classify_tier(days_to_liquidate, &thresholds) {
+        liquidity::LiquidityTier::Tier1 => "tier1",
+        liquidity::LiquidityTier::Tier2 => "tier2",
+        liquidity::LiquidityTier::Tier3 => "tier3",
+        liquidity::LiquidityTier::Tier4 => "tier4",
+        liquidity::LiquidityTier::Tier5 => "tier5",
     }
 }
 

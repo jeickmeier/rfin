@@ -1,14 +1,28 @@
 //! Python binding for portfolio historical replay.
 
+use crate::bindings::extract::extract_portfolio_ref;
 use crate::errors::display_to_py;
 use pyo3::prelude::*;
+use serde::Deserialize;
+
+/// Typed snapshot used during single-pass deserialization.
+///
+/// Parses each snapshot's `market` directly into a `MarketContext`, avoiding
+/// the intermediate `serde_json::Value` tree and the per-entry subtree clone
+/// the previous implementation performed.
+#[derive(Deserialize)]
+struct RawSnapshot {
+    date: String,
+    market: finstack_core::market_data::context::MarketContext,
+}
 
 /// Replay a portfolio through dated market snapshots.
 ///
 /// Parameters
 /// ----------
-/// spec_json : str
-///     JSON-serialized ``PortfolioSpec``.
+/// portfolio : Portfolio | str
+///     A :class:`Portfolio` object (fast path) or a JSON-serialized
+///     ``PortfolioSpec`` string.
 /// snapshots_json : str
 ///     JSON array of ``{"date": "YYYY-MM-DD", "market": {...}}`` objects.
 ///     Markets use the standard ``MarketContextState`` JSON format.
@@ -20,28 +34,23 @@ use pyo3::prelude::*;
 /// str
 ///     JSON-serialized ``ReplayResult``.
 #[pyfunction]
-fn replay_portfolio(spec_json: &str, snapshots_json: &str, config_json: &str) -> PyResult<String> {
-    let spec: finstack_portfolio::portfolio::PortfolioSpec =
-        serde_json::from_str(spec_json).map_err(display_to_py)?;
-    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
+fn replay_portfolio(
+    portfolio: &Bound<'_, PyAny>,
+    snapshots_json: &str,
+    config_json: &str,
+) -> PyResult<String> {
+    let portfolio = extract_portfolio_ref(portfolio)?;
 
     let config: finstack_portfolio::replay::ReplayConfig =
         serde_json::from_str(config_json).map_err(display_to_py)?;
 
-    // Parse snapshots: [{"date": "YYYY-MM-DD", "market": {...}}, ...]
-    let raw: Vec<serde_json::Value> =
-        serde_json::from_str(snapshots_json).map_err(display_to_py)?;
+    let raw: Vec<RawSnapshot> = serde_json::from_str(snapshots_json).map_err(display_to_py)?;
 
     let format = time::format_description::well_known::Iso8601::DEFAULT;
     let mut snapshots = Vec::with_capacity(raw.len());
-    for entry in &raw {
-        let date_str = entry["date"]
-            .as_str()
-            .ok_or_else(|| display_to_py("each snapshot must have a 'date' string field"))?;
-        let date = time::Date::parse(date_str, &format).map_err(display_to_py)?;
-        let market: finstack_core::market_data::context::MarketContext =
-            serde_json::from_value(entry["market"].clone()).map_err(display_to_py)?;
-        snapshots.push((date, market));
+    for entry in raw {
+        let date = time::Date::parse(&entry.date, &format).map_err(display_to_py)?;
+        snapshots.push((date, entry.market));
     }
 
     let timeline =

@@ -3,20 +3,21 @@
 //! Each helper accepts a `&Bound<'_, PyAny>` and tries two paths:
 //!
 //! 1. **Typed fast path** — cast to the corresponding `#[pyclass]` wrapper
-//!    and clone the inner Rust type.  No JSON round-trip, no allocation beyond
-//!    the clone itself.
+//!    and borrow the inner Rust type (no clone, no JSON parse).
 //! 2. **JSON fallback** — extract a Python `str`, then `serde_json::from_str`.
 //!    This keeps backward compatibility with callers that pass pre-serialized
 //!    JSON strings.
 //!
-//! Using these helpers lets every public function transparently accept either
-//! form, giving callers a zero-parse fast path when they already hold a typed
-//! Python object.
+//! The `*Access` enums wrap both paths behind a `Deref<Target = T>` impl so
+//! pipeline functions can accept `T | str` without branching.
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::bindings::core::market_data::context::PyMarketContext;
+use crate::bindings::portfolio::types::{
+    PyPortfolio, PyPortfolioResult, PyPortfolioValuation,
+};
 use crate::bindings::statements::evaluator::PyStatementResult;
 use crate::bindings::statements::types::PyFinancialModelSpec;
 
@@ -133,6 +134,9 @@ pub fn extract_model(obj: &Bound<'_, PyAny>) -> PyResult<finstack_statements::Fi
 
 /// Extract a [`MarketContext`] from a `MarketContext` Python object
 /// (fast path) or a JSON string (fallback).
+///
+/// Always produces an owned value — prefer [`extract_market_ref`] when only
+/// a reference is needed.
 pub fn extract_market(
     obj: &Bound<'_, PyAny>,
 ) -> PyResult<finstack_core::market_data::context::MarketContext> {
@@ -153,4 +157,159 @@ pub fn extract_market_opt(
         Some(o) => extract_market(o).map(Some),
         None => Ok(None),
     }
+}
+
+// ---------------------------------------------------------------------------
+// MarketContext — borrow-preferring access
+// ---------------------------------------------------------------------------
+
+/// Access to a [`MarketContext`] without cloning on the typed fast path.
+///
+/// `MarketContext` holds `HashMap`s of `Arc`s; its `Clone` reallocates the
+/// backing storage and bumps every `Arc` refcount. In tight pipelines
+/// (replay, chained valuation), avoiding that per-call allocation is
+/// measurable.
+pub enum MarketAccess<'py> {
+    Borrowed(PyRef<'py, PyMarketContext>),
+    Owned(Box<finstack_core::market_data::context::MarketContext>),
+}
+
+impl std::ops::Deref for MarketAccess<'_> {
+    type Target = finstack_core::market_data::context::MarketContext;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(r) => &r.inner,
+            Self::Owned(m) => m.as_ref(),
+        }
+    }
+}
+
+impl MarketAccess<'_> {
+    /// Consume this access and produce an owned value, cloning only if
+    /// the data was borrowed from a Python object.
+    #[allow(dead_code)]
+    pub fn into_owned(self) -> finstack_core::market_data::context::MarketContext {
+        match self {
+            Self::Borrowed(r) => r.inner.clone(),
+            Self::Owned(m) => *m,
+        }
+    }
+}
+
+/// Borrow a [`MarketContext`] from a typed Python object, or parse from JSON.
+pub fn extract_market_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<MarketAccess<'py>> {
+    if let Ok(ctx) = obj.cast::<PyMarketContext>() {
+        return Ok(MarketAccess::Borrowed(ctx.borrow()));
+    }
+    let json: String = obj.extract()?;
+    let inner: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(&json).map_err(to_py)?;
+    Ok(MarketAccess::Owned(Box::new(inner)))
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio — borrow-preferring access
+// ---------------------------------------------------------------------------
+
+/// Access to a [`Portfolio`] without rebuilding from spec on the typed path.
+///
+/// Portfolio construction parses positions and rebuilds the position index +
+/// dependency index; doing it once and reusing the typed object across
+/// pipeline calls (value, cashflows, metrics, scenario) is a major win.
+pub enum PortfolioAccess<'py> {
+    Borrowed(PyRef<'py, PyPortfolio>),
+    Owned(Box<finstack_portfolio::Portfolio>),
+}
+
+impl std::ops::Deref for PortfolioAccess<'_> {
+    type Target = finstack_portfolio::Portfolio;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(r) => r.inner.as_ref(),
+            Self::Owned(p) => p.as_ref(),
+        }
+    }
+}
+
+/// Extract a [`Portfolio`] from a `Portfolio` Python object (fast path) or
+/// build one from a JSON spec string (fallback). The JSON path pays the full
+/// `Portfolio::from_spec` cost, which includes position materialization,
+/// index construction, and validation.
+pub fn extract_portfolio_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<PortfolioAccess<'py>> {
+    if let Ok(p) = obj.cast::<PyPortfolio>() {
+        return Ok(PortfolioAccess::Borrowed(p.borrow()));
+    }
+    let json: String = obj.extract()?;
+    let spec: finstack_portfolio::portfolio::PortfolioSpec =
+        serde_json::from_str(&json).map_err(to_py)?;
+    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_py)?;
+    Ok(PortfolioAccess::Owned(Box::new(portfolio)))
+}
+
+// ---------------------------------------------------------------------------
+// PortfolioValuation — borrow-preferring access
+// ---------------------------------------------------------------------------
+
+/// Access to a [`PortfolioValuation`] without re-parsing JSON when a typed
+/// Python object is passed.
+pub enum ValuationAccess<'py> {
+    Borrowed(PyRef<'py, PyPortfolioValuation>),
+    Owned(Box<finstack_portfolio::valuation::PortfolioValuation>),
+}
+
+impl std::ops::Deref for ValuationAccess<'_> {
+    type Target = finstack_portfolio::valuation::PortfolioValuation;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(r) => &r.inner,
+            Self::Owned(v) => v.as_ref(),
+        }
+    }
+}
+
+/// Extract a [`PortfolioValuation`] from a typed Python object or a JSON string.
+pub fn extract_valuation_ref<'py>(
+    obj: &Bound<'py, PyAny>,
+) -> PyResult<ValuationAccess<'py>> {
+    if let Ok(v) = obj.cast::<PyPortfolioValuation>() {
+        return Ok(ValuationAccess::Borrowed(v.borrow()));
+    }
+    let json: String = obj.extract()?;
+    let inner: finstack_portfolio::valuation::PortfolioValuation =
+        serde_json::from_str(&json).map_err(to_py)?;
+    Ok(ValuationAccess::Owned(Box::new(inner)))
+}
+
+// ---------------------------------------------------------------------------
+// PortfolioResult — borrow-preferring access
+// ---------------------------------------------------------------------------
+
+/// Access to a [`PortfolioResult`] without re-parsing JSON when a typed
+/// Python object is passed.
+pub enum PortfolioResultAccess<'py> {
+    Borrowed(PyRef<'py, PyPortfolioResult>),
+    Owned(Box<finstack_portfolio::results::PortfolioResult>),
+}
+
+impl std::ops::Deref for PortfolioResultAccess<'_> {
+    type Target = finstack_portfolio::results::PortfolioResult;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(r) => &r.inner,
+            Self::Owned(r) => r.as_ref(),
+        }
+    }
+}
+
+/// Extract a [`PortfolioResult`] from a typed Python object or a JSON string.
+pub fn extract_portfolio_result_ref<'py>(
+    obj: &Bound<'py, PyAny>,
+) -> PyResult<PortfolioResultAccess<'py>> {
+    if let Ok(r) = obj.cast::<PyPortfolioResult>() {
+        return Ok(PortfolioResultAccess::Borrowed(r.borrow()));
+    }
+    let json: String = obj.extract()?;
+    let inner: finstack_portfolio::results::PortfolioResult =
+        serde_json::from_str(&json).map_err(to_py)?;
+    Ok(PortfolioResultAccess::Owned(Box::new(inner)))
 }

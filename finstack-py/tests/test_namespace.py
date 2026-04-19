@@ -150,8 +150,11 @@ class TestPortfolioNamespace:
     """Verify the portfolio subpackage."""
 
     def test_portfolio_exports(self) -> None:
-        """Portfolio should export parsing, building, and metric functions."""
+        """Portfolio should export parsing, building, metric functions, and typed wrappers."""
         from finstack.portfolio import (  # noqa: F401
+            Portfolio,
+            PortfolioResult,
+            PortfolioValuation,
             aggregate_full_cashflows,
             aggregate_metrics,
             build_portfolio_from_spec,

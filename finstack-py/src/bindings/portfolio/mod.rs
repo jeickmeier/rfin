@@ -11,6 +11,7 @@ mod pipeline;
 mod position_risk;
 mod replay;
 mod spec;
+pub(crate) mod types;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -31,6 +32,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "Portfolio construction, valuation, cashflows, scenarios, and metrics.",
     )?;
 
+    types::register(py, &m)?;
     spec::register(py, &m)?;
     pipeline::register(py, &m)?;
     optimization::register(py, &m)?;
@@ -39,6 +41,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     liquidity::register(py, &m)?;
 
     let exports = vec![
+        "Portfolio",
+        "PortfolioValuation",
+        "PortfolioResult",
         "parse_portfolio_spec",
         "build_portfolio_from_spec",
         "portfolio_result_total_value",

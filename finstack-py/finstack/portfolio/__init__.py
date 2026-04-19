@@ -7,6 +7,10 @@ from __future__ import annotations
 
 from finstack.finstack import portfolio as _portfolio
 
+Portfolio = _portfolio.Portfolio
+PortfolioValuation = _portfolio.PortfolioValuation
+PortfolioResult = _portfolio.PortfolioResult
+
 parse_portfolio_spec = _portfolio.parse_portfolio_spec
 build_portfolio_from_spec = _portfolio.build_portfolio_from_spec
 portfolio_result_total_value = _portfolio.portfolio_result_total_value
@@ -31,6 +35,9 @@ almgren_chriss_impact = _portfolio.almgren_chriss_impact
 kyle_lambda = _portfolio.kyle_lambda
 
 __all__: list[str] = [
+    "Portfolio",
+    "PortfolioResult",
+    "PortfolioValuation",
     "aggregate_cashflows",
     "aggregate_full_cashflows",
     "aggregate_metrics",

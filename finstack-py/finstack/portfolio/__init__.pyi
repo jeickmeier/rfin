@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from finstack.core.market_data import MarketContext
+
 __all__ = [
+    "Portfolio",
+    "PortfolioResult",
+    "PortfolioValuation",
     "aggregate_full_cashflows",
     "aggregate_cashflows",
     "aggregate_metrics",
@@ -15,205 +20,150 @@ __all__ = [
     "value_portfolio",
 ]
 
-def parse_portfolio_spec(json_str: str) -> str:
-    """Parse and canonicalize a ``PortfolioSpec`` from JSON.
+class Portfolio:
+    """Built runtime portfolio. Cheap to clone; pass directly to pipeline functions.
 
-    Args:
-        json_str: JSON-serialized ``PortfolioSpec``.
-
-    Returns:
-        Canonical JSON string for the spec.
-
-    Example:
-        >>> from finstack.portfolio import parse_portfolio_spec
-        >>> canonical_json = parse_portfolio_spec(spec_json)
+    Build once with :meth:`from_spec` and reuse across ``value_portfolio``,
+    ``aggregate_cashflows``, ``aggregate_metrics``, and
+    ``apply_scenario_and_revalue`` to skip the per-call spec parse + index
+    rebuild.
     """
+
+    @staticmethod
+    def from_spec(spec_json: str) -> Portfolio:
+        """Parse a ``PortfolioSpec`` JSON string into a runtime portfolio."""
+        ...
+
+    @property
+    def id(self) -> str: ...
+    @property
+    def as_of(self) -> str: ...
+    @property
+    def base_ccy(self) -> str: ...
+    def __len__(self) -> int: ...
+    def to_spec_json(self) -> str: ...
+    def __repr__(self) -> str: ...
+
+class PortfolioValuation:
+    """Typed wrapper around a ``PortfolioValuation`` result.
+
+    Wrap the JSON returned by :func:`value_portfolio` once and pass the typed
+    object to :func:`aggregate_metrics` to skip re-parsing.
+    """
+
+    @staticmethod
+    def from_json(valuation_json: str) -> PortfolioValuation: ...
+    def to_json(self) -> str: ...
+    @property
+    def total_value(self) -> float: ...
+    @property
+    def base_ccy(self) -> str: ...
+    @property
+    def as_of(self) -> str: ...
+    def __len__(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+class PortfolioResult:
+    """Typed wrapper around a ``PortfolioResult`` envelope.
+
+    Use the scalar accessors (``total_value``, ``get_metric``) to read single
+    values without re-parsing the JSON envelope.
+    """
+
+    @staticmethod
+    def from_json(result_json: str) -> PortfolioResult: ...
+    def to_json(self) -> str: ...
+    @property
+    def total_value(self) -> float: ...
+    def get_metric(self, metric_id: str) -> float | None: ...
+    def require_metric(self, metric_id: str) -> float: ...
+    def __repr__(self) -> str: ...
+
+def parse_portfolio_spec(json_str: str) -> str:
+    """Parse and canonicalize a ``PortfolioSpec`` from JSON."""
     ...
 
 def build_portfolio_from_spec(spec_json: str) -> str:
     """Build a runtime portfolio from JSON and return the round-tripped spec.
 
-    Args:
-        spec_json: JSON-serialized ``PortfolioSpec``.
-
-    Returns:
-        JSON from ``Portfolio::to_spec`` after ``Portfolio::from_spec``.
-
-    Example:
-        >>> from finstack.portfolio import build_portfolio_from_spec
-        >>> round_tripped = build_portfolio_from_spec(spec_json)
+    Prefer :meth:`Portfolio.from_spec` for real work — it returns the typed
+    object that pipeline functions reuse without rebuilding.
     """
     ...
 
-def portfolio_result_total_value(result_json: str) -> float:
-    """Read total portfolio value from a ``PortfolioResult`` JSON envelope.
+def portfolio_result_total_value(result: PortfolioResult | str) -> float:
+    """Read total portfolio value from a ``PortfolioResult`` envelope.
 
-    Args:
-        result_json: JSON-serialized ``PortfolioResult``.
-
-    Returns:
-        Total value amount in the result's base currency.
-
-    Example:
-        >>> from finstack.portfolio import portfolio_result_total_value
-        >>> portfolio_result_total_value(result_json)
-        0.0
+    Accepts a typed :class:`PortfolioResult` (O(1)) or a JSON string
+    (O(size-of-envelope)).
     """
     ...
 
-def portfolio_result_get_metric(result_json: str, metric_id: str) -> float | None:
-    """Read one metric from a ``PortfolioResult`` JSON envelope.
+def portfolio_result_get_metric(
+    result: PortfolioResult | str, metric_id: str
+) -> float | None:
+    """Read one metric from a ``PortfolioResult``.
 
-    Args:
-        result_json: JSON-serialized ``PortfolioResult``.
-        metric_id: Metric key present in the result.
-
-    Returns:
-        Metric value, or ``None`` if absent.
-
-    Example:
-        >>> from finstack.portfolio import portfolio_result_get_metric
-        >>> portfolio_result_get_metric(result_json, "pv")
+    Accepts a typed :class:`PortfolioResult` or a JSON string.
     """
     ...
 
 def aggregate_metrics(
-    valuation_json: str,
+    valuation: PortfolioValuation | str,
     base_ccy: str,
-    market_json: str,
+    market: MarketContext | str,
     as_of: str,
 ) -> str:
-    """Aggregate portfolio metrics from a valuation JSON snapshot.
+    """Aggregate portfolio metrics from a valuation.
 
-    Args:
-        valuation_json: JSON-serialized ``PortfolioValuation``.
-        base_ccy: Aggregation currency code (e.g. ``"USD"``).
-        market_json: JSON-serialized ``MarketContext``.
-        as_of: Valuation date in ISO 8601 format.
-
-    Returns:
-        JSON-serialized aggregated metrics structure.
-
-    Example:
-        >>> from finstack.portfolio import aggregate_metrics
-        >>> aggregate_metrics(val_json, "USD", mkt_json, "2025-01-15")
-        '{}'
+    Accepts a typed :class:`PortfolioValuation` (fast path) or a JSON string.
     """
     ...
 
 def value_portfolio(
-    spec_json: str,
-    market_json: str,
+    portfolio: Portfolio | str,
+    market: MarketContext | str,
     strict_risk: bool = False,
 ) -> str:
-    """Value a portfolio from its spec and market context.
+    """Value a portfolio.
 
-    Args:
-        spec_json: JSON-serialized ``PortfolioSpec``.
-        market_json: JSON-serialized ``MarketContext``.
-        strict_risk: When ``True``, abort if any risk metric fails.
-
-    Returns:
-        JSON-serialized ``PortfolioValuation``.
-
-    Example:
-        >>> from finstack.portfolio import value_portfolio
-        >>> value_portfolio(spec_json, market_json)
-        '{}'
+    Accepts either a typed :class:`Portfolio` (no rebuild) or a JSON
+    ``PortfolioSpec`` string, and either a typed ``MarketContext`` or a JSON
+    string. Returns JSON for backwards compatibility — wrap with
+    :meth:`PortfolioValuation.from_json` once to enable the fast downstream
+    path into ``aggregate_metrics``.
     """
     ...
 
-def aggregate_cashflows(spec_json: str, market_json: str) -> str:
-    """Build a cashflow ladder for the portfolio.
-
-    Args:
-        spec_json: JSON-serialized ``PortfolioSpec``.
-        market_json: JSON-serialized ``MarketContext``.
-
-    Returns:
-        JSON-serialized ``PortfolioCashflows`` ladder.
-
-    Example:
-        >>> from finstack.portfolio import aggregate_cashflows
-        >>> aggregate_cashflows(spec_json, market_json)
-        '{}'
-    """
+def aggregate_cashflows(
+    portfolio: Portfolio | str, market: MarketContext | str
+) -> str:
+    """Build the simple cashflow ladder for the portfolio."""
     ...
 
-def aggregate_full_cashflows(spec_json: str, market_json: str) -> str:
-    """Build the full classified cashflow ladder for the portfolio.
-
-    Args:
-        spec_json: JSON-serialized ``PortfolioSpec``.
-        market_json: JSON-serialized ``MarketContext``.
-
-    Returns:
-        JSON-serialized ``PortfolioFullCashflows`` ladder.
-
-    Example:
-        >>> from finstack.portfolio import aggregate_full_cashflows
-        >>> aggregate_full_cashflows(spec_json, market_json)
-        '{}'
-    """
+def aggregate_full_cashflows(
+    portfolio: Portfolio | str, market: MarketContext | str
+) -> str:
+    """Build the full classified cashflow ladder for the portfolio."""
     ...
 
 def apply_scenario_and_revalue(
-    spec_json: str,
+    portfolio: Portfolio | str,
     scenario_json: str,
-    market_json: str,
+    market: MarketContext | str,
 ) -> tuple[str, str]:
     """Apply a scenario and revalue the portfolio.
 
-    Args:
-        spec_json: JSON-serialized ``PortfolioSpec``.
-        scenario_json: JSON-serialized ``ScenarioSpec``.
-        market_json: JSON-serialized ``MarketContext``.
-
-    Returns:
-        ``(valuation_json, report_json)`` for the stressed portfolio and application report.
-
-    Example:
-        >>> from finstack.portfolio import apply_scenario_and_revalue
-        >>> val_j, rep_j = apply_scenario_and_revalue(spec_json, scen_json, mkt_json)
+    Returns ``(valuation_json, report_json)``.
     """
     ...
 
-def optimize_portfolio(spec_json: str, market_json: str) -> str:
+def optimize_portfolio(spec_json: str, market: MarketContext | str) -> str:
     """Optimize portfolio weights using the LP-based optimizer.
 
     Accepts a ``PortfolioOptimizationSpec`` JSON that combines the portfolio
-    specification with an objective function, constraints, and weighting scheme.
-
-    The spec JSON structure::
-
-        {
-            "portfolio": { ... },          // PortfolioSpec
-            "objective": {                 // Maximize or Minimize a MetricExpr
-                "Maximize": { "ValueWeightedAverage": { "metric": { "Metric": "Ytm" } } }
-            },
-            "constraints": [               // Array of Constraint objects
-                { "TagExposureLimit": { "tag_key": "rating", "tag_value": "CCC", "max_share": 0.10 } },
-                { "MaxTurnover": { "max_turnover": 0.30 } }
-            ],
-            "weighting": "ValueWeight",    // ValueWeight | NotionalWeight | UnitScaling
-            "missing_metric_policy": "Zero" // Zero | Exclude | Strict
-        }
-
-    Result JSON includes ``status``, ``optimal_weights``, ``trades``,
-    ``dual_values``, ``binding_constraints``, and ``turnover``.
-
-    Args:
-        spec_json: JSON-serialized ``PortfolioOptimizationSpec``.
-        market_json: JSON-serialized ``MarketContext``.
-
-    Returns:
-        JSON-serialized ``PortfolioOptimizationResultJson``.
-
-    Example:
-        >>> import json
-        >>> from finstack.portfolio import optimize_portfolio
-        >>> result = json.loads(optimize_portfolio(spec_json, market_json))
-        >>> result["status"]
-        'Optimal'
+    specification with an objective function, constraints, and weighting
+    scheme. Returns compact JSON — use :func:`json.dumps(json.loads(...), indent=2)`
+    to pretty-print if desired.
     """
     ...

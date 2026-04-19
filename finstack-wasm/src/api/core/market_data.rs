@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn fx_matrix_quote_and_rate() {
-        let mut m = FxMatrix::new();
+        let m = FxMatrix::new();
         m.set_quote("USD", "EUR", 0.92).expect("set quote");
         let r = m.rate("USD", "EUR", "2024-01-15", None).expect("fx rate");
         assert!((r.get_rate() - 0.92).abs() < 1e-9);

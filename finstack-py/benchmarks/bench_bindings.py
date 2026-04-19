@@ -90,8 +90,13 @@ from finstack.monte_carlo import (
     price_european_call,
 )
 from finstack.portfolio import (
+    Portfolio,
+    PortfolioValuation,
+    aggregate_cashflows,
+    aggregate_metrics,
     build_portfolio_from_spec,
     parse_portfolio_spec,
+    value_portfolio,
 )
 from finstack.scenarios import (
     build_from_template,
@@ -204,6 +209,59 @@ PORTFOLIO_SPEC_JSON = json.dumps({
         }
     ],
 })
+
+
+def _build_portfolio_spec_json(n_positions: int) -> str:
+    """Build a `PortfolioSpec` JSON string with ``n_positions`` deposits."""
+    positions = []
+    for i in range(n_positions):
+        pid = f"POS-{i}"
+        instr = f"DEP-{i}"
+        positions.append({
+            "position_id": pid,
+            "entity_id": "ENTITY-1",
+            "instrument_id": instr,
+            "instrument_spec": {
+                "type": "deposit",
+                "spec": {
+                    "id": instr,
+                    "notional": {"amount": 1_000_000.0 + i, "currency": "USD"},
+                    "start_date": "2025-01-15",
+                    "maturity": "2025-06-15",
+                    "day_count": "Act360",
+                    "quote_rate": 0.05,
+                    "discount_curve_id": "USD-OIS",
+                    "attributes": {},
+                },
+            },
+            "quantity": 1.0,
+            "unit": "units",
+        })
+    return json.dumps({
+        "id": f"bench-portfolio-{n_positions}",
+        "as_of": "2025-01-15",
+        "base_ccy": "USD",
+        "entities": {"ENTITY-1": {"id": "ENTITY-1"}},
+        "positions": positions,
+    })
+
+
+def _build_bench_market() -> MarketContext:
+    """Build a minimal `MarketContext` with a flat USD-OIS discount curve.
+
+    Uses a knot schedule equivalent to a flat 5% rate out to 2Y.
+    """
+    base = date(2025, 1, 15)
+    # Flat 5% act/360 ≈ df = exp(-0.05 * t) for a reasonable approximation.
+    import math
+    knots = [(t, math.exp(-0.05 * t)) for t in (0.0, 0.25, 0.5, 1.0, 2.0)]
+    curve = DiscountCurve("USD-OIS", base, knots)
+    return MarketContext().insert(curve)
+
+
+_BENCH_SPEC_JSON_500 = _build_portfolio_spec_json(500)
+_BENCH_MARKET = _build_bench_market()
+_BENCH_MARKET_JSON = _BENCH_MARKET.to_json()
 
 
 def _build_model_spec() -> FinancialModelSpec:
@@ -778,6 +836,53 @@ class TestPortfolioBenchmarks:
 
     def test_portfolio_spec_round_trip(self, benchmark) -> None:
         benchmark(parse_portfolio_spec, PORTFOLIO_SPEC_JSON)
+
+
+@pytest.mark.perf
+class TestPortfolioCompoundWorkflow:
+    """Compound workflows — each function used to rebuild the portfolio.
+
+    These measure the realistic calling pattern (value + metrics + cashflows)
+    and compare the JSON-string path (old behavior) against the typed
+    :class:`Portfolio` / :class:`MarketContext` fast path.
+    """
+
+    def test_json_path_value_metrics_cashflows(self, benchmark) -> None:
+        """JSON inputs, 500-position portfolio: every call re-parses + rebuilds."""
+
+        def _run():
+            val = value_portfolio(_BENCH_SPEC_JSON_500, _BENCH_MARKET_JSON)
+            agg = aggregate_metrics(val, "USD", _BENCH_MARKET_JSON, "2025-01-15")
+            cf = aggregate_cashflows(_BENCH_SPEC_JSON_500, _BENCH_MARKET_JSON)
+            return val, agg, cf
+
+        benchmark.pedantic(_run, rounds=5, warmup_rounds=1)
+
+    def test_typed_path_value_metrics_cashflows(self, benchmark) -> None:
+        """Typed inputs, 500 positions: Portfolio + MarketContext built once."""
+        portfolio = Portfolio.from_spec(_BENCH_SPEC_JSON_500)
+
+        def _run():
+            val_json = value_portfolio(portfolio, _BENCH_MARKET)
+            val = PortfolioValuation.from_json(val_json)
+            agg = aggregate_metrics(val, "USD", _BENCH_MARKET, "2025-01-15")
+            cf = aggregate_cashflows(portfolio, _BENCH_MARKET)
+            return val, agg, cf
+
+        benchmark.pedantic(_run, rounds=5, warmup_rounds=1)
+
+    def test_typed_portfolio_from_spec(self, benchmark) -> None:
+        """One-time cost of building a typed Portfolio from a 500-position spec."""
+        benchmark(Portfolio.from_spec, _BENCH_SPEC_JSON_500)
+
+    def test_value_portfolio_typed_500(self, benchmark) -> None:
+        """Pure value_portfolio on the typed fast path, 500 positions."""
+        portfolio = Portfolio.from_spec(_BENCH_SPEC_JSON_500)
+        benchmark(value_portfolio, portfolio, _BENCH_MARKET)
+
+    def test_value_portfolio_json_500(self, benchmark) -> None:
+        """Pure value_portfolio on the JSON path, 500 positions."""
+        benchmark(value_portfolio, _BENCH_SPEC_JSON_500, _BENCH_MARKET_JSON)
 
 
 # ===================================================================
