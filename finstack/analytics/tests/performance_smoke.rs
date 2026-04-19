@@ -38,20 +38,18 @@ fn performance_facade_exercises_broad_api_surface() {
         vec!["AAA".to_string(), "BBB".to_string()],
         Some("BBB"),
         PeriodKind::Daily,
-        false,
     )
     .expect("perf");
 
     assert_eq!(perf.benchmark_idx(), 1);
     assert_eq!(perf.freq(), PeriodKind::Daily);
-    assert!(!perf.uses_log_returns());
 
     let _ = perf.cagr();
     let _ = perf.mean_return(true);
     let _ = perf.mean_return(false);
     let _ = perf.volatility(true);
     let _ = perf.sharpe(0.02);
-    let _ = perf.sortino();
+    let _ = perf.sortino(0.0);
     let _ = perf.calmar();
     let _ = perf.max_drawdown();
     let _ = perf.value_at_risk(0.95);
@@ -121,8 +119,8 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.period_stats(0, PeriodKind::Monthly, None);
     let _ = perf.correlation_matrix();
     let _ = perf.cumulative_returns_outperformance();
-    let _ = perf.drawdown_outperformance();
-    let _ = perf.stats_during_bench_drawdowns(2);
+    let _ = perf.drawdown_difference();
+    let _ = perf.top_benchmark_drawdown_episodes(2);
 
     let rf = vec![0.0; perf.active_dates().len()];
     let _ = perf.excess_returns(&rf, Some(252.0));
@@ -142,29 +140,32 @@ fn performance_facade_exercises_broad_api_surface() {
         vec!["X".to_string()],
         Some("missing"),
         PeriodKind::Daily,
-        false,
     )
     .is_err());
 }
 
 #[test]
-fn performance_accepts_log_returns_path() {
+fn performance_lookback_returns_clamps_pre_start_reference_date() {
     let dates = calendar_days(
         Date::from_calendar_date(2025, Month::June, 1).expect("d0"),
-        90,
+        40,
     );
-    let p = ramp(dates.len(), 50.0, 0.1);
+    let prices = vec![ramp(dates.len(), 50.0, 0.1)];
     let perf = Performance::new(
         dates,
-        vec![p],
+        prices,
         vec!["P".to_string()],
         None,
         PeriodKind::Daily,
-        true,
     )
-    .expect("log perf");
-    assert!(perf.uses_log_returns());
-    let _ = perf.sharpe(0.0);
+    .expect("performance");
+
+    let ref_date = Date::from_calendar_date(2025, Month::May, 15).expect("ref date");
+    let lookbacks = perf.lookback_returns(ref_date, Some(FiscalConfig::us_federal()));
+    assert_eq!(lookbacks.mtd, vec![0.0]);
+    assert_eq!(lookbacks.qtd, vec![0.0]);
+    assert_eq!(lookbacks.ytd, vec![0.0]);
+    assert_eq!(lookbacks.fytd, Some(vec![0.0]));
 }
 
 #[test]
@@ -179,7 +180,6 @@ fn performance_smoke_asserts_fiscal_lookback_and_zero_variance_invariants() {
         vec!["FLAT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     )
     .expect("flat performance");
 
@@ -193,7 +193,6 @@ fn performance_smoke_asserts_fiscal_lookback_and_zero_variance_invariants() {
         vec!["RISING".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     )
     .expect("rising performance");
     let config = FiscalConfig::new(1, 15).expect("valid fiscal config");

@@ -40,7 +40,6 @@ pub struct Performance {
     bench_returns: Vec<f64>,
     bench_drawdown: Vec<f64>,
     freq: PeriodKind,
-    log_returns: bool,
     start_idx: usize,
     end_idx: usize,
 }
@@ -48,7 +47,7 @@ pub struct Performance {
 impl Performance {
     /// Construct from a price matrix (columns = tickers).
     ///
-    /// Computes simple or log returns for each ticker, builds the drawdown
+    /// Computes simple returns for each ticker, builds the drawdown
     /// series, and designates one ticker as the benchmark. The `dates`
     /// vector should have one entry per price row; internally the date and
     /// return series are trimmed by one element to align with the return
@@ -64,9 +63,6 @@ impl Performance {
     /// * `benchmark_ticker` - Name of the benchmark ticker. Uses column 0 if
     ///   `None`; returns an error if a non-`None` ticker name is not found.
     /// * `freq` - Observation frequency, used to derive the annualization factor.
-    /// * `use_log_returns` - If `true`, uses log returns (`ln(p[t]/p[t-1])`);
-    ///   if `false`, uses simple returns (`p[t]/p[t-1] - 1`).
-    ///
     /// # Returns
     ///
     /// A fully initialized [`Performance`] instance, or an error if
@@ -88,7 +84,6 @@ impl Performance {
     ///     vec!["SPY".into()],
     ///     None,
     ///     PeriodKind::Daily,
-    ///     false,
     /// ).unwrap();
     /// assert_eq!(perf.ticker_names(), &["SPY"]);
     /// ```
@@ -98,7 +93,6 @@ impl Performance {
         ticker_names: Vec<String>,
         benchmark_ticker: Option<&str>,
         freq: PeriodKind,
-        use_log_returns: bool,
     ) -> crate::Result<Self> {
         if prices.is_empty() || dates.is_empty() {
             return Err(crate::error::InputError::Invalid.into());
@@ -127,45 +121,25 @@ impl Performance {
         let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(n_tickers);
 
         for price_col in &prices {
-            let mut raw_returns = if use_log_returns {
-                crate::math::stats::log_returns(price_col)
-            } else {
-                let sr = simple_returns(price_col);
-                sr[1..].to_vec()
-            };
-            clean_returns(&mut raw_returns);
-            if raw_returns.iter().any(|value| !value.is_finite()) {
+            let mut returns = simple_returns(price_col);
+            let mut returns = returns.split_off(1);
+            clean_returns(&mut returns);
+            if returns.iter().any(|value| !value.is_finite()) {
                 return Err(crate::error::InputError::Invalid.into());
             }
-            if raw_returns.len() != expected_returns_len {
+            if returns.len() != expected_returns_len {
                 return Err(crate::error::InputError::Invalid.into());
             }
-
-            // The wider Performance API compounds, annualizes, and draws down returns
-            // as simple returns. Normalize log-return input back to its simple-return
-            // equivalent here so downstream analytics stay mathematically coherent.
-            let r = if use_log_returns {
-                raw_returns
-                    .into_iter()
-                    .map(|value| {
-                        if value.is_finite() {
-                            value.exp() - 1.0
-                        } else {
-                            f64::NAN
-                        }
-                    })
-                    .collect()
-            } else {
-                raw_returns
-            };
-
-            if r.iter().any(|&value| !value.is_finite() || value < -1.0) {
+            if returns
+                .iter()
+                .any(|&value| !value.is_finite() || value < -1.0)
+            {
                 return Err(crate::error::InputError::Invalid.into());
             }
 
-            let dd = to_drawdown_series(&r);
+            let dd = to_drawdown_series(&returns);
             all_drawdowns.push(dd);
-            all_returns.push(r);
+            all_returns.push(returns);
         }
 
         let bench_returns = all_returns.get(benchmark_idx).cloned().unwrap_or_default();
@@ -193,7 +167,6 @@ impl Performance {
             bench_returns,
             bench_drawdown,
             freq,
-            log_returns: use_log_returns,
             start_idx: 0,
             end_idx,
         })
@@ -416,15 +389,15 @@ impl Performance {
     /// Annualized Sortino ratio for each ticker.
     ///
     /// Uses the active date window, annualizes with the observation frequency
-    /// configured on this [`Performance`] instance, and uses a minimum
-    /// acceptable return of `0.0`.
+    /// configured on this [`Performance`] instance, and uses the supplied
+    /// minimum acceptable return.
     ///
     /// # Returns
     ///
     /// One Sortino ratio per ticker in column order. May return `±∞` for
     /// tickers with zero downside deviation and nonzero mean return.
-    pub fn sortino(&self) -> Vec<f64> {
-        self.map_tickers(|i| risk_metrics::sortino(self.active_returns(i), true, self.ann()))
+    pub fn sortino(&self, mar: f64) -> Vec<f64> {
+        self.map_tickers(|i| risk_metrics::sortino(self.active_returns(i), true, self.ann(), mar))
     }
 
     /// Calmar ratio for each ticker.
@@ -503,7 +476,7 @@ impl Performance {
     ///
     /// This is a batch wrapper over [`risk_metrics::estimate_ruin`]. The same
     /// conventions apply: returns are simple decimal returns, wealth starts at
-    /// `1.0` on each path, and the confidence interval is a normal-approximation
+    /// `1.0` on each path, and the confidence interval is a Wilson-score
     /// interval around the simulated ruin frequency.
     ///
     /// # Arguments
@@ -1039,7 +1012,9 @@ impl Performance {
         let compute = |range: &core::ops::Range<usize>| -> Vec<f64> {
             self.map_tickers(|i| {
                 let r = self.active_returns(i);
-                let slice = &r[range.start..range.end.min(r.len())];
+                let start = range.start.min(r.len());
+                let end = range.end.min(r.len()).max(start);
+                let slice = &r[start..end];
                 comp_total(slice)
             })
         };
@@ -1134,8 +1109,8 @@ impl Performance {
         })
     }
 
-    /// Drawdown outperformance (portfolio drawdown − benchmark drawdown).
-    pub fn drawdown_outperformance(&self) -> Vec<Vec<f64>> {
+    /// Drawdown difference (portfolio drawdown minus benchmark drawdown).
+    pub fn drawdown_difference(&self) -> Vec<Vec<f64>> {
         let bench_dd = self.active_bench_drawdown_values();
         self.map_tickers(|i| {
             let dd = self.active_drawdown_values(i);
@@ -1156,7 +1131,7 @@ impl Performance {
     /// # Returns
     ///
     /// Up to `n` [`DrawdownEpisode`] structs from the benchmark series.
-    pub fn stats_during_bench_drawdowns(&self, n: usize) -> Vec<DrawdownEpisode> {
+    pub fn top_benchmark_drawdown_episodes(&self, n: usize) -> Vec<DrawdownEpisode> {
         let bench_dd = self.active_bench_drawdown_values();
         drawdown_details(bench_dd, self.active_dates(), n)
     }
@@ -1196,15 +1171,6 @@ impl Performance {
     /// Observation frequency.
     pub fn freq(&self) -> PeriodKind {
         self.freq
-    }
-    /// Whether the constructor was asked to accept log-return input.
-    ///
-    /// Internally, `Performance` stores simple returns even when constructed
-    /// with `use_log_returns = true`, converting log-return input back to its
-    /// simple-return equivalent so drawdown and compounding analytics remain
-    /// coherent. This accessor reports the input mode selected at construction.
-    pub fn uses_log_returns(&self) -> bool {
-        self.log_returns
     }
 }
 

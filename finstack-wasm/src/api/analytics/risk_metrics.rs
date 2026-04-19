@@ -96,9 +96,14 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 }
 
 #[wasm_bindgen(js_name = sortino)]
-pub fn sortino(returns: JsValue, annualize: bool, ann_factor: f64) -> Result<f64, JsValue> {
+pub fn sortino(
+    returns: JsValue,
+    annualize: bool,
+    ann_factor: f64,
+    mar: f64,
+) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::sortino(&r, annualize, ann_factor))
+    Ok(fa::risk_metrics::sortino(&r, annualize, ann_factor, mar))
 }
 
 #[wasm_bindgen(js_name = volatility)]

@@ -91,7 +91,7 @@ export const analytics = {
   fitGarch11: wasm.fitGarch11,
   fitEgarch11: wasm.fitEgarch11,
   fitGjrGarch11: wasm.fitGjrGarch11,
-  garch11Forecast: wasm.garch11Forecast,
+  forecastGarchFit: wasm.forecastGarchFit,
   ljungBox: wasm.ljungBox,
   archLm: wasm.archLm,
   aic: wasm.aic,

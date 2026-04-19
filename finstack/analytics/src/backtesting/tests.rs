@@ -46,6 +46,14 @@ mod unit_tests {
         assert!(b.iter().all(|&x| x == Breach::Miss));
     }
 
+    #[test]
+    fn classify_breaches_at_var_boundary_is_miss() {
+        let var = [-0.02, -0.03];
+        let pnl = [-0.02, -0.03];
+        let b = classify_breaches(&var, &pnl);
+        assert_eq!(b, vec![Breach::Miss, Breach::Miss]);
+    }
+
     // ---------------------------------------------------------------
     // kupiec_test
     // ---------------------------------------------------------------
@@ -103,6 +111,13 @@ mod unit_tests {
         let result = kupiec_test(0, 1, 0.99);
         assert_eq!(result.total_observations, 1);
         assert_eq!(result.breach_count, 0);
+    }
+
+    #[test]
+    fn kupiec_invalid_confidence_returns_nan() {
+        let result = kupiec_test(1, 100, 1.0);
+        assert!(result.lr_statistic.is_nan());
+        assert!(result.p_value.is_nan());
     }
 
     // ---------------------------------------------------------------
@@ -300,6 +315,17 @@ mod unit_tests {
         assert!(result.explanation_ratio.abs() < 1e-10);
         assert!((result.mean_abs_unexplained - 1.0).abs() < 1e-10);
         assert!((result.std_unexplained - 2.0_f64.sqrt()).abs() < 1e-10);
+    }
+
+    #[test]
+    fn pnl_explanation_reports_aggregate_ratio() {
+        let hyp = [2.0, 11.0];
+        let rtp = [1.0, 10.0];
+        let var = [-1.0, -10.0];
+        let result = pnl_explanation(&hyp, &rtp, &var);
+
+        assert!((result.explanation_ratio - (-0.55)).abs() < 1e-10);
+        assert!((result.aggregate_explanation_ratio - (-2.0 / 11.0)).abs() < 1e-10);
     }
 
     // ---------------------------------------------------------------

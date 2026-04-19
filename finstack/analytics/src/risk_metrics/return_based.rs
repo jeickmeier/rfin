@@ -127,9 +127,9 @@ impl CagrBasis {
 ///
 /// # Returns
 ///
-/// Annualized growth rate as a decimal. Returns `0.0` for empty input, `0.0`
-/// for non-positive date spans, and [`f64::NAN`] when a factor basis uses an
-/// invalid annualization factor.
+/// Annualized growth rate as a decimal. Returns [`f64::NAN`] for empty input,
+/// `0.0` for non-positive date spans, and [`f64::NAN`] when a factor basis uses
+/// an invalid annualization factor.
 ///
 /// # Examples
 ///
@@ -146,7 +146,7 @@ impl CagrBasis {
 #[must_use]
 pub fn cagr(returns: &[f64], basis: CagrBasis) -> f64 {
     if returns.is_empty() {
-        return 0.0;
+        return f64::NAN;
     }
 
     match basis {
@@ -451,10 +451,10 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// # Arguments
 ///
-/// * `returns` - Slice of period simple returns. Minimum acceptable return
-///   is implicitly `0.0`.
+/// * `returns` - Slice of period simple returns.
 /// * `annualize` - Whether to annualize both numerator and denominator.
 /// * `ann_factor` - Number of periods per year.
+/// * `mar` - Minimum acceptable return per period in decimal form.
 ///
 /// # Returns
 ///
@@ -469,7 +469,7 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 /// use finstack_analytics::risk_metrics::sortino;
 ///
 /// let r = [0.01, 0.02, 0.03, -0.005, 0.01];
-/// let s = sortino(&r, false, 252.0);
+/// let s = sortino(&r, false, 252.0, 0.0);
 /// assert!(s > 0.0);
 /// ```
 ///
@@ -477,25 +477,25 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// - Sortino & van der Meer (1991): see docs/REFERENCES.md#sortinoVanDerMeer1991
 #[must_use]
-pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
     }
-    let m = mean(returns);
-    let dd = downside_deviation(returns, 0.0, false, ann_factor);
+    let excess_mean = mean(returns) - mar;
+    let dd = downside_deviation(returns, mar, false, ann_factor);
     if dd == 0.0 {
-        return if m > 0.0 {
+        return if excess_mean > 0.0 {
             f64::INFINITY
-        } else if m < 0.0 {
+        } else if excess_mean < 0.0 {
             f64::NEG_INFINITY
         } else {
             0.0
         };
     }
     if annualize {
-        (m * ann_factor) / (dd * ann_factor.sqrt())
+        (excess_mean * ann_factor) / (dd * ann_factor.sqrt())
     } else {
-        m / dd
+        excess_mean / dd
     }
 }
 
@@ -521,7 +521,7 @@ pub struct RuinModel {
     pub block_size: usize,
     /// Deterministic RNG seed for reproducibility.
     pub seed: u64,
-    /// Confidence level for the reported normal-approximation confidence interval.
+    /// Confidence level for the reported Wilson-score confidence interval.
     pub confidence_level: f64,
 }
 
@@ -571,12 +571,25 @@ impl RuinEstimate {
             0.95
         };
         let z = crate::math::special_functions::standard_normal_inv_cdf(0.5 + cl / 2.0);
-        let margin = z * std_err;
+        if n_paths == 0 {
+            return Self {
+                probability,
+                std_err,
+                ci_lower: probability,
+                ci_upper: probability,
+            };
+        }
+        let n = n_paths as f64;
+        let z2 = z * z;
+        let denom = 1.0 + z2 / n;
+        let center = (probability + z2 / (2.0 * n)) / denom;
+        let half_width =
+            z * ((probability * (1.0 - probability) + z2 / (4.0 * n)) / n).sqrt() / denom;
         Self {
             probability,
             std_err,
-            ci_lower: (probability - margin).max(0.0),
-            ci_upper: (probability + margin).min(1.0),
+            ci_lower: (center - half_width).max(0.0),
+            ci_upper: (center + half_width).min(1.0),
         }
     }
 }
@@ -611,8 +624,8 @@ fn valid_ruin_definition(definition: RuinDefinition) -> bool {
 /// - [`RuinDefinition::DrawdownBreach`] triggers once peak-to-trough drawdown
 ///   reaches `max_drawdown`, expressed as a fraction in `[0, 1]`.
 ///
-/// The confidence interval in [`RuinEstimate`] is a normal-approximation
-/// interval around the simulated binomial ruin frequency.
+/// The confidence interval in [`RuinEstimate`] is a Wilson-score interval
+/// around the simulated binomial ruin frequency.
 ///
 /// # Arguments
 ///
@@ -738,7 +751,9 @@ pub fn estimate_ruin(
 /// ```
 ///
 /// Computed in log-space with Kahan summation for numerical stability.
-/// Growth factors are clamped to `1e-18` for returns ≤ −100%.
+/// Returns [`f64::NEG_INFINITY`] if any return is `<= -1.0`, which
+/// represents a full wipeout (or worse) and avoids the upward bias that
+/// a positive clamp would introduce near total loss.
 ///
 /// # Arguments
 ///
@@ -746,7 +761,7 @@ pub fn estimate_ruin(
 ///
 /// # Returns
 ///
-/// The geometric mean return. Returns `0.0` for an empty slice.
+/// The geometric mean return. Returns [`f64::NAN`] for an empty slice.
 ///
 /// # Examples
 ///
@@ -764,10 +779,13 @@ pub fn estimate_ruin(
 #[must_use]
 pub fn geometric_mean(returns: &[f64]) -> f64 {
     if returns.is_empty() {
-        return 0.0;
+        return f64::NAN;
+    }
+    if returns.iter().any(|&r| r <= -1.0) {
+        return f64::NEG_INFINITY;
     }
     let n = returns.len() as f64;
-    let log_sum = kahan_sum(returns.iter().map(|&r| (1.0 + r).max(1e-18).ln()));
+    let log_sum = kahan_sum(returns.iter().map(|&r| (1.0 + r).ln()));
     (log_sum / n).exp() - 1.0
 }
 
@@ -789,7 +807,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 ///
 /// The Omega ratio. Returns `f64::INFINITY` if gains exist but no losses,
 /// `1.0` if all returns equal the threshold (neutral outcome per
-/// Keating-Shadwick), and `0.0` for an empty slice.
+/// Keating-Shadwick), and [`f64::NAN`] for an empty slice.
 ///
 /// # Examples
 ///
@@ -807,7 +825,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 #[must_use]
 pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
     if returns.is_empty() {
-        return 0.0;
+        return f64::NAN;
     }
     let mut gains = 0.0_f64;
     let mut losses = 0.0_f64;
@@ -840,8 +858,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 /// # Returns
 ///
 /// The gain-to-pain ratio. Returns `f64::INFINITY` when total return is
-/// positive but there are no losses, `0.0` for an empty slice or zero
-/// net return with no losses.
+/// positive but there are no losses, and [`f64::NAN`] for an empty slice.
 ///
 /// # Examples
 ///
@@ -859,7 +876,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 #[must_use]
 pub fn gain_to_pain(returns: &[f64]) -> f64 {
     if returns.is_empty() {
-        return 0.0;
+        return f64::NAN;
     }
     let total: f64 = kahan_sum(returns.iter().copied());
     let abs_losses: f64 = kahan_sum(returns.iter().filter(|&&r| r < 0.0).map(|&r| r.abs()));
@@ -887,8 +904,8 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 ///
 /// # Returns
 ///
-/// The Modified Sharpe ratio. Returns `0.0` for empty slices or when
-/// CF-VaR is zero.
+/// The Modified Sharpe ratio. Returns `0.0` for empty slices and
+/// [`f64::NAN`] when the Cornish-Fisher VaR is unexpectedly non-negative.
 ///
 /// # Examples
 ///
@@ -916,13 +933,7 @@ pub fn modified_sharpe(
     let excess_return = mean_return(returns, true, ann_factor) - risk_free_rate;
     let cf_var = cornish_fisher_var(returns, confidence, Some(ann_factor));
     if cf_var >= 0.0 {
-        return if excess_return > 0.0 {
-            f64::INFINITY
-        } else if excess_return < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
+        return f64::NAN;
     }
     excess_return / cf_var.abs()
 }
@@ -1028,7 +1039,7 @@ mod tests {
     fn downside_deviation_and_sortino_nan_when_annualized_with_invalid_factor() {
         let r = [0.01_f64, -0.02, 0.03];
         assert!(downside_deviation(&r, 0.0, true, 0.0).is_nan());
-        assert!(sortino(&r, true, 0.0).is_nan());
+        assert!(sortino(&r, true, 0.0, 0.0).is_nan());
     }
 
     #[test]
@@ -1072,7 +1083,7 @@ mod tests {
     #[test]
     fn sortino_positive_returns() {
         let r = [0.01, 0.02, 0.03, -0.005, 0.01];
-        let s = sortino(&r, false, 252.0);
+        let s = sortino(&r, false, 252.0, 0.0);
         assert!(s > 0.0);
     }
 
@@ -1115,8 +1126,17 @@ mod tests {
         let r = [0.01, 0.02, 0.03, -0.005, 0.01];
         let m = mean(&r);
         let dd = downside_deviation(&r, 0.0, false, 252.0);
-        let s = sortino(&r, false, 252.0);
+        let s = sortino(&r, false, 252.0, 0.0);
         assert!((s - m / dd).abs() < 1e-12);
+    }
+
+    #[test]
+    fn sortino_respects_mar_in_numerator_and_denominator() {
+        let r = [0.01, 0.02, 0.03, 0.04];
+        let mar = 0.02;
+        let expected = (mean(&r) - mar) / downside_deviation(&r, mar, false, 252.0);
+        let actual = sortino(&r, false, 252.0, mar);
+        assert!((actual - expected).abs() < 1e-12);
     }
 
     #[test]
@@ -1134,7 +1154,13 @@ mod tests {
 
     #[test]
     fn geometric_mean_empty() {
-        assert_eq!(geometric_mean(&[]), 0.0);
+        assert!(geometric_mean(&[]).is_nan());
+    }
+
+    #[test]
+    fn geometric_mean_total_wipeout_is_negative_infinity() {
+        assert_eq!(geometric_mean(&[0.10, -1.0]), f64::NEG_INFINITY);
+        assert_eq!(geometric_mean(&[-1.5]), f64::NEG_INFINITY);
     }
 
     #[test]
@@ -1159,7 +1185,7 @@ mod tests {
 
     #[test]
     fn omega_ratio_empty() {
-        assert_eq!(omega_ratio(&[], 0.0), 0.0);
+        assert!(omega_ratio(&[], 0.0).is_nan());
     }
 
     #[test]
@@ -1176,7 +1202,7 @@ mod tests {
 
     #[test]
     fn gain_to_pain_empty() {
-        assert_eq!(gain_to_pain(&[]), 0.0);
+        assert!(gain_to_pain(&[]).is_nan());
     }
 
     #[test]
@@ -1195,6 +1221,8 @@ mod tests {
             &model,
         );
         assert_eq!(estimate.probability, 0.0);
+        assert_eq!(estimate.ci_lower, 0.0);
+        assert!(estimate.ci_upper > 0.0);
     }
 
     #[test]
@@ -1280,10 +1308,15 @@ mod tests {
     }
 
     #[test]
-    fn modified_sharpe_positive_cf_var_reports_infinite_upside_ratio() {
+    fn modified_sharpe_positive_cf_var_returns_nan() {
         let r = [0.03; 12];
         let ms = modified_sharpe(&r, 0.0, 0.95, 12.0);
-        assert_eq!(ms, f64::INFINITY);
+        assert!(ms.is_nan());
+    }
+
+    #[test]
+    fn cagr_empty_is_nan() {
+        assert!(cagr(&[], CagrBasis::factor(252.0)).is_nan());
     }
 
     #[test]

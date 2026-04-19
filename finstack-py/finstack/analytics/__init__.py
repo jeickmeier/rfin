@@ -123,12 +123,13 @@ ytd_select = _analytics.ytd_select
 fytd_select = _analytics.fytd_select
 
 # GARCH volatility models
+VarianceForecast = _analytics.VarianceForecast
 GarchFit = _analytics.GarchFit
 GarchParams = _analytics.GarchParams
 fit_garch11 = _analytics.fit_garch11
 fit_egarch11 = _analytics.fit_egarch11
 fit_gjr_garch11 = _analytics.fit_gjr_garch11
-garch11_forecast = _analytics.garch11_forecast
+forecast_garch_fit = _analytics.forecast_garch_fit
 ljung_box = _analytics.ljung_box
 arch_lm = _analytics.arch_lm
 aic = _analytics.aic
@@ -168,6 +169,7 @@ __all__: list[str] = [
     "RuinEstimate",
     "RuinModel",
     "TrafficLightResult",
+    "VarianceForecast",
     "aic",
     "align_benchmark",
     "arch_lm",
@@ -197,9 +199,9 @@ __all__: list[str] = [
     "fit_egarch11",
     "fit_garch11",
     "fit_gjr_garch11",
+    "forecast_garch_fit",
     "fytd_select",
     "gain_to_pain",
-    "garch11_forecast",
     "geometric_mean",
     "greeks",
     "group_by_period",

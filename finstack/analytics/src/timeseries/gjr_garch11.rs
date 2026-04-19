@@ -57,7 +57,8 @@ impl GarchModel for GjrGarch11 {
         let alpha = params[1];
         let beta = params[2];
         let gamma = params[3];
-        // GJR stationarity: alpha + beta + gamma/2 < 1
+        // GJR stationarity under symmetric innovations (Gaussian and symmetric
+        // Student-t satisfy E[I{z<0} z^2] = 1/2): alpha + beta + gamma/2 < 1.
         alpha + beta + gamma / 2.0 < 0.9999 && params[0] > 0.0
     }
 
@@ -121,6 +122,7 @@ impl GarchModel for GjrGarch11 {
         fit: &GarchFit,
         horizons: &[usize],
         trading_days_per_year: f64,
+        terminal_residual: Option<f64>,
     ) -> Vec<VarianceForecast> {
         let p = &fit.params;
         let gamma = p.gamma.unwrap_or(0.0);
@@ -135,14 +137,22 @@ impl GarchModel for GjrGarch11 {
         };
 
         let sigma2_t = fit.terminal_variance;
+        let sigma2_1 = terminal_residual
+            .map(|eps_t| {
+                let indicator = if eps_t < 0.0 { 1.0 } else { 0.0 };
+                p.omega + (p.alpha + gamma * indicator) * eps_t * eps_t + p.beta * sigma2_t
+            })
+            .unwrap_or_else(|| sigma2_unc + persistence * (sigma2_t - sigma2_unc));
 
         horizons
             .iter()
             .map(|&h| {
                 let sigma2_h = if h == 0 {
                     sigma2_t
+                } else if h == 1 {
+                    sigma2_1
                 } else {
-                    sigma2_unc + persistence.powi(h as i32) * (sigma2_t - sigma2_unc)
+                    sigma2_unc + persistence.powi(h as i32 - 1) * (sigma2_1 - sigma2_unc)
                 };
                 VarianceForecast {
                     horizon: h,
@@ -261,5 +271,39 @@ mod tests {
         assert!((params.persistence() - 0.95).abs() < 1e-12);
         // Simple unconditional variance is not well-defined for EGARCH; must be None.
         assert!(params.unconditional_variance().is_none());
+    }
+
+    #[test]
+    fn forecast_uses_terminal_residual_sign_for_one_step() {
+        let fit = GarchFit {
+            model: "GJR-GARCH(1,1)".to_string(),
+            params: GarchParams {
+                omega: 0.00001,
+                alpha: 0.05,
+                beta: 0.85,
+                gamma: Some(0.10),
+                dist: InnovationDist::Gaussian,
+                family: super::super::garch::GarchFamily::GjrGarch11,
+                mean: 0.0,
+            },
+            std_errors: None,
+            log_likelihood: -1000.0,
+            n_obs: 1000,
+            n_params: 4,
+            aic: 2008.0,
+            bic: 2026.0,
+            hqic: 2012.0,
+            conditional_variances: vec![0.0002; 1000],
+            standardized_residuals: vec![0.0; 1000],
+            terminal_variance: 0.0003,
+            converged: true,
+            iterations: 100,
+        };
+
+        let positive = GjrGarch11.forecast(&fit, &[1], 252.0, Some(0.02));
+        let negative = GjrGarch11.forecast(&fit, &[1], 252.0, Some(-0.02));
+
+        assert!(negative[0].variance > positive[0].variance);
+        assert!((negative[0].variance - 0.000325).abs() < 1e-12);
     }
 }

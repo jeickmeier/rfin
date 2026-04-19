@@ -9,11 +9,22 @@ use super::types::{
     TrafficLightZone,
 };
 
+#[inline]
+fn x_log_y(x: f64, y: f64) -> f64 {
+    if x == 0.0 {
+        0.0
+    } else {
+        x * y.ln()
+    }
+}
+
 /// Classify each observation as a VaR breach or miss.
 ///
 /// A breach occurs when the realized P&L is worse (more negative) than
 /// the VaR forecast. Both `var_forecasts` and `realized_pnl` are expected
 /// as negative numbers for losses (consistent with `value_at_risk()` output).
+/// The comparison is strict: `pnl < var` counts as a breach, while
+/// `pnl == var` counts as a miss.
 ///
 /// # Arguments
 ///
@@ -88,21 +99,27 @@ pub fn kupiec_test(breach_count: usize, n: usize, confidence: f64) -> KupiecResu
     }
 
     let x = breach_count.min(n);
+    if !(0.0..1.0).contains(&confidence) {
+        return KupiecResult {
+            lr_statistic: f64::NAN,
+            p_value: f64::NAN,
+            breach_count: x,
+            expected_count: f64::NAN,
+            total_observations: n,
+            observed_rate: x as f64 / n as f64,
+            reject_h0_5pct: false,
+        };
+    }
+
     let alpha = 1.0 - confidence;
     let t_f = n as f64;
     let x_f = x as f64;
     let tx = t_f - x_f;
 
-    let ll_h0 = tx * (1.0 - alpha).ln() + x_f * alpha.ln();
+    let ll_h0 = x_log_y(tx, 1.0 - alpha) + x_log_y(x_f, alpha);
 
     let p_hat = x_f / t_f;
-    let ll_h1 = if x == 0 {
-        tx * 1.0_f64.ln()
-    } else if x == n {
-        x_f * 1.0_f64.ln()
-    } else {
-        tx * (1.0 - p_hat).ln() + x_f * p_hat.ln()
-    };
+    let ll_h1 = x_log_y(tx, 1.0 - p_hat) + x_log_y(x_f, p_hat);
 
     let lr = -2.0 * (ll_h0 - ll_h1);
     let p_value = 1.0 - chi_squared_cdf(lr, 1.0);
@@ -147,6 +164,8 @@ pub fn kupiec_test(breach_count: usize, n: usize, confidence: f64) -> KupiecResu
 /// ```
 ///
 /// where L(.) are the respective Markov chain likelihoods.
+/// Following the standard asymptotic formulation, `LR_uc` uses all `T`
+/// observations while `LR_ind` uses the `T - 1` transition sample.
 ///
 /// # Arguments
 ///
@@ -266,6 +285,9 @@ fn markov_ll(n_stay: usize, n_switch: usize, pi: f64) -> f64 {
 /// expected exceptions = window * (1 - confidence). Zone thresholds
 /// are set at cumulative binomial probabilities of 95% (green/yellow
 /// boundary) and 99.99% (yellow/red boundary).
+/// For non-Basel `(n, confidence)` pairs this implementation keeps a simple
+/// heuristic (`2x` / `4x` expected exceptions) instead of inverting the
+/// binomial CDF exactly.
 ///
 /// # Arguments
 ///
@@ -323,9 +345,11 @@ pub fn traffic_light(exceptions: usize, n: usize, confidence: f64) -> TrafficLig
 ///
 /// # Returns
 ///
-/// `PnlExplanation` with ratio, MAD, and standard deviation of the
-/// unexplained component. Returns a degenerate result for empty or
-/// mismatched inputs.
+/// `PnlExplanation` with both the mean of per-period ratios
+/// (`explanation_ratio`) and the aggregate ratio
+/// (`aggregate_explanation_ratio = ΣΔ / ΣVaR`), plus MAD and standard
+/// deviation of the unexplained component. Returns a degenerate result for
+/// empty or mismatched inputs.
 ///
 /// # References
 ///
@@ -340,6 +364,7 @@ pub fn pnl_explanation(
     if n == 0 || n != risk_theoretical_pnl.len() || n != var_forecasts.len() {
         return PnlExplanation {
             explanation_ratio: f64::NAN,
+            aggregate_explanation_ratio: f64::NAN,
             mean_abs_unexplained: f64::NAN,
             std_unexplained: f64::NAN,
             n: 0,
@@ -347,6 +372,8 @@ pub fn pnl_explanation(
     }
 
     let mut ratio_sum = 0.0;
+    let mut total_diff = 0.0;
+    let mut total_var = 0.0;
     let mut abs_sum = 0.0;
     let mut unexplained: Vec<f64> = Vec::with_capacity(n);
 
@@ -354,6 +381,8 @@ pub fn pnl_explanation(
         let diff = hypothetical_pnl[i] - risk_theoretical_pnl[i];
         unexplained.push(diff);
         abs_sum += diff.abs();
+        total_diff += diff;
+        total_var += var_forecasts[i];
         if var_forecasts[i].abs() > f64::EPSILON {
             ratio_sum += diff / var_forecasts[i];
         }
@@ -369,6 +398,11 @@ pub fn pnl_explanation(
 
     PnlExplanation {
         explanation_ratio: ratio_sum / nf,
+        aggregate_explanation_ratio: if total_var.abs() > f64::EPSILON {
+            total_diff / total_var
+        } else {
+            f64::NAN
+        },
         mean_abs_unexplained: abs_sum / nf,
         std_unexplained: var_unexplained.sqrt(),
         n,

@@ -42,9 +42,9 @@ fn downside_deviation(returns: Vec<f64>, mar: f64, annualize: bool, ann_factor: 
 
 /// Sortino ratio.
 #[pyfunction]
-#[pyo3(signature = (returns, annualize = true, ann_factor = 252.0))]
-fn sortino(returns: Vec<f64>, annualize: bool, ann_factor: f64) -> f64 {
-    fa::risk_metrics::sortino(&returns, annualize, ann_factor)
+#[pyo3(signature = (returns, annualize = true, ann_factor = 252.0, mar = 0.0))]
+fn sortino(returns: Vec<f64>, annualize: bool, ann_factor: f64, mar: f64) -> f64 {
+    fa::risk_metrics::sortino(&returns, annualize, ann_factor, mar)
 }
 
 /// Geometric mean of returns.

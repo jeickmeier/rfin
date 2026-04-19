@@ -83,7 +83,7 @@ def test_example_modules_export_symbols_used_by_scripts(
         "fit_egarch11",
         "fit_garch11",
         "fit_gjr_garch11",
-        "garch11_forecast",
+        "forecast_garch_fit",
         "kupiec_test",
         "ljung_box",
         "peer_stats",

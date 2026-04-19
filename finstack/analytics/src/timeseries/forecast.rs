@@ -3,7 +3,10 @@
 //! Provides h-step ahead variance forecasts from fitted GARCH models,
 //! standard horizon term structures, and convenience functions.
 
-use super::garch::{GarchFit, GarchModel};
+use super::egarch11::Egarch11;
+use super::garch::{GarchFamily, GarchFit, GarchModel};
+use super::garch11::Garch11;
+use super::gjr_garch11::GjrGarch11;
 
 /// A single variance forecast at a given horizon.
 #[must_use]
@@ -32,40 +35,30 @@ pub struct VolTermStructure {
 /// Standard forecast horizons in trading days: 1D, 1W, 1M, 3M, 1Y.
 pub const STANDARD_HORIZONS: &[usize] = &[1, 5, 21, 63, 252];
 
-/// Closed-form h-step-ahead GARCH(1,1) variance forecast path.
+/// Forecast future conditional variances from a fitted GARCH-family model.
 ///
-/// Iterates the recurrence
-///
-/// ```text
-/// sigma^2_{t+h} = omega + (alpha + beta) * sigma^2_{t+h-1}      (h >= 2)
-/// sigma^2_{t+1} = omega + alpha * r_t^2 + beta * sigma^2_t      (h == 1)
-/// ```
-///
-/// and returns the variance path for horizons `1..=horizon`.
+/// Dispatches on `fit.params.family`, so callers only need the fit object.
+/// When `terminal_residual` is provided, the 1-step forecast uses the
+/// observable last demeaned residual; otherwise it uses the iterated
+/// conditional expectation from the terminal variance.
 #[must_use]
-pub fn garch11_forecast(
-    omega: f64,
-    alpha: f64,
-    beta: f64,
-    last_variance: f64,
-    last_return: f64,
-    horizon: usize,
-) -> Vec<f64> {
-    if horizon == 0 {
-        return Vec::new();
+pub fn forecast_garch_fit(
+    fit: &GarchFit,
+    horizons: &[usize],
+    trading_days_per_year: f64,
+    terminal_residual: Option<f64>,
+) -> Vec<VarianceForecast> {
+    match fit.params.family {
+        GarchFamily::Garch11 => {
+            Garch11.forecast(fit, horizons, trading_days_per_year, terminal_residual)
+        }
+        GarchFamily::GjrGarch11 => {
+            GjrGarch11.forecast(fit, horizons, trading_days_per_year, terminal_residual)
+        }
+        GarchFamily::Egarch11 => {
+            Egarch11.forecast(fit, horizons, trading_days_per_year, terminal_residual)
+        }
     }
-
-    let mut out = Vec::with_capacity(horizon);
-    let mut sigma2 = omega + alpha * last_return * last_return + beta * last_variance;
-    out.push(sigma2.max(0.0));
-
-    let persistence = alpha + beta;
-    for _ in 1..horizon {
-        sigma2 = omega + persistence * sigma2;
-        out.push(sigma2.max(0.0));
-    }
-
-    out
 }
 
 /// Generate a volatility term structure from a fitted model.
@@ -88,7 +81,7 @@ pub fn vol_term_structure(
     }
     all_horizons.sort_unstable();
 
-    let forecasts = model.forecast(fit, &all_horizons, trading_days_per_year);
+    let forecasts = model.forecast(fit, &all_horizons, trading_days_per_year, None);
 
     let unconditional_vol = fit
         .params
@@ -110,7 +103,6 @@ pub fn vol_term_structure(
 mod tests {
     use super::*;
     use crate::timeseries::garch::{GarchFamily, GarchFit, GarchParams};
-    use crate::timeseries::garch11::Garch11;
     use crate::timeseries::innovations::InnovationDist;
 
     fn make_test_fit() -> GarchFit {
@@ -172,19 +164,19 @@ mod tests {
     }
 
     #[test]
-    fn garch11_forecast_returns_empty_for_zero_horizon() {
-        let forecasts = garch11_forecast(0.00001, 0.10, 0.85, 0.0003, 0.02, 0);
+    fn forecast_garch_fit_returns_empty_for_zero_horizon() {
+        let fit = make_test_fit();
+        let forecasts = forecast_garch_fit(&fit, &[], 252.0, Some(0.02));
         assert!(forecasts.is_empty());
     }
 
     #[test]
-    fn garch11_forecast_matches_closed_form_recurrence() {
-        let forecasts = garch11_forecast(0.00001, 0.10, 0.85, 0.0003, 0.02, 3);
-        let expected = vec![0.000305, 0.00029975, 0.0002947625];
+    fn forecast_garch_fit_uses_family_specific_forecast() {
+        let mut fit = make_test_fit();
+        fit.params.mean = 0.01;
 
-        assert_eq!(forecasts.len(), expected.len());
-        for (actual, target) in forecasts.iter().zip(expected) {
-            assert!((actual - target).abs() < 1e-12);
-        }
+        let forecasts = forecast_garch_fit(&fit, &[1, 3], 252.0, Some(0.02));
+        assert_eq!(forecasts.len(), 2);
+        assert!((forecasts[0].variance - 0.000305).abs() < 1e-12);
     }
 }

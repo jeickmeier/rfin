@@ -137,7 +137,7 @@ let dates: Vec<Date> = (1..=6)
     .collect();
 
 let total = comp_total(&returns);
-let sortino = sortino(&returns, true, 252.0);
+let sortino = sortino(&returns, true, 252.0, 0.0);
 let var_95 = value_at_risk(&returns, 0.95, None);
 let es_95 = expected_shortfall(&returns, 0.95, None);
 let drawdown = to_drawdown_series(&returns);
@@ -207,7 +207,7 @@ The benchmark module exposes structured outputs rather than returning opaque
 tuples:
 
 - `BetaResult` for beta, standard error, and confidence interval,
-- `GreeksResult` for annualized alpha, beta, and R-squared,
+- `GreeksResult` for annualized alpha, beta, R-squared, and adjusted R-squared,
 - `MultiFactorResult` for annualized alpha, factor loadings, R-squared,
   adjusted R-squared, and residual volatility,
 - `RollingGreeks`, `RollingSharpe`, `RollingSortino`, and
@@ -236,9 +236,8 @@ tuples:
   is the last date in that window.
 - **`*_values` rolling helpers are NaN-padded** while structured rolling
   outputs contain only active windows.
-- **`Performance::new(..., use_log_returns = true, ...)` still stores simple
-  returns internally** after converting from log returns, so downstream
-  compounding and drawdown logic remains coherent.
+- **`Performance::new(...)` expects price paths and derives simple returns
+  internally**, so downstream compounding and drawdown logic stays coherent.
 
 ## Numerical Behavior and Validation
 

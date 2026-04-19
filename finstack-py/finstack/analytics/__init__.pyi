@@ -35,6 +35,7 @@ __all__ = [
     "PnlExplanation",
     "MultiModelComparison",
     "Performance",
+    "VarianceForecast",
     "classify_breaches",
     "kupiec_test",
     "christoffersen_test",
@@ -113,7 +114,7 @@ __all__ = [
     "fit_garch11",
     "fit_egarch11",
     "fit_gjr_garch11",
-    "garch11_forecast",
+    "forecast_garch_fit",
     "ljung_box",
     "arch_lm",
     "aic",
@@ -206,7 +207,7 @@ class BetaResult:
     def __repr__(self) -> str: ...
 
 class GreeksResult:
-    """Alpha, beta, and R-squared from a single-index regression."""
+    """Alpha, beta, and goodness-of-fit from a single-index regression."""
 
     @property
     def alpha(self) -> float:
@@ -219,6 +220,10 @@ class GreeksResult:
     @property
     def r_squared(self) -> float:
         """R-squared."""
+
+    @property
+    def adjusted_r_squared(self) -> float:
+        """Adjusted R-squared."""
 
     def __repr__(self) -> str: ...
 
@@ -688,6 +693,10 @@ class PnlExplanation:
         """Mean normalized unexplained P&L relative to VaR."""
 
     @property
+    def aggregate_explanation_ratio(self) -> float:
+        """Aggregate unexplained P&L ratio using sums across the sample."""
+
+    @property
     def mean_abs_unexplained(self) -> float:
         """Mean absolute unexplained P&L."""
 
@@ -722,7 +731,6 @@ class Performance:
         prices: pd.DataFrame,
         benchmark_ticker: str | None = None,
         freq: str = "daily",
-        use_log_returns: bool = False,
     ) -> None:
         """Build from a pandas DataFrame of prices (date-like index, one column per ticker).
 
@@ -730,7 +738,6 @@ class Performance:
             prices: Price panel.
             benchmark_ticker: Benchmark column name; first column if ``None``.
             freq: ``daily``, ``weekly``, ``monthly``, ``quarterly``, ``semiannual``, or ``annual``.
-            use_log_returns: Use log returns internally when ``True``.
 
         Returns:
             ``None`` (constructor).
@@ -751,7 +758,6 @@ class Performance:
         ticker_names: list[str],
         benchmark_ticker: str | None = None,
         freq: str = "daily",
-        use_log_returns: bool = False,
     ) -> Performance:
         """Construct from raw arrays (dates, prices matrix, ticker names).
 
@@ -761,7 +767,6 @@ class Performance:
             ticker_names: Names for each price series.
             benchmark_ticker: Benchmark name; first column if ``None``.
             freq: Observation frequency string.
-            use_log_returns: Use log returns internally when ``True``.
 
         Returns:
             ``Performance`` instance.
@@ -820,10 +825,6 @@ class Performance:
         ``freq`` constructor argument and :meth:`period_stats` ``agg_freq``.
         """
 
-    @property
-    def uses_log_returns(self) -> bool:
-        """Whether log returns are used internally."""
-
     def dates(self) -> list[datetime.date]:
         """Active date grid after any window filter.
 
@@ -850,7 +851,7 @@ class Performance:
     def sharpe(self, risk_free_rate: float = 0.0) -> list[float]:
         """Sharpe ratio for each ticker."""
 
-    def sortino(self) -> list[float]:
+    def sortino(self, mar: float = 0.0) -> list[float]:
         """Sortino ratio for each ticker."""
 
     def calmar(self) -> list[float]:
@@ -961,8 +962,8 @@ class Performance:
     def cumulative_returns_outperformance(self) -> list[list[float]]:
         """Cumulative returns outperformance vs benchmark."""
 
-    def drawdown_outperformance(self) -> list[list[float]]:
-        """Drawdown outperformance vs benchmark."""
+    def drawdown_difference(self) -> list[list[float]]:
+        """Drawdown difference vs benchmark."""
 
     def excess_returns(self, rf: list[float], nperiods: float | None = None) -> list[list[float]]:
         """Excess returns over a risk-free rate series (per ticker)."""
@@ -993,8 +994,8 @@ class Performance:
     def drawdown_details(self, ticker_idx: int, n: int = 5) -> list[DrawdownEpisode]:
         """Top-N drawdown episodes for a specific ticker."""
 
-    def stats_during_bench_drawdowns(self, n: int = 5) -> list[DrawdownEpisode]:
-        """Stats during benchmark drawdown episodes."""
+    def top_benchmark_drawdown_episodes(self, n: int = 5) -> list[DrawdownEpisode]:
+        """Top benchmark drawdown episodes."""
 
     def multi_factor_greeks(
         self,
@@ -1816,13 +1817,19 @@ def downside_deviation(
         True
     """
 
-def sortino(returns: list[float], annualize: bool = True, ann_factor: float = 252.0) -> float:
+def sortino(
+    returns: list[float],
+    annualize: bool = True,
+    ann_factor: float = 252.0,
+    mar: float = 0.0,
+) -> float:
     """Sortino ratio.
 
     Args:
         returns: Simple returns.
         annualize: Annualize when ``True``.
         ann_factor: Annualization factor.
+        mar: Minimum acceptable return per period.
 
     Returns:
         Sortino ratio.
@@ -2175,6 +2182,23 @@ class GarchParams:
 
     def __repr__(self) -> str: ...
 
+class VarianceForecast:
+    """A single variance forecast at a given horizon."""
+
+    @property
+    def horizon(self) -> int:
+        """Forecast horizon in periods (1 = next period)."""
+
+    @property
+    def variance(self) -> float:
+        """Forecasted conditional variance."""
+
+    @property
+    def annualized_vol(self) -> float:
+        """Annualized volatility."""
+
+    def __repr__(self) -> str: ...
+
 class GarchFit:
     """Complete result of a GARCH model fit."""
 
@@ -2337,30 +2361,27 @@ def fit_gjr_garch11(
         True
     """
 
-def garch11_forecast(
-    omega: float,
-    alpha: float,
-    beta: float,
-    last_variance: float,
-    last_return: float,
-    horizon: int,
-) -> list[float]:
-    """Closed-form h-step-ahead GARCH(1,1) variance forecast.
+def forecast_garch_fit(
+    fit: GarchFit,
+    horizons: list[int],
+    trading_days_per_year: float = 252.0,
+    terminal_residual: float | None = None,
+) -> list[VarianceForecast]:
+    """Forecast future conditional variances from a fitted GARCH-family model.
 
     Args:
-        omega: Fitted omega.
-        alpha: Fitted alpha.
-        beta: Fitted beta.
-        last_variance: Terminal conditional variance.
-        last_return: Terminal return.
-        horizon: Number of horizons to forecast.
+        fit: Fitted GARCH-family model result.
+        horizons: Forecast horizons in periods.
+        trading_days_per_year: Annualization factor for volatility output.
+        terminal_residual: Optional last demeaned residual ``r_t - mu``.
 
     Returns:
-        Forecasted variances for ``h=1..horizon``.
+        Forecast objects aligned 1:1 with *horizons*.
 
     Example:
-        >>> len(garch11_forecast(1e-5, 0.05, 0.9, 1e-4, 0.01, 5))
-        5
+        >>> fit = fit_garch11([0.01, -0.02] * 50)
+        >>> forecast_garch_fit(fit, [1, 5])[0].horizon
+        1
     """
 
 def ljung_box(residuals: list[float], lags: int) -> tuple[float, float]:

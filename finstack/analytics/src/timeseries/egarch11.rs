@@ -78,7 +78,9 @@ impl GarchModel for Egarch11 {
             sv.max(1e-20).ln()
         };
 
-        // t = 0: sigma^2_0 = unconditional (no prior observation).
+        // t = 0: sigma^2_0 = unconditional (no prior observation). Clamp
+        // ln(sigma^2) to keep sigma^2 in the finite range
+        // [exp(-50), exp(50)] ~= [1.9e-22, 5.2e21].
         sigma2_out[0] = ln_sigma2_0.clamp(-50.0, 50.0).exp();
 
         // t >= 1: z_{t-1} is the standardised *demeaned* residual.
@@ -90,6 +92,7 @@ impl GarchModel for Egarch11 {
                 + params.alpha * (z.abs() - e_abs_z)
                 + gamma * z
                 + params.beta * sigma2_out[t - 1].max(1e-20).ln();
+            // Same finite-range clamp as the initialization above.
             sigma2_out[t] = ln_sigma2.clamp(-50.0, 50.0).exp();
         }
     }
@@ -126,9 +129,11 @@ impl GarchModel for Egarch11 {
         fit: &GarchFit,
         horizons: &[usize],
         trading_days_per_year: f64,
+        terminal_residual: Option<f64>,
     ) -> Vec<VarianceForecast> {
         let p = &fit.params;
         let beta = p.beta;
+        let gamma = p.gamma.unwrap_or(0.0);
 
         // For EGARCH, the unconditional log-variance is omega / (1 - beta)
         let ln_sigma2_unc = if beta.abs() < 1.0 {
@@ -138,15 +143,27 @@ impl GarchModel for Egarch11 {
         };
 
         let ln_sigma2_t = fit.terminal_variance.max(1e-20).ln();
+        let ln_sigma2_1 = terminal_residual
+            .map(|eps_t| {
+                let sigma_t = fit.terminal_variance.max(1e-20).sqrt();
+                let z_t = eps_t / sigma_t;
+                p.omega
+                    + p.alpha * (z_t.abs() - p.dist.expected_abs())
+                    + gamma * z_t
+                    + beta * ln_sigma2_t
+            })
+            .unwrap_or_else(|| ln_sigma2_unc + beta * (ln_sigma2_t - ln_sigma2_unc));
 
         horizons
             .iter()
             .map(|&h| {
                 let ln_sigma2_h = if h == 0 {
                     ln_sigma2_t
+                } else if h == 1 {
+                    ln_sigma2_1
                 } else {
                     // Under E[z] = 0 forecast: ln(sigma2_{t+h}) converges to unconditional
-                    ln_sigma2_unc + beta.powi(h as i32) * (ln_sigma2_t - ln_sigma2_unc)
+                    ln_sigma2_unc + beta.powi(h as i32 - 1) * (ln_sigma2_1 - ln_sigma2_unc)
                 };
                 let sigma2_h = ln_sigma2_h.exp();
                 VarianceForecast {

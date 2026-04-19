@@ -50,6 +50,6 @@ pub use risk_metrics::{
     WasmRuinModel,
 };
 pub use timeseries::{
-    aic, arch_lm, bic, fit_egarch11, fit_garch11, fit_gjr_garch11, garch11_forecast, hqic,
+    aic, arch_lm, bic, fit_egarch11, fit_garch11, fit_gjr_garch11, forecast_garch_fit, hqic,
     ljung_box,
 };

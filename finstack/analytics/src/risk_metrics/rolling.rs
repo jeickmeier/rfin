@@ -9,20 +9,27 @@ use finstack_core::math::neumaier_sum;
 use super::return_based::sharpe;
 
 /// Number of slide steps before the incremental rolling kernel fully
-/// recomputes its running sums from the current window.
+/// recomputes its running moments from the current window.
 ///
-/// The rolling kernels update `sum` and `sum_sq` incrementally on each
-/// slide, which accumulates floating-point drift over time. Every
+/// The rolling kernels update their moments incrementally on each slide,
+/// which accumulates floating-point drift over time. Every
 /// `ROLLING_KERNEL_RECOMPUTE_INTERVAL` steps we recompute those values
-/// over the full window with [`neumaier_sum`] to restore precision.
+/// over the full window to restore precision.
 const ROLLING_KERNEL_RECOMPUTE_INTERVAL: usize = 1024;
 
 #[inline]
-fn recompute_sum_sum_sq(window: &[f64]) -> (f64, f64) {
-    (
-        neumaier_sum(window.iter().copied()),
-        neumaier_sum(window.iter().map(|r| r * r)),
-    )
+fn recompute_mean_m2(window: &[f64]) -> (f64, f64) {
+    let mut mean = 0.0_f64;
+    let mut m2 = 0.0_f64;
+    let mut count = 0.0_f64;
+    for &value in window {
+        count += 1.0;
+        let delta = value - mean;
+        mean += delta / count;
+        let delta2 = value - mean;
+        m2 += delta * delta2;
+    }
+    (mean, m2)
 }
 
 #[inline]
@@ -119,9 +126,13 @@ pub fn rolling_sharpe(
     let w = window as f64;
     let mut out = DatedSeries::with_capacity(n - window + 1);
     let mut date_idx = window - 1;
-    rolling_sum_sum_sq_kernel(returns, n, window, |sum, sum_sq| {
-        let ann_mean = (sum / w) * ann_factor;
-        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+    rolling_mean_m2_kernel(returns, n, window, |mean, m2| {
+        let ann_mean = mean * ann_factor;
+        let var = if window == 1 {
+            0.0
+        } else {
+            (m2 / (w - 1.0)).max(0.0)
+        };
         let ann_vol = var.sqrt() * ann_factor.sqrt();
         out.values.push(sharpe(ann_mean, ann_vol, risk_free_rate));
         out.dates.push(dates[date_idx]);
@@ -177,8 +188,12 @@ pub fn rolling_volatility(
     let w = window as f64;
     let mut out = DatedSeries::with_capacity(n - window + 1);
     let mut date_idx = window - 1;
-    rolling_sum_sum_sq_kernel(returns, n, window, |sum, sum_sq| {
-        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+    rolling_mean_m2_kernel(returns, n, window, |_, m2| {
+        let var = if window == 1 {
+            0.0
+        } else {
+            (m2 / (w - 1.0)).max(0.0)
+        };
         out.values.push(var.sqrt() * ann_factor.sqrt());
         out.dates.push(dates[date_idx]);
         date_idx += 1;
@@ -273,29 +288,44 @@ pub fn rolling_sortino(
 // (NaN-padded Vec) public functions delegate here; they share *identical*
 // arithmetic and differ only in how the output is assembled.
 
-/// Shared kernel for rolling metrics that only need `sum` and `sum_sq`.
+/// Shared kernel for rolling metrics that only need window mean and M2.
 ///
-/// Maintains `(sum, sum_sq)` accumulators and calls `emit(sum, sum_sq)` for
-/// every completed window starting at index `window-1`.
-fn rolling_sum_sum_sq_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit: F)
+/// Maintains `(mean, m2)` accumulators and calls `emit(mean, m2)` for every
+/// completed window starting at index `window-1`.
+fn rolling_mean_m2_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit: F)
 where
     F: FnMut(f64, f64),
 {
-    let (mut sum, mut sum_sq) = recompute_sum_sum_sq(&returns[..window]);
-    emit(sum, sum_sq);
+    if window == 1 {
+        for &value in &returns[..n] {
+            emit(value, 0.0);
+        }
+        return;
+    }
+
+    let window_n = window as f64;
+    let (mut mean, mut m2) = recompute_mean_m2(&returns[..window]);
+    emit(mean, m2);
     let mut steps_since_recompute = 0_usize;
     for i in window..n {
         let add = returns[i];
         let rem = returns[i - window];
-        sum += add - rem;
-        sum_sq += add * add - rem * rem;
+
+        let keep_n = window_n - 1.0;
+        let mean_after_rem = (window_n * mean - rem) / keep_n;
+        let m2_after_rem = m2 - (rem - mean) * (rem - mean_after_rem);
+
+        let delta = add - mean_after_rem;
+        mean = mean_after_rem + delta / window_n;
+        m2 = (m2_after_rem + delta * (add - mean)).max(0.0);
+
         steps_since_recompute += 1;
         if steps_since_recompute >= ROLLING_KERNEL_RECOMPUTE_INTERVAL {
             let start = i + 1 - window;
-            (sum, sum_sq) = recompute_sum_sum_sq(&returns[start..=i]);
+            (mean, m2) = recompute_mean_m2(&returns[start..=i]);
             steps_since_recompute = 0;
         }
-        emit(sum, sum_sq);
+        emit(mean, m2);
     }
 }
 
@@ -337,8 +367,6 @@ mod tests {
     use super::*;
     use crate::dates::{Duration, Month};
     use crate::risk_metrics::return_based::{sortino, volatility};
-    use finstack_core::math::neumaier_sum;
-
     fn jan1(year: i32) -> Date {
         Date::from_calendar_date(year, Month::January, 1).expect("valid date")
     }
@@ -390,43 +418,32 @@ mod tests {
         let returns: Vec<f64> = (0..10).map(|i| (i as f64 - 5.0) * 0.01).collect();
         let dates: Vec<Date> = (0..10).map(|i| jan1(2025) + Duration::days(i)).collect();
         let rs = rolling_sortino(&returns, &dates, 5, 252.0);
-        let first_window = sortino(&returns[0..5], true, 252.0);
+        let first_window = sortino(&returns[0..5], true, 252.0, 0.0);
         assert!((rs.values[0] - first_window).abs() < 1e-12);
     }
 
     #[test]
-    fn rolling_sum_sq_kernel_limits_long_run_drift() {
-        fn next_u64(state: &mut u64) -> u64 {
-            *state ^= *state << 13;
-            *state ^= *state >> 7;
-            *state ^= *state << 17;
-            *state
-        }
-
-        let mut state = 0x1234_5678_9abc_def0_u64;
-        let returns: Vec<f64> = (0..20_000)
-            .map(|_| {
-                let u = next_u64(&mut state) as f64 / u64::MAX as f64;
-                let v = next_u64(&mut state) as f64 / u64::MAX as f64;
-                (u - 0.5) * 1.0e10 + (v - 0.5) * 1.0e-3
+    fn rolling_volatility_stays_stable_under_large_offset() {
+        let mean = 1.0e8;
+        let sigma = 1.0e-3;
+        let returns: Vec<f64> = (0..300)
+            .map(|i| match i % 3 {
+                0 => mean - sigma,
+                1 => mean,
+                _ => mean + sigma,
             })
             .collect();
-        let window = 257;
-        let n = returns.len();
-        let mut max_sum_sq_error = 0.0_f64;
-        let mut start = 0_usize;
+        let dates: Vec<Date> = (0..returns.len())
+            .map(|i| jan1(2025) + Duration::days(i as i64))
+            .collect();
 
-        rolling_sum_sum_sq_kernel(&returns, n, window, |_, sum_sq| {
-            let end = start + window;
-            let exact_sum_sq = neumaier_sum(returns[start..end].iter().map(|r| r * r));
-            max_sum_sq_error = max_sum_sq_error.max((sum_sq - exact_sum_sq).abs());
-            start += 1;
-        });
-
-        assert!(
-            max_sum_sq_error < 10_000_000.0,
-            "rolling sum_sq drift should stay bounded, got {}",
-            max_sum_sq_error
-        );
+        let rv = rolling_volatility(&returns, &dates, 3, 1.0);
+        assert!(!rv.values.is_empty());
+        for &value in &rv.values {
+            assert!(
+                (value - sigma).abs() < 1.0e-6,
+                "expected rolling volatility near {sigma}, got {value}"
+            );
+        }
     }
 }

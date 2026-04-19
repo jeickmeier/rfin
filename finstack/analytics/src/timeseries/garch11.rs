@@ -112,19 +112,25 @@ impl GarchModel for Garch11 {
         fit: &GarchFit,
         horizons: &[usize],
         trading_days_per_year: f64,
+        terminal_residual: Option<f64>,
     ) -> Vec<VarianceForecast> {
         let p = &fit.params;
         let persistence = p.alpha + p.beta;
         let sigma2_unc = p.unconditional_variance().unwrap_or(fit.terminal_variance);
         let sigma2_t = fit.terminal_variance;
+        let sigma2_1 = terminal_residual
+            .map(|eps_t| p.omega + p.alpha * eps_t * eps_t + p.beta * sigma2_t)
+            .unwrap_or_else(|| sigma2_unc + persistence * (sigma2_t - sigma2_unc));
 
         horizons
             .iter()
             .map(|&h| {
                 let sigma2_h = if h == 0 {
                     sigma2_t
+                } else if h == 1 {
+                    sigma2_1
                 } else {
-                    sigma2_unc + persistence.powi(h as i32) * (sigma2_t - sigma2_unc)
+                    sigma2_unc + persistence.powi(h as i32 - 1) * (sigma2_1 - sigma2_unc)
                 };
                 VarianceForecast {
                     horizon: h,
@@ -244,7 +250,7 @@ mod tests {
             iterations: 100,
         };
 
-        let forecasts = Garch11.forecast(&fit, &[1, 5, 21, 63, 252, 1000], 252.0);
+        let forecasts = Garch11.forecast(&fit, &[1, 5, 21, 63, 252, 1000], 252.0, None);
         let uncond = fit.params.unconditional_variance().unwrap();
 
         // Check that forecasts converge to unconditional
@@ -265,5 +271,36 @@ mod tests {
                 "Forecast term structure should monotonically converge"
             );
         }
+    }
+
+    #[test]
+    fn forecast_uses_terminal_residual_for_one_step() {
+        let fit = GarchFit {
+            model: "GARCH(1,1)".to_string(),
+            params: GarchParams {
+                omega: 0.00001,
+                alpha: 0.1,
+                beta: 0.85,
+                gamma: None,
+                dist: InnovationDist::Gaussian,
+                family: super::super::garch::GarchFamily::Garch11,
+                mean: 0.01,
+            },
+            std_errors: None,
+            log_likelihood: -1000.0,
+            n_obs: 1000,
+            n_params: 3,
+            aic: 2006.0,
+            bic: 2020.0,
+            hqic: 2010.0,
+            conditional_variances: vec![0.0002; 1000],
+            standardized_residuals: vec![0.0; 1000],
+            terminal_variance: 0.0003,
+            converged: true,
+            iterations: 100,
+        };
+
+        let forecasts = Garch11.forecast(&fit, &[1], 252.0, Some(0.02));
+        assert!((forecasts[0].variance - 0.000305).abs() < 1e-12);
     }
 }

@@ -73,7 +73,9 @@ impl GarchParams {
     /// Persistence of volatility shocks under the model's own recursion.
     ///
     /// - `Garch11`: `alpha + beta`
-    /// - `GjrGarch11`: `alpha + beta + gamma/2` (assumes symmetric innovations)
+    /// - `GjrGarch11`: `alpha + beta + gamma/2` (assumes symmetric
+    ///   innovations, e.g. Gaussian or symmetric Student-t, so
+    ///   `E[I{z<0} z^2] = 1/2`)
     /// - `Egarch11`: `beta` (EGARCH operates on log-variance; alpha acts
     ///   on the magnitude innovation g(z_t) not on previous log-variance)
     #[must_use]
@@ -368,15 +370,36 @@ pub trait GarchModel: Send + Sync {
     fn log_likelihood(&self, returns: &[f64], params: &GarchParams, dist: InnovationDist) -> f64;
 
     /// h-step ahead variance forecast from the last fitted state.
+    ///
+    /// `terminal_residual`, when supplied, is the last demeaned residual
+    /// `r_t - mu`. That lets the 1-step forecast use the observable last
+    /// shock instead of the iterated conditional expectation from
+    /// `fit.terminal_variance`.
     fn forecast(
         &self,
         fit: &GarchFit,
         horizons: &[usize],
         trading_days_per_year: f64,
+        terminal_residual: Option<f64>,
     ) -> Vec<VarianceForecast>;
 
     /// Parameter names in canonical order.
     fn param_names(&self) -> Vec<&'static str>;
+}
+
+#[inline]
+fn variance_targeted_omega(
+    family: GarchFamily,
+    sample_var: f64,
+    alpha: f64,
+    beta: f64,
+    gamma: f64,
+) -> f64 {
+    match family {
+        GarchFamily::Garch11 => sample_var * (1.0 - alpha - beta),
+        GarchFamily::GjrGarch11 => sample_var * (1.0 - alpha - beta - gamma / 2.0),
+        GarchFamily::Egarch11 => sample_var.max(1e-20).ln() * (1.0 - beta),
+    }
 }
 
 /// Shared MLE fitting logic used by all GARCH-family models.
@@ -444,17 +467,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
                 vec![0.0]
             };
             for &g in &gammas {
-                let persistence = if has_gamma {
-                    alpha + beta + g.abs() / 2.0
-                } else {
-                    alpha + beta
-                };
-                if persistence >= 0.9999 {
-                    continue;
-                }
-
                 let omega = if config.variance_targeting {
-                    sample_var * (1.0 - alpha - beta)
+                    variance_targeted_omega(model.family(), sample_var, alpha, beta, g)
                 } else {
                     sample_var * 0.05
                 };
@@ -491,7 +505,7 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
         // Fallback starting point
         let alpha = 0.05;
         let beta = 0.90;
-        let omega = sample_var * (1.0 - alpha - beta);
+        let omega = variance_targeted_omega(model.family(), sample_var, alpha, beta, 0.0);
         best_params_vec = vec![omega, alpha, beta];
         if has_gamma {
             best_params_vec.push(0.0);
@@ -569,4 +583,26 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
         converged: result.converged,
         iterations: result.iterations,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{variance_targeted_omega, GarchFamily};
+
+    #[test]
+    fn variance_targeting_matches_garch_family() {
+        let sample_var = 0.04_f64;
+        let alpha = 0.10_f64;
+        let beta = 0.85_f64;
+        let gamma = 0.20_f64;
+
+        let garch = variance_targeted_omega(GarchFamily::Garch11, sample_var, alpha, beta, gamma);
+        assert!((garch - 0.002).abs() < 1e-12);
+
+        let gjr = variance_targeted_omega(GarchFamily::GjrGarch11, sample_var, alpha, beta, gamma);
+        assert!((gjr + 0.002).abs() < 1e-12);
+
+        let egarch = variance_targeted_omega(GarchFamily::Egarch11, sample_var, alpha, beta, gamma);
+        assert!((egarch - sample_var.ln() * (1.0 - beta)).abs() < 1e-12);
+    }
 }

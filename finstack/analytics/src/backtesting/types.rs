@@ -178,8 +178,10 @@ pub struct TrafficLightResult {
 /// - Basel Committee FRTB (2019): see docs/REFERENCES.md#bcbs2019FRTB
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PnlExplanation {
-    /// Mean of (hypothetical_pnl - risk_theoretical_pnl) / VaR across days.
+    /// Mean of per-day `(hypothetical_pnl - risk_theoretical_pnl) / VaR` ratios.
     pub explanation_ratio: f64,
+    /// Aggregate `(Σ hypothetical_pnl - Σ risk_theoretical_pnl) / Σ VaR` ratio.
+    pub aggregate_explanation_ratio: f64,
     /// Mean absolute deviation of unexplained P&L:
     /// mean(|hypothetical_pnl - risk_theoretical_pnl|).
     pub mean_abs_unexplained: f64,

@@ -18,7 +18,6 @@ fn performance_cagr_uses_default_act_365_25_convention_for_single_return_window(
         vec!["PORT".to_string()],
         None,
         PeriodKind::Annual,
-        false,
     )
     .expect("performance should build");
 
@@ -48,7 +47,6 @@ fn cumulative_outperformance_uses_relative_wealth_not_return_difference() {
         vec!["BENCH".to_string(), "PORT".to_string()],
         Some("BENCH"),
         PeriodKind::Daily,
-        false,
     )
     .expect("performance should build");
 
@@ -103,7 +101,6 @@ fn performance_new_rejects_interior_nan_return_data() {
         vec!["PORT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     );
 
     assert!(
@@ -127,7 +124,6 @@ fn drawdown_series_rebases_after_date_window_reset() {
         vec!["PORT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     )
     .expect("performance should build");
 
@@ -163,7 +159,6 @@ fn drawdown_cache_refreshes_across_repeated_date_window_resets() {
         vec!["PORT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     )
     .expect("performance should build");
 
@@ -207,30 +202,29 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
         vec!["BENCH".to_string(), "ALT".to_string(), "PORT".to_string()],
         Some("BENCH"),
         PeriodKind::Daily,
-        false,
     )
     .expect("performance should build");
 
     perf.reset_date_range(d(2024, Month::January, 4), d(2024, Month::January, 4));
-    let initial_port_outperformance = perf.drawdown_outperformance()[2][0];
+    let initial_port_outperformance = perf.drawdown_difference()[2][0];
     assert!(
         (initial_port_outperformance + 0.1).abs() < 1e-12,
         "PORT should lag a flat benchmark by its own rebased drawdown"
     );
     assert!(
-        perf.stats_during_bench_drawdowns(1).is_empty(),
+        perf.top_benchmark_drawdown_episodes(1).is_empty(),
         "positive benchmark window should have no drawdown episodes"
     );
 
     perf.reset_bench_ticker("ALT")
         .expect("alternate benchmark should exist");
-    let switched_port_outperformance = perf.drawdown_outperformance()[2][0];
+    let switched_port_outperformance = perf.drawdown_difference()[2][0];
     assert!(
         (switched_port_outperformance - 0.1).abs() < 1e-12,
         "drawdown outperformance should use the switched benchmark's windowed drawdown"
     );
 
-    let bench_episodes = perf.stats_during_bench_drawdowns(1);
+    let bench_episodes = perf.top_benchmark_drawdown_episodes(1);
     assert_eq!(bench_episodes.len(), 1);
     assert!(
         (bench_episodes[0].max_drawdown + 0.2).abs() < 1e-12,
@@ -305,7 +299,6 @@ fn performance_new_rejects_returns_below_negative_one() {
         vec!["PORT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     );
 
     assert!(
@@ -325,7 +318,6 @@ fn performance_new_rejects_negative_price_domain_in_simple_return_mode() {
         vec!["PORT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     );
 
     assert!(
@@ -345,7 +337,6 @@ fn performance_new_rejects_non_finite_price_domain_in_simple_return_mode() {
         vec!["PORT".to_string()],
         None,
         PeriodKind::Daily,
-        false,
     );
 
     assert!(

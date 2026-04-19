@@ -42,7 +42,7 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 - **`benchmark.rs`**
   - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
   - Benchmark-relative risk ratios: `treynor`, `m_squared` (compose with `mean_return` / `volatility` for series-based inputs).
-  - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
+  - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r², adjusted_r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
   - Invalid, mismatched, or singular multi-factor regressions return an error instead of silently zero-filling the output.
 
 - **`returns.rs`**
@@ -89,7 +89,6 @@ impl Performance {
         ticker_names: Vec<String>,
         benchmark_ticker: Option<&str>,
         freq: PeriodKind,
-        use_log_returns: bool,
     ) -> Result<Self>;
 
     // Date windowing — all metrics respect the active range
@@ -99,7 +98,7 @@ impl Performance {
     // Scalar metrics (one value per ticker)
     pub fn cagr(&self) -> Vec<f64>;
     pub fn sharpe(&self, risk_free_rate: f64) -> Vec<f64>;
-    pub fn sortino(&self) -> Vec<f64>;
+    pub fn sortino(&self, mar: f64) -> Vec<f64>;
     pub fn calmar(&self) -> Vec<f64>;
     pub fn volatility(&self, annualize: bool) -> Vec<f64>;
     pub fn max_drawdown(&self) -> Vec<f64>;
@@ -160,7 +159,7 @@ impl Performance {
 
     // Drawdown episodes
     pub fn drawdown_details(&self, idx: usize, n: usize) -> Vec<DrawdownEpisode>;
-    pub fn stats_during_bench_drawdowns(&self, n: usize) -> Vec<DrawdownEpisode>;
+    pub fn top_benchmark_drawdown_episodes(&self, n: usize) -> Vec<DrawdownEpisode>;
 
     // Lookback and aggregation
     pub fn lookback_returns(&self, ref_date: Date, fiscal: Option<FiscalConfig>) -> LookbackReturns;
@@ -255,12 +254,11 @@ let mut perf = Performance::new(
     vec!["SPY".into(), "ALPHA".into()],
     Some("SPY"),
     PeriodKind::Daily,
-    false,
 )?;
 
 // Scalar metrics (one per ticker)
 let sharpe = perf.sharpe(0.05); // 5% risk-free rate
-let sortino = perf.sortino();
+let sortino = perf.sortino(0.0);
 let max_dd  = perf.max_drawdown();
 let var95   = perf.value_at_risk(0.95);
 
@@ -293,7 +291,7 @@ let ann = 252.0_f64;
 let mean_r = returns.iter().sum::<f64>() / returns.len() as f64 * ann;
 let vol    = volatility(&returns, true, ann);
 let sr     = sharpe(mean_r, vol, 0.05);
-let so     = sortino(&returns, true, ann);
+let so     = sortino(&returns, true, ann, 0.0);
 let var    = value_at_risk(&returns, 0.95, None);
 let es     = expected_shortfall(&returns, 0.95, None);
 

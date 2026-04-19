@@ -53,7 +53,7 @@ fn drawdown_js() -> JsValue {
 
 #[wasm_bindgen_test]
 fn sortino_returns_finite() {
-    let v = sortino(returns_js(), true, 252.0).unwrap();
+    let v = sortino(returns_js(), true, 252.0, 0.0).unwrap();
     assert!(v.is_finite());
 }
 
@@ -406,6 +406,7 @@ fn pnl_explanation_returns_struct() {
     let value: serde_json::Value = serde_wasm_bindgen::from_value(v).unwrap();
     assert_eq!(value["n"], 3);
     assert_eq!(value["mean_abs_unexplained"], 1.0);
+    assert!(value["aggregate_explanation_ratio"].is_number());
 }
 
 #[wasm_bindgen_test]

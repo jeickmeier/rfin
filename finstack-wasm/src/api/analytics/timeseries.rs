@@ -35,17 +35,21 @@ pub fn fit_gjr_garch11(returns: JsValue, distribution: &str) -> Result<JsValue, 
     serde_wasm_bindgen::to_value(&fit).map_err(to_js_err)
 }
 
-#[wasm_bindgen(js_name = garch11Forecast)]
-pub fn garch11_forecast(
-    omega: f64,
-    alpha: f64,
-    beta: f64,
-    last_variance: f64,
-    last_return: f64,
-    horizon: usize,
+#[wasm_bindgen(js_name = forecastGarchFit)]
+pub fn forecast_garch_fit(
+    fit: JsValue,
+    horizons: JsValue,
+    trading_days_per_year: f64,
+    terminal_residual: Option<f64>,
 ) -> Result<JsValue, JsValue> {
-    let forecasts =
-        fa::timeseries::garch11_forecast(omega, alpha, beta, last_variance, last_return, horizon);
+    let fit: fa::timeseries::GarchFit = serde_wasm_bindgen::from_value(fit).map_err(to_js_err)?;
+    let horizons: Vec<usize> = serde_wasm_bindgen::from_value(horizons).map_err(to_js_err)?;
+    let forecasts = fa::timeseries::forecast_garch_fit(
+        &fit,
+        &horizons,
+        trading_days_per_year,
+        terminal_residual,
+    );
     serde_wasm_bindgen::to_value(&forecasts).map_err(to_js_err)
 }
 

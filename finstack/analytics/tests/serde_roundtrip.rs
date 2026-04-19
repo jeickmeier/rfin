@@ -46,7 +46,6 @@ fn test_performance_and_lookback_roundtrip() {
         vec!["AAA".to_string(), "BBB".to_string()],
         Some("BBB"),
         PeriodKind::Daily,
-        false,
     )
     .expect("performance construction should succeed");
 
@@ -55,7 +54,6 @@ fn test_performance_and_lookback_roundtrip() {
     assert_eq!(restored.ticker_names(), performance.ticker_names());
     assert_eq!(restored.benchmark_idx(), performance.benchmark_idx());
     assert_eq!(restored.freq(), performance.freq());
-    assert_eq!(restored.uses_log_returns(), performance.uses_log_returns());
 
     let lookback = LookbackReturns {
         mtd: vec![0.01, 0.02],
@@ -105,6 +103,7 @@ fn test_analytics_results_and_configs_roundtrip() {
         alpha: 0.02,
         beta: 0.95,
         r_squared: 0.88,
+        adjusted_r_squared: 0.84,
     });
 
     assert_roundtrip_value(&RollingGreeks {

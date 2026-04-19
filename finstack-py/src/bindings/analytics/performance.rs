@@ -77,18 +77,10 @@ fn build_performance(
     ticker_names: Vec<String>,
     benchmark_ticker: Option<&str>,
     freq: &str,
-    use_log_returns: bool,
 ) -> PyResult<PyPerformance> {
     let period_kind = parse_freq(freq)?;
-    let inner = fa::Performance::new(
-        dates,
-        prices,
-        ticker_names,
-        benchmark_ticker,
-        period_kind,
-        use_log_returns,
-    )
-    .map_err(core_to_py)?;
+    let inner = fa::Performance::new(dates, prices, ticker_names, benchmark_ticker, period_kind)
+        .map_err(core_to_py)?;
     Ok(PyPerformance { inner })
 }
 
@@ -108,13 +100,8 @@ impl PyPerformance {
     /// The DataFrame index must contain ``datetime.date`` or ``pd.Timestamp``
     /// values, and each column represents one ticker's price series.
     #[new]
-    #[pyo3(signature = (prices, benchmark_ticker=None, freq="daily", use_log_returns=false))]
-    fn new(
-        prices: Bound<'_, PyAny>,
-        benchmark_ticker: Option<&str>,
-        freq: &str,
-        use_log_returns: bool,
-    ) -> PyResult<Self> {
+    #[pyo3(signature = (prices, benchmark_ticker=None, freq="daily"))]
+    fn new(prices: Bound<'_, PyAny>, benchmark_ticker: Option<&str>, freq: &str) -> PyResult<Self> {
         let py = prices.py();
         let pd = py.import("pandas")?;
         let df_type = pd.getattr("DataFrame")?;
@@ -130,31 +117,22 @@ impl PyPerformance {
             panel.ticker_names,
             benchmark_ticker,
             freq,
-            use_log_returns,
         )
     }
 
     /// Construct from raw arrays (dates, prices matrix, ticker names).
     #[staticmethod]
-    #[pyo3(signature = (dates, prices, ticker_names, benchmark_ticker=None, freq="daily", use_log_returns=false))]
+    #[pyo3(signature = (dates, prices, ticker_names, benchmark_ticker=None, freq="daily"))]
     fn from_arrays(
         dates: Vec<Bound<'_, PyAny>>,
         prices: Vec<Vec<f64>>,
         ticker_names: Vec<String>,
         benchmark_ticker: Option<&str>,
         freq: &str,
-        use_log_returns: bool,
     ) -> PyResult<Self> {
         let rust_dates: Vec<time::Date> =
             dates.iter().map(py_to_date).collect::<PyResult<Vec<_>>>()?;
-        build_performance(
-            rust_dates,
-            prices,
-            ticker_names,
-            benchmark_ticker,
-            freq,
-            use_log_returns,
-        )
+        build_performance(rust_dates, prices, ticker_names, benchmark_ticker, freq)
     }
 
     // -- Mutators --
@@ -194,12 +172,6 @@ impl PyPerformance {
         self.inner.freq().to_string()
     }
 
-    /// Whether log returns are used internally.
-    #[getter]
-    fn uses_log_returns(&self) -> bool {
-        self.inner.uses_log_returns()
-    }
-
     /// Active date grid.
     fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
         self.inner
@@ -235,8 +207,9 @@ impl PyPerformance {
     }
 
     /// Sortino ratio for each ticker.
-    fn sortino(&self) -> Vec<f64> {
-        self.inner.sortino()
+    #[pyo3(signature = (mar = 0.0))]
+    fn sortino(&self, mar: f64) -> Vec<f64> {
+        self.inner.sortino(mar)
     }
 
     /// Calmar ratio for each ticker.
@@ -435,9 +408,9 @@ impl PyPerformance {
         self.inner.cumulative_returns_outperformance()
     }
 
-    /// Drawdown outperformance vs benchmark.
-    fn drawdown_outperformance(&self) -> Vec<Vec<f64>> {
-        self.inner.drawdown_outperformance()
+    /// Drawdown difference vs benchmark.
+    fn drawdown_difference(&self) -> Vec<Vec<f64>> {
+        self.inner.drawdown_difference()
     }
 
     /// Excess returns over a risk-free rate series.
@@ -515,11 +488,11 @@ impl PyPerformance {
             .collect()
     }
 
-    /// Stats during benchmark drawdown episodes.
+    /// Top benchmark drawdown episodes.
     #[pyo3(signature = (n = 5))]
-    fn stats_during_bench_drawdowns(&self, n: usize) -> Vec<PyDrawdownEpisode> {
+    fn top_benchmark_drawdown_episodes(&self, n: usize) -> Vec<PyDrawdownEpisode> {
         self.inner
-            .stats_during_bench_drawdowns(n)
+            .top_benchmark_drawdown_episodes(n)
             .into_iter()
             .map(|e| PyDrawdownEpisode { inner: e })
             .collect()
@@ -597,7 +570,7 @@ impl PyPerformance {
         data.set_item("mean_return", self.inner.mean_return(true))?;
         data.set_item("volatility", self.inner.volatility(true))?;
         data.set_item("sharpe", self.inner.sharpe(risk_free_rate))?;
-        data.set_item("sortino", self.inner.sortino())?;
+        data.set_item("sortino", self.inner.sortino(0.0))?;
         data.set_item("calmar", self.inner.calmar())?;
         data.set_item("max_drawdown", self.inner.max_drawdown())?;
         data.set_item("value_at_risk", self.inner.value_at_risk(confidence))?;

@@ -40,7 +40,7 @@ mod optimizer;
 pub use diagnostics::{aic, arch_lm, bic, hqic, ljung_box};
 pub use egarch11::Egarch11;
 pub use forecast::{
-    garch11_forecast, vol_term_structure, VarianceForecast, VolTermStructure, STANDARD_HORIZONS,
+    forecast_garch_fit, vol_term_structure, VarianceForecast, VolTermStructure, STANDARD_HORIZONS,
 };
 pub use garch::{FitConfig, GarchFit, GarchModel, GarchParams};
 pub use garch11::Garch11;
@@ -361,7 +361,7 @@ mod tests {
             .expect("fit should succeed");
 
         let horizons = [1, 5, 10, 21, 63, 126, 252, 504, 1000];
-        let forecasts = Garch11.forecast(&fit, &horizons, 252.0);
+        let forecasts = Garch11.forecast(&fit, &horizons, 252.0, None);
 
         let uncond = fit.params.unconditional_variance().unwrap();
 

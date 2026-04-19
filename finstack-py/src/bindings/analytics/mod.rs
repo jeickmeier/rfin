@@ -53,6 +53,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "BacktestResult",
             "PnlExplanation",
             "MultiModelComparison",
+            "VarianceForecast",
             // Performance class
             "Performance",
             // Aggregation
@@ -140,7 +141,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "fit_garch11",
             "fit_egarch11",
             "fit_gjr_garch11",
-            "garch11_forecast",
+            "forecast_garch_fit",
             "ljung_box",
             "arch_lm",
             "aic",

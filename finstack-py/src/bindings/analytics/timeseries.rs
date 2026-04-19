@@ -12,6 +12,50 @@ use finstack_analytics::timeseries::{Egarch11, Garch11, GarchModel, GjrGarch11, 
 use pyo3::prelude::*;
 
 // -------------------------------------------------------------------
+// PyVarianceForecast
+// -------------------------------------------------------------------
+
+/// A single variance forecast at a given horizon.
+#[pyclass(frozen, name = "VarianceForecast", module = "finstack.analytics")]
+pub struct PyVarianceForecast {
+    pub(crate) inner: ts::VarianceForecast,
+}
+
+impl PyVarianceForecast {
+    pub(crate) fn from_inner(inner: ts::VarianceForecast) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyVarianceForecast {
+    /// Forecast horizon in periods (1 = next period).
+    #[getter]
+    fn horizon(&self) -> usize {
+        self.inner.horizon
+    }
+
+    /// Forecasted conditional variance at this horizon.
+    #[getter]
+    fn variance(&self) -> f64 {
+        self.inner.variance
+    }
+
+    /// Annualized volatility at this horizon.
+    #[getter]
+    fn annualized_vol(&self) -> f64 {
+        self.inner.annualized_vol
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VarianceForecast(horizon={}, variance={:.6}, annualized_vol={:.6})",
+            self.inner.horizon, self.inner.variance, self.inner.annualized_vol
+        )
+    }
+}
+
+// -------------------------------------------------------------------
 // PyGarchParams
 // -------------------------------------------------------------------
 
@@ -333,40 +377,31 @@ fn fit_gjr_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit
 }
 
 // -------------------------------------------------------------------
-// garch11_forecast
+// forecast_garch_fit
 // -------------------------------------------------------------------
 
-/// Closed-form h-step-ahead GARCH(1,1) variance forecast.
+/// Forecast future conditional variances from a fitted GARCH-family model.
 ///
-/// Iterates the recurrence
-///
-/// ```text
-/// sigma^2_{t+h} = omega + (alpha + beta) * sigma^2_{t+h-1}      (h >= 2)
-/// sigma^2_{t+1} = omega + alpha * r_t^2 + beta * sigma^2_t      (h == 1)
-/// ```
-///
-/// and returns the variance path for horizons ``1..=horizon``.
-///
-/// # Arguments
-///
-/// * ``omega``, ``alpha``, ``beta`` - Fitted GARCH(1,1) parameters.
-/// * ``last_variance`` - Terminal conditional variance ``sigma^2_t``.
-/// * ``last_return`` - Terminal return ``r_t`` (enters only the h=1 step).
-/// * ``horizon`` - Number of horizons to forecast (``>= 1``).
-///
-/// # Returns
-///
-/// List of ``horizon`` forecasted variances in order ``h=1..horizon``.
+/// ``terminal_residual`` is the last demeaned residual ``r_t - mu``. When it
+/// is supplied, the 1-step forecast uses the observable last shock instead of
+/// the iterated conditional expectation.
 #[pyfunction]
-fn garch11_forecast(
-    omega: f64,
-    alpha: f64,
-    beta: f64,
-    last_variance: f64,
-    last_return: f64,
-    horizon: usize,
-) -> Vec<f64> {
-    ts::garch11_forecast(omega, alpha, beta, last_variance, last_return, horizon)
+#[pyo3(signature = (fit, horizons, trading_days_per_year = 252.0, terminal_residual = None))]
+fn forecast_garch_fit(
+    fit: &PyGarchFit,
+    horizons: Vec<usize>,
+    trading_days_per_year: f64,
+    terminal_residual: Option<f64>,
+) -> Vec<PyVarianceForecast> {
+    ts::forecast_garch_fit(
+        &fit.inner,
+        &horizons,
+        trading_days_per_year,
+        terminal_residual,
+    )
+    .into_iter()
+    .map(PyVarianceForecast::from_inner)
+    .collect()
 }
 
 // -------------------------------------------------------------------
@@ -440,12 +475,13 @@ fn hqic(log_likelihood: f64, n_params: usize, n_obs: usize) -> f64 {
 // -------------------------------------------------------------------
 
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyVarianceForecast>()?;
     m.add_class::<PyGarchParams>()?;
     m.add_class::<PyGarchFit>()?;
     m.add_function(wrap_pyfunction!(fit_garch11, m)?)?;
     m.add_function(wrap_pyfunction!(fit_egarch11, m)?)?;
     m.add_function(wrap_pyfunction!(fit_gjr_garch11, m)?)?;
-    m.add_function(wrap_pyfunction!(garch11_forecast, m)?)?;
+    m.add_function(wrap_pyfunction!(forecast_garch_fit, m)?)?;
     m.add_function(wrap_pyfunction!(ljung_box, m)?)?;
     m.add_function(wrap_pyfunction!(arch_lm, m)?)?;
     m.add_function(wrap_pyfunction!(aic, m)?)?;

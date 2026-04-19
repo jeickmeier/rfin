@@ -157,11 +157,16 @@ impl PyGreeksResult {
     fn r_squared(&self) -> f64 {
         self.inner.r_squared
     }
+    /// Adjusted R-squared.
+    #[getter]
+    fn adjusted_r_squared(&self) -> f64 {
+        self.inner.adjusted_r_squared
+    }
 
     fn __repr__(&self) -> String {
         format!(
-            "GreeksResult(alpha={:.6}, beta={:.4}, r2={:.4})",
-            self.inner.alpha, self.inner.beta, self.inner.r_squared
+            "GreeksResult(alpha={:.6}, beta={:.4}, r2={:.4}, adj_r2={:.4})",
+            self.inner.alpha, self.inner.beta, self.inner.r_squared, self.inner.adjusted_r_squared
         )
     }
 }
@@ -977,6 +982,12 @@ impl PyPnlExplanation {
         self.inner.explanation_ratio
     }
 
+    /// Aggregate unexplained P&L ratio using sums across the full sample.
+    #[getter]
+    fn aggregate_explanation_ratio(&self) -> f64 {
+        self.inner.aggregate_explanation_ratio
+    }
+
     /// Mean absolute unexplained P&L.
     #[getter]
     fn mean_abs_unexplained(&self) -> f64 {
@@ -997,8 +1008,11 @@ impl PyPnlExplanation {
 
     fn __repr__(&self) -> String {
         format!(
-            "PnlExplanation(ratio={:.4}, mean_abs={:.4}, n={})",
-            self.inner.explanation_ratio, self.inner.mean_abs_unexplained, self.inner.n
+            "PnlExplanation(ratio={:.4}, agg_ratio={:.4}, mean_abs={:.4}, n={})",
+            self.inner.explanation_ratio,
+            self.inner.aggregate_explanation_ratio,
+            self.inner.mean_abs_unexplained,
+            self.inner.n
         )
     }
 }

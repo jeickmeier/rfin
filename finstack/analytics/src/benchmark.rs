@@ -303,8 +303,9 @@ pub struct BetaResult {
     pub ci_upper: f64,
 }
 
-// Two-sided 95% critical value: Student's t with `n−2` degrees of freedom for small
-// samples, and 1.96 when `n − 2 ≥ 38` (normal approximation).
+// Two-sided 95% critical value: Student's t with `n−2` degrees of freedom.
+// Use exact tabulated values for small samples, then conservative step-down
+// anchors at df = 40, 60, and 120 before the asymptotic normal limit.
 fn beta_ci_critical_value(sample_size: usize) -> f64 {
     match sample_size.saturating_sub(2) {
         0 => f64::NAN,
@@ -345,7 +346,10 @@ fn beta_ci_critical_value(sample_size: usize) -> f64 {
         35 => 2.030_107_928_250_343,
         36 => 2.028_094_000_980_451,
         37 => 2.026_192_463_029_109_3,
-        _ => 1.96,
+        38..=59 => 2.021_075_390_306_273_3,
+        60..=119 => 2.000_297_821_058_262,
+        120..=239 => 1.979_930_405_052_777,
+        _ => 1.959_963_984_540_054,
     }
 }
 
@@ -437,7 +441,7 @@ pub fn beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
     }
 }
 
-/// Greeks (alpha, beta, r_squared) from a single-factor regression.
+/// Greeks (alpha, beta, R-squared, adjusted R-squared) from a single-factor regression.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GreeksResult {
     /// Annualized alpha (intercept).
@@ -446,12 +450,14 @@ pub struct GreeksResult {
     pub beta: f64,
     /// R-squared of the regression.
     pub r_squared: f64,
+    /// Adjusted R-squared of the regression.
+    pub adjusted_r_squared: f64,
 }
 
 /// Single-factor greeks for portfolio vs benchmark.
 ///
 /// Runs a simple OLS regression `r_portfolio = α + β × r_benchmark` and
-/// returns the annualized alpha, beta, and R² from that fit.
+/// returns the annualized alpha, beta, R², and adjusted R² from that fit.
 ///
 /// Unlike [`beta`], this function does not compute standard errors
 /// and is lighter-weight for scenarios where the point estimates are
@@ -465,8 +471,9 @@ pub struct GreeksResult {
 ///
 /// # Returns
 ///
-/// A [`GreeksResult`] with `alpha` (annualized), `beta`, and `r_squared`.
-/// Returns zeros for empty or zero-variance benchmark series.
+/// A [`GreeksResult`] with `alpha` (annualized), `beta`, `r_squared`, and
+/// `adjusted_r_squared`. Returns zeros for empty or zero-variance benchmark
+/// series.
 ///
 /// # Examples
 ///
@@ -486,6 +493,7 @@ pub fn greeks(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> GreeksResu
             alpha: 0.0,
             beta: 0.0,
             r_squared: 0.0,
+            adjusted_r_squared: 0.0,
         };
     }
     let mut oc = OnlineCovariance::new();
@@ -495,10 +503,17 @@ pub fn greeks(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> GreeksResu
     let beta = oc.optimal_beta();
     let alpha = (oc.mean_x() - beta * oc.mean_y()) * ann_factor;
     let c = oc.correlation();
+    let r_squared = c * c;
+    let adjusted_r_squared = if n > 2 {
+        1.0 - (1.0 - r_squared) * (n as f64 - 1.0) / (n as f64 - 2.0)
+    } else {
+        0.0
+    };
     GreeksResult {
         alpha,
         beta,
-        r_squared: c * c,
+        r_squared,
+        adjusted_r_squared,
     }
 }
 
@@ -1097,11 +1112,41 @@ mod tests {
     }
 
     #[test]
+    fn beta_uses_t_critical_value_beyond_df_37() {
+        let x: Vec<f64> = (0..42).map(|i| -0.02 + i as f64 * 0.001).collect();
+        let y: Vec<f64> = x
+            .iter()
+            .enumerate()
+            .map(|(i, &b)| 1.4 * b + if i % 2 == 0 { 0.002 } else { -0.0015 })
+            .collect();
+        let result = beta(&y, &x);
+        let expected_t_critical_df40 = 2.021_075_390_306_273_3_f64;
+        let actual_half_width = result.ci_upper - result.beta;
+
+        assert!(
+            (actual_half_width - expected_t_critical_df40 * result.std_err).abs() < 1e-12,
+            "beta CI should continue using Student-t beyond df=37"
+        );
+    }
+
+    #[test]
     fn greeks_basic() {
         let r = [0.01, 0.02, 0.03, 0.04, 0.05];
         let b = [0.005, 0.01, 0.015, 0.02, 0.025];
         let g = greeks(&r, &b, 252.0);
         assert!((g.beta - 2.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn greeks_reports_adjusted_r_squared() {
+        let r = [0.011, 0.018, 0.031, 0.039, 0.052, 0.061];
+        let b = [0.005, 0.010, 0.015, 0.020, 0.025, 0.030];
+        let g = greeks(&r, &b, 252.0);
+        let n = r.len() as f64;
+        let expected = 1.0 - (1.0 - g.r_squared) * (n - 1.0) / (n - 2.0);
+
+        assert!((g.adjusted_r_squared - expected).abs() < 1e-12);
+        assert!(g.adjusted_r_squared <= g.r_squared);
     }
 
     #[test]

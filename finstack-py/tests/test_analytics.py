@@ -114,6 +114,13 @@ class TestSortino:
         s = sortino(rets)
         assert isinstance(s, float)
 
+    def test_mar_changes_sortino(self) -> None:
+        """Raising the minimum acceptable return should tighten the ratio."""
+        rets = [0.01, 0.02, 0.03, 0.04]
+        baseline = sortino(rets, annualize=False, ann_factor=252.0, mar=0.0)
+        hurdle = sortino(rets, annualize=False, ann_factor=252.0, mar=0.02)
+        assert hurdle < baseline
+
 
 class TestMeanReturn:
     """Validate arithmetic mean return."""

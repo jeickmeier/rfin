@@ -56,7 +56,7 @@ mod tests {
     #[test]
     fn underlying_sortino() {
         let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let s = fa::risk_metrics::sortino(&r, true, 252.0);
+        let s = fa::risk_metrics::sortino(&r, true, 252.0, 0.0);
         assert!(s.is_finite());
     }
 
@@ -243,6 +243,7 @@ mod tests {
         let g = fa::benchmark::greeks(&r, &b, 252.0);
         assert!((g.beta - 2.0).abs() < 1e-10);
         assert!((g.r_squared - 1.0).abs() < 1e-10);
+        assert!((g.adjusted_r_squared - 1.0).abs() < 1e-10);
     }
 
     #[test]

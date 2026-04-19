@@ -120,7 +120,6 @@ fn performance_ruin_api_matches_standalone_estimator() {
         vec!["BENCH".to_string(), "PORT".to_string()],
         Some("BENCH"),
         PeriodKind::Daily,
-        false,
     )
     .expect("performance should build");
 

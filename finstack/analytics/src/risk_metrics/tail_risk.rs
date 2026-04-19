@@ -152,8 +152,9 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
 ///
 /// # Returns
 ///
-/// The tail ratio (non-negative). Returns `0.0` if `returns` is empty
-/// or if the lower tail quantile is zero.
+/// The tail ratio (non-negative). Returns `0.0` if `returns` is empty,
+/// [`f64::INFINITY`] when the lower tail quantile is zero but the upper tail
+/// is positive, and [`f64::NAN`] when both tails are zero.
 ///
 /// # Examples
 ///
@@ -177,7 +178,7 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     let upper = quantile(&mut data, confidence).abs();
     let lower = quantile(&mut data, 1.0 - confidence).abs();
     if lower == 0.0 {
-        return 0.0;
+        return if upper > 0.0 { f64::INFINITY } else { f64::NAN };
     }
     upper / lower
 }
@@ -351,10 +352,10 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 /// Assumes normally distributed returns:
 ///
 /// ```text
-/// VaR = μ − z_α × σ
+/// VaR = μ + z_(1−α) × σ
 /// ```
 ///
-/// where `z_α` is the standard normal quantile at `(1 - confidence)`.
+/// where `z_(1−α)` is the standard normal quantile at `(1 - confidence)`.
 ///
 /// # Arguments
 ///
@@ -407,7 +408,7 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 ///
 /// ```text
 /// z_cf = z + (z² − 1)S/6 + (z³ − 3z)K/24 − (2z³ − 5z)S²/36
-/// VaR_CF = μ − z_cf × σ
+/// VaR_CF = μ + z_cf × σ
 /// ```
 ///
 /// where `S` is skewness and `K` is excess kurtosis.
@@ -545,6 +546,18 @@ mod tests {
         let var = value_at_risk(&data, 0.95, None);
         let es = expected_shortfall(&data, 0.95, None);
         assert!(es <= var);
+    }
+
+    #[test]
+    fn tail_ratio_returns_infinity_when_lower_tail_is_zero_but_upper_is_positive() {
+        let returns = [0.0, 0.0, 0.02, 0.03];
+        assert_eq!(tail_ratio(&returns, 0.75), f64::INFINITY);
+    }
+
+    #[test]
+    fn tail_ratio_returns_nan_when_both_tails_are_zero() {
+        let returns = [0.0, 0.0, 0.0, 0.0];
+        assert!(tail_ratio(&returns, 0.75).is_nan());
     }
 
     #[test]

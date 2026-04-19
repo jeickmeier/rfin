@@ -292,6 +292,15 @@ export interface TrafficLightResultJson {
   confidence: number;
 }
 
+/** FRTB-style P&L explanation diagnostics. */
+export interface PnlExplanationJson {
+  explanation_ratio: number;
+  aggregate_explanation_ratio: number;
+  mean_abs_unexplained: number;
+  std_unexplained: number;
+  n: number;
+}
+
 /** Full VaR backtest result aggregating all statistical tests. */
 export interface BacktestResultJson {
   kupiec: KupiecResultJson;
@@ -328,6 +337,13 @@ export interface GarchFitJson {
   terminal_variance: number;
   converged: boolean;
   iterations: number;
+}
+
+/** A single variance forecast returned by `forecastGarchFit`. */
+export interface VarianceForecastJson {
+  horizon: number;
+  variance: number;
+  annualized_vol: number;
 }
 
 /** Descriptive statistics returned by `peerStats`. */
@@ -423,11 +439,12 @@ export interface BetaResult {
   ci_upper: number;
 }
 
-/** Single-factor greeks (alpha, beta, R²). */
+/** Single-factor greeks (alpha, beta, R², adjusted R²). */
 export interface GreeksResult {
   alpha: number;
   beta: number;
   r_squared: number;
+  adjusted_r_squared: number;
 }
 
 /** Rolling greeks output (alphas and betas without date labels). */
@@ -494,7 +511,7 @@ export interface AnalyticsNamespace {
   RuinDefinition: RuinDefinitionConstructor;
   RuinModel: RuinModelConstructor;
   sharpe(annReturn: number, annVol: number, riskFreeRate: number): number;
-  sortino(returns: number[], annualize: boolean, annFactor: number): number;
+  sortino(returns: number[], annualize: boolean, annFactor: number, mar: number): number;
   volatility(returns: number[], annualize: boolean, annFactor: number): number;
   meanReturn(returns: number[], annualize: boolean, annFactor: number): number;
   cagr(returns: number[], basis: CagrBasis): number;
@@ -576,11 +593,17 @@ export interface AnalyticsNamespace {
   christoffersenTest(breachIndicators: boolean[], confidence: number): ChristoffersenResultJson;
   trafficLight(exceptions: number, n: number, confidence: number): TrafficLightResultJson;
   runBacktest(varForecasts: number[], realizedPnl: number[], confidence: number, windowSize: number): BacktestResultJson;
+  pnlExplanation(hypotheticalPnl: number[], riskTheoreticalPnl: number[], varForecasts: number[]): PnlExplanationJson;
   // GARCH volatility models
   fitGarch11(returns: number[], distribution: string): GarchFitJson;
   fitEgarch11(returns: number[], distribution: string): GarchFitJson;
   fitGjrGarch11(returns: number[], distribution: string): GarchFitJson;
-  garch11Forecast(omega: number, alpha: number, beta: number, lastVariance: number, lastReturn: number, horizon: number): number[];
+  forecastGarchFit(
+    fit: GarchFitJson,
+    horizons: number[],
+    tradingDaysPerYear?: number,
+    terminalResidual?: number | null
+  ): VarianceForecastJson[];
   ljungBox(residuals: number[], lags: number): [number, number];
   archLm(residuals: number[], lags: number): [number, number];
   aic(logLikelihood: number, nParams: number): number;

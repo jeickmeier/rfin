@@ -39,7 +39,6 @@ fn performance_multi_factor_greeks_errors_on_invalid_factor_input() {
         vec!["BENCH".to_string(), "PORT".to_string()],
         Some("BENCH"),
         PeriodKind::Daily,
-        false,
     )
     .expect("performance should build");
 

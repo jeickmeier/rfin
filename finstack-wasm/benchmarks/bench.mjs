@@ -583,7 +583,7 @@ async function main() {
   }
 
   bench('analytics', 'sortino', 6000, () => {
-    w.sortino(benchReturns, true, 252);
+    w.sortino(benchReturns, true, 252, 0);
   });
 
   bench('analytics', 'meanReturn', 6000, () => {
