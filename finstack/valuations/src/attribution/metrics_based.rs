@@ -267,42 +267,6 @@ pub fn attribute_pnl_metrics_based(
     as_of_t0: Date,
     as_of_t1: Date,
 ) -> Result<PnlAttribution> {
-    let input = AttributionInput {
-        instrument,
-        market_t0,
-        market_t1,
-        as_of_t0,
-        as_of_t1,
-        config: None,
-        model_params_t0: None,
-        val_t0: Some(val_t0),
-        val_t1: Some(val_t1),
-        strict_validation: false,
-    };
-    attribute_pnl_metrics_based_impl(&input)
-}
-
-/// Internal implementation of metrics-based attribution using `AttributionInput`.
-///
-/// This is the core implementation that uses the context struct pattern
-/// to reduce parameter count and improve maintainability.
-fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttribution> {
-    let instrument = input.instrument;
-    let market_t0 = input.market_t0;
-    let market_t1 = input.market_t1;
-    let as_of_t0 = input.as_of_t0;
-    let as_of_t1 = input.as_of_t1;
-    let val_t0 = input.val_t0.ok_or_else(|| {
-        finstack_core::Error::Validation(
-            "val_t0 required for metrics-based attribution".to_string(),
-        )
-    })?;
-    let val_t1 = input.val_t1.ok_or_else(|| {
-        finstack_core::Error::Validation(
-            "val_t1 required for metrics-based attribution".to_string(),
-        )
-    })?;
-
     // Total P&L — use date-specific FX to stay consistent with factor decomposition
     let total_pnl = compute_pnl_with_fx(
         val_t0.value,
@@ -325,6 +289,97 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
 
     // Extract time period in days
     let time_period_days = (as_of_t1 - as_of_t0).whole_days() as f64;
+
+    // ─── Preamble: compute market-shift averages ONCE ──────────────────────
+    //
+    // Each `measure_*_shift` helper is pure: same inputs → same output, so
+    // computing the per-factor averages once up-front and threading them
+    // through the per-factor blocks keeps the computation deterministic and
+    // avoids the former pattern of redundant second loops over the same
+    // curves.
+    //
+    // Iteration order is identical to the previous per-block loops:
+    //   - discount_curves / credit_curves / spot_ids in the order returned
+    //     by `market_deps.curve_dependencies()` / `market_deps.spot_ids`
+    //     (preserve the existing HashMap/Vec iteration order — do NOT sort).
+    //   - FX exposure / vol surface: single-valued, no ordering concern.
+    //
+    // A failed (Err) shift measurement skips that curve from the average,
+    // matching the prior behavior.
+    let market_deps = instrument.market_dependencies()?;
+
+    let (avg_rate_shift_bp, rate_curves_measured): (Option<f64>, usize) = {
+        let mut total = 0.0;
+        let mut count = 0usize;
+        for curve_id in &market_deps.curve_dependencies().discount_curves {
+            if let Ok(shift) = measure_discount_curve_shift(
+                curve_id.as_str(),
+                market_t0,
+                market_t1,
+                TenorSamplingMethod::Standard,
+            ) {
+                total += shift;
+                count += 1;
+            }
+        }
+        if count > 0 {
+            (Some(total / count as f64), count)
+        } else {
+            (None, 0)
+        }
+    };
+
+    let (avg_credit_shift_bp, credit_curves_measured): (Option<f64>, usize) = {
+        let mut total = 0.0;
+        let mut count = 0usize;
+        for curve_id in &market_deps.curve_dependencies().credit_curves {
+            if let Ok(shift) = measure_hazard_curve_shift(
+                curve_id.as_str(),
+                market_t0,
+                market_t1,
+                TenorSamplingMethod::Standard,
+            ) {
+                total += shift;
+                count += 1;
+            }
+        }
+        if count > 0 {
+            (Some(total / count as f64), count)
+        } else {
+            (None, 0)
+        }
+    };
+
+    let avg_vol_shift_abs: Option<f64> = market_deps
+        .equity_dependencies()
+        .vol_surface_id
+        .as_ref()
+        .and_then(|surface_id| {
+            measure_vol_surface_shift(surface_id.as_str(), market_t0, market_t1, None, None).ok()
+        });
+
+    let fx_shift_pct: Option<f64> = instrument.fx_exposure().and_then(|(base_ccy, quote_ccy)| {
+        measure_fx_shift(
+            base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1,
+        )
+        .ok()
+    });
+
+    let avg_spot_shift_pct: Option<f64> = {
+        let mut total = 0.0;
+        let mut count = 0usize;
+        for spot_id in &market_deps.spot_ids {
+            if let Ok(shift) = measure_scalar_shift(spot_id, market_t0, market_t1) {
+                total += shift;
+                count += 1;
+            }
+        }
+        if count > 0 {
+            Some(total / count as f64)
+        } else {
+            None
+        }
+    };
 
     // 1. Carry attribution (Theta / Carry decomposition)
     //
@@ -380,18 +435,26 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // otherwise falls back to aggregate DV01 with average shift.
 
     // Try to extract bucketed DV01 per curve
-    let market_deps = instrument.market_dependencies()?;
     let curve_ids = &market_deps.curve_dependencies().discount_curves;
     let bucketed_dv01 = extract_bucketed_dv01_per_curve(&val_t0.measures, curve_ids);
 
     let has_bucketed = !bucketed_dv01.is_empty();
     let mut rates_pnl = 0.0;
-    let mut curves_with_data = 0;
-    let mut total_shift_for_convexity = 0.0;
-    let mut avg_rate_shift_bp = None;
+    // Average rate shift used for the rates convexity / large-move blocks.
+    // - Bucketed branch: average only over curves that have BOTH a bucketed
+    //   DV01 entry AND a measurable shift (preserves prior behavior where a
+    //   curve without a bucketed entry doesn't contribute to the convexity
+    //   average).
+    // - Fallback branch: preamble average over all discount curves with a
+    //   measurable shift.
+    let mut convexity_avg_shift_bp: Option<f64> = None;
 
     if has_bucketed {
-        // Use bucketed DV01: sum per-curve contributions
+        // Use bucketed DV01: sum per-curve contributions. The bucketed branch
+        // still needs per-curve shifts (pairing DV01_i × shift_i), so we
+        // iterate even though the preamble already computed a plain average.
+        let mut total_shift = 0.0;
+        let mut curves_with_data = 0usize;
         for curve_id in curve_ids {
             if let Some(&dv01_for_curve) = bucketed_dv01.get(curve_id) {
                 if let Ok(shift) = measure_discount_curve_shift(
@@ -401,7 +464,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                     TenorSamplingMethod::Standard,
                 ) {
                     rates_pnl += dv01_for_curve * shift;
-                    total_shift_for_convexity += shift;
+                    total_shift += shift;
                     curves_with_data += 1;
                 }
             }
@@ -410,48 +473,26 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
 
         if curves_with_data > 0 {
-            avg_rate_shift_bp = Some(total_shift_for_convexity / curves_with_data as f64);
+            convexity_avg_shift_bp = Some(total_shift / curves_with_data as f64);
             attribution.meta.notes.push(format!(
                 "Rates attribution computed using bucketed DV01 across {} curves",
                 curves_with_data
             ));
         }
     } else if let Some(dv01) = val_t0.measures.get(MetricId::Dv01.as_str()) {
-        // Fallback: use aggregate DV01 with average shift
-        let mut total_shift = 0.0;
-        let mut curve_count = 0;
-
-        for curve_id in curve_ids {
-            if let Ok(shift) = measure_discount_curve_shift(
-                curve_id.as_str(),
-                market_t0,
-                market_t1,
-                TenorSamplingMethod::Standard,
-            ) {
-                total_shift += shift;
-                curve_count += 1;
-            }
-        }
-
-        let avg_shift = if curve_count > 0 {
-            total_shift / curve_count as f64
-        } else {
-            0.0
-        };
-
+        // Fallback: use aggregate DV01 with the preamble's average shift.
+        let avg_shift = avg_rate_shift_bp.unwrap_or(0.0);
         rates_pnl = dv01 * avg_shift;
-        total_shift_for_convexity = avg_shift;
-        curves_with_data = curve_count;
-        avg_rate_shift_bp = Some(avg_shift);
+        convexity_avg_shift_bp = avg_rate_shift_bp;
 
         attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
 
         // Add note about averaging limitation
-        if curve_count > 1 {
+        if rate_curves_measured > 1 {
             attribution.meta.notes.push(format!(
                 "Rates attribution uses aggregate DV01 with average shift across {} curves; \
                  provide BucketedDv01 metric for more accurate per-curve attribution",
-                curve_count
+                rate_curves_measured
             ));
         }
     }
@@ -465,7 +506,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     //
     // LIMITATION: Assumes parallel/average shifts and small moves; for large or non-parallel
     // moves, use bump-and-reprice curve gamma when available.
-    if curves_with_data > 0 {
+    if let Some(avg_shift) = convexity_avg_shift_bp {
         let rc = RoundingContext::default();
         let convexity_opt = val_t0
             .measures
@@ -481,8 +522,6 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         if let Some(&convexity) = convexity_opt {
             // Convexity term: ½ × P × Convexity × (Δr)²
             // where P is the instrument value/price
-            // Use average shift for convexity calculation
-            let avg_shift = total_shift_for_convexity / curves_with_data as f64;
             let shift_decimal = avg_shift / 10_000.0;
             let p0 = val_t0.value.amount();
             let convexity_pnl = 0.5 * p0 * convexity * shift_decimal * shift_decimal;
@@ -494,7 +533,6 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         }
 
         // Check for large rate moves that may exceed approximation accuracy
-        let avg_shift = total_shift_for_convexity / curves_with_data as f64;
         if avg_shift.abs() > LARGE_RATE_MOVE_THRESHOLD_BP {
             attribution.meta.notes.push(format!(
                 "Warning: Large rate move ({:.0}bp) exceeds {}bp threshold; \
@@ -519,40 +557,20 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // Ideal formula: PnL = Σ(CS01_i × Shift_i) for each curve i
     // Current formula: PnL = CS01_total × avg(Shift_i)
     if let Some(cs01) = val_t0.measures.get(MetricId::Cs01.as_str()) {
-        // CS01 is per 1bp spread move - measure actual spread shifts
-        let curve_ids = &market_deps.curve_dependencies().credit_curves;
-
-        let mut total_shift = 0.0;
-        let mut curve_count = 0;
-
-        for curve_id in curve_ids {
-            if let Ok(shift) = measure_hazard_curve_shift(
-                curve_id.as_str(),
-                market_t0,
-                market_t1,
-                TenorSamplingMethod::Standard,
-            ) {
-                total_shift += shift;
-                curve_count += 1;
-            }
-        }
-
-        let avg_shift = if curve_count > 0 {
-            total_shift / curve_count as f64
-        } else {
-            0.0
-        };
-        let avg_credit_shift_bp = avg_shift;
+        // Use preamble average. `unwrap_or(0.0)` preserves the prior behavior
+        // where a missing-or-fully-failed credit-curve measurement produced
+        // `avg_shift = 0.0` (no PnL contribution).
+        let avg_shift = avg_credit_shift_bp.unwrap_or(0.0);
 
         let credit_amount = cs01 * avg_shift;
         attribution.credit_curves_pnl = Money::new(credit_amount, val_t1.value.currency());
 
         // Add note about averaging limitation
-        if curve_count > 1 {
+        if credit_curves_measured > 1 {
             attribution.meta.notes.push(format!(
                 "Credit attribution uses average shift across {} curves; \
                  consider using bucketed CS01 metrics for better accuracy",
-                curve_count
+                credit_curves_measured
             ));
         }
 
@@ -588,8 +606,6 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                 LARGE_SPREAD_MOVE_THRESHOLD_BP
             ));
         }
-
-        let _ = avg_credit_shift_bp;
     }
 
     // 4. FX attribution (FX01 or FX Delta)
@@ -598,44 +614,10 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // - FX01: Dollar value of 1% FX rate change ($ / %)
     // - Formula: FX01 × Δfx (where Δfx is FX rate change in %)
     if let Some(fx01) = val_t0.measures.get(MetricId::Fx01.as_str()) {
-        // FX01 × spot change
-        if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
-            if let Ok(fx_shift_pct) = measure_fx_shift(
-                base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1,
-            ) {
-                // FX01 is typically per 1% move
-                let fx_amount = fx01 * fx_shift_pct;
-                attribution.fx_pnl = Money::new(fx_amount, val_t1.value.currency());
-            }
-        }
-    }
-
-    let mut avg_credit_shift_bp = None;
-    if !market_deps.curve_dependencies().credit_curves.is_empty() {
-        let mut total_credit_shift = 0.0;
-        let mut credit_curve_count = 0;
-        for curve_id in &market_deps.curve_dependencies().credit_curves {
-            if let Ok(shift) = measure_hazard_curve_shift(
-                curve_id.as_str(),
-                market_t0,
-                market_t1,
-                TenorSamplingMethod::Standard,
-            ) {
-                total_credit_shift += shift;
-                credit_curve_count += 1;
-            }
-        }
-        if credit_curve_count > 0 {
-            avg_credit_shift_bp = Some(total_credit_shift / credit_curve_count as f64);
-        }
-    }
-
-    let mut fx_shift_pct = None;
-    if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
-        if let Ok(shift) = measure_fx_shift(
-            base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1,
-        ) {
-            fx_shift_pct = Some(shift);
+        // FX01 × spot change (FX01 is typically per 1% move)
+        if let Some(fx_shift) = fx_shift_pct {
+            let fx_amount = fx01 * fx_shift;
+            attribution.fx_pnl = Money::new(fx_amount, val_t1.value.currency());
         }
     }
 
@@ -645,38 +627,34 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // - Vega: Dollar value of 1 percentage point volatility change ($ / vol point)
     // - Formula: Vega × Δσ (where Δσ is in percentage points, e.g., 1.0 for 1% vol change)
     if let Some(vega) = val_t0.measures.get(MetricId::Vega.as_str()) {
-        // Vega × vol change (in percentage points)
-        if let Some(surface_id) = market_deps.equity_dependencies().vol_surface_id {
-            if let Ok(vol_shift) =
-                measure_vol_surface_shift(surface_id.as_str(), market_t0, market_t1, None, None)
-            {
-                let avg_vol_shift = vol_shift;
-                // vol_shift is already in percentage points
-                let vol_amount = vega * vol_shift;
-                attribution.vol_pnl = Money::new(vol_amount, val_t1.value.currency());
+        // Vega × vol change (in percentage points). Preserves prior behavior:
+        // vol PnL is only recorded when the instrument has a vol surface AND
+        // the surface shift measurement succeeded (both conditions captured
+        // by `avg_vol_shift_abs` being `Some`).
+        if let Some(vol_shift) = avg_vol_shift_abs {
+            // vol_shift is already in percentage points
+            let vol_amount = vega * vol_shift;
+            attribution.vol_pnl = Money::new(vol_amount, val_t1.value.currency());
 
-                // 5b. Volatility convexity (Volga - second-order)
-                if let Some(volga) = val_t0.measures.get(MetricId::Volga.as_str()) {
-                    // Volga term: ½ × Volga × (Δσ)²
-                    let volga_pnl = 0.5 * volga * vol_shift * vol_shift;
+            // 5b. Volatility convexity (Volga - second-order)
+            if let Some(volga) = val_t0.measures.get(MetricId::Volga.as_str()) {
+                // Volga term: ½ × Volga × (Δσ)²
+                let volga_pnl = 0.5 * volga * vol_shift * vol_shift;
 
-                    attribution.vol_pnl = Money::new(
-                        attribution.vol_pnl.amount() + volga_pnl,
-                        val_t1.value.currency(),
-                    );
-                }
+                attribution.vol_pnl = Money::new(
+                    attribution.vol_pnl.amount() + volga_pnl,
+                    val_t1.value.currency(),
+                );
+            }
 
-                // Check for large vol moves that may exceed approximation accuracy
-                if vol_shift.abs() > LARGE_VOL_MOVE_THRESHOLD_PCT {
-                    attribution.meta.notes.push(format!(
-                        "Warning: Large volatility move ({:.1}%) exceeds {:.1}% threshold; \
-                         vol-of-vol effects ignored, consider parallel/waterfall attribution",
-                        vol_shift.abs(),
-                        LARGE_VOL_MOVE_THRESHOLD_PCT
-                    ));
-                }
-
-                let _ = avg_vol_shift;
+            // Check for large vol moves that may exceed approximation accuracy
+            if vol_shift.abs() > LARGE_VOL_MOVE_THRESHOLD_PCT {
+                attribution.meta.notes.push(format!(
+                    "Warning: Large volatility move ({:.1}%) exceeds {:.1}% threshold; \
+                     vol-of-vol effects ignored, consider parallel/waterfall attribution",
+                    vol_shift.abs(),
+                    LARGE_VOL_MOVE_THRESHOLD_PCT
+                ));
             }
         }
     }
@@ -693,21 +671,6 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         let spot_ids = &market_deps.spot_ids;
         let delta_opt = val_t0.measures.get(MetricId::Delta.as_str());
         let gamma_opt = val_t0.measures.get(MetricId::Gamma.as_str());
-        let avg_spot_shift_pct = {
-            let mut total_shift = 0.0;
-            let mut count = 0;
-            for spot_id in spot_ids {
-                if let Ok(spot_shift_pct) = measure_scalar_shift(spot_id, market_t0, market_t1) {
-                    total_shift += spot_shift_pct;
-                    count += 1;
-                }
-            }
-            if count > 0 {
-                Some(total_shift / count as f64)
-            } else {
-                None
-            }
-        };
 
         if let Some(&delta) = delta_opt {
             let mut total_spot_pnl = 0.0;
@@ -739,15 +702,6 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         let mut cross_total = 0.0;
         let mut cross_by_pair = IndexMap::new();
         let currency = val_t1.value.currency();
-
-        let avg_vol_shift_abs = market_deps
-            .equity_dependencies()
-            .vol_surface_id
-            .as_ref()
-            .and_then(|surface_id| {
-                measure_vol_surface_shift(surface_id.as_str(), market_t0, market_t1, None, None)
-                    .ok()
-            });
 
         if let (Some(cross_gamma), Some(rate_shift), Some(credit_shift)) = (
             val_t0

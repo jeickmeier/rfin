@@ -297,7 +297,6 @@
 pub(crate) mod csv;
 pub(crate) mod factors;
 pub(crate) mod helpers;
-pub(crate) mod json_envelope;
 pub(crate) mod metrics_based;
 pub(crate) mod model_params;
 pub(crate) mod parallel;
@@ -307,12 +306,11 @@ pub(crate) mod types;
 pub(crate) mod waterfall;
 
 // Re-export core types
-pub use json_envelope::JsonEnvelope;
 pub use types::{
-    AttributionFactor, AttributionInput, AttributionMeta, AttributionMethod, CarryDetail,
-    CorrelationsAttribution, CreditCurvesAttribution, CrossFactorDetail, FxAttribution,
-    InflationCurvesAttribution, ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution,
-    ScalarsAttribution, VolAttribution,
+    AttributionFactor, AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
+    CreditCurvesAttribution, CrossFactorDetail, FxAttribution, InflationCurvesAttribution,
+    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
+    VolAttribution,
 };
 
 // Re-export attribution functions
@@ -333,7 +331,7 @@ pub use taylor::{
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
 // Market snapshot helpers
 pub use factors::{
-    restore_scalars, CurveRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
+    CurveRestoreFlags, MarketRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
 };
 pub use helpers::{compute_pnl, compute_pnl_with_fx, convert_currency, reprice_instrument};
 

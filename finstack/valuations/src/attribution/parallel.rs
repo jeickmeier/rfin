@@ -48,6 +48,83 @@ fn cross_interaction_pnl(
         .checked_add(val_with_t0_ab)
 }
 
+/// Cross-factor tolerance for including an interaction term in the detail map.
+/// Matches the historical inline filter (`pnl.amount().abs() > 1e-12`).
+const CROSS_FACTOR_TOLERANCE: f64 = 1e-12;
+
+/// Accumulate a cross-factor interaction P&L into the running totals if its
+/// magnitude exceeds `CROSS_FACTOR_TOLERANCE`.
+fn record_cross_pair(
+    pair: &str,
+    pnl: Money,
+    cross_total: &mut f64,
+    cross_by_pair: &mut IndexMap<String, Money>,
+) {
+    if pnl.amount().abs() > CROSS_FACTOR_TOLERANCE {
+        *cross_total += pnl.amount();
+        cross_by_pair.insert(pair.to_string(), pnl);
+    }
+}
+
+/// Compute per-factor attribution P&L: reprice the instrument with T0 values
+/// for the given factor restored, then compare to T1 value using `compute_pnl`
+/// (T1-FX conversion — non-FX factors only).
+///
+/// Returns `None` if the snapshot contains no data for the factor (so the
+/// attribution field stays at its zero default). Returns
+/// `Some((factor_pnl, val_with_t0, market_with_t0))` when the factor was
+/// populated — the caller uses `val_with_t0` for cross-factor repricings and
+/// can reuse `market_with_t0` as the base for compound markets.
+#[allow(clippy::too_many_arguments)]
+fn reprice_factor_restored(
+    instrument: &Arc<dyn Instrument>,
+    market_t1: &MarketContext,
+    snapshot: &MarketSnapshot,
+    flags: CurveRestoreFlags,
+    has_data: bool,
+    as_of_t1: Date,
+    val_t1: Money,
+    num_repricings: &mut usize,
+) -> Result<Option<(Money, Money, MarketContext)>> {
+    if !has_data {
+        return Ok(None);
+    }
+    let market_with_t0 = MarketSnapshot::restore_market(market_t1, snapshot, flags);
+    let reprice = reprice_instrument(instrument, &market_with_t0, as_of_t1)?;
+    *num_repricings += 1;
+    let factor_pnl = compute_pnl(reprice, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+    Ok(Some((factor_pnl, reprice, market_with_t0)))
+}
+
+/// Reprice the instrument with two factors simultaneously restored to T0 and
+/// compute the cross-factor interaction P&L.
+///
+/// The helper extracts a combined snapshot with the requested flags from
+/// `market_t0`, restores it onto `market_t1`, reprices, and feeds the result
+/// into `cross_interaction_pnl`. This is equivalent (and bit-identical) to the
+/// explicit per-family snapshot-and-restore chaining used previously:
+/// `restore_market` only touches flagged families, so a single combined
+/// `(A | B)` restore from `market_t0` produces the same market as stacking an
+/// `A` restore followed by a `B` restore.
+#[allow(clippy::too_many_arguments)]
+fn reprice_cross_factor(
+    instrument: &Arc<dyn Instrument>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t1: Date,
+    flags: CurveRestoreFlags,
+    val_t1: Money,
+    val_with_t0_a: Money,
+    val_with_t0_b: Money,
+    num_repricings: &mut usize,
+) -> Result<Money> {
+    let combined = MarketSnapshot::extract(market_t0, flags);
+    let market_combined = MarketSnapshot::restore_market(market_t1, &combined, flags);
+    let reprice = reprice_instrument(instrument, &market_combined, as_of_t1)?;
+    *num_repricings += 1;
+    cross_interaction_pnl(val_t1, val_with_t0_a, val_with_t0_b, reprice)
+}
+
 /// Perform parallel P&L attribution for an instrument.
 ///
 /// Each factor is isolated independently by restoring T₀ values for that
@@ -136,36 +213,6 @@ pub fn attribute_pnl_parallel(
     _config: &FinstackConfig,
     model_params_t0: Option<&model_params::ModelParamsSnapshot>,
 ) -> Result<PnlAttribution> {
-    let input = AttributionInput {
-        instrument,
-        market_t0,
-        market_t1,
-        as_of_t0,
-        as_of_t1,
-        config: Some(_config),
-        model_params_t0,
-        val_t0: None,
-        val_t1: None,
-        strict_validation: false,
-    };
-    attribute_pnl_parallel_impl(&input)
-}
-
-/// Internal implementation of parallel attribution using `AttributionInput`.
-///
-/// This is the core implementation that uses the context struct pattern
-/// to reduce parameter count and improve maintainability.
-fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttribution> {
-    let instrument = input.instrument;
-    let market_t0 = input.market_t0;
-    let market_t1 = input.market_t1;
-    let as_of_t0 = input.as_of_t0;
-    let as_of_t1 = input.as_of_t1;
-    let model_params_t0 = input.model_params_t0;
-    let _config = input.config.ok_or_else(|| {
-        finstack_core::Error::Validation("config required for parallel attribution".to_string())
-    })?;
-
     let mut num_repricings = 0;
 
     // Step 1: Price at T₀ and T₁
@@ -201,10 +248,11 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         Some(_config),
     );
 
-    let mut val_with_t0_credit = None;
-    let mut val_with_t0_fx = None;
-    let mut val_with_t0_vol = None;
-    let mut val_with_t0_scalars = None;
+    let mut val_with_t0_rates: Option<Money> = None;
+    let mut val_with_t0_credit: Option<Money> = None;
+    let mut val_with_t0_fx: Option<Money> = None;
+    let mut val_with_t0_vol: Option<Money> = None;
+    let mut val_with_t0_scalars: Option<Money> = None;
 
     // Step 2: Carry attribution (time decay + accruals + roll-down)
     //
@@ -244,81 +292,67 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     // total_pnl now represents economic (total-return) P&L.
     apply_total_return_carry(&mut attribution, theta, coupon_income)?;
 
-    // Step 3: Rates curves attribution (discount + forward)
+    // Step 3: Rates curves attribution (discount + forward).
+    // Rates are always populated in practice, so `has_data = true` unconditionally.
     let rates_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::RATES);
-    let market_with_t0_rates =
-        MarketSnapshot::restore_market(market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
-    let rates_reprice = reprice_instrument(instrument, &market_with_t0_rates, as_of_t1)?;
-    num_repricings += 1;
-    let val_with_t0_rates = rates_reprice;
-
-    // Rates P&L = impact of moving from T₀ rates to T₁ rates
-    // val_t1 (with T₁ rates) - val_with_t0_rates (with T₀ rates)
-    attribution.rates_curves_pnl = compute_pnl(
-        rates_reprice,
-        val_t1,
-        val_t1.currency(),
+    if let Some((pnl, reprice, _market)) = reprice_factor_restored(
+        instrument,
         market_t1,
+        &rates_snapshot,
+        CurveRestoreFlags::RATES,
+        true,
         as_of_t1,
-    )?;
+        val_t1,
+        &mut num_repricings,
+    )? {
+        attribution.rates_curves_pnl = pnl;
+        val_with_t0_rates = Some(reprice);
+    }
 
-    // Step 4: Credit curves attribution (hazard curves)
+    // Step 4: Credit curves attribution (hazard curves).
     let credit_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::CREDIT);
-    if !credit_snapshot.hazard_curves.is_empty() {
-        let market_with_t0_credit =
-            MarketSnapshot::restore_market(market_t1, &credit_snapshot, CurveRestoreFlags::CREDIT);
-        let credit_reprice = reprice_instrument(instrument, &market_with_t0_credit, as_of_t1)?;
-        num_repricings += 1;
-        val_with_t0_credit = Some(credit_reprice);
-
-        attribution.credit_curves_pnl = compute_pnl(
-            credit_reprice,
-            val_t1,
-            val_t1.currency(),
-            market_t1,
-            as_of_t1,
-        )?;
+    if let Some((pnl, reprice, _market)) = reprice_factor_restored(
+        instrument,
+        market_t1,
+        &credit_snapshot,
+        CurveRestoreFlags::CREDIT,
+        !credit_snapshot.hazard_curves.is_empty(),
+        as_of_t1,
+        val_t1,
+        &mut num_repricings,
+    )? {
+        attribution.credit_curves_pnl = pnl;
+        val_with_t0_credit = Some(reprice);
     }
 
-    // Step 5: Inflation curves attribution
+    // Step 5: Inflation curves attribution.
     let inflation_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::INFLATION);
-    if !inflation_snapshot.inflation_curves.is_empty() {
-        let market_with_t0_inflation = MarketSnapshot::restore_market(
-            market_t1,
-            &inflation_snapshot,
-            CurveRestoreFlags::INFLATION,
-        );
-        let val_with_t0_inflation =
-            reprice_instrument(instrument, &market_with_t0_inflation, as_of_t1)?;
-        num_repricings += 1;
-
-        attribution.inflation_curves_pnl = compute_pnl(
-            val_with_t0_inflation,
-            val_t1,
-            val_t1.currency(),
-            market_t1,
-            as_of_t1,
-        )?;
+    if let Some((pnl, _reprice, _market)) = reprice_factor_restored(
+        instrument,
+        market_t1,
+        &inflation_snapshot,
+        CurveRestoreFlags::INFLATION,
+        !inflation_snapshot.inflation_curves.is_empty(),
+        as_of_t1,
+        val_t1,
+        &mut num_repricings,
+    )? {
+        attribution.inflation_curves_pnl = pnl;
     }
 
-    // Step 6: Correlations attribution (base correlation curves)
+    // Step 6: Correlations attribution (base correlation curves).
     let correlations_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::CORRELATION);
-    if !correlations_snapshot.base_correlation_curves.is_empty() {
-        let market_with_t0_corr = MarketSnapshot::restore_market(
-            market_t1,
-            &correlations_snapshot,
-            CurveRestoreFlags::CORRELATION,
-        );
-        let val_with_t0_corr = reprice_instrument(instrument, &market_with_t0_corr, as_of_t1)?;
-        num_repricings += 1;
-
-        attribution.correlations_pnl = compute_pnl(
-            val_with_t0_corr,
-            val_t1,
-            val_t1.currency(),
-            market_t1,
-            as_of_t1,
-        )?;
+    if let Some((pnl, _reprice, _market)) = reprice_factor_restored(
+        instrument,
+        market_t1,
+        &correlations_snapshot,
+        CurveRestoreFlags::CORRELATION,
+        !correlations_snapshot.base_correlation_curves.is_empty(),
+        as_of_t1,
+        val_t1,
+        &mut num_repricings,
+    )? {
+        attribution.correlations_pnl = pnl;
     }
 
     // Step 7: FX attribution
@@ -349,9 +383,10 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     //
     // For single-currency instruments in their native reporting currency, this step
     // produces zero P&L as expected.
-    let fx_t0 = extract_fx(market_t0);
-    if fx_t0.is_some() {
-        let market_with_t0_fx = restore_fx(market_t1, fx_t0.clone());
+    let fx_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::FX);
+    if fx_snapshot.fx.is_some() {
+        let market_with_t0_fx =
+            MarketSnapshot::restore_market(market_t1, &fx_snapshot, CurveRestoreFlags::FX);
         let fx_reprice = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
         val_with_t0_fx = Some(fx_reprice);
@@ -376,16 +411,20 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         );
     }
 
-    // Step 8: Volatility attribution
-    let vol_snapshot = VolatilitySnapshot::extract(market_t0);
-    if !vol_snapshot.surfaces.is_empty() {
-        let market_with_t0_vol = restore_volatility(market_t1, &vol_snapshot);
-        let vol_reprice = reprice_instrument(instrument, &market_with_t0_vol, as_of_t1)?;
-        num_repricings += 1;
-        val_with_t0_vol = Some(vol_reprice);
-
-        attribution.vol_pnl =
-            compute_pnl(vol_reprice, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+    // Step 8: Volatility attribution.
+    let vol_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::VOL);
+    if let Some((pnl, reprice, _market)) = reprice_factor_restored(
+        instrument,
+        market_t1,
+        &vol_snapshot,
+        CurveRestoreFlags::VOL,
+        !vol_snapshot.surfaces.is_empty(),
+        as_of_t1,
+        val_t1,
+        &mut num_repricings,
+    )? {
+        attribution.vol_pnl = pnl;
+        val_with_t0_vol = Some(reprice);
     }
 
     // Step 9: Model parameters attribution
@@ -426,140 +465,106 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         }
     }
 
-    // Step 10: Market scalars attribution
-    let scalars_snapshot = ScalarsSnapshot::extract(market_t0);
+    // Step 10: Market scalars attribution.
+    let scalars_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::SCALARS);
     let has_scalars = !scalars_snapshot.prices.is_empty()
         || !scalars_snapshot.series.is_empty()
         || !scalars_snapshot.inflation_indices.is_empty()
         || !scalars_snapshot.dividends.is_empty();
-
-    if has_scalars {
-        let market_with_t0_scalars = restore_scalars(market_t1, &scalars_snapshot);
-        let scalars_reprice = reprice_instrument(instrument, &market_with_t0_scalars, as_of_t1)?;
-        num_repricings += 1;
-        val_with_t0_scalars = Some(scalars_reprice);
-
-        attribution.market_scalars_pnl = compute_pnl(
-            scalars_reprice,
-            val_t1,
-            val_t1.currency(),
-            market_t1,
-            as_of_t1,
-        )?;
+    if let Some((pnl, reprice, _market)) = reprice_factor_restored(
+        instrument,
+        market_t1,
+        &scalars_snapshot,
+        CurveRestoreFlags::SCALARS,
+        has_scalars,
+        as_of_t1,
+        val_t1,
+        &mut num_repricings,
+    )? {
+        attribution.market_scalars_pnl = pnl;
+        val_with_t0_scalars = Some(reprice);
     }
 
     // Step 10b: Explicit cross-factor interaction repricings.
+    //
+    // Each block restores two factors jointly from `market_t0` onto `market_t1`
+    // and compares against the two single-factor repricings already captured
+    // above. `restore_market` only touches flagged families, so restoring
+    // `A | B` from `market_t0` in one shot is bit-identical to stacking an
+    // `A` restore followed by a `B` restore.
     let mut cross_total = 0.0;
-    let mut cross_by_pair = IndexMap::new();
+    let mut cross_by_pair: IndexMap<String, Money> = IndexMap::new();
 
-    if let Some(credit_reprice) = val_with_t0_credit {
-        let market_with_t0_rates_credit = MarketSnapshot::restore_market(
-            &market_with_t0_rates,
-            &credit_snapshot,
-            CurveRestoreFlags::CREDIT,
-        );
-        let val_with_t0_rates_credit =
-            reprice_instrument(instrument, &market_with_t0_rates_credit, as_of_t1)?;
-        num_repricings += 1;
-
-        let pnl = cross_interaction_pnl(
-            val_t1,
-            val_with_t0_rates,
-            credit_reprice,
-            val_with_t0_rates_credit,
-        )?;
-        if pnl.amount().abs() > 1e-12 {
-            cross_total += pnl.amount();
-            cross_by_pair.insert("Rates×Credit".to_string(), pnl);
-        }
-    }
-
-    if let Some(vol_reprice) = val_with_t0_vol {
-        let market_with_t0_rates_vol = restore_volatility(&market_with_t0_rates, &vol_snapshot);
-        let val_with_t0_rates_vol =
-            reprice_instrument(instrument, &market_with_t0_rates_vol, as_of_t1)?;
-        num_repricings += 1;
-
-        let pnl = cross_interaction_pnl(
-            val_t1,
-            val_with_t0_rates,
-            vol_reprice,
-            val_with_t0_rates_vol,
-        )?;
-        if pnl.amount().abs() > 1e-12 {
-            cross_total += pnl.amount();
-            cross_by_pair.insert("Rates×Vol".to_string(), pnl);
-        }
-    }
-
-    if let (Some(scalars_reprice), Some(vol_reprice)) = (val_with_t0_scalars, val_with_t0_vol) {
-        let market_with_t0_spot_vol = restore_volatility(
-            &restore_scalars(market_t1, &scalars_snapshot),
-            &vol_snapshot,
-        );
-        let val_with_t0_spot_vol =
-            reprice_instrument(instrument, &market_with_t0_spot_vol, as_of_t1)?;
-        num_repricings += 1;
-
-        let pnl =
-            cross_interaction_pnl(val_t1, scalars_reprice, vol_reprice, val_with_t0_spot_vol)?;
-        if pnl.amount().abs() > 1e-12 {
-            cross_total += pnl.amount();
-            cross_by_pair.insert("Spot×Vol".to_string(), pnl);
-        }
-    }
-
-    if let (Some(scalars_reprice), Some(credit_reprice)) = (val_with_t0_scalars, val_with_t0_credit)
-    {
-        let market_with_t0_spot_credit = restore_scalars(
-            &MarketSnapshot::restore_market(market_t1, &credit_snapshot, CurveRestoreFlags::CREDIT),
-            &scalars_snapshot,
-        );
-        let val_with_t0_spot_credit =
-            reprice_instrument(instrument, &market_with_t0_spot_credit, as_of_t1)?;
-        num_repricings += 1;
-
-        let pnl = cross_interaction_pnl(
-            val_t1,
-            scalars_reprice,
-            credit_reprice,
-            val_with_t0_spot_credit,
-        )?;
-        if pnl.amount().abs() > 1e-12 {
-            cross_total += pnl.amount();
-            cross_by_pair.insert("Spot×Credit".to_string(), pnl);
-        }
-    }
-
-    if let (Some(fx_reprice), Some(vol_reprice)) = (val_with_t0_fx, val_with_t0_vol) {
-        let market_with_t0_fx_vol =
-            restore_volatility(&restore_fx(market_t1, fx_t0.clone()), &vol_snapshot);
-        let val_with_t0_fx_vol = reprice_instrument(instrument, &market_with_t0_fx_vol, as_of_t1)?;
-        num_repricings += 1;
-
-        let pnl = cross_interaction_pnl(val_t1, fx_reprice, vol_reprice, val_with_t0_fx_vol)?;
-        if pnl.amount().abs() > 1e-12 {
-            cross_total += pnl.amount();
-            cross_by_pair.insert("FX×Vol".to_string(), pnl);
-        }
-    }
-
-    if let Some(fx_reprice) = val_with_t0_fx {
-        let market_with_t0_fx_rates = MarketSnapshot::restore_market(
-            &restore_fx(market_t1, fx_t0),
-            &rates_snapshot,
+    // (pair_label, flag_A, flag_B, reprice_A, reprice_B) — order preserved
+    // exactly as before for reduction-order stability.
+    #[allow(clippy::type_complexity)]
+    let cross_specs: [(
+        &str,
+        CurveRestoreFlags,
+        CurveRestoreFlags,
+        Option<Money>,
+        Option<Money>,
+    ); 6] = [
+        (
+            "Rates×Credit",
             CurveRestoreFlags::RATES,
-        );
-        let val_with_t0_fx_rates =
-            reprice_instrument(instrument, &market_with_t0_fx_rates, as_of_t1)?;
-        num_repricings += 1;
+            CurveRestoreFlags::CREDIT,
+            val_with_t0_rates,
+            val_with_t0_credit,
+        ),
+        (
+            "Rates×Vol",
+            CurveRestoreFlags::RATES,
+            CurveRestoreFlags::VOL,
+            val_with_t0_rates,
+            val_with_t0_vol,
+        ),
+        (
+            "Spot×Vol",
+            CurveRestoreFlags::SCALARS,
+            CurveRestoreFlags::VOL,
+            val_with_t0_scalars,
+            val_with_t0_vol,
+        ),
+        (
+            "Spot×Credit",
+            CurveRestoreFlags::CREDIT,
+            CurveRestoreFlags::SCALARS,
+            val_with_t0_scalars,
+            val_with_t0_credit,
+        ),
+        (
+            "FX×Vol",
+            CurveRestoreFlags::FX,
+            CurveRestoreFlags::VOL,
+            val_with_t0_fx,
+            val_with_t0_vol,
+        ),
+        (
+            "FX×Rates",
+            CurveRestoreFlags::RATES,
+            CurveRestoreFlags::FX,
+            val_with_t0_fx,
+            val_with_t0_rates,
+        ),
+    ];
 
-        let pnl =
-            cross_interaction_pnl(val_t1, fx_reprice, val_with_t0_rates, val_with_t0_fx_rates)?;
-        if pnl.amount().abs() > 1e-12 {
-            cross_total += pnl.amount();
-            cross_by_pair.insert("FX×Rates".to_string(), pnl);
-        }
+    for (pair, flag_a, flag_b, reprice_a, reprice_b) in cross_specs {
+        let (Some(val_a), Some(val_b)) = (reprice_a, reprice_b) else {
+            continue;
+        };
+        let pnl = reprice_cross_factor(
+            instrument,
+            market_t0,
+            market_t1,
+            as_of_t1,
+            flag_a | flag_b,
+            val_t1,
+            val_a,
+            val_b,
+            &mut num_repricings,
+        )?;
+        record_cross_pair(pair, pnl, &mut cross_total, &mut cross_by_pair);
     }
 
     if !cross_by_pair.is_empty() {

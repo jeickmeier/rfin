@@ -179,6 +179,120 @@ struct PositionAttributionData {
     inst_ccy: Currency,
 }
 
+/// Private helper that aggregates portfolio-level factor P&L buckets using
+/// Neumaier summation. Holding all accumulators in a single struct with a
+/// fixed builder method makes the final field ordering impossible to mismatch.
+struct FactorAccumulator {
+    total_pnl: NeumaierAccumulator,
+    carry: NeumaierAccumulator,
+    rates_curves_pnl: NeumaierAccumulator,
+    credit_curves_pnl: NeumaierAccumulator,
+    inflation_curves_pnl: NeumaierAccumulator,
+    correlations_pnl: NeumaierAccumulator,
+    fx_pnl: NeumaierAccumulator,
+    fx_translation_pnl: NeumaierAccumulator,
+    vol_pnl: NeumaierAccumulator,
+    model_params_pnl: NeumaierAccumulator,
+    market_scalars_pnl: NeumaierAccumulator,
+    residual: NeumaierAccumulator,
+}
+
+impl FactorAccumulator {
+    fn new() -> Self {
+        Self {
+            total_pnl: NeumaierAccumulator::new(),
+            carry: NeumaierAccumulator::new(),
+            rates_curves_pnl: NeumaierAccumulator::new(),
+            credit_curves_pnl: NeumaierAccumulator::new(),
+            inflation_curves_pnl: NeumaierAccumulator::new(),
+            correlations_pnl: NeumaierAccumulator::new(),
+            fx_pnl: NeumaierAccumulator::new(),
+            fx_translation_pnl: NeumaierAccumulator::new(),
+            vol_pnl: NeumaierAccumulator::new(),
+            model_params_pnl: NeumaierAccumulator::new(),
+            market_scalars_pnl: NeumaierAccumulator::new(),
+            residual: NeumaierAccumulator::new(),
+        }
+    }
+
+    /// Add the converted per-position factor P&L to each bucket.
+    ///
+    /// Applies `convert` to each field of `pos_attr` and adds the resulting
+    /// amount to the matching accumulator. Does **not** touch
+    /// `fx_translation_pnl` — that is handled by [`add_fx_translation`] for
+    /// cross-currency positions.
+    ///
+    /// Add order (must be preserved for Neumaier numerical stability):
+    /// total_pnl, carry, rates_curves_pnl, credit_curves_pnl,
+    /// inflation_curves_pnl, correlations_pnl, fx_pnl, vol_pnl,
+    /// model_params_pnl, market_scalars_pnl, residual.
+    fn add_converted(
+        &mut self,
+        pos_attr: &PnlAttribution,
+        convert: &impl Fn(Money) -> Result<Money>,
+    ) -> Result<()> {
+        self.total_pnl.add(convert(pos_attr.total_pnl)?.amount());
+        self.carry.add(convert(pos_attr.carry)?.amount());
+        self.rates_curves_pnl
+            .add(convert(pos_attr.rates_curves_pnl)?.amount());
+        self.credit_curves_pnl
+            .add(convert(pos_attr.credit_curves_pnl)?.amount());
+        self.inflation_curves_pnl
+            .add(convert(pos_attr.inflation_curves_pnl)?.amount());
+        self.correlations_pnl
+            .add(convert(pos_attr.correlations_pnl)?.amount());
+        self.fx_pnl.add(convert(pos_attr.fx_pnl)?.amount());
+        self.vol_pnl.add(convert(pos_attr.vol_pnl)?.amount());
+        self.model_params_pnl
+            .add(convert(pos_attr.model_params_pnl)?.amount());
+        self.market_scalars_pnl
+            .add(convert(pos_attr.market_scalars_pnl)?.amount());
+        self.residual.add(convert(pos_attr.residual)?.amount());
+        Ok(())
+    }
+
+    /// Add the FX translation amount to both `fx_translation_pnl` and
+    /// `total_pnl`, preserving the current ordering where the converted
+    /// `pos_attr.total_pnl` is added first (via `add_converted`) and the
+    /// translation amount is added afterwards.
+    fn add_fx_translation(&mut self, amount: f64) {
+        self.fx_translation_pnl.add(amount);
+        self.total_pnl.add(amount);
+    }
+
+    /// Finalize: build the `PortfolioAttribution` struct. Centralizing the
+    /// construction here means each accumulator maps to its single correct
+    /// field in one place.
+    fn into_portfolio_attribution(
+        self,
+        base_ccy: Currency,
+        by_position: IndexMap<PositionId, PnlAttribution>,
+    ) -> PortfolioAttribution {
+        PortfolioAttribution {
+            total_pnl: Money::new(self.total_pnl.total(), base_ccy),
+            carry: Money::new(self.carry.total(), base_ccy),
+            rates_curves_pnl: Money::new(self.rates_curves_pnl.total(), base_ccy),
+            credit_curves_pnl: Money::new(self.credit_curves_pnl.total(), base_ccy),
+            inflation_curves_pnl: Money::new(self.inflation_curves_pnl.total(), base_ccy),
+            correlations_pnl: Money::new(self.correlations_pnl.total(), base_ccy),
+            fx_pnl: Money::new(self.fx_pnl.total(), base_ccy),
+            fx_translation_pnl: Money::new(self.fx_translation_pnl.total(), base_ccy),
+            vol_pnl: Money::new(self.vol_pnl.total(), base_ccy),
+            model_params_pnl: Money::new(self.model_params_pnl.total(), base_ccy),
+            market_scalars_pnl: Money::new(self.market_scalars_pnl.total(), base_ccy),
+            residual: Money::new(self.residual.total(), base_ccy),
+            by_position,
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        }
+    }
+}
+
 fn attribute_single_position(
     position: &crate::position::Position,
     market_t0: &MarketContext,
@@ -418,20 +532,29 @@ pub fn attribute_portfolio_pnl(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let mut total_pnl_acc = NeumaierAccumulator::new();
-    let mut carry_acc = NeumaierAccumulator::new();
-    let mut rates_acc = NeumaierAccumulator::new();
-    let mut credit_acc = NeumaierAccumulator::new();
-    let mut inflation_acc = NeumaierAccumulator::new();
-    let mut corr_acc = NeumaierAccumulator::new();
-    let mut fx_acc = NeumaierAccumulator::new();
-    let mut vol_acc = NeumaierAccumulator::new();
-    let mut model_acc = NeumaierAccumulator::new();
-    let mut scalars_acc = NeumaierAccumulator::new();
-    let mut residual_acc = NeumaierAccumulator::new();
-    let mut fx_translation_acc = NeumaierAccumulator::new();
-
+    let mut acc = FactorAccumulator::new();
     let mut by_position: IndexMap<PositionId, PnlAttribution> = IndexMap::new();
+
+    // Hoisted out of the per-position loop: the closure captures `market_t1`,
+    // `base_ccy`, and `as_of_t1` by reference and is reused for every field of
+    // every position.
+    let convert = |money: Money| -> Result<Money> {
+        if money.currency() == base_ccy {
+            Ok(money)
+        } else {
+            let fx_matrix = market_t1
+                .fx()
+                .ok_or_else(|| Error::MissingMarketData("FX matrix not available".to_string()))?;
+            let query = FxQuery::new(money.currency(), base_ccy, as_of_t1);
+            let rate_result = fx_matrix
+                .rate(query)
+                .map_err(|_| Error::FxConversionFailed {
+                    from: money.currency(),
+                    to: base_ccy,
+                })?;
+            Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
+        }
+    };
 
     for data in position_data {
         let PositionAttributionData {
@@ -441,35 +564,7 @@ pub fn attribute_portfolio_pnl(
             inst_ccy,
         } = data;
 
-        let convert = |money: Money| -> Result<Money> {
-            if money.currency() == base_ccy {
-                Ok(money)
-            } else {
-                let fx_matrix = market_t1.fx().ok_or_else(|| {
-                    Error::MissingMarketData("FX matrix not available".to_string())
-                })?;
-                let query = FxQuery::new(money.currency(), base_ccy, as_of_t1);
-                let rate_result = fx_matrix
-                    .rate(query)
-                    .map_err(|_| Error::FxConversionFailed {
-                        from: money.currency(),
-                        to: base_ccy,
-                    })?;
-                Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
-            }
-        };
-
-        total_pnl_acc.add(convert(pos_attr.total_pnl)?.amount());
-        carry_acc.add(convert(pos_attr.carry)?.amount());
-        rates_acc.add(convert(pos_attr.rates_curves_pnl)?.amount());
-        credit_acc.add(convert(pos_attr.credit_curves_pnl)?.amount());
-        inflation_acc.add(convert(pos_attr.inflation_curves_pnl)?.amount());
-        corr_acc.add(convert(pos_attr.correlations_pnl)?.amount());
-        fx_acc.add(convert(pos_attr.fx_pnl)?.amount());
-        vol_acc.add(convert(pos_attr.vol_pnl)?.amount());
-        model_acc.add(convert(pos_attr.model_params_pnl)?.amount());
-        scalars_acc.add(convert(pos_attr.market_scalars_pnl)?.amount());
-        residual_acc.add(convert(pos_attr.residual)?.amount());
+        acc.add_converted(&pos_attr, &convert)?;
 
         if inst_ccy != base_ccy {
             let fx_t0 = market_t0.fx().ok_or_else(|| {
@@ -499,38 +594,13 @@ pub fn attribute_portfolio_pnl(
             let principal_translation = principal_amount * (rate_t1.rate - rate_t0.rate);
 
             let total_translation = principal_translation;
-            fx_translation_acc.add(total_translation);
-
-            total_pnl_acc.add(total_translation);
+            acc.add_fx_translation(total_translation);
         }
 
         by_position.insert(position_id, pos_attr);
     }
 
-    let portfolio_attr = PortfolioAttribution {
-        total_pnl: Money::new(total_pnl_acc.total(), base_ccy),
-        carry: Money::new(carry_acc.total(), base_ccy),
-        rates_curves_pnl: Money::new(rates_acc.total(), base_ccy),
-        credit_curves_pnl: Money::new(credit_acc.total(), base_ccy),
-        inflation_curves_pnl: Money::new(inflation_acc.total(), base_ccy),
-        correlations_pnl: Money::new(corr_acc.total(), base_ccy),
-        fx_pnl: Money::new(fx_acc.total(), base_ccy),
-        fx_translation_pnl: Money::new(fx_translation_acc.total(), base_ccy),
-        vol_pnl: Money::new(vol_acc.total(), base_ccy),
-        model_params_pnl: Money::new(model_acc.total(), base_ccy),
-        market_scalars_pnl: Money::new(scalars_acc.total(), base_ccy),
-        residual: Money::new(residual_acc.total(), base_ccy),
-        by_position,
-        rates_detail: None,
-        credit_detail: None,
-        inflation_detail: None,
-        correlations_detail: None,
-        fx_detail: None,
-        vol_detail: None,
-        scalars_detail: None,
-    };
-
-    Ok(portfolio_attr)
+    Ok(acc.into_portfolio_attribution(base_ccy, by_position))
 }
 
 impl PortfolioAttribution {

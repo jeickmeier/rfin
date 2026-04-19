@@ -9,7 +9,7 @@ use finstack_core::market_data::context::MarketContextState;
 use finstack_core::money::Money;
 use finstack_valuations::attribution::{
     AttributionConfig, AttributionEnvelope, AttributionFactor, AttributionMethod, AttributionSpec,
-    JsonEnvelope, ModelParamsSnapshot,
+    ModelParamsSnapshot,
 };
 use finstack_valuations::cashflow::builder::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
@@ -262,11 +262,8 @@ fn test_attribution_envelope_to_from_json_helpers() {
 
     let envelope = AttributionEnvelope::new(spec);
 
-    // Test to_json() helper from JsonEnvelope trait
-    let json_str = envelope.to_json().unwrap();
-
-    // Test from_json() helper from JsonEnvelope trait
-    let parsed = AttributionEnvelope::from_json(&json_str).unwrap();
+    let json_str = serde_json::to_string_pretty(&envelope).unwrap();
+    let parsed = serde_json::from_str::<AttributionEnvelope>(&json_str).unwrap();
 
     assert_eq!(parsed.schema, envelope.schema);
     assert!(matches!(
@@ -297,10 +294,8 @@ fn test_attribution_result_envelope_roundtrip() {
     };
 
     let envelope = AttributionResultEnvelope::new(result);
-    // Test to_json() helper from JsonEnvelope trait
-    let json_str = envelope.to_json().unwrap();
-    // Test from_json() helper from JsonEnvelope trait
-    let parsed = AttributionResultEnvelope::from_json(&json_str).unwrap();
+    let json_str = serde_json::to_string_pretty(&envelope).unwrap();
+    let parsed = serde_json::from_str::<AttributionResultEnvelope>(&json_str).unwrap();
 
     assert_eq!(parsed.schema, "finstack.attribution/1");
     assert_eq!(parsed.result.attribution.total_pnl, total);

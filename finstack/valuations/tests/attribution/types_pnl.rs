@@ -1,6 +1,6 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::attribution::{AttributionMethod, JsonEnvelope, PnlAttribution};
+use finstack_valuations::attribution::{AttributionMethod, PnlAttribution};
 use time::macros::date;
 
 #[test]
@@ -149,17 +149,17 @@ fn test_pnl_attribution_json_envelope_trait() {
     attr.compute_residual()
         .expect("Residual computation should succeed");
 
-    let json = attr.to_json().expect("to_json should succeed");
+    let json = serde_json::to_string_pretty(&attr).expect("to_json should succeed");
     assert!(json.contains("BOND-001"));
     assert!(json.contains("\"carry\""));
 
-    let parsed = PnlAttribution::from_json(&json).expect("from_json should succeed");
+    let parsed = serde_json::from_str::<PnlAttribution>(&json).expect("from_json should succeed");
     assert_eq!(parsed.total_pnl, attr.total_pnl);
     assert_eq!(parsed.carry, attr.carry);
     assert_eq!(parsed.residual.amount(), attr.residual.amount());
 
     let reader = std::io::Cursor::new(json.as_bytes());
     let parsed_from_reader =
-        PnlAttribution::from_reader(reader).expect("from_reader should succeed");
+        serde_json::from_reader::<_, PnlAttribution>(reader).expect("from_reader should succeed");
     assert_eq!(parsed_from_reader.total_pnl, attr.total_pnl);
 }

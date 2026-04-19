@@ -5,7 +5,7 @@
 
 use super::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_standard,
-    attribute_pnl_waterfall, AttributionMethod, JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
+    attribute_pnl_waterfall, AttributionMethod, ModelParamsSnapshot, PnlAttribution,
 };
 use crate::instruments::{DynInstrument, InstrumentJson};
 use crate::metrics::MetricId;
@@ -50,22 +50,6 @@ impl AttributionEnvelope {
     pub fn execute(&self) -> Result<AttributionResultEnvelope> {
         let result = self.attribution.execute()?;
         Ok(AttributionResultEnvelope::new(result))
-    }
-}
-
-impl JsonEnvelope for AttributionEnvelope {
-    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-        finstack_core::Error::Calibration {
-            message: format!("Failed to parse attribution JSON: {}", e),
-            category: "json_parse".to_string(),
-        }
-    }
-
-    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-        finstack_core::Error::Calibration {
-            message: format!("Failed to serialize attribution: {}", e),
-            category: "json_serialize".to_string(),
-        }
     }
 }
 
@@ -361,22 +345,6 @@ impl AttributionResultEnvelope {
     }
 }
 
-impl JsonEnvelope for AttributionResultEnvelope {
-    fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-        finstack_core::Error::Calibration {
-            message: format!("Failed to parse attribution result JSON: {}", e),
-            category: "json_parse".to_string(),
-        }
-    }
-
-    fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-        finstack_core::Error::Calibration {
-            message: format!("Failed to serialize attribution result: {}", e),
-            category: "json_serialize".to_string(),
-        }
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -593,19 +561,18 @@ mod tests {
 
         let envelope = AttributionEnvelope::new(spec);
 
-        // Test to_json from JsonEnvelope trait
-        let json = envelope.to_json().expect("to_json should succeed");
+        // Test serde round-trip
+        let json = serde_json::to_string_pretty(&envelope).expect("to_json should succeed");
         assert!(json.contains("finstack.attribution/1"));
 
-        // Test from_json from JsonEnvelope trait
-        let parsed = AttributionEnvelope::from_json(&json).expect("from_json should succeed");
+        let parsed =
+            serde_json::from_str::<AttributionEnvelope>(&json).expect("from_json should succeed");
         assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
         assert_eq!(parsed.attribution.as_of_t0, envelope.attribution.as_of_t0);
 
-        // Test from_reader from JsonEnvelope trait
         let reader = std::io::Cursor::new(json.as_bytes());
-        let parsed_from_reader =
-            AttributionEnvelope::from_reader(reader).expect("from_reader should succeed");
+        let parsed_from_reader = serde_json::from_reader::<_, AttributionEnvelope>(reader)
+            .expect("from_reader should succeed");
         assert_eq!(parsed_from_reader.schema, ATTRIBUTION_SCHEMA_V1);
     }
 
@@ -629,22 +596,21 @@ mod tests {
 
         let envelope = AttributionResultEnvelope::new(result);
 
-        // Test to_json from JsonEnvelope trait
-        let json = envelope.to_json().expect("to_json should succeed");
+        // Test serde round-trip
+        let json = serde_json::to_string_pretty(&envelope).expect("to_json should succeed");
         assert!(json.contains("finstack.attribution/1"));
 
-        // Test from_json from JsonEnvelope trait
-        let parsed = AttributionResultEnvelope::from_json(&json).expect("from_json should succeed");
+        let parsed = serde_json::from_str::<AttributionResultEnvelope>(&json)
+            .expect("from_json should succeed");
         assert_eq!(parsed.schema, ATTRIBUTION_SCHEMA_V1);
         assert_eq!(
             parsed.result.attribution.total_pnl,
             envelope.result.attribution.total_pnl
         );
 
-        // Test from_reader from JsonEnvelope trait (newly available!)
         let reader = std::io::Cursor::new(json.as_bytes());
-        let parsed_from_reader =
-            AttributionResultEnvelope::from_reader(reader).expect("from_reader should succeed");
+        let parsed_from_reader = serde_json::from_reader::<_, AttributionResultEnvelope>(reader)
+            .expect("from_reader should succeed");
         assert_eq!(parsed_from_reader.schema, ATTRIBUTION_SCHEMA_V1);
     }
 }
