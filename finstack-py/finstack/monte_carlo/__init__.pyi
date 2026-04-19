@@ -148,6 +148,83 @@ class MonteCarloResult:
         """
         ...
 
+    @property
+    def num_skipped(self) -> int:
+        """Number of paths skipped due to non-finite payoff values.
+
+        Args:
+            None
+
+        Returns:
+            Count of skipped paths (0 when no values were filtered).
+
+        Example:
+            >>> from finstack.monte_carlo import price_european_call
+            >>> price_european_call(100, 100, 0.05, 0.0, 0.2, 1.0, num_paths=1000).num_skipped
+            0
+        """
+        ...
+
+    @property
+    def median(self) -> float | None:
+        """Median of captured discounted path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            Median value, or None when percentile capture is disabled.
+        """
+        ...
+
+    @property
+    def percentile_25(self) -> float | None:
+        """25th percentile of captured discounted path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            25th percentile value, or None when percentile capture is disabled.
+        """
+        ...
+
+    @property
+    def percentile_75(self) -> float | None:
+        """75th percentile of captured discounted path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            75th percentile value, or None when percentile capture is disabled.
+        """
+        ...
+
+    @property
+    def min(self) -> float | None:
+        """Minimum of captured discounted path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            Minimum sampled value, or None when range capture is disabled.
+        """
+        ...
+
+    @property
+    def max(self) -> float | None:
+        """Maximum of captured discounted path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            Maximum sampled value, or None when range capture is disabled.
+        """
+        ...
+
     def relative_stderr(self) -> float:
         """Relative standard error (stderr divided by absolute mean amount).
 
@@ -278,6 +355,78 @@ class Estimate:
             >>> from finstack.monte_carlo import Estimate
             >>> Estimate.__dict__.get("num_paths") is not None
             True
+        """
+        ...
+
+    @property
+    def num_skipped(self) -> int:
+        """Number of paths skipped due to non-finite payoffs.
+
+        Args:
+            None
+
+        Returns:
+            Count of skipped paths (0 when no values were filtered).
+        """
+        ...
+
+    @property
+    def median(self) -> float | None:
+        """Median of captured path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            Median value, or None when percentile capture is disabled.
+        """
+        ...
+
+    @property
+    def percentile_25(self) -> float | None:
+        """25th percentile of captured path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            25th percentile value, or None when percentile capture is disabled.
+        """
+        ...
+
+    @property
+    def percentile_75(self) -> float | None:
+        """75th percentile of captured path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            75th percentile value, or None when percentile capture is disabled.
+        """
+        ...
+
+    @property
+    def min(self) -> float | None:
+        """Minimum of captured path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            Minimum sampled value, or None when range capture is disabled.
+        """
+        ...
+
+    @property
+    def max(self) -> float | None:
+        """Maximum of captured path values, if captured.
+
+        Args:
+            None
+
+        Returns:
+            Maximum sampled value, or None when range capture is disabled.
         """
         ...
 
