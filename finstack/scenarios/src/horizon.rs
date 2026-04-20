@@ -254,11 +254,17 @@ impl HorizonAnalysis {
 }
 
 impl HorizonResult {
-    /// Total return as a decimal fraction (e.g. 0.05 = 5%).
+    /// Total return as a decimal fraction (e.g. `0.05` = 5%).
     ///
-    /// Computed as `total_pnl / initial_value`.  Returns 0.0 if the initial
-    /// value is zero to avoid division by zero.
+    /// Computed as `total_pnl / initial_value`. Returns:
+    /// - `0.0` when `initial_value` is zero (to avoid division by zero), and
+    /// - [`f64::NAN`] when `initial_value` and `total_pnl` are denominated in
+    ///   different currencies. Multi-currency results require an explicit
+    ///   base-currency conversion policy that this helper does not apply.
     pub fn total_return_pct(&self) -> f64 {
+        if self.initial_value.currency() != self.attribution.total_pnl.currency() {
+            return f64::NAN;
+        }
         let iv = self.initial_value.amount();
         if iv == 0.0 {
             return 0.0;
@@ -269,37 +275,52 @@ impl HorizonResult {
     /// Annualized total return.
     ///
     /// Uses `(1 + total_return_pct)^(365 / horizon_days) - 1`.
-    /// Returns `None` when there is no time-roll in the scenario (i.e.
-    /// `horizon_days` is `None`).
+    ///
+    /// Returns `None` when there is no time-roll in the scenario, when total
+    /// return is not finite (e.g. multi-currency result), or when the
+    /// compounded result would not be finite. Total returns at or below
+    /// `-100%` short-circuit to `Some(-1.0)` (a total loss stays a total loss
+    /// under any positive compounding exponent).
     pub fn annualized_return(&self) -> Option<f64> {
         let days = self.horizon_days? as f64;
         if days <= 0.0 {
             return None;
         }
         let tr = self.total_return_pct();
-        Some((1.0 + tr).powf(365.0 / days) - 1.0)
+        if !tr.is_finite() {
+            return None;
+        }
+        if tr <= -1.0 {
+            return Some(-1.0);
+        }
+        let out = (1.0 + tr).powf(365.0 / days) - 1.0;
+        out.is_finite().then_some(out)
     }
 
     /// A single factor's P&L as a fraction of initial value.
     ///
-    /// Returns 0.0 if initial value is zero.
+    /// Returns `0.0` if initial value is zero and [`f64::NAN`] if the factor
+    /// P&L currency does not match the initial value currency.
     pub fn factor_contribution(&self, factor: &AttributionFactor) -> f64 {
+        let factor_money = match factor {
+            AttributionFactor::Carry => &self.attribution.carry,
+            AttributionFactor::RatesCurves => &self.attribution.rates_curves_pnl,
+            AttributionFactor::CreditCurves => &self.attribution.credit_curves_pnl,
+            AttributionFactor::InflationCurves => &self.attribution.inflation_curves_pnl,
+            AttributionFactor::Correlations => &self.attribution.correlations_pnl,
+            AttributionFactor::Fx => &self.attribution.fx_pnl,
+            AttributionFactor::Volatility => &self.attribution.vol_pnl,
+            AttributionFactor::ModelParameters => &self.attribution.model_params_pnl,
+            AttributionFactor::MarketScalars => &self.attribution.market_scalars_pnl,
+        };
+        if self.initial_value.currency() != factor_money.currency() {
+            return f64::NAN;
+        }
         let iv = self.initial_value.amount();
         if iv == 0.0 {
             return 0.0;
         }
-        let pnl = match factor {
-            AttributionFactor::Carry => self.attribution.carry.amount(),
-            AttributionFactor::RatesCurves => self.attribution.rates_curves_pnl.amount(),
-            AttributionFactor::CreditCurves => self.attribution.credit_curves_pnl.amount(),
-            AttributionFactor::InflationCurves => self.attribution.inflation_curves_pnl.amount(),
-            AttributionFactor::Correlations => self.attribution.correlations_pnl.amount(),
-            AttributionFactor::Fx => self.attribution.fx_pnl.amount(),
-            AttributionFactor::Volatility => self.attribution.vol_pnl.amount(),
-            AttributionFactor::ModelParameters => self.attribution.model_params_pnl.amount(),
-            AttributionFactor::MarketScalars => self.attribution.market_scalars_pnl.amount(),
-        };
-        pnl / iv
+        factor_money.amount() / iv
     }
 }
 
@@ -559,5 +580,65 @@ mod tests {
             "total_return_pct() should match manual calculation"
         );
         Ok(())
+    }
+
+    fn empty_report() -> ApplicationReport {
+        ApplicationReport {
+            operations_applied: 0,
+            user_operations: 0,
+            expanded_operations: 0,
+            warnings: vec![],
+            rounding_context: None,
+        }
+    }
+
+    fn synthetic_result(
+        initial_ccy: Currency,
+        initial_amount: f64,
+        pnl_ccy: Currency,
+        pnl_amount: f64,
+        days: i64,
+    ) -> HorizonResult {
+        let attribution = PnlAttribution::new(
+            Money::new(pnl_amount, pnl_ccy),
+            "TEST",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 15) + time::Duration::days(days),
+            AttributionMethod::Parallel,
+        );
+        HorizonResult {
+            attribution,
+            initial_value: Money::new(initial_amount, initial_ccy),
+            terminal_value: Money::new(initial_amount + pnl_amount, initial_ccy),
+            horizon_days: Some(days),
+            scenario_report: empty_report(),
+        }
+    }
+
+    /// Currency mismatch between initial value and total P&L must surface as
+    /// NaN rather than a silently wrong ratio.
+    #[test]
+    fn total_return_pct_currency_mismatch_returns_nan() {
+        let result = synthetic_result(Currency::USD, 100.0, Currency::EUR, 10.0, 30);
+
+        assert!(result.total_return_pct().is_nan());
+        assert!(result.annualized_return().is_none());
+        assert!(result
+            .factor_contribution(&AttributionFactor::Carry)
+            .is_nan());
+    }
+
+    /// A total loss (or worse) must collapse to `-100%` annualized rather
+    /// than returning `NaN` from `powf` on a non-positive base.
+    #[test]
+    fn annualized_return_total_loss_returns_minus_one() {
+        let total_loss = synthetic_result(Currency::USD, 100.0, Currency::USD, -100.0, 30);
+        assert_eq!(total_loss.total_return_pct(), -1.0);
+        assert_eq!(total_loss.annualized_return(), Some(-1.0));
+
+        // Worse-than-total-loss (e.g. short book reported as -120%) must also
+        // resolve to -100%, not NaN.
+        let blown_up = synthetic_result(Currency::USD, 100.0, Currency::USD, -120.0, 30);
+        assert_eq!(blown_up.annualized_return(), Some(-1.0));
     }
 }
