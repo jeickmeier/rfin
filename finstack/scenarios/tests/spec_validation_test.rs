@@ -123,6 +123,40 @@ fn operation_validate_rejects_invalid_inputs() {
         .contains("Hierarchy target path cannot be empty"));
 }
 
+/// W7 regression: correlation point deltas must lie in [-2, 2]. Anything
+/// outside cannot produce a valid correlation (|Δρ| ≤ 2 since ρ ∈ [-1, 1])
+/// and is almost certainly a unit mistake (e.g. 25 meaning "0.25").
+#[test]
+fn operation_validate_rejects_out_of_range_correlation_deltas() {
+    let asset_corr_large = OperationSpec::AssetCorrelationPts { delta_pts: 25.0 };
+    let asset_corr_negative = OperationSpec::AssetCorrelationPts { delta_pts: -3.5 };
+    let base_corr_parallel = OperationSpec::BaseCorrParallelPts {
+        surface_id: "CDX.IG".into(),
+        points: 5.0,
+    };
+
+    for op in [asset_corr_large, asset_corr_negative, base_corr_parallel] {
+        let err = op
+            .validate()
+            .expect_err("out-of-range correlation delta must be rejected");
+        assert!(
+            err.to_string().contains("[-2, 2] points"),
+            "missing bound message: {err}"
+        );
+    }
+
+    // In-range values still pass.
+    OperationSpec::AssetCorrelationPts { delta_pts: 0.15 }
+        .validate()
+        .expect("0.15 is a sane correlation delta");
+    OperationSpec::BaseCorrParallelPts {
+        surface_id: "CDX.IG".into(),
+        points: -0.05,
+    }
+    .validate()
+    .expect("-0.05 is a sane base-correlation point shock");
+}
+
 #[test]
 fn operation_validate_rejects_curve_node_and_binding_shape_errors() {
     let empty_nodes = OperationSpec::CurveNodeBp {
