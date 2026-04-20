@@ -147,6 +147,55 @@ fn resolve_bump_targets(
     })
 }
 
+/// Typical parallel-bump stress range for commodity curves (convenience yield
+/// basis points). Shocks outside `[-5000, 10000]` bp trigger a warning so
+/// unit-confusion errors (e.g. 500 000 bp when 50 bp was intended) surface
+/// in the application report.
+const COMMODITY_LARGE_SHOCK_MIN_BP: f64 = -5_000.0;
+const COMMODITY_LARGE_SHOCK_MAX_BP: f64 = 10_000.0;
+
+fn commodity_shock_warning(curve_id: &str, bp: f64) -> Option<String> {
+    let range = COMMODITY_LARGE_SHOCK_MIN_BP..=COMMODITY_LARGE_SHOCK_MAX_BP;
+    (!range.contains(&bp)).then(|| {
+        format!(
+            "Commodity curve '{curve_id}' parallel bump {bp:+.0} bp is outside the typical \
+             stress range [{COMMODITY_LARGE_SHOCK_MIN_BP:+.0}, {COMMODITY_LARGE_SHOCK_MAX_BP:+.0}] bp; \
+             verify convenience-yield semantics (bp means 1e-4 on the zero rate, not a price shift)."
+        )
+    })
+}
+
+fn commodity_node_shock_warning(curve_id: &str, nodes: &[(String, f64)]) -> Option<String> {
+    let range = COMMODITY_LARGE_SHOCK_MIN_BP..=COMMODITY_LARGE_SHOCK_MAX_BP;
+    let extreme: Vec<String> = nodes
+        .iter()
+        .filter(|(_, bp)| !range.contains(bp))
+        .map(|(tenor, bp)| format!("{tenor}={bp:+.0}bp"))
+        .collect();
+    (!extreme.is_empty()).then(|| {
+        format!(
+            "Commodity curve '{curve_id}' node shocks outside typical stress range \
+             [{COMMODITY_LARGE_SHOCK_MIN_BP:+.0}, {COMMODITY_LARGE_SHOCK_MAX_BP:+.0}] bp: [{}]; \
+             verify convenience-yield semantics.",
+            extreme.join(", ")
+        )
+    })
+}
+
+/// Reject parallel VolIndex shocks that would drive any knot to a
+/// non-positive level (volatility must stay positive).
+fn check_vol_index_post_shock_positivity(curve_id: &str, levels: &[f64], pts: f64) -> Result<()> {
+    let base_min = levels.iter().copied().fold(f64::INFINITY, f64::min);
+    if base_min.is_finite() && base_min + pts <= 0.0 {
+        return Err(Error::Validation(format!(
+            "VolIndex '{curve_id}' parallel shock would produce non-positive level \
+             (min knot {base_min:.4} + shift {pts:+.4} = {:.4}); volatility must stay positive",
+            base_min + pts
+        )));
+    }
+    Ok(())
+}
+
 /// Resolve the discount curve ID used by recalibration-based curve bumps.
 fn resolve_discount_curve_id(
     market: &finstack_core::market_data::context::MarketContext,
@@ -398,7 +447,11 @@ impl ScenarioAdapter for CurveAdapter {
                             id: finstack_core::types::CurveId::from(curve_id.as_str()),
                             spec,
                         };
-                        Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
+                        let mut effects = vec![ScenarioEffect::MarketBump(bump)];
+                        if let Some(w) = commodity_shock_warning(curve_id, *bp) {
+                            effects.push(ScenarioEffect::Warning(w));
+                        }
+                        Ok(Some(effects))
                     }
                     CurveKind::VolIndex => {
                         // Volatility index curves store forward volatility *levels* (e.g., VIX).
@@ -417,6 +470,8 @@ impl ScenarioAdapter for CurveAdapter {
                             .map_err(|_| missing_market_err(curve_id))?;
 
                         let pts = *bp / 100.0;
+                        check_vol_index_post_shock_positivity(curve_id, base_curve.levels(), pts)?;
+
                         let new_curve = base_curve.with_parallel_bump(pts).map_err(|e| {
                             Error::Internal(format!("Failed to bump vol index curve: {}", e))
                         })?;
@@ -714,7 +769,11 @@ impl ScenarioAdapter for CurveAdapter {
                                 Error::Internal(format!("Failed to rebuild commodity curve: {}", e))
                             })?;
 
-                        Ok(Some(update_effects(new_curve, result.warnings)))
+                        let mut warnings = result.warnings;
+                        if let Some(w) = commodity_node_shock_warning(curve_id, nodes) {
+                            warnings.push(w);
+                        }
+                        Ok(Some(update_effects(new_curve, warnings)))
                     }
                     CurveKind::VolIndex => {
                         // Volatility index curves - apply node-specific bumps
@@ -748,8 +807,17 @@ impl ScenarioAdapter for CurveAdapter {
                         // float tolerance issues from round-tripping through time values).
                         let mut total_bp_abs = 0.0_f64;
                         for &(idx, bp) in &result.indexed_targets {
-                            // bp / 100 converts to index points: bp=100 → +1.0 index point
-                            levels[idx] += bp / 100.0;
+                            let pts = bp / 100.0;
+                            let proposed = levels[idx] + pts;
+                            if proposed <= 0.0 {
+                                return Err(Error::Validation(format!(
+                                    "VolIndex '{curve_id}' node shock at knot[{idx}] would \
+                                     produce non-positive level (base {:.4} + shift {:+.4} = \
+                                     {:.4}); volatility must stay positive",
+                                    levels[idx], pts, proposed,
+                                )));
+                            }
+                            levels[idx] = proposed;
                             total_bp_abs += bp.abs();
                         }
 
@@ -837,5 +905,87 @@ mod tests {
 
         assert!((updated_curve.spot_level() - 19.5).abs() < 1.0e-12);
         assert!((updated_curve.forward_level(0.25) - 21.0).abs() < 1.0e-12);
+    }
+
+    /// W3 regression: parallel VolIndex shocks that would drive any knot to
+    /// zero or below must be rejected rather than silently producing a
+    /// non-positive vol level.
+    #[test]
+    fn vol_index_parallel_shock_rejects_non_positive_floor() {
+        let as_of = date!(2025 - 01 - 01);
+        let vol_curve = VolatilityIndexCurve::builder("VIX")
+            .base_date(as_of)
+            .spot_level(15.0)
+            .knots([(0.0, 15.0), (0.25, 16.0), (0.5, 18.0)])
+            .build()
+            .expect("vol index curve should build");
+        let mut market = MarketContext::new().insert(vol_curve);
+        let mut model = FinancialModelSpec::new("demo", vec![]);
+        let ctx = ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of,
+        };
+
+        // -1500 bp = -15.0 index points, wiping out the spot knot.
+        let op = OperationSpec::CurveParallelBp {
+            curve_kind: CurveKind::VolIndex,
+            curve_id: "VIX".to_string(),
+            discount_curve_id: None,
+            bp: -1500.0,
+        };
+
+        let err = CurveAdapter
+            .try_generate_effects(&op, &ctx)
+            .expect_err("shock to zero must be rejected");
+        assert!(err.to_string().contains("non-positive level"));
+    }
+
+    /// W5 regression: commodity parallel shocks outside the typical stress
+    /// range surface an audit warning.
+    #[test]
+    fn commodity_parallel_large_shock_emits_warning() {
+        use finstack_core::market_data::term_structures::DiscountCurve;
+
+        let as_of = date!(2025 - 01 - 01);
+        let curve = DiscountCurve::builder("WTI")
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)])
+            .build()
+            .expect("commodity curve should build");
+
+        let mut market = MarketContext::new().insert(curve);
+        let mut model = FinancialModelSpec::new("demo", vec![]);
+        let ctx = ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of,
+        };
+
+        let op = OperationSpec::CurveParallelBp {
+            curve_kind: CurveKind::Commodity,
+            curve_id: "WTI".to_string(),
+            discount_curve_id: None,
+            bp: 50_000.0,
+        };
+
+        let effects = CurveAdapter
+            .try_generate_effects(&op, &ctx)
+            .expect("adapter should succeed")
+            .expect("commodity shock should be handled");
+
+        let has_warning = effects
+            .iter()
+            .any(|e| matches!(e, ScenarioEffect::Warning(w) if w.contains("outside the typical stress range")));
+        assert!(
+            has_warning,
+            "expected large-shock warning in effects: {effects:?}"
+        );
     }
 }

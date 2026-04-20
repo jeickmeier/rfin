@@ -54,6 +54,52 @@ fn test_time_roll_1_day() {
     assert_ne!(ctx.as_of, original_date);
 }
 
+/// W8 regression: TimeRollForward must reject negative day shifts. The engine
+/// is only meaningful for forward time; a negative period (whether produced
+/// by Tenor::parse or a downstream calculation) silently corrupts carry and
+/// market-data roll. Either Tenor::parse rejects the string (preferred) or
+/// apply_time_roll_forward's explicit guard does.
+#[test]
+fn test_time_roll_negative_period_is_rejected() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "backward_roll".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::TimeRollForward {
+            period: "-1M".into(),
+            apply_shocks: false,
+            roll_mode: TimeRollMode::Approximate,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let err = engine
+        .apply(&scenario, &mut ctx)
+        .expect_err("backward roll must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("backward")
+            || msg.to_ascii_lowercase().contains("negative")
+            || msg.to_ascii_lowercase().contains("invalid"),
+        "error should describe the negative period, got: {msg}"
+    );
+}
+
 #[test]
 fn test_time_roll_1_month() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
