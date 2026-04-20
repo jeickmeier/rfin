@@ -157,11 +157,18 @@ pub fn goal_seek(
     )
     .map_err(to_js_err)?;
 
-    let updated_json = serde_json::to_string_pretty(&model).map_err(to_js_err)?;
-    let out = serde_json::json!({
-        "solved_value": result,
-        "updated_model_json": updated_json,
-    });
+    // Only re-serialize the (potentially mutated) model when the caller
+    // asked for the update; otherwise `model` is unchanged and the JSON is
+    // wasted work + a confusing `updated_model_json` on non-updating calls.
+    let out = if update_model {
+        let updated_json = serde_json::to_string_pretty(&model).map_err(to_js_err)?;
+        serde_json::json!({
+            "solved_value": result,
+            "updated_model_json": updated_json,
+        })
+    } else {
+        serde_json::json!({ "solved_value": result })
+    };
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }
 

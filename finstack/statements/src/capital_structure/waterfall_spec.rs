@@ -3,6 +3,7 @@
 //! These are serializable specifications that define how payments are
 //! prioritized and how excess cash flow sweeps and PIK toggles behave.
 
+use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// Waterfall specification for dynamic cash flow allocation.
@@ -52,6 +53,41 @@ impl Default for WaterfallSpec {
             ecf_sweep: None,
             pik_toggle: None,
         }
+    }
+}
+
+impl WaterfallSpec {
+    /// Validate that the spec represents an economically consistent waterfall.
+    ///
+    /// Currently enforces: when an ECF sweep with a positive `sweep_percentage`
+    /// is configured, `Sweep` MUST precede `Equity` in `priority_of_payments`.
+    /// Otherwise the waterfall engine silently zeros the remaining sweep cash
+    /// (equity has already been paid) and the configured sweep never applies.
+    pub fn validate(&self) -> Result<()> {
+        let Some(ecf) = &self.ecf_sweep else {
+            return Ok(());
+        };
+        if ecf.sweep_percentage <= 0.0 {
+            return Ok(());
+        }
+        let sweep_pos = self
+            .priority_of_payments
+            .iter()
+            .position(|p| *p == PaymentPriority::Sweep);
+        let equity_pos = self
+            .priority_of_payments
+            .iter()
+            .position(|p| *p == PaymentPriority::Equity);
+        if let (Some(sweep), Some(equity)) = (sweep_pos, equity_pos) {
+            if sweep > equity {
+                return Err(Error::build(
+                    "WaterfallSpec: `Sweep` must precede `Equity` in \
+                     `priority_of_payments` when `ecf_sweep.sweep_percentage > 0`. \
+                     Reorder priorities so `Sweep` appears before `Equity`.",
+                ));
+            }
+        }
+        Ok(())
     }
 }
 

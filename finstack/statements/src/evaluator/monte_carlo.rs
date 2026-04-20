@@ -87,9 +87,11 @@ pub struct MonteCarloResults {
     /// Warnings encountered while evaluating Monte Carlo paths.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<EvalWarning>,
-    /// Internal storage of path-level values.
+    /// Internal storage of path-level values keyed by `(path_id, value)` so
+    /// per-path aggregations (e.g. breach probability) remain correct
+    /// regardless of parallel merge order.
     #[serde(skip)]
-    pub(crate) path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>>,
+    pub(crate) path_values: IndexMap<String, IndexMap<PeriodId, Vec<(u32, f64)>>>,
     /// Optional full path data in long-format table form.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path_data: Option<TableEnvelope>,
@@ -133,37 +135,38 @@ impl MonteCarloResults {
         }
 
         let forecast_set: HashSet<PeriodId> = self.forecast_periods.iter().copied().collect();
-        let mut period_vectors: Vec<(&PeriodId, &Vec<f64>)> = metric_map
+        let period_vectors: Vec<&Vec<(u32, f64)>> = metric_map
             .iter()
             .filter(|(p, _)| forecast_set.contains(p))
+            .map(|(_, v)| v)
             .collect();
-        period_vectors.sort_by(|(p1, _), (p2, _)| p1.cmp(p2));
 
         if period_vectors.is_empty() {
             return None;
         }
 
-        if period_vectors
-            .iter()
-            .any(|(_, values)| values.len() < self.n_paths)
-        {
+        if period_vectors.iter().any(|v| v.len() < self.n_paths) {
             return None;
         }
 
-        let mut breached_paths = 0usize;
-        for path_idx in 0..self.n_paths {
-            let mut breached = false;
-            for (_, values) in &period_vectors {
-                if values[path_idx] > threshold {
-                    breached = true;
-                    break;
+        // Group by path_id (robust to rayon-reduce ordering) and mark a path
+        // as breached if any forecast period exceeds the threshold.
+        let mut breached: std::collections::HashMap<u32, bool> =
+            std::collections::HashMap::with_capacity(self.n_paths);
+        for period_values in &period_vectors {
+            for (path_id, value) in period_values.iter() {
+                let entry = breached.entry(*path_id).or_insert(false);
+                if *value > threshold {
+                    *entry = true;
                 }
-            }
-            if breached {
-                breached_paths += 1;
             }
         }
 
+        if breached.len() < self.n_paths {
+            return None;
+        }
+
+        let breached_paths = breached.values().filter(|b| **b).count();
         Some(breached_paths as f64 / self.n_paths as f64)
     }
 }
@@ -186,7 +189,7 @@ pub(crate) struct MonteCarloAccumulator {
     percentiles: Vec<f64>,
     forecast_periods: Vec<PeriodId>,
     forecast_set: HashSet<PeriodId>,
-    path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>>,
+    path_values: IndexMap<String, IndexMap<PeriodId, Vec<(u32, f64)>>>,
     warnings: Vec<EvalWarning>,
     path_ids: Vec<u32>,
     periods: Vec<String>,
@@ -246,7 +249,10 @@ impl MonteCarloAccumulator {
                         metric, period_id
                     )));
                 }
-                metric_entry.entry(period_id).or_default().push(value);
+                metric_entry
+                    .entry(period_id)
+                    .or_default()
+                    .push((path_idx as u32, value));
                 self.path_ids.push(path_idx as u32);
                 self.periods.push(period_id.to_string());
                 self.metrics.push(metric.clone());
@@ -282,7 +288,7 @@ impl MonteCarloAccumulator {
                     continue;
                 }
 
-                let mut sorted = values.clone();
+                let mut sorted: Vec<f64> = values.iter().map(|(_, v)| *v).collect();
                 sorted.sort_by(|a, b| a.total_cmp(b));
                 let len = sorted.len();
                 let mut pairs: Vec<(f64, f64)> = Vec::with_capacity(self.percentiles.len());
@@ -435,6 +441,42 @@ mod tests {
         let err = aggregate_monte_carlo_paths(&model, &config, &[(path, Vec::new())])
             .expect_err("NaN must fail");
         assert!(err.to_string().contains("non-finite"));
+    }
+
+    #[test]
+    fn breach_probability_is_order_independent() {
+        // Two paths; path 0 breaches in period 1, path 1 never breaches.
+        // Expected probability: exactly 0.5 regardless of rayon-reduce order.
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("mc-breach")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .value("revenue", &[(period, AmountOrScalar::scalar(100.0))])
+            .build()
+            .expect("valid model");
+        let config = MonteCarloConfig::new(2, 7);
+
+        for insertion_order in [[0usize, 1], [1, 0]] {
+            let mut acc = MonteCarloAccumulator::new(&model, &config).expect("acc");
+            let values = [200.0, 50.0];
+            for &path_idx in &insertion_order {
+                let mut path = IndexMap::new();
+                path.insert(
+                    "revenue".to_string(),
+                    [(period, values[path_idx])].into_iter().collect(),
+                );
+                acc.push_path(path_idx, path, Vec::new())
+                    .expect("push_path");
+            }
+            let results = acc.finish().expect("finish");
+            let p = results
+                .breach_probability("revenue", 100.0)
+                .expect("breach");
+            assert!(
+                (p - 0.5).abs() < 1e-12,
+                "breach probability must be 0.5 regardless of insertion order, got {p}"
+            );
+        }
     }
 
     #[test]

@@ -271,6 +271,11 @@ impl<'a> CeclEngine<'a> {
     ) -> Result<f64> {
         let annual_pd = self.config.historical_annual_pd;
         let dt = t2 - t1;
+        // Zero-width bucket: no default can accrue; short-circuit to avoid
+        // `+inf / 0` hazard and `exp(-inf * 0) = NaN` downstream.
+        if dt <= f64::EPSILON {
+            return Ok(0.0);
+        }
         let lambda_hist = if annual_pd < 1.0 {
             -(1.0 - annual_pd).ln()
         } else {

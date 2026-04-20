@@ -108,7 +108,9 @@ fn leverage_above_error_flags_error() {
 }
 
 #[test]
-fn leverage_skips_negative_ebitda() {
+fn leverage_flags_non_positive_ebitda_as_error() {
+    // Debt/EBITDA is undefined when EBITDA <= 0; the check must surface this
+    // as a high-severity finding rather than silently passing.
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q1", None)
         .unwrap()
@@ -130,7 +132,10 @@ fn leverage_skips_negative_ebitda() {
     let ctx = CheckContext::new(&model, &results);
     let result = check.execute(&ctx).unwrap();
 
-    assert!(result.findings.is_empty());
+    assert!(!result.passed);
+    assert_eq!(result.findings.len(), 1);
+    assert_eq!(result.findings[0].severity, Severity::Error);
+    assert!(result.findings[0].message.contains("undefined"));
 }
 
 // ============================================================================

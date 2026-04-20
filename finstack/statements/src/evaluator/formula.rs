@@ -974,15 +974,15 @@ fn evaluate_function(
             }
         }
 
-        // Custom financial functions with NaN handling
+        // Custom financial functions: skip non-finite (NaN or ±∞) inputs so
+        // compensated summation stays well-defined. Empty finite set → NaN.
         Function::Sum => {
             require_min_args("sum", args, 1, node_id)?;
 
             let mut values = Vec::new();
-
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
-                if !value.is_nan() {
+                if value.is_finite() {
                     values.push(value);
                 }
             }
@@ -1000,7 +1000,7 @@ fn evaluate_function(
             let mut values = Vec::new();
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
-                if !value.is_nan() {
+                if value.is_finite() {
                     values.push(value);
                 }
             }
