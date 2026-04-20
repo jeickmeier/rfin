@@ -302,8 +302,10 @@ pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> Interpolat
     let weights = if pos == 0 {
         // Before or at first knot - flat extrapolation to first point
         vec![(0, 1.0)]
-    } else if pos >= knots.len() || target > max_knot {
-        // Beyond last knot - flat extrapolation to last point
+    } else if target > max_knot {
+        // Beyond last knot - flat extrapolation to last point.
+        // (`pos` cannot exceed `knots.len() - 1` because `.position()` returns
+        // at most that index via `unwrap_or`.)
         vec![(knots.len() - 1, 1.0)]
     } else {
         let i0 = pos - 1;

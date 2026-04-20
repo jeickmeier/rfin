@@ -55,6 +55,7 @@ struct BumpTargetResult {
 /// calendar-aware parsing). The simple fallback should be revisited once all
 /// callers supply a production calendar.
 fn resolve_bump_targets(
+    curve_id: &str,
     nodes: &[(String, f64)],
     knots: &[f64],
     match_mode: TenorMatchMode,
@@ -65,12 +66,12 @@ fn resolve_bump_targets(
     let mut indexed_targets = Vec::new();
     let mut warnings = Vec::new();
 
-    // Calculate max knot for extrapolation warnings
+    let min_knot = knots.first().copied().unwrap_or(0.0);
     let max_knot = knots.last().copied().unwrap_or(0.0);
 
     for (tenor_str, bp) in nodes {
-        // Use calendar-aware parsing with curve's DayCount
-        // We lack Calendar and BDC on the curve, so we assume Unadjusted/None.
+        // Calendar-aware parsing with the curve's DayCount. We lack Calendar
+        // and BDC on the curve, so we assume Unadjusted/None here.
         let tenor_years_ctx = parse_tenor_to_years_with_context(
             tenor_str,
             as_of,
@@ -79,10 +80,11 @@ fn resolve_bump_targets(
             day_count,
         )?;
 
-        // Also parse simple for fallback (test cases often use simple integers)
+        // Simple fallback for test cases that use bare integers (e.g. "5Y")
+        // which match knots exactly under simple parsing but land slightly off
+        // under calendar-aware parsing.
         let tenor_years_simple = crate::utils::parse_tenor_to_years(tenor_str)?;
 
-        // bp is already f64
         let add = *bp;
 
         match match_mode {
@@ -102,7 +104,7 @@ fn resolve_bump_targets(
                     (None, None) => {
                         return Err(Error::TenorNotFound {
                             tenor: tenor_str.clone(),
-                            curve_id: "unknown".to_string(),
+                            curve_id: curve_id.to_string(),
                         })
                     }
                 };
@@ -111,12 +113,6 @@ fn resolve_bump_targets(
                 indexed_targets.push((idx, add));
             }
             TenorMatchMode::Interpolate => {
-                // For interpolate, we prefer context-aware, but if simple falls exactly on a knot, maybe use that?
-                // Actually interpolate works fine with floats. We'll use context-aware as primary.
-                // But wait, if context-aware is 5.0027 and simple is 5.0, and knots has 5.0.
-                // 5.0027 will interpolate between 5.0 and 10.0 (slightly).
-                // 5.0 will hit the knot exactly.
-                // We should prefer "Exact Knot Match" if available via either method?
                 let has_exact_ctx = knots.iter().any(|&t| (t - tenor_years_ctx).abs() < 1e-6);
                 let has_exact_simple = knots.iter().any(|&t| (t - tenor_years_simple).abs() < 1e-6);
 
@@ -126,16 +122,14 @@ fn resolve_bump_targets(
                     tenor_years_ctx
                 };
 
-                // Use extrapolation-aware weight calculation
                 let result = calculate_interpolation_weights(use_years, knots);
 
-                // Emit warning if extrapolating beyond curve range
                 if result.is_extrapolation {
                     let distance = result.extrapolation_distance.unwrap_or(0.0);
                     warnings.push(format!(
-                        "Tenor '{}' ({:.2}Y) extrapolates beyond curve max ({:.2}Y) by {:.2}Y. \
-                         Using flat extrapolation to last pillar.",
-                        tenor_str, use_years, max_knot, distance
+                        "Tenor '{}' ({:.2}Y) on curve '{}' extrapolates outside curve range \
+                         [{:.2}Y, {:.2}Y] by {:.2}Y. Using flat extrapolation to nearest pillar.",
+                        tenor_str, use_years, curve_id, min_knot, max_knot, distance
                     ));
                 }
 
@@ -465,6 +459,7 @@ impl ScenarioAdapter for CurveAdapter {
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(
+                            curve_id,
                             nodes,
                             &knots,
                             *match_mode,
@@ -507,6 +502,7 @@ impl ScenarioAdapter for CurveAdapter {
                         let mut forwards = base_curve.forwards().to_vec();
 
                         let result = resolve_bump_targets(
+                            curve_id,
                             nodes,
                             &knots,
                             *match_mode,
@@ -546,6 +542,7 @@ impl ScenarioAdapter for CurveAdapter {
 
                         let knots: Vec<f64> = base_curve.knot_points().map(|(t, _)| t).collect();
                         let result = resolve_bump_targets(
+                            curve_id,
                             nodes,
                             &knots,
                             *match_mode,
@@ -629,6 +626,7 @@ impl ScenarioAdapter for CurveAdapter {
                             .unwrap_or(DayCount::Act365F);
 
                         let result = resolve_bump_targets(
+                            curve_id,
                             nodes,
                             &knots,
                             *match_mode,
@@ -675,6 +673,7 @@ impl ScenarioAdapter for CurveAdapter {
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(
+                            curve_id,
                             nodes,
                             &knots,
                             *match_mode,
@@ -734,6 +733,7 @@ impl ScenarioAdapter for CurveAdapter {
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
                         let result = resolve_bump_targets(
+                            curve_id,
                             nodes,
                             &knots,
                             *match_mode,
