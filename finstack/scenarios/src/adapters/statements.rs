@@ -286,13 +286,25 @@ pub fn update_rate_from_binding(
         }
 
         let forward_simple = curve.rate(start_years);
-        let forward_continuous = CoreCompounding::Simple.convert_rate(
-            forward_simple,
-            accrual_years,
-            &CoreCompounding::Continuous,
-        );
-        let converted =
-            convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?;
+        // When the binding target compounding is already Simple, skip the
+        // Simple→Continuous→Simple round-trip: converting back and forth
+        // introduces avoidable floating-point noise and obscures the fact that
+        // the curve already quotes the desired convention.
+        let converted = if matches!(binding.compounding, Compounding::Simple) {
+            if !accrual_years.is_finite() || accrual_years <= 0.0 {
+                return Err(Error::Validation(format!(
+                    "Year fraction must be positive for rate conversion, got {accrual_years}"
+                )));
+            }
+            forward_simple
+        } else {
+            let forward_continuous = CoreCompounding::Simple.convert_rate(
+                forward_simple,
+                accrual_years,
+                &CoreCompounding::Continuous,
+            );
+            convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?
+        };
         return apply_forecast_assign(model, binding.node_id.as_str(), converted, None);
     }
 

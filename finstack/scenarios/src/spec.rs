@@ -744,6 +744,16 @@ pub enum TenorMatchMode {
 /// [`TimeRollMode::CalendarDays`] when the tenor should be added without a
 /// business-day adjustment. [`TimeRollMode::Approximate`] uses fixed day-count
 /// approximations aligned with [`crate::utils::parse_period_to_days`].
+///
+/// # Non-additivity of `Approximate`
+///
+/// [`TimeRollMode::Approximate`] is **not additive across composed rolls**.
+/// Because months collapse to a fixed 30-day count, two `6M` rolls produce
+/// 360 days rather than the 365/366 days of a calendar year, so
+/// `6M + 6M ≠ 1Y`. For chained horizons or scenario composition prefer
+/// [`TimeRollMode::BusinessDays`] or [`TimeRollMode::CalendarDays`], which
+/// both resolve the target date via [`finstack_core::dates::Tenor`] and are
+/// additive modulo the chosen business-day convention.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TimeRollMode {
@@ -753,6 +763,9 @@ pub enum TimeRollMode {
     /// Pure calendar-day addition (no business-day adjustment even if a calendar exists).
     CalendarDays,
     /// Explicit approximate mode using fixed day counts (legacy 30/365 semantics).
+    ///
+    /// See the enum-level "Non-additivity" note: composed rolls in this mode
+    /// do not commute with calendar arithmetic (`6M + 6M = 360d ≠ 1Y`).
     Approximate,
 }
 
