@@ -1065,7 +1065,11 @@ mod credit_pv_tests {
         }
 
         let base = d(2025, 1, 1);
-        let periods = vec![make_period(base, d(2026, 1, 1))];
+        // Period end must strictly exceed the flow date because
+        // `iter_by_period` uses half-open `[start, end)` semantics. We keep
+        // the flow at exactly one year out (so `sp(T) = 0.8`) and extend the
+        // period end by one day.
+        let periods = vec![make_period(base, d(2026, 1, 2))];
         let disc = FlatDiscount { base };
         let hazard = StepSurvival;
         // Single principal flow at one full year out.

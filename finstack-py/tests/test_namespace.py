@@ -173,8 +173,12 @@ class TestPortfolioNamespace:
             "entities": {},
             "positions": [],
         })
-        result = json.loads(aggregate_full_cashflows(spec_json, MarketContext()))
+        cashflows = aggregate_full_cashflows(spec_json, MarketContext())
+        assert len(cashflows) == 0
+        assert cashflows.num_positions() == 0
+        assert cashflows.num_issues() == 0
 
+        result = json.loads(cashflows.to_json())
         assert result["events"] == []
         assert result["by_position"] == {}
         assert result["by_date"] == {}
