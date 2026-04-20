@@ -168,7 +168,6 @@ impl StochasticProcess for MertonJumpProcess {
         // Continuous diffusion: σ(S) = σ S
         out[0] = self.params.gbm.sigma * x[0];
     }
-
 }
 
 #[cfg(test)]

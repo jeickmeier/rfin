@@ -117,7 +117,6 @@ impl StochasticProcess for BatesProcess {
         // Variance diffusion: σ_v √v
         out[1] = self.params.heston.sigma_v * v.sqrt();
     }
-
 }
 
 #[cfg(test)]

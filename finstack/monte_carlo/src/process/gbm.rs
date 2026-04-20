@@ -180,7 +180,6 @@ impl StochasticProcess for GbmProcess {
         // σ(S) = σ S
         out[0] = self.params.sigma * x[0];
     }
-
 }
 
 impl ProcessMetadata for GbmProcess {

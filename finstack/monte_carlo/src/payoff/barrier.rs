@@ -342,7 +342,13 @@ mod tests {
 
         let stoch_var = 0.04_f64;
         let feed = |payoff: &mut BarrierOptionPayoff| {
-            for (step, spot) in [(0usize, 95.0), (1, 105.0), (2, 115.0), (3, 110.0), (4, 118.0)] {
+            for (step, spot) in [
+                (0usize, 95.0),
+                (1, 105.0),
+                (2, 115.0),
+                (3, 110.0),
+                (4, 118.0),
+            ] {
                 let mut state = PathState::new(step, step as f64 * 0.25);
                 state.set(state_keys::SPOT, spot);
                 state.set(state_keys::VARIANCE, stoch_var);
@@ -389,7 +395,13 @@ mod tests {
         let mut p_high = build(1.0);
 
         let feed = |payoff: &mut BarrierOptionPayoff| {
-            for (step, spot) in [(0usize, 95.0), (1, 105.0), (2, 115.0), (3, 110.0), (4, 118.0)] {
+            for (step, spot) in [
+                (0usize, 95.0),
+                (1, 105.0),
+                (2, 115.0),
+                (3, 110.0),
+                (4, 118.0),
+            ] {
                 let mut state = PathState::new(step, step as f64 * 0.25);
                 state.set(state_keys::SPOT, spot);
                 state.set_uniform_random(0.5);

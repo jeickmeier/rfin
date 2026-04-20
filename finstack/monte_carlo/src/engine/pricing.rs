@@ -541,7 +541,14 @@ impl McEngine {
         let mut z = vec![0.0; num_factors];
         // `z_raw` holds independent shocks when the engine applies correlation;
         // otherwise it stays zero-length to avoid an unused allocation.
-        let mut z_raw = vec![0.0; if correlation.is_some() { num_factors } else { 0 }];
+        let mut z_raw = vec![
+            0.0;
+            if correlation.is_some() {
+                num_factors
+            } else {
+                0
+            }
+        ];
         let mut work = vec![0.0; work_size];
         let mut state_a = vec![0.0; dim];
         let mut z_anti = vec![0.0; num_factors];
@@ -716,8 +723,14 @@ impl McEngine {
 
                 let mut state = vec![0.0; dim];
                 let mut z = vec![0.0; num_factors];
-                let mut z_raw =
-                    vec![0.0; if correlation_ref.is_some() { num_factors } else { 0 }];
+                let mut z_raw = vec![
+                    0.0;
+                    if correlation_ref.is_some() {
+                        num_factors
+                    } else {
+                        0
+                    }
+                ];
                 let mut work = vec![0.0; work_size];
                 let mut state_a = vec![0.0; dim];
                 let mut z_anti = vec![0.0; num_factors];

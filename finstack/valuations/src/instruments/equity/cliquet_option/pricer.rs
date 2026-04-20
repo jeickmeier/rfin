@@ -77,7 +77,6 @@ impl StochasticProcess for PiecewiseGbmProcess {
         // σ(S) = σ S
         out[0] = self.sigmas[idx] * x[0];
     }
-
 }
 
 #[cfg(feature = "mc")]

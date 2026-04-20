@@ -367,10 +367,7 @@ where
     let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
 
     let degree = basis_degree.unwrap_or(3);
-    let basis_name = basis
-        .as_deref()
-        .unwrap_or("laguerre")
-        .to_ascii_lowercase();
+    let basis_name = basis.as_deref().unwrap_or("laguerre").to_ascii_lowercase();
     let basis: Box<dyn BasisFunctions> = match basis_name.as_str() {
         "laguerre" => Box::new(LaguerreBasis::try_new(degree, strike).map_err(to_js_err)?),
         "polynomial" | "poly" => Box::new(PolynomialBasis::try_new(degree).map_err(to_js_err)?),

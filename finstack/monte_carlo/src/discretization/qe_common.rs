@@ -146,7 +146,10 @@ mod tests {
     fn variance_stays_non_negative_across_shocks() {
         for z in [-5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0] {
             let v = qe_step_variance(0.04, 2.0, 0.04, 0.8, 0.25, z, 1.5);
-            assert!(v >= 0.0, "QE scheme produced negative variance at z={z}: {v}");
+            assert!(
+                v >= 0.0,
+                "QE scheme produced negative variance at z={z}: {v}"
+            );
         }
     }
 
