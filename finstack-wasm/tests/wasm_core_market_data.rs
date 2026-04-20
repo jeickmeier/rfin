@@ -7,7 +7,7 @@ use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
 fn fx_matrix_rate_returns_structured_result() {
-    let mut matrix = FxMatrix::new();
+    let matrix = FxMatrix::new();
     matrix.set_quote("EUR", "USD", 1.10).unwrap();
 
     let result = matrix
@@ -26,7 +26,7 @@ fn fx_matrix_rate_returns_structured_result() {
 
 #[wasm_bindgen_test]
 fn fx_matrix_rate_defaults_policy_to_cashflow_date() {
-    let mut matrix = FxMatrix::new();
+    let matrix = FxMatrix::new();
     matrix.set_quote("GBP", "USD", 1.25).unwrap();
 
     let result = matrix.rate("GBP", "USD", "2024-01-02", None).unwrap();

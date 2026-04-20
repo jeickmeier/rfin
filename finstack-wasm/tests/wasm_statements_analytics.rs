@@ -57,7 +57,7 @@ fn goal_seek_finds_revenue_for_target_gross_profit() {
         80_000.0,
         "revenue",
         "2024Q1",
-        false,
+        true,
         Some(50_000.0),
         Some(200_000.0),
     )
