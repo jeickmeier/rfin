@@ -158,8 +158,9 @@ impl StochasticProcess for SchwartzSmithProcess {
         out[1] = self.params.sigma_y;
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
+    fn factor_correlation(&self) -> Option<Vec<f64>> {
+        let rho = self.params.rho;
+        Some(vec![1.0, rho, rho, 1.0])
     }
 
     fn populate_path_state(&self, x: &[f64], state: &mut super::super::traits::PathState) {
@@ -183,7 +184,7 @@ mod tests {
 
         assert_eq!(process.dim(), 2);
         assert_eq!(process.num_factors(), 2);
-        assert!(process.is_diagonal());
+        assert!(process.factor_correlation().is_some());
     }
 
     #[test]

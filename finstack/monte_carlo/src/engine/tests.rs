@@ -890,3 +890,255 @@ fn test_estimate_serde_backward_compatibility() {
     assert_eq!(est.mean, 100.0);
     assert_eq!(est.num_paths, 10_000);
 }
+
+/// Regression tests that the engine-side Cholesky correctly applies a
+/// stochastic process's declared factor correlation to the shocks driving a
+/// scheme that does not apply correlation internally
+/// (see [`crate::traits::Discretization::applies_correlation_internally`]).
+#[cfg(feature = "mc")]
+mod correlation_regression {
+    use super::*;
+    use crate::discretization::{EulerMaruyama, ExactMultiGbmCorrelated, QeHeston};
+    use crate::payoff::EuropeanCall;
+    use crate::process::gbm::{GbmParams, MultiGbmProcess};
+    use crate::process::heston::HestonProcess;
+    use crate::rng::philox::PhiloxRng;
+
+    fn uniform_grid(t: f64, n: usize) -> TimeGrid {
+        TimeGrid::uniform(t, n).expect("valid grid")
+    }
+
+    /// An Euler+Heston simulation must respond to rho: negative rho should
+    /// yield higher OTM put prices (and lower OTM call prices) than positive
+    /// rho. Prior to engine-applied Cholesky the scheme treated the two
+    /// Brownian motions as independent and the effect would vanish.
+    #[test]
+    fn euler_heston_respects_rho() {
+        let engine = McEngine::builder()
+            .num_paths(20_000)
+            .seed(42)
+            .uniform_grid(1.0, 50)
+            .build()
+            .expect("valid config");
+
+        let rng = PhiloxRng::new(42);
+        let strike = 110.0; // OTM call (S0 = 100)
+        let payoff = EuropeanCall::new(strike, 1.0, 50);
+        let disc = EulerMaruyama::new();
+        let discount = (-0.03_f64).exp();
+
+        let h_neg =
+            HestonProcess::with_params(0.03, 0.0, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
+        let h_pos =
+            HestonProcess::with_params(0.03, 0.0, 2.0, 0.04, 0.3, 0.7, 0.04).expect("valid");
+
+        let est_neg = engine
+            .price(
+                &rng,
+                &h_neg,
+                &disc,
+                &[100.0, 0.04],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("neg rho price");
+        let est_pos = engine
+            .price(
+                &rng,
+                &h_pos,
+                &disc,
+                &[100.0, 0.04],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("pos rho price");
+
+        // Negative rho produces a heavier left tail and lighter right tail,
+        // so an OTM-call should be cheaper under rho<0 than rho>0.
+        assert!(
+            est_neg.mean.amount() < est_pos.mean.amount(),
+            "expected OTM-call price with rho<0 ({}) below rho>0 ({}) after \
+             engine-applied Cholesky",
+            est_neg.mean.amount(),
+            est_pos.mean.amount()
+        );
+    }
+
+    /// With rho = 0 the Euler scheme (which relies on engine-applied
+    /// correlation) should agree with the specialized QE Heston scheme
+    /// (which encodes correlation internally) up to Monte Carlo noise.
+    #[test]
+    fn euler_matches_qe_heston_at_zero_rho() {
+        let config = McEngine::builder()
+            .num_paths(40_000)
+            .seed(7)
+            .uniform_grid(1.0, 100)
+            .build()
+            .expect("valid config");
+        let rng = PhiloxRng::new(7);
+        let payoff = EuropeanCall::new(100.0, 1.0, 100);
+        let discount = (-0.03_f64).exp();
+
+        let h0 = HestonProcess::with_params(0.03, 0.0, 2.0, 0.04, 0.3, 0.0, 0.04).expect("valid");
+
+        let euler = config
+            .price(
+                &rng,
+                &h0,
+                &EulerMaruyama::new(),
+                &[100.0, 0.04],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("euler price");
+        let qe = config
+            .price(
+                &rng,
+                &h0,
+                &QeHeston::new(),
+                &[100.0, 0.04],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("qe price");
+
+        let tol = 4.0 * euler.stderr.max(qe.stderr);
+        assert!(
+            (euler.mean.amount() - qe.mean.amount()).abs() < tol,
+            "Euler ({}) vs QE ({}) differ by more than 4 SE ({}) at rho=0",
+            euler.mean.amount(),
+            qe.mean.amount(),
+            tol
+        );
+    }
+
+    /// The MultiGBM spread option price must respond to the correlation
+    /// between the two asset drivers. This exercises the engine Cholesky
+    /// path (EulerMaruyama) and contrasts it with the specialized scheme
+    /// that applies correlation internally (ExactMultiGbmCorrelated).
+    ///
+    /// Higher correlation implies a thinner spread distribution and thus a
+    /// cheaper spread call.
+    #[test]
+    fn multi_gbm_spread_responds_to_rho_under_engine_cholesky() {
+        use crate::traits::state_keys;
+        use finstack_core::money::Money;
+
+        #[derive(Clone, Default)]
+        struct SpreadCall {
+            strike: f64,
+            maturity_idx: usize,
+            s0: f64,
+            s1: f64,
+        }
+        impl crate::traits::Payoff for SpreadCall {
+            fn on_event(&mut self, state: &mut PathState) {
+                if state.step == self.maturity_idx {
+                    self.s0 = state.get(state_keys::indexed_spot(0)).unwrap_or(0.0);
+                    self.s1 = state.get(state_keys::indexed_spot(1)).unwrap_or(0.0);
+                }
+            }
+            fn value(&self, currency: Currency) -> Money {
+                let payoff = (self.s0 - self.s1 - self.strike).max(0.0);
+                Money::new(payoff, currency)
+            }
+            fn reset(&mut self) {
+                self.s0 = 0.0;
+                self.s1 = 0.0;
+            }
+        }
+
+        let grid = uniform_grid(1.0, 50);
+        let config = McEngineConfig {
+            num_paths: 30_000,
+            seed: 11,
+            time_grid: grid,
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1_000,
+            path_capture: PathCaptureConfig::new(),
+            antithetic: false,
+        };
+        let engine = McEngine::new(config);
+
+        let rng = PhiloxRng::new(11);
+        let params = vec![
+            GbmParams::new(0.03, 0.0, 0.20).expect("valid"),
+            GbmParams::new(0.03, 0.0, 0.20).expect("valid"),
+        ];
+        let corr_low = vec![1.0, -0.5, -0.5, 1.0];
+        let corr_high = vec![1.0, 0.9, 0.9, 1.0];
+        let p_low = MultiGbmProcess::new(params.clone(), Some(corr_low)).expect("valid");
+        let p_high = MultiGbmProcess::new(params, Some(corr_high)).expect("valid");
+
+        let discount = (-0.03_f64).exp();
+        let payoff = SpreadCall {
+            strike: 0.0,
+            maturity_idx: 50,
+            s0: 0.0,
+            s1: 0.0,
+        };
+        let disc = EulerMaruyama::new();
+
+        let v_low = engine
+            .price(
+                &rng,
+                &p_low,
+                &disc,
+                &[100.0, 100.0],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("low corr price");
+        let v_high = engine
+            .price(
+                &rng,
+                &p_high,
+                &disc,
+                &[100.0, 100.0],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("high corr price");
+
+        assert!(
+            v_low.mean.amount() > v_high.mean.amount(),
+            "spread call under rho=-0.5 ({}) should exceed rho=0.9 ({}) when \
+             engine applies Cholesky to the shocks",
+            v_low.mean.amount(),
+            v_high.mean.amount()
+        );
+
+        // Sanity check that the EulerMaruyama (engine Cholesky) result
+        // agrees with the specialized correlated scheme that applies
+        // correlation internally. The exact scheme is unbiased per step,
+        // so we use a generous 5 SE tolerance.
+        let disc_exact =
+            ExactMultiGbmCorrelated::new(&[1.0, -0.5, -0.5, 1.0], 2).expect("valid chol");
+        let v_exact_low = engine
+            .price(
+                &rng,
+                &p_low,
+                &disc_exact,
+                &[100.0, 100.0],
+                &payoff,
+                Currency::USD,
+                discount,
+            )
+            .expect("exact low corr price");
+        let tol = 5.0 * v_low.stderr.max(v_exact_low.stderr);
+        assert!(
+            (v_low.mean.amount() - v_exact_low.mean.amount()).abs() < tol,
+            "Euler ({}) vs ExactMultiGbmCorrelated ({}) differ by > 5 SE ({})",
+            v_low.mean.amount(),
+            v_exact_low.mean.amount(),
+            tol
+        );
+    }
+}

@@ -169,9 +169,6 @@ impl StochasticProcess for MertonJumpProcess {
         out[0] = self.params.gbm.sigma * x[0];
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
 }
 
 #[cfg(test)]

@@ -99,6 +99,10 @@ impl Discretization<SchwartzSmithProcess> for ExactSchwartzSmith {
     fn work_size(&self, _process: &SchwartzSmithProcess) -> usize {
         0 // No workspace needed (correlation applied inline)
     }
+
+    fn applies_correlation_internally(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

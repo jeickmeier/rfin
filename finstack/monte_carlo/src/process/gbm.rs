@@ -181,9 +181,6 @@ impl StochasticProcess for GbmProcess {
         out[0] = self.params.sigma * x[0];
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
 }
 
 impl ProcessMetadata for GbmProcess {
@@ -280,8 +277,8 @@ impl StochasticProcess for MultiGbmProcess {
         }
     }
 
-    fn is_diagonal(&self) -> bool {
-        self.correlation.is_none()
+    fn factor_correlation(&self) -> Option<Vec<f64>> {
+        self.correlation.clone()
     }
 
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
@@ -362,7 +359,7 @@ mod tests {
 
         assert_eq!(multi_gbm.dim(), 2);
         assert_eq!(multi_gbm.num_assets(), 2);
-        assert!(multi_gbm.is_diagonal());
+        assert!(multi_gbm.factor_correlation().is_none());
     }
 
     #[test]
@@ -375,7 +372,7 @@ mod tests {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let multi_gbm = MultiGbmProcess::new(params, Some(corr)).unwrap();
 
-        assert!(!multi_gbm.is_diagonal());
+        assert!(multi_gbm.factor_correlation().is_some());
         assert!(multi_gbm.correlation().is_some());
     }
 

@@ -242,6 +242,10 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
         // drift + diffusion + correlated shocks
         3 * process.dim()
     }
+
+    fn applies_correlation_internally(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

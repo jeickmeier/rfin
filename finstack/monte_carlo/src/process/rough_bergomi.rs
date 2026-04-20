@@ -238,10 +238,6 @@ impl StochasticProcess for RoughBergomiProcess {
         out[0] = 0.0;
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
-
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
         state.set(state_keys::SPOT, x[0]);
     }

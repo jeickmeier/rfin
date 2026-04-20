@@ -356,6 +356,10 @@ impl Discretization<HestonProcess> for QeHeston {
     fn work_size(&self, _process: &HestonProcess) -> usize {
         0
     }
+
+    fn applies_correlation_internally(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
