@@ -92,7 +92,13 @@ impl Check for FormulaCheck {
 
             match eval_ast(&ast, context, pid) {
                 Ok(value) => {
-                    let passes = if let Some(tol) = self.tolerance {
+                    // A non-finite result (e.g. from division by zero in the
+                    // formula) is always treated as a failure: the check could
+                    // not be meaningfully evaluated, so surface it as a finding
+                    // rather than silently "passing".
+                    let passes = if !value.is_finite() {
+                        false
+                    } else if let Some(tol) = self.tolerance {
                         value.abs() > tol
                     } else {
                         value != 0.0
@@ -211,14 +217,14 @@ fn eval_binop(op: BinOp, l: f64, r: f64) -> f64 {
             if r.abs() > f64::EPSILON {
                 l / r
             } else {
-                0.0
+                f64::NAN
             }
         }
         BinOp::Mod => {
             if r.abs() > f64::EPSILON {
                 l % r
             } else {
-                0.0
+                f64::NAN
             }
         }
         BinOp::Eq => bool_to_f64((l - r).abs() <= f64::EPSILON),

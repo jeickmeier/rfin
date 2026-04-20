@@ -25,6 +25,23 @@ fn retain_finite(values: &[f64]) -> Vec<f64> {
     values.iter().copied().filter(|v| v.is_finite()).collect()
 }
 
+/// Sum finite values, returning `NaN` when none are present.
+///
+/// Period aggregates (`ytd`, `qtd`, `fiscal_ytd`, `ttm`) use this so "no
+/// valid observations in window" surfaces as `NaN` instead of masquerading
+/// as a real zero — matching the empty-finite convention in rolling and
+/// cumulative aggregates (`evaluate_rolling_function`,
+/// `evaluate_cumulative_function`).
+#[inline]
+fn sum_finite_or_nan(values: &[f64]) -> f64 {
+    let filtered = retain_finite(values);
+    if filtered.is_empty() {
+        f64::NAN
+    } else {
+        neumaier_sum(filtered.iter().copied())
+    }
+}
+
 pub(crate) fn evaluate_historical_function(
     func: &Function,
     args: &[Expr],
@@ -203,8 +220,7 @@ fn evaluate_period_aggregate_function(
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values =
                     collect_period_range_values(node_name, context, start_of_year, current)?;
-                let filtered = retain_finite(&values);
-                Ok(neumaier_sum(filtered.iter().copied()))
+                Ok(sum_finite_or_nan(&values))
             } else {
                 Err(eval_error(
                     node_id,
@@ -229,8 +245,7 @@ fn evaluate_period_aggregate_function(
 
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_period_range_values(node_name, context, start, current)?;
-                let filtered = retain_finite(&values);
-                Ok(neumaier_sum(filtered.iter().copied()))
+                Ok(sum_finite_or_nan(&values))
             } else {
                 Err(eval_error(
                     node_id,
@@ -269,8 +284,7 @@ fn evaluate_period_aggregate_function(
 
             if let ExprNode::Column(node_name) = &args[0].node {
                 let values = collect_period_range_values(node_name, context, start, current)?;
-                let filtered = retain_finite(&values);
-                Ok(neumaier_sum(filtered.iter().copied()))
+                Ok(sum_finite_or_nan(&values))
             } else {
                 Err(eval_error(
                     node_id,
@@ -286,8 +300,7 @@ fn evaluate_period_aggregate_function(
             } else {
                 collect_expression_window_values(&args[0], context, window, node_id)?
             };
-            let filtered = retain_finite(&values);
-            Ok(neumaier_sum(filtered.iter().copied()))
+            Ok(sum_finite_or_nan(&values))
         }
         _ => Err(eval_error(
             node_id,

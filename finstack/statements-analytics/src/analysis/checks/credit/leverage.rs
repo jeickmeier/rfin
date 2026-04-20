@@ -12,7 +12,9 @@ use finstack_statements::Result;
 /// Flags periods where Debt / EBITDA falls outside configurable warning
 /// and error ranges.
 ///
-/// Periods with non-positive EBITDA are skipped.
+/// Periods with non-positive EBITDA emit a high-severity "leverage
+/// undefined" finding so the case surfaces explicitly rather than
+/// silently passing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeverageRangeCheck {
     /// Total debt node.
@@ -52,6 +54,19 @@ impl Check for LeverageRangeCheck {
             };
 
             if ebitda <= 0.0 {
+                findings.push(CheckFinding {
+                    check_id: self.id().to_string(),
+                    severity: Severity::Error,
+                    message: format!("Debt/EBITDA undefined in {pid}: EBITDA = {ebitda:.2} (≤ 0)"),
+                    period: Some(*pid),
+                    materiality: Some(Materiality {
+                        absolute: ebitda,
+                        relative_pct: 0.0,
+                        reference_value: ebitda,
+                        reference_label: "ebitda".to_string(),
+                    }),
+                    nodes: vec![self.debt_node.clone(), self.ebitda_node.clone()],
+                });
                 continue;
             }
 

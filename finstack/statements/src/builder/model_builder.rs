@@ -817,6 +817,12 @@ impl ModelBuilder<Ready> {
         spec.meta = self.meta;
         spec.capital_structure = self.capital_structure;
 
+        if let Some(cs) = &spec.capital_structure {
+            if let Some(waterfall) = &cs.waterfall {
+                waterfall.validate()?;
+            }
+        }
+
         // Detect circular dependencies at build time.
         // Graph construction may fail if formula references are not
         // yet defined (partial models) — that is allowed, but if it

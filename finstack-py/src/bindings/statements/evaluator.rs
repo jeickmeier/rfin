@@ -99,7 +99,11 @@ impl PyStatementResult {
 
     /// Export to pandas long-format ``DataFrame``.
     ///
-    /// Columns: ``node_id``, ``period``, ``value``.
+    /// Columns: ``node_id``, ``period``, ``value``, ``value_money``,
+    /// ``currency``, ``value_type``. The monetary columns are populated for
+    /// `Money`-typed nodes and left null for scalar nodes; exposing them here
+    /// matches the Rust schema so currency/fixed-point precision is never
+    /// silently dropped at the Python boundary.
     fn to_pandas_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let table = self.inner.to_table_long().map_err(display_to_py)?;
         selected_table_to_dataframe(
@@ -109,6 +113,9 @@ impl PyStatementResult {
                 ("node_id", "node_id"),
                 ("period_id", "period"),
                 ("value", "value"),
+                ("value_money", "value_money"),
+                ("currency", "currency"),
+                ("value_type", "value_type"),
             ],
         )
     }

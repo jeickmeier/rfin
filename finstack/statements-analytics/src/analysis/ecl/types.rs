@@ -274,11 +274,16 @@ pub trait PdTermStructure: Send + Sync {
 
     /// Marginal (forward) PD for the interval (t1, t2\], conditional on
     /// survival to t1. Default implementation derives from cumulative PD.
+    ///
+    /// When `S(t1) <= 0` (already in the absorbing default state at `t1`),
+    /// the conditional probability of *additional* default in `(t1, t2]` is
+    /// **0**, not 1. Returning 1 here would double-count an already-defaulted
+    /// obligor in every subsequent ECL bucket.
     fn marginal_pd(&self, rating: &str, t1: f64, t2: f64) -> Result<f64> {
         let s1 = 1.0 - self.cumulative_pd(rating, t1)?;
         let s2 = 1.0 - self.cumulative_pd(rating, t2)?;
         if s1 <= 0.0 {
-            return Ok(1.0);
+            return Ok(0.0);
         }
         Ok(1.0 - s2 / s1)
     }
@@ -309,14 +314,39 @@ pub struct RawPdCurve {
 }
 
 impl RawPdCurve {
-    /// Create a new `RawPdCurve`, validating that knots are sorted and monotonic.
+    /// Create a new `RawPdCurve`, validating the `PdTermStructure` contract:
+    ///
+    /// 1. First knot anchored at `(0.0, 0.0)` so cumulative PD is 0 at t=0
+    ///    (matches the module-level contract and the "PD is 0 before first
+    ///    knot" guarantee).
+    /// 2. Knot times strictly increasing.
+    /// 3. Cumulative PDs monotonically non-decreasing and in `[0, 1]`.
     pub fn new(rating: impl Into<String>, knots: Vec<(f64, f64)>) -> Result<Self> {
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
+        let (t0, pd0) = knots[0];
+        if t0 != 0.0 || pd0 != 0.0 {
+            return Err(Error::Validation(format!(
+                "RawPdCurve: first knot must be (0.0, 0.0), got ({t0}, {pd0})"
+            )));
+        }
         for window in knots.windows(2) {
-            if window[1].0 <= window[0].0 {
+            let (t_prev, pd_prev) = window[0];
+            let (t_curr, pd_curr) = window[1];
+            if t_curr <= t_prev {
                 return Err(InputError::NonMonotonicKnots.into());
+            }
+            if pd_curr < pd_prev {
+                return Err(Error::Validation(format!(
+                    "RawPdCurve: cumulative PD must be non-decreasing, \
+                     got ({t_prev}, {pd_prev}) -> ({t_curr}, {pd_curr})"
+                )));
+            }
+            if !(0.0..=1.0).contains(&pd_curr) {
+                return Err(Error::Validation(format!(
+                    "RawPdCurve: cumulative PD must be in [0, 1], got {pd_curr} at t={t_curr}"
+                )));
             }
         }
         Ok(Self {
@@ -396,11 +426,18 @@ mod tests {
     #[test]
     fn test_raw_pd_curve_validates_knots() {
         // Too few points
-        assert!(RawPdCurve::new("BBB", vec![(1.0, 0.02)]).is_err());
-        // Non-monotonic
-        assert!(RawPdCurve::new("BBB", vec![(2.0, 0.02), (1.0, 0.04)]).is_err());
+        assert!(RawPdCurve::new("BBB", vec![(0.0, 0.0)]).is_err());
+        // First knot must be (0, 0)
+        assert!(RawPdCurve::new("BBB", vec![(1.0, 0.02), (2.0, 0.04)]).is_err());
+        assert!(RawPdCurve::new("BBB", vec![(0.0, 0.01), (1.0, 0.02)]).is_err());
+        // Non-monotonic times
+        assert!(RawPdCurve::new("BBB", vec![(0.0, 0.0), (2.0, 0.02), (1.0, 0.04)]).is_err());
+        // Non-monotonic cumulative PD
+        assert!(RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 0.05), (2.0, 0.03)]).is_err());
+        // Out-of-range PD
+        assert!(RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 1.5)]).is_err());
         // Valid
-        assert!(RawPdCurve::new("BBB", vec![(1.0, 0.02), (2.0, 0.04)]).is_ok());
+        assert!(RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 0.02), (2.0, 0.04)]).is_ok());
     }
 
     #[test]
@@ -420,7 +457,11 @@ mod tests {
 
     #[test]
     fn test_raw_pd_curve_cumulative_pd() {
-        let curve = RawPdCurve::new("BBB", vec![(1.0, 0.02), (2.0, 0.05), (5.0, 0.12)]).ok();
+        let curve = RawPdCurve::new(
+            "BBB",
+            vec![(0.0, 0.0), (1.0, 0.02), (2.0, 0.05), (5.0, 0.12)],
+        )
+        .ok();
         let curve = curve.as_ref().unwrap(); // ok in test
         assert!((curve.cumulative_pd("BBB", 1.5).unwrap() - 0.035).abs() < 1e-10);
         // Wrong rating
@@ -442,5 +483,14 @@ mod tests {
         let mpd = curve.marginal_pd("BBB", 1.0, 2.0).unwrap();
         let expected = 1.0 - 0.95 / 0.98;
         assert!((mpd - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_marginal_pd_absorbing_state() {
+        // Curve hits full default at t=1. Marginal PD for any subsequent
+        // interval must be 0 (already defaulted), not 1 (double-counting).
+        let curve = RawPdCurve::new("DEFAULT", vec![(0.0, 0.0), (1.0, 1.0), (2.0, 1.0)]).unwrap();
+        assert_eq!(curve.marginal_pd("DEFAULT", 1.0, 2.0).unwrap(), 0.0);
+        assert_eq!(curve.marginal_pd("DEFAULT", 1.5, 2.0).unwrap(), 0.0);
     }
 }
