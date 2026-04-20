@@ -11,6 +11,26 @@
 //! consumed. Philox (the default [`crate::rng::philox::PhiloxRng`]) satisfies
 //! this; Sobol explicitly does not. These helpers therefore guard at runtime
 //! via [`RandomStream::supports_splitting`] to prevent silent CRN breakage.
+//!
+//! # Reported standard errors are conservative
+//!
+//! The `stderr` returned by [`finite_diff_delta`] and [`finite_diff_gamma`]
+//! combines the per-run MC standard errors **as if the bumped and base runs
+//! were statistically independent**:
+//!
+//! ```text
+//! se(Δ̂) ≈ √(se_up² + se_down²) / (2h)
+//! se(Γ̂) ≈ √(se_up² + 4·se_base² + se_down²) / h²
+//! ```
+//!
+//! CRN introduces strong positive correlation between the paired estimators,
+//! so the *true* variance of the difference is almost always smaller — often
+//! by one to two orders of magnitude for smooth payoffs. The quantity we
+//! report is therefore an **upper bound** on the CRN stderr, not the CRN
+//! stderr itself. A tight CRN stderr requires per-path pairing of the bumped
+//! and base path values, which is not exposed through the current
+//! [`McEngine::price`] API. Treat these numbers as safe for sizing error
+//! budgets but not as an accurate diagnostic of the finite-difference noise.
 
 use super::super::engine::McEngine;
 use crate::traits::Payoff;

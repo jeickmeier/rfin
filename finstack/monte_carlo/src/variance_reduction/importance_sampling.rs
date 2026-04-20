@@ -23,18 +23,36 @@ pub const DEFAULT_ESS_THRESHOLD: f64 = 0.1;
 /// Shifts the drift toward the barrier to increase hit probability,
 /// then re-weights samples using likelihood ratios.
 ///
+/// # Convention
+///
+/// - **Input `z`** is a standard-normal draw under the **target** measure
+///   `N(0, 1)` (the measure under which the payoff is to be priced).
+/// - **Output `tilted_z = z + θ`** is the corresponding draw under the
+///   **tilted** proposal measure `N(θ, 1)`. Callers feed `tilted_z` into the
+///   discretization/step in place of the untilted shock, so every path is
+///   simulated under the proposal measure.
+/// - **Output `likelihood_ratio`** is the target-over-proposal Radon-Nikodym
+///   derivative evaluated at the realized sample:
+///
+///   ```text
+///   L(Z*) = φ_target(Z*) / φ_tilted(Z*)
+///         = exp(-θ · Z* + ½ θ²)
+///   ```
+///
+///   where `φ_target` is the N(0,1) pdf and `φ_tilted` is the N(θ,1) pdf.
+///   Use this weight with [`weighted_estimate`] to recover the unbiased
+///   target-measure expectation `E_target[X] = E_tilted[X · L]`.
+///
 /// # Arguments
 ///
-/// * `theta` - Tilting parameter (drift shift)
-/// * `z` - Standard normal sample
+/// * `theta` - Tilting parameter (drift shift under the proposal measure)
+/// * `z` - Standard normal sample under the **target** measure
 ///
 /// # Returns
 ///
-/// (tilted_z, likelihood_ratio)
-///
-/// The returned likelihood ratio is the target-over-tilted density ratio
-/// evaluated at the shifted sample `Z* = Z + θ`:
-/// `L(Z*) = exp(-θ Z* + ½θ²)`.
+/// `(tilted_z, likelihood_ratio)` — the draw to use in simulation under the
+/// tilted proposal, and the target-over-proposal weight to attach to the
+/// resulting path value.
 pub fn exponential_tilt(theta: f64, z: f64) -> (f64, f64) {
     let tilted_z = z + theta;
     let log_likelihood = -theta * tilted_z + 0.5 * theta * theta;

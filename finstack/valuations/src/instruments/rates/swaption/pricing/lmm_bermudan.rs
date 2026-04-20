@@ -298,6 +298,7 @@ pub fn price_bermudan_lmm(
             finstack_core::money::Money::new(ci_hi, currency),
         ),
         num_paths: total_paths,
+        num_simulated_paths: total_paths,
         std_dev: Some(stats.std_dev()),
         median: None,
         percentile_25: None,

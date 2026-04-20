@@ -5,6 +5,17 @@
 //! - Gobet-Miri barrier adjustment
 //! - Up and down barriers
 //! - Rebate support (paid at maturity)
+//!
+//! # Local volatility under stochastic-vol models
+//!
+//! The bridge correction and the Gobet-Miri adjustment both need an
+//! instantaneous volatility to turn a (spot, next_spot) pair into a barrier
+//! hit probability. When the [`PathState`] carries a stochastic variance
+//! (e.g. Heston's `VARIANCE` key), [`BarrierOptionPayoff::on_event`]
+//! substitutes `sqrt(variance)` for the configured flat [`BarrierOptionPayoff::sigma`].
+//! This makes the reported payoff consistent with the path-level dynamics
+//! under stochastic-vol models; for deterministic-vol processes the state
+//! carries no variance entry and the configured sigma is used unchanged.
 
 use super::super::barriers::bridge::{check_barrier_hit, BarrierDirection};
 use super::super::barriers::corrections::gobet_miri_adjusted_barrier;
@@ -127,9 +138,14 @@ impl BarrierOptionPayoff {
     }
 
     /// Get effective barrier level (with Gobet-Miri adjustment if enabled).
-    fn effective_barrier(&self, dt: f64) -> f64 {
+    ///
+    /// `local_sigma` is the local per-step volatility to use in the adjustment.
+    /// Under deterministic-vol models this equals [`Self::sigma`]; under
+    /// stochastic-vol models [`on_event`](Payoff::on_event) substitutes
+    /// `sqrt(state.variance())` when the path state exposes it.
+    fn effective_barrier(&self, dt: f64, local_sigma: f64) -> f64 {
         if self.use_gobet_miri {
-            gobet_miri_adjusted_barrier(self.barrier, self.sigma, dt, !self.barrier_type.is_up())
+            gobet_miri_adjusted_barrier(self.barrier, local_sigma, dt, !self.barrier_type.is_up())
         } else {
             self.barrier
         }
@@ -167,20 +183,27 @@ impl Payoff for BarrierOptionPayoff {
             return;
         }
 
-        // Check barrier hit using bridge correction
+        // Check barrier hit using bridge correction.
         if !self.barrier_hit {
             // Use independent uniform random from PathState for bridge sampling
-            // This ensures proper statistical properties for barrier hit probability
+            // so the barrier hit probability is statistically correct.
             let uniform_random = state.uniform_random();
             let dt = self.step_dts.get(state.step - 1).copied().unwrap_or(0.0);
-            let effective_barrier = self.effective_barrier(dt);
+            // Prefer the process's local instantaneous variance when available
+            // (e.g. Heston). For deterministic-vol processes the state carries
+            // no variance entry and we fall back to the configured flat sigma.
+            let local_sigma = match state.variance() {
+                Some(v) if v.is_finite() && v > 0.0 => v.sqrt(),
+                _ => self.sigma,
+            };
+            let effective_barrier = self.effective_barrier(dt, local_sigma);
 
             let hit = check_barrier_hit(
                 self.previous_spot,
                 current_spot,
                 effective_barrier,
                 self.barrier_type.direction(),
-                self.sigma,
+                local_sigma,
                 dt,
                 uniform_random,
             );
@@ -289,6 +312,104 @@ mod tests {
         // Should get rebate
         let value = barrier_call.value(Currency::USD);
         assert_eq!(value.amount(), 5.0);
+    }
+
+    #[test]
+    fn test_barrier_uses_path_variance_when_present() {
+        // Two barrier payoffs with identical parameters but different fallback
+        // sigmas. When the path state carries a stochastic variance, both
+        // must agree because the payoff consumes sqrt(variance) instead of
+        // self.sigma.
+        let time_grid = TimeGrid::uniform(1.0, 4).expect("grid should build");
+
+        let build = |flat_sigma: f64| {
+            BarrierOptionPayoff::new(
+                100.0,
+                120.0,
+                BarrierType::UpAndOut,
+                OptionKind::Call,
+                None,
+                1.0,
+                4,
+                flat_sigma,
+                &time_grid,
+                true,
+            )
+        };
+
+        let mut p_low = build(0.01);
+        let mut p_high = build(1.0);
+
+        let stoch_var = 0.04_f64;
+        let feed = |payoff: &mut BarrierOptionPayoff| {
+            for (step, spot) in [(0usize, 95.0), (1, 105.0), (2, 115.0), (3, 110.0), (4, 118.0)] {
+                let mut state = PathState::new(step, step as f64 * 0.25);
+                state.set(state_keys::SPOT, spot);
+                state.set(state_keys::VARIANCE, stoch_var);
+                state.set_uniform_random(0.5);
+                payoff.on_event(&mut state);
+            }
+        };
+
+        feed(&mut p_low);
+        feed(&mut p_high);
+
+        let v_low = p_low.value(Currency::USD).amount();
+        let v_high = p_high.value(Currency::USD).amount();
+        assert_eq!(
+            v_low, v_high,
+            "payoff must use sqrt(variance) from PathState when present, \
+             ignoring the fallback self.sigma",
+        );
+    }
+
+    #[test]
+    fn test_barrier_falls_back_to_self_sigma_without_variance() {
+        // When variance is absent from PathState, the payoff must use
+        // self.sigma for the bridge/Gobet-Miri adjustment. Two payoffs with
+        // different flat sigmas should behave differently.
+        let time_grid = TimeGrid::uniform(1.0, 4).expect("grid should build");
+
+        let build = |flat_sigma: f64| {
+            BarrierOptionPayoff::new(
+                100.0,
+                120.0,
+                BarrierType::UpAndOut,
+                OptionKind::Call,
+                None,
+                1.0,
+                4,
+                flat_sigma,
+                &time_grid,
+                true,
+            )
+        };
+
+        let mut p_low = build(0.01);
+        let mut p_high = build(1.0);
+
+        let feed = |payoff: &mut BarrierOptionPayoff| {
+            for (step, spot) in [(0usize, 95.0), (1, 105.0), (2, 115.0), (3, 110.0), (4, 118.0)] {
+                let mut state = PathState::new(step, step as f64 * 0.25);
+                state.set(state_keys::SPOT, spot);
+                state.set_uniform_random(0.5);
+                payoff.on_event(&mut state);
+            }
+        };
+
+        feed(&mut p_low);
+        feed(&mut p_high);
+
+        let v_low = p_low.value(Currency::USD).amount();
+        let v_high = p_high.value(Currency::USD).amount();
+        // At least one of the two must differ — for a near-barrier path the
+        // Gobet-Miri adjustment is very sensitive to sigma, so the payoff
+        // should not be identical when the flat sigma is the only input.
+        assert!(
+            (v_low - v_high).abs() > 0.0 || v_low + v_high == 0.0,
+            "without variance in PathState the payoff must respond to self.sigma; \
+             got v_low={v_low}, v_high={v_high}"
+        );
     }
 
     #[test]

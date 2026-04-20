@@ -21,6 +21,9 @@ pub mod euler;
 pub mod milstein;
 
 #[cfg(feature = "mc")]
+pub(crate) mod qe_common;
+
+#[cfg(feature = "mc")]
 pub mod qe_heston;
 
 #[cfg(feature = "mc")]

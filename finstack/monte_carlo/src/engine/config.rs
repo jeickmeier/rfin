@@ -12,7 +12,16 @@ pub const MAX_NUM_PATHS: usize = 10_000_000;
 /// manually or via [`McEngineBuilder`]. All time values are year fractions.
 #[derive(Debug, Clone)]
 pub struct McEngineConfig {
-    /// Number of paths to simulate (capped at [`MAX_NUM_PATHS`] at runtime)
+    /// Requested number of independent path estimators
+    /// (capped at [`MAX_NUM_PATHS`] at runtime).
+    ///
+    /// With [`Self::antithetic`] disabled this equals the number of simulated
+    /// sample paths. With antithetic pairing enabled the engine runs
+    /// `num_paths` iterations, each simulating a `(z, -z)` pair and recording
+    /// the pair's mean as a single estimator, so the total simulated paths
+    /// become `2 * num_paths`. The produced [`crate::estimate::Estimate`]
+    /// reports both counts: `num_paths` for the statistical sample size and
+    /// `num_simulated_paths` for the raw simulation work.
     pub num_paths: usize,
     /// Informational seed value recorded on the configuration for
     /// reproducibility and logging purposes only.
@@ -35,7 +44,11 @@ pub struct McEngineConfig {
     pub chunk_size: usize,
     /// Path capture configuration
     pub path_capture: PathCaptureConfig,
-    /// Use antithetic variance reduction (pair z and -z per step)
+    /// Use antithetic variance reduction (pair `z` and `-z` per step).
+    ///
+    /// When enabled each of the `num_paths` iterations simulates a pair of
+    /// antithetic paths, doubling the number of simulated sample paths while
+    /// keeping the number of independent estimators equal to `num_paths`.
     pub antithetic: bool,
 }
 

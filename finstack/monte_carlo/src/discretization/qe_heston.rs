@@ -7,17 +7,7 @@
 
 use super::super::process::heston::HestonProcess;
 use super::super::traits::Discretization;
-
-/// Threshold on `|κ·Δt|` below which the exp-κΔt expansions in QE are replaced
-/// by their first-order Taylor limits. Chosen so that the quadratic remainder
-/// `(κ·Δt)²/2` is below one part in 1e16 (≈ f64 epsilon) while still being
-/// loose enough to trigger for daily steps at small κ.
-const KAPPA_DT_EXPANSION_EPS: f64 = 1e-8;
-
-/// Lower bound on the conditional mean `m` below which QE forces Case B to
-/// avoid division and log-domain overflow. Identical threshold is used for
-/// guarding the Case B β computation.
-const QE_SMALL_MEAN_EPS: f64 = 1e-10;
+use super::qe_common::{qe_step_variance, KAPPA_DT_EXPANSION_EPS};
 
 /// Integrated variance approximation method.
 ///
@@ -133,36 +123,12 @@ impl QeHeston {
         }
     }
 
-    /// Compute next variance using QE scheme.
+    /// One QE step of the Heston variance process.
     ///
-    /// # Algorithm
-    ///
-    /// The QE scheme from Andersen (2008) uses a conditional moment-matching
-    /// approach based on the ratio ψ = s²/m² where:
-    /// - m = E[v_{t+Δt} | v_t] (conditional mean)
-    /// - s² = Var[v_{t+Δt} | v_t] (conditional variance)
-    ///
-    /// # Numerical Safeguards
-    ///
-    /// This implementation includes two safeguards not in the original paper:
-    ///
-    /// 1. **ψ clamping**: ψ is clamped to max 10.0 to prevent overflow in the
-    ///    Case A (quadratic) branch. This can occur when:
-    ///    - Very high vol-of-vol (σ_v)
-    ///    - Large time steps (Δt)
-    ///    - Feller condition violated (2κθ < σ_v²)
-    ///
-    ///    The clamp ensures numerical stability without materially affecting
-    ///    results since ψ > 10 would use Case B anyway (exponential mixture).
-    ///
-    /// 2. **Small mean handling**: When m < 1e-10, we force Case B directly
-    ///    to avoid amplified numerical errors from division by near-zero.
-    ///
-    /// # References
-    ///
-    /// - Andersen, L. (2008). "Simple and efficient simulation of the Heston
-    ///   stochastic volatility model." Journal of Computational Finance, 11(3).
-    /// - See Section 3.2.3 for the QE algorithm and Section 4 for numerical issues.
+    /// Thin wrapper around [`qe_step_variance`] that plugs in the instance's
+    /// ψ threshold. See [`super::qe_common`] for the algorithm, references,
+    /// and the numerical safeguards that are shared with `QeCir`.
+    #[inline]
     fn step_variance(
         &self,
         v_t: f64,
@@ -172,83 +138,7 @@ impl QeHeston {
         dt: f64,
         z_v: f64,
     ) -> f64 {
-        // Ensure non-negative input
-        let v_t = v_t.max(0.0);
-
-        // Compute conditional mean and variance (Andersen 2008, Eq. 17-18).
-        // When |κ·Δt| is near the numerical limit below which (1 - e^{-κΔt})/κ
-        // loses precision, fall back to the first-order expansion.
-        let exp_kappa_dt = (-kappa * dt).exp();
-        let m = theta + (v_t - theta) * exp_kappa_dt;
-        let s2 = if (kappa * dt).abs() < KAPPA_DT_EXPANSION_EPS {
-            v_t * sigma_v * sigma_v * dt
-        } else {
-            v_t * sigma_v * sigma_v * exp_kappa_dt * (1.0 - exp_kappa_dt) / kappa
-                + theta * sigma_v * sigma_v * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa)
-        };
-
-        // Compute ψ = s²/m² with numerical safeguards
-        //
-        // Safeguard 1: Clamp ψ to 10.0 maximum
-        // =====================================
-        // Rationale: For ψ > ψ_c (typically 1.5), the QE scheme uses Case B
-        // (exponential mixture). However, the Case A formulas involve terms like
-        // (2/ψ - 1) which become negative for ψ > 2. Clamping to 10.0 ensures
-        // we always use Case B for extreme ψ values, avoiding numerical issues.
-        //
-        // This is a numerical stability enhancement, not a material change to
-        // the algorithm - ψ values this high already force Case B.
-        //
-        // Safeguard 2: Force Case B for tiny mean (threshold 1e-10, matches QeCir)
-        // =========================================================================
-        // Rationale: When m → 0, ψ = s²/m² → ∞, but the division itself may
-        // produce overflow or NaN. Forcing Case B directly avoids this.
-        let psi = if m > QE_SMALL_MEAN_EPS {
-            let ratio = s2 / (m * m);
-            ratio.min(10.0) // Safeguard 1: clamp to prevent Case A overflow
-        } else {
-            // Safeguard 2: very small mean forces Case B
-            self.psi_c + 1.0
-        };
-
-        if psi <= self.psi_c {
-            // Case A: Power/gamma approximation
-            // Solve: 2ψ^(-1) - 1 + sqrt(2ψ^(-1)) sqrt(2ψ^(-1) - 1) = U(Z)
-            let b_squared = 2.0 / psi - 1.0 + (2.0 / psi * (2.0 / psi - 1.0)).sqrt();
-            let a = m / (1.0 + b_squared);
-
-            // Transform standard normal to chi-squared-like
-            let v_next = a * (z_v + b_squared.sqrt()).powi(2);
-            v_next.max(0.0)
-        } else {
-            // Case B: Exponential/uniform mixture.
-            //
-            // Analytically, β = (1 − p)/m. The ψ‑clamp above forces Case B when
-            // m < QE_SMALL_MEAN_EPS, so in principle we never reach this branch
-            // with a vanishing mean. Retain an explicit guard: if the guard
-            // ever fires the inverse-CDF draw is degenerate and the variance
-            // collapses to its lower bound of zero.
-            if m <= QE_SMALL_MEAN_EPS {
-                return 0.0;
-            }
-
-            let p = (psi - 1.0) / (psi + 1.0);
-            let beta = (1.0 - p) / m;
-
-            let u = finstack_core::math::special_functions::norm_cdf(z_v);
-
-            if u <= p {
-                // Point mass at zero
-                0.0
-            } else if (u - p).abs() < f64::EPSILON {
-                // Guard: u ≈ p makes ln((1-p)/(u-p)) → +∞; clamp to zero
-                0.0
-            } else {
-                // Exponential part
-                let v_next = ((1.0 - p) / (u - p)).ln() / beta;
-                v_next.max(0.0)
-            }
-        }
+        qe_step_variance(v_t, kappa, theta, sigma_v, dt, z_v, self.psi_c)
     }
 
     /// Compute integrated variance for spot evolution.

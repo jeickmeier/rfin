@@ -89,7 +89,7 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
 /// Predicted continuation values for each x value (same length as x)
 pub fn regression_with_basis<B>(x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
 where
-    B: BasisFunctions,
+    B: BasisFunctions + ?Sized,
 {
     let n = x.len();
     let k = basis.num_basis();

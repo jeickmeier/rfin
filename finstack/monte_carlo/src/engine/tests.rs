@@ -866,6 +866,93 @@ fn test_money_estimate_propagates_num_skipped() {
     assert_eq!(money_est.num_skipped, 7);
 }
 
+/// `Estimate::new` should default `num_simulated_paths` to `num_paths`;
+/// [`Estimate::with_num_simulated_paths`] overrides it (e.g. for antithetic
+/// runs). [`MoneyEstimate::from_estimate`] must propagate both fields.
+#[test]
+fn test_estimate_num_simulated_paths_defaults_and_propagates() {
+    use crate::estimate::Estimate;
+    use crate::results::MoneyEstimate;
+
+    let est = Estimate::new(100.0, 1.0, (98.0, 102.0), 10_000);
+    assert_eq!(est.num_paths, 10_000);
+    assert_eq!(
+        est.num_simulated_paths, 10_000,
+        "defaults to num_paths when variance reduction is off"
+    );
+
+    let est_anti = est.with_num_simulated_paths(20_000);
+    assert_eq!(est_anti.num_paths, 10_000);
+    assert_eq!(est_anti.num_simulated_paths, 20_000);
+
+    let money_est = MoneyEstimate::from_estimate(est_anti, Currency::USD);
+    assert_eq!(money_est.num_paths, 10_000);
+    assert_eq!(money_est.num_simulated_paths, 20_000);
+}
+
+/// Antithetic pricing should produce `num_paths` estimators and
+/// `2 * num_paths` simulated paths. Without antithetics both counts match.
+#[cfg(feature = "mc")]
+#[test]
+fn test_engine_antithetic_records_simulated_path_count() {
+    use crate::discretization::ExactGbm;
+    use crate::payoff::EuropeanCall;
+    use crate::process::gbm::GbmProcess;
+    use crate::rng::philox::PhiloxRng;
+
+    let requested = 1024usize;
+    let grid = TimeGrid::uniform(0.5, 16).expect("valid grid");
+    let payoff = EuropeanCall::new(100.0, 0.5, 16);
+    let process = GbmProcess::with_params(0.05, 0.0, 0.2).expect("valid gbm");
+    let disc = ExactGbm::new();
+    let discount = (-0.05_f64 * 0.5).exp();
+
+    let engine = McEngine::builder()
+        .num_paths(requested)
+        .seed(7)
+        .time_grid(grid.clone())
+        .parallel(false)
+        .build()
+        .expect("build engine");
+    let rng = PhiloxRng::new(7);
+    let res = engine
+        .price(
+            &rng,
+            &process,
+            &disc,
+            &[100.0],
+            &payoff,
+            Currency::USD,
+            discount,
+        )
+        .expect("price");
+    assert_eq!(res.num_paths, requested);
+    assert_eq!(res.num_simulated_paths, requested);
+
+    let engine_anti = McEngineBuilder::new()
+        .num_paths(requested)
+        .seed(7)
+        .time_grid(grid)
+        .parallel(false)
+        .antithetic(true)
+        .build()
+        .expect("build engine");
+    let rng_anti = PhiloxRng::new(7);
+    let res_anti = engine_anti
+        .price(
+            &rng_anti,
+            &process,
+            &disc,
+            &[100.0],
+            &payoff,
+            Currency::USD,
+            discount,
+        )
+        .expect("price");
+    assert_eq!(res_anti.num_paths, requested);
+    assert_eq!(res_anti.num_simulated_paths, requested * 2);
+}
+
 #[test]
 fn test_estimate_serde_backward_compatibility() {
     // Verify that deserializing an Estimate without num_skipped defaults to 0.

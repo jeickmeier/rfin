@@ -652,14 +652,21 @@ impl McEngine {
             }
         }
 
+        let num_paths = stats.count();
+        let num_simulated_paths = if self.config.antithetic {
+            num_paths.saturating_mul(2)
+        } else {
+            num_paths
+        };
         let estimate = Estimate::new(
             stats.mean(),
             stats.stderr(),
             stats.confidence_interval(0.05),
-            stats.count(),
+            num_paths,
         )
         .with_std_dev(stats.std_dev())
-        .with_num_skipped(num_skipped);
+        .with_num_skipped(num_skipped)
+        .with_num_simulated_paths(num_simulated_paths);
 
         Ok((estimate, captured_paths))
     }
@@ -827,14 +834,21 @@ impl McEngine {
             num_skipped += chunk_skipped;
         }
 
+        let num_paths = combined.count();
+        let num_simulated_paths = if self.config.antithetic {
+            num_paths.saturating_mul(2)
+        } else {
+            num_paths
+        };
         let estimate = Estimate::new(
             combined.mean(),
             combined.stderr(),
             combined.confidence_interval(0.05),
-            combined.count(),
+            num_paths,
         )
         .with_std_dev(combined.std_dev())
-        .with_num_skipped(num_skipped);
+        .with_num_skipped(num_skipped)
+        .with_num_simulated_paths(num_simulated_paths);
 
         let captured_paths = captured_sink
             .map(|sink| {

@@ -22,8 +22,19 @@ pub struct MoneyEstimate {
     pub stderr: f64,
     /// 95% confidence interval for the discounted mean present value.
     pub ci_95: (Money, Money),
-    /// Number of simulated paths contributing to the estimate.
+    /// Number of independent path estimators contributing to the estimate.
+    ///
+    /// See [`crate::estimate::Estimate::num_paths`] for the full semantics,
+    /// including how antithetic variates split simulated work across
+    /// estimators.
     pub num_paths: usize,
+    /// Total number of simulated sample paths driving the estimator.
+    ///
+    /// See [`crate::estimate::Estimate::num_simulated_paths`]. Equal to
+    /// `num_paths` without variance reduction, or `2 * num_paths` with
+    /// antithetic variates.
+    #[serde(default)]
+    pub num_simulated_paths: usize,
     /// Optional sample standard deviation of discounted path values.
     #[serde(default)]
     pub std_dev: Option<f64>,
@@ -70,6 +81,7 @@ impl MoneyEstimate {
                 Money::new(estimate.ci_95.1, currency),
             ),
             num_paths: estimate.num_paths,
+            num_simulated_paths: estimate.num_simulated_paths,
             std_dev: estimate.std_dev,
             median: estimate.median,
             percentile_25: estimate.percentile_25,
