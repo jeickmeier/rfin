@@ -385,10 +385,7 @@ pub fn standard_normal_inv_cdf(p: f64) -> f64 {
 /// For df > 100, uses the normal approximation for better performance.
 #[inline]
 pub fn student_t_cdf(x: f64, df: f64) -> f64 {
-    debug_assert!(
-        df > 0.0,
-        "student_t_cdf requires df > 0, got {df}"
-    );
+    debug_assert!(df > 0.0, "student_t_cdf requires df > 0, got {df}");
     if df > 100.0 {
         // High df (including +inf): normal approximation is accurate and faster.
         // The approximation error decays as O(1/df).
@@ -445,10 +442,7 @@ pub fn try_student_t_cdf(x: f64, df: f64) -> crate::Result<f64> {
 ///
 /// This is a thin wrapper around `statrs::distribution::StudentsT::inverse_cdf`.
 pub fn student_t_inv_cdf(p: f64, df: f64) -> f64 {
-    debug_assert!(
-        df > 0.0,
-        "student_t_inv_cdf requires df > 0, got {df}"
-    );
+    debug_assert!(df > 0.0, "student_t_inv_cdf requires df > 0, got {df}");
     debug_assert!(
         (0.0..1.0).contains(&p),
         "student_t_inv_cdf requires p in (0, 1), got {p}"

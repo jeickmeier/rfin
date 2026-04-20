@@ -1041,8 +1041,8 @@ mod tests {
     fn try_new_with_config_honors_ingest_scale_override() {
         let mut cfg = FinstackConfig::default();
         cfg.rounding.ingest_scale.overrides.insert(Currency::USD, 2);
-        let m = Money::try_new_with_config(10.999, Currency::USD, &cfg)
-            .expect("Finite should succeed");
+        let m =
+            Money::try_new_with_config(10.999, Currency::USD, &cfg).expect("Finite should succeed");
         assert!((m.amount() - 11.00).abs() < 1e-12);
     }
 
