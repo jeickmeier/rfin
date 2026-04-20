@@ -169,8 +169,13 @@ pub fn is_imm_date(date: Date) -> bool {
 #[must_use]
 pub fn next_cds_date(date: Date) -> Date {
     next_date_from_months(date, &QUARTERLY_MONTHS, |m, year| {
-        Date::from_calendar_date(year, m, 20)
-            .unwrap_or_else(|_| unreachable!("day 20 is valid for every Gregorian month"))
+        Date::from_calendar_date(year, m, 20).unwrap_or_else(|_| {
+            if year < Date::MIN.year() {
+                Date::MIN
+            } else {
+                Date::MAX
+            }
+        })
     })
 }
 

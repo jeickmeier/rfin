@@ -6,7 +6,7 @@ use finstack_core::currency::Currency;
 use finstack_core::Error;
 use finstack_core::InputError;
 use pyo3::prelude::*;
-use pyo3::types::{PyModule, PyType};
+use pyo3::types::{PyList, PyModule, PyType};
 
 /// Wrapper for [`RoundingMode`].
 #[pyclass(
@@ -136,14 +136,14 @@ impl PyToleranceConfig {
     }
 
     /// Epsilon used for rate-style comparisons.
-    #[getter]
-    fn rate_epsilon(&self) -> f64 {
+    #[pyo3(text_signature = "(self)")]
+    fn get_rate_epsilon(&self) -> f64 {
         self.inner.rate_epsilon
     }
 
     /// Epsilon used for generic floating-point comparisons.
-    #[getter]
-    fn generic_epsilon(&self) -> f64 {
+    #[pyo3(text_signature = "(self)")]
+    fn get_generic_epsilon(&self) -> f64 {
         self.inner.generic_epsilon
     }
 
@@ -197,7 +197,7 @@ impl PyFinstackConfig {
 
     /// Effective output decimal scale for `currency` (ISO-4217 code).
     #[pyo3(text_signature = "(self, currency)")]
-    fn output_scale(&self, currency: &str) -> PyResult<u32> {
+    fn get_output_scale(&self, currency: &str) -> PyResult<u32> {
         let ccy: Currency = currency
             .parse()
             .map_err(|_| core_to_py(InputError::UnknownCurrency.into()))?;
@@ -206,7 +206,7 @@ impl PyFinstackConfig {
 
     /// Effective ingest decimal scale for `currency` (ISO-4217 code).
     #[pyo3(text_signature = "(self, currency)")]
-    fn ingest_scale(&self, currency: &str) -> PyResult<u32> {
+    fn get_ingest_scale(&self, currency: &str) -> PyResult<u32> {
         let ccy: Currency = currency
             .parse()
             .map_err(|_| core_to_py(InputError::UnknownCurrency.into()))?;
@@ -229,6 +229,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRoundingMode>()?;
     m.add_class::<PyToleranceConfig>()?;
     m.add_class::<PyFinstackConfig>()?;
+    let all = PyList::new(py, ["RoundingMode", "ToleranceConfig", "FinstackConfig"])?;
+    m.setattr("__all__", all)?;
 
     parent.add_submodule(&m)?;
 

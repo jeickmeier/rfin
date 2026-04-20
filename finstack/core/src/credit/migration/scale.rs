@@ -233,14 +233,19 @@ impl RatingScale {
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    /// Builds a `RatingScale` from `&[&str]` labels (infallible, panics on
-    /// programmer error — only called by hardcoded preset constructors).
+    /// Builds a `RatingScale` from `&[&str]` labels for hardcoded presets.
     fn from_static_labels(labels: &[&str], default_label: Option<&str>) -> Self {
-        let owned: Vec<String> = labels.iter().map(|s| (*s).to_owned()).collect();
-        let default_owned = default_label.map(str::to_owned);
-        // Presets are known-valid; unwrap is safe here (and limited to static data).
-        Self::build(owned, default_owned)
-            .unwrap_or_else(|_| unreachable!("preset rating scales are always valid"))
+        let labels: Vec<String> = labels.iter().map(|s| (*s).to_owned()).collect();
+        let mut index_map = HashMap::with_capacity(labels.len());
+        for (i, label) in labels.iter().enumerate() {
+            index_map.insert(label.clone(), i);
+        }
+        let default_state = default_label.and_then(|label| index_map.get(label).copied());
+        Self {
+            labels,
+            index_map,
+            default_state,
+        }
     }
 
     fn build(labels: Vec<String>, default_label: Option<String>) -> Result<Self, MigrationError> {

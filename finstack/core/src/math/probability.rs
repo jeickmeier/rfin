@@ -113,6 +113,7 @@ pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> (f64, f64, f64
 pub struct CorrelatedBernoulli {
     p1: f64,
     p2: f64,
+    requested_correlation: f64,
     correlation: f64,
     // Precomputed joint probabilities
     p11: f64,
@@ -133,11 +134,17 @@ impl CorrelatedBernoulli {
     /// * `correlation` - Correlation between events, clamped to feasible bounds
     #[must_use]
     pub fn new(p1: f64, p2: f64, correlation: f64) -> Self {
-        let (p11, p10, p01, p00) = joint_probabilities(p1, p2, correlation);
+        let p1 = p1.clamp(0.0, 1.0);
+        let p2 = p2.clamp(0.0, 1.0);
+        let requested_correlation = correlation.clamp(-1.0, 1.0);
+        let (rho_min, rho_max) = correlation_bounds(p1, p2);
+        let effective_correlation = requested_correlation.clamp(rho_min, rho_max);
+        let (p11, p10, p01, p00) = joint_probabilities(p1, p2, requested_correlation);
         Self {
-            p1: p1.clamp(0.0, 1.0),
-            p2: p2.clamp(0.0, 1.0),
-            correlation: correlation.clamp(-1.0, 1.0),
+            p1,
+            p2,
+            requested_correlation,
+            correlation: effective_correlation,
             p11,
             p10,
             p01,
@@ -176,6 +183,11 @@ impl CorrelatedBernoulli {
     /// Get the correlation.
     pub fn correlation(&self) -> f64 {
         self.correlation
+    }
+
+    /// Get the caller-requested correlation before Fréchet clamping.
+    pub fn requested_correlation(&self) -> f64 {
+        self.requested_correlation
     }
 
     /// Get the joint probability P(X₁=1, X₂=1).
@@ -395,6 +407,13 @@ mod tests {
         assert!((dist.p1() - 0.5).abs() < 1e-10);
         assert!((dist.p2() - 0.5).abs() < 1e-10);
         assert!((dist.correlation() - 0.5).abs() < 1e-10);
+        assert!((dist.requested_correlation() - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_correlated_bernoulli_reports_effective_correlation() {
+        let dist = CorrelatedBernoulli::new(0.05, 0.95, 0.9);
+        assert!(dist.requested_correlation() > dist.correlation());
     }
 
     #[test]

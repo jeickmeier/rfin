@@ -89,6 +89,11 @@ Python package in `finstack-py`. The bindings are maintained as thin
 conversion-oriented wrappers, so the canonical product structure still lives in
 the Rust crates.
 
+For analytics specifically, the WASM surface is intentionally pure-function
+oriented today. It does not expose the stateful Rust `Performance` panel API;
+use the Python bindings for that facade, or compose the standalone analytics
+functions directly in JS/TS.
+
 ## License
 
 MIT OR Apache-2.0

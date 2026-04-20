@@ -384,8 +384,7 @@ class CurveId:
         """
         ...
 
-    @property
-    def as_str(self) -> str:
+    def get_as_str(self) -> str:
         """Underlying string value.
 
         Returns
@@ -421,8 +420,7 @@ class InstrumentId:
         """
         ...
 
-    @property
-    def as_str(self) -> str:
+    def get_as_str(self) -> str:
         """Underlying string value.
 
         Returns
@@ -447,7 +445,7 @@ class Attributes:
         """Create an empty attribute set."""
         ...
 
-    def get(self, key: str) -> Optional[str]:
+    def get_meta(self, key: str) -> Optional[str]:
         """Fetch metadata by key.
 
         Parameters
@@ -462,7 +460,7 @@ class Attributes:
         """
         ...
 
-    def set(self, key: str, value: str) -> None:
+    def set_meta(self, key: str, value: str) -> None:
         """Insert or replace a metadata entry.
 
         Parameters
@@ -474,7 +472,7 @@ class Attributes:
         """
         ...
 
-    def contains(self, key: str) -> bool:
+    def contains_meta_key(self, key: str) -> bool:
         """Return whether *key* exists in metadata.
 
         Parameters
@@ -488,7 +486,7 @@ class Attributes:
         """
         ...
 
-    def keys(self) -> list[str]:
+    def get_keys(self) -> list[str]:
         """Metadata keys in sorted order.
 
         Returns
@@ -497,7 +495,7 @@ class Attributes:
         """
         ...
 
-    def len(self) -> int:
+    def get_len(self) -> int:
         """Number of metadata entries.
 
         Returns

@@ -21,6 +21,14 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! Default constructors ([`Money::new`], [`Money::try_new`]) preserve the raw
+//! finite amount without rounding — internal pricing math relies on retained
+//! precision. Use [`Money::try_new_with_config`] (or
+//! [`Money::new_with_config`]) when you explicitly want ISO-4217 minor-unit
+//! rounding for ledger-style construction. [`Money::try_new_retain`] is
+//! provided as an explicit alias for the default retain-precision behavior
+//! when callers want to make that intent unmistakable at the call site.
 /// Submodule for FX interfaces.
 pub mod fx;
 

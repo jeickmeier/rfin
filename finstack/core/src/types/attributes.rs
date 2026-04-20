@@ -47,7 +47,7 @@ impl Attributes {
     }
 
     /// Set a metadata entry in place.
-    pub fn set(&mut self, key: &str, value: impl ToString) {
+    pub fn set_meta(&mut self, key: &str, value: impl ToString) {
         self.meta.insert(key.to_string(), value.to_string());
     }
 
@@ -61,6 +61,12 @@ impl Attributes {
     #[must_use]
     pub fn get_meta(&self, key: &str) -> Option<&str> {
         self.meta.get(key).map(String::as_str)
+    }
+
+    /// Check whether a metadata key is present.
+    #[must_use]
+    pub fn contains_meta_key(&self, key: &str) -> bool {
+        self.meta.contains_key(key)
     }
 
     /// Match the attributes against a simple selector string.

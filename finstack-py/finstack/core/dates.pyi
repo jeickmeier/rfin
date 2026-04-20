@@ -343,13 +343,17 @@ class DayCountContextState:
     def __repr__(self) -> str: ...
 
 class Thirty360Convention:
-    """30/360 sub-convention (US vs European).
+    """30/360 sub-convention (US SIA / Bond Basis, ISDA, or European).
 
     Immutable, hashable enum-style type.
     """
 
+    US_SIA: Thirty360Convention
+    """US 30/360 SIA / Bond Basis convention."""
     US: Thirty360Convention
-    """US 30/360 convention."""
+    """Backward-compatible alias for ``US_SIA``."""
+    ISDA: Thirty360Convention
+    """30/360 ISDA convention."""
     EUROPEAN: Thirty360Convention
     """European 30E/360 convention."""
 

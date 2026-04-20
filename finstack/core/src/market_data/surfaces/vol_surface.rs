@@ -177,6 +177,18 @@ impl TryFrom<RawVolSurface> for VolSurface {
 }
 
 impl VolSurface {
+    #[inline]
+    fn validate_total_variance(&self, total_variance: f64, expiry: f64) -> crate::Result<f64> {
+        let variance = total_variance / expiry.max(f64::EPSILON);
+        if variance < 0.0 {
+            return Err(Error::Validation(format!(
+                "Vol surface '{}' produced negative total variance at expiry={} under {:?} interpolation",
+                self.id, expiry, self.interpolation_mode
+            )));
+        }
+        Ok(variance.sqrt())
+    }
+
     /// Start building a new volatility surface with identifier `id`.
     ///
     /// # Examples
@@ -260,7 +272,7 @@ impl VolSurface {
                     t,
                     u,
                 );
-                Ok((total_variance / expiry.max(f64::EPSILON)).max(0.0).sqrt())
+                self.validate_total_variance(total_variance, expiry)
             }
         }
     }
@@ -284,7 +296,7 @@ impl VolSurface {
         let expiry = expiry.clamp(exp_min, exp_max);
         let strike = strike.clamp(str_min, str_max);
 
-        self.value_in_bounds(expiry, strike)
+        self.value_in_bounds(expiry, strike).unwrap_or(f64::NAN)
     }
 
     /// Interpolate a vol at coordinates known to be within grid bounds.
@@ -292,7 +304,7 @@ impl VolSurface {
     /// Skips bounds checks and error handling. Coordinates must satisfy
     /// `expiries[0] <= expiry <= expiries[last]` and similarly for strike.
     #[inline]
-    fn value_in_bounds(&self, expiry: f64, strike: f64) -> f64 {
+    fn value_in_bounds(&self, expiry: f64, strike: f64) -> crate::Result<f64> {
         use crate::math::interp::utils::locate_segment_unchecked;
 
         let ie0 = locate_segment_unchecked(&self.expiries, expiry);
@@ -305,7 +317,7 @@ impl VolSurface {
         let exact_s = self.strikes[is0] == strike;
 
         if exact_e && exact_s {
-            return self.vols[ie0 * n_strikes + is0];
+            return Ok(self.vols[ie0 * n_strikes + is0]);
         }
 
         let ie1 = if exact_e { ie0 } else { ie0 + 1 };
@@ -329,7 +341,7 @@ impl VolSurface {
             (strike - s0) / (s1 - s0)
         };
         match self.interpolation_mode {
-            VolInterpolationMode::Vol => Self::bilinear(q11, q21, q12, q22, t, u),
+            VolInterpolationMode::Vol => Ok(Self::bilinear(q11, q21, q12, q22, t, u)),
             VolInterpolationMode::TotalVariance => {
                 let total_variance = Self::bilinear(
                     e0 * q11 * q11,
@@ -339,7 +351,7 @@ impl VolSurface {
                     t,
                     u,
                 );
-                (total_variance / expiry.max(f64::EPSILON)).max(0.0).sqrt()
+                self.validate_total_variance(total_variance, expiry)
             }
         }
     }

@@ -1635,11 +1635,11 @@ def simple_returns(prices: list[float]) -> list[float]:
         prices: Price series.
 
     Returns:
-        Simple returns (length ``n-1``).
+        Simple returns (same length as ``prices``).
 
     Example:
         >>> simple_returns([100.0, 101.0])
-        [0.01]
+        [0.0, 0.01]
     """
 
 def clean_returns(returns: list[float]) -> list[float]:
@@ -2470,7 +2470,7 @@ def hqic(log_likelihood: float, n_params: int, n_obs: int) -> float:
 def classify_breaches(
     var_forecasts: list[float],
     realized_pnl: list[float],
-) -> list[tuple[int, float, float]]:
+) -> list[bool]:
     """Classify each observation as a VaR breach (hit) or miss.
 
     Args:
@@ -2478,11 +2478,12 @@ def classify_breaches(
         realized_pnl: Daily realized P&L.
 
     Returns:
-        List of ``(index, var_forecast, realized_pnl)`` tuples, one per breach.
+        Dense boolean breach indicator series (``True`` = breach) aligned with
+        the input observations.
 
     Example:
         >>> classify_breaches([-0.02, -0.02], [-0.01, -0.03])
-        [(1, -0.02, -0.03)]
+        [False, True]
     """
 
 def kupiec_test(breaches: int, n: int, confidence: float) -> KupiecResult:

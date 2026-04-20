@@ -185,9 +185,11 @@ mod central_tendency_tests {
     }
 
     #[test]
-    fn all_zero_returns_zero() {
-        let result = central_tendency(&[0.0, 0.0, 0.0]).unwrap();
-        assert_eq!(result, 0.0);
+    fn zero_rate_is_rejected() {
+        assert!(matches!(
+            central_tendency(&[0.0, 0.0, 0.0]),
+            Err(PdCalibrationError::ZeroAnnualDefaultRate)
+        ));
     }
 
     #[test]

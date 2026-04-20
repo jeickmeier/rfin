@@ -241,6 +241,18 @@ impl Money {
         Self::try_new_impl(amount, currency, None)
     }
 
+    /// Explicit alias for [`Money::try_new`] that documents retain-precision
+    /// intent at the call site.
+    ///
+    /// Use this at hot paths where it is important for the reader to see that
+    /// the constructor preserves the full finite input without ISO-4217
+    /// minor-unit rounding. For configurable rounding, use
+    /// [`Money::try_new_with_config`].
+    #[inline]
+    pub fn try_new_retain(amount: f64, currency: Currency) -> Result<Self, Error> {
+        Self::try_new(amount, currency)
+    }
+
     /// Fallible constructor using an explicit configuration for rounding.
     pub fn try_new_with_config(
         amount: f64,
@@ -1020,6 +1032,21 @@ mod tests {
     }
 
     #[test]
+    fn try_new_retain_preserves_internal_precision() {
+        let m = Money::try_new_retain(10.005, Currency::USD).expect("Finite should succeed");
+        assert!((m.amount() - 10.005).abs() < 1e-12);
+    }
+
+    #[test]
+    fn try_new_with_config_honors_ingest_scale_override() {
+        let mut cfg = FinstackConfig::default();
+        cfg.rounding.ingest_scale.overrides.insert(Currency::USD, 2);
+        let m = Money::try_new_with_config(10.999, Currency::USD, &cfg)
+            .expect("Finite should succeed");
+        assert!((m.amount() - 11.00).abs() < 1e-12);
+    }
+
+    #[test]
     fn try_new_with_config_returns_error_for_non_finite() {
         let cfg = FinstackConfig::default();
         let result = Money::try_new_with_config(f64::NAN, Currency::USD, &cfg);
@@ -1044,6 +1071,13 @@ mod tests {
         let small = 1e-15;
         let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
         // Construction preserves the raw finite amount; formatting/rounding is a separate concern.
+        assert_eq!(m.amount(), small);
+    }
+
+    #[test]
+    fn try_new_retain_handles_very_small_values() {
+        let small = 1e-15;
+        let m = Money::try_new_retain(small, Currency::USD).expect("Small value should succeed");
         assert_eq!(m.amount(), small);
     }
 

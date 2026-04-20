@@ -8,7 +8,7 @@ use finstack_core::Error;
 use finstack_core::InputError;
 use finstack_core::NonFiniteKind;
 use pyo3::prelude::*;
-use pyo3::types::{PyModule, PyType};
+use pyo3::types::{PyList, PyModule, PyType};
 use std::hash::{Hash, Hasher};
 
 /// Wrapper for [`Rate`].
@@ -106,17 +106,11 @@ impl PyRate {
     }
 
     fn __add__(&self, other: PyRef<Self>) -> PyResult<Self> {
-        let sum = self.inner.as_decimal() + other.inner.as_decimal();
-        Rate::try_from_decimal(sum)
-            .map(Self::from_inner)
-            .map_err(core_to_py)
+        Ok(Self::from_inner(self.inner + other.inner))
     }
 
     fn __sub__(&self, other: PyRef<Self>) -> PyResult<Self> {
-        let diff = self.inner.as_decimal() - other.inner.as_decimal();
-        Rate::try_from_decimal(diff)
-            .map(Self::from_inner)
-            .map_err(core_to_py)
+        Ok(Self::from_inner(self.inner - other.inner))
     }
 
     fn __mul__(&self, rhs: f64) -> PyResult<Self> {
@@ -139,9 +133,7 @@ impl PyRate {
     }
 
     fn __neg__(&self) -> PyResult<Self> {
-        Rate::try_from_decimal(-self.inner.as_decimal())
-            .map(Self::from_inner)
-            .map_err(core_to_py)
+        Ok(Self::from_inner(-self.inner))
     }
 }
 
@@ -504,8 +496,8 @@ impl PyCurveId {
     }
 
     /// Underlying string value.
-    #[getter]
-    fn as_str(&self) -> &str {
+    #[pyo3(text_signature = "(self)")]
+    fn get_as_str(&self) -> &str {
         self.inner.as_str()
     }
 
@@ -550,8 +542,8 @@ impl PyInstrumentId {
     }
 
     /// Underlying string value.
-    #[getter]
-    fn as_str(&self) -> &str {
+    #[pyo3(text_signature = "(self)")]
+    fn get_as_str(&self) -> &str {
         self.inner.as_str()
     }
 
@@ -593,29 +585,29 @@ impl PyAttributes {
 
     /// Fetch metadata by key.
     #[pyo3(text_signature = "(self, key)")]
-    fn get(&self, key: &str) -> Option<String> {
+    fn get_meta(&self, key: &str) -> Option<String> {
         self.inner.get_meta(key).map(str::to_string)
     }
 
     /// Insert or replace a metadata entry.
     #[pyo3(text_signature = "(self, key, value)")]
-    fn set(&mut self, key: &str, value: &str) {
-        self.inner.set(key, value);
+    fn set_meta(&mut self, key: &str, value: &str) {
+        self.inner.set_meta(key, value);
     }
 
     /// Return whether `key` exists in metadata.
     #[pyo3(text_signature = "(self, key)")]
-    fn contains(&self, key: &str) -> bool {
-        self.inner.meta.contains_key(key)
+    fn contains_meta_key(&self, key: &str) -> bool {
+        self.inner.contains_meta_key(key)
     }
 
     /// Metadata keys in sorted order.
-    fn keys(&self) -> Vec<String> {
+    fn get_keys(&self) -> Vec<String> {
         self.inner.meta.keys().cloned().collect()
     }
 
     /// Number of metadata entries.
-    fn len(&self) -> usize {
+    fn get_len(&self) -> usize {
         self.inner.meta.len()
     }
 
@@ -647,6 +639,19 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCurveId>()?;
     m.add_class::<PyInstrumentId>()?;
     m.add_class::<PyAttributes>()?;
+    let all = PyList::new(
+        py,
+        [
+            "Rate",
+            "Bps",
+            "Percentage",
+            "CreditRating",
+            "CurveId",
+            "InstrumentId",
+            "Attributes",
+        ],
+    )?;
+    m.setattr("__all__", all)?;
 
     parent.add_submodule(&m)?;
 

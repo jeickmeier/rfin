@@ -99,10 +99,6 @@ pub fn pit_to_ttc(pd_pit: f64, params: &PdCycleParams) -> Result<f64, PdCalibrat
 /// Computes the geometric mean of annual default rates, which is the
 /// standard regulatory approach for TtC PD estimation.
 ///
-/// For rates that are exactly zero, they are included in the geometric
-/// mean calculation as-is (log(0) is handled by treating zero rates
-/// as contributing zero to the product).
-///
 /// # Arguments
 ///
 /// * `annual_default_rates` - Observed default rates per year (each in [0, 1]).
@@ -112,6 +108,7 @@ pub fn pit_to_ttc(pd_pit: f64, params: &PdCycleParams) -> Result<f64, PdCalibrat
 ///
 /// - [`PdCalibrationError::EmptyInput`] if `annual_default_rates` is empty.
 /// - [`PdCalibrationError::ValueOutOfRange`] if any rate is outside [0, 1].
+/// - [`PdCalibrationError::ZeroAnnualDefaultRate`] if any rate is exactly zero.
 pub fn central_tendency(annual_default_rates: &[f64]) -> Result<f64, PdCalibrationError> {
     if annual_default_rates.is_empty() {
         return Err(PdCalibrationError::EmptyInput);
@@ -127,9 +124,10 @@ pub fn central_tendency(annual_default_rates: &[f64]) -> Result<f64, PdCalibrati
         }
     }
 
-    // If any rate is zero, the geometric mean is zero
+    // Reject zero explicitly: a zero default year makes the geometric mean
+    // degenerate and should be handled by a caller-specific smoothing policy.
     if annual_default_rates.contains(&0.0) {
-        return Ok(0.0);
+        return Err(PdCalibrationError::ZeroAnnualDefaultRate);
     }
 
     let n = annual_default_rates.len() as f64;

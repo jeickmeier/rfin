@@ -86,8 +86,7 @@ class ToleranceConfig:
         """
         ...
 
-    @property
-    def rate_epsilon(self) -> float:
+    def get_rate_epsilon(self) -> float:
         """Epsilon used for rate-style comparisons.
 
         Returns
@@ -96,8 +95,7 @@ class ToleranceConfig:
         """
         ...
 
-    @property
-    def generic_epsilon(self) -> float:
+    def get_generic_epsilon(self) -> float:
         """Epsilon used for generic floating-point comparisons.
 
         Returns
@@ -136,7 +134,7 @@ class FinstackConfig:
         """
         ...
 
-    def output_scale(self, currency: str) -> int:
+    def get_output_scale(self, currency: str) -> int:
         """Effective output decimal scale for a currency.
 
         Parameters
@@ -156,7 +154,7 @@ class FinstackConfig:
         """
         ...
 
-    def ingest_scale(self, currency: str) -> int:
+    def get_ingest_scale(self, currency: str) -> int:
         """Effective ingest decimal scale for a currency.
 
         Parameters

@@ -352,10 +352,20 @@ impl PyThirty360Convention {
 
 #[pymethods]
 impl PyThirty360Convention {
-    /// US 30/360 convention.
+    /// US 30/360 SIA / Bond Basis convention.
+    #[classattr]
+    const US_SIA: PyThirty360Convention = PyThirty360Convention {
+        inner: Thirty360Convention::UsSia,
+    };
+    /// Backward-compatible alias for US SIA / Bond Basis.
     #[classattr]
     const US: PyThirty360Convention = PyThirty360Convention {
-        inner: Thirty360Convention::Us,
+        inner: Thirty360Convention::UsSia,
+    };
+    /// 30/360 ISDA convention.
+    #[classattr]
+    const ISDA: PyThirty360Convention = PyThirty360Convention {
+        inner: Thirty360Convention::Isda,
     };
     /// European 30E/360 convention.
     #[classattr]
@@ -366,14 +376,16 @@ impl PyThirty360Convention {
     /// Hash based on the discriminant.
     fn __hash__(&self) -> isize {
         match self.inner {
-            Thirty360Convention::Us => 0,
-            Thirty360Convention::European => 1,
+            Thirty360Convention::UsSia => 0,
+            Thirty360Convention::Isda => 1,
+            Thirty360Convention::European => 2,
         }
     }
 
     fn __repr__(&self) -> String {
         let label = match self.inner {
-            Thirty360Convention::Us => "US",
+            Thirty360Convention::UsSia => "US_SIA",
+            Thirty360Convention::Isda => "ISDA",
             Thirty360Convention::European => "EUROPEAN",
         };
         format!("Thirty360Convention.{label}")
@@ -381,7 +393,8 @@ impl PyThirty360Convention {
 
     fn __str__(&self) -> String {
         match self.inner {
-            Thirty360Convention::Us => "us".to_string(),
+            Thirty360Convention::UsSia => "us_sia".to_string(),
+            Thirty360Convention::Isda => "isda".to_string(),
             Thirty360Convention::European => "european".to_string(),
         }
     }

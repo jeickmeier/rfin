@@ -649,7 +649,7 @@ impl DayCount {
             DayCount::Act365F => Ok(days / 365.0),
             DayCount::Act365L => Ok(year_fraction_act_365l(start, end)),
             DayCount::Thirty360 => {
-                Ok(days_30_360(start, end, Thirty360Convention::Us) as f64 / 360.0)
+                Ok(days_30_360(start, end, Thirty360Convention::UsSia) as f64 / 360.0)
             }
             DayCount::ThirtyE360 => {
                 Ok(days_30_360(start, end, Thirty360Convention::European) as f64 / 360.0)
@@ -915,8 +915,11 @@ pub fn act_act_isma_year_fraction_with_reference_period(
 /// 30/360 day-count variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Thirty360Convention {
-    /// 30U/360 (US Bond Basis).
-    Us,
+    /// 30U/360 (US SIA / Bond Basis).
+    #[serde(rename = "Us", alias = "us")]
+    UsSia,
+    /// 30/360 ISDA (no February EOM rule).
+    Isda,
     /// 30E/360 (European).
     European,
 }
@@ -931,7 +934,7 @@ pub(crate) fn days_30_360(start: Date, end: Date, convention: Thirty360Conventio
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
     let (d1_adj, d2_adj) = match convention {
-        Thirty360Convention::Us => {
+        Thirty360Convention::UsSia => {
             // SIA/PSA 30/360 US Bond Basis:
             // - If D1 is 31 or last day of February, change D1 to 30
             // - If D2 is 31 and D1 was adjusted to 30, change D2 to 30
@@ -949,6 +952,11 @@ pub(crate) fn days_30_360(start: Date, end: Date, convention: Thirty360Conventio
             } else {
                 d2
             };
+            (d1_adj, d2_adj)
+        }
+        Thirty360Convention::Isda => {
+            let d1_adj = if d1 == 31 { 30 } else { d1 };
+            let d2_adj = if d2 == 31 && d1_adj == 30 { 30 } else { d2 };
             (d1_adj, d2_adj)
         }
         Thirty360Convention::European => {

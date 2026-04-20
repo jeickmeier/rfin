@@ -16,8 +16,8 @@ pyo3::create_exception!(
     "Cholesky decomposition failure (inherits ValueError)."
 );
 
-/// Map a core [`linalg::CholeskyError`] to a Python `CholeskyError` exception.
-fn cholesky_err(e: linalg::CholeskyError) -> PyErr {
+/// Map a core linear-algebra error to a Python `CholeskyError` exception.
+fn cholesky_err(e: impl std::fmt::Display) -> PyErr {
     CholeskyError::new_err(e.to_string())
 }
 
@@ -84,9 +84,7 @@ fn cholesky_solve(chol: Vec<Vec<f64>>, b: Vec<f64>) -> PyResult<Vec<f64>> {
         )));
     }
     let mut x = vec![0.0; n];
-    linalg::cholesky_solve(&flat, &b, &mut x).map_err(|_| {
-        PyValueError::new_err("Cholesky solve failed: zero or near-singular diagonal in factor")
-    })?;
+    linalg::cholesky_solve(&flat, &b, &mut x).map_err(cholesky_err)?;
     Ok(x)
 }
 

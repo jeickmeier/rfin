@@ -125,7 +125,7 @@ impl GeneratorMatrix {
         };
 
         // Round-trip validation: ||exp(Q) - P||_inf < tol
-        let p_reconstructed = pade_expm(&gen.data);
+        let p_reconstructed = pade_expm(&gen.data)?;
         let inf_err = inf_norm_diff(&p_reconstructed, &p.data);
         if inf_err > round_trip_tol {
             return Err(MigrationError::RoundTripError {

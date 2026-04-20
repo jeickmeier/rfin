@@ -59,7 +59,7 @@ pub fn project(generator: &GeneratorMatrix, t: f64) -> Result<TransitionMatrix, 
         return Err(MigrationError::InvalidHorizon(t));
     }
     let a = generator.data.scale(t);
-    let result = pade_expm(&a);
+    let result = pade_expm(&a)?;
     let result = post_process(result);
     let tm = TransitionMatrix {
         data: result,
@@ -119,7 +119,7 @@ const PADE_COEFF: [f64; 14] = [
 ///
 /// Exposed as `pub(crate)` so `generator.rs` can call it for round-trip
 /// validation without going through the full `project()` pipeline.
-pub(crate) fn pade_expm(a: &DMatrix<f64>) -> DMatrix<f64> {
+pub(crate) fn pade_expm(a: &DMatrix<f64>) -> Result<DMatrix<f64>, MigrationError> {
     let n = a.nrows();
     let norm1 = one_norm(a);
 
@@ -165,7 +165,8 @@ pub(crate) fn pade_expm(a: &DMatrix<f64>) -> DMatrix<f64> {
         .clone()
         .lu()
         .solve(&p)
-        .unwrap_or_else(|| q.full_piv_lu().solve(&p).unwrap_or_else(|| p.clone()));
+        .or_else(|| q.full_piv_lu().solve(&p))
+        .ok_or(MigrationError::SingularMatrix)?;
 
     // Squaring: r = r^{2^s}
     let mut result = r;
@@ -173,7 +174,7 @@ pub(crate) fn pade_expm(a: &DMatrix<f64>) -> DMatrix<f64> {
         result = &result * &result;
     }
 
-    result
+    Ok(result)
 }
 
 // ---------------------------------------------------------------------------

@@ -262,6 +262,39 @@ fn with_bumped_rate_invalidates_cached_crosses() {
 }
 
 #[test]
+fn validate_triangular_flags_inconsistent_crosses() {
+    struct MissingFx;
+    impl FxProvider for MissingFx {
+        fn rate(
+            &self,
+            from: Currency,
+            to: Currency,
+            _on: Date,
+            _policy: FxConversionPolicy,
+        ) -> finstack_core::Result<FxRate> {
+            Err(finstack_core::InputError::NotFound {
+                id: format!("FX:{from}->{to}"),
+            }
+            .into())
+        }
+    }
+
+    let matrix = FxMatrix::new(Arc::new(MissingFx));
+    matrix
+        .set_quotes(&[
+            (Currency::EUR, Currency::USD, 1.10),
+            (Currency::USD, Currency::GBP, 0.80),
+            (Currency::GBP, Currency::EUR, 1.20),
+        ])
+        .expect("valid quotes");
+
+    let err = matrix
+        .validate_triangular(5.0)
+        .expect_err("inconsistent triangle should be rejected");
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
+}
+
+#[test]
 fn triangulation_missing_leg_only_queries_provider_once_per_leg() {
     struct CountingMissingFx {
         calls: AtomicUsize,

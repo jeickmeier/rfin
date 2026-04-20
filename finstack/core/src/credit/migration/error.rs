@@ -123,4 +123,8 @@ pub enum MigrationError {
     /// Matrix inversion failed (singular or numerically degenerate).
     #[error("matrix is singular or numerically degenerate; cannot compute inverse")]
     SingularMatrix,
+
+    /// Internal invariant failed in migration model code.
+    #[error("internal migration invariant violated: {0}")]
+    Internal(String),
 }

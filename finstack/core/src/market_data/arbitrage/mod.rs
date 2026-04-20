@@ -32,7 +32,7 @@
 //! let report = check_surface(&surface, &ArbitrageCheckConfig {
 //!     forward: Some(100.0),
 //!     ..Default::default()
-//! });
+//! })?;
 //!
 //! if report.passed {
 //!     println!("Surface is arbitrage-free");
@@ -41,6 +41,7 @@
 //!         println!("{}: {}", v.severity, v.description);
 //!     }
 //! }
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
 
 pub mod checks;
@@ -68,6 +69,12 @@ pub struct ArbitrageCheckConfig {
     /// Forward price, required for local vol density check.
     /// If None, local vol density check is skipped.
     pub forward: Option<f64>,
+    /// Optional per-expiry forward prices used by butterfly and calendar checks.
+    ///
+    /// When supplied, this must have the same length as `surface.expiries()`.
+    /// If omitted, `forward` is broadcast across expiries for backward compatibility.
+    #[serde(default)]
+    pub forward_prices: Option<Vec<f64>>,
     /// Tolerance for all checks (total-variance units).
     pub tolerance: f64,
     /// Minimum severity to include in the report.
@@ -82,6 +89,7 @@ impl Default for ArbitrageCheckConfig {
             check_calendar_spread: true,
             check_local_vol_density: true,
             forward: None,
+            forward_prices: None,
             tolerance: 1e-10,
             min_severity: ArbitrageSeverity::Negligible,
         }
@@ -97,15 +105,27 @@ impl Default for ArbitrageCheckConfig {
 ///
 /// * `surface` -- the volatility surface to check
 /// * `config` -- which checks to run and their parameters
-pub fn check_surface(surface: &VolSurface, config: &ArbitrageCheckConfig) -> ArbitrageReport {
+pub fn check_surface(
+    surface: &VolSurface,
+    config: &ArbitrageCheckConfig,
+) -> crate::Result<ArbitrageReport> {
     let start = std::time::Instant::now();
     let mut all_violations: Vec<ArbitrageViolation> = Vec::new();
 
-    // Build per-expiry forward vector from the single forward value
-    let forwards: Vec<f64> = config
-        .forward
-        .map(|f| vec![f; surface.expiries().len()])
-        .unwrap_or_default();
+    let forwards = if let Some(forwards) = &config.forward_prices {
+        if forwards.len() != surface.expiries().len() {
+            return Err(crate::Error::Validation(format!(
+                "arbitrage forward_prices length {} does not match expiry count {}",
+                forwards.len(),
+                surface.expiries().len()
+            )));
+        }
+        forwards.clone()
+    } else if let Some(fwd) = config.forward {
+        vec![fwd; surface.expiries().len()]
+    } else {
+        Vec::new()
+    };
 
     if config.check_butterfly && !forwards.is_empty() {
         let checker = ButterflyCheck {
@@ -151,14 +171,14 @@ pub fn check_surface(surface: &VolSurface, config: &ArbitrageCheckConfig) -> Arb
         .iter()
         .any(|v| v.severity > ArbitrageSeverity::Negligible);
 
-    ArbitrageReport {
+    Ok(ArbitrageReport {
         surface_id: surface.id().to_string(),
         violations: all_violations,
         passed,
         counts_by_type,
         counts_by_severity,
         elapsed_us: start.elapsed().as_micros() as u64,
-    }
+    })
 }
 
 // =============================================================================
@@ -244,7 +264,7 @@ mod tests {
             forward: Some(100.0),
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         assert!(
             report.passed,
@@ -273,7 +293,7 @@ mod tests {
             min_severity: ArbitrageSeverity::Minor,
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         // Filter to non-density checks (butterfly and calendar only)
         let butterfly_violations: Vec<_> = report
@@ -316,7 +336,7 @@ mod tests {
             min_severity: ArbitrageSeverity::Minor,
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         let butterfly_violations: Vec<_> = report
             .violations
@@ -349,7 +369,7 @@ mod tests {
             min_severity: ArbitrageSeverity::Negligible,
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         let calendar_violations: Vec<_> = report
             .violations
@@ -396,7 +416,7 @@ mod tests {
             forward: Some(100.0),
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         assert!(
             report.violations.is_empty(),
@@ -421,7 +441,7 @@ mod tests {
             forward: Some(100.0),
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         let butterfly_violations: Vec<_> = report
             .violations
@@ -442,7 +462,7 @@ mod tests {
             forward: Some(100.0),
             ..Default::default()
         };
-        let report = check_surface(&surface, &config_all);
+        let report = check_surface(&surface, &config_all).expect("arbitrage check should succeed");
 
         // Should have some violations
         assert!(
@@ -468,7 +488,7 @@ mod tests {
             forward: Some(100.0),
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         let type_count = report.counts_by_type.get(&ArbitrageType::CalendarSpread);
         let total_calendar: usize = report
@@ -494,7 +514,7 @@ mod tests {
             forward: None,
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         assert!(
             report.violations.is_empty(),
@@ -609,7 +629,7 @@ mod tests {
             forward: Some(100.0),
             ..Default::default()
         };
-        let report = check_surface(&surface, &config);
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
 
         // Serialize to JSON
         let json = serde_json::to_string(&report).expect("report should serialize");
@@ -631,6 +651,7 @@ mod tests {
             check_calendar_spread: false,
             check_local_vol_density: true,
             forward: Some(100.0),
+            forward_prices: Some(vec![100.0, 101.0]),
             tolerance: 1e-8,
             min_severity: ArbitrageSeverity::Minor,
         };
@@ -645,6 +666,7 @@ mod tests {
             deserialized.check_calendar_spread
         );
         assert_eq!(config.forward, deserialized.forward);
+        assert_eq!(config.forward_prices, deserialized.forward_prices);
         assert!((config.tolerance - deserialized.tolerance).abs() < 1e-14);
         assert_eq!(config.min_severity, deserialized.min_severity);
     }

@@ -404,10 +404,10 @@ class TestLinalgParity:
         assert x == pytest.approx([0.125, 0.25])
 
     def test_cholesky_solve_singular_raises(self) -> None:
-        """Singular factor triggers a ValueError."""
-        from finstack.core.math.linalg import cholesky_solve
+        """Singular factor triggers the dedicated CholeskyError."""
+        from finstack.core.math.linalg import CholeskyError, cholesky_solve
 
-        with pytest.raises(ValueError, match=r"(?i)singular|zero|solve"):
+        with pytest.raises(CholeskyError, match=r"(?i)invalid|singular|zero|solve"):
             cholesky_solve([[0.0]], [1.0])
 
 

@@ -133,6 +133,22 @@ export interface ForwardCurveConstructor {
   ): ForwardCurve;
 }
 
+export interface VolCube {
+  readonly id: string;
+  vol(expiry: number, tenor: number, strike: number): number;
+  volClamped(expiry: number, tenor: number, strike: number): number;
+}
+
+export interface VolCubeConstructor {
+  new (
+    id: string,
+    expiries: number[],
+    tenors: number[],
+    paramsFlat: number[],
+    forwards: number[]
+  ): VolCube;
+}
+
 export interface FxConversionPolicy {
   getName(): string;
   toString(): string;
@@ -213,6 +229,7 @@ export interface CoreNamespace {
   availableCalendars(): string[];
   DiscountCurve: DiscountCurveConstructor;
   ForwardCurve: ForwardCurveConstructor;
+  VolCube: VolCubeConstructor;
   FxConversionPolicy: FxConversionPolicyConstructor;
   FxMatrix: FxMatrixConstructor;
   choleskyDecomposition(matrix: number[][]): number[][];
@@ -256,6 +273,7 @@ export interface PeriodStats {
 
 /** Breach indicator from VaR backtesting: "Hit" or "Miss". */
 export type Breach = "Hit" | "Miss";
+export type VarMethod = "Historical" | "Parametric" | "CornishFisher";
 
 /** Kupiec Proportion of Failures (POF) unconditional coverage test result. */
 export interface KupiecResultJson {
@@ -308,6 +326,11 @@ export interface BacktestResultJson {
   traffic_light: TrafficLightResultJson;
   breaches: Breach[];
   confidence: number;
+}
+
+/** Side-by-side VaR backtest comparison across multiple model methods. */
+export interface MultiModelComparisonJson {
+  results: [VarMethod, BacktestResultJson][];
 }
 
 /** GARCH model parameter estimates (serde-serialized from Rust). */
@@ -447,8 +470,9 @@ export interface GreeksResult {
   adjusted_r_squared: number;
 }
 
-/** Rolling greeks output (alphas and betas without date labels). */
+/** Rolling greeks output aligned with rolling-window end dates. */
 export interface RollingGreeksResult {
+  dates: string[];
   alphas: number[];
   betas: number[];
 }
@@ -505,6 +529,12 @@ export interface RuinEstimateJson {
 }
 
 export interface AnalyticsNamespace {
+  /**
+   * The WASM analytics namespace intentionally exposes pure functions and
+   * typed value objects rather than the stateful Rust `Performance` panel API.
+   * Use `finstack.analytics.Performance` in Python when you need the panel
+   * facade, or compose the pure-function analytics exports directly in JS.
+   */
   // Risk metrics — return-based
   CagrBasis: CagrBasisConstructor;
   BenchmarkAlignmentPolicy: BenchmarkAlignmentPolicyConstructor;
@@ -542,7 +572,7 @@ export interface AnalyticsNamespace {
   cleanReturns(returns: number[]): number[];
   convertToPrices(returns: number[], startPrice: number): number[];
   rebase(prices: number[], baseValue: number): number[];
-  excessReturns(returns: number[], benchmark: number[]): number[];
+  excessReturns(returns: number[], rf: number[], nperiods?: number): number[];
   // Drawdown
   toDrawdownSeries(returns: number[]): number[];
   maxDrawdown(drawdownSeries: number[]): number;
@@ -555,7 +585,7 @@ export interface AnalyticsNamespace {
   painIndex(drawdownSeries: number[]): number;
   calmar(cagr: number, maxDd: number): number;
   recoveryFactor(totalReturn: number, maxDd: number): number;
-  martinRatio(annReturn: number, ulcerIdx: number, riskFreeRate: number): number;
+  martinRatio(cagr: number, ulcer: number): number;
   sterlingRatio(annReturn: number, avgDd: number, riskFreeRate: number): number;
   burkeRatio(annReturn: number, drawdownSeries: number[], riskFreeRate: number): number;
   painRatio(annReturn: number, painIdx: number, riskFreeRate: number): number;
@@ -577,7 +607,7 @@ export interface AnalyticsNamespace {
   mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
   beta(portfolio: number[], benchmark: number[]): BetaResult;
   greeks(returns: number[], benchmark: number[], annFactor: number): GreeksResult;
-  rollingGreeks(returns: number[], benchmark: number[], window: number, annFactor: number): RollingGreeksResult;
+  rollingGreeks(returns: number[], benchmark: number[], dates: string[], window: number, annFactor: number): RollingGreeksResult;
   multiFactorGreeks(returns: number[], factors: number[][], annFactor: number): MultiFactorResult;
   // Aggregation
   groupByPeriod(dates: string[], returns: number[], periodKind: string): [string, number][];
@@ -588,11 +618,13 @@ export interface AnalyticsNamespace {
   ytdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
   fytdSelect(dates: string[], asOf: string, offsetDays: number, fiscalStartMonth: number, fiscalStartDay: number): [number, number];
   // Backtesting
-  classifyBreaches(varForecasts: number[], realizedPnl: number[]): Breach[];
+  classifyBreaches(varForecasts: number[], realizedPnl: number[]): boolean[];
   kupiecTest(breachCount: number, n: number, confidence: number): KupiecResultJson;
   christoffersenTest(breachIndicators: boolean[], confidence: number): ChristoffersenResultJson;
   trafficLight(exceptions: number, n: number, confidence: number): TrafficLightResultJson;
   runBacktest(varForecasts: number[], realizedPnl: number[], confidence: number, windowSize: number): BacktestResultJson;
+  rollingVarForecasts(returns: number[], lookback: number, confidence: number, method: string): [number[], number[]];
+  compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;
   pnlExplanation(hypotheticalPnl: number[], riskTheoreticalPnl: number[], varForecasts: number[]): PnlExplanationJson;
   // GARCH volatility models
   fitGarch11(returns: number[], distribution: string): GarchFitJson;

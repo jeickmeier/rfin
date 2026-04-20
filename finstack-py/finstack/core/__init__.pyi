@@ -7,6 +7,7 @@ work transparently.
 """
 
 from finstack.core import config as config
+from finstack.core import credit as credit
 from finstack.core import currency as currency
 from finstack.core import dates as dates
 from finstack.core import market_data as market_data
@@ -16,6 +17,7 @@ from finstack.core import types as types
 
 __all__ = [
     "config",
+    "credit",
     "currency",
     "dates",
     "market_data",

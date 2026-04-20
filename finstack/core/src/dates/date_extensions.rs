@@ -12,6 +12,32 @@ use crate::dates::calendar::business_days::{
 use crate::dates::periods::FiscalConfig;
 use time::{Date, Duration, Month, OffsetDateTime, Weekday};
 
+const MONTHS_BY_INDEX: [Month; 12] = [
+    Month::January,
+    Month::February,
+    Month::March,
+    Month::April,
+    Month::May,
+    Month::June,
+    Month::July,
+    Month::August,
+    Month::September,
+    Month::October,
+    Month::November,
+    Month::December,
+];
+
+#[inline]
+fn saturating_calendar_date(year: i32, month: Month, day: u8) -> Date {
+    Date::from_calendar_date(year, month, day).unwrap_or_else(|_| {
+        if year < Date::MIN.year() {
+            Date::MIN
+        } else {
+            Date::MAX
+        }
+    })
+}
+
 /// Convenience extensions for [`time::Date`].
 pub trait DateExt: Sized {
     /// Returns true if the date falls on a weekend (**Saturday** or **Sunday**).
@@ -174,46 +200,16 @@ impl DateExt for Date {
         let total_months = year * 12 + (month as i32 - 1) + months;
         let new_year = total_months.div_euclid(12);
         let new_month_idx = total_months.rem_euclid(12);
-
-        // INVARIANT: rem_euclid(12) always returns 0..12, so (new_month_idx + 1) is 1..=12.
-        // This is always a valid Month value, so the conversion cannot fail.
-        let new_month = match Month::try_from((new_month_idx + 1) as u8) {
-            Ok(m) => m,
-            // new_month_idx is in 0..12, so (new_month_idx + 1) is in 1..=12 - always valid.
-            Err(_) => unreachable!(
-                "Month conversion failed for index {} (this is a bug)",
-                new_month_idx + 1
-            ),
-        };
+        let new_month = MONTHS_BY_INDEX[new_month_idx as usize];
 
         let days_in_new_month = new_month.length(new_year);
         let new_day = self.day().min(days_in_new_month);
-
-        // Day is clamped to a valid range. The only failure mode is year overflow
-        // (years outside -999999..=999999 for the `time` crate).
-        match Date::from_calendar_date(new_year, new_month, new_day) {
-            Ok(d) => d,
-            // Year overflow outside `time::Date` supported range.
-            Err(_) => unreachable!(
-                "DateExt::add_months overflowed supported date range (year: {})",
-                new_year
-            ),
-        }
+        saturating_calendar_date(new_year, new_month, new_day)
     }
 
     fn end_of_month(self) -> Self {
         let days = self.month().length(self.year());
-        // INVARIANT: self is already a valid Date, so year and month are valid.
-        // days is the length of the month, which is always valid (28-31).
-        // Therefore, from_calendar_date cannot fail.
-        match Date::from_calendar_date(self.year(), self.month(), days) {
-            Ok(d) => d,
-            // If self is a valid Date, then (year, month, last_day_of_month) must be valid.
-            Err(_) => unreachable!(
-                "DateExt::end_of_month failed unexpectedly for {:?} (this is a bug)",
-                self
-            ),
-        }
+        saturating_calendar_date(self.year(), self.month(), days)
     }
 
     fn add_weekdays(self, mut n: i32) -> Self {

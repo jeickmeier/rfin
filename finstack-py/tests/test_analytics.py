@@ -1,10 +1,12 @@
 """Tests for analytics functions: returns, risk metrics, drawdowns."""
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 
 from finstack.analytics import (
+    classify_breaches,
     comp_sum,
     comp_total,
     compare_var_backtests,
@@ -54,6 +56,16 @@ class TestSimpleReturns:
         rets = simple_returns([100.0])
         assert len(rets) == 1
         assert rets[0] == pytest.approx(0.0)
+
+    def test_stub_matches_runtime_contract(self) -> None:
+        """The stub documents the leading-zero, same-length runtime shape."""
+        stub_path = Path(__file__).resolve().parents[1] / "finstack" / "analytics" / "__init__.pyi"
+        stub_text = stub_path.read_text()
+
+        assert simple_returns([100.0, 101.0]) == pytest.approx([0.0, 0.01])
+        assert "Simple returns (same length as ``prices``)." in stub_text
+        assert ">>> simple_returns([100.0, 101.0])" in stub_text
+        assert "[0.0, 0.01]" in stub_text
 
 
 class TestVolatility:
@@ -271,6 +283,10 @@ class TestLookbackBindings:
 
 class TestBacktestingBindings:
     """Validate extended Python backtesting bindings."""
+
+    def test_classify_breaches_returns_dense_boolean_series(self) -> None:
+        """The binding preserves one breach indicator per observation."""
+        assert classify_breaches([-0.02, -0.02], [-0.01, -0.03]) == [False, True]
 
     def test_rolling_var_forecasts_historical(self) -> None:
         forecasts, realized = rolling_var_forecasts(

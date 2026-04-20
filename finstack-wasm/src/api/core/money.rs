@@ -80,10 +80,11 @@ impl Money {
 
     /// Negate the monetary amount.
     #[wasm_bindgen(js_name = negate)]
-    pub fn negate(&self) -> Money {
-        Money {
-            inner: self.inner * -1.0,
-        }
+    pub fn negate(&self) -> Result<Money, JsValue> {
+        self.inner
+            .checked_mul_f64(-1.0)
+            .map(|inner| Money { inner })
+            .map_err(to_js_err)
     }
 
     /// Default string representation (e.g. `"USD 10.00"`).
@@ -146,7 +147,7 @@ mod tests {
     #[test]
     fn negate() {
         let m = Money::new(10.0, &usd()).expect("valid");
-        let neg = m.negate();
+        let neg = m.negate().expect("negate");
         assert!((neg.amount() + 10.0).abs() < 1e-10);
     }
 
@@ -187,7 +188,7 @@ mod tests {
     #[test]
     fn negate_zero() {
         let m = Money::new(0.0, &usd()).expect("valid");
-        let neg = m.negate();
+        let neg = m.negate().expect("negate");
         assert!(neg.amount().abs() < 1e-12);
     }
 }

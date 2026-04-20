@@ -27,8 +27,8 @@ fn parse_var_method(method: &str) -> PyResult<bt::VarMethod> {
 /// Classify each observation as a VaR breach (hit) or miss.
 ///
 /// A breach occurs when the realized P&L is more negative than the
-/// VaR forecast. Returns a list of ``(index, var_forecast, realized_pnl)``
-/// tuples for each observed breach.
+/// VaR forecast. Returns a dense boolean series aligned 1:1 with the
+/// input observations (``True`` = breach, ``False`` = miss).
 ///
 /// # Arguments
 ///
@@ -37,18 +37,13 @@ fn parse_var_method(method: &str) -> PyResult<bt::VarMethod> {
 ///
 /// # Returns
 ///
-/// List of ``(index, var_forecast, realized_pnl)`` tuples, one per breach.
-/// Empty if the inputs have mismatched lengths or no breaches occurred.
+/// Dense boolean breach indicator series aligned with the inputs.
+/// Empty if the inputs have mismatched lengths or are empty.
 #[pyfunction]
-fn classify_breaches(var_forecasts: Vec<f64>, realized_pnl: Vec<f64>) -> Vec<(usize, f64, f64)> {
-    let breaches = bt::classify_breaches(&var_forecasts, &realized_pnl);
-    breaches
-        .iter()
-        .enumerate()
-        .filter_map(|(i, b)| match b {
-            Breach::Hit => Some((i, var_forecasts[i], realized_pnl[i])),
-            Breach::Miss => None,
-        })
+fn classify_breaches(var_forecasts: Vec<f64>, realized_pnl: Vec<f64>) -> Vec<bool> {
+    bt::classify_breaches(&var_forecasts, &realized_pnl)
+        .into_iter()
+        .map(|breach| breach == Breach::Hit)
         .collect()
 }
 

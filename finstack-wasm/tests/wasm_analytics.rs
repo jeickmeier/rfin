@@ -221,9 +221,20 @@ fn rebase_starts_at_base() {
 
 #[wasm_bindgen_test]
 fn excess_returns_correct_length() {
-    let v = excess_returns(returns_js(), benchmark_js()).unwrap();
+    let v = excess_returns(returns_js(), benchmark_js(), None).unwrap();
     let arr: Vec<f64> = serde_wasm_bindgen::from_value(v).unwrap();
     assert_eq!(arr.len(), 10);
+}
+
+#[wasm_bindgen_test]
+fn excess_returns_supports_optional_nperiods() {
+    let returns = serde_wasm_bindgen::to_value(&vec![0.02, 0.01]).unwrap();
+    let rf = serde_wasm_bindgen::to_value(&vec![0.12, 0.12]).unwrap();
+    let v = excess_returns(returns, rf, Some(12.0)).unwrap();
+    let arr: Vec<f64> = serde_wasm_bindgen::from_value(v).unwrap();
+    assert_eq!(arr.len(), 2);
+    assert!(arr[0].is_finite());
+    assert!(arr[1].is_finite());
 }
 
 // ---- Aggregation ----
@@ -381,6 +392,15 @@ fn rolling_var_forecasts_returns_two_aligned_series() {
     let parsed: (Vec<f64>, Vec<f64>) = serde_wasm_bindgen::from_value(v).unwrap();
     assert_eq!(parsed.0.len(), 5);
     assert_eq!(parsed.1.len(), 5);
+}
+
+#[wasm_bindgen_test]
+fn classify_breaches_returns_dense_boolean_series() {
+    let forecasts = serde_wasm_bindgen::to_value(&vec![-0.02, -0.02]).unwrap();
+    let realized = serde_wasm_bindgen::to_value(&vec![-0.01, -0.03]).unwrap();
+    let v = classify_breaches(forecasts, realized).unwrap();
+    let parsed: Vec<bool> = serde_wasm_bindgen::from_value(v).unwrap();
+    assert_eq!(parsed, vec![false, true]);
 }
 
 #[wasm_bindgen_test]

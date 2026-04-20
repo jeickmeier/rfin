@@ -162,6 +162,7 @@ impl InterpolationStrategy for LogLinearStrategy {
         values: &[f64],
         _extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
+        validate_positive_series(values)?;
         // Precompute log(values) for efficiency
         let log_values: Vec<f64> = values.iter().map(|v| v.ln()).collect();
         Ok(Self {

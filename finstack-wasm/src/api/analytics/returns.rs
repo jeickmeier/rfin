@@ -40,8 +40,13 @@ pub fn rebase(prices: JsValue, base: f64) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen(js_name = excessReturns)]
-pub fn excess_returns(returns: JsValue, rf: JsValue) -> Result<JsValue, JsValue> {
+pub fn excess_returns(
+    returns: JsValue,
+    rf: JsValue,
+    nperiods: Option<f64>,
+) -> Result<JsValue, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
     let rf_vec: Vec<f64> = serde_wasm_bindgen::from_value(rf).map_err(to_js_err)?;
-    serde_wasm_bindgen::to_value(&fa::returns::excess_returns(&r, &rf_vec, None)).map_err(to_js_err)
+    serde_wasm_bindgen::to_value(&fa::returns::excess_returns(&r, &rf_vec, nperiods))
+        .map_err(to_js_err)
 }

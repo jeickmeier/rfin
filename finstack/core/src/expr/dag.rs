@@ -214,6 +214,34 @@ mod tests {
     }
 
     #[test]
+    fn dag_builder_counts_shared_node_dependencies_once() {
+        let mut builder = DagBuilder::new();
+        let shared = Expr::call(
+            Function::RollingStd,
+            vec![Expr::column("x"), Expr::literal(10.0)],
+        );
+        let derived = Expr::call(
+            Function::RollingMean,
+            vec![shared.clone(), Expr::literal(5.0)],
+        );
+
+        let plan = builder
+            .build_plan(vec![shared, derived], explicit_meta())
+            .expect("valid expressions should build a DAG plan");
+
+        let col_node = plan
+            .nodes
+            .iter()
+            .find(|node| matches!(node.expr.node, ExprNode::Column(_)))
+            .expect("column node should be present");
+
+        assert_eq!(
+            col_node.ref_count, 1,
+            "shared-node dependencies should be counted once per edge"
+        );
+    }
+
+    #[test]
     fn dag_builder_keeps_dependency_chain_in_topological_order() {
         let mut builder = DagBuilder::new();
         let col_x = Expr::column("x");
@@ -412,8 +440,8 @@ impl DagBuilder {
 
             if let Some(node) = nodes.get(&node_id) {
                 for &dep_id in &node.dependencies {
-                    *ref_counts.entry(dep_id).or_insert(0) += 1;
                     if first_visit {
+                        *ref_counts.entry(dep_id).or_insert(0) += 1;
                         count_refs(dep_id, nodes, ref_counts, visited, depth + 1);
                     }
                 }

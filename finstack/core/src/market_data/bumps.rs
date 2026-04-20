@@ -719,16 +719,25 @@ impl Bumpable for MarketScalar {
                 };
                 Ok(MarketScalar::Unitless(new_val))
             }
-            MarketScalar::Price(m) => {
-                let new_val = if is_multiplicative {
-                    *m * raw_val
-                } else {
-                    // Additive bump on Price: interpreted as proportional shift.
-                    // A raw_val of 0.01 means a +1% price change, not +0.01 absolute.
-                    *m * (1.0 + raw_val)
-                };
-                Ok(MarketScalar::Price(new_val))
-            }
+            MarketScalar::Price(m) => match (spec.mode, spec.units) {
+                (BumpMode::Additive, BumpUnits::Fraction) => {
+                    let bump = crate::money::Money::try_new_retain(spec.value, m.currency())?;
+                    m.checked_add(bump).map(MarketScalar::Price)
+                }
+                (BumpMode::Additive, BumpUnits::Percent) => {
+                    Ok(MarketScalar::Price(*m * (1.0 + spec.value / 100.0)))
+                }
+                (BumpMode::Multiplicative, BumpUnits::Factor) => {
+                    Ok(MarketScalar::Price(*m * spec.value))
+                }
+                _ => Err(crate::error::InputError::UnsupportedBump {
+                    reason: format!(
+                        "MarketScalar::Price only supports Additive/{{Fraction,Percent}} or Multiplicative/Factor, got {:?}/{:?}",
+                        spec.mode, spec.units
+                    ),
+                }
+                .into()),
+            },
         }
     }
 }
@@ -878,6 +887,52 @@ mod tests {
             bump_type: BumpType::Parallel,
         };
         assert_eq!(spec.resolve_standard_values(), None);
+    }
+
+    #[test]
+    fn test_market_scalar_price_fraction_bump_is_absolute() -> crate::Result<()> {
+        let price = MarketScalar::Price(crate::money::Money::new(
+            100.0,
+            crate::currency::Currency::USD,
+        ));
+        let bumped = price.apply_bump(BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Fraction,
+            value: 2.5,
+            bump_type: BumpType::Parallel,
+        })?;
+
+        let MarketScalar::Price(m) = bumped else {
+            return Err(crate::Error::Validation(
+                "expected MarketScalar::Price result".to_string(),
+            ));
+        };
+        assert!((m.amount() - 102.5).abs() < 1e-12);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_market_scalar_price_percent_bump_is_proportional() -> crate::Result<()> {
+        let price = MarketScalar::Price(crate::money::Money::new(
+            100.0,
+            crate::currency::Currency::USD,
+        ));
+        let bumped = price.apply_bump(BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Percent,
+            value: 2.5,
+            bump_type: BumpType::Parallel,
+        })?;
+
+        let MarketScalar::Price(m) = bumped else {
+            return Err(crate::Error::Validation(
+                "expected MarketScalar::Price result".to_string(),
+            ));
+        };
+        assert!((m.amount() - 102.5).abs() < 1e-12);
+
+        Ok(())
     }
 
     #[test]

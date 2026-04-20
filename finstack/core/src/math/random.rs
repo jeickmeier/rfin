@@ -78,6 +78,18 @@ pub trait RandomNumberGenerator {
 
     /// Generate Bernoulli random boolean with probability p
     fn bernoulli(&mut self, p: f64) -> bool;
+
+    /// Checked Bernoulli sampler.
+    ///
+    /// Returns an error when `p` is outside `[0, 1]`.
+    fn try_bernoulli(&mut self, p: f64) -> crate::Result<bool> {
+        if !(0.0..=1.0).contains(&p) {
+            return Err(crate::Error::Validation(format!(
+                "bernoulli probability must be in [0, 1], got {p}"
+            )));
+        }
+        Ok(self.bernoulli(p))
+    }
 }
 
 // ============================================================================
@@ -155,6 +167,8 @@ use rand_pcg::Pcg64;
 pub struct Pcg64Rng {
     inner: Pcg64,
     cached_normal: Option<f64>,
+    seed: u64,
+    stream: u64,
 }
 
 impl Pcg64Rng {
@@ -183,6 +197,8 @@ impl Pcg64Rng {
         Self {
             inner: Pcg64::seed_from_u64(seed),
             cached_normal: None,
+            seed,
+            stream: 0,
         }
     }
 
@@ -215,6 +231,8 @@ impl Pcg64Rng {
         Self {
             inner: Pcg64::new(state, ((stream as u128) << 1) | 1), // Unique odd increment per stream
             cached_normal: None,
+            seed,
+            stream,
         }
     }
 
@@ -224,9 +242,13 @@ impl Pcg64Rng {
     /// For full state preservation, use serde serialization.
     #[must_use]
     pub fn seed(&self) -> u64 {
-        // PCG64 doesn't expose the seed directly, so we can't return it
-        // This method is provided for API compatibility
-        0 // Placeholder - actual state is preserved via serde
+        self.seed
+    }
+
+    /// Get the configured stream identifier.
+    #[must_use]
+    pub fn stream(&self) -> u64 {
+        self.stream
     }
 }
 
@@ -252,6 +274,10 @@ impl RandomNumberGenerator for Pcg64Rng {
 
     #[inline]
     fn bernoulli(&mut self, p: f64) -> bool {
+        debug_assert!(
+            (0.0..=1.0).contains(&p),
+            "bernoulli probability must be in [0, 1], got {p}"
+        );
         self.uniform() < p
     }
 }
@@ -418,6 +444,17 @@ mod tests {
     }
 
     #[test]
+    fn test_pcg64_rng_reports_seed_and_stream() {
+        let rng = Pcg64Rng::new(42);
+        assert_eq!(rng.seed(), 42);
+        assert_eq!(rng.stream(), 0);
+
+        let rng = Pcg64Rng::new_with_stream(7, 11);
+        assert_eq!(rng.seed(), 7);
+        assert_eq!(rng.stream(), 11);
+    }
+
+    #[test]
     fn test_pcg64_rng_different_seeds() {
         let mut rng1 = Pcg64Rng::new(42);
         let mut rng2 = Pcg64Rng::new(123);
@@ -521,6 +558,14 @@ mod tests {
             successes,
             expected
         );
+    }
+
+    #[test]
+    fn test_try_bernoulli_rejects_invalid_probability() {
+        let mut rng = Pcg64Rng::new(42);
+        assert!(rng.try_bernoulli(-0.1).is_err());
+        assert!(rng.try_bernoulli(1.1).is_err());
+        assert!(rng.try_bernoulli(0.25).is_ok());
     }
 
     #[test]

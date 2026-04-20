@@ -194,9 +194,6 @@ impl<'de> Deserialize<'de> for FactorCovarianceMatrix {
         }
 
         let helper = FactorCovarianceMatrixSerde::deserialize(deserializer)?;
-        let index = FactorCovarianceMatrix::build_index(&helper.factor_ids)
-            .map_err(serde::de::Error::custom)?;
-
         if helper.factor_ids.len() != helper.n {
             return Err(serde::de::Error::custom(
                 "Factor covariance matrix factor count does not match n",
@@ -209,12 +206,8 @@ impl<'de> Deserialize<'de> for FactorCovarianceMatrix {
             ));
         }
 
-        Ok(FactorCovarianceMatrix {
-            factor_ids: helper.factor_ids,
-            n: helper.n,
-            data: helper.data,
-            index,
-        })
+        FactorCovarianceMatrix::new(helper.factor_ids, helper.data)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -275,6 +268,17 @@ mod tests {
         };
         let correlation = covariance.correlation(&FactorId::new("Rates"), &FactorId::new("Credit"));
         assert!((correlation - (1.0 / 6.0)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_deserialize_rejects_non_psd_matrix() {
+        let json = r#"{
+            "factor_ids":["Rates","Credit"],
+            "n":2,
+            "data":[1.0,2.0,2.0,1.0]
+        }"#;
+        let result: Result<FactorCovarianceMatrix, _> = serde_json::from_str(json);
+        assert!(result.is_err());
     }
 
     #[test]

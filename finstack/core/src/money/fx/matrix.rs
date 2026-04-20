@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
@@ -444,6 +445,70 @@ impl FxMatrix {
         bumped.set_quote(from, to, bumped_rate)?;
 
         Ok(bumped)
+    }
+
+    /// Validate that stored FX quotes do not imply triangular arbitrage beyond a tolerance.
+    pub fn validate_triangular(&self, tolerance_bps: f64) -> crate::Result<()> {
+        if !tolerance_bps.is_finite() || tolerance_bps < 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "triangular validation tolerance must be finite and non-negative, got {tolerance_bps}"
+            )));
+        }
+
+        let mut rates: HashMap<(Currency, Currency), FxRate> = HashMap::new();
+        let mut currencies: HashSet<Currency> = HashSet::new();
+
+        {
+            let quotes = self.quotes.lock();
+            for (pair, &rate) in quotes.iter() {
+                if rate.is_finite() && rate > 0.0 {
+                    rates.entry((pair.0, pair.1)).or_insert(rate);
+                    currencies.insert(pair.0);
+                    currencies.insert(pair.1);
+                }
+            }
+        }
+
+        {
+            let quotes = self.observed_quotes.lock();
+            for (query, &rate) in quotes.iter() {
+                if rate.is_finite() && rate > 0.0 {
+                    rates.entry((query.from, query.to)).or_insert(rate);
+                    currencies.insert(query.from);
+                    currencies.insert(query.to);
+                }
+            }
+        }
+
+        let currencies: Vec<Currency> = currencies.into_iter().collect();
+        for &a in &currencies {
+            for &b in &currencies {
+                if a == b {
+                    continue;
+                }
+                for &c in &currencies {
+                    if a == c || b == c {
+                        continue;
+                    }
+
+                    let (Some(&ab), Some(&bc), Some(&ca)) =
+                        (rates.get(&(a, b)), rates.get(&(b, c)), rates.get(&(c, a)))
+                    else {
+                        continue;
+                    };
+
+                    let cycle_product = ab * bc * ca;
+                    let deviation_bps = (cycle_product - 1.0).abs() * 10_000.0;
+                    if deviation_bps > tolerance_bps {
+                        return Err(crate::Error::Validation(format!(
+                            "triangular arbitrage detected for {a}->{b}->{c}->{a}: cycle product {cycle_product:.12} ({deviation_bps:.6} bps)"
+                        )));
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     // Private helper methods

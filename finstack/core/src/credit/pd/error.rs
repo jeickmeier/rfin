@@ -66,4 +66,8 @@ pub enum PdCalibrationError {
         /// The non-finite value.
         value: f64,
     },
+
+    /// Central tendency calibration cannot include a zero annual default rate.
+    #[error("central_tendency requires strictly positive annual default rates, found 0.0")]
+    ZeroAnnualDefaultRate,
 }

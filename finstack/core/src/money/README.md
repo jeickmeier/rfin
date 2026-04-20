@@ -51,11 +51,17 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
 
 - **Construction**
   - `Money::new(amount: f64, currency: Currency)`
-    Uses ISO‑4217 minor units and **bankers rounding** by default.
+    Preserves the raw finite amount without ISO minor‑unit rounding.
+    Internal pricing math relies on retained precision.
   - `Money::new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig)`
-    Uses ingest‑scale and rounding mode from `cfg`.
+    Uses ingest‑scale and rounding mode from `cfg` — use this for
+    ledger‑style construction that must honor per‑currency scales.
   - `Money::try_new(amount: f64, currency: Currency)`
     Fallible constructor that returns `Result<Money, Error>`.
+    Same retain‑precision semantics as `new`.
+  - `Money::try_new_retain(amount: f64, currency: Currency)`
+    Explicit alias for `try_new`'s retain‑precision behavior, intended for
+    call sites that want to make the precision intent unmistakable.
   - `Money::try_new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig)`
     Fallible constructor using explicit rounding config.
   - `From<(f64, Currency)>`, `From<(i64, Currency)>`, `From<(u64, Currency)>` for convenient tuple construction.
