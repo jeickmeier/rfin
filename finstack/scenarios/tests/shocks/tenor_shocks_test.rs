@@ -186,3 +186,112 @@ fn test_tenor_interpolate_mode() {
         df_3y
     );
 }
+
+/// W1/W2 regression: `TenorNotFound` in `Exact` mode must identify the
+/// curve, not "unknown".
+#[test]
+fn tenor_not_found_error_names_curve() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert(curve);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "bad_tenor".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::CurveNodeBp {
+            curve_kind: CurveKind::Discount,
+            curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
+            nodes: vec![("7Y".into(), 10.0)],
+            match_mode: TenorMatchMode::Exact,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let err = engine
+        .apply(&scenario, &mut ctx)
+        .expect_err("7Y is absent from the curve");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("USD-OIS"),
+        "error should name the curve: {msg}"
+    );
+    assert!(
+        !msg.contains("unknown"),
+        "error should not say 'unknown': {msg}"
+    );
+}
+
+/// W1 regression: extrapolation warning must include both range bounds, the
+/// curve id, and use the "outside curve range" wording (not the old
+/// max-only phrasing).
+#[test]
+fn extrapolation_warning_includes_both_bounds_and_curve_id() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90), (10.0, 0.80)])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert(curve);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "above_range".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::CurveNodeBp {
+            curve_kind: CurveKind::Discount,
+            curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
+            // 15Y is beyond the 10Y max knot; flat extrapolation to 10Y knot.
+            nodes: vec![("15Y".into(), 10.0)],
+            match_mode: TenorMatchMode::Interpolate,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    let warning = report
+        .warnings
+        .iter()
+        .find(|w| w.contains("extrapolates"))
+        .expect("above-range extrapolation must produce a warning");
+    assert!(
+        warning.contains("outside curve range"),
+        "wording: {warning}"
+    );
+    assert!(warning.contains("0.00Y"), "min bound missing: {warning}");
+    assert!(warning.contains("10.00Y"), "max bound missing: {warning}");
+    assert!(warning.contains("USD-OIS"), "curve id missing: {warning}");
+}

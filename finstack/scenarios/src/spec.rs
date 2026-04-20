@@ -744,6 +744,16 @@ pub enum TenorMatchMode {
 /// [`TimeRollMode::CalendarDays`] when the tenor should be added without a
 /// business-day adjustment. [`TimeRollMode::Approximate`] uses fixed day-count
 /// approximations aligned with [`crate::utils::parse_period_to_days`].
+///
+/// # Non-additivity of `Approximate`
+///
+/// [`TimeRollMode::Approximate`] is **not additive across composed rolls**.
+/// Because months collapse to a fixed 30-day count, two `6M` rolls produce
+/// 360 days rather than the 365/366 days of a calendar year, so
+/// `6M + 6M ≠ 1Y`. For chained horizons or scenario composition prefer
+/// [`TimeRollMode::BusinessDays`] or [`TimeRollMode::CalendarDays`], which
+/// both resolve the target date via [`finstack_core::dates::Tenor`] and are
+/// additive modulo the chosen business-day convention.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TimeRollMode {
@@ -753,6 +763,9 @@ pub enum TimeRollMode {
     /// Pure calendar-day addition (no business-day adjustment even if a calendar exists).
     CalendarDays,
     /// Explicit approximate mode using fixed day counts (legacy 30/365 semantics).
+    ///
+    /// See the enum-level "Non-additivity" note: composed rolls in this mode
+    /// do not commute with calendar arithmetic (`6M + 6M = 360d ≠ 1Y`).
     Approximate,
 }
 
@@ -963,13 +976,13 @@ impl OperationSpec {
             }
             OperationSpec::BaseCorrParallelPts { surface_id, points } => {
                 check_id(surface_id, "surface_id")?;
-                check_finite(*points, "points")?;
+                check_corr_delta(*points, "points")?;
             }
             OperationSpec::BaseCorrBucketPts {
                 surface_id, points, ..
             } => {
                 check_id(surface_id, "surface_id")?;
-                check_finite(*points, "points")?;
+                check_corr_delta(*points, "points")?;
             }
             OperationSpec::VolSurfaceParallelPct {
                 surface_id, pct, ..
@@ -1021,10 +1034,10 @@ impl OperationSpec {
                 check_finite(*bp, "bp")?;
             }
             OperationSpec::AssetCorrelationPts { delta_pts } => {
-                check_finite(*delta_pts, "delta_pts")?;
+                check_corr_delta(*delta_pts, "delta_pts")?;
             }
             OperationSpec::PrepayDefaultCorrelationPts { delta_pts } => {
-                check_finite(*delta_pts, "delta_pts")?;
+                check_corr_delta(*delta_pts, "delta_pts")?;
             }
             OperationSpec::HierarchyCurveParallelBp {
                 target,
@@ -1066,7 +1079,7 @@ impl OperationSpec {
                         "Hierarchy target path cannot be empty".into(),
                     ));
                 }
-                check_finite(*points, "points")?;
+                check_corr_delta(*points, "points")?;
             }
             OperationSpec::TimeRollForward { period, .. } => {
                 if period.trim().is_empty() {
@@ -1111,4 +1124,20 @@ fn check_pct_floor(val: f64, name: &str) -> crate::error::Result<()> {
     } else {
         Ok(())
     }
+}
+
+/// Correlation shocks are quoted as additive points (1.0 = +100 pts). A Δρ
+/// outside `[-2, 2]` cannot produce a valid correlation regardless of base
+/// level (since ρ ∈ [-1, 1] implies |Δρ| ≤ 2). Reject such inputs at
+/// validation time to surface obvious unit-confusion (e.g. 25 meaning
+/// "0.25") before the adapter silently clamps the outcome.
+fn check_corr_delta(val: f64, name: &str) -> crate::error::Result<()> {
+    check_finite(val, name)?;
+    if !(-2.0..=2.0).contains(&val) {
+        return Err(crate::error::Error::Validation(format!(
+            "Correlation delta '{name}' must lie in [-2, 2] points (got {val:.4}); \
+             inputs are additive correlation points where 1.0 = +100 pts"
+        )));
+    }
+    Ok(())
 }

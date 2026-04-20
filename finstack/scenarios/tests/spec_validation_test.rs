@@ -123,6 +123,40 @@ fn operation_validate_rejects_invalid_inputs() {
         .contains("Hierarchy target path cannot be empty"));
 }
 
+/// W7 regression: correlation point deltas must lie in [-2, 2]. Anything
+/// outside cannot produce a valid correlation (|Δρ| ≤ 2 since ρ ∈ [-1, 1])
+/// and is almost certainly a unit mistake (e.g. 25 meaning "0.25").
+#[test]
+fn operation_validate_rejects_out_of_range_correlation_deltas() {
+    let asset_corr_large = OperationSpec::AssetCorrelationPts { delta_pts: 25.0 };
+    let asset_corr_negative = OperationSpec::AssetCorrelationPts { delta_pts: -3.5 };
+    let base_corr_parallel = OperationSpec::BaseCorrParallelPts {
+        surface_id: "CDX.IG".into(),
+        points: 5.0,
+    };
+
+    for op in [asset_corr_large, asset_corr_negative, base_corr_parallel] {
+        let err = op
+            .validate()
+            .expect_err("out-of-range correlation delta must be rejected");
+        assert!(
+            err.to_string().contains("[-2, 2] points"),
+            "missing bound message: {err}"
+        );
+    }
+
+    // In-range values still pass.
+    OperationSpec::AssetCorrelationPts { delta_pts: 0.15 }
+        .validate()
+        .expect("0.15 is a sane correlation delta");
+    OperationSpec::BaseCorrParallelPts {
+        surface_id: "CDX.IG".into(),
+        points: -0.05,
+    }
+    .validate()
+    .expect("-0.05 is a sane base-correlation point shock");
+}
+
 #[test]
 fn operation_validate_rejects_curve_node_and_binding_shape_errors() {
     let empty_nodes = OperationSpec::CurveNodeBp {
@@ -285,4 +319,40 @@ fn scenario_validate_accepts_mixed_valid_operations() {
     scenario
         .validate()
         .expect("mixed valid scenario should pass validation");
+}
+
+/// `ScenarioEngine::apply` must enforce `ScenarioSpec::validate` on every
+/// entry path so FFI callers that bypass validate() still get safety.
+#[test]
+fn engine_apply_rejects_invalid_spec() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_scenarios::{ExecutionContext, ScenarioEngine};
+    use finstack_statements::FinancialModelSpec;
+    use time::macros::date;
+
+    let spec = ScenarioSpec {
+        id: "".into(),
+        name: None,
+        description: None,
+        operations: vec![],
+        priority: 0,
+        resolution_mode: ResolutionMode::default(),
+    };
+
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: date!(2025 - 01 - 15),
+    };
+
+    let engine = ScenarioEngine::new();
+    let err = engine
+        .apply(&spec, &mut ctx)
+        .expect_err("empty-id spec should be rejected by engine.apply");
+    assert!(err.to_string().contains("Scenario ID cannot be empty"));
 }

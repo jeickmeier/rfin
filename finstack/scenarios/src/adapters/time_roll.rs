@@ -142,6 +142,17 @@ pub fn apply_time_roll_forward(
         }
     };
 
+    // Guard against backward rolls. Market data roll-forward, carry accrual,
+    // and horizon attribution are all defined for forward time; a negative
+    // period (e.g. "-1M") would silently corrupt the pipeline. Reject here
+    // so the error is produced at the source of the bad period string.
+    if day_shift < 0 {
+        return Err(Error::InvalidPeriod(format!(
+            "TimeRollForward period '{period_str}' produced a backward shift ({day_shift} days); \
+             only forward rolls are supported"
+        )));
+    }
+
     // Calculate carry and market value changes for instruments BEFORE rolling curves
     // This ensures we capture the true carry (time value change with constant curves)
     let (instrument_carry, total_carry, failed_instruments) =
