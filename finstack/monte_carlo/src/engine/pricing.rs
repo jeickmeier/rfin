@@ -7,6 +7,7 @@ use crate::paths::{PathDataset, PathSamplingMethod, ProcessParams, SimulatedPath
 use crate::results::{MoneyEstimate, MonteCarloResult};
 use crate::traits::{Discretization, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
+use finstack_core::math::linalg::{cholesky_correlation, CorrelationFactor};
 use finstack_core::Result;
 
 use std::ops::Range;
@@ -44,6 +45,37 @@ pub(super) fn adaptive_chunk_size(num_paths: usize) -> usize {
     // Min 100 paths per chunk to amortize overhead
     // Max 10_000 paths to avoid cache thrashing
     (num_paths / (num_cpus * 4)).clamp(100, 10_000)
+}
+
+/// Build the engine-side correlation factor for shock transformation.
+///
+/// Returns `None` when the discretization applies correlation internally
+/// (e.g. [`crate::discretization::QeHeston`]) or when the process does not
+/// declare a correlation matrix via [`StochasticProcess::factor_correlation`].
+/// Otherwise returns a Cholesky factor of the declared matrix, which the
+/// engine applies to raw independent shocks before each
+/// [`Discretization::step`] call.
+pub(crate) fn build_correlation_factor<P, D>(
+    process: &P,
+    disc: &D,
+) -> Result<Option<CorrelationFactor>>
+where
+    P: StochasticProcess,
+    D: Discretization<P>,
+{
+    if disc.applies_correlation_internally() {
+        return Ok(None);
+    }
+    let Some(matrix) = process.factor_correlation() else {
+        return Ok(None);
+    };
+    let n = process.num_factors();
+    let factor = cholesky_correlation(&matrix, n).map_err(|e| {
+        finstack_core::Error::Validation(format!(
+            "failed to Cholesky-factor process correlation matrix: {e}"
+        ))
+    })?;
+    Ok(Some(factor))
 }
 
 /// Pre-sized chunk index ranges for parallel path loops (avoids `Vec` reallocations).
@@ -502,10 +534,14 @@ impl McEngine {
         let dim = process.dim();
         let num_factors = process.num_factors();
         let work_size = disc.work_size(process);
+        let correlation = build_correlation_factor(process, disc)?;
 
         // Pre-allocate buffers (reused across paths)
         let mut state = vec![0.0; dim];
         let mut z = vec![0.0; num_factors];
+        // `z_raw` holds independent shocks when the engine applies correlation;
+        // otherwise it stays zero-length to avoid an unused allocation.
+        let mut z_raw = vec![0.0; if correlation.is_some() { num_factors } else { 0 }];
         let mut work = vec![0.0; work_size];
         let mut state_a = vec![0.0; dim];
         let mut z_anti = vec![0.0; num_factors];
@@ -548,7 +584,9 @@ impl McEngine {
                     &mut payoff_local,
                     &mut state,
                     &mut z,
+                    &mut z_raw,
                     &mut work,
+                    correlation.as_ref(),
                     path_id,
                     discount_factor,
                     currency,
@@ -566,8 +604,10 @@ impl McEngine {
                     &mut state_a,
                     &mut z,
                     &mut z_anti,
+                    &mut z_raw,
                     &mut work,
                     &mut work_anti,
+                    correlation.as_ref(),
                     currency,
                 )?
             } else {
@@ -579,7 +619,9 @@ impl McEngine {
                     &mut payoff_local,
                     &mut state,
                     &mut z,
+                    &mut z_raw,
                     &mut work,
+                    correlation.as_ref(),
                     currency,
                 )?
             };
@@ -610,14 +652,21 @@ impl McEngine {
             }
         }
 
+        let num_paths = stats.count();
+        let num_simulated_paths = if self.config.antithetic {
+            num_paths.saturating_mul(2)
+        } else {
+            num_paths
+        };
         let estimate = Estimate::new(
             stats.mean(),
             stats.stderr(),
             stats.confidence_interval(0.05),
-            stats.count(),
+            num_paths,
         )
         .with_std_dev(stats.std_dev())
-        .with_num_skipped(num_skipped);
+        .with_num_skipped(num_skipped)
+        .with_num_simulated_paths(num_simulated_paths);
 
         Ok((estimate, captured_paths))
     }
@@ -652,6 +701,8 @@ impl McEngine {
         let chunks = parallel_path_chunks(self.config.num_paths, effective_chunk_size);
         let captured_sink: Option<Mutex<Vec<SimulatedPath>>> =
             capture.then(|| Mutex::new(Vec::new()));
+        let correlation = build_correlation_factor(process, disc)?;
+        let correlation_ref = correlation.as_ref();
 
         // Process chunks in parallel
         let chunk_results: Vec<Result<(OnlineStats, usize)>> = chunks
@@ -665,6 +716,8 @@ impl McEngine {
 
                 let mut state = vec![0.0; dim];
                 let mut z = vec![0.0; num_factors];
+                let mut z_raw =
+                    vec![0.0; if correlation_ref.is_some() { num_factors } else { 0 }];
                 let mut work = vec![0.0; work_size];
                 let mut state_a = vec![0.0; dim];
                 let mut z_anti = vec![0.0; num_factors];
@@ -697,7 +750,9 @@ impl McEngine {
                             &mut payoff_clone,
                             &mut state,
                             &mut z,
+                            &mut z_raw,
                             &mut work,
+                            correlation_ref,
                             path_id,
                             discount_factor,
                             currency,
@@ -715,8 +770,10 @@ impl McEngine {
                             &mut state_a,
                             &mut z,
                             &mut z_anti,
+                            &mut z_raw,
                             &mut work,
                             &mut work_anti,
+                            correlation_ref,
                             currency,
                         )?
                     } else {
@@ -728,7 +785,9 @@ impl McEngine {
                             &mut payoff_clone,
                             &mut state,
                             &mut z,
+                            &mut z_raw,
                             &mut work,
+                            correlation_ref,
                             currency,
                         )?
                     };
@@ -775,14 +834,21 @@ impl McEngine {
             num_skipped += chunk_skipped;
         }
 
+        let num_paths = combined.count();
+        let num_simulated_paths = if self.config.antithetic {
+            num_paths.saturating_mul(2)
+        } else {
+            num_paths
+        };
         let estimate = Estimate::new(
             combined.mean(),
             combined.stderr(),
             combined.confidence_interval(0.05),
-            combined.count(),
+            num_paths,
         )
         .with_std_dev(combined.std_dev())
-        .with_num_skipped(num_skipped);
+        .with_num_skipped(num_skipped)
+        .with_num_simulated_paths(num_simulated_paths);
 
         let captured_paths = captured_sink
             .map(|sink| {

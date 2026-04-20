@@ -151,6 +151,7 @@ impl RateExoticHw1fMcPricer {
                 finstack_core::money::Money::new(hi, self.currency),
             ),
             num_paths: stats.count(),
+            num_simulated_paths: stats.count(),
             std_dev: Some(stats.std_dev()),
             median: None,
             percentile_25: None,

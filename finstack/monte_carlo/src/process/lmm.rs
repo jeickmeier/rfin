@@ -311,10 +311,6 @@ impl StochasticProcess for LmmProcess {
         }
     }
 
-    fn is_diagonal(&self) -> bool {
-        false // Multi-factor → full diffusion matrix
-    }
-
     #[allow(clippy::needless_range_loop)]
     fn populate_path_state(&self, x: &[f64], state: &mut super::super::traits::PathState) {
         let n = self.params.num_forwards;
@@ -394,7 +390,6 @@ mod tests {
         let process = LmmProcess::new(p);
         assert_eq!(process.dim(), 3);
         assert_eq!(process.num_factors(), 2);
-        assert!(!process.is_diagonal());
     }
 
     #[test]

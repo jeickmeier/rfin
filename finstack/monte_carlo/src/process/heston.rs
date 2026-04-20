@@ -304,8 +304,9 @@ impl StochasticProcess for HestonProcess {
         out[1] = self.params.sigma_v * v.sqrt();
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
+    fn factor_correlation(&self) -> Option<Vec<f64>> {
+        let rho = self.params.rho;
+        Some(vec![1.0, rho, rho, 1.0])
     }
 }
 

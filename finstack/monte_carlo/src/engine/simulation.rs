@@ -9,8 +9,30 @@ use super::pricing::McEngine;
 use crate::paths::{PathPoint, SimulatedPath};
 use crate::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
+use finstack_core::math::linalg::CorrelationFactor;
 use finstack_core::Result;
 use smallvec::SmallVec;
+
+/// Fill `z` with N(0,1) draws, optionally correlated via `correlation`.
+///
+/// When `correlation` is `Some`, shocks are drawn into `z_raw` and mapped
+/// through the Cholesky factor into `z`. When `None`, shocks are drawn
+/// directly into `z` and `z_raw` is untouched.
+#[inline]
+fn fill_correlated_shocks<R: RandomStream>(
+    rng: &mut R,
+    correlation: Option<&CorrelationFactor>,
+    z: &mut [f64],
+    z_raw: &mut [f64],
+) {
+    match correlation {
+        Some(cf) => {
+            rng.fill_std_normals(z_raw);
+            cf.apply(z_raw, z);
+        }
+        None => rng.fill_std_normals(z),
+    }
+}
 
 impl McEngine {
     /// Simulate a single Monte Carlo path.
@@ -28,7 +50,9 @@ impl McEngine {
         payoff: &mut F,
         state: &mut [f64],
         z: &mut [f64],
+        z_raw: &mut [f64],
         work: &mut [f64],
+        correlation: Option<&CorrelationFactor>,
         currency: Currency,
     ) -> Result<f64>
     where
@@ -51,7 +75,7 @@ impl McEngine {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            rng.fill_std_normals(z);
+            fill_correlated_shocks(rng, correlation, z, z_raw);
             disc.step(process, t, dt, state, z, work);
 
             path_state.set_step_time(step + 1, t + dt);
@@ -83,7 +107,9 @@ impl McEngine {
         payoff: &mut F,
         state: &mut [f64],
         z: &mut [f64],
+        z_raw: &mut [f64],
         work: &mut [f64],
+        correlation: Option<&CorrelationFactor>,
         path_id: usize,
         discount_factor: f64,
         currency: Currency,
@@ -123,7 +149,7 @@ impl McEngine {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            rng.fill_std_normals(z);
+            fill_correlated_shocks(rng, correlation, z, z_raw);
             disc.step(process, t, dt, state, z, work);
 
             path_state.set_step_time(step + 1, t + dt);
@@ -187,8 +213,10 @@ impl McEngine {
         state_a: &mut [f64],
         z: &mut [f64],
         z_anti: &mut [f64],
+        z_raw: &mut [f64],
         work: &mut [f64],
         work_anti: &mut [f64],
+        correlation: Option<&CorrelationFactor>,
         currency: Currency,
     ) -> Result<f64>
     where
@@ -218,7 +246,7 @@ impl McEngine {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            rng.fill_std_normals(z);
+            fill_correlated_shocks(rng, correlation, z, z_raw);
             for i in 0..z.len() {
                 z_anti[i] = -z[i];
             }

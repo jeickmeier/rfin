@@ -86,10 +86,6 @@ impl StochasticProcess for BrownianProcess {
     fn diffusion(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
         out[0] = self.params.sigma;
     }
-
-    fn is_diagonal(&self) -> bool {
-        true
-    }
 }
 
 impl ProcessMetadata for BrownianProcess {
@@ -167,8 +163,8 @@ impl StochasticProcess for MultiBrownianProcess {
         out.copy_from_slice(&self.sigmas);
     }
 
-    fn is_diagonal(&self) -> bool {
-        self.correlation.is_none()
+    fn factor_correlation(&self) -> Option<Vec<f64>> {
+        self.correlation.clone()
     }
 }
 
@@ -203,7 +199,7 @@ mod tests {
         proc.diffusion(0.0, &[0.0], &mut sig);
         assert!((mu[0] - 0.1).abs() < 1e-12);
         assert!((sig[0] - 0.3).abs() < 1e-12);
-        assert!(proc.is_diagonal());
+        assert!(proc.factor_correlation().is_none());
     }
 
     #[test]

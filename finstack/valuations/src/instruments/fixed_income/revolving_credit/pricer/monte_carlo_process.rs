@@ -252,8 +252,14 @@ impl StochasticProcess for RevolvingCreditProcess {
         out[2] = self.params.credit_spread.cir.sigma * lambda.sqrt();
     }
 
-    fn is_diagonal(&self) -> bool {
-        self.params.correlation.is_none()
+    fn factor_correlation(&self) -> Option<Vec<f64>> {
+        self.params.correlation.as_ref().map(|m| {
+            let mut out = Vec::with_capacity(9);
+            for row in m.iter() {
+                out.extend_from_slice(row);
+            }
+            out
+        })
     }
 
     fn populate_path_state(&self, x: &[f64], state: &mut finstack_monte_carlo::traits::PathState) {
@@ -433,16 +439,15 @@ mod tests {
     }
 
     #[test]
-    fn test_is_diagonal() {
+    fn test_factor_correlation() {
         let utilization = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate = InterestRateSpec::Fixed { rate: 0.05 };
         let credit_spread = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
 
         let params = RevolvingCreditProcessParams::new(utilization, interest_rate, credit_spread);
         let process_no_corr = RevolvingCreditProcess::new(params);
-        assert!(process_no_corr.is_diagonal());
+        assert!(process_no_corr.factor_correlation().is_none());
 
-        // With correlation, not diagonal
         let utilization2 = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate2 = InterestRateSpec::Fixed { rate: 0.05 };
         let credit_spread2 = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015).unwrap();
@@ -452,6 +457,8 @@ mod tests {
             RevolvingCreditProcessParams::new(utilization2, interest_rate2, credit_spread2)
                 .with_correlation(correlation);
         let process_corr = RevolvingCreditProcess::new(params2);
-        assert!(!process_corr.is_diagonal());
+        let corr = process_corr.factor_correlation().expect("correlation set");
+        assert_eq!(corr.len(), 9);
+        assert!((corr[1] - 0.2).abs() < 1e-12);
     }
 }

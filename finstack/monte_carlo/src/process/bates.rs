@@ -118,9 +118,6 @@ impl StochasticProcess for BatesProcess {
         out[1] = self.params.heston.sigma_v * v.sqrt();
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
 }
 
 #[cfg(test)]

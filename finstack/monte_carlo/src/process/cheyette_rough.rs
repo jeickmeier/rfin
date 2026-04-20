@@ -308,10 +308,6 @@ impl StochasticProcess for CheyetteRoughVolProcess {
         out[1] = 0.0;
     }
 
-    fn is_diagonal(&self) -> bool {
-        false // Correlated BMs (rate and vol fBM)
-    }
-
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
         let t = state.time;
         let phi_t = self.params.phi(t);
@@ -658,22 +654,6 @@ mod tests {
         assert_eq!(drift[1], 0.0);
         assert_eq!(diff[0], 0.0);
         assert_eq!(diff[1], 0.0);
-    }
-
-    #[test]
-    fn test_is_not_diagonal() {
-        let params = CheyetteRoughVolParams::new(
-            0.03,
-            make_sigma_base(),
-            make_hurst(0.1),
-            1.5,
-            -0.3,
-            &make_phi_points(),
-        )
-        .expect("valid");
-        let process = CheyetteRoughVolProcess::new(params);
-
-        assert!(!process.is_diagonal());
     }
 
     #[test]

@@ -158,9 +158,6 @@ impl StochasticProcess for GbmWithDividends {
         out[0] = self.params.sigma * x[0];
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
 }
 
 impl ProportionalDiffusion for GbmWithDividends {}

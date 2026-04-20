@@ -31,8 +31,14 @@ struct McResultJs {
     ci_lower: f64,
     /// Upper 95% confidence bound.
     ci_upper: f64,
-    /// Number of paths simulated.
+    /// Number of independent path estimators contributing to the result.
+    ///
+    /// Equals the configured `num_paths` without variance reduction. With
+    /// antithetic variates enabled each estimator averages a `(z, -z)` pair,
+    /// so `num_simulated_paths == 2 * num_paths`.
     num_paths: usize,
+    /// Total number of simulated sample paths driving the estimator.
+    num_simulated_paths: usize,
     /// Number of paths skipped due to non-finite payoffs.
     num_skipped: usize,
     /// Median of captured discounted path values (if captured).
@@ -60,6 +66,7 @@ impl McResultJs {
             ci_lower: est.ci_95.0.amount(),
             ci_upper: est.ci_95.1.amount(),
             num_paths: est.num_paths,
+            num_simulated_paths: est.num_simulated_paths,
             num_skipped: est.num_skipped,
             median: est.median,
             percentile_25: est.percentile_25,
@@ -74,8 +81,9 @@ impl McResultJs {
 /// Price a European call option via Monte Carlo under GBM dynamics.
 ///
 /// Returns a JSON object with `mean`, `currency`, `stderr`, `std_dev`,
-/// `ci_lower`, `ci_upper`, `num_paths`, `num_skipped`, `median`,
-/// `percentile_25`, `percentile_75`, `min`, `max`, and `relative_stderr`.
+/// `ci_lower`, `ci_upper`, `num_paths`, `num_simulated_paths`, `num_skipped`,
+/// `median`, `percentile_25`, `percentile_75`, `min`, `max`, and
+/// `relative_stderr`.
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = priceEuropeanCall)]
 pub fn price_european_call(
@@ -102,8 +110,9 @@ pub fn price_european_call(
 /// Price a European put option via Monte Carlo under GBM dynamics.
 ///
 /// Returns a JSON object with `mean`, `currency`, `stderr`, `std_dev`,
-/// `ci_lower`, `ci_upper`, `num_paths`, `num_skipped`, `median`,
-/// `percentile_25`, `percentile_75`, `min`, `max`, and `relative_stderr`.
+/// `ci_lower`, `ci_upper`, `num_paths`, `num_simulated_paths`, `num_skipped`,
+/// `median`, `percentile_25`, `percentile_75`, `min`, `max`, and
+/// `relative_stderr`.
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = priceEuropeanPut)]
 pub fn price_european_put(
@@ -236,6 +245,13 @@ pub fn price_asian_put(
 }
 
 /// Price an American put via LSMC under GBM dynamics.
+///
+/// Optional knobs:
+/// - `use_parallel` (default `false`): run path generation on the rayon pool.
+/// - `basis` (default `"laguerre"`): regression basis — `"laguerre"`,
+///   `"polynomial"`, or `"normalized_polynomial"`.
+/// - `basis_degree` (default `3`): polynomial/Laguerre degree. Must be
+///   positive; `"laguerre"` additionally requires degree in `[1, 4]`.
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = priceAmericanPut)]
 pub fn price_american_put(
@@ -249,30 +265,128 @@ pub fn price_american_put(
     seed: u64,
     num_steps: Option<usize>,
     currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
 ) -> Result<JsValue, JsValue> {
-    use finstack_monte_carlo::pricer::basis::LaguerreBasis;
-    use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
+    use finstack_monte_carlo::pricer::lsmc::AmericanPut;
+
+    let exercise = AmericanPut::new(strike).map_err(to_js_err)?;
+    price_lsmc_gbm(
+        spot,
+        strike,
+        rate,
+        div_yield,
+        vol,
+        expiry,
+        num_paths,
+        seed,
+        num_steps,
+        currency,
+        use_parallel,
+        basis,
+        basis_degree,
+        &exercise,
+    )
+}
+
+/// Price an American call via LSMC under GBM dynamics.
+///
+/// Optional knobs match [`price_american_put`].
+#[allow(clippy::too_many_arguments)]
+#[wasm_bindgen(js_name = priceAmericanCall)]
+pub fn price_american_call(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
+) -> Result<JsValue, JsValue> {
+    use finstack_monte_carlo::pricer::lsmc::AmericanCall;
+
+    let exercise = AmericanCall::new(strike).map_err(to_js_err)?;
+    price_lsmc_gbm(
+        spot,
+        strike,
+        rate,
+        div_yield,
+        vol,
+        expiry,
+        num_paths,
+        seed,
+        num_steps,
+        currency,
+        use_parallel,
+        basis,
+        basis_degree,
+        &exercise,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn price_lsmc_gbm<E>(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
+    exercise: &E,
+) -> Result<JsValue, JsValue>
+where
+    E: finstack_monte_carlo::pricer::lsmc::ImmediateExercise,
+{
+    use finstack_monte_carlo::pricer::basis::{
+        BasisFunctions, LaguerreBasis, NormalizedPolynomialBasis, PolynomialBasis,
+    };
+    use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
 
     let ccy = resolve_currency(currency.as_deref())?;
     let steps = num_steps.unwrap_or(50);
     let exercise_dates: Vec<usize> = (1..=steps).collect();
-    let exercise = AmericanPut::new(strike).map_err(to_js_err)?;
     let config = LsmcConfig::new(num_paths, exercise_dates, steps)
         .map_err(to_js_err)?
-        .with_seed(seed);
+        .with_seed(seed)
+        .with_parallel(use_parallel.unwrap_or(false));
     let pricer = LsmcPricer::new(config);
     let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
+
+    let degree = basis_degree.unwrap_or(3);
+    let basis_name = basis
+        .as_deref()
+        .unwrap_or("laguerre")
+        .to_ascii_lowercase();
+    let basis: Box<dyn BasisFunctions> = match basis_name.as_str() {
+        "laguerre" => Box::new(LaguerreBasis::try_new(degree, strike).map_err(to_js_err)?),
+        "polynomial" | "poly" => Box::new(PolynomialBasis::try_new(degree).map_err(to_js_err)?),
+        "normalized_polynomial" | "normalized" | "centered_polynomial" => {
+            Box::new(NormalizedPolynomialBasis::try_new(degree, strike, strike).map_err(to_js_err)?)
+        }
+        other => {
+            return Err(to_js_err(format!(
+                "unknown basis '{other}'; expected 'laguerre', 'polynomial', \
+                 or 'normalized_polynomial'"
+            )));
+        }
+    };
+
     let est = pricer
-        .price(
-            &process,
-            spot,
-            expiry,
-            steps,
-            &exercise,
-            &LaguerreBasis::new(3, strike),
-            ccy,
-            rate,
-        )
+        .price(&process, spot, expiry, steps, exercise, &*basis, ccy, rate)
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
@@ -337,6 +451,7 @@ mod tests {
                 Money::new(11.0, Currency::USD),
             ),
             num_paths: 1000,
+            num_simulated_paths: 2000,
             std_dev: Some(5.0),
             median: None,
             percentile_25: None,
@@ -353,6 +468,7 @@ mod tests {
         assert!((js.ci_lower - 9.0).abs() < 1e-12);
         assert!((js.ci_upper - 11.0).abs() < 1e-12);
         assert_eq!(js.num_paths, 1000);
+        assert_eq!(js.num_simulated_paths, 2000);
     }
 
     #[test]

@@ -294,6 +294,8 @@ impl PathDependentPricer {
         let mut state = vec![0.0; process.dim()];
         let mut work = vec![0.0; disc.work_size(process)];
         let mut z_step = vec![0.0; num_factors];
+        let correlation = crate::engine::build_correlation_factor(process, &disc)?;
+        let mut z_raw = vec![0.0; if correlation.is_some() { num_factors } else { 0 }];
         let mut z_path = vec![0.0; sobol_dimension];
         let mut z_increments = vec![0.0; num_steps * num_factors];
         let mut w_path = vec![0.0; num_steps + 1];
@@ -344,7 +346,9 @@ impl PathDependentPricer {
                     &mut payoff_local,
                     &mut state,
                     &mut z_step,
+                    &mut z_raw,
                     &mut work,
+                    correlation.as_ref(),
                     path_id,
                     discount_factor,
                     currency,
@@ -360,7 +364,9 @@ impl PathDependentPricer {
                     &mut payoff_local,
                     &mut state,
                     &mut z_step,
+                    &mut z_raw,
                     &mut work,
+                    correlation.as_ref(),
                     currency,
                 )?
             };

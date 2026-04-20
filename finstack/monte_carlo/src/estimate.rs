@@ -20,8 +20,25 @@ pub struct Estimate {
     pub stderr: f64,
     /// 95% confidence interval for the discounted mean.
     pub ci_95: (f64, f64),
-    /// Number of simulated paths contributing to the estimate.
+    /// Number of independent path estimators contributing to the estimate.
+    ///
+    /// With variance reduction disabled (`antithetic = false`), this equals the
+    /// number of simulated sample paths. With antithetic variates enabled each
+    /// estimator is the mean of an antithetic pair, so
+    /// `num_simulated_paths == 2 * num_paths`. The engine records both so
+    /// downstream consumers can distinguish statistical sample size from
+    /// simulation work.
     pub num_paths: usize,
+    /// Total number of simulated sample paths driving the estimator.
+    ///
+    /// Equal to `num_paths` without variance reduction. When
+    /// [`crate::engine::McEngineConfig::antithetic`] is enabled this is twice
+    /// `num_paths` because each estimator averages an antithetic pair of
+    /// paths. `#[serde(default)]` allows older payloads to round-trip with
+    /// `num_simulated_paths == 0` which [`Self::new`] back-fills with
+    /// `num_paths` for convenience.
+    #[serde(default)]
+    pub num_simulated_paths: usize,
     /// Optional sample standard deviation of discounted path values.
     pub std_dev: Option<f64>,
     /// Optional median of captured discounted path values.
@@ -63,6 +80,7 @@ impl Estimate {
             stderr,
             ci_95,
             num_paths,
+            num_simulated_paths: num_paths,
             std_dev: None,
             median: None,
             percentile_25: None,
@@ -71,6 +89,15 @@ impl Estimate {
             max: None,
             num_skipped: 0,
         }
+    }
+
+    /// Record the total number of simulated sample paths.
+    ///
+    /// Callers should set this to `2 * num_paths` when antithetic variates
+    /// are enabled, and leave it at `num_paths` (the default) otherwise.
+    pub fn with_num_simulated_paths(mut self, num_simulated_paths: usize) -> Self {
+        self.num_simulated_paths = num_simulated_paths;
+        self
     }
 
     /// Attach the sample standard deviation of discounted path values.

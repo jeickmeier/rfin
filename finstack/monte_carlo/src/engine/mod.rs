@@ -53,3 +53,6 @@ mod tests;
 pub use config::{McEngineBuilder, McEngineConfig, MAX_NUM_PATHS};
 pub use path_capture::{PathCaptureConfig, PathCaptureMode};
 pub use pricing::McEngine;
+
+#[allow(unused_imports)]
+pub(crate) use pricing::build_correlation_factor;

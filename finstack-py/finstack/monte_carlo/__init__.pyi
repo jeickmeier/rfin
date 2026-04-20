@@ -133,18 +133,33 @@ class MonteCarloResult:
 
     @property
     def num_paths(self) -> int:
-        """Number of simulated paths used to form the estimate.
+        """Number of independent path estimators contributing to the result.
+
+        Equals the configured ``num_paths`` when antithetic variates are off,
+        or half the number of simulated paths when antithetic pairing is on.
 
         Args:
             None
 
         Returns:
-            Path count.
+            Path-estimator count.
 
         Example:
             >>> from finstack.monte_carlo import price_european_call
             >>> price_european_call(100, 100, 0.05, 0.0, 0.2, 1.0, num_paths=1234).num_paths
             1234
+        """
+        ...
+
+    @property
+    def num_simulated_paths(self) -> int:
+        """Total number of simulated sample paths driving the estimator.
+
+        Equals :attr:`num_paths` without variance reduction, or
+        ``2 * num_paths`` when antithetic variates are enabled.
+
+        Returns:
+            Count of simulated sample paths.
         """
         ...
 
@@ -343,18 +358,33 @@ class Estimate:
 
     @property
     def num_paths(self) -> int:
-        """Number of paths or samples.
+        """Number of independent path estimators contributing to the estimate.
+
+        Equals the configured ``num_paths`` when antithetic variates are off,
+        or half the number of simulated paths when antithetic pairing is on.
 
         Args:
             None
 
         Returns:
-            Path count.
+            Path-estimator count.
 
         Example:
             >>> from finstack.monte_carlo import Estimate
             >>> Estimate.__dict__.get("num_paths") is not None
             True
+        """
+        ...
+
+    @property
+    def num_simulated_paths(self) -> int:
+        """Total number of simulated sample paths driving the estimator.
+
+        Equals :attr:`num_paths` without variance reduction, or
+        ``2 * num_paths`` when antithetic variates are enabled.
+
+        Returns:
+            Count of simulated sample paths.
         """
         ...
 
@@ -707,6 +737,7 @@ class EuropeanPricer:
     Args:
         num_paths: Paths (default ``100_000``).
         seed: RNG seed (default ``42``).
+        use_parallel: Parallel accumulation flag (default ``False``).
 
     Returns:
         N/A (instance type).
@@ -717,12 +748,18 @@ class EuropeanPricer:
         1000
     """
 
-    def __init__(self, num_paths: int = 100_000, seed: int = 42) -> None:
+    def __init__(
+        self,
+        num_paths: int = 100_000,
+        seed: int = 42,
+        use_parallel: bool = False,
+    ) -> None:
         """See class docstring for parameters.
 
         Args:
             num_paths: Path count.
             seed: Seed.
+            use_parallel: Parallel flag.
 
         Returns:
             None
@@ -765,6 +802,15 @@ class EuropeanPricer:
             >>> from finstack.monte_carlo import EuropeanPricer
             >>> EuropeanPricer(seed=55).seed
             55
+        """
+        ...
+
+    @property
+    def use_parallel(self) -> bool:
+        """Whether path accumulation runs on the rayon pool.
+
+        Returns:
+            Parallel flag as passed to ``__init__``.
         """
         ...
 
@@ -980,6 +1026,12 @@ class LsmcPricer:
     Args:
         num_paths: Paths (default ``100_000``).
         seed: RNG seed (default ``42``).
+        use_parallel: Parallel path generation flag (default ``False``).
+        basis: Regression basis family. One of ``"laguerre"`` (default),
+            ``"polynomial"``, or ``"normalized_polynomial"``. ``None`` is
+            treated as ``"laguerre"``.
+        basis_degree: Polynomial/Laguerre degree (default ``3``). Must be
+            positive; for ``"laguerre"`` it must additionally be in ``[1, 4]``.
 
     Returns:
         N/A (instance type).
@@ -994,12 +1046,18 @@ class LsmcPricer:
         self,
         num_paths: int = 100_000,
         seed: int = 42,
+        use_parallel: bool = False,
+        basis: str | None = None,
+        basis_degree: int = 3,
     ) -> None:
         """See class docstring for parameters.
 
         Args:
             num_paths: Path count.
             seed: Seed.
+            use_parallel: Parallel flag.
+            basis: Basis family name.
+            basis_degree: Polynomial/Laguerre degree.
 
         Returns:
             None
@@ -1009,6 +1067,39 @@ class LsmcPricer:
             >>> LsmcPricer(50, 3).num_paths
             50
         """
+        ...
+
+    @property
+    def num_paths(self) -> int:
+        """Configured path count."""
+        ...
+
+    @property
+    def seed(self) -> int:
+        """RNG seed."""
+        ...
+
+    @property
+    def use_parallel(self) -> bool:
+        """Whether path generation runs on the rayon pool.
+
+        Returns:
+            Parallel flag as passed to ``__init__``.
+        """
+        ...
+
+    @property
+    def basis(self) -> str:
+        """Regression basis family name.
+
+        Returns:
+            One of ``"laguerre"``, ``"polynomial"``, ``"normalized_polynomial"``.
+        """
+        ...
+
+    @property
+    def basis_degree(self) -> int:
+        """Configured polynomial/Laguerre degree."""
         ...
 
     def price_american_put(

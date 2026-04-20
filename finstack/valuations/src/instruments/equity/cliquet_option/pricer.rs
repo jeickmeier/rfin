@@ -78,9 +78,6 @@ impl StochasticProcess for PiecewiseGbmProcess {
         out[0] = self.sigmas[idx] * x[0];
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
 }
 
 #[cfg(feature = "mc")]

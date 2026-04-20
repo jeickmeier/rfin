@@ -19,6 +19,15 @@
 //! Product payoffs implement [`ExerciseBoundaryPayoff`] (a supertrait of
 //! [`Payoff`]); the harness is entirely agnostic to the product-specific
 //! cashflow logic.
+//!
+//! # In-sample upward bias
+//!
+//! Regression and pricing share the same path set, which biases the reported
+//! PV *upward* relative to the true callable value. The bias is typically
+//! modest for standard swaption/Bermudan setups with `num_paths ≳ 10⁴` and
+//! the default basis, but grows with richer bases and fewer paths. Consumers
+//! seeking an unbiased estimate should run training and pricing on disjoint
+//! path sets or complement this estimator with a dual upper bound.
 
 use crate::instruments::rates::shared::exercise::{standard_basis, ExerciseBoundaryPayoff};
 use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
@@ -252,6 +261,7 @@ impl RateExoticHw1fLsmcPricer {
                 finstack_core::money::Money::new(hi, self.currency),
             ),
             num_paths: stats.count(),
+            num_simulated_paths: stats.count(),
             std_dev: Some(stats.std_dev()),
             median: None,
             percentile_25: None,

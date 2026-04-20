@@ -5,7 +5,7 @@
 //! barrier is monitored discretely. Gobet & Miri (2001) later generalized the
 //! same shift to local-volatility models.
 
-/// Continuity-correction coefficient `β = −ζ(1/2)/√(2π) ≈ 0.582597`.
+/// Continuity-correction coefficient `β = −ζ(1/2)/√(2π)`.
 ///
 /// Under continuous monitoring with equal time steps, shifting the barrier by
 /// `β · σ · √Δt` toward the spot makes the discretely-monitored price match
@@ -15,13 +15,22 @@
 /// The adjusted barrier is `B' = B · exp(±β · σ · √Δt)`, where the sign
 /// shifts the barrier toward spot.
 ///
+/// # Numerical value
+///
+/// Using `ζ(1/2) = -1.4603545088095868…` and `√(2π) = 2.5066282746310002…`
+/// gives `β ≈ 0.5825971579390106`, i.e. full f64 precision. Previously this
+/// constant was rounded to 4 decimal digits (`0.5826`), introducing a
+/// systematic bias of a few parts per 10⁴ in every barrier shift. The extra
+/// digits cost nothing at runtime and align the implementation with the
+/// published formula.
+///
 /// References:
 /// - Broadie, Glasserman & Kou (1997). "A Continuity Correction for Discrete
 ///   Barrier Options." *Mathematical Finance*, 7(4), 325–349.
 /// - Gobet & Miri (2001). "Weak approximation of averaged diffusion
 ///   processes" (extension to local-volatility models; same leading
 ///   coefficient β).
-pub const GOBET_MIRI_BETA: f64 = 0.5826;
+pub const GOBET_MIRI_BETA: f64 = 0.582_597_157_939_010_6;
 
 /// Apply the Broadie–Glasserman–Kou (1997) / Gobet–Miri barrier shift.
 ///

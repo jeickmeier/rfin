@@ -12,12 +12,12 @@
 //!
 //! let instrument_id = InstrumentId::from("BOND-001");
 //!
-//! // Base pricing scenario
+//! // Base pricing scenario.
 //! let base_seed = seed::derive_seed(&instrument_id, "base");
 //!
-//! // Greek calculation scenarios
-//! let delta_up_seed = seed::derive_seed_for_metric(&instrument_id, "delta", "up");
-//! let delta_down_seed = seed::derive_seed_for_metric(&instrument_id, "delta", "down");
+//! // Greek calculation scenarios — pass scenario names directly:
+//! let delta_up_seed = seed::derive_seed(&instrument_id, "delta_up");
+//! let delta_down_seed = seed::derive_seed(&instrument_id, "delta_down");
 //! # let _ = (base_seed, delta_up_seed, delta_down_seed);
 //! ```
 
@@ -58,26 +58,6 @@ pub fn derive_seed(instrument_id: &InstrumentId, scenario: &str) -> u64 {
     fnv1a_extend(hash, scenario.as_bytes())
 }
 
-/// Derive a seed for a specific metric calculation scenario.
-///
-/// Convenience function that constructs scenario name from metric and bump direction.
-///
-/// # Arguments
-/// * `instrument_id` - The instrument identifier
-/// * `metric_name` - Name of the metric (e.g., "delta", "vega", "rho")
-/// * `bump_direction` - Bump direction ("up", "down", "base")
-///
-/// # Returns
-/// A deterministic u64 seed
-pub fn derive_seed_for_metric(
-    instrument_id: &InstrumentId,
-    metric_name: &str,
-    bump_direction: &str,
-) -> u64 {
-    let scenario = format!("{}_{}", metric_name, bump_direction);
-    derive_seed(instrument_id, &scenario)
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -98,21 +78,6 @@ mod tests {
         let seed_base = derive_seed(&id, "base");
         let seed_delta_up = derive_seed(&id, "delta_up");
         assert_ne!(seed_base, seed_delta_up);
-    }
-
-    #[test]
-    fn test_seed_for_metric() {
-        let id = InstrumentId::from("TEST-002");
-
-        let seed_up = derive_seed_for_metric(&id, "delta", "up");
-        let seed_down = derive_seed_for_metric(&id, "delta", "down");
-
-        // Different directions should produce different seeds
-        assert_ne!(seed_up, seed_down);
-
-        // Should match explicit scenario construction
-        let seed_up_explicit = derive_seed(&id, "delta_up");
-        assert_eq!(seed_up, seed_up_explicit);
     }
 
     #[test]

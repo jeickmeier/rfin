@@ -146,10 +146,6 @@ impl StochasticProcess for CirProcess {
         out[0] = self.params.sigma * v.sqrt();
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
-
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
         if !x.is_empty() {
             state.set(state_keys::SHORT_RATE, x[0]);
@@ -251,10 +247,6 @@ impl StochasticProcess for CirPlusPlusProcess {
     fn diffusion(&self, t: f64, x: &[f64], out: &mut [f64]) {
         // Diffusion is same as base CIR
         self.cir.diffusion(t, x, out);
-    }
-
-    fn is_diagonal(&self) -> bool {
-        true
     }
 
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {

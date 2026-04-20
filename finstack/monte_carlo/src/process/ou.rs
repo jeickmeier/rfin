@@ -157,10 +157,6 @@ impl StochasticProcess for HullWhite1FProcess {
         out[0] = self.params.sigma;
     }
 
-    fn is_diagonal(&self) -> bool {
-        true
-    }
-
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
         if !x.is_empty() {
             state.set(state_keys::SHORT_RATE, x[0]);

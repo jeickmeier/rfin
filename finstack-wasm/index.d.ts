@@ -190,7 +190,10 @@ export interface MonteCarloEstimateJson {
   std_dev: number | null;
   ci_lower: number;
   ci_upper: number;
+  /** Number of independent path estimators; equals `num_simulated_paths` without variance reduction, half of it with antithetic pairing. */
   num_paths: number;
+  /** Total number of simulated sample paths; `2 * num_paths` with antithetic variates, otherwise equals `num_paths`. */
+  num_simulated_paths: number;
 }
 
 /** Variation margin calculator result (JSON object from Rust). */
@@ -751,7 +754,14 @@ export interface MonteCarloNamespace {
   priceAmericanPut(
     spot: number, strike: number, rate: number, divYield: number,
     vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string
+    numSteps?: number, currency?: string,
+    useParallel?: boolean, basis?: string, basisDegree?: number
+  ): MonteCarloEstimateJson;
+  priceAmericanCall(
+    spot: number, strike: number, rate: number, divYield: number,
+    vol: number, expiry: number, numPaths: number, seed: bigint,
+    numSteps?: number, currency?: string,
+    useParallel?: boolean, basis?: string, basisDegree?: number
   ): MonteCarloEstimateJson;
   blackScholesCall(
     spot: number, strike: number, rate: number, divYield: number,

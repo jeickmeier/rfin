@@ -4,6 +4,28 @@
 //! options with early exercise features.
 //!
 //! Reference: Longstaff & Schwartz (2001) - "Valuing American Options by Simulation"
+//!
+//! # In-sample upward bias
+//!
+//! This implementation estimates the continuation-value regression and the
+//! resulting option price on the **same set of simulated paths** ("in-sample"
+//! LSMC). The exercise policy is therefore fit to the noise of those paths,
+//! which systematically biases the reported price *upward* relative to the
+//! true American value. The magnitude of the bias is typically small (a few
+//! basis points for smooth payoffs with well-chosen basis functions and
+//! `num_paths ≳ 10⁴`) but grows with:
+//!
+//! - richer basis families (over-fitting is easier);
+//! - fewer paths (less regression stability);
+//! - payoff kinks near at-the-money states.
+//!
+//! For mission-critical pricing the standard remedy is to fit the regression
+//! on one independent path set ("training") and apply the frozen exercise
+//! policy to a separate path set ("pricing"). That two-pass pattern is not
+//! implemented here; consumers who need an unbiased estimate should run the
+//! pricer twice with disjoint seeds and manually apply the policy from the
+//! first run to the second run's paths, or complement this estimator with
+//! an Andersen-Broadie dual upper bound to bracket the true value.
 
 use super::super::results::MoneyEstimate;
 use super::lsq::regression_with_basis;
@@ -137,6 +159,18 @@ impl LsmcConfig {
         self.seed = seed;
         self
     }
+
+    /// Enable or disable parallel path generation.
+    ///
+    /// Path generation is the dominant cost for large `num_paths`; when
+    /// `enabled` is `true` the pricer uses a rayon par-iter and each path
+    /// derives its own RNG via [`crate::rng::philox::PhiloxRng::split`] keyed
+    /// on the path index, which keeps results bit-identical to the serial
+    /// run.
+    pub fn with_parallel(mut self, enabled: bool) -> Self {
+        self.use_parallel = enabled;
+        self
+    }
 }
 
 /// LSMC pricer for American/Bermudan options.
@@ -183,7 +217,7 @@ impl LsmcPricer {
     ) -> Result<MoneyEstimate>
     where
         E: ImmediateExercise,
-        B: BasisFunctions,
+        B: BasisFunctions + ?Sized,
     {
         // Step 1: Generate all paths
         let paths = self.generate_paths(process, initial_spot, time_to_maturity, num_steps)?;
@@ -336,7 +370,7 @@ impl LsmcPricer {
     ) -> Result<Vec<f64>>
     where
         E: ImmediateExercise,
-        B: BasisFunctions,
+        B: BasisFunctions + ?Sized,
     {
         let num_paths = paths.len();
         let dt = time_to_maturity / num_steps as f64;

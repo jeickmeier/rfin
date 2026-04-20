@@ -10,7 +10,7 @@
 
 use super::super::process::cir::CirProcess;
 use super::super::traits::Discretization;
-use finstack_core::math::special_functions::norm_cdf;
+use super::qe_common::qe_step_variance;
 
 /// QE discretization for CIR process.
 ///
@@ -39,62 +39,14 @@ impl QeCir {
         Self { psi_c }
     }
 
-    /// Compute next variance using QE scheme.
+    /// One QE step of the CIR process.
     ///
-    /// This is the core QE algorithm from Andersen (2008).
+    /// Thin wrapper around [`qe_step_variance`]; see
+    /// [`super::qe_common`] for the algorithm, references, and numerical
+    /// safeguards shared with `QeHeston`.
+    #[inline]
     fn step_variance(&self, v_t: f64, kappa: f64, theta: f64, sigma: f64, dt: f64, z: f64) -> f64 {
-        // Ensure non-negative input
-        let v_t = v_t.max(0.0);
-
-        // Compute conditional mean and variance
-        let exp_kappa_dt = (-kappa * dt).exp();
-        let m = theta + (v_t - theta) * exp_kappa_dt;
-        let s2 = if kappa.abs() * dt < 1e-6 {
-            v_t * sigma * sigma * dt
-        } else {
-            v_t * sigma * sigma * exp_kappa_dt * (1.0 - exp_kappa_dt) / kappa
-                + theta * sigma * sigma * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa)
-        };
-
-        // Compute ψ = s²/m²
-        // When m is near zero, force Case B (exponential/uniform mixture) by
-        // setting psi above the threshold (1e-10, matches QeHeston). Setting
-        // psi = 0.0 would send Case A into 2/psi = infinity.
-        let psi = if m > 1e-10 {
-            s2 / (m * m)
-        } else {
-            self.psi_c + 1.0
-        };
-
-        if psi <= self.psi_c {
-            // Case A: Power/gamma approximation
-            // Solve: 2ψ^(-1) - 1 + sqrt(2ψ^(-1)) sqrt(2ψ^(-1) - 1) = Φ(Z)
-            let b_squared = 2.0 / psi - 1.0 + (2.0 / psi * (2.0 / psi - 1.0)).sqrt();
-            let a = m / (1.0 + b_squared);
-
-            // Transform standard normal to chi-squared-like
-            let v_next = a * (z + b_squared.sqrt()).powi(2);
-            v_next.max(0.0)
-        } else {
-            // Case B: Exponential/uniform mixture
-            let p = (psi - 1.0) / (psi + 1.0);
-            let beta = (1.0 - p) / m;
-
-            // Inverse CDF method
-            let u = norm_cdf(z);
-
-            if u <= p {
-                // Point mass at zero
-                0.0
-            } else if (u - p).abs() < f64::EPSILON {
-                // Guard: u ≈ p makes ln((1-p)/(u-p)) → +∞; clamp to zero
-                0.0
-            } else {
-                // Exponential part
-                let v_next = ((1.0 - p) / (u - p)).ln() / beta;
-                v_next.max(0.0)
-            }
-        }
+        qe_step_variance(v_t, kappa, theta, sigma, dt, z, self.psi_c)
     }
 }
 

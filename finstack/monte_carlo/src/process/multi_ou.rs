@@ -96,8 +96,8 @@ impl StochasticProcess for MultiOuProcess {
         out.copy_from_slice(&self.params.sigmas);
     }
 
-    fn is_diagonal(&self) -> bool {
-        self.params.correlation.is_none()
+    fn factor_correlation(&self) -> Option<Vec<f64>> {
+        self.params.correlation.clone()
     }
 }
 

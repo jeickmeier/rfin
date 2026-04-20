@@ -48,10 +48,22 @@ impl PyMonteCarloResult {
         PyMoney::from_inner(self.inner.ci_95.1)
     }
 
-    /// Number of simulated paths.
+    /// Number of independent path estimators contributing to the result.
+    ///
+    /// Equals the configured `num_paths` when antithetic variates are off, or
+    /// half the number of simulated paths when antithetic pairing is on.
     #[getter]
     fn num_paths(&self) -> usize {
         self.inner.num_paths
+    }
+
+    /// Total number of simulated sample paths.
+    ///
+    /// Equals ``num_paths`` without variance reduction, or ``2 * num_paths``
+    /// when antithetic variates are enabled.
+    #[getter]
+    fn num_simulated_paths(&self) -> usize {
+        self.inner.num_simulated_paths
     }
 
     /// Number of paths skipped due to non-finite payoffs.
@@ -148,10 +160,22 @@ impl PyEstimate {
         self.inner.ci_95.1
     }
 
-    /// Number of paths/samples.
+    /// Number of independent path estimators contributing to the estimate.
+    ///
+    /// Equals the configured ``num_paths`` without variance reduction, or
+    /// half the number of simulated paths when antithetic pairing is on.
     #[getter]
     fn num_paths(&self) -> usize {
         self.inner.num_paths
+    }
+
+    /// Total number of simulated sample paths.
+    ///
+    /// Equals ``num_paths`` without variance reduction, or ``2 * num_paths``
+    /// when antithetic variates are enabled.
+    #[getter]
+    fn num_simulated_paths(&self) -> usize {
+        self.inner.num_simulated_paths
     }
 
     /// Number of paths skipped due to non-finite payoffs.

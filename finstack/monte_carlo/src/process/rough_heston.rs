@@ -265,10 +265,6 @@ impl StochasticProcess for RoughHestonProcess {
         out[1] = self.params.sigma_v * v.sqrt();
     }
 
-    fn is_diagonal(&self) -> bool {
-        false
-    }
-
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
         state.set(state_keys::SPOT, x[0]);
         state.set(state_keys::VARIANCE, x[1]);
@@ -398,7 +394,6 @@ mod tests {
 
         assert_eq!(process.dim(), 2);
         assert_eq!(process.num_factors(), 2);
-        assert!(!process.is_diagonal());
     }
 
     // -- Drift / diffusion --------------------------------------------------
