@@ -517,50 +517,14 @@ fn test_instrument_shock_multiple_types() {
 }
 
 #[test]
-fn test_empty_attr_filter_matches_all_instruments() {
-    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
+fn test_empty_attr_filter_is_rejected() {
+    // Empty `attrs` would silently match every instrument, hiding user intent.
+    // Validation now rejects it at engine entry; callers should use
+    // `InstrumentPricePctByType` when they mean "all instruments of type T".
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
-
-    let mut instruments: Vec<Box<DynInstrument>> = vec![
-        Box::new(
-            Bond::builder()
-                .id("B1".into())
-                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue_date(base_date)
-                .maturity(base_date + time::Duration::days(365))
-                .cashflow_spec(CashflowSpec::fixed(
-                    0.05,
-                    finstack_core::dates::Tenor::annual(),
-                    finstack_core::dates::DayCount::Thirty360,
-                ))
-                .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-                .credit_curve_id_opt(None)
-                .pricing_overrides(PricingOverrides::default())
-                .attributes(Attributes::new())
-                .build()
-                .unwrap(),
-        ),
-        Box::new(
-            Bond::builder()
-                .id("B2".into())
-                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .issue_date(base_date)
-                .maturity(base_date + time::Duration::days(730))
-                .cashflow_spec(CashflowSpec::fixed(
-                    0.04,
-                    finstack_core::dates::Tenor::annual(),
-                    finstack_core::dates::DayCount::Thirty360,
-                ))
-                .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-                .credit_curve_id_opt(None)
-                .pricing_overrides(PricingOverrides::default())
-                .attributes(Attributes::new())
-                .build()
-                .unwrap(),
-        ),
-    ];
+    let mut instruments: Vec<Box<DynInstrument>> = vec![];
 
     let scenario = ScenarioSpec {
         id: "wildcard_attrs".into(),
@@ -584,8 +548,10 @@ fn test_empty_attr_filter_matches_all_instruments() {
         as_of: base_date,
     };
 
-    let report = engine.apply(&scenario, &mut ctx).unwrap();
-    assert_eq!(report.operations_applied, 2);
+    let err = engine
+        .apply(&scenario, &mut ctx)
+        .expect_err("empty attrs must be rejected by validation");
+    assert!(err.to_string().contains("attrs must not be empty"));
 }
 
 #[test]

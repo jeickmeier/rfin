@@ -286,3 +286,39 @@ fn scenario_validate_accepts_mixed_valid_operations() {
         .validate()
         .expect("mixed valid scenario should pass validation");
 }
+
+/// `ScenarioEngine::apply` must enforce `ScenarioSpec::validate` on every
+/// entry path so FFI callers that bypass validate() still get safety.
+#[test]
+fn engine_apply_rejects_invalid_spec() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_scenarios::{ExecutionContext, ScenarioEngine};
+    use finstack_statements::FinancialModelSpec;
+    use time::macros::date;
+
+    let spec = ScenarioSpec {
+        id: "".into(),
+        name: None,
+        description: None,
+        operations: vec![],
+        priority: 0,
+        resolution_mode: ResolutionMode::default(),
+    };
+
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: date!(2025 - 01 - 15),
+    };
+
+    let engine = ScenarioEngine::new();
+    let err = engine
+        .apply(&spec, &mut ctx)
+        .expect_err("empty-id spec should be rejected by engine.apply");
+    assert!(err.to_string().contains("Scenario ID cannot be empty"));
+}

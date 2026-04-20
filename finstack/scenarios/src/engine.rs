@@ -613,11 +613,14 @@ impl ScenarioEngine {
         spec: &ScenarioSpec,
         ctx: &mut ExecutionContext,
     ) -> Result<ApplicationReport> {
+        // Validate up-front so malformed specs cannot reach adapters. FFI
+        // bindings (Python, WASM) deserialize JSON straight into a spec and
+        // call this entry point without their own validation pass; the check
+        // here is the single enforcement boundary.
+        spec.validate()?;
+
         let mut applied = 0;
         let mut warnings = Vec::new();
-        // Track whether model was re-evaluated if we wanted to report it,
-        // but ApplicationReport doesn't support it yet.
-        // We focus on operations_applied and warnings.
 
         let user_operations = spec.operations.len();
 
