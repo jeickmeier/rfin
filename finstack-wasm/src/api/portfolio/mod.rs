@@ -3,8 +3,72 @@
 //! Exposes portfolio spec parsing, validation, and result extraction
 //! via JSON round-trip functions for JavaScript/TypeScript consumption.
 
+use std::sync::Arc;
+
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
+
+// ---------------------------------------------------------------------------
+// Typed handle: Portfolio
+// ---------------------------------------------------------------------------
+
+/// Handle to a built [`finstack_portfolio::Portfolio`] that can be reused
+/// across WASM calls without re-parsing and rebuilding from the spec.
+///
+/// `Portfolio::from_spec` parses positions, builds indices, and validates
+/// invariants; for pipelines that call both `valuePortfolio` and
+/// `aggregateFullCashflows` on the same portfolio, holding this handle
+/// avoids paying that cost twice.
+#[wasm_bindgen(js_name = Portfolio)]
+pub struct WasmPortfolio {
+    #[wasm_bindgen(skip)]
+    pub(crate) inner: Arc<finstack_portfolio::Portfolio>,
+}
+
+#[wasm_bindgen(js_class = Portfolio)]
+impl WasmPortfolio {
+    /// Build from a JSON-serialised `PortfolioSpec`.
+    #[wasm_bindgen(js_name = fromSpec)]
+    pub fn from_spec(spec_json: &str) -> Result<WasmPortfolio, JsValue> {
+        let spec: finstack_portfolio::portfolio::PortfolioSpec =
+            serde_json::from_str(spec_json).map_err(to_js_err)?;
+        let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
+        Ok(Self {
+            inner: Arc::new(portfolio),
+        })
+    }
+
+    /// Portfolio identifier.
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        self.inner.id.clone()
+    }
+
+    /// Valuation date (ISO 8601).
+    #[wasm_bindgen(getter, js_name = asOf)]
+    pub fn as_of(&self) -> String {
+        self.inner.as_of.to_string()
+    }
+
+    /// Base currency code.
+    #[wasm_bindgen(getter, js_name = baseCcy)]
+    pub fn base_ccy(&self) -> String {
+        self.inner.base_ccy.to_string()
+    }
+
+    /// Number of positions in the portfolio.
+    #[wasm_bindgen(js_name = numPositions)]
+    pub fn num_positions(&self) -> usize {
+        self.inner.positions().len()
+    }
+
+    /// Serialise the canonical spec back to JSON.
+    #[wasm_bindgen(js_name = toSpecJson)]
+    pub fn to_spec_json(&self) -> Result<String, JsValue> {
+        let spec = self.inner.to_spec();
+        serde_json::to_string(&spec).map_err(to_js_err)
+    }
+}
 
 /// Parse and validate a portfolio specification from JSON.
 ///
@@ -108,6 +172,25 @@ pub fn aggregate_full_cashflows(spec_json: &str, market_json: &str) -> Result<St
     let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(to_js_err)?;
     let cashflows = finstack_portfolio::cashflows::aggregate_full_cashflows(&portfolio, &market)
         .map_err(to_js_err)?;
+    serde_json::to_string(&cashflows).map_err(to_js_err)
+}
+
+/// Aggregate the full classified cashflow ladder for an already-built
+/// [`Portfolio`] handle.
+///
+/// Skips the per-call `PortfolioSpec` parse + `Portfolio::from_spec` rebuild.
+/// For batched or chained workflows (repeated cashflow builds across market
+/// scenarios on the same portfolio), this is the cheap path.
+#[wasm_bindgen(js_name = aggregateFullCashflowsBuilt)]
+pub fn aggregate_full_cashflows_built(
+    portfolio: &WasmPortfolio,
+    market_json: &str,
+) -> Result<String, JsValue> {
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let cashflows =
+        finstack_portfolio::cashflows::aggregate_full_cashflows(&portfolio.inner, &market)
+            .map_err(to_js_err)?;
     serde_json::to_string(&cashflows).map_err(to_js_err)
 }
 
@@ -221,6 +304,12 @@ pub fn parametric_var_decomposition(
 
 /// Decompose portfolio Expected Shortfall into position contributions via
 /// parametric Euler allocation.
+///
+/// Returns an ES-shaped JSON payload mirroring the Python
+/// ``parametric_es_decomposition`` return value: a top-level
+/// ``{portfolio_var, portfolio_es, confidence, n_positions, contributions}``
+/// object whose ``contributions`` entries are
+/// ``{position_id, component_es, marginal_es, pct_contribution}``.
 #[wasm_bindgen(js_name = parametricEsDecomposition)]
 pub fn parametric_es_decomposition(
     position_ids_json: &str,
@@ -228,7 +317,57 @@ pub fn parametric_es_decomposition(
     covariance_json: &str,
     confidence: f64,
 ) -> Result<String, JsValue> {
-    parametric_var_decomposition(position_ids_json, weights_json, covariance_json, confidence)
+    use finstack_portfolio::factor_model::{DecompositionConfig, ParametricPositionDecomposer};
+    use finstack_portfolio::types::PositionId;
+
+    let ids: Vec<String> = serde_json::from_str(position_ids_json).map_err(to_js_err)?;
+    let weights: Vec<f64> = serde_json::from_str(weights_json).map_err(to_js_err)?;
+    let covariance: Vec<Vec<f64>> = serde_json::from_str(covariance_json).map_err(to_js_err)?;
+    let n = weights.len();
+    let cov_flat = flatten_square_matrix(covariance, n, "covariance")?;
+    let ids: Vec<PositionId> = ids.into_iter().map(PositionId::new).collect();
+
+    let mut config = DecompositionConfig::parametric_95();
+    config.confidence = confidence;
+
+    let decomposition = ParametricPositionDecomposer
+        .decompose_positions(&weights, &cov_flat, &ids, &config)
+        .map_err(to_js_err)?;
+
+    #[derive(serde::Serialize)]
+    struct EsContribution<'a> {
+        position_id: &'a str,
+        component_es: f64,
+        marginal_es: Option<f64>,
+        pct_contribution: f64,
+    }
+    #[derive(serde::Serialize)]
+    struct EsDecomposition<'a> {
+        portfolio_var: f64,
+        portfolio_es: f64,
+        confidence: f64,
+        n_positions: usize,
+        contributions: Vec<EsContribution<'a>>,
+    }
+
+    let contributions = decomposition
+        .es_contributions
+        .iter()
+        .map(|c| EsContribution {
+            position_id: c.position_id.as_str(),
+            component_es: c.component_es,
+            marginal_es: c.marginal_es,
+            pct_contribution: c.relative_es,
+        })
+        .collect();
+    let out = EsDecomposition {
+        portfolio_var: decomposition.portfolio_var,
+        portfolio_es: decomposition.portfolio_es,
+        confidence: decomposition.confidence,
+        n_positions: decomposition.n_positions,
+        contributions,
+    };
+    serde_json::to_string(&out).map_err(to_js_err)
 }
 
 /// Decompose portfolio VaR/ES from per-position scenario P&Ls via historical
@@ -293,10 +432,7 @@ pub fn evaluate_risk_budget(
     portfolio_var: f64,
     utilization_threshold: f64,
 ) -> Result<String, JsValue> {
-    use finstack_portfolio::factor_model::{
-        DecompositionMethod, PositionEsContribution, PositionRiskDecomposition,
-        PositionVarContribution, RiskBudget,
-    };
+    use finstack_portfolio::factor_model::RiskBudget;
     use finstack_portfolio::types::PositionId;
     use indexmap::IndexMap;
 
@@ -318,47 +454,17 @@ pub fn evaluate_risk_budget(
     }
 
     let shared_ids: Vec<PositionId> = ids.into_iter().map(PositionId::new).collect();
-    let var_contributions: Vec<PositionVarContribution> = shared_ids
-        .iter()
-        .zip(actual_var.iter())
-        .map(|(id, &cv)| PositionVarContribution {
-            position_id: id.clone(),
-            component_var: cv,
-            relative_var: if portfolio_var.abs() > 1e-15 {
-                cv / portfolio_var
-            } else {
-                0.0
-            },
-            marginal_var: 0.0,
-            incremental_var: None,
-        })
-        .collect();
-    let es_contributions: Vec<PositionEsContribution> = shared_ids
-        .iter()
-        .map(|id| PositionEsContribution {
-            position_id: id.clone(),
-            component_es: 0.0,
-            relative_es: 0.0,
-            marginal_es: 0.0,
-        })
-        .collect();
-    let sum_cvar: f64 = actual_var.iter().sum();
-    let decomp = PositionRiskDecomposition {
-        portfolio_var,
-        portfolio_es: 0.0,
-        confidence: 0.95,
-        method: DecompositionMethod::Parametric,
-        var_contributions,
-        es_contributions,
-        n_positions: n,
-        euler_residual: portfolio_var - sum_cvar,
-    };
     let mut targets: IndexMap<PositionId, f64> = IndexMap::with_capacity(n);
-    for (id, &pct) in shared_ids.into_iter().zip(target_var_pct.iter()) {
-        targets.insert(id, pct);
+    for (id, &pct) in shared_ids.iter().zip(target_var_pct.iter()) {
+        targets.insert(id.clone(), pct);
     }
     let budget = RiskBudget::new(targets).with_threshold(utilization_threshold);
-    let result = budget.evaluate(&decomp).map_err(to_js_err)?;
+    let result = budget
+        .evaluate_components(
+            shared_ids.iter().zip(actual_var.iter().copied()),
+            portfolio_var,
+        )
+        .map_err(to_js_err)?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -498,6 +604,7 @@ pub fn almgren_chriss_impact(
         daily_volatility: volatility,
         profile,
         risk_aversion: None,
+        reference_price: None,
     };
     let est = model.estimate_cost(&params).map_err(to_js_err)?;
     let out = serde_json::json!({
@@ -590,6 +697,28 @@ mod tests {
         assert_eq!(parsed["by_date"], serde_json::json!({}));
         assert_eq!(parsed["position_summaries"], serde_json::json!({}));
         assert_eq!(parsed["issues"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn portfolio_handle_roundtrip_and_aggregate_cashflows_built() {
+        let spec_json = minimal_portfolio_spec_json();
+        let handle = WasmPortfolio::from_spec(&spec_json).expect("build handle");
+        assert_eq!(handle.id(), "test_portfolio");
+        assert_eq!(handle.base_ccy(), "USD");
+        assert_eq!(handle.as_of(), "2024-01-15");
+        assert_eq!(handle.num_positions(), 0);
+
+        let round = handle.to_spec_json().expect("to spec json");
+        let parsed: serde_json::Value = serde_json::from_str(&round).expect("json");
+        assert_eq!(parsed["id"], "test_portfolio");
+
+        let market = empty_market_json();
+        let via_built =
+            aggregate_full_cashflows_built(&handle, &market).expect("aggregate full built");
+        let via_spec = aggregate_full_cashflows(&spec_json, &market).expect("aggregate full spec");
+        let a: serde_json::Value = serde_json::from_str(&via_built).expect("a");
+        let b: serde_json::Value = serde_json::from_str(&via_spec).expect("b");
+        assert_eq!(a, b);
     }
 
     #[test]

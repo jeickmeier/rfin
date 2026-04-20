@@ -6,6 +6,7 @@ from finstack.core.market_data import MarketContext
 
 __all__ = [
     "Portfolio",
+    "PortfolioCashflows",
     "PortfolioResult",
     "PortfolioValuation",
     "aggregate_full_cashflows",
@@ -59,6 +60,38 @@ class PortfolioValuation:
     def base_ccy(self) -> str: ...
     @property
     def as_of(self) -> str: ...
+    def __len__(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+class PortfolioCashflows:
+    """Typed wrapper around a ``PortfolioFullCashflows`` ladder.
+
+    Returned by :func:`aggregate_full_cashflows`; survives multiple drill-in
+    calls (``events_json``, ``by_date_json``, ``issues_json``,
+    :meth:`collapse_to_base_by_date_kind`) without re-parsing.
+    """
+
+    @staticmethod
+    def from_json(cashflows_json: str) -> PortfolioCashflows: ...
+    def to_json(self) -> str: ...
+    def events_json(self) -> str: ...
+    def by_date_json(self) -> str: ...
+    def issues_json(self) -> str: ...
+    def num_positions(self) -> int: ...
+    def num_issues(self) -> int: ...
+    def collapse_to_base_by_date_kind(
+        self,
+        market: MarketContext | str,
+        base_ccy: str,
+        as_of: str,
+    ) -> str:
+        """Collapse the ladder to a base-currency ``(date, kind) → Money`` JSON.
+
+        Uses **spot-equivalent** FX at each payment date. ``as_of`` is the
+        valuation/run date used to flag far-future conversions.
+        """
+        ...
+
     def __len__(self) -> int: ...
     def __repr__(self) -> str: ...
 
@@ -132,8 +165,12 @@ def value_portfolio(
     """
     ...
 
-def aggregate_full_cashflows(portfolio: Portfolio | str, market: MarketContext | str) -> str:
-    """Build the full classified cashflow ladder for the portfolio."""
+def aggregate_full_cashflows(portfolio: Portfolio | str, market: MarketContext | str) -> PortfolioCashflows:
+    """Build the full classified cashflow ladder for the portfolio.
+
+    Returns a typed :class:`PortfolioCashflows` wrapper; call ``to_json()``
+    to get the raw ladder or use the typed accessors to drill in.
+    """
     ...
 
 def apply_scenario_and_revalue(

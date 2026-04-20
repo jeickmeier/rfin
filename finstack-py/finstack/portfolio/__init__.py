@@ -10,6 +10,7 @@ from finstack.finstack import portfolio as _portfolio
 Portfolio = _portfolio.Portfolio
 PortfolioValuation = _portfolio.PortfolioValuation
 PortfolioResult = _portfolio.PortfolioResult
+PortfolioCashflows = _portfolio.PortfolioCashflows
 
 parse_portfolio_spec = _portfolio.parse_portfolio_spec
 build_portfolio_from_spec = _portfolio.build_portfolio_from_spec
@@ -35,6 +36,7 @@ kyle_lambda = _portfolio.kyle_lambda
 
 __all__: list[str] = [
     "Portfolio",
+    "PortfolioCashflows",
     "PortfolioResult",
     "PortfolioValuation",
     "aggregate_full_cashflows",

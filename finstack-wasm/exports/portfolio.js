@@ -1,6 +1,7 @@
 import * as wasm from '../pkg/finstack_wasm.js';
 
 export const portfolio = {
+  Portfolio: wasm.Portfolio,
   parsePortfolioSpec: wasm.parsePortfolioSpec,
   buildPortfolioFromSpec: wasm.buildPortfolioFromSpec,
   portfolioResultTotalValue: wasm.portfolioResultTotalValue,
@@ -8,6 +9,7 @@ export const portfolio = {
   aggregateMetrics: wasm.aggregateMetrics,
   valuePortfolio: wasm.valuePortfolio,
   aggregateFullCashflows: wasm.aggregateFullCashflows,
+  aggregateFullCashflowsBuilt: wasm.aggregateFullCashflowsBuilt,
   applyScenarioAndRevalue: wasm.applyScenarioAndRevalue,
   optimizePortfolio: wasm.optimizePortfolio,
   replayPortfolio: wasm.replayPortfolio,

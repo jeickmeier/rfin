@@ -25,6 +25,26 @@ pub struct TradeParams {
 
     /// Risk aversion parameter (overrides config if set).
     pub risk_aversion: Option<f64>,
+
+    /// Reference price used to convert the return-space volatility
+    /// `daily_volatility` into a currency-space risk term (execution risk,
+    /// variance, etc.).
+    ///
+    /// `None` means fall back to `profile.mid`, which matches the
+    /// historical default. Set explicitly when the arrival price or
+    /// decision-time price differs materially from the profile mid (e.g.
+    /// when the profile was calibrated from a snapshot stale relative to
+    /// the order).
+    #[serde(default)]
+    pub reference_price: Option<f64>,
+}
+
+impl TradeParams {
+    /// Return the reference price used to convert return-space volatility
+    /// into currency units, falling back to `profile.mid` when unset.
+    pub fn effective_reference_price(&self) -> f64 {
+        self.reference_price.unwrap_or(self.profile.mid)
+    }
 }
 
 /// Estimated market impact from a trade.

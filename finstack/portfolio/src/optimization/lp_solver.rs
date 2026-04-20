@@ -35,8 +35,6 @@ struct LpConstraint {
 struct WeightVarSpec {
     var: good_lp::Variable,
     offset: f64,
-    min_weight: f64,
-    max_weight: f64,
 }
 
 impl DefaultLpOptimizer {
@@ -393,8 +391,6 @@ impl DefaultLpOptimizer {
             w_vars.push(WeightVarSpec {
                 var: vars.add(variable().min(var_min).max(var_max)),
                 offset,
-                min_weight: min_w,
-                max_weight: max_w,
             });
         }
 
@@ -428,17 +424,11 @@ impl DefaultLpOptimizer {
         }
         .using(default_solver);
 
-        // Add explicit effective-weight bounds so signed candidate limits are
-        // enforced even when the backend internally re-parameterizes variables.
-        for w_var in &w_vars {
-            let mut effective_weight: Expression = w_var.var.into();
-            if w_var.offset != 0.0 {
-                effective_weight += w_var.offset;
-            }
-            problem_model =
-                problem_model.with(constraint!(effective_weight.clone() >= w_var.min_weight));
-            problem_model = problem_model.with(constraint!(effective_weight <= w_var.max_weight));
-        }
+        // NOTE: effective-weight bounds are implicit: each variable is
+        // declared on `[var_min, var_max] = [0, max_w - min_w]` with
+        // offset `min_w`, so `effective_weight = var + offset` always
+        // lies in `[min_w, max_w]`. No additional constraints are
+        // needed — they would be algebraically redundant.
 
         // Add primary constraints
         for lc in &lp_constraints {

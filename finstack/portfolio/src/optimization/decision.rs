@@ -232,7 +232,23 @@ pub(crate) fn build_decision_space(
             .ok_or_else(|| Error::valuation(candidate.id.clone(), "failed to value candidate"))?;
 
         let pv_unit = val_entry.value_base.amount();
-        // Candidates don't contribute to initial PV base but may have value
+        // ValueWeight reconstructs implied quantities as
+        // `(w_star * gross_pv_base) / pv_per_unit`. A zero `pv_unit`
+        // candidate would silently collapse to zero quantity for any
+        // non-zero target weight, producing a meaningless trade. Reject
+        // up-front so the caller can either re-price or remove the
+        // candidate rather than discovering the no-op after solving.
+        if matches!(problem.weighting, WeightingScheme::ValueWeight)
+            && pv_unit.abs() < 1e-12
+            && candidate.max_weight.abs() > 1e-12
+        {
+            return Err(Error::invalid_input(format!(
+                "candidate {} has zero base-currency PV under the current market; \
+                 ValueWeight optimisation cannot reconstruct a quantity from a target weight. \
+                 Remove the candidate, fix its market data, or switch weighting scheme.",
+                candidate.id
+            )));
+        }
 
         let measures = val_entry
             .valuation_result

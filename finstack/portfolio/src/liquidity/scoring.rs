@@ -234,13 +234,24 @@ pub fn score_portfolio_liquidity(
         .map(|s| (s.pct_of_adv, Some(s.position_id.clone())))
         .unwrap_or((0.0, None));
 
-    // Liquidation schedule: % of NAV that can be liquidated within N days
-    let schedule_days = [1u32, 5, 20, 60];
+    // Liquidation schedule: % of NAV that can be liquidated within each
+    // configured tier boundary. Schedule keys are derived from
+    // `config.tier_thresholds` (ceil to whole trading days) so the schedule
+    // stays aligned with the tier bucketing used in `tier_allocation`.
     let mut liquidation_schedule = IndexMap::new();
-    for &days in &schedule_days {
+    let mut last_key: Option<u32> = None;
+    for &threshold in &config.tier_thresholds {
+        if !threshold.is_finite() || threshold <= 0.0 {
+            continue;
+        }
+        let days = threshold.ceil() as u32;
+        if last_key == Some(days) {
+            continue;
+        }
+        last_key = Some(days);
         let liquidatable_value: f64 = position_scores
             .iter()
-            .filter(|s| s.days_to_liquidate <= days as f64)
+            .filter(|s| s.days_to_liquidate <= threshold)
             .map(|s| s.position_value)
             .sum();
         let pct = if nav_abs > 0.0 {

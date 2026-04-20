@@ -198,7 +198,7 @@ impl<'a> WhatIfEngine<'a> {
                         let stressed_value = position
                             .instrument
                             .value_raw(&stressed_market, self.as_of)?;
-                        let pnl = (stressed_value - base_value) * position.quantity;
+                        let pnl = (stressed_value - base_value) * position.scale_factor();
                         Ok((position.position_id.clone(), pnl))
                     })
                     .collect::<Result<Vec<_>>>()?
@@ -210,7 +210,7 @@ impl<'a> WhatIfEngine<'a> {
                         let stressed_value = position
                             .instrument
                             .value_raw(&stressed_market, self.as_of)?;
-                        let pnl = (stressed_value - base_value) * position.quantity;
+                        let pnl = (stressed_value - base_value) * position.scale_factor();
                         Ok((position.position_id.clone(), pnl))
                     })
                     .collect::<Result<Vec<_>>>()?
@@ -269,6 +269,7 @@ fn factor_deltas(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::factor_model::{FactorModel, FactorModelBuilder};
@@ -456,7 +457,54 @@ mod tests {
         assert!(stress_result.total_pnl.is_finite());
     }
 
+    #[test]
+    fn test_factor_stress_percentage_unit_scales_by_one_hundredth() {
+        // Regression for C5: `factor_stress` previously multiplied by
+        // `position.quantity` directly, which over-scaled Percentage
+        // positions by 100x. Routing through `scale_factor` must make
+        // quantity=200.0/Percentage produce the same P&L as
+        // quantity=2.0/Units (both represent a 2.0 effective multiplier).
+        let Some((model_u, portfolio_u, market)) =
+            build_test_model_with_unit(2.0, PositionUnit::Units)
+        else {
+            panic!("units setup");
+        };
+        let Some((model_p, portfolio_p, _)) =
+            build_test_model_with_unit(200.0, PositionUnit::Percentage)
+        else {
+            panic!("percentage setup");
+        };
+
+        let run = |model: &FactorModel, portfolio: &Portfolio| -> f64 {
+            let base = model
+                .analyze(portfolio, &market, date!(2024 - 01 - 01))
+                .expect("analyze");
+            let sens = model
+                .compute_sensitivities(portfolio, &market, date!(2024 - 01 - 01))
+                .expect("sensitivities");
+            model
+                .what_if(&base, &sens, portfolio, &market, date!(2024 - 01 - 01))
+                .factor_stress(&[(FactorId::new("Rates"), 1.0)])
+                .expect("stress")
+                .total_pnl
+        };
+
+        let pnl_units = run(&model_u, &portfolio_u);
+        let pnl_pct = run(&model_p, &portfolio_p);
+        assert!(
+            (pnl_units - pnl_pct).abs() < 1e-9,
+            "units={pnl_units}, percentage={pnl_pct}"
+        );
+    }
+
     fn build_test_model() -> Option<(FactorModel, Portfolio, MarketContext)> {
+        build_test_model_with_unit(2.0, PositionUnit::Units)
+    }
+
+    fn build_test_model_with_unit(
+        quantity: f64,
+        unit: PositionUnit,
+    ) -> Option<(FactorModel, Portfolio, MarketContext)> {
         let covariance_result =
             FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04]);
         assert!(covariance_result.is_ok());
@@ -502,8 +550,8 @@ mod tests {
             DUMMY_ENTITY_ID,
             "inst-1",
             Arc::new(MockInstrument::new("inst-1", "USD-OIS", 100.0)),
-            2.0,
-            PositionUnit::Units,
+            quantity,
+            unit,
         );
         assert!(position_result.is_ok());
         let Ok(position) = position_result else {

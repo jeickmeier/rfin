@@ -125,7 +125,8 @@ impl MarketImpactModel for KyleLambdaModel {
         let permanent_impact = 0.6 * total_cost_abs;
         let temporary_impact = 0.4 * total_cost_abs;
 
-        let notional = q.abs() * params.profile.mid;
+        let reference_price = params.effective_reference_price();
+        let notional = q.abs() * reference_price;
         let cost_bps = if notional > 0.0 {
             total_cost_abs / notional * 10_000.0
         } else {
@@ -134,7 +135,7 @@ impl MarketImpactModel for KyleLambdaModel {
 
         // Execution risk estimate based on volatility over the horizon
         let execution_risk =
-            params.daily_volatility * params.horizon_days.sqrt() * q.abs() * params.profile.mid;
+            params.daily_volatility * params.horizon_days.sqrt() * q.abs() * reference_price;
 
         Ok(ImpactEstimate {
             permanent_impact,
@@ -194,7 +195,7 @@ impl MarketImpactModel for KyleLambdaModel {
         let expected_cost_abs = expected_cost.abs();
 
         // Variance of cost: depends on volatility and remaining inventory
-        let sigma = params.daily_volatility * params.profile.mid;
+        let sigma = params.daily_volatility * params.effective_reference_price();
         let mut cost_variance = 0.0;
         for j in 0..num_buckets {
             cost_variance += sigma * sigma * remaining[j + 1] * remaining[j + 1] * dt;
@@ -238,6 +239,7 @@ mod tests {
             daily_volatility: 0.02,
             profile: test_profile()?,
             risk_aversion: None,
+            reference_price: None,
         })
     }
 

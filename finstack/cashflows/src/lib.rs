@@ -155,6 +155,7 @@ mod serde_defaults;
 // -----------------------------------------------------------------------------
 
 pub use accrual::{accrued_interest_amount, AccrualConfig, AccrualMethod, ExCouponRule};
+pub use aggregation::RecoveryTiming;
 pub use builder::CashFlowBuilder;
 pub use traits::{
     schedule_from_classified_flows, schedule_from_dated_flows, CashflowProvider, ScheduleBuildOpts,

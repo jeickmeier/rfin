@@ -1,8 +1,41 @@
 use crate::metrics::MetricId;
 use crate::reporting::ReportComponent;
 use crate::results::ValuationResult;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use std::fmt::Write as FmtWrite;
+
+/// Serialize a `Vec<Vec<f64>>` such that `NaN` becomes JSON `null` rather than
+/// the non-compliant `NaN` token that serde_json emits by default.
+///
+/// Downstream JSON consumers (browsers, JSON-strict pipelines, tools like
+/// `jq`) refuse `NaN`, so emitting `null` for missing metrics is the only
+/// portable choice. The in-memory representation is left unchanged to avoid
+/// a breaking API shift in the public `values` / `deltas` fields.
+fn serialize_values_nan_as_null<S: Serializer>(
+    values: &[Vec<f64>],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    use serde::ser::SerializeSeq;
+    let mut outer = serializer.serialize_seq(Some(values.len()))?;
+    for row in values {
+        let mapped: Vec<Option<f64>> = row
+            .iter()
+            .map(|v| if v.is_nan() { None } else { Some(*v) })
+            .collect();
+        outer.serialize_element(&mapped)?;
+    }
+    outer.end()
+}
+
+fn serialize_optional_values_nan_as_null<S: Serializer>(
+    values: &Option<Vec<Vec<f64>>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    match values {
+        None => serializer.serialize_none(),
+        Some(v) => serialize_values_nan_as_null(v, serializer),
+    }
+}
 
 /// Matrix of scenario names x metrics.
 ///
@@ -63,12 +96,16 @@ pub struct ScenarioMatrix {
     pub scenario_names: Vec<String>,
     /// Metric identifiers (column labels).
     pub metric_ids: Vec<String>,
-    /// Values: `values[scenario_index][metric_index]`.
+    /// Values: `values[scenario_index][metric_index]`. `NaN` is used
+    /// in-memory to flag a missing metric and is rendered as JSON `null`.
+    #[serde(serialize_with = "serialize_values_nan_as_null")]
     pub values: Vec<Vec<f64>>,
     /// Index of the base-case scenario, if designated.
     pub base_case_index: Option<usize>,
     /// Differences from base case: `deltas[scenario_index][metric_index]`.
-    /// `None` if no base case is designated.
+    /// `None` if no base case is designated. `NaN` cells are rendered as
+    /// JSON `null`.
+    #[serde(serialize_with = "serialize_optional_values_nan_as_null")]
     pub deltas: Option<Vec<Vec<f64>>>,
 }
 

@@ -241,7 +241,8 @@ impl CashFlowBuilder {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
     /// use finstack_cashflows::builder::{
-    ///     CashFlowSchedule, CouponType, FixedWindow, FloatingCouponSpec, FloatingRateSpec
+    ///     CashFlowSchedule, CouponType, FixedWindow, FloatingCouponSpec, FloatingRateSpec,
+    ///     ScheduleParams,
     /// };
     /// use rust_decimal_macros::dec;
     /// use time::Month;

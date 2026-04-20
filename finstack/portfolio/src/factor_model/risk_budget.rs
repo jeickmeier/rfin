@@ -119,6 +119,40 @@ impl RiskBudget {
         &self,
         decomposition: &PositionRiskDecomposition,
     ) -> finstack_core::Result<RiskBudgetResult> {
+        self.evaluate_components(
+            decomposition
+                .var_contributions
+                .iter()
+                .map(|c| (&c.position_id, c.component_var)),
+            decomposition.portfolio_var,
+        )
+    }
+
+    /// Compare raw per-position component VaRs against this budget.
+    ///
+    /// This is the narrow API used by binding layers that do not need to
+    /// materialise a full [`PositionRiskDecomposition`]. [`evaluate`] is
+    /// a thin wrapper over this method.
+    ///
+    /// # Arguments
+    ///
+    /// * `components` - Iterator of `(position_id, component_var)` pairs.
+    /// * `portfolio_var` - Total portfolio VaR used to convert target
+    ///   fractions into levels.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the budget targets do not sum close to 1.0.
+    ///
+    /// [`evaluate`]: Self::evaluate
+    pub fn evaluate_components<'a, I>(
+        &self,
+        components: I,
+        portfolio_var: f64,
+    ) -> finstack_core::Result<RiskBudgetResult>
+    where
+        I: IntoIterator<Item = (&'a PositionId, f64)>,
+    {
         // Validate that targets sum to ~1.0.
         let target_sum: f64 = self.targets.values().sum();
         if !self.targets.is_empty() && (target_sum - 1.0).abs() > 0.05 {
@@ -127,14 +161,7 @@ impl RiskBudget {
             )));
         }
 
-        let portfolio_var = decomposition.portfolio_var;
-
-        // Build a map of actual component VaRs by position ID.
-        let actual_by_id: IndexMap<&PositionId, f64> = decomposition
-            .var_contributions
-            .iter()
-            .map(|c| (&c.position_id, c.component_var))
-            .collect();
+        let actual_by_id: IndexMap<&PositionId, f64> = components.into_iter().collect();
 
         let mut positions = Vec::with_capacity(self.targets.len());
         let mut total_overbudget = 0.0;
@@ -193,16 +220,20 @@ impl RiskBudget {
     ///
     /// # Errors
     ///
-    /// Returns an error if marginal VaR data is unavailable for budget
-    /// positions.
+    /// Returns an error if the decomposition does not carry analytical
+    /// marginals (e.g. was produced in historical mode). In that case the
+    /// caller must either re-run decomposition in parametric mode or
+    /// supply marginals via an external finite-difference pass.
     pub fn suggest_rebalance(
         &self,
         decomposition: &PositionRiskDecomposition,
     ) -> finstack_core::Result<IndexMap<PositionId, f64>> {
         let portfolio_var = decomposition.portfolio_var;
 
-        // Build maps by position ID.
-        let actual_by_id: IndexMap<&PositionId, (f64, f64)> = decomposition
+        // Build maps by position ID, carrying marginals as Option so we can
+        // cleanly surface "not analytically available" instead of silently
+        // substituting zero.
+        let actual_by_id: IndexMap<&PositionId, (f64, Option<f64>)> = decomposition
             .var_contributions
             .iter()
             .map(|c| (&c.position_id, (c.relative_var, c.marginal_var)))
@@ -211,8 +242,18 @@ impl RiskBudget {
         let mut deltas = IndexMap::new();
 
         for (position_id, &target_frac) in &self.targets {
-            let (actual_frac, marginal) =
-                actual_by_id.get(position_id).copied().unwrap_or((0.0, 0.0));
+            let (actual_frac, marginal_opt) = actual_by_id
+                .get(position_id)
+                .copied()
+                .unwrap_or((0.0, None));
+
+            let marginal = marginal_opt.ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "risk-budget rebalance requires marginal VaR for position {position_id}, \
+                     but the decomposition does not provide it (e.g. historical method). \
+                     Re-run decomposition in parametric mode or supply marginals externally."
+                ))
+            })?;
 
             let gap = target_frac - actual_frac;
 
@@ -256,27 +297,27 @@ mod tests {
                     position_id: PositionId::new("A"),
                     component_var: 40.0,
                     relative_var: 0.40,
-                    marginal_var: 0.10,
+                    marginal_var: Some(0.10),
                     incremental_var: None,
                 },
                 PositionVarContribution {
                     position_id: PositionId::new("B"),
                     component_var: 35.0,
                     relative_var: 0.35,
-                    marginal_var: 0.09,
+                    marginal_var: Some(0.09),
                     incremental_var: None,
                 },
                 PositionVarContribution {
                     position_id: PositionId::new("C"),
                     component_var: 25.0,
                     relative_var: 0.25,
-                    marginal_var: 0.08,
+                    marginal_var: Some(0.08),
                     incremental_var: None,
                 },
             ],
             es_contributions: Vec::new(),
             n_positions: 3,
-            euler_residual: 0.0,
+            euler_residual: Some(0.0),
         }
     }
 
@@ -372,6 +413,37 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn risk_budget_rebalance_errors_on_missing_marginals() {
+        // Build a historical-style decomposition (marginals = None).
+        let decomp = PositionRiskDecomposition {
+            portfolio_var: 100.0,
+            portfolio_es: 120.0,
+            confidence: 0.95,
+            method: DecompositionMethod::Historical,
+            var_contributions: vec![PositionVarContribution {
+                position_id: PositionId::new("A"),
+                component_var: 100.0,
+                relative_var: 1.0,
+                marginal_var: None,
+                incremental_var: None,
+            }],
+            es_contributions: Vec::new(),
+            n_positions: 1,
+            euler_residual: None,
+        };
+
+        let mut targets = IndexMap::new();
+        targets.insert(PositionId::new("A"), 1.0);
+        let budget = RiskBudget::new(targets);
+
+        let result = budget.suggest_rebalance(&decomp);
+        assert!(
+            result.is_err(),
+            "suggest_rebalance must error when marginals are unavailable"
+        );
     }
 
     #[test]

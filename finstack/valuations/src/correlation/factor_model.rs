@@ -668,25 +668,77 @@ impl MultiFactorModel {
         Self::validated(num_factors, volatilities, correlations)
     }
 
-    /// Create a multi-factor model, falling back to identity correlation on invalid input.
+    /// Create a multi-factor model, projecting near-PSD correlation matrices
+    /// onto the nearest valid correlation matrix (Higham 2002) before falling
+    /// back to the identity.
+    ///
+    /// Precedence of attempts:
+    ///
+    /// 1. `new` — use the matrix as provided if it is already a valid
+    ///    correlation matrix.
+    /// 2. [`nearest_correlation_matrix`](crate::correlation::nearest_correlation_matrix)
+    ///    — repair small PSD violations (typical when the matrix comes from a
+    ///    thresholded sample estimate or shrinkage) and retry validation.
+    /// 3. Identity fallback — only if both of the above fail, and only with a
+    ///    loud warning. This preserves backwards compatibility with existing
+    ///    call sites while eliminating silent identity substitution for
+    ///    matrices that were *almost* correct.
+    ///
+    /// Sites that want a hard error on invalid input should call
+    /// [`MultiFactorModel::validated`] directly instead.
     ///
     /// # Returns
     ///
-    /// A validated model when possible, otherwise an uncorrelated fallback model.
+    /// A validated model from the original matrix, a model built from the
+    /// Higham-projected matrix, or (last resort) an uncorrelated fallback.
     #[must_use]
     pub fn new_or_identity(
         num_factors: usize,
         volatilities: Vec<f64>,
         correlations: Vec<f64>,
     ) -> Self {
-        Self::new(num_factors, volatilities.clone(), correlations).unwrap_or_else(|err| {
-            tracing::warn!(
-                num_factors,
-                %err,
-                "Invalid correlation matrix; falling back to uncorrelated (identity) model"
-            );
-            Self::uncorrelated(num_factors, volatilities)
-        })
+        if let Ok(model) = Self::new(num_factors, volatilities.clone(), correlations.clone()) {
+            return model;
+        }
+
+        // Try Higham's nearest-correlation projection before the identity
+        // fallback. This repairs small PSD violations (e.g. sample-correlation
+        // estimation noise) instead of silently throwing the user's correlation
+        // structure away.
+        let n = num_factors.max(1);
+        if correlations.len() == n * n {
+            match crate::correlation::nearest_correlation::nearest_correlation_matrix(
+                &correlations,
+                n,
+                crate::correlation::nearest_correlation::NearestCorrelationOpts::default(),
+            ) {
+                Ok(repaired) => {
+                    if let Ok(model) = Self::new(num_factors, volatilities.clone(), repaired) {
+                        tracing::warn!(
+                            num_factors,
+                            "Invalid correlation matrix; using Higham (2002) nearest \
+                             correlation projection as the repaired input"
+                        );
+                        return model;
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        num_factors,
+                        %err,
+                        "Nearest-correlation projection rejected the input; \
+                         continuing to identity fallback"
+                    );
+                }
+            }
+        }
+
+        tracing::warn!(
+            num_factors,
+            "Invalid correlation matrix and projection failed; falling back to \
+             uncorrelated (identity) model"
+        );
+        Self::uncorrelated(num_factors, volatilities)
     }
 
     /// Create a multi-factor model with validation.

@@ -175,6 +175,14 @@ pub struct AccrualConfig {
     /// falls back to ACT/ACT ISDA semantics, which gives incorrect accrued
     /// interest for most government bonds.
     pub frequency: Option<Tenor>,
+    /// Require schedule.meta.issue_date to be set (or a flow to precede the
+    /// first coupon). When true, accrued_interest_amount returns an error
+    /// instead of silently falling back to the inverse-day-count
+    /// approximation used by derive_horizon_start.
+    ///
+    /// Default: false (preserves backwards compatibility; warning is logged
+    /// and an approximate first coupon period start is derived).
+    pub strict_issue_date: bool,
 }
 
 impl Default for AccrualConfig {
@@ -184,6 +192,7 @@ impl Default for AccrualConfig {
             ex_coupon: None,
             include_pik: true,
             frequency: None,
+            strict_issue_date: false,
         }
     }
 }
@@ -244,7 +253,7 @@ pub fn accrued_interest_amount(
     as_of: Date,
     cfg: &AccrualConfig,
 ) -> finstack_core::Result<f64> {
-    let periods = build_coupon_periods(schedule, cfg.include_pik);
+    let periods = build_coupon_periods(schedule, cfg)?;
     if periods.is_empty() {
         return Ok(0.0);
     }
@@ -269,7 +278,13 @@ struct CouponBucket {
     date: Date,
     cash_amount: f64,
     pik_amount: f64,
-    accrual_factor: f64,
+    /// Accrual year fraction as reported by the builder.
+    ///
+    /// None means no builder-provided accrual factor; downstream falls back
+    /// to a day-count-based year fraction. Some(af) means the builder
+    /// explicitly set af. We use Option rather than 0.0 as a sentinel so a
+    /// legitimate zero-length period is distinguishable from unset.
+    accrual_factor: Option<f64>,
     rate: Option<f64>,
 }
 
@@ -301,15 +316,26 @@ fn derive_horizon_start(
     schedule: &CashFlowSchedule,
     first_bucket: &CouponBucket,
     dc: DayCount,
-) -> Date {
+    strict_issue_date: bool,
+) -> finstack_core::Result<Date> {
     if let Some(issue) = schedule.meta.issue_date {
-        return issue;
+        return Ok(issue);
     }
 
     if let Some(min_date) = schedule.dates().into_iter().min() {
         if min_date < first_bucket.date {
-            return min_date;
+            return Ok(min_date);
         }
+    }
+
+    if strict_issue_date {
+        return Err(finstack_core::Error::Validation(
+            "AccrualConfig::strict_issue_date: schedule.meta.issue_date is unset and no \
+             flow precedes the first coupon date; cannot derive the first coupon period \
+             start without the inverse day-count approximation. Set meta.issue_date on \
+             the CashFlowSchedule."
+                .into(),
+        ));
     }
 
     let days_per_year = match dc {
@@ -324,33 +350,38 @@ fn derive_horizon_start(
     // date is approximate (±1-2 day error for non-30/360 conventions).
     warn!(
         first_coupon_date = %first_bucket.date,
-        accrual_factor = first_bucket.accrual_factor,
+        accrual_factor = ?first_bucket.accrual_factor,
         day_count = ?dc,
         "build_coupon_periods: meta.issue_date not set; deriving from accrual factor \
          via inverse day count approximation (may be off by 1-2 days). \
-         Set meta.issue_date on the CashFlowSchedule to suppress this warning."
+         Set meta.issue_date on the CashFlowSchedule to suppress this warning, or \
+         enable AccrualConfig::strict_issue_date to fail loudly."
     );
 
-    if first_bucket.accrual_factor > 0.0
-        && first_bucket.accrual_factor <= MAX_REASONABLE_ACCRUAL_FACTOR
-    {
-        let days_to_subtract = (first_bucket.accrual_factor * days_per_year).round() as i64;
-        first_bucket.date - time::Duration::days(days_to_subtract)
-    } else {
-        first_bucket.date
-    }
+    Ok(match first_bucket.accrual_factor {
+        Some(af) if af > 0.0 && af <= MAX_REASONABLE_ACCRUAL_FACTOR => {
+            let days_to_subtract = (af * days_per_year).round() as i64;
+            first_bucket.date - time::Duration::days(days_to_subtract)
+        }
+        _ => first_bucket.date,
+    })
 }
 
 /// Build coupon buckets grouped by date from the schedule.
-fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<CouponPeriod> {
+fn build_coupon_periods(
+    schedule: &CashFlowSchedule,
+    cfg: &AccrualConfig,
+) -> finstack_core::Result<Vec<CouponPeriod>> {
     let mut buckets: Vec<CouponBucket> = Vec::new();
 
     // Cash and PIK coupon flows are grouped by payment date.
     for cf in &schedule.flows {
         // Skip non-coupon flows
-        if !is_coupon_kind(cf.kind, include_pik) {
+        if !is_coupon_kind(cf.kind, cfg.include_pik) {
             continue;
         }
+
+        let cf_af = accrual_factor_from_builder(cf.accrual_factor);
 
         if let Some(last) = buckets.last_mut() {
             if last.date == cf.date {
@@ -358,8 +389,8 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<C
                     last.pik_amount += cf.amount.amount();
                 } else {
                     last.cash_amount += cf.amount.amount();
-                    if last.accrual_factor == 0.0 && cf.accrual_factor > 0.0 {
-                        last.accrual_factor = cf.accrual_factor;
+                    if last.accrual_factor.is_none() {
+                        last.accrual_factor = cf_af;
                     }
                     if last.rate.is_none() {
                         last.rate = cf.rate;
@@ -374,7 +405,7 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<C
                 date: cf.date,
                 cash_amount: 0.0,
                 pik_amount: cf.amount.amount(),
-                accrual_factor: 0.0,
+                accrual_factor: None,
                 rate: None,
             }
         } else {
@@ -382,14 +413,14 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<C
                 date: cf.date,
                 cash_amount: cf.amount.amount(),
                 pik_amount: 0.0,
-                accrual_factor: cf.accrual_factor,
+                accrual_factor: cf_af,
                 rate: cf.rate,
             }
         });
     }
 
     if buckets.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     // Sort buckets by date to ensure deterministic period boundaries.
@@ -405,8 +436,9 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<C
     //    (this handles cases where issue date flow exists in the schedule).
     // 3. Otherwise, derive issue date from first coupon's accrual factor using
     //    an inverse day count approximation (least accurate, up to 1-2 day error).
+    //    When `cfg.strict_issue_date` is true, return an error instead.
     let first_bucket = &buckets[0];
-    let horizon_start = derive_horizon_start(schedule, first_bucket, dc);
+    let horizon_start = derive_horizon_start(schedule, first_bucket, dc, cfg.strict_issue_date)?;
 
     let mut prev = horizon_start;
 
@@ -428,7 +460,21 @@ fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<C
         }
     }
 
-    periods
+    Ok(periods)
+}
+
+/// Convert a builder-reported accrual factor (`f64`) into the `Option<f64>`
+/// representation used internally by [`CouponBucket`].
+///
+/// Builder code emits `0.0` when no accrual factor applies; this function
+/// maps that sentinel to `None` so downstream logic can distinguish "unset"
+/// from a genuine zero-length period.
+fn accrual_factor_from_builder(af: f64) -> Option<f64> {
+    if af > 0.0 {
+        Some(af)
+    } else {
+        None
+    }
 }
 
 /// Build period inputs (including notional at start-of-period) from coupon periods
@@ -469,14 +515,15 @@ fn build_period_inputs(
         }
 
         // Prefer accrual_factor from builder when present; otherwise derive via day count.
-        let total_yf = if p.bucket.accrual_factor > 0.0 {
-            p.bucket.accrual_factor
-        } else {
-            let ctx = DayCountCtx {
-                frequency,
-                ..Default::default()
-            };
-            p.dc.year_fraction(p.start, p.end, ctx)?
+        let total_yf = match p.bucket.accrual_factor {
+            Some(af) if af > 0.0 => af,
+            _ => {
+                let ctx = DayCountCtx {
+                    frequency,
+                    ..Default::default()
+                };
+                p.dc.year_fraction(p.start, p.end, ctx)?
+            }
         };
 
         if total_yf <= 0.0 {
@@ -677,7 +724,8 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let periods = build_coupon_periods(&schedule, false);
+        let cfg = AccrualConfig::default();
+        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty(), "Should have coupon periods");
         let first_period = &periods[0];
@@ -706,7 +754,8 @@ mod tests {
             DayCount::Act365F,
         );
 
-        let periods = build_coupon_periods(&schedule, false);
+        let cfg = AccrualConfig::default();
+        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty());
         let first_period = &periods[0];
@@ -733,7 +782,8 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let periods = build_coupon_periods(&schedule, false);
+        let cfg = AccrualConfig::default();
+        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty());
         let first_period = &periods[0];
@@ -759,7 +809,8 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let periods = build_coupon_periods(&schedule, false);
+        let cfg = AccrualConfig::default();
+        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         // With zero accrual factor, we hit fallback: first_bucket.date = July 1
         // This creates a zero-length first period (start == end), which is skipped
@@ -784,7 +835,8 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let periods = build_coupon_periods(&schedule, false);
+        let cfg = AccrualConfig::default();
+        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         // With excessive accrual factor, we hit fallback: first_bucket.date = July 1
         // This creates a zero-length first period, which is skipped
@@ -818,7 +870,8 @@ mod tests {
             },
         );
 
-        let periods = build_coupon_periods(&schedule, false);
+        let cfg = AccrualConfig::default();
+        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty());
         let first_period = &periods[0];

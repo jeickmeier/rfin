@@ -7,6 +7,7 @@
 //! a JSON round-trip.
 
 use crate::bindings::extract::{extract_market_ref, extract_portfolio_ref};
+use crate::bindings::portfolio::types::PyPortfolioCashflows;
 use crate::errors::display_to_py;
 use pyo3::prelude::*;
 
@@ -73,14 +74,17 @@ fn value_portfolio(
 ///
 /// Returns
 /// -------
-/// str
-///     JSON-serialized ``PortfolioFullCashflows`` ladder.
+/// PortfolioCashflows
+///     Typed wrapper around the full cashflow ladder. Use
+///     ``to_json()``/``from_json()`` for round-tripping and typed accessors
+///     (``events_json``, ``by_date_json``, ``collapse_to_base_by_date_kind``)
+///     to drill in without re-parsing.
 #[pyfunction]
 fn aggregate_full_cashflows(
     py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     market: &Bound<'_, PyAny>,
-) -> PyResult<String> {
+) -> PyResult<PyPortfolioCashflows> {
     let portfolio = extract_portfolio_ref(portfolio)?;
     let market = extract_market_ref(market)?;
     let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
@@ -90,7 +94,7 @@ fn aggregate_full_cashflows(
             finstack_portfolio::cashflows::aggregate_full_cashflows(portfolio_ref, market_ref)
         })
         .map_err(display_to_py)?;
-    serde_json::to_string(&cashflows).map_err(display_to_py)
+    Ok(PyPortfolioCashflows::from_inner(cashflows))
 }
 
 /// Apply a scenario to a portfolio and revalue it.

@@ -11,7 +11,17 @@ use serde::{Deserialize, Serialize};
 /// positions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WeightingScheme {
-    /// `w_i` is share of portfolio base currency PV; `∑ w_i = 1`.
+    /// `w_i` is share of gross portfolio base-currency PV.
+    ///
+    /// Weights are computed against `gross_pv_base = Σ |pv_i|`, so for a
+    /// long-only portfolio `∑ w_i = 1`. When shorts are permitted the sum can
+    /// differ from `1` because shorts enter the denominator as absolute value
+    /// while contributing negatively to `w_i`.
+    ///
+    /// Quantity reconstruction uses `w_i * gross_pv_base / pv_per_unit_i`,
+    /// so each candidate must have non-zero `pv_per_unit`. Zero-PV
+    /// candidates are rejected at decision-space construction time under
+    /// this scheme because their implied quantity would be undefined.
     ValueWeight,
 
     /// `w_i` is share of some notional exposure; still normalized so `∑ w_i = 1`.

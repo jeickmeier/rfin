@@ -250,6 +250,118 @@ impl PyPortfolioResult {
 }
 
 // ---------------------------------------------------------------------------
+// PyPortfolioCashflows
+// ---------------------------------------------------------------------------
+
+/// Python wrapper around a
+/// [`finstack_portfolio::cashflows::PortfolioFullCashflows`] ladder.
+///
+/// Returning a typed wrapper lets callers drill into `events`, `by_date`, and
+/// `issues` without re-parsing the aggregated JSON payload on every access.
+/// Typed accessors return JSON for now (structured access can be added
+/// incrementally); `to_json()` round-trips the full structure.
+#[pyclass(
+    name = "PortfolioCashflows",
+    module = "finstack.portfolio",
+    skip_from_py_object
+)]
+#[derive(Clone)]
+pub struct PyPortfolioCashflows {
+    pub(crate) inner: finstack_portfolio::cashflows::PortfolioFullCashflows,
+}
+
+impl PyPortfolioCashflows {
+    pub(crate) fn from_inner(inner: finstack_portfolio::cashflows::PortfolioFullCashflows) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPortfolioCashflows {
+    /// Parse a cashflow ladder from a JSON string.
+    #[staticmethod]
+    #[pyo3(text_signature = "(cashflows_json)")]
+    fn from_json(cashflows_json: &str) -> PyResult<Self> {
+        let inner: finstack_portfolio::cashflows::PortfolioFullCashflows =
+            serde_json::from_str(cashflows_json).map_err(display_to_py)?;
+        Ok(Self { inner })
+    }
+
+    /// Serialize the full ladder back to JSON.
+    #[pyo3(text_signature = "(self)")]
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner).map_err(display_to_py)
+    }
+
+    /// Number of dated cashflow events.
+    fn __len__(&self) -> usize {
+        self.inner.events.len()
+    }
+
+    /// Number of positions represented in the ladder (contributing events or
+    /// recorded as issues).
+    fn num_positions(&self) -> usize {
+        self.inner.by_position.len()
+    }
+
+    /// Number of extraction issues recorded during aggregation.
+    fn num_issues(&self) -> usize {
+        self.inner.issues.len()
+    }
+
+    /// JSON for the flat ``events`` vector only.
+    #[pyo3(text_signature = "(self)")]
+    fn events_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner.events).map_err(display_to_py)
+    }
+
+    /// JSON for the ``by_date`` currency/kind totals only.
+    #[pyo3(text_signature = "(self)")]
+    fn by_date_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner.by_date).map_err(display_to_py)
+    }
+
+    /// JSON for the ``issues`` vector only.
+    #[pyo3(text_signature = "(self)")]
+    fn issues_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner.issues).map_err(display_to_py)
+    }
+
+    /// Collapse multi-currency flows into a single base-currency
+    /// ``(date, CFKind) → Money`` ladder using **spot-equivalent** FX at each
+    /// payment date.
+    ///
+    /// See :func:`finstack_portfolio::cashflows::PortfolioFullCashflows::collapse_to_base_by_date_kind`
+    /// for the exact convention. Returns JSON.
+    #[pyo3(text_signature = "(self, market, base_ccy, as_of)")]
+    fn collapse_to_base_by_date_kind(
+        &self,
+        market: &Bound<'_, PyAny>,
+        base_ccy: &str,
+        as_of: &str,
+    ) -> PyResult<String> {
+        let market = crate::bindings::extract::extract_market_ref(market)?;
+        let ccy: finstack_core::currency::Currency = base_ccy.parse().map_err(display_to_py)?;
+        let as_of_date = super::parse_date(as_of)?;
+        let market_ref: &finstack_core::market_data::context::MarketContext = &market;
+        let collapsed = self
+            .inner
+            .collapse_to_base_by_date_kind(market_ref, ccy, as_of_date)
+            .map_err(display_to_py)?;
+        serde_json::to_string(&collapsed).map_err(display_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PortfolioCashflows(events={}, positions={}, issues={})",
+            self.inner.events.len(),
+            self.inner.by_position.len(),
+            self.inner.issues.len(),
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -257,5 +369,6 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPortfolio>()?;
     m.add_class::<PyPortfolioValuation>()?;
     m.add_class::<PyPortfolioResult>()?;
+    m.add_class::<PyPortfolioCashflows>()?;
     Ok(())
 }

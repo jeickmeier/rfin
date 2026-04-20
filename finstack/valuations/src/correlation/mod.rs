@@ -39,6 +39,7 @@
 pub mod copula;
 pub mod error;
 pub mod factor_model;
+pub mod nearest_correlation;
 pub mod recovery;
 
 // Re-export commonly used types
@@ -54,4 +55,5 @@ pub use factor_model::{
 pub use finstack_core::math::probability::{
     correlation_bounds, joint_probabilities, CorrelatedBernoulli,
 };
+pub use nearest_correlation::{nearest_correlation_matrix, NearestCorrelationOpts};
 pub use recovery::{ConstantRecovery, CorrelatedRecovery, RecoveryModel, RecoverySpec};

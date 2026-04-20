@@ -846,6 +846,23 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 
+        // The default `Instrument::value()` path only implements European exercise.
+        // Bermudan / American swaptions must be priced via the dedicated LMM
+        // pricer (see `swaption::lmm_pricer::LmmPricer`); silently downcasting to
+        // European would systematically under-price the early-exercise premium.
+        match self.exercise_style {
+            SwaptionExercise::European => {}
+            SwaptionExercise::Bermudan | SwaptionExercise::American => {
+                return Err(Error::Validation(format!(
+                    "Swaption '{}' has exercise_style={}; the generic Swaption pricer only supports \
+                     European exercise. Use the LMM Bermudan pricer \
+                     (crate::instruments::rates::swaption::lmm_pricer) for early-exercise swaptions.",
+                    self.id,
+                    self.exercise_style,
+                )));
+            }
+        }
+
         // 1. SABR model (if enabled) overrides basic model choice
         if self.sabr_params.is_some() {
             return self.price_sabr(curves, as_of);

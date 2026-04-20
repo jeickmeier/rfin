@@ -946,7 +946,25 @@ export interface ScenarioRevalueResult {
   report: string;
 }
 
+/**
+ * Typed handle to a built portfolio. Construct once via
+ * `Portfolio.fromSpec` and reuse it across cashflow / valuation calls to
+ * skip the per-call `PortfolioSpec` parse + rebuild cost.
+ */
+export declare class Portfolio {
+  private constructor();
+  static fromSpec(specJson: string): Portfolio;
+  readonly id: string;
+  readonly asOf: string;
+  readonly baseCcy: string;
+  numPositions(): number;
+  toSpecJson(): string;
+  free(): void;
+}
+
 export interface PortfolioNamespace {
+  /** Typed handle for cached portfolio builds. */
+  Portfolio: typeof Portfolio;
   parsePortfolioSpec(jsonStr: string): string;
   buildPortfolioFromSpec(specJson: string): string;
   portfolioResultTotalValue(resultJson: string): number;
@@ -966,6 +984,14 @@ export interface PortfolioNamespace {
     strictRisk: boolean
   ): string;
   aggregateFullCashflows(specJson: string, marketJson: string): string;
+  /**
+   * Fast-path cashflow aggregation that reuses a built `Portfolio` handle.
+   * Skips the `PortfolioSpec` parse + `Portfolio::from_spec` rebuild cost.
+   */
+  aggregateFullCashflowsBuilt(
+    portfolio: Portfolio,
+    marketJson: string
+  ): string;
   aggregateCashflows(specJson: string, marketJson: string): string;
   applyScenarioAndRevalue(
     specJson: string,

@@ -36,14 +36,6 @@ pub struct ValuationRow {
 }
 
 impl ValuationResult {
-    /// Helper method to get a measure value using MetricId constant.
-    ///
-    /// This ensures we use the correct, canonical metric key strings
-    /// from the metrics registry instead of hardcoded strings.
-    fn get_measure(&self, id: MetricId) -> Option<f64> {
-        self.measures.get(&id).copied()
-    }
-
     /// Convert this result to a flat row for DataFrame export.
     ///
     /// Selected measures (dv01, convexity, duration, ytm) are promoted
@@ -58,12 +50,12 @@ impl ValuationResult {
             as_of_date: self.as_of.to_string(),
             pv: self.value.amount(),
             currency: self.value.currency().to_string(),
-            dv01: self.get_measure(MetricId::Dv01),
-            convexity: self.get_measure(MetricId::Convexity),
+            dv01: self.metric(MetricId::Dv01),
+            convexity: self.metric(MetricId::Convexity),
             duration: self
-                .get_measure(MetricId::DurationMod)
-                .or_else(|| self.get_measure(MetricId::DurationMac)),
-            ytm: self.get_measure(MetricId::Ytm),
+                .metric(MetricId::DurationMod)
+                .or_else(|| self.metric(MetricId::DurationMac)),
+            ytm: self.metric(MetricId::Ytm),
         }
     }
 

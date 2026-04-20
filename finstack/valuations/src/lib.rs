@@ -142,8 +142,8 @@
 //! // selected pricing path.
 //! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, default_opts)?;
 //! // let hazard_result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, hazard_rate_opts)?;
-//! // println!("YTM: {:.2}%", result[MetricId::Ytm] * 100.0);
-//! // println!("DV01: ${:.2}", result[MetricId::Dv01]);
+//! // println!("YTM: {:.2}%", result.metric(MetricId::Ytm).unwrap_or(0.0) * 100.0);
+//! // println!("DV01: ${:.2}", result.metric(MetricId::Dv01).unwrap_or(0.0));
 //! # Ok(())
 //! # }
 //! ```

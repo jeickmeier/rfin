@@ -247,12 +247,28 @@ fn execute_batch(
 }
 
 /// Apply batch results to context and state.
+///
+/// When `fail_on_bad_fit` is set and any step in the batch did not converge,
+/// the batch is treated atomically: **no** step's output is installed and a
+/// `Calibration` error is propagated for the first failing step. This
+/// preserves the parallel path's equivalence to the sequential path for
+/// convergence gating.
 fn apply_batch_results(
     batch: Vec<StepBatchItem>,
     results: Vec<StepOutcome>,
     context: &mut MarketContext,
     state: &mut ExecutionState,
-) {
+    fail_on_bad_fit: bool,
+) -> Result<()> {
+    if fail_on_bad_fit {
+        if let Some((item, failing)) = batch
+            .iter()
+            .zip(results.iter())
+            .find(|(_, r)| !r.report.success)
+        {
+            return Err(bad_fit_error(&item.step.id, &failing.report));
+        }
+    }
     for (item, result) in batch.into_iter().zip(results) {
         let StepOutcome {
             output,
@@ -262,6 +278,7 @@ fn apply_batch_results(
         step_runtime::apply_output(context, output, credit_index_update);
         state.record_result(&item.step.id, report);
     }
+    Ok(())
 }
 
 /// Execute steps in parallel mode.
@@ -294,7 +311,13 @@ fn execute_parallel(
             "executing parallel calibration batch"
         );
         let results = execute_batch(&batch, context, &plan.settings)?;
-        apply_batch_results(batch, results, context, state);
+        apply_batch_results(
+            batch,
+            results,
+            context,
+            state,
+            plan.settings.fail_on_bad_fit,
+        )?;
     }
     Ok(())
 }
@@ -328,10 +351,30 @@ fn execute_sequential(
             max_residual = %report.max_residual,
             "calibration step complete"
         );
+        if plan.settings.fail_on_bad_fit && !report.success {
+            return Err(bad_fit_error(&step.id, &report));
+        }
         step_runtime::apply_output(context, output, credit_index_update);
         state.record_result(&step.id, report);
     }
     Ok(())
+}
+
+/// Build a `Calibration` error describing a step that failed to converge.
+///
+/// The error captures the step identifier and the residual diagnostics so
+/// that downstream code can programmatically inspect which step poisoned
+/// the plan without having to re-parse the logs.
+fn bad_fit_error(step_id: &str, report: &CalibrationReport) -> finstack_core::Error {
+    finstack_core::Error::Calibration {
+        message: format!(
+            "calibration step '{step_id}' did not converge: \
+             max_residual={:.6e}, rmse={:.6e}, iterations={}, reason={}. \
+             Output was not installed into the market context (fail_on_bad_fit=true).",
+            report.max_residual, report.rmse, report.iterations, report.convergence_reason,
+        ),
+        category: "convergence".to_string(),
+    }
 }
 
 // =============================================================================

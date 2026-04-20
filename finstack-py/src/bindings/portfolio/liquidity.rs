@@ -264,6 +264,7 @@ fn almgren_chriss_impact<'py>(
         daily_volatility: volatility,
         profile,
         risk_aversion: None,
+        reference_price: None,
     };
     let est = model.estimate_cost(&params).map_err(display_to_py)?;
 

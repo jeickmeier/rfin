@@ -40,22 +40,33 @@ use finstack_monte_carlo::pricer::path_dependent::{
 #[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
-/// Helper to get FX spot for quanto vol lookup.
-/// Falls back to 1.0 if fx_spot_id is not provided (ATM approximation).
+/// Resolve the FX spot required for a quanto range-accrual payoff.
+///
+/// When `quanto.fx_spot_id` is configured, the spot **must** resolve from the
+/// market context. Silently substituting `1.0` — as the prior implementation
+/// did — masks missing market data and materially mis-prices the quanto
+/// adjustment term (which scales multiplicatively with `fx_spot`). Callers
+/// that truly want an ATM approximation should set `fx_spot_id = None`
+/// explicitly.
 #[cfg(feature = "mc")]
-fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> f64 {
+fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> Result<f64> {
     let fx_spot_id = inst.quanto.as_ref().and_then(|q| q.fx_spot_id.as_deref());
 
-    if let Some(id) = fx_spot_id {
-        match curves.get_price(id) {
-            Ok(ms) => match ms {
+    match fx_spot_id {
+        None => Ok(1.0),
+        Some(id) => {
+            let ms = curves.get_price(id).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "range-accrual quanto fx_spot_id '{id}' not found in market context: {e}. \
+                     Provide the FX spot scalar or drop the fx_spot_id to use the ATM \
+                     approximation explicitly."
+                ))
+            })?;
+            Ok(match ms {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-            },
-            Err(_) => 1.0, // Fallback to ATM approximation
+            })
         }
-    } else {
-        1.0 // ATM approximation when no FX spot provided
     }
 }
 
@@ -138,7 +149,7 @@ impl RangeAccrualMcPricer {
         // Quanto Adjustment using FX spot for vol lookup
         if let Some(quanto) = &inst.quanto {
             let fx_vol_surface = curves.get_surface(quanto.fx_vol_surface_id.as_str())?;
-            let fx_spot = get_fx_spot(inst, curves);
+            let fx_spot = get_fx_spot(inst, curves)?;
             let sigma_fx = fx_vol_surface.value_clamped(t, fx_spot);
 
             // Drift adjustment: q_param = q_real + rho * sigma_S * sigma_FX
@@ -328,7 +339,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
     // Get FX spot for quanto vol lookup (uses actual spot if available, else 1.0)
-    let fx_spot = get_fx_spot(inst, curves);
+    let fx_spot = get_fx_spot(inst, curves)?;
 
     // Count observations and track past/future split
     let n_total_obs = inst.observation_dates.len();

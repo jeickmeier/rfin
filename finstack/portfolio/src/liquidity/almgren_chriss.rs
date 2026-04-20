@@ -149,16 +149,18 @@ impl MarketImpactModel for AlmgrenChrissModel {
 
         let total_cost = perm_cost + temp_cost;
 
-        // Notional value
-        let notional = q.abs() * params.profile.mid;
+        // Notional value (use the arrival / decision reference price when
+        // the caller supplies one; `profile.mid` is the default).
+        let reference_price = params.effective_reference_price();
+        let notional = q.abs() * reference_price;
         let cost_bps = if notional > 0.0 {
             total_cost / notional * 10_000.0
         } else {
             0.0
         };
 
-        // Execution risk: volatility * sqrt(T) * |Q| * mid
-        let execution_risk = params.daily_volatility * t.sqrt() * q.abs() * params.profile.mid;
+        // Execution risk: volatility * sqrt(T) * |Q| * reference_price
+        let execution_risk = params.daily_volatility * t.sqrt() * q.abs() * reference_price;
 
         Ok(ImpactEstimate {
             permanent_impact: perm_cost,
@@ -195,7 +197,7 @@ impl MarketImpactModel for AlmgrenChrissModel {
         let t = params.horizon_days;
         let dt = t / num_buckets as f64;
         let risk_aversion = params.risk_aversion.unwrap_or(1e-6);
-        let sigma = params.daily_volatility * params.profile.mid;
+        let sigma = params.daily_volatility * params.effective_reference_price();
 
         // For linear temporary impact (delta=1), the optimal trajectory
         // has an analytical solution. For general delta, we use the
@@ -311,6 +313,7 @@ mod tests {
             daily_volatility: 0.02,
             profile: test_profile()?,
             risk_aversion: None,
+            reference_price: None,
         })
     }
 

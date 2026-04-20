@@ -498,6 +498,22 @@ pub struct CalibrationConfig {
     #[serde(default)]
     #[schemars(with = "serde_json::Value")]
     pub inflation_curve: InflationCurveSolveConfig,
+
+    /// When `true`, a calibration step whose solver reports
+    /// `report.success == false` is propagated as a
+    /// `finstack_core::Error::Calibration` and its output is **not**
+    /// installed into the market context.
+    ///
+    /// Defaults to `true` — this is the safe production choice because
+    /// a non-converged solver would otherwise silently poison downstream
+    /// pricing. Legacy or exploratory workflows that want to inspect the
+    /// report without aborting can set this to `false`.
+    #[serde(default = "default_fail_on_bad_fit")]
+    pub fail_on_bad_fit: bool,
+}
+
+fn default_fail_on_bad_fit() -> bool {
+    true
 }
 
 /// Extension section key for calibration overrides.
@@ -519,6 +535,7 @@ impl Default for CalibrationConfig {
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
             inflation_curve: InflationCurveSolveConfig::default(),
+            fail_on_bad_fit: default_fail_on_bad_fit(),
         }
     }
 }

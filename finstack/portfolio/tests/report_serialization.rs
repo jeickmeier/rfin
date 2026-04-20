@@ -92,7 +92,7 @@ fn test_cashflow_report_types_roundtrip() {
             position_id: PositionId::new("POS_2"),
             instrument_id: "SWAP_C".to_string(),
             instrument_type: "Swap".to_string(),
-            kind: CashflowExtractionIssueKind::Unsupported,
+            kind: CashflowExtractionIssueKind::BuildFailed,
             message: "cashflow provider unavailable".to_string(),
         }],
     });

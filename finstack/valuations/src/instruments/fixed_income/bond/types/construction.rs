@@ -658,6 +658,7 @@ impl Bond {
                 }),
             include_pik: true,
             frequency: Some(self.cashflow_spec.frequency()),
+            ..Default::default()
         }
     }
 

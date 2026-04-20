@@ -44,6 +44,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "Portfolio",
         "PortfolioValuation",
         "PortfolioResult",
+        "PortfolioCashflows",
         "parse_portfolio_spec",
         "build_portfolio_from_spec",
         "portfolio_result_total_value",

@@ -130,6 +130,10 @@ impl ValuationCache {
     ///
     /// If the cache exceeds capacity after insertion, the least
     /// recently accessed entries are evicted until within bounds.
+    ///
+    /// If the key already exists, `memory_bytes` is adjusted by the *delta*
+    /// between the new and replaced entry sizes so the gauge stays accurate.
+    /// Previously a replacement double-counted the entry's memory footprint.
     pub fn insert(&self, key: CacheKey, result: Arc<ValuationResult>) {
         let estimated_size = estimate_result_size(&result);
 
@@ -139,18 +143,33 @@ impl ValuationCache {
             last_access: self.access_counter.fetch_add(1, Ordering::Relaxed),
         };
 
-        {
+        let previous_size = {
             let mut map = match self.map.write() {
                 Ok(m) => m,
                 Err(_) => return, // poisoned lock: skip insert
             };
-            map.insert(key, entry);
+            let prev = map.insert(key, entry).map(|old| old.estimated_size);
             self.stats.entries.store(map.len(), Ordering::Relaxed);
-        }
+            prev
+        };
 
-        self.stats
-            .memory_bytes
-            .fetch_add(estimated_size, Ordering::Relaxed);
+        match previous_size {
+            Some(prev) if prev <= estimated_size => {
+                self.stats
+                    .memory_bytes
+                    .fetch_add(estimated_size - prev, Ordering::Relaxed);
+            }
+            Some(prev) => {
+                self.stats
+                    .memory_bytes
+                    .fetch_sub(prev - estimated_size, Ordering::Relaxed);
+            }
+            None => {
+                self.stats
+                    .memory_bytes
+                    .fetch_add(estimated_size, Ordering::Relaxed);
+            }
+        }
 
         self.maybe_evict();
     }

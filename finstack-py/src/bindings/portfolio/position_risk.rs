@@ -58,6 +58,9 @@ fn var_decomposition_to_dict<'py>(
     out.set_item("portfolio_es", d.portfolio_es)?;
     out.set_item("confidence", d.confidence)?;
     out.set_item("n_positions", d.n_positions)?;
+    // euler_residual, marginal_var, marginal_es, incremental_var are Option<f64>
+    // and serialize as None/null for engines that cannot compute them
+    // (e.g. historical mode for marginals and euler residual).
     out.set_item("euler_residual", d.euler_residual)?;
 
     let contribs = PyList::empty(py);
@@ -67,10 +70,7 @@ fn var_decomposition_to_dict<'py>(
         entry.set_item("component_var", c.component_var)?;
         entry.set_item("marginal_var", c.marginal_var)?;
         entry.set_item("pct_contribution", c.relative_var)?;
-        match c.incremental_var {
-            Some(iv) => entry.set_item("incremental_var", iv)?,
-            None => entry.set_item("incremental_var", py.None())?,
-        }
+        entry.set_item("incremental_var", c.incremental_var)?;
         contribs.append(entry)?;
     }
     out.set_item("contributions", contribs)?;
@@ -94,6 +94,7 @@ fn es_decomposition_to_dict<'py>(
         let entry = PyDict::new(py);
         entry.set_item("position_id", c.position_id.as_str())?;
         entry.set_item("component_es", c.component_es)?;
+        // marginal_es is Option<f64>; serializes as None in historical mode.
         entry.set_item("marginal_es", c.marginal_es)?;
         entry.set_item("pct_contribution", c.relative_es)?;
         contribs.append(entry)?;
@@ -273,9 +274,10 @@ fn historical_var_decomposition<'py>(
 
 /// Evaluate a per-position risk budget against actual component VaRs.
 ///
-/// Builds a synthetic :class:`PositionRiskDecomposition` from the provided
-/// actual component VaRs and totals, then compares it against the target
-/// budget using the Rust ``RiskBudget::evaluate`` engine.
+/// Compares provided actual component VaRs against target fractions using
+/// the Rust ``RiskBudget::evaluate_components`` engine. Inputs are the
+/// minimum required for budget evaluation -- no ES or marginal data is
+/// needed.
 ///
 /// Parameters
 /// ----------
@@ -321,60 +323,22 @@ fn evaluate_risk_budget<'py>(
         )));
     }
 
-    // Synthesize a decomposition so we can reuse the Rust budget engine.
-    //
-    // Each `PositionId` is constructed once per slot from a shared
-    // `PositionId` vec (built in a single pass over the caller's ids) rather
-    // than re-allocating the id string for each of the three containers
-    // (var_contribs, es_contribs, targets).
-    use finstack_portfolio::factor_model::{
-        DecompositionMethod, PositionEsContribution, PositionVarContribution,
-    };
+    // Use the narrow `evaluate_components` API so we do not have to
+    // synthesise a full `PositionRiskDecomposition` (with ES and marginals
+    // that would be dummy values) just to call `RiskBudget::evaluate`.
     let shared_ids: Vec<PositionId> = position_ids.into_iter().map(PositionId::new).collect();
 
-    let var_contributions: Vec<PositionVarContribution> = shared_ids
-        .iter()
-        .zip(actual_var.iter())
-        .map(|(id, &cv)| PositionVarContribution {
-            position_id: id.clone(),
-            component_var: cv,
-            relative_var: if portfolio_var.abs() > 1e-15 {
-                cv / portfolio_var
-            } else {
-                0.0
-            },
-            marginal_var: 0.0,
-            incremental_var: None,
-        })
-        .collect();
-    let es_contributions: Vec<PositionEsContribution> = shared_ids
-        .iter()
-        .map(|id| PositionEsContribution {
-            position_id: id.clone(),
-            component_es: 0.0,
-            relative_es: 0.0,
-            marginal_es: 0.0,
-        })
-        .collect();
-
-    let sum_cvar: f64 = actual_var.iter().sum();
-    let decomp = PositionRiskDecomposition {
-        portfolio_var,
-        portfolio_es: 0.0,
-        confidence: 0.95,
-        method: DecompositionMethod::Parametric,
-        var_contributions,
-        es_contributions,
-        n_positions: n,
-        euler_residual: portfolio_var - sum_cvar,
-    };
-
     let mut targets: IndexMap<PositionId, f64> = IndexMap::with_capacity(n);
-    for (id, &pct) in shared_ids.into_iter().zip(target_var_pct.iter()) {
-        targets.insert(id, pct);
+    for (id, &pct) in shared_ids.iter().zip(target_var_pct.iter()) {
+        targets.insert(id.clone(), pct);
     }
     let budget = RiskBudget::new(targets).with_threshold(utilization_threshold);
-    let result = budget.evaluate(&decomp).map_err(core_to_py)?;
+    let result = budget
+        .evaluate_components(
+            shared_ids.iter().zip(actual_var.iter().copied()),
+            portfolio_var,
+        )
+        .map_err(core_to_py)?;
 
     let out = PyDict::new(py);
     out.set_item("portfolio_var", portfolio_var)?;

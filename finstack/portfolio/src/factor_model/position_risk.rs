@@ -22,8 +22,8 @@
 //! - `docs/REFERENCES.md#litterman-1996-hotspots`
 
 use crate::types::PositionId;
-use finstack_core::currency::Currency;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -61,15 +61,6 @@ pub struct DecompositionConfig {
     /// Whether to compute incremental VaR (expensive: one full repricing
     /// per position).
     pub compute_incremental: bool,
-
-    /// Reserved for future FX-aware decomposition.
-    ///
-    /// When `Some`, the caller asserts that all inputs (weights, covariance)
-    /// are already expressed in this currency. The engine does not perform
-    /// FX conversion -- it is the caller's responsibility to supply inputs
-    /// in a consistent currency basis. This field is stored on the output
-    /// for labeling only.
-    pub reporting_currency: Option<Currency>,
 }
 
 impl DecompositionConfig {
@@ -79,7 +70,6 @@ impl DecompositionConfig {
             confidence: 0.95,
             method: DecompositionMethod::Parametric,
             compute_incremental: false,
-            reporting_currency: None,
         }
     }
 
@@ -89,7 +79,6 @@ impl DecompositionConfig {
             confidence: 0.99,
             method: DecompositionMethod::Parametric,
             compute_incremental: false,
-            reporting_currency: None,
         }
     }
 
@@ -99,20 +88,12 @@ impl DecompositionConfig {
             confidence,
             method: DecompositionMethod::Historical,
             compute_incremental: false,
-            reporting_currency: None,
         }
     }
 
     /// Enable incremental VaR computation.
     pub fn with_incremental(mut self) -> Self {
         self.compute_incremental = true;
-        self
-    }
-
-    /// Set reporting currency label (for output labeling only;
-    /// does not perform FX conversion).
-    pub fn with_reporting_currency(mut self, ccy: Currency) -> Self {
-        self.reporting_currency = Some(ccy);
         self
     }
 }
@@ -156,7 +137,11 @@ pub struct PositionVarContribution {
     ///
     /// Used as gradient input for mean-variance optimization and
     /// risk-budgeting rebalancing.
-    pub marginal_var: f64,
+    ///
+    /// `None` when the engine cannot produce a true gradient (e.g.
+    /// historical mode without finite-difference repricing); callers that
+    /// need a marginal must choose a fallback or skip rebalancing.
+    pub marginal_var: Option<f64>,
 
     /// Incremental VaR: change in portfolio VaR from removing this position.
     ///
@@ -192,7 +177,10 @@ pub struct PositionEsContribution {
     pub relative_es: f64,
 
     /// Marginal ES: per-unit sensitivity of portfolio ES to this position.
-    pub marginal_es: f64,
+    ///
+    /// `None` when the engine cannot produce a true gradient (e.g.
+    /// historical mode without finite-difference repricing).
+    pub marginal_es: Option<f64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -245,9 +233,14 @@ pub struct PositionRiskDecomposition {
     /// Residual from Euler decomposition (should be near zero).
     ///
     /// `residual = portfolio_var - sum(component_var_i)`.
-    /// Non-zero values indicate approximation error (historical method)
-    /// or numerical issues.
-    pub euler_residual: f64,
+    /// Only meaningful for the parametric engine, where a non-zero residual
+    /// signals a numerical issue (ill-conditioned covariance, floating-point
+    /// accumulation error).
+    ///
+    /// `None` in historical mode: the Tasche scaling used there makes the
+    /// residual algebraically zero by construction, so it carries no
+    /// diagnostic information.
+    pub euler_residual: Option<f64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -393,26 +386,26 @@ fn validate_decomposition_inputs(
 
 /// Compute incremental VaR for all positions in O(n) total.
 ///
-/// The naive leave-one-out algorithm rebuilds an `(n-1) x (n-1)` covariance
-/// submatrix per position and recomputes `w' Σ w` from scratch, which is
-/// `O(n²)` per position and `O(n³)` overall. Because the reduced variance is
-/// an algebraic function of the full `w' Σ w` and the already-computed
-/// matrix-vector product `Σ w`, we can derive it in closed form.
-///
-/// Let `S = Σ_i w_i` (total_weights). When position `k` is excluded and the
-/// remaining weights are renormalized to sum to one of the original total
-/// (matching the prior behavior of normalizing by `S_k = S - w_k`):
+/// Textbook definition: incremental VaR for position `k` is the change in
+/// portfolio VaR caused by removing position `k`, with the remaining
+/// positions held at their existing weights (no renormalization):
 ///
 /// ```text
-///   variance_k_unnorm = w' Σ w  -  2 w_k (Σ w)_k  +  w_k²  Σ_{kk}
-///   variance_excl_k   = variance_k_unnorm / S_k²            (when S_k ≠ 0)
-///   var_excl_k        = z_α · sqrt(max(variance_excl_k, 0))
-///   incremental_k     = portfolio_var - var_excl_k
+///   variance_excl_k = w' Σ w  -  2 w_k (Σ w)_k  +  w_k²  Σ_{kk}
+///   var_excl_k      = z_α · sqrt(max(variance_excl_k, 0))
+///   incremental_k   = portfolio_var - var_excl_k
 /// ```
 ///
-/// The sigma_w argument must equal `Σ w`; this keeps the routine allocation-
-/// and-matrix-free and preserves the original fallback (no renormalization
-/// when `S_k == 0`, matching the prior implementation).
+/// This matches Jorion (2007) §7.2.3 and the definition used in standard
+/// risk-system reference implementations. It differs from the older
+/// implementation in this file, which renormalized the remaining weights
+/// by `S - w_k` (where `S = Σ_i w_i`). The renormalized form silently
+/// magnifies `var_excl_k` when `S - w_k` is small and produces
+/// counter-intuitive negative incrementals for non-diversifying positions;
+/// it is not a textbook quantity.
+///
+/// The `sigma_w` argument must equal `Σ w`; this keeps the routine
+/// allocation- and matrix-free.
 fn compute_incremental_var(
     weights: &[f64],
     sigma_w: &[f64],
@@ -423,7 +416,6 @@ fn compute_incremental_var(
     n: usize,
 ) -> Vec<f64> {
     let z_alpha = normal_quantile(confidence);
-    let total_weights: f64 = weights.iter().sum();
 
     (0..n)
         .map(|k| {
@@ -431,15 +423,8 @@ fn compute_incremental_var(
             let sw_k = sigma_w[k];
             let cov_kk = covariance[k * n + k];
 
-            let variance_unnorm =
+            let variance_excl =
                 (portfolio_variance - 2.0 * w_k * sw_k + w_k * w_k * cov_kk).max(0.0);
-
-            let s_k = total_weights - w_k;
-            let variance_excl = if s_k.abs() > 0.0 {
-                variance_unnorm / (s_k * s_k)
-            } else {
-                variance_unnorm
-            };
 
             let var_excl = z_alpha * variance_excl.sqrt();
             portfolio_var - var_excl
@@ -511,7 +496,7 @@ impl ParametricPositionDecomposer {
                 var_contributions: Vec::new(),
                 es_contributions: Vec::new(),
                 n_positions: 0,
-                euler_residual: 0.0,
+                euler_residual: Some(0.0),
             });
         }
 
@@ -530,11 +515,18 @@ impl ParametricPositionDecomposer {
         }
 
         // Portfolio variance = w' * Sigma * w.
-        let mut variance = 0.0;
+        let mut raw_variance = 0.0;
         for i in 0..n {
-            variance += weights[i] * sigma_w[i];
+            raw_variance += weights[i] * sigma_w[i];
         }
-        let variance = variance.max(0.0);
+        if raw_variance < 0.0 {
+            warn!(
+                raw_variance,
+                "parametric decomposer: w' Sigma w was negative after Cholesky validation; \
+                 clamping to zero. Covariance matrix is likely numerically singular."
+            );
+        }
+        let variance = raw_variance.max(0.0);
         let sigma_p = variance.sqrt();
 
         let portfolio_var = sigma_p * z_alpha;
@@ -544,6 +536,12 @@ impl ParametricPositionDecomposer {
         let inv_sigma = if sigma_p > VARIANCE_TOLERANCE.sqrt() {
             1.0 / sigma_p
         } else {
+            warn!(
+                sigma_p,
+                "parametric decomposer: portfolio sigma below sqrt(tolerance); marginal and \
+                 component contributions will be zero. Portfolio may be degenerate or all \
+                 weights near zero."
+            );
             0.0
         };
 
@@ -585,7 +583,7 @@ impl ParametricPositionDecomposer {
                 position_id: position_ids[i].clone(),
                 component_var,
                 relative_var,
-                marginal_var,
+                marginal_var: Some(marginal_var),
                 incremental_var: None,
             });
 
@@ -593,7 +591,7 @@ impl ParametricPositionDecomposer {
                 position_id: position_ids[i].clone(),
                 component_es,
                 relative_es,
-                marginal_es,
+                marginal_es: Some(marginal_es),
             });
         }
 
@@ -616,9 +614,9 @@ impl ParametricPositionDecomposer {
             var_contributions[0].incremental_var = Some(portfolio_var);
         }
 
-        // Euler residual.
+        // Euler residual (parametric only; meaningful as a numerical diagnostic).
         let sum_component_var: f64 = var_contributions.iter().map(|c| c.component_var).sum();
-        let euler_residual = portfolio_var - sum_component_var;
+        let euler_residual = Some(portfolio_var - sum_component_var);
 
         Ok(PositionRiskDecomposition {
             portfolio_var,
@@ -709,8 +707,22 @@ impl HistoricalPositionDecomposer {
                 var_contributions: Vec::new(),
                 es_contributions: Vec::new(),
                 n_positions: n,
-                euler_residual: 0.0,
+                euler_residual: None,
             });
+        }
+
+        // Reject configurations where the tail would contain less than one
+        // scenario. (1 - confidence) * n_scenarios < 1 means the stated
+        // confidence level cannot be resolved by the sample and any VaR/ES
+        // estimate would be dominated by a single extreme observation.
+        let expected_tail = (1.0 - config.confidence) * n_scenarios as f64;
+        if expected_tail < 1.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "historical decomposition: (1 - confidence) * n_scenarios = {expected_tail} < 1; \
+                 need at least {:.0} scenarios at confidence {} to resolve the tail",
+                (1.0 / (1.0 - config.confidence)).ceil(),
+                config.confidence
+            )));
         }
 
         // Compute portfolio P&L for each scenario.
@@ -726,11 +738,13 @@ impl HistoricalPositionDecomposer {
         portfolio_pnls.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Number of tail scenarios = floor((1 - confidence) * n_scenarios).
+        // The C2 guard above ensures this is >= 1.
         let n_tail = ((1.0 - config.confidence) * n_scenarios as f64).floor() as usize;
-        let n_tail = n_tail.max(1); // At least one tail scenario.
 
-        // Portfolio VaR: negative of the quantile P&L.
-        let var_idx = n_tail.min(n_scenarios - 1);
+        // Portfolio VaR: negative of the worst-case boundary scenario. The
+        // tail spans sorted indices 0..n_tail (ascending P&L), so the VaR
+        // threshold is the least-bad scenario of the tail, index n_tail-1.
+        let var_idx = (n_tail - 1).min(n_scenarios - 1);
         let portfolio_var = -portfolio_pnls[var_idx].1;
 
         // Portfolio ES: average loss in tail scenarios.
@@ -786,16 +800,10 @@ impl HistoricalPositionDecomposer {
             .map(|ces| ces * var_es_ratio)
             .collect();
 
-        // Marginal VaR and ES: approximate via component / weight.
-        // For historical, we use the component VaR / ES values directly
-        // scaled by the number of positions as a simple proxy for marginal.
-        // In practice marginal is the gradient; here we report component
-        // values as the marginal (since weights are not available in this API).
-        // A better marginal requires a finite-difference approach.
-
-        let sum_component_var: f64 = component_var_vec.iter().sum();
-        let euler_residual = portfolio_var - sum_component_var;
-
+        // Marginal VaR/ES are not analytically available from raw scenario
+        // P&Ls: they require either position weights (to differentiate)
+        // or a finite-difference repricing engine. Report None rather than
+        // a misleading proxy value.
         let mut var_contributions = Vec::with_capacity(n);
         let mut es_contributions = Vec::with_capacity(n);
 
@@ -816,7 +824,7 @@ impl HistoricalPositionDecomposer {
                 position_id: position_ids[i].clone(),
                 component_var: component_var_vec[i],
                 relative_var,
-                marginal_var: component_var_vec[i], // Approximation for historical.
+                marginal_var: None,
                 incremental_var: None,
             });
 
@@ -824,10 +832,14 @@ impl HistoricalPositionDecomposer {
                 position_id: position_ids[i].clone(),
                 component_es: component_es_vec[i],
                 relative_es,
-                marginal_es: component_es_vec[i], // Approximation for historical.
+                marginal_es: None,
             });
         }
 
+        // Euler residual is algebraically zero in historical mode because
+        // CVaR_i = CES_i * (VaR/ES) and sum(CES_i) = ES by construction.
+        // Reporting it as None avoids implying a diagnostic that does not
+        // exist here.
         Ok(PositionRiskDecomposition {
             portfolio_var,
             portfolio_es,
@@ -836,7 +848,7 @@ impl HistoricalPositionDecomposer {
             var_contributions,
             es_contributions,
             n_positions: n,
-            euler_residual,
+            euler_residual: None,
         })
     }
 }
@@ -846,6 +858,7 @@ impl HistoricalPositionDecomposer {
 // ===========================================================================
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -890,12 +903,11 @@ mod tests {
             "relative VaR sum failed: {sum_rel}"
         );
 
-        // Euler residual should be near zero.
-        assert!(
-            result.euler_residual.abs() < 1e-10,
-            "euler_residual = {}",
-            result.euler_residual
-        );
+        // Euler residual should be Some(~0) in parametric mode.
+        let residual = result
+            .euler_residual
+            .expect("parametric decomposition must report euler_residual");
+        assert!(residual.abs() < 1e-10, "euler_residual = {residual}");
 
         Ok(())
     }
@@ -954,7 +966,10 @@ mod tests {
         assert!((result.var_contributions[0].component_var - result.portfolio_var).abs() < 1e-12);
 
         // Marginal VaR == portfolio VaR (single position, weight = 1).
-        assert!((result.var_contributions[0].marginal_var - result.portfolio_var).abs() < 1e-12);
+        let mvar = result.var_contributions[0]
+            .marginal_var
+            .expect("parametric: marginal_var must be Some");
+        assert!((mvar - result.portfolio_var).abs() < 1e-12);
 
         // Incremental VaR == portfolio VaR.
         let ivar = result.var_contributions[0]
@@ -989,7 +1004,10 @@ mod tests {
             zero_pos.component_var
         );
         assert!(!zero_pos.component_var.is_nan());
-        assert!(!zero_pos.marginal_var.is_nan());
+        let mvar = zero_pos
+            .marginal_var
+            .expect("parametric: marginal_var must be Some");
+        assert!(!mvar.is_nan());
         assert!(!zero_pos.relative_var.is_nan());
 
         Ok(())
@@ -1286,6 +1304,171 @@ mod tests {
 
         assert!(result.portfolio_var.abs() < 1e-12);
         assert_eq!(result.n_positions, 0);
+        Ok(())
+    }
+
+    // C1 regression: VaR quantile index is the boundary of the tail, not
+    // one-past-the-end. With 100 equally-spaced sorted P&Ls and 95%
+    // confidence, the tail spans indices 0..5; VaR = -pnl[4] (index n_tail-1),
+    // not -pnl[5].
+    #[test]
+    fn historical_var_uses_boundary_tail_index() -> TestResult {
+        // 100 scenarios, single position with deterministic P&Ls:
+        // pnl[s] = s as f64 / 100.0 - 0.5, so sorted ascending is
+        // [-0.50, -0.49, ..., -0.46, -0.45, ...].
+        let n_scenarios = 100;
+        let n = 1;
+        let mut pnls = Vec::with_capacity(n_scenarios * n);
+        for s in 0..n_scenarios {
+            pnls.push(s as f64 / 100.0 - 0.5);
+        }
+
+        let ids = [PositionId::new("X")];
+        let config = DecompositionConfig::historical(0.95);
+
+        let decomposer = HistoricalPositionDecomposer;
+        let result = decomposer.decompose_from_pnls(&pnls, &ids, n_scenarios, &config)?;
+
+        // n_tail = 5, var_idx = 4, sorted pnl[4] = 4/100 - 0.5 = -0.46.
+        // Portfolio VaR = -(-0.46) = 0.46.
+        assert!(
+            (result.portfolio_var - 0.46).abs() < 1e-12,
+            "portfolio_var = {}, expected 0.46 (boundary index 4)",
+            result.portfolio_var
+        );
+
+        Ok(())
+    }
+
+    // C2 regression: reject configurations where the tail is too small
+    // to resolve (e.g. 99% confidence with 50 scenarios: 0.01 * 50 = 0.5 < 1).
+    #[test]
+    fn historical_rejects_underspecified_tail() {
+        let n_scenarios = 50;
+        let n = 1;
+        let pnls = vec![0.0; n_scenarios * n];
+        let ids = [PositionId::new("X")];
+        let config = DecompositionConfig::historical(0.99);
+
+        let decomposer = HistoricalPositionDecomposer;
+        let result = decomposer.decompose_from_pnls(&pnls, &ids, n_scenarios, &config);
+        assert!(
+            result.is_err(),
+            "expected rejection when (1 - conf) * n_scenarios < 1"
+        );
+    }
+
+    // C3/C4 regression: historical mode must report None for marginal
+    // VaR, marginal ES, and euler_residual (none are meaningful in that
+    // mode without additional inputs).
+    #[test]
+    fn historical_reports_none_for_marginals_and_residual() -> TestResult {
+        let n = 2;
+        let n_scenarios = 200;
+        let mut pnls = Vec::with_capacity(n_scenarios * n);
+        for s in 0..n_scenarios {
+            pnls.push(-0.01 + 0.001 * (s as f64 / 10.0).sin());
+            pnls.push(if s < 10 { -0.10 } else { 0.005 });
+        }
+        let ids = [PositionId::new("A"), PositionId::new("B")];
+        let config = DecompositionConfig::historical(0.95);
+
+        let decomposer = HistoricalPositionDecomposer;
+        let result = decomposer.decompose_from_pnls(&pnls, &ids, n_scenarios, &config)?;
+
+        assert!(
+            result.euler_residual.is_none(),
+            "historical euler_residual must be None"
+        );
+        for c in &result.var_contributions {
+            assert!(
+                c.marginal_var.is_none(),
+                "historical marginal_var must be None for position {}",
+                c.position_id
+            );
+        }
+        for c in &result.es_contributions {
+            assert!(
+                c.marginal_es.is_none(),
+                "historical marginal_es must be None for position {}",
+                c.position_id
+            );
+        }
+
+        Ok(())
+    }
+
+    // W1 regression: incremental VaR uses the textbook (non-renormalized)
+    // definition, so for a long-only portfolio with positive-variance
+    // positions the incremental VaR for each position must be non-negative
+    // (removing a risky position cannot increase portfolio VaR).
+    #[test]
+    fn incremental_var_non_negative_for_long_only_portfolio() -> TestResult {
+        let weights = [0.4, 0.35, 0.25];
+        let covariance = [0.04, 0.01, 0.005, 0.01, 0.09, 0.02, 0.005, 0.02, 0.0625];
+        let ids = [
+            PositionId::new("A"),
+            PositionId::new("B"),
+            PositionId::new("C"),
+        ];
+        let config = DecompositionConfig::parametric_99().with_incremental();
+
+        let decomposer = ParametricPositionDecomposer;
+        let result = decomposer.decompose_positions(&weights, &covariance, &ids, &config)?;
+
+        for c in &result.var_contributions {
+            let ivar = c
+                .incremental_var
+                .expect("incremental VaR must be present when requested");
+            assert!(
+                ivar >= -1e-12,
+                "long-only incremental VaR for {} must be non-negative, got {ivar}",
+                c.position_id
+            );
+            // Textbook bound: incremental_k <= portfolio_var (the minimum
+            // possible var_excl is zero, achieved only when the remaining
+            // weights are perfectly hedged, which isn't true here).
+            assert!(
+                ivar <= result.portfolio_var + 1e-12,
+                "incremental VaR for {} exceeds portfolio VaR: ivar={ivar}, pvar={}",
+                c.position_id,
+                result.portfolio_var
+            );
+        }
+
+        Ok(())
+    }
+
+    // Parametric mode must report Some for marginals and residual.
+    #[test]
+    fn parametric_reports_some_for_marginals_and_residual() -> TestResult {
+        let weights = [0.6, 0.4];
+        let covariance = [0.04, 0.0, 0.0, 0.09];
+        let ids = [PositionId::new("A"), PositionId::new("B")];
+        let config = DecompositionConfig::parametric_95();
+
+        let decomposer = ParametricPositionDecomposer;
+        let result = decomposer.decompose_positions(&weights, &covariance, &ids, &config)?;
+
+        assert!(
+            result.euler_residual.is_some(),
+            "parametric euler_residual must be Some"
+        );
+        for c in &result.var_contributions {
+            assert!(
+                c.marginal_var.is_some(),
+                "parametric marginal_var must be Some for {}",
+                c.position_id
+            );
+        }
+        for c in &result.es_contributions {
+            assert!(
+                c.marginal_es.is_some(),
+                "parametric marginal_es must be Some for {}",
+                c.position_id
+            );
+        }
+
         Ok(())
     }
 }

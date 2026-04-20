@@ -365,6 +365,23 @@ impl<'a> DateContext<'a> {
     }
 }
 
+/// Credit-adjusted PV of a single cashflow under [`RecoveryTiming::AtPaymentDate`].
+///
+/// # Recovery timing
+///
+/// Under this convention recovery is valued as if realized on the scheduled
+/// payment date T:
+///
+/// ```text
+/// PV_recovery = amount · df(T) · r · (1 − sp(T))
+/// ```
+///
+/// This is the closed-form "end-of-interval" approximation and underestimates
+/// PV relative to the "recovery paid at default time τ" form by roughly
+/// `r · (df(τ_mid) − df(T))` per interval — typically ≤ 1 bp for 5Y horizons
+/// on liquid credit. For integrated / default-midpoint semantics use
+/// [`RecoveryTiming::AtDefaultIntegrated`] (see
+/// [`pv_by_period_credit_adjusted_detailed_with_timing`]).
 fn credit_adjusted_period_pv(cf: &CashFlow, df: f64, sp: f64, recovery_rate: Option<f64>) -> Money {
     if cf.kind == CFKind::DefaultedNotional {
         return Money::new(0.0, cf.amount.currency());
@@ -390,6 +407,34 @@ fn credit_adjusted_period_pv(cf: &CashFlow, df: f64, sp: f64, recovery_rate: Opt
     let pv_factor = df * (sp + recovery_term);
     let amount = cf.amount;
     Money::new(amount.amount() * pv_factor, amount.currency())
+}
+
+/// Recovery-leg timing convention for credit-adjusted PV aggregation.
+///
+/// Controls how the recovery cashflow `r · (1 − sp)` on surviving principal
+/// flows is placed in time:
+///
+/// * [`AtPaymentDate`](Self::AtPaymentDate) — recovery is assumed paid on the
+///   scheduled payment date `T`. This is the closed-form "end-of-interval"
+///   approximation and is the historical default. See
+///   [`credit_adjusted_period_pv`].
+/// * [`AtDefaultIntegrated`](Self::AtDefaultIntegrated) — recovery is
+///   integrated over the interval `(T_prev, T]` using the ISDA "default at
+///   midpoint" closed form: the expected default mass `sp(T_prev) − sp(T)`
+///   is discounted at the interval midpoint. This reduces the ~1 bp bias
+///   from the closed form for curve-upward-sloping discount and hazard
+///   shapes.
+///
+/// `T_prev` for the first principal flow is the valuation base date
+/// (`DateContext::base`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum RecoveryTiming {
+    /// Recovery realized on the scheduled payment date (closed-form default).
+    #[default]
+    AtPaymentDate,
+    /// Recovery integrated over the interval `(T_prev, T]` using the ISDA
+    /// "default at midpoint" approximation: `r · amount · df(t_mid) · (sp(T_prev) − sp(T))`.
+    AtDefaultIntegrated,
 }
 
 /// Compute signed year fraction, discount factor, and survival probability
@@ -504,6 +549,35 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
     recovery_rate: Option<f64>,
     date_ctx: DateContext<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    pv_by_period_credit_adjusted_detailed_with_timing(
+        flows,
+        periods,
+        disc,
+        hazard,
+        recovery_rate,
+        RecoveryTiming::AtPaymentDate,
+        date_ctx,
+    )
+}
+
+/// Credit-adjusted period PV aggregation with configurable recovery timing.
+///
+/// Same contract as [`pv_by_period_credit_adjusted_detailed`] but with an
+/// explicit [`RecoveryTiming`] that controls how the recovery leg on
+/// surviving principal flows is placed in time. See [`RecoveryTiming`].
+///
+/// # Errors
+///
+/// Same error conditions as [`pv_by_period_credit_adjusted_detailed`].
+pub(crate) fn pv_by_period_credit_adjusted_detailed_with_timing(
+    flows: &[CashFlow],
+    periods: &[Period],
+    disc: &dyn Discounting,
+    hazard: Option<&dyn Survival>,
+    recovery_rate: Option<f64>,
+    timing: RecoveryTiming,
+    date_ctx: DateContext<'_>,
+) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     // Validate recovery rate is in [0, 1] if provided
     if let Some(r) = recovery_rate {
         if !(0.0..=1.0).contains(&r) {
@@ -536,14 +610,107 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
         })
     })?;
     let is_sorted = flows.windows(2).all(|w| w[0].date <= w[1].date);
-    let pv_fn =
-        |cf: &CashFlow, df: f64, sp: f64| credit_adjusted_period_pv(cf, df, sp, recovery_rate);
-    if is_sorted {
-        return pv_by_period_generic(flows, periods, disc, Some(hazard), &date_ctx, pv_fn);
+
+    match timing {
+        RecoveryTiming::AtPaymentDate => {
+            let pv_fn = |cf: &CashFlow, df: f64, sp: f64| {
+                credit_adjusted_period_pv(cf, df, sp, recovery_rate)
+            };
+            if is_sorted {
+                return pv_by_period_generic(flows, periods, disc, Some(hazard), &date_ctx, pv_fn);
+            }
+            let mut sorted: Vec<CashFlow> = flows.to_vec();
+            sorted.sort_unstable_by_key(|cf| cf.date);
+            pv_by_period_generic(&sorted, periods, disc, Some(hazard), &date_ctx, pv_fn)
+        }
+        RecoveryTiming::AtDefaultIntegrated => {
+            // Pre-compute per-flow PVs carrying the integrated recovery leg,
+            // then reduce to the standard (cf, df, sp) closure form by looking
+            // up the pre-computed value. State (previous principal-like date)
+            // must be threaded across the full sorted sequence.
+            let owned: Vec<CashFlow>;
+            let sorted: &[CashFlow] = if is_sorted {
+                flows
+            } else {
+                let mut s: Vec<CashFlow> = flows.to_vec();
+                s.sort_unstable_by_key(|cf| cf.date);
+                owned = s;
+                &owned
+            };
+            let pv_per_flow =
+                precompute_integrated_pv(sorted, disc, hazard, recovery_rate, &date_ctx)?;
+            // Index by position. `pv_by_period_generic` iterates flows in
+            // order, so we can use a cursor closure.
+            let pv_per_flow_ref = &pv_per_flow;
+            let cursor = std::cell::Cell::new(0usize);
+            let pv_fn = |cf: &CashFlow, _df: f64, _sp: f64| {
+                let i = cursor.get();
+                cursor.set(i + 1);
+                debug_assert_eq!(pv_per_flow_ref[i].currency(), cf.amount.currency());
+                pv_per_flow_ref[i]
+            };
+            pv_by_period_generic(sorted, periods, disc, Some(hazard), &date_ctx, pv_fn)
+        }
     }
-    let mut sorted: Vec<CashFlow> = flows.to_vec();
-    sorted.sort_unstable_by_key(|cf| cf.date);
-    pv_by_period_generic(&sorted, periods, disc, Some(hazard), &date_ctx, pv_fn)
+}
+
+/// Compute per-flow credit-adjusted PV under `RecoveryTiming::AtDefaultIntegrated`.
+///
+/// For surviving principal flows, the recovery leg uses the ISDA "default at
+/// midpoint" approximation over the interval `(T_prev, T]` where `T_prev` is
+/// the previous principal-like date (initialized to `date_ctx.base`).
+fn precompute_integrated_pv(
+    sorted: &[CashFlow],
+    disc: &dyn Discounting,
+    hazard: &dyn Survival,
+    recovery_rate: Option<f64>,
+    date_ctx: &DateContext<'_>,
+) -> finstack_core::Result<Vec<Money>> {
+    let mut out: Vec<Money> = Vec::with_capacity(sorted.len());
+    let mut prev_principal: Date = date_ctx.base;
+    for cf in sorted {
+        let ccy = cf.amount.currency();
+        let (t_next, df_t, sp_t) = time_discount_survival(cf.date, disc, Some(hazard), date_ctx)?;
+
+        // DefaultedNotional: zeroed (identical to AtPaymentDate path)
+        if cf.kind == CFKind::DefaultedNotional {
+            out.push(Money::new(0.0, ccy));
+            continue;
+        }
+        // Realised post-default: discounted at scheduled date, no SP
+        if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
+            out.push(Money::new(cf.amount.amount() * df_t, ccy));
+            continue;
+        }
+
+        let is_principal = matches!(
+            cf.kind,
+            CFKind::Amortization | CFKind::Notional | CFKind::PrePayment
+        );
+
+        let mut pv = cf.amount.amount() * df_t * sp_t;
+
+        if let Some(r) = recovery_rate {
+            if is_principal {
+                // Integrate recovery leg over (T_prev, T] using midpoint default timing.
+                let (t_prev, _df_prev, sp_prev) =
+                    time_discount_survival(prev_principal, disc, Some(hazard), date_ctx)?;
+                let t_mid = 0.5 * (t_prev + t_next);
+                let df_mid = disc.df(t_mid);
+                let d_sp = sp_prev - sp_t;
+                // d_sp can go slightly negative from curve noise; clamp to avoid
+                // sign inversion (recovery is a non-negative cashflow expectation).
+                let d_sp_pos = d_sp.max(0.0);
+                pv += r * cf.amount.amount() * df_mid * d_sp_pos;
+            }
+        }
+
+        if is_principal {
+            prev_principal = cf.date;
+        }
+        out.push(Money::new(pv, ccy));
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -793,5 +960,158 @@ mod credit_pv_tests {
         .expect("unsorted flows should price");
 
         assert_eq!(sorted_result, unsorted_result);
+    }
+
+    #[test]
+    fn recovery_timing_default_matches_at_payment_date() {
+        let base = d(2025, 1, 1);
+        let periods = vec![make_period(base, d(2026, 1, 1))];
+        let disc = FlatDiscount { base };
+        let hazard = FlatSurvival;
+        let flows = vec![
+            flow(d(2025, 4, 1), 500_000.0, CFKind::Amortization),
+            flow(d(2025, 10, 1), 500_000.0, CFKind::Amortization),
+        ];
+
+        let default_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let explicit_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+
+        let default_out = pv_by_period_credit_adjusted_detailed(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            default_ctx,
+        )
+        .expect("default pricing");
+        let explicit_out = pv_by_period_credit_adjusted_detailed_with_timing(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            RecoveryTiming::AtPaymentDate,
+            explicit_ctx,
+        )
+        .expect("explicit AtPaymentDate pricing");
+
+        assert_eq!(default_out, explicit_out);
+    }
+
+    #[test]
+    fn recovery_timing_integrated_matches_hand_computed_under_flat_curves() {
+        // Under flat df=1 and flat sp=0.95, the recovery leg for a single
+        // principal flow over interval (base, T] collapses to:
+        //   PV_surv = amount · df(T) · sp(T) = amount · 1 · 0.95
+        //   PV_rec  = r · amount · df(t_mid) · (sp(base) - sp(T))
+        //           = r · amount · 1 · (1 - 0.95)   [sp(base) must be 1]
+        //
+        // Our FlatSurvival returns 0.95 at every t, so d_sp = 0.95 - 0.95 = 0
+        // for t_prev == base. Thus for flat hazard the integrated recovery
+        // contribution is 0 (no default mass in the interval), which is the
+        // correct degenerate behaviour.
+        let base = d(2025, 1, 1);
+        let periods = vec![make_period(base, d(2026, 1, 1))];
+        let disc = FlatDiscount { base };
+        let hazard = FlatSurvival;
+        let flows = vec![flow(d(2025, 12, 1), 1_000_000.0, CFKind::Amortization)];
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+
+        let out = pv_by_period_credit_adjusted_detailed_with_timing(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            RecoveryTiming::AtDefaultIntegrated,
+            ctx,
+        )
+        .expect("integrated pricing");
+
+        let pv = out
+            .get(&periods[0].id)
+            .and_then(|m| m.get(&Currency::USD))
+            .map(|m| m.amount())
+            .expect("single flow in single period");
+
+        // With FlatSurvival constant at 0.95 (not 1 at base), d_sp=0, so
+        // recovery term vanishes and PV reduces to amount · sp = 950_000.
+        let expected = 1_000_000.0 * 1.0 * 0.95;
+        assert!(
+            (pv - expected).abs() < 1e-6,
+            "expected {}, got {}",
+            expected,
+            pv
+        );
+    }
+
+    #[test]
+    fn recovery_timing_integrated_adds_default_mass_for_declining_survival() {
+        // Hand-computed sanity check with a curve where sp steps down.
+        struct StepSurvival;
+        impl TermStructure for StepSurvival {
+            fn id(&self) -> &CurveId {
+                static ID: std::sync::LazyLock<CurveId> =
+                    std::sync::LazyLock::new(|| "step".into());
+                &ID
+            }
+        }
+        impl Survival for StepSurvival {
+            fn sp(&self, t: f64) -> f64 {
+                // sp(0) = 1.0, decays linearly to 0.8 at t=1.
+                (1.0 - 0.2 * t).clamp(0.0, 1.0)
+            }
+        }
+
+        let base = d(2025, 1, 1);
+        let periods = vec![make_period(base, d(2026, 1, 1))];
+        let disc = FlatDiscount { base };
+        let hazard = StepSurvival;
+        // Single principal flow at one full year out.
+        let flows = vec![flow(d(2026, 1, 1), 1_000_000.0, CFKind::Amortization)];
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+
+        let integrated = pv_by_period_credit_adjusted_detailed_with_timing(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            RecoveryTiming::AtDefaultIntegrated,
+            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+        )
+        .expect("integrated pricing");
+        let at_pay = pv_by_period_credit_adjusted_detailed_with_timing(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            RecoveryTiming::AtPaymentDate,
+            ctx,
+        )
+        .expect("at-payment-date pricing");
+
+        // Under flat df=1, both paths put recovery mass (sp(base) - sp(T)) = 0.2
+        // at df=1. So PVs match exactly. The integrated path only diverges when
+        // df has curvature across the interval.
+        let v_integrated = integrated
+            .get(&periods[0].id)
+            .and_then(|m| m.get(&Currency::USD))
+            .map(|m| m.amount())
+            .expect("price exists");
+        let v_at_pay = at_pay
+            .get(&periods[0].id)
+            .and_then(|m| m.get(&Currency::USD))
+            .map(|m| m.amount())
+            .expect("price exists");
+        // Hand computation:
+        //   PV_surv = 1_000_000 · 1 · 0.8 = 800_000
+        //   PV_rec  = 0.40 · 1_000_000 · 1 · 0.2 = 80_000
+        //   PV_tot  = 880_000
+        let expected = 1_000_000.0 * 0.8 + 0.40 * 1_000_000.0 * 0.2;
+        assert!((v_integrated - expected).abs() < 1e-6);
+        assert!((v_at_pay - expected).abs() < 1e-6);
     }
 }

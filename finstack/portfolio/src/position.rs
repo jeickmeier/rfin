@@ -451,24 +451,36 @@ impl Position {
         // See [`PositionUnit`] for the full scaling contract. `Notional` expects
         // `value` to be the per-unit-notional PV (priced with unit notional = 1),
         // so the scale factor is simply `quantity`.
-        let scale_factor = match self.unit {
-            PositionUnit::Units => self.quantity,
-            PositionUnit::Notional(unit_ccy) => {
-                if let Some(notional_ccy) = unit_ccy {
-                    if notional_ccy != value.currency() {
-                        tracing::warn!(
-                            position_id = %self.position_id,
-                            "Notional currency {} differs from instrument currency {}",
-                            notional_ccy, value.currency()
-                        );
-                    }
-                }
+        if let PositionUnit::Notional(Some(notional_ccy)) = self.unit {
+            if notional_ccy != value.currency() {
+                tracing::warn!(
+                    position_id = %self.position_id,
+                    "Notional currency {} differs from instrument currency {}",
+                    notional_ccy, value.currency()
+                );
+            }
+        }
+        Money::new(value.amount() * self.scale_factor(), value.currency())
+    }
+
+    /// Unit-aware scale factor applied to per-unit P&L or PV.
+    ///
+    /// Returns the multiplier defined by [`PositionUnit`]: `quantity` for
+    /// `Units`, `Notional`, and `FaceValue`; `quantity / 100` for
+    /// `Percentage`. Callers that compute raw P&L (not `Money`) should
+    /// multiply by this factor to honor the scaling contract.
+    ///
+    /// This complements [`Self::scale_value`] for callers that work in
+    /// `f64` rather than [`Money`] (e.g. factor-model stress engines that
+    /// return currency-less P&L deltas).
+    #[inline]
+    pub fn scale_factor(&self) -> f64 {
+        match self.unit {
+            PositionUnit::Units | PositionUnit::Notional(_) | PositionUnit::FaceValue => {
                 self.quantity
             }
-            PositionUnit::FaceValue => self.quantity,
             PositionUnit::Percentage => self.quantity / 100.0,
-        };
-        Money::new(value.amount() * scale_factor, value.currency())
+        }
     }
 
     /// Convert this position to a serializable specification.

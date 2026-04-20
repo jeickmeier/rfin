@@ -30,41 +30,36 @@ use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 
-fn market_reference_date(market: &MarketContext) -> Option<Date> {
-    let state: finstack_core::market_data::context::MarketContextState = market.into();
-    state.curves.iter().find_map(|curve| match curve {
-        finstack_core::market_data::context::CurveState::Discount(curve) => Some(curve.base_date()),
-        finstack_core::market_data::context::CurveState::Forward(curve) => Some(curve.base_date()),
-        finstack_core::market_data::context::CurveState::Hazard(curve) => Some(curve.base_date()),
-        finstack_core::market_data::context::CurveState::Inflation(curve) => {
-            Some(curve.base_date())
-        }
-        finstack_core::market_data::context::CurveState::Price(curve) => Some(curve.base_date()),
-        finstack_core::market_data::context::CurveState::VolIndex(curve) => Some(curve.base_date()),
-        finstack_core::market_data::context::CurveState::BaseCorrelation(_) => None,
-        finstack_core::market_data::context::CurveState::BasisSpread(curve) => {
-            Some(curve.base_date())
-        }
-        finstack_core::market_data::context::CurveState::Parametric(curve) => {
-            Some(curve.base_date())
-        }
-    })
-}
-
-fn add_years_clamped(date: Date, years: i32) -> Date {
-    let target_year = date.year() + years;
+/// Add a number of whole years to a date, clamping to the end of the month
+/// when the calendar day does not exist in the target year (e.g.
+/// `Feb 29 + 1Y → Feb 28`).
+///
+/// Returns `None` if the resulting year overflows `i32` or is otherwise not
+/// representable as a `time::Date` even after day-clamping. This lets callers
+/// disable any far-date-dependent behaviour (e.g. FX warnings) rather than
+/// silently looping or panicking on pathological inputs.
+fn add_years_clamped(date: Date, years: i32) -> Option<Date> {
+    let target_year = date.year().checked_add(years)?;
     let month = date.month();
     let mut day = date.day();
-    loop {
+    while day > 0 {
         if let Ok(result) = Date::from_calendar_date(target_year, month, day) {
-            return result;
+            return Some(result);
         }
         day -= 1;
     }
+    None
 }
 
+/// Decide whether to warn about spot-equivalent FX being used beyond the
+/// caller's valuation horizon.
+///
+/// `as_of` is the analytical "today" of the run (typically the portfolio's
+/// valuation date). Payments beyond `as_of + 30Y` are flagged because
+/// spot-equivalent FX becomes economically unjustifiable at those tenors and
+/// callers should derive forward FX from the relevant discount curves instead.
 fn should_warn_far_future_fx_conversion(
-    market: &MarketContext,
+    as_of: Date,
     payment_date: Date,
     from_ccy: Currency,
     base_ccy: Currency,
@@ -72,17 +67,15 @@ fn should_warn_far_future_fx_conversion(
     if from_ccy == base_ccy {
         return false;
     }
-    let Some(reference_date) = market_reference_date(market) else {
+    let Some(threshold) = add_years_clamped(as_of, 30) else {
         return false;
     };
-    payment_date > add_years_clamped(reference_date, 30)
+    payment_date > threshold
 }
 
 /// Why a position did not contribute classified cashflows to a portfolio ladder.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CashflowExtractionIssueKind {
-    /// The instrument does not expose `CashflowProvider`.
-    Unsupported,
     /// The instrument exposes `CashflowProvider`, but schedule construction failed.
     BuildFailed,
 }
@@ -172,6 +165,23 @@ impl PortfolioFullCashflows {
     /// Collapse classified multi-currency flows into base currency bucketed by
     /// (date, [`CFKind`]).
     ///
+    /// ### FX convention
+    ///
+    /// Each foreign-currency flow on payment date `T` is converted to
+    /// `base_ccy` using whatever rate the `FxMatrix` resolves for
+    /// `(from → base_ccy, T)`. For most market setups this will be a
+    /// spot-equivalent rate rather than a true forward FX rate derived from
+    /// discount curves; the module-level docstring explains the trade-off.
+    /// For NPV-grade accuracy, convert via forward FX on the calling side and
+    /// pass already-base-currency flows.
+    ///
+    /// ### `as_of`
+    ///
+    /// `as_of` is the valuation / reporting date of the caller. It is used
+    /// solely to gate a warning when converting flows beyond `as_of + 30Y`,
+    /// where spot-equivalent FX is no longer defensible. It does **not**
+    /// select a curve or alter the numerical result.
+    ///
     /// # Errors
     ///
     /// Returns an error when FX conversion or monetary aggregation fails.
@@ -179,6 +189,7 @@ impl PortfolioFullCashflows {
         &self,
         market: &MarketContext,
         base_ccy: Currency,
+        as_of: Date,
     ) -> Result<IndexMap<Date, IndexMap<CFKind, Money>>> {
         let mut by_date_base: IndexMap<Date, IndexMap<CFKind, Money>> = IndexMap::new();
         let mut warned_pairs: HashSet<(Currency, Currency, Date)> = HashSet::new();
@@ -193,6 +204,7 @@ impl PortfolioFullCashflows {
                         *date,
                         market,
                         base_ccy,
+                        as_of,
                         &mut warned_pairs,
                     )?;
                     let entry = per_kind_base
@@ -226,7 +238,6 @@ pub fn aggregate_full_cashflows(
         position_id: PositionId,
         instrument_id: String,
         instrument_type: String,
-        instrument_type_debug: String,
         schedule: std::result::Result<CashFlowSchedule, finstack_core::Error>,
         scaled_flows: Vec<(finstack_core::cashflow::CashFlow, Money)>,
     }
@@ -238,7 +249,6 @@ pub fn aggregate_full_cashflows(
         .map(|position| {
             let instrument_id = position.instrument.id().to_string();
             let instrument_type = format!("{:?}", position.instrument.key());
-            let instrument_type_debug = instrument_type.clone();
             match instrument_cashflow_schedule(
                 position.instrument.as_ref(),
                 market,
@@ -254,7 +264,6 @@ pub fn aggregate_full_cashflows(
                         position_id: position.position_id.clone(),
                         instrument_id,
                         instrument_type,
-                        instrument_type_debug,
                         schedule: Ok(schedule),
                         scaled_flows,
                     }
@@ -263,7 +272,6 @@ pub fn aggregate_full_cashflows(
                     position_id: position.position_id.clone(),
                     instrument_id,
                     instrument_type,
-                    instrument_type_debug,
                     schedule: Err(err),
                     scaled_flows: Vec::new(),
                 },
@@ -317,7 +325,7 @@ pub fn aggregate_full_cashflows(
                 tracing::warn!(
                     position_id = %result.position_id,
                     instrument_id = %result.instrument_id,
-                    instrument_type = %result.instrument_type_debug,
+                    instrument_type = %result.instrument_type,
                     error = %err,
                     "Skipping position during portfolio cashflow aggregation because contractual cashflows could not be built"
                 );
@@ -365,6 +373,7 @@ fn convert_money_to_base_on_date(
     payment_date: Date,
     market: &MarketContext,
     base_ccy: Currency,
+    as_of: Date,
     warned_pairs: &mut HashSet<(Currency, Currency, Date)>,
 ) -> Result<Money> {
     let ccy = money.currency();
@@ -384,7 +393,7 @@ fn convert_money_to_base_on_date(
             to: base_ccy,
         })?;
 
-    if should_warn_far_future_fx_conversion(market, payment_date, ccy, base_ccy)
+    if should_warn_far_future_fx_conversion(as_of, payment_date, ccy, base_ccy)
         && warned_pairs.insert((ccy, base_ccy, payment_date))
     {
         tracing::warn!(
@@ -584,15 +593,29 @@ mod tests {
     }
 
     #[test]
-    fn far_future_fx_conversions_are_flagged_relative_to_market_reference_date() {
+    fn far_future_fx_conversions_are_flagged_relative_to_as_of() {
         let as_of = date!(2025 - 01 - 01);
-        let market = build_test_market_at(as_of);
         let payment_date = date!(2055 - 01 - 02);
 
         assert!(should_warn_far_future_fx_conversion(
-            &market,
+            as_of,
             payment_date,
             Currency::EUR,
+            Currency::USD
+        ));
+
+        let near = date!(2030 - 01 - 01);
+        assert!(!should_warn_far_future_fx_conversion(
+            as_of,
+            near,
+            Currency::EUR,
+            Currency::USD
+        ));
+
+        assert!(!should_warn_far_future_fx_conversion(
+            as_of,
+            payment_date,
+            Currency::USD,
             Currency::USD
         ));
     }
@@ -848,7 +871,7 @@ mod tests {
         let market = market_with_eurusd_fx(as_of, 1.20);
 
         let by_date_kind = full
-            .collapse_to_base_by_date_kind(&market, Currency::USD)
+            .collapse_to_base_by_date_kind(&market, Currency::USD, as_of)
             .expect("base currency conversion by kind");
 
         let march = by_date_kind
