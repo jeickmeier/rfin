@@ -340,6 +340,7 @@ fn scale_position_metric(metric_id: &str, value: f64, metric_scale: f64) -> f64 
 }
 
 /// Collected per-position metric data ready for aggregation.
+#[derive(Clone)]
 struct PositionMetricData {
     position_id: PositionId,
     entity_id: EntityId,
@@ -359,11 +360,20 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
     let mut by_position: IndexMap<PositionId, PositionMetrics> = IndexMap::with_capacity(n);
 
     // Intern metric IDs: each unique string is stored once as Arc<str>,
-    // eliminating per-position String clones during accumulation.
+    // eliminating per-position String clones during accumulation. The
+    // intern table's iteration order doesn't affect output, so HashMap
+    // is fine here.
     let mut intern: HashMap<String, Arc<str>> = HashMap::new();
 
-    let mut metric_values: HashMap<Arc<str>, Vec<f64>> = HashMap::new();
-    let mut entity_values: HashMap<Arc<str>, HashMap<EntityId, Vec<f64>>> = HashMap::new();
+    // Quant-audit PR 16 (finding P3 #33): these two maps drive the
+    // serialization order of `PortfolioMetrics.aggregated` and
+    // `AggregatedMetric.by_entity`. They were previously `HashMap`s
+    // whose iteration order is randomised per process start (SipHash
+    // with random keys), so CSV/JSON snapshots of portfolio metrics
+    // varied run-to-run. Switching to `IndexMap` preserves insertion
+    // order without changing semantics.
+    let mut metric_values: IndexMap<Arc<str>, Vec<f64>> = IndexMap::new();
+    let mut entity_values: IndexMap<Arc<str>, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
     let mut skipped_metrics: Vec<SkippedMetric> = Vec::new();
 
     for data in collected {
@@ -424,7 +434,7 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
         let total = neumaier_sum(values.into_iter());
 
         let by_entity: IndexMap<EntityId, f64> = entity_values
-            .remove(&metric_id)
+            .shift_remove(&metric_id)
             .into_iter()
             .flat_map(|entity_map| {
                 entity_map
@@ -534,5 +544,69 @@ mod tests {
             .get_position_metrics("POS_001")
             .expect("position metrics should be present");
         assert_eq!(position_metrics.currency, Currency::USD);
+    }
+
+    // =====================================================================
+    // Quant-audit remediation PR 16: IndexMap determinism (P3 #33)
+    // =====================================================================
+
+    /// After `aggregate_collected_metrics` switched from `HashMap` to
+    /// `IndexMap` (PR 16), the iteration order of `PortfolioMetrics.aggregated`
+    /// and `AggregatedMetric.by_entity` must match the insertion order of
+    /// metric IDs and entity IDs across repeated calls with the same
+    /// input. This guarantees deterministic CSV / JSON snapshots for
+    /// downstream tooling.
+    ///
+    /// Pre-fix the output order was randomised per process start; this
+    /// test would still have passed within a single process (since the
+    /// hasher seed is fixed for that process) but would have produced
+    /// different orderings across CI runs or between instances.
+    #[test]
+    fn aggregate_metrics_output_order_is_deterministic_within_a_run() {
+        fn make_data(name: &str, entity: &str) -> PositionMetricData {
+            let mut metrics = indexmap::IndexMap::new();
+            metrics.insert("dv01".into(), 100.0);
+            metrics.insert("cs01".into(), 50.0);
+            metrics.insert("delta".into(), 25.0);
+            PositionMetricData {
+                position_id: PositionId::from(name.to_string()),
+                entity_id: EntityId::from(entity.to_string()),
+                currency: Currency::USD,
+                fx_rate: 1.0,
+                metrics,
+            }
+        }
+
+        let collected = vec![
+            make_data("POS_A", "ENTITY_X"),
+            make_data("POS_B", "ENTITY_Y"),
+            make_data("POS_C", "ENTITY_X"),
+        ];
+        let a = aggregate_collected_metrics(collected.clone());
+        let b = aggregate_collected_metrics(collected);
+
+        let a_order: Vec<_> = a.aggregated.keys().cloned().collect();
+        let b_order: Vec<_> = b.aggregated.keys().cloned().collect();
+        assert_eq!(
+            a_order, b_order,
+            "aggregated metric order must be deterministic across calls"
+        );
+
+        // Also verify by_entity ordering is deterministic.
+        for (key, agg) in &a.aggregated {
+            let a_entities: Vec<_> = agg.by_entity.keys().cloned().collect();
+            let b_entities: Vec<_> = b
+                .aggregated
+                .get(key)
+                .expect("same key")
+                .by_entity
+                .keys()
+                .cloned()
+                .collect();
+            assert_eq!(
+                a_entities, b_entities,
+                "by_entity order for {key} must be deterministic"
+            );
+        }
     }
 }
