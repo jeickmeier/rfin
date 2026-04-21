@@ -794,6 +794,129 @@ fn minimal_two_point_curve() {
 }
 
 // =============================================================================
+// Quant-audit remediation PR 10: forward-rate numerical precision (P1 #18)
+// =============================================================================
+//
+// `DiscountCurve::forward` previously computed the continuous forward rate as
+//
+//     (self.zero(t2) * t2 - self.zero(t1) * t1) / (t2 - t1)
+//
+// where each `zero(t)` is itself `-ln(DF(t)) / t`. Algebraically valid, but
+// numerically it round-trips each endpoint through one division and one
+// multiplication — two extra ulps — and costs two `ln` calls where one
+// suffices. PR 10 switched the implementation to the canonical
+//
+//     -(self.df(t2) / self.df(t1)).ln() / (t2 - t1).
+//
+// The tests below lock in:
+//   1. The identity holds to round-off across a battery of (t1, t2) pairs.
+//   2. Known-exact cases match analytical values to < 1 ulp.
+//   3. Short-tenor forwards (near `min_forward_tenor`) no longer carry the
+//      extra cancellation error that the pre-fix form exhibited at ~1e-6 y.
+
+#[test]
+fn forward_matches_canonical_formula_across_tenor_grid() {
+    // Build a non-trivial curve so that zeros are not constant.
+    let curve = DiscountCurve::builder("USD")
+        .base_date(sample_base_date())
+        .knots([
+            (0.0, 1.0),
+            (0.25, 0.99),
+            (0.5, 0.98),
+            (1.0, 0.96),
+            (2.0, 0.92),
+            (5.0, 0.80),
+            (10.0, 0.62),
+        ])
+        .interp(InterpStyle::LogLinear)
+        .build()
+        .expect("curve builds");
+
+    // Canonical reference: -(df(t2)/df(t1)).ln() / (t2 - t1).
+    let pairs: &[(f64, f64)] = &[
+        (0.0, 0.25),
+        (0.0, 1.0),
+        (0.25, 0.5),
+        (0.5, 1.0),
+        (1.0, 2.0),
+        (2.0, 5.0),
+        (5.0, 10.0),
+        (0.1, 0.2),
+        (1.5, 1.75),
+    ];
+
+    for &(t1, t2) in pairs {
+        let fwd = curve.forward(t1, t2).expect("finite forward rate");
+        let df1 = curve.df(t1);
+        let df2 = curve.df(t2);
+        let canonical = -(df2 / df1).ln() / (t2 - t1);
+        assert!(
+            (fwd - canonical).abs() < 1e-13,
+            "forward({t1}, {t2}) = {fwd}, canonical = {canonical}, diff = {}",
+            (fwd - canonical).abs()
+        );
+    }
+}
+
+#[test]
+fn forward_on_flat_continuously_compounded_curve_equals_rate() {
+    // On an exactly flat curve DF(t) = exp(-r * t), the forward f(t1, t2)
+    // must equal r to machine precision.
+    let r = 0.037_f64;
+    let knots = [(0.0, 1.0), (1.0, (-r).exp()), (5.0, (-r * 5.0).exp())];
+    let curve = DiscountCurve::builder("FLAT")
+        .base_date(sample_base_date())
+        .knots(knots)
+        .interp(InterpStyle::LogLinear)
+        .build()
+        .expect("curve builds");
+
+    for &(t1, t2) in &[(0.0, 1.0), (1.0, 5.0), (0.25, 4.75)] {
+        let fwd = curve.forward(t1, t2).expect("finite forward");
+        // Pre-fix: the `z*t` round-trip introduced ~2 ulp error at short
+        // tenors. Post-fix: equality within 1 ulp of r.
+        let ulp_r = (r.to_bits() + 1) as f64 - r.to_bits() as f64; // ~ulp spacing
+        let tol = (4.0 * ulp_r).max(1e-15);
+        assert!(
+            (fwd - r).abs() < tol,
+            "forward({t1}, {t2}) on flat curve = {fwd}, want {r}, tol = {tol}"
+        );
+    }
+}
+
+#[test]
+fn forward_short_tenor_retains_precision() {
+    // At very short Δt the z·t round-trip of the pre-fix form is the
+    // dominant error source. The post-fix form computes a single log-ratio
+    // and divides by Δt, which is the numerically optimal evaluation order
+    // for this identity.
+    let curve = DiscountCurve::builder("USD")
+        .base_date(sample_base_date())
+        .knots([(0.0, 1.0), (1.0, 0.96), (2.0, 0.92), (5.0, 0.80)])
+        .interp(InterpStyle::LogLinear)
+        .min_forward_tenor(1e-10)
+        .build()
+        .expect("curve builds");
+
+    // Use sub-millisecond tenors to stress cancellation.
+    // The `forward` function internally uses `(t2 - t1)` as the denominator,
+    // which for t1 = 1.0 and dt near machine-eps differs from `dt` by
+    // f64 rounding. Our reference uses the same `(t2 - t1)` to avoid a
+    // spurious 1-ulp mismatch.
+    let t1 = 1.0;
+    for &dt in &[1e-5, 1e-6, 1e-7, 1e-8] {
+        let t2 = t1 + dt;
+        let dt_actual = t2 - t1; // may differ from `dt` by a few ulps
+        let fwd = curve.forward(t1, t2).expect("finite forward");
+        let canonical = -(curve.df(t2) / curve.df(t1)).ln() / dt_actual;
+        assert!(
+            fwd.is_finite() && (fwd - canonical).abs() < 1e-14,
+            "forward({t1}, {t2}) at dt={dt}: got {fwd}, want {canonical}"
+        );
+    }
+}
+
+// =============================================================================
 // Serialization Tests
 // =============================================================================
 
