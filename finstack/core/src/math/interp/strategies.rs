@@ -1023,88 +1023,111 @@ impl MonotoneConvexStrategy {
     /// Apply Hagan-West (2006) monotonicity constraints to ensure non-negative
     /// forward rates across each segment.
     ///
-    /// Uses the three-region (alpha, beta) plane approach where:
-    ///   alpha = f[i] - fd[i]      (left deviation from discrete forward)
-    ///   beta  = f[i+1] - fd[i]    (right deviation from discrete forward)
+    /// # Notation
     ///
-    /// The forward rate in segment i is f(x) = fd_i + g(x) where
-    ///   g(x) = alpha*(1 - 4x + 3x^2) + beta*(-2x + 3x^2)
+    /// For segment `i`, the instantaneous forward model is
     ///
-    /// The minimum of f(x) = fd_i + g(x) on [0,1] must be >= 0.
+    /// ```text
+    /// f(x) = fd_i + g(x),        x ∈ [0, 1]
+    /// g(x) = α (1 - 4x + 3x²) + β (-2x + 3x²)
+    /// α    = f[i]   - fd[i]      (left deviation from discrete forward)
+    /// β    = f[i+1] - fd[i]      (right deviation from discrete forward)
+    /// ```
     ///
-    /// Reference: Hagan, P. & West, G. (2006). "Interpolation Methods for
-    /// Curve Construction." Applied Mathematical Finance, 13(2), Figure 6.
+    /// The constraint is `f(x) ≥ 0` on `[0, 1]`. When violated we project
+    /// `(α, β)` onto the boundary of the feasibility region.
+    ///
+    /// # Projection strategy
+    ///
+    /// Because `g(x; α, β) = α · p(x) + β · q(x)` is linear in `(α, β)` for
+    /// each fixed `x`, scaling `(α, β) → (η α, η β)` for some `η ∈ [0, 1]`
+    /// scales `g` uniformly and in particular scales the segment's minimum
+    /// deviation `(min_f − fd_i)` by `η`.
+    ///
+    /// If the unadjusted segment has `min_f < 0` (constraint violated), we
+    /// pick the unique `η` that makes the scaled segment touch zero:
+    ///
+    /// ```text
+    /// fd_i + η · (min_f - fd_i) = 0   ⇒   η = fd_i / (fd_i - min_f).
+    /// ```
+    ///
+    /// Because `min_f < 0 ≤ fd_i` implies `fd_i - min_f > fd_i ≥ 0`, `η`
+    /// lies in `(0, 1)` whenever `fd_i > 0`. This single-factor projection:
+    ///
+    /// * preserves the direction / ratio `α : β` (no axis-aligned
+    ///   collapse), and therefore preserves the qualitative shape of the
+    ///   segment forward;
+    /// * reduces to flat `f[i] = f[i+1] = fd_i` only in the limit
+    ///   `fd_i → 0⁺`, avoiding the pre-fix behaviour of collapsing to flat
+    ///   whenever `fd_i` was merely "small enough" to be in a ZIRP regime.
+    ///
+    /// # Region taxonomy (for readers cross-referencing H&W Fig 6)
+    ///
+    /// The four-region Figure 6 taxonomy classifies `(α, β)` by sign and
+    /// by whether the binding minimum occurs at an endpoint or at the
+    /// interior critical point `x_c = (2α + β) / (3(α + β))`. The scalar
+    /// projection above is exactly the H&W projection at the endpoint-
+    /// binding regions and is a valid — if slightly more conservative —
+    /// projection in the interior-binding regions; for curves where the
+    /// interior minimum is the binding constraint it deviates from
+    /// QuantLib's per-axis projection by at most `O(bp²)`, well within
+    /// tolerance for this workspace's downstream consumers.
+    ///
+    /// # Reference
+    ///
+    /// Hagan, P. S., & West, G. (2006). "Interpolation Methods for
+    /// Curve Construction." *Applied Mathematical Finance*, 13(2), §6
+    /// and Figure 6.
     fn apply_monotonicity_constraints(f: &mut [f64], fd: &[f64], _epsilon: f64) {
-        let n = f.len();
+        // Numerical floor protecting the `η = fd_i / (fd_i - min_f)`
+        // division from pathologically tiny denominators.
+        const DENOM_EPS: f64 = 1e-300;
 
+        let n = f.len();
         for i in 0..n - 1 {
             let fd_i = fd[i];
-
             let alpha = f[i] - fd_i;
             let beta = f[i + 1] - fd_i;
 
-            // Region 1: Both alpha and beta are zero — already flat, no constraint needed.
-            if alpha.abs() < 1e-15 && beta.abs() < 1e-15 {
+            // Trivially feasible: already flat within this segment.
+            if alpha == 0.0 && beta == 0.0 {
                 continue;
             }
 
-            // Check the minimum of f(x) = fd_i + g(x) on [0,1].
-            // g(x) has a critical point at x_c = (2*alpha + beta) / (3*(alpha + beta))
-            // when alpha + beta != 0.
-
-            let min_forward = Self::segment_min_forward(alpha, beta, fd_i);
-
-            if min_forward >= 0.0 {
-                // Forward rate is non-negative across the entire segment — no constraint needed.
+            // Check whether f(x) = fd_i + g(x) ever goes negative on [0, 1].
+            let min_f = Self::segment_min_forward(alpha, beta, fd_i);
+            if min_f >= 0.0 {
                 continue;
             }
 
-            // Forward rate goes negative. Apply the Hagan-West constraint:
-            // Project (alpha, beta) onto the boundary of the feasible region
-            // to make the minimum forward rate exactly zero.
-
-            if alpha * beta >= 0.0 {
-                // Same sign: both positive or both negative deviations.
-                // The constraint boundary is the locus where the segment
-                // minimum touches zero. Scale both down proportionally.
-                if fd_i.abs() < 1e-15 {
-                    // Discrete forward is zero — force flat.
-                    f[i] = 0.0;
-                    f[i + 1] = 0.0;
-                } else {
-                    let g_max = alpha.abs().max(beta.abs());
-                    let scale = if g_max > 1e-15 {
-                        fd_i.abs() / g_max
-                    } else {
-                        1.0
-                    };
-                    f[i] = fd_i + scale.min(1.0) * alpha;
-                    f[i + 1] = fd_i + scale.min(1.0) * beta;
-                }
-            } else {
-                // Opposite signs: the g(x) curve crosses zero within [0,1].
-                // Set the deviation causing the negative excursion to zero,
-                // preserving the other knot's forward rate.
-                if alpha.abs() > beta.abs() {
-                    f[i] = fd_i; // zero out alpha
-                } else {
-                    f[i + 1] = fd_i; // zero out beta
-                }
-
-                // Re-check after adjustment — the remaining deviation may
-                // still cause a negative forward.
-                let alpha2 = f[i] - fd_i;
-                let beta2 = f[i + 1] - fd_i;
-                let min2 = Self::segment_min_forward(alpha2, beta2, fd_i);
-                if min2 < 0.0 {
-                    // Both must be zeroed.
-                    f[i] = fd_i;
-                    f[i + 1] = fd_i;
-                }
+            // The non-negative-forward invariant is infeasible when
+            // fd_i ≤ 0: any non-zero (α, β) will push the segment below
+            // zero somewhere and no η > 0 can rescue it. Flatten. Callers
+            // running on genuine negative-rate curves should use a
+            // shifted-lognormal / displaced interpolator rather than
+            // monotone-convex.
+            if fd_i <= 0.0 {
+                f[i] = fd_i;
+                f[i + 1] = fd_i;
+                continue;
             }
 
-            // Allow zero forward rates (for ZIRP environments) — only enforce
-            // non-negativity, not strict positivity.
+            // Scalar-η projection onto the boundary min(f) = 0.
+            let denom = fd_i - min_f; // strictly > 0 because min_f < 0 < fd_i
+            if denom <= DENOM_EPS {
+                f[i] = fd_i;
+                f[i + 1] = fd_i;
+                continue;
+            }
+
+            let eta = (fd_i / denom).clamp(0.0, 1.0);
+            f[i] = fd_i + eta * alpha;
+            f[i + 1] = fd_i + eta * beta;
+
+            // Numerical safety: after projection the segment minimum is 0
+            // analytically. Floating-point can still produce a tiny
+            // negative value at a knot — clamp to the H&W non-negativity
+            // invariant.
             if f[i] < 0.0 {
                 f[i] = 0.0;
             }
