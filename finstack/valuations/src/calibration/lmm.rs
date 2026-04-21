@@ -148,8 +148,13 @@ pub fn calibrate_lmm_to_coterminal_swaptions(
     let accrual_factors: Vec<f64> = (0..n).map(|i| tenors[i + 1] - tenors[i]).collect();
 
     // Stage 1: Strip instantaneous volatilities from co-terminal swaption vols
-    let inst_vols =
-        strip_instantaneous_vols(forwards, &accrual_factors, tenors, quotes, config.strict_mode)?;
+    let inst_vols = strip_instantaneous_vols(
+        forwards,
+        &accrual_factors,
+        tenors,
+        quotes,
+        config.strict_mode,
+    )?;
 
     // Stage 2: Factor decomposition via PCA
     let beta = if config.calibrate_beta {
@@ -201,10 +206,7 @@ pub fn calibrate_lmm_to_coterminal_swaptions(
     // quant-audit PR 6: surface PCA variance-loss ratio alongside β so
     // downstream review tooling can flag borderline calibrations even
     // when strict_mode is disabled.
-    .with_metadata(
-        "pca_variance_loss_ratio",
-        format!("{pca_variance_loss:.6}"),
-    )
+    .with_metadata("pca_variance_loss_ratio", format!("{pca_variance_loss:.6}"))
     .with_metadata("strict_mode", config.strict_mode.to_string());
 
     let params = LmmParams::try_new(
@@ -694,8 +696,7 @@ mod tests {
         let accrual_factors: Vec<f64> = (0..forwards.len())
             .map(|i| tenors[i + 1] - tenors[i])
             .collect();
-        let result =
-            strip_instantaneous_vols(&forwards, &accrual_factors, &tenors, &quotes, false);
+        let result = strip_instantaneous_vols(&forwards, &accrual_factors, &tenors, &quotes, false);
         assert!(result.is_ok());
         let vols = result.expect("should succeed");
         assert_eq!(vols.len(), 4);

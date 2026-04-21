@@ -464,7 +464,8 @@ mod tests {
     #[test]
     fn test_builder_pattern() {
         // Test that builder pattern works for configuring QE scheme
-        let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::MeanReversionAdjusted);
+        let qe = QeHeston::new()
+            .with_integrated_variance(IntegratedVarianceMethod::MeanReversionAdjusted);
 
         // Verify it works without panics
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");

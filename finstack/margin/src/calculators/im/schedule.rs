@@ -428,10 +428,9 @@ impl ScheduleImCalculator {
         }
         // Reporting currency must be consistent across the netting set.
         let reporting_ccy = positions[0].0.currency();
-        if positions
-            .iter()
-            .any(|(mtm, notional)| mtm.currency() != reporting_ccy || notional.currency() != reporting_ccy)
-        {
+        if positions.iter().any(|(mtm, notional)| {
+            mtm.currency() != reporting_ccy || notional.currency() != reporting_ccy
+        }) {
             return None;
         }
 
@@ -583,8 +582,14 @@ mod tests {
 
         // Two perfectly-offsetting positions of ±10M MtM, each 100M notional.
         let positions = vec![
-            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
-            (Money::new(-10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
+            (
+                Money::new(10.0e6, Currency::USD),
+                Money::new(100.0e6, Currency::USD),
+            ),
+            (
+                Money::new(-10.0e6, Currency::USD),
+                Money::new(100.0e6, Currency::USD),
+            ),
         ];
         let im = calc
             .calculate_netting_set_with_ngr(&positions, ScheduleAssetClass::InterestRate, 5.0)
@@ -608,8 +613,14 @@ mod tests {
             .with_asset_class(ScheduleAssetClass::InterestRate);
 
         let positions = vec![
-            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
-            (Money::new(5.0e6, Currency::USD), Money::new(50.0e6, Currency::USD)),
+            (
+                Money::new(10.0e6, Currency::USD),
+                Money::new(100.0e6, Currency::USD),
+            ),
+            (
+                Money::new(5.0e6, Currency::USD),
+                Money::new(50.0e6, Currency::USD),
+            ),
         ];
         let im = calc
             .calculate_netting_set_with_ngr(&positions, ScheduleAssetClass::InterestRate, 5.0)
@@ -633,8 +644,14 @@ mod tests {
             .with_asset_class(ScheduleAssetClass::InterestRate);
 
         let positions = vec![
-            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
-            (Money::new(-5.0e6, Currency::USD), Money::new(50.0e6, Currency::USD)),
+            (
+                Money::new(10.0e6, Currency::USD),
+                Money::new(100.0e6, Currency::USD),
+            ),
+            (
+                Money::new(-5.0e6, Currency::USD),
+                Money::new(50.0e6, Currency::USD),
+            ),
         ];
         let im = calc
             .calculate_netting_set_with_ngr(&positions, ScheduleAssetClass::InterestRate, 5.0)
@@ -662,8 +679,14 @@ mod tests {
             .is_none());
 
         let mixed = vec![
-            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
-            (Money::new(5.0e6, Currency::EUR), Money::new(50.0e6, Currency::EUR)),
+            (
+                Money::new(10.0e6, Currency::USD),
+                Money::new(100.0e6, Currency::USD),
+            ),
+            (
+                Money::new(5.0e6, Currency::EUR),
+                Money::new(50.0e6, Currency::EUR),
+            ),
         ];
         assert!(calc
             .calculate_netting_set_with_ngr(&mixed, ScheduleAssetClass::InterestRate, 5.0)

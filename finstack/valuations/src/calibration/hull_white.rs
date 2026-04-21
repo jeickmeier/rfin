@@ -428,13 +428,7 @@ pub fn calibrate_hull_white_to_swaptions(
 ///
 /// Used as the per-quote weight in the vega-weighted price residual; see
 /// the module-level note in `calibrate_hull_white_to_swaptions`.
-fn swaption_atm_vega(
-    annuity: f64,
-    fwd_rate: f64,
-    expiry: f64,
-    vol: f64,
-    is_normal: bool,
-) -> f64 {
+fn swaption_atm_vega(annuity: f64, fwd_rate: f64, expiry: f64, vol: f64, is_normal: bool) -> f64 {
     if is_normal {
         annuity * finstack_core::math::volatility::bachelier_vega(fwd_rate, fwd_rate, vol, expiry)
     } else {
@@ -987,13 +981,11 @@ mod tests {
         let quotes: Vec<SwaptionQuote> = specs
             .iter()
             .map(|&(expiry, tenor)| {
-                let (annuity, fwd_rate) =
-                    compute_swap_annuity_and_rate(&df_fn, expiry, tenor, ppy);
+                let (annuity, fwd_rate) = compute_swap_annuity_and_rate(&df_fn, expiry, tenor, ppy);
                 let model_price = hw1f_swaption_price(
                     true_kappa, true_sigma, &df_fn, expiry, tenor, fwd_rate, ppy,
                 );
-                let vol = model_price
-                    / (annuity * (expiry / (2.0 * std::f64::consts::PI)).sqrt());
+                let vol = model_price / (annuity * (expiry / (2.0 * std::f64::consts::PI)).sqrt());
                 SwaptionQuote {
                     expiry,
                     tenor,
@@ -1070,9 +1062,7 @@ mod tests {
             Err(e) => {
                 let msg = format!("{e}");
                 assert!(
-                    msg.contains("kappa")
-                        || msg.contains("bounds")
-                        || msg.contains("C8"),
+                    msg.contains("kappa") || msg.contains("bounds") || msg.contains("C8"),
                     "error message must identify κ-bounds violation: {msg}"
                 );
             }

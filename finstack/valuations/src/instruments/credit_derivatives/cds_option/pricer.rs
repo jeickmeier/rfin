@@ -110,7 +110,8 @@ impl CDSOptionPricer {
 
         // Price using Black-style on spreads
         // Note: risky_annuity is already PV'd to as_of, so we pass df=1.0 (or remove it from formula)
-        let black_pv = self.credit_option_price(option, forward_spread_bp, risky_annuity, sigma, t)?;
+        let black_pv =
+            self.credit_option_price(option, forward_spread_bp, risky_annuity, sigma, t)?;
 
         // Front-End Protection (FEP) adjustment for index payer options.
         //
@@ -132,7 +133,12 @@ impl CDSOptionPricer {
             let scale = option.index_factor.unwrap_or(1.0);
             scale
                 * option.notional.amount()
-                * Self::front_end_protection_pv(disc.as_ref(), hazard.as_ref(), t, option.recovery_rate)
+                * Self::front_end_protection_pv(
+                    disc.as_ref(),
+                    hazard.as_ref(),
+                    t,
+                    option.recovery_rate,
+                )
         } else {
             0.0
         };

@@ -202,7 +202,10 @@ fn test_index_call_includes_front_end_protection() {
     let market = standard_market(as_of); // recovery 0.40, hazard 0.02, disc 0.03
 
     // Single-name reference for comparison (no FEP applies to single-name options).
-    let sn_call = CDSOptionBuilder::new().call().expiry_months(12).build(as_of);
+    let sn_call = CDSOptionBuilder::new()
+        .call()
+        .expiry_months(12)
+        .build(as_of);
     let sn_pv = sn_call.value(&market, as_of).unwrap().amount();
 
     // Index payer option with same terms.

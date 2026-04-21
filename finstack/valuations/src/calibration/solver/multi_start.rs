@@ -222,10 +222,8 @@ mod tests {
         let lb = [0.0, 0.0, 0.0];
         let ub = [1.0, 1.0, 1.0];
         for restart_idx in 0..10 {
-            let a =
-                perturb_initial_guess(&initials, 0.4, restart_idx, Some(&lb), Some(&ub));
-            let b =
-                perturb_initial_guess(&initials, 0.4, restart_idx, Some(&lb), Some(&ub));
+            let a = perturb_initial_guess(&initials, 0.4, restart_idx, Some(&lb), Some(&ub));
+            let b = perturb_initial_guess(&initials, 0.4, restart_idx, Some(&lb), Some(&ub));
             assert_eq!(a.len(), b.len());
             for (x, y) in a.iter().zip(b.iter()) {
                 assert_eq!(x.to_bits(), y.to_bits());

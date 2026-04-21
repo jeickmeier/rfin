@@ -550,8 +550,8 @@ mod tests {
             }
             let theta_calibrated = params.theta_at_time(t);
 
-            let theta_analytical = r_flat
-                + (sigma * sigma) / (2.0 * kappa * kappa) * (1.0 - (-2.0 * kappa * t).exp());
+            let theta_analytical =
+                r_flat + (sigma * sigma) / (2.0 * kappa * kappa) * (1.0 - (-2.0 * kappa * t).exp());
 
             let abs_err = (theta_calibrated - theta_analytical).abs();
             assert!(
@@ -606,7 +606,8 @@ mod tests {
             // which is O(σ²/κ), tiny for typical calibrations. Bound it
             // with a generous tolerance (5 bp/year) that nevertheless
             // rejects the pre-fix O(κ·r_flat) = 1%/year signal.
-            let expected_magnitude = (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp());
+            let expected_magnitude =
+                (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp());
             let tolerance = 5e-4; // 5 bp/year — between pre-fix (~8e-3) and true (~2.5e-5)
 
             assert!(
