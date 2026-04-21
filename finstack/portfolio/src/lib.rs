@@ -93,6 +93,8 @@ pub mod portfolio;
 pub mod position;
 /// Result envelopes for portfolio operations.
 pub mod results;
+/// TWRR / MWRR / GIPS-style return linking (quant-audit PR 12, P1 #20).
+pub mod performance;
 /// Core portfolio entity and ID types.
 pub mod types;
 /// Portfolio valuation APIs.
