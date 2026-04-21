@@ -96,7 +96,6 @@ def test_example_modules_export_symbols_used_by_scripts(
     }
     valuation_exports = {
         "bs_cos_price",
-        "bs_lewis_price",
         "merton_jump_cos_price",
         "vg_cos_price",
     }

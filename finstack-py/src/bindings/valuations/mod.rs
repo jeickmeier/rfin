@@ -190,7 +190,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "format_ratio",
             "format_scientific",
             "bs_cos_price",
-            "bs_lewis_price",
             "vg_cos_price",
             "merton_jump_cos_price",
             "tarn_coupon_profile",

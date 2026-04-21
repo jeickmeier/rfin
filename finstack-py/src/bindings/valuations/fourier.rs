@@ -1,14 +1,18 @@
-//! Fourier pricing method bindings (COS and Lewis).
+//! Fourier pricing method bindings (COS).
 //!
 //! Exposes model-agnostic Fourier pricers for European options under the
-//! Black-Scholes, Variance Gamma, and Merton jump-diffusion models.  Each
-//! binding wraps a characteristic function (from `finstack-core`) together
-//! with either the Fang-Oosterlee (2008) COS method or the Lewis (2001)
-//! single-integral method (both from `finstack-valuations`).
+//! Black-Scholes, Variance Gamma, and Merton jump-diffusion models. Each
+//! binding wraps a characteristic function (from `finstack-core`) with
+//! the Fang-Oosterlee (2008) COS method from `finstack-valuations`.
+//!
+//! A Lewis (2001) single-integral binding (`bs_lewis_price`) was removed
+//! in quant-audit remediation PR 2 (findings C4 and C7) because the
+//! underlying implementation was known-divergent off-ATM. Use
+//! `bs_cos_price` for all Black-Scholes Fourier pricing.
 
 use crate::errors::display_to_py;
 use finstack_core::math::characteristic_function::{BlackScholesCf, MertonJumpCf, VarianceGammaCf};
-use finstack_valuations::pricer::fourier::{CosConfig, CosPricer, LewisConfig, LewisPricer};
+use finstack_valuations::pricer::fourier::{CosConfig, CosPricer};
 use pyo3::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -70,57 +74,6 @@ fn bs_cos_price(
     } else {
         pricer
             .price_put(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    }
-}
-
-/// Price a European option under the Black-Scholes model using the Lewis (2001) method.
-///
-/// Parameters
-/// ----------
-/// spot : float
-///     Current spot price of the underlying.
-/// strike : float
-///     Option strike.
-/// rate : float
-///     Continuously-compounded risk-free rate (annualized).
-/// dividend : float
-///     Continuous dividend yield (annualized).
-/// vol : float
-///     Annualized volatility (sigma).
-/// maturity : float
-///     Time to maturity in years.
-/// is_call : bool
-///     ``True`` for a call, ``False`` for a put.
-///
-/// Returns
-/// -------
-/// float
-///     Present-value option price.
-#[pyfunction]
-#[pyo3(signature = (spot, strike, rate, dividend, vol, maturity, is_call))]
-fn bs_lewis_price(
-    spot: f64,
-    strike: f64,
-    rate: f64,
-    dividend: f64,
-    vol: f64,
-    maturity: f64,
-    is_call: bool,
-) -> PyResult<f64> {
-    let cf = BlackScholesCf {
-        r: rate,
-        q: dividend,
-        sigma: vol,
-    };
-    let pricer = LewisPricer::new(&cf, LewisConfig::default());
-    if is_call {
-        pricer
-            .price_call(spot, strike, rate, dividend, maturity)
-            .map_err(display_to_py)
-    } else {
-        pricer
-            .price_put(spot, strike, rate, dividend, maturity)
             .map_err(display_to_py)
     }
 }
@@ -278,7 +231,6 @@ fn merton_jump_cos_price(
 /// Register Fourier pricing functions on the valuations submodule.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(bs_cos_price, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(bs_lewis_price, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(vg_cos_price, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(merton_jump_cos_price, m)?)?;
     Ok(())
