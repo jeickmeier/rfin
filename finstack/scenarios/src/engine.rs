@@ -540,6 +540,46 @@ impl ScenarioEngine {
         }
     }
 
+    /// Strict version of [`compose`](Self::compose): returns an error at
+    /// compose time when the concatenated operations would be rejected
+    /// at apply time.
+    ///
+    /// Currently the only compose-time-detectable pathology is the
+    /// presence of more than one `OperationSpec::TimeRollForward`
+    /// across the composed scenarios (quant-audit PR 13 / finding
+    /// P1 #23). The apply phase already rejects this case, but doing
+    /// so at compose time gives callers a deterministic error-handling
+    /// point before they build out the rest of their execution
+    /// pipeline.
+    ///
+    /// Production callers should prefer this method; the permissive
+    /// [`compose`](Self::compose) is retained for backwards-compatible
+    /// library use.
+    pub fn try_compose(
+        &self,
+        scenarios: Vec<ScenarioSpec>,
+    ) -> std::result::Result<ScenarioSpec, crate::error::Error> {
+        let composed = self.compose(scenarios);
+
+        let time_roll_count = composed
+            .operations
+            .iter()
+            .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
+            .count();
+        if time_roll_count > 1 {
+            return Err(crate::error::Error::validation(format!(
+                "Compose would produce {} TimeRollForward operations; only \
+                 one is allowed per composed scenario. Merge the roll \
+                 periods into a single `TimeRollForward` (preferred) or \
+                 remove the duplicates before calling compose. \
+                 (quant-audit P1 #23)",
+                time_roll_count,
+            )));
+        }
+
+        Ok(composed)
+    }
+
     /// Apply a scenario specification to the execution context.
     ///
     /// Operations are applied in this order:
@@ -1053,7 +1093,7 @@ fn apply_correlation_effect(
 }
 
 #[cfg(test)]
-#[allow(clippy::panic)]
+#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::spec::OperationSpec;
@@ -1090,5 +1130,91 @@ mod tests {
         assert_eq!(composed.name.as_deref(), Some("credit_down + Rates Up"));
         assert_eq!(composed.operations.len(), 2);
         assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
+    }
+
+    // ========================================================================
+    // Quant-audit remediation PR 13: compose-time TimeRoll dedup (P1 #23)
+    // ========================================================================
+
+    /// Two scenarios each carrying a `TimeRollForward` must not silently
+    /// compose into one invalid scenario; `try_compose` catches the
+    /// conflict at compose time.
+    #[test]
+    fn try_compose_rejects_two_time_rolls() {
+        use crate::spec::TimeRollMode;
+
+        let engine = ScenarioEngine::new();
+        let s1 = ScenarioSpec {
+            id: "roll_6m".into(),
+            name: Some("Roll 6M".into()),
+            description: None,
+            operations: vec![OperationSpec::TimeRollForward {
+                period: "6M".into(),
+                apply_shocks: true,
+                roll_mode: TimeRollMode::default(),
+            }],
+            priority: 1,
+            resolution_mode: ResolutionMode::Cumulative,
+        };
+        let s2 = ScenarioSpec {
+            id: "roll_1y".into(),
+            name: Some("Roll 1Y".into()),
+            description: None,
+            operations: vec![OperationSpec::TimeRollForward {
+                period: "1Y".into(),
+                apply_shocks: true,
+                roll_mode: TimeRollMode::default(),
+            }],
+            priority: 2,
+            resolution_mode: ResolutionMode::Cumulative,
+        };
+
+        let err = engine
+            .try_compose(vec![s1, s2])
+            .expect_err("duplicate TimeRollForward must error at compose time");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("TimeRollForward") && msg.contains("P1 #23"),
+            "error message must cite the audit finding: {msg}"
+        );
+    }
+
+    /// `try_compose` is a drop-in replacement for `compose` when the
+    /// inputs are compose-valid: it returns the same `ScenarioSpec` as
+    /// the permissive variant.
+    #[test]
+    fn try_compose_agrees_with_compose_on_valid_inputs() {
+        let engine = ScenarioEngine::new();
+        let scenarios = vec![
+            ScenarioSpec {
+                id: "rates_up".into(),
+                name: Some("Rates Up".into()),
+                description: None,
+                operations: vec![OperationSpec::StmtForecastPercent {
+                    node_id: "Revenue".into(),
+                    pct: 1.0,
+                }],
+                priority: 2,
+                resolution_mode: ResolutionMode::MostSpecificWins,
+            },
+            ScenarioSpec {
+                id: "credit_down".into(),
+                name: None,
+                description: None,
+                operations: vec![OperationSpec::StmtForecastPercent {
+                    node_id: "Expenses".into(),
+                    pct: -1.0,
+                }],
+                priority: 1,
+                resolution_mode: ResolutionMode::Cumulative,
+            },
+        ];
+
+        let permissive = engine.compose(scenarios.clone());
+        let strict = engine.try_compose(scenarios).expect("valid compose");
+
+        assert_eq!(permissive.id, strict.id);
+        assert_eq!(permissive.operations.len(), strict.operations.len());
+        assert_eq!(permissive.resolution_mode, strict.resolution_mode);
     }
 }
