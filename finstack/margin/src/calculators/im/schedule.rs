@@ -369,6 +369,10 @@ impl ScheduleImCalculator {
     /// # Returns
     ///
     /// `|notional| × rate`, with the rate taken from the configured schedule grid.
+    /// This is the **gross** IM — no netting benefit is applied. For
+    /// portfolios with offsetting positions use
+    /// [`calculate_netting_set_with_ngr`](Self::calculate_netting_set_with_ngr)
+    /// which implements the BCBS-IOSCO NGR reduction factor.
     pub fn calculate_for_notional(
         &self,
         notional: Money,
@@ -377,6 +381,78 @@ impl ScheduleImCalculator {
     ) -> Money {
         let rate = self.schedule.rate(asset_class, maturity_years);
         Money::new(notional.amount().abs(), notional.currency()) * rate
+    }
+
+    /// BCBS-IOSCO Schedule IM with the Net-to-Gross Ratio (NGR) reduction
+    /// factor applied to a netting set of positions.
+    ///
+    /// ```text
+    /// IM = Gross_Notional × Rate × (0.4 + 0.6 × NGR)
+    /// NGR = |Σ MtM_i| / Σ |MtM_i|
+    /// ```
+    ///
+    /// Reference: BCBS-IOSCO *Margin Requirements for Non-Centrally
+    /// Cleared Derivatives* (March 2015, revised July 2020), §3.3
+    /// ("Gross and Net Notional").
+    ///
+    /// Quant-audit finding P2 #26: prior to PR 14 this method did not
+    /// exist and the only path was [`calculate_for_notional`], which
+    /// returns gross IM and can overstate the requirement by up to 60%
+    /// for well-offset netting sets.
+    ///
+    /// # Arguments
+    ///
+    /// * `positions` — `[(signed_mtm, gross_notional)]` per instrument.
+    ///   MtM signs matter (used for NGR numerator); gross notionals are
+    ///   summed as absolute values for the pre-factor IM base.
+    /// * `asset_class` — schedule asset class (applied uniformly across
+    ///   the set; mixed-asset-class netting sets should use a different
+    ///   calculator per the methodology).
+    /// * `maturity_years` — representative remaining maturity for the
+    ///   rate lookup. Typical convention: longest or weighted-average
+    ///   remaining maturity across the netting set.
+    ///
+    /// # Returns
+    ///
+    /// `None` when `positions` is empty or all notionals are zero — the
+    /// NGR denominator would be zero.
+    #[must_use]
+    pub fn calculate_netting_set_with_ngr(
+        &self,
+        positions: &[(Money, Money)],
+        asset_class: ScheduleAssetClass,
+        maturity_years: f64,
+    ) -> Option<Money> {
+        if positions.is_empty() {
+            return None;
+        }
+        // Reporting currency must be consistent across the netting set.
+        let reporting_ccy = positions[0].0.currency();
+        if positions
+            .iter()
+            .any(|(mtm, notional)| mtm.currency() != reporting_ccy || notional.currency() != reporting_ccy)
+        {
+            return None;
+        }
+
+        let signed_mtm_sum: f64 = positions.iter().map(|(mtm, _)| mtm.amount()).sum();
+        let gross_mtm_sum: f64 = positions.iter().map(|(mtm, _)| mtm.amount().abs()).sum();
+        let gross_notional_sum: f64 = positions
+            .iter()
+            .map(|(_, notional)| notional.amount().abs())
+            .sum();
+
+        if gross_mtm_sum <= 0.0 || gross_notional_sum <= 0.0 {
+            return None;
+        }
+
+        let ngr = (signed_mtm_sum.abs() / gross_mtm_sum).clamp(0.0, 1.0);
+        let reduction = 0.4 + 0.6 * ngr;
+        let rate = self.schedule.rate(asset_class, maturity_years);
+        Some(Money::new(
+            gross_notional_sum * rate * reduction,
+            reporting_ccy,
+        ))
     }
 
     /// Get the decimal schedule rate for an asset class and maturity.
@@ -491,6 +567,107 @@ mod tests {
             ScheduleImCalculator::bcbs_standard().is_ok(),
             "ScheduleImCalculator::bcbs_standard() should return Ok"
         );
+    }
+
+    // =====================================================================
+    // Quant-audit remediation PR 14: NGR factor for Schedule IM (P2 #26)
+    // =====================================================================
+
+    /// Perfectly-offset netting set (Σ MtM = 0 → NGR = 0): IM reduces
+    /// to 40% of the gross value. BCBS-IOSCO: `0.4 + 0.6·NGR = 0.4`.
+    #[test]
+    fn ngr_fully_offset_book_gives_40pct_of_gross() {
+        let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard loads")
+            .with_asset_class(ScheduleAssetClass::InterestRate);
+
+        // Two perfectly-offsetting positions of ±10M MtM, each 100M notional.
+        let positions = vec![
+            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
+            (Money::new(-10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
+        ];
+        let im = calc
+            .calculate_netting_set_with_ngr(&positions, ScheduleAssetClass::InterestRate, 5.0)
+            .expect("NGR computable");
+
+        // Gross = 200M, 5Y IR rate = 4%, reduction = 0.4.
+        let expected = 200.0e6 * 0.04 * 0.4;
+        assert!(
+            (im.amount() - expected).abs() < 1e-6,
+            "fully-offset NGR gives 40% reduction, expected {expected}, got {}",
+            im.amount()
+        );
+    }
+
+    /// Fully-directional book (no offsets, all MtMs same sign → NGR=1):
+    /// IM equals gross formula `Gross × Rate`. Reduction = 1.0.
+    #[test]
+    fn ngr_fully_directional_book_gives_gross_im() {
+        let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard loads")
+            .with_asset_class(ScheduleAssetClass::InterestRate);
+
+        let positions = vec![
+            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
+            (Money::new(5.0e6, Currency::USD), Money::new(50.0e6, Currency::USD)),
+        ];
+        let im = calc
+            .calculate_netting_set_with_ngr(&positions, ScheduleAssetClass::InterestRate, 5.0)
+            .expect("NGR computable");
+
+        // Σ MtM = 15M, Σ|MtM| = 15M → NGR = 1.0. Gross = 150M; reduction = 1.0.
+        let expected = 150.0e6 * 0.04 * 1.0;
+        assert!(
+            (im.amount() - expected).abs() < 1e-6,
+            "NGR = 1 reduces to gross formula, expected {expected}, got {}",
+            im.amount()
+        );
+    }
+
+    /// Partially-offset book: NGR ∈ (0, 1); the reduction factor
+    /// interpolates linearly. For Σ MtM = 5M, Σ|MtM| = 15M → NGR = 1/3.
+    #[test]
+    fn ngr_partial_offset_interpolates_reduction_factor() {
+        let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard loads")
+            .with_asset_class(ScheduleAssetClass::InterestRate);
+
+        let positions = vec![
+            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
+            (Money::new(-5.0e6, Currency::USD), Money::new(50.0e6, Currency::USD)),
+        ];
+        let im = calc
+            .calculate_netting_set_with_ngr(&positions, ScheduleAssetClass::InterestRate, 5.0)
+            .expect("NGR computable");
+
+        let ngr = 5.0 / 15.0; // 1/3
+        let reduction = 0.4 + 0.6 * ngr; // 0.6
+        let expected = 150.0e6 * 0.04 * reduction;
+        assert!(
+            (im.amount() - expected).abs() < 1e-6,
+            "partial NGR = 1/3 → reduction 0.6, expected {expected}, got {}",
+            im.amount()
+        );
+    }
+
+    /// Empty or currency-mixed netting sets return None.
+    #[test]
+    fn ngr_empty_and_mixed_currency_returns_none() {
+        let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard loads")
+            .with_asset_class(ScheduleAssetClass::InterestRate);
+
+        assert!(calc
+            .calculate_netting_set_with_ngr(&[], ScheduleAssetClass::InterestRate, 5.0)
+            .is_none());
+
+        let mixed = vec![
+            (Money::new(10.0e6, Currency::USD), Money::new(100.0e6, Currency::USD)),
+            (Money::new(5.0e6, Currency::EUR), Money::new(50.0e6, Currency::EUR)),
+        ];
+        assert!(calc
+            .calculate_netting_set_with_ngr(&mixed, ScheduleAssetClass::InterestRate, 5.0)
+            .is_none());
     }
 
     #[test]
