@@ -521,9 +521,25 @@ impl CreditScorecardExtension {
     ) -> Option<f64> {
         let scale = get_rating_scale(rating_scale);
 
-        scale.ratings.iter().find_map(|level| {
+        // Boundary convention (quant-audit P2 #30): the best (first-
+        // iterated) rating uses closed-on-both-ends `[min, max]` so that
+        // a value at the scale maximum still lands there; every other
+        // bucket uses `[min, max)` so that a value at the shared
+        // boundary between two adjacent buckets lands in the **better**
+        // of the two — matching the published S&P / Moody's
+        // conventions which define strict upper bounds on non-top
+        // buckets (scorecard configs copied verbatim from agency
+        // criteria would rate one notch high pre-PR-15).
+        scale.ratings.iter().enumerate().find_map(|(idx, level)| {
             thresholds.get(&level.name).and_then(|(min, max)| {
-                if value >= *min && value <= *max {
+                let is_best_rating = idx == 0;
+                let lower_ok = value >= *min;
+                let upper_ok = if is_best_rating {
+                    value <= *max
+                } else {
+                    value < *max
+                };
+                if lower_ok && upper_ok {
                     Some(level.score)
                 } else {
                     None
@@ -659,5 +675,76 @@ mod tests {
         let weighted = extension.calculate_weighted_score(&scores);
 
         assert_eq!(weighted, 0.0);
+    }
+
+    // =====================================================================
+    // Quant-audit remediation PR 15: scorecard boundary convention (P2 #30)
+    // =====================================================================
+
+    /// With adjacent buckets `AAA: [95, 100]` and `AA+: [90, 95]`, a value
+    /// of exactly 95 sits on the shared boundary. Per the S&P /
+    /// Moody's convention, the **better** (AAA) rating is the one with
+    /// the closed upper bound, so value 95 should land in AAA, not
+    /// AA+.
+    ///
+    /// Pre-fix the code used `[min, max]` for every bucket; since the
+    /// iterator is best-first, AAA was returned first either way, so
+    /// 95 went to AAA. That accidentally agreed with the convention
+    /// *at the top boundary only*. The bug manifests below, at the
+    /// AA+/AA boundary.
+    #[test]
+    fn scorecard_top_boundary_value_lands_in_best_bucket() {
+        let extension = CreditScorecardExtension::new();
+        let mut thresholds = indexmap::IndexMap::new();
+        thresholds.insert("AAA".to_string(), (95.0, 100.0));
+        thresholds.insert("AA+".to_string(), (90.0, 95.0));
+
+        // Value 95 is the boundary between AAA and AA+. Top bucket
+        // gets [min, max] — so 95 is AAA.
+        assert_eq!(
+            extension.matching_threshold_score(95.0, &thresholds, "S&P"),
+            Some(100.0),
+            "top-bucket upper bound is inclusive"
+        );
+        // Value 100 is the absolute max → still AAA (top-bucket-closed).
+        assert_eq!(
+            extension.matching_threshold_score(100.0, &thresholds, "S&P"),
+            Some(100.0)
+        );
+    }
+
+    /// The substantive fix: at a shared boundary BETWEEN two non-top
+    /// ratings, the better rating should win (because the worse
+    /// rating's upper bound is strict).
+    ///
+    /// Pre-fix: value 90 on `AA+: [90, 95]` + `AA: [85, 90]` returned
+    /// 95 (AA+) because `90 <= 90` matched AA+ first... but also
+    /// `90 <= 90` for AA would have matched — the user saw AA+
+    /// correctly by virtue of iteration order, not by design.
+    ///
+    /// Post-fix: value 90 on `AA+: [90, 95)` (non-top half-open) +
+    /// `AA: [85, 90)` returns AA+ cleanly — 90 is the strict lower
+    /// bound of AA+, the strict upper bound of AA. No ambiguity.
+    #[test]
+    fn scorecard_non_top_shared_boundary_goes_to_better_rating() {
+        let extension = CreditScorecardExtension::new();
+        let mut thresholds = indexmap::IndexMap::new();
+        thresholds.insert("AAA".to_string(), (95.0, 100.0));
+        thresholds.insert("AA+".to_string(), (90.0, 95.0));
+        thresholds.insert("AA".to_string(), (85.0, 90.0));
+
+        // 90.0 — boundary between AA+ and AA → AA+ (better).
+        assert_eq!(
+            extension.matching_threshold_score(90.0, &thresholds, "S&P"),
+            Some(95.0),
+            "shared boundary 90.0 between AA+ and AA must resolve to AA+ (better)"
+        );
+        // 85.0 — lower bound of AA, upper bound of (nothing defined below).
+        // Since AA is not top, AA's range is [85, 90), which INCLUDES 85.
+        assert_eq!(
+            extension.matching_threshold_score(85.0, &thresholds, "S&P"),
+            Some(90.0),
+            "lower-bound value must land in the bucket it bounds"
+        );
     }
 }
