@@ -110,7 +110,80 @@ impl CDSOptionPricer {
 
         // Price using Black-style on spreads
         // Note: risky_annuity is already PV'd to as_of, so we pass df=1.0 (or remove it from formula)
-        self.credit_option_price(option, forward_spread_bp, risky_annuity, sigma, t)
+        let black_pv = self.credit_option_price(option, forward_spread_bp, risky_annuity, sigma, t)?;
+
+        // Front-End Protection (FEP) adjustment for index payer options.
+        //
+        // Standard market convention per Pedersen (2003) and O'Kane (2008)
+        // Ch. 12: payer options on a defaultable CDS index receive a cash
+        // benefit equal to the protection payout for names that default
+        // between `as_of` and the option expiry. Receiver options knock
+        // out on defaulted names so do not receive FEP.
+        //
+        // FEP_PV = ∫_0^{T_exp} (1 − R) · h(s) · S(s) · DF(0, s) ds
+        //
+        // Scaled by the option notional and the index factor. This PV is
+        // added to the Black-on-spreads value for payer (Call) index
+        // options only — see `front_end_protection_pv` for numerics.
+        let fep_pv = if option.underlying_is_index
+            && matches!(option.option_type, OptionType::Call)
+            && t > 0.0
+        {
+            let scale = option.index_factor.unwrap_or(1.0);
+            scale
+                * option.notional.amount()
+                * Self::front_end_protection_pv(disc.as_ref(), hazard.as_ref(), t, option.recovery_rate)
+        } else {
+            0.0
+        };
+
+        if fep_pv.abs() > 0.0 {
+            let ccy = black_pv.currency();
+            Ok(Money::new(black_pv.amount() + fep_pv, ccy))
+        } else {
+            Ok(black_pv)
+        }
+    }
+
+    /// Front-End Protection PV per unit notional for a CDS index payer
+    /// option expiring at time `t_expiry` (year-fraction from `as_of`).
+    ///
+    /// Implements the standard integral
+    ///
+    /// ```text
+    /// FEP/N = (1 − R) · ∫_0^{T_exp} h(s) · S(s) · DF(0, s) ds
+    /// ```
+    ///
+    /// via a mid-point quadrature with 40 sub-intervals. For typical index
+    /// option expiries (T ≤ 2y) on investment-grade curves (h ≈ 1–3%) this
+    /// has absolute quadrature error below 0.1 bp of upfront — well inside
+    /// the Black-model uncertainty on σ and R.
+    ///
+    /// # References
+    /// - Pedersen, C. (2003). "Valuation of Portfolio Credit Default
+    ///   Swaptions." Lehman Brothers.
+    /// - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit
+    ///   Derivatives*. Wiley. Ch. 12.
+    fn front_end_protection_pv(
+        disc: &finstack_core::market_data::term_structures::DiscountCurve,
+        hazard: &finstack_core::market_data::term_structures::HazardCurve,
+        t_expiry: f64,
+        recovery: f64,
+    ) -> f64 {
+        if t_expiry <= 0.0 {
+            return 0.0;
+        }
+        const STEPS: usize = 40;
+        let dt = t_expiry / STEPS as f64;
+        let mut integral = 0.0_f64;
+        for i in 0..STEPS {
+            let t_mid = (i as f64 + 0.5) * dt;
+            let h = hazard.hazard_rate(t_mid);
+            let s = hazard.sp(t_mid);
+            let df = disc.df(t_mid);
+            integral += h * s * df * dt;
+        }
+        (1.0 - recovery) * integral
     }
 
     /// Convenience method: compute the forward spread in bp at the underlying CDS maturity.

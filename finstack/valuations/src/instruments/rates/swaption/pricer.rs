@@ -372,6 +372,16 @@ pub struct BermudanSwaptionPricer {
     /// When set, the pricer skips calibration and uses this model directly.
     /// This enables O(1) pricing per instrument instead of O(Steps × Time) calibration.
     pre_calibrated_model: Option<CalibratedHullWhiteModel>,
+    /// When true, refuse to price with uncalibrated default HW parameters.
+    ///
+    /// Set via [`require_calibration`](Self::require_calibration). The
+    /// pricer registry (`finstack_valuations::pricer::exotics`) sets this
+    /// on all registered Bermudan pricers per quant-audit remediation PR 3
+    /// (finding C6) so that callers reaching the registry with uncalibrated
+    /// params receive a clear error rather than a silently-wrong price.
+    /// Direct constructor callers retain the permissive default (false)
+    /// for testing and bespoke workflows.
+    enforce_calibration: bool,
 }
 
 impl BermudanSwaptionPricer {
@@ -391,6 +401,7 @@ impl BermudanSwaptionPricer {
             mc_paths: Self::DEFAULT_MC_PATHS,
             mc_seed: 42,
             pre_calibrated_model: None,
+            enforce_calibration: false,
         }
     }
 
@@ -407,7 +418,29 @@ impl BermudanSwaptionPricer {
             mc_paths: Self::DEFAULT_MC_PATHS,
             mc_seed: 42,
             pre_calibrated_model: None,
+            enforce_calibration: false,
         }
+    }
+
+    /// Require calibrated Hull-White parameters before pricing.
+    ///
+    /// When set, [`pricing a Bermudan swaption`](Self::price) returns
+    /// `Err(PricingError::ModelFailure { .. })` if the pricer holds the
+    /// uncalibrated `HullWhiteParams::default()` (κ=3%, σ=1%) *and* no
+    /// pre-calibrated model has been supplied via
+    /// [`with_calibrated_model`](Self::with_calibrated_model).
+    ///
+    /// The quant-audit remediation roadmap (PR 3, finding C6) identified
+    /// the legacy behaviour — emitting a `tracing::warn!` and proceeding
+    /// to price with uncalibrated defaults — as responsible for silent
+    /// 10–30% mispricing of early-exercise premia. The pricer registry
+    /// in `finstack_valuations::pricer::exotics` sets this on every
+    /// registered Bermudan pricer; direct constructor callers who need
+    /// permissive behaviour (tests, bespoke backtests) can omit the
+    /// call and retain the old semantics.
+    pub fn require_calibration(mut self) -> Self {
+        self.enforce_calibration = true;
+        self
     }
 
     /// Set number of tree steps.
@@ -533,6 +566,18 @@ impl BermudanSwaptionPricer {
         } else {
             // Calibrate new model (O(Steps × Time) per instrument)
             if self.hw_params.is_uncalibrated_default() {
+                if self.enforce_calibration {
+                    return Err(PricingError::model_failure_with_context(
+                        format!(
+                            "Bermudan swaption {} received uncalibrated HullWhiteParams::default() \
+                             (κ={:.3}, σ={:.3}) and no pre-calibrated model. Supply calibrated \
+                             params via `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via \
+                             `.with_calibrated_model(…)`. (quant-audit C6)",
+                            swaption.id, self.hw_params.kappa, self.hw_params.sigma,
+                        ),
+                        PricingErrorContext::default(),
+                    ));
+                }
                 tracing::warn!(
                     instrument_id = %swaption.id,
                     kappa = self.hw_params.kappa,
@@ -593,6 +638,26 @@ impl BermudanSwaptionPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
+        // Quant-audit C6: refuse uncalibrated defaults when enforcement
+        // is enabled (as the pricer registry does). LSMC has no cached
+        // model path, so this guard runs before any curve loading.
+        if self.enforce_calibration
+            && self.pre_calibrated_model.is_none()
+            && self.hw_params.is_uncalibrated_default()
+        {
+            return Err(PricingError::model_failure_with_context(
+                format!(
+                    "Bermudan swaption {} LSMC received uncalibrated \
+                     HullWhiteParams::default() (κ={:.3}, σ={:.3}). Supply \
+                     calibrated params via `HullWhiteParams::new(κ, σ)` or a \
+                     pre-calibrated tree via `.with_calibrated_model(…)`. \
+                     (quant-audit C6)",
+                    swaption.id, self.hw_params.kappa, self.hw_params.sigma,
+                ),
+                PricingErrorContext::default(),
+            ));
+        }
+
         if swaption.forward_curve_id != swaption.discount_curve_id {
             return Err(PricingError::model_failure_with_context(
                 "Bermudan Hull-White pricing is currently single-curve only. \

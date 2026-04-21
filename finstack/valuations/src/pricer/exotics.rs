@@ -120,23 +120,34 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         crate::instruments::rates::range_accrual::pricer::RangeAccrualMcPricer::default(),
     );
 
-    // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo)
+    // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo).
+    //
+    // Registered with `.require_calibration()` per quant-audit remediation
+    // PR 3 finding C6: uncalibrated `HullWhiteParams::default()` (κ=3%,
+    // σ=1%) produces 10–30% errors on early-exercise premia. Callers
+    // reaching this registry entry must supply calibrated params via
+    // `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via
+    // `with_calibrated_model(...)`; otherwise pricing returns
+    // `PricingError::ModelFailure`.
     #[cfg(feature = "mc")]
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::MonteCarloHullWhite1F,
         crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::lsmc_pricer(
             crate::instruments::rates::swaption::pricer::HullWhiteParams::default(),
-        ),
+        )
+        .require_calibration(),
     );
 
-    // Bermudan Swaption - Hull-White 1F Tree
+    // Bermudan Swaption - Hull-White 1F Tree. See note on the LSMC
+    // registration above for the calibration-requirement rationale.
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::HullWhite1F,
         crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::tree_pricer(
             crate::instruments::rates::swaption::pricer::HullWhiteParams::default(),
-        ),
+        )
+        .require_calibration(),
     );
 
     // Barrier Option - PDE Crank-Nicolson 1D
