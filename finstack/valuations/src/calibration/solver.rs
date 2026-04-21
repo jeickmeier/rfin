@@ -25,6 +25,9 @@ pub(crate) mod bootstrap;
 mod config;
 pub(crate) mod global;
 pub(crate) mod helpers;
+/// Halton-based deterministic multi-start perturbation shared across
+/// calibration targets. See module docs for rationale.
+pub(crate) mod multi_start;
 /// Solver traits for bootstrap and global optimization.
 pub(crate) mod traits;
 

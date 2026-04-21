@@ -4,6 +4,7 @@
 //! - Optional multi-start support to escape local minima (see [`MultiStartConfig`]).
 //! - Residual weighting is supported via per-quote weights (weighted least squares).
 
+use super::multi_start::{perturb_initial_guess, MultiStartConfig};
 use super::traits::GlobalSolveTarget;
 use crate::calibration::constants::PENALTY;
 use crate::calibration::report::{CalibrationDiagnostics, QuoteQuality};
@@ -11,28 +12,6 @@ use crate::calibration::{CalibrationConfig, CalibrationReport};
 use finstack_core::Result;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
-
-/// Configuration for multi-start optimization to escape local minima.
-///
-/// When enabled, the optimizer runs `num_restarts` additional LM solves from
-/// perturbed starting points and keeps the result with the lowest weighted
-/// residual norm.
-#[derive(Debug, Clone)]
-pub(crate) struct MultiStartConfig {
-    /// Number of random restarts (in addition to the initial point).
-    pub(crate) num_restarts: usize,
-    /// Scale factor for perturbation of the initial guess (as fraction of initial values).
-    pub(crate) perturbation_scale: f64,
-}
-
-impl Default for MultiStartConfig {
-    fn default() -> Self {
-        Self {
-            num_restarts: 5,
-            perturbation_scale: 0.5,
-        }
-    }
-}
 
 fn penalty_residual_value(params: &[f64]) -> f64 {
     // Avoid a perfectly flat penalty surface: add a small, scale-aware component
@@ -174,8 +153,13 @@ impl GlobalFitOptimizer {
             }
 
             for restart_idx in 0..ms.num_restarts {
-                let perturbed =
-                    perturb_initial_guess(&initials, ms.perturbation_scale, restart_idx, &lb, &ub);
+                let perturbed = perturb_initial_guess(
+                    &initials,
+                    ms.perturbation_scale,
+                    restart_idx,
+                    lb.as_deref(),
+                    ub.as_deref(),
+                );
 
                 match run_single_solve(
                     target,
@@ -356,63 +340,11 @@ impl GlobalFitOptimizer {
     }
 }
 
-/// Deterministic perturbation of initial guess for multi-start restarts.
-///
-/// Uses a Halton sequence (one prime base per parameter dimension) to produce
-/// low-discrepancy, space-filling perturbations:
-/// `x[i] = x_init[i] * (1 + scale * (2*h_i - 1))`
-/// where `h_i = halton(restart_idx + 1, base_i)`.
-///
-/// Halton sequences provide better coverage of the parameter space than
-/// hash-based pseudo-random perturbations, reducing the number of restarts
-/// needed to escape local minima.
-fn perturb_initial_guess(
-    initials: &[f64],
-    perturbation_scale: f64,
-    restart_idx: usize,
-    lb: &Option<Vec<f64>>,
-    ub: &Option<Vec<f64>>,
-) -> Vec<f64> {
-    const BASES: [usize; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
-
-    initials
-        .iter()
-        .enumerate()
-        .map(|(i, &x)| {
-            let base = BASES[i % BASES.len()];
-            let h = halton(restart_idx + 1, base);
-            let perturbation = perturbation_scale * (2.0 * h - 1.0);
-            let mut v = x * (1.0 + perturbation);
-            // Clamp to bounds
-            if let Some(ref lower) = lb {
-                if i < lower.len() {
-                    v = v.max(lower[i]);
-                }
-            }
-            if let Some(ref upper) = ub {
-                if i < upper.len() {
-                    v = v.min(upper[i]);
-                }
-            }
-            v
-        })
-        .collect()
-}
-
-/// Halton sequence value for index `n` with given `base`.
-///
-/// Returns a value in [0, 1) that forms part of a low-discrepancy sequence.
-/// Used for quasi-random sampling in multi-start optimization.
-fn halton(mut n: usize, base: usize) -> f64 {
-    let mut result = 0.0;
-    let mut f = 1.0 / base as f64;
-    while n > 0 {
-        result += f * (n % base) as f64;
-        n /= base;
-        f /= base as f64;
-    }
-    result
-}
+// The Halton multi-start helpers (`halton`, `perturb_initial_guess`, and
+// `MultiStartConfig`) were extracted to `super::multi_start` in
+// quant-audit remediation PR 4 so that sibling calibration targets can
+// reuse the same deterministic perturbation strategy. See that module
+// for documentation, references, and unit tests.
 
 type SingleSolveResult = (
     Vec<f64>,
@@ -1536,11 +1468,13 @@ mod tests {
     #[test]
     fn perturb_initial_guess_is_deterministic_and_respects_bounds() {
         let initials = vec![1.0, 2.0];
-        let lb = Some(vec![0.9, 1.7]);
-        let ub = Some(vec![1.1, 2.5]);
+        let lb = vec![0.9, 1.7];
+        let ub = vec![1.1, 2.5];
 
-        let first = perturb_initial_guess(&initials, 0.5, 0, &lb, &ub);
-        let second = perturb_initial_guess(&initials, 0.5, 0, &lb, &ub);
+        let first =
+            perturb_initial_guess(&initials, 0.5, 0, Some(lb.as_slice()), Some(ub.as_slice()));
+        let second =
+            perturb_initial_guess(&initials, 0.5, 0, Some(lb.as_slice()), Some(ub.as_slice()));
 
         assert_eq!(
             first, second,
