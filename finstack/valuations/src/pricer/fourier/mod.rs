@@ -2,15 +2,11 @@
 //!
 //! This module provides model-agnostic Fourier pricing engines that work
 //! with any model implementing the [`CharacteristicFunction`] trait from
-//! `finstack-core`. Two methods are implemented:
+//! `finstack-core`. One method is currently available:
 //!
 //! - **COS method** ([`cos::CosPricer`]): Fang-Oosterlee (2008) cosine series
 //!   expansion. O(N) per strike, fastest single-strike Fourier method.
 //!   Automatic truncation range from cumulants. No external dependencies.
-//!
-//! - **Lewis method** ([`lewis::LewisPricer`]): Lewis (2001) single-integral
-//!   formula. Gauss-Legendre quadrature for the semi-infinite integral.
-//!   No grid, arbitrary strike, no interpolation needed.
 //!
 //! # Method Selection Guide
 //!
@@ -18,7 +14,7 @@
 //! |----------|-------------------|
 //! | Single-strike pricing | COS (fastest) |
 //! | Strip pricing (5-50 strikes) | COS with strip reuse |
-//! | Arbitrary strike, no grid | Lewis |
+//! | Arbitrary strike, no grid | COS (recommended) |
 //! | WASM / latency-critical | COS (smallest N) |
 //!
 //! # Example
@@ -26,23 +22,29 @@
 //! ```rust,no_run
 //! use finstack_core::math::characteristic_function::BlackScholesCf;
 //! use finstack_valuations::pricer::fourier::cos::{CosPricer, CosConfig};
-//! use finstack_valuations::pricer::fourier::lewis::{LewisPricer, LewisConfig};
 //!
 //! let cf = BlackScholesCf { r: 0.05, q: 0.0, sigma: 0.2 };
 //!
 //! // COS method (r encodes the drift already present in the CF)
 //! let cos = CosPricer::new(&cf, CosConfig::default());
 //! let call = cos.price_call(100.0, 100.0, 0.05, 1.0);
-//!
-//! // Lewis method
-//! let lewis = LewisPricer::new(&cf, LewisConfig::default());
-//! let call2 = lewis.price_call(100.0, 100.0, 0.05, 0.0, 1.0);
 //! ```
+//!
+//! # Removed: Lewis (2001) pricer
+//!
+//! A `LewisPricer` was previously exposed here. Quant-audit findings C4
+//! and C7 identified it as known-divergent off-ATM (with a regression
+//! test that *asserted* the buggy behavior) and as silently dropping
+//! non-finite integrand panels behind a `max(0.0)` clamp. Because no
+//! internal pricer consumed it, and callers had no way to distinguish
+//! its correct ATM behavior from its off-ATM collapse, the module was
+//! removed in quant-audit remediation PR 2. Use [`cos::CosPricer`] for
+//! all Fourier pricing; it handles arbitrary strikes with Fang-Oosterlee
+//! truncation from cumulants. See the full audit at
+//! `docs/superpowers/plans/2026-04-19-quant-audit-remediation-roadmap.md`.
 //!
 //! [`CharacteristicFunction`]: finstack_core::math::characteristic_function::CharacteristicFunction
 
 pub mod cos;
-pub mod lewis;
 
 pub use cos::{CosConfig, CosPricer};
-pub use lewis::{LewisConfig, LewisPricer};
