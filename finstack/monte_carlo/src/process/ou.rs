@@ -1,19 +1,36 @@
 //! Ornstein-Uhlenbeck and Hull-White 1-factor processes.
 //!
-//! Implements the standard single-factor short rate model:
+//! Implements the single-factor short-rate model in the Vasicek-style
+//! mean-reversion-level convention:
 //!
 //! ```text
-//! dr_t = κ[θ(t) - r_t]dt + σ dW_t
+//! dr_t = κ·[θ(t) - r_t] dt + σ dW_t
 //! ```
 //!
 //! where:
 //! - κ = mean reversion speed
-//! - θ(t) = time-dependent mean reversion level
+//! - θ(t) = time-dependent mean reversion *level* (the value the rate is
+//!   pulled toward — not the Brigo–Mercurio eq. 3.35 "drift term")
 //! - σ = instantaneous volatility
 //! - W_t = Brownian motion
 //!
+//! # Convention — θ(t) is the stationary level
+//!
+//! The HW1F literature also uses a drift form `(θ_BM(t) - κ·r) dt` in
+//! which `θ_BM` is **not** the stationary level but `κ` times the
+//! stationary level. Both conventions are valid, but they are not
+//! interchangeable: feeding a `θ_BM`-convention value into the drift
+//! `κ·(θ - r)` gives a stationary mean off by a factor of κ (audit
+//! finding C2, fixed in PR 1 of the quant-audit-remediation roadmap).
+//!
+//! This crate exclusively uses the Vasicek-style mean-reversion-level
+//! convention. The calibrator [`calibrate_theta_from_curve`] produces θ
+//! in this convention; callers constructing [`HullWhite1FParams::new`]
+//! or [`HullWhite1FProcess::vasicek`] directly must likewise supply θ as
+//! a stationary rate level.
+//!
 //! The Hull-White 1F model uses a time-dependent θ(t) to fit the initial
-//! yield curve, while the Ornstein-Uhlenbeck (Vasicek) model uses constant θ.
+//! yield curve; the Ornstein-Uhlenbeck (Vasicek) model uses constant θ.
 
 use super::super::traits::{state_keys, PathState, StochasticProcess};
 use tracing::warn;
@@ -177,11 +194,27 @@ pub type VasicekProcess = HullWhite1FProcess;
 
 /// Build Hull-White 1F parameters with θ(t) derived from a discount curve.
 ///
-/// The Hull-White model requires θ(t) to match the initial yield curve. Given:
-/// - `f(0,t)` = instantaneous forward rate = `-d/dt ln P(0,t)`
-/// - `θ(t) = ∂f/∂t + κf(0,t) + σ²/(2κ²)(1 - e^{-κt})²`
+/// This crate uses the **Vasicek-style mean-reversion-level convention**
+/// for θ: the drift is `κ·(θ(t) - r)`, so θ(t) is the time-dependent
+/// stationary level the short rate is pulled toward. Under this
+/// convention the calibrated θ(t) for a market-consistent HW1F is
 ///
-/// This function computes piecewise-constant θ(t) via finite differences.
+/// ```text
+/// θ(t) = f(0,t) + (1/κ)·∂f/∂t(0,t) + σ²/(2κ²)·(1 − e^{−2κt})
+/// ```
+///
+/// where `f(0,t) = -d/dt ln P(0,t)` is the market instantaneous forward.
+///
+/// This is algebraically equivalent to the more commonly-cited
+/// Brigo–Mercurio form `θ_HW(t) = ∂f/∂t + κ·f(0,t) + σ²/(2κ)·(1-e^{-2κt})`
+/// used with the drift form `(θ_HW(t) - κ·r)dt`, via `θ_Vas = θ_HW / κ`.
+/// The two forms give identical dynamics when θ is interpreted
+/// consistently with the drift; mixing them (as this crate did prior to
+/// PR 1 of the quant-audit remediation, audit finding C2) produces a
+/// stationary mean off by a factor of κ.
+///
+/// For a flat curve at rate `r_flat`: ∂f/∂t = 0 and f(0,t) = r_flat, so
+/// θ(t) = r_flat + σ²/(2κ²)·(1 − e^{−2κt}) ≈ r_flat.
 ///
 /// # Arguments
 ///
@@ -189,6 +222,14 @@ pub type VasicekProcess = HullWhite1FProcess;
 /// * `sigma` - Short rate volatility
 /// * `discount_curve_fn` - Function mapping time (years) to discount factor P(0,t)
 /// * `theta_times` - Time breakpoints for θ(t) discretization
+///
+/// # Panics / limits
+///
+/// For numerical stability `κ` must satisfy `|κ| > 1e-10`. The Vasicek-form
+/// θ(t) involves `∂f/∂t / κ` and `σ²/(2κ²)` terms that diverge as `κ → 0`.
+/// Callers simulating a driftless Brownian-motion short rate (κ ≈ 0)
+/// should use a dedicated `BrownianMotion` process rather than HW1F with
+/// tiny κ.
 ///
 /// # Example
 ///
@@ -209,7 +250,9 @@ where
     F: Fn(f64) -> f64,
 {
     if theta_times.is_empty() {
-        // Fallback: use instantaneous forward at t=0 as constant theta
+        // Fallback: use instantaneous forward at t=0 as constant theta.
+        // f(0,0) is itself the stationary level for a "flat-near-zero"
+        // curve under the Vasicek convention.
         let f_0 = instantaneous_forward(&discount_curve_fn, 0.0);
         return HullWhite1FParams::new(kappa, sigma, f_0);
     }
@@ -224,32 +267,47 @@ where
     HullWhite1FParams::with_time_dependent_theta(kappa, sigma, theta_curve, theta_times.to_vec())
 }
 
-/// Compute θ(t) at a specific time using the Hull-White drift formula.
+/// Compute θ(t) at a specific time in the Vasicek-style mean-reversion-level
+/// convention used by this crate's HW1F drift `κ·(θ(t) - r)`.
 ///
-/// θ(t) = ∂f/∂t(0,t) + κ·f(0,t) + σ²/(2κ)·(1 - e^{-2κt})
+/// ```text
+/// θ(t) = f(0,t) + (1/κ)·∂f/∂t(0,t) + σ²/(2κ²)·(1 − e^{−2κt})
+/// ```
 ///
-/// Reference: Brigo & Mercurio (2006), eq. 3.35; Hull & White (1990).
+/// Derivation: the Brigo–Mercurio (2006) eq. 3.35 form
+///   θ_HW(t) = ∂f/∂t(0,t) + κ·f(0,t) + σ²/(2κ)·(1 − e^{−2κt})
+/// is meant to be consumed by a drift of the form `θ_HW(t) - κ·r`.
+/// Dividing by κ converts it to the Vasicek-style mean-reversion level
+/// θ_Vas = θ_HW / κ that the drift `κ·(θ - r)` expects.
+///
+/// Reference: Brigo & Mercurio (2006) *Interest Rate Models* §3.3.1 eq. 3.35;
+/// Hull & White (1990).
 fn compute_theta_at_time<F>(kappa: f64, sigma: f64, discount_curve_fn: &F, t: f64) -> f64
 where
     F: Fn(f64) -> f64,
 {
+    // For near-zero κ the Vasicek-form θ diverges (as ∂f/∂t / κ and
+    // σ²/(2κ²)). Callers near κ = 0 should be using a driftless process;
+    // here we fall back to the constant level f(0,t) which at least keeps
+    // the simulator bounded.
+    const KAPPA_EPS: f64 = 1e-10;
+    if kappa.abs() < KAPPA_EPS {
+        return instantaneous_forward(discount_curve_fn, t);
+    }
+
     // Compute f(0,t) = instantaneous forward rate
     let f_t = instantaneous_forward(discount_curve_fn, t);
 
     // Compute ∂f/∂t via finite difference
     let df_dt = forward_derivative(discount_curve_fn, t);
 
-    // Volatility term: σ²/(2κ)·(1 - e^{-2κt})
-    // This is Var[r(t)] under HW1F (Brigo & Mercurio eq. 3.35).
-    // Distinct from the CIR++ shift φ(t) = σ²/(2κ²)·(1-e^{-κt})².
-    let vol_term = if kappa.abs() > 1e-10 {
-        (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp())
-    } else {
-        // L'Hôpital limit as κ → 0: (1-e^{-2κt})/(2κ) → t
-        sigma * sigma * t
-    };
+    // Vol-correction term in the Vasicek convention: σ²/(2κ²)·(1 − e^{−2κt}).
+    // This is the O(σ²/κ²) gap between the stationary level and the market
+    // instantaneous forward that arises from the HW1F drift-and-diffusion
+    // balance. See Brigo–Mercurio §3.3.1 eq. 3.35 divided by κ.
+    let vol_term = (sigma * sigma) / (2.0 * kappa * kappa) * (1.0 - (-2.0 * kappa * t).exp());
 
-    df_dt + kappa * f_t + vol_term
+    f_t + df_dt / kappa + vol_term
 }
 
 /// Compute instantaneous forward rate f(0,t) = -d/dt ln P(0,t)
@@ -471,21 +529,140 @@ mod tests {
         let times: Vec<f64> = vec![0.5, 1.0, 2.0, 3.0, 5.0, 10.0];
         let params = calibrate_theta_from_curve(kappa, sigma, discount_fn, &times);
 
-        // Check each calibrated θ(t) against the analytical HW formula.
+        // Check each calibrated θ(t) against the analytical formula in the
+        // *Vasicek-style mean-reversion-level* convention, which is what the
+        // HW1F drift `κ·(θ - r)` consumes. Under this convention,
+        //
+        //   θ_Vas(t) = θ_HW(t) / κ
+        //            = (∂f/∂t)/κ + f(0,t) + σ²/(2κ²)·(1 - e^{−2κt}).
+        //
+        // For a flat curve ∂f/∂t = 0 and f(0,t) = r_flat, so
+        //
+        //   θ_Vas(t) = r_flat + σ²/(2κ²)·(1 - e^{−2κt}).
+        //
+        // (Pre-PR-1 this test asserted the BM 3.35 θ_HW formula directly;
+        // that was the source of audit finding C2 — feeding θ_HW into the
+        // `κ·(θ - r)` drift form gave a stationary mean of κ·r_flat instead
+        // of r_flat.)
         for &t in &times {
             if t < 1e-8 {
                 continue; // Skip t=0 where FD approximation is poorest
             }
             let theta_calibrated = params.theta_at_time(t);
 
-            // Analytical: θ(t) = κ·r + σ²/(2κ)·(1 - e^{-2κt})
-            let theta_analytical =
-                kappa * r_flat + (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp());
+            let theta_analytical = r_flat
+                + (sigma * sigma) / (2.0 * kappa * kappa) * (1.0 - (-2.0 * kappa * t).exp());
 
             let abs_err = (theta_calibrated - theta_analytical).abs();
             assert!(
                 abs_err < 1e-4,
                 "θ mismatch at t={t}: calibrated={theta_calibrated:.8}, analytical={theta_analytical:.8}, err={abs_err:.2e}"
+            );
+        }
+    }
+
+    // ========================================================================
+    // Quant-audit-remediation PR 1: Hull-White drift initial-curve fit (C2)
+    // ========================================================================
+
+    /// Behavioural regression for the audit's C2 finding.
+    ///
+    /// For a flat discount curve at rate `r_flat`, the HW1F model calibrated
+    /// to that curve must produce a short-rate process whose stationary mean
+    /// converges to `r_flat` — not to `κ·r_flat` (the pre-fix bug) and not
+    /// to any other scale-shifted value.
+    ///
+    /// Because the process uses the exact conditional-distribution stepper
+    /// (`ExactHullWhite1F`), we can verify this property analytically by
+    /// evaluating the drift at `r = r_flat` and `t → large`: it must vanish
+    /// within the small vol correction `σ²/(2κ²)·(1 − e^{−2κt})`.
+    ///
+    /// Pre-fix behaviour: with `κ = 0.2, r_flat = 5%`, the calibrator
+    /// returned `θ_HW ≈ κ·r_flat = 1%` and the drift at r = 5% was
+    /// `κ·(0.01 − 0.05) = −0.8%`/year — i.e., the model pulled hard toward
+    /// 1% instead of staying near 5%.
+    #[test]
+    fn hw_drift_vanishes_at_curve_level_for_flat_curve() {
+        let r_flat = 0.05_f64;
+        let kappa = 0.2_f64;
+        let sigma = 0.01_f64;
+
+        let discount_fn = |t: f64| (-r_flat * t).exp();
+        let times: Vec<f64> = vec![1.0, 2.0, 5.0, 10.0, 20.0];
+        let params = calibrate_theta_from_curve(kappa, sigma, discount_fn, &times);
+        let process = HullWhite1FProcess::new(params);
+
+        // Evaluate the drift at r = r_flat for several t. At large t the
+        // vol correction approaches σ²/(2κ²) = 1.25e-4, so the drift should
+        // be tiny.
+        let mut drift_buf = vec![0.0_f64];
+        for &t in &times {
+            process.drift(t, &[r_flat], &mut drift_buf);
+
+            // The expected drift at r = r_flat under the fix is
+            //     κ · (θ_Vas(t) − r_flat)
+            //   = κ · σ²/(2κ²)·(1 − e^{−2κt})
+            //   = σ²/(2κ)·(1 − e^{−2κt})
+            // which is O(σ²/κ), tiny for typical calibrations. Bound it
+            // with a generous tolerance (5 bp/year) that nevertheless
+            // rejects the pre-fix O(κ·r_flat) = 1%/year signal.
+            let expected_magnitude = (sigma * sigma) / (2.0 * kappa) * (1.0 - (-2.0 * kappa * t).exp());
+            let tolerance = 5e-4; // 5 bp/year — between pre-fix (~8e-3) and true (~2.5e-5)
+
+            assert!(
+                drift_buf[0].abs() < tolerance,
+                "HW1F drift at r=r_flat must be O(σ²/κ) = {:.2e}, got {:.2e} at t={}; \
+                 pre-fix C2 bug produced drift ≈ −0.008 here (pulling toward κ·r_flat)",
+                expected_magnitude,
+                drift_buf[0],
+                t,
+            );
+        }
+    }
+
+    /// Under the exact HW1F stepper, the conditional mean of r_{t+Δt} given
+    /// r_t = θ(t) is exactly θ(t) (no motion in expectation from the
+    /// stationary level). This test asserts the initial-curve-fit invariant
+    /// operationally: starting at r_0 = f(0, 0) and simulating with one
+    /// stateful draw of zero shocks, the rate stays at r_flat within the
+    /// vol-correction tolerance for a flat curve.
+    #[test]
+    fn hw_exact_step_from_curve_level_has_zero_expected_drift() {
+        use super::super::super::discretization::exact_hw1f::ExactHullWhite1F;
+        use super::super::super::traits::Discretization;
+
+        let r_flat = 0.05_f64;
+        let kappa = 0.2_f64;
+        let sigma = 0.01_f64;
+        let discount_fn = |t: f64| (-r_flat * t).exp();
+        let times: Vec<f64> = vec![0.5, 1.0, 2.0, 5.0, 10.0];
+        let params = calibrate_theta_from_curve(kappa, sigma, discount_fn, &times);
+        let process = HullWhite1FProcess::new(params);
+        let disc = ExactHullWhite1F::new();
+
+        // One step of dt = 1 from r_t = r_flat at several t values, with a
+        // zero shock. The result is the conditional expectation E[r_{t+dt} |
+        // r_t = r_flat] which, under a correctly-calibrated HW1F on a flat
+        // curve, should equal r_flat up to the vol correction.
+        for &t in &times {
+            let dt = 1.0_f64;
+            let mut x = vec![r_flat];
+            let z = vec![0.0_f64];
+            let mut work = vec![0.0_f64; disc.work_size(&process)];
+            disc.step(&process, t, dt, &mut x, &z, &mut work);
+
+            // Pre-fix: at r_flat = 5%, κ = 0.2, 1-step mean under θ = κ·r =
+            // 1% gives E[r_1] ≈ 0.05·e^{−0.2} + 0.01·(1 − e^{−0.2}) ≈ 0.0409
+            // — a 91 bp/year downward "rate decay". Post-fix: within ≤ 5 bp
+            // of r_flat (pure vol correction).
+            let deviation = (x[0] - r_flat).abs();
+            assert!(
+                deviation < 5e-4,
+                "Exact HW1F conditional mean drifted from curve level at t={}: \
+                 |r_1 − r_flat| = {:.6} (expected < 5bp). \
+                 Pre-fix C2 bug produced 91 bp/year downward drift here.",
+                t,
+                deviation
             );
         }
     }

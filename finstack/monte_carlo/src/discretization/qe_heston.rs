@@ -41,10 +41,18 @@ pub enum IntegratedVarianceMethod {
     /// unbiased simulation is required, a separate method variant should be
     /// added.
     ///
+    /// # Naming history
+    ///
+    /// Prior to quant-audit-remediation PR 1 this variant was named `Exact`,
+    /// which risked misleading callers into treating it as Broadie–Kaya-class
+    /// unbiased simulation (audit finding C3). The rename to
+    /// `MeanReversionAdjusted` names what the formula actually is: a drift-
+    /// corrected trapezoidal rule on the CIR integrated variance.
+    ///
     /// Reference: Andersen, L. (2008). "Simple and efficient simulation of
     /// the Heston stochastic volatility model." *Journal of Computational
     /// Finance*, 11(3), §3.5 and Eq. (33).
-    Exact,
+    MeanReversionAdjusted,
 }
 
 /// QE discretization for Heston model.
@@ -68,7 +76,7 @@ pub enum IntegratedVarianceMethod {
 /// Two methods are available:
 ///
 /// - [`IntegratedVarianceMethod::Trapezoidal`] (default): (v_t + v_{t+Δt}) / 2 × Δt
-/// - [`IntegratedVarianceMethod::Exact`]: Uses conditional expectation formula
+/// - [`IntegratedVarianceMethod::MeanReversionAdjusted`]: Uses conditional expectation formula
 ///
 /// The exact method is more accurate for high mean-reversion or coarse time steps.
 #[derive(Debug, Clone)]
@@ -106,7 +114,7 @@ impl QeHeston {
     /// };
     ///
     /// // Use exact integrated variance for high-kappa scenarios
-    /// let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::Exact);
+    /// let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::MeanReversionAdjusted);
     /// ```
     pub fn with_integrated_variance(mut self, method: IntegratedVarianceMethod) -> Self {
         self.int_var_method = method;
@@ -119,7 +127,7 @@ impl QeHeston {
     pub fn exact_variance() -> Self {
         Self {
             psi_c: 1.5,
-            int_var_method: IntegratedVarianceMethod::Exact,
+            int_var_method: IntegratedVarianceMethod::MeanReversionAdjusted,
         }
     }
 
@@ -185,7 +193,7 @@ impl QeHeston {
     fn integrated_variance(&self, v_t: f64, v_next: f64, dt: f64, kappa: f64, theta: f64) -> f64 {
         match self.int_var_method {
             IntegratedVarianceMethod::Trapezoidal => (v_t + v_next) / 2.0 * dt,
-            IntegratedVarianceMethod::Exact => {
+            IntegratedVarianceMethod::MeanReversionAdjusted => {
                 if (kappa * dt).abs() < KAPPA_DT_EXPANSION_EPS {
                     (v_t + v_next) / 2.0 * dt
                 } else {
@@ -456,7 +464,7 @@ mod tests {
     #[test]
     fn test_builder_pattern() {
         // Test that builder pattern works for configuring QE scheme
-        let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::Exact);
+        let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::MeanReversionAdjusted);
 
         // Verify it works without panics
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
