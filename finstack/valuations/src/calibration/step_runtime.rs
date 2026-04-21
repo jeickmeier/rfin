@@ -577,6 +577,12 @@ mod tests {
 
     #[test]
     fn hull_white_step_persists_both_kappa_and_sigma_scalars() {
+        // Generate internally-consistent HW1F quotes from (κ*, σ*) = (0.05, 0.01)
+        // on a 3-swaption grid so the calibrator's post-PR-5 κ-bounds
+        // check sees a realistic target, not a degenerate fit. The test's
+        // purpose is about output-key persistence (it checks that both
+        // `*_KAPPA` and `*_SIGMA` scalars are emitted), so the specific
+        // calibrated values don't matter as long as calibration succeeds.
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let params = StepParams::HullWhite(HullWhiteStepParams {
             curve_id: "USD-OIS".into(),
@@ -585,12 +591,27 @@ mod tests {
             initial_kappa: Some(0.04),
             initial_sigma: Some(0.008),
         });
+
+        // Build quotes by back-solving Bachelier vols from HW1F prices at
+        // κ* = 0.05, σ* = 0.01 on a flat 3% curve.
+        let df_fn = |t: f64| (-0.03 * t).exp();
+        let ppy = SwapFrequency::SemiAnnual.periods_per_year();
+        let synthesise = |expiry_y: f64, tenor_y: f64| -> f64 {
+            let (annuity, fwd) = crate::calibration::hull_white::compute_swap_annuity_and_rate(
+                &df_fn, expiry_y, tenor_y, ppy,
+            );
+            let price = crate::calibration::hull_white::hw1f_swaption_price(
+                0.05, 0.01, &df_fn, expiry_y, tenor_y, fwd, ppy,
+            );
+            (price / (annuity * (expiry_y / (2.0 * std::f64::consts::PI)).sqrt())).max(1e-6)
+        };
+
         let quotes = vec![
             MarketQuote::Vol(VolQuote::SwaptionVol {
                 expiry: Date::from_calendar_date(2026, Month::January, 1).expect("expiry"),
                 maturity: Date::from_calendar_date(2031, Month::January, 1).expect("maturity"),
                 strike: 0.03,
-                vol: 0.0050,
+                vol: synthesise(1.0, 5.0),
                 quote_type: "normal".to_string(),
                 convention: SwaptionConventionId::new("USD"),
             }),
@@ -598,7 +619,15 @@ mod tests {
                 expiry: Date::from_calendar_date(2027, Month::January, 1).expect("expiry"),
                 maturity: Date::from_calendar_date(2032, Month::January, 1).expect("maturity"),
                 strike: 0.03,
-                vol: 0.0060,
+                vol: synthesise(2.0, 5.0),
+                quote_type: "normal".to_string(),
+                convention: SwaptionConventionId::new("USD"),
+            }),
+            MarketQuote::Vol(VolQuote::SwaptionVol {
+                expiry: Date::from_calendar_date(2030, Month::January, 1).expect("expiry"),
+                maturity: Date::from_calendar_date(2035, Month::January, 1).expect("maturity"),
+                strike: 0.03,
+                vol: synthesise(5.0, 5.0),
                 quote_type: "normal".to_string(),
                 convention: SwaptionConventionId::new("USD"),
             }),
