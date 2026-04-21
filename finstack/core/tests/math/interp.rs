@@ -1147,6 +1147,195 @@ mod monotone_convex_specific {
         assert!(approx_eq(interp.interp(2.0), 0.9, 1e-12));
         assert!(approx_eq(interp.interp(3.0), 0.85, 1e-12));
     }
+
+    // ========================================================================
+    // Quant-audit-remediation PR 0: Hagan-West monotonicity projection (C1)
+    // ========================================================================
+    //
+    // Regression tests for the Hagan-West 2006 Figure 6 projection. The
+    // original implementation collapsed same-sign α, β scalings to
+    //     scale = fd_i.abs() / max(|α|, |β|)
+    // which over-flattens whenever fd_i is small (ZIRP) because the scale
+    // is driven by fd_i magnitude alone, not by the amount of negative
+    // excursion in f(x) = fd_i + g(x) on [0, 1].
+    //
+    // The corrected projection scales (α, β) by a single factor
+    //     η = fd_i / (fd_i - min_f)
+    // where min_f < 0 is the pre-adjustment minimum of f on the segment.
+    // This places (α', β') on the ray from origin through (α, β) at the
+    // exact boundary min(f) = 0, preserving the ratio α:β and therefore
+    // the shape of the segment forward.
+    //
+    // Reference: Hagan, P. S., & West, G. (2006). "Interpolation Methods
+    // for Curve Construction." Applied Mathematical Finance, 13(2), §6
+    // and Figure 6.
+
+    /// At a short-end knot with fd_i ≈ 10 bp and an opposite-sign deviation
+    /// pattern (α < 0, β > 0, |α| = |β|), the old code forced both knot
+    /// forwards to fd_i (loss of all slope information). The fixed code
+    /// preserves the slope: f[0] = 0, f[1] = 2·fd_i.
+    #[test]
+    fn zirp_preserves_curvature_at_left_boundary() {
+        // Construct a ZIRP-like humped short-end forward curve.
+        // Discrete forwards: fd = [10bp, 50bp, 10bp] on unit-tenor knots.
+        //   DF[0] = 1
+        //   DF[1] = exp(-fd[0])
+        //   DF[2] = DF[1] · exp(-fd[1])
+        //   DF[3] = DF[2] · exp(-fd[2])
+        let fd0 = 0.001_f64;
+        let fd1 = 0.005_f64;
+        let fd2 = 0.001_f64;
+        let df0 = 1.0_f64;
+        let df1 = df0 * (-fd0).exp();
+        let df2 = df1 * (-fd1).exp();
+        let df3 = df2 * (-fd2).exp();
+
+        let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
+        let dfs = vec![df0, df1, df2, df3].into_boxed_slice();
+        let interp =
+            new_strict!(MonotoneConvex, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+
+        // Probe the instantaneous forward at the left boundary via
+        //     f(0) = -DF'(0) / DF(0) = -interp_prime(0) / interp(0).
+        // With fd[0] = 10 bp and boundary extrapolation producing a negative
+        // raw f[0] = 1.5·fd[0] - 0.5·fd[1] = -10 bp, after projection:
+        //   Old code: forces f[0] = fd[0] = 10 bp (flat, curvature lost).
+        //   New code: eta = 0.5 so f[0] = 0 bp.
+        let df_at_0 = interp.interp(0.0);
+        let dfp_at_0 = interp.interp_prime(0.0);
+        let fwd_at_0 = -dfp_at_0 / df_at_0;
+
+        // Must be non-negative (the Hagan-West invariant).
+        assert!(
+            fwd_at_0 >= -1e-12,
+            "Forward at left boundary must be non-negative, got {}",
+            fwd_at_0
+        );
+
+        // Old buggy code returned 10 bp (fd[0]). Fixed code returns ~0 bp.
+        // Assert strictly less than 5 bp to catch the collapse-to-flat bug.
+        assert!(
+            fwd_at_0 < 0.0005,
+            "ZIRP curvature collapsed: f(0) = {:.6}, expected < 5bp. \
+             The old Hagan-West projection forced f[0] = fd[0] = 10 bp \
+             instead of projecting (α, β) to the feasibility boundary.",
+            fwd_at_0
+        );
+    }
+
+    /// Mirror of the left-boundary ZIRP test: at the right boundary the
+    /// same collapse-to-flat bug applied symmetrically. The fix preserves
+    /// the descending slope at the right end.
+    #[test]
+    fn zirp_preserves_curvature_at_right_boundary() {
+        let fd0 = 0.001_f64;
+        let fd1 = 0.005_f64;
+        let fd2 = 0.001_f64;
+        let df0 = 1.0_f64;
+        let df1 = df0 * (-fd0).exp();
+        let df2 = df1 * (-fd1).exp();
+        let df3 = df2 * (-fd2).exp();
+
+        let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
+        let dfs = vec![df0, df1, df2, df3].into_boxed_slice();
+        let interp =
+            new_strict!(MonotoneConvex, knots, dfs, ExtrapolationPolicy::FlatZero).unwrap();
+
+        let df_at_3 = interp.interp(3.0);
+        let dfp_at_3 = interp.interp_prime(3.0);
+        let fwd_at_3 = -dfp_at_3 / df_at_3;
+
+        assert!(
+            fwd_at_3 >= -1e-12,
+            "Forward at right boundary must be non-negative, got {}",
+            fwd_at_3
+        );
+        assert!(
+            fwd_at_3 < 0.0005,
+            "ZIRP curvature collapsed at right end: f(3) = {:.6}, expected < 5bp.",
+            fwd_at_3
+        );
+    }
+
+    /// The Hagan-West non-negativity invariant: for any arbitrage-free
+    /// discount curve, every interpolated forward on every segment must be
+    /// non-negative. This is the *reason* the monotonicity constraint
+    /// exists in the first place. A property-style test over a handful of
+    /// stressed curves.
+    #[test]
+    fn forward_rates_are_non_negative_on_stressed_curves() {
+        // Build several curves that have historically caused adjustment:
+        //   (a) ZIRP humped short end
+        //   (b) ZIRP inverted short end
+        //   (c) Steep front-loaded (2y at 8%, rest at 50bp)
+        //   (d) Near-flat micro-rate (all forwards ~5 bp)
+        let curves: [(&str, Vec<f64>, Vec<f64>); 4] = [
+            (
+                "zirp_humped",
+                vec![0.0, 1.0, 2.0, 3.0, 5.0],
+                forwards_to_dfs(&[0.001, 0.005, 0.001, 0.002], &[1.0, 1.0, 1.0, 2.0]),
+            ),
+            (
+                "zirp_inverted",
+                vec![0.0, 0.5, 1.0, 2.0, 5.0],
+                forwards_to_dfs(&[0.002, 0.001, 0.0005, 0.0003], &[0.5, 0.5, 1.0, 3.0]),
+            ),
+            (
+                "steep_front",
+                vec![0.0, 1.0, 2.0, 3.0, 5.0],
+                forwards_to_dfs(&[0.08, 0.01, 0.005, 0.005], &[1.0, 1.0, 1.0, 2.0]),
+            ),
+            (
+                "micro_rate",
+                vec![0.0, 1.0, 2.0, 5.0, 10.0],
+                forwards_to_dfs(&[0.0005, 0.0005, 0.0004, 0.0003], &[1.0, 1.0, 3.0, 5.0]),
+            ),
+        ];
+
+        for (name, knots, dfs) in &curves {
+            let interp = new_strict!(
+                MonotoneConvex,
+                knots.clone().into_boxed_slice(),
+                dfs.clone().into_boxed_slice(),
+                ExtrapolationPolicy::FlatZero
+            )
+            .unwrap_or_else(|e| panic!("Curve {name} failed to build: {e:?}"));
+
+            // Sample 41 points across the domain and compute forwards.
+            let first = *knots.first().unwrap();
+            let last = *knots.last().unwrap();
+            let steps = 41;
+            for i in 0..steps {
+                let t = first + (last - first) * (i as f64) / ((steps - 1) as f64);
+                let df = interp.interp(t);
+                let dfp = interp.interp_prime(t);
+                assert!(
+                    df > 0.0,
+                    "Curve {name}: DF({t}) = {df} not positive (arbitrage violation)"
+                );
+                let fwd = -dfp / df;
+                assert!(
+                    fwd >= -1e-10,
+                    "Curve {name}: forward at t={t} is negative ({fwd}); \
+                     Hagan-West non-negativity invariant violated"
+                );
+            }
+        }
+    }
+
+    /// Helper: build monotone-decreasing DFs from piecewise-constant forwards
+    /// over segments of the given widths. DF[0] = 1.
+    fn forwards_to_dfs(forwards: &[f64], widths: &[f64]) -> Vec<f64> {
+        assert_eq!(forwards.len(), widths.len());
+        let mut dfs = Vec::with_capacity(forwards.len() + 1);
+        dfs.push(1.0);
+        let mut df = 1.0;
+        for (f, w) in forwards.iter().zip(widths.iter()) {
+            df *= (-(*f) * (*w)).exp();
+            dfs.push(df);
+        }
+        dfs
+    }
 }
 
 // ============================================================================
