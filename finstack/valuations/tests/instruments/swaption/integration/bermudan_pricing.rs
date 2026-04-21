@@ -549,3 +549,120 @@ fn test_lsmc_pricer_key() {
         finstack_valuations::pricer::ModelKey::MonteCarloHullWhite1F
     );
 }
+
+// ============================================================================
+// Quant-audit remediation PR 3: Bermudan calibration gate (C6)
+// ============================================================================
+
+/// With `require_calibration()` set, pricing a Bermudan with the
+/// uncalibrated `HullWhiteParams::default()` must return a clear
+/// `ModelFailure` instead of silently producing a 10–30%-wrong price.
+/// Covers the tree path.
+#[test]
+fn test_tree_refuses_uncalibrated_default_when_require_calibration_set() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("valid");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("valid");
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
+        .with_tree_steps(50)
+        .require_calibration();
+
+    // Direct tree pricer call — no market context needed for this path
+    // because we expect early return on the uncalibrated guard. Use the
+    // dyn Pricer trait as the registry does.
+    let market = build_market_context();
+    let err = pricer
+        .price_dyn(&swaption, &market, as_of)
+        .expect_err("require_calibration should refuse uncalibrated default");
+    // The error message should mention calibration and cite the audit.
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("uncalibrated") || msg.contains("C6"),
+        "error message must reference calibration requirement: {msg}"
+    );
+}
+
+/// Same guarantee on the LSMC path.
+#[cfg(feature = "mc")]
+#[test]
+fn test_lsmc_refuses_uncalibrated_default_when_require_calibration_set() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("valid");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("valid");
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(1_000)
+        .require_calibration();
+
+    let market = build_market_context();
+    let err = pricer
+        .price_dyn(&swaption, &market, as_of)
+        .expect_err("require_calibration should refuse uncalibrated default on LSMC");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("uncalibrated") || msg.contains("C6"),
+        "error message must reference calibration requirement: {msg}"
+    );
+}
+
+/// Sanity: the permissive (non-require_calibration) path still prices
+/// successfully with the uncalibrated default. This preserves the
+/// existing direct-constructor behaviour for tests and bespoke
+/// workflows.
+#[cfg(feature = "mc")]
+#[test]
+fn test_permissive_default_still_prices_with_warning() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("valid");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("valid");
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let market = build_market_context();
+
+    // No require_calibration() — should succeed (with a tracing::warn!).
+    let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+        .with_mc_paths(1_000)
+        .with_seed(42);
+    let result = pricer
+        .price_dyn(&swaption, &market, as_of)
+        .expect("permissive default should still price");
+    assert!(
+        result.value.amount().is_finite(),
+        "permissive default must produce a finite price"
+    );
+}
+
+/// With a calibrated (non-default) HullWhiteParams, `require_calibration`
+/// should be transparent — pricing succeeds just as it would without
+/// the flag.
+#[cfg(feature = "mc")]
+#[test]
+fn test_require_calibration_with_explicit_params_prices_successfully() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("valid");
+    let first_exercise = Date::from_calendar_date(2027, Month::January, 1).expect("valid");
+    let swaption =
+        test_bermudan_swaption(swap_start, swap_end, first_exercise, 0.03, OptionType::Call);
+
+    let market = build_market_context();
+
+    // Explicitly-chosen params (not the 3% / 1% defaults).
+    let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::new(0.05, 0.012))
+        .with_mc_paths(1_000)
+        .with_seed(42)
+        .require_calibration();
+    let result = pricer
+        .price_dyn(&swaption, &market, as_of)
+        .expect("explicit params should be accepted under require_calibration");
+    assert!(result.value.amount().is_finite());
+}
