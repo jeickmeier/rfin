@@ -306,7 +306,8 @@ impl StudentTTarget {
             .with_metadata("tranche_instrument_id", &self.params.tranche_instrument_id)
             .with_metadata("calibrated_df", format!("{:.6}", calibrated_df))
             .with_metadata("df_bounds", format!("[{:.2}, {:.2}]", df_lo, df_hi))
-            .with_model_version("Student-t Copula Calibration v1.0");
+            // Version string centralized at `finstack_core::versions` (audit P3 #35).
+            .with_model_version(finstack_core::versions::STUDENT_T_COPULA);
         let mut report = report;
         report.update_solver_config(self.config.solver.clone());
 

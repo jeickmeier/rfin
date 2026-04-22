@@ -184,7 +184,8 @@ impl HazardCurveTarget {
         };
 
         let report = report
-            .with_model_version("ISDA Standard Model v1.8.2")
+            // Version string centralized at `finstack_core::versions` (audit P3 #35).
+            .with_model_version(finstack_core::versions::ISDA_STANDARD_MODEL)
             .with_metadata("calibration_type", "hazard_curve")
             .with_metadata("curve_id", params.curve_id.as_str())
             .with_metadata("entity", &params.entity);

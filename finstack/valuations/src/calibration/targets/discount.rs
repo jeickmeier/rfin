@@ -507,8 +507,9 @@ Global solve requires strictly increasing times.",
                 .insert("bootstrap_seed_error".to_string(), err);
         }
 
-        // Stamp model version and calibration metadata for audit trail
-        report.model_version = Some("Multi-curve OIS discounting v1.0".to_string());
+        // Stamp model version and calibration metadata for audit trail.
+        // Version string centralized at `finstack_core::versions` (audit P3 #35).
+        report.model_version = Some(finstack_core::versions::MULTI_CURVE_OIS_DISCOUNT.to_string());
         report
             .metadata
             .insert("calibration_type".to_string(), "discount_curve".to_string());

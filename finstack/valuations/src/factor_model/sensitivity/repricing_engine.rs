@@ -86,15 +86,16 @@ impl FullRepricingEngine {
 
         let mut profiles = Vec::with_capacity(factors.len());
         for factor in factors {
-            let bump_size = self
+            let (bump_size, bump_unit) = self
                 .bump_config
-                .bump_size_for_factor(&factor.id, &factor.factor_type);
+                .bump_size_with_unit_for_factor(&factor.id, &factor.factor_type);
             let mut position_pnls = Vec::with_capacity(self.scenario_grid.shifts().len());
 
             for &shift in self.scenario_grid.shifts() {
                 let bumped_market = market.bump(mapping_to_market_bumps(
                     &factor.market_mapping,
                     bump_size * shift,
+                    bump_unit,
                     as_of,
                 )?)?;
 

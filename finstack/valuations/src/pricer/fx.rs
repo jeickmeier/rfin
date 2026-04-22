@@ -83,6 +83,14 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
         ModelKey::FxBarrierBSContinuous,
         crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer,
     );
+    // Audit P2 #29: Vanna-Volga smile-corrected FX barrier. Defaults to a
+    // degenerate symmetric smile (equivalent to BS) until callers bind
+    // real market quotes via `FxBarrierOptionVannaVolgaPricer::with_quotes`.
+    registry.register(
+        InstrumentType::FxBarrierOption,
+        ModelKey::FxBarrierVannaVolga,
+        crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionVannaVolgaPricer::new(),
+    );
 
     // FX Digital Option
     registry.register(

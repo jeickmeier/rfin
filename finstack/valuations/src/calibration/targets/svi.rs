@@ -237,7 +237,8 @@ impl SviSurfaceTarget {
             true,
             "SVI surface calibration completed",
         )
-        .with_model_version("SVI v1.1 (Gatheral total-variance interpolation, audit P2 #28)");
+        // Version string centralized at `finstack_core::versions` (audit P3 #35).
+        .with_model_version(finstack_core::versions::SVI_SURFACE);
         report.update_solver_config(global_config.solver.clone());
 
         Ok((surface, report))

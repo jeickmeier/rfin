@@ -50,7 +50,7 @@ mod error;
 pub mod matching;
 mod types;
 
-pub use config::{BumpSizeConfig, FactorModelConfig, PricingMode, RiskMeasure};
+pub use config::{BumpSizeConfig, FactorBumpUnit, FactorModelConfig, PricingMode, RiskMeasure};
 pub use covariance::FactorCovarianceMatrix;
 pub use definition::{FactorDefinition, MarketMapping};
 pub use dependency::{CurveType, DependencyType, MarketDependency};

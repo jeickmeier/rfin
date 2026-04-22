@@ -69,6 +69,9 @@
 pub mod attribution;
 /// Book hierarchy and identifiers.
 pub mod book;
+/// Brinson-Fachler three-way benchmark-relative attribution with
+/// Carino linking (quant-audit P2 #27).
+pub mod brinson;
 /// Fluent portfolio construction helpers.
 pub mod builder;
 /// Tabular exports for portfolio results.

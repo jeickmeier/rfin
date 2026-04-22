@@ -387,7 +387,8 @@ pub fn calibrate_hull_white_to_swaptions(
         solution.stats.iterations,
         1e-6,
     )
-    .with_model_version("Hull-White 1F (Jamshidian decomposition, vega-weighted, multi-start)")
+    // Version string centralized at `finstack_core::versions` (audit P3 #35).
+    .with_model_version(finstack_core::versions::HULL_WHITE_1F)
     .with_metadata("kappa", format!("{kappa:.6}"))
     .with_metadata("sigma", format!("{sigma:.6}"))
     .with_metadata("initial_kappa", format!("{kappa_init:.6}"))

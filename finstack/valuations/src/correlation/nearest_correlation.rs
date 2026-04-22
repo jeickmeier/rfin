@@ -160,37 +160,40 @@ pub fn nearest_correlation_matrix(
 /// Project a symmetric matrix onto the PSD cone by zeroing negative
 /// eigenvalues (the Higham projection step).
 ///
-/// Audit P3 #34: spectral decomposition now uses `nalgebra::SymmetricEigen`
-/// (divide-and-conquer tridiagonal QR) instead of the previous hand-rolled
-/// Jacobi sweeps. The old Jacobi path capped at `100·n²` sweeps and each
-/// sweep was `O(n²)` for pivot search + `O(n)` per-rotation update,
+/// Audit P3 #34: spectral decomposition now delegates to
+/// [`finstack_core::math::linalg::symmetric_eigen`] (divide-and-conquer
+/// tridiagonal QR, `O(n³)`) instead of the previous hand-rolled Jacobi
+/// sweeps. The old Jacobi path capped at `100·n²` sweeps and each sweep
+/// was `O(n²)` for pivot search + `O(n)` per-rotation update,
 /// degenerating to roughly `O(n⁵)` for `n > 40` correlation matrices —
 /// enough to dominate Higham wall-time on portfolio-scale matrices.
-/// SymmetricEigen is `O(n³)` and pulls its numerics from the workspace's
-/// existing nalgebra dependency, so no new crates are introduced.
 fn project_psd(matrix: &[f64], n: usize) -> Vec<f64> {
     if n == 0 {
         return Vec::new();
     }
 
-    let a = nalgebra::DMatrix::from_fn(n, n, |i, j| matrix[i * n + j]);
-    let eig = nalgebra::SymmetricEigen::new(a);
+    // Defensive: `symmetric_eigen` only fails on shape mismatch; we
+    // already know `matrix.len() == n * n` here, but fall through to a
+    // zero matrix if the invariant is ever broken so callers observe a
+    // degenerate projection instead of a panic.
+    let Ok((eigenvalues, eigenvectors)) = finstack_core::math::linalg::symmetric_eigen(matrix, n)
+    else {
+        return vec![0.0; n * n];
+    };
 
     // Reconstruct using only non-negative eigenvalues: X = V · diag(max(λ, 0)) · Vᵀ.
-    // `eig.eigenvectors` is column-major in the eigenvector index — column `k`
-    // is the `k`-th eigenvector — so `eig.eigenvectors[(i, k)]` is the `i`-th
-    // component of the `k`-th eigenvector, matching the previous Jacobi
-    // convention.
+    // `eigenvectors[i * n + k]` is the `i`-th component of the `k`-th
+    // eigenvector, matching the previous Jacobi layout.
     let mut out = vec![0.0_f64; n * n];
     for i in 0..n {
         for j in i..n {
             let mut sum = 0.0_f64;
             for k in 0..n {
-                let lambda = eig.eigenvalues[k].max(0.0);
+                let lambda = eigenvalues[k].max(0.0);
                 if lambda == 0.0 {
                     continue;
                 }
-                sum += lambda * eig.eigenvectors[(i, k)] * eig.eigenvectors[(j, k)];
+                sum += lambda * eigenvectors[i * n + k] * eigenvectors[j * n + k];
             }
             out[i * n + j] = sum;
             out[j * n + i] = sum;
@@ -296,5 +299,47 @@ mod tests {
         let err = nearest_correlation_matrix(&input, 2, NearestCorrelationOpts::default())
             .expect_err("symmetry guard");
         assert!(matches!(err, Error::NotSymmetric { .. }));
+    }
+
+    /// Audit P3 #34: smoke test for the `n > 40` regime where the old
+    /// Jacobi eigensolver's `100·n²` sweep cap degenerated to roughly
+    /// `O(n⁵)`. With SymmetricEigen this runs in fractions of a second
+    /// and must still produce a valid correlation matrix.
+    #[test]
+    fn nearest_corr_scales_past_forty_dimensions() {
+        let n = 60;
+        // Construct a "near-correlation" matrix: identity plus a low-rank
+        // perturbation that makes some eigenvalues mildly negative.
+        let mut input = vec![0.0; n * n];
+        for i in 0..n {
+            input[i * n + i] = 1.0;
+            for j in (i + 1)..n {
+                let rho = 0.2 + 0.6 * ((i as f64 + 1.0) / (j as f64 + 1.0)); // off-diag > 1 sometimes
+                let rho = rho.clamp(-0.9, 0.9);
+                input[i * n + j] = rho;
+                input[j * n + i] = rho;
+            }
+        }
+
+        let opts = NearestCorrelationOpts {
+            max_iter: 400,
+            tol: 1e-9,
+        };
+        let repaired = nearest_correlation_matrix(&input, n, opts).expect("converges");
+
+        // Unit diagonal, symmetry, and PSD — the three invariants the
+        // projection must restore.
+        validate_correlation_matrix(&repaired, n).expect("valid correlation matrix");
+        for i in 0..n {
+            assert!(
+                (repaired[i * n + i] - 1.0).abs() < 1e-9,
+                "diag[{i}] = {}",
+                repaired[i * n + i]
+            );
+            for j in (i + 1)..n {
+                let d = (repaired[i * n + j] - repaired[j * n + i]).abs();
+                assert!(d < 1e-10, "asym at ({i},{j}): {d}");
+            }
+        }
     }
 }

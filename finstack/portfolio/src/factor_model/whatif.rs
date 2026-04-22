@@ -5,7 +5,7 @@ use crate::position::Position;
 use crate::types::PositionId;
 use crate::Portfolio;
 use finstack_core::dates::Date;
-use finstack_core::factor_model::FactorId;
+use finstack_core::factor_model::{FactorBumpUnit, FactorId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_valuations::factor_model::mapping_to_market_bumps;
@@ -176,9 +176,13 @@ impl<'a> WhatIfEngine<'a> {
                 .iter()
                 .find(|factor| factor.id == *factor_id)
                 .ok_or_else(|| Error::invalid_input(format!("Unknown factor '{}'", factor_id)))?;
+            // `factor_stress` shifts are specified in the factor's canonical
+            // unit (basis points for rates/credit, percent for equity/FX,
+            // absolute for vol) — see `FactorBumpUnit::canonical_for`.
             bumps.extend(mapping_to_market_bumps(
                 &factor.market_mapping,
                 *shift,
+                FactorBumpUnit::canonical_for(&factor.factor_type),
                 self.as_of,
             )?);
         }

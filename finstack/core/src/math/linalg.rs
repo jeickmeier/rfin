@@ -395,6 +395,69 @@ pub fn cholesky_correlation(
     Ok(CorrelationFactor::from_parts(l_orig, n, effective_rank))
 }
 
+// ─── Symmetric eigendecomposition (shared helper) ──────────────────────────────
+
+/// Symmetric eigendecomposition of an `n × n` matrix stored row-major.
+///
+/// Returns `(eigenvalues, eigenvectors)` where `eigenvectors[i * n + k]` is
+/// the `i`-th component of the `k`-th eigenvector — i.e. column-major in the
+/// eigenvector index, matching the convention used by
+/// [`apply_correlation`] and by most linear-algebra references.
+///
+/// The routine delegates to `nalgebra::SymmetricEigen` (divide-and-conquer
+/// tridiagonal QR, `O(n³)`), which is numerically stable for the symmetric-
+/// matrix case and significantly faster than hand-rolled Jacobi sweeps for
+/// `n > 30`. It tolerates non-positive-definite input — callers that need
+/// the PSD projection step can clamp negative eigenvalues before
+/// reconstructing.
+///
+/// # Errors
+///
+/// Returns [`CholeskyError::DimensionMismatch`] if `matrix.len() != n * n`.
+///
+/// # Example
+///
+/// ```
+/// use finstack_core::math::linalg::symmetric_eigen;
+///
+/// // Diagonal matrix: eigenvalues are the diagonal entries.
+/// let m = vec![2.0, 0.0, 0.0, 5.0];
+/// let (vals, _vecs) = symmetric_eigen(&m, 2).expect("symmetric");
+/// let mut sorted = vals.clone();
+/// sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+/// assert!((sorted[0] - 2.0).abs() < 1e-12);
+/// assert!((sorted[1] - 5.0).abs() < 1e-12);
+/// ```
+///
+/// Audit P3 #34: exposed as a shared helper so downstream crates
+/// (`finstack-valuations`, etc.) can replace their in-tree Jacobi eigen-
+/// solvers without pulling `nalgebra` in as a direct dependency.
+pub fn symmetric_eigen(
+    matrix: &[f64],
+    n: usize,
+) -> std::result::Result<(Vec<f64>, Vec<f64>), CholeskyError> {
+    if matrix.len() != n * n {
+        return Err(CholeskyError::DimensionMismatch {
+            expected: n,
+            actual: matrix.len(),
+        });
+    }
+    if n == 0 {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    let a = nalgebra::DMatrix::from_fn(n, n, |i, j| matrix[i * n + j]);
+    let eig = nalgebra::SymmetricEigen::new(a);
+    let eigenvalues: Vec<f64> = (0..n).map(|i| eig.eigenvalues[i]).collect();
+    let mut eigenvectors = vec![0.0_f64; n * n];
+    for i in 0..n {
+        for k in 0..n {
+            eigenvectors[i * n + k] = eig.eigenvectors[(i, k)];
+        }
+    }
+    Ok((eigenvalues, eigenvectors))
+}
+
 // ─── Generic (unpivoted) Cholesky — solver path ────────────────────────────────
 
 /// Cholesky decomposition of a correlation/covariance matrix.

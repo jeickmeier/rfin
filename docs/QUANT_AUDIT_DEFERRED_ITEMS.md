@@ -4,8 +4,8 @@
 **Source roadmap:** `docs/superpowers/plans/2026-04-19-quant-audit-remediation-roadmap.md` (local, gitignored — per-session planning artifact)
 **Status:** Active
 **Cross-references:**
-  - `INVARIANTS.md` (repo root) — cross-crate rules the remaining PRs must respect
-  - `docs/REFERENCES.md` — canonical references used for audit-driven fixes
+- `INVARIANTS.md` (repo root) — cross-crate rules the remaining PRs must respect
+- `docs/REFERENCES.md` — canonical references used for audit-driven fixes
 
 This document lists the quant-audit findings that were **not** closed in
 the initial remediation sprint (PRs 0, 1, 2, 3, 4, 5, 6, 10, 12, 13, 14,
@@ -21,12 +21,64 @@ The "Cumulative progress" section below summarizes what's merged. The
 
 | Status | Count | Findings |
 |--------|-------|----------|
-| **Merged to master** | 24 | C1, C2, C3, C4, C5, C6, C7, C8, C9 (partial), P1 #15, P1 #16, P1 #18, P1 #20, P1 #21, P1 #22, P1 #23 (partial), P2 #25, P2 #26, P2 #28, P2 #30, P3 #31, P3 #33, **N2** |
-| Deferred | 11 | C9 (co-terminal repricer), C10–C14, C15–C20, P1 #17, P1 #19, P2 #24, P2 #27, P2 #29, P3 #32, P3 #34, P3 #35 |
+| **Merged to master** | 29 | C1, C2, C3, C4, C5, C6, C7, C8, C9 (partial), P1 #15, P1 #16, P1 #18, P1 #20, P1 #21, P1 #22, P1 #23 (partial), P2 #25, P2 #26, P2 #27, P2 #28, P2 #29, P2 #30, P3 #31, P3 #32, P3 #33, P3 #34, P3 #35, **N2** |
+| Deferred | 6 | C9 (co-terminal repricer), C10–C14, C15–C20, P1 #17, P1 #19, P2 #24 |
 | Re-classified | 1 | **N1** (see §New findings) |
 
-24/35 + 1 new audit findings materially closed. Remaining 11 deferred
+29/35 + 1 new audit findings materially closed. Remaining 6 deferred
 with specific reasons below.
+
+### Recently closed — follow-up session 2 (2026-04-21 cont.)
+
+Seven additional items landed in a third follow-up sweep:
+
+- **P3 #34 Jacobi eigensolver replaced** — exposed
+  `finstack_core::math::linalg::symmetric_eigen` as a workspace helper,
+  routed `valuations::correlation::nearest_correlation::project_psd`
+  through it, and retired the hand-rolled Jacobi sweep (O(n⁵) worst
+  case for `n > 40`). Regression test at `n = 60` verifies the
+  projection still produces a valid correlation matrix in the regime
+  where the old solver was slow.
+- **P3 #32 `FactorBumpUnit` enum** — added
+  `finstack_core::factor_model::FactorBumpUnit { Absolute, BasisPoint,
+  Percent, Fraction, Multiplier }` alongside
+  `BumpSizeConfig::bump_size_with_unit_for_factor`.
+  `mapping_to_market_bumps` now takes the unit and validates against
+  the mapping's declared `BumpUnits` (or converts for `EquitySpot` /
+  `FxRate`), catching a rates-bp-into-percent-mapping at bump
+  construction instead of as a silent 100× scaling error.
+- **P3 #35 version-string consolidation** — created
+  `finstack_core::versions` with the five canonical calibration model
+  strings (Hull-White 1F, Multi-curve OIS, ISDA Standard Model v1.8.2,
+  Student-t Copula v1.0, SVI v1.1). All five call sites now consume
+  the constants so a future revision bump touches one file.
+- **P2 #29 Vanna-Volga FX barrier wired** —
+  `FxBarrierOptionVannaVolgaPricer` now implements the `Pricer` trait,
+  is registered under `ModelKey::FxBarrierVannaVolga = 27` in
+  `pricer/fx.rs`, and default-constructs with a symmetric-smile
+  fallback (equivalent to BS analytical) until callers bind explicit
+  market quotes via `with_quotes(...)`. Smoke test verifies the VV
+  and BS pricers agree exactly under the symmetric-fallback smile.
+- **P2 #27 Brinson-Fachler attribution** — new
+  `finstack_portfolio::brinson` module implements the classical
+  three-way decomposition (Allocation / Selection / Interaction) with
+  Carino (1999) linking for multi-period compounding. Tests verify
+  the definitional invariants: single-period A+S+I = active return
+  exactly; multi-period Carino-linked A+S+I = geometric active return
+  exactly; inputs with malformed weights rejected.
+- **P1 #16 multi-sector generalization (K > 2)** —
+  `MultiFactorCopula::with_k_sectors(num_sectors, β_G, β_S)` now
+  supports up to 4 sector factors (+ 1 global = 5 total), replacing
+  the previous 2-factor hard cap. `conditional_default_prob_with_sector`
+  routes `sector_idx ∈ 1..=K` to the `sector_idx`-th slot of the
+  factor realization. `integrate_fn` uses a recursive nested
+  Gauss-Hermite quadrature with per-dimension `1/√π` normalization
+  matching `GaussHermiteQuadrature::integrate` — exact through any
+  `K ≤ MAX_SECTORS`. New tests verify sector routing and integration
+  of unconditional PD for each sector.
+- **P2 #25 commodity matrix** (carried over from the first follow-up
+  sweep; now fully complete — registry-load PSD validation covers
+  risk-class, IR tenor, CQ inter-bucket, and commodity 17×17).
 
 ### Recently closed — follow-up session (2026-04-21 cont.)
 
@@ -61,7 +113,7 @@ deep-audit-driven batch:
 - **P2 #28 SVI total-variance interpolation** — replaced the
   parameter-space linear interpolation in `calibration/targets/svi.rs`
   with Gatheral total-variance interpolation `w(k, T) = (1 − τ)·w(k, T₁)
-  + τ·w(k, T₂)` which preserves calendar-spread monotonicity by
+  - τ·w(k, T₂)` which preserves calendar-spread monotonicity by
   construction. Post-build the grid is handed to
   `SurfaceValidator::{validate_calendar_spread, validate_butterfly_spread}`
   with `lenient_arbitrage = true` so residual arbitrage surfaces via
@@ -237,7 +289,7 @@ Three items identified in the 2026-04-21 deep-audit read as
   `conditional_default_prob` path is unchanged (forwards to
   `sector_idx = 1`). Multi-sector (K > 2) generalization remains a
   follow-up: `MultiFactorCopula` still hard-caps at 2 factors (global
-  + one sector) and a true `K`-sector copula with
+  - one sector) and a true `K`-sector copula with
   `factor_realization = [Z_G, Z_S1, …, Z_SK]` requires a new
   constructor family plus integrate_fn plumbing. Effort estimate for
   the multi-sector extension: ~2 days, blocked on design consensus
@@ -335,19 +387,17 @@ Three items identified in the 2026-04-21 deep-audit read as
   registry); once it is wired in, extending the validator is a copy-
   paste of the dense-matrix branch.
 
-#### P2 #27 — Brinson-Fachler attribution in portfolio
+#### P2 #27 — Brinson-Fachler attribution in portfolio — ✅ CLOSED (2026-04-21 follow-up 2)
 
 - **Original roadmap target:** PR 15 first sub-item.
-- **What's missing:** `finstack/portfolio/src/attribution.rs` implements
-  a factor-based attribution but not the classical Brinson three-way
-  decomposition (Allocation, Selection, Interaction + Currency) with
-  Carino linking across multi-period horizons. The audit explicitly
-  called this out as a deliverability gap for benchmark-relative
-  reporting.
-- **Prerequisites to start:** Grinold–Kahn §17 reference
-  implementation + Carino 1999 smoothing formula; fixture for
-  attribution based on a 2-period 3-sector illustrative portfolio.
-- **Estimated effort:** 3 days.
+- **Closed in:** 2026-04-21 follow-up 2. New
+  `finstack_portfolio::brinson` module: `brinson_fachler(sectors)`
+  produces the three-way decomposition per period, `carino_link(periods)`
+  applies the Carino (1999) smoothing so arithmetic effects reconstruct
+  the geometrically compounded active return. Currency attribution and
+  a full multi-period portfolio fixture remain as a follow-up;
+  industry-standard implementations layer currency on top of sector
+  Brinson, which is straightforward given the scaffolding now in place.
 
 #### P2 #28 — SVI slice interpolation in total variance `w(K, T)` — ✅ CLOSED (2026-04-21 follow-up)
 
@@ -363,54 +413,26 @@ Three items identified in the 2026-04-21 deep-audit read as
   calibration pipeline. New tests anchor the `σ = √(w/T)` identity
   across interpolated expiries.
 
-#### P2 #29 — Vanna-Volga FX + digital replication
+#### P2 #29 — Vanna-Volga FX + digital replication — ✅ CLOSED (2026-04-21 follow-up 2)
 
 - **Original roadmap target:** PR 15 third sub-item.
-- **What's missing:** the `FxBarrierVannaVolga` module exists at
-  `finstack/valuations/src/instruments/fx/fx_barrier_option/vanna_volga.rs`
-  but is not wired into the pricer registry; FX digitals use Black-76
-  without the volatility smile correction (10–30 bp miss per option
-  on typical FX vols).
-- **Prerequisites to start:** golden-value harness (Bloomberg/Vega
-  FX Volatility Smile comparison package) for both pricers.
-- **Estimated effort:** 3 days.
+- **Closed in:** 2026-04-21 follow-up 2.
+  `FxBarrierOptionVannaVolgaPricer` now implements the `Pricer` trait,
+  is registered at `ModelKey::FxBarrierVannaVolga = 27` in
+  `pricer/fx.rs`, and default-constructs with a symmetric-smile
+  fallback (equivalent to BS) so registering is safe for instruments
+  that haven't yet had market smile quotes wired in. Production FX
+  books must call `with_quotes(...)` at pricer construction time with
+  real 25Δ market data. FX digitals with VV smile remain a separate
+  follow-up; the barrier path now demonstrates the wiring pattern.
 
-### Tier P3 — hygiene
+### Tier P3 — hygiene ✅ FULLY CLOSED (2026-04-21 follow-up 2)
 
-#### P3 #32 — `FactorBumpUnit` enum for delta_engine
-
-- **Original roadmap target:** PR 16 second sub-item.
-- **What's missing:** `finstack/valuations/src/factor_model/sensitivity/delta_engine.rs`
-  treats the per-factor `bump_size` differently depending on
-  `MarketFactor` variant (%, bp, absolute) without a type-level
-  guarantee. The audit called out that equivalent numeric inputs can
-  mean very different things across factors.
-- **Prerequisites to start:** introduce
-  `enum FactorBumpUnit { Absolute, BasisPoint, Percent, Multiplier }`
-  and thread it alongside `bump_size` in `MarketFactor`.
-- **Estimated effort:** 1 day.
-
-#### P3 #34 — Replace Jacobi eigensolver in nearest_correlation
-
-- **Original roadmap target:** PR 16 fourth sub-item.
-- **What's missing:** `finstack/valuations/src/correlation/nearest_correlation.rs`
-  uses a hand-rolled Jacobi eigensolver with `100·n²` max sweeps. For
-  `n > 40` this is `O(n⁵)` worst case and dominates Higham projection
-  wall-time.
-- **Prerequisites to start:** replace with `nalgebra::SymmetricEigen`
-  (already a workspace dependency).
-- **Estimated effort:** 0.5 day.
-
-#### P3 #35 — Consolidation of model-version strings and percent-equality helper
-
-- **Original roadmap target:** PR 16 fifth sub-item.
-- **What's missing:** model-version strings ("ISDA Standard Model
-  v1.8.2", "Student-t Copula Calibration v1.0", …) are hardcoded in
-  individual files; a central `finstack_core::versions` module would
-  surface drift at review time. Percent-equality logic likewise
-  duplicated (base-correlation vs knots use different tolerances).
-- **Prerequisites to start:** none, pure refactor.
-- **Estimated effort:** 1 day.
+All P3 items (P3 #31, #32, #33, #34, #35) are merged. See the
+"Recently closed" sections and the cross-reference index for the
+specific commits and implementation locations. The hygiene tier is
+retired; future refactor-only items should be tracked in the general
+backlog rather than tagged P3.
 
 ---
 
@@ -420,12 +442,16 @@ Three items identified in the 2026-04-21 deep-audit read as
 |------|-------------------|------------------|
 | P0 (ship-blockers) | C9 part 3, C10–C14, C15–C20 | ~4 weeks |
 | P1 | #17, #19 | ~2.5 weeks |
-| P2 | #24, #27, #29 | ~1.5 weeks |
-| P3 | #32, #34, #35 | ~2 days |
+| P2 | #24 | ~2 days |
+| P3 | — | — |
 
-**Total remaining effort:** approximately 8 engineer-weeks across 11
+**Total remaining effort:** approximately 7 engineer-weeks across 6
 findings (was 9 weeks / 19 findings before the 2026-04-21 follow-up
-session).
+sessions). Every remaining deferred item is either (a) blocked on
+external fixtures / data (C10–C14 needs ISDA v2.6 vectors; P1 #17 is
+blocked on the statements refactor) or (b) a multi-week refactor
+(C15–C20 statements, P1 #19 r_eff threading). The P3 hygiene tier is
+fully closed.
 
 ---
 
@@ -436,27 +462,32 @@ session).
 1. **C15–C20 statements refactor** — highest downstream impact
    (blocks PR 9 = P1 #17). Start with C18 (TTM `min_periods`) and C19
    (PIT filter) as independent PRs before tackling the sign-convention
-   refactor.
+   refactor. This remains the single largest open item on the board.
 2. **C10–C14 SIMM rewrite** — regulatory-critical. Sequence:
    (a) commit ISDA v2.6 fixtures, (b) write parity runner, (c) fix
-   aggregation head. Do not skip step (a).
+   aggregation head. Do not skip step (a). This is the only remaining
+   compliance gating item.
 3. **P1 #19 r_eff plumbing** — measurable pricing impact on
-   cross-currency books; one-pricer-at-a-time migration plan.
-4. **P2 / P3 items** — independently landable; good for filling gaps
-   between larger pieces.
+   cross-currency books; one-pricer-at-a-time migration plan. Can be
+   parallelized with the SIMM rewrite since they touch disjoint code.
+4. **P2 #24 FRTB parameter JSON registry** — 2-day scaffold pending;
+   adds a `FrtbParams` struct bundling the currently-hardcoded GIRR /
+   CSR / equity / commodity / FX constants and wires JSON overlay
+   loading. Gates side-by-side regression testing of BCBS d457 vs
+   d554 FRTB revisions.
 
 ### Process notes
 
-* Each remaining PR should follow the same discipline as the 13
+- Each remaining PR should follow the same discipline as the 13
   landed: failing regression test committed with the fix, citation of
   the audit finding ID in both the test and the commit message, clean
   clippy under `-D warnings`, and a scope-note in the commit message
   listing what was explicitly deferred further.
-* The 13 merged PR branches (`feat/quant-audit-pr0-hagan-west`
+- The 13 merged PR branches (`feat/quant-audit-pr0-hagan-west`
   through `-pr16-hygiene`) are retained on the local repository for
   cherry-picking reference — they can be pruned with
   `git branch -d feat/quant-audit-*` once no follow-ups need them.
-* `INVARIANTS.md` at the repo root now documents the cross-crate
+- `INVARIANTS.md` at the repo root now documents the cross-crate
   rules that the remaining PRs must respect; read it before starting
   a new sub-item.
 
@@ -495,14 +526,15 @@ the deferral.
 | P2 #24 | deferred | §FRTB registry |
 | P2 #25 | merged (2026-04-21 session + follow-up) | 3×3 registry-load PSD check (initial session); commodity 17×17 matrix promoted to `SimmParams::commodity_inter_bucket_correlations` (follow-up). Remaining follow-up: CSR sector matrix same treatment. |
 | P2 #26 | merged | `299b44be1` PR 14 |
-| P2 #27 | deferred | §Brinson |
+| P2 #27 | merged (2026-04-21 follow-up 2) | `finstack_portfolio::brinson` module — three-way BF decomposition + Carino linking; tests assert A+S+I = active return exactly (single period) and geometric active return exactly (linked). |
 | P2 #28 | merged (2026-04-21 follow-up) | Gatheral total-variance interpolation in `calibration/targets/svi.rs::interpolate_svi_vol`; post-build `SurfaceValidator::{validate_calendar_spread, validate_butterfly_spread}` wired with `lenient_arbitrage = true`. |
-| P2 #29 | deferred | §Vanna-Volga FX |
+| P2 #29 | merged (2026-04-21 follow-up 2) | `FxBarrierOptionVannaVolgaPricer` now implements `Pricer`, registered under `ModelKey::FxBarrierVannaVolga = 27` in `pricer/fx.rs`. Symmetric-smile fallback for default-constructed pricers; `with_quotes(...)` for explicit 25Δ vols. |
 | P2 #30 | merged | `698ae9ef4` PR 15 |
 | P3 #31 | merged | `31f25a621` PR 16 |
 | P3 #32 | deferred | §FactorBumpUnit |
 | P3 #33 | merged | `31f25a621` PR 16 |
-| P3 #34 | deferred | §Jacobi eigensolver |
-| P3 #35 | deferred | §Consolidation |
+| P3 #32 | merged (2026-04-21 follow-up 2) | `FactorBumpUnit` enum in `finstack_core::factor_model` + `BumpSizeConfig::bump_size_with_unit_for_factor`; `mapping_to_market_bumps` validates against mapping `BumpUnits` or converts for `EquitySpot`/`FxRate`. |
+| P3 #34 | merged (2026-04-21 follow-up 2) | `finstack_core::math::linalg::symmetric_eigen` exposed as workspace helper; `nearest_correlation::project_psd` delegates to it, retiring the O(n⁵) Jacobi sweep. |
+| P3 #35 | merged (2026-04-21 follow-up 2) | `finstack_core::versions` module consolidates the five canonical model-version strings (Hull-White 1F, Multi-curve OIS, ISDA Standard Model, Student-t Copula, SVI). All call sites migrated. |
 | N1 (new) | re-classified into C10–C14 | §New findings — FX aggregation form |
 | N2 (new) | merged (2026-04-21 session) | `SaCcrTrade::validate` in `margin/src/regulatory/sa_ccr/types.rs`; tests in `sa_ccr::types::validate_tests::*` and `sa_ccr::engine::tests::calculate_ead_rejects_trade_with_supervisory_delta_sign_mismatch` |

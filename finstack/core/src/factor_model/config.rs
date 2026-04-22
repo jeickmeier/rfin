@@ -181,6 +181,13 @@ impl Default for BumpSizeConfig {
 
 impl BumpSizeConfig {
     /// Return the configured bump size for `factor_id`, checking overrides first.
+    ///
+    /// The returned `f64` is in the *canonical* units for the factor type:
+    /// basis points for rates/credit/inflation, percent for equity/commodity/FX,
+    /// absolute vol points for volatility. Callers that cannot statically
+    /// know the unit should use [`Self::bump_size_with_unit_for_factor`]
+    /// instead (audit P3 #32) — same numeric, but the unit flows through as
+    /// a [`FactorBumpUnit`] tag.
     #[must_use]
     pub fn bump_size_for_factor(&self, factor_id: &FactorId, factor_type: &FactorType) -> f64 {
         if let Some(&size) = self.overrides.get(factor_id) {
@@ -193,6 +200,104 @@ impl BumpSizeConfig {
             FactorType::Equity | FactorType::Commodity => self.equity_pct,
             FactorType::FX => self.fx_pct,
             FactorType::Volatility => self.vol_points,
+        }
+    }
+
+    /// Return the configured bump size along with its [`FactorBumpUnit`].
+    ///
+    /// Audit P3 #32: the previous bare-`f64` return obscured that the unit
+    /// depends on `factor_type` — a numeric value of `1.0` is 1 bp for a
+    /// rates factor but 1 % for an equity factor, and mixing the two up
+    /// silently produces a 100× error. This method carries the unit
+    /// alongside the magnitude so downstream bump-construction code can
+    /// validate or convert explicitly.
+    ///
+    /// Per-factor `overrides` inherit the factor-type's canonical unit —
+    /// if a user wants a non-canonical interpretation (e.g. an absolute
+    /// shift on a rates factor), introduce a new factor with a different
+    /// type or a `MarketMapping` that encodes the desired `BumpUnits`.
+    #[must_use]
+    pub fn bump_size_with_unit_for_factor(
+        &self,
+        factor_id: &FactorId,
+        factor_type: &FactorType,
+    ) -> (f64, FactorBumpUnit) {
+        let size = self.bump_size_for_factor(factor_id, factor_type);
+        (size, FactorBumpUnit::canonical_for(factor_type))
+    }
+}
+
+/// Unit semantics for a factor bump magnitude, carried alongside the
+/// numeric value returned by
+/// [`BumpSizeConfig::bump_size_with_unit_for_factor`].
+///
+/// Audit P3 #32. Previously the bump magnitude flowed through
+/// `BumpSizeConfig` and into `mapping_to_market_bumps` as a bare `f64`
+/// whose unit was only encoded implicitly in the field name (`rates_bp`,
+/// `equity_pct`, `vol_points`). A caller that threaded the value into
+/// an incompatible `MarketMapping` branch — e.g. a rates-bp magnitude
+/// into the `EquitySpot` path, which assumes percent — got a silent
+/// 100× scaling error. `FactorBumpUnit` makes the interpretation
+/// explicit and lets downstream code either validate against the
+/// mapping's expected unit or convert between units on the fly.
+///
+/// The variants intentionally mirror [`crate::market_data::bumps::BumpUnits`]
+/// plus `Absolute` (used by vol-point shifts where the magnitude is
+/// already a dimensionless number of vol points, not a fraction or
+/// percent of something).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum FactorBumpUnit {
+    /// Absolute dimensionless shift — e.g. vol points (`0.01` = one vol point).
+    Absolute,
+    /// Basis-point shift; `1.0` means 1 bp = 0.0001 fractional.
+    BasisPoint,
+    /// Percent shift; `1.0` means 1 % = 0.01 fractional.
+    Percent,
+    /// Direct fractional shift; `0.01` means 1 %.
+    Fraction,
+    /// Multiplicative factor on the base; `1.10` means +10 %.
+    Multiplier,
+}
+
+impl FactorBumpUnit {
+    /// Canonical unit for a given [`FactorType`].
+    ///
+    /// * Rates / Credit / Inflation / Custom → `BasisPoint` (matches
+    ///   `BumpSizeConfig::rates_bp`, `credit_bp`).
+    /// * Equity / Commodity / FX → `Percent` (matches
+    ///   `BumpSizeConfig::equity_pct`, `fx_pct`).
+    /// * Volatility → `Absolute` (vol points).
+    #[must_use]
+    pub fn canonical_for(factor_type: &FactorType) -> Self {
+        match factor_type {
+            FactorType::Rates
+            | FactorType::Credit
+            | FactorType::Inflation
+            | FactorType::Custom(_) => FactorBumpUnit::BasisPoint,
+            FactorType::Equity | FactorType::Commodity | FactorType::FX => FactorBumpUnit::Percent,
+            FactorType::Volatility => FactorBumpUnit::Absolute,
+        }
+    }
+
+    /// Convert a magnitude in this unit to a plain fraction (dimensionless
+    /// proportion of the base). Useful when a consumer only knows how to
+    /// apply fractional shifts, e.g. an equity-spot multiplier of
+    /// `1.0 + fraction`.
+    ///
+    /// `Multiplier` is returned unchanged — the fractional form doesn't
+    /// capture a multiplicative shock; callers that want that branch
+    /// should match on the variant explicitly.
+    #[must_use]
+    pub fn to_fraction(self, value: f64) -> f64 {
+        match self {
+            FactorBumpUnit::Absolute | FactorBumpUnit::Fraction => value,
+            FactorBumpUnit::BasisPoint => value * 1e-4,
+            FactorBumpUnit::Percent => value * 1e-2,
+            // Multiplier is not a linear shift; expose as-is for callers
+            // that know to build a multiplicative bump spec.
+            FactorBumpUnit::Multiplier => value,
         }
     }
 }

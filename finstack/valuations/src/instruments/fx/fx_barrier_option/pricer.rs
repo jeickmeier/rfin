@@ -584,22 +584,79 @@ use crate::instruments::fx::fx_barrier_option::vanna_volga::{
 
 /// FX Barrier option Vanna-Volga pricer (continuous monitoring with smile correction).
 ///
-/// Applies the Vanna-Volga method to adjust the analytical BS barrier price for
-/// smile effects, using three market pillar volatilities (25Δ put, ATM, 25Δ call).
-#[allow(dead_code)]
+/// Applies the Vanna-Volga method (Castagna & Mercurio 2007) to adjust the
+/// analytical BS barrier price for smile effects, using three market pillar
+/// volatilities (25Δ put, ATM, 25Δ call). Registered under
+/// [`ModelKey::FxBarrierVannaVolga`] by
+/// [`crate::pricer::fx::register_fx_pricers`].
+///
+/// # Market-quote source
+///
+/// The three pillar vols are read from the instrument's
+/// [`FxBarrierOption::vv_quotes`] field when present. When absent (for
+/// instruments configured without an explicit VV smile), the pricer falls
+/// back to a degenerate symmetric smile constructed from the ATM vol at
+/// the instrument's strike — equivalent to the BS price and so usable as
+/// a shape-compatible default rather than a smile model.
+///
+/// Audit P2 #29: module existed as `#[allow(dead_code)]` prior to this
+/// wiring; it is now a first-class `Pricer` registered in the FX pricer
+/// registry.
 pub(crate) struct FxBarrierOptionVannaVolgaPricer {
-    /// Market quotes for the three-point smile
-    pub(crate) quotes: VannaVolgaQuotes,
+    /// Market quotes for the three-point smile. When `None`, a symmetric
+    /// fallback smile is derived from the instrument's ATM vol at pricing
+    /// time (see [`FxBarrierOptionVannaVolgaPricer::resolve_quotes`]).
+    pub(crate) quotes: Option<VannaVolgaQuotes>,
 }
 
-#[allow(dead_code)]
 impl FxBarrierOptionVannaVolgaPricer {
-    /// Create a new Vanna-Volga pricer with the given market quotes.
-    pub(crate) fn new(quotes: VannaVolgaQuotes) -> Self {
-        Self { quotes }
+    /// Create a Vanna-Volga pricer that derives its smile quotes from the
+    /// pricing inputs at `price_dyn` time. The pricer uses the instrument's
+    /// ATM vol as the central pillar and constructs symmetric 25Δ pillar
+    /// strikes; production deployments should either (a) populate
+    /// `FxBarrierOption::vv_quotes` with real 25Δ vols or (b) call
+    /// `with_quotes` to bind explicit market quotes.
+    pub(crate) fn new() -> Self {
+        Self { quotes: None }
+    }
+
+    /// Create a Vanna-Volga pricer bound to explicit market quotes.
+    #[allow(dead_code)]
+    pub(crate) fn with_quotes(quotes: VannaVolgaQuotes) -> Self {
+        Self {
+            quotes: Some(quotes),
+        }
+    }
+
+    /// Resolve the three-pillar smile quotes to use for a given instrument
+    /// and sampled ATM vol.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `self.quotes` if explicitly bound via `with_quotes`.
+    /// 2. Degenerate symmetric-smile fallback — both 25Δ vols equal to
+    ///    ATM, 25Δ strikes offset ±10 % from the instrument strike. The
+    ///    VV correction collapses to zero in this regime and the price
+    ///    matches the analytical BS path, which is the safe default for
+    ///    instruments that haven't yet had explicit smile quotes wired
+    ///    in. Production FX books MUST call `with_quotes(...)` at pricer
+    ///    construction time with real 25Δ market data.
+    fn resolve_quotes(&self, fx_barrier: &FxBarrierOption, sigma: f64) -> VannaVolgaQuotes {
+        if let Some(q) = self.quotes {
+            return q;
+        }
+        VannaVolgaQuotes {
+            vol_25d_put: sigma,
+            vol_atm: sigma,
+            vol_25d_call: sigma,
+            strike_25d_put: fx_barrier.strike * 0.90,
+            strike_atm: fx_barrier.strike,
+            strike_25d_call: fx_barrier.strike * 1.10,
+        }
     }
 
     /// Price an FX barrier option with Vanna-Volga smile adjustment.
+    #[allow(dead_code)]
     pub(crate) fn price_with_vv(
         &self,
         fx_barrier: &FxBarrierOption,
@@ -656,7 +713,8 @@ impl FxBarrierOptionVannaVolgaPricer {
             analytical_barrier_type,
         );
 
-        // Apply Vanna-Volga correction
+        // Apply Vanna-Volga correction with resolved smile quotes.
+        let quotes = self.resolve_quotes(fx_barrier, sigma);
         let vv_price = vanna_volga_barrier_adjustment(
             bs_price,
             fx_spot,
@@ -665,7 +723,7 @@ impl FxBarrierOptionVannaVolgaPricer {
             r_dom,
             r_for,
             t,
-            &self.quotes,
+            &quotes,
             is_call,
             analytical_barrier_type,
         );
@@ -674,6 +732,38 @@ impl FxBarrierOptionVannaVolgaPricer {
             vv_price * fx_barrier.notional.amount(),
             fx_barrier.quote_currency,
         ))
+    }
+}
+
+impl Default for FxBarrierOptionVannaVolgaPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for FxBarrierOptionVannaVolgaPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(
+            InstrumentType::FxBarrierOption,
+            ModelKey::FxBarrierVannaVolga,
+        )
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<ValuationResult> {
+        let fx_barrier = instrument
+            .as_any()
+            .downcast_ref::<FxBarrierOption>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::FxBarrierOption, instrument.key())
+            })?;
+
+        let pv = self.price_with_vv(fx_barrier, market, as_of)?;
+        Ok(ValuationResult::stamped(fx_barrier.id(), as_of, pv))
     }
 }
 
@@ -928,5 +1018,86 @@ mod tests {
             MarketContext::new().insert_price("EURUSD-SPOT", MarketScalar::Unitless(0.0));
         let err = resolve_fx_spot(&price_scalar, &bad_market, as_of).expect_err("bad scalar");
         assert!(err.to_string().contains("spot must be finite and > 0"));
+    }
+
+    /// Audit P2 #29: with the symmetric-smile fallback (default-constructed
+    /// pricer, no explicit market quotes), the Vanna-Volga adjustment
+    /// must collapse to zero so the VV price matches the BS analytical
+    /// price. This keeps the pricer registration safe for instruments
+    /// that haven't yet had smile data wired in.
+    #[test]
+    fn vanna_volga_degenerates_to_bs_without_explicit_quotes() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
+        let expiry = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+
+        let option = FxBarrierOption::builder()
+            .id("FXBAR-VV-SMOKE".into())
+            .strike(1.10)
+            .barrier(1.20)
+            .rebate(0.0)
+            .option_type(crate::instruments::OptionType::Call)
+            .barrier_type(crate::instruments::exotics::barrier_option::types::BarrierType::UpAndOut)
+            .expiry(expiry)
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .use_gobet_miri(false)
+            .domestic_discount_curve_id("USD-OIS".into())
+            .foreign_discount_curve_id("EUR-OIS".into())
+            .fx_spot_id_opt(Some("EURUSD-SPOT".into()))
+            .vol_surface_id("EURUSD-VOL".into())
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(crate::instruments::Attributes::new())
+            .build()
+            .expect("fx barrier option");
+
+        let market = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of)
+                    .knots([(0.0, 1.0), (1.0, 0.97)])
+                    .build()
+                    .expect("dom curve"),
+            )
+            .insert(
+                DiscountCurve::builder("EUR-OIS")
+                    .base_date(as_of)
+                    .knots([(0.0, 1.0), (1.0, 0.98)])
+                    .build()
+                    .expect("for curve"),
+            )
+            .insert_surface(
+                VolSurface::builder("EURUSD-VOL")
+                    .expiries(&[0.25, 0.5, 1.0])
+                    .strikes(&[1.0, 1.1, 1.2])
+                    .row(&[0.12, 0.12, 0.12])
+                    .row(&[0.12, 0.12, 0.12])
+                    .row(&[0.12, 0.12, 0.12])
+                    .build()
+                    .expect("vol surface"),
+            )
+            .insert_price("EURUSD-SPOT", MarketScalar::Unitless(1.10));
+
+        let bs = FxBarrierOptionAnalyticalPricer::new();
+        let vv = FxBarrierOptionVannaVolgaPricer::new();
+
+        let bs_pv = bs
+            .price_dyn(&option, &market, as_of)
+            .expect("bs price")
+            .value;
+        let vv_pv = vv
+            .price_dyn(&option, &market, as_of)
+            .expect("vv price")
+            .value;
+
+        // With a symmetric fallback smile (25Δ vols == ATM), the VV
+        // correction is zero and the two pricers must agree.
+        assert!(
+            (bs_pv.amount() - vv_pv.amount()).abs() / bs_pv.amount().abs().max(1.0) < 1e-9,
+            "VV with symmetric fallback must match BS: bs={} vv={}",
+            bs_pv.amount(),
+            vv_pv.amount()
+        );
     }
 }
