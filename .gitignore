@@ -100,7 +100,6 @@ finstack-py/examples/outputs/
 .audit/
 
 # LLM
-.windsurf/
 .zencoder/
 .zenflow/
 .codex/

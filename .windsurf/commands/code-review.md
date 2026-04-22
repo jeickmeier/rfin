@@ -1,0 +1,1 @@
+Do a detailed code review on attached code. Rate the quality of the code on a 5 scale and make any important recommendations to improve the code. We do not want to over-engineer the library so aim for simplicity / conciseness.
