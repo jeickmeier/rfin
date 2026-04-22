@@ -546,11 +546,10 @@ impl ScenarioEngine {
     ///
     /// Currently the only compose-time-detectable pathology is the
     /// presence of more than one `OperationSpec::TimeRollForward`
-    /// across the composed scenarios (quant-audit PR 13 / finding
-    /// P1 #23). The apply phase already rejects this case, but doing
-    /// so at compose time gives callers a deterministic error-handling
-    /// point before they build out the rest of their execution
-    /// pipeline.
+    /// across the composed scenarios. The apply phase already rejects
+    /// this case, but doing so at compose time gives callers a
+    /// deterministic error-handling point before they build out the
+    /// rest of their execution pipeline.
     ///
     /// Production callers should prefer this method; the permissive
     /// [`compose`](Self::compose) is retained for backwards-compatible
@@ -571,8 +570,7 @@ impl ScenarioEngine {
                 "Compose would produce {} TimeRollForward operations; only \
                  one is allowed per composed scenario. Merge the roll \
                  periods into a single `TimeRollForward` (preferred) or \
-                 remove the duplicates before calling compose. \
-                 (quant-audit P1 #23)",
+                 remove the duplicates before calling compose.",
                 time_roll_count,
             )));
         }
@@ -1133,7 +1131,7 @@ mod tests {
     }
 
     // ========================================================================
-    // Quant-audit remediation PR 13: compose-time TimeRoll dedup (P1 #23)
+    // Compose-time TimeRoll dedup
     // ========================================================================
 
     /// Two scenarios each carrying a `TimeRollForward` must not silently

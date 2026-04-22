@@ -267,12 +267,11 @@ pub fn calibrate_hull_white_to_swaptions(
     let mut market_prices = Vec::with_capacity(n_quotes);
     let mut annuities = Vec::with_capacity(n_quotes);
     let mut fwd_swap_rates = Vec::with_capacity(n_quotes);
-    // Per-quote vega weights (∂price/∂σ) used to convert price residuals
-    // into dimensionless vol-residuals. Quant-audit PR 5 (finding C8)
-    // replaced the pre-fix unweighted price residual with this
-    // vega-weighted form so that mixed-expiry co-terminal grids stop
-    // letting long-dated quotes (large annuities → large prices)
-    // dominate the objective and push κ → 0.
+    // Per-quote vega weights (∂price/∂σ) used to convert price
+    // residuals into dimensionless vol-residuals. The vega-weighted
+    // form prevents long-dated quotes (large annuities → large prices)
+    // from dominating the objective and pushing κ → 0 on mixed-expiry
+    // co-terminal grids.
     let mut vegas = Vec::with_capacity(n_quotes);
     // Vega floor: 1 bp of annuity-year. Protects against division by a
     // near-zero vega at extreme expiries or zero quoted vol.
@@ -338,9 +337,7 @@ pub fn calibrate_hull_white_to_swaptions(
     // Halton multi-start: 5 deterministic restarts around x0 with 50%
     // perturbation scale. Keeps the solution with the lowest weighted
     // residual norm, escaping local minima that a single LM run is
-    // prone to on HW1F's (κ, σ) objective surface. Uses the shared
-    // `calibration::solver::multi_start` helpers introduced in
-    // quant-audit PR 4.
+    // prone to on HW1F's (κ, σ) objective surface.
     use crate::calibration::solver::multi_start::perturb_initial_guess;
     const NUM_RESTARTS: usize = 5;
     const PERTURB_SCALE: f64 = 0.5;
@@ -387,7 +384,6 @@ pub fn calibrate_hull_white_to_swaptions(
         solution.stats.iterations,
         1e-6,
     )
-    // Version string centralized at `finstack_core::versions` (audit P3 #35).
     .with_model_version(finstack_core::versions::HULL_WHITE_1F)
     .with_metadata("kappa", format!("{kappa:.6}"))
     .with_metadata("sigma", format!("{sigma:.6}"))
@@ -396,7 +392,7 @@ pub fn calibrate_hull_white_to_swaptions(
     .with_metadata("multi_start_restarts", NUM_RESTARTS.to_string())
     .with_metadata(
         "residual_weighting",
-        "1/vega (vega-weighted price residual, PR-5 / audit C8)".to_string(),
+        "1/vega (vega-weighted price residual)".to_string(),
     )
     .with_metadata("swap_frequency", format!("{frequency:?}"));
 

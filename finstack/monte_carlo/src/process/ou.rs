@@ -20,8 +20,7 @@
 //! which `θ_BM` is **not** the stationary level but `κ` times the
 //! stationary level. Both conventions are valid, but they are not
 //! interchangeable: feeding a `θ_BM`-convention value into the drift
-//! `κ·(θ - r)` gives a stationary mean off by a factor of κ (audit
-//! finding C2, fixed in PR 1 of the quant-audit-remediation roadmap).
+//! `κ·(θ - r)` gives a stationary mean off by a factor of κ.
 //!
 //! This crate exclusively uses the Vasicek-style mean-reversion-level
 //! convention. The calibrator [`calibrate_theta_from_curve`] produces θ
@@ -209,9 +208,8 @@ pub type VasicekProcess = HullWhite1FProcess;
 /// Brigo–Mercurio form `θ_HW(t) = ∂f/∂t + κ·f(0,t) + σ²/(2κ)·(1-e^{-2κt})`
 /// used with the drift form `(θ_HW(t) - κ·r)dt`, via `θ_Vas = θ_HW / κ`.
 /// The two forms give identical dynamics when θ is interpreted
-/// consistently with the drift; mixing them (as this crate did prior to
-/// PR 1 of the quant-audit remediation, audit finding C2) produces a
-/// stationary mean off by a factor of κ.
+/// consistently with the drift; mixing them produces a stationary mean
+/// off by a factor of κ.
 ///
 /// For a flat curve at rate `r_flat`: ∂f/∂t = 0 and f(0,t) = r_flat, so
 /// θ(t) = r_flat + σ²/(2κ²)·(1 − e^{−2κt}) ≈ r_flat.
@@ -540,10 +538,9 @@ mod tests {
         //
         //   θ_Vas(t) = r_flat + σ²/(2κ²)·(1 - e^{−2κt}).
         //
-        // (Pre-PR-1 this test asserted the BM 3.35 θ_HW formula directly;
-        // that was the source of audit finding C2 — feeding θ_HW into the
-        // `κ·(θ - r)` drift form gave a stationary mean of κ·r_flat instead
-        // of r_flat.)
+        // The BM 3.35 θ_HW formula used directly with the Vasicek-style
+        // `κ·(θ - r)` drift form produces a stationary mean of κ·r_flat
+        // instead of r_flat — the two θ conventions must not be mixed.
         for &t in &times {
             if t < 1e-8 {
                 continue; // Skip t=0 where FD approximation is poorest
@@ -562,10 +559,11 @@ mod tests {
     }
 
     // ========================================================================
-    // Quant-audit-remediation PR 1: Hull-White drift initial-curve fit (C2)
+    // Hull-White drift initial-curve fit
     // ========================================================================
 
-    /// Behavioural regression for the audit's C2 finding.
+    /// Behavioural regression for the Vasicek / Brigo-Mercurio θ
+    /// convention split.
     ///
     /// For a flat discount curve at rate `r_flat`, the HW1F model calibrated
     /// to that curve must produce a short-rate process whose stationary mean

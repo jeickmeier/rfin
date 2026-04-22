@@ -341,10 +341,10 @@ impl GlobalFitOptimizer {
 }
 
 // The Halton multi-start helpers (`halton`, `perturb_initial_guess`, and
-// `MultiStartConfig`) were extracted to `super::multi_start` in
-// quant-audit remediation PR 4 so that sibling calibration targets can
-// reuse the same deterministic perturbation strategy. See that module
-// for documentation, references, and unit tests.
+// `MultiStartConfig`) live in `super::multi_start` so sibling
+// calibration targets can reuse the same deterministic perturbation
+// strategy. See that module for documentation, references, and unit
+// tests.
 
 type SingleSolveResult = (
     Vec<f64>,

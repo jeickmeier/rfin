@@ -357,23 +357,52 @@ Three items identified in the 2026-04-21 deep-audit read as
   proceed until PR 7b (even in minimal-viable form) lands first.
 - **Estimated effort:** 3 days after PR 7b completes.
 
-#### P1 #19 — `r_eff` two-clock plumbing across barrier / asian / fx pricers
+#### P1 #19 — `r_eff` two-clock plumbing across barrier / asian / fx pricers — 🟡 IN PROGRESS (2026-04-21 session)
 
 - **Original roadmap target:** PR 11.
-- **Why deferred:** the `r_eff = -ln(DF)/t_vol` pattern spans **12+
+- **Why deferred:** the `r_eff = -ln(DF)/t_vol` pattern spans **~20
   call sites** across `finstack/valuations/src/instruments/exotics/`
   and `.../fx/`, and proper remediation requires threading **both**
   `t_disc` and `t_vol` through each pricer's entry point with
   per-pricer day-count audit. Without per-pricer golden values to
   verify the drift correction, a blanket replacement could silently
   shift prices in the wrong direction.
-- **Prerequisites to start:**
+- **Progress (2026-04-21):**
+  1. ✅ `TwoClockParams { t_disc, t_vol, df }` helper introduced at
+     `finstack/valuations/src/instruments/common/two_clock.rs` with
+     unit tests covering the same-DC invariant
+     (`r_disc == r_eff_legacy`), the mismatch case, and degenerate
+     inputs.
+  2. ✅ Proof-of-concept migration of
+     `finstack/valuations/src/instruments/exotics/barrier_option/pricer.rs`
+     (both `price_internal` and `price_with_lrm_greeks_internal` call
+     sites). Added
+     `two_clock_migration_drift_respects_curve_day_count` regression
+     test that prices the same barrier under Act/365F vs Act/360
+     curves and asserts the prices differ measurably — a migration
+     witness that pre-migration code could not produce.
+  3. ⏳ Remaining call sites tracked for follow-up PRs (each gets its
+     own PR with matching regression test):
+     - `exotics/asian_option/pricer.rs:105-111, 571-575`
+     - `exotics/lookback_option/pricer.rs:81, 374`
+     - `exotics/barrier_option/heston_mc_pricer.rs:114`
+     - `exotics/barrier_option/pde_pricer.rs:178`
+     - `fx/fx_option/pricer.rs:134-135, 199-200`
+     - `fx/fx_digital_option/pricer.rs:145-146`
+     - `fx/fx_touch_option/pricer.rs:97-98`
+     - `fx/fx_barrier_option/pricer.rs:87, 96, 394, 402`
+     - `fx/fx_variance_swap/pricer.rs:298-299`
+     - `fixed_income/convertible/pricer.rs:821`
+     - `fixed_income/bond/pricing/pricer/merton_mc.rs:83, 237`
+     - `fixed_income/mbs_passthrough/metrics/mc_oas.rs:304, 315`
+- **Prerequisites to close remaining sites:**
   1. Assemble per-pricer QuantLib-Python golden values at varying
-     day-count combinations.
-  2. Introduce a `TwoClockParams { t_disc, t_vol, df }` helper struct
-     in `finstack/valuations/src/instruments/common/helpers/`.
-  3. Migrate pricers one at a time; each pricer gets its own PR.
-- **Estimated effort:** 2–3 days per pricer × ~6 pricers ≈ 2 weeks.
+     day-count combinations (still outstanding).
+  2. Migrate pricers one at a time; each pricer gets its own PR.
+- **Estimated remaining effort:** 1–2 days per pricer × ~13 sites ≈
+  2–3 weeks with golden values; without them, each migration relies
+  on the same-DC invariant test and a pair of Act/360 vs Act/365F
+  witness prices.
 
 #### P1 #21 — ISDA 2021 overnight observation-shift semantics — ✅ CLOSED (2026-04-21 session + follow-up)
 

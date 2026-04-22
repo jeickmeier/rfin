@@ -508,7 +508,6 @@ Global solve requires strictly increasing times.",
         }
 
         // Stamp model version and calibration metadata for audit trail.
-        // Version string centralized at `finstack_core::versions` (audit P3 #35).
         report.model_version = Some(finstack_core::versions::MULTI_CURVE_OIS_DISCOUNT.to_string());
         report
             .metadata

@@ -19,10 +19,6 @@
 //! [`SurfaceValidator::validate_butterfly_spread`] so any residual
 //! arbitrage in the calibrated slices surfaces as a structured
 //! `Error::Validation` rather than propagating silently into pricing.
-//!
-//! Audit P2 #28 (closed): previously used parameter-space linear
-//! interpolation in [`interpolate_svi_params`] without post-fit arbitrage
-//! validation, admitting calendar-spread arbitrage in the produced surface.
 
 use crate::calibration::api::schema::SviSurfaceParams;
 use crate::calibration::config::CalibrationConfig;
@@ -217,8 +213,8 @@ impl SviSurfaceTarget {
             &grid,
         )?;
 
-        // Audit P2 #28: after Gatheral total-variance interpolation, sanity-
-        // check the produced grid for calendar-spread and butterfly
+        // After Gatheral total-variance interpolation, sanity-check
+        // the produced grid for calendar-spread and butterfly
         // arbitrage. `lenient_arbitrage = true` so a borderline surface
         // does not fail a running calibration pipeline outright, but any
         // violation emits a tracing warning through the validation
@@ -237,7 +233,6 @@ impl SviSurfaceTarget {
             true,
             "SVI surface calibration completed",
         )
-        // Version string centralized at `finstack_core::versions` (audit P3 #35).
         .with_model_version(finstack_core::versions::SVI_SURFACE);
         report.update_solver_config(global_config.solver.clone());
 
@@ -260,10 +255,10 @@ impl SviSurfaceTarget {
 /// slice's `implied_vol` — the standard approach when there's no data to
 /// constrain the surface beyond the outermost expiries.
 ///
-/// Audit P2 #28: the previous parameter-space interpolation (linear in
-/// `a`, `b`, `ρ`, `m`, `σ`) made no calendar-spread guarantees; Gatheral
-/// (2004, 2013) showed this admits calendar arbitrage under common
-/// calibration conditions.
+/// A naive parameter-space interpolation (linear in `a`, `b`, `ρ`,
+/// `m`, `σ`) makes no calendar-spread guarantees; Gatheral (2004,
+/// 2013) showed this admits calendar arbitrage under common calibration
+/// conditions, which motivates the total-variance form used here.
 fn interpolate_svi_vol(
     target_expiry: f64,
     log_moneyness: f64,
@@ -401,7 +396,7 @@ mod tests {
         assert!(err.to_string().to_lowercase().contains("strike"));
     }
 
-    /// Audit P2 #28: `interpolate_svi_vol` must do Gatheral total-variance
+    /// `interpolate_svi_vol` must do Gatheral total-variance
     /// interpolation, not parameter-space linear interpolation. Two slices
     /// at T1=0.5, T2=1.0 with identical ATM total variance (w=0.04) must
     /// yield σ(k=0, T=0.75) consistent with `√(w/T) = √(0.04/0.75)`, not

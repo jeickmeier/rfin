@@ -194,13 +194,12 @@ impl StudentTCopula {
     /// Standard Gauss-Laguerre (α=0) integrates ∫ h(u) exp(-u) du, so each
     /// weight must include the u^{ν/2-1} / Γ(ν/2) correction.
     ///
-    /// Audit P1 #15: nodes and weights are now computed at runtime via the
-    /// Golub-Welsch algorithm ([`GaussLaguerreQuadrature`]) rather than
-    /// read from a hardcoded 10-node table. A caller requesting
-    /// `with_quadrature_order(n > 10)` now actually receives an `n`-node
-    /// rule (up to [`MAX_LAGUERRE_ORDER`]); previously the request was
-    /// silently truncated at 10 nodes, under-resolving tail integrals for
-    /// heavy-tailed Student-t copulas with ν ≤ 5.
+    /// Nodes and weights are computed at runtime via the Golub-Welsch
+    /// algorithm ([`GaussLaguerreQuadrature`]); a caller requesting
+    /// `with_quadrature_order(n)` receives an `n`-node rule up to
+    /// [`MAX_LAGUERRE_ORDER`]. The earlier hardcoded 10-node table
+    /// under-resolved tail integrals for heavy-tailed Student-t
+    /// copulas with ν ≤ 5.
     fn compute_gamma_quadrature(nu: f64, n: usize) -> Vec<(f64, f64)> {
         let effective_n = n.clamp(MIN_LAGUERRE_ORDER, MAX_LAGUERRE_ORDER);
         // Fall back to the canonical 10-node rule if the Golub-Welsch step
@@ -253,10 +252,10 @@ impl StudentTCopula {
 const MIN_LAGUERRE_ORDER: usize = 10;
 
 /// Upper bound on the Gauss-Laguerre order accepted by the Student-t
-/// copula (audit P1 #15). `O(n²)` eigendecomposition inside
-/// [`GaussLaguerreQuadrature::new`] remains cheap below this bound; above
-/// it, numerical conditioning of the Jacobi matrix starts to erode
-/// reliable weight recovery for the highest-index nodes.
+/// copula. `O(n²)` eigendecomposition inside
+/// [`GaussLaguerreQuadrature::new`] remains cheap below this bound;
+/// above it, numerical conditioning of the Jacobi matrix starts to
+/// erode reliable weight recovery for the highest-index nodes.
 const MAX_LAGUERRE_ORDER: usize = 64;
 
 impl Copula for StudentTCopula {
@@ -639,10 +638,9 @@ mod tests {
         }
     }
 
-    /// Audit P1 #15: `with_quadrature_order(n)` used to silently cap at
-    /// 10 nodes because the gamma-quadrature was a hardcoded 10-node
-    /// table. After the Golub-Welsch migration, requesting a larger
-    /// order must actually use a larger rule.
+    /// Requesting `with_quadrature_order(n)` with `n > 10` must
+    /// actually produce a larger rule (the Golub-Welsch runtime
+    /// generator replaces a historical hardcoded 10-node cap).
     #[test]
     fn test_with_quadrature_order_uses_requested_order() {
         let df = 5.0;

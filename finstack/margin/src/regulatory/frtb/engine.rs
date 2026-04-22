@@ -18,6 +18,10 @@ use finstack_core::Result;
 /// FRTB Sensitivity-Based Approach engine.
 ///
 /// Computes the standardized market risk capital charge per BCBS d457.
+/// The engine carries a revision-tagged [`super::params::FrtbParams`]
+/// bundle so audit logs can match a result to its regulatory vintage;
+/// charge-calculation helpers currently read the `pub const` tables in
+/// [`super::params`] directly.
 #[derive(Debug)]
 pub struct FrtbSbaEngine {
     /// Which correlation scenarios to evaluate (default: all three).
@@ -27,6 +31,22 @@ pub struct FrtbSbaEngine {
     /// Base currency for reporting.
     #[allow(dead_code)]
     reporting_currency: Currency,
+    /// Active FRTB parameter set (revision-tagged).
+    params: super::params::FrtbParams,
+}
+
+impl FrtbSbaEngine {
+    /// Revision tag of the active parameter set, for audit stamping.
+    #[must_use]
+    pub fn parameter_revision(&self) -> &super::params::FrtbRevision {
+        &self.params.revision
+    }
+
+    /// The active parameter bundle.
+    #[must_use]
+    pub fn parameters(&self) -> &super::params::FrtbParams {
+        &self.params
+    }
 }
 
 impl FrtbSbaEngine {
@@ -109,6 +129,7 @@ pub struct FrtbSbaEngineBuilder {
     scenarios: Option<Vec<CorrelationScenario>>,
     risk_classes: Option<Vec<FrtbRiskClass>>,
     reporting_currency: Option<Currency>,
+    params: Option<super::params::FrtbParams>,
 }
 
 impl FrtbSbaEngineBuilder {
@@ -130,6 +151,13 @@ impl FrtbSbaEngineBuilder {
     #[must_use]
     pub fn reporting_currency(mut self, ccy: Currency) -> Self {
         self.reporting_currency = Some(ccy);
+        self
+    }
+
+    /// Override the FRTB parameter set (default: d457). Validated at `build()`.
+    #[must_use]
+    pub fn params(mut self, params: super::params::FrtbParams) -> Self {
+        self.params = Some(params);
         self
     }
 
@@ -157,10 +185,16 @@ impl FrtbSbaEngineBuilder {
             ));
         }
 
+        let params = self
+            .params
+            .unwrap_or_else(super::params::FrtbParams::d457);
+        params.validate()?;
+
         Ok(FrtbSbaEngine {
             scenarios,
             risk_classes,
             reporting_currency: self.reporting_currency.unwrap_or(Currency::USD),
+            params,
         })
     }
 }

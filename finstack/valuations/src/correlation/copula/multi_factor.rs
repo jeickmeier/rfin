@@ -125,14 +125,13 @@ impl std::fmt::Debug for MultiFactorCopula {
 
 /// Maximum supported total factors (global + sector slots).
 ///
-/// Audit P1 #16 follow-up: the previous hard cap of 2 factors forced every
-/// name to share a single sector factor. The cap is now 5 (1 global + up
-/// to 4 sector factors), which covers standard bespoke CDO structures
-/// (e.g. financials / industrials / consumer / sovereign + global) while
-/// keeping the nested Gauss-Hermite quadrature cost bounded at
-/// `n_q^{num_factors}` (10^5 = 100 000 evaluations at the default order).
-/// Beyond 5 factors the quadrature surface becomes too expensive and
-/// callers should switch to Monte Carlo integration.
+/// The cap of 5 (1 global + up to 4 sector factors) covers standard
+/// bespoke CDO structures (e.g. financials / industrials / consumer /
+/// sovereign + global) while keeping the nested Gauss-Hermite
+/// quadrature cost bounded at `n_q^{num_factors}` (10^5 = 100 000
+/// evaluations at the default order). Beyond 5 factors the quadrature
+/// surface becomes too expensive and callers should switch to Monte
+/// Carlo integration.
 const MAX_FACTORS: usize = 5;
 
 /// Maximum number of sector factors (excluding the global factor).
@@ -235,9 +234,8 @@ impl MultiFactorCopula {
     /// `num_sectors` is clamped to `[1, MAX_SECTORS]` (currently 4);
     /// larger portfolios should switch to Monte Carlo integration.
     ///
-    /// Audit P1 #16 follow-up: the previous 2-factor cap forced every
-    /// name to share a single sector. This constructor exposes a true
-    /// multi-sector Gaussian copula with `K` independent sector factors.
+    /// Constructor for a true multi-sector Gaussian copula with `K`
+    /// independent sector factors.
     #[must_use]
     pub fn with_k_sectors(num_sectors: usize, global_loading: f64, sector_loading: f64) -> Self {
         let k = num_sectors.clamp(1, MAX_SECTORS);
@@ -256,9 +254,8 @@ impl MultiFactorCopula {
 
     /// Number of sector factors (excluding the global factor).
     ///
-    /// Audit P1 #16 follow-up: returns `num_factors_count - 1` — valid
-    /// `sector_idx` values passed to
-    /// [`Copula::conditional_default_prob_with_sector`] are
+    /// Returns `num_factors_count - 1`. Valid `sector_idx` values
+    /// passed to [`Copula::conditional_default_prob_with_sector`] are
     /// `1..=num_sectors()`, plus `0` for the cross-sector case.
     #[must_use]
     pub fn num_sectors(&self) -> usize {
@@ -322,8 +319,8 @@ impl MultiFactorCopula {
     /// `num_factors_count` nested integrals, so the final result is the
     /// multivariate expectation `E[f(Z)]` for `Z ~ N(0, I_d)`.
     ///
-    /// Audit P1 #16 follow-up: closes the K > 2 gap left by the
-    /// previous hand-rolled 1- and 2-dim integration paths.
+    /// Generalizes the earlier hand-rolled 1- and 2-dimensional
+    /// integration paths to arbitrary `K`.
     fn integrate_recursive(
         &self,
         f: &dyn Fn(&[f64]) -> f64,
@@ -430,15 +427,14 @@ impl Copula for MultiFactorCopula {
         let (global_loading, sector_loading_full) =
             self.decompose_correlation(correlation, self.sector_fraction);
 
-        // Audit P1 #16: `sector_idx = 0` marks the name as sector-unaffected
-        // (cross-sector only), so we zero its sector loading. Any non-zero
-        // `sector_idx` keeps the sector loading and, for copulas with
-        // `num_sectors >= 1`, picks the `sector_idx`-th slot of
-        // `factor_realization` as the sector shock. Non-zero `sector_idx`
-        // on a degenerate 1-factor copula (`num_factors_count == 1`) still
-        // applies the loading but the sector shock is absent — equivalent
-        // to the legacy 2-factor behavior when the sector factor vector
-        // entry was missing.
+        // `sector_idx = 0` marks the name as sector-unaffected
+        // (cross-sector only), so we zero its sector loading. Any
+        // non-zero `sector_idx` keeps the sector loading and, for
+        // copulas with `num_sectors >= 1`, picks the `sector_idx`-th
+        // slot of `factor_realization` as the sector shock. Non-zero
+        // `sector_idx` on a degenerate 1-factor copula
+        // (`num_factors_count == 1`) still applies the loading but the
+        // sector shock is absent.
         let num_sectors = self.num_sectors();
         let sector_loading = if sector_idx == 0 {
             0.0
@@ -480,9 +476,8 @@ impl Copula for MultiFactorCopula {
         // `MAX_FACTORS` is capped at 5 — beyond that Monte Carlo is
         // cheaper and more flexible.
         //
-        // Audit P1 #16 follow-up: previously hard-coded for 1- or
-        // 2-factor cases; now a general recursive helper supports any
-        // total factor count in `[1, MAX_FACTORS]`.
+        // The recursive helper supports any total factor count in
+        // `[1, MAX_FACTORS]`.
         let d = self.num_factors_count;
         let mut scratch = vec![0.0_f64; d];
         self.integrate_recursive(f, &mut scratch, 0)
@@ -519,9 +514,8 @@ mod tests {
 
     #[test]
     fn test_multi_factor_capped_at_max_factors() {
-        // Audit P1 #16 follow-up: the cap was raised from 2 to MAX_FACTORS
-        // (currently 5 = 1 global + 4 sector factors) so bespoke CDO
-        // pricing with K > 1 sector factors is supported.
+        // MAX_FACTORS (currently 5 = 1 global + 4 sector factors)
+        // supports bespoke CDO pricing with K > 1 sector factors.
         let copula = MultiFactorCopula::new(100);
         assert_eq!(
             copula.num_factors(),
@@ -661,11 +655,11 @@ mod tests {
         );
     }
 
-    /// Audit P1 #16: `conditional_default_prob_with_sector(..., sector_idx=0)`
-    /// must drop the sector-factor contribution, so a cross-sector name
-    /// effectively sees only the global-factor correlation `β_G²`. This
-    /// produces a different conditional PD than the default `sector_idx=1`
-    /// path whenever the sector loading is non-zero.
+    /// `conditional_default_prob_with_sector(..., sector_idx=0)` must
+    /// drop the sector-factor contribution, so a cross-sector name
+    /// effectively sees only the global-factor correlation `β_G²`.
+    /// This produces a different conditional PD than the default
+    /// `sector_idx=1` path whenever the sector loading is non-zero.
     #[test]
     fn test_sector_aware_conditional_prob_distinguishes_cross_sector() {
         let copula = MultiFactorCopula::with_loadings_and_sector_fraction(2, 0.5, 0.4, 0.5);
@@ -693,9 +687,9 @@ mod tests {
         );
     }
 
-    /// Audit P1 #16: the default `Copula` trait method must ignore
-    /// `sector_idx` for sector-unaware copulas, preserving backwards
-    /// compatibility across Gaussian / Student-t / RFL implementations.
+    /// The default `Copula` trait method must ignore `sector_idx` for
+    /// sector-unaware copulas, preserving backwards compatibility
+    /// across Gaussian / Student-t / RFL implementations.
     #[test]
     fn test_sector_aware_default_ignores_sector_idx_for_gaussian() {
         use super::super::GaussianCopula;
@@ -715,12 +709,12 @@ mod tests {
         }
     }
 
-    /// Audit P1 #16 follow-up: a true `K`-sector copula must accept
-    /// `1 + K` factor realizations and route `sector_idx` to the correct
-    /// slot of the factor vector. Two sectors with equal (zero) shocks
-    /// must produce the same PD; a sector with a non-zero shock must
-    /// produce a distinctly different PD, proving sector_idx actually
-    /// indexes into the factor vector.
+    /// A true `K`-sector copula must accept `1 + K` factor realizations
+    /// and route `sector_idx` to the correct slot of the factor vector.
+    /// Two sectors with equal (zero) shocks must produce the same PD;
+    /// a sector with a non-zero shock must produce a distinctly
+    /// different PD, proving sector_idx actually indexes into the
+    /// factor vector.
     #[test]
     fn test_k_sector_copula_distinguishes_sectors() {
         let copula = MultiFactorCopula::with_k_sectors(3, 0.4, 0.4);
@@ -755,8 +749,8 @@ mod tests {
         );
     }
 
-    /// Audit P1 #16 follow-up: `integrate_fn` on a `K`-sector copula
-    /// must recover the unconditional PD when applied to
+    /// `integrate_fn` on a `K`-sector copula must recover the
+    /// unconditional PD when applied to
     /// `conditional_default_prob_with_sector` for every sector index.
     /// The marginal distribution of a single name is Φ(c) = PD by
     /// construction regardless of its sector assignment.
@@ -778,10 +772,10 @@ mod tests {
         }
     }
 
-    /// Audit P1 #16 follow-up: `with_k_sectors` must clamp to
-    /// `MAX_SECTORS` so callers asking for an unreasonably large
-    /// portfolio fall back to the largest supported `K` rather than
-    /// silently constructing a quadrature grid too expensive to run.
+    /// `with_k_sectors` must clamp to `MAX_SECTORS` so callers asking
+    /// for an unreasonably large portfolio fall back to the largest
+    /// supported `K` rather than silently constructing a quadrature
+    /// grid too expensive to run.
     #[test]
     fn test_k_sector_clamps_at_max_sectors() {
         let copula = MultiFactorCopula::with_k_sectors(100, 0.4, 0.3);

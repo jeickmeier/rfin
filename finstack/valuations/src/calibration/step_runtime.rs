@@ -578,7 +578,7 @@ mod tests {
     #[test]
     fn hull_white_step_persists_both_kappa_and_sigma_scalars() {
         // Generate internally-consistent HW1F quotes from (κ*, σ*) = (0.05, 0.01)
-        // on a 3-swaption grid so the calibrator's post-PR-5 κ-bounds
+        // on a 3-swaption grid so the calibrator's κ-bounds
         // check sees a realistic target, not a degenerate fit. The test's
         // purpose is about output-key persistence (it checks that both
         // `*_KAPPA` and `*_SIGMA` scalars are emitted), so the specific

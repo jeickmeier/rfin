@@ -21,9 +21,6 @@
 //! - Gilli, Maringer, & Schumann (2011). *Numerical Methods and Optimization
 //!   in Finance*. §12.5 (global optimization), §13.4 (multi-start for
 //!   calibration).
-//!
-//! Introduced by quant-audit remediation PR 4 as shared infra for PR 5
-//! (Hull-White 1F vega-weighted calibration) and PR 6 (LMM Rebonato).
 
 /// Configuration for multi-start optimization to escape local minima.
 ///

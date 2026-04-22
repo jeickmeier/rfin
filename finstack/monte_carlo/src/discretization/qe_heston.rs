@@ -41,13 +41,12 @@ pub enum IntegratedVarianceMethod {
     /// unbiased simulation is required, a separate method variant should be
     /// added.
     ///
-    /// # Naming history
+    /// # Naming
     ///
-    /// Prior to quant-audit-remediation PR 1 this variant was named `Exact`,
-    /// which risked misleading callers into treating it as Broadie–Kaya-class
-    /// unbiased simulation (audit finding C3). The rename to
-    /// `MeanReversionAdjusted` names what the formula actually is: a drift-
-    /// corrected trapezoidal rule on the CIR integrated variance.
+    /// The variant name avoids "Exact" — which risked suggesting
+    /// Broadie–Kaya-class unbiased simulation — and instead describes
+    /// the formula: a drift-corrected trapezoidal rule on the CIR
+    /// integrated variance.
     ///
     /// Reference: Andersen, L. (2008). "Simple and efficient simulation of
     /// the Heston stochastic volatility model." *Journal of Computational

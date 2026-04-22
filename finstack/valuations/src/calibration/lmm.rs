@@ -23,7 +23,11 @@
 //!   Ch. 15-16, Atlantic Financial Press.
 
 use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
-use finstack_monte_carlo::process::lmm::LmmParams;
+use finstack_core::math::stats::OnlineStats;
+use finstack_monte_carlo::discretization::lmm_predictor_corrector::LmmPredictorCorrector;
+use finstack_monte_carlo::process::lmm::{LmmParams, LmmProcess};
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+use finstack_monte_carlo::traits::{Discretization, RandomStream};
 use std::collections::BTreeMap;
 
 use crate::calibration::hull_white::SwaptionQuote;
@@ -57,9 +61,8 @@ pub struct LmmCalibrationConfig {
     /// Maximum LM iterations (if calibrating β).
     pub max_iterations: usize,
     /// When `true`, escalate Rebonato stripping and PCA pathologies from
-    /// silent fallbacks (pre-PR-6 behaviour) to calibration errors.
+    /// silent fallbacks to calibration errors:
     ///
-    /// Specifically (per quant-audit finding C9):
     ///   * If the Rebonato quadratic has a negative discriminant (the
     ///     input swaption grid is not LMM-consistent), return
     ///     `Err(Validation)` rather than silently using the market vol
@@ -70,8 +73,8 @@ pub struct LmmCalibrationConfig {
     ///     return `Err(Validation)` rather than silently clamping
     ///     negative eigenvalues to zero (which discards variance budget).
     ///
-    /// Default `false` to preserve the pre-PR-6 behaviour for existing
-    /// callers; set to `true` for production calibrations.
+    /// Default `false` for backwards compatibility; set to `true` for
+    /// production calibrations.
     pub strict_mode: bool,
     /// Maximum allowed PCA variance loss under strict mode. The metric
     /// is `Σ max(−λ_i, 0) / Σ|λ_i|`. Defaults to 1% — enough to
@@ -79,6 +82,55 @@ pub struct LmmCalibrationConfig {
     /// well-conditioned PSD inputs but tight enough to catch genuinely
     /// ill-conditioned correlation matrices.
     pub pca_variance_loss_tolerance: f64,
+    /// Optional independent Monte Carlo validation of the Rebonato-based
+    /// residuals.
+    ///
+    /// When `Some`, after the standard calibration completes the
+    /// resulting [`LmmParams`] are simulated under the terminal measure
+    /// and the realized co-terminal swap-rate variance is compared to
+    /// the market quote for each expiry. Both the MC implied vol and
+    /// the MC-vs-market residual are surfaced in the calibration report
+    /// metadata under the `mc_*` prefix. Rebonato residuals (the
+    /// existing behaviour) are unchanged.
+    pub mc_validation: Option<LmmMcValidationConfig>,
+}
+
+/// Configuration for the independent MC validation step.
+///
+/// The MC repricer simulates all forward rates under the terminal
+/// measure using [`LmmProcess`] + [`LmmPredictorCorrector`] and reports
+/// the Bachelier (normal) vol implied by the realized swap-rate
+/// variance at each exercise date. It is genuinely independent of
+/// Rebonato — different code path, different approximations — so a
+/// meaningful disagreement between the two residual sets flags
+/// a calibration the Rebonato approximation is masking.
+///
+/// # References
+///
+/// - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models — Theory
+///   and Practice*, §6.14 (discussion of swap-rate approximations in
+///   LMM), Springer.
+/// - Andersen, L. & Piterbarg, V. (2010). *Interest Rate Modeling*,
+///   Vol. II, Ch. 18, Atlantic Financial Press.
+#[derive(Debug, Clone)]
+pub struct LmmMcValidationConfig {
+    /// Number of Monte Carlo paths. ~10k is usually sufficient for a
+    /// residual validation at single-basis-point precision.
+    pub num_paths: usize,
+    /// Time steps per year for the predictor-corrector grid.
+    pub num_steps_per_year: usize,
+    /// PRNG seed for deterministic reproducibility.
+    pub seed: u64,
+}
+
+impl Default for LmmMcValidationConfig {
+    fn default() -> Self {
+        Self {
+            num_paths: 10_000,
+            num_steps_per_year: 20,
+            seed: 20_260_421,
+        }
+    }
 }
 
 impl Default for LmmCalibrationConfig {
@@ -91,6 +143,7 @@ impl Default for LmmCalibrationConfig {
             max_iterations: 200,
             strict_mode: false,
             pca_variance_loss_tolerance: 0.01,
+            mc_validation: None,
         }
     }
 }
@@ -195,7 +248,7 @@ pub fn calibrate_lmm_to_coterminal_swaptions(
         residual_map.insert(label, resid);
     }
 
-    let report = CalibrationReport::for_type_with_tolerance(
+    let mut report = CalibrationReport::for_type_with_tolerance(
         "LMM co-terminal swaption",
         residual_map,
         if config.calibrate_beta { 1 } else { 0 },
@@ -203,9 +256,9 @@ pub fn calibrate_lmm_to_coterminal_swaptions(
     )
     .with_metadata("beta", format!("{beta:.6}"))
     .with_metadata("num_factors", config.num_factors.to_string())
-    // quant-audit PR 6: surface PCA variance-loss ratio alongside β so
-    // downstream review tooling can flag borderline calibrations even
-    // when strict_mode is disabled.
+    // Surface the PCA variance-loss ratio alongside β so downstream
+    // review tooling can flag borderline calibrations even when
+    // strict_mode is disabled.
     .with_metadata("pca_variance_loss_ratio", format!("{pca_variance_loss:.6}"))
     .with_metadata("strict_mode", config.strict_mode.to_string());
 
@@ -220,7 +273,216 @@ pub fn calibrate_lmm_to_coterminal_swaptions(
         forwards.to_vec(),
     )?;
 
+    // Optional independent MC validation of the Rebonato residuals. The
+    // repricer runs only when requested because ~10k paths × N exercises
+    // adds ~seconds of wall time.
+    if let Some(mc_cfg) = &config.mc_validation {
+        report = append_mc_validation(report, &params, quotes, mc_cfg);
+    }
+
     Ok(LmmCalibrationResult { params, report })
+}
+
+/// Append MC-validation metadata and per-quote MC residuals to the
+/// existing calibration report.
+///
+/// The Rebonato residuals already on the report stay intact so callers
+/// can diff the two. Keys:
+///   * `mc_validation_num_paths`, `mc_validation_num_steps_per_year`,
+///     `mc_validation_seed` — configuration snapshot
+///   * `mc_implied_<expiry>Yx<tenor>Y` — MC-implied normal vol
+///   * `mc_residual_<expiry>Yx<tenor>Y` — MC residual vs market
+fn append_mc_validation(
+    report: CalibrationReport,
+    params: &LmmParams,
+    quotes: &[SwaptionQuote],
+    mc_cfg: &LmmMcValidationConfig,
+) -> CalibrationReport {
+    let n = params.num_forwards;
+    let mut report = report
+        .with_metadata("mc_validation_num_paths", mc_cfg.num_paths.to_string())
+        .with_metadata(
+            "mc_validation_num_steps_per_year",
+            mc_cfg.num_steps_per_year.to_string(),
+        )
+        .with_metadata("mc_validation_seed", mc_cfg.seed.to_string());
+
+    for (i, q) in quotes.iter().enumerate().take(n) {
+        let t_ex = params.tenors[i];
+        if t_ex <= 0.0 {
+            continue; // skip degenerate spot-starting swaption
+        }
+        // Scale step count by year-fraction so longer expiries use more
+        // steps. Round up and floor at a minimum of 4 steps.
+        let num_steps =
+            ((t_ex * mc_cfg.num_steps_per_year as f64).ceil() as usize).max(4);
+        // Use a per-quote stream so different expiries see independent
+        // shocks; split by index to keep seeds reproducible.
+        let seed = mc_cfg.seed.wrapping_add(i as u64);
+        match lmm_mc_coterminal_swap_rate_vol(params, i, mc_cfg.num_paths, num_steps, seed) {
+            Ok(mc_vol) => {
+                let label = format!("{}Yx{}Y", q.expiry, q.tenor);
+                report = report
+                    .with_metadata(format!("mc_implied_{label}"), format!("{mc_vol:.8}"))
+                    .with_metadata(
+                        format!("mc_residual_{label}"),
+                        format!("{:.8}", mc_vol - q.volatility),
+                    );
+            }
+            Err(_) => {
+                // Record the failure but do not abort calibration.
+                let label = format!("{}Yx{}Y", q.expiry, q.tenor);
+                report = report.with_metadata(format!("mc_residual_{label}"), "NaN".to_string());
+            }
+        }
+    }
+
+    report
+}
+
+/// Independent Monte Carlo swap-rate volatility estimator for a
+/// co-terminal swaption.
+///
+/// Simulates the calibrated LMM forward-rate dynamics under the
+/// terminal measure using [`LmmProcess`] + [`LmmPredictorCorrector`]
+/// and returns the Bachelier (normal) implied volatility derived from
+/// the realized swap-rate sample variance at the exercise date. The
+/// estimator is fully independent of the frozen-weight Rebonato
+/// approximation used by the main calibrator.
+///
+/// # Method
+///
+/// For exercise at `T_i` on swap `[T_i, T_N]`:
+///
+/// 1. Simulate `num_paths` trajectories of the forward curve from `0`
+///    to `T_i` with `num_steps` predictor-corrector steps.
+/// 2. On each path, compute the swap rate at the exercise date using
+///    time-`T_i` annuity weights (i.e. stochastic weights — this is the
+///    property that makes the estimator independent of the
+///    frozen-weight Rebonato approximation).
+/// 3. Accumulate online statistics and convert the sample variance to
+///    a Bachelier vol:
+///    ```text
+///    σ_MC = sqrt( Var[S_i(T_i)] / T_i )
+///    ```
+///
+/// # Arguments
+///
+/// * `params` — Calibrated LMM parameters (from
+///   [`calibrate_lmm_to_coterminal_swaptions`]).
+/// * `exercise_idx` — Index of the exercise date in `params.tenors`.
+///   The swaption exercises at `T_{exercise_idx}` on the swap
+///   `[T_{exercise_idx}, T_N]`.
+/// * `num_paths` — Number of MC paths.
+/// * `num_steps` — Number of time steps from `0` to `T_{exercise_idx}`.
+/// * `seed` — PRNG seed (PhiloxRng) for deterministic reproducibility.
+///
+/// # Errors
+///
+/// Returns a validation error if `exercise_idx` is out of range, the
+/// exercise time is non-positive, or `num_paths` / `num_steps` is zero.
+///
+/// # References
+///
+/// - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models*, §6.14.
+/// - Andersen, L. & Piterbarg, V. (2010). *Interest Rate Modeling*,
+///   Vol. II, Ch. 18.
+/// - Glasserman, P. (2003). *Monte Carlo Methods in Financial
+///   Engineering*, Ch. 7.
+pub fn lmm_mc_coterminal_swap_rate_vol(
+    params: &LmmParams,
+    exercise_idx: usize,
+    num_paths: usize,
+    num_steps: usize,
+    seed: u64,
+) -> finstack_core::Result<f64> {
+    let n = params.num_forwards;
+    if exercise_idx >= n {
+        return Err(finstack_core::Error::Validation(format!(
+            "exercise_idx {exercise_idx} out of range (num_forwards={n})"
+        )));
+    }
+    let t_ex = params.tenors[exercise_idx];
+    if t_ex <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "exercise time T_{exercise_idx} must be positive, got {t_ex}"
+        )));
+    }
+    if num_paths == 0 || num_steps == 0 {
+        return Err(finstack_core::Error::Validation(
+            "num_paths and num_steps must be > 0 for MC repricer".to_string(),
+        ));
+    }
+
+    let nf = params.num_factors;
+    let dt = t_ex / num_steps as f64;
+    let count = n - exercise_idx;
+
+    // Initial swap rate + annuity-weighted displacement. This is the
+    // "shifted level" we use to convert Bachelier variance to
+    // displaced-lognormal vol, matching the code's Rebonato
+    // convention.
+    let init_weights = annuity_weights(
+        &params.initial_forwards,
+        &params.accrual_factors,
+        &params.tenors,
+        exercise_idx,
+    );
+    let init_swap: f64 = (0..count)
+        .map(|a| init_weights[a] * params.initial_forwards[exercise_idx + a])
+        .sum();
+    let d_eff: f64 = (0..count)
+        .map(|a| init_weights[a] * params.displacements[exercise_idx + a])
+        .sum();
+    let shifted_level = init_swap + d_eff;
+    if shifted_level <= 0.0 || !shifted_level.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "initial shifted swap level must be positive for displaced-lognormal \
+             conversion, got {shifted_level}"
+        )));
+    }
+
+    let process = LmmProcess::new(params.clone());
+    let discretization = LmmPredictorCorrector::new();
+    let work_size = discretization.work_size(&process);
+
+    let mut rng = PhiloxRng::new(seed);
+    let mut normals = vec![0.0_f64; nf];
+    let mut work = vec![0.0_f64; work_size];
+    let mut x = params.initial_forwards.clone();
+
+    let mut stats = OnlineStats::new();
+
+    for _ in 0..num_paths {
+        // Reset state to initial forwards.
+        x.copy_from_slice(&params.initial_forwards);
+
+        let mut t = 0.0_f64;
+        for _ in 0..num_steps {
+            rng.fill_std_normals(&mut normals);
+            discretization.step(&process, t, dt, &mut x, &normals, &mut work);
+            t += dt;
+        }
+
+        // Compute time-T_i annuity weights from the simulated forwards
+        // and assemble the realized swap rate. Using stochastic weights
+        // is what makes this estimator independent of the frozen-weight
+        // Rebonato approximation.
+        let weights = annuity_weights(&x, &params.accrual_factors, &params.tenors, exercise_idx);
+        let swap_t: f64 = (0..count)
+            .map(|a| weights[a] * x[exercise_idx + a])
+            .sum();
+        stats.update(swap_t);
+    }
+
+    let variance = stats.variance();
+    if variance < 0.0 || !variance.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "MC swap-rate variance was non-finite or negative: {variance}"
+        )));
+    }
+    let normal_vol = (variance / t_ex).sqrt();
+    Ok(normal_vol / shifted_level)
 }
 
 // ---------------------------------------------------------------------------
@@ -297,12 +559,10 @@ fn strip_instantaneous_vols(
         if discriminant < 0.0 || a_coeff.abs() < 1e-20 {
             // Rebonato quadratic has no real solution: the input
             // co-terminal swaption grid is not LMM-consistent with the
-            // previously-stripped vols σ_{idx+1..N-1}. Pre-PR-6 this
-            // silently fell back to `σ_idx = market_vol`, which breaks
-            // the co-terminal repricing invariant. Under strict_mode we
-            // escalate to an error (quant-audit C9); otherwise we
-            // preserve the legacy fallback for backwards-compat but
-            // annotate the situation.
+            // previously-stripped vols σ_{idx+1..N-1}. Falling back to
+            // `σ_idx = market_vol` breaks the co-terminal repricing
+            // invariant; strict_mode escalates to an error, otherwise
+            // we preserve the fallback for backwards compatibility.
             if strict_mode {
                 return Err(finstack_core::Error::Validation(format!(
                     "LMM Rebonato stripping at forward index {idx}: quadratic \
@@ -310,7 +570,7 @@ fn strip_instantaneous_vols(
                      a={a_coeff:.3e}). The input co-terminal swaption grid is \
                      not LMM-consistent with the already-stripped σ_{{{}..}}. \
                      Review the swaption vols or set `strict_mode = false` to \
-                     accept the legacy market-vol fallback. (quant-audit C9)",
+                     accept the legacy market-vol fallback.",
                     idx + 1
                 )));
             }
@@ -399,16 +659,17 @@ fn build_factor_loadings(
     // Eigendecompose using a simple Jacobi-style approach for small symmetric matrices.
     let (eigenvalues, eigenvectors) = symmetric_eigen(n, &corr)?;
 
-    // Quant-audit PR 6 (finding C9): measure the variance budget lost to
-    // negative eigenvalues before the `max(0.0)` clamp below silently
-    // discards it. The correlation matrix
+    // Measure the variance budget lost to negative eigenvalues before
+    // the `max(0.0)` clamp below silently discards it. The correlation
+    // matrix
     //     ρ_{ij} = exp(−β |T_i − T_j|)
-    // is theoretically PSD for β ≥ 0, but Jacobi eigendecomposition with
-    // absolute tolerance `1e-14` can produce small negative eigenvalues
-    // on ill-conditioned matrices (β very small → rank-deficient near
-    // the all-ones matrix) that accumulate to a non-trivial fraction of
-    // the trace. Reporting the ratio lets operators catch this; under
-    // strict_mode it triggers an explicit error.
+    // is theoretically PSD for β ≥ 0, but Jacobi eigendecomposition
+    // with absolute tolerance `1e-14` can produce small negative
+    // eigenvalues on ill-conditioned matrices (β very small →
+    // rank-deficient near the all-ones matrix) that accumulate to a
+    // non-trivial fraction of the trace. Reporting the ratio lets
+    // operators catch this; under strict_mode it triggers an explicit
+    // error.
     let negative_sum: f64 = eigenvalues.iter().map(|λ| (-λ).max(0.0)).sum();
     let total_abs: f64 = eigenvalues.iter().map(|λ| λ.abs()).sum();
     let pca_variance_loss = if total_abs > 0.0 {
@@ -423,8 +684,7 @@ fn build_factor_loadings(
              {ratio:.4} of the variance budget to negative eigenvalues \
              (threshold {tol:.4}). The correlation matrix is not \
              numerically PSD — review the exponential-decay β (={beta}) \
-             or supply a pre-conditioned correlation matrix. \
-             (quant-audit C9)",
+             or supply a pre-conditioned correlation matrix.",
             ratio = pca_variance_loss,
             tol = pca_variance_loss_tolerance,
         )));
@@ -787,18 +1047,17 @@ mod tests {
     }
 
     // ========================================================================
-    // Quant-audit remediation PR 6: LMM Rebonato + PCA (finding C9)
+    // Strict-mode Rebonato + PCA guards
     // ========================================================================
 
     /// Strict mode is wired end-to-end through `calibrate_lmm_to_coterminal_swaptions`
     /// and permissive mode continues to succeed on grids that trip the
-    /// fallback branches. The audit's specific Rebonato negative-
-    /// discriminant case is hard to trigger through realistic inputs
-    /// (the discriminant = `4·w_idx²·market_vol² ≥ 0` algebraically,
-    /// except at degenerate `w_idx = 0` annuity weights which are
-    /// themselves pathological); we exercise the PSD-loss branch
-    /// instead in `lmm_strict_pca_tolerance_errors_on_rank_deficient_correlation`
-    /// which is the other half of audit finding C9.
+    /// fallback branches. The Rebonato negative-discriminant case is
+    /// hard to trigger through realistic inputs (the discriminant =
+    /// `4·w_idx²·market_vol² ≥ 0` algebraically, except at degenerate
+    /// `w_idx = 0` annuity weights which are themselves pathological);
+    /// the PSD-loss branch is exercised instead in
+    /// `lmm_strict_pca_tolerance_errors_on_rank_deficient_correlation`.
     #[test]
     fn lmm_strict_mode_is_api_compatible_on_valid_grids() {
         let (forwards, tenors, displacements, quotes) = test_setup();
@@ -858,6 +1117,180 @@ mod tests {
             cal.report.metadata.contains_key("strict_mode"),
             "CalibrationReport should surface `strict_mode` metadata"
         );
+    }
+
+    // ========================================================================
+    // Independent MC co-terminal swaption repricer
+    //
+    // The Rebonato approximation is used BOTH to strip per-forward
+    // instantaneous vols during calibration AND to report post-solve
+    // residuals — so "how well did we fit" is measured against the same
+    // approximation. These tests cover the independent MC repricer
+    // `lmm_mc_coterminal_swap_rate_vol`, which simulates the calibrated
+    // LMM forward-rate dynamics under the terminal measure and measures
+    // the realized swap-rate variance (Brigo–Mercurio §6.14 /
+    // Andersen-Piterbarg Vol II Ch. 18).
+    // ========================================================================
+
+    /// MC and Rebonato should agree within a few percent for a cleanly
+    /// calibrated LMM in the normal-vol regime. The comparison is the whole
+    /// point of the independent repricer: if Rebonato's stripped vols
+    /// reproduce the market vols and the MC-realized swap-rate variance
+    /// also does, the calibration is self-consistent beyond the Rebonato
+    /// approximation.
+    #[test]
+    fn lmm_mc_coterminal_swap_vol_agrees_with_rebonato_on_calibrated_params() {
+        let (forwards, tenors, displacements, quotes) = test_setup();
+        let discount_fn = |t: f64| (-0.03 * t).exp();
+        let config = LmmCalibrationConfig {
+            num_factors: 2,
+            beta_init: 0.15,
+            calibrate_beta: false,
+            ..Default::default()
+        };
+        let cal = calibrate_lmm_to_coterminal_swaptions(
+            &forwards,
+            &discount_fn,
+            &tenors,
+            &quotes,
+            &displacements,
+            &config,
+        )
+        .expect("calibration should succeed");
+
+        // Rebonato-reported vol for swaption at T_2 (exercise_idx = 2).
+        let accrual_factors: Vec<f64> = (0..forwards.len())
+            .map(|i| tenors[i + 1] - tenors[i])
+            .collect();
+        let rebonato = rebonato_swaption_vol(
+            2,
+            &forwards,
+            &accrual_factors,
+            &tenors,
+            &cal.params.vol_values[0],
+            cal.params.num_factors,
+        );
+
+        // Independent MC vol via forward-curve simulation.
+        let mc_vol = lmm_mc_coterminal_swap_rate_vol(&cal.params, 2, 20_000, 40, 42)
+            .expect("MC vol should be computable");
+
+        assert!(mc_vol.is_finite() && mc_vol > 0.0, "mc_vol = {mc_vol}");
+        assert!(rebonato > 0.0, "rebonato = {rebonato}");
+
+        // 15% relative tolerance absorbs MC noise + genuine approximation
+        // gap (stochastic annuity weights, drift under T_N measure).
+        let rel_diff = (mc_vol - rebonato).abs() / rebonato;
+        assert!(
+            rel_diff < 0.15,
+            "MC={mc_vol:.6} vs Rebonato={rebonato:.6}, rel_diff={rel_diff:.4}"
+        );
+    }
+
+    /// Different seeds must produce different MC estimates — otherwise the
+    /// "Monte Carlo" function is actually a deterministic closed-form, not
+    /// an independent simulator. This is the simplest proof of true
+    /// independence from the Rebonato formula.
+    #[test]
+    fn lmm_mc_coterminal_swap_vol_is_seed_dependent() {
+        let (forwards, tenors, displacements, quotes) = test_setup();
+        let discount_fn = |t: f64| (-0.03 * t).exp();
+        let cal = calibrate_lmm_to_coterminal_swaptions(
+            &forwards,
+            &discount_fn,
+            &tenors,
+            &quotes,
+            &displacements,
+            &LmmCalibrationConfig {
+                num_factors: 2,
+                calibrate_beta: false,
+                ..Default::default()
+            },
+        )
+        .expect("ok");
+
+        let v_a = lmm_mc_coterminal_swap_rate_vol(&cal.params, 2, 2_000, 20, 42).expect("ok");
+        let v_b = lmm_mc_coterminal_swap_rate_vol(&cal.params, 2, 2_000, 20, 7).expect("ok");
+
+        assert!(
+            (v_a - v_b).abs() > 1e-8,
+            "MC vol must be seed-dependent (is this really MC?): v_a={v_a}, v_b={v_b}"
+        );
+    }
+
+    /// Same seed must produce the same estimate — required for
+    /// reproducibility in regression tests and for differencing
+    /// calibrations deterministically.
+    #[test]
+    fn lmm_mc_coterminal_swap_vol_is_seed_deterministic() {
+        let (forwards, tenors, displacements, quotes) = test_setup();
+        let discount_fn = |t: f64| (-0.03 * t).exp();
+        let cal = calibrate_lmm_to_coterminal_swaptions(
+            &forwards,
+            &discount_fn,
+            &tenors,
+            &quotes,
+            &displacements,
+            &LmmCalibrationConfig {
+                num_factors: 2,
+                calibrate_beta: false,
+                ..Default::default()
+            },
+        )
+        .expect("ok");
+
+        let v1 = lmm_mc_coterminal_swap_rate_vol(&cal.params, 2, 1_000, 10, 123).expect("ok");
+        let v2 = lmm_mc_coterminal_swap_rate_vol(&cal.params, 2, 1_000, 10, 123).expect("ok");
+        assert_eq!(
+            v1.to_bits(),
+            v2.to_bits(),
+            "same seed must give bit-identical MC estimate"
+        );
+    }
+
+    /// Calibration report should optionally surface MC residuals alongside
+    /// Rebonato residuals so operators can spot cases where the two
+    /// disagree (the tell-tale sign that Rebonato is masking a calibration
+    /// issue).
+    #[test]
+    fn lmm_calibration_includes_mc_residuals_when_requested() {
+        let (forwards, tenors, displacements, quotes) = test_setup();
+        let discount_fn = |t: f64| (-0.03 * t).exp();
+        let config = LmmCalibrationConfig {
+            num_factors: 2,
+            calibrate_beta: false,
+            mc_validation: Some(LmmMcValidationConfig {
+                num_paths: 1_000,
+                num_steps_per_year: 10,
+                seed: 99,
+            }),
+            ..Default::default()
+        };
+        let cal = calibrate_lmm_to_coterminal_swaptions(
+            &forwards,
+            &discount_fn,
+            &tenors,
+            &quotes,
+            &displacements,
+            &config,
+        )
+        .expect("ok");
+
+        assert!(
+            cal.report
+                .metadata
+                .contains_key("mc_validation_num_paths"),
+            "MC validation metadata should be present when requested"
+        );
+        // At least one quote-level MC residual should be surfaced with a
+        // distinct prefix so it can be read separately from the Rebonato
+        // residuals.
+        let has_mc_residual = cal
+            .report
+            .metadata
+            .keys()
+            .any(|k| k.starts_with("mc_residual_"));
+        assert!(has_mc_residual, "expected at least one mc_residual_* key");
     }
 
     /// The pca_variance_loss_tolerance config knob lets callers tune

@@ -555,8 +555,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
     let result = if config.num_restarts == 0 {
         optimizer.minimize(neg_ll, &best_params_vec, &opt_bounds)
     } else {
-        // Audit P1 #22: Halton-perturbed multi-start escapes plateau/ridge
-        // behavior near the GARCH stationarity frontier where single-start
+        // Halton-perturbed multi-start escapes plateau/ridge behavior
+        // near the GARCH stationarity frontier where single-start
         // Nelder-Mead can stall at a local minimum.
         optimizer.minimize_multi_start(
             neg_ll,

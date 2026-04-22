@@ -90,8 +90,6 @@ pub trait Copula: Send + Sync {
     /// [`Self::conditional_default_prob`]. This keeps all existing callers
     /// compatible; only copulas that genuinely resolve sectors need to
     /// override.
-    ///
-    /// Audit P1 #16.
     fn conditional_default_prob_with_sector(
         &self,
         default_threshold: f64,
