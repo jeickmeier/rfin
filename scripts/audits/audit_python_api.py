@@ -12,6 +12,7 @@ Output: JSON file with complete API inventory.
 
 from dataclasses import asdict, dataclass
 import json
+import re
 from pathlib import Path
 import sys
 from typing import Any
@@ -98,9 +99,17 @@ class PythonAPIExtractor:
                         )
                     )
 
-            # Look for pyfunction
-            elif "#[pyfunction]" in line:
-                func_name = self._extract_function_name(lines[i + 1] if i + 1 < len(lines) else "")
+            # Look for pyfunction (may be `#[pyfunction]` or `#[pyfunction(...)]`)
+            elif line.startswith("#[pyfunction"):
+                # Scan forward past additional attributes (e.g. `#[pyo3(signature=...)]`)
+                # to the first `pub fn` or `fn` line.
+                func_name = ""
+                for j in range(i + 1, min(i + 10, len(lines))):
+                    candidate = lines[j].strip()
+                    if candidate.startswith("#[") or candidate.startswith("//") or not candidate:
+                        continue
+                    func_name = self._extract_function_name(candidate)
+                    break
                 if func_name:
                     functions.append(FunctionInfo(name=func_name))
 
@@ -115,18 +124,28 @@ class PythonAPIExtractor:
         )
 
     def _extract_class_name(self, lines: list[str], start_idx: int) -> str:
-        """Extract class name from pyclass declaration."""
-        # Look ahead a few lines for struct definition
-        for i in range(start_idx, min(start_idx + 5, len(lines))):
+        """Extract class name from pyclass declaration.
+
+        Prefers the explicit `name = "..."` argument on `#[pyclass(...)]` if
+        present; otherwise falls back to the Rust struct name (stripping any
+        leading `Py` prefix convention).
+        """
+        # First try to find `name = "Foo"` in the decorator itself.
+        decorator_blob = " ".join(lines[start_idx : min(start_idx + 3, len(lines))])
+        name_match = re.search(r'name\s*=\s*"([^"]+)"', decorator_blob)
+        if name_match:
+            return name_match.group(1)
+
+        # Otherwise, look ahead a few lines for the struct definition.
+        for i in range(start_idx, min(start_idx + 8, len(lines))):
             line = lines[i].strip()
-            if line.startswith("pub struct Py"):
-                # Extract: pub struct PyClassName -> ClassName
-                parts = line.split()
-                if len(parts) >= 3:
-                    name = parts[2].rstrip("{")
-                    # Remove 'Py' prefix
-                    if name.startswith("Py"):
+            if line.startswith("pub struct ") or line.startswith("struct "):
+                parts = line.replace("pub ", "", 1).split()
+                if len(parts) >= 2:
+                    name = parts[1].rstrip("{").split("<", 1)[0].split("(", 1)[0]
+                    if name.startswith("Py") and len(name) > 2 and name[2].isupper():
                         return name[2:]
+                    return name
         return ""
 
     def _extract_methods(self, lines: list[str], class_start: int, _class_name: str) -> list[MethodInfo]:
@@ -176,12 +195,13 @@ class PythonAPIExtractor:
         return methods
 
     def _extract_function_name(self, line: str) -> str:
-        """Extract function name from function definition."""
-        if "pub fn " in line:
-            # Extract: pub fn function_name( -> function_name
-            parts = line.split("pub fn ", maxsplit=1)[1].split("(", maxsplit=1)[0].strip()
-            return parts
-        return ""
+        """Extract function name from function definition (pub or private)."""
+        # PyO3 bindings use `fn` or `pub fn`; `#[pyfunction]` fns are often private.
+        marker = "pub fn " if "pub fn " in line else ("fn " if line.startswith(("fn ", "async fn ", "pub async fn ")) or " fn " in line else "")
+        if not marker:
+            return ""
+        after = line.split(marker, 1)[1]
+        return after.split("(", 1)[0].split("<", 1)[0].strip()
 
     def _extract_method_name(self, line: str) -> str:
         """Extract method name from method definition."""
@@ -196,7 +216,9 @@ class PythonAPIExtractor:
         api_tree = {"modules": {}, "classes": [], "functions": []}
 
         for rust_file in directory.glob("*.rs"):
-            if rust_file.name in ["mod.rs", "lib.rs"]:
+            # lib.rs is only a registration shim; mod.rs frequently hosts real
+            # `#[pyfunction]` definitions (e.g. scenarios/mod.rs) and must be scanned.
+            if rust_file.name == "lib.rs":
                 continue
 
             module_info = self.extract_from_rust_file(rust_file)
@@ -227,11 +249,11 @@ class PythonAPIExtractor:
         """Extract all APIs from the Python bindings."""
         result = {"binding": "python", "source_root": str(self.src_root), "api": {}}
 
-        # Scan major modules
-        for module_dir in ["core", "valuations", "statements", "scenarios", "portfolio"]:
-            module_path = self.src_root / module_dir
-            if module_path.exists():
-                result["api"][module_dir] = self.scan_directory(module_path, module_dir)
+        # Scan all crate-domain subdirectories under bindings/
+        for module_path in sorted(self.src_root.iterdir()):
+            if not module_path.is_dir() or module_path.name.startswith("_"):
+                continue
+            result["api"][module_path.name] = self.scan_directory(module_path, module_path.name)
 
         return result
 
@@ -241,7 +263,7 @@ def main() -> int:
     # Find project root
     script_dir = Path(__file__).parent
     project_root = script_dir.parent.parent
-    py_src = project_root / "finstack-py" / "src"
+    py_src = project_root / "finstack-py" / "src" / "bindings"
 
     if not py_src.exists():
         return 1

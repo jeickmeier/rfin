@@ -325,11 +325,11 @@ class WasmAPIExtractor:
         if lib_file.exists():
             result["exports"] = self.extract_exports_from_lib(lib_file)
 
-        # Scan major modules
-        for module_dir in ["core", "valuations", "statements", "scenarios", "portfolio"]:
-            module_path = self.src_root / module_dir
-            if module_path.exists():
-                result["api"][module_dir] = self.scan_directory(module_path, module_dir)
+        # Scan all crate-domain subdirectories under api/
+        for module_path in sorted(self.src_root.iterdir()):
+            if not module_path.is_dir() or module_path.name.startswith("_"):
+                continue
+            result["api"][module_path.name] = self.scan_directory(module_path, module_path.name)
 
         return result
 
@@ -341,7 +341,7 @@ def main() -> int:
     project_root = script_dir.parent.parent
     audit_dir = project_root / ".audit"
     audit_dir.mkdir(exist_ok=True)
-    wasm_src = project_root / "finstack-wasm" / "src"
+    wasm_src = project_root / "finstack-wasm" / "src" / "api"
 
     if not wasm_src.exists():
         return 1

@@ -1057,7 +1057,7 @@ mod tests {
             Err(e) => {
                 let msg = format!("{e}");
                 assert!(
-                    msg.contains("kappa") || msg.contains("bounds") || msg.contains("C8"),
+                    msg.contains("κ") || msg.contains("kappa") || msg.contains("bounded"),
                     "error message must identify κ-bounds violation: {msg}"
                 );
             }
