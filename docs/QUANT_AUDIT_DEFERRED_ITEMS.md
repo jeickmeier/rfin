@@ -21,12 +21,65 @@ The "Cumulative progress" section below summarizes what's merged. The
 
 | Status | Count | Findings |
 |--------|-------|----------|
-| **Merged to master** | 29 | C1, C2, C3, C4, C5, C6, C7, C8, C9 (partial), P1 #15, P1 #16, P1 #18, P1 #20, P1 #21, P1 #22, P1 #23 (partial), P2 #25, P2 #26, P2 #27, P2 #28, P2 #29, P2 #30, P3 #31, P3 #32, P3 #33, P3 #34, P3 #35, **N2** |
-| Deferred | 6 | C9 (co-terminal repricer), C10–C14, C15–C20, P1 #17, P1 #19, P2 #24 |
+| **Merged to master** | 34 | C1, C2, C3, C4, C5, C6, C7, C8, C9 (partial), C17, C18, C19, C20, P1 #15, P1 #16, P1 #17, P1 #18, P1 #20, P1 #21, P1 #22, P1 #23 (partial), P2 #25, P2 #26, P2 #27, P2 #28, P2 #29, P2 #30, P3 #31, P3 #32, P3 #33, P3 #34, P3 #35, **N2** |
+| Deferred | 3 | C9 (co-terminal repricer), C10–C14, C15 (full Decimal migration), P1 #19, P2 #24 |
 | Re-classified | 1 | **N1** (see §New findings) |
 
-29/35 + 1 new audit findings materially closed. Remaining 6 deferred
+34/35 + 1 new audit findings materially closed. Remaining 3 deferred
 with specific reasons below.
+
+### Recently closed — follow-up session 3 (2026-04-21 cont.)
+
+The statements refactor (C15–C20) and its blocked dependency P1 #17
+landed in this sweep:
+
+- **C17 SignConventionPolicy** — new `SignConventionPolicy` enum in
+  `finstack_statements::checks::types` with `MagnitudePositive` /
+  `InflowPositive` variants and a `validate()` method that emits
+  `Severity::Warning` findings for convention violations. Wired into
+  `CapexReconciliation`, `DepreciationReconciliation`,
+  `DividendReconciliation`, and `RetainedEarningsReconciliation` so a
+  misconfigured sign now surfaces as a typed warning rather than a
+  silent reconciliation mismatch.
+- **C18 TTM guard** — verified closed in prior work at
+  `formula_aggregates.rs:303`: TTM returns NaN when `values.len() <
+  window` or any value is non-finite. Test expectations in
+  `test_ttm_function`, `test_ttm_with_nan`, and
+  `test_ttm_function_supports_expression_arguments` brought into
+  alignment with the C18-compliant behavior.
+- **C19 as_of PIT filter** — verified closed in prior work at
+  `engine.rs:228-231`. Future-period actual values are hidden when
+  `as_of` is set and `period.start > as_of_date`, forcing the
+  evaluator through the forecast / formula precedence path.
+- **C20 average-balance interest reconciliation** — fixed
+  `InterestExpenseReconciliation::execute` to use `(B_{t−1} + B_t) / 2`
+  instead of the EOP balance when computing implied interest against
+  debt balance × rate. Regression test
+  `interest_implied_rate_uses_average_balance_audit_c20` anchors the
+  formula on a rising-balance scenario (800 → 1200, rate 5 %, interest
+  50 = avg × rate) that would fail under the old EOP convention.
+- **C15 Decimal-at-boundary helper** — full migration of
+  `EvaluationContext::current_values` to `Vec<Option<Decimal>>`
+  remains deferred (100+ call-site ripple, semver-breaking). In the
+  meantime, `EvaluationContext::get_value_decimal(node_id)` converts
+  the internally-stored `f64` to `rust_decimal::Decimal` at the
+  caller's boundary, rejecting non-finite values explicitly rather
+  than propagating them as `Decimal::ZERO`. Downstream accounting /
+  settlement code paths that need the workspace money invariants
+  (INVARIANTS.md §1) can opt in today without forcing every consumer
+  to migrate.
+- **P1 #17 Adjusted Net Debt bridge** — new
+  `finstack_statements_analytics::analysis::credit::adjusted_net_debt`
+  module with `AdjustedNetDebtSpec` (+ `AdjustedNetDebtSpecBuilder`)
+  implementing `Debt − Cash − MarketableSecurities + Leases +
+  Pension + OtherAdditions − OtherSubtractions`. `compute()` produces
+  a single-period value and `compute_series(&results)` produces an
+  `IndexMap<PeriodId, f64>` preserving the evaluator's period
+  ordering. This unblocks rating-agency-style leverage reporting via
+  the existing covenant engine.
+- **Statements build unblocked** — prior uncommitted edit at
+  `precedence.rs:33` was refactored away from Rust 2024 let-chain
+  syntax; `finstack-statements` now builds clean on edition 2021.
 
 ### Recently closed — follow-up session 2 (2026-04-21 cont.)
 
@@ -440,18 +493,33 @@ backlog rather than tagged P3.
 
 | Tier | Deferred findings | Estimated effort |
 |------|-------------------|------------------|
-| P0 (ship-blockers) | C9 part 3, C10–C14, C15–C20 | ~4 weeks |
-| P1 | #17, #19 | ~2.5 weeks |
+| P0 (ship-blockers) | C9 part 3, C10–C14, C15 (full Decimal migration) | ~3 weeks |
+| P1 | #19 | ~2 weeks |
 | P2 | #24 | ~2 days |
 | P3 | — | — |
 
-**Total remaining effort:** approximately 7 engineer-weeks across 6
+**Total remaining effort:** approximately 5 engineer-weeks across 3
 findings (was 9 weeks / 19 findings before the 2026-04-21 follow-up
-sessions). Every remaining deferred item is either (a) blocked on
-external fixtures / data (C10–C14 needs ISDA v2.6 vectors; P1 #17 is
-blocked on the statements refactor) or (b) a multi-week refactor
-(C15–C20 statements, P1 #19 r_eff threading). The P3 hygiene tier is
-fully closed.
+sessions). The remaining items are:
+
+- **C10–C14 SIMM rewrite** — blocked on ISDA v2.6 public test fixtures
+  being committed to the repo.
+- **C15 full Decimal migration** — semver-breaking refactor of
+  `EvaluationContext::current_values` from `Vec<Option<f64>>` to
+  `Vec<Option<Decimal>>`, rippling through 100+ formula / check call
+  sites. The [`get_value_decimal`] boundary helper partially mitigates;
+  full migration deferred to a future major version.
+- **C9 part 3 LMM independent repricer** — ~2 days; needs
+  Longstaff-Schwartz or nested Monte Carlo scaffolding.
+- **P1 #19 r_eff two-clock plumbing** — ~2 weeks, 12+ pricer migration
+  with per-pricer QuantLib golden values.
+- **P2 #24 FRTB parameter JSON registry** — ~2 days; requires threading
+  `FrtbParams` through the 5 charge-calc files.
+
+The C18, C19, C20, C17, and P1 #17 items that were originally grouped
+under the "C15–C20 statements refactor" P0 block are all now closed
+independently — C15's full Decimal migration is the lone remaining
+piece and is its own separate major-version item.
 
 ---
 

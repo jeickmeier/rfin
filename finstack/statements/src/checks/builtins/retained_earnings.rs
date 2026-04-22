@@ -6,12 +6,25 @@ use super::{get_node_value, sum_nodes};
 use crate::checks::types::effective_tolerance;
 use crate::checks::{
     Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Materiality, Severity,
+    SignConventionPolicy,
 };
 use crate::types::NodeId;
 use crate::Result;
 
 /// Checks that retained earnings flow correctly across periods:
 /// RE(t) = RE(t−1) + NI(t) − Dividends(t) ± Adjustments(t).
+///
+/// # Sign convention (audit C17)
+///
+/// * `net_income_node` carries the [`SignConventionPolicy::InflowPositive`]
+///   convention — positive values increase RE (profit), negative values
+///   decrease it (loss). No validation is emitted for NI since both signs
+///   are meaningful.
+/// * `dividends_node` carries the [`SignConventionPolicy::MagnitudePositive`]
+///   convention by default — the formula subtracts dividends explicitly.
+/// * `other_adjustments` carry
+///   [`SignConventionPolicy::InflowPositive`] — they are signed amounts
+///   added directly.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetainedEarningsReconciliation {
     /// Node for retained earnings balance.
@@ -24,6 +37,12 @@ pub struct RetainedEarningsReconciliation {
     pub other_adjustments: Vec<NodeId>,
     /// Tolerance override; falls back to [`crate::CheckConfig::default_tolerance`].
     pub tolerance: Option<f64>,
+    /// Sign convention applied to the `dividends_node` input. Defaults
+    /// to [`SignConventionPolicy::MagnitudePositive`] (audit C17).
+    /// `net_income_node` and `other_adjustments` always use
+    /// `InflowPositive` by construction.
+    #[serde(default)]
+    pub dividends_sign_convention: SignConventionPolicy,
 }
 
 impl Check for RetainedEarningsReconciliation {
@@ -89,6 +108,19 @@ impl Check for RetainedEarningsReconciliation {
                 .as_ref()
                 .and_then(|n| get_node_value(context.results, n, curr_pid))
                 .unwrap_or(0.0);
+
+            // Audit C17: dividends must be a non-negative magnitude
+            // under the default convention; the formula subtracts it.
+            if let Some(node) = self.dividends_node.as_ref() {
+                if let Some(f) = self.dividends_sign_convention.validate(
+                    dividends,
+                    node.as_str(),
+                    Some(*curr_pid),
+                    self.id(),
+                ) {
+                    findings.push(f);
+                }
+            }
 
             let adjustments = sum_nodes(context.results, &self.other_adjustments, curr_pid);
 

@@ -689,24 +689,21 @@ fn test_ttm_function_supports_expression_arguments() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    assert_eq!(
-        results
-            .get("ttm_gross_profit", &PeriodId::quarter(2024, 1))
-            .unwrap(),
-        400.0
-    );
-    assert_eq!(
-        results
-            .get("ttm_gross_profit", &PeriodId::quarter(2024, 2))
-            .unwrap(),
-        850.0
-    );
-    assert_eq!(
-        results
-            .get("ttm_gross_profit", &PeriodId::quarter(2024, 3))
-            .unwrap(),
-        1350.0
-    );
+    // Audit C18: TTM requires a full 4-quarter trailing window. Partial
+    // windows (Q1-Q3 2024) return NaN rather than silently summing what's
+    // available. Only Q4 2024 (Q1-Q4 2024) and Q1 2025 (Q2 2024-Q1 2025)
+    // have the full 4-period history needed.
+    for partial in [
+        PeriodId::quarter(2024, 1),
+        PeriodId::quarter(2024, 2),
+        PeriodId::quarter(2024, 3),
+    ] {
+        let value = results.get("ttm_gross_profit", &partial).unwrap();
+        assert!(
+            value.is_nan(),
+            "partial TTM window at {partial} should be NaN under C18 guard, got {value}"
+        );
+    }
     assert_eq!(
         results
             .get("ttm_gross_profit", &PeriodId::quarter(2024, 4))

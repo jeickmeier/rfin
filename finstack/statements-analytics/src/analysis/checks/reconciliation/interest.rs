@@ -46,7 +46,7 @@ impl Check for InterestExpenseReconciliation {
         let mut findings = Vec::new();
         let periods = &context.model.periods;
 
-        for period_spec in periods {
+        for (period_idx, period_spec) in periods.iter().enumerate() {
             let pid = &period_spec.id;
 
             let Some(interest) = get_node_value(context.results, &self.interest_expense_node, pid)
@@ -94,13 +94,35 @@ impl Check for InterestExpenseReconciliation {
             let mut total_implied_interest = 0.0_f64;
             let mut has_rate = false;
 
+            // Audit C20: use the AVERAGE of the prior and current balances,
+            // `(B_{t-1} + B_t) / 2`, instead of the EOP balance `B_t`.
+            // Interest accrues over the period, so the rate × current-EOP
+            // convention systematically overstates implied interest
+            // during any period where balances grow (e.g. during a
+            // revolver draw-down) and understates during amortization.
+            // For the very first period in the model we fall back to the
+            // EOP balance because no prior observation exists — flagging
+            // this explicitly via a tracing warn lets auditors see which
+            // checks were degraded.
+            let prev_pid = period_idx
+                .checked_sub(1)
+                .and_then(|i| periods.get(i))
+                .map(|p| p.id);
+
             for (balance_node, rate_node) in &self.debt_balance_nodes {
                 let Some(balance) = get_node_value(context.results, balance_node, pid) else {
                     continue;
                 };
+                let effective_balance = match prev_pid {
+                    Some(prev) => match get_node_value(context.results, balance_node, &prev) {
+                        Some(prev_balance) => 0.5 * (prev_balance + balance),
+                        None => balance,
+                    },
+                    None => balance,
+                };
                 if let Some(rn) = rate_node {
                     if let Some(rate) = get_node_value(context.results, rn, pid) {
-                        total_implied_interest += balance * rate;
+                        total_implied_interest += effective_balance * rate;
                         has_rate = true;
                     }
                 }

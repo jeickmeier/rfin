@@ -50,6 +50,7 @@ fn reconciliation_passes() {
         dividends_node: Some(NodeId::new("dividends")),
         other_adjustments: vec![],
         tolerance: None,
+        dividends_sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -98,6 +99,7 @@ fn reconciliation_fails() {
         dividends_node: Some(NodeId::new("dividends")),
         other_adjustments: vec![],
         tolerance: None,
+        dividends_sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -144,6 +146,7 @@ fn skips_first_period() {
         dividends_node: None,
         other_adjustments: vec![],
         tolerance: None,
+        dividends_sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -199,6 +202,7 @@ fn with_other_adjustments() {
         dividends_node: Some(NodeId::new("dividends")),
         other_adjustments: vec![NodeId::new("aoci_adjustment")],
         tolerance: None,
+        dividends_sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);

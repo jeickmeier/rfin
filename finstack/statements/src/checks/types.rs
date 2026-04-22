@@ -6,6 +6,98 @@ use serde::{Deserialize, Serialize};
 use crate::types::NodeId;
 
 // ---------------------------------------------------------------------------
+// SignConventionPolicy (audit C17)
+// ---------------------------------------------------------------------------
+
+/// Declared sign convention for a flow / magnitude input to a reconciliation
+/// check.
+///
+/// Audit C17: prior to this enum, each reconciliation file embedded its
+/// sign assumptions implicitly — e.g. `CapexReconciliation` expected
+/// `capex_cf` to be a positive magnitude, while INVARIANTS.md §3 documented
+/// the CFS convention as negative (outflow). The contradiction produced
+/// silent cross-check failures on any model that used the INVARIANTS
+/// convention. Making the policy explicit lets each reconciliation declare
+/// its input expectation and lets callers validate data at construction
+/// time instead of at P&L reconciliation.
+///
+/// # Variants
+///
+/// * [`Self::MagnitudePositive`] — the value is a non-negative magnitude;
+///   direction (inflow vs outflow) is encoded in the reconciliation's
+///   formula via `+` / `-` operators. Used by capex, depreciation,
+///   dividends, and disposal magnitudes across the cross-statement
+///   reconciliations.
+/// * [`Self::InflowPositive`] — the value is a signed flow where positive
+///   means "inflow" / "addition" and negative means "outflow" /
+///   "reduction". Used by `total_cash_flow` in `CashReconciliation` and
+///   `net_income` in `RetainedEarningsReconciliation`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SignConventionPolicy {
+    /// The value must be a non-negative magnitude (the reconciliation's
+    /// formula adds or subtracts it explicitly). This is the default for
+    /// historical reasons — every reconciliation in the current code
+    /// assumes magnitudes are positive.
+    #[default]
+    MagnitudePositive,
+    /// The value is signed: positive = inflow / addition, negative =
+    /// outflow / reduction.
+    InflowPositive,
+}
+
+impl SignConventionPolicy {
+    /// Validate a value against this policy, producing an optional
+    /// [`CheckFinding`] describing the violation.
+    ///
+    /// Returns `None` if the value is consistent with the declared policy.
+    /// Returns a `Severity::Warning` finding if the value is finite but
+    /// contradicts the declared sign convention. Non-finite values are
+    /// out of scope here — they should be caught by data-quality checks
+    /// before reaching reconciliation.
+    ///
+    /// Audit C17: the finding is a *warning* rather than an error so
+    /// existing models that ship data with a different sign convention
+    /// continue to run; a convention flip that materially affects the
+    /// reconciliation still produces a separate reconciliation finding.
+    /// Use [`finstack_core::money::Decimal`] boundary conversions to
+    /// enforce the convention strictly at ingest.
+    #[must_use]
+    pub fn validate(
+        &self,
+        value: f64,
+        node_label: &str,
+        period: Option<PeriodId>,
+        check_id: &str,
+    ) -> Option<CheckFinding> {
+        if !value.is_finite() {
+            return None;
+        }
+        match self {
+            Self::MagnitudePositive => {
+                if value < 0.0 {
+                    Some(CheckFinding {
+                        check_id: check_id.to_string(),
+                        severity: Severity::Warning,
+                        message: format!(
+                            "'{node_label}' carries a magnitude-positive convention but \
+                             observed {value:.4}; confirm upstream sign convention matches \
+                             the reconciliation's expectation (audit C17)"
+                        ),
+                        period,
+                        materiality: None,
+                        nodes: Vec::new(),
+                    })
+                } else {
+                    None
+                }
+            }
+            Self::InflowPositive => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Severity
 // ---------------------------------------------------------------------------
 

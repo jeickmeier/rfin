@@ -5,12 +5,24 @@ use serde::{Deserialize, Serialize};
 use super::super::get_node_value;
 use finstack_statements::checks::{
     Check, CheckCategory, CheckContext, CheckFinding, CheckResult, Materiality, Severity,
+    SignConventionPolicy,
 };
 use finstack_statements::types::NodeId;
 use finstack_statements::Result;
 
 /// Verifies that cash-flow-statement capex equals the sum of PP&E additions
 /// and intangible additions.
+///
+/// # Sign convention
+///
+/// All three capex-related nodes (`capex_cf_node`, `ppe_additions_node`,
+/// `intangible_additions_node`) are expected to carry the
+/// [`SignConventionPolicy::MagnitudePositive`] convention by default:
+/// they are non-negative magnitudes, and the reconciliation matches
+/// them directly (the CFS convention of reporting capex as a negative
+/// outflow should be normalized at ingest to a magnitude — the
+/// `sign_convention` field below flags violations at runtime per
+/// audit C17).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapexReconciliation {
     /// Capex from the cash flow statement (investing section).
@@ -22,6 +34,11 @@ pub struct CapexReconciliation {
     /// Tolerance override; falls back to
     /// [`finstack_statements::checks::CheckConfig::default_tolerance`].
     pub tolerance: Option<f64>,
+    /// Sign convention applied to `capex_cf_node`, `ppe_additions_node`,
+    /// and `intangible_additions_node`. Defaults to
+    /// [`SignConventionPolicy::MagnitudePositive`] (audit C17).
+    #[serde(default)]
+    pub sign_convention: SignConventionPolicy,
 }
 
 impl Check for CapexReconciliation {
@@ -60,17 +77,50 @@ impl Check for CapexReconciliation {
                 continue;
             };
 
+            // Audit C17: flag sign-convention violations before the
+            // reconciliation math — a negative `capex_cf` under the
+            // default MagnitudePositive convention would produce a
+            // misleading reconciliation-diff finding.
+            if let Some(f) = self.sign_convention.validate(
+                capex_cf,
+                self.capex_cf_node.as_str(),
+                Some(*pid),
+                self.id(),
+            ) {
+                findings.push(f);
+            }
+
             let ppe_add = self
                 .ppe_additions_node
                 .as_ref()
                 .and_then(|n| get_node_value(context.results, n, pid))
                 .unwrap_or(0.0);
 
+            if let Some(node) = self.ppe_additions_node.as_ref() {
+                if let Some(f) =
+                    self.sign_convention
+                        .validate(ppe_add, node.as_str(), Some(*pid), self.id())
+                {
+                    findings.push(f);
+                }
+            }
+
             let intangible_add = self
                 .intangible_additions_node
                 .as_ref()
                 .and_then(|n| get_node_value(context.results, n, pid))
                 .unwrap_or(0.0);
+
+            if let Some(node) = self.intangible_additions_node.as_ref() {
+                if let Some(f) = self.sign_convention.validate(
+                    intangible_add,
+                    node.as_str(),
+                    Some(*pid),
+                    self.id(),
+                ) {
+                    findings.push(f);
+                }
+            }
 
             let expected = ppe_add + intangible_add;
             let diff = capex_cf - expected;

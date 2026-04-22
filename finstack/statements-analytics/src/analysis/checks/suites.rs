@@ -8,7 +8,7 @@ use finstack_statements::checks::builtins::{
     BalanceSheetArticulation, CashReconciliation, MissingValueCheck, NonFiniteCheck,
     RetainedEarningsReconciliation,
 };
-use finstack_statements::checks::{CheckSuite, PeriodScope, Severity};
+use finstack_statements::checks::{CheckSuite, PeriodScope, Severity, SignConventionPolicy};
 
 use super::credit::{CoverageFloorCheck, FcfSignCheck, LeverageRangeCheck, TrendCheck};
 use super::reconciliation::DepreciationReconciliation;
@@ -47,6 +47,7 @@ pub fn three_statement_checks(mapping: ThreeStatementMapping) -> CheckSuite {
         dividends_node: mapping.dividends_node.clone(),
         other_adjustments: vec![],
         tolerance: None,
+        dividends_sign_convention: SignConventionPolicy::default(),
     });
 
     // Cash reconciliation (requires total_cf_node).
@@ -73,6 +74,7 @@ pub fn three_statement_checks(mapping: ThreeStatementMapping) -> CheckSuite {
             capex_node: capex.clone(),
             disposals_node: None,
             tolerance: None,
+            sign_convention: SignConventionPolicy::default(),
         });
     }
 

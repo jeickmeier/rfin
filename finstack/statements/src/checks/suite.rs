@@ -9,6 +9,7 @@ use super::builtins::{
 use super::traits::{Check, CheckContext};
 use super::types::{
     CheckCategory, CheckConfig, CheckReport, CheckResult, CheckSummary, PeriodScope, Severity,
+    SignConventionPolicy,
 };
 use crate::evaluator::StatementResult;
 use crate::types::{FinancialModelSpec, NodeId};
@@ -326,6 +327,7 @@ impl BuiltinCheckSpec {
                 dividends_node: dividends_node.clone(),
                 other_adjustments: other_adjustments.clone(),
                 tolerance: *tolerance,
+                dividends_sign_convention: SignConventionPolicy::default(),
             }),
             Self::CashReconciliation {
                 cash_balance_node,

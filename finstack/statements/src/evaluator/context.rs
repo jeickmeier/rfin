@@ -187,6 +187,40 @@ impl EvaluationContext {
         }
     }
 
+    /// Get the value for a node as a [`rust_decimal::Decimal`] boundary value.
+    ///
+    /// Converts the internally-stored `f64` to `Decimal` at the caller's
+    /// boundary. `NaN` and non-finite values become an error rather than
+    /// propagating as `Decimal::ZERO`. Use this helper from downstream
+    /// accounting / settlement / regulatory-capital code paths that need
+    /// the workspace's money invariants (see INVARIANTS.md §1), while the
+    /// evaluator's own storage remains `f64` pending the full C15
+    /// migration.
+    ///
+    /// Audit C15: this is the Decimal-at-boundary escape hatch. A full
+    /// migration of `current_values` to `Vec<Option<Decimal>>` ripples
+    /// through 100+ formula / check call sites and is a semver-breaking
+    /// release in its own right; it remains deferred to a future major
+    /// version. In the meantime, callers that need Decimal can opt in
+    /// explicitly without forcing every downstream consumer to migrate.
+    pub fn get_value_decimal(&self, node_id: &str) -> Result<rust_decimal::Decimal> {
+        let value = self.get_value(node_id)?;
+        if !value.is_finite() {
+            return Err(Error::eval(format!(
+                "Cannot convert non-finite value {value} for node '{node_id}' to Decimal \
+                 (period {}); audit C15 Decimal-at-boundary requires finite inputs",
+                self.period_id
+            )));
+        }
+        rust_decimal::Decimal::try_from(value).map_err(|e| {
+            Error::eval(format!(
+                "Failed to convert f64 value {value} to Decimal for node '{node_id}' \
+                 (period {}): {e}",
+                self.period_id
+            ))
+        })
+    }
+
     /// Get historical value for a node at a specific period.
     ///
     /// # Arguments
@@ -375,5 +409,45 @@ mod tests {
 
         let value = ctx.get_historical_value("revenue", &PeriodId::quarter(2025, 1));
         assert_eq!(value, Some(100_000.0));
+    }
+
+    /// Audit C15: `get_value_decimal` provides a Decimal-at-boundary
+    /// conversion for callers that need the workspace's money invariants.
+    /// Finite f64 values must round-trip cleanly; non-finite values must
+    /// be rejected rather than propagating as `Decimal::ZERO`.
+    #[test]
+    fn test_get_value_decimal_round_trips_finite_value() {
+        let mut node_to_column = IndexMap::new();
+        node_to_column.insert(NodeId::new("debt"), 0);
+
+        let mut ctx = EvaluationContext::new(
+            PeriodId::quarter(2025, 1),
+            Arc::new(node_to_column),
+            Arc::new(IndexMap::new()),
+        );
+
+        ctx.set_value("debt", 1_234_567.89).expect("set ok");
+        let d = ctx.get_value_decimal("debt").expect("decimal ok");
+        let roundtrip: f64 = d.try_into().expect("f64 ok");
+        assert!((roundtrip - 1_234_567.89).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_get_value_decimal_rejects_non_finite() {
+        let mut node_to_column = IndexMap::new();
+        node_to_column.insert(NodeId::new("bad"), 0);
+
+        let mut ctx = EvaluationContext::new(
+            PeriodId::quarter(2025, 1),
+            Arc::new(node_to_column),
+            Arc::new(IndexMap::new()),
+        );
+
+        ctx.set_value("bad", f64::NAN).expect("set NaN");
+        let err = ctx.get_value_decimal("bad").expect_err("must reject NaN");
+        assert!(
+            err.to_string().contains("non-finite"),
+            "expected non-finite rejection: {err}"
+        );
     }
 }

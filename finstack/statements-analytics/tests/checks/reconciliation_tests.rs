@@ -46,6 +46,7 @@ fn depreciation_reconciles_passes() {
         capex_node: NodeId::new("capex"),
         disposals_node: Some(NodeId::new("disposals")),
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -76,6 +77,7 @@ fn depreciation_mismatch_flags_warning() {
         capex_node: NodeId::new("capex"),
         disposals_node: None,
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -174,6 +176,51 @@ fn interest_implied_rate_reasonable_passes() {
     assert!(result.findings.is_empty());
 }
 
+/// Audit C20: implied interest must use the AVERAGE balance
+/// `(B_{t-1} + B_t) / 2`, not the end-of-period balance. This test
+/// constructs a period where the debt balance grew from 800 to 1200;
+/// average is 1000; at a 5 % rate implied interest = 50. The interest
+/// expense reported as 50 must pass — it would fail under the old EOP
+/// convention (which would expect 60 = 1200 × 0.05, a 20 % miss).
+#[test]
+fn interest_implied_rate_uses_average_balance_audit_c20() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value("interest", &[(q(1), s(40.0)), (q(2), s(50.0))])
+        .value("debt", &[(q(1), s(800.0)), (q(2), s(1200.0))])
+        .value("rate", &[(q(1), s(0.05)), (q(2), s(0.05))])
+        .build()
+        .unwrap();
+
+    let mut ev = Evaluator::new();
+    let results = ev.evaluate(&model).unwrap();
+
+    let check = InterestExpenseReconciliation {
+        interest_expense_node: NodeId::new("interest"),
+        debt_balance_nodes: vec![(NodeId::new("debt"), Some(NodeId::new("rate")))],
+        cs_interest_node: None,
+        tolerance_pct: None,
+    };
+
+    let ctx = CheckContext::new(&model, &results);
+    let result = check.execute(&ctx).unwrap();
+
+    // Q2: avg balance = (800 + 1200) / 2 = 1000; implied = 1000 × 0.05
+    // = 50; actual = 50 → no finding. Under the old EOP convention
+    // implied would have been 1200 × 0.05 = 60, a 20 % gap that would
+    // have flagged.
+    let q2_findings: Vec<_> = result
+        .findings
+        .iter()
+        .filter(|f| f.period == Some(q(2)))
+        .collect();
+    assert!(
+        q2_findings.is_empty(),
+        "Q2 should pass with average balance convention but got findings: {q2_findings:?}"
+    );
+}
+
 // ============================================================================
 // CapexReconciliation
 // ============================================================================
@@ -197,6 +244,7 @@ fn capex_reconciles_passes() {
         ppe_additions_node: Some(NodeId::new("ppe_add")),
         intangible_additions_node: Some(NodeId::new("intangible_add")),
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -226,6 +274,7 @@ fn capex_mismatch_flags_warning() {
         ppe_additions_node: Some(NodeId::new("ppe_add")),
         intangible_additions_node: Some(NodeId::new("intangible_add")),
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -253,6 +302,7 @@ fn capex_no_components_passes_trivially() {
         ppe_additions_node: None,
         intangible_additions_node: None,
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -282,6 +332,7 @@ fn dividends_reconcile_passes() {
         dividends_cf_node: NodeId::new("div_cf"),
         dividends_equity_node: NodeId::new("div_eq"),
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);
@@ -308,6 +359,7 @@ fn dividends_mismatch_flags_warning() {
         dividends_cf_node: NodeId::new("div_cf"),
         dividends_equity_node: NodeId::new("div_eq"),
         tolerance: None,
+        sign_convention: Default::default(),
     };
 
     let ctx = CheckContext::new(&model, &results);

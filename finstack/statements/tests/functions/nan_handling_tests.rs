@@ -161,11 +161,19 @@ fn test_ttm_with_nan() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    // ttm should skip NaN and sum: 100 + 150 + 200 = 450
+    // Audit C18: TTM now propagates NaN strictly — any non-finite value
+    // in the trailing window makes the TTM NaN, rather than silently
+    // treating a gap as zero. This is the correct behavior for a
+    // trailing-twelve-months metric: a missing quarter is a material
+    // signal that the metric is not well-defined and should not be
+    // consumed downstream.
     let ttm = results
         .get("revenue_ttm", &PeriodId::quarter(2024, 4))
         .unwrap();
-    assert_eq!(ttm, 450.0, "ttm() should skip NaN values in rolling window");
+    assert!(
+        ttm.is_nan(),
+        "ttm() should propagate NaN strictly under C18 guard, got {ttm}"
+    );
 }
 
 #[test]

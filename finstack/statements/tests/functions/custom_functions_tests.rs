@@ -204,27 +204,20 @@ fn test_ttm_function() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    // TTM (rolling_sum with window=4) should sum the last 4 quarters
-    // The current implementation of rolling_sum may not be correctly looking back
+    // Audit C18: TTM requires a full 4-quarter trailing window. Partial
+    // windows (Q1-Q3 2024) return NaN; full windows sum the 4 quarters.
 
-    // Let's check what we actually get
-    // 2024Q1: Only 1 quarter available = 1000
-    let q1_ttm = results
-        .get("ttm_revenue", &PeriodId::quarter(2024, 1))
-        .unwrap();
-    assert_eq!(q1_ttm, 1000.0); // Only Q1 value
-
-    // 2024Q2: 2 quarters = 1000 + 1100 = 2100
-    let q2_ttm = results
-        .get("ttm_revenue", &PeriodId::quarter(2024, 2))
-        .unwrap();
-    assert_eq!(q2_ttm, 2100.0);
-
-    // 2024Q3: 3 quarters = 1000 + 1100 + 1200 = 3300
-    let q3_ttm = results
-        .get("ttm_revenue", &PeriodId::quarter(2024, 3))
-        .unwrap();
-    assert_eq!(q3_ttm, 3300.0);
+    for partial in [
+        PeriodId::quarter(2024, 1),
+        PeriodId::quarter(2024, 2),
+        PeriodId::quarter(2024, 3),
+    ] {
+        let value = results.get("ttm_revenue", &partial).unwrap();
+        assert!(
+            value.is_nan(),
+            "partial TTM at {partial} should be NaN under C18 guard, got {value}"
+        );
+    }
 
     // 2024Q4: 4 quarters = 1000 + 1100 + 1200 + 1300 = 4600
     let q4_ttm = results
@@ -232,13 +225,10 @@ fn test_ttm_function() {
         .unwrap();
     assert_eq!(q4_ttm, 4600.0);
 
-    // 2025Q1: Should be 1100 + 1200 + 1300 + 1400 = 5000
-    // But the current implementation may be summing current + 3 historical
+    // 2025Q1: 1100 + 1200 + 1300 + 1400 = 5000
     let q1_2025_ttm = results
         .get("ttm_revenue", &PeriodId::quarter(2025, 1))
         .unwrap();
-    // This assertion will likely fail - let's see what we get
-    println!("2025Q1 TTM actual: {}", q1_2025_ttm);
     assert_eq!(q1_2025_ttm, 5000.0);
 }
 
