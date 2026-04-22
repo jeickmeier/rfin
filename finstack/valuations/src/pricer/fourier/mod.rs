@@ -32,16 +32,13 @@
 //!
 //! # Removed: Lewis (2001) pricer
 //!
-//! A `LewisPricer` was previously exposed here. Quant-audit findings C4
-//! and C7 identified it as known-divergent off-ATM (with a regression
-//! test that *asserted* the buggy behavior) and as silently dropping
-//! non-finite integrand panels behind a `max(0.0)` clamp. Because no
-//! internal pricer consumed it, and callers had no way to distinguish
-//! its correct ATM behavior from its off-ATM collapse, the module was
-//! removed in quant-audit remediation PR 2. Use [`cos::CosPricer`] for
-//! all Fourier pricing; it handles arbitrary strikes with Fang-Oosterlee
-//! truncation from cumulants. See the full audit at
-//! `docs/superpowers/plans/2026-04-19-quant-audit-remediation-roadmap.md`.
+//! A `LewisPricer` was previously exposed here but was known-divergent
+//! off-ATM and silently dropped non-finite integrand panels behind a
+//! `max(0.0)` clamp. Because no internal pricer consumed it and callers
+//! had no way to distinguish its correct ATM behavior from its off-ATM
+//! collapse, it has been removed. Use [`cos::CosPricer`] for all
+//! Fourier pricing; it handles arbitrary strikes with Fang-Oosterlee
+//! truncation from cumulants.
 //!
 //! [`CharacteristicFunction`]: finstack_core::math::characteristic_function::CharacteristicFunction
 

@@ -1339,12 +1339,12 @@ mod tests {
         //   Err — the PCA lost non-zero variance, correctly triggering
         //   strict_mode escalation.
         // We only require that when the calibration DOES error, the
-        // message cites the audit.
+        // message identifies the PSD / variance-budget cause.
         if let Err(e) = result {
             let msg = format!("{e}");
             assert!(
-                msg.contains("C9") || msg.contains("variance budget") || msg.contains("PSD"),
-                "error must reference the audit finding: {msg}"
+                msg.contains("variance budget") || msg.contains("PSD"),
+                "error must identify the PSD / variance-budget cause: {msg}"
             );
         }
     }

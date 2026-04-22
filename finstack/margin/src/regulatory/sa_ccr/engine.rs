@@ -35,7 +35,7 @@ impl SaCcrEngine {
     /// Each trade is validated via [`SaCcrTrade::validate`] before aggregation
     /// so that direction / supervisory-delta / option-type inconsistencies
     /// surface as a validation error rather than a silently reversed add-on
-    /// contribution (audit N2).
+    /// contribution.
     pub fn calculate_ead(
         &self,
         config: &SaCcrNettingSetConfig,
@@ -514,8 +514,9 @@ mod tests {
     // Property: EAD >= 0
     // -----------------------------------------------------------------------
 
-    /// Audit N2: invalid trades must surface at `calculate_ead` boundary, not
-    /// silently miscontribute to the add-on via a sign-flipped adjusted notional.
+    /// Invalid trades must surface at the `calculate_ead` boundary
+    /// rather than silently miscontribute to the add-on via a sign-
+    /// flipped adjusted notional.
     #[test]
     fn calculate_ead_rejects_trade_with_supervisory_delta_sign_mismatch() {
         let engine = SaCcrEngine::builder().build().expect("build");

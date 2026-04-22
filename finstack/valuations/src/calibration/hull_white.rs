@@ -1020,18 +1020,18 @@ mod tests {
         );
     }
 
-    /// Post-fix: κ out of bounds `[0.001, 1.0]` returns `Err` per the
-    /// audit's C8 escalation ("escalate from tracing::warn! to Err"). Use
-    /// synthetic quotes with inconsistent rate/tenor structure to push
-    /// the calibration to a pathological κ if it converges at all.
+    /// κ out of bounds `[0.001, 1.0]` must return `Err` rather than a
+    /// `tracing::warn!`-and-succeed. Use synthetic quotes with
+    /// inconsistent rate/tenor structure to push the calibration to a
+    /// pathological κ if it converges at all.
     #[test]
     fn hw1f_calibration_errors_when_kappa_drives_out_of_bounds() {
         // Construct pathological quotes: essentially flat very low vol
         // across a wide expiry grid. The LM will tend toward κ → 0 +
         // σ → 0; the post-fix implementation should either (a) find a
         // feasible κ in-bounds thanks to multi-start or (b) return an
-        // OutOfBounds error. Both outcomes are acceptable; the explicit
-        // silent warn-and-return path (pre-fix) is NOT.
+        // OutOfBounds error. Both outcomes are acceptable; a silent
+        // warn-and-return path is NOT.
         let df_fn = flat_df(0.03);
         let quotes: Vec<SwaptionQuote> = (1..=10)
             .map(|i| SwaptionQuote {
@@ -1050,7 +1050,7 @@ mod tests {
                 assert!(
                     (0.001..=1.0).contains(&params.kappa),
                     "κ = {:.6} outside hard bounds [0.001, 1.0]; Err expected \
-                     under audit-C8 escalation",
+                     rather than a warn-and-succeed path",
                     params.kappa
                 );
             }

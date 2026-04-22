@@ -1149,7 +1149,7 @@ mod monotone_convex_specific {
     }
 
     // ========================================================================
-    // Quant-audit-remediation PR 0: Hagan-West monotonicity projection (C1)
+    // Hagan-West monotonicity projection
     // ========================================================================
     //
     // Regression tests for the Hagan-West 2006 Figure 6 projection. The

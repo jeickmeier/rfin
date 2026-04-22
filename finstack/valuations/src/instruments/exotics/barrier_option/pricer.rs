@@ -13,9 +13,9 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-// DayCountCtx was only used by MC pricer pre-P1 #19 migration. Now
-// threaded via `TwoClockParams` — kept here gated to test-only because
-// analytical tests still build without `mc` and need the reference.
+// DayCountCtx is now threaded via `TwoClockParams`; the test-only
+// import is retained here because analytical tests still build without
+// `mc` and need the reference.
 #[cfg(all(test, feature = "mc"))]
 #[allow(unused_imports)]
 use finstack_core::dates::DayCountCtx;

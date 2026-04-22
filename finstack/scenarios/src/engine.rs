@@ -1172,8 +1172,8 @@ mod tests {
             .expect_err("duplicate TimeRollForward must error at compose time");
         let msg = format!("{err}");
         assert!(
-            msg.contains("TimeRollForward") && msg.contains("P1 #23"),
-            "error message must cite the audit finding: {msg}"
+            msg.contains("TimeRollForward"),
+            "error message must name the duplicated operation: {msg}"
         );
     }
 

@@ -5,8 +5,6 @@
 //! - Theta behavior (should be large negative)
 //! - Delta behavior (should approach step function)
 //! - Expired option handling
-//!
-//! **Market Standards Review (Finding 9)**
 
 use super::helpers::*;
 use finstack_valuations::instruments::Instrument;

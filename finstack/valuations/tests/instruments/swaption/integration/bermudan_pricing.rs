@@ -591,10 +591,10 @@ fn test_tree_refuses_uncalibrated_default_when_require_calibration_set() {
     let err = pricer
         .price_dyn(&swaption, &market, as_of)
         .expect_err("require_calibration should refuse uncalibrated default");
-    // The error message should mention calibration and cite the audit.
+    // The error message should mention calibration.
     let msg = format!("{err}");
     assert!(
-        msg.contains("uncalibrated") || msg.contains("C6"),
+        msg.contains("uncalibrated"),
         "error message must reference calibration requirement: {msg}"
     );
 }
@@ -620,7 +620,7 @@ fn test_lsmc_refuses_uncalibrated_default_when_require_calibration_set() {
         .expect_err("require_calibration should refuse uncalibrated default on LSMC");
     let msg = format!("{err}");
     assert!(
-        msg.contains("uncalibrated") || msg.contains("C6"),
+        msg.contains("uncalibrated"),
         "error message must reference calibration requirement: {msg}"
     );
 }

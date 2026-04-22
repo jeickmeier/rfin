@@ -19,8 +19,7 @@ use finstack_statements::Result;
 /// `capex_node`, `depreciation_expense_node`, and `disposals_node` are
 /// expected to carry [`SignConventionPolicy::MagnitudePositive`] by
 /// default. The formula subtracts D&A and disposals explicitly, so any
-/// negative magnitude would double-sign the reconciliation. See audit
-/// C17 for the rationale behind making the policy explicit.
+/// negative magnitude would double-sign the reconciliation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepreciationReconciliation {
     /// D&A expense node (income statement).

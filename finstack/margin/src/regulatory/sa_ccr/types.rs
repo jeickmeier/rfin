@@ -180,13 +180,15 @@ pub struct EadResult {
 impl SaCcrTrade {
     /// Validate supervisory-delta / direction / option-type coherence.
     ///
-    /// Audit: N2. The add-on path [`super::add_on::asset_class_add_on`] uses
-    /// `supervisory_delta * |notional|` as the adjusted notional — the sign of
-    /// the entire contribution comes from `supervisory_delta`. If a caller
-    /// misconfigures `supervisory_delta` (e.g. passes +1 for a short linear
-    /// trade, or the wrong-signed Black-Scholes delta for a put) the add-on
-    /// silently computes a reversed-direction contribution, producing a
-    /// 10–20% IM miss on options without an obvious failure signal.
+    /// The add-on path [`super::add_on::asset_class_add_on`] uses
+    /// `supervisory_delta * |notional|` as the adjusted notional — the
+    /// sign of the entire contribution comes from `supervisory_delta`.
+    /// If a caller misconfigures `supervisory_delta` (e.g. passes +1
+    /// for a short linear trade, or the wrong-signed Black-Scholes
+    /// delta for a put) the add-on would silently compute a reversed-
+    /// direction contribution, producing a 10–20% IM miss on options
+    /// without an obvious failure signal; this validator catches that
+    /// class of caller bug up front.
     ///
     /// Checks performed per BCBS 279 ¶104–112:
     ///

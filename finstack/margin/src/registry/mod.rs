@@ -926,8 +926,6 @@ fn validate_simm_params(p: &SimmParams) -> Result<()> {
 /// Missing off-diagonal entries are filled with the calculator's own fallback
 /// value (see `SimmParams::correlation` / `cq_inter_bucket_correlation`) so the
 /// validated matrix is the one the calculator will actually observe at runtime.
-///
-/// Audit: P2 #25.
 fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
     use crate::SimmCreditSector::{
         BasicMaterials, ConsumerGoods, Financial, HealthCare, Index, Residual, Securitized,
@@ -1234,7 +1232,7 @@ mod tests {
         );
     }
 
-    // ---- P2 #25: PSD validation at registry load ------------------------------
+    // ---- PSD validation at registry load --------------------------------------
 
     /// Clone the embedded v2_6 SIMM params for mutation in PSD tests.
     fn base_simm_params() -> SimmParams {
@@ -1256,7 +1254,8 @@ mod tests {
         // Non-PSD 3-way pattern: ρ(IR,CQ)=0.9, ρ(IR,EQ)=0.9, ρ(CQ,EQ)=-0.9.
         // Determinant of the embedded 3x3 submatrix is -2.888 < 0 → one negative
         // eigenvalue → NOT positive semi-definite, even though every entry is in
-        // [-1, 1]. Exactly the silent-propagation failure mode P2 #25 targets.
+        // [-1, 1]. Exactly the silent-propagation failure mode the PSD
+        // check targets.
         let mut params = base_simm_params();
         params.risk_class_correlations.insert(
             ordered_risk_class_pair(SimmRiskClass::InterestRate, SimmRiskClass::CreditQualifying),
@@ -1272,7 +1271,7 @@ mod tests {
         );
 
         let err = validate_simm_correlations_psd(&params)
-            .expect_err("non-PSD risk-class matrix must be rejected (P2 #25)");
+            .expect_err("non-PSD risk-class matrix must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("risk_class_correlations"),
@@ -1304,7 +1303,7 @@ mod tests {
         );
 
         let err = validate_simm_correlations_psd(&params)
-            .expect_err("non-PSD CQ inter-bucket matrix must be rejected (P2 #25)");
+            .expect_err("non-PSD CQ inter-bucket matrix must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("cq_inter_bucket_correlations"),
@@ -1336,7 +1335,7 @@ mod tests {
         set(&mut params.commodity_inter_bucket_correlations, 1, 2, -0.9);
 
         let err = validate_simm_correlations_psd(&params)
-            .expect_err("non-PSD commodity matrix must be rejected (P2 #25)");
+            .expect_err("non-PSD commodity matrix must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("commodity_inter_bucket_correlations"),
@@ -1369,7 +1368,7 @@ mod tests {
             1.5,
         );
         let err =
-            validate_simm_correlations_psd(&params).expect_err("|ρ| > 1 must be rejected (P2 #25)");
+            validate_simm_correlations_psd(&params).expect_err("|ρ| > 1 must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("risk_class_correlations"),

@@ -55,8 +55,8 @@ pub struct RateExoticHw1fLsmcPricer {
     /// Use `0.0` for a pure Ornstein-Uhlenbeck process (mean-reverts to
     /// zero); use `r0` for a classic Vasicek process (mean-reverts to
     /// the initial rate). Curve-calibrated products should replace this
-    /// single-θ constant with a time-dependent θ(t) schedule in a
-    /// follow-up; for PR 1 the flat-θ harness is sufficient.
+    /// single-θ constant with a time-dependent θ(t) schedule; the
+    /// flat-θ harness is a deliberate stepping stone.
     pub theta: f64,
     /// Event (coupon/observation) times driving the payoff, strictly increasing.
     pub event_times: Vec<f64>,

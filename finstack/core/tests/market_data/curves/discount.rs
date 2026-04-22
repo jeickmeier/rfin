@@ -794,25 +794,24 @@ fn minimal_two_point_curve() {
 }
 
 // =============================================================================
-// Quant-audit remediation PR 10: forward-rate numerical precision (P1 #18)
+// Forward-rate numerical precision
 // =============================================================================
 //
-// `DiscountCurve::forward` previously computed the continuous forward rate as
+// `DiscountCurve::forward` is implemented as the canonical
+//
+//     -(self.df(t2) / self.df(t1)).ln() / (t2 - t1)
+//
+// rather than going via the zero-rate form
 //
 //     (self.zero(t2) * t2 - self.zero(t1) * t1) / (t2 - t1)
 //
-// where each `zero(t)` is itself `-ln(DF(t)) / t`. Algebraically valid, but
-// numerically it round-trips each endpoint through one division and one
-// multiplication — two extra ulps — and costs two `ln` calls where one
-// suffices. PR 10 switched the implementation to the canonical
-//
-//     -(self.df(t2) / self.df(t1)).ln() / (t2 - t1).
-//
-// The tests below lock in:
+// which is algebraically equivalent but round-trips each endpoint
+// through an extra division / multiplication and costs two `ln` calls
+// where one suffices. The tests below lock in:
 //   1. The identity holds to round-off across a battery of (t1, t2) pairs.
 //   2. Known-exact cases match analytical values to < 1 ulp.
-//   3. Short-tenor forwards (near `min_forward_tenor`) no longer carry the
-//      extra cancellation error that the pre-fix form exhibited at ~1e-6 y.
+//   3. Short-tenor forwards (near `min_forward_tenor`) do not carry the
+//      cancellation error that the zero-rate form exhibits at ~1e-6 y.
 
 #[test]
 fn forward_matches_canonical_formula_across_tenor_grid() {

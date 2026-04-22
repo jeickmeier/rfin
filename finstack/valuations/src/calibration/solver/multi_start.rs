@@ -243,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_start_config_defaults_match_pr_4_roadmap() {
+    fn multi_start_config_defaults_are_stable() {
         let cfg = MultiStartConfig::default();
         assert_eq!(cfg.num_restarts, 5);
         assert!((cfg.perturbation_scale - 0.5).abs() < 1e-15);

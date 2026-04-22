@@ -1,7 +1,7 @@
 //! Two-clock plumbing for pricers that combine a vol-surface clock with
 //! a discount-curve clock.
 //!
-//! # Background (quant-audit finding P1 #19)
+//! # Background
 //!
 //! Many Monte Carlo and closed-form pricers in this crate use the
 //! pattern:
@@ -22,7 +22,7 @@
 //!
 //! # The two-clock convention
 //!
-//! The audit's prescribed fix is to thread **both** clocks through:
+//! The fix is to thread **both** clocks through:
 //!
 //! * `t_vol` — year fraction on the **instrument / vol-surface** day
 //!   count. Drives the time grid for MC simulation and vol-surface
@@ -40,16 +40,12 @@
 //!
 //! # Migration status
 //!
-//! [`TwoClockParams`] is the landing helper for the
-//! migration. At the time of writing, `r_eff = -ln(DF)/t_vol` is still
-//! present in ~20 call sites across `exotics/` and `fx/` pricers and
-//! will be migrated one pricer at a time; see the audit doc for the
-//! full list.
+//! [`TwoClockParams`] is the landing helper for the migration. Some
+//! pricers still compute `r_eff = -ln(DF)/t_vol` inline; these will be
+//! migrated one pricer at a time.
 //!
 //! # References
 //!
-//! - Quant-audit finding P1 #19 (see
-//!   `docs/QUANT_AUDIT_DEFERRED_ITEMS.md`).
 //! - Hull, J.C. *Options, Futures, and Other Derivatives* (Ch. 15 on
 //!   risk-neutral pricing under distinct rate and measurement
 //!   conventions).

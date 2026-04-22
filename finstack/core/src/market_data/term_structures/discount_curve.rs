@@ -441,13 +441,13 @@ impl DiscountCurve {
     /// f(t1, t2) = -ln(DF(t2) / DF(t1)) / (t2 - t1).
     /// ```
     ///
-    /// This is the form evaluated here. Prior to quant-audit remediation
-    /// PR 10 the implementation went via `(z2·t2 − z1·t1) / (t2 − t1)`
-    /// with `z·t = -ln(DF)`: algebraically identical, but each endpoint
-    /// was round-tripped through an extra division and multiplication —
-    /// two wasted ulps — and the computation used two `ln` evaluations
-    /// instead of one. The current form avoids both costs and matches
-    /// the canonical identity to ~1 ulp even at sub-millisecond tenors.
+    /// This is the form evaluated here. The algebraically equivalent
+    /// zero-rate form `(z2·t2 − z1·t1) / (t2 − t1)` (with `z·t =
+    /// -ln(DF)`) round-trips each endpoint through an extra division
+    /// and multiplication — two wasted ulps — and costs two `ln`
+    /// evaluations instead of one. The current form avoids both and
+    /// matches the canonical identity to ~1 ulp even at sub-
+    /// millisecond tenors.
     ///
     /// # Errors
     ///
