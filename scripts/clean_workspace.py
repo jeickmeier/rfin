@@ -6,8 +6,8 @@ Invoked by `mise run all-clean` after `cargo clean`.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
+import shutil
 
 ROOT_DIRS = (
     ".venv",
@@ -20,6 +20,7 @@ GLOB_DIRS = ("__pycache__", "*.egg-info")
 
 
 def main() -> None:
+    """Delete configured directories and glob-matched caches under the current working directory."""
     root = Path.cwd()
     for rel in ROOT_DIRS:
         shutil.rmtree(root / rel, ignore_errors=True)
