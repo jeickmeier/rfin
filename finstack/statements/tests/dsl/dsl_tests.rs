@@ -1,10 +1,10 @@
-//! DSL tests for Phase 2 (PR #2.1-#2.6)
+//! DSL tests for Phase 2.
 
 use finstack_core::expr::{ExprNode, Function};
 use finstack_statements::dsl::{compile, parse_and_compile, parse_formula, BinOp, StmtExpr};
 
 // ============================================================================
-// PR #2.1 — DSL Parser Tests
+// DSL Parser Tests
 // ============================================================================
 
 #[test]
@@ -346,7 +346,7 @@ fn test_parse_error_empty() {
 }
 
 // ============================================================================
-// PR #2.2 — DSL Compiler Tests
+// DSL Compiler Tests
 // ============================================================================
 
 #[test]
@@ -432,7 +432,7 @@ fn test_parse_and_compile_integration() {
 }
 
 // ============================================================================
-// PR #2.3 — Time-Series Operators Tests
+// Time-Series Operators Tests
 // ============================================================================
 
 #[test]
@@ -488,7 +488,7 @@ fn test_compile_time_series_operators() {
 }
 
 // ============================================================================
-// PR #2.4 — Rolling Window Functions Tests
+// Rolling Window Functions Tests
 // ============================================================================
 
 #[test]
@@ -552,7 +552,7 @@ fn test_parse_ttm_equivalent() {
 }
 
 // ============================================================================
-// PR #2.5 — Statistical Functions Tests
+// Statistical Functions Tests
 // ============================================================================
 
 #[test]
@@ -583,7 +583,7 @@ fn test_compile_statistical_functions() {
 }
 
 // ============================================================================
-// PR #2.6 — Custom Functions Tests
+// Custom Functions Tests
 // ============================================================================
 
 #[test]
