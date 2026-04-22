@@ -161,11 +161,11 @@ class APIComparator:
             "BasisSwap", "InterestRateOption", "InterestRateFuture",
             # FX
             "FxSpot", "FxOption", "FxSwap", "FxBarrierOption",
-            # Credit
-            "CreditDefaultSwap", "CDSIndex", "CdsTranche", "CdsOption",
+            # Credit (canonical Rust names use all-caps CDS acronym)
+            "CreditDefaultSwap", "CDSIndex", "CDSTranche", "CDSOption",
             # Equity
             "Equity", "EquityOption", "EquityTotalReturnSwap",
-            "FiIndexTotalReturnSwap", "VarianceSwap",
+            "FIIndexTotalReturnSwap", "VarianceSwap",
             # Inflation
             "InflationLinkedBond", "InflationSwap",
             # Structured
@@ -211,41 +211,78 @@ class APIComparator:
         }
 
     def compare_calibration(self) -> dict[str, Any]:
-        """Compare calibration API coverage."""
+        """Compare calibration API coverage.
+
+        Like instruments, calibration follows a JSON-envelope pattern:
+        Rust exposes per-curve parameter structs (`DiscountCurveParams`,
+        `HazardCurveParams`, etc.) via `CalibrationEnvelope`, and Python/WASM
+        bindings expose a single `calibrate(envelope_json)` entrypoint.
+        Coverage is measured by the presence of canonical Rust types and
+        the JSON entrypoints.
+        """
+        # Canonical Rust calibration surface (from finstack/valuations/src/calibration).
         calibration_classes = {
-            "DiscountCurveCalibrator",
-            "ForwardCurveCalibrator",
-            "HazardCurveCalibrator",
-            "InflationCurveCalibrator",
-            "VolSurfaceCalibrator",
-            "BaseCorrelationCalibrator",
-            "SimpleCalibration",
+            # Config / engine surface
             "CalibrationConfig",
+            "CalibrationMethod",
+            "SolverConfig",
+            "ResidualWeightingScheme",
+            # Report / result surface
             "CalibrationReport",
-            "RatesQuote",
-            "CreditQuote",
-            "VolQuote",
-            "InflationQuote",
+            "CalibrationDiagnostics",
+            "CalibrationResult",
+            "CalibrationResultEnvelope",
+            "QuoteQuality",
+            # JSON-plan surface
+            "CalibrationEnvelope",
+            "CalibrationPlan",
+            "CalibrationStep",
+            # Per-curve parameter specs (routed via CalibrationEnvelope)
+            "DiscountCurveParams",
+            "ForwardCurveParams",
+            "HazardCurveParams",
+            "InflationCurveParams",
+            "VolSurfaceParams",
+            "BaseCorrelationParams",
+            # Solve configs
+            "DiscountCurveSolveConfig",
+            "HazardCurveSolveConfig",
+            "InflationCurveSolveConfig",
+            # Validation
+            "ValidationConfig",
+            "CurveValidator",
+            "SurfaceValidator",
         }
 
         rust_types = self._collect_rust_types()
-        python_classes = self._collect_python_classes()
-        wasm_classes = self._collect_wasm_classes()
+        python_functions = self._collect_python_functions()
+        wasm_functions = self._collect_wasm_functions()
 
         rust_cal = calibration_classes & rust_types
-        python_cal = calibration_classes & python_classes
-        wasm_cal = calibration_classes & wasm_classes
-        in_all_three = calibration_classes & rust_types & python_classes & wasm_classes
+
+        # Python/WASM route calibration through a JSON entrypoint.
+        py_entrypoints = {"calibrate", "validate_calibration_json"}
+        wasm_entrypoints = {"calibrate", "validateCalibrationJson"}
+        python_covers_all = bool(py_entrypoints & python_functions)
+        wasm_covers_all = bool(wasm_entrypoints & wasm_functions)
+
+        python_covered = rust_cal if python_covers_all else set()
+        wasm_covered = rust_cal if wasm_covers_all else set()
+        in_all_three = rust_cal & python_covered & wasm_covered
 
         return {
             "total_expected": len(calibration_classes),
             "in_rust": len(rust_cal),
-            "in_python": len(python_cal),
-            "in_wasm": len(wasm_cal),
+            "in_python": len(python_covered),
+            "in_wasm": len(wasm_covered),
             "in_all_three": len(in_all_three),
             "missing_in_rust": sorted(calibration_classes - rust_cal),
-            "missing_in_python": sorted(calibration_classes - python_cal),
-            "missing_in_wasm": sorted(calibration_classes - wasm_cal),
+            "missing_in_python": sorted(calibration_classes - python_covered),
+            "missing_in_wasm": sorted(calibration_classes - wasm_covered),
+            "python_covers_all": python_covers_all,
+            "wasm_covers_all": wasm_covers_all,
+            "python_entrypoint_present": sorted(py_entrypoints & python_functions),
+            "wasm_entrypoint_present": sorted(wasm_entrypoints & wasm_functions),
         }
 
     def generate_report(self) -> str:
@@ -308,11 +345,18 @@ class APIComparator:
         lines.extend([
             "## Calibration API Coverage",
             "",
+            "Calibration follows the same JSON-envelope pattern as instruments:",
+            "Rust exposes per-curve parameter structs via `CalibrationEnvelope`,",
+            "and Python/WASM expose a single `calibrate(envelope_json)` entrypoint.",
+            "",
             f"- **Expected calibration types:** {calibration['total_expected']}",
-            f"- **In Rust:** {calibration['in_rust']} ({calibration['in_rust'] * 100 // calibration['total_expected']}%)",
-            f"- **In Python:** {calibration['in_python']} ({calibration['in_python'] * 100 // calibration['total_expected']}%)",
-            f"- **In WASM:** {calibration['in_wasm']} ({calibration['in_wasm'] * 100 // calibration['total_expected']}%)",
-            f"- **In all three:** {calibration['in_all_three']}",
+            f"- **In Rust (per-class):** {calibration['in_rust']} "
+            f"({calibration['in_rust'] * 100 // calibration['total_expected']}%)",
+            f"- **In Python (via JSON entrypoint):** "
+            f"{'yes — ' + ', '.join(calibration['python_entrypoint_present']) if calibration['python_covers_all'] else 'no entrypoint found'}",
+            f"- **In WASM (via JSON entrypoint):** "
+            f"{'yes — ' + ', '.join(calibration['wasm_entrypoint_present']) if calibration['wasm_covers_all'] else 'no entrypoint found'}",
+            f"- **Reachable in all three:** {calibration['in_all_three']}",
             "",
         ])
 

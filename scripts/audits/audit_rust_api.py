@@ -74,8 +74,9 @@ class RustAPIExtractor:
             return items
 
         # Handle: pub use module::Item;
+        # Handle: pub use a::b::c::Item;
         # Handle: pub use module::Item as Alias;
-        single_match = re.search(r"pub\s+use\s+[^:]+::(\w+)(?:\s+as\s+(\w+))?;", line)
+        single_match = re.search(r"pub\s+use\s+[\w:]+::(\w+)(?:\s+as\s+(\w+))?;", line)
         if single_match:
             name = single_match.group(2) if single_match.group(2) else single_match.group(1)
             items.append(name)
