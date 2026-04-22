@@ -19,9 +19,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Toolchain versions are pinned in files (single source of truth):
-#   Rust:   rust-toolchain.toml
-#   Node:   .nvmrc
+# Toolchain versions are pinned in mise.toml (single source of truth).
+# CI uses jdx/mise-action@v2 to provision them, then runs raw commands.
 
 jobs:
   # ── Python Wheels ───────────────────────────────────────────────
@@ -61,13 +60,13 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
-      - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v2
         with:
           cache: true
-          rustflags: ""
 
-      - uses: actions/setup-python@v5
+      - name: Set up matrix Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
 
@@ -134,17 +133,13 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
-      - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Install wasm-pack
-        uses: taiki-e/install-action@wasm-pack
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v2
         with:
-          node-version-file: '.nvmrc'
-          registry-url: "https://registry.npmjs.org"
+          cache: true
+
+      - name: Configure npm registry
+        run: echo "registry=https://registry.npmjs.org/" > ~/.npmrc
 
       - name: Sync package.json version from Cargo.toml
         run: ./scripts/sync-versions

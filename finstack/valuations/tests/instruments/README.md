@@ -343,4 +343,4 @@ When adding new instrument tests:
 2. Use shared helpers from `common/test_helpers.rs`
 3. Provide comprehensive coverage (construction, cashflows, pricing, metrics, validation)
 4. Update this README with instrument status
-5. Run `make lint` and `make test-rust` before committing
+5. Run `mise run all-lint` and `mise run rust-test` before committing

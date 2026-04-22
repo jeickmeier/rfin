@@ -226,7 +226,7 @@ cargo test -p finstack-core --release
 Or use the project Makefile:
 
 ```bash
-make test-rust
+mise run rust-test
 ```
 
 ## Best Practices

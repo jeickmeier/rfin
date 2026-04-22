@@ -1,6 +1,6 @@
 ---
 name: finstack-simplify
-description: Use whenever the user asks to simplify, dedupe, audit, or refactor any part of the finstack Rust workspace (core, analytics, valuations, statements, statements-analytics, scenarios, portfolio, margin, correlation, monte_carlo) or its Python/WASM bindings. Trigger on phrases like "simplify the X module", "find duplicates in Y", "there's too much slop in Z", "clean up this crate", "audit complexity", "reduce API surface", "collapse pathways", "dedupe X", or "this feels over-engineered". Also trigger when the user mentions vibe-coded code, parallel APIs, wrapper bloat, registry drift, builder sprawl, or any sign of parallel pathways for the same capability. Runs a phased Audit → Plan → Refactor → Verify loop tailored to the finstack triplet (Rust canonical → PyO3 Python → wasm-bindgen WASM), respects determinism / Decimal / currency / serde-parity invariants, and enforces the project's `make lint-* && make test-* && rebuild bindings` cycle after every refactor slice.
+description: Use whenever the user asks to simplify, dedupe, audit, or refactor any part of the finstack Rust workspace (core, analytics, valuations, statements, statements-analytics, scenarios, portfolio, margin, correlation, monte_carlo) or its Python/WASM bindings. Trigger on phrases like "simplify the X module", "find duplicates in Y", "there's too much slop in Z", "clean up this crate", "audit complexity", "reduce API surface", "collapse pathways", "dedupe X", or "this feels over-engineered". Also trigger when the user mentions vibe-coded code, parallel APIs, wrapper bloat, registry drift, builder sprawl, or any sign of parallel pathways for the same capability. Runs a phased Audit → Plan → Refactor → Verify loop tailored to the finstack triplet (Rust canonical → PyO3 Python → wasm-bindgen WASM), respects determinism / Decimal / currency / serde-parity invariants, and enforces the project's `mise run lint-* && mise run test-* && rebuild bindings` cycle after every refactor slice.
 ---
 
 # finstack-simplify
@@ -68,10 +68,10 @@ After the edit, produce a short **Refactor Diff** note in the format of `example
 
 Run the **full finstack verify stack** for the affected layers. These commands are project-specific and non-negotiable:
 
-- Rust touched: `make lint-rust && make test-rust`
-- WASM touched: `make lint-wasm && make test-wasm` (and `make wasm-build` if you changed WASM bindings)
-- WASM UI touched: `make lint-ui && make test-ui`
-- Python touched: `make lint-python && make test-python` (and `make python-dev` if you changed Rust code that PyO3 binds — debug builds are too slow for portfolio valuation; AGENTS.md mandates release profile)
+- Rust touched: `mise run rust-lint && mise run rust-test`
+- WASM touched: `mise run wasm-lint && mise run wasm-test` (and `mise run wasm-build` if you changed WASM bindings)
+- WASM UI touched: `mise run lint-ui && mise run test-ui`
+- Python touched: `mise run python-lint && mise run python-test` (and `mise run python-build` if you changed Rust code that PyO3 binds — debug builds are too slow for portfolio valuation; AGENTS.md mandates release profile)
 - Parity impact: re-run `finstack-py/tests/parity` and check `parity_contract.toml` is still green.
 
 **Never run `cargo test` directly** — project rule: no doc tests in the loop.

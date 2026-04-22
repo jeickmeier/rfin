@@ -54,7 +54,7 @@ before using the namespaced APIs.
 From the repository root:
 
 ```bash
-make wasm-pkg
+mise run wasm-pkg
 ```
 
 From `finstack-wasm/` directly:
@@ -78,8 +78,8 @@ npm run format:check
 Root-level equivalents:
 
 ```bash
-make test-wasm
-make lint
+mise run wasm-test
+mise run all-lint
 ```
 
 ## Relationship To Rust And Python

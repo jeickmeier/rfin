@@ -20,7 +20,7 @@ Release Prep Progress:
 - [ ] Phase 7: Final verification & tagging
 ```
 
-After each phase, run `make ci-test` to confirm nothing is broken before proceeding.
+After each phase, run `mise run all-ci` to confirm nothing is broken before proceeding.
 
 ## Phase 1: Dead code audit
 
@@ -161,11 +161,9 @@ All examples must compile and produce correct output:
 
 ```bash
 # Rust examples
-make examples
-
+./scripts/run-examples.sh
 # Python examples
-make examples-python
-
+uv run python finstack-py/examples/notebooks/run_all_notebooks.py
 # Check for examples referencing deprecated/removed APIs
 rg -l 'deprecated_function_name' finstack/examples/ finstack-py/examples/
 ```
@@ -223,10 +221,10 @@ cargo build -p finstack-valuations --features test-utils
 
 ```bash
 # If a saved baseline exists from the last release
-make bench-compare
+mise run rust-bench-compare
 
 # Or run fresh and inspect absolute numbers
-make bench-perf
+mise run rust-bench
 ```
 
 ### 5b. Review for regressions
@@ -266,10 +264,10 @@ cargo nextest run --workspace -E 'test(quantlib) | test(parity) | test(golden) |
 cargo deny check
 
 # Security-specific audit
-make audit
+mise run all-audit
 
 # Lint all components (no auto-fix — must pass clean)
-make lint
+mise run all-lint
 ```
 
 ### 6c. MSRV verification
@@ -298,16 +296,14 @@ cargo publish -p finstack-core --dry-run
 ### 6f. Binary size check
 
 ```bash
-make size-all
-```
+cargo bloat --release --crates -p finstack-py```
 
 Review for unexpected size regressions from the previous release.
 
 ### 6g. API parity
 
 ```bash
-make list
-```
+uv run python scripts/audits/compare_apis.py```
 
 Verify Python and WASM bindings expose all intended public APIs.
 
@@ -326,13 +322,13 @@ Create `RELEASE_NOTES_X.Y.Z.md` following the established template (see `RELEASE
 ### 7a. Full test suite
 
 ```bash
-make test
+mise run all-test
 ```
 
 ### 7b. CI and quality gates
 
 ```bash
-make ci-test
+mise run all-ci
 ```
 
 ### 7c. Pre-release checklist
@@ -358,7 +354,7 @@ gh release create vX.Y.Z --title "Finstack vX.Y.Z" --notes-file RELEASE_NOTES_X.
 
 ### 7e. Post-release
 
-- [ ] Save benchmark baseline for the new release: `make bench-baseline`
+- [ ] Save benchmark baseline for the new release: `mise run rust-bench-baseline`
 - [ ] Add new `[Unreleased]` section to `CHANGELOG.md`
 - [ ] Bump version to next dev pre-release if desired
 
@@ -398,11 +394,11 @@ After completing the audit, produce a release readiness report:
 ### Quality gates
 | Check | Status |
 |-------|--------|
-| `make ci-test` | pass/fail |
-| `make lint` | pass/fail |
+| `mise run all-ci` | pass/fail |
+| `mise run all-lint` | pass/fail |
 | `cargo deny check` | pass/fail |
-| `make audit` | pass/fail |
-| `make test` | pass/fail |
+| `mise run all-audit` | pass/fail |
+| `mise run all-test` | pass/fail |
 | MSRV check | pass/fail |
 | Publish dry-run | pass/fail |
 | Semver checks | pass/fail |

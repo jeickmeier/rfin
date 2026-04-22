@@ -31,7 +31,7 @@ If `$ARGUMENTS` is empty, ask the user to specify a crate or module (e.g., `stat
 
 - **Never** skip a phase.
 - **Never** execute more than one slice per invocation without explicit checkpointing.
-- **Never** claim "green" without pasting the last lines of `make lint-*` / `make test-*` output.
+- **Never** claim "green" without pasting the last lines of `mise run lint-*` / `mise run test-*` output.
 - **Never** run `cargo test` directly (project rule — no doc tests in the loop).
 - **Never** use `--no-verify` on commits or `-c commit.gpgsign=false`.
 - **Always** update Python binding, WASM binding, `.pyi`, and `parity_contract.toml` in the same commit as any Rust public-surface change.

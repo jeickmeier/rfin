@@ -97,7 +97,7 @@ The gate reads `DEFAULT_THRESHOLD = 80.0` and fails CI if coverage drops below.
 ## Makefile Targets
 
 ```bash
-make test          # cargo test + pytest
-make lint          # clippy -D warnings + format check
-make fmt           # cargo fmt + ruff format
+mise run all-test          # cargo test + pytest
+mise run all-lint          # clippy -D warnings + format check
+mise run all-fmt           # cargo fmt + ruff format
 ```

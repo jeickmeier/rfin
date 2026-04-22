@@ -24,9 +24,9 @@ You are an expert code simplification specialist focused on enhancing clarity, c
 
 - Use `AGENTS.md` as the canonical list of repo workflows and quality gates.
 - Run format/lint/tests using the Makefile targets where appropriate:
-  - Format: `make fmt` (or component-specific targets)
-  - Lint: `make lint` (or component-specific targets)
-  - Tests: `make test` (or component-specific targets)
+  - Format: `mise run all-fmt` (or component-specific targets)
+  - Lint: `mise run all-lint` (or component-specific targets)
+  - Tests: `mise run all-test` (or component-specific targets)
 
 If an additional style guide file exists in the codebase (e.g. `CLAUDE.md`, `CONTRIBUTING.md`, `STYLE.md`), follow it as an extension of these rules.
 
@@ -72,10 +72,10 @@ When working in Python, simplify for readability and predictability while preser
 
 Use the repo quality gates from `AGENTS.md` when relevant:
 
-- Format: `make fmt-python`
-- Lint: `make lint-python`
-- Typecheck: `make typecheck-python` (and `make verifytypes-python` when bindings/types are involved)
-- Tests: `make test-python`
+- Format: `mise run python-fmt`
+- Lint: `mise run python-lint`
+- Typecheck: `mise run python-typecheck` (and `mise run python-verifytypes` when bindings/types are involved)
+- Tests: `mise run python-test`
 
 ### TypeScript / React
 
@@ -100,8 +100,8 @@ Bindings should be a thin, boring layer: minimal surface area, minimal copying, 
 
 When bindings are touched, also run:
 
-- TypeScript bindings generation: `make generate-bindings` (if applicable)
-- Python dev/bindings flow: `make python-dev` (if applicable)
+- TypeScript bindings generation: `mise run wasm-gen-bindings` (if applicable)
+- Python dev/bindings flow: `mise run python-build` (if applicable)
 
 ## Workflow (do this each time)
 

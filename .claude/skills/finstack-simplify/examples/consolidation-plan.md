@@ -37,7 +37,7 @@ Use this format verbatim.
 **Verify:**
 
 ```bash
-make lint-rust && make test-rust
+mise run rust-lint && mise run rust-test
 ```
 
 **Bindings touched:** none. Python/WASM tests don't need to re-run.
@@ -62,7 +62,7 @@ make lint-rust && make test-rust
 **Verify:**
 
 ```bash
-make lint-rust && make test-rust
+mise run rust-lint && mise run rust-test
 ```
 
 **Bindings touched:** none (the trait was internal).
@@ -92,11 +92,11 @@ make lint-rust && make test-rust
 **Verify:**
 
 ```bash
-make lint-rust && make test-rust
-make python-dev
-make lint-python && make test-python
-make wasm-build
-make lint-wasm && make test-wasm
+mise run rust-lint && mise run rust-test
+mise run python-build
+mise run python-lint && mise run python-test
+mise run wasm-build
+mise run wasm-lint && mise run wasm-test
 uv run pytest finstack-py/tests/parity -x
 ```
 
@@ -127,12 +127,12 @@ uv run pytest finstack-py/tests/parity -x
 **Verify:**
 
 ```bash
-make lint-rust && make test-rust
+mise run rust-lint && mise run rust-test
 # Run golden tests twice, diff:
-make test-rust  # serial
-RAYON_NUM_THREADS=1 make test-rust  # explicit serial
-make python-dev && make lint-python && make test-python
-make wasm-build && make lint-wasm && make test-wasm
+mise run rust-test  # serial
+RAYON_NUM_THREADS=1 mise run rust-test  # explicit serial
+mise run python-build && mise run python-lint && mise run python-test
+mise run wasm-build && mise run wasm-lint && mise run wasm-test
 uv run pytest finstack-py/tests/parity -x
 # Review golden diffs for all drawdown tests in analytics/ and portfolio/.
 ```

@@ -34,7 +34,7 @@ This is the procedural spine of the skill. Read it at the start of every session
 4. Produce the **Consolidation Plan** using `examples/consolidation-plan.md`.
 
 **Risk tiers:**
-- **Tier 1 — Delete-only:** removing dead code, unused variants, orphaned files. No call-sites change semantically. Verify: `make lint-rust && make test-rust`.
+- **Tier 1 — Delete-only:** removing dead code, unused variants, orphaned files. No call-sites change semantically. Verify: `mise run rust-lint && mise run rust-test`.
 - **Tier 2 — Internal collapse:** inlining private wrappers, collapsing internal single-impl traits, merging duplicate private helpers. No public surface change. Verify: Rust-side only.
 - **Tier 3 — Public surface simplification:** removing public parallel APIs, collapsing `try_*` shadows, renaming public symbols. Binding updates required. Verify: full stack.
 - **Tier 4 — Invariant-sensitive:** anything that touches serde, Decimal math, FX policy, parity contract, evaluator precedence. Verify: full stack + golden tests + parity tests + explicit user sign-off before merge.
@@ -75,8 +75,8 @@ This is the procedural spine of the skill. Read it at the start of every session
 ### Every slice
 
 ```bash
-make lint-rust
-make test-rust
+mise run rust-lint
+mise run rust-test
 ```
 
 **Never run `cargo test` directly.** Project rule from `.cursor/rules/project-rules.md`: no Rust doc tests in the loop.
@@ -84,9 +84,9 @@ make test-rust
 ### If the slice touches Rust that is bound to Python
 
 ```bash
-make python-dev       # release profile — debug is too slow for portfolio
-make lint-python
-make test-python
+mise run python-build       # release profile — debug is too slow for portfolio
+mise run python-lint
+mise run python-test
 ```
 
 (Note: `AGENTS.md` warns that debug Python builds are "too slow for portfolio valuation." The Makefile uses `MATURIN_PROFILE=release` for `python-dev` by design.)
@@ -94,16 +94,16 @@ make test-python
 ### If the slice touches Rust that is bound to WASM
 
 ```bash
-make wasm-build
-make lint-wasm
-make test-wasm
+mise run wasm-build
+mise run wasm-lint
+mise run wasm-test
 ```
 
 ### If the slice touches the WASM UI layer
 
 ```bash
-make lint-ui
-make test-ui
+mise run lint-ui
+mise run test-ui
 ```
 
 ### If the slice is Tier 3 or Tier 4 (any public surface change or invariant-sensitive)
@@ -160,8 +160,8 @@ Audit cluster 3 (checks/runner.rs vs checks/suite.rs). Collapsed runner
 into suite; runner.rs deleted. All call-sites updated. Binding surface
 unchanged.
 
-Verified: make lint-rust, make test-rust, make lint-python,
-make test-python, make lint-wasm, make test-wasm. All green.
+Verified: mise run rust-lint, mise run rust-test, mise run python-lint,
+mise run python-test, mise run wasm-lint, mise run wasm-test. All green.
 ```
 
 **Do not squash multiple slices into one commit.** The user reviews slices one at a time; squashing defeats the point.
@@ -172,10 +172,10 @@ make test-python, make lint-wasm, make test-wasm. All green.
 
 Per `.cursor/rules/project-rules.md`: **if you change the Rust library, you will need to rebuild the Python and WASM bindings before using in python/wasm.**
 
-- Rebuild Python: `make python-dev` (release).
-- Rebuild WASM: `make wasm-build`.
+- Rebuild Python: `mise run python-build` (release).
+- Rebuild WASM: `mise run wasm-build`.
 
-If your slice touched `finstack/*` but not the binding crates, you still need to rebuild **if you want the binding tests to pick up the change.** Always rebuild before running `make test-python` or `make test-wasm`.
+If your slice touched `finstack/*` but not the binding crates, you still need to rebuild **if you want the binding tests to pick up the change.** Always rebuild before running `mise run python-test` or `mise run wasm-test`.
 
 ---
 

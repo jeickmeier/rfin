@@ -21,10 +21,10 @@ git clone https://github.com/your-org/finstack.git
 cd finstack
 
 # Development build (dev profile, fast compile)
-make python-dev
+mise run python-build
 
 # Release build (optimized, slower compile; use for portfolio-scale work)
-make python-dev-release
+mise run python-build -- --release
 ```
 
 The release profile is recommended for heavy portfolio-level computation;
@@ -89,13 +89,13 @@ cd finstack
 # Install Python dev dependencies
 uv sync --group dev
 
-# Build Python bindings (dev profile; use `make python-dev-release` for optimized extension)
-make python-dev
+# Build Python bindings (dev profile; use `mise run python-build -- --release` for optimized extension)
+mise run python-build
 
 # Run full test suite
-make test
+mise run all-test
 
 # Format and lint
-make fmt
-make lint
+mise run all-fmt
+mise run all-lint
 ```

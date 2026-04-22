@@ -564,8 +564,8 @@ Writing priority based on user value and existing material.
 - [ ] Add doc dependencies to `pyproject.toml`
 - [ ] Add Makefile targets: `python-docs`, `python-docs-serve`, `docs-all`
 - [ ] Create `scripts/build-docs.sh`
-- [ ] Verify `make book-serve` renders the skeleton
-- [ ] Verify `make python-docs-serve` renders `.pyi` stubs
+- [ ] Verify `mdbook serve book` renders the skeleton
+- [ ] Verify `mise run python-docs-serve` renders `.pyi` stubs
 
 ### Content — Tier 1
 

@@ -129,7 +129,7 @@ Note: The crate is large (637 .rs files). Follow existing patterns within the re
 - No reimplementation of core date/day‑count helpers; no implicit FX.
 - Public result types are serde‑compatible with stable names and defaults for new optional fields.
 - Adequate tests: unit, parity/golden (analytical vs MC where applicable), serialization round‑trips, and edge cases (stub periods, EoM, leap days, holiday boundaries).
-- Run `make lint` and `make test-rust` after changes; fix any errors before proceeding.
+- Run `mise run all-lint` and `mise run rust-test` after changes; fix any errors before proceeding.
 
 ### Anti‑Patterns to Avoid
 

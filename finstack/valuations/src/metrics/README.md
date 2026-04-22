@@ -825,8 +825,8 @@ When adding new metrics:
 1. Follow the step-by-step guide above
 2. Add comprehensive tests
 3. Update `METRICS.md` with metric documentation
-4. Ensure all lints pass: `make lint`
-5. Ensure all tests pass: `make test-rust`
+4. Ensure all lints pass: `mise run all-lint`
+5. Ensure all tests pass: `mise run rust-test`
 6. Add examples showing realistic usage
 
 For questions or discussions, refer to the main project documentation or consult the development team.

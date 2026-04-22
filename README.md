@@ -30,7 +30,7 @@ rfin/
 ├── book/                          # mdBook documentation
 ├── pyproject.toml                 # Python packaging and tooling
 ├── Cargo.toml                     # Workspace manifest
-└── Makefile                       # Common build, test, and packaging commands
+└── mise.toml                      # Toolchain versions and dev tasks (build/test/lint/...)
 ```
 
 ## Library Map
@@ -122,42 +122,59 @@ live in `finstack-wasm/index.d.ts`, and the namespace shims live in
 
 ### Prerequisites
 
-- [Rust 1.90+](https://rustup.rs/)
-- [Python 3.12+](https://www.python.org/)
-- [uv](https://github.com/astral-sh/uv)
-- [Node.js](https://nodejs.org/) for the WASM package
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/) for WASM builds
+The repository uses [mise](https://mise.jdx.dev/) as the single source of truth for
+toolchain versions (Rust, Python, Node, uv, wasm-pack, cargo-nextest, cargo-deny,
+cargo-llvm-cov, maturin) and developer tasks.
+
+```bash
+# Install mise (macOS / Linux)
+curl https://mise.run | sh
+
+# Provision every pinned tool listed in mise.toml
+mise install
+```
+
+> **Windows users:** run `mise run <task>` from a POSIX shell such as Git Bash,
+> MSYS2, or WSL. mise itself works natively on Windows, and every task in
+> `mise.toml` is cross-platform except `docs-all` (which shells out to a bash
+> script under `scripts/`).
 
 ### Quick Start
 
 ```bash
 git clone https://github.com/rustfin/rfin.git
 cd rfin
+mise install
 
-make build
-make test
-make python-dev
-make wasm-pkg
+mise run rust-build
+mise run all-test
+mise run python-build
+mise run wasm-pkg
 ```
+
+Run `mise tasks` to list every available task.
 
 ### Common Commands
 
 | Command | Purpose |
 |---|---|
-| `make build` | Build the Rust workspace excluding binding crates |
-| `make test` | Run Rust, Python, and WASM tests |
-| `make fmt` | Format Rust, Python, and WASM code |
-| `make lint` | Run the fast lint pass across Rust, Python, and WASM |
-| `make lint-full` | Run the slower full lint pass including bindings |
-| `make python-dev` | Build the Python extension (dev profile, fast compile) |
-| `make python-dev-release` | Build the Python extension in release mode (slow compile, faster runtime) |
-| `make python-dev-debug` | Alias for `make python-dev` |
-| `make wasm-pkg` | Build the web and node WASM packages |
-| `make test-rust` | Run Rust tests with `cargo nextest` |
-| `make test-python` | Run Python tests |
-| `make test-wasm` | Run WASM package tests |
-| `make coverage` | Run coverage for the supported components |
-| `make doc` | Generate Rust documentation |
+| `mise run rust-build` | Build the Rust workspace excluding binding crates |
+| `mise run all-test` | Run Rust, Python, and WASM tests |
+| `mise run all-fmt` | Format Rust, Python, and WASM code |
+| `mise run all-lint` | Run the fast lint pass across Rust, Python, and WASM |
+| `mise run python-sync` | Sync Python dev dependencies (`uv sync --group dev`) |
+| `mise run python-build` | Build the Python extension in-place (dev profile) |
+| `mise run python-build -- --release` | Build the Python extension in release mode |
+| `mise run wasm-gen-bindings` | Export TypeScript types from Rust |
+| `mise run wasm-pkg` | Build the web and node WASM packages |
+| `mise run rust-test` | Run Rust tests with `cargo nextest` |
+| `mise run python-test` | Run Python tests |
+| `mise run wasm-test` | Run WASM package tests |
+| `mise run rust-test-cov` | Run Rust tests with HTML coverage report |
+| `mise run python-test-cov` | Run Python tests with HTML coverage report |
+| `mise run wasm-test-cov` | Run WASM binding tests with HTML coverage report |
+| `mise run rust-check-schemas` | Verify JSON schemas match Rust types |
+| `mise run wheel-local` | Build a Python wheel for the current platform |
 
 ## Documentation
 

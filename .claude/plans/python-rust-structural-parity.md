@@ -241,7 +241,7 @@ New script: `scripts/audits/audit_topology.py`
 
 **Tasks:**
 1. Write `scripts/audits/audit_topology.py`.
-2. Add a `Makefile` target or script entry point: `make audit-topology` / `python -m scripts.audits.audit_topology`.
+2. Add a `Makefile` target or script entry point: `mise run audit-topology` / `python -m scripts.audits.audit_topology`.
 3. The script must NOT write any tracked file.
 
 #### Step 1.4: Add topology parity pytest

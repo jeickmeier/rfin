@@ -7,7 +7,7 @@ advanced credit portfolio analytics.
 ## Prerequisites
 
 - Python 3.12+
-- `finstack` built and installed (`make python-dev`)
+- `finstack` built and installed (`mise run python-build`)
 - Project dependencies installed from the repository root `pyproject.toml`
 
 ## How to Run

@@ -27,7 +27,7 @@ Each subpackage is a thin wrapper over the corresponding Rust crate domain.
 From the repository root, the recommended path is:
 
 ```bash
-make python-dev
+mise run python-build
 ```
 
 That installs the Python dependencies defined in the root `pyproject.toml` and
@@ -36,7 +36,7 @@ builds the extension with the Rust **dev** profile (fast compile).
 For a release build (slower compile, faster runtime — e.g. large portfolio runs):
 
 ```bash
-make python-dev-release
+mise run python-build -- --release
 ```
 
 If you want to build the extension directly:
@@ -47,7 +47,7 @@ uv run python -m maturin develop          # dev (default)
 uv run python -m maturin develop --release
 ```
 
-`make python-dev-debug` is an alias for `make python-dev`.
+`mise run python-build` builds with the dev profile (fast compile, slower runtime); use `mise run python-build -- --release` for the optimized release build.
 
 ## Quick Start
 

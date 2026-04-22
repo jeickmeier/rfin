@@ -158,7 +158,7 @@ The worst case. Rust has `compute_cs01(&bond, &curve)`, Python has `compute_cs01
 3. **Categorize** each difference as: structural drift, logic drift, intentional (name collision), or unknown.
 4. **Plan** the fix as part of the larger refactor slice — binding changes and their Rust sources go in the same commit.
 5. **Implement** Rust-first, then Python binding, then WASM binding, then `.pyi`, then parity contract.
-6. **Verify** in order: `make lint-rust && make test-rust` → `make python-dev` → `make lint-python && make test-python` → `make wasm-build` → `make lint-wasm && make test-wasm` → run parity tests.
+6. **Verify** in order: `mise run rust-lint && mise run rust-test` → `mise run python-build` → `mise run python-lint && mise run python-test` → `mise run wasm-build` → `mise run wasm-lint && mise run wasm-test` → run parity tests.
 
 **Do not batch multiple binding-drift slices into one commit.** Each drift repair is a discrete before/after; keeping them separate makes review tractable and rollback cheap.
 
@@ -170,7 +170,7 @@ The worst case. Rust has `compute_cs01(&bond, &curve)`, Python has `compute_cs01
 - [ ] Rust public surface matches WASM binding symbol-for-symbol (modulo `FsDate` and JS naming conventions).
 - [ ] No binding function exceeds ~20 lines unless it's doing a legitimate type-conversion batch.
 - [ ] No binding function contains arithmetic or non-trivial control flow.
-- [ ] `parity_contract.toml` is in sync; `make test-python` passes; parity tests pass.
+- [ ] `parity_contract.toml` is in sync; `mise run python-test` passes; parity tests pass.
 - [ ] `.pyi` stubs type-check cleanly.
 - [ ] `index.js` facade exposes the new surface; no raw pkg/ leaks.
 - [ ] `__all__` is set in every Python submodule `register()`; no dynamic export discovery.

@@ -13,8 +13,8 @@
 ## Build and Tooling
 
 - `uv` is the Python package manager; use `uv run` when running Python functions
-- Makefile targets: `make fmt`, `make lint`, `make test`, `make python-dev` (dev profile, fast compile), `make python-dev-release` (release; use for portfolio-scale benchmarks), `make python-dev-debug` (alias of `python-dev`)
-- `make python-dev-release` uses `MATURIN_PROFILE=release` by default (override with `MATURIN_PROFILE`); release is slower to compile but faster at runtime
+- Tasks are defined in `mise.toml`; invoke them with `mise run <task>` (or `mise r <task>`). List everything with `mise tasks`. Common ones: `mise run all-fmt`, `mise run all-lint`, `mise run all-test`, `mise run python-build` (dev profile, fast compile), `mise run python-build -- --release` (release; use for portfolio-scale benchmarks).
+- `mise run python-build` passes `--release` through to `maturin develop`; release is slower to compile but faster at runtime. Use `mise run sync` first (or whenever Python deps change) to refresh the `uv` virtualenv.
 - Pre-commit runs `cargo clippy` and `cargo deny check` (Rust supply-chain: advisories + licenses + bans)
 - CI additionally runs OSV-Scanner across `Cargo.lock`, `uv.lock`, and `package-lock.json` for cross-ecosystem CVE coverage
 - Clippy runs with `-D warnings`; all warnings are treated as errors
@@ -56,7 +56,7 @@
   - `rolling_var_forecasts_with_fn(..., fn)` — specialized closure variant (Rust-internal)
 - **Descriptive suffixes for specialized variants:** use `_from_<input>` (alternate input shape), `_with_<thing>` (alternate dispatch mechanism), `_unchecked` (invariant-skipping). Suffixes are only for the non-canonical variants; the short base name belongs to the one exposed through bindings.
 - **Accessors still use `get_*`** (see above) — naming-strategy shortening does not override the `get_*` convention.
-- **When renaming, propagate everywhere in one slice:** Rust source + Rust tests + re-exports → PyO3 `#[pyfunction]` + `__all__` + `.pyi` + `__init__.py` → WASM `#[wasm_bindgen(js_name=...)]` + `index.d.ts` + `exports/*.js` → `parity_contract.toml` + benchmarks + notebooks. Verify with `make fmt && make lint && make test && make python-dev`.
+- **When renaming, propagate everywhere in one slice:** Rust source + Rust tests + re-exports → PyO3 `#[pyfunction]` + `__all__` + `.pyi` + `__init__.py` → WASM `#[wasm_bindgen(js_name=...)]` + `index.d.ts` + `exports/*.js` → `parity_contract.toml` + benchmarks + notebooks. Verify with `mise run all-fmt && mise run all-lint && mise run all-test && mise run python-build`.
 
 ## Workflow Preferences
 

@@ -504,7 +504,7 @@ cargo test --test instruments --features mc
 
 ```bash
 # Via Makefile (recommended)
-make test-rust
+mise run rust-test
 
 # Via cargo
 cargo test -p finstack-valuations
@@ -535,4 +535,4 @@ When adding new tests:
 2. Use shared helpers from appropriate `common/` module
 3. Provide comprehensive coverage (construction, cashflows, pricing, metrics, validation)
 4. Update instrument status in `instruments/README.md` if applicable
-5. Run `make lint-rust` and `make test-rust` before committing
+5. Run `mise run rust-lint` and `mise run rust-test` before committing

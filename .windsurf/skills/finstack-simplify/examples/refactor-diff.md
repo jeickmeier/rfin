@@ -78,14 +78,14 @@ Mark [x] for "actually verified" not just "I think it's fine." If the slice touc
 Paste the last 5–10 lines of each command. **Do not paraphrase.**
 
 ```
-$ make lint-rust
+$ mise run rust-lint
 ... last lines ...
 Finished `release` profile [optimized] target(s) in 12.34s
 cargo clippy --workspace -- -D warnings: no warnings emitted
 ```
 
 ```
-$ make test-rust
+$ mise run rust-test
 ... last lines ...
 test result: ok. 847 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```

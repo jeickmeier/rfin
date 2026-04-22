@@ -45,7 +45,7 @@ These standards apply to all Rust crates in the Finstack workspace (`finstack/co
 
 - **Goal**: ≥80% per crate; near‑100% on thin public API layers and critical safety code (currency checks, serde, rounding contexts).
 - **Exclusions**: Boilerplate error/display impls, defensive branches that cannot be triggered without UB, and platform shims may be reasonably under‑covered.
-- **Measurement**: Use project coverage tooling (e.g., `make coverage`) and watch trend lines; coverage should not regress meaningfully without justification.
+- **Measurement**: Use project coverage tooling (e.g., `mise run rust-test-cov` / `test-python-cov` / `test-wasm-cov`) and watch trend lines; coverage should not regress meaningfully without justification.
 
 ### Assertions and tolerances
 
@@ -73,7 +73,7 @@ These standards apply to all Rust crates in the Finstack workspace (`finstack/co
 
 ### CI and local workflow
 
-- Run `make lint` and `make test-rust` before committing. Fix failures rather than adding ignores.
+- Run `mise run all-lint` and `mise run rust-test` before committing. Fix failures rather than adding ignores.
 - Tests must be hermetic: no network, no external services, no reliance on machine configuration.
 - If enabling new features behind flags (e.g., parallel), ensure CI executes representative test matrices.
 

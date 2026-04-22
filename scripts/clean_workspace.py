@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""Remove build artifacts, virtualenvs, and generated caches across the workspace.
+
+Invoked by `mise run all-clean` after `cargo clean`.
+"""
+
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+ROOT_DIRS = (
+    ".venv",
+    "finstack-wasm/pkg",
+    "finstack-wasm/pkg-node",
+    "book/book",
+)
+
+GLOB_DIRS = ("__pycache__", "*.egg-info")
+
+
+def main() -> None:
+    root = Path.cwd()
+    for rel in ROOT_DIRS:
+        shutil.rmtree(root / rel, ignore_errors=True)
+    for pattern in GLOB_DIRS:
+        for path in root.rglob(pattern):
+            shutil.rmtree(path, ignore_errors=True)
+    print("Workspace cleaned.")
+
+
+if __name__ == "__main__":
+    main()

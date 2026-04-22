@@ -6,7 +6,7 @@ This directory contains JSON Schema (Draft 7) definitions for all Finstack data 
 
 ```bash
 # Regenerate all typed schemas from Rust serde types
-make gen-schemas
+mise run rust-gen-schemas
 
 # Or directly:
 cargo run -p finstack-valuations --bin gen_schemas

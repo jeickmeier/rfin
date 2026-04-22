@@ -889,7 +889,7 @@ Add comprehensive rustdoc:
 - [ ] Added metrics (if applicable)
 - [ ] Added tests (construction, pricing, JSON roundtrip)
 - [ ] Added comprehensive documentation
-- [ ] Ran `make lint` and `make test-rust`
+- [ ] Ran `mise run all-lint` and `mise run rust-test`
 
 ## Design Principles
 
