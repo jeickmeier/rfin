@@ -42,28 +42,56 @@ class APIComparator:
         return components[0] + "".join(x.title() for x in components[1:])
 
     def _collect_rust_types(self) -> set[str]:
-        """Collect all public types from Rust API."""
-        rust_types = set()
+        """Collect all public types from Rust API (full walk, dupes removed)."""
+        rust_types: set[str] = set()
+        seen: set[int] = set()
 
         def collect_from_module(module_data: dict[str, Any]) -> None:
-            """Recursively collect types from module tree."""
-            # Collect types from this module
+            """Recursively collect types from module tree with cycle protection."""
+            pid = id(module_data)
+            if pid in seen:
+                return
+            seen.add(pid)
             rust_types.update(module_data.get("types", []))
-            rust_types.update(module_data.get("functions", []))  # Functions are also part of API
-            # Recursively collect from submodules
+            rust_types.update(module_data.get("functions", []))
+            for items in module_data.get("re_exports", {}).values():
+                rust_types.update(items)
             for submod_data in module_data.get("modules", {}).values():
                 collect_from_module(submod_data)
 
         for crate_data in self.rust_api.get("api", {}).values():
-            # Get types from exports
             exports = crate_data.get("exports", {})
             rust_types.update(exports.get("types", []))
             rust_types.update(exports.get("functions", []))
-            # Collect from modules recursively
+            for items in exports.get("re_exports", {}).values():
+                rust_types.update(items)
             for mod_info in crate_data.get("modules", {}).values():
                 collect_from_module(mod_info)
 
         return rust_types
+
+    def _collect_python_functions(self) -> set[str]:
+        """Collect all top-level pyfunction names from Python API."""
+        names: set[str] = set()
+        for crate_data in self.python_api.get("api", {}).values():
+            for mod_info in crate_data.get("modules", {}).values():
+                for fn in mod_info.get("functions", []):
+                    names.add(fn.get("name", "") if isinstance(fn, dict) else fn)
+        names.discard("")
+        return names
+
+    def _collect_wasm_functions(self) -> set[str]:
+        """Collect all top-level wasm_bindgen function names."""
+        names: set[str] = set()
+        for crate_data in self.wasm_api.get("api", {}).values():
+            for mod_info in crate_data.get("modules", {}).values():
+                for fn in mod_info.get("functions", []):
+                    if isinstance(fn, dict):
+                        names.add(fn.get("js_name") or fn.get("name", ""))
+                    else:
+                        names.add(fn)
+        names.discard("")
+        return names
 
     def _collect_python_classes(self) -> set[str]:
         """Collect all classes from Python API."""
@@ -119,79 +147,67 @@ class APIComparator:
         }
 
     def compare_instruments(self) -> dict[str, Any]:
-        """Compare instrument coverage specifically."""
-        # Known instruments list
+        """Compare instrument coverage.
+
+        Instruments are exposed as individual Rust structs but Python/WASM
+        bindings expose them via JSON `InstrumentSpec` passed to a single
+        `price_instrument(spec)` entrypoint rather than per-class wrappers.
+        Treat an instrument as "covered" in Python/WASM when `price_instrument`
+        (or equivalent) is available; Rust is still the canonical per-class surface.
+        """
         all_instruments = {
             # Fixed Income
-            "Bond",
-            "Deposit",
-            "InterestRateSwap",
-            "ForwardRateAgreement",
-            "Swaption",
-            "BasisSwap",
-            "InterestRateOption",
-            "InterestRateFuture",
+            "Bond", "Deposit", "InterestRateSwap", "ForwardRateAgreement", "Swaption",
+            "BasisSwap", "InterestRateOption", "InterestRateFuture",
             # FX
-            "FxSpot",
-            "FxOption",
-            "FxSwap",
-            "FxBarrierOption",
+            "FxSpot", "FxOption", "FxSwap", "FxBarrierOption",
             # Credit
-            "CreditDefaultSwap",
-            "CDSIndex",
-            "CdsTranche",
-            "CdsOption",
+            "CreditDefaultSwap", "CDSIndex", "CdsTranche", "CdsOption",
             # Equity
-            "Equity",
-            "EquityOption",
-            "EquityTotalReturnSwap",
-            "FiIndexTotalReturnSwap",
-            "VarianceSwap",
+            "Equity", "EquityOption", "EquityTotalReturnSwap",
+            "FiIndexTotalReturnSwap", "VarianceSwap",
             # Inflation
-            "InflationLinkedBond",
-            "InflationSwap",
+            "InflationLinkedBond", "InflationSwap",
             # Structured
-            "Basket",
-            "StructuredCredit",
-            "PrivateMarketsFund",
-            "ConvertibleBond",
-            "Repo",
+            "Basket", "StructuredCredit", "PrivateMarketsFund", "ConvertibleBond", "Repo",
             # Exotic Options
-            "AsianOption",
-            "BarrierOption",
-            "LookbackOption",
-            "CliquetOption",
-            "QuantoOption",
-            "Autocallable",
-            "CmsOption",
-            "RangeAccrual",
+            "AsianOption", "BarrierOption", "LookbackOption", "CliquetOption",
+            "QuantoOption", "Autocallable", "CmsOption", "RangeAccrual",
             # Private Credit
-            "TermLoan",
-            "RevolvingCredit",
+            "TermLoan", "RevolvingCredit",
         }
 
         rust_types = self._collect_rust_types()
-        python_classes = self._collect_python_classes()
-        wasm_classes = self._collect_wasm_classes()
+        python_functions = self._collect_python_functions()
+        wasm_functions = self._collect_wasm_functions()
 
         rust_instruments = all_instruments & rust_types
-        python_instruments = all_instruments & python_classes
-        wasm_instruments = all_instruments & wasm_classes
 
-        in_all_three = all_instruments & rust_types & python_classes & wasm_classes
+        # Python/WASM bindings route instruments through a JSON entrypoint.
+        # If `price_instrument` exists, all Rust instruments are reachable.
+        py_entrypoints = {"price_instrument", "price_instrument_with_metrics"}
+        wasm_entrypoints = {"priceInstrument", "priceInstrumentWithMetrics",
+                            "price_instrument", "price_instrument_with_metrics"}
+        python_covers_all = bool(py_entrypoints & python_functions)
+        wasm_covers_all = bool(wasm_entrypoints & wasm_functions)
+
+        python_covered = rust_instruments if python_covers_all else set()
+        wasm_covered = rust_instruments if wasm_covers_all else set()
+        in_all_three = rust_instruments & python_covered & wasm_covered
 
         return {
             "total_expected": len(all_instruments),
             "in_rust": len(rust_instruments),
-            "in_python": len(python_instruments),
-            "in_wasm": len(wasm_instruments),
+            "in_python": len(python_covered),
+            "in_wasm": len(wasm_covered),
             "in_all_three": len(in_all_three),
             "missing_in_rust": sorted(all_instruments - rust_instruments),
-            "missing_in_python": sorted(all_instruments - python_instruments),
-            "missing_in_wasm": sorted(all_instruments - wasm_instruments),
-            "rust_instruments": sorted(rust_instruments),
-            "python_instruments": sorted(python_instruments),
-            "wasm_instruments": sorted(wasm_instruments),
+            "missing_in_python": sorted(all_instruments - python_covered),
+            "missing_in_wasm": sorted(all_instruments - wasm_covered),
+            "python_covers_all": python_covers_all,
+            "wasm_covers_all": wasm_covers_all,
+            "python_entrypoint_present": sorted(py_entrypoints & python_functions),
+            "wasm_entrypoint_present": sorted(wasm_entrypoints & wasm_functions),
         }
 
     def compare_calibration(self) -> dict[str, Any]:
@@ -256,11 +272,18 @@ class APIComparator:
             "",
             "## Instrument Coverage",
             "",
+            "Instruments are individual Rust types. Python and WASM bindings expose them",
+            "through a JSON `InstrumentSpec` entrypoint rather than per-class wrappers;",
+            "coverage here is measured by the presence of that entrypoint.",
+            "",
             f"- **Expected instruments:** {instruments['total_expected']}",
-            f"- **In Rust:** {instruments['in_rust']} ({instruments['in_rust'] * 100 // instruments['total_expected']}%)",
-            f"- **In Python:** {instruments['in_python']} ({instruments['in_python'] * 100 // instruments['total_expected']}%)",
-            f"- **In WASM:** {instruments['in_wasm']} ({instruments['in_wasm'] * 100 // instruments['total_expected']}%)",
-            f"- **In all three:** {instruments['in_all_three']}",
+            f"- **In Rust (per-class):** {instruments['in_rust']} "
+            f"({instruments['in_rust'] * 100 // instruments['total_expected']}%)",
+            f"- **In Python (via JSON entrypoint):** "
+            f"{'yes — ' + ', '.join(instruments['python_entrypoint_present']) if instruments['python_covers_all'] else 'no entrypoint found'}",
+            f"- **In WASM (via JSON entrypoint):** "
+            f"{'yes — ' + ', '.join(instruments['wasm_entrypoint_present']) if instruments['wasm_covers_all'] else 'no entrypoint found'}",
+            f"- **Reachable in all three:** {instruments['in_all_three']}",
             "",
         ]
 

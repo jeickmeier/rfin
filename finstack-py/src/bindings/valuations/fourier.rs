@@ -5,10 +5,9 @@
 //! binding wraps a characteristic function (from `finstack-core`) with
 //! the Fang-Oosterlee (2008) COS method from `finstack-valuations`.
 //!
-//! A Lewis (2001) single-integral binding (`bs_lewis_price`) was removed
-//! in quant-audit remediation PR 2 (findings C4 and C7) because the
-//! underlying implementation was known-divergent off-ATM. Use
-//! `bs_cos_price` for all Black-Scholes Fourier pricing.
+//! A Lewis (2001) single-integral binding (`bs_lewis_price`) was
+//! removed because the underlying implementation was known-divergent
+//! off-ATM. Use `bs_cos_price` for all Black-Scholes Fourier pricing.
 
 use crate::errors::display_to_py;
 use finstack_core::math::characteristic_function::{BlackScholesCf, MertonJumpCf, VarianceGammaCf};
