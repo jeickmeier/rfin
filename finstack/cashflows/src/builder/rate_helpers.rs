@@ -659,10 +659,11 @@ pub fn compute_overnight_rate(
             // reduces to standard in-arrears compounding over the assembled
             // (shifted_rate, accrual_weight) pairs.
             //
-            // Audit P1 #21 follow-up: the previous index-rewriting inside
-            // the accrual-window sample could not look up rates from before
-            // `accrual_start` and fell back to `daily_rates[0]` for the
-            // first `lookback_days` entries — muting the lookback effect.
+            // The shift is applied upstream during sampling rather than
+            // by rewriting indices into an accrual-window sample, so
+            // rates from before `accrual_start` are available to the
+            // first `lookback_days` observations instead of clamping to
+            // `daily_rates[0]`.
             compute_compounded_rate(daily_rates, total_days, day_count_basis)
         }
         OvernightCompoundingMethod::CompoundedWithLockout { lockout_days } => {
@@ -696,17 +697,17 @@ pub fn compute_overnight_rate(
             // per-day weights come from the shifted window. Annualization
             // uses the shifted-window day count.
             //
-            // Audit P1 #21: the window shift is performed UPSTREAM in
+            // The window shift is performed upstream in
             // `emission::coupons::emit_float_coupons_on` (see
-            // `observation_window`). By the time we get here, `daily_rates`
-            // and `total_days` already describe the observation period, so
-            // the compounding product and annualization reduce to the same
-            // formula as `CompoundedInArrears`.
-            //
-            // The previous implementation shifted indices *within* the
-            // accrual-window sample, which could not access pre-accrual
-            // rates and produced SOFR/SONIA errors of 2–10 bp in normal
-            // regimes (and wider at rate-move boundaries). That is now gone.
+            // `observation_window`). By the time we get here,
+            // `daily_rates` and `total_days` already describe the
+            // observation period, so the compounding product and
+            // annualization reduce to the same formula as
+            // `CompoundedInArrears`. Shifting indices *within* an
+            // accrual-window sample (the previous approach) could not
+            // access pre-accrual rates and produced SOFR/SONIA errors
+            // of 2–10 bp in normal regimes (wider at rate-move
+            // boundaries).
             compute_compounded_rate(daily_rates, total_days, day_count_basis)
         }
     }

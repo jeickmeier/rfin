@@ -689,7 +689,7 @@ fn test_ttm_function_supports_expression_arguments() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    // Audit C18: TTM requires a full 4-quarter trailing window. Partial
+    // TTM requires a full 4-quarter trailing window. Partial
     // windows (Q1-Q3 2024) return NaN rather than silently summing what's
     // available. Only Q4 2024 (Q1-Q4 2024) and Q1 2025 (Q2 2024-Q1 2025)
     // have the full 4-period history needed.

@@ -41,13 +41,10 @@
 //! [`CovenantType::MaxDebtToEBITDA`] variant produces a fully-adjusted
 //! leverage forecast without changing the covenant engine itself.
 //!
-//! Audit P1 #17: this scaffold was previously blocked on PR 7b's
-//! statements refactor (C15–C20). With C17 / C18 / C19 / C20 all
-//! closed or scaffolded, the minimal Adjusted Net Debt type can land
-//! independently — a full `AdjustedNetDebt`-typed node in
-//! `FinancialModelSpec` is still follow-up work, but consumers that
-//! already have the component nodes in their model can now pipe them
-//! through this helper to produce a consistent adjusted-debt series.
+//! A full `AdjustedNetDebt`-typed node in `FinancialModelSpec` is
+//! still follow-up work, but consumers that already have the component
+//! nodes in their model can pipe them through this helper to produce a
+//! consistent adjusted-debt series.
 
 use finstack_core::dates::PeriodId;
 use finstack_statements::evaluator::StatementResult;
@@ -227,7 +224,7 @@ mod tests {
         AmountOrScalar::scalar(v)
     }
 
-    /// Audit P1 #17: the Adjusted Net Debt formula
+    /// The Adjusted Net Debt formula
     /// `Debt − Cash − MarketableSecurities + Leases + Pension` must
     /// produce the canonical number on a minimal test model.
     #[test]
@@ -261,9 +258,9 @@ mod tests {
         );
     }
 
-    /// Audit P1 #17: missing optional components must default to zero so
-    /// a minimal spec (just debt) produces the raw debt figure, and a
-    /// two-node spec produces standard "Net Debt" = Debt − Cash.
+    /// Missing optional components must default to zero so a minimal
+    /// spec (just debt) produces the raw debt figure, and a two-node
+    /// spec produces standard "Net Debt" = Debt − Cash.
     #[test]
     fn adjusted_net_debt_optional_components_default_to_zero() {
         let model = ModelBuilder::new("p1_17_optional")
@@ -293,9 +290,9 @@ mod tests {
         assert!((net - 800.0).abs() < 1e-9);
     }
 
-    /// Audit P1 #17: without a total-debt value the metric is undefined —
-    /// the method must return `None` rather than silently treating
-    /// missing debt as zero.
+    /// Without a total-debt value the metric is undefined — the method
+    /// must return `None` rather than silently treating missing debt
+    /// as zero.
     #[test]
     fn adjusted_net_debt_requires_total_debt() {
         let model = ModelBuilder::new("p1_17_missing")
@@ -318,8 +315,8 @@ mod tests {
         );
     }
 
-    /// Audit P1 #17: the series form iterates every period the total-debt
-    /// node has a value in, preserving evaluator ordering.
+    /// The series form iterates every period the total-debt node has a
+    /// value in, preserving evaluator ordering.
     #[test]
     fn adjusted_net_debt_series_covers_all_debt_periods() {
         let model = ModelBuilder::new("p1_17_series")

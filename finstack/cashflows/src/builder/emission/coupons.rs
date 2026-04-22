@@ -240,10 +240,9 @@ pub(crate) fn emit_fixed_coupons_on(
 /// coincides with the accrual window; method-specific rate-index shifting
 /// (lookback) or end-of-period lockout remains a concern of
 /// [`crate::builder::rate_helpers::compute_overnight_rate`]. The Lookback
-/// variant is known to still apply its shift inside the accrual window and
-/// is tracked as a follow-up to audit P1 #21 (ARRC 2020 SOFR at 2 BD).
-///
-/// Audit: P1 #21.
+/// variant currently applies its shift inside the accrual window (ARRC
+/// 2020 SOFR at 2 BD); aligning it with the observation-window model is
+/// tracked as a follow-up.
 fn observation_window(
     method: &OvernightCompoundingMethod,
     accrual_start: Date,
@@ -278,12 +277,12 @@ fn observation_window(
 /// that variant shifts BOTH rates and weights (Observation Shift). Lookback
 /// shifts only the rate-observation index.
 ///
-/// Audit P1 #21 follow-up: the previous in-dispatcher index rewriting could
-/// not sample rates from before `accrual_start` and fell back to
-/// `daily_rates[0]` for the first `lookback_bd` entries, muting the SOFR 2 BD
-/// lookback by up to the first-week contribution. This helper walks the
-/// accrual business days and looks up each observation date directly via
-/// [`finstack_core::dates::DateExt::add_business_days`].
+/// Walks the accrual business days and looks up each observation date
+/// directly via
+/// [`finstack_core::dates::DateExt::add_business_days`] rather than
+/// rewriting indices into a pre-sampled `accrual_start..accrual_end`
+/// window, so rates from before `accrual_start` are sampled correctly
+/// instead of clamping to `daily_rates[0]`.
 ///
 /// Reference: ARRC 2020 *Recommended Conventions* §2 "Lookback";
 /// ISDA 2021 Supp. 70 §7.1(g)(ii).
@@ -541,12 +540,12 @@ pub(crate) fn emit_float_coupons_on(
                     //   (ISDA 2021 Supp. 70 §7.1(g)(i).)
                     // - All other variants: sample on the accrual window.
                     //
-                    // Audit P1 #21 + follow-up: previously all variants went
-                    // through the accrual-window sampler and the shift was
-                    // applied post-hoc in `compute_overnight_rate` as index
-                    // rewriting, which could not access rates from before
-                    // accrual start and produced SOFR/SONIA errors of 2–10 bp
-                    // (ARRC 2020; BoE SONIA Compounded Index Guide).
+                    // Sampling is done at the observation window here
+                    // rather than post-hoc via index rewriting in
+                    // `compute_overnight_rate` so that rates from before
+                    // the accrual start are accessible (required for
+                    // correct SOFR/SONIA compounded indices — ARRC 2020;
+                    // BoE SONIA Compounded Index Guide).
                     let (daily_rates, total_days) = match method {
                         OvernightCompoundingMethod::CompoundedWithLookback { lookback_days }
                             if *lookback_days > 0 =>

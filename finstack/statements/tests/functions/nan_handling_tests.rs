@@ -161,7 +161,7 @@ fn test_ttm_with_nan() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    // Audit C18: TTM now propagates NaN strictly — any non-finite value
+    // TTM propagates NaN strictly — any non-finite value
     // in the trailing window makes the TTM NaN, rather than silently
     // treating a gap as zero. This is the correct behavior for a
     // trailing-twelve-months metric: a missing quarter is a material

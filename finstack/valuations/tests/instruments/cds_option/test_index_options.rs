@@ -172,7 +172,7 @@ fn test_index_option_physical_settlement_is_rejected() {
 }
 
 // ============================================================================
-// Quant-audit remediation PR 3: Front-End Protection for CDS index options (C5)
+// Front-End Protection for CDS index options
 // ============================================================================
 //
 // Pedersen (2003) and O'Kane (2008) Ch. 12 show that payer options on a

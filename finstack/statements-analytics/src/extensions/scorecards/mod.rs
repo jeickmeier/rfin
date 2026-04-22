@@ -521,15 +521,13 @@ impl CreditScorecardExtension {
     ) -> Option<f64> {
         let scale = get_rating_scale(rating_scale);
 
-        // Boundary convention (quant-audit P2 #30): the best (first-
-        // iterated) rating uses closed-on-both-ends `[min, max]` so that
-        // a value at the scale maximum still lands there; every other
-        // bucket uses `[min, max)` so that a value at the shared
-        // boundary between two adjacent buckets lands in the **better**
-        // of the two — matching the published S&P / Moody's
-        // conventions which define strict upper bounds on non-top
-        // buckets (scorecard configs copied verbatim from agency
-        // criteria would rate one notch high pre-PR-15).
+        // Boundary convention: the best (first-iterated) rating uses
+        // closed-on-both-ends `[min, max]` so a value at the scale
+        // maximum still lands there; every other bucket uses `[min,
+        // max)` so a value on the shared boundary between two adjacent
+        // buckets lands in the **better** of the two — matching the
+        // published S&P / Moody's conventions which define strict
+        // upper bounds on non-top buckets.
         scale.ratings.iter().enumerate().find_map(|(idx, level)| {
             thresholds.get(&level.name).and_then(|(min, max)| {
                 let is_best_rating = idx == 0;
@@ -678,7 +676,7 @@ mod tests {
     }
 
     // =====================================================================
-    // Quant-audit remediation PR 15: scorecard boundary convention (P2 #30)
+    // Scorecard boundary convention
     // =====================================================================
 
     /// With adjacent buckets `AAA: [95, 100]` and `AA+: [90, 95]`, a value

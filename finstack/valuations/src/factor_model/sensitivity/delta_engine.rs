@@ -68,10 +68,10 @@ impl DeltaBasedEngine {
 ///
 /// `bump_size` is the magnitude; `bump_unit` tags its interpretation
 /// ([basis points](FactorBumpUnit::BasisPoint), [percent](FactorBumpUnit::Percent),
-/// [absolute](FactorBumpUnit::Absolute), etc.). Audit P3 #32: making the
-/// unit explicit prevents the previous class of silent 100× errors where
-/// a rates-bp magnitude was fed into the `EquitySpot` branch which
-/// assumed percent, or vice versa.
+/// [absolute](FactorBumpUnit::Absolute), etc.). Making the unit
+/// explicit prevents silent 100× errors where a rates-bp magnitude is
+/// fed into the `EquitySpot` branch (which assumes percent), or vice
+/// versa.
 ///
 /// Branches that already carry their own `BumpUnits` (`CurveParallel`,
 /// `CurveBucketed`, `VolShift`) require `bump_unit` to match the mapping's
@@ -109,7 +109,7 @@ pub fn mapping_to_market_bumps(
             Ok(())
         } else {
             Err(Error::Validation(format!(
-                "FactorBumpUnit::{bump_unit:?} incompatible with MarketMapping units {mapping_units:?} (audit P3 #32)"
+                "FactorBumpUnit::{bump_unit:?} incompatible with MarketMapping units {mapping_units:?}"
             )))
         }
     };
@@ -139,7 +139,7 @@ pub fn mapping_to_market_bumps(
             // `BumpSpec::triangular_key_rate_bp`.
             if !matches!(bump_unit, FactorBumpUnit::BasisPoint) {
                 return Err(Error::Validation(format!(
-                    "MarketMapping::CurveBucketed requires BasisPoint bump_unit, got {bump_unit:?} (audit P3 #32)"
+                    "MarketMapping::CurveBucketed requires BasisPoint bump_unit, got {bump_unit:?}"
                 )));
             }
             Ok(tenor_weights
@@ -418,10 +418,11 @@ mod tests {
         Ok(())
     }
 
-    /// Audit P3 #32: `mapping_to_market_bumps` must reject a factor-unit
-    /// that disagrees with the mapping's declared `BumpUnits`, so a
-    /// rates-bp magnitude routed into a percent-denominated mapping fails
-    /// at bump construction instead of scaling the shock 100× silently.
+    /// `mapping_to_market_bumps` must reject a factor-unit that
+    /// disagrees with the mapping's declared `BumpUnits`, so a
+    /// rates-bp magnitude routed into a percent-denominated mapping
+    /// fails at bump construction instead of scaling the shock 100×
+    /// silently.
     #[test]
     fn mapping_rejects_bump_unit_mismatch_on_curve_parallel() -> Result<()> {
         let mapping = MarketMapping::CurveParallel {
@@ -437,17 +438,17 @@ mod tests {
         assert!(result.is_err(), "unit mismatch must be rejected");
         let msg = result.err().map(|e| e.to_string()).unwrap_or_default();
         assert!(
-            msg.contains("FactorBumpUnit") && msg.contains("P3 #32"),
-            "error should name the offending unit and audit finding: {msg}"
+            msg.contains("FactorBumpUnit") && msg.contains("incompatible"),
+            "error should name the offending unit: {msg}"
         );
         Ok(())
     }
 
-    /// Audit P3 #32: EquitySpot must accept any unit and convert to a
-    /// fractional multiplier so a 2 % shock and a 0.02 fractional shock
-    /// produce the same `1.02` multiplier, closing the old hardcoded
+    /// `EquitySpot` must accept any unit and convert to a fractional
+    /// multiplier, so a 2 % shock and a 0.02 fractional shock produce
+    /// the same `1.02` multiplier (closing the old hardcoded
     /// `bump_size / 100.0` assumption that required callers to speak
-    /// percent.
+    /// percent).
     #[test]
     fn equity_spot_converts_any_unit_to_fractional_multiplier() -> Result<()> {
         let mapping = MarketMapping::EquitySpot {

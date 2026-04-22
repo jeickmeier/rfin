@@ -251,9 +251,9 @@ pub struct SimmParams {
     ///
     /// Per ISDA SIMM v2.6 Table 11. Populated at registry load from
     /// [`crate::calculators::im::simm::DEFAULT_COMMODITY_INTER_BUCKET_CORR`]
-    /// and PSD-validated via `validate_simm_correlations_psd` (audit P2 #25
-    /// follow-up). Bucket 16 ("Other" / residual) is zero-correlated with
-    /// every other bucket per the specification.
+    /// and PSD-validated via `validate_simm_correlations_psd`. Bucket
+    /// 16 ("Other" / residual) is zero-correlated with every other
+    /// bucket per the specification.
     pub commodity_inter_bucket_correlations: Vec<f64>,
 }
 

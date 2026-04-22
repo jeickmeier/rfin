@@ -14,7 +14,7 @@ use crate::Result;
 /// Checks that retained earnings flow correctly across periods:
 /// RE(t) = RE(t−1) + NI(t) − Dividends(t) ± Adjustments(t).
 ///
-/// # Sign convention (audit C17)
+/// # Sign convention
 ///
 /// * `net_income_node` carries the [`SignConventionPolicy::InflowPositive`]
 ///   convention — positive values increase RE (profit), negative values
@@ -38,7 +38,7 @@ pub struct RetainedEarningsReconciliation {
     /// Tolerance override; falls back to [`crate::CheckConfig::default_tolerance`].
     pub tolerance: Option<f64>,
     /// Sign convention applied to the `dividends_node` input. Defaults
-    /// to [`SignConventionPolicy::MagnitudePositive`] (audit C17).
+    /// to [`SignConventionPolicy::MagnitudePositive`].
     /// `net_income_node` and `other_adjustments` always use
     /// `InflowPositive` by construction.
     #[serde(default)]
@@ -109,8 +109,8 @@ impl Check for RetainedEarningsReconciliation {
                 .and_then(|n| get_node_value(context.results, n, curr_pid))
                 .unwrap_or(0.0);
 
-            // Audit C17: dividends must be a non-negative magnitude
-            // under the default convention; the formula subtracts it.
+            // Dividends must be a non-negative magnitude under the
+            // default convention; the formula subtracts it.
             if let Some(node) = self.dividends_node.as_ref() {
                 if let Some(f) = self.dividends_sign_convention.validate(
                     dividends,

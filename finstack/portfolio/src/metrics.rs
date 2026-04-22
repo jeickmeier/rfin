@@ -365,13 +365,11 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
     // is fine here.
     let mut intern: HashMap<String, Arc<str>> = HashMap::new();
 
-    // Quant-audit PR 16 (finding P3 #33): these two maps drive the
-    // serialization order of `PortfolioMetrics.aggregated` and
-    // `AggregatedMetric.by_entity`. They were previously `HashMap`s
-    // whose iteration order is randomised per process start (SipHash
-    // with random keys), so CSV/JSON snapshots of portfolio metrics
-    // varied run-to-run. Switching to `IndexMap` preserves insertion
-    // order without changing semantics.
+    // These two maps drive the serialization order of
+    // `PortfolioMetrics.aggregated` and `AggregatedMetric.by_entity`.
+    // `IndexMap` preserves insertion order so CSV/JSON snapshots of
+    // portfolio metrics are reproducible run-to-run (a plain `HashMap`
+    // would randomise iteration per-process under SipHash).
     let mut metric_values: IndexMap<Arc<str>, Vec<f64>> = IndexMap::new();
     let mut entity_values: IndexMap<Arc<str>, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
     let mut skipped_metrics: Vec<SkippedMetric> = Vec::new();
@@ -547,20 +545,16 @@ mod tests {
     }
 
     // =====================================================================
-    // Quant-audit remediation PR 16: IndexMap determinism (P3 #33)
+    // IndexMap determinism
     // =====================================================================
 
-    /// After `aggregate_collected_metrics` switched from `HashMap` to
-    /// `IndexMap` (PR 16), the iteration order of `PortfolioMetrics.aggregated`
-    /// and `AggregatedMetric.by_entity` must match the insertion order of
+    /// `aggregate_collected_metrics` uses `IndexMap` so the iteration
+    /// order of `PortfolioMetrics.aggregated` and
+    /// `AggregatedMetric.by_entity` matches the insertion order of
     /// metric IDs and entity IDs across repeated calls with the same
     /// input. This guarantees deterministic CSV / JSON snapshots for
-    /// downstream tooling.
-    ///
-    /// Pre-fix the output order was randomised per process start; this
-    /// test would still have passed within a single process (since the
-    /// hasher seed is fixed for that process) but would have produced
-    /// different orderings across CI runs or between instances.
+    /// downstream tooling; a `HashMap`-backed implementation would
+    /// produce different orderings across CI runs.
     #[test]
     fn aggregate_metrics_output_order_is_deterministic_within_a_run() {
         fn make_data(name: &str, entity: &str) -> PositionMetricData {

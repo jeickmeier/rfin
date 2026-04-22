@@ -194,21 +194,20 @@ impl EvaluationContext {
     /// propagating as `Decimal::ZERO`. Use this helper from downstream
     /// accounting / settlement / regulatory-capital code paths that need
     /// the workspace's money invariants (see INVARIANTS.md §1), while the
-    /// evaluator's own storage remains `f64` pending the full C15
+    /// evaluator's own storage remains `f64` pending a full Decimal
     /// migration.
     ///
-    /// Audit C15: this is the Decimal-at-boundary escape hatch. A full
-    /// migration of `current_values` to `Vec<Option<Decimal>>` ripples
-    /// through 100+ formula / check call sites and is a semver-breaking
-    /// release in its own right; it remains deferred to a future major
-    /// version. In the meantime, callers that need Decimal can opt in
-    /// explicitly without forcing every downstream consumer to migrate.
+    /// A full migration of `current_values` to `Vec<Option<Decimal>>`
+    /// would ripple through 100+ formula / check call sites and remains
+    /// deferred; callers that need Decimal can opt in explicitly via
+    /// this boundary without forcing every downstream consumer to
+    /// migrate.
     pub fn get_value_decimal(&self, node_id: &str) -> Result<rust_decimal::Decimal> {
         let value = self.get_value(node_id)?;
         if !value.is_finite() {
             return Err(Error::eval(format!(
                 "Cannot convert non-finite value {value} for node '{node_id}' to Decimal \
-                 (period {}); audit C15 Decimal-at-boundary requires finite inputs",
+                 (period {}); the Decimal boundary requires finite inputs",
                 self.period_id
             )));
         }
@@ -411,10 +410,10 @@ mod tests {
         assert_eq!(value, Some(100_000.0));
     }
 
-    /// Audit C15: `get_value_decimal` provides a Decimal-at-boundary
-    /// conversion for callers that need the workspace's money invariants.
-    /// Finite f64 values must round-trip cleanly; non-finite values must
-    /// be rejected rather than propagating as `Decimal::ZERO`.
+    /// `get_value_decimal` provides a Decimal-at-boundary conversion
+    /// for callers that need the workspace's money invariants. Finite
+    /// f64 values must round-trip cleanly; non-finite values must be
+    /// rejected rather than propagating as `Decimal::ZERO`.
     #[test]
     fn test_get_value_decimal_round_trips_finite_value() {
         let mut node_to_column = IndexMap::new();

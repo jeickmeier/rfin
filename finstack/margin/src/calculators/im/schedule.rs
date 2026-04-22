@@ -395,10 +395,9 @@ impl ScheduleImCalculator {
     /// Cleared Derivatives* (March 2015, revised July 2020), §3.3
     /// ("Gross and Net Notional").
     ///
-    /// Quant-audit finding P2 #26: prior to PR 14 this method did not
-    /// exist and the only path was [`calculate_for_notional`], which
-    /// returns gross IM and can overstate the requirement by up to 60%
-    /// for well-offset netting sets.
+    /// The gross-only path [`calculate_for_notional`] can overstate the
+    /// requirement by up to 60% for well-offset netting sets; this
+    /// method should be preferred for any book that nets.
     ///
     /// # Arguments
     ///
@@ -569,7 +568,7 @@ mod tests {
     }
 
     // =====================================================================
-    // Quant-audit remediation PR 14: NGR factor for Schedule IM (P2 #26)
+    // NGR factor for Schedule IM
     // =====================================================================
 
     /// Perfectly-offset netting set (Σ MtM = 0 → NGR = 0): IM reduces

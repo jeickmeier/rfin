@@ -396,22 +396,20 @@ pub fn calibrate_hull_white_to_swaptions(
     )
     .with_metadata("swap_frequency", format!("{frequency:?}"));
 
-    // κ hard-bounds check per quant-audit C8: mean-reversion must lie in
-    // [1e-3, 1.0]. Below 0.001 the half-life exceeds 693y and tree/bond
-    // price calculations become numerically unstable; above 1.0 the
-    // model effectively collapses to the instantaneous-rate level and
-    // no longer has meaningful term structure. Pre-fix code merely
-    // emitted a `tracing::warn!` and proceeded; the audit required
-    // escalation to a hard error.
+    // κ hard-bounds check: mean-reversion must lie in [1e-3, 1.0].
+    // Below 0.001 the half-life exceeds 693y and tree/bond price
+    // calculations become numerically unstable; above 1.0 the model
+    // effectively collapses to the instantaneous-rate level and no
+    // longer has meaningful term structure.
     const KAPPA_MIN: f64 = 0.001;
     const KAPPA_MAX: f64 = 1.0;
     if !(KAPPA_MIN..=KAPPA_MAX).contains(&kappa) {
         return Err(finstack_core::Error::Validation(format!(
             "Hull-White calibration produced κ = {kappa:.6} outside the \
-             audit-bounded range [{KAPPA_MIN}, {KAPPA_MAX}]. This typically \
+             bounded range [{KAPPA_MIN}, {KAPPA_MAX}]. This typically \
              indicates an under-weighted, over-damped, or under-specified \
              swaption grid; review the quotes or supply a bounded \
-             `initial_guess`. (quant-audit C8)"
+             `initial_guess`."
         )));
     }
 
@@ -935,7 +933,7 @@ mod tests {
     }
 
     // ========================================================================
-    // Quant-audit remediation PR 5: HW1F calibration (finding C8)
+    // HW1F vega-weighted calibration + multi-start
     // ========================================================================
 
     /// Wide-grid round-trip: generate ATM normal vols from a known

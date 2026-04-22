@@ -6,20 +6,19 @@ use serde::{Deserialize, Serialize};
 use crate::types::NodeId;
 
 // ---------------------------------------------------------------------------
-// SignConventionPolicy (audit C17)
+// SignConventionPolicy
 // ---------------------------------------------------------------------------
 
 /// Declared sign convention for a flow / magnitude input to a reconciliation
 /// check.
 ///
-/// Audit C17: prior to this enum, each reconciliation file embedded its
-/// sign assumptions implicitly — e.g. `CapexReconciliation` expected
-/// `capex_cf` to be a positive magnitude, while INVARIANTS.md §3 documented
-/// the CFS convention as negative (outflow). The contradiction produced
-/// silent cross-check failures on any model that used the INVARIANTS
-/// convention. Making the policy explicit lets each reconciliation declare
-/// its input expectation and lets callers validate data at construction
-/// time instead of at P&L reconciliation.
+/// Each reconciliation declares its input expectation so callers can
+/// validate data at construction time rather than at P&L
+/// reconciliation. Previously each reconciliation embedded its sign
+/// assumptions implicitly (e.g. `CapexReconciliation` expected
+/// `capex_cf` to be a positive magnitude while INVARIANTS.md §3
+/// documented the CFS convention as negative), which produced silent
+/// cross-check failures on any model that used the other convention.
 ///
 /// # Variants
 ///
@@ -56,12 +55,12 @@ impl SignConventionPolicy {
     /// out of scope here — they should be caught by data-quality checks
     /// before reaching reconciliation.
     ///
-    /// Audit C17: the finding is a *warning* rather than an error so
-    /// existing models that ship data with a different sign convention
-    /// continue to run; a convention flip that materially affects the
-    /// reconciliation still produces a separate reconciliation finding.
-    /// Use [`finstack_core::money::Decimal`] boundary conversions to
-    /// enforce the convention strictly at ingest.
+    /// The finding is a *warning* rather than an error so existing
+    /// models that ship data with a different sign convention continue
+    /// to run; a convention flip that materially affects the
+    /// reconciliation still produces a separate reconciliation
+    /// finding. Use [`finstack_core::money::Decimal`] boundary
+    /// conversions to enforce the convention strictly at ingest.
     #[must_use]
     pub fn validate(
         &self,
@@ -82,7 +81,7 @@ impl SignConventionPolicy {
                         message: format!(
                             "'{node_label}' carries a magnitude-positive convention but \
                              observed {value:.4}; confirm upstream sign convention matches \
-                             the reconciliation's expectation (audit C17)"
+                             the reconciliation's expectation"
                         ),
                         period,
                         materiality: None,

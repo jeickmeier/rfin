@@ -94,7 +94,7 @@ impl Check for InterestExpenseReconciliation {
             let mut total_implied_interest = 0.0_f64;
             let mut has_rate = false;
 
-            // Audit C20: use the AVERAGE of the prior and current balances,
+            // Use the AVERAGE of the prior and current balances,
             // `(B_{t-1} + B_t) / 2`, instead of the EOP balance `B_t`.
             // Interest accrues over the period, so the rate × current-EOP
             // convention systematically overstates implied interest

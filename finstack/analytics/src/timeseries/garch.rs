@@ -198,8 +198,8 @@ pub struct FitConfig {
     /// Number of grid points per dimension for initial parameter search (default: 10).
     pub grid_points: usize,
     /// Number of Halton-perturbed restarts applied after the initial solve
-    /// (default: 4, audit P1 #22). Set to `0` to disable multi-start and
-    /// restore the legacy single-start behavior.
+    /// (default: 4). Set to `0` to disable multi-start and restore the
+    /// legacy single-start behavior.
     #[serde(default = "default_num_restarts")]
     pub num_restarts: usize,
     /// Perturbation scale for multi-start initial points, expressed as a

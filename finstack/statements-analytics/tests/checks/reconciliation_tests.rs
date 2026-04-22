@@ -176,14 +176,14 @@ fn interest_implied_rate_reasonable_passes() {
     assert!(result.findings.is_empty());
 }
 
-/// Audit C20: implied interest must use the AVERAGE balance
+/// Implied interest must use the AVERAGE balance
 /// `(B_{t-1} + B_t) / 2`, not the end-of-period balance. This test
 /// constructs a period where the debt balance grew from 800 to 1200;
 /// average is 1000; at a 5 % rate implied interest = 50. The interest
-/// expense reported as 50 must pass — it would fail under the old EOP
+/// expense reported as 50 must pass — it would fail under an EOP
 /// convention (which would expect 60 = 1200 × 0.05, a 20 % miss).
 #[test]
-fn interest_implied_rate_uses_average_balance_audit_c20() {
+fn interest_implied_rate_uses_average_balance() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q2", None)
         .unwrap()

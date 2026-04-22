@@ -375,12 +375,12 @@ pub struct BermudanSwaptionPricer {
     /// When true, refuse to price with uncalibrated default HW parameters.
     ///
     /// Set via [`require_calibration`](Self::require_calibration). The
-    /// pricer registry (`finstack_valuations::pricer::exotics`) sets this
-    /// on all registered Bermudan pricers per quant-audit remediation PR 3
-    /// (finding C6) so that callers reaching the registry with uncalibrated
-    /// params receive a clear error rather than a silently-wrong price.
-    /// Direct constructor callers retain the permissive default (false)
-    /// for testing and bespoke workflows.
+    /// pricer registry (`finstack_valuations::pricer::exotics`) sets
+    /// this on all registered Bermudan pricers so that callers reaching
+    /// the registry with uncalibrated params receive a clear error
+    /// rather than a silently-wrong price. Direct constructor callers
+    /// retain the permissive default (`false`) for testing and bespoke
+    /// workflows.
     enforce_calibration: bool,
 }
 
@@ -430,14 +430,13 @@ impl BermudanSwaptionPricer {
     /// pre-calibrated model has been supplied via
     /// [`with_calibrated_model`](Self::with_calibrated_model).
     ///
-    /// The quant-audit remediation roadmap (PR 3, finding C6) identified
-    /// the legacy behaviour — emitting a `tracing::warn!` and proceeding
-    /// to price with uncalibrated defaults — as responsible for silent
-    /// 10–30% mispricing of early-exercise premia. The pricer registry
-    /// in `finstack_valuations::pricer::exotics` sets this on every
-    /// registered Bermudan pricer; direct constructor callers who need
-    /// permissive behaviour (tests, bespoke backtests) can omit the
-    /// call and retain the old semantics.
+    /// The legacy permissive behaviour — emitting a `tracing::warn!`
+    /// and proceeding to price with uncalibrated defaults — caused
+    /// silent 10–30% mispricing of early-exercise premia. The pricer
+    /// registry in `finstack_valuations::pricer::exotics` sets this on
+    /// every registered Bermudan pricer; direct constructor callers
+    /// who need permissive behaviour (tests, bespoke backtests) can
+    /// omit the call.
     pub fn require_calibration(mut self) -> Self {
         self.enforce_calibration = true;
         self
@@ -572,7 +571,7 @@ impl BermudanSwaptionPricer {
                             "Bermudan swaption {} received uncalibrated HullWhiteParams::default() \
                              (κ={:.3}, σ={:.3}) and no pre-calibrated model. Supply calibrated \
                              params via `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via \
-                             `.with_calibrated_model(…)`. (quant-audit C6)",
+                             `.with_calibrated_model(…)`.",
                             swaption.id, self.hw_params.kappa, self.hw_params.sigma,
                         ),
                         PricingErrorContext::default(),
@@ -638,9 +637,9 @@ impl BermudanSwaptionPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
-        // Quant-audit C6: refuse uncalibrated defaults when enforcement
-        // is enabled (as the pricer registry does). LSMC has no cached
-        // model path, so this guard runs before any curve loading.
+        // Refuse uncalibrated defaults when enforcement is enabled (as
+        // the pricer registry does). LSMC has no cached model path, so
+        // this guard runs before any curve loading.
         if self.enforce_calibration
             && self.pre_calibrated_model.is_none()
             && self.hw_params.is_uncalibrated_default()
@@ -650,8 +649,7 @@ impl BermudanSwaptionPricer {
                     "Bermudan swaption {} LSMC received uncalibrated \
                      HullWhiteParams::default() (κ={:.3}, σ={:.3}). Supply \
                      calibrated params via `HullWhiteParams::new(κ, σ)` or a \
-                     pre-calibrated tree via `.with_calibrated_model(…)`. \
-                     (quant-audit C6)",
+                     pre-calibrated tree via `.with_calibrated_model(…)`.",
                     swaption.id, self.hw_params.kappa, self.hw_params.sigma,
                 ),
                 PricingErrorContext::default(),

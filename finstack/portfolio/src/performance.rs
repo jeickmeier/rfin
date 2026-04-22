@@ -1,10 +1,8 @@
 //! Portfolio performance measurement — TWRR, MWRR, and GIPS-style linking.
 //!
-//! Quant-audit PR 12 (finding P1 #20). Prior to this module, the only
-//! performance figure surfaced by `finstack-portfolio` was the raw PV
-//! delta on `ReplaySummary.total_pnl`, which ignores external
+//! The raw PV delta on `ReplaySummary.total_pnl` ignores external
 //! cashflows (contributions, withdrawals, fees, dividends) and so
-//! conflates manager alpha with client capital moves. That is not a
+//! conflates manager alpha with client capital moves, which is not a
 //! legitimate return under any industry standard.
 //!
 //! This module adds:

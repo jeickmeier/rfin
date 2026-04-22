@@ -599,9 +599,6 @@ use crate::instruments::fx::fx_barrier_option::vanna_volga::{
 /// the instrument's strike — equivalent to the BS price and so usable as
 /// a shape-compatible default rather than a smile model.
 ///
-/// Audit P2 #29: module existed as `#[allow(dead_code)]` prior to this
-/// wiring; it is now a first-class `Pricer` registered in the FX pricer
-/// registry.
 pub(crate) struct FxBarrierOptionVannaVolgaPricer {
     /// Market quotes for the three-point smile. When `None`, a symmetric
     /// fallback smile is derived from the instrument's ATM vol at pricing
@@ -1020,9 +1017,9 @@ mod tests {
         assert!(err.to_string().contains("spot must be finite and > 0"));
     }
 
-    /// Audit P2 #29: with the symmetric-smile fallback (default-constructed
-    /// pricer, no explicit market quotes), the Vanna-Volga adjustment
-    /// must collapse to zero so the VV price matches the BS analytical
+    /// With the symmetric-smile fallback (default-constructed pricer,
+    /// no explicit market quotes), the Vanna-Volga adjustment must
+    /// collapse to zero so the VV price matches the BS analytical
     /// price. This keeps the pricer registration safe for instruments
     /// that haven't yet had smile data wired in.
     #[test]

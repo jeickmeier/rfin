@@ -136,7 +136,7 @@ pub mod table;
 pub mod types;
 /// Generic validation helpers for checking invariants.
 pub mod validation;
-/// Canonical model-version strings for calibration reports (audit P3 #35).
+/// Canonical model-version strings for calibration reports.
 pub mod versions;
 
 /// Hash map type alias used across Finstack.

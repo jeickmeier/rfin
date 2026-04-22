@@ -1044,8 +1044,8 @@ where
 ///   (2007). *Numerical Recipes: The Art of Scientific Computing* (3rd
 ///   ed.), §4.6 "Gaussian Quadratures and Orthogonal Polynomials."
 ///
-/// Audit P1 #15: this replaces the hardcoded 10-node Laguerre table
-/// previously inlined in
+/// Runtime Golub-Welsch replaces a previously hard-coded 10-node
+/// Laguerre table in
 /// `finstack_valuations::correlation::copula::student_t::StudentTCopula`,
 /// which silently capped `with_quadrature_order(n > 10)` at `n = 10`.
 #[derive(Debug, Clone)]
@@ -1247,9 +1247,8 @@ mod tests {
 
     #[test]
     fn gauss_laguerre_order_10_matches_canonical_table() {
-        // Audit P1 #15: the n=10 nodes/weights produced by Golub-Welsch must
-        // match the canonical Abramowitz-Stegun table used previously in
-        // finstack_valuations::correlation::copula::student_t.
+        // The n=10 nodes/weights produced by Golub-Welsch must match
+        // the canonical Abramowitz-Stegun table.
         let quad = GaussLaguerreQuadrature::new(10).expect("n=10 valid");
 
         let expected: [(f64, f64); 10] = [
@@ -1344,13 +1343,13 @@ mod tests {
 
     #[test]
     fn gauss_laguerre_low_order_exactness_boundary() {
-        // Audit P1 #15 motivation: a small-n rule is *exactly* exact for
-        // polynomials up to degree 2n-1 and *not* exact beyond. Verify at
-        // n=2: exact for x^0..x^3, measurably off for x^4. This is the
-        // precise failure mode that made the hardcoded 10-node rule
-        // inadequate for Student-t copulas with heavy tails — the tail
-        // integrand effectively has much higher polynomial content than
-        // the low-order rule could represent.
+        // A small-n rule is *exactly* exact for polynomials up to
+        // degree 2n-1 and *not* exact beyond. Verify at n=2: exact for
+        // x^0..x^3, measurably off for x^4. This is the precise
+        // failure mode that made the hard-coded 10-node rule
+        // inadequate for Student-t copulas with heavy tails — the
+        // tail integrand has much higher polynomial content than the
+        // low-order rule could represent.
         let q2 = GaussLaguerreQuadrature::new(2).expect("n=2 valid");
         let factorials = [1.0, 1.0, 2.0, 6.0];
         for (k, expected) in factorials.iter().enumerate() {

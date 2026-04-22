@@ -64,9 +64,9 @@
 //! * Grinold, R. C., & Kahn, R. N. (2000). *Active Portfolio Management*
 //!   (2nd ed.), Chapter 17.
 //!
-//! Audit P2 #27: factor-based attribution already exists in
-//! [`crate::attribution`]; this module adds the classical Brinson-Fachler
-//! decomposition that benchmark-relative reporting requires.
+//! Factor-based attribution already exists in [`crate::attribution`];
+//! this module adds the classical Brinson-Fachler decomposition that
+//! benchmark-relative reporting requires.
 
 use crate::error::{Error, Result};
 use finstack_core::math::summation::NeumaierAccumulator;
@@ -401,9 +401,9 @@ mod tests {
         ]
     }
 
-    /// Audit P2 #27: the three Brinson-Fachler effects must sum to the
-    /// active return exactly — this is the definitional invariant that
-    /// separates a correct BF implementation from a drift-prone one.
+    /// The three Brinson-Fachler effects must sum to the active return
+    /// exactly — this is the definitional invariant that separates a
+    /// correct BF implementation from a drift-prone one.
     #[test]
     fn brinson_effects_reconstruct_active_return() {
         let sectors = period_two_sector(0.60, 0.40, 0.08, 0.06, 0.01, 0.03);
@@ -417,9 +417,9 @@ mod tests {
         );
     }
 
-    /// Audit P2 #27: rejecting malformed weights is part of the
-    /// production-robustness contract — Brinson attribution is meaningless
-    /// if the weights don't form a convex combination.
+    /// Rejecting malformed weights is part of the production-robustness
+    /// contract — Brinson attribution is meaningless if the weights
+    /// don't form a convex combination.
     #[test]
     fn brinson_rejects_weights_that_do_not_sum_to_one() {
         let mut sectors = period_two_sector(0.60, 0.40, 0.08, 0.06, 0.01, 0.03);
@@ -432,9 +432,9 @@ mod tests {
         );
     }
 
-    /// Audit P2 #27: active-return reconstruction still holds with zero
-    /// benchmark exposure in a sector — the manager's overweight bet must
-    /// flow through Allocation and Interaction without artifacts.
+    /// Active-return reconstruction still holds with zero benchmark
+    /// exposure in a sector — the manager's overweight bet must flow
+    /// through Allocation and Interaction without artifacts.
     #[test]
     fn brinson_handles_zero_benchmark_weight_sector() {
         let sectors = vec![
@@ -461,9 +461,9 @@ mod tests {
         );
     }
 
-    /// Audit P2 #27: Carino linking must rescale the arithmetic effects so
-    /// the linked totals reconstruct the *geometric* compounded active
-    /// return, not the arithmetic sum of period active returns.
+    /// Carino linking must rescale the arithmetic effects so the linked
+    /// totals reconstruct the *geometric* compounded active return, not
+    /// the arithmetic sum of period active returns.
     #[test]
     fn carino_linking_matches_compounded_active_return() {
         // Two periods, simple two-sector portfolios.
@@ -493,10 +493,10 @@ mod tests {
         );
     }
 
-    /// Audit P2 #27: the Carino coefficient is numerically well-defined
-    /// even when portfolio and benchmark periods have the same return —
-    /// the limit `k = 1 / (1 + r)` must be used instead of the `0/0`
-    /// ratio form.
+    /// The Carino coefficient is numerically well-defined even when
+    /// portfolio and benchmark periods have the same return — the
+    /// limit `k = 1 / (1 + r)` must be used instead of the `0/0` ratio
+    /// form.
     #[test]
     fn carino_coefficient_handles_equal_returns() {
         let k = carino_coefficient(0.05, 0.05);

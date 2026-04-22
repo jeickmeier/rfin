@@ -16,7 +16,7 @@ use finstack_statements::Result;
 /// # Sign convention
 ///
 /// Both dividend nodes are expected to carry
-/// [`SignConventionPolicy::MagnitudePositive`] by default — audit C17.
+/// [`SignConventionPolicy::MagnitudePositive`] by default.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DividendReconciliation {
     /// Dividends paid node (cash flow statement, financing).
@@ -27,7 +27,7 @@ pub struct DividendReconciliation {
     /// [`finstack_statements::checks::CheckConfig::default_tolerance`].
     pub tolerance: Option<f64>,
     /// Sign convention applied to both dividend inputs. Defaults to
-    /// [`SignConventionPolicy::MagnitudePositive`] (audit C17).
+    /// [`SignConventionPolicy::MagnitudePositive`].
     #[serde(default)]
     pub sign_convention: SignConventionPolicy,
 }
@@ -60,7 +60,7 @@ impl Check for DividendReconciliation {
                 continue;
             };
 
-            // Audit C17: flag magnitude-positive violations.
+            // Flag magnitude-positive violations.
             if let Some(f) = self.sign_convention.validate(
                 div_cf,
                 self.dividends_cf_node.as_str(),

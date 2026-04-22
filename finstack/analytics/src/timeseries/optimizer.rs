@@ -275,11 +275,10 @@ where
 /// Returns `None` only if regularization fails at the largest λ tested,
 /// indicating a degenerate fit that should not be trusted.
 ///
-/// Audit P1 #22: the CR-bound formula is `diag(H^{-1})`, not `1/diag(H)` —
-/// the previous implementation already correctly computed `diag(H^{-1})` via
-/// LU, but lacked any fallback when H was near-singular. Now routes through
-/// `invert_hessian_full` so the diagonal and (optionally) the full covariance
-/// matrix come from the same regularized inverse.
+/// The CR-bound formula is `diag(H^{-1})`, not `1/diag(H)`. Routes
+/// through `invert_hessian_full` so the diagonal and (optionally) the
+/// full covariance matrix come from the same regularized inverse, giving
+/// a stable answer when H is near-singular.
 #[must_use]
 pub fn invert_hessian_diag(hess: &[Vec<f64>]) -> Option<Vec<f64>> {
     let inv = invert_hessian_full(hess)?;
@@ -296,9 +295,9 @@ pub fn invert_hessian_diag(hess: &[Vec<f64>]) -> Option<Vec<f64>> {
 /// regularization is invariant under the choice of scale (e.g. returns in
 /// decimals vs. percent).
 ///
-/// Audit P1 #22: callers who want cross-parameter covariances (e.g. for
-/// delta-method confidence intervals on functions of parameters like the
-/// GARCH persistence `α + β`) should use this instead of
+/// Callers who want cross-parameter covariances (e.g. for delta-method
+/// confidence intervals on functions of parameters like the GARCH
+/// persistence `α + β`) should use this instead of
 /// [`invert_hessian_diag`].
 #[must_use]
 pub fn invert_hessian_full(hess: &[Vec<f64>]) -> Option<nalgebra::DMatrix<f64>> {
@@ -336,7 +335,7 @@ pub fn invert_hessian_full(hess: &[Vec<f64>]) -> Option<nalgebra::DMatrix<f64>> 
 }
 
 // ---------------------------------------------------------------------------
-// Multi-start optimization (audit P1 #22)
+// Multi-start optimization
 // ---------------------------------------------------------------------------
 
 /// First ten primes — used as Halton bases for deterministic low-discrepancy
@@ -392,11 +391,12 @@ impl NelderMead {
     /// an initial point that lands in an infeasible region (e.g. fails the
     /// GARCH stationarity check in the closure) does not poison the result.
     ///
-    /// Audit P1 #22: single-start Nelder-Mead on the GARCH likelihood is
-    /// prone to plateau/ridge behavior near the stationarity frontier
-    /// (`α + β → 1`); deterministic multi-start dramatically improves MLE
-    /// quality on illiquid-asset return series and gives a more defensible
-    /// standard-error estimate via the Hessian at the (now better) optimum.
+    /// Single-start Nelder-Mead on the GARCH likelihood is prone to
+    /// plateau/ridge behavior near the stationarity frontier
+    /// (`α + β → 1`); deterministic multi-start dramatically improves
+    /// MLE quality on illiquid-asset return series and gives a more
+    /// defensible standard-error estimate via the Hessian at the
+    /// improved optimum.
     pub fn minimize_multi_start<F>(
         &self,
         f: F,
@@ -490,10 +490,11 @@ mod tests {
 
     #[test]
     fn invert_hessian_cross_off_diagonal_contributes_to_std_errors() {
-        // Audit P1 #22: the diagonal of the INVERSE is not the reciprocal of
-        // the diagonal — off-diagonal Hessian entries must propagate into
-        // per-parameter variance. A 2x2 Hessian with a large off-diagonal
-        // gives a diagonal inverse entry noticeably larger than `1/H_{ii}`.
+        // The diagonal of the INVERSE is not the reciprocal of the
+        // diagonal — off-diagonal Hessian entries must propagate into
+        // per-parameter variance. A 2x2 Hessian with a large off-
+        // diagonal gives a diagonal inverse entry noticeably larger
+        // than `1/H_{ii}`.
         //
         // H = [[4, 3],      (H^{-1})_{11} = 4 / det(H) = 4 / (16 - 9) = 4/7
         //      [3, 4]]      1/H_{11}      = 0.25

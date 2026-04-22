@@ -421,8 +421,8 @@ fn test_lsmc_vs_tree_sanity() {
 
     // Note: LSMC and Tree may produce materially different values due to:
     // 1. Different θ(t) calibration approaches. LSMC uses the MC-crate
-    //    `calibrate_theta_from_curve` which (post-PR-1 / quant-audit C2)
-    //    returns θ in the Vasicek-style mean-reversion-level convention;
+    //    `calibrate_theta_from_curve` which returns θ in the
+    //    Vasicek-style mean-reversion-level convention;
     //    the tree pricer uses its own forward-induction calibration in
     //    finstack-valuations whose σ normalization differs. For the
     //    uncalibrated `HullWhiteParams::default()` (κ = 3%, σ = 1%)
@@ -435,12 +435,11 @@ fn test_lsmc_vs_tree_sanity() {
     // The test's intent is to verify the infrastructure works (both
     // pricers return positive, finite numbers on a realistic swaption)
     // rather than numerical agreement. For exact-agreement regressions,
-    // see the forthcoming per-calibration golden tests (audit roadmap
-    // PR 3 follow-ups). The tolerance is deliberately loose — 2 orders
-    // of magnitude — because uncalibrated default HW parameters are
-    // themselves known-bad (audit finding C6) and no two pricers with
-    // independent calibration implementations are required to agree
-    // here.
+    // see the forthcoming per-calibration golden tests. The tolerance
+    // is deliberately loose — 2 orders of magnitude — because
+    // uncalibrated default HW parameters are themselves known-bad
+    // and no two pricers with independent calibration implementations
+    // are required to agree here.
     let max_pv = tree_pv.max(lsmc_pv);
     let min_pv = tree_pv.min(lsmc_pv);
     if max_pv > 1.0 {
@@ -565,7 +564,7 @@ fn test_lsmc_pricer_key() {
 }
 
 // ============================================================================
-// Quant-audit remediation PR 3: Bermudan calibration gate (C6)
+// Bermudan calibration gate
 // ============================================================================
 
 /// With `require_calibration()` set, pricing a Bermudan with the

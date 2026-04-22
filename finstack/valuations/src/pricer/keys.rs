@@ -472,7 +472,7 @@ pub enum ModelKey {
     /// Used for: FX barrier options priced against a three-pillar vol
     /// smile (25Δ put, ATM, 25Δ call). Pricing engine starts from the BS
     /// barrier price at ATM vol and adds vanna/volga smile adjustments
-    /// using the three pillar vols as market quotes. Audit P2 #29.
+    /// using the three pillar vols as market quotes.
     FxBarrierVannaVolga = 27,
     /// Heston semi-analytical via Fourier transform.
     ///

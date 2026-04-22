@@ -90,11 +90,11 @@ impl BarrierOptionMcPricer {
         // Get discount curve
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
-        // Two-clock plumbing (quant-audit P1 #19): t_vol drives the vol
-        // surface / MC time grid; t_disc + df drive the drift rate and
-        // final discounting. Keeping these separate makes the pricer
-        // bump-and-reval-consistent with the curve's own day-count
-        // convention when it differs from the vol surface basis.
+        // Two-clock plumbing: t_vol drives the vol surface / MC time
+        // grid; t_disc + df drive the drift rate and final discounting.
+        // Keeping these separate makes the pricer bump-and-reval-
+        // consistent with the curve's own day-count convention when it
+        // differs from the vol surface basis.
         let clocks = TwoClockParams::from_curve_and_instrument(
             &disc_curve,
             inst.day_count,
@@ -108,7 +108,7 @@ impl BarrierOptionMcPricer {
         }
 
         let discount_factor = clocks.df;
-        // Drift rate on the discount curve's clock (quant-audit P1 #19).
+        // Drift rate on the discount curve's clock.
         let r = clocks.r_disc();
 
         // Get spot
@@ -213,8 +213,7 @@ impl BarrierOptionMcPricer {
         // Get discount curve first to access its day count
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
 
-        // Two-clock plumbing (quant-audit P1 #19) — see `price_internal`
-        // for the rationale.
+        // Two-clock plumbing — see `price_internal` for the rationale.
         let clocks = TwoClockParams::from_curve_and_instrument(
             &disc_curve,
             inst.day_count,
@@ -830,15 +829,14 @@ mod tests {
         assert!((pv - expected).abs() < 1e-12);
     }
 
-    /// Quant-audit P1 #19 migration witness: when the discount curve's
-    /// day-count differs from the instrument's (vol-surface) day-count,
-    /// the post-migration MC pricer must use the curve's clock for the
-    /// drift rate rather than the vol-surface clock. We exercise this
-    /// by pricing the same barrier option against two curves that
-    /// share a discount factor at expiry but differ in day-count, and
-    /// assert the prices differ measurably. Pre-migration both prices
-    /// would have been identical (the legacy `r_eff = -ln(DF)/t_vol`
-    /// did not depend on the curve's day-count).
+    /// Two-clock migration witness: when the discount curve's day-
+    /// count differs from the instrument's (vol-surface) day-count,
+    /// the MC pricer must use the curve's clock for the drift rate
+    /// rather than the vol-surface clock. We exercise this by pricing
+    /// the same barrier option against two curves that share a
+    /// discount factor at expiry but differ in day-count, and assert
+    /// the prices differ measurably. A single-clock `r_eff =
+    /// -ln(DF)/t_vol` would collapse the two cases to the same price.
     #[cfg(feature = "mc")]
     #[test]
     fn two_clock_migration_drift_respects_curve_day_count() {

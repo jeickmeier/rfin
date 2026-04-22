@@ -1147,8 +1147,8 @@ fn test_overnight_lockout_flat_curve() {
     }
 }
 
-/// Audit P1 #21: ISDA 2021 observation-shift must move the observation window
-/// *before* the accrual period, so rates sampled under a SONIA-style 5 BD shift
+/// ISDA 2021 observation-shift must move the observation window *before*
+/// the accrual period, so rates sampled under a SONIA-style 5 BD shift
 /// must differ from in-arrears rates on any non-flat forward curve.
 ///
 /// Before the fix: `sample_overnight_rates` only ever sampled the accrual
@@ -1253,9 +1253,9 @@ fn test_overnight_observation_shift_samples_pre_accrual_window() {
     }
 }
 
-/// Audit P1 #21 (Lookback follow-up): ARRC 2020 §2 "Lookback" must sample
-/// rates from N business days before each accrual date — the rate
-/// observation is shifted but the accrual-period weight is preserved.
+/// ARRC 2020 §2 "Lookback" must sample rates from N business days before
+/// each accrual date — the rate observation is shifted but the
+/// accrual-period weight is preserved.
 ///
 /// Before the follow-up: `compute_overnight_rate::CompoundedWithLookback`
 /// did index-rewriting inside the accrual-window sample. For the first

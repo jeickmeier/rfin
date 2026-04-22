@@ -186,8 +186,8 @@ impl BumpSizeConfig {
     /// basis points for rates/credit/inflation, percent for equity/commodity/FX,
     /// absolute vol points for volatility. Callers that cannot statically
     /// know the unit should use [`Self::bump_size_with_unit_for_factor`]
-    /// instead (audit P3 #32) — same numeric, but the unit flows through as
-    /// a [`FactorBumpUnit`] tag.
+    /// instead — same numeric, but the unit flows through as a
+    /// [`FactorBumpUnit`] tag.
     #[must_use]
     pub fn bump_size_for_factor(&self, factor_id: &FactorId, factor_type: &FactorType) -> f64 {
         if let Some(&size) = self.overrides.get(factor_id) {
@@ -205,12 +205,12 @@ impl BumpSizeConfig {
 
     /// Return the configured bump size along with its [`FactorBumpUnit`].
     ///
-    /// Audit P3 #32: the previous bare-`f64` return obscured that the unit
-    /// depends on `factor_type` — a numeric value of `1.0` is 1 bp for a
-    /// rates factor but 1 % for an equity factor, and mixing the two up
+    /// A bare-`f64` return would obscure that the unit depends on
+    /// `factor_type` — a numeric value of `1.0` is 1 bp for a rates
+    /// factor but 1 % for an equity factor, and mixing the two up
     /// silently produces a 100× error. This method carries the unit
-    /// alongside the magnitude so downstream bump-construction code can
-    /// validate or convert explicitly.
+    /// alongside the magnitude so downstream bump-construction code
+    /// can validate or convert explicitly.
     ///
     /// Per-factor `overrides` inherit the factor-type's canonical unit —
     /// if a user wants a non-canonical interpretation (e.g. an absolute
@@ -231,15 +231,13 @@ impl BumpSizeConfig {
 /// numeric value returned by
 /// [`BumpSizeConfig::bump_size_with_unit_for_factor`].
 ///
-/// Audit P3 #32. Previously the bump magnitude flowed through
-/// `BumpSizeConfig` and into `mapping_to_market_bumps` as a bare `f64`
-/// whose unit was only encoded implicitly in the field name (`rates_bp`,
-/// `equity_pct`, `vol_points`). A caller that threaded the value into
-/// an incompatible `MarketMapping` branch — e.g. a rates-bp magnitude
-/// into the `EquitySpot` path, which assumes percent — got a silent
-/// 100× scaling error. `FactorBumpUnit` makes the interpretation
-/// explicit and lets downstream code either validate against the
-/// mapping's expected unit or convert between units on the fly.
+/// `BumpSizeConfig` itself encodes units only implicitly in the field
+/// name (`rates_bp`, `equity_pct`, `vol_points`), which previously let
+/// a caller thread a rates-bp magnitude into the `EquitySpot` path
+/// (which assumes percent) and silently produce a 100× scaling error.
+/// `FactorBumpUnit` makes the interpretation explicit and lets
+/// downstream code validate against or convert to the mapping's
+/// expected unit.
 ///
 /// The variants intentionally mirror [`crate::market_data::bumps::BumpUnits`]
 /// plus `Absolute` (used by vol-point shifts where the magnitude is

@@ -122,11 +122,10 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
 
     // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo).
     //
-    // Registered with `.require_calibration()` per quant-audit remediation
-    // PR 3 finding C6: uncalibrated `HullWhiteParams::default()` (κ=3%,
-    // σ=1%) produces 10–30% errors on early-exercise premia. Callers
-    // reaching this registry entry must supply calibrated params via
-    // `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via
+    // Registered with `.require_calibration()`: uncalibrated
+    // `HullWhiteParams::default()` (κ=3%, σ=1%) produces 10–30% errors
+    // on early-exercise premia. Callers must supply calibrated params
+    // via `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via
     // `with_calibrated_model(...)`; otherwise pricing returns
     // `PricingError::ModelFailure`.
     #[cfg(feature = "mc")]

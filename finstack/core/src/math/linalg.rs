@@ -429,9 +429,9 @@ pub fn cholesky_correlation(
 /// assert!((sorted[1] - 5.0).abs() < 1e-12);
 /// ```
 ///
-/// Audit P3 #34: exposed as a shared helper so downstream crates
-/// (`finstack-valuations`, etc.) can replace their in-tree Jacobi eigen-
-/// solvers without pulling `nalgebra` in as a direct dependency.
+/// Exposed as a shared helper so downstream crates (`finstack-valuations`,
+/// etc.) can delegate their eigendecomposition without pulling `nalgebra`
+/// in as a direct dependency.
 pub fn symmetric_eigen(
     matrix: &[f64],
     n: usize,

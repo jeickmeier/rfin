@@ -160,13 +160,11 @@ pub fn nearest_correlation_matrix(
 /// Project a symmetric matrix onto the PSD cone by zeroing negative
 /// eigenvalues (the Higham projection step).
 ///
-/// Audit P3 #34: spectral decomposition now delegates to
+/// Spectral decomposition delegates to
 /// [`finstack_core::math::linalg::symmetric_eigen`] (divide-and-conquer
-/// tridiagonal QR, `O(n³)`) instead of the previous hand-rolled Jacobi
-/// sweeps. The old Jacobi path capped at `100·n²` sweeps and each sweep
-/// was `O(n²)` for pivot search + `O(n)` per-rotation update,
-/// degenerating to roughly `O(n⁵)` for `n > 40` correlation matrices —
-/// enough to dominate Higham wall-time on portfolio-scale matrices.
+/// tridiagonal QR, `O(n³)`), which scales to portfolio-size correlation
+/// matrices without the `O(n⁵)` worst case of a hand-rolled Jacobi
+/// sweep.
 fn project_psd(matrix: &[f64], n: usize) -> Vec<f64> {
     if n == 0 {
         return Vec::new();
@@ -301,10 +299,9 @@ mod tests {
         assert!(matches!(err, Error::NotSymmetric { .. }));
     }
 
-    /// Audit P3 #34: smoke test for the `n > 40` regime where the old
-    /// Jacobi eigensolver's `100·n²` sweep cap degenerated to roughly
-    /// `O(n⁵)`. With SymmetricEigen this runs in fractions of a second
-    /// and must still produce a valid correlation matrix.
+    /// Smoke test for the `n > 40` regime: the divide-and-conquer
+    /// `symmetric_eigen` path must produce a valid correlation matrix
+    /// in fractions of a second.
     #[test]
     fn nearest_corr_scales_past_forty_dimensions() {
         let n = 60;

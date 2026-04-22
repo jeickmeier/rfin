@@ -70,7 +70,7 @@ pub mod attribution;
 /// Book hierarchy and identifiers.
 pub mod book;
 /// Brinson-Fachler three-way benchmark-relative attribution with
-/// Carino linking (quant-audit P2 #27).
+/// Carino linking.
 pub mod brinson;
 /// Fluent portfolio construction helpers.
 pub mod builder;
@@ -90,7 +90,7 @@ pub mod margin;
 pub mod metrics;
 /// Portfolio optimization engines and constraints.
 pub mod optimization;
-/// TWRR / MWRR / GIPS-style return linking (quant-audit PR 12, P1 #20).
+/// TWRR / MWRR / GIPS-style return linking.
 pub mod performance;
 /// Portfolio container and state management.
 pub mod portfolio;

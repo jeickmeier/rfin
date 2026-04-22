@@ -162,9 +162,9 @@ impl SimmParams {
     /// bucket labels degrade to a zero-correlation contribution rather than
     /// a panic.
     ///
-    /// Audit P2 #25 (follow-up): previously a free function over a hard-
-    /// coded `const CORR`. Moving it through `SimmParams` brings it under
-    /// the same PSD validation as the other correlation matrices.
+    /// Routing through `SimmParams` (rather than a free function over a
+    /// hard-coded `const`) keeps this matrix under the same registry-
+    /// load PSD validation as the other SIMM correlation matrices.
     fn commodity_inter_bucket_correlation(&self, a: u8, b: u8) -> f64 {
         let n = COMMODITY_BUCKET_COUNT;
         if !(1..=u8::try_from(n).unwrap_or(u8::MAX)).contains(&a)
@@ -194,10 +194,10 @@ pub(crate) const COMMODITY_BUCKET_COUNT: usize = 17;
 /// (the "Other" / residual bucket) is zero-correlated with every other bucket
 /// per the specification.
 ///
-/// Audit P2 #25 (follow-up): previously accessed via a free function from inside
-/// `calculate_commodity_delta`; now plumbed through `SimmParams` so the same
-/// registry-load PSD check used for every other correlation matrix also covers
-/// commodity.
+/// Plumbed through `SimmParams` so the same registry-load PSD check
+/// used for every other correlation matrix also covers commodity,
+/// rather than being accessed as a free constant from inside
+/// `calculate_commodity_delta`.
 pub(crate) const DEFAULT_COMMODITY_INTER_BUCKET_CORR: [[f64; COMMODITY_BUCKET_COUNT];
     COMMODITY_BUCKET_COUNT] = [
     [

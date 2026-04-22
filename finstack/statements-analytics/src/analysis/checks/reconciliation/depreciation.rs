@@ -36,7 +36,7 @@ pub struct DepreciationReconciliation {
     pub tolerance: Option<f64>,
     /// Sign convention applied to `capex_node`,
     /// `depreciation_expense_node`, and `disposals_node`. Defaults to
-    /// [`SignConventionPolicy::MagnitudePositive`] (audit C17).
+    /// [`SignConventionPolicy::MagnitudePositive`].
     #[serde(default)]
     pub sign_convention: SignConventionPolicy,
 }
@@ -84,7 +84,7 @@ impl Check for DepreciationReconciliation {
                 .and_then(|n| get_node_value(context.results, n, curr_pid))
                 .unwrap_or(0.0);
 
-            // Audit C17: flag magnitude-positive violations before the
+            // Flag magnitude-positive violations before the
             // reconciliation math.
             if let Some(f) = self.sign_convention.validate(
                 capex,

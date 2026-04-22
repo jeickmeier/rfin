@@ -21,8 +21,7 @@ use finstack_statements::Result;
 /// they are non-negative magnitudes, and the reconciliation matches
 /// them directly (the CFS convention of reporting capex as a negative
 /// outflow should be normalized at ingest to a magnitude — the
-/// `sign_convention` field below flags violations at runtime per
-/// audit C17).
+/// `sign_convention` field below flags violations at runtime).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapexReconciliation {
     /// Capex from the cash flow statement (investing section).
@@ -36,7 +35,7 @@ pub struct CapexReconciliation {
     pub tolerance: Option<f64>,
     /// Sign convention applied to `capex_cf_node`, `ppe_additions_node`,
     /// and `intangible_additions_node`. Defaults to
-    /// [`SignConventionPolicy::MagnitudePositive`] (audit C17).
+    /// [`SignConventionPolicy::MagnitudePositive`].
     #[serde(default)]
     pub sign_convention: SignConventionPolicy,
 }
@@ -77,10 +76,10 @@ impl Check for CapexReconciliation {
                 continue;
             };
 
-            // Audit C17: flag sign-convention violations before the
-            // reconciliation math — a negative `capex_cf` under the
-            // default MagnitudePositive convention would produce a
-            // misleading reconciliation-diff finding.
+            // Flag sign-convention violations before the reconciliation
+            // math — a negative `capex_cf` under the default
+            // MagnitudePositive convention would produce a misleading
+            // reconciliation-diff finding.
             if let Some(f) = self.sign_convention.validate(
                 capex_cf,
                 self.capex_cf_node.as_str(),
