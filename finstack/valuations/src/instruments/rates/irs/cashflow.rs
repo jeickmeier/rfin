@@ -167,8 +167,11 @@ fn projected_overnight_rate(
         let t0 = if obs_start <= proj.base_date() {
             0.0
         } else {
-            proj.day_count()
-                .year_fraction(proj.base_date(), obs_start, DayCountContext::default())?
+            proj.day_count().year_fraction(
+                proj.base_date(),
+                obs_start,
+                DayCountContext::default(),
+            )?
         };
         let t1 = if obs_end <= proj.base_date() {
             0.0
@@ -317,10 +320,11 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                 } else {
                     (d, step_end)
                 };
-                let dcf =
-                    float
-                        .day_count
-                        .year_fraction(dcf_start, dcf_end, DayCountContext::default())?;
+                let dcf = float.day_count.year_fraction(
+                    dcf_start,
+                    dcf_end,
+                    DayCountContext::default(),
+                )?;
 
                 if obs_end <= obs_start {
                     return Err(finstack_core::Error::Validation(format!(

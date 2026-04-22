@@ -381,7 +381,8 @@ impl CashFlowSchedule {
             ) && cf.date > as_of
                 && cf.amount.amount() > 0.0
             {
-                let t = DayCount::Act365F.year_fraction(as_of, cf.date, DayCountContext::default())?;
+                let t =
+                    DayCount::Act365F.year_fraction(as_of, cf.date, DayCountContext::default())?;
                 principal_time_sum += cf.amount.amount() * t;
                 principal_total += cf.amount.amount();
             }

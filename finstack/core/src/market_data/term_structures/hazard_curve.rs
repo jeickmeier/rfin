@@ -550,9 +550,9 @@ impl HazardCurve {
         let new_base = self.base + time::Duration::days(days);
         // Use consistent day count logic (same as DiscountCurve/ForwardCurve)
         // This is a behavior change from "days/365.0" to actual day count, which is more correct.
-        let dt_years = self
-            .day_count
-            .year_fraction(self.base, new_base, DayCountContext::default())?;
+        let dt_years =
+            self.day_count
+                .year_fraction(self.base, new_base, DayCountContext::default())?;
 
         // Shift knots and filter expired points using shared helper
         let rolled_points = super::common::roll_knots(&self.knots, &self.lambdas, dt_years);

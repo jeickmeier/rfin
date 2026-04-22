@@ -7,7 +7,7 @@
 //! The aggregation is **currency-preserving**: no implicit FX conversion is
 //! applied. Consumers can apply explicit FX policies on top if a base-currency
 //! ladder is required. Use
-//! [`PortfolioFullCashflows::collapse_to_base_by_date_kind`] for a
+//! [`PortfolioCashflows::collapse_to_base_by_date_kind`] for a
 //! base-currency projection that preserves [`CFKind`] classification.
 //!
 //! Spot-equivalent FX is used for every cashflow date in base-currency
@@ -135,7 +135,7 @@ pub struct PortfolioCashflowEvent {
 
 /// Rich portfolio cashflow ladder preserving event classifications.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct PortfolioFullCashflows {
+pub struct PortfolioCashflows {
     /// Scaled cashflow events for all supported positions, sorted by payment date.
     pub events: Vec<PortfolioCashflowEvent>,
 
@@ -161,7 +161,7 @@ fn instrument_cashflow_schedule(
     instrument.cashflow_schedule(market, as_of)
 }
 
-impl PortfolioFullCashflows {
+impl PortfolioCashflows {
     /// Collapse classified multi-currency flows into base currency bucketed by
     /// (date, [`CFKind`]).
     ///
@@ -227,7 +227,7 @@ impl PortfolioFullCashflows {
 pub fn aggregate_full_cashflows(
     portfolio: &Portfolio,
     market: &MarketContext,
-) -> Result<PortfolioFullCashflows> {
+) -> Result<PortfolioCashflows> {
     // Phase A (parallel): build per-position cashflow schedules. Each call to
     // `instrument_cashflow_schedule` is an independent, read-only function of
     // the shared `MarketContext` and the per-position instrument, so scheduling
@@ -352,7 +352,7 @@ pub fn aggregate_full_cashflows(
         *entry = entry.checked_add(event.amount).map_err(Error::Core)?;
     }
 
-    Ok(PortfolioFullCashflows {
+    Ok(PortfolioCashflows {
         events,
         by_position,
         by_date,
@@ -364,7 +364,7 @@ pub fn aggregate_full_cashflows(
 /// Aggregate portfolio cashflows by payment date and currency.
 ///
 /// Thin wrapper around [`aggregate_full_cashflows`] followed by
-/// [`PortfolioFullCashflows::to_simple`]. Prefer the two-step form for new
+/// [`PortfolioCashflows::to_simple`]. Prefer the two-step form for new
 /// code that also wants classification metadata; this function remains for
 /// backwards compatibility.
 ///
@@ -489,7 +489,7 @@ mod tests {
         build_test_market_at(as_of).insert_fx(FxMatrix::new(provider))
     }
 
-    fn full_cashflow_ladder_fixture() -> PortfolioFullCashflows {
+    fn full_cashflow_ladder_fixture() -> PortfolioCashflows {
         let mut by_date: IndexMap<Date, IndexMap<Currency, IndexMap<CFKind, Money>>> =
             IndexMap::new();
 
@@ -532,7 +532,7 @@ mod tests {
             )]),
         );
 
-        PortfolioFullCashflows {
+        PortfolioCashflows {
             events: Vec::new(),
             by_position: IndexMap::new(),
             by_date,

@@ -531,7 +531,7 @@ impl StochasticExposureProfile {
 /// - ISDA 2002 Master Agreement: `docs/REFERENCES.md#isda-2002-master-agreement`
 /// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct NettingSet {
+pub struct XvaNettingSet {
     /// Unique identifier for this netting set.
     pub id: String,
 

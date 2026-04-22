@@ -254,7 +254,7 @@ impl PyPortfolioResult {
 // ---------------------------------------------------------------------------
 
 /// Python wrapper around a
-/// [`finstack_portfolio::cashflows::PortfolioFullCashflows`] ladder.
+/// [`finstack_portfolio::cashflows::PortfolioCashflows`] ladder.
 ///
 /// Returning a typed wrapper lets callers drill into `events`, `by_date`, and
 /// `issues` without re-parsing the aggregated JSON payload on every access.
@@ -267,11 +267,11 @@ impl PyPortfolioResult {
 )]
 #[derive(Clone)]
 pub struct PyPortfolioCashflows {
-    pub(crate) inner: finstack_portfolio::cashflows::PortfolioFullCashflows,
+    pub(crate) inner: finstack_portfolio::cashflows::PortfolioCashflows,
 }
 
 impl PyPortfolioCashflows {
-    pub(crate) fn from_inner(inner: finstack_portfolio::cashflows::PortfolioFullCashflows) -> Self {
+    pub(crate) fn from_inner(inner: finstack_portfolio::cashflows::PortfolioCashflows) -> Self {
         Self { inner }
     }
 }
@@ -282,7 +282,7 @@ impl PyPortfolioCashflows {
     #[staticmethod]
     #[pyo3(text_signature = "(cashflows_json)")]
     fn from_json(cashflows_json: &str) -> PyResult<Self> {
-        let inner: finstack_portfolio::cashflows::PortfolioFullCashflows =
+        let inner: finstack_portfolio::cashflows::PortfolioCashflows =
             serde_json::from_str(cashflows_json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
@@ -331,7 +331,7 @@ impl PyPortfolioCashflows {
     /// ``(date, CFKind) → Money`` ladder using **spot-equivalent** FX at each
     /// payment date.
     ///
-    /// See :func:`finstack_portfolio::cashflows::PortfolioFullCashflows::collapse_to_base_by_date_kind`
+    /// See :func:`finstack_portfolio::cashflows::PortfolioCashflows::collapse_to_base_by_date_kind`
     /// for the exact convention. Returns JSON.
     #[pyo3(text_signature = "(self, market, base_ccy, as_of)")]
     fn collapse_to_base_by_date_kind(

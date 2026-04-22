@@ -35,7 +35,8 @@ impl MetricCalculator for ExpectedLossCalculator {
         let dc = hazard.day_count();
         let base_date = hazard.base_date();
         let t_asof = dc.year_fraction(base_date, as_of, DayCountContext::default())?;
-        let t_maturity = dc.year_fraction(base_date, cds.premium.end, DayCountContext::default())?;
+        let t_maturity =
+            dc.year_fraction(base_date, cds.premium.end, DayCountContext::default())?;
 
         // Conditional survival to maturity given survival to as_of.
         let sp_asof = hazard.sp(t_asof);

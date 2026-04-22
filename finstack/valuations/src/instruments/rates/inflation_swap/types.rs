@@ -7,7 +7,9 @@ use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
@@ -766,9 +768,9 @@ impl YoYInflationSwap {
                 PayReceive::ReceiveFixed => fixed_leg - inflation_leg,
             };
 
-            let t_discount = disc
-                .day_count()
-                .year_fraction(as_of, pay, DayCountContext::default())?;
+            let t_discount =
+                disc.day_count()
+                    .year_fraction(as_of, pay, DayCountContext::default())?;
             let df = disc.df(t_discount);
             pv += net * df;
         }
@@ -809,9 +811,9 @@ impl YoYInflationSwap {
             }
             let cpi_end = self.cpi_value(curves, as_of, end)?;
 
-            let t_discount = disc
-                .day_count()
-                .year_fraction(as_of, pay, DayCountContext::default())?;
+            let t_discount =
+                disc.day_count()
+                    .year_fraction(as_of, pay, DayCountContext::default())?;
             let df = disc.df(t_discount);
 
             // Inflation leg contribution: DF × (CPI_end / CPI_start - 1)

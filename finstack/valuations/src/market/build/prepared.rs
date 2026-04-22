@@ -215,7 +215,8 @@ pub(crate) fn prepare_cds_quote(
         .map(|cds| cds.premium.end)
         .ok_or_else(|| finstack_core::Error::Validation("Expected CDS instrument".to_string()))?;
 
-    let pillar_time = day_count.year_fraction(base_date, maturity_date, DayCountContext::default())?;
+    let pillar_time =
+        day_count.year_fraction(base_date, maturity_date, DayCountContext::default())?;
 
     Ok(PreparedQuote::new(
         Arc::new(quote),

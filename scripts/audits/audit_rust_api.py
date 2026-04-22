@@ -350,10 +350,7 @@ class RustAPIExtractor:
         # Process all crates found as subdirectories containing a src/lib.rs.
         # This auto-discovers every workspace crate (analytics, margin, monte_carlo,
         # statements-analytics, etc.) rather than relying on a hardcoded allowlist.
-        crate_dirs = sorted(
-            p.name for p in self.src_root.iterdir()
-            if p.is_dir() and (p / "src" / "lib.rs").exists()
-        )
+        crate_dirs = sorted(p.name for p in self.src_root.iterdir() if p.is_dir() and (p / "src" / "lib.rs").exists())
         for crate_dir in crate_dirs:
             crate_path = self.src_root / crate_dir / "src"
             crate_lib = crate_path / "lib.rs"

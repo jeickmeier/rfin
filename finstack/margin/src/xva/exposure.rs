@@ -51,7 +51,7 @@ use finstack_monte_carlo::{
 };
 
 use super::netting::{apply_collateral, apply_netting};
-use super::types::{ExposureProfile, NettingSet, XvaConfig};
+use super::types::{ExposureProfile, XvaConfig, XvaNettingSet};
 #[cfg(feature = "mc")]
 use super::types::{StochasticExposureConfig, StochasticExposureProfile};
 
@@ -76,7 +76,7 @@ fn resolve_reporting_currency(
     instruments: &[Arc<dyn Valuable>],
     market: &MarketContext,
     as_of: Date,
-    netting_set: &NettingSet,
+    netting_set: &XvaNettingSet,
 ) -> finstack_core::Result<Currency> {
     if let Some(currency) = netting_set.reporting_currency {
         return Ok(currency);
@@ -200,7 +200,7 @@ pub fn compute_exposure_profile(
     market: &MarketContext,
     as_of: Date,
     config: &XvaConfig,
-    netting_set: &NettingSet,
+    netting_set: &XvaNettingSet,
 ) -> finstack_core::Result<ExposureProfile> {
     config.validate()?;
     let reporting_currency = resolve_reporting_currency(instruments, market, as_of, netting_set)?;
@@ -577,7 +577,7 @@ mod tests {
             own_recovery_rate: None,
             funding: None,
         };
-        let netting_set = NettingSet {
+        let netting_set = XvaNettingSet {
             id: "NS-STABLE-SUM".into(),
             counterparty_id: "CP".into(),
             csa: None,
@@ -606,7 +606,7 @@ mod tests {
             own_recovery_rate: None,
             funding: None,
         };
-        let netting_set = NettingSet {
+        let netting_set = XvaNettingSet {
             id: "NS-VALUABLE".into(),
             counterparty_id: "CP".into(),
             csa: None,
@@ -867,7 +867,7 @@ mod tests {
             mpor_days: 10,
             independent_amount: 0.0,
         };
-        let netting_set = NettingSet {
+        let netting_set = XvaNettingSet {
             id: "CSA-NEG".into(),
             counterparty_id: "CP".into(),
             csa: Some(csa.clone()),
@@ -917,7 +917,7 @@ mod tests {
             own_recovery_rate: None,
             funding: None,
         };
-        let netting_set = NettingSet {
+        let netting_set = XvaNettingSet {
             id: "MIXED-CCY".into(),
             counterparty_id: "CP".into(),
             csa: None,
@@ -965,7 +965,7 @@ mod tests {
             own_recovery_rate: None,
             funding: None,
         };
-        let netting_set = NettingSet {
+        let netting_set = XvaNettingSet {
             id: "MIXED-CCY".into(),
             counterparty_id: "CP".into(),
             csa: None,

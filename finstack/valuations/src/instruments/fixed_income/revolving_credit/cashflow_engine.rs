@@ -663,9 +663,11 @@ impl<'a> CashflowEngine<'a> {
                 }
             };
 
-            let dt =
-                self.day_count
-                    .year_fraction(period_start, period_end, DayCountContext::default())?;
+            let dt = self.day_count.year_fraction(
+                period_start,
+                period_end,
+                DayCountContext::default(),
+            )?;
             let interest = drawn_balance * (interest_rate * dt);
 
             // Add interest cashflows if non-zero

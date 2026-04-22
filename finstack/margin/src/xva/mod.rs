@@ -51,7 +51,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_margin::xva::{
-//!     types::{XvaConfig, NettingSet, FundingConfig},
+//!     types::{XvaConfig, XvaNettingSet, FundingConfig},
 //!     exposure::compute_exposure_profile,
 //!     cva::{compute_cva, compute_dva, compute_fva, compute_bilateral_xva},
 //! };
@@ -63,7 +63,7 @@
 //! let config = XvaConfig::default();
 //!
 //! // 2. Define the netting set
-//! let netting_set = NettingSet {
+//! let netting_set = XvaNettingSet {
 //!     id: "NS-001".into(),
 //!     counterparty_id: "COUNTERPARTY-CREDIT".into(),
 //!     csa: None, // uncollateralized

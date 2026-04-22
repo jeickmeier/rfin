@@ -37,7 +37,9 @@ use crate::instruments::common_impl::validation;
 use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;

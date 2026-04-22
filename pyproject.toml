@@ -201,6 +201,7 @@ ignore = [
 "finstack-py/benches/**/*.py" = ["PLR0915"]
 "finstack-py/benchmarks/**/*.py" = ["T201", "D100", "D101", "D102", "D103", "ANN", "S101"]
 "scripts/**/*.py" = ["T201", "C901", "PLR0915", "PERF401", "ANN", "BLE001", "S112", "PTH", "G004", "TRY401"]
+".windsurf/skills/**/scripts/**/*.py" = ["T201"]
 "finstack-py/examples/**/*.py" = [
     "D100", "D101", "D103", "D205",  # Missing docstrings - examples are self-documenting
     "ANN",  # Type annotations - examples prioritize readability

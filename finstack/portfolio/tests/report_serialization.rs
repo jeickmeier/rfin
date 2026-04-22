@@ -4,7 +4,7 @@ use finstack_core::dates::{Date, Month};
 use finstack_core::money::Money;
 use finstack_portfolio::cashflows::{
     CashflowExtractionIssue, CashflowExtractionIssueKind, PortfolioCashflowEvent,
-    PortfolioCashflowPositionSummary, PortfolioFullCashflows,
+    PortfolioCashflowPositionSummary, PortfolioCashflows,
 };
 use finstack_portfolio::dependencies::MarketFactorKey;
 use finstack_portfolio::types::PositionId;
@@ -83,7 +83,7 @@ fn test_cashflow_report_types_roundtrip() {
     let mut summaries = IndexMap::new();
     summaries.insert(position_id, summary);
 
-    assert_roundtrip_value(&PortfolioFullCashflows {
+    assert_roundtrip_value(&PortfolioCashflows {
         events: vec![event],
         by_position: full_by_position,
         by_date: full_by_date,

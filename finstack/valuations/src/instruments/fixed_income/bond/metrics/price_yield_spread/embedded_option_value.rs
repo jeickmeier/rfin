@@ -154,7 +154,8 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
         // Get discount curve and compute time to maturity
         let discount_curve = market.get_discount(&bond.discount_curve_id)?;
         let dc = discount_curve.day_count();
-        let time_to_maturity = dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
+        let time_to_maturity =
+            dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
 
         if time_to_maturity <= 0.0 {
             return Ok(0.0);

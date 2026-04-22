@@ -7,7 +7,8 @@
 pub use finstack_margin::xva::{cva, netting, traits, types, Valuable};
 pub use netting::{apply_collateral, apply_netting};
 pub use types::{
-    CsaTerms, ExposureDiagnostics, ExposureProfile, FundingConfig, NettingSet, XvaConfig, XvaResult,
+    CsaTerms, ExposureDiagnostics, ExposureProfile, FundingConfig, XvaConfig, XvaNettingSet,
+    XvaResult,
 };
 #[cfg(feature = "mc")]
 pub use types::{StochasticExposureConfig, StochasticExposureProfile};
@@ -20,7 +21,7 @@ pub mod exposure {
     use crate::instruments::DynInstrument;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_margin::xva::types::{ExposureProfile, NettingSet, XvaConfig};
+    use finstack_margin::xva::types::{ExposureProfile, XvaConfig, XvaNettingSet};
 
     use super::bridge::wrap_instruments;
 
@@ -31,7 +32,7 @@ pub mod exposure {
         market: &MarketContext,
         as_of: Date,
         config: &XvaConfig,
-        netting_set: &NettingSet,
+        netting_set: &XvaNettingSet,
     ) -> finstack_core::Result<ExposureProfile> {
         let valuables = wrap_instruments(instruments);
         finstack_margin::xva::exposure::compute_exposure_profile(

@@ -721,9 +721,9 @@ impl InflationLinkedBond {
             let end = period.accrual_end;
             if start <= as_of && as_of < end {
                 // Found the active period
-                let total_yf = self
-                    .day_count
-                    .year_fraction(start, end, DayCountContext::default())?;
+                let total_yf =
+                    self.day_count
+                        .year_fraction(start, end, DayCountContext::default())?;
                 let elapsed_yf =
                     self.day_count
                         .year_fraction(start, as_of, DayCountContext::default())?;

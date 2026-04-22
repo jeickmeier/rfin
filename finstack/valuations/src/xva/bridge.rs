@@ -53,7 +53,7 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_margin::xva::Valuable;
 
-    use crate::xva::{NettingSet, XvaConfig};
+    use crate::xva::{XvaConfig, XvaNettingSet};
 
     fn valuable_id<T: Valuable + ?Sized>(instrument: &T) -> &str {
         instrument.id()
@@ -65,7 +65,7 @@ mod tests {
         let instrument: &DynInstrument = &repo;
 
         let _config = XvaConfig::default();
-        let _netting_set = NettingSet {
+        let _netting_set = XvaNettingSet {
             id: "NS-VALUATIONS".into(),
             counterparty_id: "CP".into(),
             csa: None,
@@ -82,7 +82,7 @@ mod tests {
         let market = MarketContext::new();
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
         let config = XvaConfig::default();
-        let netting_set = NettingSet {
+        let netting_set = XvaNettingSet {
             id: "NS-VALUATIONS".into(),
             counterparty_id: "CP".into(),
             csa: None,

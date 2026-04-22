@@ -478,7 +478,7 @@ impl PyCsaTerms {
 #[derive(Clone)]
 pub struct PyXvaNettingSet {
     #[allow(dead_code)]
-    pub(super) inner: xva::NettingSet,
+    pub(super) inner: xva::XvaNettingSet,
 }
 
 #[pymethods]
@@ -502,7 +502,7 @@ impl PyXvaNettingSet {
             None => None,
         };
         Ok(Self {
-            inner: xva::NettingSet {
+            inner: xva::XvaNettingSet {
                 id: id.to_string(),
                 counterparty_id: counterparty_id.to_string(),
                 csa: csa.map(|c| c.inner.clone()),

@@ -50,7 +50,8 @@ pub(crate) fn calculate_tranche_oas(
     let price_at_spread = |spread: f64| -> Result<f64> {
         let mut pv = 0.0;
         for cf in &tranche_cfs {
-            let years = day_count.year_fraction(as_of, cf.payment_date, DayCountContext::default())?;
+            let years =
+                day_count.year_fraction(as_of, cf.payment_date, DayCountContext::default())?;
             let base_df = discount_curve.df(years);
             let spread_adj = (-spread * years).exp();
             let df = base_df * spread_adj;

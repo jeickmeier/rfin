@@ -795,7 +795,8 @@ pub fn price_from_oas(
     // discount curve's day-count to ensure consistency with tree calibration.
     let discount_curve = curves.get_discount(&bond.discount_curve_id)?;
     let disc_dc = discount_curve.day_count();
-    let time_to_maturity = disc_dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
+    let time_to_maturity =
+        disc_dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }

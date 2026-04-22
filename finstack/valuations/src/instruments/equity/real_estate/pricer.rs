@@ -384,8 +384,10 @@ mod tests {
         let market = MarketContext::new();
         let pv = compute_pv(&asset, &market, valuation_date)?;
 
-        let t1 = DayCount::Act365F.year_fraction(valuation_date, noi1, DayCountContext::default())?;
-        let t2 = DayCount::Act365F.year_fraction(valuation_date, noi2, DayCountContext::default())?;
+        let t1 =
+            DayCount::Act365F.year_fraction(valuation_date, noi1, DayCountContext::default())?;
+        let t2 =
+            DayCount::Act365F.year_fraction(valuation_date, noi2, DayCountContext::default())?;
         let expected = 100.0 / (1.0_f64 + 0.10).powf(t1)
             + 100.0 / (1.0_f64 + 0.10).powf(t2)
             + (100.0 / 0.08) / (1.0_f64 + 0.10).powf(t2);

@@ -24,7 +24,8 @@ use crate::instruments::common_impl::traits::{Attributes, CurveDependencies, Ins
 use crate::instruments::OptionType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountContext, ScheduleBuilder, Tenor,
+    BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountContext, ScheduleBuilder,
+    Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;

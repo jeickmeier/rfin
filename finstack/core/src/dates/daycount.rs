@@ -620,7 +620,12 @@ impl DayCount {
     /// assert!(yf > 0.0);
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
-    pub fn year_fraction(self, start: Date, end: Date, ctx: DayCountContext<'_>) -> crate::Result<f64> {
+    pub fn year_fraction(
+        self,
+        start: Date,
+        end: Date,
+        ctx: DayCountContext<'_>,
+    ) -> crate::Result<f64> {
         // Early returns for edge cases - flattens nesting
         if start > end {
             return Err(InputError::InvalidDateRange.into());

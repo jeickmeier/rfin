@@ -55,7 +55,9 @@
 //! # }
 //! ```
 
-use crate::dates::{adjust, BusinessDayConvention, Date, DayCount, DayCountContext, HolidayCalendar};
+use crate::dates::{
+    adjust, BusinessDayConvention, Date, DayCount, DayCountContext, HolidayCalendar,
+};
 use crate::error::InputError;
 use time::Duration;
 

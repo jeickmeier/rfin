@@ -15,7 +15,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountContext, ScheduleBuilder, StubKind,
+    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountContext, ScheduleBuilder,
+    StubKind,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;

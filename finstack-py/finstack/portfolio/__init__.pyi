@@ -64,7 +64,7 @@ class PortfolioValuation:
     def __repr__(self) -> str: ...
 
 class PortfolioCashflows:
-    """Typed wrapper around a ``PortfolioFullCashflows`` ladder.
+    """Typed wrapper around a ``PortfolioCashflows`` ladder.
 
     Returned by :func:`aggregate_full_cashflows`; survives multiple drill-in
     calls (``events_json``, ``by_date_json``, ``issues_json``,

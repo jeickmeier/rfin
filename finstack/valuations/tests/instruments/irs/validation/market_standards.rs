@@ -13,7 +13,8 @@
 use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountContext, StubKind, Tenor,
+    BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountContext, StubKind,
+    Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -1206,7 +1207,11 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
             .expect("t_start");
         let t_end = disc
             .day_count()
-            .year_fraction(disc.base_date(), period.accrual_end, DayCountContext::default())
+            .year_fraction(
+                disc.base_date(),
+                period.accrual_end,
+                DayCountContext::default(),
+            )
             .expect("t_end");
         let t_pay = disc
             .day_count()

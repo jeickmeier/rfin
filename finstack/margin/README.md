@@ -48,7 +48,7 @@ The crate covers three related workflows:
 
 - `xva::exposure::compute_exposure_profile`
 - `xva::cva::{compute_cva, compute_dva, compute_fva, compute_bilateral_xva}`
-- `xva::types::{XvaConfig, FundingConfig, NettingSet, CsaTerms, XvaResult}`
+- `xva::types::{XvaConfig, FundingConfig, XvaNettingSet, CsaTerms, XvaResult}`
 - `xva::traits::Valuable` for instrument-level XVA integration
 
 ## Design Goals
@@ -236,7 +236,7 @@ use finstack_margin::xva::{
     cva::compute_bilateral_xva,
     exposure::compute_exposure_profile,
     traits::Valuable,
-    types::{FundingConfig, NettingSet, XvaConfig},
+    types::{FundingConfig, XvaConfig, XvaNettingSet},
 };
 use time::Month;
 
@@ -262,7 +262,7 @@ let config = XvaConfig {
     ..XvaConfig::default()
 };
 
-let netting_set = NettingSet {
+let netting_set = XvaNettingSet {
     id: "NS-001".into(),
     counterparty_id: "CP-001".into(),
     csa: None,

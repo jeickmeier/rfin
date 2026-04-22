@@ -29,7 +29,11 @@ pub fn calculate_tranche_wal(cashflows: &TrancheCashflows, as_of: Date) -> Resul
         }
 
         let years = finstack_core::dates::DayCount::Act365F
-            .year_fraction(as_of, *date, finstack_core::dates::DayCountContext::default())
+            .year_fraction(
+                as_of,
+                *date,
+                finstack_core::dates::DayCountContext::default(),
+            )
             .unwrap_or(0.0);
         weighted_sum += amount.amount() * years;
         total_principal += amount.amount();

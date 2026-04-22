@@ -63,7 +63,8 @@ impl MetricCalculator for MacaulayDurationCalculator {
             }
 
             // Calculate time in years
-            let years = day_count.year_fraction(context.as_of, *date, DayCountContext::default())?;
+            let years =
+                day_count.year_fraction(context.as_of, *date, DayCountContext::default())?;
 
             // Get discount factor
             let df = disc.df_on_date_curve(*date)?;

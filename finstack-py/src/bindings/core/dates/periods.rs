@@ -3,7 +3,7 @@
 use crate::bindings::core::dates::utils::date_to_py;
 use crate::errors::core_to_py;
 use finstack_core::dates::{
-    build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKind,
+    build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKind, PeriodPlan,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
@@ -286,14 +286,14 @@ impl PyPeriod {
 )]
 #[derive(Clone, Debug)]
 pub struct PyPeriodPlan {
-    /// Ordered periods.
-    periods: Vec<Period>,
+    /// Inner Rust [`PeriodPlan`].
+    pub(crate) inner: PeriodPlan,
 }
 
 impl PyPeriodPlan {
-    /// Build from a list of Rust [`Period`]s.
-    pub(crate) fn from_periods(periods: Vec<Period>) -> Self {
-        Self { periods }
+    /// Build from an existing Rust [`PeriodPlan`].
+    pub(crate) const fn from_inner(inner: PeriodPlan) -> Self {
+        Self { inner }
     }
 }
 
@@ -302,7 +302,8 @@ impl PyPeriodPlan {
     /// List of periods in ascending order.
     #[getter]
     fn periods(&self) -> Vec<PyPeriod> {
-        self.periods
+        self.inner
+            .periods
             .iter()
             .map(|p| PyPeriod::from_inner(p.clone()))
             .collect()
@@ -310,11 +311,11 @@ impl PyPeriodPlan {
 
     /// Number of periods.
     fn __len__(&self) -> usize {
-        self.periods.len()
+        self.inner.periods.len()
     }
 
     fn __repr__(&self) -> String {
-        format!("PeriodPlan(len={})", self.periods.len())
+        format!("PeriodPlan(len={})", self.inner.periods.len())
     }
 }
 
@@ -428,7 +429,7 @@ impl PyFiscalConfig {
 )]
 fn py_build_periods(spec: &str, actuals_cutoff: Option<&str>) -> PyResult<PyPeriodPlan> {
     let plan = build_periods(spec, actuals_cutoff).map_err(core_to_py)?;
-    Ok(PyPeriodPlan::from_periods(plan.periods))
+    Ok(PyPeriodPlan::from_inner(plan))
 }
 
 /// Build fiscal periods with a custom fiscal year configuration.
@@ -445,7 +446,7 @@ fn py_build_fiscal_periods(
 ) -> PyResult<PyPeriodPlan> {
     let plan =
         build_fiscal_periods(spec, fiscal_config.inner, actuals_cutoff).map_err(core_to_py)?;
-    Ok(PyPeriodPlan::from_periods(plan.periods))
+    Ok(PyPeriodPlan::from_inner(plan))
 }
 
 /// Register period types on the `finstack.core.dates` module.

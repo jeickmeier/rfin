@@ -90,9 +90,9 @@ pub(crate) fn compute_pv(
 
     for &fixing_date in &inst.fixing_dates {
         if fixing_date > as_of {
-            let t_i = inst
-                .day_count
-                .year_fraction(as_of, fixing_date, DayCountContext::default())?;
+            let t_i =
+                inst.day_count
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
             if t_i > 0.0 {
                 let fwd = price_curve.price_on_date(fixing_date)?;
                 future_forwards.push((t_i, fwd));

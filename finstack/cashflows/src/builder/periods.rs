@@ -3,7 +3,9 @@
 //! Provides canonical accrual/payment periods built on top of the cashflow
 //! builder's date generation and calendar policy.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor,
+};
 use finstack_core::InputError;
 
 use super::calendar::{adjust_date, resolve_calendar_strict};

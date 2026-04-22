@@ -128,17 +128,19 @@ impl FxDigitalOptionCalculator {
         let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
-        let t_disc_for =
-            foreign_disc
-                .day_count()
-                .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
+        let t_disc_for = foreign_disc.day_count().year_fraction(
+            as_of,
+            inst.expiry,
+            DayCountContext::default(),
+        )?;
         let t_vol = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
-        let t_disc_dom =
-            domestic_disc
-                .day_count()
-                .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
+        let t_disc_dom = domestic_disc.day_count().year_fraction(
+            as_of,
+            inst.expiry,
+            DayCountContext::default(),
+        )?;
 
         let df_d = domestic_disc.df(t_disc_dom);
         let df_f = foreign_disc.df(t_disc_for);

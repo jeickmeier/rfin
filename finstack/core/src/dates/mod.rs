@@ -82,8 +82,8 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 mod daycount;
 
 pub use daycount::{
-    act_act_isma_year_fraction_with_reference_period, DayCount, DayCountContext, DayCountContextState,
-    Thirty360Convention,
+    act_act_isma_year_fraction_with_reference_period, DayCount, DayCountContext,
+    DayCountContextState, Thirty360Convention,
 };
 
 // Re-export new holiday calendars at the top level for convenience
@@ -127,7 +127,7 @@ pub use calendar::types::{Calendar, WeekendRule};
 
 mod periods;
 pub use periods::{
-    build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKind,
+    build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKind, PeriodPlan,
 };
 
 /// Safe date creation helper that returns a Result instead of panicking.

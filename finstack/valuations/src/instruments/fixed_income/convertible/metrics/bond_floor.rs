@@ -49,7 +49,11 @@ impl MetricCalculator for BondFloorCalculator {
                 continue;
             }
             let t = day_count
-                .year_fraction(as_of, cf.date, finstack_core::dates::DayCountContext::default())
+                .year_fraction(
+                    as_of,
+                    cf.date,
+                    finstack_core::dates::DayCountContext::default(),
+                )
                 .unwrap_or(0.0);
             pv += cf.amount.amount() * curve.df(t);
         }

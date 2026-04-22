@@ -904,9 +904,9 @@ impl DiscountCurve {
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
         let new_base = self.base + time::Duration::days(days);
-        let dt_years = self
-            .day_count
-            .year_fraction(self.base, new_base, DayCountContext::default())?;
+        let dt_years =
+            self.day_count
+                .year_fraction(self.base, new_base, DayCountContext::default())?;
 
         let rolled_points = roll_knots(&self.knots, &self.dfs, dt_years);
 

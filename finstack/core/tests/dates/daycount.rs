@@ -19,7 +19,8 @@
 use super::common::DAYCOUNT_TOLERANCE;
 use finstack_core::dates::calendar::TARGET2;
 use finstack_core::dates::{
-    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountContext, Tenor, TenorUnit,
+    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountContext, Tenor,
+    TenorUnit,
 };
 use time::Month;
 

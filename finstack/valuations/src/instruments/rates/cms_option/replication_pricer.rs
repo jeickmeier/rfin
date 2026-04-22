@@ -220,9 +220,9 @@ impl CmsReplicationPricer {
             }
 
             // Time-to-fixing using instrument's day count (consistent with vol surface)
-            let ttf = inst
-                .day_count
-                .year_fraction(as_of, fixing_date, DayCountContext::default())?;
+            let ttf =
+                inst.day_count
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
 
             // DF to payment date from discount curve (relative to as_of)
             let df_pay = relative_df_discount_curve(discount_curve.as_ref(), as_of, payment_date)?;

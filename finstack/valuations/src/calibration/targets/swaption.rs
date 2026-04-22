@@ -129,7 +129,8 @@ impl SwaptionVolTarget {
                         maturity, expiry
                     )));
                 }
-                let t_exp = dc.year_fraction(params.base_date, *expiry, DayCountContext::default())?;
+                let t_exp =
+                    dc.year_fraction(params.base_date, *expiry, DayCountContext::default())?;
                 let t_ten = dc.year_fraction(*expiry, *maturity, DayCountContext::default())?;
                 let key = (to_basis_points(t_exp), to_basis_points(t_ten));
 
@@ -1234,11 +1235,19 @@ mod tests {
         .expect("pv01");
         let t_start = disc_ref
             .day_count()
-            .year_fraction(disc_ref.base_date(), expiry_date, DayCountContext::default())
+            .year_fraction(
+                disc_ref.base_date(),
+                expiry_date,
+                DayCountContext::default(),
+            )
             .expect("t_start");
         let t_end = disc_ref
             .day_count()
-            .year_fraction(disc_ref.base_date(), maturity_date, DayCountContext::default())
+            .year_fraction(
+                disc_ref.base_date(),
+                maturity_date,
+                DayCountContext::default(),
+            )
             .expect("t_end");
         let expected = (disc_ref.df(t_start) - disc_ref.df(t_end)) / pv01;
 

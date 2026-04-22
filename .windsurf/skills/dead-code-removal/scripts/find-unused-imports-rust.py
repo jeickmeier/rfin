@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Find unused imports in Rust files.
+
 Uses regex-based parsing to detect unused `use` statements.
 Handles simple, aliased, grouped, nested, and glob imports.
 """
 
 import json
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 
 def extract_use_statements(content: str) -> list[dict]:
@@ -70,8 +71,8 @@ def parse_imported_names(body: str) -> list[dict]:
         items_str = group_match.group(1)
         # Split on commas, handling nested braces
         items = split_grouped_items(items_str)
-        for item in items:
-            item = item.strip()
+        for raw_item in items:
+            item = raw_item.strip()
             if not item:
                 continue
             if item == "*":
@@ -216,7 +217,7 @@ def find_unused_imports(file_path: Path) -> dict:
             "total_imports": total_imports,
             "has_glob_imports": has_glob,
         }
-    except Exception as e:
+    except (OSError, ValueError, re.error) as e:
         return {
             "file": str(file_path),
             "error": f"Error parsing file: {e}",
@@ -224,8 +225,8 @@ def find_unused_imports(file_path: Path) -> dict:
         }
 
 
-def main():
-    """Main entry point."""
+def main() -> None:
+    """Scan each file in argv and print JSON results."""
     if len(sys.argv) < 2:
         print("Usage: find-unused-imports-rust.py <rust_file> [<rust_file>...]")
         sys.exit(1)
