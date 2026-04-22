@@ -12,8 +12,8 @@ Output: JSON file with complete API inventory.
 
 from dataclasses import asdict, dataclass
 import json
-import re
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -106,7 +106,7 @@ class PythonAPIExtractor:
                 func_name = ""
                 for j in range(i + 1, min(i + 10, len(lines))):
                     candidate = lines[j].strip()
-                    if candidate.startswith("#[") or candidate.startswith("//") or not candidate:
+                    if candidate.startswith(("#[", "//")) or not candidate:
                         continue
                     func_name = self._extract_function_name(candidate)
                     break
@@ -139,7 +139,7 @@ class PythonAPIExtractor:
         # Otherwise, look ahead a few lines for the struct definition.
         for i in range(start_idx, min(start_idx + 8, len(lines))):
             line = lines[i].strip()
-            if line.startswith("pub struct ") or line.startswith("struct "):
+            if line.startswith(("pub struct ", "struct ")):
                 parts = line.replace("pub ", "", 1).split()
                 if len(parts) >= 2:
                     name = parts[1].rstrip("{").split("<", 1)[0].split("(", 1)[0]
@@ -195,17 +195,13 @@ class PythonAPIExtractor:
         return methods
 
     def _extract_function_name(self, line: str) -> str:
-        """Extract function name from function definition (pub or private)."""
-        # PyO3 bindings use `fn` or `pub fn`; `#[pyfunction]` fns are often private.
-        marker = (
-            "pub fn "
-            if "pub fn " in line
-            else ("fn " if line.startswith(("fn ", "async fn ", "pub async fn ")) or " fn " in line else "")
-        )
-        if not marker:
-            return ""
-        after = line.split(marker, 1)[1]
-        return after.split("(", 1)[0].split("<", 1)[0].strip()
+        """Extract function name from a function definition line.
+
+        Matches `fn <name>` as a standalone token regardless of `pub` /
+        `async` prefixes, since `#[pyfunction]` fns are often private.
+        """
+        match = re.search(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)", line)
+        return match.group(1) if match else ""
 
     def _extract_method_name(self, line: str) -> str:
         """Extract method name from method definition."""

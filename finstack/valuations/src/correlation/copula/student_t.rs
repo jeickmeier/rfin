@@ -202,9 +202,10 @@ impl StudentTCopula {
     /// copulas with ν ≤ 5.
     fn compute_gamma_quadrature(nu: f64, n: usize) -> Vec<(f64, f64)> {
         let effective_n = n.clamp(MIN_LAGUERRE_ORDER, MAX_LAGUERRE_ORDER);
-        // Fall back to the canonical 10-node rule if the Golub-Welsch step
-        // fails — by construction it cannot, but we route the `Result` so
-        // the #![deny(expect_used)] lint stays satisfied in the binding.
+        // `new` only fails for n == 0; effective_n is clamped to
+        // [MIN_LAGUERRE_ORDER, MAX_LAGUERRE_ORDER] with MIN >= 1, so the
+        // fallback is unreachable. The `unwrap_or_else` form is required
+        // because `#![deny(clippy::expect_used)]` prohibits `.expect()`.
         let laguerre =
             GaussLaguerreQuadrature::new(effective_n).unwrap_or_else(|_| GaussLaguerreQuadrature {
                 points: Vec::new(),
