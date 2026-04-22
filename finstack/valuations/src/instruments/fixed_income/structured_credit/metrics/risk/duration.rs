@@ -198,11 +198,9 @@ pub fn calculate_tranche_duration(
             continue;
         }
 
-        let years = day_count
-            .year_fraction(as_of, *date, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let years = day_count.year_fraction(as_of, *date, DayCountCtx::default())?;
 
-        let df = discount_curve.df_between_dates(as_of, *date).unwrap_or(1.0);
+        let df = discount_curve.df_between_dates(as_of, *date)?;
         let flow_pv = amount.amount() * df;
 
         weighted_pv += flow_pv * years;

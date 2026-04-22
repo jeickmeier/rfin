@@ -93,6 +93,27 @@ types       = { python = "finstack.margin.types",       status = "missing" }
 xva         = { python = "finstack.margin.xva",         status = "missing" }
 
 # ---------------------------------------------------------------------------
+# finstack-monte-carlo  →  finstack.monte_carlo
+# ---------------------------------------------------------------------------
+[crates.monte_carlo]
+rust_crate = "finstack-monte-carlo"
+rust_lib   = "finstack/monte_carlo/src/lib.rs"
+python_package = "finstack.monte_carlo"
+visibility = "pub"
+status = "exists"
+# NOTE: the Python and WASM binding surfaces intentionally expose a compact,
+# productized subset of the Monte Carlo engine rather than every internal
+# payoff/process module.
+
+[crates.monte_carlo.modules]
+engine             = { python = "finstack.monte_carlo", status = "flattened", note = "McEngine and pricing helpers exposed flat on finstack.monte_carlo" }
+estimate           = { python = "finstack.monte_carlo", status = "flattened", note = "Estimate exposed flat on finstack.monte_carlo" }
+pricer             = { python = "finstack.monte_carlo", status = "flattened", note = "European, path-dependent, and LSMC pricers exposed flat on finstack.monte_carlo" }
+results            = { python = "finstack.monte_carlo", status = "flattened", note = "MonteCarloResult exposed flat on finstack.monte_carlo" }
+time_grid          = { python = "finstack.monte_carlo", status = "flattened", note = "TimeGrid exposed flat on finstack.monte_carlo" }
+variance_reduction = { python = "finstack.monte_carlo", status = "flattened", note = "Black-Scholes analytical helpers exposed flat on finstack.monte_carlo" }
+
+# ---------------------------------------------------------------------------
 # finstack-valuations  →  finstack.valuations
 # ---------------------------------------------------------------------------
 [crates.valuations]
@@ -212,5 +233,4 @@ utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 "finstack_statements::utils"     = "Internal utilities; not part of public Python surface"
 "finstack_portfolio::scenarios"  = "Feature-gated `scenarios`; available through finstack.scenarios instead"
 "finstack-cashflows"             = "Internal crate; not re-exported from umbrella"
-"finstack-monte-carlo"           = "Internal crate; not re-exported from umbrella"
 "finstack-valuations-macros"     = "Proc-macro crate; compile-time only, no Python surface"

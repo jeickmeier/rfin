@@ -1420,6 +1420,26 @@ mod tests {
     }
 
     #[test]
+    fn ttm_requires_a_full_trailing_window() {
+        let current_period = PeriodId::quarter(2025, 3);
+        let history = vec![
+            (PeriodId::quarter(2025, 1), 10.0),
+            (PeriodId::quarter(2025, 2), 20.0),
+        ];
+        let mut context = build_context_with_history(current_period, "ebitda", history, 30.0);
+
+        let value = evaluate_function(
+            &Function::Ttm,
+            &[Expr::column("ebitda")],
+            &mut context,
+            Some("ttm"),
+        )
+        .expect("ttm evaluation");
+
+        assert!(value.is_nan(), "partial TTM should be NaN, got {value}");
+    }
+
+    #[test]
     fn abs_and_sign_helpers_cover_edge_cases() {
         let period = PeriodId::quarter(2025, 1);
         let mut context = EvaluationContext::new(

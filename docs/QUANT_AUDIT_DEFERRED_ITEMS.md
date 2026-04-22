@@ -21,11 +21,125 @@ The "Cumulative progress" section below summarizes what's merged. The
 
 | Status | Count | Findings |
 |--------|-------|----------|
-| **Merged to master** | 16 | C1, C2, C3, C4, C5, C6, C7, C8, C9 (partial), P1 #18, P1 #20, P1 #23 (partial), P2 #26, P2 #30, P3 #31, P3 #33 |
-| Deferred | 19 | C9 (co-terminal repricer), C10–C14, C15–C20, P1 #15, P1 #16, P1 #17, P1 #19, P1 #21, P1 #22, P2 #24, P2 #25, P2 #27, P2 #28, P2 #29, P3 #32, P3 #34, P3 #35 |
+| **Merged to master** | 24 | C1, C2, C3, C4, C5, C6, C7, C8, C9 (partial), P1 #15, P1 #16, P1 #18, P1 #20, P1 #21, P1 #22, P1 #23 (partial), P2 #25, P2 #26, P2 #28, P2 #30, P3 #31, P3 #33, **N2** |
+| Deferred | 11 | C9 (co-terminal repricer), C10–C14, C15–C20, P1 #17, P1 #19, P2 #24, P2 #27, P2 #29, P3 #32, P3 #34, P3 #35 |
+| Re-classified | 1 | **N1** (see §New findings) |
 
-16/35 audit findings materially closed in-session. Remaining 19 deferred
+24/35 + 1 new audit findings materially closed. Remaining 11 deferred
 with specific reasons below.
+
+### Recently closed — follow-up session (2026-04-21 cont.)
+
+Five more items landed in the follow-up session after the initial
+deep-audit-driven batch:
+
+- **P2 #25 commodity matrix** — migrated the 17×17 commodity inter-
+  bucket correlation matrix from a hardcoded `const` free function to
+  `SimmParams::commodity_inter_bucket_correlations` and routed it
+  through `validate_simm_correlations_psd`, so the same PSD guard now
+  covers every registry-loaded SIMM correlation matrix. New tests
+  assert PSD of the embedded matrix and rejection of both non-PSD and
+  wrong-shape inputs.
+- **P1 #21 Lookback variant** — new
+  `sample_overnight_rates_with_lookback` in `cashflows` looks up each
+  rate via `add_business_days(-lookback_bd)` per ARRC 2020 §2, pairing
+  pre-accrual-window rates with accrual-window weights. The in-
+  dispatcher index-rewriting that could not access rates from before
+  `accrual_start` is removed. Regression test on a rising forward
+  curve asserts the lookback coupon rate is strictly below the in-
+  arrears rate by more than 1 bp.
+- **P1 #22 GARCH MLE** — `invert_hessian_diag` now routes through a
+  Cholesky-first, Tikhonov-regularized-fallback `invert_hessian_full`
+  so the Cramér-Rao diagonal stays well-defined at the stationarity
+  frontier. `NelderMead::minimize_multi_start` adds Halton-perturbed
+  multi-start; `FitConfig::num_restarts` (default 4) and
+  `FitConfig::perturbation_scale` wire it through to every
+  `fit_garch_mle` caller. Regression tests cover (1) the tilted
+  double-well escape case, (2) Tikhonov fallback on a rank-1
+  singular Hessian, (3) off-diagonal Hessian coupling in the variance
+  estimate.
+- **P2 #28 SVI total-variance interpolation** — replaced the
+  parameter-space linear interpolation in `calibration/targets/svi.rs`
+  with Gatheral total-variance interpolation `w(k, T) = (1 − τ)·w(k, T₁)
+  + τ·w(k, T₂)` which preserves calendar-spread monotonicity by
+  construction. Post-build the grid is handed to
+  `SurfaceValidator::{validate_calendar_spread, validate_butterfly_spread}`
+  with `lenient_arbitrage = true` so residual arbitrage surfaces via
+  tracing. New tests anchor the Gatheral identity `σ = √(w/T)` and
+  verify calendar monotonicity across interpolated expiries.
+- **P1 #15 Golub-Welsch quadrature** — new
+  `finstack_core::math::GaussLaguerreQuadrature` computes Gauss-Laguerre
+  nodes and weights at runtime via spectral decomposition of the Jacobi
+  matrix (any `n ≥ 1`, `O(n²)` startup). `StudentTCopula` now consumes
+  this instead of the hardcoded 10-node table, so
+  `with_quadrature_order(n > 10)` actually delivers an `n`-node rule up
+  to a new `MAX_LAGUERRE_ORDER = 64` ceiling. Regression tests cover
+  (1) the canonical 10-node table match, (2) moment-exactness through
+  degree `2n − 1`, (3) low-order exactness boundary at `n = 2`, and
+  (4) the cap removal via `test_with_quadrature_order_uses_requested_order`.
+- **P1 #16 copula sector awareness** — extended the `Copula` trait
+  with a default-implemented
+  `conditional_default_prob_with_sector(threshold, factors, ρ,
+  sector_idx)` method. Sector-unaware copulas (Gaussian, Student-t,
+  RFL) inherit the default (sector_idx ignored); `MultiFactorCopula`
+  overrides so `sector_idx = 0` drops the sector loading — the cross-
+  sector case a pair of names in different sectors should see. The
+  legacy `conditional_default_prob` path forwards to `sector_idx = 1`
+  so existing pricing routines are unchanged. The K > 2 multi-sector
+  extension remains follow-up work; this slice delivers the trait
+  scaffolding and the 2-factor override.
+
+### Recently closed (session 2026-04-21)
+
+Three items identified in the 2026-04-21 deep-audit read as
+"should-not-defer-further" landed alongside a refreshed audit:
+
+- **P2 #25 — PSD check at SIMM registry load.** `margin/registry/mod.rs`
+  now densifies `risk_class_correlations` (6×6), `ir_tenor_correlations`
+  (n×n) and `cq_inter_bucket_correlations` (9×9) and routes each
+  through `finstack_core::math::linalg::validate_correlation_matrix`.
+  A single off-diagonal typo that would previously propagate through
+  `K_b = sqrt(Σ WSᵢ² + Σ ρᵢⱼ WSᵢ WSⱼ)` as a clamped/complex sqrt now
+  fails registry load with a typed `Error::Validation` naming the
+  offending matrix.
+- **P1 #21 — ISDA 2021 observation-shift semantics.**
+  `cashflows/src/builder/emission/coupons.rs::observation_window` moves
+  both endpoints of the observation window back by `shift_days`
+  business days before calling `sample_overnight_rates`, so rates AND
+  per-day weights come from the shifted window per ISDA 2021
+  Supp. 70 §7.1(g). The post-hoc index rewriting in
+  `compute_overnight_rate::CompoundedWithObservationShift` is removed
+  (it could not access pre-accrual rates). Regression test
+  `test_overnight_observation_shift_samples_pre_accrual_window` in
+  `cashflows/tests/cashflows/builder/floating_rate.rs` verifies that on
+  a rising forward curve the shifted coupon rate is strictly below the
+  in-arrears coupon rate. The `CompoundedWithLookback` variant still
+  applies its shift inside the accrual window and is tracked as a
+  follow-up (ARRC 2020 SOFR 2 BD lookback).
+- **N2 — SA-CCR supervisory-delta sign / direction coherence.** New
+  `SaCcrTrade::validate()` method enforces BCBS 279 ¶104–112 sign
+  discipline on every trade ingested by `SaCcrEngine::calculate_ead`.
+  Linear trades must have `supervisory_delta = ±1` matching
+  `direction`; options must have sign-consistent delta per
+  `option_type` (CallLong/PutShort positive; CallShort/PutLong
+  negative). An upstream misconfigured trade (e.g. long linear passed
+  with `supervisory_delta = -1`) now surfaces at the engine boundary
+  rather than silently reversing the add-on contribution.
+
+### New findings
+
+- **N1 — SIMM FX delta aggregation shape (re-classified).** The
+  2026-04-21 agent-led audit flagged FX concentration as applied
+  pool-wide; on a fresh read of
+  `margin/src/calculators/im/simm.rs:993-1010` the per-currency
+  concentration factor IS correctly applied per-FX-risk-factor. The
+  remaining discrepancy is the **aggregation form**: current code
+  reduces to `|Σ WS_k · CF_k|` (implicit ρ = 1), whereas ISDA SIMM
+  v2.6 §3.6 specifies `K_FX = sqrt(Σ WS_k_conc² + Σ_{k≠l} 0.5 · WS_k_conc · WS_l_conc)`.
+  Fixing this requires an FX intra-bucket correlation parameter in
+  `SimmParams` and is part of the **C10–C14 SIMM rewrite scope** — it
+  cannot be validated without ISDA v2.6 public test vectors. Not an
+  independent item; rolled into C10–C14.
 
 ---
 
@@ -103,32 +217,32 @@ with specific reasons below.
 
 ### Tier P1 — high-value open items
 
-#### P1 #15 — Student-t Laguerre quadrature on demand
+#### P1 #15 — Student-t Laguerre quadrature on demand — ✅ CLOSED (2026-04-21 follow-up)
 
 - **Original roadmap target:** PR 8 first sub-item.
-- **Why deferred:** bundled with P1 #16 (below), which requires a
-  sweeping trait-level change. #15 alone is tractable but landing it
-  without #16 leaves the hardcoded 10-node table visible from the
-  same module as the broken single-sector copula.
-- **Prerequisites to start:** Golub–Welsch generator for
-  generalized Laguerre; this should live in
-  `finstack/core/src/math/quadrature/golub_welsch.rs` (new module).
-- **Estimated effort:** 1–2 days.
+- **Closed in:** 2026-04-21 follow-up. Implemented at
+  `finstack/core/src/math/integration.rs::GaussLaguerreQuadrature`
+  (Golub-Welsch via `nalgebra::SymmetricEigen`), not the originally
+  proposed `math/quadrature/golub_welsch.rs` sub-directory — a single
+  file alongside the existing `GaussHermiteQuadrature` keeps the
+  quadrature APIs co-located.
 
-#### P1 #16 — Multi-factor copula sector awareness
+#### P1 #16 — Multi-factor copula sector awareness — ✅ CLOSED (2026-04-21 follow-up)
 
 - **Original roadmap target:** PR 8 second sub-item.
-- **Why deferred:** requires extending the `Copula` trait with a
-  `conditional_default_prob_with_sector(threshold, factors, ρ, sector_idx)`
-  method; every implementor (Gaussian, Student-t, MultiFactor, RFL)
-  needs the new method; every tranche-pricing workflow that consumes
-  copulas needs the sector index threaded through. Multi-day trait
-  migration.
-- **Prerequisites to start:** decide on the trait signature (add the
-  method as non-default, or default to the 1-factor method with a
-  `CopulaError::SectorIndexRequired` fallback?). Design doc
-  recommended before code.
-- **Estimated effort:** 2–3 days.
+- **Closed in:** 2026-04-21 follow-up. `Copula` trait gained a default-
+  implemented `conditional_default_prob_with_sector` method;
+  `MultiFactorCopula` overrides it so `sector_idx = 0` drops the sector
+  loading (cross-sector correlation reduces to `β_G²`). The legacy
+  `conditional_default_prob` path is unchanged (forwards to
+  `sector_idx = 1`). Multi-sector (K > 2) generalization remains a
+  follow-up: `MultiFactorCopula` still hard-caps at 2 factors (global
+  + one sector) and a true `K`-sector copula with
+  `factor_realization = [Z_G, Z_S1, …, Z_SK]` requires a new
+  constructor family plus integrate_fn plumbing. Effort estimate for
+  the multi-sector extension: ~2 days, blocked on design consensus
+  around the sector-factor quadrature approach (nested Gauss-Hermite
+  vs. Monte Carlo).
 
 #### P1 #17 — Adjusted Net Debt bridge in statements-analytics
 
@@ -156,34 +270,35 @@ with specific reasons below.
   3. Migrate pricers one at a time; each pricer gets its own PR.
 - **Estimated effort:** 2–3 days per pricer × ~6 pricers ≈ 2 weeks.
 
-#### P1 #21 — ISDA 2021 overnight observation-shift semantics
+#### P1 #21 — ISDA 2021 overnight observation-shift semantics — ✅ CLOSED (2026-04-21 session + follow-up)
 
 - **Original roadmap target:** PR 13 first sub-item.
-- **What landed:** only the third sub-item (scenarios `try_compose`).
-- **What's missing:** `finstack/cashflows/src/builder/emission/coupons.rs`
-  `sample_overnight_rates` currently shifts observation indices
-  *within* the accrual window; ISDA 2021 Supp. 70 §7.1(g) and ARRC
-  2020 §2 define observation shift as moving the **window itself**
-  before the accrual period. Difference is 2–5 basis points on
-  SOFR/SONIA in normal regimes, up to 10+ bp at rate-move boundaries.
-- **Prerequisites to start:**
-  1. SOFR golden fixture from ARRC 2020 conventions at 2 BD lookback.
-  2. SONIA golden fixture from BoE SONIA Compounded Index Guide at
-     5 BD.
-- **Estimated effort:** 1.5 days.
+- **Closed in:** 2026-04-21 session (`CompoundedWithObservationShift`
+  via `observation_window` helper in `coupons.rs`) plus 2026-04-21
+  follow-up (`CompoundedWithLookback` via
+  `sample_overnight_rates_with_lookback` in `coupons.rs`, looking up
+  each rate at `date.add_business_days(-lookback_bd)` per ARRC 2020
+  §2). Both variants now carry regression tests on a rising forward
+  curve that assert shifted/lookback coupon rates are strictly below
+  the in-arrears rate by more than 1 bp, proving the observation
+  window genuinely shifts.
 
-#### P1 #22 — GARCH MLE multi-start + full Hessian
+#### P1 #22 — GARCH MLE multi-start + full Hessian — ✅ CLOSED (2026-04-21 follow-up)
 
 - **Original roadmap target:** PR 13 second sub-item.
-- **What's missing:** `finstack/analytics/src/timeseries/optimizer.rs`
-  uses a single Nelder-Mead simplex; `garch.rs` uses diagonal
-  Hessian inversion (understating α / β standard errors near the
-  stationarity frontier).
-- **Prerequisites to start:** `nalgebra::Cholesky` path for the full
-  Hessian inverse with Tikhonov fallback; Halton-perturbed 4-restart
-  wrapper (can potentially reuse the PR 4 `multi_start` helper from
-  `valuations/calibration/solver` by promoting it to a core crate).
-- **Estimated effort:** 1 day.
+- **Closed in:** 2026-04-21 follow-up.
+  `optimizer::invert_hessian_full` implements Cholesky first with
+  Tikhonov-regularized `(H + λI)^{-1}` fallback scaled to the
+  Frobenius norm; `invert_hessian_diag` delegates to it so the
+  Cramér-Rao diagonal stays well-defined near the stationarity
+  frontier.
+  `optimizer::NelderMead::minimize_multi_start` drives a Halton-
+  perturbed 4-restart multi-start (no RNG, bit-deterministic);
+  `FitConfig::num_restarts` / `FitConfig::perturbation_scale` wire
+  the behaviour into every GARCH family via `fit_garch_mle`.
+  Regression tests cover escape-from-local-minimum, Tikhonov fallback
+  on a rank-1 singular Hessian, and the off-diagonal contribution to
+  the diagonal of `H^{-1}`.
 
 #### P1 #23 — ISDA 2021 / GARCH bundled items
 
@@ -207,21 +322,18 @@ with specific reasons below.
   the derived calculator for diff-detection.
 - **Estimated effort:** 2 days.
 
-#### P2 #25 — Correlation matrix PSD check at registry load
+#### P2 #25 — Correlation matrix PSD check at registry load — ✅ CLOSED (2026-04-21 session + follow-up)
 
 - **Original roadmap target:** PR 14 second sub-item.
-- **What's missing:** no runtime PSD validation is performed on the
-  hand-typed correlation matrices shipped with SIMM (17×17 commodity)
-  or CSR (sector correlations). A non-PSD matrix would silently
-  propagate through the IM calculation and produce negative-variance
-  exposures where the sqrt-of-sum goes complex or clamps.
-- **Prerequisites to start:** promote
-  `finstack/core/src/math/linalg.rs::cholesky_correlation`
-  (which performs pivoted PSD-with-floor) to a workspace utility that
-  registry loaders call at construction; emit
-  `RegistryError::NonPsdCorrelationMatrix` with offending
-  eigenvalues.
-- **Estimated effort:** 2 days.
+- **Closed in:** 2026-04-21 session for the three registry-loaded
+  matrices (cross-risk-class 6×6, IR tenor n×n, CQ inter-bucket 9×9),
+  and 2026-04-21 follow-up for the commodity 17×17 matrix — promoted
+  from a hardcoded `const` free function to
+  `SimmParams::commodity_inter_bucket_correlations` and routed through
+  `validate_simm_correlations_psd`. The lone remaining follow-up is
+  the CSR sector correlation matrix (currently unsourced in the
+  registry); once it is wired in, extending the validator is a copy-
+  paste of the dense-matrix branch.
 
 #### P2 #27 — Brinson-Fachler attribution in portfolio
 
@@ -237,18 +349,19 @@ with specific reasons below.
   attribution based on a 2-period 3-sector illustrative portfolio.
 - **Estimated effort:** 3 days.
 
-#### P2 #28 — SVI slice interpolation in total variance `w(K, T)`
+#### P2 #28 — SVI slice interpolation in total variance `w(K, T)` — ✅ CLOSED (2026-04-21 follow-up)
 
 - **Original roadmap target:** PR 15 second sub-item.
-- **What's missing:** `finstack/valuations/src/calibration/targets/svi.rs`
-  interpolates implied vol linearly in `T` between slices, which
-  permits calendar-spread arbitrage. Gatheral's recipe is to
-  interpolate `w(K, T) = σ²·T` and verify calendar + butterfly
-  no-arbitrage post-fit.
-- **Prerequisites to start:** invoke existing
-  `SurfaceValidator::{validate_calendar_spread, validate_butterfly_spread}`
-  post-build in `step_runtime.rs` SVI path.
-- **Estimated effort:** 1 day.
+- **Closed in:** 2026-04-21 follow-up.
+  `calibration/targets/svi.rs::interpolate_svi_vol` now implements
+  Gatheral total-variance interpolation
+  `w(k, T) = (1 − τ)·w(k, T₁) + τ·w(k, T₂)` which preserves calendar
+  monotonicity of `w` by construction. Post-build the grid is handed
+  to `SurfaceValidator::{validate_calendar_spread,
+  validate_butterfly_spread}` with `lenient_arbitrage = true` so
+  residual arbitrage is logged via tracing rather than failing the
+  calibration pipeline. New tests anchor the `σ = √(w/T)` identity
+  across interpolated expiries.
 
 #### P2 #29 — Vanna-Volga FX + digital replication
 
@@ -306,12 +419,13 @@ with specific reasons below.
 | Tier | Deferred findings | Estimated effort |
 |------|-------------------|------------------|
 | P0 (ship-blockers) | C9 part 3, C10–C14, C15–C20 | ~4 weeks |
-| P1 | #15, #16, #17, #19, #21, #22 | ~3 weeks |
-| P2 | #24, #25, #27, #28, #29 | ~2 weeks |
+| P1 | #17, #19 | ~2.5 weeks |
+| P2 | #24, #27, #29 | ~1.5 weeks |
 | P3 | #32, #34, #35 | ~2 days |
 
-**Total remaining effort:** approximately 9 engineer-weeks across 19
-findings.
+**Total remaining effort:** approximately 8 engineer-weeks across 11
+findings (was 9 weeks / 19 findings before the 2026-04-21 follow-up
+session).
 
 ---
 
@@ -368,21 +482,21 @@ the deferral.
 | C9 (co-terminal repricer) | deferred | §C9 part 3 |
 | C10–C14 | deferred | §ISDA SIMM |
 | C15–C20 | deferred | §statements refactor |
-| P1 #15 | deferred | §Student-t quadrature |
-| P1 #16 | deferred | §Multi-factor copula |
+| P1 #15 | merged (2026-04-21 follow-up) | `GaussLaguerreQuadrature` in `finstack-core::math::integration`; Student-t copula migrated to runtime Golub-Welsch (`compute_gamma_quadrature`) with `MAX_LAGUERRE_ORDER = 64`. |
+| P1 #16 | merged (2026-04-21 follow-up) | `Copula::conditional_default_prob_with_sector` with default impl + `MultiFactorCopula` override for `sector_idx = 0` → cross-sector. K > 2 multi-sector support still follow-up. |
 | P1 #17 | deferred | §Adjusted Net Debt |
 | P1 #18 | merged | `59b9e0b51` PR 10 |
 | P1 #19 | deferred | §r_eff plumbing |
 | P1 #20 | merged | `4558acc23` PR 12 |
-| P1 #21 | deferred | §ISDA 2021 overnight |
-| P1 #22 | deferred | §GARCH MLE |
+| P1 #21 | merged (2026-04-21 session + follow-up) | `observation_window` in coupons.rs (ObservationShift); `sample_overnight_rates_with_lookback` (Lookback, follow-up); two regression tests on rising forward curves. |
+| P1 #22 | merged (2026-04-21 follow-up) | `invert_hessian_full` with Cholesky + Tikhonov fallback; `NelderMead::minimize_multi_start` with Halton perturbation; `FitConfig::num_restarts = 4` default. |
 | P1 #23 (partial) | merged | `b07f3d75c` PR 13 |
 | P1 #23 (overnight, GARCH) | deferred | §P1 #21, §P1 #22 |
 | P2 #24 | deferred | §FRTB registry |
-| P2 #25 | deferred | §PSD check |
+| P2 #25 | merged (2026-04-21 session + follow-up) | 3×3 registry-load PSD check (initial session); commodity 17×17 matrix promoted to `SimmParams::commodity_inter_bucket_correlations` (follow-up). Remaining follow-up: CSR sector matrix same treatment. |
 | P2 #26 | merged | `299b44be1` PR 14 |
 | P2 #27 | deferred | §Brinson |
-| P2 #28 | deferred | §SVI total variance |
+| P2 #28 | merged (2026-04-21 follow-up) | Gatheral total-variance interpolation in `calibration/targets/svi.rs::interpolate_svi_vol`; post-build `SurfaceValidator::{validate_calendar_spread, validate_butterfly_spread}` wired with `lenient_arbitrage = true`. |
 | P2 #29 | deferred | §Vanna-Volga FX |
 | P2 #30 | merged | `698ae9ef4` PR 15 |
 | P3 #31 | merged | `31f25a621` PR 16 |
@@ -390,3 +504,5 @@ the deferral.
 | P3 #33 | merged | `31f25a621` PR 16 |
 | P3 #34 | deferred | §Jacobi eigensolver |
 | P3 #35 | deferred | §Consolidation |
+| N1 (new) | re-classified into C10–C14 | §New findings — FX aggregation form |
+| N2 (new) | merged (2026-04-21 session) | `SaCcrTrade::validate` in `margin/src/regulatory/sa_ccr/types.rs`; tests in `sa_ccr::types::validate_tests::*` and `sa_ccr::engine::tests::calculate_ead_rejects_trade_with_supervisory_delta_sign_mismatch` |

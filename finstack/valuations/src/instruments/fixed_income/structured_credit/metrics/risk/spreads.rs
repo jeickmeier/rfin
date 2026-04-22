@@ -319,22 +319,22 @@ pub fn calculate_tranche_z_spread(
     as_of: Date,
 ) -> Result<f64> {
     let day_count = DayCount::Act365F;
+    let cached_flows: Vec<(f64, f64, f64)> = cashflows
+        .iter()
+        .filter(|(date, _)| *date > as_of)
+        .map(|(date, amount)| -> Result<(f64, f64, f64)> {
+            let t_from_as_of = day_count.year_fraction(as_of, *date, DayCountCtx::default())?;
+            let df = discount_curve.df_between_dates(as_of, *date)?;
+            Ok((t_from_as_of, df, amount.amount()))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let objective = |z: f64| -> f64 {
         let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
-        for (date, amount) in cashflows {
-            if *date <= as_of {
-                continue;
-            }
+        for (t_from_as_of, df, amount) in &cached_flows {
+            let df_z = *df * (-z * *t_from_as_of).exp();
 
-            let t_from_as_of = day_count
-                .year_fraction(as_of, *date, DayCountCtx::default())
-                .unwrap_or(0.0);
-
-            let df = discount_curve.df_between_dates(as_of, *date).unwrap_or(1.0);
-            let df_z = df * (-z * t_from_as_of).exp();
-
-            pv.add(amount.amount() * df_z);
+            pv.add(*amount * df_z);
         }
         pv.total() - target_pv.amount()
     };
@@ -384,11 +384,8 @@ pub fn calculate_tranche_cs01(
             continue;
         }
 
-        let t_from_as_of = day_count
-            .year_fraction(as_of, *date, DayCountCtx::default())
-            .unwrap_or(0.0);
-
-        let df = discount_curve.df_between_dates(as_of, *date).unwrap_or(1.0);
+        let t_from_as_of = day_count.year_fraction(as_of, *date, DayCountCtx::default())?;
+        let df = discount_curve.df_between_dates(as_of, *date)?;
 
         // Base PV
         let df_base = df * (-z_spread * t_from_as_of).exp();

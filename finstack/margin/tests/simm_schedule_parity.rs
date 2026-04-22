@@ -91,6 +91,11 @@ impl SimmV26GoldenValues {
         8.4
     }
 
+    // ISDA SIMM v2.6 — Section E.6: FX delta intra-bucket correlation
+    fn fx_intra_bucket_correlation() -> f64 {
+        0.5
+    }
+
     // ISDA SIMM v2.6 — Section E.2, Table 4: Inter-tenor IR correlations
     // Spot-checks along the diagonal and off-diagonal to anchor the matrix.
     fn ir_tenor_correlations() -> &'static [(&'static str, &'static str, f64)] {
@@ -195,6 +200,15 @@ fn simm_v2_6_scalar_weights_match_isda_schedule() {
         "SIMM v2.6 FX delta weight drift: expected {}, got {}",
         SimmV26GoldenValues::fx_delta_weight(),
         calc.params.fx_delta_weight
+    );
+    assert!(
+        close(
+            calc.params.fx_intra_bucket_correlation,
+            SimmV26GoldenValues::fx_intra_bucket_correlation()
+        ),
+        "SIMM v2.6 FX intra-bucket correlation drift: expected {}, got {}",
+        SimmV26GoldenValues::fx_intra_bucket_correlation(),
+        calc.params.fx_intra_bucket_correlation
     );
     assert_eq!(
         calc.params.mpor_days,

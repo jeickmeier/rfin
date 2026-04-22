@@ -126,6 +126,7 @@ pub use distributions::{
 pub use integration::{
     adaptive_simpson, gauss_legendre_integrate, gauss_legendre_integrate_adaptive,
     gauss_legendre_integrate_composite, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
+    GaussLaguerreQuadrature,
 };
 pub use interp::{
     CubicHermite, ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,

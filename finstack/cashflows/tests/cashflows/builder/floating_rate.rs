@@ -1147,6 +1147,208 @@ fn test_overnight_lockout_flat_curve() {
     }
 }
 
+/// Audit P1 #21: ISDA 2021 observation-shift must move the observation window
+/// *before* the accrual period, so rates sampled under a SONIA-style 5 BD shift
+/// must differ from in-arrears rates on any non-flat forward curve.
+///
+/// Before the fix: `sample_overnight_rates` only ever sampled the accrual
+/// window and the shift was applied post-hoc as index rewriting, which on a
+/// rising curve produced identical rates to the accrual-window sample for the
+/// earliest `shift_days` observations (falling back to `daily_rates[0]`).
+///
+/// After the fix: on a steeply-rising forward curve `shifted < arrears` for
+/// every coupon because the observations genuinely come from `shift_days`
+/// business days earlier in time.
+#[test]
+fn test_overnight_observation_shift_samples_pre_accrual_window() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::ForwardCurve;
+
+    // Base the forward curve well before issue so both the accrual and the
+    // shifted observation windows fall strictly after base_date (otherwise the
+    // sampler clamps t=0 and the two windows collapse to the same rate).
+    let base = Date::from_calendar_date(2023, Month::January, 15).unwrap();
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2024, Month::July, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    // Steeply rising curve: 3% at base, 8% at 1Y. Any calendar-day shift
+    // earlier yields a strictly lower sampled rate.
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(base)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.03), (2.0, 0.13)])
+        .build()
+        .expect("rising forward curve builds");
+    let market = MarketContext::new().insert(fwd);
+
+    // Zero spread so the emitted rate is exactly the compounded index rate.
+    let arrears_spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedInArrears,
+        FloatingRateFallback::Error,
+        dec!(0.0),
+    );
+    let shifted_spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days: 5 },
+        FloatingRateFallback::Error,
+        dec!(0.0),
+    );
+
+    let arrears_schedule = {
+        let mut b = CashFlowSchedule::builder();
+        let _ = b.principal(init, issue, maturity).floating_cf(arrears_spec);
+        b.build_with_curves(Some(&market))
+            .expect("in-arrears schedule builds")
+    };
+    let shifted_schedule = {
+        let mut b = CashFlowSchedule::builder();
+        let _ = b.principal(init, issue, maturity).floating_cf(shifted_spec);
+        b.build_with_curves(Some(&market))
+            .expect("observation-shifted schedule builds")
+    };
+
+    let arrears_rates: Vec<f64> = arrears_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .map(|cf| cf.rate.expect("FloatReset has a rate"))
+        .collect();
+    let shifted_rates: Vec<f64> = shifted_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .map(|cf| cf.rate.expect("FloatReset has a rate"))
+        .collect();
+
+    assert_eq!(
+        arrears_rates.len(),
+        shifted_rates.len(),
+        "both schedules produce the same number of FloatReset flows"
+    );
+    assert!(
+        !arrears_rates.is_empty(),
+        "schedule emits at least one coupon"
+    );
+
+    // On a rising curve, every shifted coupon must be strictly below the
+    // in-arrears coupon for the same period. A non-trivial gap (> 1 bp)
+    // proves the observation window actually moved — not just a floating
+    // point rounding difference.
+    for (i, (arr, sh)) in arrears_rates
+        .iter()
+        .copied()
+        .zip(shifted_rates.iter().copied())
+        .enumerate()
+    {
+        assert!(
+            sh < arr,
+            "flow {i}: shifted rate {sh:.6} must be < in-arrears rate {arr:.6} on a rising curve"
+        );
+        assert!(
+            (arr - sh) > 1e-4,
+            "flow {i}: shift gap {gap:.6} should exceed 1 bp (arrears {arr:.6}, shifted {sh:.6})",
+            gap = arr - sh
+        );
+    }
+}
+
+/// Audit P1 #21 (Lookback follow-up): ARRC 2020 §2 "Lookback" must sample
+/// rates from N business days before each accrual date — the rate
+/// observation is shifted but the accrual-period weight is preserved.
+///
+/// Before the follow-up: `compute_overnight_rate::CompoundedWithLookback`
+/// did index-rewriting inside the accrual-window sample. For the first
+/// `lookback_days` business days it fell back to `daily_rates[0]` (the
+/// first rate of the accrual window), effectively muting the first week of
+/// the lookback shift and producing a biased coupon rate.
+///
+/// After the follow-up: `sample_overnight_rates_with_lookback` in
+/// coupons.rs looks up each rate via `add_business_days(-lookback)`, so on
+/// a rising forward curve every accrual-business-day observation is
+/// strictly earlier in time than its in-arrears counterpart.
+#[test]
+fn test_overnight_lookback_samples_pre_accrual_rates() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::ForwardCurve;
+
+    let base = Date::from_calendar_date(2023, Month::January, 15).unwrap();
+    let issue = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2024, Month::July, 15).unwrap();
+    let notional = 1_000_000.0;
+    let init = Money::new(notional, Currency::USD);
+
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(base)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.03), (2.0, 0.13)])
+        .build()
+        .expect("rising forward curve builds");
+    let market = MarketContext::new().insert(fwd);
+
+    let arrears_spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedInArrears,
+        FloatingRateFallback::Error,
+        dec!(0.0),
+    );
+    let lookback_spec = make_overnight_float_spec(
+        OvernightCompoundingMethod::CompoundedWithLookback { lookback_days: 5 },
+        FloatingRateFallback::Error,
+        dec!(0.0),
+    );
+
+    let arrears_schedule = {
+        let mut b = CashFlowSchedule::builder();
+        let _ = b.principal(init, issue, maturity).floating_cf(arrears_spec);
+        b.build_with_curves(Some(&market))
+            .expect("in-arrears schedule builds")
+    };
+    let lookback_schedule = {
+        let mut b = CashFlowSchedule::builder();
+        let _ = b
+            .principal(init, issue, maturity)
+            .floating_cf(lookback_spec);
+        b.build_with_curves(Some(&market))
+            .expect("lookback schedule builds")
+    };
+
+    let arrears_rates: Vec<f64> = arrears_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .map(|cf| cf.rate.expect("FloatReset has a rate"))
+        .collect();
+    let lookback_rates: Vec<f64> = lookback_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .map(|cf| cf.rate.expect("FloatReset has a rate"))
+        .collect();
+
+    assert_eq!(arrears_rates.len(), lookback_rates.len(), "same schedule");
+    assert!(
+        !arrears_rates.is_empty(),
+        "schedule emits at least one coupon"
+    );
+
+    for (i, (arr, lb)) in arrears_rates
+        .iter()
+        .copied()
+        .zip(lookback_rates.iter().copied())
+        .enumerate()
+    {
+        assert!(
+            lb < arr,
+            "flow {i}: lookback rate {lb:.6} must be < in-arrears rate {arr:.6} on a rising curve"
+        );
+        assert!(
+            (arr - lb) > 1e-4,
+            "flow {i}: lookback gap {gap:.6} should exceed 1 bp (arrears {arr:.6}, lookback {lb:.6})",
+            gap = arr - lb
+        );
+    }
+}
+
 /// Overnight compounding with no curve and Error fallback should fail.
 #[test]
 fn test_overnight_compounding_no_curve_error_fallback() {

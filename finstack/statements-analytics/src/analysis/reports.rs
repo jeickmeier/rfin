@@ -420,9 +420,33 @@ impl<'a> CreditAssessmentReport<'a> {
         Self { results, as_of }
     }
 
+    fn trailing_sum(&self, node_id: &str) -> Option<f64> {
+        let window = self.as_of.kind().periods_per_year() as usize;
+        let mut values: Vec<(PeriodId, f64)> = self
+            .results
+            .get_node(node_id)?
+            .iter()
+            .filter(|(period, _)| **period <= self.as_of)
+            .map(|(period, value)| (*period, *value))
+            .collect();
+
+        values.sort_by_key(|(period, _)| *period);
+        let trailing: Vec<f64> = values
+            .into_iter()
+            .rev()
+            .take(window)
+            .map(|(_, value)| value)
+            .collect();
+        if trailing.len() == window && trailing.iter().all(|value| value.is_finite()) {
+            Some(trailing.iter().sum())
+        } else {
+            None
+        }
+    }
+
     fn calculate_leverage_ratio(&self) -> Option<f64> {
         let debt = self.results.get("total_debt", &self.as_of)?;
-        let ebitda = self.results.get("ebitda", &self.as_of)?;
+        let ebitda = self.trailing_sum("ebitda")?;
         if ebitda != 0.0 {
             Some(debt / ebitda)
         } else {
@@ -431,8 +455,8 @@ impl<'a> CreditAssessmentReport<'a> {
     }
 
     fn calculate_interest_coverage(&self) -> Option<f64> {
-        let ebitda = self.results.get("ebitda", &self.as_of)?;
-        let interest = self.results.get("interest_expense", &self.as_of)?;
+        let ebitda = self.trailing_sum("ebitda")?;
+        let interest = self.trailing_sum("interest_expense")?;
         if interest != 0.0 {
             Some(ebitda / interest)
         } else {
@@ -446,11 +470,11 @@ impl Report for CreditAssessmentReport<'_> {
         let mut output = format!("Credit Assessment as of {}\n\n", self.as_of);
 
         if let Some(leverage) = self.calculate_leverage_ratio() {
-            output.push_str(&format!("Total Debt / EBITDA:        {:.2}x\n", leverage));
+            output.push_str(&format!("Total Debt / TTM EBITDA:    {:.2}x\n", leverage));
         }
 
         if let Some(coverage) = self.calculate_interest_coverage() {
-            output.push_str(&format!("EBITDA / Interest Expense:  {:.2}x\n", coverage));
+            output.push_str(&format!("TTM EBITDA / TTM Interest:  {:.2}x\n", coverage));
         }
 
         if let Some(fcf) = self.results.get("free_cash_flow", &self.as_of) {
@@ -532,5 +556,47 @@ mod tests {
         let widths = table.calculate_column_widths();
         assert_eq!(widths[0], 5); // "short" is longer than "A"
         assert_eq!(widths[1], 16); // "much longer text" is longer than "B"
+    }
+
+    #[test]
+    fn credit_report_uses_ttm_ebitda_for_leverage() {
+        let mut results = StatementResult::new();
+        for (quarter, ebitda) in [(1, 10.0), (2, 20.0), (3, 30.0), (4, 40.0)] {
+            results
+                .nodes
+                .entry("ebitda".to_string())
+                .or_default()
+                .insert(PeriodId::quarter(2025, quarter), ebitda);
+        }
+        results
+            .nodes
+            .entry("interest_expense".to_string())
+            .or_default()
+            .insert(PeriodId::quarter(2025, 1), 1.0);
+        results
+            .nodes
+            .entry("interest_expense".to_string())
+            .or_default()
+            .insert(PeriodId::quarter(2025, 2), 2.0);
+        results
+            .nodes
+            .entry("interest_expense".to_string())
+            .or_default()
+            .insert(PeriodId::quarter(2025, 3), 3.0);
+        results
+            .nodes
+            .entry("interest_expense".to_string())
+            .or_default()
+            .insert(PeriodId::quarter(2025, 4), 4.0);
+        results
+            .nodes
+            .entry("total_debt".to_string())
+            .or_default()
+            .insert(PeriodId::quarter(2025, 4), 300.0);
+
+        let report = CreditAssessmentReport::new(&results, PeriodId::quarter(2025, 4));
+
+        assert_eq!(report.calculate_leverage_ratio(), Some(3.0));
+        assert_eq!(report.calculate_interest_coverage(), Some(10.0));
     }
 }

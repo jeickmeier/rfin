@@ -10,7 +10,7 @@ use crate::evaluator::formula_helpers::is_truthy;
 use crate::evaluator::monte_carlo::{
     MonteCarloAccumulator, MonteCarloConfig, MonteCarloResults, PathResult,
 };
-use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
+use crate::evaluator::precedence::{resolve_node_value_with_policy, NodeValueSource};
 use crate::evaluator::results::{EvalWarning, ResultsMeta, StatementResult};
 use crate::evaluator::{capital_structure_runtime, capital_structure_runtime::dependent_closure};
 use crate::types::{FinancialModelSpec, NodeId};
@@ -226,6 +226,9 @@ impl Evaluator {
 
         // Sequential evaluation for all models
         for period in &model.periods {
+            let explicit_values_visible =
+                !period.is_actual || as_of.is_none_or(|as_of_date| period.start <= as_of_date);
+            let is_actual_for_eval = period.is_actual && explicit_values_visible;
             let (period_results, period_warnings) =
                 if let (Some(market_ctx), Some(as_of), Some(ref mut state), Some(insts)) =
                     (market_ctx, as_of, cs_state.as_mut(), instruments.as_ref())
@@ -233,7 +236,8 @@ impl Evaluator {
                     let (vals, warns, period_cs) = self.evaluate_period_dynamic(
                         model,
                         period,
-                        period.is_actual,
+                        is_actual_for_eval,
+                        explicit_values_visible,
                         &eval_order,
                         &node_to_column,
                         &historical,
@@ -253,7 +257,8 @@ impl Evaluator {
                     self.evaluate_period(
                         model,
                         &period.id,
-                        period.is_actual,
+                        is_actual_for_eval,
+                        explicit_values_visible,
                         &eval_order,
                         &node_to_column,
                         &historical,
@@ -411,6 +416,7 @@ impl Evaluator {
                 model,
                 &period.id,
                 period.is_actual,
+                true,
                 &prepared.eval_order,
                 &prepared.node_to_column,
                 &historical,
@@ -590,6 +596,7 @@ impl Evaluator {
         model: &FinancialModelSpec,
         period_id: &PeriodId,
         is_actual: bool,
+        explicit_values_visible: bool,
         eval_order: &[NodeId],
         context: &mut EvaluationContext,
         seed_offset: Option<u64>,
@@ -620,7 +627,12 @@ impl Evaluator {
             }
 
             let value = {
-                let source = resolve_node_value(node_spec, period_id, is_actual)?;
+                let source = resolve_node_value_with_policy(
+                    node_spec,
+                    period_id,
+                    is_actual,
+                    explicit_values_visible,
+                )?;
                 let mut mc_z_wrapper: Option<&mut IndexMap<NodeId, IndexMap<PeriodId, f64>>> =
                     mc_z_cache.as_deref_mut();
                 match source {
@@ -665,6 +677,7 @@ impl Evaluator {
         model: &FinancialModelSpec,
         period_id: &PeriodId,
         is_actual: bool,
+        explicit_values_visible: bool,
         eval_order: &[NodeId],
         node_to_column: &std::sync::Arc<IndexMap<NodeId, usize>>,
         historical: &std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
@@ -683,6 +696,7 @@ impl Evaluator {
             model,
             period_id,
             is_actual,
+            explicit_values_visible,
             eval_order,
             &mut context,
             None,
@@ -719,6 +733,7 @@ impl Evaluator {
             model,
             period_id,
             is_actual,
+            true,
             eval_order,
             &mut context,
             Some(seed_offset),
@@ -741,7 +756,12 @@ impl Default for Evaluator {
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;
+    use crate::types::{AmountOrScalar, NodeSpec, NodeType};
+    use finstack_core::dates::Date;
     use finstack_core::dates::PeriodId;
+    use finstack_core::market_data::context::MarketContext;
+    use indexmap::IndexMap;
+    use time::Month;
 
     #[test]
     fn where_clause_treats_nan_as_false() {
@@ -762,6 +782,37 @@ mod tests {
         assert_eq!(
             results.get("guarded_metric", &PeriodId::quarter(2025, 1)),
             Some(0.0)
+        );
+    }
+
+    #[test]
+    fn as_of_hides_future_actual_values() {
+        let periods = finstack_core::dates::build_periods("2025Q1..Q2", Some("2025Q2"))
+            .expect("periods")
+            .periods;
+        let mut model = FinancialModelSpec::new("as-of-policy", periods);
+        let mut values = IndexMap::new();
+        values.insert(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0));
+        values.insert(PeriodId::quarter(2025, 2), AmountOrScalar::scalar(999.0));
+        model.add_node(
+            NodeSpec::new("revenue", NodeType::Mixed)
+                .with_values(values)
+                .with_formula("123"),
+        );
+
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("date");
+        let mut evaluator = Evaluator::new();
+        let results = evaluator
+            .evaluate_with_market(&model, &MarketContext::new(), as_of)
+            .expect("evaluation");
+
+        assert_eq!(
+            results.get("revenue", &PeriodId::quarter(2025, 1)),
+            Some(100.0)
+        );
+        assert_eq!(
+            results.get("revenue", &PeriodId::quarter(2025, 2)),
+            Some(123.0)
         );
     }
 }

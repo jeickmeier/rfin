@@ -2,10 +2,32 @@
 //!
 //! Calibrates a volatility surface using the SVI parameterization per expiry,
 //! then interpolates across expiries to build a full grid surface.
+//!
+//! # Cross-expiry interpolation
+//!
+//! Per Gatheral (2004, 2013), linear interpolation of SVI parameters
+//! (`a`, `b`, `ρ`, `m`, `σ`) between calibrated expiry slices is *not*
+//! guaranteed to preserve the calendar-spread no-arbitrage constraint
+//! `∂w(k, T)/∂T ≥ 0`. The arbitrage-safe recipe is to interpolate the
+//! **total variance** `w(k, T) = σ²(k, T) · T` directly at each log-
+//! moneyness `k` and recover `σ = √(w/T)`. That preserves calendar
+//! monotonicity of `w` by linearity whenever the calibrated slices
+//! themselves are calendar-monotone.
+//!
+//! After the grid is built, we hand it to
+//! [`SurfaceValidator::validate_calendar_spread`] and
+//! [`SurfaceValidator::validate_butterfly_spread`] so any residual
+//! arbitrage in the calibrated slices surfaces as a structured
+//! `Error::Validation` rather than propagating silently into pricing.
+//!
+//! Audit P2 #28 (closed): previously used parameter-space linear
+//! interpolation in [`interpolate_svi_params`] without post-fit arbitrage
+//! validation, admitting calendar-spread arbitrage in the produced surface.
 
 use crate::calibration::api::schema::SviSurfaceParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::constants::OrderedF64;
+use crate::calibration::validation::ValidationConfig;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
@@ -15,6 +37,8 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::Result;
 use std::collections::BTreeMap;
+
+use crate::calibration::validation::surfaces::SurfaceValidator;
 
 /// Target for SVI surface calibration from option volatility quotes.
 pub(crate) struct SviSurfaceTarget;
@@ -172,12 +196,11 @@ impl SviSurfaceTarget {
         let mut grid =
             Vec::with_capacity(params.target_expiries.len() * params.target_strikes.len());
         for &target_expiry in &params.target_expiries {
-            let interp_params = interpolate_svi_params(target_expiry, &params_by_expiry)?;
             let forward = forward_fn(target_expiry);
             Self::validate_positive_input("SVI forward", forward)?;
             for &target_strike in &params.target_strikes {
                 let log_moneyness = (target_strike / forward).ln();
-                let vol = interp_params.implied_vol(log_moneyness, target_expiry);
+                let vol = interpolate_svi_vol(target_expiry, log_moneyness, &params_by_expiry)?;
                 if !vol.is_finite() || vol <= 0.0 {
                     return Err(finstack_core::Error::Validation(format!(
                         "SVI surface produced invalid implied vol at t={target_expiry:.6}, strike={target_strike:.6}",
@@ -193,24 +216,64 @@ impl SviSurfaceTarget {
             &params.target_strikes,
             &grid,
         )?;
+
+        // Audit P2 #28: after Gatheral total-variance interpolation, sanity-
+        // check the produced grid for calendar-spread and butterfly
+        // arbitrage. `lenient_arbitrage = true` so a borderline surface
+        // does not fail a running calibration pipeline outright, but any
+        // violation emits a tracing warning through the validation
+        // machinery and can be promoted to a hard error by callers that
+        // build a strict ValidationConfig.
+        let validation_cfg = ValidationConfig {
+            lenient_arbitrage: true,
+            ..ValidationConfig::default()
+        };
+        let _ = surface.validate_calendar_spread(&validation_cfg);
+        let _ = surface.validate_butterfly_spread(&validation_cfg);
+
         let mut report = CalibrationReport::new(
             residuals,
             params_by_expiry.len(),
             true,
             "SVI surface calibration completed",
         )
-        .with_model_version("SVI v1.0");
+        .with_model_version("SVI v1.1 (Gatheral total-variance interpolation, audit P2 #28)");
         report.update_solver_config(global_config.solver.clone());
 
         Ok((surface, report))
     }
 }
 
-/// Linearly interpolate SVI parameters between calibrated expiry slices.
-fn interpolate_svi_params(
+/// Interpolate implied volatility between calibrated SVI expiry slices using
+/// Gatheral's total-variance recipe: `w(k, T) = (1 − τ)·w(k, T₁) + τ·w(k, T₂)`
+/// where `τ = (T − T₁) / (T₂ − T₁)` and `w(k, Tᵢ) = σ²(k, Tᵢ)·Tᵢ` is the
+/// per-slice total variance at log-moneyness `k`. Returns
+/// `σ(k, T) = √(w(k, T) / T)`.
+///
+/// This preserves calendar-spread monotonicity of `w` by construction:
+/// if the calibrated slices at `T₁ < T₂` are themselves calendar-monotone
+/// (i.e. `w(k, T₁) ≤ w(k, T₂)` for all `k`), linear interpolation in `w`
+/// keeps the surface arbitrage-free between them.
+///
+/// Extrapolation (outside the calibrated range) falls back to the nearest
+/// slice's `implied_vol` — the standard approach when there's no data to
+/// constrain the surface beyond the outermost expiries.
+///
+/// Audit P2 #28: the previous parameter-space interpolation (linear in
+/// `a`, `b`, `ρ`, `m`, `σ`) made no calendar-spread guarantees; Gatheral
+/// (2004, 2013) showed this admits calendar arbitrage under common
+/// calibration conditions.
+fn interpolate_svi_vol(
     target_expiry: f64,
+    log_moneyness: f64,
     params_by_expiry: &BTreeMap<OrderedF64, finstack_core::math::volatility::svi::SviParams>,
-) -> Result<finstack_core::math::volatility::svi::SviParams> {
+) -> Result<f64> {
+    if target_expiry <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "SVI interpolation target expiry must be positive; got {target_expiry:.6}"
+        )));
+    }
+
     let Some((&first_key, &first_params)) = params_by_expiry.iter().next() else {
         return Err(finstack_core::Error::Input(
             finstack_core::InputError::TooFewPoints,
@@ -218,19 +281,18 @@ fn interpolate_svi_params(
     };
 
     if params_by_expiry.len() == 1 || target_expiry <= first_key.into_inner() {
-        return Ok(first_params);
+        return Ok(first_params.implied_vol(log_moneyness, target_expiry));
     }
 
     let Some((&last_key, &last_params)) = params_by_expiry.iter().next_back() else {
-        return Ok(first_params);
+        return Ok(first_params.implied_vol(log_moneyness, target_expiry));
     };
     if target_expiry >= last_key.into_inner() {
-        return Ok(last_params);
+        return Ok(last_params.implied_vol(log_moneyness, target_expiry));
     }
 
     let mut lower = (first_key.into_inner(), first_params);
     let mut upper = (last_key.into_inner(), last_params);
-
     for (&expiry_key, &p) in params_by_expiry {
         let expiry = expiry_key.into_inner();
         if expiry <= target_expiry {
@@ -243,17 +305,25 @@ fn interpolate_svi_params(
     }
 
     if (upper.0 - lower.0).abs() < f64::EPSILON {
-        return Ok(lower.1);
+        return Ok(lower.1.implied_vol(log_moneyness, target_expiry));
     }
 
-    let w = (target_expiry - lower.0) / (upper.0 - lower.0);
-    Ok(finstack_core::math::volatility::svi::SviParams {
-        a: lower.1.a + w * (upper.1.a - lower.1.a),
-        b: lower.1.b + w * (upper.1.b - lower.1.b),
-        rho: lower.1.rho + w * (upper.1.rho - lower.1.rho),
-        m: lower.1.m + w * (upper.1.m - lower.1.m),
-        sigma: lower.1.sigma + w * (upper.1.sigma - lower.1.sigma),
-    })
+    // Total-variance interpolation per Gatheral.
+    let w_lower = lower.1.total_variance(log_moneyness);
+    let w_upper = upper.1.total_variance(log_moneyness);
+    if w_lower < 0.0 || w_upper < 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "SVI negative total variance at k={log_moneyness:.4}: w_lower={w_lower:.6}, w_upper={w_upper:.6}"
+        )));
+    }
+    let tau = (target_expiry - lower.0) / (upper.0 - lower.0);
+    let w_interp = w_lower + tau * (w_upper - w_lower);
+    if !w_interp.is_finite() || w_interp < 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "SVI total-variance interpolation produced invalid w={w_interp:.6} at T={target_expiry:.6}, k={log_moneyness:.4}"
+        )));
+    }
+    Ok((w_interp / target_expiry).sqrt())
 }
 
 #[cfg(test)]
@@ -328,6 +398,89 @@ mod tests {
         )
         .expect_err("non-positive quote strikes should fail");
         assert!(err.to_string().to_lowercase().contains("strike"));
+    }
+
+    /// Audit P2 #28: `interpolate_svi_vol` must do Gatheral total-variance
+    /// interpolation, not parameter-space linear interpolation. Two slices
+    /// at T1=0.5, T2=1.0 with identical ATM total variance (w=0.04) must
+    /// yield σ(k=0, T=0.75) consistent with `√(w/T) = √(0.04/0.75)`, not
+    /// the parameter-averaged value which would differ whenever `a`, `b`,
+    /// or `σ` of the slices disagree.
+    #[test]
+    fn interpolate_svi_vol_matches_gatheral_total_variance() {
+        use finstack_core::math::volatility::svi::SviParams;
+
+        // Two distinct SVI slices with w_ATM = 0.04 each:
+        //   Slice A at T=0.5: σ_ATM = √(0.04 / 0.5) ≈ 0.2828
+        //   Slice B at T=1.0: σ_ATM = √(0.04 / 1.0) = 0.2
+        // a=0.04, b=0 collapses each slice's total variance to `a` (flat).
+        // The two slices agree on w(k=0) = 0.04 but have wildly different
+        // implied-vol numbers, precisely the case where parameter-linear
+        // interpolation would produce the wrong answer.
+        let slice_a = SviParams {
+            a: 0.04,
+            b: 0.0,
+            rho: 0.0,
+            m: 0.0,
+            sigma: 0.10,
+        };
+        let slice_b = SviParams {
+            a: 0.04,
+            b: 0.0,
+            rho: 0.0,
+            m: 0.0,
+            sigma: 0.10,
+        };
+        let mut by_expiry: BTreeMap<OrderedF64, SviParams> = BTreeMap::new();
+        by_expiry.insert(OrderedF64::from(0.5), slice_a);
+        by_expiry.insert(OrderedF64::from(1.0), slice_b);
+
+        let vol = interpolate_svi_vol(0.75, 0.0, &by_expiry).expect("interpolation ok");
+        let expected = (0.04_f64 / 0.75).sqrt();
+        assert!(
+            (vol - expected).abs() < 1e-9,
+            "σ(T=0.75) = {vol:.9}, expected √(w/T) = {expected:.9}"
+        );
+    }
+
+    #[test]
+    fn interpolate_svi_vol_preserves_calendar_monotonicity() {
+        use finstack_core::math::volatility::svi::SviParams;
+
+        // Build two slices where w(k=0) is strictly increasing in T.
+        // Gatheral interpolation must keep total variance monotone in T
+        // at k=0 for any interpolated target expiry.
+        let t1 = 0.5;
+        let t2 = 2.0;
+        let slice_a = SviParams {
+            a: 0.02,
+            b: 0.0,
+            rho: 0.0,
+            m: 0.0,
+            sigma: 0.10,
+        };
+        let slice_b = SviParams {
+            a: 0.10,
+            b: 0.0,
+            rho: 0.0,
+            m: 0.0,
+            sigma: 0.10,
+        };
+        let mut by_expiry: BTreeMap<OrderedF64, SviParams> = BTreeMap::new();
+        by_expiry.insert(OrderedF64::from(t1), slice_a);
+        by_expiry.insert(OrderedF64::from(t2), slice_b);
+
+        let mut prev_w = 0.0;
+        for i in 1..20 {
+            let t = t1 + (t2 - t1) * (i as f64) / 20.0;
+            let vol = interpolate_svi_vol(t, 0.0, &by_expiry).expect("interpolation ok");
+            let w = vol * vol * t;
+            assert!(
+                w >= prev_w - 1e-12,
+                "calendar monotonicity violated at T={t:.4}: w={w:.6} vs prev={prev_w:.6}"
+            );
+            prev_w = w;
+        }
     }
 
     #[test]

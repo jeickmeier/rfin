@@ -159,102 +159,44 @@ pub fn nearest_correlation_matrix(
 
 /// Project a symmetric matrix onto the PSD cone by zeroing negative
 /// eigenvalues (the Higham projection step).
+///
+/// Audit P3 #34: spectral decomposition now uses `nalgebra::SymmetricEigen`
+/// (divide-and-conquer tridiagonal QR) instead of the previous hand-rolled
+/// Jacobi sweeps. The old Jacobi path capped at `100·n²` sweeps and each
+/// sweep was `O(n²)` for pivot search + `O(n)` per-rotation update,
+/// degenerating to roughly `O(n⁵)` for `n > 40` correlation matrices —
+/// enough to dominate Higham wall-time on portfolio-scale matrices.
+/// SymmetricEigen is `O(n³)` and pulls its numerics from the workspace's
+/// existing nalgebra dependency, so no new crates are introduced.
 fn project_psd(matrix: &[f64], n: usize) -> Vec<f64> {
-    let (eigenvalues, eigenvectors) = jacobi_eigendecomposition(matrix, n);
+    if n == 0 {
+        return Vec::new();
+    }
 
-    // Reconstruct using only non-negative eigenvalues: X = V · diag(max(λ,0)) · Vᵀ.
+    let a = nalgebra::DMatrix::from_fn(n, n, |i, j| matrix[i * n + j]);
+    let eig = nalgebra::SymmetricEigen::new(a);
+
+    // Reconstruct using only non-negative eigenvalues: X = V · diag(max(λ, 0)) · Vᵀ.
+    // `eig.eigenvectors` is column-major in the eigenvector index — column `k`
+    // is the `k`-th eigenvector — so `eig.eigenvectors[(i, k)]` is the `i`-th
+    // component of the `k`-th eigenvector, matching the previous Jacobi
+    // convention.
     let mut out = vec![0.0_f64; n * n];
     for i in 0..n {
         for j in i..n {
-            let mut sum = 0.0;
+            let mut sum = 0.0_f64;
             for k in 0..n {
-                let lambda = eigenvalues[k].max(0.0);
+                let lambda = eig.eigenvalues[k].max(0.0);
                 if lambda == 0.0 {
                     continue;
                 }
-                sum += lambda * eigenvectors[i * n + k] * eigenvectors[j * n + k];
+                sum += lambda * eig.eigenvectors[(i, k)] * eig.eigenvectors[(j, k)];
             }
             out[i * n + j] = sum;
             out[j * n + i] = sum;
         }
     }
     out
-}
-
-/// Symmetric eigendecomposition via Jacobi rotations.
-///
-/// Returns `(eigenvalues, eigenvectors)` where `eigenvectors[i * n + k]` is
-/// the `i`-th component of the `k`-th eigenvector (i.e. column-major in the
-/// eigenvector index). Adequate for the small matrices (n ≲ 50) that arise
-/// in credit/rates correlation repair.
-fn jacobi_eigendecomposition(matrix: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
-    let mut a = matrix.to_vec();
-    let mut v = vec![0.0_f64; n * n];
-    for i in 0..n {
-        v[i * n + i] = 1.0;
-    }
-
-    let max_sweeps = 100 * n.max(1) * n.max(1);
-    let tol = 1e-14;
-
-    for _ in 0..max_sweeps {
-        let mut max_off = 0.0_f64;
-        let mut p = 0;
-        let mut q = 1;
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let v_abs = a[i * n + j].abs();
-                if v_abs > max_off {
-                    max_off = v_abs;
-                    p = i;
-                    q = j;
-                }
-            }
-        }
-        if max_off < tol {
-            break;
-        }
-
-        let app = a[p * n + p];
-        let aqq = a[q * n + q];
-        let apq = a[p * n + q];
-
-        let theta = if (app - aqq).abs() < 1e-30 {
-            std::f64::consts::FRAC_PI_4
-        } else {
-            0.5 * (2.0 * apq / (app - aqq)).atan()
-        };
-        let c = theta.cos();
-        let s = theta.sin();
-
-        let mut new_a = a.clone();
-        new_a[p * n + p] = c * c * app + 2.0 * s * c * apq + s * s * aqq;
-        new_a[q * n + q] = s * s * app - 2.0 * s * c * apq + c * c * aqq;
-        new_a[p * n + q] = 0.0;
-        new_a[q * n + p] = 0.0;
-
-        for r in 0..n {
-            if r != p && r != q {
-                let arp = a[r * n + p];
-                let arq = a[r * n + q];
-                new_a[r * n + p] = c * arp + s * arq;
-                new_a[p * n + r] = new_a[r * n + p];
-                new_a[r * n + q] = -s * arp + c * arq;
-                new_a[q * n + r] = new_a[r * n + q];
-            }
-        }
-        a = new_a;
-
-        for r in 0..n {
-            let vrp = v[r * n + p];
-            let vrq = v[r * n + q];
-            v[r * n + p] = c * vrp + s * vrq;
-            v[r * n + q] = -s * vrp + c * vrq;
-        }
-    }
-
-    let eigenvalues: Vec<f64> = (0..n).map(|i| a[i * n + i]).collect();
-    (eigenvalues, v)
 }
 
 fn symmetrize(matrix: &[f64], n: usize) -> Vec<f64> {

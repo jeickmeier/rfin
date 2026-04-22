@@ -65,6 +65,44 @@ pub trait Copula: Send + Sync {
         correlation: f64,
     ) -> f64;
 
+    /// Sector-aware conditional default probability.
+    ///
+    /// For copulas that resolve per-name sector assignments (e.g. a multi-
+    /// factor Gaussian copula with a global factor plus `K` sector factors),
+    /// `sector_idx` selects which factor slot to pair with the systematic
+    /// factor when computing the conditional PD for a given name.
+    ///
+    /// # Indexing convention
+    ///
+    /// - `sector_idx = 0` indicates the name has **no sector factor**; only
+    ///   the global factor drives its latent variable. Correlation with other
+    ///   names reduces to the inter-sector value (e.g. `β_G²` in a Gaussian
+    ///   two-factor model).
+    /// - `sector_idx ≥ 1` indicates membership in sector `k = sector_idx`;
+    ///   the copula consumes the `k`-th sector-factor realization from
+    ///   `factor_realization`. Pairs of names with the same non-zero
+    ///   `sector_idx` share both the global and the sector factor.
+    ///
+    /// # Default implementation
+    ///
+    /// Sector-unaware copulas (Gaussian, Student-t, RFL, single-factor
+    /// variants) ignore `sector_idx` and fall through to
+    /// [`Self::conditional_default_prob`]. This keeps all existing callers
+    /// compatible; only copulas that genuinely resolve sectors need to
+    /// override.
+    ///
+    /// Audit P1 #16.
+    fn conditional_default_prob_with_sector(
+        &self,
+        default_threshold: f64,
+        factor_realization: &[f64],
+        correlation: f64,
+        sector_idx: usize,
+    ) -> f64 {
+        let _ = sector_idx;
+        self.conditional_default_prob(default_threshold, factor_realization, correlation)
+    }
+
     /// Integrate expected value E[f(L)] over the factor distribution.
     ///
     /// Uses appropriate quadrature for the copula's factor distribution.

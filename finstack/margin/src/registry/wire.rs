@@ -246,6 +246,8 @@ pub(super) struct SimmRecord {
     pub(super) cnq_delta_weight: f64,
     pub(super) equity_delta_weight: f64,
     pub(super) fx_delta_weight: f64,
+    #[serde(default)]
+    pub(super) fx_intra_bucket_correlation: Option<f64>,
     pub(super) risk_class_correlations: Vec<RiskClassCorrelationRecord>,
     pub(super) commodity_bucket_weights: Value,
     #[serde(default)]

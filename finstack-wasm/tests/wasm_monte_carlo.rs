@@ -66,8 +66,22 @@ fn price_asian_put_returns_result() {
 
 #[wasm_bindgen_test]
 fn price_american_put_returns_result() {
-    let result =
-        price_american_put(100.0, 100.0, 0.05, 0.0, 0.2, 1.0, 500, 42, Some(20), None).unwrap();
+    let result = price_american_put(
+        100.0,
+        100.0,
+        0.05,
+        0.0,
+        0.2,
+        1.0,
+        500,
+        42,
+        Some(20),
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
     let obj: serde_json::Value = serde_wasm_bindgen::from_value(result).unwrap();
     assert!(obj["mean"].as_f64().unwrap() > 0.0);
 }

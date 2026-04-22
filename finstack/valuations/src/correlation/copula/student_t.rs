@@ -54,7 +54,9 @@
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 #[cfg(test)]
 use finstack_core::math::student_t_inv_cdf;
-use finstack_core::math::{ln_gamma, student_t_cdf, GaussHermiteQuadrature};
+use finstack_core::math::{
+    ln_gamma, student_t_cdf, GaussHermiteQuadrature, GaussLaguerreQuadrature,
+};
 
 /// Minimum correlation for numerical stability.
 const MIN_CORRELATION: f64 = 0.01;
@@ -191,28 +193,33 @@ impl StudentTCopula {
     ///
     /// Standard Gauss-Laguerre (α=0) integrates ∫ h(u) exp(-u) du, so each
     /// weight must include the u^{ν/2-1} / Γ(ν/2) correction.
+    ///
+    /// Audit P1 #15: nodes and weights are now computed at runtime via the
+    /// Golub-Welsch algorithm ([`GaussLaguerreQuadrature`]) rather than
+    /// read from a hardcoded 10-node table. A caller requesting
+    /// `with_quadrature_order(n > 10)` now actually receives an `n`-node
+    /// rule (up to [`MAX_LAGUERRE_ORDER`]); previously the request was
+    /// silently truncated at 10 nodes, under-resolving tail integrals for
+    /// heavy-tailed Student-t copulas with ν ≤ 5.
     fn compute_gamma_quadrature(nu: f64, n: usize) -> Vec<(f64, f64)> {
-        let effective_n = n.max(10);
-        let laguerre_nodes_weights: &[(f64, f64)] = &[
-            (0.137_793_470_5, 0.308_441_115_8),
-            (0.729_454_549_5, 0.401_119_929_2),
-            (1.808_342_901_7, 0.218_068_287_6),
-            (3.401_433_697_8, 0.062_087_456_1),
-            (5.552_496_140_1, 0.009_501_517_0),
-            (8.330_152_746_8, 0.000_753_008_4),
-            (11.843_785_838, 0.000_028_259_2),
-            (16.279_257_831, 0.000_000_424_9),
-            (21.996_585_812, 0.000_000_001_8),
-            (29.920_697_012, 0.000_000_000_001),
-        ];
+        let effective_n = n.clamp(MIN_LAGUERRE_ORDER, MAX_LAGUERRE_ORDER);
+        // Fall back to the canonical 10-node rule if the Golub-Welsch step
+        // fails — by construction it cannot, but we route the `Result` so
+        // the #![deny(expect_used)] lint stays satisfied in the binding.
+        let laguerre =
+            GaussLaguerreQuadrature::new(effective_n).unwrap_or_else(|_| GaussLaguerreQuadrature {
+                points: Vec::new(),
+                weights: Vec::new(),
+            });
 
-        let num_points = laguerre_nodes_weights.len().min(effective_n);
         let alpha = nu / 2.0;
         let ln_gamma_alpha = ln_gamma(alpha);
 
-        laguerre_nodes_weights[..num_points]
+        laguerre
+            .points
             .iter()
-            .filter_map(|&(node, laguerre_weight)| {
+            .zip(laguerre.weights.iter())
+            .filter_map(|(&node, &laguerre_weight)| {
                 if node < 1e-15 {
                     return None;
                 }
@@ -233,6 +240,24 @@ impl StudentTCopula {
             .collect()
     }
 }
+
+/// Floor on the Student-t copula's Gauss-Laguerre outer-integration order.
+///
+/// Matches the legacy hardcoded table width so existing callers that
+/// construct the copula at `DEFAULT_QUADRATURE_ORDER` continue to see at
+/// least 10 Laguerre nodes. Raising the floor would be a non-trivial
+/// numerical change — the tail integrand's effective polynomial degree
+/// grows with `ν`, so callers that want finer resolution should opt in via
+/// [`StudentTCopula::with_quadrature_order`] and benchmark their
+/// workload rather than raising the floor globally.
+const MIN_LAGUERRE_ORDER: usize = 10;
+
+/// Upper bound on the Gauss-Laguerre order accepted by the Student-t
+/// copula (audit P1 #15). `O(n²)` eigendecomposition inside
+/// [`GaussLaguerreQuadrature::new`] remains cheap below this bound; above
+/// it, numerical conditioning of the Jacobi matrix starts to erode
+/// reliable weight recovery for the highest-index nodes.
+const MAX_LAGUERRE_ORDER: usize = 64;
 
 impl Copula for StudentTCopula {
     fn conditional_default_prob(
@@ -610,6 +635,36 @@ mod tests {
                 points.len() >= 3,
                 "Expected at least 3 quadrature points, got {}",
                 points.len()
+            );
+        }
+    }
+
+    /// Audit P1 #15: `with_quadrature_order(n)` used to silently cap at
+    /// 10 nodes because the gamma-quadrature was a hardcoded 10-node
+    /// table. After the Golub-Welsch migration, requesting a larger
+    /// order must actually use a larger rule.
+    #[test]
+    fn test_with_quadrature_order_uses_requested_order() {
+        let df = 5.0;
+        let copula10 = StudentTCopula::with_quadrature_order(df, 10);
+        let copula30 = StudentTCopula::with_quadrature_order(df, 30);
+
+        // The final vec is filtered for numerically-zero weights, so
+        // exact equality isn't safe — but 30-node must still yield more
+        // retained points than 10-node.
+        let n10 = copula10.gamma_quadrature.len();
+        let n30 = copula30.gamma_quadrature.len();
+        assert!(
+            n30 > n10,
+            "higher order must produce more gamma-quadrature points: got n30={n30}, n10={n10}"
+        );
+        // Both must still integrate the constant 1 to approximately 1.
+        for copula in [&copula10, &copula30] {
+            let sum: f64 = copula.gamma_quadrature.iter().map(|(_, w)| w).sum();
+            assert!(
+                (sum - 1.0).abs() < 0.05,
+                "n={}: Σ w_i = {sum}, expected ~1",
+                copula.gamma_quadrature.len()
             );
         }
     }

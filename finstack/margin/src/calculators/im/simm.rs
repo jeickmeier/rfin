@@ -152,84 +152,131 @@ impl SimmParams {
             1.0
         }
     }
+
+    /// Commodity inter-bucket correlation lookup.
+    ///
+    /// Looks up `(a, b)` in the row-major 17×17 matrix stored on
+    /// [`SimmParams::commodity_inter_bucket_correlations`]. The calling code
+    /// passes 1-based bucket ids (1..=17); this method translates to the
+    /// 0-based flat index. Returns `0.0` for out-of-range buckets so bad
+    /// bucket labels degrade to a zero-correlation contribution rather than
+    /// a panic.
+    ///
+    /// Audit P2 #25 (follow-up): previously a free function over a hard-
+    /// coded `const CORR`. Moving it through `SimmParams` brings it under
+    /// the same PSD validation as the other correlation matrices.
+    fn commodity_inter_bucket_correlation(&self, a: u8, b: u8) -> f64 {
+        let n = COMMODITY_BUCKET_COUNT;
+        if !(1..=u8::try_from(n).unwrap_or(u8::MAX)).contains(&a)
+            || !(1..=u8::try_from(n).unwrap_or(u8::MAX)).contains(&b)
+        {
+            return 0.0;
+        }
+        // After validate_simm_correlations_psd, the field has exactly n*n entries.
+        // Defensive guard: if somehow the invariant is violated, fall back to 0.
+        let i = (a - 1) as usize;
+        let j = (b - 1) as usize;
+        let idx = i * n + j;
+        self.commodity_inter_bucket_correlations
+            .get(idx)
+            .copied()
+            .unwrap_or(0.0)
+    }
 }
 
-fn commodity_inter_bucket_correlation(a: u8, b: u8) -> f64 {
-    const CORR: [[f64; 17]; 17] = [
-        [
-            1.00, 0.22, 0.18, 0.21, 0.20, 0.24, 0.49, 0.16, 0.38, 0.14, 0.10, 0.02, 0.12, 0.11,
-            0.02, 0.00, 0.17,
-        ],
-        [
-            0.22, 1.00, 0.92, 0.90, 0.88, 0.25, 0.08, 0.19, 0.17, 0.17, 0.42, 0.28, 0.36, 0.27,
-            0.20, 0.00, 0.64,
-        ],
-        [
-            0.18, 0.92, 1.00, 0.87, 0.84, 0.16, 0.07, 0.15, 0.10, 0.18, 0.33, 0.22, 0.27, 0.23,
-            0.16, 0.00, 0.54,
-        ],
-        [
-            0.21, 0.90, 0.87, 1.00, 0.77, 0.19, 0.11, 0.18, 0.16, 0.14, 0.32, 0.22, 0.28, 0.22,
-            0.11, 0.00, 0.58,
-        ],
-        [
-            0.20, 0.88, 0.84, 0.77, 1.00, 0.19, 0.09, 0.12, 0.13, 0.18, 0.42, 0.34, 0.32, 0.29,
-            0.13, 0.00, 0.59,
-        ],
-        [
-            0.24, 0.25, 0.16, 0.19, 0.19, 1.00, 0.31, 0.62, 0.23, 0.10, 0.21, 0.05, 0.18, 0.10,
-            0.08, 0.00, 0.28,
-        ],
-        [
-            0.49, 0.08, 0.07, 0.11, 0.09, 0.31, 1.00, 0.21, 0.79, 0.17, 0.10, -0.08, 0.10, 0.07,
-            -0.02, 0.00, 0.13,
-        ],
-        [
-            0.16, 0.19, 0.15, 0.18, 0.12, 0.62, 0.21, 1.00, 0.16, 0.08, 0.13, -0.07, 0.07, 0.05,
-            0.02, 0.00, 0.19,
-        ],
-        [
-            0.38, 0.17, 0.10, 0.16, 0.13, 0.23, 0.79, 0.16, 1.00, 0.15, 0.09, -0.06, 0.06, 0.06,
-            0.01, 0.00, 0.16,
-        ],
-        [
-            0.14, 0.17, 0.18, 0.14, 0.18, 0.10, 0.17, 0.08, 0.15, 1.00, 0.16, 0.09, 0.14, 0.09,
-            0.03, 0.00, 0.11,
-        ],
-        [
-            0.10, 0.42, 0.33, 0.32, 0.42, 0.21, 0.10, 0.13, 0.09, 0.16, 1.00, 0.36, 0.30, 0.25,
-            0.18, 0.00, 0.37,
-        ],
-        [
-            0.02, 0.28, 0.22, 0.22, 0.34, 0.05, -0.08, -0.07, -0.06, 0.09, 0.36, 1.00, 0.20, 0.18,
-            0.11, 0.00, 0.26,
-        ],
-        [
-            0.12, 0.36, 0.27, 0.28, 0.32, 0.18, 0.10, 0.07, 0.06, 0.14, 0.30, 0.20, 1.00, 0.28,
-            0.19, 0.00, 0.39,
-        ],
-        [
-            0.11, 0.27, 0.23, 0.22, 0.29, 0.10, 0.07, 0.05, 0.06, 0.09, 0.25, 0.18, 0.28, 1.00,
-            0.13, 0.00, 0.26,
-        ],
-        [
-            0.02, 0.20, 0.16, 0.11, 0.13, 0.08, -0.02, 0.02, 0.01, 0.03, 0.18, 0.11, 0.19, 0.13,
-            1.00, 0.00, 0.21,
-        ],
-        [
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
-            0.00, 1.00, 0.00,
-        ],
-        [
-            0.17, 0.64, 0.54, 0.58, 0.59, 0.28, 0.13, 0.19, 0.16, 0.11, 0.37, 0.26, 0.39, 0.26,
-            0.21, 0.00, 1.00,
-        ],
-    ];
+/// Number of SIMM commodity buckets (ISDA SIMM v2.6 Table 11).
+pub(crate) const COMMODITY_BUCKET_COUNT: usize = 17;
 
-    match (a, b) {
-        (1..=17, 1..=17) => CORR[(a - 1) as usize][(b - 1) as usize],
-        _ => 0.0,
+/// Default commodity inter-bucket correlation matrix per ISDA SIMM v2.6 Table 11.
+///
+/// Exposed at `pub(crate)` so the registry loader can copy these values into
+/// [`SimmParams::commodity_inter_bucket_correlations`] at parse time. Bucket 16
+/// (the "Other" / residual bucket) is zero-correlated with every other bucket
+/// per the specification.
+///
+/// Audit P2 #25 (follow-up): previously accessed via a free function from inside
+/// `calculate_commodity_delta`; now plumbed through `SimmParams` so the same
+/// registry-load PSD check used for every other correlation matrix also covers
+/// commodity.
+pub(crate) const DEFAULT_COMMODITY_INTER_BUCKET_CORR: [[f64; COMMODITY_BUCKET_COUNT];
+    COMMODITY_BUCKET_COUNT] = [
+    [
+        1.00, 0.22, 0.18, 0.21, 0.20, 0.24, 0.49, 0.16, 0.38, 0.14, 0.10, 0.02, 0.12, 0.11, 0.02,
+        0.00, 0.17,
+    ],
+    [
+        0.22, 1.00, 0.92, 0.90, 0.88, 0.25, 0.08, 0.19, 0.17, 0.17, 0.42, 0.28, 0.36, 0.27, 0.20,
+        0.00, 0.64,
+    ],
+    [
+        0.18, 0.92, 1.00, 0.87, 0.84, 0.16, 0.07, 0.15, 0.10, 0.18, 0.33, 0.22, 0.27, 0.23, 0.16,
+        0.00, 0.54,
+    ],
+    [
+        0.21, 0.90, 0.87, 1.00, 0.77, 0.19, 0.11, 0.18, 0.16, 0.14, 0.32, 0.22, 0.28, 0.22, 0.11,
+        0.00, 0.58,
+    ],
+    [
+        0.20, 0.88, 0.84, 0.77, 1.00, 0.19, 0.09, 0.12, 0.13, 0.18, 0.42, 0.34, 0.32, 0.29, 0.13,
+        0.00, 0.59,
+    ],
+    [
+        0.24, 0.25, 0.16, 0.19, 0.19, 1.00, 0.31, 0.62, 0.23, 0.10, 0.21, 0.05, 0.18, 0.10, 0.08,
+        0.00, 0.28,
+    ],
+    [
+        0.49, 0.08, 0.07, 0.11, 0.09, 0.31, 1.00, 0.21, 0.79, 0.17, 0.10, -0.08, 0.10, 0.07, -0.02,
+        0.00, 0.13,
+    ],
+    [
+        0.16, 0.19, 0.15, 0.18, 0.12, 0.62, 0.21, 1.00, 0.16, 0.08, 0.13, -0.07, 0.07, 0.05, 0.02,
+        0.00, 0.19,
+    ],
+    [
+        0.38, 0.17, 0.10, 0.16, 0.13, 0.23, 0.79, 0.16, 1.00, 0.15, 0.09, -0.06, 0.06, 0.06, 0.01,
+        0.00, 0.16,
+    ],
+    [
+        0.14, 0.17, 0.18, 0.14, 0.18, 0.10, 0.17, 0.08, 0.15, 1.00, 0.16, 0.09, 0.14, 0.09, 0.03,
+        0.00, 0.11,
+    ],
+    [
+        0.10, 0.42, 0.33, 0.32, 0.42, 0.21, 0.10, 0.13, 0.09, 0.16, 1.00, 0.36, 0.30, 0.25, 0.18,
+        0.00, 0.37,
+    ],
+    [
+        0.02, 0.28, 0.22, 0.22, 0.34, 0.05, -0.08, -0.07, -0.06, 0.09, 0.36, 1.00, 0.20, 0.18,
+        0.11, 0.00, 0.26,
+    ],
+    [
+        0.12, 0.36, 0.27, 0.28, 0.32, 0.18, 0.10, 0.07, 0.06, 0.14, 0.30, 0.20, 1.00, 0.28, 0.19,
+        0.00, 0.39,
+    ],
+    [
+        0.11, 0.27, 0.23, 0.22, 0.29, 0.10, 0.07, 0.05, 0.06, 0.09, 0.25, 0.18, 0.28, 1.00, 0.13,
+        0.00, 0.26,
+    ],
+    [
+        0.02, 0.20, 0.16, 0.11, 0.13, 0.08, -0.02, 0.02, 0.01, 0.03, 0.18, 0.11, 0.19, 0.13, 1.00,
+        0.00, 0.21,
+    ],
+    [
+        0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+        1.00, 0.00,
+    ],
+    [
+        0.17, 0.64, 0.54, 0.58, 0.59, 0.28, 0.13, 0.19, 0.16, 0.11, 0.37, 0.26, 0.39, 0.26, 0.21,
+        0.00, 1.00,
+    ],
+];
+
+/// Flatten [`DEFAULT_COMMODITY_INTER_BUCKET_CORR`] into a row-major `Vec<f64>`.
+pub(crate) fn default_commodity_inter_bucket_correlations_flat() -> Vec<f64> {
+    let mut flat = Vec::with_capacity(COMMODITY_BUCKET_COUNT * COMMODITY_BUCKET_COUNT);
+    for row in DEFAULT_COMMODITY_INTER_BUCKET_CORR.iter() {
+        flat.extend_from_slice(row);
     }
+    flat
 }
 
 fn resolve_simm_params(
@@ -731,6 +778,37 @@ impl SimmCalculator {
         (fx_delta * self.params.fx_delta_weight).abs()
     }
 
+    /// Calculate FX delta margin across currency risk factors.
+    ///
+    /// Each currency sensitivity is weighted and concentration-scaled
+    /// independently, then aggregated with the SIMM FX intra-bucket correlation
+    /// between distinct currency risk factors. This prevents opposite-signed
+    /// currency deltas from receiving full rho=1 offset.
+    pub fn calculate_fx_delta_bucketed(&self, fx_delta: &HashMap<Currency, f64>) -> f64 {
+        let weighted: Vec<f64> = fx_delta
+            .values()
+            .map(|delta| {
+                let ws = delta * self.params.fx_delta_weight;
+                let cf = self.concentration_factor(SimmRiskClass::Fx, ws);
+                ws * cf
+            })
+            .collect();
+
+        let mut total = 0.0;
+        for (i, ws_i) in weighted.iter().enumerate() {
+            for (j, ws_j) in weighted.iter().enumerate() {
+                let corr = if i == j {
+                    1.0
+                } else {
+                    self.params.fx_intra_bucket_correlation
+                };
+                total += corr * ws_i * ws_j;
+            }
+        }
+
+        total.max(0.0).sqrt()
+    }
+
     /// Calculate commodity delta margin using SIMM bucket risk weights.
     ///
     /// # Arguments
@@ -756,7 +834,8 @@ impl SimmCalculator {
                 let rho = if bucket_i == bucket_j {
                     1.0
                 } else {
-                    commodity_inter_bucket_correlation(bucket_i, bucket_j)
+                    self.params
+                        .commodity_inter_bucket_correlation(bucket_i, bucket_j)
                 };
                 sum += rho * weighted_i * weighted_j;
             }
@@ -990,20 +1069,10 @@ impl SimmCalculator {
             }
         }
 
-        // FX Delta. Apply the FX concentration factor per-currency before
-        // summing — SIMM v2.6 concentration is keyed on the FX risk
-        // factor, not the pooled net FX delta, so the penalty for a
-        // large single-currency position must not be diluted by offsets
-        // against other currencies.
+        // FX Delta. Apply the FX concentration factor per currency, then
+        // aggregate currency factors with the SIMM FX intra-bucket correlation.
         if !sensitivities.fx_delta.is_empty() {
-            let fx_w = self.params.fx_delta_weight;
-            let mut net_scaled = 0.0;
-            for delta in sensitivities.fx_delta.values() {
-                let ws = delta * fx_w;
-                let cf = self.concentration_factor(SimmRiskClass::Fx, ws);
-                net_scaled += ws * cf;
-            }
-            let fx_margin = net_scaled.abs();
+            let fx_margin = self.calculate_fx_delta_bucketed(&sensitivities.fx_delta);
             if fx_margin > 0.0 {
                 breakdown.insert("FX_Delta".to_string(), Money::new(fx_margin, currency));
                 risk_class_margins.insert(SimmRiskClass::Fx, fx_margin);
@@ -1270,6 +1339,22 @@ mod tests {
         assert!(cq_margin < cnq_margin);
         assert!((cq_margin - 3_650_000.0).abs() < 1.0); // 50K * 73
         assert!((cnq_margin - 25_000_000.0).abs() < 1.0); // 50K * 500
+    }
+
+    #[test]
+    fn fx_delta_bucketed_preserves_partial_offset() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+        let mut fx_delta = HashMap::default();
+        fx_delta.insert(Currency::EUR, 100.0);
+        fx_delta.insert(Currency::JPY, -100.0);
+
+        let actual = calc.calculate_fx_delta_bucketed(&fx_delta);
+        let expected = 100.0 * calc.params.fx_delta_weight;
+
+        assert!(
+            (actual - expected).abs() < 1e-9,
+            "opposite FX deltas should aggregate with rho=0.5: expected {expected}, got {actual}"
+        );
     }
 
     #[test]

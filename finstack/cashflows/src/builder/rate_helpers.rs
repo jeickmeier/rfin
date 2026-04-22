@@ -650,32 +650,20 @@ pub fn compute_overnight_rate(
         OvernightCompoundingMethod::CompoundedInArrears => {
             compute_compounded_rate(daily_rates, total_days, day_count_basis)
         }
-        OvernightCompoundingMethod::CompoundedWithLookback { lookback_days } => {
-            let lb = lookback_days as usize;
-            if lb >= daily_rates.len() {
-                if let Some(&(rate, _)) = daily_rates.first() {
-                    // When lookback exceeds the number of fixings, replace
-                    // every fixing's rate with the first fixing's rate but
-                    // preserve the original per-fixing day weights so that
-                    // compounding is applied per-fixing rather than collapsed
-                    // into a single factor.
-                    let fallback: Vec<(f64, u32)> =
-                        daily_rates.iter().map(|&(_, d)| (rate, d)).collect();
-                    compute_compounded_rate(&fallback, total_days, day_count_basis)
-                } else {
-                    0.0
-                }
-            } else {
-                let shifted: Vec<(f64, u32)> = daily_rates
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &(_, days))| {
-                        let source = i.saturating_sub(lb);
-                        (daily_rates[source].0, days)
-                    })
-                    .collect();
-                compute_compounded_rate(&shifted, total_days, day_count_basis)
-            }
+        OvernightCompoundingMethod::CompoundedWithLookback { lookback_days: _ } => {
+            // ARRC 2020 §2 / ISDA 2021 Supp. 70 §7.1(g)(ii) "Lookback": rate
+            // observations are offset earlier by `lookback_days` business
+            // days; accrual-period day weights are preserved. The upstream
+            // `sample_overnight_rates_with_lookback` in coupons.rs already
+            // pairs shifted rates with accrual weights, so the dispatcher
+            // reduces to standard in-arrears compounding over the assembled
+            // (shifted_rate, accrual_weight) pairs.
+            //
+            // Audit P1 #21 follow-up: the previous index-rewriting inside
+            // the accrual-window sample could not look up rates from before
+            // `accrual_start` and fell back to `daily_rates[0]` for the
+            // first `lookback_days` entries — muting the lookback effect.
+            compute_compounded_rate(daily_rates, total_days, day_count_basis)
         }
         OvernightCompoundingMethod::CompoundedWithLockout { lockout_days } => {
             let n = daily_rates.len();
@@ -701,37 +689,25 @@ pub fn compute_overnight_rate(
                 .collect();
             compute_compounded_rate(&locked, total_days, day_count_basis)
         }
-        OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days } => {
-            // ISDA 2021 Observation Shift: shifts BOTH rates AND accrual weights.
-            // The observation window is shifted earlier by `shift_days`, so each
-            // compounding factor uses the rate AND the day-weight from the shifted
-            // observation date. This differs from Lookback which only shifts rates.
+        OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days: _ } => {
+            // ISDA 2021 Supp. 70 §7.1(g) "Observation Shift" variant: the
+            // observation window itself is moved earlier by the configured
+            // number of business days, and BOTH the sampled rates AND the
+            // per-day weights come from the shifted window. Annualization
+            // uses the shifted-window day count.
             //
-            // Per ISDA 2021 §7.1(g), the annualization denominator must use the
-            // original accrual period day count (`total_days`), not the observation
-            // window day count. The compounding product is formed over shifted
-            // observations, but the resulting rate is defined for the contractual
-            // accrual period.
-            let shift = shift_days as usize;
-            if shift >= daily_rates.len() {
-                if let Some(&(rate, _)) = daily_rates.first() {
-                    compute_compounded_rate(&[(rate, total_days)], total_days, day_count_basis)
-                } else {
-                    0.0
-                }
-            } else {
-                let shifted: Vec<(f64, u32)> = daily_rates
-                    .iter()
-                    .enumerate()
-                    .map(|(i, _)| {
-                        let source = i.saturating_sub(shift);
-                        daily_rates[source]
-                    })
-                    .collect();
-                // Annualize over the original accrual period (total_days), not
-                // the observation window, per ISDA 2021 §7.1(g).
-                compute_compounded_rate(&shifted, total_days, day_count_basis)
-            }
+            // Audit P1 #21: the window shift is performed UPSTREAM in
+            // `emission::coupons::emit_float_coupons_on` (see
+            // `observation_window`). By the time we get here, `daily_rates`
+            // and `total_days` already describe the observation period, so
+            // the compounding product and annualization reduce to the same
+            // formula as `CompoundedInArrears`.
+            //
+            // The previous implementation shifted indices *within* the
+            // accrual-window sample, which could not access pre-accrual
+            // rates and produced SOFR/SONIA errors of 2–10 bp in normal
+            // regimes (and wider at rate-move boundaries). That is now gone.
+            compute_compounded_rate(daily_rates, total_days, day_count_basis)
         }
     }
 }

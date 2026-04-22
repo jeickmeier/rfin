@@ -197,6 +197,23 @@ pub struct FitConfig {
     pub variance_targeting: bool,
     /// Number of grid points per dimension for initial parameter search (default: 10).
     pub grid_points: usize,
+    /// Number of Halton-perturbed restarts applied after the initial solve
+    /// (default: 4, audit P1 #22). Set to `0` to disable multi-start and
+    /// restore the legacy single-start behavior.
+    #[serde(default = "default_num_restarts")]
+    pub num_restarts: usize,
+    /// Perturbation scale for multi-start initial points, expressed as a
+    /// fraction of `|x0_i| + 1e-6` per dimension (default: 0.25 = 25%).
+    #[serde(default = "default_perturbation_scale")]
+    pub perturbation_scale: f64,
+}
+
+fn default_num_restarts() -> usize {
+    4
+}
+
+fn default_perturbation_scale() -> f64 {
+    0.25
 }
 
 impl Default for FitConfig {
@@ -206,6 +223,8 @@ impl Default for FitConfig {
             tol: 1e-7,
             variance_targeting: true,
             grid_points: 10,
+            num_restarts: default_num_restarts(),
+            perturbation_scale: default_perturbation_scale(),
         }
     }
 }
@@ -533,7 +552,20 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
 
     let optimizer = super::optimizer::NelderMead::new(config.max_iter, config.tol);
     let opt_bounds: super::optimizer::Bounds = bounds.to_vec();
-    let result = optimizer.minimize(neg_ll, &best_params_vec, &opt_bounds);
+    let result = if config.num_restarts == 0 {
+        optimizer.minimize(neg_ll, &best_params_vec, &opt_bounds)
+    } else {
+        // Audit P1 #22: Halton-perturbed multi-start escapes plateau/ridge
+        // behavior near the GARCH stationarity frontier where single-start
+        // Nelder-Mead can stall at a local minimum.
+        optimizer.minimize_multi_start(
+            neg_ll,
+            &best_params_vec,
+            &opt_bounds,
+            config.num_restarts,
+            config.perturbation_scale,
+        )
+    };
 
     let final_params =
         GarchParams::from_vec(&result.x, dist, has_gamma, model.family()).with_mean(sample_mean);

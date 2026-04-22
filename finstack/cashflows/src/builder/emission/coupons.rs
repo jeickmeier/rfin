@@ -17,6 +17,7 @@ use finstack_core::InputError;
 use tracing::{info, warn};
 
 use crate::builder::rate_helpers::{ResolvedFloatingRateFallback, ResolvedFloatingRateSpec};
+use crate::builder::specs::OvernightCompoundingMethod;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
@@ -226,22 +227,152 @@ pub(crate) fn emit_fixed_coupons_on(
     Ok(pik_to_add)
 }
 
-/// Sample daily overnight rates from a forward curve for an accrual period.
+/// Compute the observation window `[obs_start, obs_end)` for overnight rate
+/// sampling per ISDA 2021 Supp. 70 §7.1(g).
 ///
-/// For each calendar day in `[accrual_start, accrual_end)`, assigns the overnight
+/// For `CompoundedWithObservationShift { shift_days }`, both window endpoints
+/// are moved earlier by `shift_days` business days so the compounding product
+/// uses pre-accrual rates AND their pre-accrual day weights (the so-called
+/// "shift both" convention used by EUR €STR at 2 BD and GBP SONIA at 5 BD).
+///
+/// For every other method (`CompoundedInArrears`, `SimpleAverage`,
+/// `CompoundedWithLookback`, `CompoundedWithLockout`) the observation window
+/// coincides with the accrual window; method-specific rate-index shifting
+/// (lookback) or end-of-period lockout remains a concern of
+/// [`crate::builder::rate_helpers::compute_overnight_rate`]. The Lookback
+/// variant is known to still apply its shift inside the accrual window and
+/// is tracked as a follow-up to audit P1 #21 (ARRC 2020 SOFR at 2 BD).
+///
+/// Audit: P1 #21.
+fn observation_window(
+    method: &OvernightCompoundingMethod,
+    accrual_start: Date,
+    accrual_end: Date,
+    calendar: &dyn finstack_core::dates::HolidayCalendar,
+) -> finstack_core::Result<(Date, Date)> {
+    if let OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days } = method {
+        if *shift_days > 0 {
+            // Attempting shifts greater than i32::MAX is nonsensical and the
+            // underlying u32 → i32 cast would wrap; guard defensively.
+            let shift_i32: i32 = i32::try_from(*shift_days).map_err(|_| {
+                finstack_core::Error::Validation(format!(
+                    "observation shift_days = {shift_days} exceeds i32::MAX"
+                ))
+            })?;
+            let obs_start = accrual_start.add_business_days(-shift_i32, calendar)?;
+            let obs_end = accrual_end.add_business_days(-shift_i32, calendar)?;
+            return Ok((obs_start, obs_end));
+        }
+    }
+    Ok((accrual_start, accrual_end))
+}
+
+/// Sample overnight rates with the ISDA 2021 / ARRC 2020 "Lookback" convention.
+///
+/// For each accrual-period business day `d`, the observed rate is sampled from
+/// the forward curve `lookback_bd` business days **before** `d`, while the
+/// per-day weight remains the accrual-period calendar-day weight tied to `d`.
+/// Annualization uses the accrual-period day count.
+///
+/// This differs from `sample_overnight_rates` called on a shifted window:
+/// that variant shifts BOTH rates and weights (Observation Shift). Lookback
+/// shifts only the rate-observation index.
+///
+/// Audit P1 #21 follow-up: the previous in-dispatcher index rewriting could
+/// not sample rates from before `accrual_start` and fell back to
+/// `daily_rates[0]` for the first `lookback_bd` entries, muting the SOFR 2 BD
+/// lookback by up to the first-week contribution. This helper walks the
+/// accrual business days and looks up each observation date directly via
+/// [`finstack_core::dates::DateExt::add_business_days`].
+///
+/// Reference: ARRC 2020 *Recommended Conventions* §2 "Lookback";
+/// ISDA 2021 Supp. 70 §7.1(g)(ii).
+fn sample_overnight_rates_with_lookback(
+    accrual_start: Date,
+    accrual_end: Date,
+    lookback_bd: u32,
+    fwd: &ForwardCurve,
+    calendar: &dyn finstack_core::dates::HolidayCalendar,
+) -> finstack_core::Result<(Vec<(f64, u32)>, u32)> {
+    if lookback_bd == 0 {
+        let out = sample_overnight_rates(accrual_start, accrual_end, fwd, calendar);
+        return Ok(out);
+    }
+    let lookback_i32: i32 = i32::try_from(lookback_bd).map_err(|_| {
+        finstack_core::Error::Validation(format!("lookback_days = {lookback_bd} exceeds i32::MAX"))
+    })?;
+
+    let fwd_dc = fwd.day_count();
+    let fwd_base = fwd.base_date();
+    let fwd_dc_basis: f64 = match fwd_dc {
+        finstack_core::dates::DayCount::Act365F | finstack_core::dates::DayCount::Act365L => 365.0,
+        _ => 360.0,
+    };
+
+    let mut daily_rates: Vec<(f64, u32)> = Vec::new();
+    let mut pre_first_fixing_days: u32 = 0;
+    let mut current = accrual_start;
+
+    while current < accrual_end {
+        let next = current + time::Duration::days(1);
+        let next_capped = if next > accrual_end {
+            accrual_end
+        } else {
+            next
+        };
+        let days = (next_capped - current).whole_days().max(1) as u32;
+
+        if current.is_business_day(calendar) {
+            // ARRC 2020 §2: rate observation moves back `lookback_bd` business
+            // days; accrual weight remains tied to `current`.
+            let obs_date = current.add_business_days(-lookback_i32, calendar)?;
+            let t = if obs_date <= fwd_base {
+                0.0
+            } else {
+                fwd_dc
+                    .year_fraction(
+                        fwd_base,
+                        obs_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0)
+            };
+            let overnight_dt = (days as f64) / fwd_dc_basis;
+            let rate = fwd.rate_period(t, t + overnight_dt);
+            let total = days + pre_first_fixing_days;
+            pre_first_fixing_days = 0;
+            daily_rates.push((rate, total));
+        } else if daily_rates.is_empty() {
+            pre_first_fixing_days += days;
+        } else if let Some(last) = daily_rates.last_mut() {
+            last.1 += days;
+        }
+        current = next_capped;
+    }
+
+    let total_days = (accrual_end - accrual_start).whole_days().max(1) as u32;
+    Ok((daily_rates, total_days))
+}
+
+/// Sample daily overnight rates from a forward curve over a given observation window.
+///
+/// For each calendar day in `[window_start, window_end)`, assigns the overnight
 /// rate fixing at the nearest preceding business day. Non-business days before the
 /// first fixing accumulate into the first business day's weight; non-business days
 /// after a fixing accumulate into the preceding fixing's weight.
 ///
 /// Returns `(daily_rates, total_days)` where:
 /// - `daily_rates` is a vec of `(rate, weight_days)` per fixing date.
-/// - `total_days` is the total calendar days in the period (used as the denominator
+/// - `total_days` is the total calendar days in the window (used as the denominator
 ///   for simple-average compounding methods).
 ///
 /// # ISDA 2021 Reference
 ///
 /// Per Section 7.1(g): the rate for each Reset Date accrues for the number of
 /// calendar days from that Reset Date to the next Reset Date (or period end).
+/// Callers pass the accrual window for in-arrears / lookback / lockout variants
+/// and the **shifted** observation window for `CompoundedWithObservationShift`
+/// (see [`observation_window`]).
 fn sample_overnight_rates(
     accrual_start: Date,
     accrual_end: Date,
@@ -395,11 +526,45 @@ pub(crate) fn emit_float_coupons_on(
                 // Sample daily rates from the forward curve and compound them
                 // according to the ISDA 2021 method, then apply floor/cap/gearing/spread.
                 if let Some(fwd) = resolved_curve.as_deref() {
-                    // Sample per-business-day overnight rates and their calendar-day weights
-                    // from the forward curve. Extracted to `sample_overnight_rates` for
-                    // independent testability and separation of rate-sampling from compounding.
-                    let (daily_rates, total_days) =
-                        sample_overnight_rates(accrual_start, accrual_end, fwd, calendar);
+                    // Per-variant sampling so each ISDA 2021 convention gets
+                    // rates from the correct window:
+                    //
+                    // - `CompoundedWithLookback`: rates sampled from
+                    //   `lookback_days` business days before each accrual-
+                    //   period business day; weights remain accrual-tied.
+                    //   Annualization = accrual-period day count.
+                    //   (ARRC 2020 §2; ISDA 2021 Supp. 70 §7.1(g)(ii).)
+                    // - `CompoundedWithObservationShift`: the whole window
+                    //   moves earlier by `shift_days` business days — both
+                    //   rates AND weights come from the shifted window.
+                    //   Annualization = shifted-window day count.
+                    //   (ISDA 2021 Supp. 70 §7.1(g)(i).)
+                    // - All other variants: sample on the accrual window.
+                    //
+                    // Audit P1 #21 + follow-up: previously all variants went
+                    // through the accrual-window sampler and the shift was
+                    // applied post-hoc in `compute_overnight_rate` as index
+                    // rewriting, which could not access rates from before
+                    // accrual start and produced SOFR/SONIA errors of 2–10 bp
+                    // (ARRC 2020; BoE SONIA Compounded Index Guide).
+                    let (daily_rates, total_days) = match method {
+                        OvernightCompoundingMethod::CompoundedWithLookback { lookback_days }
+                            if *lookback_days > 0 =>
+                        {
+                            sample_overnight_rates_with_lookback(
+                                accrual_start,
+                                accrual_end,
+                                *lookback_days,
+                                fwd,
+                                calendar,
+                            )?
+                        }
+                        _ => {
+                            let (obs_start, obs_end) =
+                                observation_window(method, accrual_start, accrual_end, calendar)?;
+                            sample_overnight_rates(obs_start, obs_end, fwd, calendar)
+                        }
+                    };
 
                     // Use the index's native compounding basis, not the leg's
                     // accrual day count. Defaults to Act/360 (SOFR, ESTR, TONA);

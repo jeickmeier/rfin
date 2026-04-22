@@ -300,6 +300,9 @@ fn evaluate_period_aggregate_function(
             } else {
                 collect_expression_window_values(&args[0], context, window, node_id)?
             };
+            if values.len() < window || !values.iter().all(|value| value.is_finite()) {
+                return Ok(f64::NAN);
+            }
             Ok(sum_finite_or_nan(&values))
         }
         _ => Err(eval_error(

@@ -286,6 +286,25 @@ impl Copula for MultiFactorCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        // Single-sector shortcut: every name is treated as belonging to the
+        // one available sector factor (`sector_idx = 1`). Cross-sector
+        // behavior is only exposed through `conditional_default_prob_with_sector`
+        // with `sector_idx = 0`.
+        self.conditional_default_prob_with_sector(
+            default_threshold,
+            factor_realization,
+            correlation,
+            1,
+        )
+    }
+
+    fn conditional_default_prob_with_sector(
+        &self,
+        default_threshold: f64,
+        factor_realization: &[f64],
+        correlation: f64,
+        sector_idx: usize,
+    ) -> f64 {
         // Length mismatch is a programmer error. In debug, fail loudly; in
         // release, return the unconditional PD Φ(c) (the no-information
         // answer) rather than silently zeroing missing factors — a zeroed
@@ -306,8 +325,20 @@ impl Copula for MultiFactorCopula {
             return norm_cdf(default_threshold);
         }
 
-        let (global_loading, sector_loading) =
+        let (global_loading, sector_loading_full) =
             self.decompose_correlation(correlation, self.sector_fraction);
+
+        // Audit P1 #16: `sector_idx = 0` marks the name as sector-unaffected
+        // (cross-sector only), so we zero its sector loading. Any positive
+        // `sector_idx` binds the name to the sector factor at that slot —
+        // with the current 2-factor parameterization that is slot index 1
+        // in `factor_realization`. A future multi-sector extension will
+        // generalize this by selecting `factor_realization[sector_idx]`.
+        let sector_loading = if sector_idx == 0 {
+            0.0
+        } else {
+            sector_loading_full
+        };
 
         let (z_global, z_sector) = match factor_realization {
             [z_global] => (*z_global, 0.0),
@@ -510,5 +541,59 @@ mod tests {
             "Intra-sector correlation {} should be ≤ 1",
             intra
         );
+    }
+
+    /// Audit P1 #16: `conditional_default_prob_with_sector(..., sector_idx=0)`
+    /// must drop the sector-factor contribution, so a cross-sector name
+    /// effectively sees only the global-factor correlation `β_G²`. This
+    /// produces a different conditional PD than the default `sector_idx=1`
+    /// path whenever the sector loading is non-zero.
+    #[test]
+    fn test_sector_aware_conditional_prob_distinguishes_cross_sector() {
+        let copula = MultiFactorCopula::with_loadings_and_sector_fraction(2, 0.5, 0.4, 0.5);
+        let threshold = standard_normal_inv_cdf(0.05);
+        let total_corr = 0.40;
+
+        // Pick a shock where the sector factor matters: z_global small, z_sector large.
+        let factors = [0.1, 1.5];
+
+        let intra = copula.conditional_default_prob_with_sector(threshold, &factors, total_corr, 1);
+        let cross = copula.conditional_default_prob_with_sector(threshold, &factors, total_corr, 0);
+        let legacy = copula.conditional_default_prob(threshold, &factors, total_corr);
+
+        // Cross-sector must differ from intra-sector when the sector shock is non-zero.
+        assert!(
+            (intra - cross).abs() > 1e-4,
+            "sector_idx=0 (cross) vs sector_idx=1 (intra) must differ on a non-zero sector shock: intra={intra:.6}, cross={cross:.6}"
+        );
+        // Legacy `conditional_default_prob` must continue to match the
+        // intra-sector branch (sector_idx = 1) so existing pricing paths
+        // are unaffected.
+        assert!(
+            (legacy - intra).abs() < 1e-12,
+            "legacy conditional_default_prob must match sector_idx=1: legacy={legacy:.9}, intra={intra:.9}"
+        );
+    }
+
+    /// Audit P1 #16: the default `Copula` trait method must ignore
+    /// `sector_idx` for sector-unaware copulas, preserving backwards
+    /// compatibility across Gaussian / Student-t / RFL implementations.
+    #[test]
+    fn test_sector_aware_default_ignores_sector_idx_for_gaussian() {
+        use super::super::GaussianCopula;
+        let gaussian = GaussianCopula::new();
+        let threshold = standard_normal_inv_cdf(0.05);
+        let factors = [0.25];
+        let corr = 0.30;
+
+        let base = gaussian.conditional_default_prob(threshold, &factors, corr);
+        for sector_idx in [0, 1, 2, 99] {
+            let s = gaussian
+                .conditional_default_prob_with_sector(threshold, &factors, corr, sector_idx);
+            assert!(
+                (s - base).abs() < 1e-12,
+                "GaussianCopula sector_idx={sector_idx} must match base PD: base={base:.9}, s={s:.9}"
+            );
+        }
     }
 }

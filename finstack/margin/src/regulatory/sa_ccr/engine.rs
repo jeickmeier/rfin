@@ -31,11 +31,19 @@ impl SaCcrEngine {
     /// Compute EAD for a netting set.
     ///
     /// `EAD = alpha * (RC + PFE)` where `PFE = multiplier * AddOn_aggregate`.
+    ///
+    /// Each trade is validated via [`SaCcrTrade::validate`] before aggregation
+    /// so that direction / supervisory-delta / option-type inconsistencies
+    /// surface as a validation error rather than a silently reversed add-on
+    /// contribution (audit N2).
     pub fn calculate_ead(
         &self,
         config: &SaCcrNettingSetConfig,
         trades: &[SaCcrTrade],
     ) -> Result<EadResult> {
+        for trade in trades {
+            trade.validate()?;
+        }
         let rc = replacement_cost(config, trades);
         let (mult, add_on_agg, add_on_by_class) = pfe(config, trades);
         let pfe_value = mult * add_on_agg;
@@ -505,6 +513,25 @@ mod tests {
     // -----------------------------------------------------------------------
     // Property: EAD >= 0
     // -----------------------------------------------------------------------
+
+    /// Audit N2: invalid trades must surface at `calculate_ead` boundary, not
+    /// silently miscontribute to the add-on via a sign-flipped adjusted notional.
+    #[test]
+    fn calculate_ead_rejects_trade_with_supervisory_delta_sign_mismatch() {
+        let engine = SaCcrEngine::builder().build().expect("build");
+        let config = unmargined_config(0.0);
+        let mut bad = simple_ir_trade("BAD", 100_000_000.0, 1.0, 0.0);
+        // Linear long direction with short supervisory_delta: caller bug.
+        bad.supervisory_delta = -1.0;
+        let err = engine
+            .calculate_ead(&config, &[bad])
+            .expect_err("sign mismatch must bubble up at the engine boundary");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("BAD") && msg.contains("agree in sign"),
+            "expected engine boundary error: {msg}"
+        );
+    }
 
     #[test]
     fn ead_always_non_negative() {

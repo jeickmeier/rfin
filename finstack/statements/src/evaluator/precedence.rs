@@ -17,15 +17,31 @@ use finstack_core::dates::PeriodId;
 /// * `node_spec` - Node metadata that includes values, forecast config, and formula text
 /// * `period_id` - Period being evaluated
 /// * `is_actual_period` - Flag indicating whether the period is classified as actuals (forecasts are skipped)
-pub fn resolve_node_value(
+#[cfg(test)]
+fn resolve_node_value(
     node_spec: &NodeSpec,
     period_id: &PeriodId,
     is_actual_period: bool,
 ) -> Result<NodeValueSource> {
+    resolve_node_value_with_policy(node_spec, period_id, is_actual_period, true)
+}
+
+/// Resolve a node value with explicit control over period values visibility.
+///
+/// `allow_explicit_values = false` is used by as-of evaluation to hide future
+/// actual values while still allowing forecast/formula fallbacks.
+pub(crate) fn resolve_node_value_with_policy(
+    node_spec: &NodeSpec,
+    period_id: &PeriodId,
+    is_actual_period: bool,
+    allow_explicit_values: bool,
+) -> Result<NodeValueSource> {
     // 1. Check for explicit value (highest precedence)
-    if let Some(values) = &node_spec.values {
-        if let Some(amount_or_scalar) = values.get(period_id) {
-            return Ok(NodeValueSource::Value(amount_or_scalar.value()));
+    if allow_explicit_values {
+        if let Some(values) = &node_spec.values {
+            if let Some(amount_or_scalar) = values.get(period_id) {
+                return Ok(NodeValueSource::Value(amount_or_scalar.value()));
+            }
         }
     }
 
@@ -41,10 +57,17 @@ pub fn resolve_node_value(
 
     // 4. No resolution method available
     match node_spec.node_type {
-        NodeType::Value => Err(Error::eval(format!(
-            "Value node '{}' has no value for period {}",
-            node_spec.node_id, period_id
-        ))),
+        NodeType::Value => {
+            let visibility_note = if allow_explicit_values {
+                ""
+            } else {
+                " visible under the active as_of policy"
+            };
+            Err(Error::eval(format!(
+                "Value node '{}' has no{} value for period {}",
+                node_spec.node_id, visibility_note, period_id
+            )))
+        }
         NodeType::Calculated => Err(Error::eval(format!(
             "Calculated node '{}' has no formula",
             node_spec.node_id

@@ -197,6 +197,10 @@ pub struct SimmParams {
     pub equity_delta_weight: f64,
     /// FX delta risk weight.
     pub fx_delta_weight: f64,
+    /// FX delta intra-bucket correlation between distinct currency risk factors.
+    ///
+    /// ISDA SIMM v2.6 uses a uniform 0.5 correlation for FX delta factors.
+    pub fx_intra_bucket_correlation: f64,
     /// Cross-risk-class correlations keyed by risk-class pair.
     pub risk_class_correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64>,
     /// Commodity delta risk weights keyed by bucket label.
@@ -243,6 +247,14 @@ pub struct SimmParams {
     /// When the net weighted sensitivity in a bucket exceeds its threshold,
     /// a sqrt(|WS| / threshold) concentration factor is applied.
     pub cq_concentration_thresholds: HashMap<SimmCreditSector, f64>,
+    /// Commodity inter-bucket correlation matrix (17×17, row-major).
+    ///
+    /// Per ISDA SIMM v2.6 Table 11. Populated at registry load from
+    /// [`crate::calculators::im::simm::DEFAULT_COMMODITY_INTER_BUCKET_CORR`]
+    /// and PSD-validated via `validate_simm_correlations_psd` (audit P2 #25
+    /// follow-up). Bucket 16 ("Other" / residual) is zero-correlated with
+    /// every other bucket per the specification.
+    pub commodity_inter_bucket_correlations: Vec<f64>,
 }
 
 static EMBEDDED_REGISTRY: OnceLock<MarginRegistry> = OnceLock::new();
@@ -525,6 +537,12 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
         validate_rate("simm.cnq_delta_weight", record.cnq_delta_weight)?;
         validate_rate("simm.equity_delta_weight", record.equity_delta_weight)?;
         validate_rate("simm.fx_delta_weight", record.fx_delta_weight)?;
+        let fx_intra_bucket_correlation = record.fx_intra_bucket_correlation.unwrap_or(0.5);
+        if !(-1.0..=1.0).contains(&fx_intra_bucket_correlation) {
+            return Err(Error::Validation(
+                "simm.fx_intra_bucket_correlation must be in [-1,1]".to_string(),
+            ));
+        }
 
         let mut correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64> = HashMap::default();
         for cor in record.risk_class_correlations {
@@ -559,6 +577,8 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
                 .copied()
                 .unwrap_or(9_500_000.0),
         );
+        let commodity_inter_bucket_correlations =
+            crate::calculators::im::simm::default_commodity_inter_bucket_correlations_flat();
 
         let params = SimmParams {
             version,
@@ -568,6 +588,7 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             cnq_delta_weight: record.cnq_delta_weight,
             equity_delta_weight: record.equity_delta_weight,
             fx_delta_weight: record.fx_delta_weight,
+            fx_intra_bucket_correlation,
             risk_class_correlations: correlations,
             commodity_bucket_weights,
             ir_tenor_correlations,
@@ -584,6 +605,7 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             cq_intra_bucket_correlation,
             cq_inter_bucket_correlations,
             cq_concentration_thresholds,
+            commodity_inter_bucket_correlations,
         };
 
         validate_simm_params(&params)?;
@@ -868,6 +890,11 @@ fn validate_simm_params(p: &SimmParams) -> Result<()> {
     validate_non_negative("simm.cnq_delta_weight", p.cnq_delta_weight)?;
     validate_non_negative("simm.equity_delta_weight", p.equity_delta_weight)?;
     validate_non_negative("simm.fx_delta_weight", p.fx_delta_weight)?;
+    if !(-1.0..=1.0).contains(&p.fx_intra_bucket_correlation) {
+        return Err(Error::Validation(
+            "simm.fx_intra_bucket_correlation must be in [-1,1]".to_string(),
+        ));
+    }
     validate_non_negative("simm.ir_vega_weight", p.ir_vega_weight)?;
     validate_non_negative("simm.cq_vega_weight", p.cq_vega_weight)?;
     validate_non_negative("simm.cnq_vega_weight", p.cnq_vega_weight)?;
@@ -878,7 +905,168 @@ fn validate_simm_params(p: &SimmParams) -> Result<()> {
     for (rc, v) in &p.concentration_thresholds {
         validate_non_negative(&format!("simm.concentration_thresholds[{rc:?}]"), *v)?;
     }
+    validate_simm_correlations_psd(p)?;
     Ok(())
+}
+
+/// Validate that SIMM correlation matrices are positive semi-definite.
+///
+/// Hand-typed or overlay-supplied correlation matrices can become non-PSD through
+/// a single typo (e.g. swapping two adjacent off-diagonals). A non-PSD correlation
+/// matrix propagates silently through `K_b = sqrt(Σ WSᵢ² + Σ ρᵢⱼ WSᵢ WSⱼ)` — the
+/// sum under the sqrt clamps to zero (or worse, aggregates a negative variance)
+/// producing a regulatory miscalculation without an obvious failure signal.
+///
+/// Checks the three correlation matrices the SIMM calculator consumes:
+///
+/// 1. `risk_class_correlations` — 6×6 matrix across `SimmRiskClass`.
+/// 2. `ir_tenor_correlations` — n×n matrix over the `ir_delta_weights` tenor keys.
+/// 3. `cq_inter_bucket_correlations` — 9×9 matrix across `SimmCreditSector`.
+///
+/// Missing off-diagonal entries are filled with the calculator's own fallback
+/// value (see `SimmParams::correlation` / `cq_inter_bucket_correlation`) so the
+/// validated matrix is the one the calculator will actually observe at runtime.
+///
+/// Audit: P2 #25.
+fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
+    use crate::SimmCreditSector::{
+        BasicMaterials, ConsumerGoods, Financial, HealthCare, Index, Residual, Securitized,
+        Sovereign, TechnologyMedia,
+    };
+    use crate::SimmRiskClass::{
+        Commodity, CreditNonQualifying, CreditQualifying, Equity, Fx, InterestRate,
+    };
+
+    // 1. Cross-risk-class matrix (6x6). Missing pairs fall back to 1.0 per the
+    //    calculator's `SimmParams::correlation` — validate the effective matrix.
+    let risk_classes = [
+        InterestRate,
+        CreditQualifying,
+        CreditNonQualifying,
+        Equity,
+        Commodity,
+        Fx,
+    ];
+    validate_dense_correlation_matrix(
+        &risk_classes,
+        "risk_class_correlations",
+        p.version,
+        |a, b| {
+            let key = ordered_risk_class_pair(*a, *b);
+            p.risk_class_correlations.get(&key).copied().unwrap_or(1.0)
+        },
+    )?;
+
+    // 2. IR tenor correlations — all pairs guaranteed present by the earlier
+    //    completeness check in `simm.rs::validate_simm_params`, but we re-assert
+    //    here via the same fallback path (1.0) so the registry-level check is
+    //    self-contained.
+    let tenors: Vec<&str> = p
+        .ir_delta_weights
+        .keys()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let mut tenors_sorted = tenors.clone();
+    tenors_sorted.sort_unstable();
+    validate_dense_correlation_matrix(
+        &tenors_sorted,
+        "ir_tenor_correlations",
+        p.version,
+        |a, b| {
+            let key = ordered_tenor_pair(a, b);
+            p.ir_tenor_correlations.get(&key).copied().unwrap_or(1.0)
+        },
+    )?;
+
+    // 3. CQ inter-bucket correlations (9x9). Missing pairs fall back to 0.27 per
+    //    the calculator's `SimmParams::cq_inter_bucket_correlation`.
+    let sectors = [
+        Sovereign,
+        Financial,
+        BasicMaterials,
+        ConsumerGoods,
+        TechnologyMedia,
+        HealthCare,
+        Index,
+        Securitized,
+        Residual,
+    ];
+    validate_dense_correlation_matrix(
+        &sectors,
+        "cq_inter_bucket_correlations",
+        p.version,
+        |a, b| {
+            let key = ordered_credit_sector_pair(*a, *b);
+            p.cq_inter_bucket_correlations
+                .get(&key)
+                .copied()
+                .unwrap_or(0.27)
+        },
+    )?;
+
+    // 4. Commodity inter-bucket correlations (17x17). Already dense in
+    //    row-major form — validate directly without densification. The matrix
+    //    is loaded from DEFAULT_COMMODITY_INTER_BUCKET_CORR unless an overlay
+    //    supplied a replacement (future work once the schema exposes this).
+    let n = crate::calculators::im::simm::COMMODITY_BUCKET_COUNT;
+    let expected_len = n * n;
+    if p.commodity_inter_bucket_correlations.len() != expected_len {
+        return Err(Error::Validation(format!(
+            "SIMM registry {:?}: commodity_inter_bucket_correlations has {} entries, expected {n}x{n} = {expected_len}",
+            p.version,
+            p.commodity_inter_bucket_correlations.len()
+        )));
+    }
+    finstack_core::math::linalg::validate_correlation_matrix(
+        &p.commodity_inter_bucket_correlations,
+        n,
+    )
+    .map_err(|_| {
+        Error::Validation(format!(
+            "SIMM registry {:?}: commodity_inter_bucket_correlations is not a valid {n}x{n} correlation matrix (failed diagonal / range / symmetry / PSD check)",
+            p.version
+        ))
+    })?;
+
+    Ok(())
+}
+
+/// Build a dense symmetric correlation matrix from a sparse lookup and validate it.
+///
+/// The diagonal is fixed at 1.0; off-diagonals are sourced from `lookup`. The resulting
+/// matrix is handed to [`finstack_core::math::linalg::validate_correlation_matrix`],
+/// which checks diagonal exactness, off-diagonal range, symmetry, and positive
+/// semi-definiteness.
+///
+/// On failure, the error message names the matrix and the SIMM version so a bad
+/// registry overlay can be traced back to the exact parameter set at load time.
+fn validate_dense_correlation_matrix<T, F>(
+    keys: &[T],
+    matrix_name: &str,
+    version: crate::SimmVersion,
+    lookup: F,
+) -> Result<()>
+where
+    F: Fn(&T, &T) -> f64,
+{
+    let n = keys.len();
+    if n < 2 {
+        return Ok(());
+    }
+    let mut matrix = vec![0.0; n * n];
+    for (i, a) in keys.iter().enumerate() {
+        matrix[i * n + i] = 1.0;
+        for (j, b) in keys.iter().enumerate().skip(i + 1) {
+            let rho = lookup(a, b);
+            matrix[i * n + j] = rho;
+            matrix[j * n + i] = rho;
+        }
+    }
+    finstack_core::math::linalg::validate_correlation_matrix(&matrix, n).map_err(|_| {
+        Error::Validation(format!(
+            "SIMM registry {version:?}: {matrix_name} is not a valid correlation matrix (failed diagonal / range / symmetry / PSD check — see finstack_core::math::linalg::validate_correlation_matrix)"
+        ))
+    })
 }
 
 fn validate_rate(name: &str, v: f64) -> Result<()> {
@@ -1043,6 +1231,149 @@ mod tests {
         assert!(
             !params.risk_class_correlations.is_empty(),
             "risk class correlations should be populated"
+        );
+    }
+
+    // ---- P2 #25: PSD validation at registry load ------------------------------
+
+    /// Clone the embedded v2_6 SIMM params for mutation in PSD tests.
+    fn base_simm_params() -> SimmParams {
+        let registry = embedded_registry().expect("embedded registry should load");
+        let id = registry.simm_default.as_ref().expect("simm_default set");
+        registry.simm.get(id).expect("default simm params").clone()
+    }
+
+    #[test]
+    fn psd_check_accepts_embedded_registry() {
+        // Regression guard: shipped ISDA correlation matrices must continue to
+        // satisfy PSD after the new check is wired in.
+        let params = base_simm_params();
+        validate_simm_correlations_psd(&params).expect("embedded SIMM correlations must be PSD");
+    }
+
+    #[test]
+    fn psd_check_rejects_non_psd_risk_class_matrix() {
+        // Non-PSD 3-way pattern: ρ(IR,CQ)=0.9, ρ(IR,EQ)=0.9, ρ(CQ,EQ)=-0.9.
+        // Determinant of the embedded 3x3 submatrix is -2.888 < 0 → one negative
+        // eigenvalue → NOT positive semi-definite, even though every entry is in
+        // [-1, 1]. Exactly the silent-propagation failure mode P2 #25 targets.
+        let mut params = base_simm_params();
+        params.risk_class_correlations.insert(
+            ordered_risk_class_pair(SimmRiskClass::InterestRate, SimmRiskClass::CreditQualifying),
+            0.9,
+        );
+        params.risk_class_correlations.insert(
+            ordered_risk_class_pair(SimmRiskClass::InterestRate, SimmRiskClass::Equity),
+            0.9,
+        );
+        params.risk_class_correlations.insert(
+            ordered_risk_class_pair(SimmRiskClass::CreditQualifying, SimmRiskClass::Equity),
+            -0.9,
+        );
+
+        let err = validate_simm_correlations_psd(&params)
+            .expect_err("non-PSD risk-class matrix must be rejected (P2 #25)");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("risk_class_correlations"),
+            "error should name the offending matrix: {msg}"
+        );
+    }
+
+    #[test]
+    fn psd_check_rejects_non_psd_cq_inter_bucket_matrix() {
+        // Same 3-way non-PSD pattern applied to the CQ inter-bucket matrix.
+        let mut params = base_simm_params();
+        params.cq_inter_bucket_correlations.insert(
+            ordered_credit_sector_pair(SimmCreditSector::Sovereign, SimmCreditSector::Financial),
+            0.9,
+        );
+        params.cq_inter_bucket_correlations.insert(
+            ordered_credit_sector_pair(
+                SimmCreditSector::Sovereign,
+                SimmCreditSector::BasicMaterials,
+            ),
+            0.9,
+        );
+        params.cq_inter_bucket_correlations.insert(
+            ordered_credit_sector_pair(
+                SimmCreditSector::Financial,
+                SimmCreditSector::BasicMaterials,
+            ),
+            -0.9,
+        );
+
+        let err = validate_simm_correlations_psd(&params)
+            .expect_err("non-PSD CQ inter-bucket matrix must be rejected (P2 #25)");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("cq_inter_bucket_correlations"),
+            "error should name the offending matrix: {msg}"
+        );
+    }
+
+    #[test]
+    fn psd_check_accepts_embedded_commodity_matrix() {
+        // Regression guard: the ISDA SIMM v2.6 Table 11 commodity matrix must
+        // continue to pass PSD validation after any future edit to the default.
+        let params = base_simm_params();
+        validate_simm_correlations_psd(&params)
+            .expect("embedded commodity 17x17 matrix must be PSD");
+    }
+
+    #[test]
+    fn psd_check_rejects_non_psd_commodity_matrix() {
+        // Same 3-way non-PSD pattern applied to the commodity matrix.
+        // Write (i,j) and (j,i) symmetrically so only the PSD branch fires.
+        let mut params = base_simm_params();
+        let n = crate::calculators::im::simm::COMMODITY_BUCKET_COUNT;
+        let set = |m: &mut Vec<f64>, i: usize, j: usize, v: f64| {
+            m[i * n + j] = v;
+            m[j * n + i] = v;
+        };
+        set(&mut params.commodity_inter_bucket_correlations, 0, 1, 0.9);
+        set(&mut params.commodity_inter_bucket_correlations, 0, 2, 0.9);
+        set(&mut params.commodity_inter_bucket_correlations, 1, 2, -0.9);
+
+        let err = validate_simm_correlations_psd(&params)
+            .expect_err("non-PSD commodity matrix must be rejected (P2 #25)");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("commodity_inter_bucket_correlations"),
+            "error should name the offending matrix: {msg}"
+        );
+    }
+
+    #[test]
+    fn psd_check_rejects_wrong_shape_commodity_matrix() {
+        let mut params = base_simm_params();
+        params.commodity_inter_bucket_correlations.truncate(16 * 16);
+        let err = validate_simm_correlations_psd(&params)
+            .expect_err("wrong-shape commodity matrix must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("commodity_inter_bucket_correlations") && msg.contains("expected"),
+            "error should name the matrix and expected shape: {msg}"
+        );
+    }
+
+    #[test]
+    fn psd_check_rejects_out_of_range_correlation() {
+        // |ρ| > 1 is a range-check failure (validate_correlation_matrix catches
+        // it before the Cholesky stage). Still routed through the PSD validator
+        // so the registry rejects at load time rather than producing complex
+        // sqrt downstream.
+        let mut params = base_simm_params();
+        params.risk_class_correlations.insert(
+            ordered_risk_class_pair(SimmRiskClass::InterestRate, SimmRiskClass::Equity),
+            1.5,
+        );
+        let err =
+            validate_simm_correlations_psd(&params).expect_err("|ρ| > 1 must be rejected (P2 #25)");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("risk_class_correlations"),
+            "error should name the offending matrix: {msg}"
         );
     }
 }

@@ -989,6 +989,136 @@ where
     Ok(sum * h)
 }
 
+// -----------------------------------------------------------------------------
+// Gauss-Laguerre quadrature via Golub-Welsch
+// -----------------------------------------------------------------------------
+
+/// Gauss-Laguerre quadrature for the weight `e^{−x}` on `[0, ∞)`.
+///
+/// Nodes and weights are computed at runtime via the **Golub-Welsch**
+/// algorithm — spectral decomposition of the Jacobi (recurrence) matrix of
+/// the Laguerre polynomials. Unlike [`GaussHermiteQuadrature`], which uses
+/// precomputed tables for a fixed set of orders, this rule supports any
+/// order `n ≥ 1` at a one-time `O(n²)` startup cost, making it suitable
+/// for copula/credit models whose required quadrature order varies with
+/// the degrees-of-freedom parameter (e.g., Student-t copula with
+/// heavier-than-default tails needs `n > 10`).
+///
+/// # Algorithm
+///
+/// For Laguerre polynomials the three-term recurrence
+/// `L_{k+1}(x) = ((2k + 1 − x) L_k(x) − k · L_{k−1}(x)) / (k + 1)`
+/// gives the symmetrized Jacobi matrix
+///
+/// ```text
+///      ┌                                           ┐
+///      │ 1   1                                     │
+///      │ 1   3   2                                 │
+/// J =  │     2   5   3                             │
+///      │         3   7   4                         │
+///      │             ⋱    ⋱    ⋱                   │
+///      │                 n-1  2n-1                 │
+///      └                                           ┘
+/// ```
+///
+/// with `J[k, k] = 2k + 1` and `J[k, k±1] = k` (1-based off-diagonal).
+/// If `J = Q D Qᵀ` is its spectral decomposition, then
+///
+/// * nodes `x_i = D[i, i]` — the eigenvalues;
+/// * weights `w_i = μ₀ · Q[0, i]²` where `μ₀ = ∫₀^∞ e^{−x} dx = 1`.
+///
+/// Both are strictly positive by construction and `x_i` is sorted
+/// ascending.
+///
+/// # Exactness
+///
+/// An `n`-point Gauss-Laguerre rule integrates polynomials of degree up
+/// to `2n − 1` exactly against `e^{−x}`. Equivalently,
+/// `∫₀^∞ x^k e^{−x} dx = k!` is recovered exactly for `0 ≤ k ≤ 2n − 1`.
+///
+/// # References
+///
+/// - Golub, G. H., & Welsch, J. H. (1969). "Calculation of Gauss
+///   Quadrature Rules." *Mathematics of Computation* 23, 221–230.
+/// - Press, W. H., Teukolsky, S. A., Vetterling, W. T., & Flannery, B. P.
+///   (2007). *Numerical Recipes: The Art of Scientific Computing* (3rd
+///   ed.), §4.6 "Gaussian Quadratures and Orthogonal Polynomials."
+///
+/// Audit P1 #15: this replaces the hardcoded 10-node Laguerre table
+/// previously inlined in
+/// `finstack_valuations::correlation::copula::student_t::StudentTCopula`,
+/// which silently capped `with_quadrature_order(n > 10)` at `n = 10`.
+#[derive(Debug, Clone)]
+pub struct GaussLaguerreQuadrature {
+    /// Quadrature nodes (sorted ascending, strictly positive).
+    pub points: Vec<f64>,
+    /// Quadrature weights (strictly positive, summing to `μ₀ = 1`).
+    pub weights: Vec<f64>,
+}
+
+impl GaussLaguerreQuadrature {
+    /// Construct an `n`-point Gauss-Laguerre rule via Golub-Welsch.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::InputError::Invalid`] if `n == 0`.
+    pub fn new(n: usize) -> crate::Result<Self> {
+        if n == 0 {
+            return Err(crate::Error::Input(crate::InputError::Invalid));
+        }
+
+        // Symmetric tridiagonal Jacobi matrix of the standard Laguerre
+        // polynomials (weight e^{-x} on [0, ∞)).
+        let mut j = nalgebra::DMatrix::<f64>::zeros(n, n);
+        for k in 0..n {
+            j[(k, k)] = (2 * k + 1) as f64;
+            if k > 0 {
+                let bk = k as f64;
+                j[(k, k - 1)] = bk;
+                j[(k - 1, k)] = bk;
+            }
+        }
+
+        let eig = nalgebra::SymmetricEigen::new(j);
+
+        // Collect (eigenvalue, first-component^2 of the i-th normalized
+        // eigenvector). μ₀ = 1 for standard Laguerre.
+        let mut pairs: Vec<(f64, f64)> = (0..n)
+            .map(|i| {
+                let x = eig.eigenvalues[i];
+                let v0 = eig.eigenvectors[(0, i)];
+                (x, v0 * v0)
+            })
+            .collect();
+        pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let (points, weights): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
+        Ok(Self { points, weights })
+    }
+
+    /// Apply the quadrature to `f`, returning `∫₀^∞ f(x) · e^{−x} dx`.
+    ///
+    /// Numerically this is `∑ w_i · f(x_i)`. Exact for polynomials of
+    /// degree up to `2n − 1`.
+    pub fn integrate<F>(&self, f: F) -> f64
+    where
+        F: Fn(f64) -> f64,
+    {
+        self.points
+            .iter()
+            .zip(self.weights.iter())
+            .map(|(&x, &w)| w * f(x))
+            .sum()
+    }
+
+    /// Number of quadrature nodes.
+    #[inline]
+    #[must_use]
+    pub fn order(&self) -> usize {
+        self.points.len()
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
@@ -1110,6 +1240,140 @@ mod tests {
             (integral - 1.0).abs() < 0.01,
             "E[X²] should be ~1, got {}",
             integral
+        );
+    }
+
+    // ---- Gauss-Laguerre (Golub-Welsch) ------------------------------------
+
+    #[test]
+    fn gauss_laguerre_order_10_matches_canonical_table() {
+        // Audit P1 #15: the n=10 nodes/weights produced by Golub-Welsch must
+        // match the canonical Abramowitz-Stegun table used previously in
+        // finstack_valuations::correlation::copula::student_t.
+        let quad = GaussLaguerreQuadrature::new(10).expect("n=10 valid");
+
+        let expected: [(f64, f64); 10] = [
+            (0.137_793_470_540_492, 0.308_441_115_765_02),
+            (0.729_454_549_503_170, 0.401_119_929_155_27),
+            (1.808_342_901_740_316, 0.218_068_287_611_81),
+            (3.401_433_697_854_9, 0.062_087_456_098_68),
+            (5.552_496_140_063_8, 0.009_501_516_975_18),
+            (8.330_152_746_764_5, 0.000_753_008_388_587),
+            (11.843_785_837_900_1, 0.000_028_259_233_495_0),
+            (16.279_257_831_378_1, 0.000_000_424_931_398_5),
+            (21.996_585_811_980_8, 0.000_000_001_839_564_8),
+            (29.920_697_012_273_9, 0.000_000_000_000_991_2),
+        ];
+
+        for (i, (got_x, got_w)) in quad.points.iter().zip(quad.weights.iter()).enumerate() {
+            let (want_x, want_w) = expected[i];
+            // Relative tolerance on nodes (they span ~0.1 to ~30).
+            assert!(
+                (got_x - want_x).abs() < 1e-9,
+                "node {i}: got {got_x:.15}, want {want_x:.15}"
+            );
+            // Weights span 14 orders of magnitude; use relative tolerance.
+            let rel_err = if want_w.abs() > 0.0 {
+                ((got_w - want_w) / want_w).abs()
+            } else {
+                (got_w - want_w).abs()
+            };
+            assert!(
+                rel_err < 1e-4,
+                "weight {i}: got {got_w:.15e}, want {want_w:.15e}, rel_err={rel_err:.2e}"
+            );
+        }
+    }
+
+    #[test]
+    fn gauss_laguerre_integrates_moments_exactly() {
+        // For Gauss-Laguerre with n points, ∫₀^∞ x^k e^{-x} dx = k! is exact
+        // for 0 ≤ k ≤ 2n - 1. Test up through moderate orders where round-off
+        // does not dominate.
+        let quad = GaussLaguerreQuadrature::new(8).expect("n=8 valid");
+        let factorials = [1.0, 1.0, 2.0, 6.0, 24.0, 120.0, 720.0, 5040.0];
+        for (k, expected) in factorials.iter().enumerate() {
+            let integral = quad.integrate(|x| x.powi(k as i32));
+            let rel_err = (integral - expected).abs() / expected.max(1.0);
+            assert!(
+                rel_err < 1e-10,
+                "∫ x^{k} e^{{-x}} dx: got {integral}, expected {expected}, rel_err={rel_err:.2e}"
+            );
+        }
+    }
+
+    #[test]
+    fn gauss_laguerre_weights_sum_to_mu_0() {
+        // μ₀ = ∫₀^∞ e^{-x} dx = 1. The Laguerre weights must sum to this
+        // (exactness for the constant polynomial).
+        for n in [1, 2, 5, 10, 20, 32] {
+            let quad = GaussLaguerreQuadrature::new(n).expect("valid n");
+            let sum: f64 = quad.weights.iter().sum();
+            assert!(
+                (sum - 1.0).abs() < 1e-12,
+                "n={n}: Σ w_i = {sum:.15}, expected 1.0"
+            );
+        }
+    }
+
+    #[test]
+    fn gauss_laguerre_nodes_positive_and_sorted() {
+        // Laguerre nodes are strictly positive (weight support is [0, ∞))
+        // and must be returned sorted ascending by [`new`].
+        for n in [1, 2, 5, 10, 32] {
+            let quad = GaussLaguerreQuadrature::new(n).expect("valid n");
+            assert_eq!(quad.points.len(), n);
+            assert_eq!(quad.weights.len(), n);
+            let mut prev = 0.0;
+            for (i, &x) in quad.points.iter().enumerate() {
+                assert!(x > 0.0, "n={n}, node {i}: x={x} must be > 0");
+                assert!(x > prev, "n={n}, node {i}: not strictly increasing");
+                prev = x;
+            }
+            for (i, &w) in quad.weights.iter().enumerate() {
+                assert!(w > 0.0, "n={n}, weight {i}: w={w} must be > 0");
+                assert!(w.is_finite(), "n={n}, weight {i}: non-finite");
+            }
+        }
+    }
+
+    #[test]
+    fn gauss_laguerre_rejects_zero_order() {
+        assert!(GaussLaguerreQuadrature::new(0).is_err());
+    }
+
+    #[test]
+    fn gauss_laguerre_low_order_exactness_boundary() {
+        // Audit P1 #15 motivation: a small-n rule is *exactly* exact for
+        // polynomials up to degree 2n-1 and *not* exact beyond. Verify at
+        // n=2: exact for x^0..x^3, measurably off for x^4. This is the
+        // precise failure mode that made the hardcoded 10-node rule
+        // inadequate for Student-t copulas with heavy tails — the tail
+        // integrand effectively has much higher polynomial content than
+        // the low-order rule could represent.
+        let q2 = GaussLaguerreQuadrature::new(2).expect("n=2 valid");
+        let factorials = [1.0, 1.0, 2.0, 6.0];
+        for (k, expected) in factorials.iter().enumerate() {
+            let integral = q2.integrate(|x| x.powi(k as i32));
+            assert!(
+                (integral - expected).abs() < 1e-12,
+                "n=2 must be exact at degree {k}: got {integral}, want {expected}"
+            );
+        }
+        // Degree 4 = 2n is just outside exactness: 4! = 24. The n=2
+        // Laguerre rule returns a noticeably different value.
+        let approx = q2.integrate(|x| x.powi(4));
+        let truncation_error = (approx - 24.0).abs();
+        assert!(
+            truncation_error > 1e-6,
+            "n=2 must NOT be exact at degree 4: got {approx}, truncation {truncation_error}"
+        );
+        // Moving to n=3 recovers exactness at degree 4.
+        let q3 = GaussLaguerreQuadrature::new(3).expect("n=3 valid");
+        let approx3 = q3.integrate(|x| x.powi(4));
+        assert!(
+            (approx3 - 24.0).abs() < 1e-10,
+            "n=3 must be exact at degree 4: got {approx3}"
         );
     }
 }

@@ -261,20 +261,163 @@ where
     hess
 }
 
-/// Invert a small matrix and return diagonal elements (for standard errors).
-/// Returns None if the matrix is singular.
+/// Invert a small symmetric Hessian and return the diagonal of the inverse —
+/// the per-parameter asymptotic variance estimates under the Cramér-Rao bound,
+/// `Var(θ_i) = (H^{-1})_{ii}`.
+///
+/// First attempts Cholesky (appropriate for a well-conditioned symmetric PD
+/// Hessian), falling back to Tikhonov-regularized inverse `(H + λI)^{-1}`
+/// with increasing λ when the Hessian is ill-conditioned. This is the common
+/// failure mode at the GARCH stationarity frontier (`α + β → 1`) where the
+/// direct inverse is numerically unstable and `try_inverse()` can silently
+/// return garbage or `None`.
+///
+/// Returns `None` only if regularization fails at the largest λ tested,
+/// indicating a degenerate fit that should not be trusted.
+///
+/// Audit P1 #22: the CR-bound formula is `diag(H^{-1})`, not `1/diag(H)` —
+/// the previous implementation already correctly computed `diag(H^{-1})` via
+/// LU, but lacked any fallback when H was near-singular. Now routes through
+/// `invert_hessian_full` so the diagonal and (optionally) the full covariance
+/// matrix come from the same regularized inverse.
 #[must_use]
 pub fn invert_hessian_diag(hess: &[Vec<f64>]) -> Option<Vec<f64>> {
+    let inv = invert_hessian_full(hess)?;
+    let n = inv.nrows();
+    Some((0..n).map(|i| inv[(i, i)]).collect())
+}
+
+/// Full regularized inverse of the Hessian, suitable for recovering the
+/// complete parameter covariance matrix.
+///
+/// Returns the nalgebra `DMatrix` form of `H^{-1}`, using a Cholesky path
+/// for the PD case and a Tikhonov `(H + λI)^{-1}` fallback for ill-
+/// conditioned Hessians. `λ` is scaled by the Frobenius norm of `H` so the
+/// regularization is invariant under the choice of scale (e.g. returns in
+/// decimals vs. percent).
+///
+/// Audit P1 #22: callers who want cross-parameter covariances (e.g. for
+/// delta-method confidence intervals on functions of parameters like the
+/// GARCH persistence `α + β`) should use this instead of
+/// [`invert_hessian_diag`].
+#[must_use]
+pub fn invert_hessian_full(hess: &[Vec<f64>]) -> Option<nalgebra::DMatrix<f64>> {
     let n = hess.len();
     if n == 0 {
-        return Some(vec![]);
+        return Some(nalgebra::DMatrix::<f64>::zeros(0, 0));
+    }
+    let base = nalgebra::DMatrix::from_fn(n, n, |i, j| hess[i][j]);
+
+    // First: attempt Cholesky on the raw Hessian (symmetric PD fast path).
+    if let Some(chol) = base.clone().cholesky() {
+        return Some(chol.inverse());
     }
 
-    // Use nalgebra for matrix inversion
-    let mat = nalgebra::DMatrix::from_fn(n, n, |i, j| hess[i][j]);
-    let inv = mat.try_inverse()?;
+    // Fallback: Tikhonov-regularized inverse. λ is scaled by the Frobenius
+    // norm so the regularization magnitude tracks the matrix scale.
+    let frob = base.norm();
+    let base_scale = if frob.is_finite() && frob > 0.0 {
+        frob
+    } else {
+        1.0
+    };
+    let id = nalgebra::DMatrix::<f64>::identity(n, n);
+    for k in 0..8 {
+        let lambda = base_scale * 1e-8 * 10f64.powi(k);
+        let reg = &base + &id * lambda;
+        if let Some(chol) = reg.clone().cholesky() {
+            return Some(chol.inverse());
+        }
+        if let Some(inv) = reg.try_inverse() {
+            return Some(inv);
+        }
+    }
+    None
+}
 
-    Some((0..n).map(|i| inv[(i, i)]).collect())
+// ---------------------------------------------------------------------------
+// Multi-start optimization (audit P1 #22)
+// ---------------------------------------------------------------------------
+
+/// First ten primes — used as Halton bases for deterministic low-discrepancy
+/// perturbation of the multi-start initial points. Ten bases cover any
+/// realistic GARCH/EGARCH/GJR parameter vector (≤ 5 dimensions in practice).
+const HALTON_BASES: [usize; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+
+/// Halton sequence element for index `n` in prime `base`.
+///
+/// Deterministic by construction — two calls with the same `(n, base)` always
+/// return bit-identical `[0, 1)` draws. Used by [`halton_perturb`] to spread
+/// multi-start initial points across the feasible region without an RNG.
+#[inline]
+fn halton(mut n: usize, base: usize) -> f64 {
+    debug_assert!(base >= 2, "Halton base must be >= 2");
+    let mut result = 0.0_f64;
+    let mut f = 1.0_f64 / base as f64;
+    while n > 0 {
+        result += f * (n % base) as f64;
+        n /= base;
+        f /= base as f64;
+    }
+    result
+}
+
+/// Deterministic multiplicative-plus-additive perturbation of `x0` for
+/// multi-start restart index `restart_idx` (1-based).
+///
+/// Perturbation is `x'_i = (x0_i + (2·h − 1) · scale · (|x0_i| + 1e-6))`
+/// clamped to `bounds[i]`. Each parameter dimension uses its own Halton
+/// base so restarts do not cluster along coordinate axes.
+fn halton_perturb(x0: &[f64], bounds: &Bounds, restart_idx: usize, scale: f64) -> Vec<f64> {
+    x0.iter()
+        .enumerate()
+        .map(|(i, &xi)| {
+            let base = HALTON_BASES[i % HALTON_BASES.len()];
+            let h = halton(restart_idx, base);
+            let delta = (2.0 * h - 1.0) * scale * (xi.abs() + 1e-6);
+            let candidate = xi + delta;
+            let (lo, hi) = bounds[i];
+            candidate.clamp(lo, hi)
+        })
+        .collect()
+}
+
+impl NelderMead {
+    /// Multi-start minimization.
+    ///
+    /// Runs the inner Nelder-Mead minimizer from the original `x0` plus
+    /// `num_restarts` deterministically Halton-perturbed initial points and
+    /// returns the result with the lowest `f_val`. Non-finite objective
+    /// values at a restart cause that restart to be skipped silently — so
+    /// an initial point that lands in an infeasible region (e.g. fails the
+    /// GARCH stationarity check in the closure) does not poison the result.
+    ///
+    /// Audit P1 #22: single-start Nelder-Mead on the GARCH likelihood is
+    /// prone to plateau/ridge behavior near the stationarity frontier
+    /// (`α + β → 1`); deterministic multi-start dramatically improves MLE
+    /// quality on illiquid-asset return series and gives a more defensible
+    /// standard-error estimate via the Hessian at the (now better) optimum.
+    pub fn minimize_multi_start<F>(
+        &self,
+        f: F,
+        x0: &[f64],
+        bounds: &Bounds,
+        num_restarts: usize,
+        perturbation_scale: f64,
+    ) -> OptimResult
+    where
+        F: Fn(&[f64]) -> f64,
+    {
+        let mut best = self.minimize(&f, x0, bounds);
+        for k in 1..=num_restarts {
+            let x_k = halton_perturb(x0, bounds, k, perturbation_scale);
+            let result_k = self.minimize(&f, &x_k, bounds);
+            if result_k.f_val.is_finite() && result_k.f_val < best.f_val {
+                best = result_k;
+            }
+        }
+        best
+    }
 }
 
 #[cfg(test)]
@@ -343,5 +486,113 @@ mod tests {
         let diag = invert_hessian_diag(&hess).unwrap();
         assert!((diag[0] - 0.5).abs() < 1e-10);
         assert!((diag[1] - 0.25).abs() < 1e-10);
+    }
+
+    #[test]
+    fn invert_hessian_cross_off_diagonal_contributes_to_std_errors() {
+        // Audit P1 #22: the diagonal of the INVERSE is not the reciprocal of
+        // the diagonal — off-diagonal Hessian entries must propagate into
+        // per-parameter variance. A 2x2 Hessian with a large off-diagonal
+        // gives a diagonal inverse entry noticeably larger than `1/H_{ii}`.
+        //
+        // H = [[4, 3],      (H^{-1})_{11} = 4 / det(H) = 4 / (16 - 9) = 4/7
+        //      [3, 4]]      1/H_{11}      = 0.25
+        let hess = vec![vec![4.0, 3.0], vec![3.0, 4.0]];
+        let diag = invert_hessian_diag(&hess).expect("PD matrix invertible");
+        let expected = 4.0 / 7.0;
+        assert!(
+            (diag[0] - expected).abs() < 1e-10,
+            "(H^-1)_{{11}} should be {expected} (includes off-diag coupling), got {}",
+            diag[0]
+        );
+        // Naive 1/H_{11} would be 0.25 — far from the correct 4/7 ≈ 0.571.
+        assert!(
+            diag[0] > 0.5,
+            "off-diagonal coupling must raise the diagonal inverse above 1/H_ii"
+        );
+    }
+
+    #[test]
+    fn invert_hessian_tikhonov_fallback_for_singular_matrix() {
+        // Rank-1 Hessian: not invertible by Cholesky or LU. Tikhonov fallback
+        // should still return a finite regularized inverse.
+        let hess = vec![vec![1.0, 1.0], vec![1.0, 1.0]];
+        let diag =
+            invert_hessian_diag(&hess).expect("Tikhonov fallback must handle singular Hessian");
+        assert!(
+            diag.iter().all(|d| d.is_finite()),
+            "regularized inverse must have finite diagonal: {diag:?}"
+        );
+    }
+
+    #[test]
+    fn invert_hessian_full_matches_diag() {
+        // Full and diag helpers must agree on the diagonal of the inverse.
+        let hess = vec![vec![4.0, 3.0], vec![3.0, 4.0]];
+        let diag = invert_hessian_diag(&hess).expect("diag invertible");
+        let full = invert_hessian_full(&hess).expect("full invertible");
+        for i in 0..2 {
+            assert!(
+                (diag[i] - full[(i, i)]).abs() < 1e-12,
+                "diag({i}) {} vs full({i},{i}) {}",
+                diag[i],
+                full[(i, i)]
+            );
+        }
+    }
+
+    #[test]
+    fn halton_sequence_deterministic_and_bounded() {
+        // First five Halton points in base 2 are well-known: 1/2, 1/4, 3/4, 1/8, 5/8.
+        let vals: Vec<f64> = (1..=5).map(|n| halton(n, 2)).collect();
+        let expected = [0.5, 0.25, 0.75, 0.125, 0.625];
+        for (got, want) in vals.iter().zip(expected.iter()) {
+            assert!(
+                (got - want).abs() < 1e-15,
+                "Halton(n, 2) mismatch: got {got}, want {want}"
+            );
+        }
+        for v in vals {
+            assert!((0.0..1.0).contains(&v), "Halton draws must be in [0, 1)");
+        }
+    }
+
+    #[test]
+    fn multi_start_escapes_local_minimum() {
+        // Tilted double-well: f(x) = (x² − 1)² + 0.1·x.
+        //   Global min: x ≈ −1, f ≈ −0.1.
+        //   Local min:  x ≈ +1, f ≈ +0.1.
+        // A single Nelder-Mead run starting at x = 2 gets trapped in the
+        // x ≈ +1 basin because its tiny initial simplex step cannot hop the
+        // barrier at x = 0. Halton-perturbed multi-start with a large
+        // perturbation scale spreads subsequent starts across both basins
+        // and discovers the global minimum.
+        let f = |x: &[f64]| {
+            let p = x[0] * x[0] - 1.0;
+            p * p + 0.1 * x[0]
+        };
+        let opt = NelderMead::new(2_000, 1e-10);
+        let bounds = vec![(-5.0, 5.0)];
+
+        let x0 = [2.0];
+        let single = opt.minimize(f, &x0, &bounds);
+        let multi = opt.minimize_multi_start(f, &x0, &bounds, 6, 1.5);
+
+        assert!(
+            multi.f_val <= single.f_val + 1e-9,
+            "multi-start f_val {} must not exceed single-start f_val {}",
+            multi.f_val,
+            single.f_val
+        );
+        assert!(
+            single.f_val > 0.05,
+            "single-start from x0=2 should stall at the x≈+1 local min (f≈+0.1), got {}",
+            single.f_val
+        );
+        assert!(
+            multi.f_val < -0.05,
+            "multi-start should find the x≈-1 global min (f≈-0.1), got {}",
+            multi.f_val
+        );
     }
 }
