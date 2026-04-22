@@ -10,7 +10,7 @@ use crate::instruments::fixed_income::structured_credit::types::{
     WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -868,7 +868,7 @@ fn calculate_payment_amount(
                 day_count.unwrap_or(DayCount::Act360).year_fraction(
                     period_start,
                     payment_date,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?
             } else {
                 1.0
@@ -897,7 +897,7 @@ fn calculate_payment_amount(
             let accrual_fraction = tranche.day_count.year_fraction(
                 period_start,
                 payment_date,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )?;
             (balance.amount() * rate * accrual_fraction, *rounding)
         }

@@ -55,7 +55,7 @@ impl MetricCalculator for AccruedInterestCalculator {
             let accrual_fraction = day_count.year_fraction(
                 adj_start,
                 accrual_end,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             notional_amount * effective_rate * accrual_fraction
         };

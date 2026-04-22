@@ -23,7 +23,7 @@ use crate::instruments::common_impl::parameters::CreditParams;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Percentage};
 use rust_decimal::prelude::ToPrimitive;
@@ -319,7 +319,7 @@ impl CDSOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Option<CDSOptionPricingInputs>> {
         self.validate_supported_configuration()?;
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
 
         // Time to expiry
         let t = self.day_count.year_fraction(as_of, self.expiry, ctx)?;

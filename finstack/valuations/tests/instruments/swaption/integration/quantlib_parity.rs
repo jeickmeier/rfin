@@ -39,7 +39,7 @@
 
 use crate::swaption::common::*;
 use finstack_core::dates::Date;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::norm_cdf;
 use finstack_valuations::instruments::Instrument;
@@ -247,7 +247,7 @@ fn black76_pv(
 
     let t = swaption
         .day_count
-        .year_fraction(as_of, swaption.expiry, DayCountCtx::default())
+        .year_fraction(as_of, swaption.expiry, DayCountContext::default())
         .unwrap_or(0.0)
         .max(0.0);
 

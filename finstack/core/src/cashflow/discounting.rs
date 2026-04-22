@@ -61,7 +61,7 @@
 //! - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling* (3 vols).
 //!   Atlantic Financial Press. Volume 1, Chapter 3.
 
-use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::dates::{Date, DayCount, DayCountContext};
 use crate::market_data::traits::Discounting;
 use crate::math::NeumaierAccumulator;
 use crate::money::Money;
@@ -206,7 +206,7 @@ pub fn npv<D: Discounting + ?Sized>(
     dc: Option<DayCount>,
     flows: &[(Date, Money)],
 ) -> crate::Result<Money> {
-    npv_with_ctx(disc, base, dc, DayCountCtx::default(), flows)
+    npv_with_ctx(disc, base, dc, DayCountContext::default(), flows)
 }
 
 /// Compute NPV of dated `Money` cashflows using an explicit day-count context.
@@ -214,7 +214,7 @@ pub fn npv_with_ctx<D: Discounting + ?Sized>(
     disc: &D,
     base: Date,
     dc: Option<DayCount>,
-    ctx: DayCountCtx<'_>,
+    ctx: DayCountContext<'_>,
     flows: &[(Date, Money)],
 ) -> crate::Result<Money> {
     if flows.is_empty() {
@@ -306,7 +306,7 @@ pub fn npv_amounts(
         discount_rate,
         base_date,
         day_count,
-        crate::dates::DayCountCtx::default(),
+        crate::dates::DayCountContext::default(),
     )
 }
 
@@ -316,7 +316,7 @@ pub fn npv_amounts_with_ctx(
     discount_rate: f64,
     base_date: Option<Date>,
     day_count: Option<DayCount>,
-    ctx: crate::dates::DayCountCtx<'_>,
+    ctx: crate::dates::DayCountContext<'_>,
 ) -> crate::Result<f64> {
     if cash_flows.is_empty() {
         return Err(crate::Error::from(crate::error::InputError::TooFewPoints));
@@ -381,7 +381,7 @@ mod hardening_tests {
         let pay = create_date(2025, Month::January, 13).expect("Valid test date"); // Next Monday
         let curve = FlatCurve::new(0.10, base, DayCount::Bus252, "BRL-FLAT");
         let flows = vec![(pay, Money::new(100.0, Currency::USD))];
-        let ctx = DayCountCtx {
+        let ctx = DayCountContext {
             calendar: Some(&TARGET2),
             frequency: None,
             bus_basis: None,

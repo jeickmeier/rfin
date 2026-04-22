@@ -34,7 +34,7 @@
 //! Use `finstack_core::dates` to convert calendar dates to year fractions:
 //!
 //! ```rust,no_run
-//! use finstack_core::dates::{DayCount, DayCountCtx};
+//! use finstack_core::dates::{DayCount, DayCountContext};
 //! use finstack_core::math::time_grid::TimeGrid;
 //! use time::macros::date;
 //!
@@ -43,7 +43,7 @@
 //! let end = date!(2025-01-15);
 //!
 //! // Apply day-count convention
-//! let time = DayCount::Act365F.year_fraction(start, end, DayCountCtx::default())?;
+//! let time = DayCount::Act365F.year_fraction(start, end, DayCountContext::default())?;
 //!
 //! // Create time grid
 //! let grid = TimeGrid::uniform(time, 252)?;
@@ -54,7 +54,7 @@
 //!
 //! See the Monte Carlo conventions doc in `finstack-valuations` for detailed guidelines.
 
-use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::dates::{Date, DayCount, DayCountContext};
 use crate::Result;
 use thiserror::Error;
 
@@ -307,13 +307,13 @@ pub fn map_date_to_step(
     dc: DayCount,
 ) -> usize {
     let ttm = dc
-        .year_fraction(base_date, maturity_date, DayCountCtx::default())
+        .year_fraction(base_date, maturity_date, DayCountContext::default())
         .unwrap_or(0.0);
     if ttm <= 0.0 || steps == 0 {
         return 0;
     }
     let t_event = dc
-        .year_fraction(base_date, event_date, DayCountCtx::default())
+        .year_fraction(base_date, event_date, DayCountContext::default())
         .unwrap_or(0.0)
         .clamp(0.0, ttm);
     let step_index = ((t_event / ttm) * steps as f64).round() as usize;

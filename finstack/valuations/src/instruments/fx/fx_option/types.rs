@@ -583,7 +583,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxOption {
             .year_fraction(
                 as_of,
                 self.expiry,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?
             .max(0.0);
         if t <= 0.0 {
@@ -630,7 +630,7 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxOption {
             .year_fraction(
                 as_of,
                 self.expiry,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?
             .max(0.0);
         if t <= 0.0 {

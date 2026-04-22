@@ -13,12 +13,12 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
-// DayCountCtx is now threaded via `TwoClockParams`; the test-only
+// DayCountContext is now threaded via `TwoClockParams`; the test-only
 // import is retained here because analytical tests still build without
 // `mc` and need the reference.
 #[cfg(all(test, feature = "mc"))]
 #[allow(unused_imports)]
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
@@ -606,7 +606,7 @@ mod tests {
     use crate::instruments::exotics::barrier_option::types::{BarrierOption, BarrierType};
     use crate::instruments::{Attributes, OptionType, PricingOverrides};
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, DayCountCtx};
+    use finstack_core::dates::{DayCount, DayCountContext};
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -683,7 +683,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected = down_out_call(spot, strike, barrier, t, rate, div_yield, vol);
 
@@ -722,7 +722,7 @@ mod tests {
 
         let t = with_rebate
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected_rebate = barrier_rebate_continuous(
             spot,
@@ -811,7 +811,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let df = (-rate * t).exp();
         let shifted_barrier = barrier * (-(BG_BETA * vol * monitoring_dt.sqrt())).exp();
@@ -968,7 +968,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let df = (-rate * t).exp();
         let expected = barrier_put_continuous_df(

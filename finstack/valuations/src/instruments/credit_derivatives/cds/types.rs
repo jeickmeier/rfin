@@ -915,7 +915,7 @@ impl CreditDefaultSwap {
                 let accrual = self.premium.day_count.year_fraction(
                     start,
                     end,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?;
                 Ok(finstack_core::cashflow::CashFlow {
                     date: end,

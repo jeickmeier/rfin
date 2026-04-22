@@ -1,5 +1,5 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -53,7 +53,7 @@ fn call_friction_raises_callable_price_toward_straight() {
     let dc = discount_curve.day_count();
     let maturity = date!(2030 - 01 - 01);
     let time_to_maturity = dc
-        .year_fraction(as_of, maturity, DayCountCtx::default())
+        .year_fraction(as_of, maturity, DayCountContext::default())
         .unwrap();
 
     let steps = 60usize;

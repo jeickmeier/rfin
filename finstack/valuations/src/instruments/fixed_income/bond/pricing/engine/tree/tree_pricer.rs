@@ -161,7 +161,7 @@ impl TreePricer {
         let time_to_maturity = dc_curve.year_fraction(
             as_of,
             bond.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if time_to_maturity <= 0.0 {
             return Ok(0.0);

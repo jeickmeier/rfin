@@ -35,7 +35,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCountContext, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -129,7 +129,7 @@ impl SwaptionHullWhitePricer {
         }
 
         // Time horizon is swap end (need the tree to cover the full swap)
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
         let swap_end_time = swaption
             .day_count
             .year_fraction(as_of, swaption.swap_end, ctx)

@@ -9,7 +9,7 @@ use crate::finstack_test_utils::{
     fx_option_european_call,
 };
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
@@ -261,7 +261,7 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     // bump a single surface point by ±1% and divide by the corresponding absolute Δσ.
     let t = opt
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, expiry, DayCountContext::default())?;
     let surf = market.get_surface(opt.vol_surface_id.as_str())?;
     let sigma = surf.value_clamped(t, opt.strike);
     let vol_bump_pct = VOL_BUMP_PCT;

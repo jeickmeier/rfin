@@ -21,7 +21,7 @@ use crate::instruments::common_impl::traits::{
 };
 use crate::instruments::{OptionType, PricingOverrides};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -149,7 +149,7 @@ impl CommoditySpreadOption {
     /// Time to expiry in year fractions.
     pub(crate) fn time_to_expiry(&self, as_of: Date) -> Result<f64> {
         self.day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())
+            .year_fraction(as_of, self.expiry, DayCountContext::default())
             .map(|t| t.max(0.0))
     }
 

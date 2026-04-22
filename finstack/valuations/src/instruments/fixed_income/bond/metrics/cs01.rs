@@ -21,7 +21,7 @@ use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::math::summation::NeumaierAccumulator;
 
 /// Bond parallel CS01 with z-spread fallback.
@@ -66,7 +66,7 @@ impl MetricCalculator for BondCs01Calculator {
             if *date <= context.as_of {
                 continue;
             }
-            let t = dc.year_fraction(base_date, *date, DayCountCtx::default())?;
+            let t = dc.year_fraction(base_date, *date, DayCountContext::default())?;
             let df = disc.df_on_date_curve(*date)?;
             let amt = amount.amount();
 

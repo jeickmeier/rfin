@@ -114,7 +114,7 @@ impl BondFuturePricer {
             let years = finstack_core::dates::DayCount::ActAct.year_fraction(
                 as_of,
                 flow_date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
 
             // Calculate discount factor for semi-annual compounding

@@ -81,7 +81,7 @@ impl CDSTranchePricer {
         dc.year_fraction(
             index_data.index_credit_curve.base_date(),
             date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
     }
 
@@ -688,7 +688,7 @@ impl CDSTranchePricer {
             .year_fraction(
                 last_payment,
                 as_of,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap_or(0.0);
 

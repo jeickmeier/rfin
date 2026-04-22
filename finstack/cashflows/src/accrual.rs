@@ -22,7 +22,7 @@ use crate::builder::schedule::CashFlowSchedule;
 use crate::primitives::CFKind;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::HolidayCalendar;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
 use finstack_core::money::Money;
 use tracing::warn;
 
@@ -518,7 +518,7 @@ fn build_period_inputs(
         let total_yf = match p.bucket.accrual_factor {
             Some(af) if af > 0.0 => af,
             _ => {
-                let ctx = DayCountCtx {
+                let ctx = DayCountContext {
                     frequency,
                     ..Default::default()
                 };
@@ -583,7 +583,7 @@ fn find_active_period_and_elapsed<'a>(
                 }
             }
 
-            let dc_ctx = DayCountCtx {
+            let dc_ctx = DayCountContext {
                 frequency: cfg.frequency,
                 ..Default::default()
             };

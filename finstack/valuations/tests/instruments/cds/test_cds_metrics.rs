@@ -368,7 +368,7 @@ fn test_expected_loss_conditions_on_as_of() {
         .year_fraction(
             as_of,
             maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
     let pd_forward = 1.0 - (-hazard_rate * dt_years).exp();
@@ -511,7 +511,7 @@ fn test_jump_to_default_uses_adjusted_coupon_schedule_for_accrued() {
         .year_fraction(
             last_coupon,
             as_of,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
     let spread_decimal = 100.0 / 10_000.0;

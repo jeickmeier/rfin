@@ -286,7 +286,7 @@ impl PoolAsset {
         day_count.year_fraction(
             as_of,
             self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
     }
 
@@ -700,7 +700,7 @@ impl AssetPool {
                 // Use Act365F for standardized WAL reporting unless specified otherwise
                 // Ideally this should take a day_count parameter, but Act365F is a common standard for WAL
                 let years = DayCount::Act365F
-                    .year_fraction(as_of, *date, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(as_of, *date, finstack_core::dates::DayCountContext::default())
                     .unwrap_or(0.0);
                 wal_numerator += amount.amount() * years;
                 total_principal += amount.amount();

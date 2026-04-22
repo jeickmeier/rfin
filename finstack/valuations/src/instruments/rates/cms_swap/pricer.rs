@@ -24,7 +24,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DateExt, DayCountCtx};
+use finstack_core::dates::{Date, DateExt, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -123,7 +123,7 @@ impl CmsSwapPricer {
 
             let time_to_fixing =
                 inst.cms_day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
 
             let adj = if time_to_fixing > 0.0 {
                 convexity_adjustment(

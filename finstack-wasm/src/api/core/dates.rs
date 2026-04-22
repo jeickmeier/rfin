@@ -2,7 +2,7 @@
 
 use crate::utils::to_js_err;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, CalendarRegistry, DayCount as RustDayCount, DayCountCtx,
+    adjust, BusinessDayConvention, CalendarRegistry, DayCount as RustDayCount, DayCountContext,
     Tenor as RustTenor,
 };
 use wasm_bindgen::prelude::*;
@@ -97,7 +97,7 @@ impl DayCount {
         let start = epoch_to_date(start_epoch_days)?;
         let end = epoch_to_date(end_epoch_days)?;
         self.inner
-            .year_fraction(start, end, DayCountCtx::default())
+            .year_fraction(start, end, DayCountContext::default())
             .map_err(to_js_err)
     }
 

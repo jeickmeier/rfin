@@ -72,7 +72,7 @@ use super::common::{
 };
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    dates::{Date, DayCount, DayCountCtx},
+    dates::{Date, DayCount, DayCountContext},
     error::InputError,
     market_data::traits::{Forward, TermStructure},
     math::interp::types::Interp,
@@ -417,7 +417,7 @@ impl ForwardCurve {
             0.0
         } else {
             self.day_count
-                .year_fraction(self.base, date, DayCountCtx::default())?
+                .year_fraction(self.base, date, DayCountContext::default())?
         };
         self.df(t)
     }
@@ -661,7 +661,7 @@ impl ForwardCurve {
         let new_base = self.base + time::Duration::days(days);
         let dt_years = self
             .day_count
-            .year_fraction(self.base, new_base, DayCountCtx::default())?;
+            .year_fraction(self.base, new_base, DayCountContext::default())?;
 
         let rolled_points = roll_knots(&self.knots, &self.forwards, dt_years);
 

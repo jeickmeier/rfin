@@ -19,7 +19,7 @@
 use super::common::DAYCOUNT_TOLERANCE;
 use finstack_core::dates::calendar::TARGET2;
 use finstack_core::dates::{
-    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountCtx, Tenor, TenorUnit,
+    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountContext, Tenor, TenorUnit,
 };
 use time::Month;
 
@@ -44,7 +44,7 @@ fn thirty360_us_feb28_to_mar31_non_leap() {
     // Mar 31 -> treat as day 30 (since D1 was adjusted to 30)
     // Result: (30 - 30) + 30 = 30 days
     let yf = DayCount::Thirty360
-        .year_fraction(d(2025, 2, 28), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 2, 28), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 30.0 / 360.0).abs() < TOL,
@@ -59,7 +59,7 @@ fn thirty360_us_feb29_to_mar31_leap() {
     // Mar 31 -> treat as day 30 (since D1 was adjusted to 30)
     // Result: (30 - 30) + 30 = 30 days
     let yf = DayCount::Thirty360
-        .year_fraction(d(2024, 2, 29), d(2024, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2024, 2, 29), d(2024, 3, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 30.0 / 360.0).abs() < TOL,
@@ -74,7 +74,7 @@ fn thirty360_us_feb27_to_mar31() {
     // Mar 31 -> stays 31 (D1 was not 30)
     // Result: (31 - 27) + 30 = 34 days
     let yf = DayCount::Thirty360
-        .year_fraction(d(2025, 2, 27), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 2, 27), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 34.0 / 360.0).abs() < TOL,
@@ -89,7 +89,7 @@ fn thirty360_us_feb28_to_feb28_next_year() {
     // D1 = 30, D2 = 30 (both adjusted)
     // Result: 360 days = 1.0
     let yf = DayCount::Thirty360
-        .year_fraction(d(2024, 2, 28), d(2025, 2, 28), DayCountCtx::default())
+        .year_fraction(d(2024, 2, 28), d(2025, 2, 28), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
 }
@@ -100,7 +100,7 @@ fn thirty360_us_feb29_to_feb28_next_year() {
     // Both are last day of Feb -> both adjusted to 30
     // Result: 360 days = 1.0
     let yf = DayCount::Thirty360
-        .year_fraction(d(2024, 2, 29), d(2025, 2, 28), DayCountCtx::default())
+        .year_fraction(d(2024, 2, 29), d(2025, 2, 28), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
 }
@@ -113,7 +113,7 @@ fn thirty360_us_jan31_to_feb28() {
     // So D2 stays 28
     // Days: (28 - 30) + 30 = 28 days
     let yf = DayCount::Thirty360
-        .year_fraction(d(2025, 1, 31), d(2025, 2, 28), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 31), d(2025, 2, 28), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 28.0 / 360.0).abs() < TOL,
@@ -128,7 +128,7 @@ fn thirty360_us_feb28_to_mar30() {
     // Mar 30 -> D2 stays 30 (not 31)
     // Days: (30 - 30) + 30 = 30 days
     let yf = DayCount::Thirty360
-        .year_fraction(d(2025, 2, 28), d(2025, 3, 30), DayCountCtx::default())
+        .year_fraction(d(2025, 2, 28), d(2025, 3, 30), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 30.0 / 360.0).abs() < TOL,
@@ -143,7 +143,7 @@ fn thirty360_us_feb28_to_apr30() {
     // Apr 30 -> D2 stays 30
     // Days: (30 - 30) + 60 = 60 days
     let yf = DayCount::Thirty360
-        .year_fraction(d(2025, 2, 28), d(2025, 4, 30), DayCountCtx::default())
+        .year_fraction(d(2025, 2, 28), d(2025, 4, 30), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 60.0 / 360.0).abs() < TOL,
@@ -162,7 +162,7 @@ fn thirty_e360_d2_always_30_when_31() {
     // Jan 30 to Mar 31: D1=30, D2=30 (adjusted from 31)
     // Days: (30-30) + 60 = 60 days
     let yf = DayCount::ThirtyE360
-        .year_fraction(d(2025, 1, 30), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 30), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 60.0 / 360.0).abs() < TOL,
@@ -178,10 +178,10 @@ fn thirty_e360_vs_us_difference() {
     // US: D1_adj = 15 (not 31), D2=31 stays (D1_adj != 30) -> Days = (31-15) + 60 = 76
     // Euro: D1_adj = 15, D2=30 (always adjust 31) -> Days = (30-15) + 60 = 75
     let us = DayCount::Thirty360
-        .year_fraction(d(2025, 1, 15), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 15), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     let euro = DayCount::ThirtyE360
-        .year_fraction(d(2025, 1, 15), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 15), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
 
     assert!(
@@ -204,7 +204,7 @@ fn thirty_e360_vs_us_difference() {
 fn thirty_e360_full_year() {
     // Full year should be 360/360 = 1.0
     let yf = DayCount::ThirtyE360
-        .year_fraction(d(2025, 1, 1), d(2026, 1, 1), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 1), d(2026, 1, 1), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
 }
@@ -214,7 +214,7 @@ fn thirty_e360_jan31_to_mar31() {
     // D1=31 -> 30, D2=31 -> 30 (Euro always adjusts)
     // Days: (30-30) + 60 = 60 days
     let yf = DayCount::ThirtyE360
-        .year_fraction(d(2025, 1, 31), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 31), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 60.0 / 360.0).abs() < TOL,
@@ -229,10 +229,10 @@ fn thirty_e360_jan31_to_mar31_same_as_us() {
     // US: D1_adj=30, D2=31 -> D2=30 (because D1_adj==30)
     // Euro: D1_adj=30, D2=31 -> D2=30 (always)
     let us = DayCount::Thirty360
-        .year_fraction(d(2025, 1, 31), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 31), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     let euro = DayCount::ThirtyE360
-        .year_fraction(d(2025, 1, 31), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 31), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
 
     assert!(
@@ -250,7 +250,7 @@ fn thirty_e360_feb28_not_adjusted() {
     // Feb 28 to Mar 31: D1=28, D2=30 (31 adjusted)
     // Days: (30-28) + 30 = 32 days
     let yf = DayCount::ThirtyE360
-        .year_fraction(d(2025, 2, 28), d(2025, 3, 31), DayCountCtx::default())
+        .year_fraction(d(2025, 2, 28), d(2025, 3, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 32.0 / 360.0).abs() < TOL,
@@ -263,7 +263,7 @@ fn thirty_e360_feb28_not_adjusted() {
 fn thirty_e360_short_period() {
     // Jan 15 to Jan 25 = 10 days
     let yf = DayCount::ThirtyE360
-        .year_fraction(d(2025, 1, 15), d(2025, 1, 25), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 15), d(2025, 1, 25), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 10.0 / 360.0).abs() < TOL,
@@ -278,7 +278,7 @@ fn thirty_e360_dec31_to_jan31() {
     // D1=31 -> 30, D2=31 -> 30
     // Days: (30-30) + 30 = 30 days
     let yf = DayCount::ThirtyE360
-        .year_fraction(d(2024, 12, 31), d(2025, 1, 31), DayCountCtx::default())
+        .year_fraction(d(2024, 12, 31), d(2025, 1, 31), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 30.0 / 360.0).abs() < TOL,
@@ -295,7 +295,7 @@ fn thirty_e360_dec31_to_jan31() {
 fn act365l_period_contains_feb29_uses_366() {
     // Jan 1 to Mar 1 in 2024 (leap year) = 60 actual days, contains Feb 29
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 1, 1), d(2024, 3, 1), DayCountCtx::default())
+        .year_fraction(d(2024, 1, 1), d(2024, 3, 1), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 60.0 / 366.0).abs() < TOL,
@@ -308,7 +308,7 @@ fn act365l_period_contains_feb29_uses_366() {
 fn act365l_period_no_feb29_uses_365() {
     // Jan 1 to Mar 1 in 2025 (non-leap) = 59 actual days, no Feb 29
     let yf = DayCount::Act365L
-        .year_fraction(d(2025, 1, 1), d(2025, 3, 1), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 1), d(2025, 3, 1), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 59.0 / 365.0).abs() < TOL,
@@ -322,7 +322,7 @@ fn act365l_period_ending_on_feb29() {
     // Period [Jan 1, Feb 29) — half-open, so Feb 29 itself is excluded.
     // 59 actual days, Feb 29 NOT in [start, end) -> 365 denom
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 1, 1), d(2024, 2, 29), DayCountCtx::default())
+        .year_fraction(d(2024, 1, 1), d(2024, 2, 29), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 59.0 / 365.0).abs() < TOL,
@@ -336,7 +336,7 @@ fn act365l_period_before_feb29_in_leap_year() {
     // Jan 1 to Feb 28 in 2024 - does NOT contain Feb 29 (end is exclusive of Feb 29)
     // 58 actual days, Feb 29 NOT in [Jan 1, Feb 28] -> 365 denom
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 1, 1), d(2024, 2, 28), DayCountCtx::default())
+        .year_fraction(d(2024, 1, 1), d(2024, 2, 28), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 58.0 / 365.0).abs() < TOL,
@@ -349,7 +349,7 @@ fn act365l_period_before_feb29_in_leap_year() {
 fn act365l_full_year_leap() {
     // Full leap year: 366 days / 366 = 1.0
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 1, 1), d(2025, 1, 1), DayCountCtx::default())
+        .year_fraction(d(2024, 1, 1), d(2025, 1, 1), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
 }
@@ -358,7 +358,7 @@ fn act365l_full_year_leap() {
 fn act365l_full_year_non_leap() {
     // Full non-leap year: 365 days / 365 = 1.0
     let yf = DayCount::Act365L
-        .year_fraction(d(2025, 1, 1), d(2026, 1, 1), DayCountCtx::default())
+        .year_fraction(d(2025, 1, 1), d(2026, 1, 1), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0).abs() < TOL, "Expected 1.0, got {}", yf);
 }
@@ -368,7 +368,7 @@ fn act365l_spanning_leap_year_boundary() {
     // Dec 1, 2023 to Mar 1, 2024 - spans into leap year, contains Feb 29
     // 91 actual days, contains Feb 29 -> 366 denom
     let yf = DayCount::Act365L
-        .year_fraction(d(2023, 12, 1), d(2024, 3, 1), DayCountCtx::default())
+        .year_fraction(d(2023, 12, 1), d(2024, 3, 1), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 91.0 / 366.0).abs() < TOL,
@@ -382,7 +382,7 @@ fn act365l_spanning_non_leap_year_boundary() {
     // Dec 1, 2024 to Mar 1, 2025 - spans year boundary, 2025 not leap
     // 90 actual days, no Feb 29 in range -> 365 denom
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 12, 1), d(2025, 3, 1), DayCountCtx::default())
+        .year_fraction(d(2024, 12, 1), d(2025, 3, 1), DayCountContext::default())
         .unwrap();
     assert!(
         (yf - 90.0 / 365.0).abs() < TOL,
@@ -395,7 +395,7 @@ fn act365l_spanning_non_leap_year_boundary() {
 fn act365l_single_day_feb29() {
     // [Feb 28, Feb 29) = 1 day, Feb 29 excluded by half-open -> 365 denom
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 2, 28), d(2024, 2, 29), DayCountCtx::default())
+        .year_fraction(d(2024, 2, 28), d(2024, 2, 29), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0 / 365.0).abs() < TOL, "Expected 1/365, got {}", yf);
 }
@@ -404,7 +404,7 @@ fn act365l_single_day_feb29() {
 fn act365l_single_day_not_feb29() {
     // Mar 1 to Mar 2 = 1 day, no Feb 29
     let yf = DayCount::Act365L
-        .year_fraction(d(2024, 3, 1), d(2024, 3, 2), DayCountCtx::default())
+        .year_fraction(d(2024, 3, 1), d(2024, 3, 2), DayCountContext::default())
         .unwrap();
     assert!((yf - 1.0 / 365.0).abs() < TOL, "Expected 1/365, got {}", yf);
 }
@@ -419,11 +419,11 @@ fn actact_isma_requires_frequency() {
     let end = make_date(2025, 7, 1);
 
     // Without frequency, should error
-    let result = DayCount::ActActIsma.year_fraction(start, end, DayCountCtx::default());
+    let result = DayCount::ActActIsma.year_fraction(start, end, DayCountContext::default());
     assert!(result.is_err());
 
     // With frequency, should work
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: None,
         frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
@@ -438,7 +438,7 @@ fn actact_isma_full_coupon_period() {
     let start = make_date(2025, 1, 1);
     let end = make_date(2025, 7, 1);
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: None,
         frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
@@ -457,7 +457,7 @@ fn actact_isma_multiple_frequencies() {
     let end = make_date(2025, 4, 1);
 
     // Quarterly
-    let ctx_q = DayCountCtx {
+    let ctx_q = DayCountContext {
         calendar: None,
         frequency: Some(Tenor::new(3, TenorUnit::Months)),
         bus_basis: None,
@@ -468,7 +468,7 @@ fn actact_isma_multiple_frequencies() {
         .unwrap();
 
     // Monthly
-    let ctx_m = DayCountCtx {
+    let ctx_m = DayCountContext {
         calendar: None,
         frequency: Some(Tenor::new(1, TenorUnit::Months)),
         bus_basis: None,
@@ -498,7 +498,7 @@ fn actact_isma_partial_period() {
     let start = make_date(2025, 1, 15);
     let end = make_date(2025, 4, 15);
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: None,
         frequency: Some(Tenor::new(6, TenorUnit::Months)),
         bus_basis: None,
@@ -529,10 +529,10 @@ fn actact_vs_actact_isma_comparison() {
     let end = make_date(2026, 1, 1);
 
     let yf_isda = DayCount::ActAct
-        .year_fraction(start, end, DayCountCtx::default())
+        .year_fraction(start, end, DayCountContext::default())
         .unwrap();
 
-    let ctx_isma = DayCountCtx {
+    let ctx_isma = DayCountContext {
         calendar: None,
         frequency: Some(Tenor::new(12, TenorUnit::Months)),
         bus_basis: None,
@@ -619,12 +619,12 @@ fn bus252_requires_calendar() {
     let end = make_date(2025, 1, 10);
 
     // Without calendar, should error
-    let result = DayCount::Bus252.year_fraction(start, end, DayCountCtx::default());
+    let result = DayCount::Bus252.year_fraction(start, end, DayCountContext::default());
     assert!(result.is_err());
 
     // With calendar, should work
     let calendar = TARGET2;
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
@@ -640,7 +640,7 @@ fn bus252_counts_only_business_days() {
     let start = make_date(2025, 1, 2); // Thursday
     let end = make_date(2025, 1, 6); // Monday (includes weekend)
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
@@ -668,7 +668,7 @@ fn bus252_full_year_is_deterministic() {
     let start = make_date(2025, 1, 2);
     let end = make_date(2026, 1, 2);
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
@@ -714,7 +714,7 @@ fn bus252_excludes_holidays() {
     let start = make_date(2024, 12, 23); // Monday
     let end = make_date(2024, 12, 30); // Monday next week
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,

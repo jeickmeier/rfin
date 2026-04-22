@@ -5,7 +5,7 @@
 
 use crate::metrics::sensitivities::theta::{calculate_theta_date, collect_cashflows_in_period};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -153,7 +153,7 @@ fn compute_funding_cost(
     let funding_curve = context.curves.get_discount(funding_curve_id.as_str())?;
     let annual_rate = funding_curve.zero_rate_on_date(rolled_date, Compounding::Continuous)?;
     let day_count = context.day_count.unwrap_or(DayCount::Act365F);
-    let dcf = day_count.year_fraction(context.as_of, rolled_date, DayCountCtx::default())?;
+    let dcf = day_count.year_fraction(context.as_of, rolled_date, DayCountContext::default())?;
 
     Ok(context.base_value.amount() * annual_rate * dcf)
 }
@@ -166,7 +166,7 @@ mod tests {
     use crate::instruments::Bond;
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{DayCount, DayCountCtx};
+    use finstack_core::dates::{DayCount, DayCountContext};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -302,7 +302,7 @@ mod tests {
         let rolled = crate::metrics::calculate_theta_date(as_of, "1M", Some(date!(2026 - 01 - 15)))
             .expect("rolled date");
         let expected_dcf = DayCount::Thirty360
-            .year_fraction(as_of, rolled, DayCountCtx::default())
+            .year_fraction(as_of, rolled, DayCountContext::default())
             .expect("year fraction");
         let expected = context.base_value.amount() * 0.02 * expected_dcf;
         let funding_cost = *context

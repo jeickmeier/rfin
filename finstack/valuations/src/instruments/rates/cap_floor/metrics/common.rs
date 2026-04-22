@@ -51,7 +51,7 @@ where
         let t_fix = option.day_count.year_fraction(
             context.as_of,
             fixing_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let effective_t_fix = t_fix.max(MIN_EFFECTIVE_FIXING_TIME);
 

@@ -213,7 +213,7 @@ impl RevolvingCreditPricer {
                     let t = hazard.day_count().year_fraction(
                         hazard.base_date(),
                         as_of,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )?;
                     hazard.sp(t)
                 } else {
@@ -493,7 +493,7 @@ impl RevolvingCreditPricer {
         commitment_date: Date,
         day_count: DayCount,
     ) -> Result<Vec<f64>> {
-        use finstack_core::dates::DayCountCtx;
+        use finstack_core::dates::DayCountContext;
         // Use facility day count for consistency with path generation
         let dc = day_count;
 
@@ -513,7 +513,7 @@ impl RevolvingCreditPricer {
         let mut survival_probs = Vec::with_capacity(cashflow_dates.len());
         for &cf_date in cashflow_dates {
             // Find the interval containing cf_date
-            let t_cf = dc.year_fraction(commitment_date, cf_date, DayCountCtx::default())?;
+            let t_cf = dc.year_fraction(commitment_date, cf_date, DayCountContext::default())?;
 
             // Find the bracketing payment dates
             let hazard_at_cf = if let Some(idx) = time_points.iter().position(|&t| t >= t_cf) {
@@ -629,7 +629,7 @@ impl RevolvingCreditPricer {
             .year_fraction(
                 commitment_date,
                 date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap_or(0.0);
 

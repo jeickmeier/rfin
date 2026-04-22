@@ -12,7 +12,7 @@
 //! - ISDA 2006 Definitions, Appendix (Examples)
 
 use super::test_helpers::{assert_close, FACTOR_TOLERANCE};
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
 use time::Month;
 
 /// Helper to create dates
@@ -29,7 +29,7 @@ fn actact_isda_leap_year_crossing_nov_to_mar() {
     // Period crossing Feb 29, 2024 (leap year)
     // Nov 1, 2023 to Mar 1, 2024
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let start = d(2023, 11, 1);
     let end = d(2024, 3, 1);
@@ -54,7 +54,7 @@ fn actact_isda_leap_year_crossing_dec_to_jan() {
     // Short period crossing year boundary
     // Dec 15, 2023 to Jan 15, 2024 = 31 total days
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let start = d(2023, 12, 15);
     let end = d(2024, 1, 15);
@@ -79,7 +79,7 @@ fn actact_isda_full_leap_year_is_one() {
     // Full leap year: Jan 1, 2024 to Jan 1, 2025
     // Should be exactly 1.0 regardless of leap year
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
 
@@ -90,7 +90,7 @@ fn actact_isda_full_leap_year_is_one() {
 fn actact_isda_full_non_leap_year_is_one() {
     // Full non-leap year: Jan 1, 2025 to Jan 1, 2026
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
@@ -106,7 +106,7 @@ fn actact_isda_full_non_leap_year_is_one() {
 fn actact_isda_feb_29_to_mar_1() {
     // Single day Feb 29 to Mar 1 in leap year
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2024, 2, 29), d(2024, 3, 1), ctx)
@@ -123,7 +123,7 @@ fn actact_isda_spanning_multiple_years() {
     // Multi-year period: Jan 1, 2023 to Jan 1, 2026 (3 years)
     // 2023: non-leap (365), 2024: leap (366), 2025: non-leap (365)
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2023, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
@@ -138,7 +138,7 @@ fn actact_isda_spanning_multiple_years() {
 #[test]
 fn actact_isma_with_annual_frequency() {
     let dc = DayCount::ActActIsma;
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,
@@ -160,7 +160,7 @@ fn actact_isma_with_annual_frequency() {
 fn actact_isma_requires_frequency() {
     // Act/Act ISMA requires frequency in context
     let dc = DayCount::ActActIsma;
-    let ctx_no_freq = DayCountCtx {
+    let ctx_no_freq = DayCountContext {
         frequency: None,
         calendar: None,
         bus_basis: None,
@@ -177,7 +177,7 @@ fn actact_isma_requires_frequency() {
 #[test]
 fn actact_isma_with_semi_annual_frequency() {
     let dc = DayCount::ActActIsma;
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
@@ -200,7 +200,7 @@ fn actact_isma_with_semi_annual_frequency() {
 #[test]
 fn actact_isma_with_quarterly_frequency() {
     let dc = DayCount::ActActIsma;
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
@@ -227,7 +227,7 @@ fn act365f_leap_year_366_days() {
     // Act/365F always divides by 365, even in leap years
     // Full leap year has 366 actual days → 366/365 > 1.0
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
 
@@ -239,7 +239,7 @@ fn act365f_leap_year_366_days() {
 fn act365f_non_leap_year_365_days() {
     // Full non-leap year: 365/365 = 1.0
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
@@ -250,7 +250,7 @@ fn act365f_non_leap_year_365_days() {
 fn act365f_feb_leap_year() {
     // February in leap year: Feb 1 to Mar 1 = 29 days
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2024, 2, 1), d(2024, 3, 1), ctx).unwrap();
 
@@ -262,7 +262,7 @@ fn act365f_feb_leap_year() {
 fn act365f_feb_non_leap_year() {
     // February in non-leap year: Feb 1 to Mar 1 = 28 days
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 2, 1), d(2025, 3, 1), ctx).unwrap();
 
@@ -279,7 +279,7 @@ fn act360_leap_year_366_days() {
     // Act/360 always divides by 360
     // Full leap year: 366/360
     let dc = DayCount::Act360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
 
@@ -291,7 +291,7 @@ fn act360_leap_year_366_days() {
 fn act360_non_leap_year_365_days() {
     // Full non-leap year: 365/360
     let dc = DayCount::Act360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
@@ -308,7 +308,7 @@ fn thirty360_ignores_leap_year() {
     // 30/360 treats all months as 30 days, ignores actual calendar
     // Full year always = 360/360 = 1.0
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Leap year
     let yf_leap = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
@@ -333,7 +333,7 @@ fn thirty360_ignores_leap_year() {
 fn thirty360_feb_always_30_days() {
     // 30/360: February is treated as 30 days regardless of leap year
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Feb in leap year (actual 29 days, 30/360 treats as 30)
     // Jan 15 to Mar 15 = 2 months = 60/360
@@ -366,8 +366,8 @@ fn thirty360_feb_always_30_days() {
 
 #[test]
 fn zero_length_period_all_conventions() {
-    let ctx = DayCountCtx::default();
-    let ctx_with_freq = DayCountCtx {
+    let ctx = DayCountContext::default();
+    let ctx_with_freq = DayCountContext {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
@@ -400,7 +400,7 @@ fn century_leap_year_rule() {
     // 2000 was a leap year (divisible by 400)
     // 2100 will not be a leap year (divisible by 100 but not 400)
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Year 2000 (leap year)
     let yf_2000 = dc.year_fraction(d(2000, 1, 1), d(2001, 1, 1), ctx).unwrap();

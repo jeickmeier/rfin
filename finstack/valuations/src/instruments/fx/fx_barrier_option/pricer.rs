@@ -7,7 +7,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -71,7 +71,7 @@ impl FxBarrierOptionMcPricer {
 
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
         if t <= 0.0 {
             let per_unit = expired_barrier_value_per_unit(inst, fx_spot)?;
             return Ok(finstack_core::money::Money::new(
@@ -363,7 +363,7 @@ fn collect_fx_barrier_expiry_state(
     validate_fx_barrier_currencies(inst)?;
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
     let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
     Ok((fx_spot, t))
 }
@@ -380,7 +380,7 @@ fn collect_fx_barrier_inputs(
     // Vol surface time using instrument day count (typically ACT/365F for FX options)
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
     // Use each curve's own day count for discount factor lookup (consistent
     // with FxOptionCalculator::collect_inputs), then convert to effective
@@ -389,7 +389,7 @@ fn collect_fx_barrier_inputs(
     let t_disc_dom =
         disc_curve
             .day_count()
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
     let df_d = disc_curve.df(t_disc_dom);
     let r_dom = if t > 0.0 { -df_d.ln() / t } else { 0.0 };
 
@@ -397,7 +397,7 @@ fn collect_fx_barrier_inputs(
     let t_disc_for =
         for_curve
             .day_count()
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
     let df_f = for_curve.df(t_disc_for);
     let r_for = if t > 0.0 { -df_f.ln() / t } else { 0.0 };
 

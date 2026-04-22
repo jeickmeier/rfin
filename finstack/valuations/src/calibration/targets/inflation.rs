@@ -14,7 +14,7 @@ use crate::instruments::rates::inflation_swap::{InflationSwap, YoYInflationSwap}
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use finstack_core::dates::DateExt;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::market_data::term_structures::InflationCurve;
@@ -199,7 +199,7 @@ impl InflationCurveTarget {
         let pillar_time = DayCount::Act365F.year_fraction(
             self.params.base_date,
             fixing_date,
-            DayCountCtx::default(),
+            DayCountContext::default(),
         )?;
 
         let pq = PreparedQuote::new(Arc::new(raw), swap, maturity, pillar_time);

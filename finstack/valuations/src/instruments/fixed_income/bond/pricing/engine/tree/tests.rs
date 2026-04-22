@@ -224,7 +224,7 @@ fn test_rates_credit_default_lowers_price() {
         .year_fraction(
             as_of,
             bond.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap_or(0.0);
     let steps = 40usize;

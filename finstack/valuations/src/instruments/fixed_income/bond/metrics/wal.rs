@@ -54,7 +54,7 @@ impl MetricCalculator for BondWalCalculator {
                 .year_fraction(
                     context.as_of,
                     cf.date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )
                 .unwrap_or(0.0);
 

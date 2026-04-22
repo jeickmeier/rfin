@@ -7,7 +7,7 @@ use crate::builder::Notional;
 use crate::primitives::{CFKind, CashFlow};
 use finstack_core::cashflow::Discountable;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::HazardCurve;
@@ -381,7 +381,7 @@ impl CashFlowSchedule {
             ) && cf.date > as_of
                 && cf.amount.amount() > 0.0
             {
-                let t = DayCount::Act365F.year_fraction(as_of, cf.date, DayCountCtx::default())?;
+                let t = DayCount::Act365F.year_fraction(as_of, cf.date, DayCountContext::default())?;
                 principal_time_sum += cf.amount.amount() * t;
                 principal_total += cf.amount.amount();
             }
@@ -699,7 +699,7 @@ impl CashFlowSchedule {
         disc: &dyn Discounting,
         base: Date,
         dc: DayCount,
-        dc_ctx: DayCountCtx,
+        dc_ctx: DayCountContext,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         self.pv_by_period(
             periods,
@@ -719,7 +719,7 @@ impl CashFlowSchedule {
         hazard_curve_id: Option<&CurveId>,
         base: Date,
         dc: DayCount,
-        dc_ctx: DayCountCtx,
+        dc_ctx: DayCountContext,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         self.pv_by_period(
             periods,
@@ -922,10 +922,10 @@ mod tests {
         // d2: 731 days / 365 ≈ 2.0027 years (2026 is not a leap year, 2×365+1 ≈ 731)
         // WAL = (500k * 1.0 + 500k * t2) / 1M
         let t1 = DayCount::Act365F
-            .year_fraction(as_of, d1, DayCountCtx::default())
+            .year_fraction(as_of, d1, DayCountContext::default())
             .unwrap();
         let t2 = DayCount::Act365F
-            .year_fraction(as_of, d2, DayCountCtx::default())
+            .year_fraction(as_of, d2, DayCountContext::default())
             .unwrap();
         let expected = (500_000.0 * t1 + 500_000.0 * t2) / 1_000_000.0;
 
@@ -938,10 +938,10 @@ mod tests {
 
         // Also verify it differs from 30/360 (which would give 1.0 and 2.0 exactly)
         let t30_360_1 = DayCount::Thirty360
-            .year_fraction(as_of, d1, DayCountCtx::default())
+            .year_fraction(as_of, d1, DayCountContext::default())
             .unwrap();
         let t30_360_2 = DayCount::Thirty360
-            .year_fraction(as_of, d2, DayCountCtx::default())
+            .year_fraction(as_of, d2, DayCountContext::default())
             .unwrap();
         let wal_30360 = (500_000.0 * t30_360_1 + 500_000.0 * t30_360_2) / 1_000_000.0;
 

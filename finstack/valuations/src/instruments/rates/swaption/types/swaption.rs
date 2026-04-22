@@ -723,7 +723,7 @@ impl Swaption {
         let mut prev = self.swap_start;
         for &d in sched.dates.iter().skip(1) {
             let accrual =
-                fwd_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+                fwd_dc.year_fraction(prev, d, finstack_core::dates::DayCountContext::default())?;
             let fwd_rate = rate_period_on_dates(fwd.as_ref(), prev, d)?;
             let df = relative_df_discounting(disc.as_ref(), as_of, d)?;
             pv_float += accrual * fwd_rate * df;

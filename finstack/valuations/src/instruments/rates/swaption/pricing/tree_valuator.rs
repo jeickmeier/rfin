@@ -129,7 +129,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         let (_payment_dates, accrual_fractions) = swaption.build_swap_schedule(as_of)?;
         let payment_times = swaption.payment_times(as_of)?;
 
-        let ctx = finstack_core::dates::DayCountCtx::default();
+        let ctx = finstack_core::dates::DayCountContext::default();
         let swap_start_time = swaption
             .day_count
             .year_fraction(as_of, swaption.swap_start, ctx)?;

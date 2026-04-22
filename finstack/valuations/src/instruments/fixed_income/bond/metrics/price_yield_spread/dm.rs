@@ -3,7 +3,7 @@ use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContex
 use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use std::cell::RefCell;
 
@@ -167,7 +167,7 @@ impl DiscountMarginCalculator {
         }
         let dc = bond.cashflow_spec.day_count();
         let years = dc
-            .year_fraction(as_of, bond.maturity, DayCountCtx::default())?
+            .year_fraction(as_of, bond.maturity, DayCountContext::default())?
             .max(0.0);
 
         // Scale bracket between 1x and 2x base over 0–30y, then clamp.

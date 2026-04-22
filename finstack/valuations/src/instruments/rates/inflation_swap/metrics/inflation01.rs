@@ -103,14 +103,14 @@ impl MetricCalculator for Inflation01Calculator {
         let t_maturity = DayCount::Act365F.year_fraction(
             base,
             lagged_maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         // Use curve day count for discounting
         let t_discount = curve_dc.year_fraction(
             base,
             s.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let df = disc.df(t_discount);
 

@@ -39,7 +39,7 @@ use finstack_cashflows::DatedFlow;
 use finstack_core::cashflow::Discountable;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DayCount, DayCountCtx, Period, PeriodId, StubKind, Tenor,
+    BusinessDayConvention, Date, DayCount, DayCountContext, Period, PeriodId, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
@@ -263,7 +263,7 @@ fn bench_pv_by_period(c: &mut Criterion) {
                         DateContext::new(
                             black_box(base),
                             DayCount::Act365F,
-                            DayCountCtx::default(),
+                            DayCountContext::default(),
                         ),
                     )
                     .unwrap()
@@ -292,13 +292,13 @@ fn bench_pv_by_period_credit(c: &mut Criterion) {
         let schedule = make_fixed_schedule(base, years, Tenor::quarterly());
         let n_quarters = (years * 4) as u32 + 4;
         let periods = make_quarterly_periods(base, n_quarters);
-        let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
         group.throughput(Throughput::Elements(schedule.flows.len() as u64));
 
         group.bench_with_input(BenchmarkId::new("no_recovery", label), label, |b, _| {
             b.iter(|| {
-                let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+                let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
                 black_box(&schedule)
                     .pv_by_period(
                         black_box(&periods),
@@ -318,7 +318,7 @@ fn bench_pv_by_period_credit(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("with_recovery", label), label, |b, _| {
             let _ = date_ctx;
             b.iter(|| {
-                let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+                let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
                 black_box(&schedule)
                     .pv_by_period(
                         black_box(&periods),

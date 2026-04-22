@@ -8,7 +8,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -131,14 +131,14 @@ impl FxDigitalOptionCalculator {
         let t_disc_for =
             foreign_disc
                 .day_count()
-                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+                .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
         let t_vol = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
         let t_disc_dom =
             domestic_disc
                 .day_count()
-                .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+                .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
         let df_d = domestic_disc.df(t_disc_dom);
         let df_f = foreign_disc.df(t_disc_for);

@@ -77,7 +77,7 @@ impl CDSOptionPricer {
         let t = option.day_count.year_fraction(
             as_of,
             option.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         // Note: t <= 0 (expired) is handled downstream in credit_option_price
@@ -524,7 +524,7 @@ impl CDSOptionPricer {
         let t = option.day_count.year_fraction(
             as_of,
             option.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= dt_years {
             return Ok(0.0);
@@ -557,12 +557,12 @@ impl CDSOptionPricer {
             let cds_tenor = option.day_count.year_fraction(
                 option.expiry,
                 option.cds_maturity,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             let t0 = option.day_count.year_fraction(
                 as_of,
                 option.expiry,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             let mut ann = 0.0;
             let n = (cds_tenor * 4.0).ceil() as usize;
@@ -606,7 +606,7 @@ impl CDSOptionPricer {
         let t = option.day_count.year_fraction(
             as_of,
             option.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);

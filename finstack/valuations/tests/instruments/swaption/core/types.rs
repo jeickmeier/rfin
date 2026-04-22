@@ -3,7 +3,7 @@
 #![allow(clippy::unwrap_used)]
 
 use crate::swaption::common::*;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::dates::{Tenor, TenorUnit};
 use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use finstack_valuations::instruments::rates::swaption::SABRParameters;
@@ -103,7 +103,7 @@ fn test_swaption_cash_annuity_zero_forward_and_invalid_freq() {
         .year_fraction(
             swaption.swap_start,
             swaption.swap_end,
-            DayCountCtx::default(),
+            DayCountContext::default(),
         )
         .unwrap();
     let annuity = swaption.cash_annuity_par_yield(0.0).unwrap();
@@ -121,7 +121,7 @@ fn test_resolve_volatility_priority_and_greek_inputs_expired() {
     let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
     let t = swaption
         .day_count
-        .year_fraction(as_of, swaption.expiry, DayCountCtx::default())
+        .year_fraction(as_of, swaption.expiry, DayCountContext::default())
         .unwrap();
 
     let surface_vol = swaption.resolve_volatility(&market, forward, t).unwrap();

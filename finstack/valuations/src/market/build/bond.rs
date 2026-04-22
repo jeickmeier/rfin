@@ -9,7 +9,7 @@ use crate::instruments::{Bond, DynInstrument, PricingOverrides};
 use crate::market::quotes::bond::BondQuote;
 use crate::market::BuildCtx;
 use finstack_core::currency::Currency;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::Money;
@@ -224,7 +224,7 @@ fn dirty_price_from_ytm_with_frequency_ctx(
         let t = day_count.year_fraction(
             as_of,
             date,
-            DayCountCtx {
+            DayCountContext {
                 frequency: Some(freq),
                 ..Default::default()
             },

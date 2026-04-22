@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD025 -->
 # Refactor Diff — Phase 3 output template
 
 One of these per slice. Short. The code is the source of truth; this note explains *why*, for reviewers.

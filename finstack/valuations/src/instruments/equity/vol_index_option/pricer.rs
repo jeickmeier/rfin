@@ -8,7 +8,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::norm_cdf;
 use finstack_core::money::Money;
@@ -37,7 +37,7 @@ pub(crate) fn compute_pv_raw(
     let vol_surface = context.get_surface(&option.vol_of_vol_surface_id)?;
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, option.expiry, DayCountContext::default())?
         .max(0.0);
 
     if t <= 0.0 {
@@ -80,7 +80,7 @@ pub(crate) fn forward_vol(
     let vol_curve = context.get_vol_index_curve(&option.vol_index_curve_id)?;
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, option.expiry, DayCountContext::default())?
         .max(0.0);
     Ok(vol_curve.forward_level(t))
 }
@@ -95,7 +95,7 @@ pub(crate) fn delta(
     let disc = context.get_discount(&option.discount_curve_id)?;
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, option.expiry, DayCountContext::default())?
         .max(0.0);
 
     if t <= 0.0 {
@@ -128,7 +128,7 @@ pub(crate) fn gamma(
     let disc = context.get_discount(&option.discount_curve_id)?;
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, option.expiry, DayCountContext::default())?
         .max(0.0);
     if t <= 0.0 {
         return Ok(0.0);
@@ -152,7 +152,7 @@ pub(crate) fn vega(
     let disc = context.get_discount(&option.discount_curve_id)?;
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, option.expiry, DayCountContext::default())?
         .max(0.0);
     if t <= 0.0 {
         return Ok(0.0);
@@ -176,7 +176,7 @@ pub(crate) fn theta(
     let disc = context.get_discount(&option.discount_curve_id)?;
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, option.expiry, DayCountContext::default())?
         .max(0.0);
     if t <= 0.0 {
         return Ok(0.0);

@@ -98,7 +98,7 @@ pub(crate) fn fair_forward(
     context: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<f64> {
-    use finstack_core::dates::{DayCount, DayCountCtx};
+    use finstack_core::dates::{DayCount, DayCountContext};
     use finstack_core::market_data::scalars::MarketScalar;
 
     let spot = match context.get_price(&future.spot_id)? {
@@ -107,7 +107,7 @@ pub(crate) fn fair_forward(
     };
     let disc = context.get_discount(&future.discount_curve_id)?;
     let t = DayCount::Act365F
-        .year_fraction(as_of, future.expiry, DayCountCtx::default())?
+        .year_fraction(as_of, future.expiry, DayCountContext::default())?
         .max(0.0);
     let r = disc.zero(t);
 
@@ -123,7 +123,7 @@ pub(crate) fn fair_forward(
                 continue;
             }
             let t_div = day_count
-                .year_fraction(as_of, *div_date, DayCountCtx::default())?
+                .year_fraction(as_of, *div_date, DayCountContext::default())?
                 .max(0.0);
             future_divs.push((t_div, *amount));
         }

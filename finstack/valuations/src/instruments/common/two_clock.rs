@@ -50,7 +50,7 @@
 //!   risk-neutral pricing under distinct rate and measurement
 //!   conventions).
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::term_structures::DiscountCurve;
 
 /// Bundled two-clock pricing inputs.
@@ -93,8 +93,8 @@ impl TwoClockParams {
     ) -> finstack_core::Result<Self> {
         let t_disc = disc_curve
             .day_count()
-            .year_fraction(as_of, expiry, DayCountCtx::default())?;
-        let t_vol = instrument_day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, expiry, DayCountContext::default())?;
+        let t_vol = instrument_day_count.year_fraction(as_of, expiry, DayCountContext::default())?;
         let df = disc_curve.df_between_dates(as_of, expiry)?;
         Ok(Self { t_disc, t_vol, df })
     }

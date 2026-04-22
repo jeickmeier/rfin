@@ -217,7 +217,7 @@ fn test_accrued_interest_at_coupon_boundaries() {
 #[test]
 fn test_accrued_interest_amortizing_schedule_driven() {
     use finstack_core::dates::DayCount;
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -307,11 +307,11 @@ fn test_accrued_interest_amortizing_schedule_driven() {
         if prev <= as_of && as_of < end {
             let total_period = schedule
                 .day_count
-                .year_fraction(prev, end, DayCountCtx::default())
+                .year_fraction(prev, end, DayCountContext::default())
                 .unwrap();
             let elapsed = schedule
                 .day_count
-                .year_fraction(prev, as_of, DayCountCtx::default())
+                .year_fraction(prev, as_of, DayCountContext::default())
                 .unwrap()
                 .max(0.0);
             expected = coupon_total * (elapsed / total_period);

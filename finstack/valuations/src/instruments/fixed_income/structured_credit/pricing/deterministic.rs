@@ -15,7 +15,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, ScheduleBuilder, StubKind,
+    adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountContext, ScheduleBuilder, StubKind,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -676,7 +676,7 @@ fn simulate_period(
         let accrual_factor =
             tranche
                 .day_count
-                .year_fraction(period_start, pay_date, DayCountCtx::default())?;
+                .year_fraction(period_start, pay_date, DayCountContext::default())?;
 
         // Interest due on post-writedown balance (correct: no interest on
         // written-down notional). Deferred interest is tracked separately
@@ -829,7 +829,7 @@ fn calculate_pool_flows(
         let fwd = context.get_forward(idx_str)?;
         let base = fwd.base_date();
         let dc = fwd.day_count();
-        let t2 = dc.year_fraction(base, pay_date, DayCountCtx::default())?;
+        let t2 = dc.year_fraction(base, pay_date, DayCountContext::default())?;
         let tenor = fwd.tenor();
         let t1 = (t2 - tenor).max(0.0);
         let r = if t2 > 0.0 && t1 < t2 {
@@ -870,7 +870,7 @@ fn calculate_pool_flows(
 
         let accrual_factor = state.pool_state.day_counts[i]
             .unwrap_or(DayCount::Act360)
-            .year_fraction(prev_date, interest_end, DayCountCtx::default())?;
+            .year_fraction(prev_date, interest_end, DayCountContext::default())?;
 
         let interest = Money::new(balance * rate * accrual_factor, base_ccy);
         total_interest = total_interest.checked_add(interest)?;

@@ -35,7 +35,7 @@ impl MetricCalculator for YearFractionCalculator {
         deposit.day_count.year_fraction(
             effective_start,
             effective_end,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 
 /// Breakeven inflation calculator for ILB.
 ///
@@ -21,7 +21,7 @@ impl MetricCalculator for BreakevenInflationCalculator {
 
         let day_count = disc_curve.day_count();
         let base_date = disc_curve.base_date();
-        let t = day_count.year_fraction(base_date, ilb.maturity, DayCountCtx::default())?;
+        let t = day_count.year_fraction(base_date, ilb.maturity, DayCountContext::default())?;
         let nominal_yield = disc_curve.zero(t);
 
         ilb.breakeven_inflation(nominal_yield, curves, context.as_of)

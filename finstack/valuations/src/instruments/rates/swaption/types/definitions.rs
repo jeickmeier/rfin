@@ -449,7 +449,7 @@ impl BermudanSchedule {
 
     /// Convert exercise dates to year fractions from a given date.
     pub fn exercise_times(&self, as_of: Date, day_count: DayCount) -> Result<Vec<f64>> {
-        let ctx = finstack_core::dates::DayCountCtx::default();
+        let ctx = finstack_core::dates::DayCountContext::default();
         self.effective_dates()
             .iter()
             .map(|&d| day_count.year_fraction(as_of, d, ctx))

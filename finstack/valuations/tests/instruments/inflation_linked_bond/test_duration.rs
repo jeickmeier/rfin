@@ -211,7 +211,7 @@ fn test_dv01_positive_before_maturity() {
         .year_fraction(
             as_of,
             ilb.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
 
@@ -235,7 +235,7 @@ fn test_dv01_zero_at_maturity() {
         .year_fraction(
             as_of,
             ilb.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
 
@@ -255,7 +255,7 @@ fn test_dv01_zero_after_maturity() {
     let time_result = ilb.day_count.year_fraction(
         as_of,
         ilb.maturity,
-        finstack_core::dates::DayCountCtx::default(),
+        finstack_core::dates::DayCountContext::default(),
     );
 
     // Assert - should error or return negative value
@@ -282,7 +282,7 @@ fn test_dv01_scales_with_notional() {
         .year_fraction(
             as_of,
             ilb_1m.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
 
@@ -312,7 +312,7 @@ fn test_dv01_scales_with_time_to_maturity() {
         .year_fraction(
             as_of,
             ilb_2y.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
 
@@ -321,7 +321,7 @@ fn test_dv01_scales_with_time_to_maturity() {
         .year_fraction(
             as_of,
             ilb_10y.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
 
@@ -355,7 +355,7 @@ fn test_dv01_reasonable_magnitude() {
         .year_fraction(
             as_of,
             ilb.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
     let dv01 = ilb.notional.amount() * ttm * 0.0001;
@@ -380,7 +380,7 @@ fn test_duration_and_dv01_relationship() {
         .year_fraction(
             as_of,
             ilb.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
     let dv01_approx = ilb.notional.amount() * ttm * 0.0001;

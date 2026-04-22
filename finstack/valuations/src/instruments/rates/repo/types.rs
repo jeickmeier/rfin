@@ -596,7 +596,7 @@ impl Repo {
         let year_fraction = self.day_count.year_fraction(
             adj_start,
             adj_maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         let effective_rate = self.effective_rate();

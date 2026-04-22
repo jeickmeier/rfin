@@ -134,7 +134,7 @@ use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 ///
 /// - Month-based coupon schedules such as monthly, quarterly, or semi-annual
 /// - Day-based operational schedules such as weekly or biweekly
-/// - ACT/ACT (ICMA) frequency metadata via [`crate::dates::DayCountCtx`]
+/// - ACT/ACT (ICMA) frequency metadata via [`crate::dates::DayCountContext`]
 ///
 /// # Examples
 ///
@@ -166,7 +166,7 @@ use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 /// # See Also
 ///
 /// - [`ScheduleBuilder::frequency`] to use with schedule builder
-/// - [`crate::dates::DayCountCtx`] for conventions that also require frequency metadata
+/// - [`crate::dates::DayCountContext`] for conventions that also require frequency metadata
 use crate::dates::Tenor;
 
 /// Stub period handling when start/end dates don't align with payment frequency.

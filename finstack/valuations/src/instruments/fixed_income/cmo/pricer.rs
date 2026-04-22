@@ -15,7 +15,7 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
@@ -248,7 +248,7 @@ pub(crate) fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) ->
 
     let mut pv = 0.0;
     for cf in &schedule.flows {
-        let years = dc.year_fraction(as_of, cf.date, DayCountCtx::default())?;
+        let years = dc.year_fraction(as_of, cf.date, DayCountContext::default())?;
         let df = discount_curve.df(years);
         pv += cf.amount.amount() * df;
     }

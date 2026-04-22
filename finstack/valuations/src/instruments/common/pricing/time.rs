@@ -30,7 +30,7 @@
 //! The `relative_df_*` functions implement the same numerical stability checks used in
 //! IRS pricing that have been validated against Bloomberg SWPM.
 
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::Result;
@@ -109,7 +109,7 @@ pub fn relative_df_discounting(disc: &dyn Discounting, as_of: Date, target: Date
 
     let base = disc.base_date();
     let dc = disc.day_count();
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Compute times using the curve's own day count and base date
     let t_as_of = if as_of == base {
@@ -189,7 +189,7 @@ pub fn curve_time(fwd: &ForwardCurve, date: Date) -> Result<f64> {
         return Ok(0.0);
     }
     let dc = fwd.day_count();
-    let t = dc.year_fraction(base, date, DayCountCtx::default())?;
+    let t = dc.year_fraction(base, date, DayCountContext::default())?;
     Ok(t.max(0.0))
 }
 
@@ -259,7 +259,7 @@ pub fn time_to_expiry(
     if expiry <= as_of {
         return Ok(0.0);
     }
-    let t = day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let t = day_count.year_fraction(as_of, expiry, DayCountContext::default())?;
     Ok(t.max(0.0))
 }
 
@@ -447,7 +447,7 @@ mod tests {
         // OLD (buggy) approach: compute t using instrument's day count
         let inst_dc = DayCount::Act365F;
         let t_instrument = inst_dc
-            .year_fraction(base, target, DayCountCtx::default())
+            .year_fraction(base, target, DayCountContext::default())
             .expect("yf");
         let df_old = disc.df(t_instrument);
 

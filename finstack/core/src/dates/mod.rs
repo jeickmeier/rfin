@@ -82,7 +82,7 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 mod daycount;
 
 pub use daycount::{
-    act_act_isma_year_fraction_with_reference_period, DayCount, DayCountCtx, DayCountCtxState,
+    act_act_isma_year_fraction_with_reference_period, DayCount, DayCountContext, DayCountContextState,
     Thirty360Convention,
 };
 

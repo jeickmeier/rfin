@@ -17,7 +17,7 @@
 //! - **Credit Spread**: Default risk premium
 
 use finstack_core::config::{RoundingContext, ZeroKind};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::money::Money;
@@ -299,7 +299,7 @@ impl<'a> CashflowEngine<'a> {
 
                 let dt =
                     self.day_count
-                        .year_fraction(sub_start, sub_end, DayCountCtx::default())?;
+                        .year_fraction(sub_start, sub_end, DayCountContext::default())?;
                 total_accrual += dt;
 
                 let current_undrawn = self
@@ -665,7 +665,7 @@ impl<'a> CashflowEngine<'a> {
 
             let dt =
                 self.day_count
-                    .year_fraction(period_start, period_end, DayCountCtx::default())?;
+                    .year_fraction(period_start, period_end, DayCountContext::default())?;
             let interest = drawn_balance * (interest_rate * dt);
 
             // Add interest cashflows if non-zero

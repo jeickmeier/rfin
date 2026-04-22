@@ -12,7 +12,7 @@ use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CDSTrancheQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DateExt, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
@@ -269,7 +269,7 @@ impl BaseCorrelationTarget {
         let pillar_time = time_dc.year_fraction(
             self.params.base_date,
             fields.maturity,
-            DayCountCtx::default(),
+            DayCountContext::default(),
         )?;
 
         let prepared_quote = PreparedQuote::new(

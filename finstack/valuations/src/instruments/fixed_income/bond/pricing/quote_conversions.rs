@@ -14,7 +14,7 @@ use crate::instruments::fixed_income::bond::Bond;
 use crate::metrics::{standard_registry, MetricRegistry};
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::Date;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -146,7 +146,7 @@ pub fn fixed_leg_annuity(
     dc: finstack_core::dates::DayCount,
     schedule: &[Date],
 ) -> finstack_core::Result<f64> {
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
 
     if schedule.len() < 2 {
         return Ok(0.0);
@@ -155,7 +155,7 @@ pub fn fixed_leg_annuity(
     let mut ann = 0.0;
     let mut prev = schedule[0];
     for &d in &schedule[1..] {
-        let alpha = dc.year_fraction(prev, d, DayCountCtx::default())?;
+        let alpha = dc.year_fraction(prev, d, DayCountContext::default())?;
         let p = disc.df_on_date_curve(d)?;
         ann += alpha * p;
         prev = d;
@@ -533,7 +533,7 @@ pub fn price_from_ytm_compounded_params(
         if date <= as_of {
             continue;
         }
-        let t = day_count.year_fraction(as_of, date, DayCountCtx::default())?;
+        let t = day_count.year_fraction(as_of, date, DayCountContext::default())?;
         if t > 0.0 {
             let df = df_from_yield(ytm, t, comp, freq)?;
             pv.add(amount.amount() * df);
@@ -754,7 +754,7 @@ pub fn price_from_z_spread(
         // definition aligned with the curve's own time axis.
         let t_from_as_of = disc
             .day_count()
-            .year_fraction(as_of, *d, DayCountCtx::default())?;
+            .year_fraction(as_of, *d, DayCountContext::default())?;
 
         let df = disc.df_between_dates(as_of, *d)?;
         let df_z = df * (-z * t_from_as_of).exp();
@@ -795,7 +795,7 @@ pub fn price_from_oas(
     // discount curve's day-count to ensure consistency with tree calibration.
     let discount_curve = curves.get_discount(&bond.discount_curve_id)?;
     let disc_dc = discount_curve.day_count();
-    let time_to_maturity = disc_dc.year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
+    let time_to_maturity = disc_dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }

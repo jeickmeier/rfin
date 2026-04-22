@@ -59,7 +59,7 @@ fn test_single_currency_period_pv_rejects_multi_currency_result() {
     use crate::helpers::FlatRateCurve;
     use finstack_cashflows::builder::{CashFlowMeta, CashFlowSchedule, Notional};
     use finstack_core::cashflow::{CFKind, CashFlow};
-    use finstack_core::dates::{DayCount, DayCountCtx, Period, PeriodId};
+    use finstack_core::dates::{DayCount, DayCountContext, Period, PeriodId};
 
     let schedule = CashFlowSchedule {
         flows: vec![
@@ -102,7 +102,7 @@ fn test_single_currency_period_pv_rejects_multi_currency_result() {
             finstack_cashflows::aggregation::DateContext::new(
                 d(2024, 1, 1),
                 DayCount::Act365F,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             ),
         )
         .expect("multi-currency PV map should succeed");
@@ -168,13 +168,13 @@ fn test_all_flows_preserve_currency() {
 #[test]
 fn test_bus_252_year_fraction() {
     use finstack_core::dates::calendar::TARGET2;
-    use finstack_core::dates::{DayCount, DayCountCtx};
+    use finstack_core::dates::{DayCount, DayCountContext};
 
     let start = d(2024, 1, 2); // First business day of 2024
     let end = d(2024, 7, 1);
 
     let calendar = TARGET2;
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: Some(&calendar),
         frequency: None,
         bus_basis: None,
@@ -196,14 +196,14 @@ fn test_bus_252_year_fraction() {
 /// Bus/252 without a calendar should error.
 #[test]
 fn test_bus_252_requires_calendar() {
-    use finstack_core::dates::{DayCount, DayCountCtx};
+    use finstack_core::dates::{DayCount, DayCountContext};
 
     let start = d(2024, 1, 2);
     let end = d(2024, 7, 1);
 
-    let result = DayCount::Bus252.year_fraction(start, end, DayCountCtx::default());
+    let result = DayCount::Bus252.year_fraction(start, end, DayCountContext::default());
     assert!(
         result.is_err(),
-        "Bus/252 should error without a calendar in DayCountCtx"
+        "Bus/252 should error without a calendar in DayCountContext"
     );
 }

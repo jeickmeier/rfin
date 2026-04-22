@@ -26,7 +26,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -38,7 +38,7 @@ pub(crate) fn compute_pv(
 ) -> finstack_core::Result<Money> {
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
     let (hist_sum, hist_prod_log, hist_count) = inst.accumulated_state(as_of);
     let total_fixings = inst.fixing_dates.len();
@@ -92,7 +92,7 @@ pub(crate) fn compute_pv(
         if fixing_date > as_of {
             let t_i = inst
                 .day_count
-                .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                .year_fraction(as_of, fixing_date, DayCountContext::default())?;
             if t_i > 0.0 {
                 let fwd = price_curve.price_on_date(fixing_date)?;
                 future_forwards.push((t_i, fwd));

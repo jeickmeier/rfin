@@ -131,7 +131,7 @@ impl TermLoanValuator {
             let t = dc_curve.year_fraction(
                 origin,
                 cf.date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             let raw = (t / time_to_maturity) * tree_steps as f64;
             let raw_clamped = raw.clamp(0.0, tree_steps as f64);
@@ -212,7 +212,7 @@ impl TermLoanValuator {
             .filter(|(d, _)| *d >= origin && *d <= loan.maturity)
             .filter_map(|(d, amt)| {
                 dc_curve
-                    .year_fraction(origin, *d, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(origin, *d, finstack_core::dates::DayCountContext::default())
                     .ok()
                     .map(|t| (t, amt.amount()))
             })
@@ -257,7 +257,7 @@ impl TermLoanValuator {
                 let t = dc_curve.year_fraction(
                     origin,
                     c.date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?;
                 let raw = (t / time_to_maturity) * tree_steps as f64;
                 let step =
@@ -443,7 +443,7 @@ impl TermLoanTreePricer {
         let time_to_maturity = dc_curve.year_fraction(
             origin,
             loan.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if time_to_maturity <= 0.0 {
             return Ok(Money::new(0.0, loan.currency));
@@ -549,7 +549,7 @@ impl TermLoanTreePricer {
         let time_to_maturity = dc_curve.year_fraction(
             origin,
             loan.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if time_to_maturity <= 0.0 {
             return Ok(0.0);

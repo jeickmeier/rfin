@@ -12,7 +12,7 @@
 //! - Act/Act ISDA: actual days / days in year
 
 use crate::helpers::{d, FACTOR_TOLERANCE};
-use finstack_core::dates::{DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{DayCount, DayCountContext, Tenor};
 
 // =============================================================================
 // Act/365 Fixed Golden Values
@@ -22,7 +22,7 @@ use finstack_core::dates::{DayCount, DayCountCtx, Tenor};
 fn act365f_14_days() {
     // 14 days from Jan 1 to Jan 15
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2025, 1, 1), d(2025, 1, 15), ctx)
@@ -41,7 +41,7 @@ fn act365f_14_days() {
 fn act365f_full_non_leap_year() {
     // Full non-leap year: Jan 1, 2025 to Jan 1, 2026 = 365 days
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
@@ -57,7 +57,7 @@ fn act365f_leap_year() {
     // Leap year: Jan 1, 2024 to Jan 1, 2025 = 366 actual days
     // But Act/365F always divides by 365, so yf = 366/365 > 1.0
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
     let expected = 366.0 / 365.0;
@@ -74,7 +74,7 @@ fn act365f_leap_year() {
 fn act365f_quarter() {
     // Q1 2025: Jan 1 to Apr 1 = 90 days
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2025, 4, 1), ctx).unwrap();
     let expected = 90.0 / 365.0;
@@ -95,7 +95,7 @@ fn act365f_quarter() {
 fn act360_30_days() {
     // 30 days from Jan 1 to Jan 31
     let dc = DayCount::Act360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2025, 1, 1), d(2025, 1, 31), ctx)
@@ -114,7 +114,7 @@ fn act360_30_days() {
 fn act360_90_days_quarter() {
     // 90 days (quarter)
     let dc = DayCount::Act360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2025, 4, 1), ctx).unwrap();
     let expected = 90.0 / 360.0;
@@ -131,7 +131,7 @@ fn act360_90_days_quarter() {
 fn act360_180_days_half_year() {
     // 181 actual days from Jan 1 to Jul 1 (non-leap year)
     let dc = DayCount::Act360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2025, 7, 1), ctx).unwrap();
     let expected = 181.0 / 360.0;
@@ -148,7 +148,7 @@ fn act360_180_days_half_year() {
 fn act360_full_year() {
     // Full year in Act/360 is 365/360 = 1.01389 (non-leap)
     let dc = DayCount::Act360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
     let expected = 365.0 / 360.0;
@@ -170,7 +170,7 @@ fn thirty360_6_months() {
     // 6 months from Jan 15 to Jul 15 = 180 days (30/360)
     // Year fraction = 180/360 = 0.5
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2025, 1, 15), d(2025, 7, 15), ctx)
@@ -187,7 +187,7 @@ fn thirty360_6_months() {
 fn thirty360_1_month() {
     // 1 month from Jan 15 to Feb 15 = 30 days (30/360)
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2025, 1, 15), d(2025, 2, 15), ctx)
@@ -207,7 +207,7 @@ fn thirty360_end_of_month_jan_to_feb() {
     // Jan 31 to Feb 28: In 30/360, Jan 31 → 30, Feb 28 stays 28
     // Days = (2 - 1) * 30 + (28 - 30) = 30 - 2 = 28 days
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2025, 1, 31), d(2025, 2, 28), ctx)
@@ -226,7 +226,7 @@ fn thirty360_end_of_month_jan_to_feb() {
 fn thirty360_full_year() {
     // Full year from Jan 1 to Jan 1 = 360 days (30/360)
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
 
@@ -241,7 +241,7 @@ fn thirty360_full_year() {
 fn thirty360_same_day_different_months() {
     // Mar 15 to Jun 15 = 3 months = 90 days in 30/360
     let dc = DayCount::Thirty360;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let yf = dc
         .year_fraction(d(2025, 3, 15), d(2025, 6, 15), ctx)
@@ -265,7 +265,7 @@ fn actact_isma_requires_frequency() {
     let dc = DayCount::ActActIsma;
 
     // Without frequency - should error
-    let ctx_no_freq = DayCountCtx {
+    let ctx_no_freq = DayCountContext {
         frequency: None,
         calendar: None,
         bus_basis: None,
@@ -283,7 +283,7 @@ fn actact_isma_with_semi_annual_frequency() {
     let dc = DayCount::ActActIsma;
 
     // With semi-annual frequency - should succeed
-    let ctx_with_freq = DayCountCtx {
+    let ctx_with_freq = DayCountContext {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
@@ -307,7 +307,7 @@ fn actact_isma_with_semi_annual_frequency() {
 fn actact_isma_with_quarterly_frequency() {
     let dc = DayCount::ActActIsma;
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
@@ -349,7 +349,7 @@ fn actact_isma_golden_value_semi_annual_regular_period() {
     let dc = DayCount::ActActIsma;
 
     // Semi-annual: Jan 15 to Jul 15 (regular 6-month period)
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,
@@ -375,7 +375,7 @@ fn actact_isma_golden_value_quarterly_regular_period() {
     let dc = DayCount::ActActIsma;
 
     // Quarterly: Jan 15 to Apr 15 (regular 3-month period)
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
@@ -399,7 +399,7 @@ fn actact_isma_golden_value_annual_regular_period() {
     let dc = DayCount::ActActIsma;
 
     // Annual: Jan 15, 2025 to Jan 15, 2026 (regular annual period)
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,
@@ -430,7 +430,7 @@ fn actact_isma_stub_period_shorter_than_regular() {
 
     // Short stub: Feb 15 to Apr 15 (2 months instead of 3 for quarterly)
     // In a quarterly schedule, the reference period is ~91 days
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::quarterly()),
         calendar: None,
         bus_basis: None,
@@ -467,7 +467,7 @@ fn actact_isda_no_frequency_required() {
     // Act/Act ISDA uses actual days / actual days in year
     let dc = DayCount::ActAct;
 
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: None,
         calendar: None,
         bus_basis: None,
@@ -485,7 +485,7 @@ fn actact_isda_no_frequency_required() {
 #[test]
 fn actact_isda_non_leap_year() {
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Full non-leap year
     let yf = dc.year_fraction(d(2025, 1, 1), d(2026, 1, 1), ctx).unwrap();
@@ -500,7 +500,7 @@ fn actact_isda_non_leap_year() {
 #[test]
 fn actact_isda_leap_year() {
     let dc = DayCount::ActAct;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Full leap year: Jan 1, 2024 to Jan 1, 2025 = 366 days in 366-day year
     let yf = dc.year_fraction(d(2024, 1, 1), d(2025, 1, 1), ctx).unwrap();
@@ -518,8 +518,8 @@ fn actact_isda_leap_year() {
 
 #[test]
 fn zero_length_period_all_conventions() {
-    let ctx = DayCountCtx::default();
-    let ctx_with_freq = DayCountCtx {
+    let ctx = DayCountContext::default();
+    let ctx_with_freq = DayCountContext {
         frequency: Some(Tenor::semi_annual()),
         calendar: None,
         bus_basis: None,

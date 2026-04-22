@@ -67,7 +67,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         // Get curves from market context
         let forward_curve = context.curves.get_forward(&option.forward_curve_id)?;
         let discount_curve = context.curves.get_discount(&option.discount_curve_id)?;
-        let dc_ctx = finstack_core::dates::DayCountCtx::default();
+        let dc_ctx = finstack_core::dates::DayCountContext::default();
 
         // Use instrument day count for time-to-fixing (consistent with pricing and vol surface lookup)
         let time_to_fixing = if option.start_date > context.as_of {
@@ -92,7 +92,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let accrual_fraction = option.day_count.year_fraction(
             option.start_date,
             option.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let is_cap = matches!(
             option.rate_option_type,

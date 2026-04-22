@@ -2,7 +2,7 @@
 
 use crate::instruments::fixed_income::structured_credit::types::constants::YTM_SOLVER_TOLERANCE;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 use serde::Deserialize;
@@ -144,7 +144,7 @@ impl MetricCalculator for YtmCalculator {
                 }
 
                 let t = day_count
-                    .year_fraction(context.as_of, *date, DayCountCtx::default())
+                    .year_fraction(context.as_of, *date, DayCountContext::default())
                     .unwrap_or(0.0);
 
                 if t > 0.0 {

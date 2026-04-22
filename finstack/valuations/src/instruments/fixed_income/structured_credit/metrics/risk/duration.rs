@@ -3,7 +3,7 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::constants::ONE_BASIS_POINT;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -63,7 +63,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
             }
 
             // Calculate time in years
-            let years = day_count.year_fraction(context.as_of, *date, DayCountCtx::default())?;
+            let years = day_count.year_fraction(context.as_of, *date, DayCountContext::default())?;
 
             // Get discount factor
             let df = disc.df_on_date_curve(*date)?;
@@ -149,7 +149,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             }
 
             // Calculate time from curve base date
-            let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
+            let t = day_count.year_fraction(base_date, *date, DayCountContext::default())?;
 
             // Get base discount factor
             let df = disc.df_on_date_curve(*date)?;
@@ -198,7 +198,7 @@ pub fn calculate_tranche_duration(
             continue;
         }
 
-        let years = day_count.year_fraction(as_of, *date, DayCountCtx::default())?;
+        let years = day_count.year_fraction(as_of, *date, DayCountContext::default())?;
 
         let df = discount_curve.df_between_dates(as_of, *date)?;
         let flow_pv = amount.amount() * df;

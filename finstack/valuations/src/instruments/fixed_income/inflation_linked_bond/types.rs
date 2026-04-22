@@ -5,7 +5,7 @@ use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
+    BusinessDayConvention, Date, DateExt, DayCount, DayCountContext, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
@@ -723,10 +723,10 @@ impl InflationLinkedBond {
                 // Found the active period
                 let total_yf = self
                     .day_count
-                    .year_fraction(start, end, DayCountCtx::default())?;
+                    .year_fraction(start, end, DayCountContext::default())?;
                 let elapsed_yf =
                     self.day_count
-                        .year_fraction(start, as_of, DayCountCtx::default())?;
+                        .year_fraction(start, as_of, DayCountContext::default())?;
 
                 if total_yf <= 0.0 {
                     return Ok(0.0);
@@ -790,7 +790,7 @@ impl InflationLinkedBond {
                 .year_fraction(
                     period.accrual_start,
                     period.accrual_end,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?
                 .max(0.0);
             let coupon_rate = self
@@ -1042,7 +1042,7 @@ impl CashflowProvider for InflationLinkedBond {
                 .year_fraction(
                     period.accrual_start,
                     period.accrual_end,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?
                 .max(0.0);
             let coupon_rate = self

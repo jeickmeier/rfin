@@ -24,7 +24,7 @@ use crate::instruments::common_impl::traits::{Attributes, CurveDependencies, Ins
 use crate::instruments::OptionType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountCtx, ScheduleBuilder, Tenor,
+    BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountContext, ScheduleBuilder, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -232,7 +232,7 @@ impl CommoditySwaption {
             let df = disc.df_between_dates(as_of, payment_date)?;
             let period_frac =
                 self.day_count
-                    .year_fraction(prev, payment_date, DayCountCtx::default())?;
+                    .year_fraction(prev, payment_date, DayCountContext::default())?;
             annuity += df * period_frac;
             prev = payment_date;
         }
@@ -242,7 +242,7 @@ impl CommoditySwaption {
 
     fn time_to_expiry(&self, as_of: Date) -> Result<f64> {
         self.day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())
+            .year_fraction(as_of, self.expiry, DayCountContext::default())
             .map(|t| t.max(0.0))
     }
 }
@@ -345,7 +345,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityS
 
         let t = self
             .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+            .year_fraction(as_of, self.expiry, DayCountContext::default())?
             .max(0.0);
 
         let forward = self.forward_swap_rate(market)?;
@@ -477,7 +477,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for CommoditySw
 
         let t = self
             .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+            .year_fraction(as_of, self.expiry, DayCountContext::default())?
             .max(0.0);
         if t <= 0.0 {
             return Ok(0.0);

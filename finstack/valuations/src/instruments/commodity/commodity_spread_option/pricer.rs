@@ -94,7 +94,7 @@ fn kirk_price(
         .year_fraction(
             as_of,
             inst.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?
         .max(0.0);
     let _r = disc.zero(t_rate);

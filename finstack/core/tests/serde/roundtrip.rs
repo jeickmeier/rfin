@@ -5,7 +5,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, DayCount, DayCountCtxState, ScheduleBuilder,
+    BusinessDayConvention, CalendarRegistry, DayCount, DayCountContextState, ScheduleBuilder,
     ScheduleSpec, StubKind, Tenor, TenorUnit,
 };
 use finstack_core::explain::ExplainOpts;
@@ -54,7 +54,7 @@ fn explain_opts_roundtrip() {
 
 #[test]
 fn daycount_ctx_state_roundtrip() {
-    let state = DayCountCtxState {
+    let state = DayCountContextState {
         calendar_id: Some("target2".to_string()),
         frequency: Some(Tenor::quarterly()),
         bus_basis: Some(260),
@@ -66,7 +66,7 @@ fn daycount_ctx_state_roundtrip() {
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
     assert!(yf > 0.0);
 
-    let roundtrip_state: DayCountCtxState = ctx.into();
+    let roundtrip_state: DayCountContextState = ctx.into();
     assert_eq!(roundtrip_state.calendar_id.as_deref(), Some("target2"));
     assert_eq!(roundtrip_state.frequency, Some(Tenor::quarterly()));
     assert_eq!(roundtrip_state.bus_basis, Some(260));

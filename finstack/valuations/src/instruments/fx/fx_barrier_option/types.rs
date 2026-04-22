@@ -156,7 +156,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxBarrierO
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -200,7 +200,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxBarrierO
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -246,7 +246,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for FxBarrierOp
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -274,7 +274,7 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for FxBarrierOpt
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -303,7 +303,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -383,7 +383,7 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxBarrierO
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);

@@ -211,7 +211,7 @@ impl CDSTranchePricer {
             let accrual_period = tranche.day_count.year_fraction(
                 period_start,
                 payment_date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             let payment_time = self.years_from_base(_index_data_arc.as_ref(), payment_date)?;
             let aod_adjustment = if self.params.accrual_on_default_enabled {

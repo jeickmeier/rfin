@@ -56,14 +56,14 @@
 //!
 //! # Examples
 //! ```
-//! use finstack_core::dates::{Date, DayCount, DayCountCtx};
+//! use finstack_core::dates::{Date, DayCount, DayCountContext};
 //! use time::Month;
 //!
 //! let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 //! let end   = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
 //!
 //! let yf = DayCount::ActAct
-//!     .year_fraction(start, end, DayCountCtx::default())
+//!     .year_fraction(start, end, DayCountContext::default())
 //!     .expect("Year fraction calculation should succeed");
 //! assert!((yf - 1.0).abs() < 1e-9);
 //! ```
@@ -71,10 +71,10 @@
 //! # Bus/252 Convention
 //!
 //! The Bus/252 convention counts business days between dates and divides by 252 (typical trading days per year).
-//! This requires a holiday calendar to determine business days. Provide the calendar via `DayCountCtx`.
+//! This requires a holiday calendar to determine business days. Provide the calendar via `DayCountContext`.
 //!
 //! ```
-//! use finstack_core::dates::{Date, DayCount, DayCountCtx};
+//! use finstack_core::dates::{Date, DayCount, DayCountContext};
 //! use finstack_core::dates::calendar::TARGET2;
 //! use time::Month;
 //!
@@ -84,7 +84,7 @@
 //!
 //! // Calculate year fraction with a calendar in context
 //! let yf = DayCount::Bus252
-//!     .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None, bus_basis: None, coupon_period: None })
+//!     .year_fraction(start, end, DayCountContext { calendar: Some(&calendar), frequency: None, bus_basis: None, coupon_period: None })
 //!     .expect("Year fraction calculation should succeed");
 //! ```
 //!
@@ -97,7 +97,7 @@
 //! - **ACT/ACT (ISMA)**: Uses the actual number of days in the coupon period containing the date
 //!
 //! ```
-//! use finstack_core::dates::{Date, DayCount, Tenor, DayCountCtx};
+//! use finstack_core::dates::{Date, DayCount, Tenor, DayCountContext};
 //! use time::Month;
 //!
 //! // Example: 6-month period in a leap year
@@ -105,13 +105,13 @@
 //! let end   = Date::from_calendar_date(2024, Month::July, 1).expect("Valid date");
 //!
 //! // ACT/ACT (ISDA): 181 days / 366 days (leap year) = 0.4945355191256831
-//! let yf_isda = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+//! let yf_isda = DayCount::ActAct.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
 //!
 //! // ACT/ACT (ISMA): frequency-only helper for regular coupon periods
 //! // Returns year fractions: a full 6-month regular period = 0.5 years
 //! let freq = Tenor::semi_annual(); // Semi-annual
 //! let yf_isma = DayCount::ActActIsma
-//!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None, coupon_period: None })
+//!     .year_fraction(start, end, DayCountContext { calendar: None, frequency: Some(freq), bus_basis: None, coupon_period: None })
 //!     .expect("Year fraction calculation should succeed");
 //! // yf_isma ≈ 0.5 (one full semi-annual period in years)
 //! ```
@@ -133,7 +133,7 @@ use crate::error::InputError;
 /// - `Bus/252` requires a holiday `calendar`.
 /// - `Act/Act (ISMA)` requires the coupon `frequency`.
 #[derive(Clone, Copy, Default)]
-pub struct DayCountCtx<'a> {
+pub struct DayCountContext<'a> {
     /// Holiday calendar for business day conventions
     pub calendar: Option<&'a dyn HolidayCalendar>,
     /// Payment frequency (required for ACT/ACT ISMA)
@@ -149,9 +149,9 @@ pub struct DayCountCtx<'a> {
     pub coupon_period: Option<(Date, Date)>,
 }
 
-impl<'a> std::fmt::Debug for DayCountCtx<'a> {
+impl<'a> std::fmt::Debug for DayCountContext<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DayCountCtx")
+        f.debug_struct("DayCountContext")
             .field("calendar", &self.calendar.map(|_| "HolidayCalendar"))
             .field("frequency", &self.frequency)
             .field("bus_basis", &self.bus_basis)
@@ -161,11 +161,11 @@ impl<'a> std::fmt::Debug for DayCountCtx<'a> {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-/// Serializable snapshot of [`DayCountCtx`] state for persistence and interchange.
+/// Serializable snapshot of [`DayCountContext`] state for persistence and interchange.
 ///
 /// This struct captures the optional context parameters (calendar, frequency, business-day basis)
-/// needed to reconstruct a [`DayCountCtx`] at runtime using a [`CalendarRegistry`].
-pub struct DayCountCtxState {
+/// needed to reconstruct a [`DayCountContext`] at runtime using a [`CalendarRegistry`].
+pub struct DayCountContextState {
     /// Optional calendar code (e.g. "target2").
     pub calendar_id: Option<String>,
     /// Optional coupon frequency for Act/Act ISMA.
@@ -174,14 +174,14 @@ pub struct DayCountCtxState {
     pub bus_basis: Option<u16>,
 }
 
-impl DayCountCtxState {
-    /// Build a runtime [`DayCountCtx`] using the provided calendar registry.
-    pub fn to_ctx<'a>(&self, registry: &'a CalendarRegistry<'a>) -> DayCountCtx<'a> {
+impl DayCountContextState {
+    /// Build a runtime [`DayCountContext`] using the provided calendar registry.
+    pub fn to_ctx<'a>(&self, registry: &'a CalendarRegistry<'a>) -> DayCountContext<'a> {
         let calendar = self
             .calendar_id
             .as_deref()
             .and_then(|code| registry.resolve_str(code));
-        DayCountCtx {
+        DayCountContext {
             calendar,
             frequency: self.frequency,
             bus_basis: self.bus_basis,
@@ -190,8 +190,8 @@ impl DayCountCtxState {
     }
 }
 
-impl<'a> From<DayCountCtx<'a>> for DayCountCtxState {
-    fn from(value: DayCountCtx<'a>) -> Self {
+impl<'a> From<DayCountContext<'a>> for DayCountContextState {
+    fn from(value: DayCountContext<'a>) -> Self {
         let calendar_id = value
             .calendar
             .and_then(|cal| cal.metadata().map(|meta| meta.id.to_string()));
@@ -219,17 +219,17 @@ impl<'a> From<DayCountCtx<'a>> for DayCountCtxState {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+/// use finstack_core::dates::{Date, DayCount, DayCountContext};
 /// use time::Month;
 ///
 /// let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 /// let end = Date::from_calendar_date(2025, Month::July, 1).expect("Valid date");
 ///
 /// // Actual/360 - money market convention
-/// let yf_360 = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+/// let yf_360 = DayCount::Act360.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
 ///
 /// // 30/360 - bond convention
-/// let yf_30360 = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+/// let yf_30360 = DayCount::Thirty360.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
 ///
 /// assert!(yf_360 > yf_30360); // Act/360 has larger denominator
 /// ```
@@ -260,13 +260,13 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::April, 1).expect("Valid date"); // 90 days
     ///
-    /// let yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+    /// let yf = DayCount::Act360.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
     /// assert_eq!(yf, 90.0 / 360.0);
     /// ```
     Act360,
@@ -291,13 +291,13 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let end = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
     ///
-    /// let yf = DayCount::Act365F.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+    /// let yf = DayCount::Act365F.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
     /// assert!((yf - 1.0).abs() < 1e-9); // 365 days / 365 = 1.0
     /// ```
     Act365F,
@@ -321,14 +321,14 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// // Period containing Feb 29, 2024 (leap year)
     /// let start = Date::from_calendar_date(2024, Month::February, 1).expect("Valid date");
     /// let end = Date::from_calendar_date(2024, Month::March, 1).expect("Valid date");
     ///
-    /// let yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+    /// let yf = DayCount::Act365L.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
     /// // 29 days / 366 (leap year denominator)
     /// assert_eq!(yf, 29.0 / 366.0);
     /// ```
@@ -378,13 +378,13 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 31).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::February, 28).expect("Valid date");
     ///
-    /// let yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+    /// let yf = DayCount::Thirty360.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
     /// // Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360
     /// assert_eq!(yf, 28.0 / 360.0);
     /// ```
@@ -420,13 +420,13 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 31).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::March, 31).expect("Valid date");
     ///
-    /// let yf = DayCount::ThirtyE360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+    /// let yf = DayCount::ThirtyE360.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
     /// // Treats both 31st as day 30: 60 days / 360
     /// assert_eq!(yf, 60.0 / 360.0);
     /// ```
@@ -460,14 +460,14 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// // Period spanning year boundary (leap year 2024)
     /// let start = Date::from_calendar_date(2024, Month::July, 1).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::July, 1).expect("Valid date");
     ///
-    /// let yf = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
+    /// let yf = DayCount::ActAct.year_fraction(start, end, DayCountContext::default()).expect("Year fraction calculation should succeed");
     /// // 184/366 (Jul-Dec 2024 in leap year) + 365/365 (all of 2025)
     /// assert!((yf - 1.0).abs() < 0.01);
     /// ```
@@ -503,14 +503,14 @@ pub enum DayCount {
     ///
     /// # Requirements
     ///
-    /// Requires `frequency` in [`DayCountCtx`] to determine regular coupon periods.
+    /// Requires `frequency` in [`DayCountContext`] to determine regular coupon periods.
     /// For irregular first/last coupons, use
     /// [`act_act_isma_year_fraction_with_reference_period`].
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid date");
@@ -520,7 +520,7 @@ pub enum DayCount {
     /// let yf = DayCount::ActActIsma.year_fraction(
     ///     start,
     ///     end,
-    ///     DayCountCtx { frequency: Some(freq), ..Default::default() }
+    ///     DayCountContext { frequency: Some(freq), ..Default::default() }
     /// ).expect("Year fraction calculation should succeed");
     ///
     /// // Full semi-annual period = 0.5 year fraction (6 months / 12 months)
@@ -545,7 +545,7 @@ pub enum DayCount {
     ///
     /// # Requirements
     ///
-    /// Requires `calendar` in [`DayCountCtx`] to determine business days.
+    /// Requires `calendar` in [`DayCountContext`] to determine business days.
     ///
     /// # Performance
     ///
@@ -556,7 +556,7 @@ pub enum DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use finstack_core::dates::calendar::NYSE;
     /// use time::Month;
     ///
@@ -566,7 +566,7 @@ pub enum DayCount {
     /// let yf = DayCount::Bus252.year_fraction(
     ///     start,
     ///     end,
-    ///     DayCountCtx { calendar: Some(&NYSE), ..Default::default() }
+    ///     DayCountContext { calendar: Some(&NYSE), ..Default::default() }
     /// ).expect("Year fraction calculation should succeed");
     ///
     /// // 5 business days / 252
@@ -578,7 +578,7 @@ pub enum DayCount {
 impl DayCount {
     /// Compute the year fraction between `start` and `end` per this convention.
     ///
-    /// Provide any required context via [`DayCountCtx`]:
+    /// Provide any required context via [`DayCountContext`]:
     /// - `Bus/252` requires a holiday calendar
     /// - `Act/Act (ISMA)` requires a coupon frequency
     ///
@@ -610,17 +610,17 @@ impl DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::July, 1).expect("Valid date");
     ///
-    /// let yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default())?;
+    /// let yf = DayCount::Act360.year_fraction(start, end, DayCountContext::default())?;
     /// assert!(yf > 0.0);
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
-    pub fn year_fraction(self, start: Date, end: Date, ctx: DayCountCtx<'_>) -> crate::Result<f64> {
+    pub fn year_fraction(self, start: Date, end: Date, ctx: DayCountContext<'_>) -> crate::Result<f64> {
         // Early returns for edge cases - flattens nesting
         if start > end {
             return Err(InputError::InvalidDateRange.into());
@@ -640,7 +640,7 @@ impl DayCount {
         self,
         start: Date,
         end: Date,
-        ctx: DayCountCtx<'_>,
+        ctx: DayCountContext<'_>,
     ) -> crate::Result<f64> {
         let days = (end - start).whole_days() as f64;
 
@@ -685,15 +685,15 @@ impl DayCount {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let base = Date::from_calendar_date(2025, Month::July, 1).expect("Valid date");
     /// let past = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let future = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
     ///
-    /// let yf_past = DayCount::Act365F.signed_year_fraction(base, past, DayCountCtx::default())?;
-    /// let yf_future = DayCount::Act365F.signed_year_fraction(base, future, DayCountCtx::default())?;
+    /// let yf_past = DayCount::Act365F.signed_year_fraction(base, past, DayCountContext::default())?;
+    /// let yf_future = DayCount::Act365F.signed_year_fraction(base, future, DayCountContext::default())?;
     ///
     /// assert!(yf_past < 0.0);  // Past is negative
     /// assert!(yf_future > 0.0); // Future is positive
@@ -703,7 +703,7 @@ impl DayCount {
         self,
         start: Date,
         end: Date,
-        ctx: DayCountCtx<'_>,
+        ctx: DayCountContext<'_>,
     ) -> crate::Result<f64> {
         if start == end {
             Ok(0.0)
@@ -749,7 +749,7 @@ const MAX_ACT_ACT_ISMA_RECURSION_DEPTH: usize = 512;
 ///
 /// Use this helper when you already know the surrounding regular coupon period
 /// from the bond schedule. For regular coupons, prefer
-/// [`DayCount::ActActIsma`](DayCount::ActActIsma) with a [`DayCountCtx`] that
+/// [`DayCount::ActActIsma`](DayCount::ActActIsma) with a [`DayCountContext`] that
 /// supplies only the coupon frequency.
 ///
 /// # Arguments
@@ -1029,7 +1029,7 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> crate::Result<f64> {
 fn year_fraction_act_act_isma_with_ctx(
     start: Date,
     end: Date,
-    ctx: DayCountCtx<'_>,
+    ctx: DayCountContext<'_>,
 ) -> crate::Result<f64> {
     let freq = ctx
         .frequency
@@ -1042,7 +1042,7 @@ fn year_fraction_act_act_isma_with_ctx(
 }
 
 /// Bus/252 with context extraction - validates calendar is present and basis is non-zero.
-fn year_fraction_bus252(start: Date, end: Date, ctx: DayCountCtx<'_>) -> crate::Result<f64> {
+fn year_fraction_bus252(start: Date, end: Date, ctx: DayCountContext<'_>) -> crate::Result<f64> {
     let cal = ctx.calendar.ok_or(InputError::MissingCalendarForBus252)?;
     let basis = ctx.bus_basis.unwrap_or(252);
     if basis == 0 {
@@ -1350,14 +1350,14 @@ mod tests {
 
     #[test]
     fn act365l_period_ending_on_feb29_uses_365() {
-        use super::{DayCount, DayCountCtx};
+        use super::{DayCount, DayCountContext};
 
         // [2024-02-01, 2024-02-29): end date is Feb 29 but excluded from the
         // half-open interval, so Feb 29 is NOT in the period → denominator 365.
         let start = date!(2024 - 02 - 01);
         let end = date!(2024 - 02 - 29);
         let yf = DayCount::Act365L
-            .year_fraction(start, end, DayCountCtx::default())
+            .year_fraction(start, end, DayCountContext::default())
             .expect("should succeed");
 
         let days = (end - start).whole_days() as f64;
@@ -1370,13 +1370,13 @@ mod tests {
 
     #[test]
     fn act365l_period_containing_feb29_uses_366() {
-        use super::{DayCount, DayCountCtx};
+        use super::{DayCount, DayCountContext};
 
         // [2024-02-01, 2024-03-01): Feb 29 is strictly inside → denominator 366.
         let start = date!(2024 - 02 - 01);
         let end = date!(2024 - 03 - 01);
         let yf = DayCount::Act365L
-            .year_fraction(start, end, DayCountCtx::default())
+            .year_fraction(start, end, DayCountContext::default())
             .expect("should succeed");
 
         let days = (end - start).whole_days() as f64;
@@ -1393,7 +1393,7 @@ mod tests {
 
     #[test]
     fn act_act_isma_coupon_period_mid_coupon_accrual() {
-        use super::{DayCount, DayCountCtx, Tenor};
+        use super::{DayCount, DayCountContext, Tenor};
 
         let coupon_start = date!(2025 - 01 - 15);
         let coupon_end = date!(2025 - 07 - 15);
@@ -1403,7 +1403,7 @@ mod tests {
         let freq = Tenor::semi_annual();
 
         // With coupon_period: uses the explicit reference period
-        let ctx_with = DayCountCtx {
+        let ctx_with = DayCountContext {
             frequency: Some(freq),
             coupon_period: Some((coupon_start, coupon_end)),
             ..Default::default()
@@ -1413,7 +1413,7 @@ mod tests {
             .expect("should succeed with coupon_period");
 
         // Without coupon_period: re-anchors from settlement
-        let ctx_without = DayCountCtx {
+        let ctx_without = DayCountContext {
             frequency: Some(freq),
             ..Default::default()
         };

@@ -13,14 +13,14 @@
 //! 5. `Rate::try_from(f64)` / `Percentage::try_from(f64)` / `Bps::try_from(f64)`
 //!    are fallible analogs of the panicking `From<f64>` conversions.
 //! 6. `[(Date, f64)]::irr(None)` equals
-//!    `xirr_with_daycount_ctx(.., Act365F, DayCountCtx::default(), None)`.
+//!    `xirr_with_daycount_ctx(.., Act365F, DayCountContext::default(), None)`.
 //!
 //! These tests are the "behavior-locking" PR recommended by the simplicity
 //! audit; future deprecations can be verified against them.
 
 use finstack_core::cashflow::{xirr_with_daycount_ctx, InternalRateOfReturn};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::surfaces::{
     VolGridOpts, VolInterpolationMode, VolSurface, VolSurfaceAxis,
 };
@@ -331,7 +331,7 @@ fn xirr_trait_matches_ctx_helper_on_act365f_default() {
         (d(2025, 1, 1), 60_000.0),
     ];
     let a = flows.irr(None).expect("trait irr converges");
-    let b = xirr_with_daycount_ctx(&flows, DayCount::Act365F, DayCountCtx::default(), None)
+    let b = xirr_with_daycount_ctx(&flows, DayCount::Act365F, DayCountContext::default(), None)
         .expect("ctx helper converges");
     assert!(
         (a - b).abs() < 1e-12,

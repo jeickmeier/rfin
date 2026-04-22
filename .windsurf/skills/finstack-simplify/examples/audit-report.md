@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD025 -->
 # Audit Report — Phase 1 output template
 
 Use this format verbatim. The user will read many of these; consistency matters.

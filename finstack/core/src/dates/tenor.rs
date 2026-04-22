@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_core::dates::{Tenor, TenorUnit, Date, DayCount, DayCountCtx};
+//! use finstack_core::dates::{Tenor, TenorUnit, Date, DayCount, DayCountContext};
 //! use finstack_core::dates::{BusinessDayConvention, HolidayCalendar};
 //! use time::Month;
 //! # fn main() -> finstack_core::Result<()> {
@@ -29,7 +29,7 @@
 //! For accurate day counting that respects holidays and business day conventions:
 //!
 //! ```rust,no_run
-//! use finstack_core::dates::{Tenor, DayCount, DayCountCtx, BusinessDayConvention};
+//! use finstack_core::dates::{Tenor, DayCount, DayCountContext, BusinessDayConvention};
 //! use finstack_core::dates::calendar::TARGET2;
 //! use time::macros::date;
 //! # fn main() -> finstack_core::Result<()> {
@@ -55,7 +55,7 @@
 //! # }
 //! ```
 
-use crate::dates::{adjust, BusinessDayConvention, Date, DayCount, DayCountCtx, HolidayCalendar};
+use crate::dates::{adjust, BusinessDayConvention, Date, DayCount, DayCountContext, HolidayCalendar};
 use crate::error::InputError;
 use time::Duration;
 
@@ -506,7 +506,7 @@ impl Tenor {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::dates::{Tenor, Date, DayCount, DayCountCtx, BusinessDayConvention};
+    /// use finstack_core::dates::{Tenor, Date, DayCount, DayCountContext, BusinessDayConvention};
     /// use time::macros::date;
     /// # fn main() -> finstack_core::Result<()> {
     ///
@@ -533,7 +533,7 @@ impl Tenor {
     ) -> crate::Result<f64> {
         let end_date = self.add_to_date(as_of, calendar, bdc)?;
 
-        let ctx = DayCountCtx {
+        let ctx = DayCountContext {
             calendar,
             frequency: None,
             bus_basis: None,

@@ -10,7 +10,7 @@
 use crate::constants::credit;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::Result;
 
 /// Expected Loss calculator for single-name CDS.
@@ -34,8 +34,8 @@ impl MetricCalculator for ExpectedLossCalculator {
         // Use hazard curve's day-count for the survival time axis.
         let dc = hazard.day_count();
         let base_date = hazard.base_date();
-        let t_asof = dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
-        let t_maturity = dc.year_fraction(base_date, cds.premium.end, DayCountCtx::default())?;
+        let t_asof = dc.year_fraction(base_date, as_of, DayCountContext::default())?;
+        let t_maturity = dc.year_fraction(base_date, cds.premium.end, DayCountContext::default())?;
 
         // Conditional survival to maturity given survival to as_of.
         let sp_asof = hazard.sp(t_asof);

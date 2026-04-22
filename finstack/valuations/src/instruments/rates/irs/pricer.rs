@@ -391,7 +391,7 @@ mod tests {
     use crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves;
     use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::ScalarTimeSeries;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -548,7 +548,7 @@ mod tests {
             let next = day.add_weekdays(1);
             let step_end = if next > end { end } else { next };
             let dcf = DayCount::Act360
-                .year_fraction(day, step_end, DayCountCtx::default())
+                .year_fraction(day, step_end, DayCountContext::default())
                 .expect("dcf");
             let r = if day < as_of { fixing_rate } else { fwd_rate };
             acc *= 1.0 + r * dcf;

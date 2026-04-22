@@ -15,7 +15,7 @@ use crate::pricer::{
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 #[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "mc")]
@@ -75,7 +75,7 @@ impl AsianOptionHestonMcPricer {
         // Time to maturity
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
         let (hist_sum, hist_prod_log, hist_count) = inst.accumulated_state(as_of);
 
@@ -149,7 +149,7 @@ impl AsianOptionHestonMcPricer {
         for &fixing_date in &inst.fixing_dates {
             let fixing_t =
                 inst.day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
             if fixing_t > 0.0 && fixing_t <= t {
                 let step = (fixing_t / t * num_steps as f64).round() as usize;
                 let clamped = step.min(num_steps.saturating_sub(1)).max(0);

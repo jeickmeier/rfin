@@ -90,7 +90,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
                 .year_fraction(
                     quote_date,
                     date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?
                 .max(0.0);
             let df = crate::instruments::fixed_income::bond::pricing::quote_conversions::df_from_yield(

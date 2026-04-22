@@ -11,7 +11,7 @@ use crate::market::quotes::ids::{Pillar, QuoteId};
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::rates::RateQuote;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::ExtrapolationPolicy;
@@ -108,10 +108,10 @@ pub(crate) fn find_closest_quote(
             let b_date = resolve_maturity(b, as_of).unwrap_or(as_of);
 
             let a_yf = dc
-                .year_fraction(as_of, a_date, DayCountCtx::default())
+                .year_fraction(as_of, a_date, DayCountContext::default())
                 .unwrap_or(0.0);
             let b_yf = dc
-                .year_fraction(as_of, b_date, DayCountCtx::default())
+                .year_fraction(as_of, b_date, DayCountContext::default())
                 .unwrap_or(0.0);
             let a_dist = (a_yf - target_years).abs();
             let b_dist = (b_yf - target_years).abs();
@@ -159,7 +159,7 @@ pub fn bump_discount_curve_synthetic(
 
     let mut quotes = Vec::new();
     let dc = DayCount::Act365F;
-    let dc_ctx = DayCountCtx::default();
+    let dc_ctx = DayCountContext::default();
 
     for &t in knots {
         if t <= 0.0001 {

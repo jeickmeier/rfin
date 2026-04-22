@@ -15,7 +15,7 @@
 
 use crate::instruments::common_impl::parameters::legs::FinancingLegSpec;
 use crate::instruments::common_impl::parameters::trs_common::TrsScheduleSpec;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::NeumaierAccumulator;
 use finstack_core::money::Money;
@@ -148,7 +148,7 @@ impl TrsEngine {
 
         let mut total_pv = NeumaierAccumulator::new();
         let currency = params.notional.currency();
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
 
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
@@ -231,7 +231,7 @@ impl TrsEngine {
 
         let mut total_pv = NeumaierAccumulator::new();
         let currency = notional.currency();
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
         let spread_decimal = financing.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
 
         for i in 1..period_schedule.dates.len() {
@@ -300,7 +300,7 @@ impl TrsEngine {
         let period_schedule = schedule.period_schedule()?;
 
         let mut annuity = NeumaierAccumulator::new();
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
 
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
@@ -362,7 +362,7 @@ impl TrsEngine {
         let period_schedule = schedule.period_schedule()?;
 
         let mut total_pv = NeumaierAccumulator::new();
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
 
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];
@@ -401,7 +401,7 @@ mod tests {
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{
-        BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor,
+        BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor,
     };
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -555,7 +555,7 @@ mod tests {
         let period_schedule = schedule.period_schedule().expect("schedule");
         let mut expected = 0.0;
         let mut naive = 0.0;
-        let ctx_dc = DayCountCtx::default();
+        let ctx_dc = DayCountContext::default();
 
         for i in 1..period_schedule.dates.len() {
             let _period_start = period_schedule.dates[i - 1];
@@ -636,7 +636,7 @@ mod tests {
         let period_schedule = schedule.period_schedule().expect("schedule");
         let mut expected = 0.0;
         let mut naive = 0.0;
-        let ctx_dc = DayCountCtx::default();
+        let ctx_dc = DayCountContext::default();
 
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];

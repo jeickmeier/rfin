@@ -7,7 +7,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -65,7 +65,7 @@ impl LookbackOptionMcPricer {
 
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
         if t <= 0.0 {
             let payoff = expired_lookback_payoff(inst, lookback_spot(curves, &inst.spot_id)?)?;
             return Ok(finstack_core::money::Money::new(
@@ -365,7 +365,7 @@ fn collect_lookback_inputs(
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
     let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
     let df = disc_curve.df_between_dates(as_of, inst.expiry)?;
@@ -711,7 +711,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected = fixed_strike_lookback_call(
             spot,
@@ -742,7 +742,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected =
             floating_strike_lookback_put(spot, t, rate, div_yield, vol, observed_max.max(spot));
@@ -767,7 +767,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected = fixed_strike_lookback_put(
             spot,
@@ -798,7 +798,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected =
             floating_strike_lookback_call(spot, t, rate, div_yield, vol, observed_min.min(spot));

@@ -170,11 +170,11 @@ pub enum InputError {
     },
 
     /// Day-count convention requires a holiday calendar but none was provided.
-    #[error("DayCount::Bus252 requires a holiday calendar in DayCountCtx")]
+    #[error("DayCount::Bus252 requires a holiday calendar in DayCountContext")]
     MissingCalendarForBus252,
 
     /// Day-count convention requires a coupon frequency but none was provided.
-    #[error("DayCount::ActActIsma requires a coupon frequency in DayCountCtx")]
+    #[error("DayCount::ActActIsma requires a coupon frequency in DayCountContext")]
     MissingFrequencyForActActIsma,
 
     /// DayCount::ActActIsma only supports month/year coupon frequencies.

@@ -28,7 +28,7 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
   - Re‑exports:
     - `time::{Date, OffsetDateTime, PrimitiveDateTime}`
     - Extension traits: `DateExt`, `OffsetDateTimeExt`
-    - Day‑count types: `DayCount`, `DayCountCtx`, `DayCountCtxState`, `Thirty360Convention`
+    - Day‑count types: `DayCount`, `DayCountContext`, `DayCountContextState`, `Thirty360Convention`
     - Calendars and business days:
       - `HolidayCalendar`, `BusinessDayConvention`, `adjust`, `available_calendars`
       - `CompositeCalendar`, `CalendarRegistry`
@@ -60,7 +60,7 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
       - `Thirty360`, `ThirtyE360`
       - `ActAct`, `ActActIsma`
       - `Bus252`
-    - `DayCountCtx` / `DayCountCtxState` to supply calendars and coupon frequency (for `Bus252`, `ActActIsma` regular periods).
+    - `DayCountContext` / `DayCountContextState` to supply calendars and coupon frequency (for `Bus252`, `ActActIsma` regular periods).
     - Core API:
       - `DayCount::year_fraction(start, end, ctx) -> Result<f64>`
     - Helpers for 30/360, Act/Act (ISDA + ISMA), Act/365L, and business‑day counting.
@@ -181,18 +181,18 @@ let adj = adjust(base, BusinessDayConvention::Following, nyse)?;
 
 For multi‑market instruments, use `CompositeCalendar` to union calendars.
 
-### `DayCount` and `DayCountCtx`
+### `DayCount` and `DayCountContext`
 
 `DayCount` encodes market day‑count conventions. The main API:
 
 ```rust
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use time::Month;
 
 let start = Date::from_calendar_date(2025, Month::January, 1)?;
 let end = Date::from_calendar_date(2026, Month::January, 1)?;
 
-let yf = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default())?;
+let yf = DayCount::ActAct.year_fraction(start, end, DayCountContext::default())?;
 ```
 
 Context carries:
@@ -201,7 +201,7 @@ Context carries:
 - `frequency: Option<Tenor>` for `ActActIsma`
 - `bus_basis: Option<u16>` for custom `Bus/N` denominators
 
-`DayCountCtxState` is a serde DTO that can be serialized (e.g. to JSON) and re‑hydrated using a `CalendarRegistry`.
+`DayCountContextState` is a serde DTO that can be serialized (e.g. to JSON) and re‑hydrated using a `CalendarRegistry`.
 
 ### `Tenor`, `ScheduleBuilder`, and `Schedule`
 
@@ -249,7 +249,7 @@ Key invariants:
 Tenors encapsulate relative time periods with finance semantics:
 
 ```rust
-use finstack_core::dates::{Tenor, TenorUnit, Date, DayCount, DayCountCtx, BusinessDayConvention};
+use finstack_core::dates::{Tenor, TenorUnit, Date, DayCount, DayCountContext, BusinessDayConvention};
 use finstack_core::dates::calendar::TARGET2;
 use time::Month;
 
@@ -378,27 +378,27 @@ let fiscal = build_fiscal_periods("2025Q1..Q4", cfg, None)?;
 You should use `DayCount` consistently between curves and cashflow accruals:
 
 ```rust
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use time::Month;
 
 let start = Date::from_calendar_date(2025, Month::January, 1)?;
 let end   = Date::from_calendar_date(2025, Month::July, 1)?;
 
 let dc = DayCount::Act360;
-let yf = dc.year_fraction(start, end, DayCountCtx::default())?;
+let yf = dc.year_fraction(start, end, DayCountContext::default())?;
 ```
 
 For `Bus252`, provide a calendar:
 
 ```rust
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::dates::calendar::TARGET2;
 use time::Month;
 
 let start = Date::from_calendar_date(2025, Month::January, 2)?;
 let end   = Date::from_calendar_date(2025, Month::January, 9)?;
 
-let ctx = DayCountCtx { calendar: Some(&TARGET2), frequency: None, bus_basis: None, coupon_period: None };
+let ctx = DayCountContext { calendar: Some(&TARGET2), frequency: None, bus_basis: None, coupon_period: None };
 let yf = DayCount::Bus252.year_fraction(start, end, ctx)?;
 ```
 
@@ -428,7 +428,7 @@ The `dates` module is **core infrastructure** shared by curves, cashflows, state
 - Extend `dates/daycount.rs`:
   - Add a variant to `DayCount` with clear **doc comments** and financial references.
   - Implement logic in `DayCount::year_fraction` (and `DayCount::days` for tests if applicable).
-  - Use `DayCountCtx` (and `DayCountCtxState` under `serde`) for any needed context:
+  - Use `DayCountContext` (and `DayCountContextState` under `serde`) for any needed context:
     - Calendars (`Bus/N`‑style)
     - Coupon tenor (coupon‑aware conventions)
   - Add unit tests that cover:

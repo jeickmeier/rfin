@@ -290,13 +290,13 @@ pub(in crate::builder) fn emit_fees_on(
 
     for pf in periodic_fees {
         if let Some(period) = pf.prev.get(&d) {
-            // Use proper DayCountCtx with calendar and frequency so that
+            // Use proper DayCountContext with calendar and frequency so that
             // conventions like Bus/252 and Act/Act ISMA compute correctly.
             let calendar = crate::builder::calendar::resolve_calendar_strict(&pf.calendar_id)?;
             let yf = pf.dc.year_fraction(
                 period.accrual_start,
                 period.accrual_end,
-                finstack_core::dates::DayCountCtx {
+                finstack_core::dates::DayCountContext {
                     calendar: Some(calendar),
                     frequency: Some(pf.freq),
                     bus_basis: None,

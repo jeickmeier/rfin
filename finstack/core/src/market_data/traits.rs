@@ -10,7 +10,7 @@
 //! - **Concrete types preferred**: Most methods live on concrete curve types
 //! - **Zero-cost abstraction**: Trait objects use dynamic dispatch only when needed
 
-use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::dates::{Date, DayCount, DayCountContext};
 
 // -----------------------------------------------------------------------------
 // Minimal traits for polymorphism only
@@ -124,7 +124,7 @@ pub trait Discounting: TermStructure {
         let dc = self.day_count();
         let base = self.base_date();
 
-        let t_from = dc.year_fraction(base, from, DayCountCtx::default())?;
+        let t_from = dc.year_fraction(base, from, DayCountContext::default())?;
         let df_from = self.df(t_from);
         if !df_from.is_finite() || df_from <= 0.0 {
             return Err(crate::Error::Validation(format!(
@@ -132,7 +132,7 @@ pub trait Discounting: TermStructure {
             )));
         }
 
-        let t_to = dc.year_fraction(base, to, DayCountCtx::default())?;
+        let t_to = dc.year_fraction(base, to, DayCountContext::default())?;
         let df_to = self.df(t_to);
         if !df_to.is_finite() || df_to <= 0.0 {
             return Err(crate::Error::Validation(format!(
@@ -203,8 +203,8 @@ pub trait Discounting: TermStructure {
 
         let dc = self.day_count();
         let base = self.base_date();
-        let from_t = dc.year_fraction(base, from, DayCountCtx::default())?;
-        let to_t = dc.year_fraction(base, to, DayCountCtx::default())?;
+        let from_t = dc.year_fraction(base, from, DayCountContext::default())?;
+        let to_t = dc.year_fraction(base, to, DayCountContext::default())?;
         self.forward_rate_between_times(from_t, to_t)
     }
 

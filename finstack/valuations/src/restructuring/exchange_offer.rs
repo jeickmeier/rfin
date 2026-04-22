@@ -39,7 +39,7 @@
 //!
 //! - Moyer, *Distressed Debt Analysis* (2004), Ch. 15-16
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
 
@@ -555,7 +555,7 @@ fn compute_scaled_npv(
 /// Time-to-maturity in years on an Act/365F basis.
 fn years_to_maturity(instrument: &ExchangeInstrument, as_of: Date) -> crate::Result<f64> {
     DayCount::Act365F
-        .year_fraction(as_of, instrument.maturity, DayCountCtx::default())
+        .year_fraction(as_of, instrument.maturity, DayCountContext::default())
         .map_err(Into::into)
 }
 

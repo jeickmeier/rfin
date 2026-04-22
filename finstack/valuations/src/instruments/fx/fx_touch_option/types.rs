@@ -299,7 +299,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxTouchOpt
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -362,7 +362,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxTouchOpt
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -424,7 +424,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for FxTouchOpti
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -452,7 +452,7 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for FxTouchOptio
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);

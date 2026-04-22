@@ -1,7 +1,7 @@
 //! Accrued interest calculator for structured credit instruments.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -51,9 +51,9 @@ impl MetricCalculator for AccruedCalculator {
 
         let day_count = context.day_count.unwrap_or(DayCount::Act360);
         let accrual_fraction =
-            day_count.year_fraction(last_payment, context.as_of, DayCountCtx::default())?;
+            day_count.year_fraction(last_payment, context.as_of, DayCountContext::default())?;
         let period_fraction =
-            day_count.year_fraction(last_payment, next_payment, DayCountCtx::default())?;
+            day_count.year_fraction(last_payment, next_payment, DayCountContext::default())?;
 
         if period_fraction == 0.0 {
             return Ok(0.0);
@@ -93,9 +93,9 @@ impl AccruedCalculator {
 
         let day_count = context.day_count.unwrap_or(DayCount::Act360);
         let accrual_fraction =
-            day_count.year_fraction(last_payment, context.as_of, DayCountCtx::default())?;
+            day_count.year_fraction(last_payment, context.as_of, DayCountContext::default())?;
         let period_fraction =
-            day_count.year_fraction(last_payment, next_payment, DayCountCtx::default())?;
+            day_count.year_fraction(last_payment, next_payment, DayCountContext::default())?;
 
         if period_fraction == 0.0 {
             return Ok(0.0);

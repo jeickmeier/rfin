@@ -91,7 +91,7 @@ impl VolSurfaceTarget {
                 let t = time_dc.year_fraction(
                     params.base_date,
                     *expiry,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?;
                 if t > 0.0 {
                     quotes_by_expiry.entry(t.into()).or_default().push(q);

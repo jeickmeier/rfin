@@ -6,7 +6,7 @@
 use crate::finstack_test_utils::calibration::execute_step;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::calibration::api::schema::{DiscountCurveParams, StepParams};
@@ -407,7 +407,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
             .df_on_date_curve(maturity)
             .expect("DF on maturity date");
         let t = DayCount::Act365F
-            .year_fraction(base_date, maturity, DayCountCtx::default())
+            .year_fraction(base_date, maturity, DayCountContext::default())
             .expect("year fraction");
         let calibrated_zero = -calibrated_df.ln() / t;
         let diff = (calibrated_df - expected_df).abs();

@@ -347,16 +347,16 @@ class RustAPIExtractor:
                 "functions": main_exports.functions,
             }
 
-        # Process major crates
-        crate_dirs = ["core", "valuations", "statements", "scenarios", "portfolio"]
+        # Process all crates found as subdirectories containing a src/lib.rs.
+        # This auto-discovers every workspace crate (analytics, margin, monte_carlo,
+        # statements-analytics, etc.) rather than relying on a hardcoded allowlist.
+        crate_dirs = sorted(
+            p.name for p in self.src_root.iterdir()
+            if p.is_dir() and (p / "src" / "lib.rs").exists()
+        )
         for crate_dir in crate_dirs:
             crate_path = self.src_root / crate_dir / "src"
-            if not crate_path.exists():
-                continue
-
             crate_lib = crate_path / "lib.rs"
-            if not crate_lib.exists():
-                continue
 
             # Extract exports from crate's lib.rs
             crate_exports = self.extract_exports_from_lib(crate_lib)

@@ -1,7 +1,7 @@
 //! Integration tests for inflation calibration conventions (v2).
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DateExt, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -70,7 +70,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
     let maturity = Date::from_calendar_date(2030, Month::January, 15).expect("maturity");
     let fixing_date = maturity.add_months(-3);
     let expected_t = DayCount::Act365F
-        .year_fraction(base_date, fixing_date, DayCountCtx::default())
+        .year_fraction(base_date, fixing_date, DayCountContext::default())
         .expect("t");
 
     let quotes = vec![MarketQuote::Inflation(InflationQuote::InflationSwap {

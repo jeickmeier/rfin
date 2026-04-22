@@ -9,7 +9,7 @@ use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
 use finstack_core::dates::{
-    BusinessDayConvention, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
+    BusinessDayConvention, DateExt, DayCount, DayCountContext, StubKind, Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolCube;
@@ -129,8 +129,8 @@ impl SwaptionVolTarget {
                         maturity, expiry
                     )));
                 }
-                let t_exp = dc.year_fraction(params.base_date, *expiry, DayCountCtx::default())?;
-                let t_ten = dc.year_fraction(*expiry, *maturity, DayCountCtx::default())?;
+                let t_exp = dc.year_fraction(params.base_date, *expiry, DayCountContext::default())?;
+                let t_ten = dc.year_fraction(*expiry, *maturity, DayCountContext::default())?;
                 let key = (to_basis_points(t_exp), to_basis_points(t_ten));
 
                 if let MarketQuote::Vol(vq) = q {
@@ -590,24 +590,24 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                 let accrual = leg_conv.float_day_count.year_fraction(
                     period.accrual_start,
                     period.accrual_end,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?;
 
                 let t_pay_disc = disc.day_count().year_fraction(
                     disc.base_date(),
                     period.payment_date,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?;
 
                 let t_prev_fwd = fwd.day_count().year_fraction(
                     fwd.base_date(),
                     period.accrual_start,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?;
                 let t_pay_fwd = fwd.day_count().year_fraction(
                     fwd.base_date(),
                     period.accrual_end,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?;
 
                 let forward_rate = fwd.rate_period(t_prev_fwd, t_pay_fwd);
@@ -620,12 +620,12 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             let t_start = disc.day_count().year_fraction(
                 disc.base_date(),
                 swap_start,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )?;
             let t_end = disc.day_count().year_fraction(
                 disc.base_date(),
                 swap_end,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )?;
             if t_start < 0.0 || t_end <= t_start {
                 return Err(finstack_core::Error::Input(
@@ -667,12 +667,12 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             let dcf = leg_conv.fixed_day_count.year_fraction(
                 period.accrual_start,
                 period.accrual_end,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )?;
             let t = disc.day_count().year_fraction(
                 disc.base_date(),
                 period.payment_date,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )?;
             pv01 += disc.df(t) * dcf;
         }
@@ -980,10 +980,10 @@ mod tests {
         let expiry_date = base_date.add_months((expiry_years * 12.0).round() as i32);
         let maturity_date = expiry_date.add_months((tenor_years * 12.0).round() as i32);
         let t_exp_raw = DayCount::Act365F
-            .year_fraction(base_date, expiry_date, DayCountCtx::default())
+            .year_fraction(base_date, expiry_date, DayCountContext::default())
             .expect("t_exp");
         let t_ten_raw = DayCount::Act365F
-            .year_fraction(expiry_date, maturity_date, DayCountCtx::default())
+            .year_fraction(expiry_date, maturity_date, DayCountContext::default())
             .expect("t_ten");
         let t_exp = to_basis_points(t_exp_raw) as f64 / 10_000.0;
         let t_ten = to_basis_points(t_ten_raw) as f64 / 10_000.0;
@@ -1061,10 +1061,10 @@ mod tests {
         let expiry_date = base_date.add_months((expiry_years * 12.0).round() as i32);
         let maturity_date = expiry_date.add_months((tenor_years * 12.0).round() as i32);
         let t_exp_raw = DayCount::Act365F
-            .year_fraction(base_date, expiry_date, DayCountCtx::default())
+            .year_fraction(base_date, expiry_date, DayCountContext::default())
             .expect("t_exp");
         let t_ten_raw = DayCount::Act365F
-            .year_fraction(expiry_date, maturity_date, DayCountCtx::default())
+            .year_fraction(expiry_date, maturity_date, DayCountContext::default())
             .expect("t_ten");
         let t_exp = to_basis_points(t_exp_raw) as f64 / 10_000.0;
         let t_ten = to_basis_points(t_ten_raw) as f64 / 10_000.0;
@@ -1153,10 +1153,10 @@ mod tests {
         let expiry_date = base_date.add_months((expiry_years * 12.0).round() as i32);
         let maturity_date = expiry_date.add_months((tenor_years * 12.0).round() as i32);
         let t_exp_raw = DayCount::Act365F
-            .year_fraction(base_date, expiry_date, DayCountCtx::default())
+            .year_fraction(base_date, expiry_date, DayCountContext::default())
             .expect("t_exp");
         let t_ten_raw = DayCount::Act365F
-            .year_fraction(expiry_date, maturity_date, DayCountCtx::default())
+            .year_fraction(expiry_date, maturity_date, DayCountContext::default())
             .expect("t_ten");
         let t_exp = to_basis_points(t_exp_raw) as f64 / 10_000.0;
         let t_ten = to_basis_points(t_ten_raw) as f64 / 10_000.0;
@@ -1234,11 +1234,11 @@ mod tests {
         .expect("pv01");
         let t_start = disc_ref
             .day_count()
-            .year_fraction(disc_ref.base_date(), expiry_date, DayCountCtx::default())
+            .year_fraction(disc_ref.base_date(), expiry_date, DayCountContext::default())
             .expect("t_start");
         let t_end = disc_ref
             .day_count()
-            .year_fraction(disc_ref.base_date(), maturity_date, DayCountCtx::default())
+            .year_fraction(disc_ref.base_date(), maturity_date, DayCountContext::default())
             .expect("t_end");
         let expected = (disc_ref.df(t_start) - disc_ref.df(t_end)) / pv01;
 

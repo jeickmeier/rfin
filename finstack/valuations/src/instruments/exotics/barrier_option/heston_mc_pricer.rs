@@ -15,7 +15,7 @@ use crate::pricer::{
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 #[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "mc")]
@@ -101,7 +101,7 @@ impl BarrierOptionHestonMcPricer {
         // Time to maturity
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
         if t <= 0.0 {
             return price_expired_barrier(inst, market).map(|m| (m, 0.0));

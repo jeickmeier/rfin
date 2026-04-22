@@ -15,7 +15,7 @@
 use crate::builder::schedule::{amounts_approx_equal, CashFlowSchedule};
 use crate::primitives::CFKind;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Period, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -50,7 +50,7 @@ fn compute_discount_time(
     cf_date: Date,
     base: Date,
     dc: DayCount,
-    dc_ctx: DayCountCtx<'_>,
+    dc_ctx: DayCountContext<'_>,
 ) -> finstack_core::Result<f64> {
     if cf_date == base {
         Ok(0.0)
@@ -112,7 +112,7 @@ fn compute_floating_decomposition(
     fwd: Option<&std::sync::Arc<finstack_core::market_data::term_structures::ForwardCurve>>,
     base: Date,
     period_start: Date,
-    dc_ctx: DayCountCtx<'_>,
+    dc_ctx: DayCountContext<'_>,
 ) -> finstack_core::Result<(Option<f64>, Option<f64>)> {
     use crate::primitives::CFKind;
 
@@ -165,7 +165,7 @@ pub struct PeriodDataFrameOptions<'a> {
     /// Optional coupon frequency for day count context (required for Act/Act ISMA).
     ///
     /// When the day count convention is `ActActIsma`, this frequency is used to
-    /// construct the proper `DayCountCtx` for year fraction calculations.
+    /// construct the proper `DayCountContext` for year fraction calculations.
     /// If not provided, defaults to `None` which may cause incorrect year fractions
     /// for Act/Act ISMA convention.
     pub frequency: Option<Tenor>,
@@ -509,8 +509,8 @@ impl CashFlowSchedule {
                 undrawn.push(notional_undrawn);
             }
 
-            // YrFraq and Days - use proper DayCountCtx with frequency/calendar from options
-            let dc_ctx = DayCountCtx {
+            // YrFraq and Days - use proper DayCountContext with frequency/calendar from options
+            let dc_ctx = DayCountContext {
                 calendar: resolved_calendar,
                 frequency: options.frequency,
                 bus_basis: None,
@@ -522,7 +522,7 @@ impl CashFlowSchedule {
 
             // Discount factor using configured discounting basis
             let dc_for_discounting = options.discount_day_count.unwrap_or(dc);
-            let disc_dc_ctx = DayCountCtx {
+            let disc_dc_ctx = DayCountContext {
                 calendar: resolved_calendar,
                 frequency: options.frequency,
                 bus_basis: None,
@@ -574,7 +574,7 @@ impl CashFlowSchedule {
 
             // Floating decomposition (base rate and spread)
             let (base_rate_opt, spread_opt) = if options.include_floating_decomposition {
-                let fwd_dc_ctx = DayCountCtx {
+                let fwd_dc_ctx = DayCountContext {
                     calendar: resolved_calendar,
                     frequency: options.frequency,
                     bus_basis: None,

@@ -7,7 +7,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -66,7 +66,7 @@ impl AsianOptionMcPricer {
         // Get time to maturity
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
         let (hist_sum, hist_prod_log, hist_count) = inst.accumulated_state(as_of);
 
@@ -141,7 +141,7 @@ impl AsianOptionMcPricer {
         for &fixing_date in &inst.fixing_dates {
             let fixing_t =
                 inst.day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
             if fixing_t > 0.0 && fixing_t <= t {
                 let step = (fixing_t / t * num_steps as f64).round() as usize;
                 let clamped = step.min(num_steps.saturating_sub(1)).max(0);
@@ -532,7 +532,7 @@ impl AsianOptionMcPricer {
         // Reuse the same setup as price_internal
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
         let (hist_sum, hist_prod_log, hist_count) = inst.accumulated_state(as_of);
 
@@ -603,7 +603,7 @@ impl AsianOptionMcPricer {
         for &fixing_date in &inst.fixing_dates {
             let fixing_t =
                 inst.day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
             if fixing_t > 0.0 && fixing_t <= t {
                 let step = (fixing_t / t * num_steps as f64).round() as usize;
                 let clamped = step.min(num_steps.saturating_sub(1)).max(0);
@@ -1003,7 +1003,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                         if *date > as_of {
                             let t_i = asian
                                 .day_count
-                                .year_fraction(as_of, *date, DayCountCtx::default())
+                                .year_fraction(as_of, *date, DayCountContext::default())
                                 .map_err(|e| {
                                     PricingError::model_failure_with_context(
                                         e.to_string(),
@@ -1044,7 +1044,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                         if *date > as_of {
                             let t_i = asian
                                 .day_count
-                                .year_fraction(as_of, *date, DayCountCtx::default())
+                                .year_fraction(as_of, *date, DayCountContext::default())
                                 .map_err(|e| {
                                     PricingError::model_failure_with_context(
                                         e.to_string(),
@@ -1092,7 +1092,7 @@ mod tests {
     use crate::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
     use crate::instruments::OptionType;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    use finstack_core::dates::{Date, DayCount, DayCountContext};
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -1203,7 +1203,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected =
             geometric_asian_call(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
@@ -1237,7 +1237,7 @@ mod tests {
 
         let t = option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let expected =
             geometric_asian_put(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
@@ -1282,7 +1282,7 @@ mod tests {
         let payoff = (average - 100.0).max(0.0);
         let df = market.get_discount("USD-OIS").expect("discount").df(option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction"));
         let expected_money = Money::new(payoff * df, Currency::USD).amount();
 
@@ -1487,7 +1487,7 @@ mod tests {
         let payoff = (100.0 - average).max(0.0);
         let df = market.get_discount("USD-OIS").expect("discount").df(option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction"));
         let expected = Money::new(payoff * df, Currency::USD).amount();
 
@@ -1535,7 +1535,7 @@ mod tests {
         let disc_curve = market.get_discount("USD-OIS").expect("discount");
         let df_expiry = disc_curve.df(option
             .day_count
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction"));
         let spot = 100.0;
         let q = 0.01;
@@ -1545,7 +1545,7 @@ mod tests {
         for date in fixing_dates.iter().copied().filter(|d| *d > as_of) {
             let t_i = option
                 .day_count
-                .year_fraction(as_of, date, DayCountCtx::default())
+                .year_fraction(as_of, date, DayCountContext::default())
                 .expect("fixing year fraction");
             let df_i = disc_curve
                 .df_between_dates(as_of, date)

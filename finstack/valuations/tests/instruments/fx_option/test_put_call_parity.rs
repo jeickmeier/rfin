@@ -8,14 +8,14 @@
 
 use super::helpers::*;
 use finstack_core::dates::Date;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_valuations::instruments::fx::fx_option::FxOption;
 use time::macros::date;
 
 fn parity_rhs(call: &FxOption, strike: f64, params: MarketParams, as_of: Date) -> f64 {
     let t = call
         .day_count
-        .year_fraction(as_of, call.expiry, DayCountCtx::default())
+        .year_fraction(as_of, call.expiry, DayCountContext::default())
         .unwrap();
     let notional = call.notional.amount();
     notional

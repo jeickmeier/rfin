@@ -270,7 +270,7 @@ impl InterestRateFuture {
     /// applied. The PV represents the current mark-to-market gain/loss versus the
     /// quoted entry price.
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
-        use finstack_core::dates::DayCountCtx;
+        use finstack_core::dates::DayCountContext;
         let (fixing_date, period_start, period_end) = self.resolve_dates()?;
 
         // Validate discount curve exists (required for curve dependencies, even though
@@ -283,13 +283,13 @@ impl InterestRateFuture {
         let fwd_dc = fwd.day_count();
         let fwd_base = fwd.base_date();
         let t_fixing = fwd_dc
-            .year_fraction(fwd_base, fixing_date, DayCountCtx::default())?
+            .year_fraction(fwd_base, fixing_date, DayCountContext::default())?
             .max(0.0);
         let t_start = fwd_dc
-            .year_fraction(fwd_base, period_start, DayCountCtx::default())?
+            .year_fraction(fwd_base, period_start, DayCountContext::default())?
             .max(0.0);
         let t_end = fwd_dc
-            .year_fraction(fwd_base, period_end, DayCountCtx::default())?
+            .year_fraction(fwd_base, period_end, DayCountContext::default())?
             .max(t_start);
 
         // Forward rate over the period
@@ -307,7 +307,7 @@ impl InterestRateFuture {
         let implied_rate = self.implied_rate().as_decimal();
         let tau = self
             .day_count
-            .year_fraction(period_start, period_end, DayCountCtx::default())?
+            .year_fraction(period_start, period_end, DayCountContext::default())?
             .max(0.0);
         if tau == 0.0 {
             return Ok(0.0);
@@ -342,7 +342,7 @@ impl InterestRateFuture {
             .year_fraction(
                 period_start,
                 period_end,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?
             .max(0.0);
         // tick_value = Face × tau × tick_size (tick_size is already in decimal form)

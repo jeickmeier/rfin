@@ -3,7 +3,7 @@
 use crate::common::test_helpers::tolerances;
 use crate::swaption::common::*;
 use finstack_core::currency::Currency;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::Instrument;
@@ -40,7 +40,7 @@ fn test_black_formula_manual_validation() {
     // Manual Black76 calculation
     let t = swaption
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap();
     let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
     let disc = market.get_discount("USD_OIS").unwrap();
@@ -171,7 +171,7 @@ fn test_payer_receiver_parity_diagnostics() {
             .year_fraction(
                 fwd.base_date(),
                 prev,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap();
         let t_next = fwd
@@ -179,12 +179,12 @@ fn test_payer_receiver_parity_diagnostics() {
             .year_fraction(
                 fwd.base_date(),
                 d,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap();
         let accrual = fwd
             .day_count()
-            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+            .year_fraction(prev, d, finstack_core::dates::DayCountContext::default())
             .unwrap();
         let fwd_rate = fwd.rate_period(t_prev, t_next);
         let df = disc.df_between_dates(as_of, d).unwrap();

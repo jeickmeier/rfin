@@ -500,7 +500,7 @@ fn test_breakeven_inflation_metric_consistency() {
         .year_fraction(
             disc.base_date(),
             ilb.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
     let nominal_yield = disc.zero(t);

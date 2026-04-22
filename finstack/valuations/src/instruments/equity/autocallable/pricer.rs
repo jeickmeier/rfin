@@ -15,7 +15,7 @@ use crate::pricer::{
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 #[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "mc")]
@@ -82,7 +82,7 @@ impl AutocallableMcPricer {
         // Use explicit expiry as the contractual settlement/maturity date.
         let final_date = inst.expiry;
         let disc_dc = disc_curve.day_count();
-        let t = disc_dc.year_fraction(as_of, final_date, DayCountCtx::default())?;
+        let t = disc_dc.year_fraction(as_of, final_date, DayCountContext::default())?;
         if t <= 0.0 {
             return Ok(Money::new(0.0, inst.notional.currency()));
         }
@@ -130,7 +130,7 @@ impl AutocallableMcPricer {
         let observation_times: Vec<f64> = inst
             .observation_dates
             .iter()
-            .map(|&date| disc_dc.year_fraction(as_of, date, DayCountCtx::default()))
+            .map(|&date| disc_dc.year_fraction(as_of, date, DayCountContext::default()))
             .collect::<finstack_core::Result<Vec<_>>>()?;
 
         let mc_final_payoff = Self::convert_final_payoff_type(inst.final_payoff_type);

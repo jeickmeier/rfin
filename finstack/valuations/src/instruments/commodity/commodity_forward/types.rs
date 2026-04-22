@@ -314,10 +314,10 @@ impl CommodityForward {
                 // Try to get discount curve for carry rate
                 // Use the curve's own day count for consistency with zero rate lookup
                 if let Ok(disc) = market.get_discount(self.discount_curve_id.as_str()) {
-                    use finstack_core::dates::DayCountCtx;
+                    use finstack_core::dates::DayCountContext;
                     let curve_dc = disc.day_count();
                     let t = curve_dc
-                        .year_fraction(as_of, self.maturity, DayCountCtx::default())
+                        .year_fraction(as_of, self.maturity, DayCountContext::default())
                         .unwrap_or(0.0)
                         .max(0.0);
                     let rate = disc.zero(t);

@@ -470,7 +470,7 @@ impl EquityOption {
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);
@@ -1301,7 +1301,7 @@ mod tests {
             .year_fraction(
                 as_of,
                 date(2025, 9, 15),
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap();
         let expected_adj = 100.0 - 1.50 * (-r * t_sep).exp();

@@ -24,7 +24,7 @@ impl MetricCalculator for TimeToMaturityCalculator {
         let ttm = repo.day_count.year_fraction(
             context.as_of,
             adj_maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         Ok(ttm)
     }

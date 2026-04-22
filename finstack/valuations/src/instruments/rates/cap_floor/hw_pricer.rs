@@ -34,7 +34,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
@@ -88,7 +88,7 @@ impl CapFloorHullWhitePricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
-        let ctx = DayCountCtx::default();
+        let ctx = DayCountContext::default();
 
         // Get discount curve
         let disc = market

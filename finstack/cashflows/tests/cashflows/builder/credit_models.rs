@@ -588,7 +588,7 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
     use finstack_cashflows::builder::Notional;
     use finstack_core::cashflow::{CFKind, CashFlow};
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+    use finstack_core::dates::{Date, DayCount, DayCountContext, Period, PeriodId};
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
@@ -659,7 +659,7 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
         finstack_cashflows::aggregation::DateContext::new(
             base,
             DayCount::Act365F,
-            DayCountCtx::default(),
+            DayCountContext::default(),
         ),
     );
     assert!(
@@ -682,7 +682,7 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
             finstack_cashflows::aggregation::DateContext::new(
                 base,
                 DayCount::Act365F,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             ),
         )
         .unwrap();

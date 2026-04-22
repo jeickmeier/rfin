@@ -14,7 +14,7 @@
 
 use finstack_core::cashflow::npv;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::traits::{Discounting, TermStructure};
 use finstack_core::math::neumaier_sum;
 use finstack_core::money::Money;
@@ -81,7 +81,7 @@ fn npv_100_cashflows_maintains_precision() {
     let base = d(2025, 1, 1);
     let curve = FlatRateCurve::new("TEST", base, 0.05);
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // 100 monthly cashflows of $1000 each
     let flows: Vec<(Date, Money)> = (0..100)
@@ -119,7 +119,7 @@ fn npv_500_cashflows_maintains_precision() {
     let base = d(2025, 1, 1);
     let curve = FlatRateCurve::new("TEST", base, 0.05);
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // 500 weekly cashflows of $100 each (~10 years)
     let flows: Vec<(Date, Money)> = (0..500)
@@ -167,7 +167,7 @@ fn npv_50_year_cashflow_is_positive_and_small() {
     let maturity = d(2075, 1, 1); // 50 years
     let curve = FlatRateCurve::new("TEST", base, 0.05);
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     let flows = vec![(maturity, Money::new(1_000_000.0, Currency::USD))];
     let pv = npv(&curve, base, Some(dc), &flows).expect("NPV should succeed");

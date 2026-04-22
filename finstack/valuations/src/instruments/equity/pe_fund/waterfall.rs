@@ -899,7 +899,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                         .year_fraction(
                             base_date,
                             current_date,
-                            finstack_core::dates::DayCountCtx::default(),
+                            finstack_core::dates::DayCountContext::default(),
                         )
                         .unwrap_or(1.0);
                     let required_total = contrib_amount * (1.0 + target_irr).powf(years);
@@ -934,7 +934,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     .year_fraction(
                         base_date,
                         *date,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )
                     .unwrap_or(0.0);
                 let df = if rate.abs() < 1e-10 {

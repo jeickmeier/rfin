@@ -6,7 +6,7 @@ use crate::instruments::fixed_income::structured_credit::types::constants::{
     Z_SPREAD_INITIAL_BRACKET, Z_SPREAD_SOLVER_TOLERANCE,
 };
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
@@ -83,7 +83,7 @@ impl MetricCalculator for ZSpreadCalculator {
             .iter()
             .filter(|(date, _)| *date > context.as_of)
             .map(|(date, amount)| -> finstack_core::Result<(f64, f64, f64)> {
-                let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
+                let t = day_count.year_fraction(base_date, *date, DayCountContext::default())?;
                 let df = disc.df_on_date_curve(*date)?;
                 Ok((t, df, amount.amount()))
             })
@@ -217,7 +217,7 @@ impl MetricCalculator for Cs01Calculator {
                 continue;
             }
 
-            let t = day_count.year_fraction(base_date, *date, DayCountCtx::default())?;
+            let t = day_count.year_fraction(base_date, *date, DayCountContext::default())?;
             let df = disc.df_on_date_curve(*date)?;
             let amt = amount.amount();
 
@@ -323,7 +323,7 @@ pub fn calculate_tranche_z_spread(
         .iter()
         .filter(|(date, _)| *date > as_of)
         .map(|(date, amount)| -> Result<(f64, f64, f64)> {
-            let t_from_as_of = day_count.year_fraction(as_of, *date, DayCountCtx::default())?;
+            let t_from_as_of = day_count.year_fraction(as_of, *date, DayCountContext::default())?;
             let df = discount_curve.df_between_dates(as_of, *date)?;
             Ok((t_from_as_of, df, amount.amount()))
         })
@@ -384,7 +384,7 @@ pub fn calculate_tranche_cs01(
             continue;
         }
 
-        let t_from_as_of = day_count.year_fraction(as_of, *date, DayCountCtx::default())?;
+        let t_from_as_of = day_count.year_fraction(as_of, *date, DayCountContext::default())?;
         let df = discount_curve.df_between_dates(as_of, *date)?;
 
         // Base PV

@@ -201,7 +201,7 @@ impl BondValuator {
                     .year_fraction(
                         as_of,
                         amort_date,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )
                     .unwrap_or(0.0);
 
@@ -241,7 +241,7 @@ impl BondValuator {
                 let time_frac = dc_curve.year_fraction(
                     as_of,
                     *date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?;
                 let raw = (time_frac / time_to_maturity) * tree_steps as f64;
 
@@ -293,7 +293,7 @@ impl BondValuator {
                     let time_frac = dc_curve.year_fraction(
                         as_of,
                         call.date,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )?;
                     let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                     let mut step = raw.ceil() as usize;
@@ -327,7 +327,7 @@ impl BondValuator {
                     let time_frac = dc_curve.year_fraction(
                         as_of,
                         put.date,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )?;
                     let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                     let mut step = raw.ceil() as usize;

@@ -15,7 +15,7 @@ use crate::pricer::{
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 #[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "mc")]
@@ -165,7 +165,7 @@ impl CliquetOptionMcPricer {
         let final_date = inst.reset_dates.last().copied().unwrap_or(as_of);
         let t = inst
             .day_count
-            .year_fraction(as_of, final_date, DayCountCtx::default())?;
+            .year_fraction(as_of, final_date, DayCountContext::default())?;
         if t <= 0.0 {
             return Ok(Money::new(0.0, inst.notional.currency()));
         }
@@ -216,7 +216,7 @@ impl CliquetOptionMcPricer {
             .iter()
             .map(|d| {
                 inst.day_count
-                    .year_fraction(as_of, *d, DayCountCtx::default())
+                    .year_fraction(as_of, *d, DayCountContext::default())
             })
             .collect::<finstack_core::Result<Vec<_>>>()?
             .into_iter()
@@ -245,12 +245,12 @@ impl CliquetOptionMcPricer {
             let t_prev_curve = disc_curve.day_count().year_fraction(
                 disc_curve.base_date(),
                 as_of,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )? + prev_t;
             let t_curr_curve = disc_curve.day_count().year_fraction(
                 disc_curve.base_date(),
                 as_of,
-                DayCountCtx::default(),
+                DayCountContext::default(),
             )? + curr_t;
 
             let df_prev = disc_curve.df(t_prev_curve);
@@ -274,7 +274,7 @@ impl CliquetOptionMcPricer {
                     * disc_curve.df(disc_curve.day_count().year_fraction(
                         disc_curve.base_date(),
                         as_of,
-                        DayCountCtx::default(),
+                        DayCountContext::default(),
                     )?)
             } else {
                 initial_spot
@@ -315,7 +315,7 @@ impl CliquetOptionMcPricer {
             .iter()
             .map(|&date| {
                 inst.day_count
-                    .year_fraction(as_of, date, DayCountCtx::default())
+                    .year_fraction(as_of, date, DayCountContext::default())
                     .unwrap_or(0.0)
             })
             .collect();

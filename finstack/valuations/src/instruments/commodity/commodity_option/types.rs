@@ -10,7 +10,7 @@ use crate::instruments::common_impl::traits::{
 };
 use crate::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -223,14 +223,14 @@ impl CommodityOption {
 
     fn time_to_expiry(&self, as_of: Date) -> Result<f64> {
         self.day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())
+            .year_fraction(as_of, self.expiry, DayCountContext::default())
             .map(|t| t.max(0.0))
     }
 
     fn collect_inputs(&self, market: &MarketContext, as_of: Date) -> Result<CommodityOptionInputs> {
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let curve_dc = disc.day_count();
-        let t_rate = curve_dc.year_fraction(as_of, self.expiry, DayCountCtx::default())?;
+        let t_rate = curve_dc.year_fraction(as_of, self.expiry, DayCountContext::default())?;
         let r = disc.zero(t_rate.max(0.0));
         let t = self.time_to_expiry(as_of)?;
 
@@ -304,7 +304,7 @@ impl CommodityOption {
         // 3. Fallback: cost-of-carry model if spot is available
         if let Some(spot) = self.spot_price(market)? {
             let t = DayCount::Act365F
-                .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+                .year_fraction(as_of, self.expiry, DayCountContext::default())?
                 .max(0.0);
             let disc = market.get_discount(self.discount_curve_id.as_str())?;
             let r = disc.zero(t);
@@ -629,7 +629,7 @@ impl Instrument for CommodityOption {
                     .iter()
                     .filter_map(|date| {
                         let yf = DayCount::Act365F
-                            .year_fraction(as_of, *date, DayCountCtx::default())
+                            .year_fraction(as_of, *date, DayCountContext::default())
                             .ok()?;
                         if yf > 0.0 && yf <= inputs.t {
                             Some(yf)
@@ -677,7 +677,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityO
 
         let t = self
             .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+            .year_fraction(as_of, self.expiry, DayCountContext::default())?
             .max(0.0);
         if t <= 0.0 {
             let forward = self.forward_price(market, as_of)?;
@@ -732,7 +732,7 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for CommodityOp
 
         let t = self
             .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+            .year_fraction(as_of, self.expiry, DayCountContext::default())?
             .max(0.0);
         if t <= 0.0 {
             return Ok(0.0);

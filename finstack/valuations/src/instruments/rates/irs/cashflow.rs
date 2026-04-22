@@ -24,7 +24,7 @@
 //! `add_payment_delay()` from `crate::instruments::rates::irs::dates`.
 
 use finstack_core::dates::CalendarRegistry;
-use finstack_core::dates::{Date, DateExt, DayCountCtx};
+use finstack_core::dates::{Date, DateExt, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -168,13 +168,13 @@ fn projected_overnight_rate(
             0.0
         } else {
             proj.day_count()
-                .year_fraction(proj.base_date(), obs_start, DayCountCtx::default())?
+                .year_fraction(proj.base_date(), obs_start, DayCountContext::default())?
         };
         let t1 = if obs_end <= proj.base_date() {
             0.0
         } else {
             proj.day_count()
-                .year_fraction(proj.base_date(), obs_end, DayCountCtx::default())?
+                .year_fraction(proj.base_date(), obs_end, DayCountContext::default())?
         };
         return Ok(if (t1 - t0).abs() > f64::EPSILON {
             proj.rate_period(t0, t1)
@@ -320,7 +320,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                 let dcf =
                     float
                         .day_count
-                        .year_fraction(dcf_start, dcf_end, DayCountCtx::default())?;
+                        .year_fraction(dcf_start, dcf_end, DayCountContext::default())?;
 
                 if obs_end <= obs_start {
                     return Err(finstack_core::Error::Validation(format!(

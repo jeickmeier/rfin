@@ -364,7 +364,7 @@ impl CmsSwap {
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
         use crate::instruments::rates::cms_option::pricer::convexity_adjustment;
-        use finstack_core::dates::{DateExt, DayCountCtx};
+        use finstack_core::dates::{DateExt, DayCountContext};
 
         let vol_surface = market.get_surface(self.vol_surface_id.as_str())?;
         let mut flows = Vec::new();
@@ -404,7 +404,7 @@ impl CmsSwap {
 
             let time_to_fixing =
                 self.cms_day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
             let adj = if time_to_fixing > 0.0 {
                 convexity_adjustment(
                     vol_surface.value_clamped(time_to_fixing.max(0.0), forward_swap_rate),

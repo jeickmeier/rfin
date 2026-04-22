@@ -10,7 +10,7 @@
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::cashflow::CFKind;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 
 /// All-in rate calculator for term loans.
 ///
@@ -78,7 +78,7 @@ impl MetricCalculator for AllInRateCalculator {
                 continue;
             }
             let target = (*d).min(loan.maturity);
-            let yf = dc.year_fraction(prev_date, target, DayCountCtx::default())?;
+            let yf = dc.year_fraction(prev_date, target, DayCountContext::default())?;
             time_weighted_outstanding += prev_outstanding * yf;
             prev_date = target;
             prev_outstanding = amt.amount();
@@ -86,7 +86,7 @@ impl MetricCalculator for AllInRateCalculator {
 
         // Extend to maturity if the last outstanding entry is before maturity
         if prev_date < loan.maturity {
-            let yf = dc.year_fraction(prev_date, loan.maturity, DayCountCtx::default())?;
+            let yf = dc.year_fraction(prev_date, loan.maturity, DayCountContext::default())?;
             time_weighted_outstanding += prev_outstanding * yf;
         }
 

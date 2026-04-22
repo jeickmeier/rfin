@@ -73,7 +73,7 @@
 //!     *Review of Financial Studies*, 30(8), 2719-2760.
 
 use super::common::{build_interp, roll_knots, split_points};
-use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::dates::{Date, DayCount, DayCountContext};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError, market_data::traits::TermStructure, math::interp::types::Interp,
@@ -463,7 +463,7 @@ impl InflationCurve {
         let new_base = self.base_date + time::Duration::days(days);
         let dt_years =
             self.day_count
-                .year_fraction(self.base_date, new_base, DayCountCtx::default())?;
+                .year_fraction(self.base_date, new_base, DayCountContext::default())?;
 
         // Get the new base CPI by interpolating at the roll time
         let new_base_cpi = self.cpi(dt_years);

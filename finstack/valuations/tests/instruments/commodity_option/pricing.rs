@@ -4,7 +4,7 @@ use crate::finstack_test_utils::{
     date, flat_discount_with_tenor, flat_price_curve, flat_vol_surface,
 };
 use finstack_core::currency::Currency;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 #[allow(unused_imports)]
@@ -86,7 +86,7 @@ fn test_black76_futures_based_pricing() {
 
     let pv = option.value(&market, as_of).expect("should price");
     let t = DayCount::Act365F
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .expect("year fraction");
     let forward = option.forward_price(&market, as_of).expect("forward");
     let df = (-0.03 * t).exp();
@@ -514,7 +514,7 @@ fn test_put_call_parity_european() {
         // Get forward price and discount factor
         let forward = call.forward_price(&market, as_of).expect("forward");
         let _t = DayCount::Act365F
-            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let disc = market.get_discount("USD-OIS").expect("discount curve");
         let df = disc.df_between_dates(as_of, expiry).expect("df");

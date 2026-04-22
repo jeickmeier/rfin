@@ -250,7 +250,7 @@ impl CoverageTest {
                 .year_fraction(
                     period_start,
                     context.as_of,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )
                 .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(tranche.frequency))
         } else {
@@ -283,7 +283,7 @@ impl CoverageTest {
                         .year_fraction(
                             period_start,
                             context.as_of,
-                            finstack_core::dates::DayCountCtx::default(),
+                            finstack_core::dates::DayCountContext::default(),
                         )
                         .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(t.frequency))
                 } else {

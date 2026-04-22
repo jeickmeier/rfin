@@ -107,7 +107,7 @@ impl MetricCalculator for ConvexityCalculator {
                 .year_fraction(
                     quote_date,
                     date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?
                 .max(0.0);
             let df_second = df_second_derivative(ytm, t, comp, freq)?;

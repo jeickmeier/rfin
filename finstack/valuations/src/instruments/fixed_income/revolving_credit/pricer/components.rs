@@ -5,7 +5,7 @@
 
 #![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::traits::{Discounting, Forward, Survival};
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, Rate};
@@ -67,7 +67,7 @@ impl DiscountFactors {
     ) -> Result<Self> {
         let base_date = curve.base_date();
 
-        let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
+        let t_as_of = day_count.year_fraction(base_date, as_of, DayCountContext::default())?;
 
         // Compute discount factors for each time point
         let mut factors = Vec::with_capacity(time_points.len());
@@ -132,7 +132,7 @@ impl SurvivalWeights {
         let mut weights = Vec::with_capacity(dates.len());
 
         for &date in dates {
-            let t = day_count.year_fraction(base_date, date, DayCountCtx::default())?;
+            let t = day_count.year_fraction(base_date, date, DayCountContext::default())?;
             let sp = hazard.sp(t).clamp(0.0, 1.0);
             weights.push(sp);
         }

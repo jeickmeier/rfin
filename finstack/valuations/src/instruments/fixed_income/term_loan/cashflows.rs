@@ -13,7 +13,7 @@ use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::fixed_income::term_loan::types::TermLoan;
 use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::Date;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use rust_decimal::prelude::ToPrimitive;
@@ -509,7 +509,7 @@ fn build_commitment_fee_flows(
     draw_stop: Option<Date>,
     schedule: &CashFlowSchedule,
 ) -> finstack_core::Result<Vec<CashFlow>> {
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
 
     let fee_start = ddtl.availability_start;
     let mut fee_end = ddtl.availability_end;
@@ -574,7 +574,7 @@ fn build_commitment_fee_flows(
     for &d in dates.iter().skip(1) {
         let yf = loan
             .day_count
-            .year_fraction(prev, d, DayCountCtx::default())?;
+            .year_fraction(prev, d, DayCountContext::default())?;
         let limit = commitment_limit_at(ddtl, d);
         if limit.currency() != loan.currency {
             return Err(finstack_core::InputError::Invalid.into());
@@ -721,7 +721,7 @@ pub(crate) fn build_oid_eir_schedule(
     for (date, bucket) in iter {
         let yf = loan
             .day_count
-            .year_fraction(prev, *date, DayCountCtx::default())?;
+            .year_fraction(prev, *date, DayCountContext::default())?;
         let interest_income = opening_balance * effective_rate * yf;
         let cash_interest = bucket.interest;
         let closing_balance = opening_balance + interest_income - bucket.total;

@@ -161,7 +161,7 @@ fn test_year_fraction_calculation() {
 
     let day_count = DayCount::Act360;
     let yf = day_count
-        .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
         .unwrap();
 
     // 91 days / 360 = 0.2527...
@@ -178,13 +178,13 @@ fn test_different_day_count_conventions() {
     let end = date!(2024 - 07 - 01);
 
     let act360 = DayCount::Act360
-        .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
         .unwrap();
     let act365 = DayCount::Act365F
-        .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
         .unwrap();
     let thirty_360 = DayCount::Thirty360
-        .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
         .unwrap();
 
     // Different day counts should produce different results
@@ -199,7 +199,7 @@ fn test_leap_year_handling() {
 
     let day_count = DayCount::Act365F;
     let yf = day_count
-        .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
         .unwrap();
 
     // Should account for Feb 29 - 2 days in a 366-day year

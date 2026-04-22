@@ -14,7 +14,7 @@
 //! - Microsoft Excel XIRR function specification
 
 use finstack_core::cashflow::{xirr_with_daycount_ctx, InternalRateOfReturn};
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
 use finstack_core::Error;
 use time::Month;
 
@@ -37,7 +37,7 @@ fn compute_dated_npv(flows: &[(Date, f64)], rate: f64) -> f64 {
     }
     let first_date = flows[0].0;
     let dc = DayCount::Act365F;
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     flows
         .iter()
@@ -374,7 +374,7 @@ fn xirr_long_duration_30_years() {
 
     // 5x return over 30 years → IRR = 5^(1/t) - 1 where t is the Act/365F year fraction.
     // Using the actual year fraction avoids the ~1e-4 error from leap-year accumulation.
-    let ctx = finstack_core::dates::DayCountCtx::default();
+    let ctx = finstack_core::dates::DayCountContext::default();
     let t_30y = DayCount::Act365F
         .year_fraction(d(2024, 1, 1), d(2054, 1, 1), ctx)
         .unwrap();
@@ -661,7 +661,7 @@ fn xirr_handles_distant_horizon() {
 
     // 10x over 50 years: IRR = 10^(1/t) - 1 where t is the Act/365F year fraction.
     // Using the actual year fraction avoids the ~1e-4 error from leap-year accumulation.
-    let ctx = finstack_core::dates::DayCountCtx::default();
+    let ctx = finstack_core::dates::DayCountContext::default();
     let t_50y = DayCount::Act365F
         .year_fraction(d(2025, 1, 1), d(2075, 1, 1), ctx)
         .unwrap();
@@ -684,7 +684,7 @@ fn xirr_handles_distant_horizon() {
 #[test]
 fn xirr_supports_contextual_day_counts_via_explicit_ctx() {
     let flows = vec![(d(2025, 1, 1), -1000.0), (d(2026, 1, 1), 1100.0)];
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         frequency: Some(Tenor::annual()),
         calendar: None,
         bus_basis: None,

@@ -192,9 +192,9 @@ mod scalar_curve_invariants {
         assert_eq!(rolled_vc.base_date(), expected_base);
 
         let dt_years = {
-            use finstack_core::dates::{DayCount, DayCountCtx};
+            use finstack_core::dates::{DayCount, DayCountContext};
             DayCount::Act365F
-                .year_fraction(base_date(), expected_base, DayCountCtx::default())
+                .year_fraction(base_date(), expected_base, DayCountContext::default())
                 .unwrap()
         };
 

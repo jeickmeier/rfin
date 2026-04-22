@@ -10,7 +10,7 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 use finstack_core::{
-    dates::{Date, DateExt, DayCountCtx},
+    dates::{Date, DateExt, DayCountContext},
     market_data::context::MarketContext,
     math::stats::realized_variance,
     money::Money,
@@ -62,7 +62,7 @@ pub(crate) fn compute_pv(
         let undiscounted = inst.payoff(forward_var);
         let t = inst
             .day_count
-            .year_fraction(as_of, inst.maturity, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.maturity, DayCountContext::default())?;
         return Ok(undiscounted * dom.df(t.max(0.0)));
     }
 
@@ -73,7 +73,7 @@ pub(crate) fn compute_pv(
     let undiscounted = inst.payoff(expected_var);
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.maturity, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.maturity, DayCountContext::default())?;
     Ok(undiscounted * dom.df(t.max(0.0)))
 }
 
@@ -276,7 +276,7 @@ pub(crate) fn remaining_forward_variance(
 ) -> Result<f64> {
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.maturity, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.maturity, DayCountContext::default())?;
     if t <= 0.0 {
         return Ok(0.0);
     }
@@ -287,11 +287,11 @@ pub(crate) fn remaining_forward_variance(
     let for_curve = context.get_discount(inst.foreign_discount_curve_id.as_str())?;
     let t_dom = dom
         .day_count()
-        .year_fraction(as_of, inst.maturity, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.maturity, DayCountContext::default())?;
     let t_for =
         for_curve
             .day_count()
-            .year_fraction(as_of, inst.maturity, DayCountCtx::default())?;
+            .year_fraction(as_of, inst.maturity, DayCountContext::default())?;
     let df_dom = dom.df(t_dom.max(0.0));
     let df_for = for_curve.df(t_for.max(0.0));
 

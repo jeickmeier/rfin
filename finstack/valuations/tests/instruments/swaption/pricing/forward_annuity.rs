@@ -1,7 +1,7 @@
 //! Forward swap rate and annuity calculation tests
 
 use crate::swaption::common::*;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_valuations::instruments::rates::swaption::Swaption;
 use finstack_valuations::instruments::rates::swaption::{CashSettlementMethod, SwaptionSettlement};
 
@@ -38,7 +38,7 @@ fn expected_forward_rate(
             .year_fraction(
                 fwd.base_date(),
                 prev,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap();
         let t_next = fwd
@@ -46,12 +46,12 @@ fn expected_forward_rate(
             .year_fraction(
                 fwd.base_date(),
                 d,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )
             .unwrap();
         let accrual = fwd
             .day_count()
-            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+            .year_fraction(prev, d, finstack_core::dates::DayCountContext::default())
             .unwrap();
         let forward = fwd.rate_period(t_prev, t_next);
         let df = disc.df_between_dates(as_of, d).unwrap();
@@ -123,7 +123,7 @@ fn test_year_fraction_act360() {
 
     let yf = swaption
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap();
 
     // 1 year ≈ 1.0 under Act/360
@@ -215,7 +215,7 @@ fn test_zero_coupon_cash_annuity_matches_tenor_times_maturity_df() {
 
     let tenor = swaption
         .day_count
-        .year_fraction(swap_start, swap_end, DayCountCtx::default())
+        .year_fraction(swap_start, swap_end, DayCountContext::default())
         .unwrap();
     let expected = tenor * disc.df_between_dates(as_of, swap_end).unwrap();
     let actual = swaption

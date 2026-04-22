@@ -84,7 +84,7 @@ fn main() -> finstack_core::Result<()> {
 Date helpers wrap the `time` crate and provide business‑day logic and standard conventions:
 
 ```rust
-use finstack_core::dates::{create_date, DayCount, DayCountCtx};
+use finstack_core::dates::{create_date, DayCount, DayCountContext};
 use time::Month;
 
 fn main() -> finstack_core::Result<()> {
@@ -93,7 +93,7 @@ fn main() -> finstack_core::Result<()> {
 
     // Actual/Actual (ISDA) year fraction
     let yf = DayCount::ActAct
-        .year_fraction(start, end, DayCountCtx::default())?;
+        .year_fraction(start, end, DayCountContext::default())?;
 
     assert!((yf - 1.0).abs() < 1e-9);
     Ok(())

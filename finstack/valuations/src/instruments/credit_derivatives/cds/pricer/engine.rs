@@ -340,7 +340,7 @@ impl CDSPricer {
             let accrual = cds.premium.day_count.year_fraction(
                 start_date,
                 end_date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             let scheduled_coupon = cds.notional.amount() * spread * accrual;
             premium_pv += scheduled_coupon * sp * df;

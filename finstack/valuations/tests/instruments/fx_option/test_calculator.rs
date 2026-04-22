@@ -4,7 +4,7 @@
 //! value, market data handling, validation, and expired option behavior.
 
 use super::helpers::*;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -32,7 +32,7 @@ fn test_npv_matches_garman_kohlhagen() {
     // Verify against explicit GK formula inputs
     let t = call
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap();
     let spot = market
         .fx()
@@ -123,7 +123,7 @@ fn test_surface_vol_used_in_pricing() {
     // Act
     let t = call
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap();
     let spot = market
         .fx()
@@ -203,7 +203,7 @@ fn test_year_fraction_uses_day_count() {
 
     // Act
     let yf_act365 = DayCount::Act365F
-        .year_fraction(start, end, DayCountCtx::default())
+        .year_fraction(start, end, DayCountContext::default())
         .unwrap();
 
     // Assert

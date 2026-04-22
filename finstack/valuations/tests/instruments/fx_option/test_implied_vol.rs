@@ -4,7 +4,7 @@
 //! boundary handling, and numerical stability.
 
 use super::helpers::*;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::math::norm_cdf;
 use time::macros::date;
 
@@ -46,7 +46,7 @@ fn analytical_fx_price(
 ) -> f64 {
     let t = option
         .day_count
-        .year_fraction(as_of, option.expiry, DayCountCtx::default())
+        .year_fraction(as_of, option.expiry, DayCountContext::default())
         .unwrap_or(0.0);
     let price_per_unit = bs_price(
         params.spot,

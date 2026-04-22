@@ -466,7 +466,7 @@ impl CashflowProvider for Deposit {
         let yf = self.day_count.year_fraction(
             effective_start,
             effective_end,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         let r = self.quote_rate.ok_or_else(|| {

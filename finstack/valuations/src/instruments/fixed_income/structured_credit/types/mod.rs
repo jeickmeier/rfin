@@ -101,7 +101,7 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 use crate::instruments::fixed_income::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use crate::instruments::rates::irs::InterestRateSwap;
 use crate::metrics::{MetricContext, MetricId};
-use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountContext, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -576,7 +576,7 @@ impl StructuredCredit {
     fn build_scenario_tree_config(&self, as_of: Date) -> finstack_core::Result<ScenarioTreeConfig> {
         let months_to_maturity = as_of.months_until(self.maturity).max(1) as usize;
         let horizon_years = DayCount::Act365F
-            .year_fraction(as_of, self.maturity, DayCountCtx::default())?
+            .year_fraction(as_of, self.maturity, DayCountContext::default())?
             .abs()
             .max(0.25);
 
@@ -679,7 +679,7 @@ impl StructuredCredit {
                 // DF = exp(-(r + s) * t)
                 // We assume continuous compounding for the spread application
 
-                let t = match DayCount::Act365F.year_fraction(as_of, *date, DayCountCtx::default())
+                let t = match DayCount::Act365F.year_fraction(as_of, *date, DayCountContext::default())
                 {
                     Ok(t) => t,
                     Err(_) => return f64::NAN, // Solver handles NAN/Inf usually by erroring, but Brent might need finite

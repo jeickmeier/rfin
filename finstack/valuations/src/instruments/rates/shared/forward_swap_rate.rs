@@ -1,7 +1,7 @@
 use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
 };
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
@@ -57,7 +57,7 @@ pub fn calculate_forward_swap_rate(inputs: ForwardSwapRateInputs<'_>) -> Result<
     for &d in sched_fixed.dates.iter().skip(1) {
         let accrual = inputs
             .fixed_day_count
-            .year_fraction(prev_date, d, DayCountCtx::default())?;
+            .year_fraction(prev_date, d, DayCountContext::default())?;
         let df = relative_df_discount_curve(disc.as_ref(), inputs.as_of, d)?;
         annuity += accrual * df;
         prev_date = d;
@@ -99,7 +99,7 @@ pub fn calculate_forward_swap_rate(inputs: ForwardSwapRateInputs<'_>) -> Result<
             let accrual =
                 inputs
                     .float_day_count
-                    .year_fraction(prev_date, d, DayCountCtx::default())?;
+                    .year_fraction(prev_date, d, DayCountContext::default())?;
             let fwd_rate = rate_period_on_dates(fwd_curve.as_ref(), prev_date, d)?;
             let df = relative_df_discount_curve(disc.as_ref(), inputs.as_of, d)?;
             pv_float += fwd_rate * accrual * df;

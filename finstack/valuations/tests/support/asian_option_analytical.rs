@@ -16,7 +16,7 @@ use crate::instruments::OptionType;
 use crate::pricer::Pricer;
 use test_utils::{date, flat_vol_surface};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -125,10 +125,10 @@ fn geometric_analytical_matches_closed_form_unseasoned() -> finstack_core::Resul
     let disc_curve = mkt.get_discount(asian.discount_curve_id.as_str())?;
     let t_vol = asian
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, expiry, DayCountContext::default())?;
     let t_disc = disc_curve
         .day_count()
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, expiry, DayCountContext::default())?;
     let r = disc_curve.zero(t_disc);
     let sigma = mkt
         .get_surface(asian.vol_surface_id.as_str())?
@@ -246,7 +246,7 @@ fn tw_arithmetic_all_fixings_in_past_discounts_deterministic_payoff() -> finstac
     let disc_curve = mkt.get_discount(asian.discount_curve_id.as_str())?;
     let t_vol = asian
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, expiry, DayCountContext::default())?;
     let df = disc_curve.df(t_vol);
 
     let expected = payoff * df;
@@ -332,10 +332,10 @@ fn geometric_closed_form_put_matches_helper() -> finstack_core::Result<()> {
     let disc_curve = mkt.get_discount(asian.discount_curve_id.as_str())?;
     let t_vol = asian
         .day_count
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, expiry, DayCountContext::default())?;
     let t_disc = disc_curve
         .day_count()
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, expiry, DayCountContext::default())?;
     let r = disc_curve.zero(t_disc);
     let sigma = mkt
         .get_surface(asian.vol_surface_id.as_str())?

@@ -180,7 +180,7 @@ pub(crate) fn emit_fixed_coupons_on(
             let yf = spec.dc.year_fraction(
                 accrual_start,
                 accrual_end,
-                finstack_core::dates::DayCountCtx {
+                finstack_core::dates::DayCountContext {
                     calendar: Some(calendar),
                     frequency: Some(spec.freq),
                     bus_basis: None,
@@ -332,7 +332,7 @@ fn sample_overnight_rates_with_lookback(
                     .year_fraction(
                         fwd_base,
                         obs_date,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )
                     .unwrap_or(0.0)
             };
@@ -408,7 +408,7 @@ fn sample_overnight_rates(
                     .year_fraction(
                         fwd_base,
                         current,
-                        finstack_core::dates::DayCountCtx::default(),
+                        finstack_core::dates::DayCountContext::default(),
                     )
                     .unwrap_or(0.0)
             };
@@ -481,7 +481,7 @@ pub(crate) fn emit_float_coupons_on(
             let yf = spec.rate_spec.dc.year_fraction(
                 accrual_start,
                 accrual_end,
-                finstack_core::dates::DayCountCtx {
+                finstack_core::dates::DayCountContext {
                     calendar: Some(calendar),
                     frequency: Some(spec.rate_spec.reset_freq),
                     bus_basis: None,

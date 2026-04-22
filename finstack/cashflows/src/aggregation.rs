@@ -14,7 +14,7 @@
 
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Period, PeriodId};
 use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::Money;
 
@@ -186,7 +186,7 @@ pub fn aggregate_by_period(
 // Precision-Preserving Aggregation
 // =============================================================================
 
-// use finstack_core::dates::DayCountCtx;
+// use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::traits::{Discounting, Survival};
 
 /// Decimal-safe single-currency aggregation with explicit target currency.
@@ -304,7 +304,7 @@ pub(crate) fn pv_by_period_cashflows_sorted_checked(
     disc: &dyn Discounting,
     base: Date,
     dc: DayCount,
-    dc_ctx: DayCountCtx<'_>,
+    dc_ctx: DayCountContext<'_>,
     hazard: Option<&dyn Survival>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     let date_ctx = DateContext::new(base, dc, dc_ctx);
@@ -329,7 +329,7 @@ pub struct DateContext<'a> {
     /// Day-count convention to use.
     pub dc: DayCount,
     /// Day-count context for calendar and holiday handling.
-    pub dc_ctx: DayCountCtx<'a>,
+    pub dc_ctx: DayCountContext<'a>,
 }
 
 impl<'a> DateContext<'a> {
@@ -349,18 +349,18 @@ impl<'a> DateContext<'a> {
     ///
     /// ```rust
     /// use finstack_cashflows::aggregation::DateContext;
-    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext};
     /// use time::Month;
     ///
     /// let ctx = DateContext::new(
     ///     Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
     ///     DayCount::Act365F,
-    ///     DayCountCtx::default(),
+    ///     DayCountContext::default(),
     /// );
     ///
     /// assert_eq!(ctx.dc, DayCount::Act365F);
     /// ```
-    pub fn new(base: Date, dc: DayCount, dc_ctx: DayCountCtx<'a>) -> Self {
+    pub fn new(base: Date, dc: DayCount, dc_ctx: DayCountContext<'a>) -> Self {
         Self { base, dc, dc_ctx }
     }
 }
@@ -520,7 +520,7 @@ fn time_discount_survival(
 /// ```rust,ignore
 /// use finstack_cashflows::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
 /// use finstack_core::cashflow::CashFlow;
-/// use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
+/// use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
 /// use finstack_core::market_data::traits::{Discounting, Survival};
 ///
 /// fn credit_pv(
@@ -536,7 +536,7 @@ fn time_discount_survival(
 ///         disc,
 ///         Some(hazard),
 ///         Some(0.4),
-///         DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+///         DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
 ///     )?;
 ///     Ok(())
 /// }
@@ -774,7 +774,7 @@ mod compensated_sum_tests {
 mod credit_pv_tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+    use finstack_core::dates::{Date, DayCount, DayCountContext, Period, PeriodId};
     use finstack_core::market_data::traits::TermStructure;
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
@@ -864,7 +864,7 @@ mod credit_pv_tests {
         let periods = vec![make_period(base, d(2026, 1, 1))];
         let disc = FlatDiscount { base };
         let hazard = FlatSurvival;
-        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
         let result = pv_by_period_credit_adjusted_detailed(
             &flows,
@@ -910,7 +910,7 @@ mod credit_pv_tests {
         let periods = vec![make_period(base, d(2026, 1, 1))];
         let disc = FlatDiscount { base };
         let hazard = FlatSurvival;
-        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
         let result = pv_by_period_credit_adjusted_detailed(
             &flows,
@@ -946,7 +946,7 @@ mod credit_pv_tests {
             &disc,
             Some(&hazard),
             Some(0.40),
-            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+            DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
         )
         .expect("sorted flows should price");
         let unsorted_result = pv_by_period_credit_adjusted_detailed(
@@ -955,7 +955,7 @@ mod credit_pv_tests {
             &disc,
             Some(&hazard),
             Some(0.40),
-            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+            DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
         )
         .expect("unsorted flows should price");
 
@@ -973,8 +973,8 @@ mod credit_pv_tests {
             flow(d(2025, 10, 1), 500_000.0, CFKind::Amortization),
         ];
 
-        let default_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
-        let explicit_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let default_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
+        let explicit_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
         let default_out = pv_by_period_credit_adjusted_detailed(
             &flows,
@@ -1016,7 +1016,7 @@ mod credit_pv_tests {
         let disc = FlatDiscount { base };
         let hazard = FlatSurvival;
         let flows = vec![flow(d(2025, 12, 1), 1_000_000.0, CFKind::Amortization)];
-        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
         let out = pv_by_period_credit_adjusted_detailed_with_timing(
             &flows,
@@ -1074,7 +1074,7 @@ mod credit_pv_tests {
         let hazard = StepSurvival;
         // Single principal flow at one full year out.
         let flows = vec![flow(d(2026, 1, 1), 1_000_000.0, CFKind::Amortization)];
-        let ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
         let integrated = pv_by_period_credit_adjusted_detailed_with_timing(
             &flows,
@@ -1083,7 +1083,7 @@ mod credit_pv_tests {
             Some(&hazard),
             Some(0.40),
             RecoveryTiming::AtDefaultIntegrated,
-            DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+            DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
         )
         .expect("integrated pricing");
         let at_pay = pv_by_period_credit_adjusted_detailed_with_timing(

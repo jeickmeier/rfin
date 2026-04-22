@@ -1,7 +1,7 @@
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::math::solver::{BrentSolver, Solver};
 
 /// Configuration for Z-spread solver with maturity-aware bracket sizing.
@@ -171,7 +171,7 @@ impl ZSpreadCalculator {
         }
         let dc = bond.cashflow_spec.day_count();
         let years = dc
-            .year_fraction(as_of, bond.maturity, DayCountCtx::default())?
+            .year_fraction(as_of, bond.maturity, DayCountContext::default())?
             .max(0.0);
 
         // Scale between 1x and 2x base over 0–30y, then clamp.
@@ -222,7 +222,7 @@ impl MetricCalculator for ZSpreadCalculator {
             .filter(|(d, _)| *d > quote_date)
             .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {
                 // Year fraction from quote_date (settlement) for z-spread shift
-                let t = dc.year_fraction(quote_date, *d, DayCountCtx::default())?;
+                let t = dc.year_fraction(quote_date, *d, DayCountContext::default())?;
                 // Discount factor from quote_date (settlement) — same origin as t
                 let df_base = disc.df_between_dates(quote_date, *d)?;
                 Ok((t, df_base, amt.amount()))

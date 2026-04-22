@@ -28,7 +28,7 @@
 //! - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
 //! - `docs/REFERENCES.md#hull-options-futures`
 
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;
@@ -429,12 +429,12 @@ pub fn project_floating_rate(
     let t0 = if reset_date <= fwd_base {
         0.0
     } else {
-        fwd_dc.year_fraction(fwd_base, reset_date, DayCountCtx::default())?
+        fwd_dc.year_fraction(fwd_base, reset_date, DayCountContext::default())?
     };
     let t1 = if reset_period_end <= fwd_base {
         0.0
     } else {
-        fwd_dc.year_fraction(fwd_base, reset_period_end, DayCountCtx::default())?
+        fwd_dc.year_fraction(fwd_base, reset_period_end, DayCountContext::default())?
     };
 
     // Get period forward rate (robust to zero-length periods).

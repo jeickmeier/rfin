@@ -7,7 +7,7 @@ use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
@@ -261,12 +261,12 @@ impl InflationSwap {
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
-                .year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
                 .unwrap_or(0.0)
         } else {
             // Negative year fraction for dates before the base
             -DayCount::Act365F
-                .year_fraction(end, start, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(end, start, finstack_core::dates::DayCountContext::default())
                 .unwrap_or(0.0)
         }
     }
@@ -322,7 +322,7 @@ impl InflationSwap {
         let tau_accrual = self.day_count.year_fraction(
             self.start_date,
             self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
@@ -338,7 +338,7 @@ impl InflationSwap {
         let t_discount = curve_dc.year_fraction(
             as_of,
             payment_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let df = disc.df(t_discount);
 
@@ -349,7 +349,7 @@ impl InflationSwap {
         let tau_accrual = self.day_count.year_fraction(
             self.start_date,
             self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
             finstack_core::Error::Validation(
@@ -386,7 +386,7 @@ impl InflationSwap {
         let t_discount = curve_dc.year_fraction(
             as_of,
             payment_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let df = disc.df(t_discount);
 
@@ -428,7 +428,7 @@ impl InflationSwap {
         let tau = self.day_count.year_fraction(
             self.start_date,
             self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if tau <= 0.0 {
             return Ok(0.0);
@@ -672,11 +672,11 @@ impl YoYInflationSwap {
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
-                .year_fraction(start, end, DayCountCtx::default())
+                .year_fraction(start, end, DayCountContext::default())
                 .unwrap_or(0.0)
         } else {
             -DayCount::Act365F
-                .year_fraction(end, start, DayCountCtx::default())
+                .year_fraction(end, start, DayCountContext::default())
                 .unwrap_or(0.0)
         }
     }
@@ -745,7 +745,7 @@ impl YoYInflationSwap {
         for (start, end, pay) in self.schedule()? {
             let accrual = self
                 .day_count
-                .year_fraction(start, end, DayCountCtx::default())?;
+                .year_fraction(start, end, DayCountContext::default())?;
 
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
@@ -768,7 +768,7 @@ impl YoYInflationSwap {
 
             let t_discount = disc
                 .day_count()
-                .year_fraction(as_of, pay, DayCountCtx::default())?;
+                .year_fraction(as_of, pay, DayCountContext::default())?;
             let df = disc.df(t_discount);
             pv += net * df;
         }
@@ -801,7 +801,7 @@ impl YoYInflationSwap {
         for (start, end, pay) in self.schedule()? {
             let accrual = self
                 .day_count
-                .year_fraction(start, end, DayCountCtx::default())?;
+                .year_fraction(start, end, DayCountContext::default())?;
 
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
@@ -811,7 +811,7 @@ impl YoYInflationSwap {
 
             let t_discount = disc
                 .day_count()
-                .year_fraction(as_of, pay, DayCountCtx::default())?;
+                .year_fraction(as_of, pay, DayCountContext::default())?;
             let df = disc.df(t_discount);
 
             // Inflation leg contribution: DF × (CPI_end / CPI_start - 1)
@@ -844,7 +844,7 @@ impl YoYInflationSwap {
         for (start, end, pay) in self.schedule()? {
             let accrual = self
                 .day_count
-                .year_fraction(start, end, DayCountCtx::default())?;
+                .year_fraction(start, end, DayCountContext::default())?;
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             if cpi_start <= 0.0 {
                 return Err(finstack_core::InputError::NonPositiveValue.into());

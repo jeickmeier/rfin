@@ -724,7 +724,7 @@ impl BermudanSwaptionPricer {
             })?;
 
         // Convert payment dates to year fractions
-        let ctx = finstack_core::dates::DayCountCtx::default();
+        let ctx = finstack_core::dates::DayCountContext::default();
         let payment_times: Vec<f64> = payment_dates
             .iter()
             .map(|&d| swaption.day_count.year_fraction(as_of, d, ctx))

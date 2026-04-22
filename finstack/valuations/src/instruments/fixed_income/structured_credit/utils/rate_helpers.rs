@@ -10,7 +10,7 @@
 
 #![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::fixings;
 use rust_decimal::prelude::ToPrimitive;
@@ -264,7 +264,7 @@ pub(crate) fn asset_all_in_rate(
             let base = fwd.base_date();
             let dc = fwd.day_count();
             let t2 = dc
-                .year_fraction(base, date, DayCountCtx::default())
+                .year_fraction(base, date, DayCountContext::default())
                 .unwrap_or(0.0);
             let tenor = fwd.tenor();
             let t1 = (t2 - tenor).max(0.0);
@@ -309,7 +309,7 @@ pub(crate) fn try_asset_all_in_rate(
     let fwd = market.get_forward(idx)?;
     let base = fwd.base_date();
     let dc = fwd.day_count();
-    let t2 = dc.year_fraction(base, date, DayCountCtx::default())?;
+    let t2 = dc.year_fraction(base, date, DayCountContext::default())?;
     let tenor = fwd.tenor();
     let t1 = (t2 - tenor).max(0.0);
     let idx_rate = fwd.rate_period(t1, t2);

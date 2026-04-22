@@ -37,7 +37,7 @@ use crate::instruments::common_impl::validation;
 use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
@@ -239,11 +239,11 @@ impl InflationCapFloor {
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
-                .year_fraction(start, end, DayCountCtx::default())
+                .year_fraction(start, end, DayCountContext::default())
                 .unwrap_or(0.0)
         } else {
             -DayCount::Act365F
-                .year_fraction(end, start, DayCountCtx::default())
+                .year_fraction(end, start, DayCountContext::default())
                 .unwrap_or(0.0)
         }
     }
@@ -374,7 +374,7 @@ impl InflationCapFloor {
 
             let accrual = self
                 .day_count
-                .year_fraction(start, end, DayCountCtx::default())?;
+                .year_fraction(start, end, DayCountContext::default())?;
             if accrual <= 0.0 {
                 continue;
             }
@@ -396,7 +396,7 @@ impl InflationCapFloor {
 
             let t_pay = disc
                 .day_count()
-                .year_fraction(as_of, pay, DayCountCtx::default())?;
+                .year_fraction(as_of, pay, DayCountContext::default())?;
             let df = disc.df(t_pay);
 
             let sigma = if t_fix > 0.0 {

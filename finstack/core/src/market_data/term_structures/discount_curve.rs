@@ -110,7 +110,7 @@ use super::common::{
 };
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    dates::{Date, DayCount, DayCountCtx},
+    dates::{Date, DayCount, DayCountContext},
     market_data::traits::{Discounting, TermStructure},
     math::interp::types::Interp,
     types::CurveId,
@@ -510,7 +510,7 @@ impl DiscountCurve {
         let t = if date == self.base {
             0.0
         } else {
-            dc.year_fraction(self.base, date, DayCountCtx::default())?
+            dc.year_fraction(self.base, date, DayCountContext::default())?
         };
         Ok(self.df(t))
     }
@@ -906,7 +906,7 @@ impl DiscountCurve {
         let new_base = self.base + time::Duration::days(days);
         let dt_years = self
             .day_count
-            .year_fraction(self.base, new_base, DayCountCtx::default())?;
+            .year_fraction(self.base, new_base, DayCountContext::default())?;
 
         let rolled_points = roll_knots(&self.knots, &self.dfs, dt_years);
 

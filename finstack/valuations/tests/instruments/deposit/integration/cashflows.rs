@@ -64,7 +64,7 @@ fn test_cashflow_redemption_amount() {
         .year_fraction(
             dep.start_date,
             dep.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap();
     let expected_redemption = notional * (1.0 + rate * yf);

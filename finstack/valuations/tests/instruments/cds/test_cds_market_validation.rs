@@ -517,7 +517,7 @@ fn test_expected_loss_formula_validation() {
     let hazard = market.get_hazard("CORP_HAZARD").unwrap();
     let t_maturity = hazard
         .day_count()
-        .year_fraction(as_of, end, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(as_of, end, finstack_core::dates::DayCountContext::default())
         .unwrap();
 
     // Theoretical undiscounted expected loss:

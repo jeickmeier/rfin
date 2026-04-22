@@ -188,7 +188,7 @@ impl Bond {
         let maturity_years = self.cashflow_spec.day_count().year_fraction(
             as_of,
             self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         // If the config uses the default schedule, derive from bond's CouponType

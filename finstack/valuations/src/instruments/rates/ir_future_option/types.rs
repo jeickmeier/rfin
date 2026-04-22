@@ -35,7 +35,7 @@ use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
@@ -94,7 +94,7 @@ impl IrFutureOption {
             return 0.0;
         }
         DayCount::Act365F
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())
+            .year_fraction(as_of, self.expiry, DayCountContext::default())
             .unwrap_or(0.0)
     }
 

@@ -13,7 +13,7 @@ provides:
   prepayment, and recovery
 - schedule-driven accrued-interest calculations
 - currency-preserving aggregation utilities
-- schedule-level periodized PV helpers that accept explicit `DayCountCtx`
+- schedule-level periodized PV helpers that accept explicit `DayCountContext`
 
 The crate is designed around a few explicit conventions:
 
@@ -257,7 +257,7 @@ Schedule-level PV helpers are the stable public interface in this crate.
 
 ```rust,no_run
 use finstack_cashflows::builder::CashFlowSchedule;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
 use finstack_core::market_data::traits::Discounting;
 
 fn periodized_pv(
@@ -271,7 +271,7 @@ fn periodized_pv(
         disc,
         base,
         DayCount::Act365F,
-        DayCountCtx::default(),
+        DayCountContext::default(),
     )?;
 
     let _ = pv_map;
@@ -377,7 +377,7 @@ RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-cashflows --no-deps --all-featu
 
 - `finstack_core::cashflow` for `CashFlow` and `CFKind`
 - `finstack_core::money` for currency-safe `Money`
-- `finstack_core::dates` for `DayCount`, `DayCountCtx`, calendars, and schedule
+- `finstack_core::dates` for `DayCount`, `DayCountContext`, calendars, and schedule
   helpers
 - `finstack/valuations/src/lib.rs` for the valuations-side `cashflow`
   re-export

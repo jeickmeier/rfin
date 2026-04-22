@@ -6,7 +6,7 @@
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_core::config::{results_meta_now, FinstackConfig};
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::{context::MarketContext, scalars::MarketScalar};
 use finstack_core::money::Money;
 use indexmap::IndexMap;
@@ -16,11 +16,11 @@ use std::sync::Arc;
 ///
 /// This is the canonical helper for all instrument code that needs a plain
 /// `(start, end, dc) → year_fraction` call without extra context.
-/// Avoids duplicating `dc.year_fraction(start, end, DayCountCtx::default())`
+/// Avoids duplicating `dc.year_fraction(start, end, DayCountContext::default())`
 /// in every pricer / calculator module.
 #[inline]
 pub fn year_fraction(dc: DayCount, start: Date, end: Date) -> finstack_core::Result<f64> {
-    dc.year_fraction(start, end, DayCountCtx::default())
+    dc.year_fraction(start, end, DayCountContext::default())
 }
 
 /// Schedule → PV helper that uses the curve's own day count convention.
@@ -761,7 +761,7 @@ pub fn collect_black_scholes_inputs_df(
 
     // Time to expiry for vol surface lookup (using instrument's day count, which should
     // match how the vol surface was calibrated - typically ACT/365F for equity options)
-    let t_vol = day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let t_vol = day_count.year_fraction(as_of, expiry, DayCountContext::default())?;
 
     // Discount factor from as_of to expiry (date-based, no year-fraction ambiguity)
     // This is the source of truth for discounting.

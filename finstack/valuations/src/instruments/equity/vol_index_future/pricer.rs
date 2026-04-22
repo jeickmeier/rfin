@@ -47,7 +47,7 @@ pub(crate) fn forward_vol(
         .year_fraction(
             vol_curve.base_date(),
             future.settlement_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?
         .max(0.0);
     Ok(vol_curve.forward_level(t))

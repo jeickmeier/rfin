@@ -6,7 +6,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Error as CoreError;
@@ -317,7 +317,7 @@ pub(crate) fn terminal_sale_proceeds(
 fn year_fraction(asset: &RealEstateAsset, start: Date, end: Date) -> finstack_core::Result<f64> {
     asset
         .day_count
-        .year_fraction(start, end, DayCountCtx::default())
+        .year_fraction(start, end, DayCountContext::default())
 }
 
 impl Pricer for RealEstateAssetDiscountingPricer {
@@ -351,7 +351,7 @@ mod tests {
     use super::super::RealEstateValuationMethod;
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    use finstack_core::dates::{Date, DayCount, DayCountContext};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
@@ -384,8 +384,8 @@ mod tests {
         let market = MarketContext::new();
         let pv = compute_pv(&asset, &market, valuation_date)?;
 
-        let t1 = DayCount::Act365F.year_fraction(valuation_date, noi1, DayCountCtx::default())?;
-        let t2 = DayCount::Act365F.year_fraction(valuation_date, noi2, DayCountCtx::default())?;
+        let t1 = DayCount::Act365F.year_fraction(valuation_date, noi1, DayCountContext::default())?;
+        let t2 = DayCount::Act365F.year_fraction(valuation_date, noi2, DayCountContext::default())?;
         let expected = 100.0 / (1.0_f64 + 0.10).powf(t1)
             + 100.0 / (1.0_f64 + 0.10).powf(t2)
             + (100.0 / 0.08) / (1.0_f64 + 0.10).powf(t2);

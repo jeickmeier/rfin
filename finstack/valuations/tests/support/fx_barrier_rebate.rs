@@ -15,7 +15,7 @@ use crate::instruments::{Attributes, Instrument};
 use crate::instruments::{OptionType, PricingOverrides};
 use test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
@@ -70,7 +70,7 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
     let rebate_pv = rebate_option.value(&market, as_of).expect("Rebate PV");
 
     let t = DayCount::Act365F
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .expect("Year fraction");
     let r_dom = market.get_discount("USD-OIS").expect("USD curve").zero(t);
     let r_for = market.get_discount("EUR-OIS").expect("EUR curve").zero(t);

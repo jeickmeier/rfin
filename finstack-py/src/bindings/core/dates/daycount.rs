@@ -4,7 +4,7 @@ use crate::bindings::core::dates::tenor::PyTenor;
 use crate::bindings::core::dates::utils::py_to_date;
 use crate::errors::core_to_py;
 use finstack_core::dates::{
-    CalendarRegistry, DayCount, DayCountCtx, DayCountCtxState, Tenor, Thirty360Convention,
+    CalendarRegistry, DayCount, DayCountContext, DayCountContextState, Tenor, Thirty360Convention,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -97,7 +97,7 @@ impl PyDayCount {
         let e = py_to_date(end)?;
         let context = match ctx {
             Some(c) => c.to_rust_ctx(),
-            None => DayCountCtx::default(),
+            None => DayCountContext::default(),
         };
         self.inner.year_fraction(s, e, context).map_err(core_to_py)
     }
@@ -114,7 +114,7 @@ impl PyDayCount {
         let e = py_to_date(end)?;
         let context = match ctx {
             Some(c) => c.to_rust_ctx(),
-            None => DayCountCtx::default(),
+            None => DayCountContext::default(),
         };
         self.inner
             .signed_year_fraction(s, e, context)
@@ -183,14 +183,14 @@ pub struct PyDayCountContext {
 }
 
 impl PyDayCountContext {
-    /// Resolve to a runtime [`DayCountCtx`] using the global calendar registry.
-    fn to_rust_ctx(&self) -> DayCountCtx<'static> {
+    /// Resolve to a runtime [`DayCountContext`] using the global calendar registry.
+    fn to_rust_ctx(&self) -> DayCountContext<'static> {
         let registry = CalendarRegistry::global();
         let calendar = self
             .calendar_id
             .as_deref()
             .and_then(|code| registry.resolve_str(code));
-        DayCountCtx {
+        DayCountContext {
             calendar,
             frequency: self.frequency,
             bus_basis: self.bus_basis,
@@ -237,7 +237,7 @@ impl PyDayCountContext {
     /// Convert to a serializable state snapshot.
     fn to_state(&self) -> PyDayCountContextState {
         PyDayCountContextState {
-            inner: DayCountCtxState {
+            inner: DayCountContextState {
                 calendar_id: self.calendar_id.clone(),
                 frequency: self.frequency,
                 bus_basis: self.bus_basis,
@@ -263,13 +263,13 @@ impl PyDayCountContext {
 #[derive(Clone, Debug)]
 pub struct PyDayCountContextState {
     /// Inner serializable state.
-    pub(crate) inner: DayCountCtxState,
+    pub(crate) inner: DayCountContextState,
 }
 
 impl PyDayCountContextState {
-    /// Build from an existing Rust [`DayCountCtxState`].
+    /// Build from an existing Rust [`DayCountContextState`].
     #[allow(dead_code)]
-    pub(crate) fn from_inner(inner: DayCountCtxState) -> Self {
+    pub(crate) fn from_inner(inner: DayCountContextState) -> Self {
         Self { inner }
     }
 }
@@ -285,7 +285,7 @@ impl PyDayCountContextState {
         bus_basis: Option<u16>,
     ) -> Self {
         Self {
-            inner: DayCountCtxState {
+            inner: DayCountContextState {
                 calendar_id,
                 frequency: frequency.map(|f| f.inner),
                 bus_basis,

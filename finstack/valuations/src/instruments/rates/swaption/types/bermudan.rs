@@ -276,7 +276,7 @@ impl BermudanSwaption {
                 self.day_count.year_fraction(
                     as_of,
                     first,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )
             }
             None => Err(Error::Validation("No exercise dates".into())),
@@ -291,7 +291,7 @@ impl BermudanSwaption {
         self.day_count.year_fraction(
             as_of,
             self.swap_end,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
     }
 
@@ -334,7 +334,7 @@ impl BermudanSwaption {
     /// Convert payment dates to year fractions.
     pub fn payment_times(&self, as_of: Date) -> Result<Vec<f64>> {
         let (dates, _) = self.build_swap_schedule(as_of)?;
-        let ctx = finstack_core::dates::DayCountCtx::default();
+        let ctx = finstack_core::dates::DayCountContext::default();
         dates
             .iter()
             .map(|&d| self.day_count.year_fraction(as_of, d, ctx))

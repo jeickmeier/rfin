@@ -33,14 +33,14 @@ impl MetricCalculator for FraParRateCalculator {
             .year_fraction(
                 fwd_base,
                 fra.start_date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?
             .max(0.0);
         let t_end = fwd_dc
             .year_fraction(
                 fwd_base,
                 fra.maturity,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?
             .max(t_start);
 

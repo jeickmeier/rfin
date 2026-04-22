@@ -5,7 +5,7 @@
 
 use crate::instruments::fixed_income::cmo::pricer::generate_tranche_cashflows;
 use crate::instruments::fixed_income::cmo::AgencyCmo;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
@@ -50,7 +50,7 @@ pub(crate) fn calculate_tranche_oas(
     let price_at_spread = |spread: f64| -> Result<f64> {
         let mut pv = 0.0;
         for cf in &tranche_cfs {
-            let years = day_count.year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
+            let years = day_count.year_fraction(as_of, cf.payment_date, DayCountContext::default())?;
             let base_df = discount_curve.df(years);
             let spread_adj = (-spread * years).exp();
             let df = base_df * spread_adj;
@@ -196,7 +196,7 @@ mod tests {
         let mut model_price = 0.0;
         for cf in &tranche_cfs {
             let years = day_count
-                .year_fraction(as_of, cf.payment_date, DayCountCtx::default())
+                .year_fraction(as_of, cf.payment_date, DayCountContext::default())
                 .expect("yf");
             model_price += cf.total * disc.df(years);
         }

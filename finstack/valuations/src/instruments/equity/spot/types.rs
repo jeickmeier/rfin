@@ -301,7 +301,7 @@ impl Equity {
                         .year_fraction(
                             as_of,
                             *ex_date,
-                            finstack_core::dates::DayCountCtx::default(),
+                            finstack_core::dates::DayCountContext::default(),
                         )
                         .ok()?;
                     if t_div > 0.0 && t_div <= t {

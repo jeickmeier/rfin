@@ -114,7 +114,7 @@ impl Bond {
         let time_to_maturity = discount_curve.day_count().year_fraction(
             as_of,
             self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         if time_to_maturity <= 0.0 {

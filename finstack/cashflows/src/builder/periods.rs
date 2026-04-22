@@ -3,7 +3,7 @@
 //! Provides canonical accrual/payment periods built on top of the cashflow
 //! builder's date generation and calendar policy.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor};
 use finstack_core::InputError;
 
 use super::calendar::{adjust_date, resolve_calendar_strict};
@@ -42,8 +42,8 @@ pub struct BuildPeriodsParams<'a> {
 fn build_day_count_ctx<'a>(
     params: &BuildPeriodsParams<'a>,
     cal: &'a dyn finstack_core::dates::HolidayCalendar,
-) -> DayCountCtx<'a> {
-    DayCountCtx {
+) -> DayCountContext<'a> {
+    DayCountContext {
         calendar: Some(cal),
         frequency: Some(params.frequency),
         bus_basis: None,
@@ -54,7 +54,7 @@ fn build_day_count_ctx<'a>(
 fn enrich_period(
     mut period: SchedulePeriod,
     params: &BuildPeriodsParams<'_>,
-    dc_ctx: DayCountCtx<'_>,
+    dc_ctx: DayCountContext<'_>,
 ) -> finstack_core::Result<SchedulePeriod> {
     period.accrual_year_fraction =
         params

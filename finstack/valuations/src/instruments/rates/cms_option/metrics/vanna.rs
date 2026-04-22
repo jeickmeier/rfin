@@ -3,7 +3,7 @@ use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 use crate::instruments::rates::cms_option::pricer::{convexity_adjustment, CmsOptionPricer};
 use crate::instruments::rates::cms_option::types::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::{DateExt, DayCountCtx};
+use finstack_core::dates::{DateExt, DayCountContext};
 use finstack_core::math::norm_pdf;
 use finstack_core::Result;
 
@@ -53,7 +53,7 @@ impl MetricCalculator for VannaCalculator {
             // 2. Volatility and Time
             let time_to_fixing =
                 inst.day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
 
             if time_to_fixing <= 1e-6 {
                 continue;

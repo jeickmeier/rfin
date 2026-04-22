@@ -238,9 +238,9 @@ pub fn asw_par_with_forward_config(
     let mut pv_float = finstack_core::math::summation::NeumaierAccumulator::new();
     let mut prev = sched[0];
     for &d in &sched[1..] {
-        let t1 = f_dc.year_fraction(f_base, prev, finstack_core::dates::DayCountCtx::default())?;
-        let t2 = f_dc.year_fraction(f_base, d, finstack_core::dates::DayCountCtx::default())?;
-        let yf = f_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+        let t1 = f_dc.year_fraction(f_base, prev, finstack_core::dates::DayCountContext::default())?;
+        let t2 = f_dc.year_fraction(f_base, d, finstack_core::dates::DayCountContext::default())?;
+        let yf = f_dc.year_fraction(prev, d, finstack_core::dates::DayCountContext::default())?;
         let rate = fwd.rate_period(t1, t2) + spread;
         let coupon_flt = bond.notional.amount() * rate * yf;
         let df = disc.df_on_date_curve(d)?;

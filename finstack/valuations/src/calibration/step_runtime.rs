@@ -18,7 +18,7 @@ use crate::calibration::validation::ValidationMode;
 use crate::calibration::{CalibrationReport, CurveValidator, SurfaceValidator};
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::explain::TraceEntry;
 use finstack_core::market_data::context::{CurveStorage, MarketContext};
 use finstack_core::market_data::scalars::MarketScalar;
@@ -297,8 +297,8 @@ pub(crate) fn execute_params(
                     continue;
                 };
 
-                let t_exp = dc.year_fraction(p.base_date, *expiry, DayCountCtx::default())?;
-                let t_ten = dc.year_fraction(*expiry, *maturity, DayCountCtx::default())?;
+                let t_exp = dc.year_fraction(p.base_date, *expiry, DayCountContext::default())?;
+                let t_ten = dc.year_fraction(*expiry, *maturity, DayCountContext::default())?;
                 if t_exp <= 0.0 || t_ten <= 0.0 {
                     continue;
                 }
@@ -441,7 +441,7 @@ mod tests {
     use crate::market::quotes::cds_tranche::CDSTrancheQuote;
     use crate::market::quotes::ids::QuoteId;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    use finstack_core::dates::{Date, DayCount, DayCountContext};
     use finstack_core::market_data::term_structures::{
         BaseCorrelationCurve, CreditIndexData, DiscountCurve, HazardCurve,
     };
@@ -664,10 +664,10 @@ mod tests {
         let expiry_2 = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
         let time_dc = DayCount::Act365F;
         let t1 = time_dc
-            .year_fraction(base_date, expiry_1, DayCountCtx::default())
+            .year_fraction(base_date, expiry_1, DayCountContext::default())
             .expect("valid year fraction");
         let t2 = time_dc
-            .year_fraction(base_date, expiry_2, DayCountCtx::default())
+            .year_fraction(base_date, expiry_2, DayCountContext::default())
             .expect("valid year fraction");
 
         let params = StepParams::SviSurface(SviSurfaceParams {

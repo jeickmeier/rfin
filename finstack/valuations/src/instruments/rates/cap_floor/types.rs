@@ -645,7 +645,7 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         let strike = self.strike_f64()?;
 
         let mut total_pv = finstack_core::money::Money::new(0.0, self.notional.currency());
-        let dc_ctx = finstack_core::dates::DayCountCtx::default();
+        let dc_ctx = finstack_core::dates::DayCountContext::default();
 
         let periods = self.pricing_periods()?;
 

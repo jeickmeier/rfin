@@ -1,7 +1,7 @@
 //! Tests for implied volatility calculation.
 
 use super::helpers::*;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::math::norm_cdf;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::OptionType;
@@ -47,7 +47,7 @@ fn analytical_call_price(
     notional: f64,
 ) -> f64 {
     let t = DayCount::Act365F
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap_or(0.0);
     bs_price(spot, strike, rate, div_yield, vol, t, OptionType::Call) * notional
 }

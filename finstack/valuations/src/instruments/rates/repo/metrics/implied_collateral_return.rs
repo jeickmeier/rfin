@@ -40,7 +40,7 @@ impl MetricCalculator for ImpliedCollateralReturnCalculator {
         let ttm = repo.day_count.year_fraction(
             context.as_of,
             adj_maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         if ttm <= 0.0 || required_value == 0.0 {

@@ -20,7 +20,7 @@
 
 use crate::cashflow::builder::rate_helpers::FloatingRateParams;
 use finstack_core::dates::CalendarRegistry;
-use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
+use finstack_core::dates::{Date, DateExt, DayCount, DayCountContext, Schedule};
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
@@ -762,12 +762,12 @@ where
             let t0 = if period.accrual_start <= fwd_base {
                 0.0
             } else {
-                fwd_dc.year_fraction(fwd_base, period.accrual_start, DayCountCtx::default())?
+                fwd_dc.year_fraction(fwd_base, period.accrual_start, DayCountContext::default())?
             };
             let t1 = if period.accrual_end <= fwd_base {
                 0.0
             } else {
-                fwd_dc.year_fraction(fwd_base, period.accrual_end, DayCountCtx::default())?
+                fwd_dc.year_fraction(fwd_base, period.accrual_end, DayCountContext::default())?
             };
             if t1 > t0 {
                 fwd.rate_period(t0, t1)
@@ -1021,7 +1021,7 @@ pub fn schedule_to_periods(
         let accrual_end = schedule.dates[i];
 
         let year_fraction =
-            day_count.year_fraction(accrual_start, accrual_end, DayCountCtx::default())?;
+            day_count.year_fraction(accrual_start, accrual_end, DayCountContext::default())?;
 
         // Calculate reset date for floating legs
         let reset_date = if let Some(lag) = reset_lag_days {

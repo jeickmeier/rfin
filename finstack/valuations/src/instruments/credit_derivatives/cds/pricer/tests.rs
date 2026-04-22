@@ -971,7 +971,7 @@ fn test_time_and_settlement_helpers_match_curve_and_calendar_conventions() {
         .year_fraction(
             base_date,
             one_year,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .expect("discount year fraction");
     assert!(
@@ -984,7 +984,7 @@ fn test_time_and_settlement_helpers_match_curve_and_calendar_conventions() {
         .year_fraction(
             credit.base_date(),
             one_year,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .expect("hazard year fraction");
     assert!(

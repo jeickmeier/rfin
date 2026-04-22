@@ -16,7 +16,7 @@
 //! - ISDA (2006). "2006 ISDA Definitions." Sections 4.16(b), 4.16(d)-(g).
 //! - ICMA (2010). "ICMA Rule Book." Rule 251.
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
 use finstack_core::golden::{load_suite_from_path, GoldenSuite};
 use serde::Deserialize;
 use time::Month;
@@ -164,7 +164,7 @@ fn test_single_convention(
 ) -> Result<(), String> {
     // Build context with frequency if ACT/ACT ICMA
     let frequency = case.frequency.as_deref().and_then(parse_frequency);
-    let ctx = DayCountCtx {
+    let ctx = DayCountContext {
         calendar: None,
         frequency,
         bus_basis: None,
@@ -193,7 +193,7 @@ fn test_single_convention(
 
 /// Test comparison between 30/360 US and 30E/360.
 fn test_us_vs_euro_comparison(case: &DayCountCase, start: Date, end: Date) -> Result<(), String> {
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
     let tol = case.expected.tolerance;
 
     let us_yf = DayCount::Thirty360
@@ -240,7 +240,7 @@ fn test_us_vs_euro_comparison(case: &DayCountCase, start: Date, end: Date) -> Re
 /// These are the most commonly misimplemented scenarios.
 #[test]
 fn test_thirty360_us_eom_edge_cases() {
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Test 1: Feb 28 (EOM in non-leap) to Mar 31
     // QuantLib: 30 days
@@ -291,7 +291,7 @@ fn test_thirty360_us_eom_edge_cases() {
 /// This is a common source of confusion between conventions.
 #[test]
 fn test_thirty_e360_no_feb_eom_rule() {
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // 30E/360: Feb 28 stays as day 28 (no special Feb EOM handling)
     let start = Date::from_calendar_date(2025, Month::February, 28).unwrap();
@@ -325,7 +325,7 @@ fn test_thirty_e360_no_feb_eom_rule() {
 /// This is critical for swap valuation accuracy.
 #[test]
 fn test_actact_isda_year_boundary_splitting() {
-    let ctx = DayCountCtx::default();
+    let ctx = DayCountContext::default();
 
     // Period spanning from leap year to non-leap year
     let start = Date::from_calendar_date(2024, Month::July, 1).unwrap();

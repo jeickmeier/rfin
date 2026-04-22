@@ -10,7 +10,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -26,7 +26,7 @@ fn collect_quanto_inputs(
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64, f64, f64)> {
     let t = inst
         .day_count
-        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
     let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);

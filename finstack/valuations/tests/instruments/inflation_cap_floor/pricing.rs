@@ -4,7 +4,7 @@ use crate::finstack_test_utils::flat_vol_surface;
 use crate::inflation_swap::fixtures::{flat_discount, flat_inflation_curve, simple_index};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor, TenorUnit,
+    BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor, TenorUnit,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
@@ -68,7 +68,7 @@ fn test_caplet_intrinsic_after_fixing() {
     let cpi_start = idx.value_on(start).unwrap();
     let cpi_end = idx.value_on(end).unwrap();
     let accrual = DayCount::Act365F
-        .year_fraction(start, end, DayCountCtx::default())
+        .year_fraction(start, end, DayCountContext::default())
         .unwrap();
     let forward_rate = (cpi_end / cpi_start - 1.0) / accrual;
     let payoff_rate = (forward_rate - 0.02).max(0.0);
@@ -76,7 +76,7 @@ fn test_caplet_intrinsic_after_fixing() {
     let disc_curve = ctx.get_discount("USD-OIS").unwrap();
     let t_pay = disc_curve
         .day_count()
-        .year_fraction(as_of, end, DayCountCtx::default())
+        .year_fraction(as_of, end, DayCountContext::default())
         .unwrap();
     let df = disc_curve.df(t_pay);
     let expected = payoff_rate * accrual * notional.amount() * df;

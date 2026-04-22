@@ -60,7 +60,7 @@ use crate::instruments::fixed_income::bond::pricing::engine::tree::{
 };
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 
 /// Calculates the embedded option value for callable/putable bonds.
 ///
@@ -154,7 +154,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
         // Get discount curve and compute time to maturity
         let discount_curve = market.get_discount(&bond.discount_curve_id)?;
         let dc = discount_curve.day_count();
-        let time_to_maturity = dc.year_fraction(as_of, bond.maturity, DayCountCtx::default())?;
+        let time_to_maturity = dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
 
         if time_to_maturity <= 0.0 {
             return Ok(0.0);

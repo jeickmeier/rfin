@@ -3,7 +3,7 @@
 use crate::finstack_test_utils::date;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -60,10 +60,10 @@ fn test_real_estate_dcf_pricing() {
     let pv = asset.value(&ctx, valuation_date).expect("npv");
 
     let t1 = DayCount::Act365F
-        .year_fraction(valuation_date, noi1, DayCountCtx::default())
+        .year_fraction(valuation_date, noi1, DayCountContext::default())
         .unwrap();
     let t2 = DayCount::Act365F
-        .year_fraction(valuation_date, noi2, DayCountCtx::default())
+        .year_fraction(valuation_date, noi2, DayCountContext::default())
         .unwrap();
     let pv_flows = 100.0 / (1.0_f64 + 0.10).powf(t1) + 100.0 / (1.0_f64 + 0.10).powf(t2);
     let terminal_value = 100.0 / 0.08;
@@ -152,7 +152,7 @@ fn test_real_estate_terminal_growth_applies_to_exit_value() {
     let pv = asset.value(&ctx, valuation_date).expect("npv");
 
     let t1 = DayCount::Act365F
-        .year_fraction(valuation_date, noi1, DayCountCtx::default())
+        .year_fraction(valuation_date, noi1, DayCountContext::default())
         .unwrap();
     let pv_flow = 100.0 / (1.0_f64 + 0.10).powf(t1);
     let terminal_value = (100.0 * 1.02) / 0.08;
@@ -188,7 +188,7 @@ fn test_real_estate_dcf_prefers_market_discount_curve_over_flat_discount_rate() 
     let pv = asset.value(&ctx, valuation_date).expect("npv");
 
     let t1 = DayCount::Act365F
-        .year_fraction(valuation_date, noi1, DayCountCtx::default())
+        .year_fraction(valuation_date, noi1, DayCountContext::default())
         .unwrap();
     let df = (-curve_rate * t1).exp();
     let pv_flow = 100.0 * df;
@@ -224,7 +224,7 @@ fn test_real_estate_value_uses_as_of_for_filtering_flows() {
 
     // NOI1 is before as_of and should be filtered out.
     let t2 = DayCount::Act365F
-        .year_fraction(as_of, noi2, DayCountCtx::default())
+        .year_fraction(as_of, noi2, DayCountContext::default())
         .unwrap();
     let expected = 100.0 / (1.0_f64 + 0.10).powf(t2);
     assert!((pv.amount() - expected).abs() < 0.01);
@@ -395,7 +395,7 @@ fn test_real_estate_terminal_only_sale_price_is_allowed() {
     let pv = asset.value(&market, as_of).expect("npv");
 
     let t = DayCount::Act365F
-        .year_fraction(as_of, sale_date, DayCountCtx::default())
+        .year_fraction(as_of, sale_date, DayCountContext::default())
         .unwrap();
     let expected = net_sale / (1.0_f64 + 0.10).powf(t);
 

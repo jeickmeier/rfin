@@ -19,7 +19,7 @@ pub(super) fn disc_t(disc: &DiscountCurve, date: Date) -> Result<f64> {
     disc.day_count().year_fraction(
         disc.base_date(),
         date,
-        finstack_core::dates::DayCountCtx::default(),
+        finstack_core::dates::DayCountContext::default(),
     )
 }
 
@@ -29,7 +29,7 @@ pub(super) fn haz_t(surv: &HazardCurve, date: Date) -> Result<f64> {
     surv.day_count().year_fraction(
         surv.base_date(),
         date,
-        finstack_core::dates::DayCountCtx::default(),
+        finstack_core::dates::DayCountContext::default(),
     )
 }
 

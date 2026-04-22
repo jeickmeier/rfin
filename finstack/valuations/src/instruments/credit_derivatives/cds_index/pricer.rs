@@ -726,7 +726,7 @@ impl CDSIndexPricer {
             let t = survival.day_count().year_fraction(
                 survival.base_date(),
                 as_of,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             survival.sp(t)
         };
@@ -739,7 +739,7 @@ impl CDSIndexPricer {
                 let t = survival.day_count().year_fraction(
                     survival.base_date(),
                     flow.date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )?;
                 let current_survival = survival.sp(t);
                 let delta_default = (prev_survival - current_survival).max(0.0);
@@ -838,12 +838,12 @@ impl CDSIndexPricer {
         let t_start = survival.day_count().year_fraction(
             survival.base_date(),
             start_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let t_end = survival.day_count().year_fraction(
             survival.base_date(),
             end_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         Ok(Self::date_from_hazard_time(
             survival,

@@ -698,7 +698,7 @@ fn test_put_call_parity() {
     // Put-Call Parity: C - P = S·exp(-q·T) - K·exp(-r·T)
     // This fundamental arbitrage relationship validates consistency of option pricing.
     // For ATM options, C - P ≈ (forward - strike) * DF when forward ≈ spot * exp((r-q)*T)
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
 
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
@@ -758,7 +758,7 @@ fn test_put_call_parity() {
 
     // Calculate time to expiry in years (Act365F is simple: T = days / 365)
     let t = DayCount::Act365F
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap();
 
     // Put-call parity: C - P = S·exp(-q·T) - K·exp(-r·T)
@@ -789,7 +789,7 @@ fn test_put_call_parity_delta_relationship() {
     // ∂/∂S (C - P) = ∂/∂S (S·exp(-q·T) - K·exp(-r·T))
     // Delta_C - Delta_P = exp(-q·T)
     // For small div yield: Delta_C - Delta_P ≈ 1 (normalized per share)
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
 
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
@@ -871,7 +871,7 @@ fn test_put_call_parity_delta_relationship() {
 
     // Delta_C - Delta_P = exp(-q·T)
     let t = DayCount::Act365F
-        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .year_fraction(as_of, expiry, DayCountContext::default())
         .unwrap();
     let expected_diff = (-div_yield * t).exp();
     let actual_diff = call_delta - put_delta;

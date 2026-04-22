@@ -15,7 +15,7 @@
 //! positive spreads. When violated, a warning is logged and the process may occasionally
 //! touch zero. The QE discretization scheme handles boundary behavior gracefully.
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
@@ -135,7 +135,7 @@ pub fn generate_three_factor_paths(
     let disc_dc = disc_curve.day_count();
     let base_date = disc_curve.base_date();
     let t_start =
-        disc_dc.year_fraction(base_date, facility.commitment_date, DayCountCtx::default())?;
+        disc_dc.year_fraction(base_date, facility.commitment_date, DayCountContext::default())?;
     process_params = process_params.with_time_offset(t_start);
 
     let process = RevolvingCreditProcess::new(process_params);
@@ -397,7 +397,7 @@ fn build_credit_spread_params(
             let base_date = hazard.base_date();
 
             let t_maturity =
-                dc.year_fraction(base_date, facility.maturity, DayCountCtx::default())?;
+                dc.year_fraction(base_date, facility.maturity, DayCountContext::default())?;
             let t = tenor_years.unwrap_or_else(|| t_maturity.max(CIR_MIN_SPREAD));
 
             // Survival and average hazard over [0,T]
@@ -471,7 +471,7 @@ fn dates_to_times(
 ) -> Result<Vec<f64>> {
     payment_dates
         .iter()
-        .map(|&date| day_count.year_fraction(commitment_date, date, DayCountCtx::default()))
+        .map(|&date| day_count.year_fraction(commitment_date, date, DayCountContext::default()))
         .collect()
 }
 

@@ -11,7 +11,7 @@ mod bench_utils;
 use bench_utils::bench_iter;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::calendar::TARGET2;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
 use std::hint::black_box;
 use time::Month;
 
@@ -35,7 +35,7 @@ fn bench_daycount_year_fraction(c: &mut Criterion) {
         for (suffix, end) in [("1y", end_1y), ("5y", end_5y), ("10y", end_10y)] {
             bench_iter(&mut group, format!("{}_{}", name, suffix), || {
                 let yf = black_box(convention)
-                    .year_fraction(black_box(start), black_box(end), DayCountCtx::default())
+                    .year_fraction(black_box(start), black_box(end), DayCountContext::default())
                     .unwrap();
                 black_box(yf);
             });
@@ -62,7 +62,7 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
                 .year_fraction(
                     black_box(start),
                     black_box(end),
-                    DayCountCtx {
+                    DayCountContext {
                         calendar: None,
                         frequency: Some(freq),
                         bus_basis: None,
@@ -89,7 +89,7 @@ fn bench_daycount_bus252(c: &mut Criterion) {
                 .year_fraction(
                     black_box(start),
                     black_box(end),
-                    DayCountCtx {
+                    DayCountContext {
                         calendar: Some(calendar),
                         frequency: None,
                         bus_basis: None,
@@ -142,7 +142,7 @@ fn bench_daycount_batch_calculations(c: &mut Criterion) {
                         .iter()
                         .map(|&end| {
                             convention
-                                .year_fraction(start, end, DayCountCtx::default())
+                                .year_fraction(start, end, DayCountContext::default())
                                 .unwrap()
                         })
                         .collect();

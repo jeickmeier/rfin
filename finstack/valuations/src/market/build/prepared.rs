@@ -7,7 +7,7 @@ use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::rates::RateQuote;
 use crate::market::BuildCtx;
 use finstack_core::dates::Date;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::Result;
 use std::fmt;
 use std::sync::Arc;
@@ -189,7 +189,7 @@ pub(crate) fn prepare_rate_quote(
     };
 
     let pillar_time =
-        curve_day_count.year_fraction(base_date, maturity_date, DayCountCtx::default())?;
+        curve_day_count.year_fraction(base_date, maturity_date, DayCountContext::default())?;
 
     Ok(PreparedQuote::new(
         Arc::new(quote),
@@ -215,7 +215,7 @@ pub(crate) fn prepare_cds_quote(
         .map(|cds| cds.premium.end)
         .ok_or_else(|| finstack_core::Error::Validation("Expected CDS instrument".to_string()))?;
 
-    let pillar_time = day_count.year_fraction(base_date, maturity_date, DayCountCtx::default())?;
+    let pillar_time = day_count.year_fraction(base_date, maturity_date, DayCountContext::default())?;
 
     Ok(PreparedQuote::new(
         Arc::new(quote),

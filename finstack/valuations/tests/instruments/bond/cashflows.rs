@@ -567,7 +567,7 @@ fn test_actact_isma_daycount_context() {
 
     // Each full coupon period should have accrual_factor = 0.5 year fraction
     // Act/Act ISMA with semi-annual frequency returns 0.5 for a full 6-month period
-    // (This validates that DayCountCtx with frequency is being used correctly)
+    // (This validates that DayCountContext with frequency is being used correctly)
     for cf in &coupon_flows {
         // For Act/Act ISMA with semi-annual frequency, a full coupon period
         // should have accrual_factor = 0.5 (6 months / 12 months = 0.5 year)
@@ -671,7 +671,7 @@ fn test_bus252_daycount_with_calendar() {
     }
 
     // The key validation is that Bus/252 with calendar context doesn't error
-    // (which it would if calendar wasn't passed to DayCountCtx)
+    // (which it would if calendar wasn't passed to DayCountContext)
     // The actual total can vary based on calendar holidays and stub handling
     let total_yf: f64 = coupon_flows.iter().map(|cf| cf.accrual_factor).sum();
 

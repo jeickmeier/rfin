@@ -646,9 +646,9 @@ pub fn standard_dc() -> DayCount {
 
 /// Calculate year fraction for testing
 pub fn year_fraction(start: Date, end: Date) -> f64 {
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
     standard_dc()
-        .year_fraction(start, end, DayCountCtx::default())
+        .year_fraction(start, end, DayCountContext::default())
         .unwrap_or(0.0)
 }
 

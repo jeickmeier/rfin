@@ -72,7 +72,7 @@
 
 use crate::{
     currency::Currency,
-    dates::{Date, DayCount, DayCountCtx},
+    dates::{Date, DayCount, DayCountContext},
     error::InputError,
     market_data::traits::{Survival, TermStructure},
     math::interp::{
@@ -344,7 +344,7 @@ impl HazardCurve {
         let mut survival = Vec::with_capacity(dates.len());
 
         for &date in dates {
-            let t = dc.year_fraction(base, date, DayCountCtx::default())?;
+            let t = dc.year_fraction(base, date, DayCountContext::default())?;
             let sp = self.sp(t).clamp(0.0, 1.0);
             survival.push(sp);
         }
@@ -552,7 +552,7 @@ impl HazardCurve {
         // This is a behavior change from "days/365.0" to actual day count, which is more correct.
         let dt_years = self
             .day_count
-            .year_fraction(self.base, new_base, DayCountCtx::default())?;
+            .year_fraction(self.base, new_base, DayCountContext::default())?;
 
         // Shift knots and filter expired points using shared helper
         let rolled_points = super::common::roll_knots(&self.knots, &self.lambdas, dt_years);

@@ -120,7 +120,7 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
         //
         // Year fraction computed using the schedule's day count convention
         // (same convention used for the financing leg accrual).
-        let ctx = finstack_core::dates::DayCountCtx::default();
+        let ctx = finstack_core::dates::DayCountContext::default();
         let dt = self
             .trs
             .schedule

@@ -1065,7 +1065,7 @@ mod tests {
     use crate::calibration::solver::global::GlobalFitOptimizer;
     use crate::calibration::solver::traits::BootstrapTarget;
     use crate::market::build::prepared::PreparedQuote;
-    use finstack_core::dates::{BusinessDayConvention, DayCountCtx};
+    use finstack_core::dates::{BusinessDayConvention, DayCountContext};
     use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
@@ -1094,7 +1094,7 @@ mod tests {
                 .expect("payment delay with usny calendar");
 
         let expected_yf = DayCount::Act365F
-            .year_fraction(base_date, pay_date, DayCountCtx::default())
+            .year_fraction(base_date, pay_date, DayCountContext::default())
             .expect("expected year_fraction to succeed");
 
         let target = DiscountCurveTarget::new(DiscountCurveTargetParams {
@@ -1239,7 +1239,7 @@ mod tests {
             for (days, rate) in [(30, 0.04), (90, 0.045), (180, 0.05), (365, 0.055)] {
                 let maturity = base_date + time::Duration::days(days);
                 let p_time = DayCount::Act365F
-                    .year_fraction(base_date, maturity, DayCountCtx::default())
+                    .year_fraction(base_date, maturity, DayCountContext::default())
                     .expect("year_fraction");
 
                 let quote = crate::market::quotes::rates::RateQuote::Deposit {
@@ -1339,7 +1339,7 @@ mod tests {
 
         let maturity = base_date + time::Duration::days(90);
         let p_time = DayCount::Act365F
-            .year_fraction(base_date, maturity, DayCountCtx::default())
+            .year_fraction(base_date, maturity, DayCountContext::default())
             .expect("year_fraction");
 
         // Build two futures quotes: one without adjustment, one with 20bp adjustment

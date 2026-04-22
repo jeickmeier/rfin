@@ -32,7 +32,7 @@
 use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
@@ -125,7 +125,7 @@ fn calculate_accrued_premium(
     let accrual_fraction =
         cds.premium
             .day_count
-            .year_fraction(last_coupon, as_of, DayCountCtx::default())?;
+            .year_fraction(last_coupon, as_of, DayCountContext::default())?;
 
     // Spread in decimal (convert from basis points)
     let spread = cds.premium.spread_bp.to_f64().unwrap_or_default() / BASIS_POINTS_PER_UNIT;

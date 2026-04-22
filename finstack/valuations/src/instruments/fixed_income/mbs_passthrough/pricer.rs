@@ -17,7 +17,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -252,7 +252,7 @@ fn discount_schedule(
     let dc = curve.day_count();
     let mut pv = 0.0;
     for cf in &schedule.flows {
-        let years = dc.year_fraction(as_of, cf.date, DayCountCtx::default())?;
+        let years = dc.year_fraction(as_of, cf.date, DayCountContext::default())?;
         let base_df = curve.df(years);
         let df = if spread.abs() > f64::EPSILON {
             base_df * (-spread * years).exp()

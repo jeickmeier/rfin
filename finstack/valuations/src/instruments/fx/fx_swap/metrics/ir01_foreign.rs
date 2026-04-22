@@ -33,12 +33,12 @@ impl MetricCalculator for ForeignIR01 {
         let t_near = foreign_disc.day_count().year_fraction(
             as_of,
             fx_swap.near_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         let t_far = foreign_disc.day_count().year_fraction(
             as_of,
             fx_swap.far_date,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
 
         // Helper to calculate PV with bumped foreign DFs

@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD025 -->
 # Consolidation Plan — Phase 2 output template
 
 Use this format verbatim.

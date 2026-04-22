@@ -803,7 +803,7 @@ fn extract_equity_state(
         .year_fraction(
             as_of,
             bond.maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )
         .unwrap_or(0.0);
 
@@ -1236,7 +1236,7 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
                 .year_fraction(
                     period_start,
                     period_end,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )
                 .unwrap_or(0.0);
             let accrued_yf = schedule
@@ -1244,7 +1244,7 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
                 .year_fraction(
                     period_start,
                     settle,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )
                 .unwrap_or(0.0);
 

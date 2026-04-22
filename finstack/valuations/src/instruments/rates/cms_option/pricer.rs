@@ -39,7 +39,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DateExt, DayCountCtx};
+use finstack_core::dates::{Date, DateExt, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -120,7 +120,7 @@ impl CmsOptionPricer {
             // Time to fixing uses instrument's day_count for vol surface lookup
             let time_to_fixing =
                 inst.day_count
-                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+                    .year_fraction(as_of, fixing_date, DayCountContext::default())?;
 
             // Get volatility from surface
             let vol = vol_surface.value_clamped(time_to_fixing.max(0.0), strike);

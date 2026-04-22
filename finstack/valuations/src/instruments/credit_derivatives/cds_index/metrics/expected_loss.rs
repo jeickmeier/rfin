@@ -9,7 +9,7 @@
 use crate::constants::credit;
 use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::Result;
 
 /// Expected Loss calculator for CDS Index.
@@ -42,9 +42,9 @@ impl MetricCalculator for ExpectedLossCalculator {
                     .get_hazard(constituent.credit.credit_curve_id.as_str())?;
                 let dc = hazard.day_count();
                 let base_date = hazard.base_date();
-                let t_asof = dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
+                let t_asof = dc.year_fraction(base_date, as_of, DayCountContext::default())?;
                 let t_maturity =
-                    dc.year_fraction(base_date, index.premium.end, DayCountCtx::default())?;
+                    dc.year_fraction(base_date, index.premium.end, DayCountContext::default())?;
 
                 let sp_asof = hazard.sp(t_asof);
                 let sp_maturity = hazard.sp(t_maturity);
@@ -69,8 +69,8 @@ impl MetricCalculator for ExpectedLossCalculator {
             .get_hazard(index.protection.credit_curve_id.as_str())?;
         let dc = hazard.day_count();
         let base_date = hazard.base_date();
-        let t_asof = dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
-        let t_maturity = dc.year_fraction(base_date, index.premium.end, DayCountCtx::default())?;
+        let t_asof = dc.year_fraction(base_date, as_of, DayCountContext::default())?;
+        let t_maturity = dc.year_fraction(base_date, index.premium.end, DayCountContext::default())?;
 
         let sp_asof = hazard.sp(t_asof);
         let sp_maturity = hazard.sp(t_maturity);

@@ -26,7 +26,7 @@ use crate::pricer::{
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{Date, DayCountContext};
 #[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 #[cfg(feature = "mc")]
@@ -108,7 +108,7 @@ impl RangeAccrualMcPricer {
             .unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
         let t = inst
             .day_count
-            .year_fraction(as_of, final_date, DayCountCtx::default())?;
+            .year_fraction(as_of, final_date, DayCountContext::default())?;
 
         // Count future observations only
         let future_obs_count = inst
@@ -116,7 +116,7 @@ impl RangeAccrualMcPricer {
             .iter()
             .filter(|&&date| {
                 inst.day_count
-                    .year_fraction(as_of, date, DayCountCtx::default())
+                    .year_fraction(as_of, date, DayCountContext::default())
                     .unwrap_or(0.0)
                     > 0.0
             })
@@ -169,7 +169,7 @@ impl RangeAccrualMcPricer {
             .filter_map(|&date| {
                 let t_obs = inst
                     .day_count
-                    .year_fraction(as_of, date, DayCountCtx::default())
+                    .year_fraction(as_of, date, DayCountContext::default())
                     .unwrap_or(0.0);
                 if t_obs > 0.0 {
                     Some(t_obs)
@@ -354,7 +354,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     for &date in &inst.observation_dates {
         let t_obs = inst
             .day_count
-            .year_fraction(as_of, date, DayCountCtx::default())?;
+            .year_fraction(as_of, date, DayCountContext::default())?;
 
         if t_obs <= 0.0 {
             // Past observation - skip (handled via past_fixings_in_range)

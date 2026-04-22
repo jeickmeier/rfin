@@ -162,7 +162,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         base: Date,
         _dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        use finstack_core::dates::DayCountCtx;
+        use finstack_core::dates::DayCountContext;
 
         let deps = self.curve_dependencies()?;
         let disc_curve_id = deps
@@ -188,7 +188,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
                 disc: disc_arc.as_ref(),
                 credit: None,
             },
-            DateContext::new(base, curve_dc, DayCountCtx::default()),
+            DateContext::new(base, curve_dc, DayCountContext::default()),
         )
     }
 
@@ -283,7 +283,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             .discount_curves
             .first()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
-        use finstack_core::dates::DayCountCtx;
+        use finstack_core::dates::DayCountContext;
 
         schedule.pv_by_period(
             periods,
@@ -292,7 +292,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
                 disc_curve_id,
                 hazard_curve_id: Some(hazard_curve_id),
             },
-            DateContext::new(base, dc, DayCountCtx::default()),
+            DateContext::new(base, dc, DayCountContext::default()),
         )
     }
 }
@@ -310,7 +310,7 @@ mod tests {
     use crate::instruments::rates::repo::{CollateralSpec, Repo};
     use crate::instruments::Bond;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::DayCountCtx;
+    use finstack_core::dates::DayCountContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -646,7 +646,7 @@ mod tests {
         let disc_ref: &dyn finstack_core::market_data::traits::Discounting = &disc_curve;
         let hazard_ref: &dyn finstack_core::market_data::traits::Survival = &hazard_curve;
 
-        let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountCtx::default());
+        let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
         let detailed = schedule
             .pv_by_period(
                 &periods,
@@ -736,7 +736,7 @@ mod tests {
                 disc: disc.as_ref(),
                 credit: None,
             },
-            DateContext::new(as_of, disc.day_count(), DayCountCtx::default()),
+            DateContext::new(as_of, disc.day_count(), DayCountContext::default()),
         )
         .expect("Direct signed canonical aggregation should succeed");
 
@@ -781,7 +781,7 @@ mod tests {
                 disc: disc.as_ref(),
                 credit: None,
             },
-            DateContext::new(as_of, disc.day_count(), DayCountCtx::default()),
+            DateContext::new(as_of, disc.day_count(), DayCountContext::default()),
         )
         .expect("Direct signed canonical aggregation should succeed");
 

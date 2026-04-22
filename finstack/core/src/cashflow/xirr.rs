@@ -31,7 +31,7 @@
 //! The solver rejects rates below [`MIN_VALID_RATE`] (-99.9%) as these represent
 //! near-total loss scenarios that are economically implausible for most applications.
 
-use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::dates::{Date, DayCount, DayCountContext};
 use crate::error::InputError;
 use crate::math::solver::{BrentSolver, NewtonSolver, Solver};
 use crate::math::NeumaierAccumulator;
@@ -85,7 +85,7 @@ pub fn xirr_with_daycount(
     day_count: DayCount,
     guess: Option<f64>,
 ) -> crate::Result<f64> {
-    xirr_with_daycount_ctx(cashflows, day_count, DayCountCtx::default(), guess)
+    xirr_with_daycount_ctx(cashflows, day_count, DayCountContext::default(), guess)
 }
 
 /// Trait for calculating the Internal Rate of Return (IRR).
@@ -274,7 +274,7 @@ impl InternalRateOfReturn for [(Date, f64)] {
 pub fn xirr_with_daycount_ctx(
     flows: &[(Date, f64)],
     day_count: DayCount,
-    ctx: DayCountCtx<'_>,
+    ctx: DayCountContext<'_>,
     guess: Option<f64>,
 ) -> crate::Result<f64> {
     if flows.len() < 2 {

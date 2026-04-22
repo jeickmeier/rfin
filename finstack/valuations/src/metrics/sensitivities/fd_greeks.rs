@@ -723,7 +723,7 @@ where
         let t = instrument.day_count().year_fraction(
             as_of,
             HasExpiry::expiry(instrument),
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if t <= 0.0 {
             return Ok(0.0);

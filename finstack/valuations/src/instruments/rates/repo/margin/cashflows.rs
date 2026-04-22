@@ -101,7 +101,7 @@ pub fn generate_margin_interest_cashflows(
     for window in margin_balances.windows(2) {
         if let [prev, curr] = window {
             let year_fraction = day_count
-                .year_fraction(prev.0, curr.0, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(prev.0, curr.0, finstack_core::dates::DayCountContext::default())
                 .unwrap_or_else(|_| {
                     // Fallback: use calendar days / 360 if day count calculation fails
                     (curr.0 - prev.0).whole_days() as f64 / 360.0

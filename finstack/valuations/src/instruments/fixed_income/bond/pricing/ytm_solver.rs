@@ -269,7 +269,7 @@ impl YtmSolver {
             let years = spec.day_count.year_fraction(
                 as_of,
                 *maturity_date,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountContext::default(),
             )?;
             let fv = face_value.amount();
             if years > 0.0 && fv > 0.0 && target > 0.0 {
@@ -364,7 +364,7 @@ impl YtmSolver {
         let years_to_maturity = day_count.year_fraction(
             as_of,
             maturity,
-            finstack_core::dates::DayCountCtx::default(),
+            finstack_core::dates::DayCountContext::default(),
         )?;
         if years_to_maturity <= 0.0 {
             return Ok(current_yield);

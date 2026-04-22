@@ -97,7 +97,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_cashflows::builder::CashFlowSchedule;
-//! use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
+//! use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
 //! use finstack_core::market_data::traits::Discounting;
 //!
 //! fn periodized_pv(
@@ -111,7 +111,7 @@
 //!         disc,
 //!         base,
 //!         DayCount::Act365F,
-//!         DayCountCtx::default(),
+//!         DayCountContext::default(),
 //!     )?;
 //!
 //!     let _ = pv_map;

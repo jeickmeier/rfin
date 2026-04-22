@@ -6,7 +6,7 @@
 //! - CS01 price sensitivity
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
@@ -58,7 +58,7 @@ fn test_tranche_duration_matches_weighted_pv_time() {
 
     for (date, amount) in &flows {
         let t = day_count
-            .year_fraction(as_of, *date, DayCountCtx::default())
+            .year_fraction(as_of, *date, DayCountContext::default())
             .unwrap();
         let df = curve.df_between_dates(as_of, *date).unwrap();
         let flow_pv = amount.amount() * df;

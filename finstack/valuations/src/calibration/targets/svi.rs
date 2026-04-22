@@ -27,7 +27,7 @@ use crate::calibration::validation::ValidationConfig;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
-use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_core::dates::{DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
@@ -136,7 +136,7 @@ impl SviSurfaceTarget {
                 let t = DayCount::Act365F.year_fraction(
                     params.base_date,
                     *expiry,
-                    DayCountCtx::default(),
+                    DayCountContext::default(),
                 )?;
                 Self::validate_positive_input("SVI quote strike", *strike)?;
                 Self::validate_positive_input("SVI quote vol", *vol)?;

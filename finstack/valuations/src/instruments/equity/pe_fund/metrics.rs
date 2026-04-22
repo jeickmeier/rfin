@@ -218,7 +218,7 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
                 .year_fraction(
                     base_date,
                     *date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    finstack_core::dates::DayCountContext::default(),
                 )
                 .unwrap_or(0.0);
             let df = if rate.abs() < 1e-10 {

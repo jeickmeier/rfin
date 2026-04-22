@@ -4,7 +4,7 @@
 //! to ensure robustness.
 
 use super::helpers::*;
-use finstack_core::dates::DayCountCtx;
+use finstack_core::dates::DayCountContext;
 use finstack_core::money::Money;
 use time::macros::date;
 
@@ -31,7 +31,7 @@ fn test_zero_volatility_call_becomes_forward() {
     // Forward = S * exp(-r_f * T) - K * exp(-r_d * T)
     let t = call
         .day_count
-        .year_fraction(as_of, call.expiry, DayCountCtx::default())
+        .year_fraction(as_of, call.expiry, DayCountContext::default())
         .unwrap();
     let forward_value = 1_000_000.0
         * (spot * (-params.r_foreign * t).exp() - strike * (-params.r_domestic * t).exp());
@@ -394,7 +394,7 @@ fn test_strike_zero_edge_case() {
     // Assert: Call with K=0 is worth discounted forward spot
     let t = call
         .day_count
-        .year_fraction(as_of, call.expiry, DayCountCtx::default())
+        .year_fraction(as_of, call.expiry, DayCountContext::default())
         .unwrap();
     let expected = 1_000_000.0 * params.spot * (-params.r_foreign * t).exp();
     assert_approx_eq(
