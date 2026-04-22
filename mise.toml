@@ -301,6 +301,10 @@ run = "uv run pre-commit autoupdate"
 # Benchmarks (Rust-only)
 # ─────────────────────────────────────────────────────────────────
 
+[tasks.check-loc]
+description = "List source files exceeding the LOC limit (default 1000); -- --ci to exit 1 on violations"
+run = "uv run python scripts/check_loc.py"
+
 [tasks.rust-bench]
 description = "Run Rust benchmarks (bench profile)"
 run = "cargo bench --profile bench"
