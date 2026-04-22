@@ -110,3 +110,6 @@ finstack-py/examples/outputs/
 
 target-codex/
 docs/superpowers/*
+
+.worktrees/
+.worktree/

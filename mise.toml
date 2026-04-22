@@ -178,14 +178,6 @@ run = "uv run bandit -r finstack-py -c pyproject.toml"
 description = "Update Python dependencies"
 run = "uv lock --upgrade"
 
-[tasks.python-docs]
-description = "Build Python API docs (mkdocs)"
-run = "uv run mkdocs build -f mkdocs.yml -d site/api/python"
-
-[tasks.python-docs-serve]
-description = "Serve Python API docs with live reload"
-run = "uv run mkdocs serve -f mkdocs.yml"
-
 [tasks.python-examples]
 description = "Run Python example notebooks"
 run = "uv run python finstack-py/examples/notebooks/run_all_notebooks.py"

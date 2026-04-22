@@ -7,6 +7,7 @@ functions, ``#[tokio::test]`` functions, and ``#[cfg(test)]`` modules.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
@@ -31,7 +32,15 @@ TEST_ATTRIBUTE_RE = re.compile(r"^\s*#\[\s*(?:[A-Za-z_]\w*::)*test\b[^\]]*\]\s*$
 CFG_TEST_RE = re.compile(r"^\s*#\[\s*cfg\s*\([^\]]*\btest\b[^\]]*\)\s*\]\s*$")
 
 
-def parse_args() -> argparse.Namespace:
+@dataclass(frozen=True, slots=True)
+class Args:
+    """Parsed command-line arguments for the line-count check."""
+
+    limit: int
+    ci: bool
+
+
+def parse_args() -> Args:
     """Parse command-line options for the line-count check."""
     parser = argparse.ArgumentParser(
         description=(
@@ -41,7 +50,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("limit", nargs="?", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--ci", action="store_true", help="exit with status 1 when violations are found")
-    return parser.parse_args()
+    ns = parser.parse_args()
+    return Args(limit=ns.limit, ci=ns.ci)
 
 
 def should_skip_dir(dirname: str) -> bool:
