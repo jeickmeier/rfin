@@ -35,6 +35,7 @@ Use this format verbatim.
 **Rationale:** The module is orphaned — `git grep` shows no call-sites outside its own file, and the binding layer never exposed it. Safe delete.
 
 **Verify:**
+
 ```bash
 make lint-rust && make test-rust
 ```
@@ -59,6 +60,7 @@ make lint-rust && make test-rust
 **Rationale:** Applying tactic T3 (inline single-impl trait). The `CheckRunner` trait has exactly one impl; removing it simplifies every call-site.
 
 **Verify:**
+
 ```bash
 make lint-rust && make test-rust
 ```
@@ -88,6 +90,7 @@ make lint-rust && make test-rust
 **Rationale:** Applying tactic T4 (collapse parallel constructors) + T7 (move binding logic to Rust). Currently `VolSurface::new`, `VolSurface::from_grid`, and free fn `vol_surface_from_points` are three paths to the same struct. Collapse to `VolSurface::new(VolSurfaceInput) -> Result<Self, Error>`.
 
 **Verify:**
+
 ```bash
 make lint-rust && make test-rust
 make python-dev
@@ -122,6 +125,7 @@ uv run pytest finstack-py/tests/parity -x
 **Rationale:** Two drawdown implementations with subtle differences in NaN handling. Merge into one in `analytics/`, delete the `portfolio/` version. Needs explicit user sign-off before execution — the merge could expose existing consumers to NaN-handling changes.
 
 **Verify:**
+
 ```bash
 make lint-rust && make test-rust
 # Run golden tests twice, diff:

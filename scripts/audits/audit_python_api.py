@@ -197,7 +197,11 @@ class PythonAPIExtractor:
     def _extract_function_name(self, line: str) -> str:
         """Extract function name from function definition (pub or private)."""
         # PyO3 bindings use `fn` or `pub fn`; `#[pyfunction]` fns are often private.
-        marker = "pub fn " if "pub fn " in line else ("fn " if line.startswith(("fn ", "async fn ", "pub async fn ")) or " fn " in line else "")
+        marker = (
+            "pub fn "
+            if "pub fn " in line
+            else ("fn " if line.startswith(("fn ", "async fn ", "pub async fn ")) or " fn " in line else "")
+        )
         if not marker:
             return ""
         after = line.split(marker, 1)[1]

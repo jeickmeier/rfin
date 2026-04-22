@@ -58,12 +58,10 @@ def find_unused_imports(file_path: Path) -> dict:
         unused = []
         for name, line_num in visitor.imports.items():
             if name not in visitor.used_names and not visitor.import_star:
-                unused.append(
-                    {
-                        "name": name,
-                        "line": line_num,
-                    }
-                )
+                unused.append({
+                    "name": name,
+                    "line": line_num,
+                })
 
         return {
             "file": str(file_path),

@@ -185,9 +185,7 @@ impl FrtbSbaEngineBuilder {
             ));
         }
 
-        let params = self
-            .params
-            .unwrap_or_else(super::params::FrtbParams::d457);
+        let params = self.params.unwrap_or_else(super::params::FrtbParams::d457);
         params.validate()?;
 
         Ok(FrtbSbaEngine {

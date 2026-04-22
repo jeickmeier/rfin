@@ -39,12 +39,10 @@ def extract_import_statements(content: str) -> list[dict]:
                 i += 1
                 full_line += " " + lines[i].strip()
 
-            statements.append(
-                {
-                    "line": start_line,
-                    "raw": full_line,
-                }
-            )
+            statements.append({
+                "line": start_line,
+                "raw": full_line,
+            })
 
         i += 1
 
@@ -217,9 +215,9 @@ def find_used_identifiers(content: str, import_statements: list[dict]) -> set[st
                     break
                 in_block_comment = False
                 i = end + 2
-            elif line[i: i + 2] == "//":
+            elif line[i : i + 2] == "//":
                 break
-            elif line[i: i + 2] == "/*":
+            elif line[i : i + 2] == "/*":
                 in_block_comment = True
                 i += 2
             else:
@@ -232,7 +230,7 @@ def find_used_identifiers(content: str, import_statements: list[dict]) -> set[st
 
     # Also strip string literals (rough: single and double quoted, template literals)
     # This prevents false positives from names appearing in strings
-    filtered_content = re.sub(r'`[^`]*`', '""', filtered_content)
+    filtered_content = re.sub(r"`[^`]*`", '""', filtered_content)
     filtered_content = re.sub(r'"(?:[^"\\]|\\.)*"', '""', filtered_content)
     filtered_content = re.sub(r"'(?:[^'\\]|\\.)*'", "''", filtered_content)
 
@@ -289,9 +287,7 @@ def find_unused_imports(file_path: Path) -> dict:
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print(
-            "Usage: find-unused-imports-tsx.py <ts_file> [<ts_file>...]"
-        )
+        print("Usage: find-unused-imports-tsx.py <ts_file> [<ts_file>...]")
         sys.exit(1)
 
     results = []

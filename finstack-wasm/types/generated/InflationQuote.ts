@@ -41,39 +41,39 @@
  * # }
  * ```
  */
-export type InflationQuote = { "inflation_swap": { 
+export type InflationQuote = { "inflation_swap": {
 /**
  * Swap maturity
  */
-maturity: string, 
+maturity: string,
 /**
  * Fixed rate (decimal)
  */
-rate: number, 
+rate: number,
 /**
  * Inflation index identifier
  */
-index: string, 
+index: string,
 /**
  * Per-instrument conventions
  */
-convention: string, } } | { "yo_y_inflation_swap": { 
+convention: string, } } | { "yo_y_inflation_swap": {
 /**
  * Swap maturity
  */
-maturity: string, 
+maturity: string,
 /**
  * Fixed rate (decimal)
  */
-rate: number, 
+rate: number,
 /**
  * Inflation index identifier
  */
-index: string, 
+index: string,
 /**
  * Payment frequency
  */
-frequency: string, 
+frequency: string,
 /**
  * Instrument-wide conventions
  */

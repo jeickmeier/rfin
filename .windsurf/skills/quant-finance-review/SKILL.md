@@ -43,9 +43,11 @@ Weight these in order unless the user narrows the scope:
 ## Review Modes
 
 ### Targeted review
+
 Use when the user points at a file, pricer, risk routine, or asset class. Go deep on correctness, conventions, and edge cases for that scope.
 
 ### Library assessment
+
 Use when the user asks for a broader audit or gap analysis. Check coverage, extensibility, defaults, and whether the library is credible against QuantLib, Bloomberg, or standard desk expectations.
 
 ## Workflow
@@ -93,6 +95,7 @@ Reference literature, benchmark expectations, and domain-specific follow-ups whe
 Use the lighter files first; open the deeper references only when needed.
 
 ### Market standards
+
 - `market-standards/fx-standards.md`
 - `market-standards/rates-standards.md`
 - `market-standards/fixed-income-standards.md`
@@ -101,6 +104,7 @@ Use the lighter files first; open the deeper references only when needed.
 - `market-standards/cross-asset-checklist.md`
 
 ### Quant references
+
 - `references/numerical-methods.md`
 - `references/pricing-models.md`
 - `references/risk-models.md`

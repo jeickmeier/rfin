@@ -26,9 +26,7 @@ def extract_use_statements(content: str) -> list[dict]:
             continue
 
         # Match `use` or `pub use` or `pub(crate) use` etc.
-        use_match = re.match(
-            r"^(\s*(?:pub(?:\s*\([^)]*\))?\s+)?use\s+)(.*)", stripped
-        )
+        use_match = re.match(r"^(\s*(?:pub(?:\s*\([^)]*\))?\s+)?use\s+)(.*)", stripped)
         if use_match:
             start_line = i + 1  # 1-indexed
             use_body = use_match.group(2)
@@ -43,14 +41,12 @@ def extract_use_statements(content: str) -> list[dict]:
             # Remove trailing semicolon
             full_body = full_body.strip().rstrip(";").strip()
 
-            statements.append(
-                {
-                    "line": start_line,
-                    "body": full_body,
-                    "is_pub": is_pub,
-                    "raw": stripped,
-                }
-            )
+            statements.append({
+                "line": start_line,
+                "body": full_body,
+                "is_pub": is_pub,
+                "raw": stripped,
+            })
 
         i += 1
 
@@ -208,13 +204,11 @@ def find_unused_imports(file_path: Path) -> dict:
 
                 # Check if the name is used
                 if name not in used_idents:
-                    unused.append(
-                        {
-                            "name": name,
-                            "line": stmt["line"],
-                            "statement": stmt["raw"],
-                        }
-                    )
+                    unused.append({
+                        "name": name,
+                        "line": stmt["line"],
+                        "statement": stmt["raw"],
+                    })
 
         return {
             "file": str(file_path),
@@ -233,9 +227,7 @@ def find_unused_imports(file_path: Path) -> dict:
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print(
-            "Usage: find-unused-imports-rust.py <rust_file> [<rust_file>...]"
-        )
+        print("Usage: find-unused-imports-rust.py <rust_file> [<rust_file>...]")
         sys.exit(1)
 
     results = []

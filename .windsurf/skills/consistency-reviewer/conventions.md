@@ -117,21 +117,27 @@ When the same concept appears in multiple places, use the same term:
 Document any places where divergence from the dominant pattern is intentional:
 
 ### Error & Module Structure
+
 - `error/mod.rs` in core: Uses subdirectory because error module has `inputs.rs` and `suggestions.rs` submodules (justified by size). Valuations uses flat `error.rs` as a re-export facade.
 - `prelude.rs` only in core/valuations: Other crates are too small to benefit from a prelude.
 
 ### Debug & Display
+
 - `MarketContext` has a manual `Debug` impl that shows collection sizes instead of full contents -- intentional to avoid dumping large data structures in debug output.
 
 ### Serde Qualification
+
 - Both `serde::Serialize` (fully qualified in derives) and `Serialize` (after `use serde::{Serialize, Deserialize}` import) are acceptable. No standardization required.
 
 ### Instrument Module Structure
+
 - `parameters.rs` is only present for instruments with multiple pricing models or complex configuration (credit derivatives, options, swaptions). Simpler instruments embed parameters in `types.rs`.
 - `pricing/` subdirectory vs `pricer.rs`: Use a directory when an instrument has 3+ distinct pricing engines; use a single `pricer.rs` file otherwise.
 
 ### Binding Names
+
 - `CDSTranche`/`CDSOption` Rust struct names use all-caps `CDS` prefix (matching `CDSIndex` and `InstrumentType` enum variants). Python/JS binding names are preserved as `CdsTranche`/`CdsOption` for backward compatibility.
 
 ### Documentation
+
 - Module READMEs: valuations has more READMEs than core; core uses inline doc comments instead. Both approaches are acceptable.

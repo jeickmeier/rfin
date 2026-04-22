@@ -1367,8 +1367,7 @@ mod tests {
             ordered_risk_class_pair(SimmRiskClass::InterestRate, SimmRiskClass::Equity),
             1.5,
         );
-        let err =
-            validate_simm_correlations_psd(&params).expect_err("|ρ| > 1 must be rejected");
+        let err = validate_simm_correlations_psd(&params).expect_err("|ρ| > 1 must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("risk_class_correlations"),

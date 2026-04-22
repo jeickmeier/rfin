@@ -157,24 +157,51 @@ class APIComparator:
         """
         all_instruments = {
             # Fixed Income
-            "Bond", "Deposit", "InterestRateSwap", "ForwardRateAgreement", "Swaption",
-            "BasisSwap", "InterestRateOption", "InterestRateFuture",
+            "Bond",
+            "Deposit",
+            "InterestRateSwap",
+            "ForwardRateAgreement",
+            "Swaption",
+            "BasisSwap",
+            "InterestRateOption",
+            "InterestRateFuture",
             # FX
-            "FxSpot", "FxOption", "FxSwap", "FxBarrierOption",
+            "FxSpot",
+            "FxOption",
+            "FxSwap",
+            "FxBarrierOption",
             # Credit (canonical Rust names use all-caps CDS acronym)
-            "CreditDefaultSwap", "CDSIndex", "CDSTranche", "CDSOption",
+            "CreditDefaultSwap",
+            "CDSIndex",
+            "CDSTranche",
+            "CDSOption",
             # Equity
-            "Equity", "EquityOption", "EquityTotalReturnSwap",
-            "FIIndexTotalReturnSwap", "VarianceSwap",
+            "Equity",
+            "EquityOption",
+            "EquityTotalReturnSwap",
+            "FIIndexTotalReturnSwap",
+            "VarianceSwap",
             # Inflation
-            "InflationLinkedBond", "InflationSwap",
+            "InflationLinkedBond",
+            "InflationSwap",
             # Structured
-            "Basket", "StructuredCredit", "PrivateMarketsFund", "ConvertibleBond", "Repo",
+            "Basket",
+            "StructuredCredit",
+            "PrivateMarketsFund",
+            "ConvertibleBond",
+            "Repo",
             # Exotic Options
-            "AsianOption", "BarrierOption", "LookbackOption", "CliquetOption",
-            "QuantoOption", "Autocallable", "CmsOption", "RangeAccrual",
+            "AsianOption",
+            "BarrierOption",
+            "LookbackOption",
+            "CliquetOption",
+            "QuantoOption",
+            "Autocallable",
+            "CmsOption",
+            "RangeAccrual",
             # Private Credit
-            "TermLoan", "RevolvingCredit",
+            "TermLoan",
+            "RevolvingCredit",
         }
 
         rust_types = self._collect_rust_types()
@@ -186,8 +213,12 @@ class APIComparator:
         # Python/WASM bindings route instruments through a JSON entrypoint.
         # If `price_instrument` exists, all Rust instruments are reachable.
         py_entrypoints = {"price_instrument", "price_instrument_with_metrics"}
-        wasm_entrypoints = {"priceInstrument", "priceInstrumentWithMetrics",
-                            "price_instrument", "price_instrument_with_metrics"}
+        wasm_entrypoints = {
+            "priceInstrument",
+            "priceInstrumentWithMetrics",
+            "price_instrument",
+            "price_instrument_with_metrics",
+        }
         python_covers_all = bool(py_entrypoints & python_functions)
         wasm_covers_all = bool(wasm_entrypoints & wasm_functions)
 

@@ -44,51 +44,51 @@ import type { OptionType } from "./OptionType";
  * };
  * ```
  */
-export type VolQuote = { "option_vol": { 
+export type VolQuote = { "option_vol": {
 /**
  * Underlying identifier
  */
-underlying: string, 
+underlying: string,
 /**
  * Option expiry
  */
-expiry: string, 
+expiry: string,
 /**
  * Strike
  */
-strike: number, 
+strike: number,
 /**
  * Implied volatility
  */
-vol: number, 
+vol: number,
 /**
  * Option type (Call or Put).
  */
-option_type: OptionType, 
+option_type: OptionType,
 /**
  * Per-instrument conventions
  */
-convention: string, } } | { "swaption_vol": { 
+convention: string, } } | { "swaption_vol": {
 /**
  * Option expiry
  */
-expiry: string, 
+expiry: string,
 /**
  * Underlying swap maturity date
  */
-maturity: string, 
+maturity: string,
 /**
  * Strike rate
  */
-strike: number, 
+strike: number,
 /**
  * Implied volatility
  */
-vol: number, 
+vol: number,
 /**
  * Quote type
  */
-quote_type: string, 
+quote_type: string,
 /**
  * Option exercise conventions
  */

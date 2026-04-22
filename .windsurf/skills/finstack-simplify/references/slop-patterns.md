@@ -29,11 +29,13 @@ If you find a pattern that isn't in this catalogue, add it here in your audit re
 ## 2. Wrapper-only functions (thin forwarders)
 
 **Looks like:**
+
 ```rust
 pub fn compute_sharpe(returns: &[f64], rf: f64) -> f64 {
     sharpe_ratio_internal(returns, rf, AnnualizationFactor::default())
 }
 ```
+
 …where `sharpe_ratio_internal` is also public. Or: a method that calls another method and does nothing else. Or: a builder that only sets two fields and calls `.build()`.
 
 **Detect:**
@@ -90,6 +92,7 @@ pub fn compute_sharpe(returns: &[f64], rf: f64) -> f64 {
 ## 5. Single-impl traits
 
 **Looks like:**
+
 ```rust
 pub trait CurveBuilder { fn build(&self) -> Curve; }
 impl CurveBuilder for DiscountCurveBuilder { ... }
@@ -111,6 +114,7 @@ impl CurveBuilder for DiscountCurveBuilder { ... }
 ## 6. Single-instantiation generics
 
 **Looks like:**
+
 ```rust
 pub fn evaluate<T: Numeric>(input: &[T]) -> T { ... }
 // ...but `evaluate` is only ever called with T = Decimal.

@@ -314,8 +314,7 @@ fn append_mc_validation(
         }
         // Scale step count by year-fraction so longer expiries use more
         // steps. Round up and floor at a minimum of 4 steps.
-        let num_steps =
-            ((t_ex * mc_cfg.num_steps_per_year as f64).ceil() as usize).max(4);
+        let num_steps = ((t_ex * mc_cfg.num_steps_per_year as f64).ceil() as usize).max(4);
         // Use a per-quote stream so different expiries see independent
         // shocks; split by index to keep seeds reproducible.
         let seed = mc_cfg.seed.wrapping_add(i as u64);
@@ -469,9 +468,7 @@ pub fn lmm_mc_coterminal_swap_rate_vol(
         // is what makes this estimator independent of the frozen-weight
         // Rebonato approximation.
         let weights = annuity_weights(&x, &params.accrual_factors, &params.tenors, exercise_idx);
-        let swap_t: f64 = (0..count)
-            .map(|a| weights[a] * x[exercise_idx + a])
-            .sum();
+        let swap_t: f64 = (0..count).map(|a| weights[a] * x[exercise_idx + a]).sum();
         stats.update(swap_t);
     }
 
@@ -1277,9 +1274,7 @@ mod tests {
         .expect("ok");
 
         assert!(
-            cal.report
-                .metadata
-                .contains_key("mc_validation_num_paths"),
+            cal.report.metadata.contains_key("mc_validation_num_paths"),
             "MC validation metadata should be present when requested"
         );
         // At least one quote-level MC residual should be surfaced with a

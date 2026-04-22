@@ -212,9 +212,8 @@ impl FrtbParams {
             MarginError::Validation(format!("internal: failed to serialize d457 defaults: {e}"))
         })?;
         let merged = deep_merge(defaults, overlay.clone());
-        let params: Self = serde_json::from_value(merged).map_err(|e| {
-            MarginError::Validation(format!("FRTB JSON overlay parse error: {e}"))
-        })?;
+        let params: Self = serde_json::from_value(merged)
+            .map_err(|e| MarginError::Validation(format!("FRTB JSON overlay parse error: {e}")))?;
         params.validate()?;
         Ok(params)
     }
@@ -247,7 +246,10 @@ impl FrtbParams {
         for (tenor, w) in &self.girr.delta_risk_weights_pct {
             range_pct(&format!("girr.delta[{tenor}]"), *w)?;
         }
-        range_pct("girr.inflation_risk_weight", self.girr.inflation_risk_weight)?;
+        range_pct(
+            "girr.inflation_risk_weight",
+            self.girr.inflation_risk_weight,
+        )?;
         range_pct(
             "girr.xccy_basis_risk_weight",
             self.girr.xccy_basis_risk_weight,
@@ -265,7 +267,10 @@ impl FrtbParams {
             "girr.inter_bucket_correlation",
             self.girr.inter_bucket_correlation,
         )?;
-        range_corr("girr.inflation_correlation", self.girr.inflation_correlation)?;
+        range_corr(
+            "girr.inflation_correlation",
+            self.girr.inflation_correlation,
+        )?;
         range_corr(
             "girr.xccy_basis_correlation",
             self.girr.xccy_basis_correlation,
@@ -290,7 +295,10 @@ impl FrtbParams {
         )?;
 
         // Commodity.
-        range_pct("commodity.vega_risk_weight", self.commodity.vega_risk_weight)?;
+        range_pct(
+            "commodity.vega_risk_weight",
+            self.commodity.vega_risk_weight,
+        )?;
         range_pct(
             "commodity.curvature_risk_weight",
             self.commodity.curvature_risk_weight,
@@ -313,7 +321,10 @@ impl FrtbParams {
                 "FRTB correlation scenarios: low ({low:.4}) must not exceed high ({high:.4}) at rho=0.5 anchor"
             )));
         }
-        if !self.correlation_scenarios.low_linear_coefficient.is_finite()
+        if !self
+            .correlation_scenarios
+            .low_linear_coefficient
+            .is_finite()
             || !self.correlation_scenarios.low_intercept.is_finite()
             || !self.correlation_scenarios.high_multiplier.is_finite()
         {
@@ -373,10 +384,7 @@ mod tests {
             params.girr.delta_risk_weights_pct,
             d457.girr.delta_risk_weights_pct
         );
-        assert_eq!(
-            params.equity.vega_risk_weight,
-            d457.equity.vega_risk_weight
-        );
+        assert_eq!(params.equity.vega_risk_weight, d457.equity.vega_risk_weight);
     }
 
     #[test]
@@ -399,8 +407,8 @@ mod tests {
         let overlay = serde_json::json!({
             "equity": { "intra_bucket_correlation": 1.5 }
         });
-        let err = FrtbParams::from_json_overlay(&overlay)
-            .expect_err("correlation > 1 must be rejected");
+        let err =
+            FrtbParams::from_json_overlay(&overlay).expect_err("correlation > 1 must be rejected");
         assert!(
             err.to_string().contains("intra_bucket_correlation"),
             "error should name the offending field: {err}"
