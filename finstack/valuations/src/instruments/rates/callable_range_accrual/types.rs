@@ -181,7 +181,7 @@ impl crate::instruments::common_impl::traits::Instrument for CallableRangeAccrua
         )
     }
 
-    fn value(
+    fn base_value(
         &self,
         _market: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,

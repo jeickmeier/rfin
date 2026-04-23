@@ -103,7 +103,7 @@ impl Instrument for RatesCreditInteractionInstrument {
         Ok(deps)
     }
 
-    fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
         let rate = market.get_discount("USD-OIS")?.zero(1.0);
         let hazard = market.get_hazard("ACME-HAZ")?.hazard_rate(1.0);
         Ok(Money::new(1_000_000.0 * rate * hazard, Currency::USD))

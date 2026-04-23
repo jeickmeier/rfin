@@ -94,7 +94,7 @@ impl Instrument for ScaledInstrument {
         self.inner.market_dependencies()
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         let base = self.inner.value(market, as_of)?;
         Ok(Money::new(base.amount() * self.scale, base.currency()))
     }
@@ -166,7 +166,7 @@ impl Instrument for CompositeInstrument {
         Ok(deps)
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         let left_val = self.left.value(market, as_of)?;
         let right_val = self.right.value(market, as_of)?;
         left_val.checked_add(right_val)

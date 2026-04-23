@@ -211,7 +211,7 @@ impl Instrument for CommoditySpreadOption {
         Ok(deps)
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         crate::instruments::commodity::commodity_spread_option::pricer::compute_pv(
             self, market, as_of,
         )

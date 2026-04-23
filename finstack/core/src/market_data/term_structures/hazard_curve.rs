@@ -594,7 +594,7 @@ impl HazardCurve {
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
     #[must_use]
-    pub fn quoted_spread_bp(&self, t: f64, method: ParInterp) -> f64 {
+    pub fn cds_quote_bp(&self, t: f64, method: ParInterp) -> f64 {
         // If the curve was constructed without explicit par-spread quotes, fall back to a
         // simple hazard-based approximation instead of panicking inside interpolators.
         //
@@ -949,7 +949,7 @@ mod tests {
             .par_spreads([(1.0, 100.0), (3.0, 200.0)])
             .build()
             .expect("HazardCurve builder should succeed with valid test data");
-        assert!((hc.quoted_spread_bp(2.0, ParInterp::Linear) - 150.0).abs() < 1e-9);
+        assert!((hc.cds_quote_bp(2.0, ParInterp::Linear) - 150.0).abs() < 1e-9);
     }
 
     #[test]

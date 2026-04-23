@@ -1045,7 +1045,7 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
     fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
-    fn value(
+    fn base_value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

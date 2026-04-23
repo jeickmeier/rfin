@@ -124,9 +124,14 @@ impl BarrierOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        // Get volatility using vol surface time basis
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t_vol, inst.strike);
+        // Get volatility (override → surface, using vol surface time basis)
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t_vol,
+            inst.strike,
+        )?;
 
         // Create GBM process
         let gbm_params = GbmParams::new(r, q, sigma)?;
@@ -240,9 +245,14 @@ impl BarrierOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        // Volatility and process (using vol surface time basis)
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t_vol, inst.strike);
+        // Volatility (override → surface, using vol surface time basis)
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t_vol,
+            inst.strike,
+        )?;
         let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
 

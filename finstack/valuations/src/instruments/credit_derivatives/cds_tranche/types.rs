@@ -393,7 +393,7 @@ impl Instrument for CDSTranche {
 
     // === Pricing Methods ===
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.price_tranche(self, curves, as_of)
     }

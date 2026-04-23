@@ -25,7 +25,7 @@ fn test_ytm_par_bond() {
         "USD-OIS",
     )
     .unwrap();
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(100.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -104,7 +104,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
     // coupon date so that accrued is approximately zero).
     let pv = bond.value(&market, as_of).unwrap().amount();
     let clean_px = pv / notional.amount() * 100.0;
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(clean_px);
 
     let result = bond
         .price_with_metrics(
@@ -178,7 +178,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     // Infer a clean price from the model PV at as_of.
     let pv = bond.value(&market, as_of).unwrap().amount();
     let clean_px = pv / notional.amount() * 100.0;
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(clean_px);
 
     let result = bond
         .price_with_metrics(

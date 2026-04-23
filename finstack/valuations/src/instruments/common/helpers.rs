@@ -394,7 +394,11 @@ mod tests {
             self
         }
 
-        fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        fn base_value(
+            &self,
+            _market: &MarketContext,
+            _as_of: Date,
+        ) -> finstack_core::Result<Money> {
             Ok(Money::new(123.45, Currency::USD))
         }
 
@@ -429,7 +433,7 @@ mod tests {
             metrics: &[MetricId],
             options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> finstack_core::Result<crate::results::ValuationResult> {
-            let base = self.value(market, as_of)?;
+            let base = self.base_value(market, as_of)?;
             build_with_metrics_dyn(
                 Arc::from(self.clone_box()),
                 Arc::new(market.clone()),
@@ -494,6 +498,43 @@ mod tests {
         )?;
 
         assert!((result.value.amount() - 111.105).abs() < 1e-9);
+        Ok(())
+    }
+
+    #[test]
+    fn instrument_value_default_applies_scenario_price_shock_once() -> finstack_core::Result<()> {
+        // base_value returns 123.45; -10% shock should yield 111.105 from value(),
+        // and value() == price_with_metrics().value to guarantee a single application.
+        let mut instrument = StubInstrument::new("STUB-VALUE");
+        instrument.pricing_overrides = instrument.pricing_overrides.with_price_shock_pct(-0.10);
+
+        let market = MarketContext::new();
+        let as_of = date!(2024 - 01 - 01);
+
+        let direct = instrument.value(&market, as_of)?;
+        assert!((direct.amount() - 111.105).abs() < 1e-9);
+
+        let via_metrics = instrument
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )?
+            .value;
+        assert!((direct.amount() - via_metrics.amount()).abs() < 1e-9);
+        Ok(())
+    }
+
+    #[test]
+    fn instrument_base_value_is_unshocked() -> finstack_core::Result<()> {
+        // base_value must ignore scenario overrides; only value() applies them.
+        let mut instrument = StubInstrument::new("STUB-BASE");
+        instrument.pricing_overrides = instrument.pricing_overrides.with_price_shock_pct(-0.10);
+
+        let market = MarketContext::new();
+        let base = instrument.base_value(&market, date!(2024 - 01 - 01))?;
+        assert!((base.amount() - 123.45).abs() < 1e-9);
         Ok(())
     }
 

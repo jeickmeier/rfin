@@ -46,8 +46,13 @@ fn collect_quanto_inputs(
         inst.div_yield_id.as_ref(),
     )?;
 
-    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-    let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
+    let sigma_equity = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+        &inst.pricing_overrides.market_quotes,
+        curves,
+        inst.vol_surface_id.as_str(),
+        t,
+        inst.equity_strike.amount(),
+    )?;
 
     // Get FX volatility
     let sigma_fx = if let Some(fx_vol_id) = &inst.fx_vol_id {

@@ -149,6 +149,16 @@ impl CliquetOptionMcPricer {
         }
     }
 
+    fn merged_path_config(&self, inst: &CliquetOption) -> PathDependentPricerConfig {
+        let mut c = self.config.clone();
+        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
+            if n > 0 {
+                c.num_paths = n;
+            }
+        }
+        c
+    }
+
     /// Price a cliquet option using Monte Carlo.
     fn price_internal(
         &self,
@@ -280,7 +290,12 @@ impl CliquetOptionMcPricer {
                 initial_spot
             };
 
-            let vol_curr = vol_surface.value_clamped(curr_t, forward_price);
+            let vol_curr = if let Some(iv) = inst.pricing_overrides.market_quotes.implied_volatility
+            {
+                iv
+            } else {
+                vol_surface.value_clamped(curr_t, forward_price)
+            };
             let var_curr = vol_curr * vol_curr * curr_t;
 
             let fwd_var = var_curr - prev_var;
@@ -383,15 +398,16 @@ impl CliquetOptionMcPricer {
             payoff_type,
         );
 
+        let merged_cfg = self.merged_path_config(inst);
         let engine_config = McEngineConfig {
-            num_paths: self.config.num_paths,
+            num_paths: merged_cfg.num_paths,
             seed,
             time_grid,
             target_ci_half_width: None,
-            use_parallel: self.config.use_parallel,
-            chunk_size: self.config.chunk_size,
-            path_capture: self.config.path_capture.clone(),
-            antithetic: self.config.antithetic,
+            use_parallel: merged_cfg.use_parallel,
+            chunk_size: merged_cfg.chunk_size,
+            path_capture: merged_cfg.path_capture.clone(),
+            antithetic: merged_cfg.antithetic,
         };
         let engine = McEngine::new(engine_config);
 

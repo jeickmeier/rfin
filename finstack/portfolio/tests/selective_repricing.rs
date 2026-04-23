@@ -401,7 +401,7 @@ impl Instrument for UnresolvableInstrument {
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
     }
-    fn value(
+    fn base_value(
         &self,
         _market: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,

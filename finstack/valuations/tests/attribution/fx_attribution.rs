@@ -106,7 +106,7 @@ impl Instrument for FxLinkedInstrument {
         Ok(finstack_valuations::instruments::MarketDependencies::new())
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         if self.base_ccy == self.reporting_ccy {
             return Ok(Money::new(self.notional, self.reporting_ccy));
         }

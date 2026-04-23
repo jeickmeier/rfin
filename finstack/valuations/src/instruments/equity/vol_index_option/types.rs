@@ -404,7 +404,7 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for Volatilit
 impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexOption {
     impl_instrument_base!(crate::pricer::InstrumentType::VolatilityIndexOption);
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         pricer::compute_pv(self, curves, as_of)
     }
 

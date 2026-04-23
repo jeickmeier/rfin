@@ -682,7 +682,7 @@ impl InterestRateSwap {
 impl crate::instruments::common_impl::traits::Instrument for InterestRateSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::IRS);
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

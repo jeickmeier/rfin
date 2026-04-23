@@ -63,7 +63,7 @@ impl Instrument for ValueOnlyInstrument {
         Box::new(self.clone())
     }
 
-    fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         Ok(Money::new(self.value, self.currency))
     }
 

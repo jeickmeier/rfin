@@ -200,7 +200,7 @@ fn test_ytw_uses_quoted_clean_price_when_present() {
         .unwrap();
     let ytw_base = *base.measures.get("ytw").unwrap();
 
-    loan.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
+    loan.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(95.0);
     let quoted = loan
         .price_with_metrics(
             &market,

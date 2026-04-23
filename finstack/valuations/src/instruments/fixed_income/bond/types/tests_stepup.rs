@@ -147,7 +147,7 @@ fn test_bond_serde_rejects_missing_issue_date_even_with_clean_price() {
     obj.remove("issue_date");
     obj.insert(
         "pricing_overrides".to_string(),
-        serde_json::to_value(PricingOverrides::default().with_clean_price(99.0))
+        serde_json::to_value(PricingOverrides::default().with_quoted_clean_price(99.0))
             .expect("serialize pricing overrides"),
     );
     let err = serde_json::from_value::<Bond>(value).expect_err("expected error");

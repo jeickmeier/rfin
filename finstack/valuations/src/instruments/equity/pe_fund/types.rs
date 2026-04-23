@@ -136,7 +136,7 @@ impl Instrument for PrivateMarketsFund {
 
     // === Pricing Methods ===
 
-    fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         pricer::compute_pv(self, curves)
     }
 

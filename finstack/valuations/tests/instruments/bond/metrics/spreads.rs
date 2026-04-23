@@ -24,7 +24,7 @@ fn test_z_spread_discount_bond() {
         "USD-OIS",
     )
     .unwrap();
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(95.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -59,7 +59,7 @@ fn test_z_spread_missing_discount_curve_returns_error() {
         "USD-OIS",
     )
     .unwrap();
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(95.0);
 
     // Market context with NO discount curves – any attempt to build a Z-spread PV should fail
     let market = finstack_core::market_data::context::MarketContext::new();
@@ -187,7 +187,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         let clean_px = clean_ccy / notional.amount() * 100.0;
 
         let mut bond = base_bond.clone();
-        bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+        bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(clean_px);
 
         // Run Z-spread metric via the normal pipeline.
         let result = bond

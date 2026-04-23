@@ -39,6 +39,16 @@ impl FxBarrierOptionMcPricer {
         }
     }
 
+    fn merged_path_config(&self, inst: &FxBarrierOption) -> PathDependentPricerConfig {
+        let mut c = self.config.clone();
+        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
+            if n > 0 {
+                c.num_paths = n;
+            }
+        }
+        c
+    }
+
     fn convert_barrier_type(
         bt: crate::instruments::exotics::barrier_option::types::BarrierType,
     ) -> McBarrierType {
@@ -98,8 +108,13 @@ impl FxBarrierOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike);
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t,
+            inst.strike,
+        )?;
 
         // For FX, drift is r_dom - r_for.
         // In GBM process param 'q' is subtracted from r to get drift (r-q).
@@ -153,7 +168,7 @@ impl FxBarrierOptionMcPricer {
             self.config.seed
         };
 
-        let mut config = self.config.clone();
+        let mut config = self.merged_path_config(inst);
         config.seed = seed;
         let pricer = PathDependentPricer::new(config);
         let result = pricer.price(
@@ -403,8 +418,13 @@ fn collect_fx_barrier_inputs(
 
     let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
 
-    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-    let sigma = vol_surface.value_clamped(t, inst.strike);
+    let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+        &inst.pricing_overrides.market_quotes,
+        curves,
+        inst.vol_surface_id.as_str(),
+        t,
+        inst.strike,
+    )?;
     if !sigma.is_finite() || sigma < 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "FxBarrierOption volatility must be finite and non-negative, got {}",

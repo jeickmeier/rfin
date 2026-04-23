@@ -985,7 +985,7 @@ mod tests {
             &mut self.attributes
         }
 
-        fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        fn base_value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
             if as_of >= self.expiry {
                 return Ok(Money::new(0.0, Currency::USD));
             }
@@ -1050,7 +1050,7 @@ mod tests {
             &mut self.attributes
         }
 
-        fn value(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        fn base_value(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
             // This intentionally rounds away most of the PV to exercise the raw path
             let raw = self.raw_pv(market)?;
             Ok(Money::new(raw, Currency::USD))

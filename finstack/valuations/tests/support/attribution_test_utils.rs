@@ -82,7 +82,7 @@ impl Instrument for TestInstrument {
         Ok(deps)
     }
 
-    fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
         let mut amt = self.value.amount();
         for id in &self.forward_curves {
             let fwd = market.get_forward(id.as_str())?;

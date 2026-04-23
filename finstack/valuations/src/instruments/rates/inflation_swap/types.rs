@@ -451,7 +451,7 @@ impl InflationSwapBuilder {
 impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::InflationSwap);
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
@@ -878,7 +878,7 @@ impl YoYInflationSwapBuilder {
 impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::YoYInflationSwap);
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

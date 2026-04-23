@@ -282,7 +282,7 @@ impl crate::instruments::common_impl::traits::Instrument for IrFutureOption {
         MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv(curves, as_of)?;
         Ok(Money::new(pv, self.notional.currency()))
     }

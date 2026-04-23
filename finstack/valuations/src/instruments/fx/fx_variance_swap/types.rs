@@ -248,7 +248,7 @@ impl InstrumentTrait for FxVarianceSwap {
         Ok(deps)
     }
 
-    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         pricer::compute_pv(self, context, as_of)
     }
 }

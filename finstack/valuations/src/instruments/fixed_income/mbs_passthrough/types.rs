@@ -448,7 +448,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for AgencyMbsPas
 impl crate::instruments::common_impl::traits::Instrument for AgencyMbsPassthrough {
     impl_instrument_base!(crate::pricer::InstrumentType::AgencyMbsPassthrough);
 
-    fn value(
+    fn base_value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

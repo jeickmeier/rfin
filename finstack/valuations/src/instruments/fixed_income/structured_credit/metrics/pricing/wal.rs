@@ -195,7 +195,7 @@ mod tests {
             InstrumentType::StructuredCredit
         }
 
-        fn value(&self, _ctx: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        fn base_value(&self, _ctx: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
             Ok(Money::new(0.0, Currency::USD))
         }
 

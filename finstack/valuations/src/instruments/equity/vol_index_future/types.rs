@@ -233,7 +233,7 @@ impl VolatilityIndexFuture {
 impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexFuture {
     impl_instrument_base!(crate::pricer::InstrumentType::VolatilityIndexFuture);
 
-    fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         pricer::compute_pv(self, curves)
     }
 

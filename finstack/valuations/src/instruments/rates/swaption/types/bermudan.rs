@@ -479,7 +479,7 @@ impl crate::instruments::common_impl::traits::Instrument for BermudanSwaption {
         crate::pricer::ModelKey::MonteCarloHullWhite1F
     }
 
-    fn value(
+    fn base_value(
         &self,
         _curves: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,

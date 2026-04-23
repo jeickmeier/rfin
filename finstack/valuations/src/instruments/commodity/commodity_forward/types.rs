@@ -439,7 +439,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
         Ok(deps)
     }
 
-    fn value(
+    fn base_value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

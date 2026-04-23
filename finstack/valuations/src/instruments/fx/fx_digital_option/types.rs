@@ -169,7 +169,7 @@ impl FxDigitalOption {
 impl crate::instruments::common_impl::traits::Instrument for FxDigitalOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxDigitalOption);
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

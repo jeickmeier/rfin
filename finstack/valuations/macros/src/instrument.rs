@@ -88,7 +88,7 @@ pub(crate) fn derive_instrument_impl(input: TokenStream) -> TokenStream {
                 Box::new(self.clone())
             }
 
-            fn value(
+            fn base_value(
                 &self,
                 market: &finstack_core::market_data::context::MarketContext,
                 as_of: finstack_core::dates::Date,

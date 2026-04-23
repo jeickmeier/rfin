@@ -19,7 +19,7 @@
 /// impl Instrument for MyInstrument {
 ///     impl_instrument_base!(InstrumentType::MyInstrument);
 ///
-///     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+///     fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
 ///         // instrument-specific pricing logic
 ///     }
 /// }

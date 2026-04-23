@@ -19,9 +19,11 @@ pub(crate) mod discountable;
 
 // Shared utilities and helper functions
 pub(crate) mod helpers;
+// Shared volatility override/surface resolution.
 #[cfg(feature = "mc")]
 pub(crate) mod two_clock;
 pub(crate) mod validation;
+pub(crate) mod vol_resolution;
 
 // Common parameter types shared across instruments
 pub(crate) mod fx_dates;

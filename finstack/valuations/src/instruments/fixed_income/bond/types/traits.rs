@@ -10,11 +10,24 @@ use super::CashflowSpec;
 impl crate::instruments::common_impl::traits::Instrument for Bond {
     impl_instrument_base!(crate::pricer::InstrumentType::Bond);
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::fixed_income::bond::pricing::quote_conversions;
+
+        // Honor any bond price-from-quote override (clean, dirty, YTM, YTW,
+        // Z-spread, OAS, DM, I-spread, ASW). Mutual exclusivity is enforced by
+        // `MarketQuoteOverrides::validate`.
+        if let Some(dirty_ccy) = quote_conversions::price_from_quote_overrides(self, curves, as_of)?
+        {
+            return Ok(finstack_core::money::Money::new(
+                dirty_ccy,
+                self.notional.currency(),
+            ));
+        }
+
         // Check if bond has embedded options requiring tree-based pricing
         if let Some(ref cp) = self.call_put {
             if cp.has_options() {

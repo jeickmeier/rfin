@@ -94,9 +94,14 @@ impl LookbackOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
         let strike_val = inst.strike.unwrap_or(spot);
-        let sigma = vol_surface.value_clamped(t, strike_val);
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t,
+            strike_val,
+        )?;
 
         let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);
@@ -387,9 +392,14 @@ fn collect_lookback_inputs(
         inst.div_yield_id.as_ref(),
     )?;
 
-    let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
     let strike_val = inst.strike.unwrap_or(spot);
-    let sigma = vol_surface.value_clamped(t, strike_val);
+    let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+        &inst.pricing_overrides.market_quotes,
+        curves,
+        inst.vol_surface_id.as_str(),
+        t,
+        strike_val,
+    )?;
 
     Ok((spot, r, q, sigma, t))
 }

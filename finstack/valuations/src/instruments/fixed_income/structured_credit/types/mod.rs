@@ -828,7 +828,7 @@ impl CashflowProvider for StructuredCredit {
 impl Instrument for StructuredCredit {
     impl_instrument_base!(crate::pricer::InstrumentType::StructuredCredit);
 
-    fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;
         let flows = self.dated_cashflows(context, as_of)?;
 

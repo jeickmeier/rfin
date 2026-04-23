@@ -79,7 +79,7 @@ impl Instrument for TestInstrument {
         Ok(deps)
     }
 
-    fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+    fn base_value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
         Ok(self.value)
     }
 

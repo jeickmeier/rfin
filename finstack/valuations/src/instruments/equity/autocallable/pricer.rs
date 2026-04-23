@@ -120,8 +120,13 @@ impl AutocallableMcPricer {
         // convention as the discount curve (both typically use ACT/365F for equity vol).
         // If the surface was built with a different convention, this lookup may be
         // slightly off. Consider adding explicit day_count to VolSurface in future.
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, initial_spot);
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t,
+            initial_spot,
+        )?;
 
         let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);

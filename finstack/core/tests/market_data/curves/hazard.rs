@@ -53,8 +53,8 @@ fn survival_and_default_probabilities() {
     assert!(curve.sp(4.0) < curve.sp(1.0));
     assert!(curve.default_prob(1.0, 3.0).unwrap() > 0.0);
 
-    let linear = curve.quoted_spread_bp(2.0, ParInterp::Linear);
-    let log = curve.quoted_spread_bp(2.0, ParInterp::LogLinear);
+    let linear = curve.cds_quote_bp(2.0, ParInterp::Linear);
+    let log = curve.cds_quote_bp(2.0, ParInterp::LogLinear);
     assert!(linear > 0.0 && log > 0.0);
 }
 

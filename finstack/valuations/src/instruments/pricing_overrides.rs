@@ -64,15 +64,74 @@ pub enum VolSurfaceExtrapolation {
 // ---------------------------------------------------------------------------
 
 /// Overrides for market-quoted values (prices, vols, spreads, upfront payments).
+///
+/// # Price-driving fields
+///
+/// The following fields, when set, override the model PV returned by
+/// [`Instrument::base_value`](crate::instruments::common_impl::traits::Instrument::base_value)
+/// for bonds. At most one may be set at a time — [`Self::validate`] enforces this.
+/// Precedence (applied top-to-bottom inside `Bond::base_value`):
+///
+/// 1. `quoted_dirty_price_ccy` — currency units (bond native currency)
+/// 2. `quoted_clean_price` — percentage of par
+/// 3. `quoted_ytm` — decimal YTM (e.g. `0.055` = 5.5%)
+/// 4. `quoted_ytw` — decimal yield-to-worst
+/// 5. `quoted_z_spread` — decimal Z-spread
+/// 6. `quoted_oas` — decimal OAS
+/// 7. `quoted_discount_margin` — decimal DM (FRNs)
+/// 8. `quoted_i_spread` — decimal I-spread
+/// 9. `quoted_asw_market` — decimal ASW (market convention)
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct MarketQuoteOverrides {
-    /// Quoted clean price for bond yield calculations
+    /// Quoted clean price as a percentage of par (e.g., `99.5` = 99.5% of par).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub quoted_clean_price: Option<f64>,
-    /// Implied volatility (overrides vol surface)
+
+    /// Quoted dirty price in the bond's currency units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_dirty_price_ccy: Option<f64>,
+
+    /// Quoted yield-to-maturity in decimal (e.g., `0.055` = 5.5%).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_ytm: Option<f64>,
+
+    /// Quoted yield-to-worst in decimal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_ytw: Option<f64>,
+
+    /// Quoted Z-spread in decimal (e.g., `0.0125` = 125bp).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_z_spread: Option<f64>,
+
+    /// Quoted OAS (option-adjusted spread) in decimal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_oas: Option<f64>,
+
+    /// Quoted discount margin (for FRNs) in decimal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_discount_margin: Option<f64>,
+
+    /// Quoted I-spread in decimal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_i_spread: Option<f64>,
+
+    /// Quoted asset-swap spread (market convention) in decimal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quoted_asw_market: Option<f64>,
+
+    /// Implied volatility (overrides vol surface). When set on surface-driven
+    /// pricers, it is used as a flat σ across tenor and strike.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub implied_volatility: Option<f64>,
-    /// Quoted spread (for credit instruments)
-    pub quoted_spread_bp: Option<f64>,
+
+    /// CDS par-spread quote in basis points (for CDS and CDS index pricers).
+    ///
+    /// Renamed from `quoted_spread_bp`; the legacy JSON field name is still
+    /// accepted as a serde alias for backward compatibility.
+    #[serde(alias = "quoted_spread_bp", skip_serializing_if = "Option::is_none")]
+    pub cds_quote_bp: Option<f64>,
+
     /// PV adjustment at valuation date (for CDS, CDSIndex, convertibles).
     ///
     /// This is an **already-discounted** adjustment to the net present value.
@@ -90,17 +149,62 @@ pub struct MarketQuoteOverrides {
     /// - **`CreditDefaultSwap.upfront`**: Dated cashflow, discounted from payment date
     ///
     /// Both can be set simultaneously without double-counting.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub upfront_payment: Option<Money>,
 }
 
 impl MarketQuoteOverrides {
-    /// Validate market quote values for finiteness and non-negativity.
+    /// Return the number of price-driving fields that are currently set.
+    ///
+    /// The price-driving fields are mutually exclusive inside `Bond::base_value`
+    /// (only the first one in the precedence chain would take effect), so
+    /// [`Self::validate`] enforces that at most one is set.
+    fn price_driver_count(&self) -> usize {
+        [
+            self.quoted_clean_price.is_some(),
+            self.quoted_dirty_price_ccy.is_some(),
+            self.quoted_ytm.is_some(),
+            self.quoted_ytw.is_some(),
+            self.quoted_z_spread.is_some(),
+            self.quoted_oas.is_some(),
+            self.quoted_discount_margin.is_some(),
+            self.quoted_i_spread.is_some(),
+            self.quoted_asw_market.is_some(),
+        ]
+        .iter()
+        .filter(|b| **b)
+        .count()
+    }
+
+    /// Validate market quote values for finiteness, non-negativity, and
+    /// mutual exclusivity among price-driving fields.
     pub fn validate(&self) -> finstack_core::Result<()> {
         use finstack_core::InputError;
+        let finite = |v: f64| v.is_finite();
         let nonneg = |v: f64| v.is_finite() && v >= 0.0;
-        if let Some(v) = self.quoted_clean_price {
-            if !v.is_finite() {
-                return Err(InputError::Invalid.into());
+
+        // Finiteness checks for every optional scalar. Prices may be negative
+        // (e.g. deep-distress), spreads and yields may be negative but must be
+        // finite; implied vol and CDS spreads must be non-negative.
+        for (v, must_be_nonneg) in [
+            (self.quoted_clean_price, false),
+            (self.quoted_dirty_price_ccy, false),
+            (self.quoted_ytm, false),
+            (self.quoted_ytw, false),
+            (self.quoted_z_spread, false),
+            (self.quoted_oas, false),
+            (self.quoted_discount_margin, false),
+            (self.quoted_i_spread, false),
+            (self.quoted_asw_market, false),
+        ] {
+            if let Some(v) = v {
+                if must_be_nonneg {
+                    if !nonneg(v) {
+                        return Err(InputError::NegativeValue.into());
+                    }
+                } else if !finite(v) {
+                    return Err(InputError::Invalid.into());
+                }
             }
         }
         if let Some(v) = self.implied_volatility {
@@ -108,11 +212,17 @@ impl MarketQuoteOverrides {
                 return Err(InputError::NegativeValue.into());
             }
         }
-        if let Some(v) = self.quoted_spread_bp {
+        if let Some(v) = self.cds_quote_bp {
             if !nonneg(v) {
                 return Err(InputError::NegativeValue.into());
             }
         }
+
+        // Mutual exclusivity: at most one price-driving field set at a time.
+        if self.price_driver_count() > 1 {
+            return Err(InputError::Invalid.into());
+        }
+
         Ok(())
     }
 }
@@ -555,25 +665,73 @@ impl PricingOverrides {
 
     // -- Market Quote builders -----------------------------------------------
 
-    /// Set quoted clean price
-    pub fn with_clean_price(mut self, price: f64) -> Self {
-        self.market_quotes.quoted_clean_price = Some(price);
+    /// Set quoted clean price as a percentage of par (e.g., `99.5` = 99.5% of par).
+    pub fn with_quoted_clean_price(mut self, price_pct: f64) -> Self {
+        self.market_quotes.quoted_clean_price = Some(price_pct);
         self
     }
 
-    /// Set implied volatility
+    /// Set quoted dirty price in the bond's currency units.
+    pub fn with_quoted_dirty_price(mut self, price_ccy: f64) -> Self {
+        self.market_quotes.quoted_dirty_price_ccy = Some(price_ccy);
+        self
+    }
+
+    /// Set quoted yield-to-maturity in decimal (e.g., `0.055` = 5.5%).
+    pub fn with_quoted_ytm(mut self, ytm: f64) -> Self {
+        self.market_quotes.quoted_ytm = Some(ytm);
+        self
+    }
+
+    /// Set quoted yield-to-worst in decimal.
+    pub fn with_quoted_ytw(mut self, ytw: f64) -> Self {
+        self.market_quotes.quoted_ytw = Some(ytw);
+        self
+    }
+
+    /// Set quoted Z-spread in decimal (e.g., `0.0125` = 125bp).
+    pub fn with_quoted_z_spread(mut self, z_spread: f64) -> Self {
+        self.market_quotes.quoted_z_spread = Some(z_spread);
+        self
+    }
+
+    /// Set quoted OAS in decimal.
+    pub fn with_quoted_oas(mut self, oas: f64) -> Self {
+        self.market_quotes.quoted_oas = Some(oas);
+        self
+    }
+
+    /// Set quoted discount margin (for FRNs) in decimal.
+    pub fn with_quoted_discount_margin(mut self, dm: f64) -> Self {
+        self.market_quotes.quoted_discount_margin = Some(dm);
+        self
+    }
+
+    /// Set quoted I-spread in decimal.
+    pub fn with_quoted_i_spread(mut self, i_spread: f64) -> Self {
+        self.market_quotes.quoted_i_spread = Some(i_spread);
+        self
+    }
+
+    /// Set quoted asset-swap spread (market convention) in decimal.
+    pub fn with_quoted_asw_market(mut self, asw: f64) -> Self {
+        self.market_quotes.quoted_asw_market = Some(asw);
+        self
+    }
+
+    /// Set implied volatility (flat σ across tenor and strike).
     pub fn with_implied_vol(mut self, vol: f64) -> Self {
         self.market_quotes.implied_volatility = Some(vol);
         self
     }
 
-    /// Set quoted spread
-    pub fn with_spread_bp(mut self, spread_bp: f64) -> Self {
-        self.market_quotes.quoted_spread_bp = Some(spread_bp);
+    /// Set the CDS par-spread quote (basis points, for CDS and CDS index pricers).
+    pub fn with_cds_quote_bp(mut self, spread_bp: f64) -> Self {
+        self.market_quotes.cds_quote_bp = Some(spread_bp);
         self
     }
 
-    /// Set upfront payment
+    /// Set upfront payment.
     pub fn with_upfront(mut self, upfront: Money) -> Self {
         self.market_quotes.upfront_payment = Some(upfront);
         self
@@ -754,7 +912,7 @@ mod tests {
     #[test]
     fn validate_accepts_default_and_positive_values() {
         let po = PricingOverrides::default()
-            .with_clean_price(100.0)
+            .with_quoted_clean_price(100.0)
             .with_ytm_bump_decimal(1e-4)
             .with_spot_bump(0.01)
             .with_vol_bump(0.01)
@@ -845,9 +1003,9 @@ mod tests {
     #[test]
     fn serde_roundtrip_preserves_all_fields() {
         let po = PricingOverrides::none()
-            .with_clean_price(100.0)
+            .with_quoted_clean_price(100.0)
             .with_implied_vol(0.25)
-            .with_spread_bp(50.0)
+            .with_cds_quote_bp(50.0)
             .with_rate_bump(2.0)
             .with_spot_bump(0.01)
             .with_tree_steps(200)
@@ -860,7 +1018,7 @@ mod tests {
 
         assert_eq!(rt.market_quotes.quoted_clean_price, Some(100.0));
         assert_eq!(rt.market_quotes.implied_volatility, Some(0.25));
-        assert_eq!(rt.market_quotes.quoted_spread_bp, Some(50.0));
+        assert_eq!(rt.market_quotes.cds_quote_bp, Some(50.0));
         assert_eq!(rt.metrics.bump_config.rate_bump_bp, Some(2.0));
         assert_eq!(rt.metrics.bump_config.spot_bump_pct, Some(0.01));
         assert_eq!(rt.model_config.tree_steps, Some(200));

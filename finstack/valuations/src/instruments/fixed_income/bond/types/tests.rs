@@ -123,7 +123,7 @@ fn test_bond_builder_with_custom_cashflows() {
         .cashflow_spec(CashflowSpec::default())
         .custom_cashflows_opt(Some(custom_schedule))
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
+        .pricing_overrides(PricingOverrides::default().with_quoted_clean_price(99.0))
         .attributes(Attributes::new())
         .build()
         .expect("CashFlowSchedule builder should succeed with valid test data");

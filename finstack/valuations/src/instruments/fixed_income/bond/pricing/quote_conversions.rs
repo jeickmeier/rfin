@@ -236,6 +236,13 @@ pub enum BondQuoteInput {
     DirtyPriceCcy(f64),
     /// Yield to maturity (decimal).
     Ytm(f64),
+    /// Yield to worst (decimal).
+    ///
+    /// For non-callable bonds this is equivalent to [`BondQuoteInput::Ytm`].
+    /// For callable bonds, prefer [`BondQuoteInput::Oas`] when exercise-aware
+    /// pricing is required — YTW inversion via this variant uses maturity flows
+    /// (consistent with `Bond::base_value`'s `quoted_ytw` path).
+    Ytw(f64),
     /// Z-spread over the discount curve (decimal).
     ZSpread(f64),
     /// Discount margin for FRNs (decimal).
@@ -824,22 +831,28 @@ pub fn price_from_oas(
     Ok(price)
 }
 
-/// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer
+/// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer.
+///
+/// This helper prices against the model PV, independent of any price-from-quote
+/// override on the bond. It is used by the DM metric solver that seeks a DM
+/// reproducing a quoted price, so it must not short-circuit via the quote.
 pub fn price_from_dm(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
     dm: f64,
 ) -> finstack_core::Result<f64> {
+    let mut b = bond.clone();
+    clear_price_driving_overrides(&mut b);
+
     // Check if it's a floating rate bond
     let is_floating = matches!(
-        &bond.cashflow_spec,
+        &b.cashflow_spec,
         crate::instruments::fixed_income::bond::CashflowSpec::Floating(_)
     );
     if !is_floating {
-        return Ok(bond.value(curves, as_of)?.amount());
+        return Ok(b.value(curves, as_of)?.amount());
     }
-    let mut b = bond.clone();
     if let crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) =
         &mut b.cashflow_spec
     {
@@ -848,6 +861,22 @@ pub fn price_from_dm(
         spec.rate_spec.spread_bp += dm_bp;
     }
     Ok(b.value(curves, as_of)?.amount())
+}
+
+/// Clear all price-driving market-quote overrides on a bond so downstream
+/// pricing calls evaluate the model PV. Used by inversion helpers that need
+/// the raw model response even when the bond carries a quoted price override.
+pub(crate) fn clear_price_driving_overrides(bond: &mut Bond) {
+    let quotes = &mut bond.pricing_overrides.market_quotes;
+    quotes.quoted_clean_price = None;
+    quotes.quoted_dirty_price_ccy = None;
+    quotes.quoted_ytm = None;
+    quotes.quoted_ytw = None;
+    quotes.quoted_z_spread = None;
+    quotes.quoted_oas = None;
+    quotes.quoted_discount_margin = None;
+    quotes.quoted_i_spread = None;
+    quotes.quoted_asw_market = None;
 }
 
 // ============================================================================
@@ -925,67 +954,37 @@ pub fn compute_quotes(
         });
     }
 
-    // 1) Normalize the input into canonical dirty + clean prices.
-    let (clean_price_pct, clean_price_ccy, dirty_price_ccy) = match quote_input {
-        BondQuoteInput::CleanPricePct(clean_pct) => {
-            let clean_ccy = clean_pct * notional / 100.0;
-            let dirty_ccy = clean_ccy + accrued_ccy;
-            (clean_pct, clean_ccy, dirty_ccy)
+    // 1) Stamp the quote input into the corresponding price-driving override
+    //    on the bond clone, then delegate to `base_value` (which runs the same
+    //    precedence chain used by the pricing pipeline). This keeps
+    //    `compute_quotes` and `Bond::base_value` in lock-step and eliminates
+    //    the per-variant inversion logic that used to live here.
+    clear_price_driving_overrides(&mut bond_for_metrics);
+    {
+        let quotes = &mut bond_for_metrics.pricing_overrides.market_quotes;
+        match quote_input {
+            BondQuoteInput::CleanPricePct(v) => quotes.quoted_clean_price = Some(v),
+            BondQuoteInput::DirtyPriceCcy(v) => quotes.quoted_dirty_price_ccy = Some(v),
+            BondQuoteInput::Ytm(v) => quotes.quoted_ytm = Some(v),
+            BondQuoteInput::Ytw(v) => quotes.quoted_ytw = Some(v),
+            BondQuoteInput::ZSpread(v) => quotes.quoted_z_spread = Some(v),
+            BondQuoteInput::DiscountMargin(v) => quotes.quoted_discount_margin = Some(v),
+            BondQuoteInput::Oas(v) => quotes.quoted_oas = Some(v),
+            BondQuoteInput::AswMarket(v) => quotes.quoted_asw_market = Some(v),
+            BondQuoteInput::ISpread(v) => quotes.quoted_i_spread = Some(v),
         }
-        BondQuoteInput::DirtyPriceCcy(dirty_ccy) => {
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-        BondQuoteInput::Ytm(ytm) => {
-            // Use standard signed canonical schedule flows and price_from_ytm helper.
-            let flows = bond_for_metrics.pricing_dated_cashflows(curves, as_of)?;
-            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, quote_ctx.quote_date, ytm)?;
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-        BondQuoteInput::ZSpread(z) => {
-            let dirty_ccy =
-                price_from_z_spread(&bond_for_metrics, curves, quote_ctx.quote_date, z)?;
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-        BondQuoteInput::DiscountMargin(dm) => {
-            let dirty_ccy = price_from_dm(&bond_for_metrics, curves, quote_ctx.quote_date, dm)?;
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-        BondQuoteInput::Oas(oas_decimal) => {
-            let dirty_ccy =
-                price_from_oas(&bond_for_metrics, curves, quote_ctx.quote_date, oas_decimal)?;
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-        BondQuoteInput::AswMarket(asw_mkt) => {
-            let dirty_ccy =
-                price_from_asw_market(&bond_for_metrics, curves, quote_ctx.quote_date, asw_mkt)?;
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-        BondQuoteInput::ISpread(i_spread) => {
-            // I-spread = YTM - par_swap_rate → YTM = ISpread + par_swap_rate.
-            let par_swap_rate = par_swap_rate_from_discount(bond, curves, as_of)?;
-            let ytm = i_spread + par_swap_rate;
-            let flows = bond_for_metrics.pricing_dated_cashflows(curves, as_of)?;
-            let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, quote_ctx.quote_date, ytm)?;
-            let clean_ccy = dirty_ccy - accrued_ccy;
-            let clean_pct = clean_ccy / notional * 100.0;
-            (clean_pct, clean_ccy, dirty_ccy)
-        }
-    };
+    }
+
+    let base_value = bond_for_metrics.value(curves, as_of)?;
+    let dirty_price_ccy = base_value.amount();
+    let clean_price_ccy = dirty_price_ccy - accrued_ccy;
+    let clean_price_pct = clean_price_ccy / notional * 100.0;
 
     // Stamp the canonical clean price quote into pricing_overrides so that all
     // existing metric calculators interpret this as the market price.
+    // (Replaces the specific quote field with the clean-price normalization
+    // expected by the downstream metric calculators.)
+    clear_price_driving_overrides(&mut bond_for_metrics);
     bond_for_metrics
         .pricing_overrides
         .market_quotes
@@ -1057,6 +1056,124 @@ pub fn compute_quotes(
         asw_market,
         i_spread,
     })
+}
+
+/// Resolve any bond price-quote override into a dirty price in currency units.
+///
+/// Follows the precedence chain documented on [`MarketQuoteOverrides`]:
+///
+/// 1. `quoted_dirty_price_ccy` → return directly
+/// 2. `quoted_clean_price` → convert to dirty using quote-date accrued
+/// 3. `quoted_ytm` → [`price_from_ytm`]
+/// 4. `quoted_ytw` → [`price_from_ytw`]
+/// 5. `quoted_z_spread` → [`price_from_z_spread`]
+/// 6. `quoted_oas` → [`price_from_oas`]
+/// 7. `quoted_discount_margin` → [`price_from_dm`]
+/// 8. `quoted_i_spread` → par-swap-rate inversion + [`price_from_ytm`]
+/// 9. `quoted_asw_market` → ASW market-convention inversion
+///
+/// Returns `Ok(None)` when no price-driving override is set so the caller can
+/// fall through to model pricing.
+///
+/// [`MarketQuoteOverrides`]: crate::instruments::pricing_overrides::MarketQuoteOverrides
+pub(crate) fn price_from_quote_overrides(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<Option<f64>> {
+    let quotes = &bond.pricing_overrides.market_quotes;
+
+    // Fast path: no price-driving override is set.
+    if quotes.quoted_dirty_price_ccy.is_none()
+        && quotes.quoted_clean_price.is_none()
+        && quotes.quoted_ytm.is_none()
+        && quotes.quoted_ytw.is_none()
+        && quotes.quoted_z_spread.is_none()
+        && quotes.quoted_oas.is_none()
+        && quotes.quoted_discount_margin.is_none()
+        && quotes.quoted_i_spread.is_none()
+        && quotes.quoted_asw_market.is_none()
+    {
+        return Ok(None);
+    }
+
+    // Dirty-price override: short-circuit, no accrued-interest conversion needed.
+    if let Some(dirty) = quotes.quoted_dirty_price_ccy {
+        return Ok(Some(dirty));
+    }
+
+    // All remaining inversions settle the quote at the bond's quote date.
+    let quote_ctx = QuoteDateContext::new(bond, curves, as_of)?;
+    let accrued_ccy = quote_ctx.accrued_at_quote_date;
+    let notional = bond.notional.amount();
+
+    if let Some(clean_pct) = quotes.quoted_clean_price {
+        return Ok(Some(quote_ctx.dirty_from_clean_pct(clean_pct, notional)));
+    }
+    if let Some(ytm) = quotes.quoted_ytm {
+        let flows = bond.pricing_dated_cashflows(curves, as_of)?;
+        return Ok(Some(price_from_ytm(
+            bond,
+            &flows,
+            quote_ctx.quote_date,
+            ytm,
+        )?));
+    }
+    if let Some(ytw) = quotes.quoted_ytw {
+        // For non-callable bonds, YTW == YTM, and the inversion is identical.
+        // For callable bonds, the quote-override path uses maturity flows
+        // (consistent with `quoted_ytm`); users who need exercise-aware
+        // pricing should use `quoted_oas` instead.
+        let flows = bond.pricing_dated_cashflows(curves, as_of)?;
+        return Ok(Some(price_from_ytm(
+            bond,
+            &flows,
+            quote_ctx.quote_date,
+            ytw,
+        )?));
+    }
+    if let Some(z) = quotes.quoted_z_spread {
+        return Ok(Some(price_from_z_spread(
+            bond,
+            curves,
+            quote_ctx.quote_date,
+            z,
+        )?));
+    }
+    if let Some(oas) = quotes.quoted_oas {
+        return Ok(Some(price_from_oas(
+            bond,
+            curves,
+            quote_ctx.quote_date,
+            oas,
+        )?));
+    }
+    if let Some(dm) = quotes.quoted_discount_margin {
+        return Ok(Some(price_from_dm(bond, curves, quote_ctx.quote_date, dm)?));
+    }
+    if let Some(i_spread) = quotes.quoted_i_spread {
+        let par_swap_rate = par_swap_rate_from_discount(bond, curves, as_of)?;
+        let ytm = i_spread + par_swap_rate;
+        let flows = bond.pricing_dated_cashflows(curves, as_of)?;
+        return Ok(Some(price_from_ytm(
+            bond,
+            &flows,
+            quote_ctx.quote_date,
+            ytm,
+        )?));
+    }
+    if let Some(asw) = quotes.quoted_asw_market {
+        return Ok(Some(price_from_asw_market(
+            bond,
+            curves,
+            quote_ctx.quote_date,
+            asw,
+        )?));
+    }
+
+    // Unreachable: the early-return above guarantees at least one override is set.
+    let _ = accrued_ccy;
+    Ok(None)
 }
 
 /// Compute the par swap fixed rate used in the I-Spread definition

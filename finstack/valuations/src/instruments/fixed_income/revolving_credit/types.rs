@@ -785,7 +785,7 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
             .unwrap_or(crate::pricer::ModelKey::Discounting)
     }
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

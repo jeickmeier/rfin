@@ -495,7 +495,7 @@ impl Instrument for DiscountedCashFlow {
         MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         pricer::compute_pv(self, market, as_of)
     }
 

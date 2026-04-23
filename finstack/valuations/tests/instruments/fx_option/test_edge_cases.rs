@@ -6,6 +6,7 @@
 use super::helpers::*;
 use finstack_core::dates::DayCountContext;
 use finstack_core::money::Money;
+use finstack_valuations::prelude::Instrument;
 use time::macros::date;
 
 #[test]

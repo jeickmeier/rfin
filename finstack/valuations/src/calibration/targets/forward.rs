@@ -393,7 +393,11 @@ mod tests {
             self
         }
 
-        fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        fn base_value(
+            &self,
+            _market: &MarketContext,
+            _as_of: Date,
+        ) -> finstack_core::Result<Money> {
             Ok(Money::new(0.0, Currency::USD))
         }
 

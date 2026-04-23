@@ -10,6 +10,7 @@ use super::helpers::*;
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCountContext;
 use finstack_valuations::instruments::fx::fx_option::FxOption;
+use finstack_valuations::prelude::Instrument;
 use time::macros::date;
 
 fn parity_rhs(call: &FxOption, strike: f64, params: MarketParams, as_of: Date) -> f64 {

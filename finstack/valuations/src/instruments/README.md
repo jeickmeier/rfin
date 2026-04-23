@@ -293,7 +293,7 @@ All instruments support market quote overrides via `PricingOverrides`:
 let bond = Bond::fixed(/* ... */)
     .with_pricing_overrides(
         PricingOverrides::none()
-            .with_clean_price(99.5)        // Override model price
+            .with_quoted_clean_price(99.5)        // Override model price
             .with_ytm_bump_decimal(1e-4)   // 1bp bump for convexity
     );
 ```
@@ -302,7 +302,7 @@ Common overrides:
 
 - `quoted_clean_price`: Bond prices
 - `implied_volatility`: Option vols (overrides surface)
-- `quoted_spread_bp`: CDS spreads
+- `cds_quote_bp`: CDS spreads
 - `upfront_payment`: Convertibles, CDS
 - `adaptive_bumps`: Dynamic bump sizing for Greeks
 

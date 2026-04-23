@@ -1,8 +1,12 @@
 //! Generic pricer implementations for instrument pricing.
 //!
 //! This module provides generic pricer types that eliminate boilerplate by
-//! delegating to instruments' `value()` methods. Use these when an instrument
+//! delegating to instruments' `base_value()` methods. Use these when an instrument
 //! implements the [`Instrument`] trait and doesn't need specialized pricing logic.
+//!
+//! The pricer returns the **unshocked** base PV; the scenario shock is applied
+//! by [`build_with_metrics_dyn`](crate::instruments::common_impl::helpers::build_with_metrics_dyn)
+//! in the metrics pipeline so that the shock is applied exactly once.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
@@ -70,8 +74,9 @@ where
             .downcast_ref::<I>()
             .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
 
-        // Compute present value using the instrument's unified value method
-        let pv = typed_instrument.value(market, as_of).map_err(|e| {
+        // Compute the base (unshocked) present value; scenario shocks are
+        // applied by the metrics pipeline exactly once.
+        let pv = typed_instrument.base_value(market, as_of).map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 

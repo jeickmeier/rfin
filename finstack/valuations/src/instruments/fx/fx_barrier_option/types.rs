@@ -482,7 +482,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
     /// - `use_gobet_miri = true` -> MC discrete-monitoring-corrected pricer
     ///
     /// If `use_gobet_miri = true` but `mc` is disabled, this returns an error.
-    fn value(
+    fn base_value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

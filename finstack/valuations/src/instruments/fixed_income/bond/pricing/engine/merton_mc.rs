@@ -1083,7 +1083,10 @@ pub mod calibration {
                 quote_ctx.dirty_from_clean_pct(clean_pct, bond.notional.amount())
             }
             BondQuoteInput::DirtyPriceCcy(dirty_ccy) => dirty_ccy,
-            BondQuoteInput::Ytm(ytm) => {
+            BondQuoteInput::Ytm(ytm) | BondQuoteInput::Ytw(ytm) => {
+                // YTW inversion uses maturity flows (same convention as
+                // `Bond::base_value`'s `quoted_ytw` path); for callable bonds,
+                // prefer `Oas` for exercise-aware pricing.
                 let flows = bond.pricing_dated_cashflows(market, as_of)?;
                 price_from_ytm(bond, &flows, quote_date, ytm)?
             }

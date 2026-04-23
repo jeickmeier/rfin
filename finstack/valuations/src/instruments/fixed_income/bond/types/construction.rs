@@ -557,7 +557,7 @@ impl Bond {
         let cashflow_spec = CashflowSpec::fixed(0.0, inferred_freq, schedule.day_count);
 
         let pricing_overrides = if let Some(price) = quoted_clean {
-            PricingOverrides::default().with_clean_price(price)
+            PricingOverrides::default().with_quoted_clean_price(price)
         } else {
             PricingOverrides::default()
         };

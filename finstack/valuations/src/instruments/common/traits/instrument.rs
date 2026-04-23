@@ -491,7 +491,50 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     /// # Ok(())
     /// # }
     /// ```
-    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
+    //
+    // # Override Contract
+    //
+    // - `MarketQuoteOverrides` (e.g. `quoted_clean_price`, `quoted_ytm`,
+    //   `implied_volatility`): honored by `base_value` (instrument-specific).
+    // - `ModelConfig` (e.g. `tree_steps`, `mc_paths`, `vol_model`): honored by
+    //   the pricer implementing `base_value`.
+    // - `ScenarioPricingOverrides` (e.g. `scenario_price_shock_pct`): applied
+    //   automatically by the default [`Instrument::value`] wrapper; the
+    //   `base_value` implementation must not apply scenario shocks itself.
+    // - `MetricPricingOverrides` (bump sizes, `theta_period`, deterministic
+    //   MC seeds) are out of scope for `base_value`/`value`; they are consumed
+    //   by the metrics pipeline.
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
+
+    /// Compute the scenario-adjusted present value.
+    ///
+    /// Default implementation invokes [`Instrument::base_value`] and applies any
+    /// active [`ScenarioPricingOverrides`] exactly once. Instruments should not
+    /// override this method; implement pricing logic in `base_value` instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `market` - Market data context
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Present value with scenario price shock applied (if any).
+    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        let base = self.base_value(market, as_of)?;
+        Ok(self
+            .scenario_overrides()
+            .map_or(base, |overrides| overrides.apply_to_value(base)))
+    }
+
+    /// Compute the base present value as raw f64, before scenario adjustments.
+    ///
+    /// Default implementation delegates to [`Instrument::base_value`] and extracts
+    /// the amount. Override for high-precision pricers that want to avoid
+    /// Money rounding in intermediate calculations.
+    fn base_value_raw(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        Ok(self.base_value(market, as_of)?.amount())
+    }
 
     /// Compute the present value as raw f64 (high precision path for risk calculations).
     ///

@@ -91,7 +91,7 @@ fn bench_bond_ytm(c: &mut Criterion) {
     for tenor in [2, 5, 10, 30].iter() {
         let mut bond = create_test_bond(*tenor);
         // Set quoted price to require YTM solving
-        bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
+        bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(95.0);
 
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
@@ -168,7 +168,7 @@ fn bench_bond_yield_dv01(c: &mut Criterion) {
 
     for tenor in [2, 5, 10, 30].iter() {
         let mut bond = create_test_bond(*tenor);
-        bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.25);
+        bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(99.25);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
@@ -224,7 +224,7 @@ fn create_callable_bond(maturity_years: i32) -> Bond {
         }
     }
 
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(99.0);
     bond
 }
 
@@ -243,7 +243,7 @@ fn create_floating_note(maturity_years: i32) -> Bond {
         "USD-OIS",
     )
     .expect("Bond::floating should succeed with valid parameters");
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.25);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(100.25);
     bond
 }
 
@@ -373,7 +373,7 @@ fn bench_spread_metrics(c: &mut Criterion) {
 
     let base_fixed = {
         let mut bond = create_test_bond(10);
-        bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.25);
+        bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(99.25);
         bond
     };
 

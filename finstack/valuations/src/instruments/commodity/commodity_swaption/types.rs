@@ -276,7 +276,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwaption {
         Ok(deps)
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // Post-expiry: option is fully settled, value is 0
         if as_of > self.expiry {
             return Ok(Money::new(0.0, self.underlying.currency));

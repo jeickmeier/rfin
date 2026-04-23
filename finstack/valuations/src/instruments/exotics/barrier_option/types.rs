@@ -235,7 +235,7 @@ impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
     ///
     /// If `use_gobet_miri = true` but the crate is built without the `mc` feature,
     /// this returns an error instead of silently falling back to continuous pricing.
-    fn value(
+    fn base_value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

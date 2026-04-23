@@ -241,7 +241,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOptio
         Ok(deps)
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         use crate::instruments::commodity::commodity_asian_option::pricer;
         pricer::compute_pv(self, market, as_of)
     }

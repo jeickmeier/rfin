@@ -46,7 +46,8 @@ pub fn build_bond_instrument(
                 convention,
                 ctx,
             )?;
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(*clean_price_pct);
+            bond.pricing_overrides =
+                PricingOverrides::default().with_quoted_clean_price(*clean_price_pct);
             Ok(Box::new(bond))
         }
         BondQuote::FixedRateBulletYtm {
@@ -83,7 +84,8 @@ pub fn build_bond_instrument(
                 / bond.notional.amount()
                 * 100.0;
 
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_price_pct);
+            bond.pricing_overrides =
+                PricingOverrides::default().with_quoted_clean_price(clean_price_pct);
             Ok(Box::new(bond))
         }
         BondQuote::FixedRateBulletZSpread {
@@ -126,7 +128,8 @@ pub fn build_bond_instrument(
             let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
                 / bond.notional.amount()
                 * 100.0;
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_price_pct);
+            bond.pricing_overrides =
+                PricingOverrides::default().with_quoted_clean_price(clean_price_pct);
             Ok(Box::new(bond))
         }
         BondQuote::FixedRateBulletOas {
@@ -168,7 +171,8 @@ pub fn build_bond_instrument(
             let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
                 / bond.notional.amount()
                 * 100.0;
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_price_pct);
+            bond.pricing_overrides =
+                PricingOverrides::default().with_quoted_clean_price(clean_price_pct);
             Ok(Box::new(bond))
         }
     }

@@ -246,7 +246,7 @@ impl RealEstateAsset {
 impl Instrument for RealEstateAsset {
     impl_instrument_base!(InstrumentType::RealEstateAsset);
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         pricer::compute_pv(self, market, as_of)
     }
 

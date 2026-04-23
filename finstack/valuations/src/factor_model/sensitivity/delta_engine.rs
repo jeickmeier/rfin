@@ -343,7 +343,7 @@ mod tests {
             Box::new(self.clone())
         }
 
-        fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+        fn base_value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
             Ok(Money::new(self.raw_value(market)?, Currency::USD))
         }
 

@@ -250,9 +250,18 @@ impl PricerRegistry {
             ..
         } = options;
 
-        let base_result = self.price(instrument, model, market.as_ref(), as_of, cfg.as_deref())?;
+        let mut base_result =
+            self.price(instrument, model, market.as_ref(), as_of, cfg.as_deref())?;
 
         if metrics.is_empty() {
+            // The standard metrics pipeline applies scenario price shocks via
+            // `build_with_metrics_dyn`, but the empty-metrics fast path skips
+            // that helper. Apply the shock here so `price_with_metrics(..., &[], ..)`
+            // remains consistent with `Instrument::value` for instruments with
+            // active `ScenarioPricingOverrides`.
+            if let Some(overrides) = instrument.scenario_overrides() {
+                base_result.value = overrides.apply_to_value(base_result.value);
+            }
             return Ok(base_result);
         }
 

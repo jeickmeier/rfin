@@ -59,7 +59,7 @@ fn test_oas_with_quoted_price() {
         "USD-OIS",
     )
     .unwrap();
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(98.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(98.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

@@ -316,7 +316,7 @@ impl EquityTotalReturnSwap {
 impl crate::instruments::common_impl::traits::Instrument for EquityTotalReturnSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::EquityTotalReturnSwap);
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Validate configuration
         self.validate()?;
 

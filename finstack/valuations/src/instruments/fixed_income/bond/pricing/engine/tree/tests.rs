@@ -28,7 +28,7 @@ fn create_test_bond() -> Bond {
         ))
         .discount_curve_id("USD-OIS".into())
         .credit_curve_id_opt(None)
-        .pricing_overrides(PricingOverrides::default().with_clean_price(98.5))
+        .pricing_overrides(PricingOverrides::default().with_quoted_clean_price(98.5))
         .call_put_opt(None)
         .custom_cashflows_opt(None)
         .attributes(Default::default())

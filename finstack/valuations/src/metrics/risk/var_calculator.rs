@@ -1002,7 +1002,7 @@ mod tests {
             Box::new(self.clone())
         }
 
-        fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+        fn base_value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
             match market.get_price(&self.price_id)? {
                 MarketScalar::Price(m) => Ok(*m),
                 MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency)),

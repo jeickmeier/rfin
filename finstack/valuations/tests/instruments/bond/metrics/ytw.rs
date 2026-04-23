@@ -23,7 +23,7 @@ fn test_ytw_equals_ytm_for_non_callable_bond_from_price() {
     )
     .unwrap();
     // Market-quoted clean price (percent of par)
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.5);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(99.5);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -80,7 +80,7 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
     assert!(pv.is_finite());
 
     // Two different quoted clean prices with the same curves
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(95.0);
     let result_low = bond
         .price_with_metrics(
             &market,
@@ -91,7 +91,7 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
         .unwrap();
     let ytw_low = *result_low.measures.get("ytw").unwrap();
 
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(105.0);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(105.0);
     let result_high = bond
         .price_with_metrics(
             &market,
@@ -170,7 +170,7 @@ fn test_ytw_floating_bond_matches_ytm_from_price() {
     // Use model PV to back out a clean price quote consistent with the curves.
     let pv = bond.value(&market, as_of).unwrap().amount();
     let clean_px = pv / notional.amount() * 100.0;
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(clean_px);
 
     let result = bond
         .price_with_metrics(
@@ -256,7 +256,7 @@ fn test_ytw_amortizing_bond_matches_ytm_from_price() {
 
     let pv = bond.value(&market, as_of).unwrap().amount();
     let clean_px = pv / notional.amount() * 100.0;
-    bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(clean_px);
 
     let result = bond
         .price_with_metrics(

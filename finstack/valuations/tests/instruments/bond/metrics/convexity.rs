@@ -25,8 +25,8 @@ fn test_convexity_positive() {
         "USD-OIS",
     )
     .unwrap();
-    bond.pricing_overrides =
-        finstack_valuations::instruments::PricingOverrides::default().with_clean_price(100.0);
+    bond.pricing_overrides = finstack_valuations::instruments::PricingOverrides::default()
+        .with_quoted_clean_price(100.0);
 
     let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)

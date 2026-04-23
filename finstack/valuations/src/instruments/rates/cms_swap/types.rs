@@ -534,7 +534,7 @@ impl crate::instruments::common_impl::traits::Instrument for CmsSwap {
         crate::pricer::ModelKey::Black76
     }
 
-    fn value(
+    fn base_value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

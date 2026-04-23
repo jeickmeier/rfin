@@ -445,7 +445,7 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
         Ok(deps)
     }
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         pricer::compute_pv(self, curves, as_of)
     }
 

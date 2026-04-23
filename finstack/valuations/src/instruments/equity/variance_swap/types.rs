@@ -322,7 +322,7 @@ impl VarianceSwap {
 impl crate::instruments::common_impl::traits::Instrument for VarianceSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::VarianceSwap);
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

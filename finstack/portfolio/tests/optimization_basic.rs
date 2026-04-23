@@ -76,7 +76,7 @@ impl Instrument for FixedValueInstrument {
         Box::new(self.clone())
     }
 
-    fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         Ok(self.value)
     }
 
@@ -228,9 +228,9 @@ fn build_bond_portfolio() -> finstack_portfolio::Portfolio {
 
     // For yield-based optimization, require explicit quoted clean prices for all bonds.
     // Use par (100.0) for simplicity so coupon ordering drives YTM ordering.
-    bond_aaa.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
-    bond_bbb.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
-    bond_ccc.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
+    bond_aaa.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(100.0);
+    bond_bbb.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(100.0);
+    bond_ccc.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(100.0);
 
     let pos_aaa = Position::new(
         "POS_AAA",

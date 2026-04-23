@@ -123,9 +123,14 @@ impl AsianOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        // Get volatility
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike);
+        // Get volatility (override → surface)
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t,
+            inst.strike,
+        )?;
 
         // Create GBM process
         let gbm_params = GbmParams::new(r, q, sigma)?;
@@ -587,8 +592,13 @@ impl AsianOptionMcPricer {
             inst.div_yield_id.as_ref(),
         )?;
 
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, inst.strike);
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t,
+            inst.strike,
+        )?;
 
         let gbm_params = GbmParams::new(r, q, sigma)?;
         let process = GbmProcess::new(gbm_params);

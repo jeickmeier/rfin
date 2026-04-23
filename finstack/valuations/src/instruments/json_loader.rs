@@ -817,7 +817,7 @@ mod tests {
                     "pricing_overrides": {
                         "quoted_clean_price": null,
                         "implied_volatility": null,
-                        "quoted_spread_bp": null,
+                        "cds_quote_bp": null,
                         "upfront_payment": null,
                         "ytm_bump_decimal": null,
                         "theta_period": null,
@@ -913,7 +913,7 @@ mod tests {
                     "pricing_overrides": {
                         "quoted_clean_price": null,
                         "implied_volatility": null,
-                        "quoted_spread_bp": null,
+                        "cds_quote_bp": null,
                         "upfront_payment": null,
                         "ytm_bump_decimal": null,
                         "theta_period": null,
@@ -965,7 +965,7 @@ mod tests {
                     "pricing_overrides": {
                         "quoted_clean_price": null,
                         "implied_volatility": null,
-                        "quoted_spread_bp": null,
+                        "cds_quote_bp": null,
                         "upfront_payment": null,
                         "ytm_bump_decimal": null,
                         "theta_period": null,

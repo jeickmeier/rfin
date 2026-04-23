@@ -501,7 +501,7 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
         MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn value(
+    fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,

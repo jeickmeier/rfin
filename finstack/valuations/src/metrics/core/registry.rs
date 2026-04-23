@@ -542,7 +542,7 @@ mod tests {
             self.instrument_type
         }
 
-        fn value(&self, _ctx: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        fn base_value(&self, _ctx: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
             Money::try_new(100.0, Currency::USD)
         }
 

@@ -264,7 +264,7 @@ mod tests {
             Box::new(self.clone())
         }
 
-        fn value(
+        fn base_value(
             &self,
             market: &MarketContext,
             _as_of: finstack_core::dates::Date,

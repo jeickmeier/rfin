@@ -164,7 +164,7 @@ impl Instrument for TestInstrument {
         Ok(deps)
     }
 
-    fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    fn base_value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         Ok(self.value)
     }
 

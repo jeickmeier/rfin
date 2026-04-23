@@ -210,7 +210,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
         let clean_px = dirty_target / notional.amount() * 100.0;
 
         let mut bond = base_bond.clone();
-        bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
+        bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(clean_px);
 
         // Run DM metric via the normal metrics pipeline.
         let result = bond

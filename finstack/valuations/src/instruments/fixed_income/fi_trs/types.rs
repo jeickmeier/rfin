@@ -237,7 +237,7 @@ impl FIIndexTotalReturnSwap {
 impl crate::instruments::common_impl::traits::Instrument for FIIndexTotalReturnSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::FIIndexTotalReturnSwap);
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    fn base_value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Calculate total return leg PV
         let total_return_pv = self.pv_total_return_leg(curves, as_of)?;
 

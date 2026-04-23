@@ -109,7 +109,16 @@ impl Pricer for CommodityOptionMcPricer {
                 PricingError::type_mismatch(InstrumentType::CommodityOption, instrument.key())
             })?;
 
-        let pv = option.npv_mc(&self.mc_params, market, as_of).map_err(|e| {
+        // Instrument-level mc_paths override takes precedence over the pricer
+        // registration defaults (consistent with autocallable/asian/lookback/etc.).
+        let mut mc_params = self.mc_params.clone();
+        if let Some(n) = option.pricing_overrides.model_config.mc_paths {
+            if n > 0 {
+                mc_params.n_paths = n;
+            }
+        }
+
+        let pv = option.npv_mc(&mc_params, market, as_of).map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
