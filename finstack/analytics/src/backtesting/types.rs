@@ -10,7 +10,9 @@ use std::str::FromStr;
 /// representing losses).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Breach {
+    /// Realized P&L breached the VaR forecast.
     Hit,
+    /// Realized P&L stayed within the VaR forecast.
     Miss,
 }
 
@@ -19,8 +21,11 @@ pub enum Breach {
 /// Used by the multi-model comparison orchestrator to label results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum VarMethod {
+    /// Historical simulation VaR.
     Historical,
+    /// Parametric (variance-covariance) VaR.
     Parametric,
+    /// Cornish-Fisher expansion VaR (skew/kurtosis adjusted).
     CornishFisher,
 }
 
@@ -214,6 +219,7 @@ pub struct BacktestResult {
 /// and collects results side-by-side.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MultiModelComparison {
+    /// Per-method backtest results, one entry per VaR model compared.
     pub results: Vec<(VarMethod, BacktestResult)>,
 }
 
@@ -242,23 +248,27 @@ impl Default for VarBacktestConfig {
 }
 
 impl VarBacktestConfig {
+    /// Create a `VarBacktestConfig` populated with default values.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Override the confidence level (e.g. `0.95`, `0.99`).
     #[must_use]
     pub fn with_confidence(mut self, confidence: f64) -> Self {
         self.confidence = confidence;
         self
     }
 
+    /// Override the rolling window size (number of observations).
     #[must_use]
     pub fn with_window_size(mut self, window_size: usize) -> Self {
         self.window_size = window_size;
         self
     }
 
+    /// Override the significance level used by hypothesis tests (e.g. `0.05`).
     #[must_use]
     pub fn with_significance(mut self, significance: f64) -> Self {
         self.significance = significance;

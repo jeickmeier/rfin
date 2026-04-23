@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
 
 //! Performance analytics on numeric slices and `finstack_core::dates::Date`.
 //!

@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! Monte Carlo pricing infrastructure for derivative valuation and diagnostics.
 //!
 //! This crate combines stochastic-process definitions, discretization schemes,

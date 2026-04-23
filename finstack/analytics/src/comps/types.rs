@@ -14,10 +14,12 @@ use std::str::FromStr;
 pub struct CompanyId(pub String);
 
 impl CompanyId {
+    /// Construct a new `CompanyId` from any string-like value.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
 
+    /// Borrow the underlying identifier as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }

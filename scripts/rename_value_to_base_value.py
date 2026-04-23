@@ -6,8 +6,8 @@ as the first non-self parameter). Leaves alone MC payoff trait (fn value(&self, 
 and unrelated helpers.
 """
 
-import re
 import pathlib
+import re
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 ROOTS = [

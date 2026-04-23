@@ -10,11 +10,17 @@ use serde::{Deserialize, Serialize};
 /// Descriptive statistics for a peer set metric.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerStats {
+    /// Number of observations.
     pub count: usize,
+    /// Arithmetic mean.
     pub mean: f64,
+    /// Median (50th percentile).
     pub median: f64,
+    /// Sample standard deviation.
     pub std_dev: f64,
+    /// Minimum value.
     pub min: f64,
+    /// Maximum value.
     pub max: f64,
     /// 25th percentile.
     pub q1: f64,

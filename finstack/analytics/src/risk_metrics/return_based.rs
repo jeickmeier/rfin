@@ -503,11 +503,20 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum RuinDefinition {
     /// Ruin occurs once path wealth falls to or below a fraction of starting wealth.
-    WealthFloor { floor_fraction: f64 },
+    WealthFloor {
+        /// Wealth-floor fraction of starting wealth (e.g. `0.5` = 50%).
+        floor_fraction: f64,
+    },
     /// Ruin occurs if terminal wealth ends at or below a target fraction.
-    TerminalFloor { floor_fraction: f64 },
+    TerminalFloor {
+        /// Terminal-wealth fraction of starting wealth triggering ruin.
+        floor_fraction: f64,
+    },
     /// Ruin occurs once drawdown from the running peak reaches the threshold.
-    DrawdownBreach { max_drawdown: f64 },
+    DrawdownBreach {
+        /// Maximum tolerated drawdown, non-positive (e.g. `-0.25` = -25%).
+        max_drawdown: f64,
+    },
 }
 
 /// Simulation controls for ruin-probability estimation.

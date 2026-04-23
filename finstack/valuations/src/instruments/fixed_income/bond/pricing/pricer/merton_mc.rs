@@ -22,9 +22,17 @@ use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use indexmap::IndexMap;
 
+/// Merton structural Monte Carlo pricer for (PIK) bonds.
+///
+/// Registered under `PricerKey::new(InstrumentType::Bond, ModelKey::MertonMc)`;
+/// see the module-level docs for configuration details and metric outputs.
 pub struct SimpleBondMertonMcPricer;
 
 impl SimpleBondMertonMcPricer {
+    /// Construct a stateless `SimpleBondMertonMcPricer`.
+    ///
+    /// All per-instrument configuration (paths, barrier, calibration, etc.) is
+    /// read from the bond's `pricing_overrides.model_config` at pricing time.
     pub fn new() -> Self {
         Self
     }

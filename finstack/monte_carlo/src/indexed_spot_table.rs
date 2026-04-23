@@ -1,5 +1,6 @@
 //! Auto-generated static keys for `state_keys::indexed_spot` (spot_0 … spot_127).
 
+/// Number of pre-generated inline `spot_N` state keys (`spot_0` .. `spot_127`).
 pub const INDEXED_SPOT_INLINE: usize = 128;
 
 pub(crate) const INDEXED_SPOT_TABLE: [&str; INDEXED_SPOT_INLINE] = [
