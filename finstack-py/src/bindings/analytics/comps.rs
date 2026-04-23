@@ -10,9 +10,9 @@
 //!
 //! The scoring API takes plain dicts/lists from Python rather than the
 //! strongly-typed `CompanyMetrics`/`PeerSet` structs used in Rust. Each
-//! peer is a dict keyed by metric name; dimensions are `(name, weight)`
-//! tuples. This keeps the Python surface small while still exercising the
-//! underlying `finstack_analytics::comps::score_relative_value` logic.
+//! peer is a dict keyed by metric name; dimensions are either `(name, weight)`
+//! tuples for univariate scoring or dicts with `label`, `y`, optional `x`, and
+//! `weight` keys for regression-based scoring.
 
 use finstack_analytics::comps::{
     compute_multiple as core_compute_multiple, peer_stats as core_peer_stats,
@@ -20,8 +20,9 @@ use finstack_analytics::comps::{
     score_relative_value as core_score, z_score as core_z_score, CompanyMetrics, MetricExtractor,
     Multiple, PeerSet, PeriodBasis, ScoringDimension,
 };
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyAny, PyDict};
 
 use crate::errors::{core_to_py, display_to_py};
 
@@ -29,21 +30,21 @@ use crate::errors::{core_to_py, display_to_py};
 // Statistics
 // ---------------------------------------------------------------------------
 
-/// Percentile rank of ``value`` within ``peer_values`` (0-100 scale).
+/// Percentile rank of ``value`` within ``peer_values`` (0-1 scale).
 ///
 /// Uses the "fraction of values less than or equal" convention. Returns
-/// 50.0 as a neutral fallback when ``peer_values`` is empty.
+/// 0.5 as a neutral fallback when ``peer_values`` is empty.
 ///
 /// Arguments:
 ///     value: The subject value to rank.
 ///     peer_values: Peer distribution (need not be sorted).
 ///
 /// Returns:
-///     Percentile rank in [0, 100].
+///     Percentile rank in [0, 1].
 #[pyfunction]
 #[pyo3(text_signature = "(value, peer_values)")]
 fn percentile_rank(value: f64, peer_values: Vec<f64>) -> f64 {
-    core_percentile_rank(&peer_values, value).unwrap_or(0.5) * 100.0
+    core_percentile_rank(&peer_values, value).unwrap_or(0.5)
 }
 
 /// Standard (z-) score of ``value`` in the peer distribution.
@@ -224,19 +225,82 @@ fn is_named_field(name: &str) -> bool {
     )
 }
 
+fn metric_extractor(name: &str) -> MetricExtractor {
+    if is_named_field(name) {
+        MetricExtractor::Named(name.to_string())
+    } else {
+        MetricExtractor::Custom(name.to_string())
+    }
+}
+
+fn dict_get_string_any(dict: &Bound<'_, PyDict>, keys: &[&str]) -> PyResult<Option<String>> {
+    for key in keys {
+        if let Some(value) = dict.get_item(*key)? {
+            return value.extract::<String>().map(Some);
+        }
+    }
+    Ok(None)
+}
+
+fn parse_scoring_dimension(obj: &Bound<'_, PyAny>) -> PyResult<ScoringDimension> {
+    if let Ok((name, weight)) = obj.extract::<(String, f64)>() {
+        return Ok(ScoringDimension {
+            label: name.clone(),
+            y_extractor: metric_extractor(&name),
+            x_extractors: vec![],
+            weight,
+        });
+    }
+
+    let dict = obj.cast::<PyDict>().map_err(|_| {
+        PyValueError::new_err(
+            "dimension must be a (metric_name, weight) tuple or a dict with label/y/x/weight",
+        )
+    })?;
+
+    let y_name = dict_get_string_any(dict, &["y", "y_extractor", "metric"])?
+        .ok_or_else(|| PyValueError::new_err("dimension dict missing required key 'y'"))?;
+    let label = dict_get_string_any(dict, &["label", "name"])?.unwrap_or_else(|| y_name.clone());
+    let weight = match dict.get_item("weight")? {
+        Some(value) => value.extract::<f64>()?,
+        None => 1.0,
+    };
+    let x_extractors = match dict.get_item("x")?.or(dict.get_item("x_extractors")?) {
+        Some(value) => {
+            if let Ok(name) = value.extract::<String>() {
+                vec![metric_extractor(&name)]
+            } else {
+                let names = value.extract::<Vec<String>>()?;
+                names
+                    .into_iter()
+                    .map(|name| metric_extractor(&name))
+                    .collect()
+            }
+        }
+        None => vec![],
+    };
+
+    Ok(ScoringDimension {
+        label,
+        y_extractor: metric_extractor(&y_name),
+        x_extractors,
+        weight,
+    })
+}
+
 /// Score a subject against its peers across multiple weighted dimensions.
 ///
-/// Each dimension is a ``(metric_name, weight)`` tuple. For each
-/// dimension the binding computes percentile rank, z-score, and (since
-/// no X extractors are provided) a univariate score; the composite is
-/// the weighted average where positive = cheap, negative = rich.
+/// Dimensions may be ``(metric_name, weight)`` tuples for univariate
+/// scoring or dicts of the form ``{"label": str, "y": str, "x": [str],
+/// "weight": float}`` for regression-based fair-value scoring. The
+/// composite is the weighted average where positive = cheap, negative = rich.
 ///
 /// Arguments:
 ///     subject_metrics: Dict of ``{metric_name: value}`` for the subject.
 ///     peer_metrics: List of dicts, one per peer, same schema as the
 ///         subject.
-///     dimensions: List of ``(metric_name, weight)`` tuples selecting
-///         which metrics to score and their composite weights.
+///     dimensions: List of tuple or dict dimensions selecting which metrics
+///         to score and their composite weights.
 ///
 /// Returns:
 ///     Dict with keys ``{"composite_score", "confidence", "peer_count",
@@ -248,7 +312,7 @@ fn score_relative_value<'py>(
     py: Python<'py>,
     subject_metrics: &Bound<'_, PyDict>,
     peer_metrics: Vec<Bound<'_, PyDict>>,
-    dimensions: Vec<(String, f64)>,
+    dimensions: Vec<Bound<'_, PyAny>>,
 ) -> PyResult<Bound<'py, PyDict>> {
     // Build CompanyMetrics for subject + peers.
     let subject = dict_to_company_metrics("SUBJECT", subject_metrics)?;
@@ -259,23 +323,10 @@ fn score_relative_value<'py>(
 
     let peer_set = PeerSet::new(subject, peers, PeriodBasis::Ltm);
 
-    // Map (name, weight) pairs to ScoringDimension (univariate).
     let scoring_dims: Vec<ScoringDimension> = dimensions
-        .into_iter()
-        .map(|(name, weight)| {
-            let extractor = if is_named_field(&name) {
-                MetricExtractor::Named(name.clone())
-            } else {
-                MetricExtractor::Custom(name.clone())
-            };
-            ScoringDimension {
-                label: name,
-                y_extractor: extractor,
-                x_extractors: vec![],
-                weight,
-            }
-        })
-        .collect();
+        .iter()
+        .map(parse_scoring_dimension)
+        .collect::<PyResult<_>>()?;
 
     let result = core_score(&peer_set, &scoring_dims).map_err(core_to_py)?;
 
@@ -289,6 +340,8 @@ fn score_relative_value<'py>(
         let dim_dict = PyDict::new(py);
         dim_dict.set_item("percentile", d.percentile)?;
         dim_dict.set_item("z_score", d.z_score)?;
+        dim_dict.set_item("regression_residual", d.regression_residual)?;
+        dim_dict.set_item("r_squared", d.r_squared)?;
         dim_dict.set_item("weight", d.weight)?;
         by_dim.set_item(&d.label, dim_dict)?;
     }

@@ -514,7 +514,7 @@ pub enum RuinDefinition {
     },
     /// Ruin occurs once drawdown from the running peak reaches the threshold.
     DrawdownBreach {
-        /// Maximum tolerated drawdown, non-positive (e.g. `-0.25` = -25%).
+        /// Maximum tolerated drawdown as a positive fraction (e.g. `0.25` = 25%).
         max_drawdown: f64,
     },
 }

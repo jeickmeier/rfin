@@ -462,7 +462,7 @@ class RuinModel:
         self,
         horizon_periods: int = 252,
         n_paths: int = 10_000,
-        block_size: int = 63,
+        block_size: int = 5,
         seed: int = 42,
         confidence_level: float = 0.95,
     ) -> None:
@@ -2629,7 +2629,7 @@ def fytd_select(
 # ---------------------------------------------------------------------------
 
 def percentile_rank(value: float, peer_values: list[float]) -> float:
-    """Percentile rank of ``value`` within ``peer_values`` on a 0-100 scale."""
+    """Percentile rank of ``value`` within ``peer_values`` on a 0-1 scale."""
 
 def z_score(value: float, peer_values: list[float]) -> float:
     """Standard score of ``value`` within the peer distribution."""
@@ -2654,6 +2654,6 @@ def compute_multiple(
 def score_relative_value(
     subject_metrics: dict[str, float],
     peer_metrics: Sequence[dict[str, float]],
-    dimensions: Sequence[tuple[str, float]],
+    dimensions: Sequence[tuple[str, float] | dict[str, object]],
 ) -> dict[str, object]:
-    """Composite relative-value score across weighted dimensions."""
+    """Composite relative-value score across weighted univariate or regression dimensions."""

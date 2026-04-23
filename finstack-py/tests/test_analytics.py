@@ -2,10 +2,12 @@
 
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from finstack.analytics import (
+    RuinModel,
     classify_breaches,
     comp_sum,
     comp_total,
@@ -15,10 +17,12 @@ from finstack.analytics import (
     max_drawdown,
     mean_return,
     mtd_select,
+    percentile_rank,
     pnl_explanation,
     qtd_select,
     regression_fair_value,
     rolling_var_forecasts,
+    score_relative_value,
     sharpe,
     simple_returns,
     sortino,
@@ -252,6 +256,35 @@ class TestCompsBindings:
         )
         assert result["fitted_value"] == pytest.approx(7.0)
         assert result["residual"] == pytest.approx(3.0)
+
+    def test_percentile_rank_uses_fraction_units(self) -> None:
+        """Python keeps Rust/WASM percentile rank units in [0, 1]."""
+        assert percentile_rank(250.0, [100.0, 200.0, 300.0, 400.0, 500.0]) == pytest.approx(0.4)
+
+    def test_ruin_model_default_matches_rust(self) -> None:
+        """Default bootstrap block size matches the canonical Rust model."""
+        assert RuinModel().block_size == 5
+
+    def test_score_relative_value_accepts_regression_dimensions(self) -> None:
+        """Python can pass full regression dimensions through to Rust scoring."""
+        subject = {"leverage": 2.0, "oas_bps": 250.0}
+        peers = [
+            {"leverage": 1.0, "oas_bps": 100.0},
+            {"leverage": 2.0, "oas_bps": 200.0},
+            {"leverage": 3.0, "oas_bps": 300.0},
+        ]
+
+        result = score_relative_value(
+            subject,
+            peers,
+            [{"label": "Spread vs Leverage", "y": "oas_bps", "x": ["leverage"], "weight": 1.0}],
+        )
+
+        by_dimension = cast(dict[str, dict[str, float | None]], result["by_dimension"])
+        dim = by_dimension["Spread vs Leverage"]
+        assert dim["regression_residual"] == pytest.approx(50.0)
+        assert dim["r_squared"] == pytest.approx(1.0)
+        assert cast(float, result["composite_score"]) > 0.0
 
 
 class TestLookbackBindings:

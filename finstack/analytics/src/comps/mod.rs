@@ -482,6 +482,33 @@ mod tests {
     }
 
     #[test]
+    fn scoring_regression_positive_residual_is_cheap() {
+        let peers = vec![
+            make_company("A", "Energy", "BB", "US", 1.0, 100.0, 5_000.0),
+            make_company("B", "Energy", "BB", "US", 2.0, 200.0, 5_000.0),
+            make_company("C", "Energy", "BB", "US", 3.0, 300.0, 5_000.0),
+        ];
+        let subject = make_company("SUBJECT", "Energy", "BB", "US", 2.0, 250.0, 5_000.0);
+        let peer_set = PeerSet::new(subject, peers, PeriodBasis::Ltm);
+
+        let dimensions = vec![ScoringDimension {
+            label: "Spread vs Leverage".to_string(),
+            y_extractor: MetricExtractor::Named("oas_bps".to_string()),
+            x_extractors: vec![MetricExtractor::Named("leverage".to_string())],
+            weight: 1.0,
+        }];
+
+        let result = score_relative_value(&peer_set, &dimensions).expect("scoring should succeed");
+        let dim = &result.dimensions[0];
+
+        assert_eq!(dim.regression_residual, Some(50.0));
+        assert!(
+            result.composite_score > 0.0,
+            "positive residual should produce a cheap positive score"
+        );
+    }
+
+    #[test]
     fn scoring_empty_dimensions_error() {
         let subject = make_company("SUBJECT", "Energy", "BB", "US", 4.0, 330.0, 6_500.0);
         let peer_set = PeerSet::new(subject, vec![], PeriodBasis::Ltm);

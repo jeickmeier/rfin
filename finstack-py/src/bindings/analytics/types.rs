@@ -610,7 +610,7 @@ pub struct PyRuinModel {
 impl PyRuinModel {
     /// Create a ruin simulation model.
     #[new]
-    #[pyo3(signature = (horizon_periods=252, n_paths=10_000, block_size=63, seed=42, confidence_level=0.95))]
+    #[pyo3(signature = (horizon_periods=252, n_paths=10_000, block_size=5, seed=42, confidence_level=0.95))]
     fn new(
         horizon_periods: usize,
         n_paths: usize,

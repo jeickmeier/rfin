@@ -131,9 +131,9 @@ pub fn score_relative_value(
             (None, None)
         };
 
-        // Sign convention: negative residual or negative z-score means trading rich
-        // We negate so positive composite = cheap
-        let score = reg_residual.map(|r| -r).unwrap_or(-zs);
+        // Positive residual means actual spread is above fitted fair spread,
+        // i.e. cheap by the crate's rich/cheap convention.
+        let score = reg_residual.unwrap_or(-zs);
         weighted_sum += dim.weight * score;
         total_weight += dim.weight;
         if let Some(rsq) = r_sq {
