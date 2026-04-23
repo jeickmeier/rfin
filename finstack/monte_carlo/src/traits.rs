@@ -169,8 +169,8 @@ pub mod state_keys {
         }
     }
 
+    #[allow(clippy::expect_used)] // Mutex poisoning indicates prior panic; propagate.
     fn indexed_spot_overflow(index: usize) -> &'static str {
-        #[allow(clippy::expect_used)]
         let mut cache = INDEXED_SPOT_OVERFLOW
             .lock()
             .expect("indexed spot overflow cache mutex should not be poisoned");

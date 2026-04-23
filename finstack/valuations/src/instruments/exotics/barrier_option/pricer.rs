@@ -436,7 +436,7 @@ fn price_expired_barrier(
 // ========================= ANALYTICAL PRICER =========================
 
 use crate::instruments::common_impl::models::closed_form::barrier::{
-    barrier_call_continuous_df, barrier_put_continuous_df, barrier_rebate_continuous_df,
+    barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous, BarrierParams,
     BarrierType as AnalyticalBarrierType,
 };
 /// Broadie-Glasserman-Kou / Gobet-Miri discrete barrier adjustment constant.
@@ -559,40 +559,19 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             barrier_opt.barrier.amount()
         };
 
+        let params =
+            BarrierParams::with_df(spot, barrier_opt.strike, effective_barrier, t, df, q, sigma);
         let price = match barrier_opt.option_type {
-            crate::instruments::OptionType::Call => barrier_call_continuous_df(
-                spot,
-                barrier_opt.strike,
-                effective_barrier,
-                t,
-                df,
-                q,
-                sigma,
-                analytical_barrier_type,
-            ),
-            crate::instruments::OptionType::Put => barrier_put_continuous_df(
-                spot,
-                barrier_opt.strike,
-                effective_barrier,
-                t,
-                df,
-                q,
-                sigma,
-                analytical_barrier_type,
-            ),
+            crate::instruments::OptionType::Call => {
+                barrier_call_continuous(&params, analytical_barrier_type)
+            }
+            crate::instruments::OptionType::Put => {
+                barrier_put_continuous(&params, analytical_barrier_type)
+            }
         };
 
         let rebate_val = if let Some(rebate) = barrier_opt.rebate {
-            barrier_rebate_continuous_df(
-                spot,
-                effective_barrier,
-                rebate.amount(),
-                t,
-                df,
-                q,
-                sigma,
-                analytical_barrier_type,
-            )
+            barrier_rebate_continuous(&params, rebate.amount(), analytical_barrier_type)
         } else {
             0.0
         };
@@ -609,8 +588,8 @@ impl Pricer for BarrierOptionAnalyticalPricer {
 mod tests {
     use super::*;
     use crate::instruments::common_impl::models::closed_form::barrier::{
-        barrier_call_continuous_df, barrier_put_continuous_df, barrier_rebate_continuous,
-        down_out_call, BarrierType as AnalyticalBarrierType,
+        barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous, down_out_call,
+        BarrierParams, BarrierType as AnalyticalBarrierType,
     };
     use crate::instruments::exotics::barrier_option::types::{BarrierOption, BarrierType};
     use crate::instruments::{Attributes, OptionType, PricingOverrides};
@@ -733,16 +712,8 @@ mod tests {
             .day_count
             .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
-        let expected_rebate = barrier_rebate_continuous(
-            spot,
-            barrier,
-            rebate,
-            t,
-            rate,
-            div_yield,
-            vol,
-            AnalyticalBarrierType::UpOut,
-        );
+        let p = BarrierParams::new(spot, barrier, barrier, t, rate, div_yield, vol);
+        let expected_rebate = barrier_rebate_continuous(&p, rebate, AnalyticalBarrierType::UpOut);
 
         assert!(((rebate_pv - base_pv) - expected_rebate).abs() < 1e-12);
     }
@@ -824,16 +795,8 @@ mod tests {
             .expect("year fraction");
         let df = (-rate * t).exp();
         let shifted_barrier = barrier * (-(BG_BETA * vol * monitoring_dt.sqrt())).exp();
-        let expected = barrier_call_continuous_df(
-            spot,
-            strike,
-            shifted_barrier,
-            t,
-            df,
-            div_yield,
-            vol,
-            AnalyticalBarrierType::DownOut,
-        );
+        let p = BarrierParams::with_df(spot, strike, shifted_barrier, t, df, div_yield, vol);
+        let expected = barrier_call_continuous(&p, AnalyticalBarrierType::DownOut);
 
         assert!((pv - expected).abs() < 1e-12);
     }
@@ -980,16 +943,8 @@ mod tests {
             .year_fraction(as_of, expiry, DayCountContext::default())
             .expect("year fraction");
         let df = (-rate * t).exp();
-        let expected = barrier_put_continuous_df(
-            spot,
-            strike,
-            barrier,
-            t,
-            df,
-            div_yield,
-            vol,
-            AnalyticalBarrierType::UpOut,
-        );
+        let p = BarrierParams::with_df(spot, strike, barrier, t, df, div_yield, vol);
+        let expected = barrier_put_continuous(&p, AnalyticalBarrierType::UpOut);
 
         assert!((pv - expected).abs() < 1e-12);
     }

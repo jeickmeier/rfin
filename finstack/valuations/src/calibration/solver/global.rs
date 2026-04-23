@@ -457,14 +457,14 @@ where
         }
     };
 
-    #[allow(clippy::type_complexity)]
+    type OptionalBoundRef<'a> = &'a Option<Vec<f64>>;
     struct TargetDerivatives<'a, T: GlobalSolveTarget> {
         target: &'a T,
         active_quotes: &'a [T::Quote],
         weight_scales: &'a [f64],
         times: &'a [f64],
-        lb: &'a Option<Vec<f64>>,
-        ub: &'a Option<Vec<f64>>,
+        lb: OptionalBoundRef<'a>,
+        ub: OptionalBoundRef<'a>,
     }
 
     impl<'a, T: GlobalSolveTarget> finstack_core::math::solver_multi::AnalyticalDerivatives

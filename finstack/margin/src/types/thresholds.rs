@@ -221,7 +221,7 @@ impl VmParameters {
 }
 
 impl Default for VmParameters {
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
         Self::regulatory_standard(Currency::USD)
             .expect("embedded margin registry is a compile-time asset")
@@ -384,7 +384,7 @@ impl ImParameters {
 }
 
 impl Default for ImParameters {
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
         Self::simm_standard(Currency::USD)
             .expect("embedded margin registry is a compile-time asset")

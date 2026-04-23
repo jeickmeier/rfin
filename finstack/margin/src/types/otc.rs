@@ -254,7 +254,7 @@ impl OtcMarginSpec {
 }
 
 impl Default for OtcMarginSpec {
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
         Self::usd_bilateral().expect("embedded margin registry is a compile-time asset")
     }

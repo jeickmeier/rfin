@@ -238,7 +238,7 @@ pub(crate) fn compute_pv(
 // ========================= ANALYTICAL PRICER =========================
 
 use crate::instruments::common_impl::models::closed_form::barrier::{
-    barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
+    barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous, BarrierParams,
     BarrierType as AnalyticalBarrierType,
 };
 
@@ -474,40 +474,26 @@ fn bs_barrier_price_per_unit(
     t: f64,
     analytical_barrier_type: AnalyticalBarrierType,
 ) -> f64 {
+    let params = BarrierParams::new(
+        fx_spot,
+        fx_barrier.strike,
+        fx_barrier.barrier,
+        t,
+        r_dom,
+        r_for,
+        sigma,
+    );
     let price = match fx_barrier.option_type {
-        crate::instruments::OptionType::Call => barrier_call_continuous(
-            fx_spot,
-            fx_barrier.strike,
-            fx_barrier.barrier,
-            t,
-            r_dom,
-            r_for,
-            sigma,
-            analytical_barrier_type,
-        ),
-        crate::instruments::OptionType::Put => barrier_put_continuous(
-            fx_spot,
-            fx_barrier.strike,
-            fx_barrier.barrier,
-            t,
-            r_dom,
-            r_for,
-            sigma,
-            analytical_barrier_type,
-        ),
+        crate::instruments::OptionType::Call => {
+            barrier_call_continuous(&params, analytical_barrier_type)
+        }
+        crate::instruments::OptionType::Put => {
+            barrier_put_continuous(&params, analytical_barrier_type)
+        }
     };
 
     let rebate_val = if let Some(rebate) = fx_barrier.rebate {
-        barrier_rebate_continuous(
-            fx_spot,
-            fx_barrier.barrier,
-            rebate,
-            t,
-            r_dom,
-            r_for,
-            sigma,
-            analytical_barrier_type,
-        )
+        barrier_rebate_continuous(&params, rebate, analytical_barrier_type)
     } else {
         0.0
     };
@@ -732,14 +718,18 @@ impl FxBarrierOptionVannaVolgaPricer {
 
         // Apply Vanna-Volga correction with resolved smile quotes.
         let quotes = self.resolve_quotes(fx_barrier, sigma);
-        let vv_price = vanna_volga_barrier_adjustment(
-            bs_price,
+        let vv_params = BarrierParams::new(
             fx_spot,
-            fx_barrier.barrier,
             fx_barrier.strike,
+            fx_barrier.barrier,
+            t,
             r_dom,
             r_for,
-            t,
+            sigma,
+        );
+        let vv_price = vanna_volga_barrier_adjustment(
+            bs_price,
+            &vv_params,
             &quotes,
             is_call,
             analytical_barrier_type,

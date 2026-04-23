@@ -50,8 +50,6 @@
 //!
 //! [`HolidayCalendar`]: super::business_days::HolidayCalendar
 
-#![allow(clippy::unnecessary_map_or)]
-
 use crate::dates::calendar::algo;
 use crate::dates::calendar::business_days::HolidayCalendar;
 use time::{Date, Duration, Month, Weekday};
@@ -651,9 +649,7 @@ impl Rule {
             Rule::QingMing => {
                 date.month() == Month::April && date.day() == qing_ming_day(date.year())
             }
-            Rule::BuddhasBirthday => {
-                buddhas_birthday_date(date.year()).map_or(false, |d| d == date)
-            }
+            Rule::BuddhasBirthday => buddhas_birthday_date(date.year()) == Some(date),
             Rule::VernalEquinoxJP => vernal_equinox_jp(date.year()).is_some_and(|d| d == date),
             Rule::AutumnalEquinoxJP => autumnal_equinox_jp(date.year()).is_some_and(|d| d == date),
         }

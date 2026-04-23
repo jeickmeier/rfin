@@ -188,6 +188,14 @@ pub fn apply_time_roll_forward(
     })
 }
 
+/// Return type of [`calculate_instrument_pnl`]: `(per-instrument carry,
+/// total carry, failed instruments with reason)`.
+type InstrumentPnlResult = (
+    Vec<(String, IndexMap<Currency, Money>)>,
+    IndexMap<Currency, Money>,
+    Vec<(String, String)>,
+);
+
 /// Calculate P&L breakdown for instruments.
 ///
 /// Theta (carry) is calculated as:
@@ -215,17 +223,12 @@ pub fn apply_time_roll_forward(
 /// `start_date < date <= end_date` (i.e. T+0 excluded, T+N included). A coupon
 /// paid on the roll-forward target date counts toward carry; a coupon paid on
 /// the starting valuation date does not.
-#[allow(clippy::type_complexity)]
 fn calculate_instrument_pnl(
     instruments: &[Box<DynInstrument>],
     market: &finstack_core::market_data::context::MarketContext,
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
-) -> Result<(
-    Vec<(String, IndexMap<Currency, Money>)>,
-    IndexMap<Currency, Money>,
-    Vec<(String, String)>,
-)> {
+) -> Result<InstrumentPnlResult> {
     let mut instrument_carry: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
     let mut total_carry: IndexMap<Currency, Money> = IndexMap::new();
     let mut failed_instruments = Vec::new();

@@ -118,7 +118,6 @@ pub mod cashflows;
 pub mod dependencies;
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod test_utils;
 
 /// Scenario application for portfolios.

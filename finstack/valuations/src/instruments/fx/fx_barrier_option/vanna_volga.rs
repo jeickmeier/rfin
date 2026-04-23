@@ -31,7 +31,8 @@
 //! - Wystup, U. (2006). "FX Options and Structured Products." Wiley.
 
 use crate::instruments::common_impl::models::closed_form::barrier::{
-    barrier_call_continuous, barrier_put_continuous, BarrierType as AnalyticalBarrierType,
+    barrier_call_continuous, barrier_put_continuous, BarrierParams,
+    BarrierType as AnalyticalBarrierType,
 };
 use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
 use crate::instruments::common_impl::models::volatility::black::d1_d2;
@@ -100,22 +101,15 @@ fn bs_volga(spot: f64, strike: f64, r_d: f64, r_f: f64, vol: f64, t: f64) -> f64
 }
 
 /// Compute barrier option price using BS model at a given vol.
-#[allow(clippy::too_many_arguments)]
 fn barrier_bs_price(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    r_d: f64,
-    r_f: f64,
-    vol: f64,
-    t: f64,
+    params: &BarrierParams,
     barrier_type: AnalyticalBarrierType,
     is_call: bool,
 ) -> f64 {
     if is_call {
-        barrier_call_continuous(spot, strike, barrier, t, r_d, r_f, vol, barrier_type)
+        barrier_call_continuous(params, barrier_type)
     } else {
-        barrier_put_continuous(spot, strike, barrier, t, r_d, r_f, vol, barrier_type)
+        barrier_put_continuous(params, barrier_type)
     }
 }
 
@@ -125,29 +119,27 @@ fn barrier_bs_price(
 ///
 /// We use a cross-derivative finite difference:
 /// vanna ≈ [P(S+h, σ+k) - P(S+h, σ-k) - P(S-h, σ+k) + P(S-h, σ-k)] / (4 h k)
-#[allow(clippy::too_many_arguments)]
 fn barrier_vanna_fd(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    r_d: f64,
-    r_f: f64,
-    vol: f64,
-    t: f64,
+    params: &BarrierParams,
     barrier_type: AnalyticalBarrierType,
     is_call: bool,
 ) -> f64 {
-    let h_spot = spot * 0.001; // 0.1% spot bump
+    let h_spot = params.spot * 0.001; // 0.1% spot bump
     let h_vol = 0.001; // 10bp vol bump
 
     let p = |s: f64, v: f64| -> f64 {
-        barrier_bs_price(s, strike, barrier, r_d, r_f, v, t, barrier_type, is_call)
+        let bumped = BarrierParams {
+            spot: s,
+            vol: v,
+            ..*params
+        };
+        barrier_bs_price(&bumped, barrier_type, is_call)
     };
 
-    let ppp = p(spot + h_spot, vol + h_vol);
-    let ppm = p(spot + h_spot, vol - h_vol);
-    let pmp = p(spot - h_spot, vol + h_vol);
-    let pmm = p(spot - h_spot, vol - h_vol);
+    let ppp = p(params.spot + h_spot, params.vol + h_vol);
+    let ppm = p(params.spot + h_spot, params.vol - h_vol);
+    let pmp = p(params.spot - h_spot, params.vol + h_vol);
+    let pmm = p(params.spot - h_spot, params.vol - h_vol);
 
     (ppp - ppm - pmp + pmm) / (4.0 * h_spot * h_vol)
 }
@@ -155,53 +147,23 @@ fn barrier_vanna_fd(
 /// Compute barrier volga via central finite differences on the BS barrier formula.
 ///
 /// volga_barrier = ∂²P_barrier / ∂σ²
-#[allow(clippy::too_many_arguments)]
 fn barrier_volga_fd(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    r_d: f64,
-    r_f: f64,
-    vol: f64,
-    t: f64,
+    params: &BarrierParams,
     barrier_type: AnalyticalBarrierType,
     is_call: bool,
 ) -> f64 {
     let h_vol = 0.001; // 10bp vol bump
 
-    let p_base = barrier_bs_price(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        vol,
-        t,
-        barrier_type,
-        is_call,
-    );
-    let p_up = barrier_bs_price(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        vol + h_vol,
-        t,
-        barrier_type,
-        is_call,
-    );
-    let p_down = barrier_bs_price(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        vol - h_vol,
-        t,
-        barrier_type,
-        is_call,
-    );
+    let bump_vol = |dv: f64| -> BarrierParams {
+        BarrierParams {
+            vol: params.vol + dv,
+            ..*params
+        }
+    };
+
+    let p_base = barrier_bs_price(params, barrier_type, is_call);
+    let p_up = barrier_bs_price(&bump_vol(h_vol), barrier_type, is_call);
+    let p_down = barrier_bs_price(&bump_vol(-h_vol), barrier_type, is_call);
 
     (p_up - 2.0 * p_base + p_down) / (h_vol * h_vol)
 }
@@ -209,42 +171,22 @@ fn barrier_volga_fd(
 /// Compute barrier vega via central finite differences on the BS barrier formula.
 ///
 /// vega_barrier = ∂P_barrier / ∂σ
-#[allow(clippy::too_many_arguments)]
 fn barrier_vega_fd(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    r_d: f64,
-    r_f: f64,
-    vol: f64,
-    t: f64,
+    params: &BarrierParams,
     barrier_type: AnalyticalBarrierType,
     is_call: bool,
 ) -> f64 {
     let h_vol = 0.001;
 
-    let p_up = barrier_bs_price(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        vol + h_vol,
-        t,
-        barrier_type,
-        is_call,
-    );
-    let p_down = barrier_bs_price(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        vol - h_vol,
-        t,
-        barrier_type,
-        is_call,
-    );
+    let bump_vol = |dv: f64| -> BarrierParams {
+        BarrierParams {
+            vol: params.vol + dv,
+            ..*params
+        }
+    };
+
+    let p_up = barrier_bs_price(&bump_vol(h_vol), barrier_type, is_call);
+    let p_down = barrier_bs_price(&bump_vol(-h_vol), barrier_type, is_call);
 
     (p_up - p_down) / (2.0 * h_vol)
 }
@@ -271,24 +213,32 @@ fn barrier_vega_fd(
 /// # Returns
 ///
 /// The Vanna-Volga adjusted barrier price.
-#[allow(clippy::too_many_arguments)]
 pub fn vanna_volga_barrier_adjustment(
     bs_barrier_price: f64,
-    spot: f64,
-    barrier: f64,
-    strike: f64,
-    r_d: f64,
-    r_f: f64,
-    t: f64,
+    params: &BarrierParams,
     quotes: &VannaVolgaQuotes,
     is_call: bool,
     barrier_type: AnalyticalBarrierType,
 ) -> f64 {
+    let BarrierParams {
+        spot,
+        strike: _,
+        barrier: _,
+        time: t,
+        rate: r_d,
+        div_yield: r_f,
+        vol: _,
+    } = *params;
+
     if t <= 0.0 {
         return bs_barrier_price;
     }
 
     let sigma_atm = quotes.vol_atm;
+    let atm_params = BarrierParams {
+        vol: sigma_atm,
+        ..*params
+    };
 
     // Step 1: Compute vanilla costs for the three pillar instruments
     // Cost_i = C_i(σ_i) - C_i(σ_ATM) for each pillar strike
@@ -319,39 +269,9 @@ pub fn vanna_volga_barrier_adjustment(
     let volga_3 = bs_volga(spot, k3, r_d, r_f, sigma_atm, t);
 
     // Step 3: Compute vega, vanna, volga of the barrier option via FD
-    let vega_barrier = barrier_vega_fd(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        sigma_atm,
-        t,
-        barrier_type,
-        is_call,
-    );
-    let vanna_barrier = barrier_vanna_fd(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        sigma_atm,
-        t,
-        barrier_type,
-        is_call,
-    );
-    let volga_barrier = barrier_volga_fd(
-        spot,
-        strike,
-        barrier,
-        r_d,
-        r_f,
-        sigma_atm,
-        t,
-        barrier_type,
-        is_call,
-    );
+    let vega_barrier = barrier_vega_fd(&atm_params, barrier_type, is_call);
+    let vanna_barrier = barrier_vanna_fd(&atm_params, barrier_type, is_call);
+    let volga_barrier = barrier_volga_fd(&atm_params, barrier_type, is_call);
 
     // Step 4: Solve the 3×3 linear system for weights p₁, p₂, p₃:
     //   p₁ × vega₁ + p₂ × vega₂ + p₃ × vega₃ = vega_barrier
@@ -457,21 +377,11 @@ mod tests {
         };
 
         let barrier_type = AnalyticalBarrierType::UpOut;
-        let bs_price =
-            barrier_bs_price(spot, strike, barrier, r_d, r_f, vol, t, barrier_type, true);
+        let params = BarrierParams::new(spot, strike, barrier, t, r_d, r_f, vol);
+        let bs_price = barrier_bs_price(&params, barrier_type, true);
 
-        let vv_price = vanna_volga_barrier_adjustment(
-            bs_price,
-            spot,
-            barrier,
-            strike,
-            r_d,
-            r_f,
-            t,
-            &quotes,
-            true,
-            barrier_type,
-        );
+        let vv_price =
+            vanna_volga_barrier_adjustment(bs_price, &params, &quotes, true, barrier_type);
 
         // With flat vol, VV price should equal BS price
         let diff = (vv_price - bs_price).abs();
@@ -502,30 +412,11 @@ mod tests {
         };
 
         let barrier_type = AnalyticalBarrierType::UpOut;
-        let bs_price = barrier_bs_price(
-            spot,
-            strike,
-            barrier,
-            r_d,
-            r_f,
-            quotes.vol_atm,
-            t,
-            barrier_type,
-            true,
-        );
+        let params = BarrierParams::new(spot, strike, barrier, t, r_d, r_f, quotes.vol_atm);
+        let bs_price = barrier_bs_price(&params, barrier_type, true);
 
-        let vv_price = vanna_volga_barrier_adjustment(
-            bs_price,
-            spot,
-            barrier,
-            strike,
-            r_d,
-            r_f,
-            t,
-            &quotes,
-            true,
-            barrier_type,
-        );
+        let vv_price =
+            vanna_volga_barrier_adjustment(bs_price, &params, &quotes, true, barrier_type);
 
         assert!(
             vv_price >= -1e-10,
@@ -558,30 +449,11 @@ mod tests {
         };
 
         let barrier_type = AnalyticalBarrierType::UpOut;
-        let bs_price = barrier_bs_price(
-            spot,
-            strike,
-            barrier,
-            r_d,
-            r_f,
-            quotes.vol_atm,
-            t,
-            barrier_type,
-            true,
-        );
+        let params = BarrierParams::new(spot, strike, barrier, t, r_d, r_f, quotes.vol_atm);
+        let bs_price = barrier_bs_price(&params, barrier_type, true);
 
-        let vv_price = vanna_volga_barrier_adjustment(
-            bs_price,
-            spot,
-            barrier,
-            strike,
-            r_d,
-            r_f,
-            t,
-            &quotes,
-            true,
-            barrier_type,
-        );
+        let vv_price =
+            vanna_volga_barrier_adjustment(bs_price, &params, &quotes, true, barrier_type);
 
         let adjustment = (vv_price - bs_price).abs();
         assert!(
@@ -610,30 +482,11 @@ mod tests {
         };
 
         let barrier_type = AnalyticalBarrierType::DownOut;
-        let bs_price = barrier_bs_price(
-            spot,
-            strike,
-            barrier,
-            r_d,
-            r_f,
-            quotes.vol_atm,
-            t,
-            barrier_type,
-            false,
-        );
+        let params = BarrierParams::new(spot, strike, barrier, t, r_d, r_f, quotes.vol_atm);
+        let bs_price = barrier_bs_price(&params, barrier_type, false);
 
-        let vv_price = vanna_volga_barrier_adjustment(
-            bs_price,
-            spot,
-            barrier,
-            strike,
-            r_d,
-            r_f,
-            t,
-            &quotes,
-            false,
-            barrier_type,
-        );
+        let vv_price =
+            vanna_volga_barrier_adjustment(bs_price, &params, &quotes, false, barrier_type);
 
         assert!(vv_price.is_finite(), "VV price should be finite for puts");
     }

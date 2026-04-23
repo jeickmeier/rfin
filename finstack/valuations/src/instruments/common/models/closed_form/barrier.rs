@@ -183,6 +183,26 @@ impl BarrierParams {
             vol,
         }
     }
+
+    /// Create barrier parameters from a discount factor, deriving the
+    /// continuously-compounded rate as `-ln(df)/t`. Returns a rate of `0.0`
+    /// when `time <= 0` or `df <= 0`.
+    pub fn with_df(
+        spot: f64,
+        strike: f64,
+        barrier: f64,
+        time: f64,
+        df: f64,
+        div_yield: f64,
+        vol: f64,
+    ) -> Self {
+        let rate = if time > 0.0 && df > 0.0 {
+            -df.ln() / time
+        } else {
+            0.0
+        };
+        Self::new(spot, strike, barrier, time, rate, div_yield, vol)
+    }
 }
 
 /// Barrier option type.
@@ -267,20 +287,28 @@ fn deterministic_barrier_crossed(
 /// With zero vol, the asset follows a deterministic drift path:
 /// `S(T) = S * exp((r - q) * T)`. We check whether this path crosses
 /// the barrier and compute the vanilla intrinsic accordingly.
-#[allow(clippy::too_many_arguments)]
 fn barrier_helper_zero_vol(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
+    params: &BarrierParams,
     eta: f64, // 1 for call, -1 for put
     phi: f64, // 1 for up, -1 for down
 ) -> f64 {
-    let intrinsic = vanilla_option_price(spot, strike, time, rate, div_yield, 0.0, eta);
-    let barrier_crossed =
-        deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, phi > 0.0);
+    let intrinsic = vanilla_option_price(
+        params.spot,
+        params.strike,
+        params.time,
+        params.rate,
+        params.div_yield,
+        0.0,
+        eta,
+    );
+    let barrier_crossed = deterministic_barrier_crossed(
+        params.spot,
+        params.barrier,
+        params.time,
+        params.rate,
+        params.div_yield,
+        phi > 0.0,
+    );
 
     // barrier_helper computes the knock-IN value. If the barrier was crossed,
     // the knock-in option activates and pays the vanilla intrinsic; otherwise 0.
@@ -292,18 +320,21 @@ fn barrier_helper_zero_vol(
 }
 
 /// Helper function for barrier pricing.
-#[allow(clippy::too_many_arguments)]
 fn barrier_helper(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
+    params: &BarrierParams,
     eta: f64, // 1 for call, -1 for put
     phi: f64, // 1 for up, -1 for down
 ) -> f64 {
+    let BarrierParams {
+        spot,
+        strike,
+        barrier,
+        time,
+        rate,
+        div_yield,
+        vol,
+    } = *params;
+
     debug_assert!(spot > 0.0, "spot must be positive, got {spot}");
     debug_assert!(strike > 0.0, "strike must be positive, got {strike}");
     debug_assert!(barrier > 0.0, "barrier must be positive, got {barrier}");
@@ -313,7 +344,7 @@ fn barrier_helper(
     }
 
     if vol <= 0.0 {
-        return barrier_helper_zero_vol(spot, strike, barrier, time, rate, div_yield, eta, phi);
+        return barrier_helper_zero_vol(params, eta, phi);
     }
 
     let mu = (rate - div_yield - 0.5 * vol * vol) / (vol * vol);
@@ -327,7 +358,7 @@ fn barrier_helper(
     let max_exponent = (2.0 * (mu + 1.0).abs() * log_barrier_spot.abs())
         .max(2.0 * mu.abs() * log_barrier_spot.abs());
     if !max_exponent.is_finite() || max_exponent > 700.0 {
-        return barrier_helper_zero_vol(spot, strike, barrier, time, rate, div_yield, eta, phi);
+        return barrier_helper_zero_vol(params, eta, phi);
     }
 
     // d1/d2 intentionally inline: Merton barrier x,x1,y,y1 terms — not d1/d2
@@ -499,24 +530,29 @@ pub fn barrier_touch_probability(
 ///
 /// - For Knock-Out: Paid if barrier is hit (Hit Rebate).
 /// - For Knock-In: Paid if barrier is NOT hit (No-Hit Rebate).
-#[allow(clippy::too_many_arguments)]
+///
+/// `params.strike` is unused by this function; callers can pass any value
+/// (conventionally `params.barrier`) when building the parameter bag.
 pub fn barrier_rebate_continuous(
-    spot: f64,
-    barrier: f64,
+    params: &BarrierParams,
     rebate: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
     barrier_type: BarrierType,
 ) -> f64 {
     let is_up = matches!(barrier_type, BarrierType::UpIn | BarrierType::UpOut);
-    let p_hit = barrier_touch_probability(spot, barrier, time, rate, div_yield, vol, is_up);
+    let p_hit = barrier_touch_probability(
+        params.spot,
+        params.barrier,
+        params.time,
+        params.rate,
+        params.div_yield,
+        params.vol,
+        is_up,
+    );
 
-    let df = if time <= 0.0 {
+    let df = if params.time <= 0.0 {
         1.0
     } else {
-        (-rate * time).exp()
+        (-params.rate * params.time).exp()
     };
 
     match barrier_type {
@@ -552,7 +588,8 @@ pub fn up_out_call(
     // tiny negative values (order 1e-10).
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
 
-    let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, 1.0);
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    let up_in = barrier_helper(&params, 1.0, 1.0);
 
     (vanilla - up_in).max(0.0)
 }
@@ -572,7 +609,8 @@ pub fn up_in_call(
         return vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
     }
 
-    barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, 1.0)
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    barrier_helper(&params, 1.0, 1.0)
 }
 
 /// Price a continuous down-and-out call.
@@ -593,7 +631,8 @@ pub fn down_out_call(
     // tiny negative values.
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
 
-    let down_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, -1.0);
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    let down_in = barrier_helper(&params, 1.0, -1.0);
 
     (vanilla - down_in).max(0.0)
 }
@@ -613,21 +652,21 @@ pub fn down_in_call(
         return vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
     }
 
-    barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, -1.0)
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    barrier_helper(&params, 1.0, -1.0)
 }
 
 /// Generic barrier call price dispatcher.
-#[allow(clippy::too_many_arguments)]
-pub fn barrier_call_continuous(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
-    barrier_type: BarrierType,
-) -> f64 {
+pub fn barrier_call_continuous(params: &BarrierParams, barrier_type: BarrierType) -> f64 {
+    let BarrierParams {
+        spot,
+        strike,
+        barrier,
+        time,
+        rate,
+        div_yield,
+        vol,
+    } = *params;
     match barrier_type {
         BarrierType::UpIn => up_in_call(spot, strike, barrier, time, rate, div_yield, vol),
         BarrierType::UpOut => up_out_call(spot, strike, barrier, time, rate, div_yield, vol),
@@ -651,9 +690,8 @@ pub fn down_in_put(
         return vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
     }
 
-    barrier_helper(
-        spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0,
-    )
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    barrier_helper(&params, -1.0, -1.0)
 }
 
 /// Price a continuous down-and-out put.
@@ -674,9 +712,8 @@ pub fn down_out_put(
     // tiny negative values.
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
 
-    let down_in = barrier_helper(
-        spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0,
-    );
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    let down_in = barrier_helper(&params, -1.0, -1.0);
 
     (vanilla - down_in).max(0.0)
 }
@@ -696,7 +733,8 @@ pub fn up_in_put(
         return vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
     }
 
-    barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0)
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    barrier_helper(&params, -1.0, 1.0)
 }
 
 /// Price a continuous up-and-out put.
@@ -717,23 +755,23 @@ pub fn up_out_put(
     // tiny negative values.
     let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
 
-    let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0);
+    let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+    let up_in = barrier_helper(&params, -1.0, 1.0);
 
     (vanilla - up_in).max(0.0)
 }
 
 /// Generic barrier put price dispatcher.
-#[allow(clippy::too_many_arguments)]
-pub fn barrier_put_continuous(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
-    barrier_type: BarrierType,
-) -> f64 {
+pub fn barrier_put_continuous(params: &BarrierParams, barrier_type: BarrierType) -> f64 {
+    let BarrierParams {
+        spot,
+        strike,
+        barrier,
+        time,
+        rate,
+        div_yield,
+        vol,
+    } = *params;
     match barrier_type {
         BarrierType::UpIn => up_in_put(spot, strike, barrier, time, rate, div_yield, vol),
         BarrierType::UpOut => up_out_put(spot, strike, barrier, time, rate, div_yield, vol),
@@ -742,116 +780,14 @@ pub fn barrier_put_continuous(
     }
 }
 
-// ==================== DF-FIRST WRAPPERS ====================
+// ==================== DF-FIRST CONSTRUCTION ====================
 //
-// These wrappers take the discount factor directly instead of a rate, ensuring
-// that r_eff and time are on consistent bases (no day-count mismatches).
-// Use these when DF is sourced from date-based curve lookups.
-
-/// Price a continuous barrier call with explicit discount factor (DF-first API).
-///
-/// This is the preferred entry point when `df` is known directly (e.g., from
-/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
-///
-/// See [`barrier_call_continuous`] for formula details.
-#[allow(clippy::too_many_arguments)]
-pub fn barrier_call_continuous_df(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    time: f64,
-    df: f64,
-    div_yield: f64,
-    vol: f64,
-    barrier_type: BarrierType,
-) -> f64 {
-    // Derive rate from DF for internal calculations
-    let rate = if time > 0.0 && df > 0.0 {
-        -df.ln() / time
-    } else {
-        0.0
-    };
-    barrier_call_continuous(
-        spot,
-        strike,
-        barrier,
-        time,
-        rate,
-        div_yield,
-        vol,
-        barrier_type,
-    )
-}
-
-/// Price a continuous barrier put with explicit discount factor (DF-first API).
-///
-/// This is the preferred entry point when `df` is known directly (e.g., from
-/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
-///
-/// See [`barrier_put_continuous`] for formula details.
-#[allow(clippy::too_many_arguments)]
-pub fn barrier_put_continuous_df(
-    spot: f64,
-    strike: f64,
-    barrier: f64,
-    time: f64,
-    df: f64,
-    div_yield: f64,
-    vol: f64,
-    barrier_type: BarrierType,
-) -> f64 {
-    // Derive rate from DF for internal calculations
-    let rate = if time > 0.0 && df > 0.0 {
-        -df.ln() / time
-    } else {
-        0.0
-    };
-    barrier_put_continuous(
-        spot,
-        strike,
-        barrier,
-        time,
-        rate,
-        div_yield,
-        vol,
-        barrier_type,
-    )
-}
-
-/// Price a barrier rebate with explicit discount factor (DF-first API).
-///
-/// This is the preferred entry point when `df` is known directly (e.g., from
-/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
-///
-/// See [`barrier_rebate_continuous`] for formula details.
-#[allow(clippy::too_many_arguments)]
-pub fn barrier_rebate_continuous_df(
-    spot: f64,
-    barrier: f64,
-    rebate: f64,
-    time: f64,
-    df: f64,
-    div_yield: f64,
-    vol: f64,
-    barrier_type: BarrierType,
-) -> f64 {
-    // Derive rate from DF for internal calculations
-    let rate = if time > 0.0 && df > 0.0 {
-        -df.ln() / time
-    } else {
-        0.0
-    };
-    barrier_rebate_continuous(
-        spot,
-        barrier,
-        rebate,
-        time,
-        rate,
-        div_yield,
-        vol,
-        barrier_type,
-    )
-}
+// When the discount factor is known directly (e.g., from date-based curve
+// lookup), callers should build the parameter bag via
+// [`BarrierParams::with_df`], which derives `rate = -ln(df)/t`. The
+// resulting `BarrierParams` can be passed to
+// [`barrier_call_continuous`], [`barrier_put_continuous`], or
+// [`barrier_rebate_continuous`] directly.
 
 #[cfg(test)]
 mod tests {
@@ -897,26 +833,9 @@ mod tests {
         let div_yield = 0.02;
         let vol = 0.2;
 
-        let down_in = barrier_put_continuous(
-            spot,
-            strike,
-            barrier,
-            time,
-            rate,
-            div_yield,
-            vol,
-            BarrierType::DownIn,
-        );
-        let down_out = barrier_put_continuous(
-            spot,
-            strike,
-            barrier,
-            time,
-            rate,
-            div_yield,
-            vol,
-            BarrierType::DownOut,
-        );
+        let params = BarrierParams::new(spot, strike, barrier, time, rate, div_yield, vol);
+        let down_in = barrier_put_continuous(&params, BarrierType::DownIn);
+        let down_out = barrier_put_continuous(&params, BarrierType::DownOut);
 
         let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
             / (vol * time.sqrt());
@@ -963,10 +882,14 @@ mod tests {
         assert!(down_out_call(spot, strike, barrier_down, time, rate, div_yield, vol) >= 0.0);
     }
 
-    // ==================== DF-WRAPPER TESTS ====================
+    // ==================== DF-CONSTRUCTION TESTS ====================
+    //
+    // Verify that BarrierParams::with_df (which derives rate = -ln(df)/t)
+    // produces prices identical to BarrierParams::new with the equivalent
+    // explicit rate.
 
     #[test]
-    fn test_df_wrapper_consistency_barrier_call() {
+    fn test_with_df_consistency_barrier_call() {
         let spot = 100.0_f64;
         let strike = 100.0_f64;
         let barrier = 120.0_f64;
@@ -988,10 +911,10 @@ mod tests {
                 barrier
             };
 
-            let price_rate =
-                barrier_call_continuous(spot, strike, b, time, rate, div_yield, vol, barrier_type);
-            let price_df =
-                barrier_call_continuous_df(spot, strike, b, time, df, div_yield, vol, barrier_type);
+            let p_rate = BarrierParams::new(spot, strike, b, time, rate, div_yield, vol);
+            let p_df = BarrierParams::with_df(spot, strike, b, time, df, div_yield, vol);
+            let price_rate = barrier_call_continuous(&p_rate, barrier_type);
+            let price_df = barrier_call_continuous(&p_df, barrier_type);
 
             assert!(
                 (price_rate - price_df).abs() < 1e-10,
@@ -1004,7 +927,7 @@ mod tests {
     }
 
     #[test]
-    fn test_df_wrapper_consistency_barrier_put() {
+    fn test_with_df_consistency_barrier_put() {
         let spot = 100.0_f64;
         let strike = 100.0_f64;
         let barrier = 120.0_f64;
@@ -1026,10 +949,10 @@ mod tests {
                 barrier
             };
 
-            let price_rate =
-                barrier_put_continuous(spot, strike, b, time, rate, div_yield, vol, barrier_type);
-            let price_df =
-                barrier_put_continuous_df(spot, strike, b, time, df, div_yield, vol, barrier_type);
+            let p_rate = BarrierParams::new(spot, strike, b, time, rate, div_yield, vol);
+            let p_df = BarrierParams::with_df(spot, strike, b, time, df, div_yield, vol);
+            let price_rate = barrier_put_continuous(&p_rate, barrier_type);
+            let price_df = barrier_put_continuous(&p_df, barrier_type);
 
             assert!(
                 (price_rate - price_df).abs() < 1e-10,
@@ -1042,7 +965,7 @@ mod tests {
     }
 
     #[test]
-    fn test_df_wrapper_consistency_rebate() {
+    fn test_with_df_consistency_rebate() {
         let spot = 100.0_f64;
         let barrier = 120.0_f64;
         let rebate = 5.0_f64;
@@ -1064,26 +987,12 @@ mod tests {
                 barrier
             };
 
-            let price_rate = barrier_rebate_continuous(
-                spot,
-                b,
-                rebate,
-                time,
-                rate,
-                div_yield,
-                vol,
-                barrier_type,
-            );
-            let price_df = barrier_rebate_continuous_df(
-                spot,
-                b,
-                rebate,
-                time,
-                df,
-                div_yield,
-                vol,
-                barrier_type,
-            );
+            // barrier_rebate_continuous does not use strike; pass barrier as a
+            // convention-preserving sentinel.
+            let p_rate = BarrierParams::new(spot, b, b, time, rate, div_yield, vol);
+            let p_df = BarrierParams::with_df(spot, b, b, time, df, div_yield, vol);
+            let price_rate = barrier_rebate_continuous(&p_rate, rebate, barrier_type);
+            let price_df = barrier_rebate_continuous(&p_df, rebate, barrier_type);
 
             assert!(
                 (price_rate - price_df).abs() < 1e-10,
@@ -1888,8 +1797,8 @@ mod tests {
             "zero-vol down barrier should deterministically hit"
         );
 
-        let rebate_no_hit =
-            barrier_rebate_continuous(100.0, 120.0, 5.0, 1.0, 0.0, 0.0, 0.0, BarrierType::UpIn);
+        let p_no_hit = BarrierParams::new(100.0, 120.0, 120.0, 1.0, 0.0, 0.0, 0.0);
+        let rebate_no_hit = barrier_rebate_continuous(&p_no_hit, 5.0, BarrierType::UpIn);
         assert_eq!(
             rebate_no_hit, 5.0,
             "knock-in rebate should pay in full when zero-vol path never hits"
@@ -1904,18 +1813,10 @@ mod tests {
 
     #[test]
     fn test_rebate_is_not_discounted_after_expiry() {
-        let rate_rebate =
-            barrier_rebate_continuous(130.0, 120.0, 5.0, -0.25, 0.05, 0.0, 0.2, BarrierType::UpOut);
-        let df_rebate = barrier_rebate_continuous_df(
-            130.0,
-            120.0,
-            5.0,
-            -0.25,
-            0.95,
-            0.0,
-            0.2,
-            BarrierType::UpOut,
-        );
+        let p_rate = BarrierParams::new(130.0, 120.0, 120.0, -0.25, 0.05, 0.0, 0.2);
+        let rate_rebate = barrier_rebate_continuous(&p_rate, 5.0, BarrierType::UpOut);
+        let p_df = BarrierParams::with_df(130.0, 120.0, 120.0, -0.25, 0.95, 0.0, 0.2);
+        let df_rebate = barrier_rebate_continuous(&p_df, 5.0, BarrierType::UpOut);
 
         assert_eq!(
             rate_rebate, 5.0,

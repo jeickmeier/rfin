@@ -33,7 +33,7 @@ pub struct MarginCallTiming {
 }
 
 impl Default for MarginCallTiming {
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
         let registry =
             embedded_registry().expect("embedded margin registry is a compile-time asset");
@@ -232,7 +232,7 @@ impl CsaSpec {
 }
 
 impl Default for CsaSpec {
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
         Self::usd_regulatory().expect("embedded margin registry is a compile-time asset")
     }

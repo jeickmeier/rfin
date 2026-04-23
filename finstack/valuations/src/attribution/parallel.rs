@@ -497,14 +497,14 @@ pub fn attribute_pnl_parallel(
 
     // (pair_label, flag_A, flag_B, reprice_A, reprice_B) — order preserved
     // exactly as before for reduction-order stability.
-    #[allow(clippy::type_complexity)]
-    let cross_specs: [(
-        &str,
+    type CrossSpec<'a> = (
+        &'a str,
         CurveRestoreFlags,
         CurveRestoreFlags,
         Option<Money>,
         Option<Money>,
-    ); 6] = [
+    );
+    let cross_specs: [CrossSpec<'_>; 6] = [
         (
             "Rates×Credit",
             CurveRestoreFlags::RATES,

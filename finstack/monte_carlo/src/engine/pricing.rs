@@ -863,11 +863,9 @@ impl McEngine {
         .with_num_skipped(num_skipped)
         .with_num_simulated_paths(num_simulated_paths);
 
+        #[allow(clippy::expect_used)] // Mutex poisoning indicates prior panic in worker thread.
         let captured_paths = captured_sink
-            .map(|sink| {
-                #[allow(clippy::expect_used)]
-                sink.into_inner().expect("Mutex should not be poisoned")
-            })
+            .map(|sink| sink.into_inner().expect("Mutex should not be poisoned"))
             .unwrap_or_default();
 
         Ok((estimate, captured_paths))

@@ -308,16 +308,18 @@ impl RateExoticHw1fLsmcPricer {
     }
 }
 
+/// Return type of [`build_grid_with_exercise_map`]: `(grid, event_step_indices, exercise_event_indices)`.
+type GridWithExerciseMap = (TimeGrid, Vec<usize>, Vec<usize>);
+
 /// Build grid + map each exercise time to its position within
 /// `event_step_indices` (i.e., the index of the event that coincides with
 /// the exercise date).
-#[allow(clippy::type_complexity)]
 fn build_grid_with_exercise_map(
     event_times: &[f64],
     exercise_times: &[f64],
     maturity: f64,
     min_steps: usize,
-) -> Result<(TimeGrid, Vec<usize>, Vec<usize>)> {
+) -> Result<GridWithExerciseMap> {
     let (grid, event_step_indices) =
         super::hw1f_mc::__test_only_build_event_aligned_grid(event_times, maturity, min_steps)?;
     let mut exercise_event_indices = Vec::with_capacity(exercise_times.len());

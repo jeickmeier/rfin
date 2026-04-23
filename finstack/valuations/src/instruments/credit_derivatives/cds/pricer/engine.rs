@@ -170,30 +170,21 @@ impl CDSPricer {
         // Compute survival at as_of for conditioning
         let sp_asof = surv.sp(t_asof);
 
+        let inputs = super::integration::ProtectionLegInputs {
+            t_start,
+            t_end,
+            recovery,
+            settlement_delay: cds.protection.settlement_delay,
+            calendar,
+            sp_asof,
+            as_of,
+            disc,
+            surv,
+        };
         let protection_pv = match self.config.integration_method {
-            IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(
-                t_start,
-                t_end,
-                recovery,
-                cds.protection.settlement_delay,
-                calendar,
-                sp_asof,
-                as_of,
-                disc,
-                surv,
-            )?,
+            IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(&inputs)?,
             IntegrationMethod::GaussianQuadrature => {
-                match self.protection_leg_gaussian_quadrature_cond(
-                    t_start,
-                    t_end,
-                    recovery,
-                    cds.protection.settlement_delay,
-                    calendar,
-                    sp_asof,
-                    as_of,
-                    disc,
-                    surv,
-                ) {
+                match self.protection_leg_gaussian_quadrature_cond(&inputs) {
                     Ok(pv) => pv,
                     Err(e) => {
                         tracing::warn!(
@@ -203,32 +194,12 @@ impl CDSPricer {
                             t_end = t_end,
                             "Integration failed, falling back to midpoint method"
                         );
-                        self.protection_leg_midpoint_cond(
-                            t_start,
-                            t_end,
-                            recovery,
-                            cds.protection.settlement_delay,
-                            calendar,
-                            sp_asof,
-                            as_of,
-                            disc,
-                            surv,
-                        )?
+                        self.protection_leg_midpoint_cond(&inputs)?
                     }
                 }
             }
             IntegrationMethod::AdaptiveSimpson => {
-                match self.protection_leg_adaptive_simpson_cond(
-                    t_start,
-                    t_end,
-                    recovery,
-                    cds.protection.settlement_delay,
-                    calendar,
-                    sp_asof,
-                    as_of,
-                    disc,
-                    surv,
-                ) {
+                match self.protection_leg_adaptive_simpson_cond(&inputs) {
                     Ok(pv) => pv,
                     Err(e) => {
                         tracing::warn!(
@@ -238,42 +209,14 @@ impl CDSPricer {
                             t_end = t_end,
                             "Integration failed, falling back to midpoint method"
                         );
-                        self.protection_leg_midpoint_cond(
-                            t_start,
-                            t_end,
-                            recovery,
-                            cds.protection.settlement_delay,
-                            calendar,
-                            sp_asof,
-                            as_of,
-                            disc,
-                            surv,
-                        )?
+                        self.protection_leg_midpoint_cond(&inputs)?
                     }
                 }
             }
-            IntegrationMethod::IsdaExact => self.protection_leg_isda_exact_cond(
-                t_start,
-                t_end,
-                recovery,
-                cds.protection.settlement_delay,
-                calendar,
-                sp_asof,
-                as_of,
-                disc,
-                surv,
-            )?,
-            IntegrationMethod::IsdaStandardModel => self.protection_leg_isda_standard_model_cond(
-                t_start,
-                t_end,
-                recovery,
-                cds.protection.settlement_delay,
-                calendar,
-                sp_asof,
-                as_of,
-                disc,
-                surv,
-            )?,
+            IntegrationMethod::IsdaExact => self.protection_leg_isda_exact_cond(&inputs)?,
+            IntegrationMethod::IsdaStandardModel => {
+                self.protection_leg_isda_standard_model_cond(&inputs)?
+            }
         };
 
         // Apply the restructuring adjustment. Contracts with restructuring as a

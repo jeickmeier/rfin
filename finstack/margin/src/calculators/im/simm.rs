@@ -429,7 +429,7 @@ pub struct SimmCalculator {
 }
 
 impl Default for SimmCalculator {
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
         Self::new(SimmVersion::V2_6).expect("embedded margin registry is a compile-time asset")
     }

@@ -755,7 +755,6 @@ impl Bond {
     /// - Quarterly payments, Act/360
     /// - 0% index floor
     /// - T-2 reset lag
-    #[allow(clippy::expect_used)]
     pub fn example_floating() -> finstack_core::Result<Self> {
         use crate::cashflow::builder::specs::{CouponType, FloatingCouponSpec, FloatingRateSpec};
         use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
@@ -813,7 +812,6 @@ impl Bond {
     /// Returns a 10-year USD corporate bond with:
     /// - $1M notional, 5% semi-annual coupon, 30/360
     /// - Call schedule at years 3, 5, and 7 with declining premiums (103, 101, 100)
-    #[allow(clippy::expect_used)]
     pub fn example_callable() -> finstack_core::Result<Self> {
         let cashflow_spec = CashflowSpec::fixed(
             0.05,
@@ -871,7 +869,6 @@ impl Bond {
     /// Returns a 5-year USD amortizing bond with:
     /// - $1M notional, 4% semi-annual coupon, 30/360
     /// - Linear amortization to $200K final notional
-    #[allow(clippy::expect_used)]
     pub fn example_amortizing() -> finstack_core::Result<Self> {
         use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
         use crate::cashflow::builder::AmortizationSpec;

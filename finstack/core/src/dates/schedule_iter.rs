@@ -112,8 +112,6 @@
 //!
 //! [`BusinessDayConvention`]: super::BusinessDayConvention
 
-#![allow(clippy::needless_lifetimes)]
-
 use time::Date;
 
 use super::schedule_gen::{

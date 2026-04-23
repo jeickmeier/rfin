@@ -311,7 +311,6 @@ impl StochasticProcess for LmmProcess {
         }
     }
 
-    #[allow(clippy::needless_range_loop)]
     fn populate_path_state(&self, x: &[f64], state: &mut super::super::traits::PathState) {
         let n = self.params.num_forwards;
         // Store each forward rate as indexed_spot(i)

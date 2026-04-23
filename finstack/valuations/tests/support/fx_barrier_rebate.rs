@@ -7,7 +7,7 @@ mod test_utils {
 }
 
 use crate::instruments::common_impl::models::closed_form::barrier::{
-    barrier_rebate_continuous, BarrierType as AnalyticalBarrierType,
+    barrier_rebate_continuous, BarrierParams, BarrierType as AnalyticalBarrierType,
 };
 use crate::instruments::exotics::barrier_option::BarrierType;
 use crate::instruments::fx::fx_barrier_option::FxBarrierOption;
@@ -79,16 +79,10 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
         .expect("FX vol")
         .value_clamped(t, strike);
 
-    let expected_rebate = barrier_rebate_continuous(
-        spot,
-        barrier,
-        rebate.amount(),
-        t,
-        r_dom,
-        r_for,
-        sigma,
-        AnalyticalBarrierType::UpOut,
-    ) * base_option.notional.amount();
+    let params = BarrierParams::new(spot, barrier, barrier, t, r_dom, r_for, sigma);
+    let expected_rebate =
+        barrier_rebate_continuous(&params, rebate.amount(), AnalyticalBarrierType::UpOut)
+            * base_option.notional.amount();
 
     let rebate_delta = rebate_pv.amount() - base_pv.amount();
     // Allow small tolerance for floating point differences

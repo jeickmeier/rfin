@@ -10,21 +10,51 @@ use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::{Error, Result};
 use std::cell::RefCell;
 
+/// Shared inputs for the conditional protection-leg integrators.
+///
+/// Groups the parameters common to all five integration variants
+/// (`midpoint`, `gaussian_quadrature`, `adaptive_simpson`, `isda_exact`,
+/// `isda_standard_model`) so they can be passed as a single reference.
+#[derive(Clone, Copy)]
+pub(super) struct ProtectionLegInputs<'a> {
+    /// Time (years) to protection window start, measured from `as_of`.
+    pub t_start: f64,
+    /// Time (years) to protection window end, measured from `as_of`.
+    pub t_end: f64,
+    /// Recovery rate on default (0..1). LGD = 1 - recovery.
+    pub recovery: f64,
+    /// Settlement delay in business days applied to the default date.
+    pub settlement_delay: u16,
+    /// Optional business-day calendar for the settlement-date shift.
+    pub calendar: Option<&'a dyn HolidayCalendar>,
+    /// Survival probability at `as_of` used to condition later hazard times.
+    pub sp_asof: f64,
+    /// Pricing valuation date.
+    pub as_of: Date,
+    /// Discount curve used to value the LGD cashflows.
+    pub disc: &'a DiscountCurve,
+    /// Hazard / survival curve producing default densities.
+    pub surv: &'a HazardCurve,
+}
+
 impl CDSPricer {
     /// Midpoint method with conditional survival and relative discounting
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn protection_leg_midpoint_cond(
         &self,
-        t_start: f64,
-        t_end: f64,
-        recovery: f64,
-        settlement_delay: u16,
-        calendar: Option<&dyn HolidayCalendar>,
-        sp_asof: f64,
-        as_of: Date,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
+        inputs: &ProtectionLegInputs<'_>,
     ) -> Result<f64> {
+        let ProtectionLegInputs {
+            t_start,
+            t_end,
+            recovery,
+            settlement_delay,
+            calendar,
+            sp_asof,
+            as_of,
+            disc,
+            surv,
+        } = *inputs;
+
         if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
@@ -67,19 +97,22 @@ impl CDSPricer {
     }
 
     /// Gaussian quadrature method with conditional survival and relative discounting
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn protection_leg_gaussian_quadrature_cond(
         &self,
-        t_start: f64,
-        t_end: f64,
-        recovery: f64,
-        settlement_delay: u16,
-        calendar: Option<&dyn HolidayCalendar>,
-        sp_asof: f64,
-        as_of: Date,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
+        inputs: &ProtectionLegInputs<'_>,
     ) -> Result<f64> {
+        let ProtectionLegInputs {
+            t_start,
+            t_end,
+            recovery,
+            settlement_delay,
+            calendar,
+            sp_asof,
+            as_of,
+            disc,
+            surv,
+        } = *inputs;
+
         if t_start >= t_end {
             return Err(Error::Validation(format!(
                 "Protection leg start time ({}) must be before end time ({})",
@@ -131,19 +164,22 @@ impl CDSPricer {
     }
 
     /// Adaptive Simpson method with conditional survival and relative discounting
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn protection_leg_adaptive_simpson_cond(
         &self,
-        t_start: f64,
-        t_end: f64,
-        recovery: f64,
-        settlement_delay: u16,
-        calendar: Option<&dyn HolidayCalendar>,
-        sp_asof: f64,
-        as_of: Date,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
+        inputs: &ProtectionLegInputs<'_>,
     ) -> Result<f64> {
+        let ProtectionLegInputs {
+            t_start,
+            t_end,
+            recovery,
+            settlement_delay,
+            calendar,
+            sp_asof,
+            as_of,
+            disc,
+            surv,
+        } = *inputs;
+
         if t_start >= t_end {
             return Err(Error::Validation(format!(
                 "Protection leg start time ({}) must be before end time ({})",
@@ -200,19 +236,22 @@ impl CDSPricer {
     }
 
     /// ISDA exact method with conditional survival and relative discounting
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn protection_leg_isda_exact_cond(
         &self,
-        t_start: f64,
-        t_end: f64,
-        recovery: f64,
-        settlement_delay: u16,
-        calendar: Option<&dyn HolidayCalendar>,
-        sp_asof: f64,
-        as_of: Date,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
+        inputs: &ProtectionLegInputs<'_>,
     ) -> Result<f64> {
+        let ProtectionLegInputs {
+            t_start,
+            t_end,
+            recovery,
+            settlement_delay,
+            calendar,
+            sp_asof,
+            as_of,
+            disc,
+            surv,
+        } = *inputs;
+
         if t_start >= t_end {
             return Err(Error::Validation(format!(
                 "Protection leg start time ({}) must be before end time ({})",
@@ -261,19 +300,22 @@ impl CDSPricer {
     }
 
     /// ISDA Standard Model with conditional survival and relative discounting
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn protection_leg_isda_standard_model_cond(
         &self,
-        t_start: f64,
-        t_end: f64,
-        recovery: f64,
-        settlement_delay: u16,
-        calendar: Option<&dyn HolidayCalendar>,
-        sp_asof: f64,
-        as_of: Date,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
+        inputs: &ProtectionLegInputs<'_>,
     ) -> Result<f64> {
+        let ProtectionLegInputs {
+            t_start,
+            t_end,
+            recovery,
+            settlement_delay,
+            calendar,
+            sp_asof,
+            as_of,
+            disc,
+            surv,
+        } = *inputs;
+
         if t_start >= t_end {
             return Err(Error::Validation(format!(
                 "Protection leg start time ({}) must be before end time ({})",

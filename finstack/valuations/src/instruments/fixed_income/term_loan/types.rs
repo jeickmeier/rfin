@@ -343,7 +343,6 @@ impl TermLoan {
     /// - $20M DDTL commitment with 12-month availability
     /// - 1% per-period amortization (of original notional)
     /// - 0% SOFR floor
-    #[allow(clippy::expect_used)]
     pub fn example_floating_with_ddtl() -> finstack_core::Result<Self> {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
@@ -430,7 +429,6 @@ impl TermLoan {
     /// - Margin step-ups at years 2 and 3 (+25bp each)
     /// - Cash sweep at year 3
     /// - Soft call at 102, hard call at 101
-    #[allow(clippy::expect_used)]
     pub fn example_with_covenants() -> finstack_core::Result<Self> {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
@@ -502,7 +500,6 @@ impl TermLoan {
     /// - Make-whole call at T+50bp for years 1-3
     /// - Soft call at 102% for years 3-5
     /// - Hard call at par from year 5
-    #[allow(clippy::expect_used)]
     pub fn example_callable() -> finstack_core::Result<Self> {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;

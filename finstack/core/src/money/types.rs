@@ -274,7 +274,7 @@ impl Money {
     }
 
     #[inline]
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used)] // Caller contract: `amount` is already checked finite.
     fn new_finite(amount: f64, currency: Currency, cfg: Option<&FinstackConfig>) -> Self {
         let rounded = if let Some(cfg) = cfg {
             let (dp, mode) = Self::ingest_rounding_params(currency, Some(cfg));

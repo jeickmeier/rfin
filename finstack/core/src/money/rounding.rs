@@ -28,7 +28,7 @@ pub(crate) type AmountRepr = Decimal;
 /// Panics if conversion fails (which should never happen for valid monetary amounts).
 /// Use [`try_amount_from_repr`] for explicit error handling at API boundaries.
 #[inline]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used)] // Invariant documented above; infallible within monetary range.
 pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
     use rust_decimal::prelude::ToPrimitive;
     // INVARIANT: Decimal values within monetary range always convert to f64.
@@ -61,13 +61,13 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> Result<AmountRepr, Error
 }
 
 #[inline]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used)] // Caller contract: `rhs` must be finite/representable.
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     try_repr_mul_f64(a, rhs).expect("Money multiplication requires finite, representable scalar")
 }
 
 #[inline]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used)] // Caller contract: `rhs` must be finite, non-zero, representable.
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     try_repr_div_f64(a, rhs)
         .expect("Money division requires finite, non-zero, representable scalar")
@@ -81,7 +81,7 @@ pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
 /// Panics if `x` is not finite or cannot be represented as a Decimal.
 /// Use [`try_round_f64`] for explicit error handling at API boundaries.
 #[inline]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used)] // Caller contract: `x` must be finite and representable.
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
     try_round_f64(x, dp, mode).expect("Money rounding requires finite, representable scalar")
 }

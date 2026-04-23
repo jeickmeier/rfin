@@ -103,7 +103,7 @@ use statrs::distribution::Normal;
 /// - std_dev = 1.0 is finite and positive
 ///
 /// The `statrs::Normal::new` constructor only fails for non-finite or non-positive std_dev.
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used)] // N(0,1) is always a valid Normal distribution.
 static STANDARD_NORMAL: LazyLock<Normal> =
     LazyLock::new(|| Normal::new(0.0, 1.0).expect("Standard normal N(0,1) is always valid"));
 
