@@ -23,6 +23,8 @@ uv = "latest"
 
 [env]
 CARGO_INCREMENTAL = "{{ env.CARGO_INCREMENTAL | default(value='1') }}"
+CARGO_HOME = "{{ env.CARGO_HOME | default(value=env.HOME ~ '/.cargo') }}"
+RUSTUP_HOME = "{{ env.RUSTUP_HOME | default(value=env.HOME ~ '/.rustup') }}"
 
 # ─────────────────────────────────────────────────────────────────
 # Aggregate (all-*) — fan out across rust + python + wasm

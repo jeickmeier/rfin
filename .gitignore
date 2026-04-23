@@ -77,11 +77,11 @@ dmypy.json
 .ty_cache/
 .ruff_cache/
 
-# mdBook
-/book/book/
-
 # Documentation site output
 /site/
+
+# Stray cargo/rustup home when env vars expand to literal "undefined"
+/undefined/
 
 # Temp files
 concatenated_code.txt
