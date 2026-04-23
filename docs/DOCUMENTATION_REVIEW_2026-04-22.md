@@ -1,7 +1,7 @@
 # Rust Crate Documentation Review
 
-**Date:** 2026-04-22  
-**Scope:** All Rust crates in `finstack/` workspace  
+**Date:** 2026-04-22
+**Scope:** All Rust crates in `finstack/` workspace
 **Method:** Automated scan of `pub fn/struct/enum/trait/type` items against project documentation standards.
 
 ---
@@ -44,6 +44,7 @@
 These are `pub fn/struct/enum/trait/type` declarations with **no** `///` or `//!` comment anywhere in scope.
 
 #### `valuations` (132 items)
+
 - `valuations:results/valuation_result.rs` — `stamped`, `stamped_with_config`, `stamped_with_meta`, `with_explanation`, `with_measures`, `metric`, `metric_str`, `get_measure`, `with_covenants`, `with_covenant`
 - `valuations:pricer/registry.rs` — `expect_inst`, `Pricer`, `PricerRegistry`, `new`, `register_pricer`, `register`, `get_pricer`, `get`
 - `valuations:pricer/mod.rs` — `register_rates_pricers`, `register_credit_pricers`, `register_equity_pricers`, `register_fx_pricers`, `register_fixed_income_pricers`, `register_inflation_pricers`, `register_exotic_pricers`, `register_commodity_pricers`, `standard_registry`, `shared_standard_registry`
@@ -66,6 +67,7 @@ These are `pub fn/struct/enum/trait/type` declarations with **no** `///` or `//!
 - Plus many more in `metrics/`, `pricer/`, `instruments/`
 
 #### `core` (32 items)
+
 - `core:cashflow/primitives.rs` — `CFKind`, `CashFlow`
 - `core:config.rs` — `RoundingMode`
 - `core:credit/lgd/seniority.rs` — `SeniorityClass`
@@ -83,6 +85,7 @@ These are `pub fn/struct/enum/trait/type` declarations with **no** `///` or `//!
 - `core:market_data/bumps.rs` — `id_bump_bp`, `id_spread_bp`, `id_bump_pct`
 
 #### `margin` (8 items)
+
 - `margin:types/call.rs` — `MarginCallType`
 - `margin:types/enums.rs` — `MarginTenor`, `ImMethodology`, `ClearingStatus`
 - `margin:types/netting.rs` — `NettingSetId`
@@ -90,27 +93,33 @@ These are `pub fn/struct/enum/trait/type` declarations with **no** `///` or `//!
 - `margin:types/simm_types.rs` — `SimmRiskClass`, `SimmCreditSector`
 
 #### `statements` (7 items)
+
 - `statements:models/corkscrew.rs` — `CorkscrewSchedule`
 - `statements:models/drivers.rs` — `DriverValue`, `DriverFormula`
 - `statements:models/evaluation.rs` — `EvaluationError`, `Evaluate`
 
 #### `cashflows` (6 items)
+
 - `cashflows:builder/specs/amortization.rs` — `AmortizationSpec`
 - `cashflows:builder/specs/coupon.rs` — `CouponType`
 - `cashflows:builder/specs/fees.rs` — `FeeAccrualBasis`
 - `cashflows:accrual.rs` — `AccrualMethod`
 
 #### `analytics` (2 items)
+
 - `analytics:backtesting/types.rs` — `new`, `with_confidence`, `with_window_size`
 - `analytics:comps/types.rs` — `new`, `as_str`
 
 #### `portfolio` (2 items)
+
 - `portfolio:valuation/types.rs` — `ValuationSummary`
 
 #### `monte_carlo` (3 items)
+
 - `monte_carlo:estimate.rs` — `Estimate`
 
 #### `statements-analytics` (1 item)
+
 - `statements-analytics:types.rs` — `CovenantStatus`
 
 ---
@@ -197,22 +206,22 @@ These items have a doc comment but lack required sections.
 
 ## Structural / Process Findings
 
-1. **`missing_docs` lint not enabled in all crates**  
+1. **`missing_docs` lint not enabled in all crates**
    `finstack_analytics` and `finstack_monte_carlo` do **not** have `#![warn(missing_docs)]` in their `lib.rs`. Every other crate does. Add it to both.
 
-2. **`pub(crate)` and `pub(super)` items are undocumented**  
+2. **`pub(crate)` and `pub(super)` items are undocumented**
    These are not public API per Rust's visibility rules, but many lack even minimal comments. Internal maintainability suffers.
 
-3. **Builder pattern types are under-documented**  
+3. **Builder pattern types are under-documented**
    Across crates, `new()`, builder setters (`with_*`), and `build()` methods often have no docs. These are primary user-facing entry points.
 
-4. **Re-export modules (`mod.rs`) lack item-level docs**  
+4. **Re-export modules (`mod.rs`) lack item-level docs**
    Many `pub use` re-exports in module files have no individual `///` lines, relying only on module-level `//!` docs.
 
-5. **Error types lack Examples**  
+5. **Error types lack Examples**
    Error enums and result types across all crates typically have descriptions but no `/// # Examples` showing how they are constructed or handled.
 
-6. **Test-only modules are not gated from doc checks**  
+6. **Test-only modules are not gated from doc checks**
    `#[cfg(test)]` modules with `pub` items (e.g., `tests.rs` files) show up in scans but are not user-facing. They should either be fully private or documented minimally.
 
 ---
@@ -221,10 +230,10 @@ These items have a doc comment but lack required sections.
 
 ### Immediate (High Priority)
 
-1. **Add `#![warn(missing_docs)]` to `analytics/src/lib.rs` and `monte_carlo/src/lib.rs`**  
+1. **Add `#![warn(missing_docs)]` to `analytics/src/lib.rs` and `monte_carlo/src/lib.rs`**
    This brings them in line with every other crate and surfaces new gaps in CI.
 
-2. **Fix all 466 Blocker items (zero docs)**  
+2. **Fix all 466 Blocker items (zero docs)**
    Focus on the highest-visibility public API first:
    - `valuations:pricer/*` — registry, keys, JSON parsing, instrument type enum
    - `valuations:results/*` — valuation result accessors
@@ -235,12 +244,12 @@ These items have a doc comment but lack required sections.
    - `core:config.rs` — `RoundingMode`
    - `margin:types/*` — all enums (`MarginTenor`, `ImMethodology`, `ClearingStatus`, etc.)
 
-3. **Document builder entry points**  
+3. **Document builder entry points**
    Every `new()`, `builder()`, and `build()` method should have at minimum a one-liner `///` doc. These are the first things users call.
 
 ### Short-Term (Next Sprint)
 
-4. **Add `# Examples` to high-traffic modules**  
+4. **Add `# Examples` to high-traffic modules**
    Prioritize by user-facing surface area:
    - `valuations:pricer/*` — 2,163 items; most user-facing
    - `core:cashflow/*` — discounting, XIRR, cashflow primitives
@@ -248,24 +257,24 @@ These items have a doc comment but lack required sections.
    - `monte_carlo:engine`, `process`, `payoff` — entry points
    - `statements:models/*` — evaluation, corkscrew, drivers
 
-5. **Add `# References` to financial/math code**  
+5. **Add `# References` to financial/math code**
    Any module implementing pricing models, Greeks, day-count conventions, VaR, Monte Carlo, or credit scoring should cite canonical sources per `docs/REFERENCES.md`.
 
-6. **Add `# Arguments` and `# Returns` to functions**  
+6. **Add `# Arguments` and `# Returns` to functions**
    Any `pub fn` should document its inputs and output. This is the second-most common gap after Examples.
 
 ### Medium-Term
 
-7. **Establish a documentation coverage gate**  
+7. **Establish a documentation coverage gate**
    Consider upgrading workspace `missing_docs` from `warn` to `deny` once blockers are cleared. This prevents regressions.
 
-8. **Add module-level `//!` docs where missing**  
+8. **Add module-level `//!` docs where missing**
    Some `mod.rs` files have only re-exports with no module-level explanation. Add a brief `//!` describing the module's purpose and key types.
 
-9. **Document `pub(crate)` / `pub(super)` helpers**  
+9. **Document `pub(crate)` / `pub(super)` helpers**
    Internal types need at least a one-liner so future maintainers understand intent without reading implementation.
 
-10. **Create a documentation sweep script**  
+10. **Create a documentation sweep script**
     The audit script used for this review (`/tmp/doc_scan.py`) can be adapted into a CI check or pre-commit hook to track documentation coverage over time.
 
 ---
