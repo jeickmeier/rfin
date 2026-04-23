@@ -64,6 +64,9 @@ jobs:
           cache: true
           cache_save: false
 
+      - name: Ensure rustfmt and clippy components
+        run: rustup component add rustfmt clippy
+
       - name: Install WASM dependencies
         run: npm ci --ignore-scripts
         working-directory: finstack-wasm
