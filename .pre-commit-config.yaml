@@ -152,18 +152,6 @@ repos:
         pass_filenames: false
 
   # ============================================
-  # Repo policy / consistency
-  # ============================================
-  - repo: local
-    hooks:
-      - id: sync-versions
-        name: Sync sub-package versions from Cargo.toml
-        entry: ./scripts/sync-versions
-        language: system
-        files: (Cargo\.toml|package\.json)$
-        pass_filenames: false
-
-  # ============================================
   # Build / validation (slower, pre-push)
   # ============================================
   - repo: local
