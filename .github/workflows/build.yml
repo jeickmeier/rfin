@@ -16,12 +16,33 @@ concurrency:
 
 jobs:
   # ============================================
+  # Prime mise cache — single writer to avoid parallel
+  # `actions/cache/save` races across jobs that share the
+  # same mise.toml-derived cache key. All other jobs read
+  # from this cache with `cache_save: false`.
+  # ============================================
+  prime-cache:
+    name: Prime mise cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v2
+        with:
+          cache: true
+
+  # ============================================
   # Lint — pre-commit checks (runs in parallel with tests)
   # ============================================
   lint:
     name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    needs: prime-cache
 
     env:
       CARGO_BUILD_JOBS: 2
@@ -41,6 +62,7 @@ jobs:
         uses: jdx/mise-action@v2
         with:
           cache: true
+          cache_save: false
 
       - name: Install WASM dependencies
         run: npm ci --ignore-scripts
@@ -70,6 +92,7 @@ jobs:
     name: Test Rust
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: prime-cache
 
     env:
       CARGO_BUILD_JOBS: 2
@@ -100,6 +123,7 @@ jobs:
     name: Test Python
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: prime-cache
 
     env:
       CARGO_BUILD_JOBS: 2
@@ -141,6 +165,7 @@ jobs:
     name: Test WASM
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: prime-cache
 
     env:
       CARGO_BUILD_JOBS: 2
@@ -175,6 +200,7 @@ jobs:
     name: Supply-chain Security (cargo-deny)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: prime-cache
 
     steps:
       - name: Checkout repository
@@ -184,6 +210,7 @@ jobs:
         uses: jdx/mise-action@v2
         with:
           cache: true
+          cache_save: false
 
       - name: Run cargo-deny
         run: cargo deny check
@@ -231,7 +258,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
-    needs: [lint, test-rust, test-python, test-wasm]
+    needs: [prime-cache, lint, test-rust, test-python, test-wasm]
 
     env:
       CARGO_BUILD_JOBS: 2
@@ -252,6 +279,7 @@ jobs:
         uses: jdx/mise-action@v2
         with:
           cache: true
+          cache_save: false
 
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --locked
