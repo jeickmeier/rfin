@@ -204,7 +204,6 @@ impl Payoff for RangeAccrualPayoff {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_monte_carlo::traits::state_keys;

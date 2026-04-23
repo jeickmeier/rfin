@@ -445,7 +445,6 @@ fn resolve_fixing_date(start: Date, conv: &RateIndexConventions) -> Result<Date>
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::market::conventions::ids::IndexId;

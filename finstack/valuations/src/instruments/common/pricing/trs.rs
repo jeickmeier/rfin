@@ -389,7 +389,6 @@ impl TrsEngine {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
     use crate::cashflow::builder::ScheduleParams;

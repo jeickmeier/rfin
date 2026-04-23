@@ -76,7 +76,6 @@ pub fn results_to_rows(results: &[ValuationResult]) -> Vec<ValuationRow> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::config::results_meta;

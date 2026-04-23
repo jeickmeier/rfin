@@ -1058,7 +1058,6 @@ Ensure quotes map to strictly increasing year fractions.",
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::calibration::prepared::CalibrationQuote;

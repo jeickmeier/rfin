@@ -820,7 +820,6 @@ fn ensure_same_currency(lhs: &Money, rhs: &Money) -> Result<(), Error> {
 // Tests (basic – exhaustive suite lives in `tests/` folder)
 // -------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

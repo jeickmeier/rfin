@@ -392,7 +392,6 @@ pub(crate) fn compute_upfront_fee_pv(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;

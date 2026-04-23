@@ -226,7 +226,6 @@ fn tabular_interpolate(xs: &[f64], ys: &[f64], x: f64) -> f64 {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
 

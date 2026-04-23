@@ -279,7 +279,6 @@ impl Payoff for Forward {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::traits::state_keys;

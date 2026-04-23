@@ -516,7 +516,6 @@ pub fn execute_waterfall(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::capital_structure::{

@@ -39,7 +39,6 @@ pub fn validate_check_suite_spec(json: &str) -> Result<String, JsValue> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -167,7 +167,6 @@ pub(crate) fn round_decimal(x: Decimal, dp: i32, mode: RoundingMode) -> Decimal 
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use std::str::FromStr;

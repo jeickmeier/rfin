@@ -209,7 +209,6 @@ impl Discretization<RoughHestonProcess> for RoughHestonHybrid {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::rough_heston::{RoughHestonParams, RoughHestonProcess};
     use super::*;

@@ -186,7 +186,6 @@ pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

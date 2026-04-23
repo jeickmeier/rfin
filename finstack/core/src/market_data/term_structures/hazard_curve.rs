@@ -910,7 +910,6 @@ impl HazardCurveBuilder {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use time::Month;
@@ -1108,7 +1107,6 @@ pub enum ParInterp {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod seniority_tests {
     use super::Seniority;
 

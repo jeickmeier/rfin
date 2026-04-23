@@ -1036,7 +1036,6 @@ pub fn multi_factor_greeks(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

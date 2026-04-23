@@ -108,7 +108,6 @@ pub(crate) fn register_bond_future_metrics(registry: &mut MetricRegistry) {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::metrics::{MetricId, MetricRegistry};

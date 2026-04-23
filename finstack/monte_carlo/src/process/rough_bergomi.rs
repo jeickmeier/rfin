@@ -250,7 +250,6 @@ impl ProcessMetadata for RoughBergomiProcess {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

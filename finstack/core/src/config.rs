@@ -517,7 +517,6 @@ pub fn results_meta_with_timestamp(
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::RoundingMode;
 

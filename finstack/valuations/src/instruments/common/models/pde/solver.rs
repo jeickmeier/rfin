@@ -325,7 +325,6 @@ pub enum PdeSolverError {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::boundary::BoundaryCondition;
     use super::super::problem::PdeProblem1D;

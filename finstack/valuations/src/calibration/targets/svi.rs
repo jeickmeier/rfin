@@ -323,7 +323,6 @@ fn interpolate_svi_vol(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::calibration::api::schema::SviSurfaceParams;

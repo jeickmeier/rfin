@@ -470,7 +470,6 @@ fn reprice_corner(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::metrics::MetricId;
 

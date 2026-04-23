@@ -276,7 +276,6 @@ impl DependencyIndex {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_valuations::instruments::InstrumentCurves;

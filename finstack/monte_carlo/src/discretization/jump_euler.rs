@@ -114,7 +114,6 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::engine::McEngine;
     use super::super::super::payoff::vanilla::Forward;

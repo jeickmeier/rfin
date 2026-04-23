@@ -1253,7 +1253,6 @@ pub mod calibration {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::models::credit::toggle_exercise::ThresholdDirection;

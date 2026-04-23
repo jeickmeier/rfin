@@ -237,7 +237,6 @@ pub fn apply_cross_derivative(cross_coeffs: &[f64], u_full: &[f64], grid: &Grid2
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

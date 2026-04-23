@@ -223,7 +223,6 @@ pub fn __test_only_build_event_aligned_grid(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::money::Money;

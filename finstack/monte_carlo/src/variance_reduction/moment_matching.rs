@@ -89,7 +89,6 @@ pub fn match_moments_per_step(samples: &mut [f64], num_paths: usize, num_steps: 
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

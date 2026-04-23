@@ -232,7 +232,6 @@ pub enum TraceEntry {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

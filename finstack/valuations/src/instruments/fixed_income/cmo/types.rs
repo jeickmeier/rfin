@@ -420,7 +420,6 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyCmo {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

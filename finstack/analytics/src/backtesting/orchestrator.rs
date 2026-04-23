@@ -165,7 +165,6 @@ pub fn compare_var_backtests(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod unit_tests {
     use super::*;
     use crate::backtesting::types::{Breach, TrafficLightZone};

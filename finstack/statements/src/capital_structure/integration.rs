@@ -787,7 +787,6 @@ pub fn build_any_instrument_from_spec(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_cashflows::builder::{CashFlowMeta, CashFlowSchedule, Notional};

@@ -344,7 +344,6 @@ pub fn comp_total(returns: &[f64]) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

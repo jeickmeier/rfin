@@ -630,7 +630,6 @@ pub fn moodys_warf_factor(rating: CreditRating) -> crate::Result<f64> {
 // ============================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

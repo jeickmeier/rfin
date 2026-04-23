@@ -235,7 +235,6 @@ pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> Vec<f64> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::math::standard_normal_inv_cdf;

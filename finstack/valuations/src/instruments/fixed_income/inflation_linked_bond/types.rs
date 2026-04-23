@@ -1117,7 +1117,6 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InflationLin
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::traits::CashflowProvider;

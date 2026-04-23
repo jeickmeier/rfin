@@ -715,7 +715,6 @@ impl SwaptionLsmcPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     // Tests for swap rate utilities are now in swap_rate_utils.rs
     // This module focuses on testing the LSMC swaption pricer itself

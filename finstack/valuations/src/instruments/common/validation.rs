@@ -210,7 +210,6 @@ mod tests {
     use finstack_core::money::Money;
     use time::Month;
 
-    #[allow(clippy::expect_used)]
     #[test]
     fn validate_date_range_strict_accepts_valid_order() {
         let start = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
@@ -218,7 +217,6 @@ mod tests {
         assert!(validate_date_range_strict(start, end, "test").is_ok());
     }
 
-    #[allow(clippy::expect_used)]
     #[test]
     fn validate_date_range_strict_rejects_equal_or_reverse() {
         let start = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
@@ -226,7 +224,6 @@ mod tests {
         assert!(validate_date_range_strict(start, end, "test").is_err());
     }
 
-    #[allow(clippy::expect_used)]
     #[test]
     fn validate_date_range_non_strict_accepts_equal() {
         let start = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
@@ -248,7 +245,6 @@ mod tests {
         assert!(validate_f64_abs_le(0.5, 1.0, "test", None).is_ok());
     }
 
-    #[allow(clippy::expect_used)]
     #[test]
     fn validate_sorted_strict_rejects_unsorted() {
         let d1 = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");

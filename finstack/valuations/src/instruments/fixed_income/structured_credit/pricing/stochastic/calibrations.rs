@@ -137,7 +137,6 @@ pub(crate) const CMBS_STANDARD: CmbsCalibration = CmbsCalibration {
 };
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

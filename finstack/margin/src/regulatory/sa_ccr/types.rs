@@ -300,7 +300,6 @@ impl SaCcrTrade {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod validate_tests {
     use super::*;
     use finstack_core::dates::Date;

@@ -196,7 +196,6 @@ impl std::fmt::Debug for StochasticPricerConfig {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::DiscountCurve;

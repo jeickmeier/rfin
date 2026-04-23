@@ -119,7 +119,6 @@ pub(crate) fn qe_step_variance(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

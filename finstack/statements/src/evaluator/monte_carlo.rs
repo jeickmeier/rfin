@@ -403,7 +403,6 @@ pub(crate) fn aggregate_monte_carlo_paths(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::{
         aggregate_monte_carlo_paths, normalize_percentiles, MonteCarloAccumulator, MonteCarloConfig,

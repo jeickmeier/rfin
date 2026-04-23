@@ -129,7 +129,6 @@ pub fn smm_to_cpr(smm: f64) -> finstack_core::Result<f64> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -161,7 +161,6 @@ pub fn mwr_xirr(cashflows: &[(Date, f64)]) -> finstack_core::Result<f64> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::macros::date;

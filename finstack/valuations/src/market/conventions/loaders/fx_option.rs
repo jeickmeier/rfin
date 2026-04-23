@@ -38,7 +38,6 @@ pub(crate) fn load_registry() -> Result<HashMap<FxOptionConventionId, FxOptionCo
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

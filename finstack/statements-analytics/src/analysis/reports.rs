@@ -493,7 +493,6 @@ impl Report for CreditAssessmentReport<'_> {
 // ============================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

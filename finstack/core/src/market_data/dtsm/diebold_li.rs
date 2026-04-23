@@ -485,7 +485,6 @@ pub(crate) fn ns_loading_matrix(lambda: f64, tenors: &[f64]) -> DMatrix<f64> {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

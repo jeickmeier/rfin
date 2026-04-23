@@ -250,7 +250,6 @@ fn compute_initial_guess(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::super::pricing::{bachelier_call, black_call, black_shifted_call};
     use super::VolatilityConvention;

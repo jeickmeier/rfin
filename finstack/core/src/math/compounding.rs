@@ -375,7 +375,6 @@ impl std::fmt::Display for Compounding {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

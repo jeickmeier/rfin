@@ -191,7 +191,6 @@ impl std::fmt::Display for Estimate {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

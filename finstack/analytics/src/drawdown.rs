@@ -359,7 +359,6 @@ pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

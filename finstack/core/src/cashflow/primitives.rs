@@ -445,7 +445,6 @@ fn non_finite_kind(x: f64) -> NonFiniteKind {
 // Compile-time size assertion (≤ 56 bytes)
 // -------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

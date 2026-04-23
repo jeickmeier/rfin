@@ -290,7 +290,6 @@ crate::impl_empty_cashflow_provider!(
 );
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;

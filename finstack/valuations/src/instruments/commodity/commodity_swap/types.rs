@@ -541,7 +541,6 @@ impl CashflowProvider for CommoditySwap {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::CashflowProvider;

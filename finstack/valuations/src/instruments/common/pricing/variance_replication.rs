@@ -76,7 +76,6 @@ pub fn carr_madan_forward_variance(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;

@@ -134,7 +134,6 @@ pub use types::CallPutSchedule;
 pub use types::MakeWholeSpec;
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::instruments::common_impl::parameters::BondConvention;
     use crate::instruments::common_impl::traits::{Attributes, Instrument};

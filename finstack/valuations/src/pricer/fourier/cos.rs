@@ -280,7 +280,6 @@ fn psi_k(k: usize, a: f64, b: f64, c: f64, d: f64) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::math::characteristic_function::BlackScholesCf;

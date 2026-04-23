@@ -519,7 +519,6 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
 // ================================================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::macros::date;

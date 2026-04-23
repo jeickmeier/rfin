@@ -366,7 +366,6 @@ fn dupire_normal_point(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

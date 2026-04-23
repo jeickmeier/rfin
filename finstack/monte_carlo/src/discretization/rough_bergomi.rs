@@ -124,7 +124,6 @@ impl Discretization<RoughBergomiProcess> for RoughBergomiEuler {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::rough_bergomi::{RoughBergomiParams, RoughBergomiProcess};
     use super::*;

@@ -663,7 +663,6 @@ pub(crate) fn emit_float_coupons_on(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

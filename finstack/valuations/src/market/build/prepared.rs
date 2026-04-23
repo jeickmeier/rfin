@@ -227,7 +227,6 @@ pub(crate) fn prepare_cds_quote(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::market::quotes::ids::QuoteId;

@@ -588,7 +588,6 @@ pub fn attribute_pnl_parallel(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     #[allow(clippy::expect_used, dead_code, unused_imports)]
     mod test_utils {

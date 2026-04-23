@@ -175,7 +175,6 @@ pub fn calculate_pay_up(_characteristics: &PoolCharacteristics, _tba: &AgencyTba
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

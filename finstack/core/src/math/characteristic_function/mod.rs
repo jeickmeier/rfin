@@ -151,7 +151,6 @@ impl CharacteristicFunction for LogForwardCf<'_> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

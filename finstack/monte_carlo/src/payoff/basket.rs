@@ -398,7 +398,6 @@ pub fn margrabe_exchange_option(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::discretization::exact::{ExactMultiGbm, ExactMultiGbmCorrelated};

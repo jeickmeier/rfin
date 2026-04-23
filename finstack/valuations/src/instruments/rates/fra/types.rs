@@ -627,7 +627,6 @@ impl CashflowProvider for ForwardRateAgreement {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
@@ -773,7 +772,6 @@ mod tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod serde_tests {
     use super::*;
     use finstack_core::currency::Currency;

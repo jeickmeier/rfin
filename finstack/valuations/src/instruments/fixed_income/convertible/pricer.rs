@@ -1321,7 +1321,6 @@ impl crate::pricer::Pricer for ConvertibleTreePricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};

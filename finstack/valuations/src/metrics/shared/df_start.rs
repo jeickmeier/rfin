@@ -33,7 +33,6 @@ impl MetricCalculator for GenericDfStartCalculator {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::GenericDfStartCalculator;
     use crate::instruments::{Deposit, Instrument};

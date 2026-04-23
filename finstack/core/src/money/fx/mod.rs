@@ -41,7 +41,6 @@ pub use providers::{BumpedFxProvider, SimpleFxProvider};
 pub use types::{FxConfig, FxConversionPolicy, FxMatrixState, FxPolicyMeta, FxQuery, FxRateResult};
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::currency::Currency;

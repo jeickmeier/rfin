@@ -408,7 +408,6 @@ fn convert_money_to_base_on_date(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;

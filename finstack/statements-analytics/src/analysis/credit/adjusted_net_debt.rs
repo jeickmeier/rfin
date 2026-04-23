@@ -209,7 +209,6 @@ impl AdjustedNetDebtSpecBuilder {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use finstack_statements::builder::ModelBuilder;

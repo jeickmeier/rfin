@@ -188,7 +188,6 @@ fn unflatten_matrix(flat: &[f64], n: usize) -> Vec<Vec<f64>> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

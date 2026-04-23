@@ -120,7 +120,6 @@ impl Discretization<LmmProcess> for LmmPredictorCorrector {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::process::lmm::LmmParams;

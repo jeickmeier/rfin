@@ -1308,7 +1308,6 @@ fn price_from_asw_market(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::Bond;

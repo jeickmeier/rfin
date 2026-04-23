@@ -312,7 +312,6 @@ pub fn qualify_identifiers(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

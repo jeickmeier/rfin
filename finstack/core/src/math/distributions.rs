@@ -1357,7 +1357,6 @@ pub fn sample_student_t(rng: &mut dyn RandomNumberGenerator, df: f64) -> crate::
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

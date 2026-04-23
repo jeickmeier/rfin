@@ -293,7 +293,6 @@ crate::impl_empty_cashflow_provider!(
 );
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use std::str::FromStr;

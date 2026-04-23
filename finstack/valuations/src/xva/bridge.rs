@@ -43,7 +43,6 @@ pub(crate) fn wrap_instruments(instruments: &[Arc<DynInstrument>]) -> Vec<Arc<dy
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use std::sync::Arc;
 

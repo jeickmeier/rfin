@@ -375,7 +375,6 @@ pub fn allocate_po_cashflow(_po_tranche: &CmoTranche, total_principal: f64) -> f
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::cmo::types::CmoTranche;

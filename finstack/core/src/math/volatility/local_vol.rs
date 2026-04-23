@@ -452,7 +452,6 @@ fn find_segment(arr: &[f64], x: f64) -> usize {
 // =============================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

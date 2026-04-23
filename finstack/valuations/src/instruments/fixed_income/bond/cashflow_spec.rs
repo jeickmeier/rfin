@@ -758,7 +758,6 @@ impl Default for CashflowSpec {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::Date;

@@ -524,7 +524,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     #[test]
     fn test_central_vs_forward_difference() {

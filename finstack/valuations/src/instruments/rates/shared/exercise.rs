@@ -58,7 +58,6 @@ pub fn extended_basis(t_years: f64, short_rate: f64) -> Vec<f64> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

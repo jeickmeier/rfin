@@ -541,7 +541,6 @@ fn validate_base_correlation_step(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::calibration::api::schema::{

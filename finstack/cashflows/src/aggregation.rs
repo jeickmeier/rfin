@@ -770,7 +770,6 @@ mod compensated_sum_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod credit_pv_tests {
     use super::*;
     use finstack_core::currency::Currency;

@@ -528,7 +528,6 @@ pub fn moments4(returns: &[f64]) -> (f64, f64, f64, f64) {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::math::stats::{mean, variance};

@@ -243,7 +243,6 @@ fn dirty_price_from_ytm_with_frequency_ctx(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::market::conventions::ids::BondConventionId;

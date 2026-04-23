@@ -182,7 +182,6 @@ fn non_ir_add_on(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

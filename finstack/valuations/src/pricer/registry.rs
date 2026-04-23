@@ -421,7 +421,6 @@ fn stamp_results_meta(cfg: &FinstackConfig, result: &mut crate::results::Valuati
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

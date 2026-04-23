@@ -589,7 +589,6 @@ pub fn compute_bilateral_xva(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use finstack_core::dates::Date;

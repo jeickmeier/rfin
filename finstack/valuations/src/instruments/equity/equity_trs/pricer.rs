@@ -176,7 +176,6 @@ pub(crate) fn pv_total_return_leg(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::{EquityReturnModel, TrsReturnModel};
     use crate::instruments::equity::equity_trs::types::EquityTotalReturnSwap;

@@ -24,7 +24,6 @@ pub use stats::{
 pub use types::{CompanyId, CompanyMetrics, Multiple, PeriodBasis};
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use finstack_core::types::Attributes;

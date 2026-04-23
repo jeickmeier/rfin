@@ -95,7 +95,6 @@ pub fn estimate_payment_window(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::cmo::types::CmoTranche;

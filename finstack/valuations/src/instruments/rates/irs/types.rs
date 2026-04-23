@@ -758,7 +758,6 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InterestRate
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

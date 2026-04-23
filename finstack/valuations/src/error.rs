@@ -113,7 +113,6 @@ impl From<Error> for finstack_core::Error {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -125,7 +125,6 @@ impl SaCcrEngineBuilder {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::regulatory::sa_ccr::types::*;

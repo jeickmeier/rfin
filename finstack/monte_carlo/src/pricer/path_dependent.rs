@@ -794,7 +794,6 @@ impl<'a> RandomStream for SobolPathStream<'a> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::{PathDependentPricer, PathDependentPricerConfig};
     use crate::payoff::asian::{AsianCall, AveragingMethod};

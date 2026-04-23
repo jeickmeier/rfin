@@ -1,7 +1,6 @@
 //! Tests for credit scoring models.
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod altman_tests {
     use crate::credit::scoring::{
         altman_z_double_prime, altman_z_prime, altman_z_score, AltmanZDoublePrimeInput,
@@ -227,7 +226,6 @@ mod altman_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod ohlson_tests {
     use crate::credit::scoring::{ohlson_o_score, CreditScoringError, OhlsonOScoreInput};
 
@@ -337,7 +335,6 @@ mod ohlson_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod zmijewski_tests {
     use crate::credit::scoring::{
         zmijewski_score, CreditScoringError, ScoringZone, ZmijewskiInput,

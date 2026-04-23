@@ -162,7 +162,6 @@ pub fn apply_and_revalue(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;

@@ -280,7 +280,6 @@ fn jaro_similarity(s1: &str, s2: &str) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

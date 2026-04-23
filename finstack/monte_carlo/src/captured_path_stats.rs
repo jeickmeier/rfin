@@ -47,7 +47,6 @@ pub(crate) fn apply_captured_path_statistics(
 }
 
 #[cfg(test)]
-#[allow(clippy::panic)]
 mod tests {
     use super::apply_captured_path_statistics;
     use crate::estimate::Estimate;

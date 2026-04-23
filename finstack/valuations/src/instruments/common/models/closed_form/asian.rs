@@ -635,7 +635,6 @@ fn vanilla_put_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, 
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

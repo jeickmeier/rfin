@@ -328,7 +328,6 @@ pub fn compute_waterfall(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::analysis::ecl::engine::{EclBucket, EclResult, WeightedEclResult};

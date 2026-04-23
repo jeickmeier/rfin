@@ -330,7 +330,6 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;

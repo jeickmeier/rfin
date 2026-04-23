@@ -230,7 +230,6 @@ fn siphash_with_salt(salt: &[u8], buf: &[u8]) -> u64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

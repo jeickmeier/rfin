@@ -1224,7 +1224,6 @@ fn evaluate_function(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};

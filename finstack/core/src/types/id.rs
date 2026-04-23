@@ -416,7 +416,6 @@ pub type PoolId = Id<PoolTag>;
 pub type DealId = Id<DealTag>;
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

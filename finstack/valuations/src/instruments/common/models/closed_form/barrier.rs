@@ -854,7 +854,6 @@ pub fn barrier_rebate_continuous_df(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

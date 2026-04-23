@@ -206,7 +206,6 @@ pub fn aggregated_metrics_to_table(metrics: &PortfolioMetrics) -> Result<TableEn
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::PortfolioBuilder;

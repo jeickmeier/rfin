@@ -383,7 +383,6 @@ pub(crate) fn compute_pv_raw(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common_impl::pricing::swap_legs::add_payment_delay;

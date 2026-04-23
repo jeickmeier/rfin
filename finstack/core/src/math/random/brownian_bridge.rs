@@ -215,7 +215,6 @@ impl BrownianBridge {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::super::sobol_pca::{effective_dimension, pca_ordering};
     use super::*;

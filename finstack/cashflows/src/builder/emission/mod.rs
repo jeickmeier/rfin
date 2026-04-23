@@ -160,7 +160,6 @@ pub use coupons::emit_inflation_coupons;
 pub use credit::{emit_default_on, emit_prepayment_on};
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod revolving_credit_fee_tests {
     use super::{emit_revolving_credit_fees, RevolvingFeeEmissionConfig};
     use crate::primitives::CFKind;

@@ -282,7 +282,6 @@ pub fn aggregate_by_book(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::book::Book;

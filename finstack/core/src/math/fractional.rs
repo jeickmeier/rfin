@@ -234,7 +234,6 @@ pub fn mittag_leffler(z: Complex64, alpha: f64, beta: f64) -> Complex64 {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use std::f64::consts::PI;

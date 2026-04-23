@@ -442,7 +442,6 @@ pub fn next_sifma_settlement(date: Date) -> Option<Date> {
 // Tests
 // -------------------------------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

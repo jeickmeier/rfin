@@ -118,7 +118,6 @@ fn closest_index(arr: &[f64], target: f64) -> usize {
 // Tests
 // ---------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::float_cmp)]
 mod tests {
     use super::*;
 

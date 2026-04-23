@@ -448,7 +448,6 @@ fn initialize_direction_numbers(max_dim: usize) -> Vec<Vec<u32>> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

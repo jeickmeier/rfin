@@ -238,7 +238,6 @@ fn infer_direction(value: f64) -> Direction {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

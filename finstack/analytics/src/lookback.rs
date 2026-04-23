@@ -197,7 +197,6 @@ pub fn fytd_select(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     fn d(y: i32, m: u8, day: u8) -> Date {

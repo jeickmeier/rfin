@@ -113,7 +113,6 @@ pub fn apply_collateral(gross_exposure: f64, csa: &CsaTerms) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

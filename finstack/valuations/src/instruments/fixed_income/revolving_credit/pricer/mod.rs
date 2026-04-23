@@ -50,7 +50,6 @@ pub(crate) mod unified;
 pub(crate) use unified::RevolvingCreditPricer;
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey};

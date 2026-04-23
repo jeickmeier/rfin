@@ -443,7 +443,6 @@ pub fn ordered_credit_sector_pair(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

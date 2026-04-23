@@ -638,7 +638,6 @@ pub struct ExplanationStep {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_statements::builder::ModelBuilder;

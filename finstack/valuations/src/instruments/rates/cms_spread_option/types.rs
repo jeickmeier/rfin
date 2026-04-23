@@ -220,7 +220,6 @@ crate::impl_empty_cashflow_provider!(
 );
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

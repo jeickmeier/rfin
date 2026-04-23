@@ -349,7 +349,6 @@ pub fn npv_amounts_with_ctx(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod hardening_tests {
     use super::*;
     use crate::currency::Currency;
@@ -421,7 +420,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::currency::Currency;

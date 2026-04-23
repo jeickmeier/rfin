@@ -340,7 +340,6 @@ impl Pricer for TermLoanDiscountingPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::CouponType;

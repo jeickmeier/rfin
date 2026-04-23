@@ -87,7 +87,6 @@ impl MetricCalculator for Fx01Calculator {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::instruments::Attributes;

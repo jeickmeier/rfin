@@ -297,7 +297,6 @@ impl std::str::FromStr for FloatingLegCompounding {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

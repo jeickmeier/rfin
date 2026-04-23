@@ -91,7 +91,6 @@ pub trait StochasticPrepayment: Send + Sync + std::fmt::Debug {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

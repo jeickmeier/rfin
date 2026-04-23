@@ -272,7 +272,6 @@ fn epoch_to_date(days: i32) -> Result<time::Date, JsValue> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

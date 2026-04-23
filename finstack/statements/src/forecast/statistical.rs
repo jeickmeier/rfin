@@ -551,7 +551,6 @@ pub(crate) fn monte_carlo_correlated_series(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_core::dates::PeriodId;

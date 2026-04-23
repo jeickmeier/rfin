@@ -247,7 +247,6 @@ pub(crate) fn compute_pv(inst: &CmsSwap, market: &MarketContext, as_of: Date) ->
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
     mod test_utils {

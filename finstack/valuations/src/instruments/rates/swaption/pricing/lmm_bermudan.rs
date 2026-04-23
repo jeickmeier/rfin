@@ -404,7 +404,6 @@ fn compute_swap_rate_and_annuity(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

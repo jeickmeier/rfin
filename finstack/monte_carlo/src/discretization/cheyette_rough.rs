@@ -137,7 +137,6 @@ impl Discretization<CheyetteRoughVolProcess> for CheyetteRoughEuler {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::cheyette_rough::{
         CheyetteRoughVolParams, CheyetteRoughVolProcess,

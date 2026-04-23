@@ -49,7 +49,6 @@ pub fn count_consecutive<F: Fn(f64) -> bool>(values: &[f64], predicate: F) -> us
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

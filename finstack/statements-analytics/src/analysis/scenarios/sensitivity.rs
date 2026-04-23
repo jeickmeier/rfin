@@ -504,7 +504,6 @@ fn approx_equal(lhs: f64, rhs: f64) -> bool {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::analysis::types::ParameterSpec;

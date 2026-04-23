@@ -152,7 +152,6 @@ pub(crate) fn edit_distance(a_chars: &[char], b: &str) -> usize {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

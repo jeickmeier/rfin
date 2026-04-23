@@ -377,7 +377,6 @@ pub fn reevaluate_model(model: &mut FinancialModelSpec) -> Result<Vec<String>> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::build_periods;

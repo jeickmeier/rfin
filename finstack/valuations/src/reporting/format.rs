@@ -287,7 +287,6 @@ fn format_with_commas(value: f64, decimals: usize) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

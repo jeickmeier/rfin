@@ -233,7 +233,6 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::super::monte_carlo_process::{
         CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess, RevolvingCreditProcessParams,

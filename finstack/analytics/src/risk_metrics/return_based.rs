@@ -948,7 +948,6 @@ pub fn modified_sharpe(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::dates::Month;

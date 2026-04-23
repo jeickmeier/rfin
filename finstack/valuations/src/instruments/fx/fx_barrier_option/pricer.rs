@@ -785,7 +785,6 @@ impl Pricer for FxBarrierOptionVannaVolgaPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::exotics::barrier_option::types::BarrierType;

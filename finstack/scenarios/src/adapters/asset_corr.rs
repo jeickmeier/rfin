@@ -45,7 +45,6 @@ impl ScenarioAdapter for AssetCorrAdapter {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use finstack_valuations::instruments::fixed_income::structured_credit::{
         CorrelationStructure, StructuredCredit,

@@ -330,7 +330,6 @@ pub fn build_cds_tranche_instrument(
 // Helpers moved to build::helpers
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};

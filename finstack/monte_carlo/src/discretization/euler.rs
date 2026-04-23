@@ -112,7 +112,6 @@ impl<P: StochasticProcess> Discretization<P> for LogEuler {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::gbm::{GbmParams, GbmProcess};
     use super::*;

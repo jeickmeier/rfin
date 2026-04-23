@@ -156,7 +156,6 @@ impl<F: Fn(f64, f64) -> f64> PdeProblem1D for LocalVolPde<F> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::grid::Grid1D;
     use super::super::solver::Solver1D;

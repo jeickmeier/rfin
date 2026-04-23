@@ -426,7 +426,6 @@ pub(crate) fn execute_params_and_apply(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::calibration::api::schema::{HullWhiteStepParams, StudentTParams, SviSurfaceParams};

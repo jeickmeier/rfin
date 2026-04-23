@@ -727,7 +727,6 @@ impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::credit_derivatives::cds::CDSConvention;

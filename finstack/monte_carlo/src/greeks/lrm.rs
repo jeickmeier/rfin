@@ -123,7 +123,6 @@ pub fn lrm_rho(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

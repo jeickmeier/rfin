@@ -190,7 +190,6 @@ pub fn effective_sample_size(weights: &[f64]) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

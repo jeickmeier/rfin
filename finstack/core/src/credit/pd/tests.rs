@@ -1,7 +1,6 @@
 //! Tests for PD calibration, term structure, and master scale.
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod calibration_tests {
     use crate::credit::pd::{pit_to_ttc, ttc_to_pit, PdCalibrationError, PdCycleParams};
 
@@ -163,7 +162,6 @@ mod calibration_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod central_tendency_tests {
     use crate::credit::pd::{central_tendency, PdCalibrationError};
 
@@ -214,7 +212,6 @@ mod central_tendency_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod term_structure_tests {
     use crate::credit::pd::{PdCalibrationError, PdTermStructureBuilder};
 
@@ -345,7 +342,6 @@ mod term_structure_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod term_structure_from_matrix_tests {
     use crate::credit::migration::{RatingScale, TransitionMatrix};
     use crate::credit::pd::PdTermStructureBuilder;
@@ -386,7 +382,6 @@ mod term_structure_from_matrix_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod master_scale_tests {
     use crate::credit::pd::{MasterScale, MasterScaleGrade, PdCalibrationError};
 

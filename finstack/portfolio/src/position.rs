@@ -586,7 +586,6 @@ impl PartialEq for Position {
 impl Eq for Position {}
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_valuations::instruments::rates::deposit::Deposit;

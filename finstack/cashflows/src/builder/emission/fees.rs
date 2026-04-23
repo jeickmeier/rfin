@@ -368,7 +368,6 @@ pub(in crate::builder) fn emit_fees_on(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::builder::compiler::PeriodicFee;

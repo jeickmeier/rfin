@@ -384,7 +384,6 @@ impl ToggleExerciseModel {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::math::random::Pcg64Rng;

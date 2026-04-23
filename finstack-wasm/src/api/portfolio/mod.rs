@@ -629,7 +629,6 @@ pub fn kyle_lambda(volumes_json: &str, returns_json: &str) -> Result<f64, JsValu
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -391,7 +391,6 @@ pub(crate) fn interp_linear(knots: &[(f64, f64)], t: f64) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

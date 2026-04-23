@@ -564,7 +564,6 @@ fn check_residual(sigma: f64, model: f64, target: f64, scale: f64) -> crate::Res
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

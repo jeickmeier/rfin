@@ -310,7 +310,6 @@ pub fn compute_horizon_return(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

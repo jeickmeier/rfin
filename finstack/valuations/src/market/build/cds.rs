@@ -260,7 +260,6 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
 // Helpers moved to build::helpers
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};

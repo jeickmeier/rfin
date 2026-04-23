@@ -1091,7 +1091,6 @@ fn apply_correlation_effect(
 }
 
 #[cfg(test)]
-#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::spec::OperationSpec;

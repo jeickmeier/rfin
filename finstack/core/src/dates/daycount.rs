@@ -1253,7 +1253,6 @@ impl std::str::FromStr for DayCount {
 }
 
 #[cfg(test)]
-#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::act_act_isma_year_fraction_with_reference_period;
     use time::macros::date;

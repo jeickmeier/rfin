@@ -260,7 +260,6 @@ fn curvature_inter_bucket(bucket_results: &[(f64, f64)], gamma: f64) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

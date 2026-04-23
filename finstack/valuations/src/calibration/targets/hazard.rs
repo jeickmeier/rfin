@@ -586,7 +586,6 @@ Global solve requires strictly increasing times.",
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::calibration::solver::traits::BootstrapTarget;

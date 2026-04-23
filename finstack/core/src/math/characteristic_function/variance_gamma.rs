@@ -140,7 +140,6 @@ impl CharacteristicFunction for VarianceGammaCf {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

@@ -478,7 +478,6 @@ fn springing_condition_active<MTS: ModelTimeSeries>(
 // dependency cycle between `valuations` and `statements`.
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, PeriodId};

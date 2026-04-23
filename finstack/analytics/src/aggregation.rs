@@ -321,7 +321,6 @@ pub fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::dates::Month;

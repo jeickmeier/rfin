@@ -1122,7 +1122,6 @@ fn validate_axis(axis: &[f64]) -> crate::Result<()> {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

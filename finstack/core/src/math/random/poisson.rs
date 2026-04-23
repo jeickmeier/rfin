@@ -72,7 +72,6 @@ pub fn poisson_from_normal(lambda: f64, z: f64) -> usize {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

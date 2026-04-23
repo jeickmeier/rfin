@@ -162,7 +162,6 @@ pub fn transform_pca_to_assets(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

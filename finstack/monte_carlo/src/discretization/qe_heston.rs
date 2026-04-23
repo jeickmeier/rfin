@@ -260,7 +260,6 @@ impl Discretization<HestonProcess> for QeHeston {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::heston::HestonParams;
     use super::super::super::process::heston::HestonProcess;

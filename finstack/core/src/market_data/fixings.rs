@@ -96,7 +96,6 @@ pub fn require_fixing_value_exact(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::market_data::scalars::ScalarTimeSeries;

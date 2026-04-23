@@ -283,7 +283,6 @@ pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::equity::pe_fund::{FundEvent, WaterfallSpec};

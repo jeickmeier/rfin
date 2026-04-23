@@ -518,7 +518,6 @@ impl crate::instruments::common_impl::traits::EquityDependencies for EquityIndex
 // =============================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::Month;

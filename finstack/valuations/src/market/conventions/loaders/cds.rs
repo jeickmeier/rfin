@@ -129,7 +129,6 @@ pub(crate) fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

@@ -1,7 +1,6 @@
 //! Test coverage for VaR backtesting metrics and orchestrators.
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod unit_tests {
     use crate::backtesting::{
         christoffersen_test, classify_breaches, kupiec_test, pnl_explanation, traffic_light,

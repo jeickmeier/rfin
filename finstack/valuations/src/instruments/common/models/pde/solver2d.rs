@@ -236,7 +236,6 @@ pub enum PdeSolver2DError {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::boundary::BoundaryCondition;
     use super::super::grid::Grid1D;

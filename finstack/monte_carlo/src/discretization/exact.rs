@@ -249,7 +249,6 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::gbm::{GbmParams, GbmProcess, MultiGbmProcess};
     use super::*;

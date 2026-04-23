@@ -317,7 +317,6 @@ pub(crate) fn try_asset_all_in_rate(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::FloatingRateSpec;

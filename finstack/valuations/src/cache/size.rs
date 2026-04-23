@@ -24,7 +24,6 @@ pub(crate) fn estimate_result_size(result: &ValuationResult) -> usize {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;

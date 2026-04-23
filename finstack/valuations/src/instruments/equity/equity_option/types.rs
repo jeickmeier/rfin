@@ -764,7 +764,6 @@ crate::impl_empty_cashflow_provider!(
 );
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
     mod test_utils {

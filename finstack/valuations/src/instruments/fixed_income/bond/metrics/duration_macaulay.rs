@@ -107,7 +107,6 @@ impl MetricCalculator for MacaulayDurationCalculator {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use crate::instruments::fixed_income::bond::Bond;
     use crate::instruments::Instrument;

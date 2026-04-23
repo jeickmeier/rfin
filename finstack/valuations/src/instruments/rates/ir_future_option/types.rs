@@ -403,7 +403,6 @@ impl crate::instruments::common_impl::traits::CurveDependencies for IrFutureOpti
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::macros::date;

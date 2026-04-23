@@ -266,7 +266,6 @@ impl FxProvider for BumpedFxProvider {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::currency::Currency;

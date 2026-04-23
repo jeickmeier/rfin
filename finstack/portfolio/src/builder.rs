@@ -389,7 +389,6 @@ impl PortfolioBuilder {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::position::{Position, PositionUnit};

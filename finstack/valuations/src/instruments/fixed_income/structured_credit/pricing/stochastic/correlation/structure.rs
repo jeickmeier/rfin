@@ -604,7 +604,6 @@ fn validate_correlation_value(rho: f64, name: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

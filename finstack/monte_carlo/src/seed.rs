@@ -59,7 +59,6 @@ pub fn derive_seed(instrument_id: &InstrumentId, scenario: &str) -> u64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::types::InstrumentId;

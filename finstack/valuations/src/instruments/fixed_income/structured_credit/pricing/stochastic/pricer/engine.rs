@@ -462,7 +462,6 @@ impl MonteCarloWorkspace {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{

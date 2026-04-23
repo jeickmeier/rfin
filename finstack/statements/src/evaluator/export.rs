@@ -125,7 +125,6 @@ pub(crate) fn to_table_wide(results: &StatementResult) -> Result<TableEnvelope> 
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::super::ResultsMeta;
     use super::*;

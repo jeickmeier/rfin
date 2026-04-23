@@ -273,7 +273,6 @@ fn factor_deltas(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::factor_model::{FactorModel, FactorModelBuilder};

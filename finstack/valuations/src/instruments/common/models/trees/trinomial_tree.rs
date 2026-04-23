@@ -187,7 +187,6 @@ impl TreeModel for TrinomialTree {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::tree_framework::single_factor_equity_state;
     use super::*;

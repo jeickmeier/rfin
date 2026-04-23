@@ -530,7 +530,6 @@ impl TryFrom<RawScalarTimeSeries> for ScalarTimeSeries {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

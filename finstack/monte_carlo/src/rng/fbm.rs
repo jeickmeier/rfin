@@ -457,7 +457,6 @@ fn auto_near_field_size(n: usize) -> usize {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

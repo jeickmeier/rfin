@@ -86,7 +86,6 @@ pub fn half_step_adjusted_barrier(barrier: f64, sigma: f64, dt: f64, is_down_bar
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

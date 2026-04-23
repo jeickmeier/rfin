@@ -96,7 +96,6 @@ pub fn list_standard_metrics_grouped() -> Result<JsValue, JsValue> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

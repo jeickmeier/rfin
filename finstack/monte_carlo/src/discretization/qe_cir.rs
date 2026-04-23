@@ -81,7 +81,6 @@ impl Discretization<CirProcess> for QeCir {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::cir::{CirParams, CirProcess};
     use super::*;

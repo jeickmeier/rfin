@@ -119,7 +119,6 @@ fn student_t_cdf_local(x: f64, df: f64) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

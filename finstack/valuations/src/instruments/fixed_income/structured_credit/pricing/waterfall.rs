@@ -954,7 +954,6 @@ fn calculate_payment_amount(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod market_standards_tests {
     use crate::instruments::fixed_income::structured_credit::types::PaymentCalculation;
     use finstack_core::currency::Currency;

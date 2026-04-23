@@ -332,7 +332,6 @@ pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> Interpolat
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use time::Month;

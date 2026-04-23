@@ -611,7 +611,6 @@ mod tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod solver_tests {
     use super::*;
     use finstack_core::Error;

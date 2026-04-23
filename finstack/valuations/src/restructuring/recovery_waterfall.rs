@@ -351,7 +351,6 @@ fn check_apr(results: &[ClaimRecovery], violations: &mut Vec<String>) -> bool {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::restructuring::types::*;

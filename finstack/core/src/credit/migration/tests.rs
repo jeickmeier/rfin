@@ -4,7 +4,6 @@
 //! matrix exponentiation, Gillespie simulation, and the 7×7 reference matrix.
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod scale_tests {
     use crate::credit::migration::{MigrationError, RatingScale};
 
@@ -148,7 +147,6 @@ mod scale_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod matrix_tests {
     use crate::credit::migration::{MigrationError, RatingScale, TransitionMatrix};
 
@@ -242,7 +240,6 @@ mod matrix_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod generator_tests {
     use crate::credit::migration::{
         GeneratorMatrix, MigrationError, RatingScale, TransitionMatrix,
@@ -312,7 +309,6 @@ mod generator_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod projection_tests {
     use crate::credit::migration::{projection, GeneratorMatrix, RatingScale};
 
@@ -388,7 +384,6 @@ mod projection_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod simulation_tests {
     use rand::SeedableRng;
     use rand_pcg::Pcg64;
@@ -457,7 +452,6 @@ mod simulation_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod reference_matrix_tests {
     use crate::credit::migration::{projection, GeneratorMatrix, RatingScale, TransitionMatrix};
 

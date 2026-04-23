@@ -432,7 +432,6 @@ fn determinant_3x3(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

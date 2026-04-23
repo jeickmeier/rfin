@@ -723,7 +723,6 @@ impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::CashflowProvider;

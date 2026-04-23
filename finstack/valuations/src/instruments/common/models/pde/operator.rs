@@ -462,7 +462,6 @@ fn apply_upper_boundary(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

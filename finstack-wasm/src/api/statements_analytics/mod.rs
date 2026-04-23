@@ -308,7 +308,6 @@ pub fn render_check_report_html(report_json: &str) -> Result<String, JsValue> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::PeriodId;

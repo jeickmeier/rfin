@@ -816,7 +816,6 @@ impl<'a> IntoIterator for &'a CashFlowSchedule {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;

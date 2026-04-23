@@ -189,7 +189,6 @@ impl Pricer for EquityIndexFutureDiscountingPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::rates::ir_future::Position;

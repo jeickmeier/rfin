@@ -356,7 +356,6 @@ fn deep_merge(base: serde_json::Value, overlay: serde_json::Value) -> serde_json
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
 

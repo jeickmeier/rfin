@@ -33,7 +33,6 @@ impl MetricCalculator for GenericDfEndCalculator {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::GenericDfEndCalculator;
     use crate::instruments::{Bond, Deposit, Instrument};

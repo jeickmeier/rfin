@@ -844,7 +844,6 @@ impl MultiSolver for LevenbergMarquardtSolver {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

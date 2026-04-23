@@ -62,7 +62,6 @@ pub fn pricing_positions(positions: &[ParsedPosition]) -> Vec<(String, &dyn Inst
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::Bond;
