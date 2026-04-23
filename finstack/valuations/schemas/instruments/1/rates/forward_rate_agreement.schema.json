@@ -1173,14 +1173,6 @@
                     "null"
                   ]
                 },
-                "scenario_spread_shock_bp": {
-                  "description": "Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).\n\nThis is carried separately from instrument-owned pricing inputs so spread-aware\nscenario engines can apply it without implying it is a static instrument setting.",
-                  "format": "double",
-                  "type": [
-                    "number",
-                    "null"
-                  ]
-                },
                 "spot_bump_pct": {
                   "default": null,
                   "description": "Custom spot bump size override (as percentage, e.g., 0.01 for 1%)\n\nWhen set, overrides both standard and adaptive spot bump calculations.",

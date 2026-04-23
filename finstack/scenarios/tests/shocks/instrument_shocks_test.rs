@@ -158,25 +158,23 @@ fn test_instrument_type_spread_shock_matching() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    // Verify shock via scenario_overrides (for instruments that support it)
-    // Bond supports scenario_overrides_mut(), so check there
-    if let Some(overrides) = instruments[0].scenario_overrides() {
-        assert!(
-            overrides.scenario_spread_shock_bp.is_some(),
-            "scenario_spread_shock_bp should be set in pricing_overrides"
-        );
-        let shock = overrides.scenario_spread_shock_bp.unwrap();
-        assert!(
-            (shock - 100.0).abs() < 1e-6,
-            "Expected 100.0 bp, got {}",
-            shock
-        );
-    } else {
-        // Fallback for instruments without scenario_overrides
-        let meta = &instruments[0].attributes().meta;
-        assert!(meta.contains_key("scenario_spread_shock_bp"));
-        assert_eq!(meta.get("scenario_spread_shock_bp").unwrap(), "100.00");
-    }
+    // Spread shocks no longer have a typed override field; they are recorded as
+    // instrument metadata for downstream consumers (e.g., curve-bump adapters).
+    let meta = &instruments[0].attributes().meta;
+    assert!(
+        meta.contains_key("scenario_spread_shock_bp"),
+        "spread shock should be recorded in instrument metadata"
+    );
+    let stored: f64 = meta
+        .get("scenario_spread_shock_bp")
+        .expect("metadata key")
+        .parse()
+        .expect("finite f64");
+    assert!(
+        (stored - 100.0).abs() < 1e-6,
+        "Expected 100.0 bp in metadata, got {}",
+        stored
+    );
 }
 
 #[test]

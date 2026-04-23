@@ -77,6 +77,11 @@
           },
           "description": "Discount-curve specific solver configuration."
         },
+        "fail_on_bad_fit": {
+          "default": true,
+          "description": "When `true`, a calibration step whose solver reports\n`report.success == false` is propagated as a\n`finstack_core::Error::Calibration` and its output is **not**\ninstalled into the market context.\n\nDefaults to `true` — this is the safe production choice because\na non-converged solver would otherwise silently poison downstream\npricing. Legacy or exploratory workflows that want to inspect the\nreport without aborting can set this to `false`.",
+          "type": "boolean"
+        },
         "hazard_curve": {
           "default": {
             "hazard_hard_max": 10.0,
@@ -230,6 +235,7 @@
               "validation_tolerance": 1e-8,
               "weighting_scheme": "SqrtTime"
             },
+            "fail_on_bad_fit": true,
             "hazard_curve": {
               "hazard_hard_max": 10.0,
               "hazard_hard_min": 0.0,

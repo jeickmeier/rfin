@@ -470,13 +470,6 @@ pub struct ScenarioPricingOverrides {
     /// When set, valuation helpers apply it as a multiplier: `price * (1 + shock_pct)`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scenario_price_shock_pct: Option<f64>,
-
-    /// Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).
-    ///
-    /// This is carried separately from instrument-owned pricing inputs so spread-aware
-    /// scenario engines can apply it without implying it is a static instrument setting.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scenario_spread_shock_bp: Option<f64>,
 }
 
 impl ScenarioPricingOverrides {
@@ -490,11 +483,6 @@ impl ScenarioPricingOverrides {
         use finstack_core::InputError;
 
         if let Some(v) = self.scenario_price_shock_pct {
-            if !v.is_finite() {
-                return Err(InputError::Invalid.into());
-            }
-        }
-        if let Some(v) = self.scenario_spread_shock_bp {
             if !v.is_finite() {
                 return Err(InputError::Invalid.into());
             }
@@ -738,34 +726,14 @@ impl PricingOverrides {
         self
     }
 
-    /// Apply a scenario spread shock (in basis points).
-    ///
-    /// The shock is added to any existing spread: `spread + shock_bp`.
-    /// For example, 50.0 represents a +50bp spread widening.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
-    ///
-    /// // Apply a +25bp spread widening
-    /// let overrides = PricingOverrides::none().with_spread_shock_bp(25.0);
-    /// assert_eq!(overrides.scenario.scenario_spread_shock_bp, Some(25.0));
-    /// ```
-    pub fn with_spread_shock_bp(mut self, shock_bp: f64) -> Self {
-        self.scenario.scenario_spread_shock_bp = Some(shock_bp);
-        self
-    }
-
     /// Clear any scenario shocks applied to this override.
     pub fn clear_scenario_shocks(&mut self) {
         self.scenario.scenario_price_shock_pct = None;
-        self.scenario.scenario_spread_shock_bp = None;
     }
 
     /// Check if any scenario shock is applied.
     pub fn has_scenario_shock(&self) -> bool {
         self.scenario.scenario_price_shock_pct.is_some()
-            || self.scenario.scenario_spread_shock_bp.is_some()
     }
 
     /// Validate override values for finiteness and non-negativity; basic `theta_period` sanity.
@@ -908,8 +876,7 @@ mod tests {
             .with_mc_seed_scenario("theta_roll")
             .with_rate_bump(2.0)
             .with_spot_bump(0.01)
-            .with_price_shock_pct(-0.10)
-            .with_spread_shock_bp(25.0);
+            .with_price_shock_pct(-0.10);
 
         let metric_overrides = MetricPricingOverrides::from_pricing_overrides(&po);
 
@@ -923,18 +890,16 @@ mod tests {
     }
 
     #[test]
-    fn scenario_overrides_extract_only_price_and_spread_shocks() {
+    fn scenario_overrides_extract_only_price_shock() {
         let mut po = PricingOverrides::none()
             .with_theta_period("1W")
             .with_mc_seed_scenario("theta_roll")
-            .with_price_shock_pct(-0.10)
-            .with_spread_shock_bp(25.0);
+            .with_price_shock_pct(-0.10);
 
         po.model_config.use_gobet_miri = true;
 
         let scenario_overrides = ScenarioPricingOverrides::from_pricing_overrides(&po);
 
         assert_eq!(scenario_overrides.scenario_price_shock_pct, Some(-0.10));
-        assert_eq!(scenario_overrides.scenario_spread_shock_bp, Some(25.0));
     }
 }

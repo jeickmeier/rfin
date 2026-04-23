@@ -151,26 +151,28 @@ where
             continue;
         }
 
-        if let Some(overrides) = instrument.scenario_overrides_mut() {
-            match kind {
-                ShockKind::Price => {
+        match kind {
+            ShockKind::Price => {
+                if let Some(overrides) = instrument.scenario_overrides_mut() {
                     overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
                         overrides.scenario_price_shock_pct,
                         delta,
                     ));
-                }
-                ShockKind::Spread => {
-                    overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
-                        overrides.scenario_spread_shock_bp,
-                        delta,
-                    ));
+                } else {
+                    let label = instrument_label(instrument.attributes());
+                    let type_name = format!("{:?}", instrument.key());
+                    accumulate_meta_shock(instrument.attributes_mut(), kind.meta_key(), delta);
+                    warnings.push(fallback_warning(kind.label(), &type_name, &label));
                 }
             }
-        } else {
-            let label = instrument_label(instrument.attributes());
-            let type_name = format!("{:?}", instrument.key());
-            accumulate_meta_shock(instrument.attributes_mut(), kind.meta_key(), delta);
-            warnings.push(fallback_warning(kind.label(), &type_name, &label));
+            ShockKind::Spread => {
+                // No typed scenario override field exists for spread shocks; record under
+                // instrument metadata for downstream consumers (e.g. curve-bump adapters).
+                let label = instrument_label(instrument.attributes());
+                let type_name = format!("{:?}", instrument.key());
+                accumulate_meta_shock(instrument.attributes_mut(), kind.meta_key(), delta);
+                warnings.push(fallback_warning(kind.label(), &type_name, &label));
+            }
         }
         count += 1;
     }

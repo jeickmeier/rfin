@@ -1607,8 +1607,18 @@
               ]
             },
             "FloatingRateSpec": {
-              "description": "Canonical floating rate specification for all instruments.\n\nUsed by bonds, swaps, credit facilities, and structured products.\nAll instruments should compose this type rather than defining their own\nfloating rate specifications.\n\n# Rate Calculation\n\nThe all-in rate is computed as:\n1. Look up forward rate from `index_id` curve for the accrual period\n2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread\n3. Add `spread_bp` to get base rate\n4. Multiply by `gearing` (typically 1.0)\n5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing\n\nFormula: `cap(gearing * (floor(index) + spread))`\n\n# Negative Rate Handling\n\nNegative index rates are supported and will flow through calculations\nunless constrained by floors. For markets with negative rates (EUR, JPY, CHF):\n\n- Set `floor_bp: Some(0.0)` to floor the index at zero\n- Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero\n- Omit floors to allow negative coupons (rare but valid in some structures)\n\nThe implementation does not reject negative rates; the policy is controlled\nby the floor configuration.\n\n# Example\n\n```rust\nuse finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};\nuse finstack_cashflows::builder::FloatingRateSpec;\nuse rust_decimal_macros::dec;\n\n// 3M SOFR + 200bps with 0% floor\nlet spec = FloatingRateSpec {\n    index_id: \"USD-SOFR-3M\".into(),\n    spread_bp: dec!(200.0),\n    gearing: dec!(1.0),\n    gearing_includes_spread: true,\n    floor_bp: Some(dec!(0.0)),\n    all_in_floor_bp: None,\n    cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    overnight_basis: None,\n    fallback: Default::default(),\n};\n```",
+              "description": "Canonical floating rate specification for all instruments.\n\nUsed by bonds, swaps, credit facilities, and structured products.\nAll instruments should compose this type rather than defining their own\nfloating rate specifications.\n\n# Rate Calculation\n\nThe all-in rate is computed as:\n1. Look up forward rate from `index_id` curve for the accrual period\n2. Apply `index_floor_bp` to index rate (if specified) - applied BEFORE adding spread\n3. Add `spread_bp` to get base rate\n4. Multiply by `gearing` (typically 1.0)\n5. Apply `all_in_cap_bp` to final rate (if specified) - applied AFTER spread and gearing\n\nFormula: `cap(gearing * (floor(index) + spread))`\n\n# Negative Rate Handling\n\nNegative index rates are supported and will flow through calculations\nunless constrained by floors. For markets with negative rates (EUR, JPY, CHF):\n\n- Set `index_floor_bp: Some(0.0)` to floor the index at zero\n- Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero\n- Omit floors to allow negative coupons (rare but valid in some structures)\n\nThe implementation does not reject negative rates; the policy is controlled\nby the floor configuration.\n\n# Example\n\n```rust\nuse finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};\nuse finstack_cashflows::builder::FloatingRateSpec;\nuse rust_decimal_macros::dec;\n\n// 3M SOFR + 200bps with 0% floor\nlet spec = FloatingRateSpec {\n    index_id: \"USD-SOFR-3M\".into(),\n    spread_bp: dec!(200.0),\n    gearing: dec!(1.0),\n    gearing_includes_spread: true,\n    index_floor_bp: Some(dec!(0.0)),\n    all_in_floor_bp: None,\n    all_in_cap_bp: None,\n    index_cap_bp: None,\n    reset_freq: Tenor::quarterly(),\n    reset_lag_days: 2,\n    dc: DayCount::Act360,\n    bdc: BusinessDayConvention::ModifiedFollowing,\n    calendar_id: \"weekends_only\".to_string(),\n    fixing_calendar_id: None,\n    end_of_month: false,\n    payment_lag_days: 0,\n    overnight_compounding: None,\n    overnight_basis: None,\n    fallback: Default::default(),\n};\n```",
               "properties": {
+                "all_in_cap_bp": {
+                  "default": null,
+                  "description": "Cap on all-in rate in basis points (applied after spread and gearing).\n\nExample: all_in_cap_bp = Some(1000.0) ensures all-in rate <= 10%.",
+                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                  "type": [
+                    "string",
+                    "number",
+                    "null"
+                  ]
+                },
                 "all_in_floor_bp": {
                   "default": null,
                   "description": "Floor on all-in rate in basis points (Min Coupon).\n\nApplied to the final calculated rate after gearing and spread.",
@@ -1627,16 +1637,6 @@
                 "calendar_id": {
                   "description": "Calendar for business day adjustments (accrual/payment).",
                   "type": "string"
-                },
-                "cap_bp": {
-                  "default": null,
-                  "description": "Cap on all-in rate in basis points (applied after spread and gearing).\n\nExample: cap_bp = Some(1000.0) ensures all-in rate <= 10%.",
-                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
-                  "type": [
-                    "string",
-                    "number",
-                    "null"
-                  ]
                 },
                 "dc": {
                   "$ref": "#/$defs/DayCount",
@@ -1658,16 +1658,6 @@
                     "null"
                   ]
                 },
-                "floor_bp": {
-                  "default": null,
-                  "description": "Floor on index rate in basis points (applied to index component).\n\nExample: floor_bp = Some(0.0) ensures index rate >= 0%.",
-                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
-                  "type": [
-                    "string",
-                    "number",
-                    "null"
-                  ]
-                },
                 "gearing": {
                   "default": "1",
                   "description": "Gearing/leverage multiplier applied to the all-in rate (default: 1.0).\n\nExample: gearing = 2.0 means the rate is doubled.",
@@ -1685,6 +1675,16 @@
                 "index_cap_bp": {
                   "default": null,
                   "description": "Cap on index rate in basis points (applied to index component).",
+                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                  "type": [
+                    "string",
+                    "number",
+                    "null"
+                  ]
+                },
+                "index_floor_bp": {
+                  "default": null,
+                  "description": "Floor on index rate in basis points (applied to index component).\n\nExample: index_floor_bp = Some(0.0) ensures index rate >= 0%.",
                   "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
                   "type": [
                     "string",
@@ -2005,14 +2005,6 @@
                 },
                 "scenario_price_shock_pct": {
                   "description": "Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).\n\nWhen set, valuation helpers apply it as a multiplier: `price * (1 + shock_pct)`.",
-                  "format": "double",
-                  "type": [
-                    "number",
-                    "null"
-                  ]
-                },
-                "scenario_spread_shock_bp": {
-                  "description": "Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).\n\nThis is carried separately from instrument-owned pricing inputs so spread-aware\nscenario engines can apply it without implying it is a static instrument setting.",
                   "format": "double",
                   "type": [
                     "number",
