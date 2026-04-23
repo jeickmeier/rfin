@@ -123,7 +123,7 @@ pub fn price_bermudan_lmm(
     let base_rng = PhiloxRng::new(config.seed);
 
     for path_id in 0..raw_paths {
-        let mut rng = base_rng.split(path_id as u64);
+        let mut rng = base_rng.substream(path_id as u64);
         let mut x = params.initial_forwards.clone();
         let mut work = vec![0.0; work_size];
         let mut z = vec![0.0; params.num_factors];
@@ -142,7 +142,7 @@ pub fn price_bermudan_lmm(
 
         if config.antithetic {
             // Antithetic path: replay with negated shocks
-            let mut rng2 = base_rng.split(path_id as u64);
+            let mut rng2 = base_rng.substream(path_id as u64);
             let mut x2 = params.initial_forwards.clone();
             let mut work2 = vec![0.0; work_size];
             let mut z2 = vec![0.0; params.num_factors];

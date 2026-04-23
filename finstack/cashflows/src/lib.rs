@@ -6,6 +6,7 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 #![doc(test(attr(allow(clippy::expect_used))))]
 
 //! Cashflow schedule generation, aggregation, and currency-safe operations.

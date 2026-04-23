@@ -101,15 +101,8 @@ pub struct RoughBergomiParams {
     /// Spot-vol correlation ρ ∈ [-1, 1].
     pub rho: f64,
     /// Initial forward variance curve ξ₀(t).
-    #[serde(skip, default = "default_xi")]
+    #[serde(skip, default)]
     pub xi: ForwardVarianceCurve,
-}
-
-/// Fallback forward variance curve used when deserializing without `xi`.
-fn default_xi() -> ForwardVarianceCurve {
-    // 4% = (20% vol)^2 — a safe default that avoids panicking.
-    // Callers should always supply the real curve via `RoughBergomiParams::new`.
-    ForwardVarianceCurve::flat(0.04).expect("hard-coded positive variance cannot fail validation")
 }
 
 impl RoughBergomiParams {

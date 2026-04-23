@@ -89,7 +89,7 @@ pub struct CheyetteRoughVolParams {
     /// Mean reversion of the short rate (κ > 0).
     pub kappa: f64,
     /// Base volatility term structure σ₀(t) for the rate process.
-    #[serde(skip, default = "default_sigma_base")]
+    #[serde(skip, default)]
     pub sigma_base: ForwardVarianceCurve,
     /// Hurst exponent H ∈ (0, 0.5) for the rough vol driver.
     pub hurst: HurstExponent,
@@ -103,12 +103,6 @@ pub struct CheyetteRoughVolParams {
     /// Value knots for the initial forward rate curve φ(t) = f(0, t).
     #[serde(skip)]
     phi_values: Vec<f64>,
-}
-
-/// Fallback base volatility curve used when deserializing without `sigma_base`.
-fn default_sigma_base() -> ForwardVarianceCurve {
-    // 50 bps = 0.005 — a safe default that avoids panicking.
-    ForwardVarianceCurve::flat(0.005).expect("hard-coded positive variance cannot fail validation")
 }
 
 impl CheyetteRoughVolParams {

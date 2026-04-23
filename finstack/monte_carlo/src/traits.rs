@@ -79,7 +79,12 @@ pub trait RandomStream: Send + Sync {
     ///
     /// The `stream_id` should be unique across all substreams to ensure independence.
     /// This enables deterministic parallel execution where each path gets its own stream.
-    fn split(&self, stream_id: u64) -> Self
+    ///
+    /// Returns `None` when the underlying generator cannot be split into
+    /// independent streams (e.g. Sobol quasi-random sequences). Callers should
+    /// check [`RandomStream::supports_splitting`] before requesting per-path
+    /// streams, and treat `None` as a validation error.
+    fn split(&self, stream_id: u64) -> Option<Self>
     where
         Self: Sized;
 

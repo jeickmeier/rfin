@@ -10,8 +10,8 @@ use finstack_core::money::Money;
 #[derive(Clone)]
 struct DummyRng;
 impl RandomStream for DummyRng {
-    fn split(&self, _id: u64) -> Self {
-        DummyRng
+    fn split(&self, _id: u64) -> Option<Self> {
+        Some(DummyRng)
     }
     fn fill_u01(&mut self, out: &mut [f64]) {
         for x in out {
@@ -37,8 +37,8 @@ impl PathIndexedRng {
 }
 
 impl RandomStream for PathIndexedRng {
-    fn split(&self, stream_id: u64) -> Self {
-        Self { path_id: stream_id }
+    fn split(&self, stream_id: u64) -> Option<Self> {
+        Some(Self { path_id: stream_id })
     }
 
     fn fill_u01(&mut self, out: &mut [f64]) {
@@ -319,8 +319,8 @@ fn test_serial_vs_parallel_consistency() {
 #[derive(Clone)]
 struct NonSplittableRng;
 impl RandomStream for NonSplittableRng {
-    fn split(&self, _id: u64) -> Self {
-        NonSplittableRng
+    fn split(&self, _id: u64) -> Option<Self> {
+        Some(NonSplittableRng)
     }
     fn fill_u01(&mut self, out: &mut [f64]) {
         for x in out {

@@ -407,7 +407,7 @@ impl SwaptionLsmcPricer {
         let mut paths = Vec::with_capacity(self.config.num_paths);
 
         for path_id in 0..self.config.num_paths {
-            let mut path_rng = rng.split(path_id as u64);
+            let mut path_rng = rng.substream(path_id as u64);
             let mut rate_path = Vec::with_capacity(num_steps + 1);
             let mut state = vec![initial_rate];
             let mut z = vec![0.0];
@@ -452,7 +452,7 @@ impl SwaptionLsmcPricer {
         let mut paths = Vec::with_capacity(self.config.num_paths);
 
         for pair_id in 0..num_pairs {
-            let mut path_rng = rng.split(pair_id as u64);
+            let mut path_rng = rng.substream(pair_id as u64);
 
             // Generate random draws for this pair
             let mut z_draws: Vec<f64> = vec![0.0; num_steps];
@@ -497,7 +497,7 @@ impl SwaptionLsmcPricer {
 
         // Handle odd number of paths
         if self.config.num_paths % 2 == 1 {
-            let mut path_rng = rng.split(num_pairs as u64);
+            let mut path_rng = rng.substream(num_pairs as u64);
             let mut state = vec![initial_rate];
             let mut rate_path = Vec::with_capacity(num_steps + 1);
             rate_path.push(initial_rate);

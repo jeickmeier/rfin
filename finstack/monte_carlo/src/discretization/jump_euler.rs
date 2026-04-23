@@ -221,8 +221,8 @@ mod tests {
     struct DeterministicJumpRng;
 
     impl RandomStream for DeterministicJumpRng {
-        fn split(&self, _id: u64) -> Self {
-            Self
+        fn split(&self, _id: u64) -> Option<Self> {
+            Some(Self)
         }
 
         fn fill_u01(&mut self, out: &mut [f64]) {

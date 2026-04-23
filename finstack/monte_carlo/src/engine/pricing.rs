@@ -569,7 +569,7 @@ impl McEngine {
         let mut num_skipped: usize = 0;
 
         for path_id in 0..self.config.num_paths {
-            let mut path_rng = rng.split(path_id as u64);
+            let mut path_rng = rng.split(path_id as u64).ok_or_else(|| finstack_core::Error::Validation("RandomStream does not support stream splitting; use a splittable generator such as PhiloxRng or run in serial mode without per-path splitting".to_string()))?;
 
             payoff_local.reset();
             payoff_local.on_path_start(&mut path_rng);
@@ -743,7 +743,7 @@ impl McEngine {
                 let mut payoff_clone = payoff.clone();
 
                 for path_id in range.clone() {
-                    let mut path_rng = rng.split(path_id as u64);
+                    let mut path_rng = rng.split(path_id as u64).ok_or_else(|| finstack_core::Error::Validation("RandomStream does not support stream splitting; use a splittable generator such as PhiloxRng or run in serial mode without per-path splitting".to_string()))?;
 
                     payoff_clone.reset();
                     payoff_clone.on_path_start(&mut path_rng);

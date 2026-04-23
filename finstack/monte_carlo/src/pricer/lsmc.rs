@@ -279,7 +279,7 @@ impl LsmcPricer {
         let mut paths = Vec::with_capacity(self.config.num_paths);
 
         for path_id in 0..self.config.num_paths {
-            let mut path_rng = rng.split(path_id as u64);
+            let mut path_rng = rng.substream(path_id as u64);
             let mut spot_path = Vec::with_capacity(num_steps + 1);
             let mut state = vec![initial_spot];
             let mut z = vec![0.0];
@@ -319,7 +319,7 @@ impl LsmcPricer {
         let paths: Vec<Vec<f64>> = (0..self.config.num_paths)
             .into_par_iter()
             .map(|path_id| {
-                let mut path_rng = rng.split(path_id as u64);
+                let mut path_rng = rng.substream(path_id as u64);
                 let mut spot_path = Vec::with_capacity(num_steps + 1);
                 let mut state = vec![initial_spot];
                 let mut z = vec![0.0];

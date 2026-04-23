@@ -306,7 +306,7 @@ fn markov_ll(n_stay: usize, n_switch: usize, pi: f64) -> f64 {
 #[must_use]
 pub fn traffic_light(exceptions: usize, n: usize, confidence: f64) -> TrafficLightResult {
     let expected = n as f64 * (1.0 - confidence);
-    let (green_max, yellow_max) = if n == 250 && confidence == 0.99 {
+    let (green_max, yellow_max) = if n == 250 && (confidence - 0.99).abs() < 1e-12 {
         (4, 9)
     } else {
         let g = (expected * 2.0).ceil() as usize;

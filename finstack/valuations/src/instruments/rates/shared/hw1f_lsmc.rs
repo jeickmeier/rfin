@@ -124,7 +124,7 @@ impl RateExoticHw1fLsmcPricer {
         let mut path_cursor: usize = 0;
         for path_id in 0..raw_paths {
             for anti in 0..multiplicity {
-                let mut rng = base_rng.split(path_id as u64);
+                let mut rng = base_rng.substream(path_id as u64);
                 let mut r = self.r0;
                 let mut work = vec![0.0; work_size];
                 let mut z = [0.0_f64; 1];

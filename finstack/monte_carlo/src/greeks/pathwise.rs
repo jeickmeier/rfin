@@ -232,7 +232,7 @@ mod tests {
         let mut work = vec![0.0_f64; disc.work_size(&process)];
 
         for path_id in 0..num_paths {
-            let mut path_rng = rng.split(path_id as u64);
+            let mut path_rng = rng.substream(path_id as u64);
             path_rng.fill_std_normals(&mut z);
             state[0] = s0;
             disc.step(&process, 0.0, maturity, &mut state, &z, &mut work);

@@ -92,6 +92,17 @@ impl PhiloxRng {
         rng
     }
 
+    /// Infallible substream construction: returns a fresh `PhiloxRng` seeded
+    /// from the same key but with the given `stream_id`.
+    ///
+    /// Equivalent to the trait method [`RandomStream::split`] but with a
+    /// `Self` return type, avoiding `Option`-unwrapping at concrete call sites.
+    #[inline]
+    #[must_use]
+    pub fn substream(&self, stream_id: u64) -> Self {
+        Self::with_stream(self.key, stream_id)
+    }
+
     /// Create with explicit stream ID (for splitting).
     #[inline]
     pub fn with_stream(seed: u64, stream_id: u64) -> Self {
@@ -206,10 +217,10 @@ impl PhiloxRng {
 
 impl RandomStream for PhiloxRng {
     #[inline]
-    fn split(&self, stream_id: u64) -> Self {
+    fn split(&self, stream_id: u64) -> Option<Self> {
         // Create a new stream with a different stream_id
         // This ensures independence between streams
-        PhiloxRng::with_stream(self.key, stream_id)
+        Some(PhiloxRng::with_stream(self.key, stream_id))
     }
 
     /// Fill buffer with uniform random numbers in [0, 1).
@@ -290,8 +301,8 @@ mod tests {
     #[test]
     fn test_philox_split_independence() {
         let rng = PhiloxRng::new(42);
-        let mut stream1 = rng.split(1);
-        let mut stream2 = rng.split(2);
+        let mut stream1 = rng.substream(1);
+        let mut stream2 = rng.substream(2);
 
         // Different streams should produce different values
         let val1 = stream1.next_u01();
@@ -302,8 +313,8 @@ mod tests {
     #[test]
     fn test_philox_split_reproducibility() {
         let rng = PhiloxRng::new(42);
-        let mut stream1a = rng.split(1);
-        let mut stream1b = rng.split(1);
+        let mut stream1a = rng.substream(1);
+        let mut stream1b = rng.substream(1);
 
         // Same stream ID should produce same values
         for _ in 0..100 {

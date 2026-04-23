@@ -5,21 +5,12 @@ use crate::traits::RandomStream;
 pub use finstack_core::math::random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 
 impl RandomStream for SobolRng {
-    /// Sobol sequences do not admit independent sub-streams. Any caller that
-    /// reaches this method — regardless of `stream_id` — has a conceptual
-    /// bug, so we panic unconditionally.
-    ///
-    /// The previous behaviour of returning a clone for `stream_id == 0`
-    /// silently produced correlated "parallel" paths. Callers that need a
-    /// single Sobol sequence should use the generator directly without
-    /// splitting; callers that need stream splitting must switch to a
-    /// pseudorandom generator such as [`crate::rng::philox::PhiloxRng`].
-    fn split(&self, stream_id: u64) -> Self {
-        panic!(
-            "SobolRng::split called with stream_id={stream_id}; Sobol sequences cannot be split \
-             into independent streams. Use a single Sobol sequence or switch to PhiloxRng for \
-             parallel execution."
-        );
+    /// Sobol sequences do not admit independent sub-streams. Always returns
+    /// `None`; callers must check [`RandomStream::supports_splitting`] first
+    /// and fall back to a pseudorandom generator (e.g.
+    /// [`crate::rng::philox::PhiloxRng`]) or serial execution.
+    fn split(&self, _stream_id: u64) -> Option<Self> {
+        None
     }
 
     fn fill_u01(&mut self, out: &mut [f64]) {
@@ -43,16 +34,14 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "SobolRng::split called")]
-    fn split_zero_is_rejected() {
+    fn split_zero_returns_none() {
         let rng = SobolRng::try_new(4, 0).expect("valid Sobol dimension");
-        let _ = rng.split(0);
+        assert!(rng.split(0).is_none());
     }
 
     #[test]
-    #[should_panic(expected = "SobolRng::split called")]
-    fn split_nonzero_is_rejected() {
+    fn split_nonzero_returns_none() {
         let rng = SobolRng::try_new(4, 0).expect("valid Sobol dimension");
-        let _ = rng.split(1);
+        assert!(rng.split(1).is_none());
     }
 }

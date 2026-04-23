@@ -323,7 +323,7 @@ impl BermudanSwaptionCheyetteRoughPricer {
         let mut df_at_exercise: Vec<Vec<f64>> = vec![Vec::with_capacity(num_paths); num_exercises];
 
         for path_id in 0..num_paths {
-            let mut rng = base_rng.split(path_id as u64);
+            let mut rng = base_rng.substream(path_id as u64);
             let mut x = vec![0.0, 0.0]; // [x, y] initial state
             let mut work = vec![0.0; work_size];
             let mut z = vec![0.0; 2]; // 2 factors

@@ -418,7 +418,7 @@ where
     let mut work = vec![0.0; discretization.work_size(process)];
 
     for path_idx in 0..stochastic_config.num_paths {
-        let mut rng = base_rng.split((path_idx + 1) as u64);
+        let mut rng = base_rng.substream((path_idx + 1) as u64);
         state_vector.copy_from_slice(initial_state);
         let mut prev_t = 0.0;
 

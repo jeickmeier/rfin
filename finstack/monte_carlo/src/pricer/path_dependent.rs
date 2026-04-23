@@ -767,12 +767,9 @@ impl<'a> SobolPathStream<'a> {
 #[cfg(feature = "mc")]
 impl<'a> RandomStream for SobolPathStream<'a> {
     /// Per-path Sobol adapters never split; the outer Sobol pricer owns a
-    /// single adapter per path.
-    fn split(&self, stream_id: u64) -> Self {
-        panic!(
-            "SobolPathStream::split called with stream_id={stream_id}; the adapter is \
-             constructed per path and cannot be split."
-        );
+    /// single adapter per path, so this always returns `None`.
+    fn split(&self, _stream_id: u64) -> Option<Self> {
+        None
     }
 
     fn fill_u01(&mut self, out: &mut [f64]) {
