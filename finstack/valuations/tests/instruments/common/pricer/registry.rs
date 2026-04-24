@@ -495,7 +495,14 @@ fn test_registry_price_with_unknown_pricer() {
     // Try to price with an unregistered model
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let result = registry.price(&bond, ModelKey::HazardRate, &market, as_of, None);
+    let result = registry.price_with_metrics(
+        &bond,
+        ModelKey::HazardRate,
+        &market,
+        as_of,
+        &[],
+        Default::default(),
+    );
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -585,7 +592,14 @@ fn test_price_batch_preserves_order() {
     .expect("Bond::fixed should succeed with valid parameters");
 
     let instruments: Vec<&dyn Instrument> = vec![&bond_one, &deposit, &bond_two];
-    let results = registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of, None);
+    let results = registry.price_batch(
+        &instruments,
+        ModelKey::Discounting,
+        &market,
+        as_of,
+        &[],
+        Default::default(),
+    );
 
     assert_eq!(results.len(), instruments.len());
     let ids: Vec<&str> = results
@@ -632,11 +646,24 @@ fn test_price_batch_matches_serial_results() {
     let serial_results: Vec<_> = instruments
         .iter()
         .map(|&instrument| {
-            registry.price(instrument, ModelKey::Discounting, &market, as_of, None)
+            registry.price_with_metrics(
+                instrument,
+                ModelKey::Discounting,
+                &market,
+                as_of,
+                &[],
+                Default::default(),
+            )
         })
         .collect();
-    let batch_results =
-        registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of, None);
+    let batch_results = registry.price_batch(
+        &instruments,
+        ModelKey::Discounting,
+        &market,
+        as_of,
+        &[],
+        Default::default(),
+    );
 
     assert_eq!(batch_results.len(), serial_results.len());
     for (serial, batch) in serial_results.iter().zip(batch_results.iter()) {

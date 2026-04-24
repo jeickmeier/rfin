@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::{Ndf, NdfQuoteConvention};
 use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::pricer::{standard_registry, InstrumentType, ModelKey};
+use finstack_valuations::pricer::{standard_registry, InstrumentType, ModelKey, PricerKey};
 use std::sync::Arc;
 use time::Month;
 
@@ -186,14 +186,21 @@ fn test_ndf_registry_pricer() {
     // Verify pricer is registered
     assert!(
         registry
-            .get(InstrumentType::Ndf, ModelKey::Discounting)
+            .get_pricer(PricerKey::new(InstrumentType::Ndf, ModelKey::Discounting))
             .is_some(),
         "NDF pricer should be registered"
     );
 
     // Price through registry
     let result = registry
-        .price(&ndf, ModelKey::Discounting, &market, as_of, None)
+        .price_with_metrics(
+            &ndf,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        )
         .expect("should price through registry");
 
     assert_eq!(result.value.currency(), Currency::USD);

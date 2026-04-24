@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_forward::FxForward;
 use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::pricer::{standard_registry, InstrumentType, ModelKey};
+use finstack_valuations::pricer::{standard_registry, InstrumentType, ModelKey, PricerKey};
 use std::sync::Arc;
 use time::Month;
 
@@ -307,14 +307,24 @@ fn test_fx_forward_registry_pricer() {
     // Verify pricer is registered
     assert!(
         registry
-            .get(InstrumentType::FxForward, ModelKey::Discounting)
+            .get_pricer(PricerKey::new(
+                InstrumentType::FxForward,
+                ModelKey::Discounting
+            ))
             .is_some(),
         "FxForward pricer should be registered"
     );
 
     // Price through registry
     let result = registry
-        .price(&forward, ModelKey::Discounting, &market, as_of, None)
+        .price_with_metrics(
+            &forward,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        )
         .expect("should price through registry");
 
     assert_eq!(result.value.currency(), Currency::USD);

@@ -791,7 +791,7 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
             {
                 let registry = crate::pricer::standard_registry();
                 let result = registry
-                    .price(self, model, curves, as_of, None)
+                    .price_with_metrics(self, model, curves, as_of, &[], Default::default())
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 return Ok(result.value);
             }

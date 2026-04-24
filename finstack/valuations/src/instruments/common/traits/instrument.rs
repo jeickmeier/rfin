@@ -9,7 +9,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::Attributes;
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::CurveId};
 use std::any::Any;
-use std::sync::Arc;
 
 use super::pricing_options::{DynInstrument, PricingOptions};
 
@@ -714,13 +713,14 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     /// # Ok(())
     /// # }
     /// ```
-    /// Compute present value with specified risk metrics using a shared market context.
+    /// Compute present value with specified risk metrics.
     ///
-    /// Prefer this overload when pricing many instruments against the same
-    /// market snapshot to avoid cloning `MarketContext` on every call.
-    fn price_with_metrics_arc(
+    /// This is the canonical user-facing pricing entry point. Pass `&[]` for
+    /// PV only; pass requested metric IDs to get DV01, duration, YTM, etc.
+    /// alongside the PV.
+    fn price_with_metrics(
         &self,
-        market: &Arc<MarketContext>,
+        market: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
         options: PricingOptions,
@@ -742,7 +742,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
         };
 
         registry
-            .price_with_metrics_arc(
+            .price_with_metrics(
                 instrument.as_ref(),
                 model,
                 market,
@@ -756,21 +756,6 @@ pub trait Instrument: CashflowProvider + Send + Sync {
                     .unwrap_or_else(|| PricingError::UnknownPricer(key).into()),
                 other => other.into(),
             })
-    }
-
-    /// Compute present value with specified risk metrics.
-    ///
-    /// This convenience overload clones `market` into an `Arc` and delegates to
-    /// [`Instrument::price_with_metrics_arc`]. Use the `_arc` variant when
-    /// repeatedly pricing against the same market snapshot.
-    fn price_with_metrics(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-        options: PricingOptions,
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        self.price_with_metrics_arc(&Arc::new(market.clone()), as_of, metrics, options)
     }
 
     // === Market Data Introspection (for Attribution) ===

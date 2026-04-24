@@ -1,7 +1,6 @@
 //! Pricing error types and context utilities.
 //!
-//! Defines [`PricingError`], [`PricingErrorContext`], [`PricingResult`], and
-//! the [`PricingContextExt`] trait for attaching pricing context to errors.
+//! Defines [`PricingError`], [`PricingErrorContext`], and [`PricingResult`].
 
 use super::{InstrumentType, ModelKey, PricerKey};
 use crate::instruments::common_impl::traits::Instrument as Priceable;
@@ -13,6 +12,9 @@ pub type PricingResult<T> = std::result::Result<T, PricingError>;
 ///
 /// This struct captures the instrument, model, and market data context
 /// when a pricing error occurs, enabling easier troubleshooting.
+///
+/// Serde is derived because this type flows through the crate-level
+/// [`crate::Error`] enum, which is part of the wire-stable error envelope.
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PricingErrorContext {
     /// The instrument ID that was being priced (if known).
@@ -110,6 +112,9 @@ impl std::fmt::Display for PricingErrorContext {
 ///
 /// Each variant captures the error condition along with optional context
 /// (instrument ID, type, model, and curve IDs) for actionable debugging.
+///
+/// Serde is derived because this type flows through the crate-level
+/// [`crate::Error`] enum, which is part of the wire-stable error envelope.
 #[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum PricingError {
@@ -368,180 +373,6 @@ impl PricingError {
             context,
         }
     }
-
-    /// Add context to an existing error.
-    ///
-    /// This is useful for enriching errors as they propagate up the call stack.
-    pub fn with_context(self, context: PricingErrorContext) -> Self {
-        match self {
-            Self::ModelFailure { message, .. } => Self::ModelFailure { message, context },
-            Self::InvalidInput { message, .. } => Self::InvalidInput { message, context },
-            Self::MissingMarketData { missing_id, .. } => Self::MissingMarketData {
-                missing_id,
-                context,
-            },
-            other => other,
-        }
-    }
-
-    /// Add instrument ID to the error context.
-    pub fn with_instrument_id(self, id: impl Into<String>) -> Self {
-        let id = id.into();
-        match self {
-            Self::ModelFailure {
-                message,
-                mut context,
-            } => {
-                context.instrument_id = Some(id);
-                Self::ModelFailure { message, context }
-            }
-            Self::InvalidInput {
-                message,
-                mut context,
-            } => {
-                context.instrument_id = Some(id);
-                Self::InvalidInput { message, context }
-            }
-            Self::MissingMarketData {
-                missing_id,
-                mut context,
-            } => {
-                context.instrument_id = Some(id);
-                Self::MissingMarketData {
-                    missing_id,
-                    context,
-                }
-            }
-            other => other,
-        }
-    }
-
-    /// Add instrument type to the error context.
-    pub fn with_instrument_type(self, typ: InstrumentType) -> Self {
-        match self {
-            Self::ModelFailure {
-                message,
-                mut context,
-            } => {
-                context.instrument_type = Some(typ);
-                Self::ModelFailure { message, context }
-            }
-            Self::InvalidInput {
-                message,
-                mut context,
-            } => {
-                context.instrument_type = Some(typ);
-                Self::InvalidInput { message, context }
-            }
-            Self::MissingMarketData {
-                missing_id,
-                mut context,
-            } => {
-                context.instrument_type = Some(typ);
-                Self::MissingMarketData {
-                    missing_id,
-                    context,
-                }
-            }
-            other => other,
-        }
-    }
-
-    /// Add model key to the error context.
-    pub fn with_model(self, model: ModelKey) -> Self {
-        match self {
-            Self::ModelFailure {
-                message,
-                mut context,
-            } => {
-                context.model = Some(model);
-                Self::ModelFailure { message, context }
-            }
-            Self::InvalidInput {
-                message,
-                mut context,
-            } => {
-                context.model = Some(model);
-                Self::InvalidInput { message, context }
-            }
-            Self::MissingMarketData {
-                missing_id,
-                mut context,
-            } => {
-                context.model = Some(model);
-                Self::MissingMarketData {
-                    missing_id,
-                    context,
-                }
-            }
-            other => other,
-        }
-    }
-}
-
-/// Extension trait for adding pricing context to Result types.
-///
-/// This trait provides a fluent API for attaching pricing context to errors,
-/// similar to `anyhow::Context` but specialized for pricing operations.
-///
-/// # Example
-///
-/// ```ignore
-/// use finstack_valuations::pricer::{PricingContextExt, InstrumentType};
-///
-/// let df = disc.df(maturity)
-///     .with_pricing_context("BOND-001", InstrumentType::Bond, "discount factor")?;
-/// ```
-pub trait PricingContextExt<T> {
-    /// Attach pricing context to an error.
-    fn with_pricing_context(
-        self,
-        instrument_id: &str,
-        instrument_type: InstrumentType,
-        operation: &str,
-    ) -> PricingResult<T>;
-}
-
-impl<T> PricingContextExt<T> for finstack_core::Result<T> {
-    fn with_pricing_context(
-        self,
-        instrument_id: &str,
-        instrument_type: InstrumentType,
-        operation: &str,
-    ) -> PricingResult<T> {
-        self.map_err(|e| {
-            PricingError::model_failure_with_context(
-                format!("{}: {}", operation, e),
-                PricingErrorContext::new()
-                    .instrument_id(instrument_id)
-                    .instrument_type(instrument_type),
-            )
-        })
-    }
-}
-
-impl<T> PricingContextExt<T> for PricingResult<T> {
-    fn with_pricing_context(
-        self,
-        instrument_id: &str,
-        instrument_type: InstrumentType,
-        operation: &str,
-    ) -> PricingResult<T> {
-        self.map_err(|e| {
-            let context = PricingErrorContext::new()
-                .instrument_id(instrument_id)
-                .instrument_type(instrument_type);
-            match e {
-                PricingError::ModelFailure { message, .. } => {
-                    PricingError::model_failure_with_context(
-                        format!("{}: {}", operation, message),
-                        context,
-                    )
-                }
-                other => other.with_context(context),
-            }
-        })
-    }
 }
 
 #[cfg(test)]
@@ -672,58 +503,6 @@ mod tests {
     }
 
     #[test]
-    fn pricing_context_ext_maps_core_result() {
-        let core_result: finstack_core::Result<f64> =
-            Err(finstack_core::Error::Validation("negative rate".into()));
-
-        let pricing_result =
-            core_result.with_pricing_context("BOND-001", InstrumentType::Bond, "discount factor");
-
-        match pricing_result {
-            Err(PricingError::ModelFailure { message, context }) => {
-                assert!(
-                    message.contains("discount factor"),
-                    "message should contain operation: {message}"
-                );
-                assert!(
-                    message.contains("negative rate"),
-                    "message should contain original error: {message}"
-                );
-                assert_eq!(context.instrument_id.as_deref(), Some("BOND-001"));
-                assert_eq!(context.instrument_type, Some(InstrumentType::Bond));
-            }
-            other => panic!("expected ModelFailure, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn pricing_context_ext_enriches_pricing_result() {
-        let pricing_result: PricingResult<f64> = Err(PricingError::ModelFailure {
-            message: "solver diverged".into(),
-            context: PricingErrorContext::default(),
-        });
-
-        let enriched =
-            pricing_result.with_pricing_context("IRS-042", InstrumentType::IRS, "PV calculation");
-
-        match enriched {
-            Err(PricingError::ModelFailure { message, context }) => {
-                assert!(
-                    message.contains("PV calculation"),
-                    "message should be prefixed with operation: {message}"
-                );
-                assert!(
-                    message.contains("solver diverged"),
-                    "message should contain original error: {message}"
-                );
-                assert_eq!(context.instrument_id.as_deref(), Some("IRS-042"));
-                assert_eq!(context.instrument_type, Some(InstrumentType::IRS));
-            }
-            other => panic!("expected ModelFailure, got {other:?}"),
-        }
-    }
-
-    #[test]
     fn pricing_error_context_display_covers_empty_and_populated_forms() {
         let empty = PricingErrorContext::new();
         assert_eq!(empty.to_string(), "<no context>");
@@ -798,12 +577,13 @@ mod tests {
     }
 
     #[test]
-    fn error_builder_helpers_and_context_mutators_preserve_payloads() {
-        let base_context = PricingErrorContext::new().curve_id("USD-OIS");
-        let invalid = PricingError::invalid_input_with_context("bad fixing", base_context.clone())
-            .with_instrument_id("BOND-123")
-            .with_instrument_type(InstrumentType::Bond)
-            .with_model(ModelKey::Discounting);
+    fn error_builder_helpers_preserve_payloads() {
+        let context = PricingErrorContext::new()
+            .instrument_id("BOND-123")
+            .instrument_type(InstrumentType::Bond)
+            .model(ModelKey::Discounting)
+            .curve_id("USD-OIS");
+        let invalid = PricingError::invalid_input_with_context("bad fixing", context);
 
         match invalid {
             PricingError::InvalidInput { message, context } => {
@@ -816,9 +596,10 @@ mod tests {
             other => panic!("expected InvalidInput, got {other:?}"),
         }
 
-        let missing =
-            PricingError::missing_market_data_with_context("EUR-OIS", PricingErrorContext::new())
-                .with_instrument_id("SWAP-1");
+        let missing = PricingError::missing_market_data_with_context(
+            "EUR-OIS",
+            PricingErrorContext::new().instrument_id("SWAP-1"),
+        );
         match missing {
             PricingError::MissingMarketData {
                 missing_id,
@@ -830,8 +611,7 @@ mod tests {
             other => panic!("expected MissingMarketData, got {other:?}"),
         }
 
-        let untouched = PricingError::type_mismatch(InstrumentType::Bond, InstrumentType::IRS)
-            .with_context(PricingErrorContext::new().instrument_id("IGNORED"));
-        assert!(matches!(untouched, PricingError::TypeMismatch { .. }));
+        let type_mismatch = PricingError::type_mismatch(InstrumentType::Bond, InstrumentType::IRS);
+        assert!(matches!(type_mismatch, PricingError::TypeMismatch { .. }));
     }
 }

@@ -368,8 +368,9 @@ impl MetricContext {
         as_of: Date,
     ) -> finstack_core::Result<Money> {
         if let (Some(model), Some(registry)) = (self.pricing_model, self.pricer_registry.as_ref()) {
+            let options = crate::instruments::PricingOptions::default().with_config(self.config());
             return Ok(registry
-                .price(instrument, model, market, as_of, Some(self.config()))?
+                .price_with_metrics(instrument, model, market, as_of, &[], options)?
                 .value);
         }
         instrument.value(market, as_of)

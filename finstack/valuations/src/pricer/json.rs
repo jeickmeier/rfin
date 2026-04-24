@@ -64,7 +64,14 @@ pub fn price_instrument_json(
     let as_of = parse_as_of_date(as_of)?;
     let model = parse_model_key(model)?;
     standard_registry()
-        .price(instrument.as_ref(), model, market, as_of, None)
+        .price_with_metrics(
+            instrument.as_ref(),
+            model,
+            market,
+            as_of,
+            &[],
+            Default::default(),
+        )
         .map_err(Into::into)
 }
 

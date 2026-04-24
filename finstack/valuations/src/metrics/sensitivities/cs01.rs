@@ -327,23 +327,15 @@ where
         .credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
-        let cfg = context.config_arc();
         let model = context.pricing_model;
         let registry = context.pricer_registry.clone();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
             if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
-                return Ok(registry
-                    .price(
-                        inst_arc.as_ref(),
-                        model,
-                        temp_ctx,
-                        as_of,
-                        Some(cfg.as_ref()),
-                    )?
-                    .value
-                    .amount());
+                return registry
+                    .price_raw(inst_arc.as_ref(), model, temp_ctx, as_of)
+                    .map_err(Into::into);
             }
             inst_arc.value_raw(temp_ctx, as_of)
         };
@@ -389,23 +381,15 @@ where
         let bump_bp = defaults.credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
-        let cfg = context.config_arc();
         let model = context.pricing_model;
         let registry = context.pricer_registry.clone();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
             if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
-                return Ok(registry
-                    .price(
-                        inst_arc.as_ref(),
-                        model,
-                        temp_ctx,
-                        as_of,
-                        Some(cfg.as_ref()),
-                    )?
-                    .value
-                    .amount());
+                return registry
+                    .price_raw(inst_arc.as_ref(), model, temp_ctx, as_of)
+                    .map_err(Into::into);
             }
             inst_arc.value_raw(temp_ctx, as_of)
         };

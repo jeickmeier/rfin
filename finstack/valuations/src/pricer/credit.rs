@@ -100,15 +100,6 @@ impl Pricer for StructuredCreditStochasticPricer {
                 .with_details(ValuationDetails::StructuredCreditStochastic(stochastic)),
         )
     }
-
-    fn price_raw_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> PricingResult<f64> {
-        Ok(self.price_dyn(instrument, market, as_of)?.value.amount())
-    }
 }
 
 fn stochastic_summary_measures(result: &StochasticPricingResult) -> IndexMap<MetricId, f64> {

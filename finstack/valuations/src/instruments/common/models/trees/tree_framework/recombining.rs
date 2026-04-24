@@ -69,7 +69,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
         None
     };
 
-    // Helper: compute discount factor at a given step/node
+    // Helper: compute discount factor at a given step/node.
+    // Either `const_df` or `custom_rate_generator` is set by the block above.
     let get_df = |step: usize, node: usize| -> f64 {
         if let Some(df) = const_df {
             df
@@ -77,7 +78,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             let r = rate_gen(step, node);
             (-r * dt).exp()
         } else {
-            unreachable!()
+            unreachable!("const_df is Some iff custom_rate_generator is None; both cannot be None")
         }
     };
 

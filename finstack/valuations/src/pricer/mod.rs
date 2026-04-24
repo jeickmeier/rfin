@@ -11,8 +11,7 @@
 //! - `keys`: [`crate::pricer::InstrumentType`], [`crate::pricer::ModelKey`],
 //!   [`crate::pricer::PricerKey`]
 //! - `errors`: [`crate::pricer::PricingError`],
-//!   [`crate::pricer::PricingErrorContext`], [`crate::pricer::PricingResult`],
-//!   [`crate::pricer::PricingContextExt`]
+//!   [`crate::pricer::PricingErrorContext`], [`crate::pricer::PricingResult`]
 //! - `registry`: [`crate::pricer::Pricer`], [`crate::pricer::PricerRegistry`],
 //!   `expect_inst`
 //!
@@ -33,7 +32,7 @@ mod keys;
 mod registry;
 
 pub(crate) use errors::actionable_unknown_pricer_message;
-pub use errors::{PricingContextExt, PricingError, PricingErrorContext, PricingResult};
+pub use errors::{PricingError, PricingErrorContext, PricingResult};
 pub use json::{
     parse_as_of_date, parse_boxed_instrument_json, parse_instrument_json, parse_model_key,
     price_instrument_json, price_instrument_json_with_metrics, validate_instrument_json,
@@ -197,7 +196,7 @@ mod tests {
         assert!(standard_registry().get_pricer(key).is_none());
 
         let mut cloned = standard_registry().clone();
-        cloned.register_pricer(key, Arc::new(DummyPricer));
+        cloned.register(InstrumentType::Deposit, ModelKey::Tree, DummyPricer);
 
         assert!(cloned.get_pricer(key).is_some());
         assert!(standard_registry().get_pricer(key).is_none());

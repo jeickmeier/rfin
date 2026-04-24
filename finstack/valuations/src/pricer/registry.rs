@@ -82,62 +82,42 @@ impl PricerRegistry {
 
     /// Register a pricer for a specific (instrument type, model) combination.
     ///
-    /// If a pricer already exists for this key, it will be replaced.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - Pricer key identifying the (instrument type, model) pair
-    /// * `pricer` - Pricer implementation for this combination
-    pub fn register_pricer(&mut self, key: PricerKey, pricer: Arc<dyn Pricer>) {
-        debug_assert!(
-            !self.pricers.contains_key(&key),
-            "Duplicate pricer registration for {key:?} -- this overwrites the existing pricer"
-        );
-        self.pricers.insert(key, pricer);
-    }
-
-    /// Convenience method to register a pricer with separate instrument type
-    /// and model key arguments, boxing the pricer automatically.
+    /// If a pricer already exists for this key, it will be replaced (debug-asserted
+    /// against in non-release builds so accidental duplicate registration surfaces
+    /// early).
     pub fn register(
         &mut self,
         inst: InstrumentType,
         model: ModelKey,
         pricer: impl Pricer + 'static,
     ) {
-        self.register_pricer(PricerKey::new(inst, model), Arc::new(pricer));
+        let key = PricerKey::new(inst, model);
+        debug_assert!(
+            !self.pricers.contains_key(&key),
+            "Duplicate pricer registration for {key:?} -- this overwrites the existing pricer"
+        );
+        self.pricers.insert(key, Arc::new(pricer));
     }
 
     /// Look up a pricer for a specific (instrument type, model) combination.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - Pricer key to look up
-    ///
-    /// # Returns
-    ///
-    /// `Some(&dyn Pricer)` if registered, `None` otherwise
     pub fn get_pricer(&self, key: PricerKey) -> Option<&dyn Pricer> {
         self.pricers.get(&key).map(|p| p.as_ref())
     }
 
-    /// Helper to look up a pricer using distinct type and model.
+    /// Price an instrument and compute requested metrics through the registered pricer.
     ///
-    /// # Arguments
+    /// This is the single registry-level pricing entry point. Pass an empty
+    /// `metrics` slice to obtain PV only; the model's own measures are always
+    /// returned under `ValuationResult::measures` either way.
     ///
-    /// * `inst` - Instrument type
-    /// * `model` - Model key
+    /// Scenario price overrides attached to the instrument are always applied
+    /// to the returned `value`, matching [`crate::instruments::Instrument::value`].
     ///
-    /// # Returns
-    ///
-    /// `Some(&dyn Pricer)` if registered, `None` otherwise
-    pub fn get(&self, inst: InstrumentType, model: ModelKey) -> Option<&dyn Pricer> {
-        self.get_pricer(PricerKey::new(inst, model))
-    }
-
-    /// Price an instrument using the registry dispatch system.
-    ///
-    /// Routes the instrument to the appropriate pricer based on its type
-    /// and the requested pricing model.
+    /// For non-discounting models, spread/yield metrics (z-spread, YTM, ASW,
+    /// etc.) are computed on the instrument's `metrics_equivalent()` — a version
+    /// with normalized cashflows (e.g., PIK coupon type converted to Cash) so
+    /// that spreads are on a cash-equivalent basis. Risk metrics (duration,
+    /// DV01, convexity, CS01) use the original instrument's actual cashflows.
     ///
     /// # Arguments
     ///
@@ -145,100 +125,26 @@ impl PricerRegistry {
     /// * `model` - Pricing model to use
     /// * `market` - Market data context with curves and surfaces
     /// * `as_of` - Valuation date
-    /// * `cfg` - Optional FinstackConfig. When `Some`, the result will be stamped with
-    ///   the exact rounding/tolerance policy from the config. When `None`, uses default config.
-    ///
-    /// # Returns
-    ///
-    /// `ValuationResult` with present value and metadata
+    /// * `metrics` - Standard metrics to compute (e.g., `MetricId::Ytm`,
+    ///   `MetricId::ZSpread`). Pass `&[]` for PV only.
+    /// * `options` - Optional overrides for config, market history, etc.
     ///
     /// # Errors
     ///
     /// Returns error if:
-    /// - No pricer registered for this (instrument, model) combination
-    /// - Pricing calculation fails
+    /// - No pricer is registered for this (instrument, model) combination
+    /// - The pricing calculation fails
     /// - Required market data is missing
-    #[tracing::instrument(
-        skip(self, instrument, market, cfg),
-        fields(instrument_id = %instrument.id(), model = %model)
-    )]
-    pub fn price(
-        &self,
-        instrument: &dyn Priceable,
-        model: ModelKey,
-        market: &Market,
-        as_of: finstack_core::dates::Date,
-        cfg: Option<&FinstackConfig>,
-    ) -> PricingResult<crate::results::ValuationResult> {
-        let key = PricerKey::new(instrument.key(), model);
-        let Some(pricer) = self.get_pricer(key) else {
-            return Err(PricingError::UnknownPricer(key));
-        };
-
-        let mut result = pricer.price_dyn(instrument, market, as_of)?;
-        let effective_cfg = cfg.map_or_else(FinstackConfig::default, |c| c.clone());
-        stamp_results_meta(&effective_cfg, &mut result);
-        Ok(result)
-    }
-
-    /// Price an instrument as an unrounded scalar for internal risk repricing.
-    pub(crate) fn price_raw(
-        &self,
-        instrument: &dyn Priceable,
-        model: ModelKey,
-        market: &Market,
-        as_of: finstack_core::dates::Date,
-    ) -> PricingResult<f64> {
-        let key = PricerKey::new(instrument.key(), model);
-        let Some(pricer) = self.get_pricer(key) else {
-            return Err(PricingError::UnknownPricer(key));
-        };
-        pricer.price_raw_dyn(instrument, market, as_of)
-    }
-
-    /// Price an instrument and compute standard metrics using any registered model.
-    ///
-    /// Chains `price_dyn` (model PV + model-specific measures) into the standard
-    /// metrics pipeline (`build_with_metrics_dyn`) so that all bond metric
-    /// calculators (YTM, z-spread, durations, etc.) solve against the model price.
-    ///
-    /// This generalizes the instrument-side `price_with_metrics` path to work
-    /// with any registered model -- hazard-rate, tree/OAS, Monte Carlo, etc.
-    ///
-    /// For non-discounting models, spread/yield metrics (z-spread, YTM, ASW, etc.)
-    /// are computed on the instrument's `metrics_equivalent()` — a version with
-    /// normalized cashflows (e.g., PIK coupon type converted to Cash) so that
-    /// spreads are on a cash-equivalent basis.  Risk metrics (duration, DV01,
-    /// convexity, CS01) use the original instrument's actual cashflows.
-    ///
-    /// # Behavioral Contract
-    ///
-    /// This split is intentional:
-    /// - **Spread/yield metrics** answer "what standard cash-equivalent spread or yield
-    ///   matches this model price?"
-    /// - **Risk metrics** answer "how does the actual instrument economics move under
-    ///   the requested bump convention?"
-    ///
-    /// Downstream consumers should not assume all metrics in the result were produced
-    /// from the same normalized cashflow basis when `model != ModelKey::Discounting`.
-    ///
-    /// # Arguments
-    ///
-    /// * `instrument` - Instrument to price (as trait object)
-    /// * `model` - Pricing model to use
-    /// * `market` - Market data context with curves and surfaces
-    /// * `as_of` - Valuation date
-    /// * `metrics` - Standard metrics to compute (e.g., `MetricId::Ytm`, `MetricId::ZSpread`)
-    /// * `cfg` - Optional FinstackConfig for rounding/tolerance policy
+    /// - Metric computation fails
     #[tracing::instrument(
         skip(self, instrument, market, metrics, options),
         fields(instrument_id = %instrument.id(), model = %model, num_metrics = metrics.len())
     )]
-    pub fn price_with_metrics_arc(
+    pub fn price_with_metrics(
         &self,
         instrument: &dyn Priceable,
         model: ModelKey,
-        market: &Arc<Market>,
+        market: &Market,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
         options: crate::instruments::PricingOptions,
@@ -250,21 +156,28 @@ impl PricerRegistry {
             ..
         } = options;
 
-        let mut base_result =
-            self.price(instrument, model, market.as_ref(), as_of, cfg.as_deref())?;
+        // --- Base PV through the registered pricer ---
+        let key = PricerKey::new(instrument.key(), model);
+        let Some(pricer) = self.get_pricer(key) else {
+            return Err(PricingError::UnknownPricer(key));
+        };
+        let mut base_result = pricer.price_dyn(instrument, market, as_of)?;
+        let effective_cfg = cfg
+            .as_deref()
+            .map_or_else(FinstackConfig::default, |c| c.clone());
+        stamp_results_meta(&effective_cfg, &mut base_result);
 
         if metrics.is_empty() {
-            // The standard metrics pipeline applies scenario price shocks via
-            // `build_with_metrics_dyn`, but the empty-metrics fast path skips
-            // that helper. Apply the shock here so `price_with_metrics(..., &[], ..)`
-            // remains consistent with `Instrument::value` for instruments with
-            // active `ScenarioPricingOverrides`.
+            // No extra metrics requested: apply scenario overrides and return.
+            // Keeps empty-metrics behavior consistent with `Instrument::value`.
             if let Some(overrides) = instrument.scenario_overrides() {
                 base_result.value = overrides.apply_to_value(base_result.value);
             }
             return Ok(base_result);
         }
 
+        // --- Metrics pipeline ---
+        let market_arc = Arc::new(market.clone());
         let err_ctx = PricingErrorContext::from_instrument(instrument).model(model);
         let needs_split = model != ModelKey::Discounting;
         let pricer_registry = Arc::new(self.clone());
@@ -272,7 +185,7 @@ impl PricerRegistry {
         if !needs_split {
             let mut enriched = crate::instruments::common_impl::helpers::build_with_metrics_dyn(
                 std::sync::Arc::from(instrument.clone_box()),
-                Arc::clone(market),
+                Arc::clone(&market_arc),
                 as_of,
                 base_result.value,
                 metrics,
@@ -307,19 +220,16 @@ impl PricerRegistry {
             }
         }
 
-        let cfg_arc = cfg;
-        let market_arc = Arc::clone(market);
-
         // Spread metrics: cash-equivalent cashflows via metrics_equivalent()
         let mut result = if !spread_metrics.is_empty() {
             crate::instruments::common_impl::helpers::build_with_metrics_dyn(
                 std::sync::Arc::from(instrument.metrics_equivalent()),
-                market_arc.clone(),
+                Arc::clone(&market_arc),
                 as_of,
                 base_result.value,
                 &spread_metrics,
                 crate::instruments::common_impl::helpers::MetricBuildOptions {
-                    cfg: cfg_arc.clone(),
+                    cfg: cfg.clone(),
                     market_history: market_history.clone(),
                     ..crate::instruments::common_impl::helpers::MetricBuildOptions::default()
                 },
@@ -343,7 +253,7 @@ impl PricerRegistry {
                 base_result.value,
                 &risk_metrics,
                 crate::instruments::common_impl::helpers::MetricBuildOptions {
-                    cfg: cfg_arc,
+                    cfg,
                     market_history,
                     pricing_model: Some(model),
                     pricer_registry: Some(pricer_registry),
@@ -365,49 +275,41 @@ impl PricerRegistry {
         Ok(result)
     }
 
-    /// Price an instrument and compute standard metrics using any registered model.
-    ///
-    /// This convenience overload wraps `market` in an `Arc` and delegates to
-    /// [`Self::price_with_metrics_arc`]. Use the `_arc` variant when pricing
-    /// multiple instruments against the same market to avoid repeated cloning.
-    pub fn price_with_metrics(
+    /// Price an instrument as an unrounded scalar for internal risk repricing.
+    pub(crate) fn price_raw(
         &self,
         instrument: &dyn Priceable,
         model: ModelKey,
         market: &Market,
         as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-        options: crate::instruments::PricingOptions,
-    ) -> PricingResult<crate::results::ValuationResult> {
-        let market_arc = Arc::new(market.clone());
-        self.price_with_metrics_arc(instrument, model, &market_arc, as_of, metrics, options)
+    ) -> PricingResult<f64> {
+        let key = PricerKey::new(instrument.key(), model);
+        let Some(pricer) = self.get_pricer(key) else {
+            return Err(PricingError::UnknownPricer(key));
+        };
+        pricer.price_raw_dyn(instrument, market, as_of)
     }
 
-    /// Price a batch of instruments using the registry dispatch system.
+    /// Price a batch of instruments in parallel, preserving input order.
     ///
-    /// The output order matches the input order. When the `parallel` feature is
-    /// enabled, pricing is performed in parallel while preserving ordering.
-    ///
-    /// # Arguments
-    ///
-    /// * `instruments` - Slice of instruments to price (as trait objects)
-    /// * `model` - Pricing model to use
-    /// * `market` - Market data context with curves and surfaces
-    /// * `as_of` - Valuation date
-    /// * `cfg` - Optional FinstackConfig. When `Some`, results will be stamped with
-    ///   the exact rounding/tolerance policy from the config. When `None`, uses default config.
+    /// Each element is priced via [`Self::price_with_metrics`] with the same
+    /// arguments, so scenario overrides and model-specific measures are applied
+    /// identically. Pass an empty `metrics` slice for a PV-only batch.
     pub fn price_batch(
         &self,
         instruments: &[&dyn Priceable],
         model: ModelKey,
         market: &Market,
         as_of: finstack_core::dates::Date,
-        cfg: Option<&FinstackConfig>,
+        metrics: &[crate::metrics::MetricId],
+        options: crate::instruments::PricingOptions,
     ) -> Vec<PricingResult<crate::results::ValuationResult>> {
         use rayon::prelude::*;
         instruments
             .par_iter()
-            .map(|&instrument| self.price(instrument, model, market, as_of, cfg))
+            .map(|&instrument| {
+                self.price_with_metrics(instrument, model, market, as_of, metrics, options.clone())
+            })
             .collect()
     }
 }
@@ -743,9 +645,10 @@ mod tests {
             .expect("default pricing path should succeed");
 
         let mut registry = PricerRegistry::new();
-        registry.register_pricer(
-            PricerKey::new(InstrumentType::Bond, ModelKey::Discounting),
-            Arc::new(FixedBondPricer { amount: 123_456.0 }),
+        registry.register(
+            InstrumentType::Bond,
+            ModelKey::Discounting,
+            FixedBondPricer { amount: 123_456.0 },
         );
 
         let result = bond
@@ -797,9 +700,10 @@ mod tests {
             .expect("default pricing path should succeed");
 
         let mut registry = PricerRegistry::new();
-        registry.register_pricer(
-            PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate),
-            Arc::new(FixedBondPricer { amount: 654_321.0 }),
+        registry.register(
+            InstrumentType::Bond,
+            ModelKey::HazardRate,
+            FixedBondPricer { amount: 654_321.0 },
         );
 
         let result = bond
@@ -996,10 +900,6 @@ mod tests {
 
         let key = PricerKey::new(InstrumentType::Bond, ModelKey::Discounting);
         assert!(registry.get_pricer(key).is_some());
-
-        assert!(registry
-            .get(InstrumentType::Bond, ModelKey::Discounting)
-            .is_some());
     }
 
     #[test]

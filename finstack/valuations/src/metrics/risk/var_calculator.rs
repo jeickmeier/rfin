@@ -315,7 +315,7 @@ fn reprice_with_dispatch(
 ) -> Result<Money> {
     if let (Some(model), Some(registry)) = (pricing_model, pricer_registry) {
         return Ok(registry
-            .price(instrument, model, market, as_of, None)?
+            .price_with_metrics(instrument, model, market, as_of, &[], Default::default())?
             .value);
     }
     instrument.value(market, as_of)
