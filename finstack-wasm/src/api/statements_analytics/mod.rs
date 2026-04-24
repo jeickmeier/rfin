@@ -3,6 +3,13 @@
 //! Exposes financial statement analysis functions that accept and return
 //! JSON strings, suitable for consumption from JavaScript/TypeScript.
 
+mod comps;
+
+pub use comps::{
+    compute_multiple, peer_stats, percentile_rank, regression_fair_value, score_relative_value,
+    z_score,
+};
+
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
 

@@ -656,13 +656,6 @@ export interface AnalyticsNamespace {
   aic(logLikelihood: number, nParams: number): number;
   bic(logLikelihood: number, nParams: number, nObs: number): number;
   hqic(logLikelihood: number, nParams: number, nObs: number): number;
-  // Comps — comparable company analysis
-  percentileRank(value: number, data: number[]): number;
-  zScore(value: number, data: number[]): number;
-  peerStats(data: number[]): PeerStatsJson | null;
-  regressionFairValue(xValues: number[], yValues: number[], subjectX: number, subjectY: number): RegressionResultJson | null;
-  computeMultiple(price: number, metric: number): number;
-  scoreRelativeValue(peerSet: unknown, dimensions: unknown[]): RelativeValueResultJson;
 }
 
 export declare const analytics: AnalyticsNamespace;
@@ -1272,6 +1265,18 @@ export interface StatementsAnalyticsNamespace {
     periods: string[]
   ): string;
   creditAssessmentReport(resultsJson: string, asOf: string): string;
+  // Comps — comparable company analysis
+  percentileRank(value: number, data: number[]): number | null;
+  zScore(value: number, data: number[]): number | null;
+  peerStats(data: number[]): PeerStatsJson | null;
+  regressionFairValue(
+    xValues: number[],
+    yValues: number[],
+    subjectX: number,
+    subjectY: number
+  ): RegressionResultJson | null;
+  computeMultiple(companyMetrics: unknown, multiple: string): number | null;
+  scoreRelativeValue(peerSet: unknown, dimensions: unknown[]): RelativeValueResultJson;
 }
 
 export declare const statements_analytics: StatementsAnalyticsNamespace;

@@ -17,4 +17,11 @@ export const statements_analytics = {
   runCreditUnderwritingChecks: wasm.runCreditUnderwritingChecks,
   renderCheckReportText: wasm.renderCheckReportText,
   renderCheckReportHtml: wasm.renderCheckReportHtml,
+  // Comps — comparable company analysis
+  percentileRank: wasm.percentileRank,
+  zScore: wasm.zScore,
+  peerStats: wasm.peerStats,
+  regressionFairValue: wasm.regressionFairValue,
+  computeMultiple: wasm.computeMultiple,
+  scoreRelativeValue: wasm.scoreRelativeValue,
 };

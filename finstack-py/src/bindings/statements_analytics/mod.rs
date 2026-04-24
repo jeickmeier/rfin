@@ -5,6 +5,7 @@
 //! pipeline, Monte Carlo, and reports.
 
 mod analysis;
+mod comps;
 mod ecl;
 
 use pyo3::prelude::*;
@@ -15,11 +16,12 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "statements_analytics")?;
     m.setattr(
         "__doc__",
-        "Statement analysis: sensitivity, variance, scenarios, backtesting, goal seek, DCF, corporate, Monte Carlo, reports, introspection.",
+        "Statement analysis: sensitivity, variance, scenarios, backtesting, goal seek, DCF, corporate, Monte Carlo, reports, introspection, comparable-company analysis.",
     )?;
 
     analysis::register(py, &m)?;
     ecl::register(py, &m)?;
+    comps::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -52,6 +54,13 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "classify_stage",
             "compute_ecl",
             "compute_ecl_weighted",
+            // Comparable-company analysis
+            "percentile_rank",
+            "z_score",
+            "peer_stats",
+            "regression_fair_value",
+            "compute_multiple",
+            "score_relative_value",
         ],
     )?;
     m.setattr("__all__", all)?;

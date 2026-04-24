@@ -32,6 +32,12 @@ __all__ = [
     "classify_stage",
     "compute_ecl",
     "compute_ecl_weighted",
+    "percentile_rank",
+    "z_score",
+    "peer_stats",
+    "regression_fair_value",
+    "compute_multiple",
+    "score_relative_value",
 ]
 
 def run_sensitivity(model_json: str, config_json: str) -> str:
@@ -581,4 +587,44 @@ def compute_ecl_weighted(
     Returns:
         Probability-weighted ECL amount.
     """
+    ...
+
+# ---------------------------------------------------------------------------
+# Comparable-company analysis
+# ---------------------------------------------------------------------------
+
+def percentile_rank(value: float, peer_values: list[float]) -> float:
+    """Percentile rank of ``value`` within ``peer_values`` on a 0-1 scale."""
+    ...
+
+def z_score(value: float, peer_values: list[float]) -> float:
+    """Standard score of ``value`` within the peer distribution."""
+    ...
+
+def peer_stats(peer_values: list[float]) -> dict[str, float]:
+    """Descriptive statistics for a peer distribution."""
+    ...
+
+def regression_fair_value(
+    x_values: list[float],
+    y_values: list[float],
+    subject_x: float,
+    subject_y: float,
+) -> dict[str, float]:
+    """Single-factor OLS regression fair value with canonical residual semantics."""
+    ...
+
+def compute_multiple(
+    company_metrics: dict[str, float],
+    multiple: str,
+) -> float | None:
+    """Canonical multiple computation for one company."""
+    ...
+
+def score_relative_value(
+    subject_metrics: dict[str, float],
+    peer_metrics: list[dict[str, float]],
+    dimensions: list[tuple[str, float] | dict[str, Any]],
+) -> dict[str, Any]:
+    """Composite relative-value score across weighted univariate or regression dimensions."""
     ...

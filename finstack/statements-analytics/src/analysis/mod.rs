@@ -48,6 +48,9 @@ pub mod checks;
 /// Expected credit loss: IFRS 9 staging, ECL calculation, CECL, portfolio aggregation.
 pub mod ecl;
 
+/// Comparable-company analysis: peer sets, multiples, relative-value scoring.
+pub mod comps;
+
 // ---- Flat submodules ----
 
 pub mod backtesting;
@@ -109,4 +112,13 @@ pub use ecl::{
     EclResult, Exposure, ExposureEclResult, LgdType, MacroScenario, PdTermStructure,
     PortfolioEclResult, ProvisionWaterfall, QualitativeFlags, RawPdCurve, ReversionMethod, Stage,
     StageResult, StagingConfig, StagingTrigger, WeightedEclResult,
+};
+
+// ---- Comps re-exports ----
+
+pub use comps::{
+    compute_multiple, compute_peer_multiples, peer_stats, percentile_rank, regression_fair_value,
+    score_relative_value, z_score, CompanyId, CompanyMetrics, DimensionScore, MetricExtractor,
+    Multiple, PeerFilter, PeerSet, PeerStats, PeriodBasis, RegressionResult, RelativeValueResult,
+    ScoringDimension,
 };

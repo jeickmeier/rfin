@@ -4,6 +4,12 @@ from datetime import date
 from pathlib import Path
 from typing import cast
 
+from finstack.statements_analytics import (
+    compute_multiple,
+    percentile_rank,
+    regression_fair_value,
+    score_relative_value,
+)
 import pytest
 
 from finstack.analytics import (
@@ -12,17 +18,13 @@ from finstack.analytics import (
     comp_sum,
     comp_total,
     compare_var_backtests,
-    compute_multiple,
     fytd_select,
     max_drawdown,
     mean_return,
     mtd_select,
-    percentile_rank,
     pnl_explanation,
     qtd_select,
-    regression_fair_value,
     rolling_var_forecasts,
-    score_relative_value,
     sharpe,
     simple_returns,
     sortino,

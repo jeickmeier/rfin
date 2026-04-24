@@ -39,6 +39,14 @@ classify_stage = _sa.classify_stage
 compute_ecl = _sa.compute_ecl
 compute_ecl_weighted = _sa.compute_ecl_weighted
 
+# Comparable-company analysis
+percentile_rank = _sa.percentile_rank
+z_score = _sa.z_score
+peer_stats = _sa.peer_stats
+regression_fair_value = _sa.regression_fair_value
+compute_multiple = _sa.compute_multiple
+score_relative_value = _sa.score_relative_value
+
 __all__: list[str] = [
     "DependencyTracer",
     "Exposure",
@@ -47,6 +55,7 @@ __all__: list[str] = [
     "classify_stage",
     "compute_ecl",
     "compute_ecl_weighted",
+    "compute_multiple",
     "credit_assessment_report",
     "dependents",
     "direct_dependencies",
@@ -56,7 +65,10 @@ __all__: list[str] = [
     "explain_formula_text",
     "generate_tornado_entries",
     "goal_seek",
+    "peer_stats",
+    "percentile_rank",
     "pl_summary_report",
+    "regression_fair_value",
     "render_check_report_html",
     "render_check_report_text",
     "run_checks",
@@ -66,6 +78,8 @@ __all__: list[str] = [
     "run_sensitivity",
     "run_three_statement_checks",
     "run_variance",
+    "score_relative_value",
     "trace_dependencies",
     "trace_dependencies_detailed",
+    "z_score",
 ]

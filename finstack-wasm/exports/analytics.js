@@ -97,11 +97,4 @@ export const analytics = {
   aic: wasm.aic,
   bic: wasm.bic,
   hqic: wasm.hqic,
-  // Comps — comparable company analysis
-  percentileRank: wasm.percentileRank,
-  zScore: wasm.zScore,
-  peerStats: wasm.peerStats,
-  regressionFairValue: wasm.regressionFairValue,
-  computeMultiple: wasm.computeMultiple,
-  scoreRelativeValue: wasm.scoreRelativeValue,
 };

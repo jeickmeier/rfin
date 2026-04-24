@@ -10,7 +10,6 @@
 mod aggregation;
 mod backtesting;
 mod benchmark;
-mod comps;
 mod drawdown;
 mod lookback;
 mod returns;
@@ -28,10 +27,6 @@ pub use benchmark::{
     align_benchmark, batting_average, beta, capture_ratio, down_capture, greeks, information_ratio,
     m_squared, multi_factor_greeks, r_squared, rolling_greeks, tracking_error, treynor, up_capture,
     WasmBenchmarkAlignmentPolicy,
-};
-pub use comps::{
-    compute_multiple, peer_stats, percentile_rank, regression_fair_value, score_relative_value,
-    z_score,
 };
 pub use drawdown::{
     burke_ratio, calmar, cdar, drawdown_details, martin_ratio, max_drawdown, max_drawdown_duration,
