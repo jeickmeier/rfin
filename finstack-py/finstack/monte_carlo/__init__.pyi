@@ -1,9 +1,10 @@
-"""Monte Carlo pricing bindings (``finstack-monte-carlo``).
+"""Monte Carlo GBM convenience bindings (``finstack-monte-carlo``).
 
 Exposes simulation primitives: time grids, engine configuration, pricers,
-and closed-form Black–Scholes helpers. Process and payoff parameters are
-passed directly as numeric arguments to the pricer constructors and
-methods; they are not surfaced as standalone Python types.
+and closed-form Black-Scholes helpers for the GBM-oriented binding surface.
+Advanced Rust process, discretization, RNG, payoff, and Greeks types are not
+surfaced as standalone Python types yet; their parameters are passed directly
+as numeric arguments to the exposed pricer constructors and methods.
 """
 
 from __future__ import annotations
@@ -165,7 +166,10 @@ class MonteCarloResult:
 
     @property
     def num_skipped(self) -> int:
-        """Number of paths skipped due to non-finite payoff values.
+        """Legacy skipped-path count.
+
+        Current engine loops reject non-finite discounted payoffs rather than
+        censoring paths, so new results should report zero here.
 
         Args:
             None
@@ -390,7 +394,10 @@ class Estimate:
 
     @property
     def num_skipped(self) -> int:
-        """Number of paths skipped due to non-finite payoffs.
+        """Legacy skipped-path count.
+
+        Current engine loops reject non-finite discounted payoffs rather than
+        censoring paths, so new estimates should report zero here.
 
         Args:
             None

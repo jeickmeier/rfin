@@ -89,6 +89,21 @@ pub(super) fn parallel_path_chunks(num_paths: usize, chunk_size: usize) -> Vec<R
     chunks
 }
 
+pub(crate) fn validate_discounted_payoff(
+    path_id: usize,
+    payoff_value: f64,
+    discount_factor: f64,
+) -> Result<f64> {
+    let discounted_value = payoff_value * discount_factor;
+    if discounted_value.is_finite() {
+        Ok(discounted_value)
+    } else {
+        Err(finstack_core::Error::Validation(format!(
+            "non-finite discounted payoff on path {path_id}: payoff={payoff_value}, discount_factor={discount_factor}"
+        )))
+    }
+}
+
 impl McEngine {
     /// Create a builder with the crate's default engine settings.
     pub fn builder() -> McEngineBuilder {
@@ -566,13 +581,29 @@ impl McEngine {
 
         // Single clone reused across all paths (reset between iterations)
         let mut payoff_local = payoff.clone();
-        let mut num_skipped: usize = 0;
+        let use_split_streams = rng.supports_splitting();
+        let mut sequential_rng = (!use_split_streams).then(|| rng.clone());
 
         for path_id in 0..self.config.num_paths {
-            let mut path_rng = rng.split(path_id as u64).ok_or_else(|| finstack_core::Error::Validation("RandomStream does not support stream splitting; use a splittable generator such as PhiloxRng or run in serial mode without per-path splitting".to_string()))?;
+            let mut split_rng;
+            let path_rng = if use_split_streams {
+                split_rng = rng.split(path_id as u64).ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "RandomStream reports splitting support but split() returned None"
+                            .to_string(),
+                    )
+                })?;
+                &mut split_rng
+            } else {
+                sequential_rng.as_mut().ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "serial non-splittable RNG was not initialized".to_string(),
+                    )
+                })?
+            };
 
             payoff_local.reset();
-            payoff_local.on_path_start(&mut path_rng);
+            payoff_local.on_path_start(&mut *path_rng);
 
             let should_capture = capture
                 && self
@@ -584,7 +615,7 @@ impl McEngine {
                 // `validate_runtime` rejects antithetic+capture, so this branch
                 // is only reached with antithetic disabled.
                 let (v, path) = self.simulate_path_with_capture(
-                    &mut path_rng,
+                    &mut *path_rng,
                     process,
                     disc,
                     initial_state,
@@ -602,7 +633,7 @@ impl McEngine {
                 v
             } else if self.config.antithetic {
                 self.simulate_antithetic_pair(
-                    &mut path_rng,
+                    &mut *path_rng,
                     process,
                     disc,
                     initial_state,
@@ -619,7 +650,7 @@ impl McEngine {
                 )?
             } else {
                 self.simulate_path(
-                    &mut path_rng,
+                    &mut *path_rng,
                     process,
                     disc,
                     initial_state,
@@ -633,19 +664,9 @@ impl McEngine {
                 )?
             };
 
-            // Accumulate statistics (skip non-finite values to prevent NaN poisoning)
-            let discounted_value = payoff_value * discount_factor;
-            if discounted_value.is_finite() {
-                stats.update(discounted_value);
-            } else {
-                num_skipped += 1;
-                tracing::warn!(
-                    path_id,
-                    payoff_value,
-                    discount_factor,
-                    "Skipping non-finite payoff value in MC statistics"
-                );
-            }
+            let discounted_value =
+                validate_discounted_payoff(path_id, payoff_value, discount_factor)?;
+            stats.update(discounted_value);
 
             // Check auto-stop condition. A 5 000-sample warm-up keeps the
             // half-width estimate stable — the standard error of the sample
@@ -672,7 +693,6 @@ impl McEngine {
             num_paths,
         )
         .with_std_dev(stats.std_dev())
-        .with_num_skipped(num_skipped)
         .with_num_simulated_paths(num_simulated_paths);
 
         Ok((estimate, captured_paths))
@@ -712,11 +732,10 @@ impl McEngine {
         let correlation_ref = correlation.as_ref();
 
         // Process chunks in parallel
-        let chunk_results: Vec<Result<(OnlineStats, usize)>> = chunks
+        let chunk_results: Vec<Result<OnlineStats>> = chunks
             .par_iter()
             .map(|range| {
                 let mut stats = OnlineStats::new();
-                let mut chunk_skipped: usize = 0;
                 let dim = process.dim();
                 let num_factors = process.num_factors();
                 let work_size = disc.work_size(process);
@@ -805,18 +824,9 @@ impl McEngine {
                         )?
                     };
 
-                    let discounted_value = payoff_value * discount_factor;
-                    if discounted_value.is_finite() {
-                        stats.update(discounted_value);
-                    } else {
-                        chunk_skipped += 1;
-                        tracing::warn!(
-                            path_id,
-                            payoff_value,
-                            discount_factor,
-                            "Skipping non-finite payoff value in MC statistics"
-                        );
-                    }
+                    let discounted_value =
+                        validate_discounted_payoff(path_id, payoff_value, discount_factor)?;
+                    stats.update(discounted_value);
                 }
 
                 if let Some(sink) = captured_sink.as_ref() {
@@ -831,20 +841,18 @@ impl McEngine {
                     }
                 }
 
-                Ok((stats, chunk_skipped))
+                Ok(stats)
             })
             .collect();
 
         // Collect and handle errors (fail-fast on first error)
-        let chunk_stats: Vec<(OnlineStats, usize)> =
+        let chunk_stats: Vec<OnlineStats> =
             chunk_results.into_iter().collect::<Result<Vec<_>>>()?;
 
         // Deterministically reduce chunk statistics
         let mut combined = OnlineStats::new();
-        let mut num_skipped: usize = 0;
-        for (chunk_stat, chunk_skipped) in chunk_stats {
+        for chunk_stat in chunk_stats {
             combined.merge(&chunk_stat);
-            num_skipped += chunk_skipped;
         }
 
         let num_paths = combined.count();
@@ -860,7 +868,6 @@ impl McEngine {
             num_paths,
         )
         .with_std_dev(combined.std_dev())
-        .with_num_skipped(num_skipped)
         .with_num_simulated_paths(num_simulated_paths);
 
         #[allow(clippy::expect_used)] // Mutex poisoning indicates prior panic in worker thread.

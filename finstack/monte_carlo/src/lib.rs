@@ -38,7 +38,7 @@
 //! - deterministic seed helpers in [`crate::seed`]
 //! - vanilla and exotic payoffs and the core [`traits`] / [`engine`] infrastructure
 //!
-//! The `parallel` feature enables Rayon-backed path simulation. Parallel mode
+//! Rayon-backed path simulation is compiled in by default. Parallel mode
 //! requires an RNG that supports deterministic stream splitting, such as
 //! [`rng::philox::PhiloxRng`].
 //!

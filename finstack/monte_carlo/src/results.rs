@@ -55,7 +55,10 @@ pub struct MoneyEstimate {
     /// Optional maximum of captured discounted path values.
     #[serde(default)]
     pub max: Option<f64>,
-    /// Number of paths skipped due to non-finite payoff values.
+    /// Legacy count of skipped paths from older survivor-pricing runs.
+    ///
+    /// Current engine loops reject non-finite discounted payoffs instead of
+    /// censoring paths.
     #[serde(default)]
     pub num_skipped: usize,
 }

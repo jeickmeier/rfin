@@ -587,6 +587,30 @@ fn test_value_money_builder_api() {
 }
 
 #[test]
+fn test_value_money_rejects_mixed_currencies() {
+    let err = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value_money(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    Money::new(100_000.0, Currency::USD),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    Money::new(90_000.0, Currency::EUR),
+                ),
+            ],
+        )
+        .build()
+        .expect_err("mixed-currency monetary nodes must not build");
+
+    assert!(err.to_string().contains("Currency mismatch"));
+}
+
+#[test]
 fn test_value_scalar_builder_api() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q1", None)

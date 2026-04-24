@@ -8,7 +8,7 @@
 //!
 //! 1. Apply GBM diffusion step (continuous part)
 //! 2. Sample number of jumps N ~ Poisson(λΔt)
-//! 3. For each jump, sample size J_i ~ LogNormal(μ_J, σ_J)
+//! 3. Conditional on N, sample the aggregate log jump as Nμ_J + √N σ_J Z
 //! 4. Multiply spot by jump product: S *= ∏J_i
 
 use super::super::process::jump_diffusion::MertonJumpProcess;
@@ -23,14 +23,11 @@ use super::super::traits::Discretization;
 ///
 /// - `z[0]`: Continuous diffusion shock
 /// - `z[1]`: Poisson number of jumps (via CDF transform)
-/// - `z[2..]`: Jump sizes (one per jump, if needed)
+/// - `z[2]`: Aggregate jump-size shock conditional on the sampled jump count
 ///
-/// For efficiency, pre-generates jump sizes from RNG stream.
+/// The aggregate conditional-normal draw avoids a fixed per-step jump cap.
 #[derive(Debug, Clone)]
-pub struct JumpEuler {
-    /// Maximum jumps per step to pre-allocate (default: 10)
-    max_jumps_per_step: usize,
-}
+pub struct JumpEuler;
 
 impl Default for JumpEuler {
     fn default() -> Self {
@@ -41,16 +38,16 @@ impl Default for JumpEuler {
 impl JumpEuler {
     /// Create a new jump-Euler discretization.
     pub fn new() -> Self {
-        Self {
-            max_jumps_per_step: 10,
-        }
+        Self
     }
 
-    /// Create with custom maximum jumps per step.
-    pub fn with_max_jumps(max_jumps: usize) -> Self {
-        Self {
-            max_jumps_per_step: max_jumps,
-        }
+    /// Create with a legacy jump-budget argument.
+    ///
+    /// The current scheme samples the aggregate conditional log jump and does
+    /// not truncate jumps, so the argument is retained only for source
+    /// compatibility.
+    pub fn with_max_jumps(_max_jumps: usize) -> Self {
+        Self::new()
     }
 }
 
@@ -86,22 +83,14 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
             0
         };
 
-        // Step 3: Apply jumps
+        // Step 3: Apply jumps. Conditional on N, the sum of N independent
+        // normal log-jump sizes is Normal(N * μ_J, N * σ_J²).
         let mut jump_product = 1.0;
         if num_jumps > 0 {
-            // Limit to max_jumps and to the number of pre-generated jump shocks.
-            let available_jump_shocks = z.len().saturating_sub(2);
-            let actual_jumps = num_jumps
-                .min(self.max_jumps_per_step)
-                .min(available_jump_shocks);
-
-            for i in 0..actual_jumps {
-                // Sample jump size J ~ LogNormal(μ_J, σ_J)
-                let z_jump = z[i + 2];
-                let log_jump = params.mu_j + params.sigma_j * z_jump;
-                let jump_size = log_jump.exp();
-                jump_product *= jump_size;
-            }
+            let n = num_jumps as f64;
+            let z_jump = z.get(2).copied().unwrap_or(0.0);
+            let log_jump_sum = n * params.mu_j + n.sqrt() * params.sigma_j * z_jump;
+            jump_product = log_jump_sum.exp();
         }
 
         // Step 4: Combine diffusion and jumps
@@ -273,12 +262,38 @@ mod tests {
             )
             .expect("pricing should succeed");
 
-        let expected_terminal_spot = 100.0 * (compensated_drift * 0.1).exp() * f64::exp(1.0);
+        let num_jumps = poisson_from_normal(50.0 * 0.1, 8.0) as f64;
+        let aggregate_log_jump = num_jumps.sqrt();
+        let expected_terminal_spot =
+            100.0 * (compensated_drift * 0.1).exp() * aggregate_log_jump.exp();
         assert!(
             (result.mean.amount() - expected_terminal_spot).abs() < 1e-12,
             "expected terminal spot {} but got {}",
             expected_terminal_spot,
             result.mean.amount()
+        );
+    }
+
+    #[test]
+    fn test_jump_euler_uses_all_sampled_jumps() {
+        let params = MertonJumpParams::new(0.0, 0.0, 0.0, 50.0, 0.01, 0.0).unwrap();
+        let compensated_drift = params.compensated_drift();
+        let process = MertonJumpProcess::new(params);
+        let disc = JumpEuler::new();
+        let mut x = vec![100.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        // lambda * dt = 50 and z = 0 maps to the Poisson median, which the
+        // large-lambda approximation returns as exactly 50 jumps. The old
+        // implementation capped this at ten jump-size shocks.
+        disc.step(&process, 0.0, 1.0, &mut x, &[0.0, 0.0, 0.0], &mut work);
+
+        let expected = 100.0 * compensated_drift.exp() * (50.0_f64 * 0.01).exp();
+        assert!(
+            (x[0] - expected).abs() < 1e-12,
+            "expected all sampled jumps to be applied: got {}, expected {}",
+            x[0],
+            expected
         );
     }
 }

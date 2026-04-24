@@ -286,7 +286,6 @@ impl PathDependentPricer {
             .then(|| BrownianBridge::new(num_steps));
 
         let mut stats = OnlineStats::new();
-        let mut num_skipped: usize = 0;
         let mut state = vec![0.0; process.dim()];
         let mut work = vec![0.0; disc.work_size(process)];
         let mut z_step = vec![0.0; num_factors];
@@ -374,18 +373,9 @@ impl PathDependentPricer {
                 )?
             };
 
-            let discounted_value = payoff_value * discount_factor;
-            if discounted_value.is_finite() {
-                stats.update(discounted_value);
-            } else {
-                num_skipped += 1;
-                tracing::warn!(
-                    path_id,
-                    payoff_value,
-                    discount_factor,
-                    "Skipping non-finite payoff value in MC statistics"
-                );
-            }
+            let discounted_value =
+                crate::engine::validate_discounted_payoff(path_id, payoff_value, discount_factor)?;
+            stats.update(discounted_value);
         }
 
         let estimate = Estimate::new(
@@ -394,8 +384,7 @@ impl PathDependentPricer {
             stats.confidence_interval(0.05),
             stats.count(),
         )
-        .with_std_dev(stats.std_dev())
-        .with_num_skipped(num_skipped);
+        .with_std_dev(stats.std_dev());
 
         Ok(engine.finalize_captured_result(
             estimate,
@@ -739,6 +728,7 @@ fn fill_sobol_increments(
 /// the Sobol pricer outer loop, so the engine's per-path `rng.split(..)` call
 /// is bypassed by delegating to `simulate_path`/`simulate_path_with_capture`
 /// directly.
+#[derive(Clone)]
 struct SobolPathStream<'a> {
     z_increments: &'a [f64],
     cursor: usize,

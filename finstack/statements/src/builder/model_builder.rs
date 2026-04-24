@@ -301,27 +301,15 @@ impl ModelBuilder<Ready> {
             .map(|(period_id, money)| (*period_id, AmountOrScalar::Amount(*money)))
             .collect();
 
-        // Validate all values share the same currency
-        if values.len() > 1 {
-            let first_currency = values[0].1.currency();
-            for (period_id, money) in values.iter().skip(1) {
-                if money.currency() != first_currency {
-                    tracing::warn!(
-                        "value_money('{}') has mixed currencies: {:?} at {:?} vs {:?}",
-                        node_id,
-                        money.currency(),
-                        period_id,
-                        first_currency
-                    );
-                }
-            }
-        }
-
-        let value_type = values
-            .first()
-            .map(|(_, money)| crate::types::NodeValueType::Monetary {
-                currency: money.currency(),
-            });
+        let value_type = values.first().and_then(|(_, first_money)| {
+            let first_currency = first_money.currency();
+            values
+                .iter()
+                .all(|(_, money)| money.currency() == first_currency)
+                .then_some(crate::types::NodeValueType::Monetary {
+                    currency: first_currency,
+                })
+        });
 
         let mut node = NodeSpec::new(node_id.clone(), NodeType::Value).with_values(values_map);
         node.value_type = value_type;

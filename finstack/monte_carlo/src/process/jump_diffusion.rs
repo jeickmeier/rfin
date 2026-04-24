@@ -27,9 +27,13 @@
 use super::super::traits::StochasticProcess;
 use super::gbm::GbmParams;
 
-/// Default number of pre-generated jump-size shocks per timestep used by the
-/// generic Monte Carlo engine for Merton jump-diffusion paths.
-pub const DEFAULT_JUMP_SIZE_FACTORS: usize = 10;
+/// Number of standard-normal factors used by [`crate::discretization::JumpEuler`].
+///
+/// The factors are the diffusion shock, the Poisson-arrival shock, and one
+/// aggregate jump-size shock. Conditional on a sampled jump count `N`, the sum
+/// of `N` independent normal log-jump sizes is sampled as
+/// `N * mu_j + sqrt(N) * sigma_j * z`.
+pub const MERTON_JUMP_FACTORS: usize = 3;
 
 /// Merton jump-diffusion parameters.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -107,7 +111,7 @@ impl MertonJumpParams {
 /// Combines geometric Brownian motion with Poisson jumps.
 ///
 /// State dimension: 1 (spot S)
-/// Factor dimension: 2+ (diffusion shock + Poisson/jump shocks)
+/// Factor dimension: 3 (diffusion shock + Poisson shock + aggregate jump shock)
 ///
 /// # Usage
 ///
@@ -154,9 +158,7 @@ impl StochasticProcess for MertonJumpProcess {
     }
 
     fn num_factors(&self) -> usize {
-        // One diffusion shock, one Poisson shock, and a default budget of jump-size
-        // shocks so engine-driven simulations do not fall back to scratch buffers.
-        2 + DEFAULT_JUMP_SIZE_FACTORS
+        MERTON_JUMP_FACTORS
     }
 
     fn drift(&self, _t: f64, x: &[f64], out: &mut [f64]) {

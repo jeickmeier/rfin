@@ -56,7 +56,11 @@ pub struct Estimate {
     /// Optional maximum of captured discounted path values.
     #[serde(default)]
     pub max: Option<f64>,
-    /// Number of paths skipped due to non-finite payoff values.
+    /// Legacy count of skipped paths from older survivor-pricing runs.
+    ///
+    /// Current engine loops reject non-finite discounted payoffs instead of
+    /// censoring paths, so new engine-created estimates should leave this at
+    /// zero.
     #[serde(default)]
     pub num_skipped: usize,
 }
@@ -126,7 +130,10 @@ impl Estimate {
         self
     }
 
-    /// Attach the count of paths skipped due to non-finite payoff values.
+    /// Attach a legacy skipped-path count.
+    ///
+    /// Retained for backward-compatible deserialization/display of older
+    /// survivor-pricing estimates.
     pub fn with_num_skipped(mut self, num_skipped: usize) -> Self {
         self.num_skipped = num_skipped;
         self

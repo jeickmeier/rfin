@@ -1,8 +1,9 @@
 //! WASM bindings for the `finstack-monte-carlo` crate.
 //!
-//! Provides convenience functions for pricing European options under GBM
-//! dynamics via Monte Carlo simulation. Results are returned as serialized
-//! JSON objects.
+//! Provides the GBM convenience subset of the Rust Monte Carlo crate:
+//! European, Asian, and American option pricing plus Black-Scholes helpers.
+//! Advanced Rust process, discretization, RNG, payoff, and Greeks types are not
+//! standalone WASM types yet. Results are returned as serialized JSON objects.
 
 use std::str::FromStr;
 
@@ -39,7 +40,7 @@ struct McResultJs {
     num_paths: usize,
     /// Total number of simulated sample paths driving the estimator.
     num_simulated_paths: usize,
-    /// Number of paths skipped due to non-finite payoffs.
+    /// Legacy skipped-path count; current engines reject non-finite payoffs.
     num_skipped: usize,
     /// Median of captured discounted path values (if captured).
     median: Option<f64>,

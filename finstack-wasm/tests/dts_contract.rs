@@ -45,3 +45,14 @@ fn core_daycount_dts_exposes_context_for_context_dependent_conventions() {
     assert!(dts.contains("yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;"));
     assert!(dts.contains("DayCountContext: DayCountContextConstructor;"));
 }
+
+#[test]
+fn statements_dts_matches_runtime_exports() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface StatementsNamespace"));
+    assert!(dts.contains("validateFinancialModelJson(json: string): string;"));
+    assert!(dts.contains("modelNodeIds(json: string): string[];"));
+    assert!(dts.contains("validateCheckSuiteSpec(json: string): string;"));
+    assert!(dts.contains("export declare const statements: StatementsNamespace;"));
+}

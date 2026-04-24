@@ -7,9 +7,12 @@ normalization helpers.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import pandas as pd
+
+from finstack.core.market_data import MarketContext
 
 __all__ = [
     "ForecastMethod",
@@ -720,6 +723,19 @@ class Evaluator:
         >>> # ev.evaluate(spec)  # doctest: +SKIP
         >>> True
         True
+        """
+        ...
+
+    def evaluate_with_market(
+        self,
+        model: FinancialModelSpec,
+        market: MarketContext,
+        as_of: date,
+    ) -> StatementResult:
+        """Evaluate ``model`` with market data and an as-of date.
+
+        Use this for capital-structure-aware models and as-of filtering of
+        future actual periods.
         """
         ...
 

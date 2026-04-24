@@ -35,11 +35,11 @@
     {
       "id": "ebit",
       "name": "EBIT",
-      "formula": "revenue - cogs - opex - depreciation - amortization",
+      "formula": "ebitda - depreciation - amortization",
       "description": "Earnings before interest and taxes (EBITDA minus depreciation and amortization)",
       "category": "income_statement",
       "unit_type": "currency",
-      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization"],
+      "requires": ["ebitda", "depreciation", "amortization"],
       "tags": ["income_statement", "profitability"]
     },
     {

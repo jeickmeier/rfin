@@ -320,7 +320,7 @@ fn test_serial_vs_parallel_consistency() {
 struct NonSplittableRng;
 impl RandomStream for NonSplittableRng {
     fn split(&self, _id: u64) -> Option<Self> {
-        Some(NonSplittableRng)
+        None
     }
     fn fill_u01(&mut self, out: &mut [f64]) {
         for x in out {
@@ -335,6 +335,37 @@ impl RandomStream for NonSplittableRng {
     fn supports_splitting(&self) -> bool {
         false
     }
+}
+
+#[test]
+fn test_serial_with_non_splittable_rng_succeeds() {
+    let engine = McEngine::builder()
+        .num_paths(100)
+        .uniform_grid(1.0, 10)
+        .parallel(false)
+        .build()
+        .expect("McEngine builder should succeed with valid test data");
+
+    let rng = NonSplittableRng;
+    let process = DummyProcess;
+    let disc = DummyDisc;
+    let initial_state = vec![100.0];
+    let payoff = DummyPayoff;
+
+    let result = engine
+        .price(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+        )
+        .expect("serial engine should consume non-splittable RNGs sequentially");
+
+    assert_eq!(result.num_paths, 100);
+    assert_eq!(result.mean.amount(), 100.0);
 }
 
 #[test]
@@ -377,6 +408,54 @@ fn test_parallel_with_non_splittable_rng_returns_error() {
         assert!(
             err_str.contains("splittable RNG"),
             "Error message should mention splittable RNG, got: {err_str}"
+        );
+    }
+}
+
+#[derive(Clone)]
+struct OverflowAfterDiscountPayoff;
+
+impl Payoff for OverflowAfterDiscountPayoff {
+    fn on_event(&mut self, _state: &mut PathState) {}
+
+    fn value(&self, currency: Currency) -> Money {
+        Money::new(1.0e20, currency)
+    }
+
+    fn reset(&mut self) {}
+}
+
+#[test]
+fn test_price_rejects_non_finite_payoffs() {
+    for use_parallel in [false, true] {
+        let engine = McEngine::builder()
+            .num_paths(10)
+            .uniform_grid(1.0, 2)
+            .parallel(use_parallel)
+            .chunk_size(5)
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let rng = DummyRng;
+        let process = DummyProcess;
+        let disc = DummyDisc;
+        let initial_state = vec![100.0];
+        let payoff = OverflowAfterDiscountPayoff;
+
+        let err = engine
+            .price(
+                &rng,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                Currency::USD,
+                1.0e300,
+            )
+            .expect_err("non-finite discounted payoff should fail pricing");
+        assert!(
+            err.to_string().contains("non-finite discounted payoff"),
+            "unexpected error: {err}"
         );
     }
 }

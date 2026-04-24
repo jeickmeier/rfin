@@ -9,6 +9,7 @@ export const monte_carlo = {
   priceAsianPut: wasm.priceAsianPut,
   // LSMC pricing
   priceAmericanPut: wasm.priceAmericanPut,
+  priceAmericanCall: wasm.priceAmericanCall,
   // Analytical
   blackScholesCall: wasm.blackScholesCall,
   blackScholesPut: wasm.blackScholesPut,

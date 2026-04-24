@@ -251,8 +251,9 @@ impl StochasticProcess for CirPlusPlusProcess {
 
     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
         if !x.is_empty() {
-            state.set(state_keys::SHORT_RATE, x[0]);
-            state.set(state_keys::SPOT, x[0]);
+            let rate = self.actual_rate(x[0], state.time);
+            state.set(state_keys::SHORT_RATE, rate);
+            state.set(state_keys::SPOT, rate);
         }
     }
 }
@@ -322,6 +323,18 @@ mod tests {
         // Actual rate
         assert_eq!(cir_pp.actual_rate(0.03, 0.0), 0.04); // x + φ(0)
         assert_eq!(cir_pp.actual_rate(0.03, 1.5), 0.05); // x + φ(1.5)
+    }
+
+    #[test]
+    fn test_cir_plus_plus_populates_shifted_short_rate() {
+        let cir = CirProcess::with_params(0.1, 0.03, 0.05).unwrap();
+        let cir_pp = CirPlusPlusProcess::new(cir, vec![0.01, 0.02], vec![0.0, 1.0]);
+        let mut state = PathState::new(1, 1.5);
+
+        cir_pp.populate_path_state(&[0.03], &mut state);
+
+        assert_eq!(state.get(state_keys::SHORT_RATE), Some(0.05));
+        assert_eq!(state.spot(), Some(0.05));
     }
 
     #[test]

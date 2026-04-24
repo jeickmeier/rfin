@@ -232,6 +232,12 @@ class TestStatementsNamespace:
             NumericMode,
         )
 
+    def test_statements_evaluator_exposes_market_aware_evaluation(self) -> None:
+        """Statement evaluator exposes the Rust market/as-of path."""
+        from finstack.statements import Evaluator
+
+        assert hasattr(Evaluator(), "evaluate_with_market")
+
 
 class TestStatementsAnalyticsNamespace:
     """Verify the statements_analytics subpackage."""

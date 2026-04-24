@@ -35,31 +35,31 @@
     {
       "id": "debt_to_ebitda",
       "name": "Debt to EBITDA",
-      "formula": "total_debt / (revenue - cogs - opex + depreciation + amortization)",
+      "formula": "total_debt / ttm(ebitda)",
       "description": "Total debt divided by EBITDA. Common credit metric used by lenders and rating agencies. NOTE: Ensure EBITDA includes all adjustments for one-time items, stock compensation, and other addbacks per credit agreement definitions. total_debt should match the definition in loan covenants (typically includes all interest-bearing debt, may exclude certain items). Values < 3.0x are generally considered conservative for most industries.",
       "category": "leverage",
       "unit_type": "ratio",
-      "requires": ["total_debt", "revenue", "cogs", "opex", "depreciation", "amortization"],
+      "requires": ["total_debt", "ebitda"],
       "tags": ["leverage", "credit"]
     },
     {
       "id": "interest_coverage",
       "name": "Interest Coverage",
-      "formula": "(revenue - cogs - opex + depreciation + amortization) / interest_expense",
+      "formula": "ttm(ebitda) / ttm(interest_expense)",
       "description": "EBITDA divided by interest expense. Measures ability to service debt from operating earnings. NOTE: This metric uses EBITDA and is sensitive to depreciation and amortization capture. Interest capitalization may affect comparability across periods or entities. Values > 1.5x are generally considered healthy for investment-grade credits.",
       "category": "leverage",
       "unit_type": "ratio",
-      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization", "interest_expense"],
+      "requires": ["ebitda", "interest_expense"],
       "tags": ["leverage", "credit", "coverage"]
     },
     {
       "id": "debt_service_coverage",
       "name": "Debt Service Coverage",
-      "formula": "(revenue - cogs - opex + depreciation + amortization) / (interest_expense + principal_payment)",
+      "formula": "ttm(ebitda) / ttm(interest_expense + principal_payment)",
       "description": "EBITDA divided by total debt service (interest + principal). Measures ability to service both interest and principal from operating cash flow. NOTE: This metric assumes standard EBITDA construction. Principal payments are not tax-deductible, so this ratio may understate true coverage. For PIK interest, ensure interest_expense includes both cash and PIK components. Values > 1.25x are typically required by lenders.",
       "category": "leverage",
       "unit_type": "ratio",
-      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization", "interest_expense", "principal_payment"],
+      "requires": ["ebitda", "interest_expense", "principal_payment"],
       "tags": ["leverage", "credit", "coverage"]
     }
   ]

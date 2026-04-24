@@ -22,41 +22,29 @@ Most users start in one of three places:
 
 ## What This Crate Covers
 
-Always-available functionality:
+Available functionality:
 
 - Generic Monte Carlo pricing engine with serial and parallel execution
 - Deterministic splittable pseudo-random generation via `rng::philox::PhiloxRng`
-- Core processes such as GBM, Brownian, multi-GBM, and multi-OU
-- Exact discretization for GBM-style processes
-- Vanilla payoffs: European calls, puts, digitals, and forwards
+- Sobol / quasi-random generators and Brownian-bridge utilities
+- GBM, Brownian, multi-GBM, OU, Heston, CIR, Hull-White, Vasicek,
+  jump-diffusion, Bates, Schwartz-Smith, rough-volatility, and LMM-style
+  process support
+- Exact, Euler, Milstein, QE, jump-Euler, and model-specific discretizations
+- Vanilla and path-dependent payoffs such as European, Asian, basket, barrier,
+  and lookback options
+- European, path-dependent, and Longstaff-Schwartz LSMC pricers
+- Monte Carlo Greeks via pathwise, likelihood-ratio, and finite-difference
+  estimators
 - Online summary statistics and currency-aware pricing results
 - Optional captured-path datasets for diagnostics and visualization
-- Baseline variance-reduction building blocks such as antithetic pairing and
-  control variates
-
-With the `mc` feature enabled, the crate additionally exposes:
-
-- Sobol / quasi-random generators and Brownian-bridge utilities
-- Heston, CIR, Hull-White, Vasicek, jump-diffusion, Bates, Schwartz-Smith,
-  rough-volatility, and LMM-style process support
-- Euler, Milstein, QE, jump-Euler, and other model-specific discretizations
-- Path-dependent payoffs such as Asian, basket, barrier, and lookback options
-- Path-dependent pricers, Longstaff-Schwartz LSMC, and regression bases
-- Monte Carlo Greeks via pathwise, likelihood-ratio, and finite-difference estimators
-- Additional variance-reduction tools such as moment matching and importance sampling
+- Variance-reduction tools such as antithetic pairing, control variates, moment
+  matching, and importance sampling
 
 ## Feature Flags
 
-| Feature | Default | Purpose |
-| --- | --- | --- |
-| `parallel` | yes | Enables Rayon-backed parallel path simulation. |
-| `mc` | no | Enables the broader model, pricer, payoff, Greeks, and QMC surface. |
-| `advanced` | no | Convenience alias for `mc`. |
-| `slow` | no | Enables slower tests in selected pricer modules. |
-
-Without `mc`, the crate still supports production-style vanilla Monte Carlo
-pricing under GBM using the generic engine, exact discretization, and vanilla
-payoffs.
+This crate currently declares no optional Cargo features. Rayon-backed parallel
+simulation and the broader model/pricer/payoff surface are compiled by default.
 
 ## Core Workflow
 

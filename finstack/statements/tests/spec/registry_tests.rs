@@ -30,6 +30,12 @@ fn test_builtin_basic_metrics() {
 
     let gross_profit = registry.get("fin.gross_profit").unwrap();
     assert_eq!(gross_profit.definition.formula, "revenue - cogs");
+
+    let ebit = registry.get("fin.ebit").unwrap();
+    assert_eq!(
+        ebit.definition.formula,
+        "ebitda - depreciation - amortization"
+    );
 }
 
 #[test]
@@ -81,7 +87,24 @@ fn test_builtin_leverage_metrics() {
     let interest_coverage = registry.get("fin.interest_coverage").unwrap();
     assert_eq!(
         interest_coverage.definition.formula,
-        "(revenue - cogs - opex + depreciation + amortization) / interest_expense"
+        "ttm(ebitda) / ttm(interest_expense)"
+    );
+}
+
+#[test]
+fn builtin_credit_ratios_use_ttm_flows() {
+    let registry = Registry::with_builtins().unwrap();
+
+    let debt_to_ebitda = registry.get("fin.debt_to_ebitda").unwrap();
+    assert_eq!(
+        debt_to_ebitda.definition.formula,
+        "total_debt / ttm(ebitda)"
+    );
+
+    let debt_service_coverage = registry.get("fin.debt_service_coverage").unwrap();
+    assert_eq!(
+        debt_service_coverage.definition.formula,
+        "ttm(ebitda) / ttm(interest_expense + principal_payment)"
     );
 }
 

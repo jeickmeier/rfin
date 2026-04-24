@@ -1,8 +1,10 @@
-"""Monte Carlo simulation: engine, pricers, analytical helpers.
+"""Monte Carlo GBM convenience bindings: engine, pricers, analytical helpers.
 
-Bindings for the ``finstack-monte-carlo`` Rust crate. Process and payoff
-parameters are passed directly as numeric arguments to the pricer
-constructors and methods; they are not surfaced as standalone Python types.
+Bindings for the GBM-oriented convenience subset of the
+``finstack-monte-carlo`` Rust crate. Advanced Rust process, discretization,
+RNG, payoff, and Greeks types are not surfaced as standalone Python types yet;
+their parameters are passed directly as numeric arguments to the exposed
+pricer constructors and methods.
 """
 
 from __future__ import annotations

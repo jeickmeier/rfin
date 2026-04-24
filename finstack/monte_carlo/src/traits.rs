@@ -72,9 +72,10 @@ use smallvec::SmallVec;
 
 /// Random stream trait for generating random numbers.
 ///
-/// Implementations must support deterministic stream splitting for parallel execution.
-/// Each stream is independent and can be split into substreams identified by a unique ID.
-pub trait RandomStream: Send + Sync {
+/// Implementations must be cheap enough to clone for serial execution. Parallel
+/// execution additionally requires deterministic stream splitting; each stream
+/// is independent and can be split into substreams identified by a unique ID.
+pub trait RandomStream: Clone + Send + Sync {
     /// Split this stream into a new independent substream.
     ///
     /// The `stream_id` should be unique across all substreams to ensure independence.

@@ -741,6 +741,8 @@ export interface CorrelationNamespace {
 }
 
 // --- monte_carlo ----------------------------------------------------------
+// GBM convenience subset of finstack-monte-carlo. Advanced Rust process,
+// discretization, RNG, payoff, and Greeks types are not standalone WASM types.
 
 export interface MonteCarloNamespace {
   priceEuropeanCall(
@@ -924,6 +926,7 @@ export declare const valuations: ValuationsNamespace;
 export interface StatementsNamespace {
   validateFinancialModelJson(json: string): string;
   modelNodeIds(json: string): string[];
+  validateCheckSuiteSpec(json: string): string;
 }
 
 export declare const statements: StatementsNamespace;

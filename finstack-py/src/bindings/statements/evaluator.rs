@@ -1,6 +1,8 @@
 //! Python wrappers for the statement evaluator and results.
 
 use super::types::PyFinancialModelSpec;
+use crate::bindings::core::dates::utils::py_to_date;
+use crate::bindings::core::market_data::context::PyMarketContext;
 use crate::bindings::pandas_utils::{selected_table_to_dataframe, table_to_dataframe};
 use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
@@ -175,6 +177,33 @@ impl PyEvaluator {
     ///     Evaluation results with per-node, per-period values.
     fn evaluate(&mut self, model: &PyFinancialModelSpec) -> PyResult<PyStatementResult> {
         let result = self.inner.evaluate(&model.inner).map_err(display_to_py)?;
+        Ok(PyStatementResult { inner: result })
+    }
+
+    /// Evaluate a financial model with market context and an as-of date.
+    ///
+    /// Use this for capital-structure-aware models and for as-of evaluation
+    /// that hides future actual values.
+    ///
+    /// Parameters
+    /// ----------
+    /// model : FinancialModelSpec
+    ///     The model specification to evaluate.
+    /// market : MarketContext
+    ///     Market data context used for instrument pricing.
+    /// as_of : datetime.date
+    ///     Valuation/as-of date.
+    fn evaluate_with_market(
+        &mut self,
+        model: &PyFinancialModelSpec,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<PyStatementResult> {
+        let as_of = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .evaluate_with_market(&model.inner, &market.inner, as_of)
+            .map_err(display_to_py)?;
         Ok(PyStatementResult { inner: result })
     }
 }
