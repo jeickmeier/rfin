@@ -131,9 +131,7 @@ impl PyDiscountCurve {
             builder = builder.day_count(parse_day_count(day_count)?);
         }
 
-        let curve = builder
-            .build()
-            .map_err(core_to_py)?;
+        let curve = builder.build().map_err(core_to_py)?;
 
         Ok(Self {
             inner: Arc::new(curve),

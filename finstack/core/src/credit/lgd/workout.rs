@@ -426,7 +426,10 @@ mod tests {
         assert!(WorkoutLgd::builder().workout_years(-1.0).build().is_err());
         // Negative discount rate
         assert!(WorkoutLgd::builder().discount_rate(-0.01).build().is_err());
-        assert!(WorkoutLgd::builder().workout_years(f64::NAN).build().is_err());
+        assert!(WorkoutLgd::builder()
+            .workout_years(f64::NAN)
+            .build()
+            .is_err());
         assert!(WorkoutLgd::builder()
             .discount_rate(f64::INFINITY)
             .build()

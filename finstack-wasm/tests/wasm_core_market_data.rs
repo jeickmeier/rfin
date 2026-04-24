@@ -41,9 +41,7 @@ fn day_count_context_supports_context_dependent_conventions() {
     let start = create_date(2024, 1, 1).unwrap();
     let end = create_date(2024, 7, 1).unwrap();
 
-    assert!(DayCount::act_act_isma()
-        .year_fraction(start, end)
-        .is_err());
+    assert!(DayCount::act_act_isma().year_fraction(start, end).is_err());
 
     let isma_ctx = DayCountContext::new().with_frequency(&Tenor::semi_annual());
     let isma = DayCount::act_act_isma()

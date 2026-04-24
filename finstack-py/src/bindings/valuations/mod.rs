@@ -13,7 +13,6 @@ mod factor_model;
 mod fourier;
 mod pricing;
 mod reporting;
-mod restructuring;
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
@@ -152,7 +151,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     reporting::register(py, &m)?;
     fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
-    restructuring::register(py, &m)?;
     cache::register(py, &m)?;
     correlation::register(py, &m)?;
 
@@ -196,9 +194,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "snowball_coupon_profile",
             "cms_spread_option_intrinsic",
             "callable_range_accrual_accrued",
-            "execute_recovery_waterfall",
-            "analyze_exchange_offer",
-            "analyze_lme",
             "ValuationCache",
             "correlation",
         ],

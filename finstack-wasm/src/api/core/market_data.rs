@@ -109,9 +109,7 @@ impl DiscountCurve {
             builder = builder.day_count(parse_day_count(s)?);
         }
 
-        let curve = builder
-            .build()
-            .map_err(to_js_err)?;
+        let curve = builder.build().map_err(to_js_err)?;
 
         Ok(Self {
             inner: Arc::new(curve),

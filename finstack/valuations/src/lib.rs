@@ -399,8 +399,6 @@ pub mod covenants;
 pub mod metrics;
 /// Structured report generation components for analytics results.
 pub mod reporting;
-/// Credit event and restructuring analytics (recovery waterfall, exchange offers, LME).
-pub mod restructuring;
 /// XVA (Valuation Adjustments) framework.
 ///
 /// Provides credit valuation adjustment (CVA) and exposure simulation
