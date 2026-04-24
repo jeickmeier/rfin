@@ -155,4 +155,4 @@ instance = json.load(open("my_bond.json"))
 jsonschema.validate(instance, schema)
 ```
 
-In Rust, use the `finstack_valuations::schema::validate_instrument_json()` function for runtime validation against the embedded schemas.
+In Rust, use the `finstack_valuations::schema::validate_instrument_envelope_json()` function for runtime validation against the embedded schemas.

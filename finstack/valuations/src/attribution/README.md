@@ -317,10 +317,6 @@ let attribution = attribute_pnl_waterfall(
 
 // Residual should be minimal
 assert!(attribution.residual_within_tolerance(0.01, 1.0));
-
-// Export to CSV
-let csv = attribution.to_csv();
-std::fs::write("pnl_attribution.csv", csv)?;
 ```
 
 ---

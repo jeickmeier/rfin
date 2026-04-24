@@ -5,7 +5,6 @@
 //! P&L attribution across multiple methodologies.
 
 pub(crate) mod attribution;
-mod cache;
 mod calibration;
 pub mod correlation;
 mod exotic_rates;
@@ -149,7 +148,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     calibration::register(py, &m)?;
     fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
-    cache::register(py, &m)?;
     correlation::register(py, &m)?;
 
     let all = PyList::new(
@@ -183,7 +181,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "snowball_coupon_profile",
             "cms_spread_option_intrinsic",
             "callable_range_accrual_accrued",
-            "ValuationCache",
             "correlation",
         ],
     )?;

@@ -47,7 +47,7 @@ Credit default swaps implement full margin support following **ISDA CSA** standa
 
 ```rust
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
-use finstack_valuations::margin::{
+use finstack_margin::{
     OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
 };
 
@@ -81,7 +81,7 @@ cds.margin_spec = Some(OtcMarginSpec {
 CDS instruments produce **Credit** sensitivities (CS01) distributed by tenor:
 
 ```rust
-use finstack_valuations::margin::{Marginable, SimmSensitivities};
+use finstack_margin::{Marginable, SimmSensitivities};
 
 let cds = CreditDefaultSwap::example();
 let market = MarketContext::new();
@@ -109,7 +109,7 @@ CDS instruments are classified as **Qualifying** or **Non-Qualifying** based on 
 ### Calculating Margin Requirements
 
 ```rust
-use finstack_valuations::margin::metrics::{
+use finstack_margin::metrics::{
     InitialMarginMetric, VariationMarginMetric, TotalMarginMetric,
 };
 

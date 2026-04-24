@@ -19,9 +19,9 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
-use crate::margin::types::OtcMarginSpec;
 use crate::market::conventions::ids::IndexId;
 use crate::market::conventions::ConventionRegistry;
+use finstack_margin::types::OtcMarginSpec;
 
 // Re-export common enums from parameters
 pub use crate::instruments::common_impl::parameters::legs::{ParRateMethod, PayReceive};

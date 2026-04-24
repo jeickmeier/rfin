@@ -36,7 +36,6 @@ callable_range_accrual_accrued = _valuations.callable_range_accrual_accrued
 bs_cos_price = _valuations.bs_cos_price
 vg_cos_price = _valuations.vg_cos_price
 merton_jump_cos_price = _valuations.merton_jump_cos_price
-ValuationCache = _valuations.ValuationCache
 
 __all__: list[str] = [
     "CalibrationResult",
@@ -44,7 +43,6 @@ __all__: list[str] = [
     "PnlAttribution",
     "RiskDecomposition",
     "SensitivityMatrix",
-    "ValuationCache",
     "ValuationResult",
     "attribute_pnl",
     "attribute_pnl_from_spec",

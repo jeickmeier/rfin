@@ -55,7 +55,7 @@ Repo margining is implemented following **GMRA 2011** (Global Master Repurchase 
 
 ```rust
 use finstack_valuations::instruments::rates::repo::{Repo, RepoMarginSpec, RepoMarginType};
-use finstack_valuations::margin::{MarginFrequency, EligibleCollateralSchedule};
+use finstack_margin::{MarginFrequency, EligibleCollateralSchedule};
 
 // Create a repo with mark-to-market margining
 let mut repo = Repo::example();
@@ -117,7 +117,7 @@ let excess = spec.excess_collateral(cash_amount, 105_000_000.0);  // 3,000,000
 Repos implement the `Marginable` trait for integration with the margin framework:
 
 ```rust
-use finstack_valuations::margin::{Marginable, SimmSensitivities};
+use finstack_margin::{Marginable, SimmSensitivities};
 
 let repo = Repo::example();
 let market = MarketContext::new();

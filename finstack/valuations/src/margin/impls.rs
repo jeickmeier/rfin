@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_netting_set_from_cleared_spec() {
-        use crate::margin::types::{CsaSpec, ImMethodology, MarginTenor};
+        use finstack_margin::types::{CsaSpec, ImMethodology, MarginTenor};
 
         let start = test_date();
         let end = Date::from_calendar_date(2029, Month::June, 15).expect("valid date");

@@ -12,10 +12,10 @@ use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::parameters::CreditParams;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
-use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_margin::types::OtcMarginSpec;
 use rust_decimal::Decimal;
 use time::macros::date;
 

@@ -348,8 +348,6 @@
 
 extern crate self as finstack_valuations;
 
-/// Valuation result caching with LRU eviction and dirty tracking.
-pub mod cache;
 /// Curve and surface calibration tooling.
 pub mod calibration;
 /// Cashflow schedule generation and builders.
@@ -391,11 +389,6 @@ pub mod attribution;
 pub mod covenants;
 /// Risk metric calculators and registries.
 pub mod metrics;
-/// XVA (Valuation Adjustments) framework.
-///
-/// Provides credit valuation adjustment (CVA) and exposure simulation
-/// for OTC derivative portfolios under ISDA netting and CSA collateral.
-pub mod xva;
 
 // Re-export unified valuations error type.
 pub use error::{Error, Result};

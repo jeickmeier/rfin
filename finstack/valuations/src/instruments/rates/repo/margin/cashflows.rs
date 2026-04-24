@@ -1,9 +1,9 @@
 //! Margin cashflow generation for repos.
 
-use crate::margin::types::MarginCall;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_margin::types::MarginCall;
 use finstack_margin::RepoMarginSpec;
 
 /// Generate margin-related cashflows for a repo.
@@ -138,15 +138,15 @@ pub fn margin_calls_to_cashflows(calls: &[MarginCall]) -> Vec<CashFlow> {
         .iter()
         .map(|call| {
             let kind = match call.call_type {
-                crate::margin::MarginCallType::InitialMargin => CFKind::InitialMarginPost,
-                crate::margin::MarginCallType::VariationMarginDelivery => {
+                finstack_margin::MarginCallType::InitialMargin => CFKind::InitialMarginPost,
+                finstack_margin::MarginCallType::VariationMarginDelivery => {
                     CFKind::VariationMarginPay
                 }
-                crate::margin::MarginCallType::VariationMarginReturn => {
+                finstack_margin::MarginCallType::VariationMarginReturn => {
                     CFKind::VariationMarginReceive
                 }
-                crate::margin::MarginCallType::TopUp => CFKind::VariationMarginPay,
-                crate::margin::MarginCallType::Substitution => CFKind::CollateralSubstitutionOut,
+                finstack_margin::MarginCallType::TopUp => CFKind::VariationMarginPay,
+                finstack_margin::MarginCallType::Substitution => CFKind::CollateralSubstitutionOut,
                 _ => {
                     tracing::warn!(
                         call_type = %call.call_type,

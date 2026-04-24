@@ -294,7 +294,6 @@
 //! - Fixed-income sensitivity intuition: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 //! - Risk decomposition and factor attribution: `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
 
-pub(crate) mod csv;
 pub(crate) mod factors;
 pub(crate) mod helpers;
 pub(crate) mod metrics_based;

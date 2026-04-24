@@ -39,7 +39,6 @@ __all__ = [
     "snowball_coupon_profile",
     "cms_spread_option_intrinsic",
     "callable_range_accrual_accrued",
-    "ValuationCache",
 ]
 
 class ValuationResult:
@@ -1302,72 +1301,3 @@ def analyze_lme(
         optional ``leverage_impact``.
     """
     ...
-
-# ---------------------------------------------------------------------------
-# Valuation result caching
-# ---------------------------------------------------------------------------
-
-class ValuationCache:
-    """Memory-bounded LRU cache for valuation NPVs.
-
-    Keyed by ``(instrument_id, market_version)``. Demonstrates the eviction
-    and invalidation semantics of the underlying Rust
-    :rust:struct:`finstack_valuations::cache::ValuationCache` without
-    requiring full ``ValuationResult`` round-trips.
-
-    Args:
-        max_entries: Soft cap on cached entries (default ``10_000``).
-        max_memory_bytes: Soft cap on estimated memory in bytes
-            (default ``256_000_000``).
-
-    Example:
-        >>> from finstack.valuations import ValuationCache
-        >>> cache = ValuationCache(max_entries=1000)
-        >>> cache.insert(key=42, npv=1_000_000.0, market_version=1)
-        True
-        >>> cache.get(key=42, market_version=1)
-        1000000.0
-        >>> cache.get(key=42, market_version=2) is None
-        True
-    """
-
-    def __init__(
-        self,
-        max_entries: int = 10_000,
-        max_memory_bytes: int = 256_000_000,
-    ) -> None: ...
-    def insert(self, key: int, npv: float, market_version: int) -> bool:
-        """Insert an NPV under ``(key, market_version)``.
-
-        Returns ``True`` if newly inserted, ``False`` if the key and market
-        version already matched an existing entry (LRU is refreshed either
-        way).
-        """
-        ...
-
-    def get(self, key: int, market_version: int) -> float | None:
-        """Look up the NPV for ``(key, market_version)``; ``None`` on miss."""
-        ...
-
-    def len(self) -> int:
-        """Current number of cached entries."""
-        ...
-
-    def invalidate_instrument(self, instrument_id: int) -> None:
-        """Drop every entry for ``instrument_id`` across all market versions."""
-        ...
-
-    def clear(self) -> None:
-        """Remove every entry. Cumulative statistics are preserved."""
-        ...
-
-    def stats(self) -> dict:
-        """Return a snapshot of cumulative statistics.
-
-        Keys: ``hits``, ``misses``, ``lookups``, ``hit_rate``, ``evictions``,
-        ``inserts``, ``entries``, ``memory_bytes``, ``memory_mb``.
-        """
-        ...
-
-    def __len__(self) -> int: ...
-    def __repr__(self) -> str: ...

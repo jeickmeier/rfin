@@ -12,7 +12,6 @@ use crate::{
         underlying::EquityUnderlyingParams,
     },
     instruments::Attributes,
-    margin::types::OtcMarginSpec,
 };
 use finstack_core::{
     currency::Currency,
@@ -22,6 +21,7 @@ use finstack_core::{
     types::{CurveId, InstrumentId},
     Result,
 };
+use finstack_margin::types::OtcMarginSpec;
 use rust_decimal::Decimal;
 use time::macros::date;
 

@@ -61,9 +61,8 @@ These are `pub fn/struct/enum/trait/type` declarations with **no** `///` or `//!
 - `valuations:reporting/scenario_matrix.rs` — `from_scenario_results`
 - `valuations:reporting/sensitivity_grid.rs` — `from_sensitivity_matrix`
 - `valuations:reporting/waterfall.rs` — `WaterfallStep`, `from_attribution`
-- `valuations:xva/mod.rs` — `compute_exposure_profile`
 - `valuations:utils/decimal.rs` — `f64_to_decimal`
-- `valuations:schema.rs` — `bond_schema`, `instrument_envelope_schema`, `instrument_types`, `instrument_schema`, `valuation_result_schema`, `validate_instrument_envelope_json`, `validate_instrument_json`, `validate_instrument_type_json`
+- `valuations:schema.rs` — `bond_schema`, `instrument_envelope_schema`, `instrument_types`, `instrument_schema`, `valuation_result_schema`, `validate_instrument_envelope_json`, `validate_instrument_type_json`
 - Plus many more in `metrics/`, `pricer/`, `instruments/`
 
 #### `core` (32 items)

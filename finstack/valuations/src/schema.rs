@@ -211,12 +211,6 @@ pub fn validate_instrument_envelope_json(instance: &Value) -> finstack_core::Res
     validate_against_schema(instance, schema, "instrument envelope")
 }
 
-/// Validate an instrument envelope JSON value against the envelope schema.
-#[deprecated(note = "use validate_instrument_envelope_json")]
-pub fn validate_instrument_json(instance: &Value) -> finstack_core::Result<()> {
-    validate_instrument_envelope_json(instance)
-}
-
 /// Validate a JSON value against a specific instrument type's schema.
 ///
 /// # Errors

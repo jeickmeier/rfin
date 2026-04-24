@@ -830,7 +830,7 @@ Interest rate swaps implement full margin support following **ISDA CSA** (Credit
 use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
 use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 use rust_decimal_macros::dec;
-use finstack_valuations::margin::{
+use finstack_margin::{
     OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
 };
 use finstack_core::{currency::Currency, money::Money};
@@ -905,8 +905,8 @@ assert_eq!(netting_set.ccp_id, Some("LCH".to_string()));
 ### Calculating Margin Requirements
 
 ```rust
-use finstack_valuations::margin::{Marginable, SimmSensitivities};
-use finstack_valuations::margin::metrics::{
+use finstack_margin::{Marginable, SimmSensitivities};
+use finstack_margin::metrics::{
     InitialMarginMetric, VariationMarginMetric, TotalMarginMetric,
 };
 
@@ -942,7 +942,7 @@ println!("IM Methodology: {:?}", result.im_methodology);
 ### CSA Configurations
 
 ```rust
-use finstack_valuations::margin::CsaSpec;
+use finstack_margin::CsaSpec;
 
 // Regulatory-compliant CSA (zero threshold, daily VM, SIMM IM)
 let csa = CsaSpec::usd_regulatory();
