@@ -46,6 +46,10 @@ bs_price = _valuations.bs_price
 bs_greeks = _valuations.bs_greeks
 bs_implied_vol = _valuations.bs_implied_vol
 black76_implied_vol = _valuations.black76_implied_vol
+barrier_call = _valuations.barrier_call
+asian_option_price = _valuations.asian_option_price
+lookback_option_price = _valuations.lookback_option_price
+quanto_option_price = _valuations.quanto_option_price
 SabrParameters = _valuations.SabrParameters
 SabrModel = _valuations.SabrModel
 SabrSmile = _valuations.SabrSmile
@@ -106,8 +110,10 @@ __all__: list[str] = [
     "SabrSmile",
     "SensitivityMatrix",
     "ValuationResult",
+    "asian_option_price",
     "attribute_pnl",
     "attribute_pnl_from_spec",
+    "barrier_call",
     "black76_implied_vol",
     "bs_cos_price",
     "bs_greeks",
@@ -127,9 +133,11 @@ __all__: list[str] = [
     "instruments",
     "list_standard_metrics",
     "list_standard_metrics_grouped",
+    "lookback_option_price",
     "merton_jump_cos_price",
     "price_instrument",
     "price_instrument_with_metrics",
+    "quanto_option_price",
     "snowball_coupon_profile",
     "tarn_coupon_profile",
     "validate_attribution_json",

@@ -1032,6 +1032,56 @@ export interface ValuationsNamespace {
     price: number,
     isCall: boolean
   ): number;
+  /** Reiner-Rubinstein continuous-monitoring barrier call.
+   *  `direction` is `"up"`/`"down"`, `knock` is `"in"`/`"out"`. */
+  barrierCall(
+    spot: number,
+    strike: number,
+    barrier: number,
+    r: number,
+    q: number,
+    sigma: number,
+    t: number,
+    direction: "up" | "down",
+    knock: "in" | "out"
+  ): number;
+  /** Arithmetic (Turnbull-Wakeman) or geometric (Kemna-Vorst) Asian option. */
+  asianOptionPrice(
+    spot: number,
+    strike: number,
+    r: number,
+    q: number,
+    sigma: number,
+    t: number,
+    numFixings: number,
+    averaging?: "arithmetic" | "geometric",
+    isCall?: boolean
+  ): number;
+  /** Conze-Viswanathan lookback option. */
+  lookbackOptionPrice(
+    spot: number,
+    strike: number,
+    r: number,
+    q: number,
+    sigma: number,
+    t: number,
+    extremum: number,
+    strikeType?: "fixed" | "floating",
+    isCall?: boolean
+  ): number;
+  /** Quanto (FX-adjusted cross-currency) option price in domestic currency. */
+  quantoOptionPrice(
+    spot: number,
+    strike: number,
+    t: number,
+    rateDomestic: number,
+    rateForeign: number,
+    divYield: number,
+    volAsset: number,
+    volFx: number,
+    correlation: number,
+    isCall?: boolean
+  ): number;
   /** SABR parameters `(alpha, beta, nu, rho)` with optional `shift`. */
   SabrParameters: SabrParametersConstructor;
   /** Hagan-2002 SABR volatility model. */
@@ -1040,6 +1090,83 @@ export interface ValuationsNamespace {
   SabrSmile: SabrSmileConstructor;
   /** Levenberg-Marquardt SABR calibrator (beta fixed). */
   SabrCalibrator: SabrCalibratorConstructor;
+  /** Black-Scholes European option price via the Fang-Oosterlee COS method. */
+  bsCosPrice(
+    spot: number,
+    strike: number,
+    rate: number,
+    dividend: number,
+    vol: number,
+    maturity: number,
+    isCall: boolean,
+    nTerms?: number
+  ): number;
+  /** Variance Gamma European option price via the COS method. */
+  vgCosPrice(
+    spot: number,
+    strike: number,
+    rate: number,
+    dividend: number,
+    sigma: number,
+    theta: number,
+    nu: number,
+    maturity: number,
+    isCall: boolean,
+    nTerms?: number
+  ): number;
+  /** Merton (1976) jump-diffusion European option price via the COS method. */
+  mertonJumpCosPrice(
+    spot: number,
+    strike: number,
+    rate: number,
+    dividend: number,
+    sigma: number,
+    muJump: number,
+    sigmaJump: number,
+    lambda: number,
+    maturity: number,
+    isCall: boolean,
+    nTerms?: number
+  ): number;
+  /** Simulated TARN coupon profile. Returns `{coupons_paid, cumulative, redemption_index, redeemed_early}`. */
+  tarnCouponProfile(
+    fixedRate: number,
+    couponFloor: number,
+    floatingFixings: number[],
+    targetCoupon: number,
+    dayCountFraction: number
+  ): {
+    coupons_paid: number[];
+    cumulative: number[];
+    redemption_index: number | null;
+    redeemed_early: boolean;
+  };
+  /** Snowball / inverse-floater coupon schedule. */
+  snowballCouponProfile(
+    initialCoupon: number,
+    fixedRate: number,
+    floatingFixings: number[],
+    floor: number,
+    cap: number,
+    isInverseFloater: boolean,
+    leverage?: number
+  ): number[];
+  /** Intrinsic (undiscounted) payoff of a CMS spread option. */
+  cmsSpreadOptionIntrinsic(
+    longCms: number,
+    shortCms: number,
+    strike: number,
+    isCall: boolean,
+    notional: number
+  ): number;
+  /** Accrued coupon on a range-accrual leg given observed rates. */
+  callableRangeAccrualAccrued(
+    lower: number,
+    upper: number,
+    observations: number[],
+    couponRate: number,
+    dayCountFraction: number
+  ): number;
   /** Run P&L attribution for a single instrument. */
   attributePnl(
     instrumentJson: string,

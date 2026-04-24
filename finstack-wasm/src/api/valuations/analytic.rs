@@ -12,7 +12,12 @@ use crate::utils::to_js_err;
 use finstack_valuations::instruments::models::closed_form::implied_vol::{
     black76_implied_vol, bs_implied_vol,
 };
-use finstack_valuations::instruments::models::closed_form::{bs_greeks, bs_price};
+use finstack_valuations::instruments::models::closed_form::{
+    arithmetic_asian_call_tw, arithmetic_asian_put_tw, bs_greeks, bs_price, down_in_call,
+    down_out_call, fixed_strike_lookback_call, fixed_strike_lookback_put,
+    floating_strike_lookback_call, floating_strike_lookback_put, geometric_asian_call,
+    geometric_asian_put, quanto_call, quanto_put, up_in_call, up_out_call,
+};
 use finstack_valuations::instruments::OptionType;
 use wasm_bindgen::prelude::*;
 
@@ -99,6 +104,142 @@ pub fn black76_implied_vol_js(
     is_call: bool,
 ) -> Result<f64, JsValue> {
     black76_implied_vol(forward, strike, df, t, option_type(is_call), price).map_err(to_js_err)
+}
+
+// ---------------------------------------------------------------------------
+// Closed-form exotics: barrier / asian / lookback / quanto
+// ---------------------------------------------------------------------------
+
+/// Reiner-Rubinstein continuous-monitoring barrier call price.
+///
+/// `direction` is `"up"` or `"down"`, `knock` is `"in"` or `"out"`.
+#[wasm_bindgen(js_name = barrierCall)]
+#[allow(clippy::too_many_arguments)]
+pub fn barrier_call_js(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    direction: &str,
+    knock: &str,
+) -> Result<f64, JsValue> {
+    Ok(match (direction, knock) {
+        ("up", "in") => up_in_call(spot, strike, barrier, t, r, q, sigma),
+        ("up", "out") => up_out_call(spot, strike, barrier, t, r, q, sigma),
+        ("down", "in") => down_in_call(spot, strike, barrier, t, r, q, sigma),
+        ("down", "out") => down_out_call(spot, strike, barrier, t, r, q, sigma),
+        _ => {
+            return Err(to_js_err(format!(
+                "unknown barrier spec: direction='{direction}' knock='{knock}'"
+            )));
+        }
+    })
+}
+
+/// Arithmetic (Turnbull-Wakeman) or geometric (Kemna-Vorst) Asian option.
+#[wasm_bindgen(js_name = asianOptionPrice)]
+#[allow(clippy::too_many_arguments)]
+pub fn asian_option_price_js(
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    num_fixings: usize,
+    averaging: Option<String>,
+    is_call: Option<bool>,
+) -> Result<f64, JsValue> {
+    let averaging = averaging.as_deref().unwrap_or("arithmetic");
+    let is_call = is_call.unwrap_or(true);
+    Ok(match (averaging, is_call) {
+        ("arithmetic", true) => arithmetic_asian_call_tw(spot, strike, t, r, q, sigma, num_fixings),
+        ("arithmetic", false) => arithmetic_asian_put_tw(spot, strike, t, r, q, sigma, num_fixings),
+        ("geometric", true) => geometric_asian_call(spot, strike, t, r, q, sigma, num_fixings),
+        ("geometric", false) => geometric_asian_put(spot, strike, t, r, q, sigma, num_fixings),
+        _ => {
+            return Err(to_js_err(format!(
+                "unknown averaging '{averaging}'; expected 'arithmetic' or 'geometric'"
+            )));
+        }
+    })
+}
+
+/// Conze-Viswanathan lookback option.
+///
+/// `strike_type` is `"fixed"` (default) or `"floating"`. For `"floating"`,
+/// `strike` is ignored and `extremum` is the observed min/max to date.
+#[wasm_bindgen(js_name = lookbackOptionPrice)]
+#[allow(clippy::too_many_arguments)]
+pub fn lookback_option_price_js(
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    extremum: f64,
+    strike_type: Option<String>,
+    is_call: Option<bool>,
+) -> Result<f64, JsValue> {
+    let strike_type = strike_type.as_deref().unwrap_or("fixed");
+    let is_call = is_call.unwrap_or(true);
+    Ok(match (strike_type, is_call) {
+        ("fixed", true) => fixed_strike_lookback_call(spot, strike, t, r, q, sigma, extremum),
+        ("fixed", false) => fixed_strike_lookback_put(spot, strike, t, r, q, sigma, extremum),
+        ("floating", true) => floating_strike_lookback_call(spot, t, r, q, sigma, extremum),
+        ("floating", false) => floating_strike_lookback_put(spot, t, r, q, sigma, extremum),
+        _ => {
+            return Err(to_js_err(format!(
+                "unknown strike_type '{strike_type}'; expected 'fixed' or 'floating'"
+            )));
+        }
+    })
+}
+
+/// Quanto option (FX-adjusted cross-currency) price in domestic currency.
+#[wasm_bindgen(js_name = quantoOptionPrice)]
+#[allow(clippy::too_many_arguments)]
+pub fn quanto_option_price_js(
+    spot: f64,
+    strike: f64,
+    t: f64,
+    rate_domestic: f64,
+    rate_foreign: f64,
+    div_yield: f64,
+    vol_asset: f64,
+    vol_fx: f64,
+    correlation: f64,
+    is_call: Option<bool>,
+) -> f64 {
+    if is_call.unwrap_or(true) {
+        quanto_call(
+            spot,
+            strike,
+            t,
+            rate_domestic,
+            rate_foreign,
+            div_yield,
+            vol_asset,
+            vol_fx,
+            correlation,
+        )
+    } else {
+        quanto_put(
+            spot,
+            strike,
+            t,
+            rate_domestic,
+            rate_foreign,
+            div_yield,
+            vol_asset,
+            vol_fx,
+            correlation,
+        )
+    }
 }
 
 #[cfg(test)]

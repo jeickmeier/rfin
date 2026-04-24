@@ -17,8 +17,14 @@ use crate::errors::display_to_py;
 use finstack_valuations::instruments::models::closed_form::implied_vol::{
     black76_implied_vol, bs_implied_vol,
 };
-use finstack_valuations::instruments::models::closed_form::{bs_greeks, bs_price, BsGreeks};
+use finstack_valuations::instruments::models::closed_form::{
+    arithmetic_asian_call_tw, arithmetic_asian_put_tw, bs_greeks, bs_price, down_in_call,
+    down_out_call, fixed_strike_lookback_call, fixed_strike_lookback_put,
+    floating_strike_lookback_call, floating_strike_lookback_put, geometric_asian_call,
+    geometric_asian_put, quanto_call, quanto_put, up_in_call, up_out_call, BsGreeks,
+};
 use finstack_valuations::instruments::OptionType;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -206,6 +212,200 @@ fn black76_implied_vol_wrapper(
 }
 
 // ---------------------------------------------------------------------------
+// Closed-form exotics: barrier / asian / lookback / quanto
+// ---------------------------------------------------------------------------
+
+/// Reiner-Rubinstein continuous-monitoring barrier call price.
+///
+/// Parameters
+/// ----------
+/// spot, strike, r, q, sigma, t
+///     Same as :func:`bs_price`.
+/// barrier : float
+///     Barrier level.
+/// direction : str
+///     ``"up"`` or ``"down"`` (relative to spot / barrier).
+/// knock : str
+///     ``"in"`` (knock-in) or ``"out"`` (knock-out).
+///
+/// Returns
+/// -------
+/// float
+///     Per-unit option price.
+#[pyfunction(name = "barrier_call")]
+#[pyo3(signature = (spot, strike, barrier, r, q, sigma, t, direction, knock))]
+#[allow(clippy::too_many_arguments)]
+fn barrier_call_wrapper(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    direction: &str,
+    knock: &str,
+) -> PyResult<f64> {
+    Ok(match (direction, knock) {
+        ("up", "in") => up_in_call(spot, strike, barrier, t, r, q, sigma),
+        ("up", "out") => up_out_call(spot, strike, barrier, t, r, q, sigma),
+        ("down", "in") => down_in_call(spot, strike, barrier, t, r, q, sigma),
+        ("down", "out") => down_out_call(spot, strike, barrier, t, r, q, sigma),
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "unknown barrier spec: direction='{direction}' knock='{knock}'; \
+                 expected direction in {{'up','down'}} and knock in {{'in','out'}}"
+            )))
+        }
+    })
+}
+
+/// Arithmetic (Turnbull-Wakeman) or geometric (Kemna-Vorst) Asian option call.
+///
+/// Parameters
+/// ----------
+/// spot, strike, r, q, sigma, t
+///     Same as :func:`bs_price`.
+/// num_fixings : int
+///     Number of averaging fixings.
+/// averaging : str, optional
+///     ``"arithmetic"`` (Turnbull-Wakeman, default) or ``"geometric"``
+///     (Kemna-Vorst exact).
+/// is_call : bool, optional
+///     ``True`` for call (default), ``False`` for put.
+#[pyfunction(name = "asian_option_price")]
+#[pyo3(signature = (spot, strike, r, q, sigma, t, num_fixings, averaging="arithmetic", is_call=true))]
+#[allow(clippy::too_many_arguments)]
+fn asian_option_wrapper(
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    num_fixings: usize,
+    averaging: &str,
+    is_call: bool,
+) -> PyResult<f64> {
+    Ok(match (averaging, is_call) {
+        ("arithmetic", true) => arithmetic_asian_call_tw(spot, strike, t, r, q, sigma, num_fixings),
+        ("arithmetic", false) => arithmetic_asian_put_tw(spot, strike, t, r, q, sigma, num_fixings),
+        ("geometric", true) => geometric_asian_call(spot, strike, t, r, q, sigma, num_fixings),
+        ("geometric", false) => geometric_asian_put(spot, strike, t, r, q, sigma, num_fixings),
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "unknown averaging '{averaging}'; expected 'arithmetic' or 'geometric'"
+            )))
+        }
+    })
+}
+
+/// Conze-Viswanathan lookback option price.
+///
+/// Parameters
+/// ----------
+/// spot, strike, r, q, sigma, t
+///     Same as :func:`bs_price`. For floating-strike, ``strike`` is ignored.
+/// extremum : float
+///     Observed historical extremum — max for fixed-strike call / floating-
+///     strike put, min for fixed-strike put / floating-strike call. For a
+///     fresh option with no observation, use ``spot``.
+/// strike_type : str, optional
+///     ``"fixed"`` (default) or ``"floating"``.
+/// is_call : bool, optional
+///     ``True`` for call (default), ``False`` for put.
+#[pyfunction(name = "lookback_option_price")]
+#[pyo3(signature = (spot, strike, r, q, sigma, t, extremum, strike_type="fixed", is_call=true))]
+#[allow(clippy::too_many_arguments)]
+fn lookback_option_wrapper(
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    extremum: f64,
+    strike_type: &str,
+    is_call: bool,
+) -> PyResult<f64> {
+    Ok(match (strike_type, is_call) {
+        ("fixed", true) => fixed_strike_lookback_call(spot, strike, t, r, q, sigma, extremum),
+        ("fixed", false) => fixed_strike_lookback_put(spot, strike, t, r, q, sigma, extremum),
+        ("floating", true) => floating_strike_lookback_call(spot, t, r, q, sigma, extremum),
+        ("floating", false) => floating_strike_lookback_put(spot, t, r, q, sigma, extremum),
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "unknown strike_type '{strike_type}'; expected 'fixed' or 'floating'"
+            )))
+        }
+    })
+}
+
+/// Quanto option (cross-currency, FX-adjusted) price in domestic currency.
+///
+/// Parameters
+/// ----------
+/// spot : float
+///     Spot price of the foreign asset in foreign currency.
+/// strike : float
+///     Strike in foreign currency.
+/// t : float
+///     Time to expiry in years.
+/// rate_domestic, rate_foreign : float
+///     Continuously-compounded domestic and foreign rates.
+/// div_yield : float
+///     Foreign asset dividend yield.
+/// vol_asset : float
+///     Foreign asset volatility.
+/// vol_fx : float
+///     Domestic/foreign FX volatility.
+/// correlation : float
+///     Correlation between asset and FX returns (``[-1, 1]``).
+/// is_call : bool, optional
+///     ``True`` for call (default), ``False`` for put.
+#[pyfunction(name = "quanto_option_price")]
+#[pyo3(signature = (spot, strike, t, rate_domestic, rate_foreign, div_yield, vol_asset, vol_fx, correlation, is_call=true))]
+#[allow(clippy::too_many_arguments)]
+fn quanto_option_wrapper(
+    spot: f64,
+    strike: f64,
+    t: f64,
+    rate_domestic: f64,
+    rate_foreign: f64,
+    div_yield: f64,
+    vol_asset: f64,
+    vol_fx: f64,
+    correlation: f64,
+    is_call: bool,
+) -> f64 {
+    if is_call {
+        quanto_call(
+            spot,
+            strike,
+            t,
+            rate_domestic,
+            rate_foreign,
+            div_yield,
+            vol_asset,
+            vol_fx,
+            correlation,
+        )
+    } else {
+        quanto_put(
+            spot,
+            strike,
+            t,
+            rate_domestic,
+            rate_foreign,
+            div_yield,
+            vol_asset,
+            vol_fx,
+            correlation,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -215,5 +415,9 @@ pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(bs_greeks_wrapper, m)?)?;
     m.add_function(wrap_pyfunction!(bs_implied_vol_wrapper, m)?)?;
     m.add_function(wrap_pyfunction!(black76_implied_vol_wrapper, m)?)?;
+    m.add_function(wrap_pyfunction!(barrier_call_wrapper, m)?)?;
+    m.add_function(wrap_pyfunction!(asian_option_wrapper, m)?)?;
+    m.add_function(wrap_pyfunction!(lookback_option_wrapper, m)?)?;
+    m.add_function(wrap_pyfunction!(quanto_option_wrapper, m)?)?;
     Ok(())
 }

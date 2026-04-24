@@ -43,6 +43,10 @@ __all__ = [
     "bs_greeks",
     "bs_implied_vol",
     "black76_implied_vol",
+    "barrier_call",
+    "asian_option_price",
+    "lookback_option_price",
+    "quanto_option_price",
     "SabrParameters",
     "SabrModel",
     "SabrSmile",
@@ -1205,6 +1209,74 @@ def black76_implied_vol(
     is_call: bool,
 ) -> float:
     """Solve for Black-76 (forward-based) implied volatility given a target price."""
+    ...
+
+# ---------------------------------------------------------------------------
+# Closed-form exotics
+# ---------------------------------------------------------------------------
+
+def barrier_call(
+    spot: float,
+    strike: float,
+    barrier: float,
+    r: float,
+    q: float,
+    sigma: float,
+    t: float,
+    direction: str,
+    knock: str,
+) -> float:
+    """Reiner-Rubinstein continuous-monitoring barrier call price.
+
+    ``direction`` is ``"up"`` or ``"down"``; ``knock`` is ``"in"`` or ``"out"``.
+    """
+    ...
+
+def asian_option_price(
+    spot: float,
+    strike: float,
+    r: float,
+    q: float,
+    sigma: float,
+    t: float,
+    num_fixings: int,
+    averaging: str = "arithmetic",
+    is_call: bool = True,
+) -> float:
+    """Arithmetic (Turnbull-Wakeman) or geometric (Kemna-Vorst) Asian option price."""
+    ...
+
+def lookback_option_price(
+    spot: float,
+    strike: float,
+    r: float,
+    q: float,
+    sigma: float,
+    t: float,
+    extremum: float,
+    strike_type: str = "fixed",
+    is_call: bool = True,
+) -> float:
+    """Conze-Viswanathan lookback option price.
+
+    For ``strike_type="floating"``, ``strike`` is ignored and ``extremum``
+    is the observed min (call) / max (put) to date.
+    """
+    ...
+
+def quanto_option_price(
+    spot: float,
+    strike: float,
+    t: float,
+    rate_domestic: float,
+    rate_foreign: float,
+    div_yield: float,
+    vol_asset: float,
+    vol_fx: float,
+    correlation: float,
+    is_call: bool = True,
+) -> float:
+    """Quanto option (FX-adjusted cross-currency) price in domestic currency."""
     ...
 
 # ---------------------------------------------------------------------------
