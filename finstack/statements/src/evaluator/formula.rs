@@ -24,9 +24,7 @@
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::formula_aggregates::evaluate_historical_function;
-use crate::evaluator::formula_helpers::{
-    collect_historical_values_sorted, get_historical_column_value, is_truthy,
-};
+use crate::evaluator::formula_helpers::{collect_historical_values_sorted, is_truthy};
 use crate::evaluator::results::EvalWarning;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
@@ -56,7 +54,10 @@ pub(crate) fn eval_error(node_id: Option<&str>, msg: impl Into<String>) -> Error
     annotate_error(Error::eval(msg), node_id)
 }
 
-fn map_err_with_node<T, E>(res: std::result::Result<T, E>, node_id: Option<&str>) -> Result<T>
+pub(crate) fn map_err_with_node<T, E>(
+    res: std::result::Result<T, E>,
+    node_id: Option<&str>,
+) -> Result<T>
 where
     E: Into<Error>,
 {
@@ -148,7 +149,7 @@ pub(crate) fn evaluate_non_negative_integer_arg(
 }
 
 #[inline]
-fn evaluate_integer_arg(
+pub(crate) fn evaluate_integer_arg(
     func_name: &str,
     expr: &Expr,
     context: &mut EvaluationContext,
@@ -190,7 +191,7 @@ pub fn evaluate_formula(
 
 /// Build a period-specific evaluation context so an expression can be
 /// re-evaluated historically with the correct current/historical split.
-fn build_context_for_period(
+pub(crate) fn build_context_for_period(
     target_period: PeriodId,
     context: &EvaluationContext,
 ) -> Result<EvaluationContext> {
@@ -385,29 +386,6 @@ pub(crate) fn collect_expression_window_values(
     Ok(values)
 }
 
-/// Helper to offset a PeriodId by N periods.
-/// Positive offset goes forward, negative goes backward.
-///
-/// Now uses core API methods (next/prev) to avoid code duplication.
-fn offset_period(period: PeriodId, offset: i32, node_id: Option<&str>) -> Result<PeriodId> {
-    if offset == 0 {
-        return Ok(period);
-    }
-
-    let mut result = period;
-    let steps = offset.unsigned_abs() as usize;
-
-    for _ in 0..steps {
-        result = if offset > 0 {
-            map_err_with_node(result.next(), node_id)?
-        } else {
-            map_err_with_node(result.prev(), node_id)?
-        };
-    }
-
-    Ok(result)
-}
-
 /// Recursively evaluate an expression.
 pub(crate) fn evaluate_expr(
     expr: &Expr,
@@ -419,16 +397,18 @@ pub(crate) fn evaluate_expr(
     match &expr.node {
         ExprNode::Literal(val) => Ok(*val),
         ExprNode::Column(name) => {
-            // Check if this is a capital structure reference (format: __cs__component__instrument_or_total)
-            if name.starts_with("__cs__") {
-                let parts: Vec<&str> = name.split("__").collect();
-                if parts.len() == 4 && parts[0].is_empty() && parts[1] == "cs" {
-                    let component = parts[2];
-                    let instrument_or_total = parts[3];
-                    return map_err_with_node(
-                        context.get_cs_value(component, instrument_or_total),
-                        node_id,
-                    );
+            // Capital structure reference format: __cs__<component>__<instrument_or_total>.
+            // Parse without allocating a Vec of splits on every hot-path lookup.
+            if let Some(rest) = name.strip_prefix("__cs__") {
+                if let Some(idx) = rest.find("__") {
+                    let component = &rest[..idx];
+                    let instrument_or_total = &rest[idx + 2..];
+                    if !component.is_empty() && !instrument_or_total.is_empty() {
+                        return map_err_with_node(
+                            context.get_cs_value(component, instrument_or_total),
+                            node_id,
+                        );
+                    }
                 }
             }
             map_err_with_node(context.get_value(name), node_id)
@@ -539,219 +519,17 @@ fn evaluate_function(
     context: &mut EvaluationContext,
     node_id: Option<&str>,
 ) -> Result<f64> {
+    use crate::evaluator::formula_timeseries::{
+        eval_diff, eval_growth_rate, eval_lag, eval_lead, eval_pct_change, eval_shift,
+    };
+
     // Handle real functions from finstack-core
     match func {
-        Function::Lag => {
-            require_args("lag", args, 2, node_id)?;
-
-            // Get the number of periods to lag
-            let lag_periods = evaluate_non_negative_integer_arg("lag", &args[1], context, node_id)?;
-
-            if lag_periods == 0 {
-                // No lag, just evaluate the expression
-                return evaluate_expr(&args[0], context, node_id);
-            }
-
-            // Calculate the target period
-            let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
-
-            if let ExprNode::Column(node_name) = &args[0].node {
-                if let Some(value) = get_historical_column_value(context, node_name, &target_period)
-                {
-                    Ok(value)
-                } else {
-                    Ok(f64::NAN)
-                }
-            } else {
-                let mut hist_ctx = build_context_for_period(target_period, context)?;
-                evaluate_expr(&args[0], &mut hist_ctx, node_id)
-            }
-        }
-        Function::Lead => {
-            // Lead function is intentionally not supported in financial modeling
-            // to prevent forward-looking bias in time series analysis
-            Err(eval_error(node_id, "lead() function is not available (forward-looking operations are not supported in financial modeling)"))
-        }
-        Function::Diff => {
-            if args.is_empty() || args.len() > 2 {
-                return Err(eval_error(
-                    node_id,
-                    "diff() requires 1 or 2 arguments (expression, [periods])",
-                ));
-            }
-
-            // Get the lag periods (default to 1); validated as non-negative by
-            // evaluate_non_negative_integer_arg, so 0 is the only non-positive case.
-            let lag_periods = if args.len() == 2 {
-                evaluate_non_negative_integer_arg("diff", &args[1], context, node_id)?
-            } else {
-                1
-            };
-
-            if lag_periods == 0 {
-                // diff(x, 0) == x - x. Propagate NaN from the inner expression
-                // rather than collapsing it to 0.0, so missing/non-finite data
-                // is not silently masked.
-                let v = evaluate_expr(&args[0], context, node_id)?;
-                return Ok(if v.is_finite() { 0.0 } else { f64::NAN });
-            }
-
-            let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
-
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let current_value = context.get_value(node_name)?;
-                if current_value.is_nan() {
-                    return Ok(f64::NAN);
-                }
-                if let Some(lagged_value) =
-                    get_historical_column_value(context, node_name, &target_period)
-                {
-                    Ok(current_value - lagged_value)
-                } else {
-                    Ok(f64::NAN)
-                }
-            } else {
-                let current_value = evaluate_expr(&args[0], context, node_id)?;
-                if current_value.is_nan() {
-                    return Ok(f64::NAN);
-                }
-                let mut hist_ctx = build_context_for_period(target_period, context)?;
-                let lagged_value = evaluate_expr(&args[0], &mut hist_ctx, node_id)?;
-                Ok(current_value - lagged_value)
-            }
-        }
-        Function::PctChange => {
-            if args.is_empty() || args.len() > 2 {
-                return Err(eval_error(
-                    node_id,
-                    "pct_change() requires 1 or 2 arguments (expression, [periods])",
-                ));
-            }
-
-            // Get the lag periods (default to 1); validated as non-negative by
-            // evaluate_non_negative_integer_arg, so 0 is the only non-positive case.
-            let lag_periods = if args.len() == 2 {
-                evaluate_non_negative_integer_arg("pct_change", &args[1], context, node_id)?
-            } else {
-                1
-            };
-
-            if lag_periods == 0 {
-                return Ok(0.0);
-            }
-
-            let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
-
-            let (current_value, lagged_value) = if let ExprNode::Column(node_name) = &args[0].node {
-                let current = context.get_value(node_name)?;
-                let lagged = get_historical_column_value(context, node_name, &target_period)
-                    .unwrap_or(f64::NAN);
-                (current, lagged)
-            } else {
-                let current = evaluate_expr(&args[0], context, node_id)?;
-                let mut hist_ctx = build_context_for_period(target_period, context)?;
-                let lagged = evaluate_expr(&args[0], &mut hist_ctx, node_id)?;
-                (current, lagged)
-            };
-
-            if current_value.is_nan() || lagged_value.is_nan() {
-                return Ok(f64::NAN);
-            }
-
-            if lagged_value.abs() < ZERO_TOLERANCE {
-                tracing::warn!(
-                    "pct_change() division by near-zero lagged value in period {:?}",
-                    context.period_id
-                );
-                if let Some(id) = node_id {
-                    context.push_warning(EvalWarning::DivisionByZero {
-                        node_id: id.to_string(),
-                        period: context.period_id,
-                    });
-                }
-                Ok(f64::NAN)
-            } else {
-                Ok((current_value - lagged_value) / lagged_value)
-            }
-        }
-        Function::GrowthRate => {
-            if args.is_empty() || args.len() > 2 {
-                return Err(eval_error(
-                    node_id,
-                    "growth_rate() requires 1 or 2 arguments (series, [periods])",
-                ));
-            }
-
-            let periods_raw = if args.len() == 2 {
-                evaluate_expr(&args[1], context, node_id)?
-            } else {
-                context.period_kind.periods_per_year() as f64
-            };
-
-            if !periods_raw.is_finite() || periods_raw <= 0.0 {
-                return Err(eval_error(
-                    node_id,
-                    "growth_rate() periods must be a positive integer",
-                ));
-            }
-            if periods_raw.fract() != 0.0 {
-                return Err(eval_error(
-                    node_id,
-                    "growth_rate() periods must be a positive integer",
-                ));
-            }
-            if periods_raw > i32::MAX as f64 {
-                return Err(eval_error(
-                    node_id,
-                    "growth_rate() periods value is too large",
-                ));
-            }
-            let periods = periods_raw as i32;
-
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let current_value = context.get_value(node_name)?;
-                if current_value.is_nan() {
-                    return Ok(f64::NAN);
-                }
-
-                let target_period = offset_period(context.period_id, -periods, node_id)?;
-                if let Some(start_value) =
-                    get_historical_column_value(context, node_name, &target_period)
-                {
-                    if start_value.abs() < ZERO_TOLERANCE {
-                        tracing::warn!(
-                            "growth_rate() division by near-zero base value in period {:?}",
-                            context.period_id
-                        );
-                        if let Some(id) = node_id {
-                            context.push_warning(EvalWarning::DivisionByZero {
-                                node_id: id.to_string(),
-                                period: context.period_id,
-                            });
-                        }
-                        return Ok(f64::NAN);
-                    }
-                    let ratio = current_value / start_value;
-                    if !ratio.is_finite() || ratio < 0.0 {
-                        return Ok(f64::NAN);
-                    }
-                    let exponent = 1.0 / periods as f64;
-                    let growth = ratio.powf(exponent) - 1.0;
-                    if growth.is_finite() {
-                        Ok(growth)
-                    } else {
-                        Ok(f64::NAN)
-                    }
-                } else {
-                    Ok(f64::NAN)
-                }
-            } else {
-                Err(eval_error(
-                    node_id,
-                    "growth_rate() currently supports only simple column references; use an intermediate node for complex expressions",
-                ))
-            }
-        }
+        Function::Lag => eval_lag(args, context, node_id),
+        Function::Lead => eval_lead(node_id),
+        Function::Diff => eval_diff(args, context, node_id),
+        Function::PctChange => eval_pct_change(args, context, node_id),
+        Function::GrowthRate => eval_growth_rate(args, context, node_id),
         Function::RollingMean
         | Function::RollingSum
         | Function::RollingStd
@@ -773,40 +551,7 @@ fn evaluate_function(
         | Function::Ttm => evaluate_historical_function(func, args, context, node_id),
 
         // Other functions
-        Function::Shift => {
-            require_args("shift", args, 2, node_id)?;
-            let shift_periods = evaluate_integer_arg("shift", &args[1], context, node_id)?;
-
-            if shift_periods == 0 {
-                return evaluate_expr(&args[0], context, node_id);
-            }
-
-            // Shift works like lag/lead: positive shift goes backward (like lag)
-            // negative shift goes forward (like lead, but we'll return NaN for forward-looking)
-            if shift_periods < 0 {
-                // Forward-looking shifts return NaN (no peeking into the future)
-                return Ok(f64::NAN);
-            }
-
-            // Calculate the target period (shift backward)
-            let target_period = offset_period(context.period_id, -shift_periods, node_id)?;
-
-            // If it's a simple column reference, look it up in historical results
-            if let ExprNode::Column(node_name) = &args[0].node {
-                if let Some(value) = get_historical_column_value(context, node_name, &target_period)
-                {
-                    Ok(value)
-                } else {
-                    // No historical value found, return NaN
-                    Ok(f64::NAN)
-                }
-            } else {
-                Err(eval_error(
-                    node_id,
-                    "shift() requires a column reference as first argument; use an intermediate node for complex expressions",
-                ))
-            }
-        }
+        Function::Shift => eval_shift(args, context, node_id),
 
         Function::Rank => {
             require_min_args("rank", args, 1, node_id)?;
@@ -893,66 +638,16 @@ fn evaluate_function(
             };
 
             // Collect all values, then delegate the interpolation math to the
-            // shared core kernel after dropping non-finite entries.
-            let all_values = collect_all_historical_values(node_name, context)?;
-            let finite_values: Vec<f64> =
-                all_values.into_iter().filter(|v| v.is_finite()).collect();
-            if finite_values.is_empty() {
-                return Ok(f64::NAN);
-            }
-            Ok(quantile_linear_or_nan(&finite_values, quantile))
-        }
-
-        Function::EwmMean => {
-            require_args("ewm_mean", args, 2, node_id)?;
-
-            // Get smoothing factor (alpha)
-            let alpha = evaluate_expr(&args[1], context, node_id)?;
-            if !(0.0..=1.0).contains(&alpha) {
-                return Err(eval_error(
-                    node_id,
-                    "ewm_mean alpha must be between 0 and 1",
-                ));
-            }
-
-            // Get node name
-            let node_name = if let ExprNode::Column(name) = &args[0].node {
-                name
-            } else {
-                return Err(eval_error(
-                    node_id,
-                    "ewm_mean() requires a column reference",
-                ));
-            };
-
-            // Collect historical values in chronological order
-            let mut values = Vec::new();
-            for (period_id, period_results) in context.historical_results.iter() {
-                if let Some(value) = period_results.get(node_name) {
-                    values.push((*period_id, *value));
-                }
-            }
-
-            // Add current value
-            if let Ok(current) = context.get_value(node_name) {
-                values.push((context.period_id, current));
-            }
-
+            // shared core kernel after dropping non-finite entries in place.
+            let mut values = collect_all_historical_values(node_name, context)?;
+            values.retain(|v| v.is_finite());
             if values.is_empty() {
                 return Ok(f64::NAN);
             }
-
-            // Sort by period (chronological)
-            values.sort_by_key(|(period, _)| *period);
-
-            // Calculate EWM using the formula: EWM_t = alpha * x_t + (1 - alpha) * EWM_{t-1}
-            let mut ewm = values[0].1; // Initialize with first value
-            for (_, value) in values.iter().skip(1) {
-                ewm = alpha * value + (1.0 - alpha) * ewm;
-            }
-
-            Ok(ewm)
+            Ok(quantile_linear_or_nan(&values, quantile))
         }
+
+        Function::EwmMean => crate::evaluator::formula_ewm::eval_ewm_mean(args, context, node_id),
 
         Function::Abs => {
             require_args("abs", args, 1, node_id)?;
@@ -979,7 +674,7 @@ fn evaluate_function(
         Function::Sum => {
             require_min_args("sum", args, 1, node_id)?;
 
-            let mut values = Vec::new();
+            let mut values = Vec::with_capacity(args.len());
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
                 if value.is_finite() {
@@ -997,7 +692,7 @@ fn evaluate_function(
         Function::Mean => {
             require_min_args("mean", args, 1, node_id)?;
 
-            let mut values = Vec::new();
+            let mut values = Vec::with_capacity(args.len());
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
                 if value.is_finite() {
@@ -1111,114 +806,7 @@ fn evaluate_function(
         }
 
         Function::EwmStd | Function::EwmVar => {
-            // EWM variance and std support 2 or 3 arguments:
-            // - 2 args: ewm_var(series, alpha) — bias-corrected (pandas adjust=True, market standard)
-            // - 3 args: ewm_var(series, alpha, adjust) — bias correction enabled if adjust=1.0
-            //
-            // # Bias Correction (adjust=True)
-            //
-            // When adjust=True, we apply the bias correction factor at the end of the
-            // computation, not iteratively inside the loop. This matches pandas semantics
-            // for `ewm(..., adjust=True).var()`.
-            //
-            // The bias correction compensates for the fact that earlier observations have
-            // exponentially decaying weights that don't sum to 1.0. The correction factor
-            // is: 1 / (1 - (1-alpha)^n) where n is the number of observations.
-            if args.len() < 2 || args.len() > 3 {
-                return Err(eval_error(
-                    node_id,
-                    format!("{func}() requires 2 or 3 arguments (series, alpha, [adjust])"),
-                ));
-            }
-
-            // Get smoothing factor (alpha)
-            let alpha = evaluate_expr(&args[1], context, node_id)?;
-            if !(0.0..=1.0).contains(&alpha) {
-                return Err(eval_error(node_id, "ewm alpha must be between 0 and 1"));
-            }
-
-            // Bias correction now defaults to `true` to match pandas adjust=True (market standard)
-            let adjust = if args.len() == 3 {
-                evaluate_expr(&args[2], context, node_id)? != 0.0
-            } else {
-                true
-            };
-
-            // Get node name
-            let node_name = if let ExprNode::Column(name) = &args[0].node {
-                name
-            } else {
-                return Err(eval_error(
-                    node_id,
-                    "ewm_std/var() requires a column reference",
-                ));
-            };
-
-            // Collect historical values
-            let mut values = Vec::new();
-            for (period_id, period_results) in context.historical_results.iter() {
-                if let Some(value) = period_results.get(node_name) {
-                    values.push((*period_id, *value));
-                }
-            }
-
-            // Add current value
-            if let Ok(current) = context.get_value(node_name) {
-                values.push((context.period_id, current));
-            }
-
-            if values.len() < 2 {
-                return Ok(f64::NAN);
-            }
-
-            // Sort by period
-            values.sort_by_key(|(period, _)| *period);
-
-            // Calculate EWM variance using the recursive formula:
-            //   ewm_var_t = (1 - alpha) * (ewm_var_{t-1} + alpha * (x_t - ewm_mean_{t-1})^2)
-            //
-            // This is the non-bias-corrected (adjust=False) variance.
-            let mut ewm_mean = values[0].1;
-            let mut ewm_var = 0.0;
-
-            for (_, value) in values.iter().skip(1) {
-                let diff = value - ewm_mean;
-                ewm_mean = alpha * value + (1.0 - alpha) * ewm_mean;
-                ewm_var = (1.0 - alpha) * (ewm_var + alpha * diff * diff);
-            }
-
-            // Apply pandas-style bias correction after the loop if requested.
-            // Uses the effective degrees of freedom: sum_w² / (sum_w² - sum_w2)
-            // where sum_w tracks the (unnormalized) sum of recursive weights and
-            // sum_w2 tracks the sum of squared weights. This converges to the
-            // standard Bessel correction n/(n-1) as alpha → 0 (equal weighting).
-            if adjust {
-                let n = values.len();
-                let one_minus_alpha = 1.0 - alpha;
-                let mut sum_wt = 1.0_f64;
-                let mut sum_wt2 = 1.0_f64;
-                for _ in 1..n {
-                    sum_wt = one_minus_alpha * sum_wt + 1.0;
-                    sum_wt2 = one_minus_alpha * one_minus_alpha * sum_wt2 + 1.0;
-                }
-                let denom = sum_wt * sum_wt - sum_wt2;
-                if denom.abs() > ZERO_TOLERANCE {
-                    ewm_var *= sum_wt * sum_wt / denom;
-                }
-            }
-
-            match func {
-                Function::EwmVar => Ok(ewm_var),
-                Function::EwmStd => Ok(ewm_var.sqrt()),
-                Function::EwmMean => Ok(ewm_mean),
-                _ => Err(eval_error(
-                    node_id,
-                    format!(
-                        "Function {:?} is not an exponentially weighted function",
-                        func
-                    ),
-                )),
-            }
+            crate::evaluator::formula_ewm::eval_ewm_std_or_var(func, args, context, node_id)
         }
     }
 }

@@ -17,6 +17,7 @@ use pyo3::prelude::*;
 /// str
 ///     Debug representation of the parsed AST.
 #[pyfunction]
+#[pyo3(text_signature = "(formula, /)")]
 fn parse_formula(formula: &str) -> PyResult<String> {
     let ast = finstack_statements::dsl::parse_formula(formula).map_err(display_to_py)?;
     Ok(format!("{ast:?}"))
@@ -39,6 +40,7 @@ fn parse_formula(formula: &str) -> PyResult<String> {
 /// ValueError
 ///     If the formula fails to parse or compile.
 #[pyfunction]
+#[pyo3(text_signature = "(formula, /)")]
 fn validate_formula(formula: &str) -> PyResult<bool> {
     finstack_statements::dsl::parse_and_compile(formula).map_err(display_to_py)?;
     Ok(true)

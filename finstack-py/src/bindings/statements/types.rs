@@ -140,12 +140,14 @@ pub struct PyNodeId {
 #[pymethods]
 impl PyNodeId {
     #[new]
+    #[pyo3(text_signature = "(id)")]
     fn new(id: &str) -> Self {
         Self {
             inner: finstack_statements::types::NodeId::new(id),
         }
     }
 
+    #[pyo3(text_signature = "($self)")]
     fn as_str(&self) -> &str {
         self.inner.as_str()
     }
@@ -215,6 +217,7 @@ pub struct PyFinancialModelSpec {
 impl PyFinancialModelSpec {
     /// Deserialize from a JSON string.
     #[staticmethod]
+    #[pyo3(text_signature = "(json, /)")]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::FinancialModelSpec =
             serde_json::from_str(json).map_err(display_to_py)?;
@@ -222,6 +225,7 @@ impl PyFinancialModelSpec {
     }
 
     /// Serialize to a JSON string.
+    #[pyo3(text_signature = "($self)")]
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string(&self.inner).map_err(display_to_py)
     }
@@ -245,11 +249,13 @@ impl PyFinancialModelSpec {
     }
 
     /// Node identifiers in declaration order.
+    #[pyo3(text_signature = "($self)")]
     fn node_ids(&self) -> Vec<String> {
         self.inner.nodes.keys().map(|k| k.to_string()).collect()
     }
 
     /// Whether the model has a node with the given ID.
+    #[pyo3(text_signature = "($self, node_id)")]
     fn has_node(&self, node_id: &str) -> bool {
         self.inner.has_node(node_id)
     }

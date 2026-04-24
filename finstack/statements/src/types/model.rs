@@ -3,7 +3,13 @@
 use crate::types::{NodeId, NodeSpec};
 use finstack_core::dates::Period;
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Current on-disk schema version for [`FinancialModelSpec`].
+///
+/// Bump when the wire format changes in a breaking way and supply a migration
+/// path in [`validate_schema_version`].
+pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// Top-level financial model specification.
 ///
@@ -36,8 +42,14 @@ pub struct FinancialModelSpec {
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub meta: IndexMap<String, serde_json::Value>,
 
-    /// Schema version for forward compatibility
-    #[serde(default = "default_schema_version")]
+    /// Schema version for forward compatibility.
+    ///
+    /// Validated on deserialize against [`CURRENT_SCHEMA_VERSION`]; unknown
+    /// versions fail deserialization rather than silently accepting drift.
+    #[serde(
+        default = "default_schema_version",
+        deserialize_with = "deserialize_schema_version"
+    )]
     pub schema_version: u32,
 }
 
@@ -54,7 +66,13 @@ impl FinancialModelSpec {
         crate::builder::ModelBuilder::new(id)
     }
 
-    /// Create a new model specification.
+    /// Create a new model specification directly from a period list.
+    ///
+    /// Prefer [`FinancialModelSpec::builder`] for user-facing model construction:
+    /// the builder validates period ranges and catches stale references to
+    /// undefined nodes. This direct constructor is retained for programmatic
+    /// use (scenarios, template generators, tests) where callers already have
+    /// a validated `Vec<Period>` and intend to add nodes by hand.
     ///
     /// # Arguments
     /// * `id` - Identifier used to reference the model
@@ -67,7 +85,7 @@ impl FinancialModelSpec {
             nodes: IndexMap::new(),
             capital_structure: None,
             meta: IndexMap::new(),
-            schema_version: 1,
+            schema_version: CURRENT_SCHEMA_VERSION,
         }
     }
 
@@ -105,7 +123,25 @@ impl FinancialModelSpec {
 }
 
 fn default_schema_version() -> u32 {
-    1
+    CURRENT_SCHEMA_VERSION
+}
+
+fn deserialize_schema_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let v = u32::deserialize(deserializer)?;
+    validate_schema_version(v).map_err(serde::de::Error::custom)?;
+    Ok(v)
+}
+
+fn validate_schema_version(v: u32) -> Result<(), String> {
+    if v == 0 || v > CURRENT_SCHEMA_VERSION {
+        return Err(format!(
+            "unsupported FinancialModelSpec schema_version {v}; this build understands versions 1..={CURRENT_SCHEMA_VERSION}"
+        ));
+    }
+    Ok(())
 }
 
 /// Capital structure specification.

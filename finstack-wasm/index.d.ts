@@ -1217,6 +1217,18 @@ export interface StatementsNamespace {
   validateFinancialModelJson(json: string): string;
   modelNodeIds(json: string): string[];
   validateCheckSuiteSpec(json: string): string;
+  validateCapitalStructureSpec(json: string): string;
+  validateWaterfallSpec(json: string): string;
+  validateEcfSweepSpec(json: string): string;
+  validatePikToggleSpec(json: string): string;
+  evaluateModel(modelJson: string): string;
+  evaluateModelWithMarket(
+    modelJson: string,
+    marketJson: string,
+    asOf: string,
+  ): string;
+  parseFormula(formula: string): string;
+  validateFormula(formula: string): boolean;
 }
 
 export declare const statements: StatementsNamespace;

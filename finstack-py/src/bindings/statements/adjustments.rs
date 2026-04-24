@@ -23,6 +23,7 @@ pub struct PyNormalizationConfig {
 impl PyNormalizationConfig {
     /// Create a new normalization configuration for a target node.
     #[new]
+    #[pyo3(text_signature = "(target_node)")]
     fn new(target_node: &str) -> Self {
         Self {
             inner: finstack_statements::adjustments::types::NormalizationConfig::new(target_node),
@@ -31,6 +32,7 @@ impl PyNormalizationConfig {
 
     /// Deserialize from JSON.
     #[staticmethod]
+    #[pyo3(text_signature = "(json, /)")]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::adjustments::types::NormalizationConfig =
             serde_json::from_str(json).map_err(display_to_py)?;
@@ -38,6 +40,7 @@ impl PyNormalizationConfig {
     }
 
     /// Serialize to JSON.
+    #[pyo3(text_signature = "($self)")]
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
@@ -81,6 +84,7 @@ impl PyNormalizationConfig {
 /// str
 ///     JSON-serialized list of ``NormalizationResult`` objects.
 #[pyfunction]
+#[pyo3(text_signature = "(results, config, /)")]
 fn normalize(results: &PyStatementResult, config: &PyNormalizationConfig) -> PyResult<String> {
     let norm_results = finstack_statements::adjustments::engine::NormalizationEngine::normalize(
         &results.inner,

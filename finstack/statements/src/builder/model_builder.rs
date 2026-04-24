@@ -7,10 +7,26 @@ use finstack_core::dates::{build_periods, Period, PeriodId};
 use indexmap::{IndexMap, IndexSet};
 use std::marker::PhantomData;
 
-/// Validate that a node ID does not use reserved prefixes.
+/// DSL keywords that must not be used as node IDs.
+///
+/// A node named `if`, `and`, `or`, `not`, `true`, or `false` would shadow the
+/// language keyword: the parser treats these tokens specially (as control flow
+/// or logical operators / boolean literals) and a bare identifier reference
+/// cannot reach such a node. Reject at model build time instead of producing
+/// confusing downstream parse errors.
+///
+/// Built-in function names (`lag`, `sum`, `median`, ...) are intentionally not
+/// on this list: the DSL disambiguates call sites (`median(x)`) from bare
+/// references (`median`), so a node named after a function is legal.
+const RESERVED_DSL_IDENTIFIERS: &[&str] = &["if", "and", "or", "not", "true", "false"];
+
+/// Validate that a node ID does not use reserved prefixes or shadow a DSL
+/// keyword.
 ///
 /// The `__cs__` prefix is reserved for internal capital structure references,
-/// and `__` prefix is reserved for other internal use.
+/// `__` prefix is reserved for other internal use, and identifiers that
+/// collide with a DSL keyword or built-in function (see
+/// [`RESERVED_DSL_IDENTIFIERS`]) would shadow the language primitive.
 fn validate_node_id(node_id: &str) -> Result<()> {
     if node_id.contains("__cs__") {
         return Err(Error::build(format!(
@@ -22,6 +38,13 @@ fn validate_node_id(node_id: &str) -> Result<()> {
     if node_id.starts_with("__") {
         return Err(Error::build(format!(
             "Node ID '{}' cannot start with '__' (reserved for internal use)",
+            node_id
+        )));
+    }
+    if RESERVED_DSL_IDENTIFIERS.contains(&node_id) {
+        return Err(Error::build(format!(
+            "Node ID '{}' collides with a reserved DSL keyword or built-in function; \
+             rename the node to avoid shadowing formula primitives.",
             node_id
         )));
     }
@@ -730,6 +753,14 @@ impl ModelBuilder<Ready> {
     ///
     /// This validates the model and returns a `FinancialModelSpec`.
     pub fn build(mut self) -> Result<FinancialModelSpec> {
+        let _span = tracing::info_span!(
+            "statements.build",
+            model_id = self.id.as_str(),
+            periods = self.periods.len(),
+            nodes = self.nodes.len(),
+        )
+        .entered();
+
         // Validate that we have at least one period
         if self.periods.is_empty() {
             return Err(Error::build("Model must have at least one period"));

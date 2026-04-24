@@ -27,22 +27,46 @@ thread_local! {
 /// * `input` - Text of the DSL formula to parse
 ///
 /// # Returns
-/// Parsed AST ready for compilation.
+/// Parsed AST ready for compilation. On failure the returned [`Error`]
+/// includes the line and column where parsing stopped.
 pub fn parse_formula(input: &str) -> Result<StmtExpr> {
     PARSE_DEPTH.with(|depth| depth.set(0));
     match expression(input) {
         Ok(("", expr)) => Ok(expr),
-        Ok((remaining, _)) => Err(Error::formula_parse(format!(
-            "Unexpected input remaining: '{}'",
-            remaining
-        ))),
-        Err(nom::Err::Failure(err)) if err.code == nom::error::ErrorKind::TooLarge => {
+        Ok((remaining, _)) => {
+            let (line, col) = offset_to_line_col(input, input.len() - remaining.len());
             Err(Error::formula_parse(format!(
-                "Parse nesting exceeds maximum depth of {MAX_PARSE_DEPTH}"
+                "unexpected input at line {line} col {col}: '{remaining}'"
             )))
         }
-        Err(e) => Err(Error::formula_parse(format!("Parse error: {}", e))),
+        Err(nom::Err::Failure(err)) if err.code == nom::error::ErrorKind::TooLarge => {
+            let (line, col) = offset_to_line_col(input, input.len() - err.input.len());
+            Err(Error::formula_parse(format!(
+                "parse nesting exceeds maximum depth {MAX_PARSE_DEPTH} at line {line} col {col}"
+            )))
+        }
+        Err(nom::Err::Error(err) | nom::Err::Failure(err)) => {
+            let (line, col) = offset_to_line_col(input, input.len() - err.input.len());
+            let snippet = err.input.chars().take(24).collect::<String>();
+            Err(Error::formula_parse(format!(
+                "parse error at line {line} col {col}: near '{snippet}' ({:?})",
+                err.code
+            )))
+        }
+        Err(nom::Err::Incomplete(_)) => Err(Error::formula_parse(
+            "parse error: incomplete input (internal: streaming combinator used)".to_string(),
+        )),
     }
+}
+
+/// Convert a byte offset into `input` to a 1-indexed (line, column) pair.
+fn offset_to_line_col(input: &str, offset: usize) -> (usize, usize) {
+    let offset = offset.min(input.len());
+    let prefix = &input[..offset];
+    let line = 1 + prefix.bytes().filter(|&b| b == b'\n').count();
+    let last_nl = prefix.rfind('\n').map(|i| i + 1).unwrap_or(0);
+    let col = 1 + input[last_nl..offset].chars().count();
+    (line, col)
 }
 
 // Expression parser entry point (handles operator precedence)
@@ -536,7 +560,7 @@ mod tests {
         let err = parse_formula(&formula).expect_err("deep nesting should fail");
         assert!(
             err.to_string()
-                .contains(&format!("maximum depth of {MAX_PARSE_DEPTH}")),
+                .contains(&format!("maximum depth {MAX_PARSE_DEPTH}")),
             "unexpected error: {err}"
         );
     }

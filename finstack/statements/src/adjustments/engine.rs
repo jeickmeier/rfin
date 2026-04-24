@@ -19,6 +19,13 @@ impl NormalizationEngine {
         results: &StatementResult,
         config: &NormalizationConfig,
     ) -> Result<Vec<NormalizationResult>> {
+        let _span = tracing::info_span!(
+            "statements.normalize",
+            target_node = config.target_node.as_str(),
+            adjustments = config.adjustments.len(),
+        )
+        .entered();
+
         let mut normalization_results = Vec::new();
 
         // Get the target node values

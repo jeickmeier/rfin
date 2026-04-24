@@ -9,12 +9,11 @@
 - DCF valuation now fails closed on missing `currency`, `debt`, or `cash` inputs unless the caller provides explicit overrides.
 - Monte Carlo results preserve path-evaluation warnings when the simulated paths remain finite. Non-finite Monte Carlo path values are treated as hard failures during aggregation.
 
-## Feature Flags
+## Runtime Notes
 
-| Feature | Effect | Operational note |
-|---------|--------|------------------|
-| `default` | Core statements runtime only | Baseline production build |
-| `parallel` | Enables Rayon-backed Monte Carlo path parallelism | Higher peak memory than serial Monte Carlo |
+Monte Carlo path parallelism via Rayon is always enabled; the crate has no
+Cargo feature flags. Parallel execution is deterministic: results match a
+serial run bit-for-bit given the same seed.
 
 Recommended verification matrix:
 

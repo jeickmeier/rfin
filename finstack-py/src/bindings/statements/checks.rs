@@ -22,6 +22,7 @@ pub struct PyCheckSuiteSpec {
 impl PyCheckSuiteSpec {
     /// Deserialize from a JSON string.
     #[staticmethod]
+    #[pyo3(text_signature = "(json, /)")]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::checks::CheckSuiteSpec =
             serde_json::from_str(json).map_err(display_to_py)?;
@@ -29,6 +30,7 @@ impl PyCheckSuiteSpec {
     }
 
     /// Serialize to a JSON string.
+    #[pyo3(text_signature = "($self)")]
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
@@ -80,6 +82,7 @@ pub struct PyCheckReport {
 impl PyCheckReport {
     /// Deserialize from a JSON string.
     #[staticmethod]
+    #[pyo3(text_signature = "(json, /)")]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::checks::CheckReport =
             serde_json::from_str(json).map_err(display_to_py)?;
@@ -87,6 +90,7 @@ impl PyCheckReport {
     }
 
     /// Serialize to a JSON string.
+    #[pyo3(text_signature = "($self)")]
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }

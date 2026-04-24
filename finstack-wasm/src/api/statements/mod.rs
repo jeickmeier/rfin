@@ -1,9 +1,24 @@
 //! WASM bindings for the `finstack-statements` crate.
 //!
-//! Exposes JSON round-trip for financial model specifications.
+//! Exposes JSON-in / JSON-out functions for:
+//! - `FinancialModelSpec` validation and node enumeration
+//! - `CheckSuiteSpec`, `WaterfallSpec`, `EcfSweepSpec`, `PikToggleSpec`,
+//!   `CapitalStructureSpec` validation
+//! - DSL formula parsing and validation
+//! - Full `Evaluator` execution (`evaluate`, `evaluate_with_market`)
+//!
+//! The evaluator runs a fresh `Evaluator::new()` per call; WASM clients
+//! hold no live handles. Capital-structure models are configured by
+//! embedding the spec directly in the `FinancialModelSpec` JSON — there is
+//! no separate builder surface on this side because JS assembles JSON
+//! natively.
 
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
+
+// ---------------------------------------------------------------------------
+// Validators
+// ---------------------------------------------------------------------------
 
 /// Validate a `FinancialModelSpec` JSON string.
 ///
@@ -36,6 +51,104 @@ pub fn validate_check_suite_spec(json: &str) -> Result<String, JsValue> {
     let spec: finstack_statements::checks::CheckSuiteSpec =
         serde_json::from_str(json).map_err(to_js_err)?;
     serde_json::to_string(&spec).map_err(to_js_err)
+}
+
+/// Validate a `CapitalStructureSpec` JSON string.
+#[wasm_bindgen(js_name = validateCapitalStructureSpec)]
+pub fn validate_capital_structure_spec(json: &str) -> Result<String, JsValue> {
+    let spec: finstack_statements::types::CapitalStructureSpec =
+        serde_json::from_str(json).map_err(to_js_err)?;
+    serde_json::to_string(&spec).map_err(to_js_err)
+}
+
+/// Validate a `WaterfallSpec` JSON string.
+///
+/// Performs both serde deserialization and the waterfall's internal
+/// consistency check (for example rejecting `Sweep` ordered after `Equity`
+/// when an ECF sweep is configured).
+#[wasm_bindgen(js_name = validateWaterfallSpec)]
+pub fn validate_waterfall_spec(json: &str) -> Result<String, JsValue> {
+    let spec: finstack_statements::capital_structure::WaterfallSpec =
+        serde_json::from_str(json).map_err(to_js_err)?;
+    spec.validate().map_err(to_js_err)?;
+    serde_json::to_string(&spec).map_err(to_js_err)
+}
+
+/// Validate an `EcfSweepSpec` JSON string.
+#[wasm_bindgen(js_name = validateEcfSweepSpec)]
+pub fn validate_ecf_sweep_spec(json: &str) -> Result<String, JsValue> {
+    let spec: finstack_statements::capital_structure::EcfSweepSpec =
+        serde_json::from_str(json).map_err(to_js_err)?;
+    serde_json::to_string(&spec).map_err(to_js_err)
+}
+
+/// Validate a `PikToggleSpec` JSON string.
+#[wasm_bindgen(js_name = validatePikToggleSpec)]
+pub fn validate_pik_toggle_spec(json: &str) -> Result<String, JsValue> {
+    let spec: finstack_statements::capital_structure::PikToggleSpec =
+        serde_json::from_str(json).map_err(to_js_err)?;
+    serde_json::to_string(&spec).map_err(to_js_err)
+}
+
+// ---------------------------------------------------------------------------
+// Evaluator
+// ---------------------------------------------------------------------------
+
+/// Evaluate a `FinancialModelSpec` and return the `StatementResult` JSON.
+#[wasm_bindgen(js_name = evaluateModel)]
+pub fn evaluate_model(model_json: &str) -> Result<String, JsValue> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(to_js_err)?;
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let result = evaluator.evaluate(&model).map_err(to_js_err)?;
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
+/// Evaluate a `FinancialModelSpec` against a `MarketContext` as of a given date.
+///
+/// Required for capital-structure-aware models. The `as_of` argument is an
+/// ISO 8601 date string (e.g. `"2025-01-15"`).
+#[wasm_bindgen(js_name = evaluateModelWithMarket)]
+pub fn evaluate_model_with_market(
+    model_json: &str,
+    market_json: &str,
+    as_of: &str,
+) -> Result<String, JsValue> {
+    let model: finstack_statements::FinancialModelSpec =
+        serde_json::from_str(model_json).map_err(to_js_err)?;
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let format = time::format_description::well_known::Iso8601::DEFAULT;
+    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let result = evaluator
+        .evaluate_with_market(&model, &market, date)
+        .map_err(to_js_err)?;
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
+// ---------------------------------------------------------------------------
+// DSL
+// ---------------------------------------------------------------------------
+
+/// Parse a DSL formula and return a debug string for its AST.
+///
+/// Useful for previewing expression structure in UI tooling before
+/// committing a formula to a model.
+#[wasm_bindgen(js_name = parseFormula)]
+pub fn parse_formula(formula: &str) -> Result<String, JsValue> {
+    let ast = finstack_statements::dsl::parse_formula(formula).map_err(to_js_err)?;
+    Ok(format!("{ast:?}"))
+}
+
+/// Validate that a DSL formula parses and compiles successfully.
+///
+/// Returns `true` when the formula is valid; throws a `FinstackError`
+/// otherwise. This mirrors the Python `validate_formula` API.
+#[wasm_bindgen(js_name = validateFormula)]
+pub fn validate_formula(formula: &str) -> Result<bool, JsValue> {
+    finstack_statements::dsl::parse_and_compile(formula).map_err(to_js_err)?;
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -77,6 +190,90 @@ mod tests {
             panic!("should roundtrip");
         };
         assert_eq!(rt.name, "test");
+    }
+
+    #[test]
+    fn validate_waterfall_spec_accepts_default() {
+        let spec = finstack_statements::capital_structure::WaterfallSpec::default();
+        let json = serde_json::to_string(&spec).expect("serialize");
+        let Ok(out) = validate_waterfall_spec(&json) else {
+            panic!("should accept default spec");
+        };
+        assert!(out.contains("priority_of_payments"));
+    }
+
+    #[test]
+    fn validate_waterfall_spec_rejects_inverted_priority() {
+        // Sweep after Equity with positive ECF sweep is caught by WaterfallSpec::validate()
+        let bad = serde_json::json!({
+            "priority_of_payments": ["equity", "sweep"],
+            "ecf_sweep": {
+                "ebitda_node": "ebitda",
+                "sweep_percentage": 0.5,
+            },
+        });
+        let json = bad.to_string();
+        let spec: finstack_statements::capital_structure::WaterfallSpec =
+            serde_json::from_str(&json).expect("parses");
+        assert!(spec.validate().is_err());
+    }
+
+    #[test]
+    fn evaluate_model_runs_minimal_model() {
+        use finstack_statements::builder::ModelBuilder;
+        use finstack_statements::types::AmountOrScalar;
+        let model = ModelBuilder::new("t")
+            .periods("2025Q1..Q2", None)
+            .expect("periods")
+            .value(
+                "revenue",
+                &[
+                    (
+                        finstack_core::dates::PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100.0),
+                    ),
+                    (
+                        finstack_core::dates::PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110.0),
+                    ),
+                ],
+            )
+            .compute("margin", "revenue * 0.4")
+            .expect("compute")
+            .build()
+            .expect("build");
+        let json = serde_json::to_string(&model).expect("serialize");
+        let Ok(out) = evaluate_model(&json) else {
+            panic!("evaluate_model should succeed");
+        };
+        let result: finstack_statements::evaluator::StatementResult =
+            serde_json::from_str(&out).expect("deserialize result");
+        assert!(result.nodes.contains_key("revenue"));
+        assert!(result.nodes.contains_key("margin"));
+    }
+
+    #[test]
+    fn parse_formula_returns_ast_debug() {
+        let Ok(out) = parse_formula("revenue - cogs") else {
+            panic!("parse_formula should succeed");
+        };
+        // Debug format contains "BinOp"/"NodeRef" markers
+        assert!(!out.is_empty());
+    }
+
+    #[test]
+    fn validate_formula_accepts_valid() {
+        let Ok(ok) = validate_formula("revenue * 0.5") else {
+            panic!("should accept valid formula");
+        };
+        assert!(ok);
+    }
+
+    #[test]
+    fn validate_formula_rejects_invalid() {
+        // Error path creates JsValue, which panics on native targets.
+        // Test the underlying compile instead.
+        assert!(finstack_statements::dsl::parse_and_compile("revenue @").is_err());
     }
 
     // -- Boundary tests ------------------------------------------------

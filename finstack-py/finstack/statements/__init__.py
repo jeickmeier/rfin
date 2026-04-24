@@ -21,10 +21,14 @@ NormalizationConfig = _statements.NormalizationConfig
 normalize = _statements.normalize
 CheckSuiteSpec = _statements.CheckSuiteSpec
 CheckReport = _statements.CheckReport
+EcfSweepSpec = _statements.EcfSweepSpec
+PikToggleSpec = _statements.PikToggleSpec
+WaterfallSpec = _statements.WaterfallSpec
 
 __all__: list[str] = [
     "CheckReport",
     "CheckSuiteSpec",
+    "EcfSweepSpec",
     "Evaluator",
     "FinancialModelSpec",
     "ForecastMethod",
@@ -33,7 +37,9 @@ __all__: list[str] = [
     "NodeType",
     "NormalizationConfig",
     "NumericMode",
+    "PikToggleSpec",
     "StatementResult",
+    "WaterfallSpec",
     "normalize",
     "parse_formula",
     "validate_formula",

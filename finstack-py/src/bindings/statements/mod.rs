@@ -5,6 +5,7 @@
 
 mod adjustments;
 mod builder;
+pub(crate) mod capital_structure;
 mod checks;
 mod dsl;
 pub(crate) mod evaluator;
@@ -22,6 +23,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
 
     types::register(py, &m)?;
+    capital_structure::register(py, &m)?;
     builder::register(py, &m)?;
     evaluator::register(py, &m)?;
     dsl::register(py, &m)?;
@@ -31,6 +33,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let all = PyList::new(
         py,
         [
+            // Capital structure
+            "EcfSweepSpec",
+            "PikToggleSpec",
+            "WaterfallSpec",
             // Types
             "ForecastMethod",
             "NodeType",

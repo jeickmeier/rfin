@@ -27,6 +27,7 @@ pub struct PyStatementResult {
 impl PyStatementResult {
     /// Deserialize from JSON.
     #[staticmethod]
+    #[pyo3(text_signature = "(json, /)")]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::evaluator::StatementResult =
             serde_json::from_str(json).map_err(display_to_py)?;
@@ -34,6 +35,7 @@ impl PyStatementResult {
     }
 
     /// Serialize to JSON.
+    #[pyo3(text_signature = "($self)")]
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string(&self.inner).map_err(display_to_py)
     }
@@ -46,12 +48,14 @@ impl PyStatementResult {
     ///     Node identifier (e.g. ``"revenue"``).
     /// period : str
     ///     Period identifier string (e.g. ``"2025Q1"``).
+    #[pyo3(text_signature = "($self, node_id, period)")]
     fn get(&self, node_id: &str, period: &str) -> PyResult<Option<f64>> {
         let pid = parse_period_id(period)?;
         Ok(self.inner.get(node_id, &pid))
     }
 
     /// Get all period values for a specific node as a dict.
+    #[pyo3(text_signature = "($self, node_id)")]
     fn get_node<'py>(
         &self,
         py: Python<'py>,
@@ -70,6 +74,7 @@ impl PyStatementResult {
     }
 
     /// All node identifiers in the result.
+    #[pyo3(text_signature = "($self)")]
     fn node_ids(&self) -> Vec<String> {
         self.inner.nodes.keys().cloned().collect()
     }
@@ -105,6 +110,7 @@ impl PyStatementResult {
     /// `Money`-typed nodes and left null for scalar nodes; exposing them here
     /// matches the Rust schema so currency/fixed-point precision is never
     /// silently dropped at the Python boundary.
+    #[pyo3(text_signature = "($self)")]
     fn to_pandas_long<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let table = self.inner.to_table_long().map_err(display_to_py)?;
         selected_table_to_dataframe(
@@ -124,6 +130,7 @@ impl PyStatementResult {
     /// Export to pandas wide-format ``DataFrame``.
     ///
     /// Rows are node identifiers, columns are period identifiers.
+    #[pyo3(text_signature = "($self)")]
     fn to_pandas_wide<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let table = self.inner.to_table_wide().map_err(display_to_py)?;
         let df = table_to_dataframe(py, &table)?;
@@ -157,6 +164,7 @@ pub struct PyEvaluator {
 impl PyEvaluator {
     /// Create a new evaluator.
     #[new]
+    #[pyo3(text_signature = "()")]
     fn new() -> Self {
         Self {
             inner: finstack_statements::evaluator::Evaluator::new(),
@@ -164,6 +172,9 @@ impl PyEvaluator {
     }
 
     /// Evaluate a financial model.
+    ///
+    /// Releases the GIL for the duration of the DAG traversal so that other
+    /// Python threads can make progress while the Rust evaluator runs.
     ///
     /// Parameters
     /// ----------
@@ -174,15 +185,24 @@ impl PyEvaluator {
     /// -------
     /// StatementResult
     ///     Evaluation results with per-node, per-period values.
-    fn evaluate(&mut self, model: &PyFinancialModelSpec) -> PyResult<PyStatementResult> {
-        let result = self.inner.evaluate(&model.inner).map_err(display_to_py)?;
+    #[pyo3(text_signature = "($self, model)")]
+    fn evaluate(
+        &mut self,
+        py: Python<'_>,
+        model: &PyFinancialModelSpec,
+    ) -> PyResult<PyStatementResult> {
+        let model_inner = &model.inner;
+        let evaluator = &mut self.inner;
+        let result = py
+            .detach(|| evaluator.evaluate(model_inner))
+            .map_err(display_to_py)?;
         Ok(PyStatementResult { inner: result })
     }
 
     /// Evaluate a financial model with market context and an as-of date.
     ///
     /// Use this for capital-structure-aware models and for as-of evaluation
-    /// that hides future actual values.
+    /// that hides future actual values. Releases the GIL during evaluation.
     ///
     /// Parameters
     /// ----------
@@ -192,16 +212,20 @@ impl PyEvaluator {
     ///     Market data context used for instrument pricing.
     /// as_of : datetime.date
     ///     Valuation/as-of date.
+    #[pyo3(text_signature = "($self, model, market, as_of)")]
     fn evaluate_with_market(
         &mut self,
+        py: Python<'_>,
         model: &PyFinancialModelSpec,
         market: &PyMarketContext,
         as_of: &Bound<'_, PyAny>,
     ) -> PyResult<PyStatementResult> {
         let as_of = py_to_date(as_of)?;
-        let result = self
-            .inner
-            .evaluate_with_market(&model.inner, &market.inner, as_of)
+        let model_inner = &model.inner;
+        let market_inner = &market.inner;
+        let evaluator = &mut self.inner;
+        let result = py
+            .detach(|| evaluator.evaluate_with_market(model_inner, market_inner, as_of))
             .map_err(display_to_py)?;
         Ok(PyStatementResult { inner: result })
     }

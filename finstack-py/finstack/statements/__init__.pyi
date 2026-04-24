@@ -12,7 +12,9 @@ from typing import Any
 
 import pandas as pd
 
+from finstack.core.currency import Currency
 from finstack.core.market_data import MarketContext
+from finstack.core.money import Money
 
 __all__ = [
     "ForecastMethod",
@@ -29,6 +31,9 @@ __all__ = [
     "normalize",
     "CheckSuiteSpec",
     "CheckReport",
+    "EcfSweepSpec",
+    "PikToggleSpec",
+    "WaterfallSpec",
 ]
 
 class ForecastMethod:
@@ -480,6 +485,51 @@ class ModelBuilder:
         >>> b.periods("2025Q1..Q1", None)  # doctest: +SKIP
         >>> b.compute("margin", "revenue - cogs")  # doctest: +SKIP
         """
+        ...
+
+    def add_bond(
+        self,
+        id: str,
+        notional: Money,
+        coupon_rate: float,
+        issue_date: date,
+        maturity_date: date,
+        discount_curve_id: str,
+    ) -> None:
+        """Add a fixed-rate bond to the capital structure (US 30/360 semi-annual).
+
+        For non-USD conventions, use :meth:`add_custom_debt` with a pre-built
+        ``Bond`` JSON specification.
+        """
+        ...
+
+    def add_swap(
+        self,
+        id: str,
+        notional: Money,
+        fixed_rate: float,
+        start_date: date,
+        maturity_date: date,
+        discount_curve_id: str,
+        forward_curve_id: str,
+    ) -> None:
+        """Add an interest rate swap to the capital structure (US conventions)."""
+        ...
+
+    def add_custom_debt(self, id: str, spec_json: str) -> None:
+        """Add an arbitrary debt instrument via its serde JSON representation."""
+        ...
+
+    def reporting_currency(self, currency: Currency) -> None:
+        """Set the reporting currency used for capital-structure totals."""
+        ...
+
+    def fx_policy(self, policy: str) -> None:
+        """Set the FX policy (``cashflow_date``/``period_end``/``period_average``/``custom``)."""
+        ...
+
+    def waterfall(self, waterfall_spec: WaterfallSpec) -> None:
+        """Attach a waterfall specification (PIK toggle + ECF sweep + priorities)."""
         ...
 
     def build(self) -> FinancialModelSpec:
@@ -1052,3 +1102,85 @@ class CheckReport:
     def __repr__(self) -> str:
         """Return a concise summary of the check report."""
         ...
+
+class EcfSweepSpec:
+    """Excess Cash Flow sweep specification.
+
+    Configures how ECF is computed (EBITDA minus taxes/capex/WC/cash interest)
+    and what fraction sweeps to debt paydown.
+    """
+
+    def __init__(
+        self,
+        ebitda_node: str,
+        sweep_percentage: float,
+        taxes_node: str | None = None,
+        capex_node: str | None = None,
+        working_capital_node: str | None = None,
+        cash_interest_node: str | None = None,
+        target_instrument_id: str | None = None,
+    ) -> None: ...
+    @staticmethod
+    def from_json(json: str) -> EcfSweepSpec: ...
+    def to_json(self) -> str: ...
+    @property
+    def ebitda_node(self) -> str: ...
+    @property
+    def sweep_percentage(self) -> float: ...
+    @property
+    def target_instrument_id(self) -> str | None: ...
+    def __repr__(self) -> str: ...
+
+class PikToggleSpec:
+    """PIK toggle specification.
+
+    Controls when interest accrues as PIK versus cash based on a liquidity
+    signal crossing ``threshold``, with optional hysteresis.
+    """
+
+    def __init__(
+        self,
+        liquidity_metric: str,
+        threshold: float,
+        target_instrument_ids: list[str] | None = None,
+        min_periods_in_pik: int = 0,
+    ) -> None: ...
+    @staticmethod
+    def from_json(json: str) -> PikToggleSpec: ...
+    def to_json(self) -> str: ...
+    @property
+    def liquidity_metric(self) -> str: ...
+    @property
+    def threshold(self) -> float: ...
+    @property
+    def min_periods_in_pik(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+class WaterfallSpec:
+    """Waterfall specification for dynamic cash flow allocation.
+
+    Combines priority-of-payments with optional ECF sweep and PIK toggle.
+    Call :meth:`validate` before passing to a builder to surface inconsistent
+    configurations (for example ``Sweep`` ordered after ``Equity``).
+    """
+
+    def __init__(
+        self,
+        priority_of_payments: list[str] | None = None,
+        available_cash_node: str | None = None,
+        ecf_sweep: EcfSweepSpec | None = None,
+        pik_toggle: PikToggleSpec | None = None,
+    ) -> None: ...
+    @staticmethod
+    def from_json(json: str) -> WaterfallSpec: ...
+    def to_json(self) -> str: ...
+    def validate(self) -> None: ...
+    @property
+    def priority_of_payments(self) -> list[str]: ...
+    @property
+    def available_cash_node(self) -> str | None: ...
+    @property
+    def has_ecf_sweep(self) -> bool: ...
+    @property
+    def has_pik_toggle(self) -> bool: ...
+    def __repr__(self) -> str: ...
