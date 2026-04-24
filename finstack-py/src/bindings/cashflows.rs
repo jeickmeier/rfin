@@ -3,33 +3,111 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 
+/// Build a cashflow schedule from a JSON spec and return canonical schedule JSON.
+///
+/// Parameters
+/// ----------
+/// spec_json : str
+///     JSON-encoded `CashflowScheduleBuildSpec`.
+/// market_json : str, optional
+///     JSON-encoded market context for floating-rate lookups.
+///
+/// Returns
+/// -------
+/// str
+///     JSON-encoded `CashFlowSchedule`.
 #[pyfunction]
-#[pyo3(signature = (spec_json, market_json = None))]
+#[pyo3(
+    signature = (spec_json, market_json = None),
+    text_signature = "(spec_json, market_json=None)"
+)]
 fn build_cashflow_schedule(spec_json: &str, market_json: Option<&str>) -> PyResult<String> {
     finstack_cashflows::build_cashflow_schedule_json(spec_json, market_json)
         .map_err(crate::errors::core_to_py)
 }
 
+/// Validate a cashflow schedule JSON string and return it canonicalized.
+///
+/// Parameters
+/// ----------
+/// schedule_json : str
+///     JSON-encoded `CashFlowSchedule`.
+///
+/// Returns
+/// -------
+/// str
+///     Canonicalized JSON-encoded `CashFlowSchedule`.
 #[pyfunction]
+#[pyo3(text_signature = "(schedule_json)")]
 fn validate_cashflow_schedule(schedule_json: &str) -> PyResult<String> {
     finstack_cashflows::validate_cashflow_schedule_json(schedule_json)
         .map_err(crate::errors::core_to_py)
 }
 
+/// Extract dated flows from a cashflow schedule.
+///
+/// Parameters
+/// ----------
+/// schedule_json : str
+///     JSON-encoded `CashFlowSchedule`.
+///
+/// Returns
+/// -------
+/// str
+///     JSON array of `{date, amount, currency, kind}` entries.
 #[pyfunction]
+#[pyo3(text_signature = "(schedule_json)")]
 fn dated_flows(schedule_json: &str) -> PyResult<String> {
     finstack_cashflows::dated_flows_json(schedule_json).map_err(crate::errors::core_to_py)
 }
 
+/// Compute accrued interest for a schedule as of a given date.
+///
+/// Parameters
+/// ----------
+/// schedule_json : str
+///     JSON-encoded `CashFlowSchedule`.
+/// as_of : str
+///     ISO-8601 date (YYYY-MM-DD) for the accrual snapshot.
+/// config_json : str, optional
+///     JSON-encoded `AccrualConfig` overriding defaults.
+///
+/// Returns
+/// -------
+/// float
+///     Accrued interest in the schedule's settlement currency.
 #[pyfunction]
-#[pyo3(signature = (schedule_json, as_of, config_json = None))]
+#[pyo3(
+    signature = (schedule_json, as_of, config_json = None),
+    text_signature = "(schedule_json, as_of, config_json=None)"
+)]
 fn accrued_interest(schedule_json: &str, as_of: &str, config_json: Option<&str>) -> PyResult<f64> {
     finstack_cashflows::accrued_interest_json(schedule_json, as_of, config_json)
         .map_err(crate::errors::core_to_py)
 }
 
+/// Construct a tagged Bond instrument JSON from a cashflow schedule.
+///
+/// Parameters
+/// ----------
+/// instrument_id : str
+///     Identifier for the Bond instrument.
+/// schedule_json : str
+///     JSON-encoded `CashFlowSchedule`.
+/// discount_curve_id : str
+///     Identifier of the discount curve used for pricing.
+/// quoted_clean : float, optional
+///     Clean quoted price used to calibrate yield on construction.
+///
+/// Returns
+/// -------
+/// str
+///     JSON-encoded tagged `InstrumentJson::Bond`.
 #[pyfunction]
-#[pyo3(signature = (instrument_id, schedule_json, discount_curve_id, quoted_clean = None))]
+#[pyo3(
+    signature = (instrument_id, schedule_json, discount_curve_id, quoted_clean = None),
+    text_signature = "(instrument_id, schedule_json, discount_curve_id, quoted_clean=None)"
+)]
 fn bond_from_cashflows(
     instrument_id: &str,
     schedule_json: &str,

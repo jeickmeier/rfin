@@ -3,7 +3,12 @@
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
 
-/// Build a cashflow schedule from JSON and return canonical schedule JSON.
+/// Build a cashflow schedule from a JSON spec and return canonical schedule JSON.
+///
+/// @param spec_json - JSON-encoded `CashflowScheduleBuildSpec`.
+/// @param market_json - Optional JSON-encoded market context for floating-rate lookups.
+/// @returns JSON-encoded `CashFlowSchedule`.
+/// @throws If the spec or market JSON is malformed, or schedule construction fails.
 #[wasm_bindgen(js_name = buildCashflowSchedule)]
 pub fn build_cashflow_schedule(
     spec_json: &str,
@@ -13,19 +18,33 @@ pub fn build_cashflow_schedule(
         .map_err(to_js_err)
 }
 
-/// Validate a cashflow schedule JSON string.
+/// Validate a cashflow schedule JSON string and return it canonicalized.
+///
+/// @param schedule_json - JSON-encoded `CashFlowSchedule`.
+/// @returns Canonicalized JSON-encoded `CashFlowSchedule`.
+/// @throws If the schedule JSON is malformed or fails validation.
 #[wasm_bindgen(js_name = validateCashflowSchedule)]
 pub fn validate_cashflow_schedule(schedule_json: &str) -> Result<String, JsValue> {
     finstack_cashflows::validate_cashflow_schedule_json(schedule_json).map_err(to_js_err)
 }
 
 /// Extract dated flows from a cashflow schedule JSON string.
+///
+/// @param schedule_json - JSON-encoded `CashFlowSchedule`.
+/// @returns JSON array of `{date, amount, currency, kind}` entries.
+/// @throws If the schedule JSON is malformed.
 #[wasm_bindgen(js_name = datedFlows)]
 pub fn dated_flows(schedule_json: &str) -> Result<String, JsValue> {
     finstack_cashflows::dated_flows_json(schedule_json).map_err(to_js_err)
 }
 
-/// Compute accrued interest from a cashflow schedule JSON string.
+/// Compute accrued interest from a cashflow schedule JSON string as of a given date.
+///
+/// @param schedule_json - JSON-encoded `CashFlowSchedule`.
+/// @param as_of - ISO-8601 date (YYYY-MM-DD) for the accrual snapshot.
+/// @param config_json - Optional JSON-encoded `AccrualConfig` overriding defaults.
+/// @returns Accrued interest in the schedule's settlement currency.
+/// @throws If any JSON input is malformed or the accrual computation fails.
 #[wasm_bindgen(js_name = accruedInterest)]
 pub fn accrued_interest(
     schedule_json: &str,
@@ -37,6 +56,13 @@ pub fn accrued_interest(
 }
 
 /// Create tagged Bond instrument JSON from a cashflow schedule JSON string.
+///
+/// @param instrument_id - Identifier for the Bond instrument.
+/// @param schedule_json - JSON-encoded `CashFlowSchedule`.
+/// @param discount_curve_id - Identifier of the discount curve used for pricing.
+/// @param quoted_clean - Optional clean quoted price used to calibrate yield on construction.
+/// @returns JSON-encoded tagged `InstrumentJson::Bond`.
+/// @throws If the schedule JSON is malformed or bond construction fails.
 #[wasm_bindgen(js_name = bondFromCashflows)]
 pub fn bond_from_cashflows(
     instrument_id: &str,
