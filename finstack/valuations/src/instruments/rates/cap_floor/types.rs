@@ -405,7 +405,7 @@ impl InterestRateOption {
         let option_params = InterestRateOptionParams {
             rate_option_type: RateOptionType::Caplet,
             notional,
-            strike: crate::utils::decimal::f64_to_decimal(strike, "strike")?,
+            strike: finstack_core::decimal::f64_to_decimal(strike)?,
             frequency: infer_single_period_frequency(start_date, maturity),
             day_count,
             stub: StubKind::ShortFront,
@@ -441,7 +441,7 @@ impl InterestRateOption {
         let option_params = InterestRateOptionParams {
             rate_option_type: RateOptionType::Floorlet,
             notional,
-            strike: crate::utils::decimal::f64_to_decimal(strike, "strike")?,
+            strike: finstack_core::decimal::f64_to_decimal(strike)?,
             frequency: infer_single_period_frequency(start_date, maturity),
             day_count,
             stub: StubKind::ShortFront,

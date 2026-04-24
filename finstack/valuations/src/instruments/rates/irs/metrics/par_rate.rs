@@ -187,10 +187,7 @@ fn par_rate_pv_based(
 
     // Reuse the pricer's PV logic based on compounding type
     let pv_float = match irs.float.compounding {
-        FloatingLegCompounding::Simple => {
-            let fwd = ctx.curves.get_forward(&irs.float.forward_curve_id)?;
-            irs.pv_float_leg(disc, fwd.as_ref(), as_of, fixings)?
-        }
+        FloatingLegCompounding::Simple => irs.pv_float_leg(&ctx.curves, as_of)?,
         FloatingLegCompounding::CompoundedInArrears { .. }
         | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
             let proj = if irs.is_single_curve_ois() {

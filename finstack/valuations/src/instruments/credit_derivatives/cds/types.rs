@@ -703,7 +703,7 @@ impl CreditDefaultSwap {
             notional,
             side,
             convention,
-            crate::utils::decimal::f64_to_decimal(spread_bp, "spread_bp")?,
+            finstack_core::decimal::f64_to_decimal(spread_bp)?,
             start,
             end,
             recovery_rate,

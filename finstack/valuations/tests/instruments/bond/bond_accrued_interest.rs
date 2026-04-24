@@ -300,15 +300,50 @@ fn test_accrued_interest_amortizing_schedule_driven() {
         coupon_dates.len() >= 2,
         "Amortizing test schedule should have at least two coupon dates"
     );
-    // Locate the period containing `as_of`
+    // Locate the period containing `as_of`.
+    //
+    // The accrual engine uses the builder-supplied `accrual_factor` on the
+    // coupon flow as the *period length* (in year fractions) when present,
+    // rather than recomputing it from the flow's payment date. This matters
+    // when the payment date has been shifted by a business-day convention
+    // (e.g. ModifiedFollowing moving a Saturday maturity to the next Monday):
+    // the intended coupon period is still "1 year", not "1 year + 2 days".
+    //
+    // Mirror that convention here so the expected value tracks the impl.
+    let coupon_info: Vec<(Date, f64, Option<f64>)> = {
+        use finstack_valuations::cashflow::primitives::CFKind;
+        let mut out: Vec<(Date, f64, Option<f64>)> = Vec::new();
+        for cf in &schedule.flows {
+            if !matches!(cf.kind, CFKind::Fixed | CFKind::Stub) {
+                continue;
+            }
+            let af = if cf.accrual_factor > 0.0 {
+                Some(cf.accrual_factor)
+            } else {
+                None
+            };
+            if let Some(last) = out.last_mut() {
+                if last.0 == cf.date {
+                    last.1 += cf.amount.amount();
+                    last.2 = last.2.or(af);
+                    continue;
+                }
+            }
+            out.push((cf.date, cf.amount.amount(), af));
+        }
+        out
+    };
     let mut expected = 0.0;
     let mut prev = issue;
-    for (end, coupon_total) in coupon_dates {
+    for (end, coupon_total, af) in coupon_info {
         if prev <= as_of && as_of < end {
-            let total_period = schedule
-                .day_count
-                .year_fraction(prev, end, DayCountContext::default())
-                .unwrap();
+            let total_period = match af {
+                Some(v) => v,
+                None => schedule
+                    .day_count
+                    .year_fraction(prev, end, DayCountContext::default())
+                    .unwrap(),
+            };
             let elapsed = schedule
                 .day_count
                 .year_fraction(prev, as_of, DayCountContext::default())

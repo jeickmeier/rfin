@@ -185,10 +185,7 @@ impl Deposit {
             .start_date(trade_date)
             .maturity(maturity)
             .day_count(conv.day_count)
-            .quote_rate_opt(Some(crate::utils::decimal::f64_to_decimal(
-                quote_rate,
-                "quote_rate",
-            )?))
+            .quote_rate_opt(Some(finstack_core::decimal::f64_to_decimal(quote_rate)?))
             .discount_curve_id(CurveId::new(discount_curve_id))
             .attributes(attributes)
             .spot_lag_days_opt(Some(conv.market_settlement_days))

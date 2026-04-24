@@ -105,6 +105,8 @@ pub mod credit;
 pub mod currency;
 /// Date & calendar helpers (facade over the `time` crate)
 pub mod dates;
+/// Decimal conversion utilities (`f64 ↔ Decimal`) with explicit error propagation.
+pub mod decimal;
 /// Error types for finstack-core.
 ///
 /// The crate uses a unified `Error` enum with specific variants for

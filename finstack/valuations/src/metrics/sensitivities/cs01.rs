@@ -171,6 +171,28 @@ where
     let hazard_ref = hazard.as_ref();
     let has_par_points = hazard_ref.par_spread_points().next().is_some();
 
+    // Align the bucket grid with the hazard-curve knots so the sum of key-rate
+    // CS01s reconciles to the parallel CS01.
+    //
+    // Under the piecewise-constant hazard convention the knot at `t_i` controls
+    // the forward segment `[t_i, t_{i+1})`; in particular a *zero anchor* knot
+    // (`t = 0`) governs `[0, first_positive_knot)`. The standard bucket grid
+    // typically starts at the first positive tenor (e.g. `0.25`), so without
+    // explicitly including the zero anchor that leading segment's sensitivity
+    // is silently dropped from the bucketed decomposition. Prepending a
+    // synthetic `0.0` bucket when (and only when) the hazard curve actually
+    // carries a zero-anchor knot restores the invariant
+    // `sum(bucketed_cs01) ≈ parallel_cs01` without affecting curves that are
+    // natively supported by the grid.
+    let mut buckets: Vec<f64> = bucket_times_years.into_iter().collect();
+    let has_zero_anchor = hazard_ref
+        .knot_points()
+        .next()
+        .is_some_and(|(t, _)| t.abs() <= 1e-9);
+    if has_zero_anchor && !buckets.iter().any(|t| t.abs() <= 1e-9) {
+        buckets.insert(0, 0.0);
+    }
+
     // Central differencing does not need the base PV, but we still probe whether
     // par-spread re-bootstrapping is available so all buckets use the same methodology.
     let used_rebootstrap = if discount_id.is_some() && has_par_points {
@@ -196,7 +218,7 @@ where
     let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
     let mut total = 0.0;
 
-    for t in bucket_times_years.into_iter() {
+    for t in buckets {
         let label = super::config::format_bucket_label_cow(t);
 
         let bump_request_up = BumpRequest::Tenors(vec![(t, bump_bp)]);

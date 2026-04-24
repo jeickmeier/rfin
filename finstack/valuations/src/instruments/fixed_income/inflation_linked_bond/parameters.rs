@@ -44,7 +44,7 @@ impl InflationLinkedBondParams {
     ) -> finstack_core::Result<Self> {
         Ok(Self {
             notional,
-            real_coupon: crate::utils::decimal::f64_to_decimal(real_coupon, "real_coupon")?,
+            real_coupon: finstack_core::decimal::f64_to_decimal(real_coupon)?,
             issue,
             maturity,
             base_index,

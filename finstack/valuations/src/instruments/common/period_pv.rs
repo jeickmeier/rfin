@@ -265,7 +265,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         market: &MarketContext,
         hazard_curve_id: Option<&CurveId>,
         base: Date,
-        dc: DayCount,
+        _dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         let hazard_curve_id = hazard_curve_id.ok_or_else(|| {
             finstack_core::Error::Input(finstack_core::InputError::NotFound {
@@ -285,6 +285,13 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         use finstack_core::dates::DayCountContext;
 
+        // Use the discount curve's own day-count basis for year-fraction mapping,
+        // matching `periodized_pv` so the two paths are directly comparable
+        // (e.g. for credit-vs-non-credit reconciliation). The `_dc` parameter is
+        // retained for API compatibility but intentionally unused.
+        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
+        let curve_dc = disc_arc.day_count();
+
         schedule.pv_by_period(
             periods,
             crate::cashflow::builder::PvDiscountSource::Market {
@@ -292,7 +299,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
                 disc_curve_id,
                 hazard_curve_id: Some(hazard_curve_id),
             },
-            DateContext::new(base, dc, DayCountContext::default()),
+            DateContext::new(base, curve_dc, DayCountContext::default()),
         )
     }
 }
@@ -527,10 +534,14 @@ mod tests {
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
+        // Piecewise-constant hazard curve: λ = 0.01 on [0, 1), λ = 0.015 on [1, ∞).
+        // (The first knot's λ governs [0, t₀); subsequent knots govern later
+        // intervals. A leading λ = 0 would make survival ≡ 1 on [0, 1), which is
+        // useless for exercising the credit-adjustment path.)
         let hazard_curve = HazardCurve::builder("CORP-HAZARD")
             .base_date(base)
             .recovery_rate(0.40)
-            .knots([(0.0, 0.0), (1.0, 0.01)]) // 1% hazard rate at 1 year
+            .knots([(0.0, 0.01), (1.0, 0.015)])
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
@@ -645,7 +656,12 @@ mod tests {
         let disc_ref: &dyn finstack_core::market_data::traits::Discounting = &disc_curve;
         let hazard_ref: &dyn finstack_core::market_data::traits::Survival = &hazard_curve;
 
-        let date_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
+        // Mirror `periodized_pv_credit_adjusted` semantics: year-fraction mapping
+        // uses the discount curve's own day-count so the two paths are
+        // directly comparable. (The bond's spec day-count is irrelevant here;
+        // only the curve's basis drives discounting.)
+        let curve_dc = disc_ref.day_count();
+        let date_ctx = DateContext::new(base, curve_dc, DayCountContext::default());
         let detailed = schedule
             .pv_by_period(
                 &periods,

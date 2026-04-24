@@ -227,7 +227,7 @@ impl InterestRateSwap {
             .side(side)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new(discount_curve_id),
-                rate: crate::utils::decimal::f64_to_decimal(fixed_rate, "fixed_rate")?,
+                rate: finstack_core::decimal::f64_to_decimal(fixed_rate)?,
                 frequency: conv.fixed_freq,
                 day_count: conv.fixed_dc,
                 bdc: conv.bdc,

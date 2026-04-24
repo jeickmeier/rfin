@@ -322,43 +322,46 @@ fn test_dataframe_export_metric_keys() {
     // Export to row
     let row = result.to_row();
 
-    // Verify all key metrics are populated (not None)
-    assert!(
-        row.duration.is_some(),
-        "Duration should be populated from duration_mod metric"
-    );
-    assert!(
-        row.dv01.is_some(),
-        "DV01 should be populated from dv01 metric"
-    );
-    assert!(
-        row.convexity.is_some(),
-        "Convexity should be populated from convexity metric"
-    );
-    assert!(row.ytm.is_some(), "YTM should be populated from ytm metric");
+    // Verify identity fields propagate.
+    assert_eq!(row.instrument_id, "TEST-BOND-EXPORT");
+    assert_eq!(row.currency, "USD");
 
-    // Verify values are reasonable (not zero from wrong key mapping)
-    let duration = row.duration.unwrap();
+    // Every requested metric appears as a named column, keyed by its
+    // canonical MetricId string. No metric is hard-coded by the row type.
+    let duration = row
+        .measures
+        .get("duration_mod")
+        .copied()
+        .expect("duration_mod should be populated");
     assert!(
         duration > 0.0,
-        "Duration should be positive, got {}",
-        duration
+        "Duration should be positive, got {duration}"
     );
 
-    let dv01 = row.dv01.unwrap();
-    assert!(dv01.abs() > 1e-10, "DV01 should be non-zero, got {}", dv01);
+    let dv01 = row
+        .measures
+        .get("dv01")
+        .copied()
+        .expect("dv01 should be populated");
+    assert!(dv01.abs() > 1e-10, "DV01 should be non-zero, got {dv01}");
 
-    let convexity = row.convexity.unwrap();
+    let convexity = row
+        .measures
+        .get("convexity")
+        .copied()
+        .expect("convexity should be populated");
     assert!(
         convexity.is_finite(),
-        "Convexity should be finite, got {}",
-        convexity
+        "Convexity should be finite, got {convexity}"
     );
 
-    let ytm = row.ytm.unwrap();
+    let ytm = row
+        .measures
+        .get("ytm")
+        .copied()
+        .expect("ytm should be populated");
     assert!(
         ytm > 0.0 && ytm < 1.0,
-        "YTM should be a reasonable rate (0-100%), got {}",
-        ytm
+        "YTM should be a reasonable rate (0-100%), got {ytm}"
     );
 }

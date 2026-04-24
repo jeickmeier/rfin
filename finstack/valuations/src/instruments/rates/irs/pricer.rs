@@ -24,9 +24,8 @@
 // Using generic pricer implementation to eliminate boilerplate
 
 // Re-export shared swap leg pricing utilities for internal use
-use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
 pub(crate) use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
-use crate::instruments::common_impl::pricing::swap_legs::{FloatingLegParams, LegPeriod};
+use crate::instruments::common_impl::pricing::swap_legs::LegPeriod;
 
 use crate::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_core::dates::Date;
@@ -225,65 +224,44 @@ impl InterestRateSwap {
     /// - Historical fixings are required but not provided or missing for a reset date
     pub(crate) fn pv_float_leg(
         &self,
-        disc: &finstack_core::market_data::term_structures::DiscountCurve,
-        fwd: &finstack_core::market_data::term_structures::ForwardCurve,
+        context: &MarketContext,
         as_of: Date,
-        fixings: Option<&ScalarTimeSeries>,
     ) -> finstack_core::Result<f64> {
-        let float = self.resolved_float_leg();
-        let schedule_periods = build_periods(BuildPeriodsParams {
-            start: float.start,
-            end: float.end,
-            frequency: float.frequency,
-            stub: float.stub,
-            bdc: float.bdc,
-            calendar_id: float
-                .calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-            end_of_month: float.end_of_month,
-            day_count: float.day_count,
-            payment_lag_days: float.payment_lag_days,
-            reset_lag_days: Some(float.reset_lag_days),
-        })?;
-        if schedule_periods.is_empty() {
-            return Ok(0.0);
+        // Delegate rate projection to the cashflow builder so the pricer and
+        // the signed schedule surfaced by `cashflow_schedule` / `dated_cashflows`
+        // use bit-for-bit identical coupon amounts. The builder follows the
+        // ISDA 2006 convention of projecting the index rate over
+        // `[reset_date, reset_date + index_tenor]` (an unadjusted tenor),
+        // whereas an inlined projection over the BDC-adjusted accrual window
+        // introduces small but compounding mismatches across the leg.
+        use crate::instruments::common_impl::pricing::swap_legs::add_payment_delay;
+        use finstack_core::cashflow::CFKind;
+
+        let disc = context.get_discount(self.fixed.discount_curve_id.as_ref())?;
+        let float_sched =
+            crate::instruments::rates::irs::cashflow::float_leg_schedule_with_curves_as_of(
+                self,
+                Some(context),
+                Some(as_of),
+            )?;
+
+        let mut acc = NeumaierAccumulator::new();
+        for flow in float_sched.flows {
+            if flow.kind != CFKind::FloatReset {
+                continue;
+            }
+            let payment_date = add_payment_delay(
+                flow.date,
+                self.float.payment_lag_days,
+                self.float.calendar_id.as_deref(),
+            )?;
+            if payment_date <= as_of {
+                continue;
+            }
+            let df = robust_relative_df(disc.as_ref(), as_of, payment_date)?;
+            acc.add(flow.amount.amount() * df);
         }
-
-        // Convert period schedule to LegPeriod iterator for shared pricing
-        let periods: Vec<LegPeriod> = schedule_periods
-            .into_iter()
-            .map(|period| LegPeriod {
-                accrual_start: period.accrual_start,
-                accrual_end: period.accrual_end,
-                reset_date: period.reset_date,
-                year_fraction: period.accrual_year_fraction,
-            })
-            .collect();
-
-        // Build floating leg params using shared type
-        let params = FloatingLegParams::full(
-            decimal_to_f64(float.spread_bp, "float leg spread_bp")?,
-            1.0,  // gearing
-            true, // gearing_includes_spread
-            None, // index_floor_bp
-            None, // index_cap_bp
-            None, // all_in_floor_bp
-            None, // all_in_cap_bp
-            float.payment_lag_days,
-            float.calendar_id.clone(),
-        );
-
-        // Use shared pricing function
-        crate::instruments::common_impl::pricing::swap_legs::pv_floating_leg(
-            periods.into_iter(),
-            self.notional.amount(),
-            &params,
-            disc,
-            fwd,
-            as_of,
-            fixings,
-        )
+        Ok(acc.total())
     }
 }
 
@@ -359,10 +337,7 @@ pub(crate) fn compute_pv_raw(
     .ok();
     let pv_fixed = irs.pv_fixed_leg(disc.as_ref(), as_of)?;
     let pv_float = match irs.float.compounding {
-        FloatingLegCompounding::Simple => {
-            let fwd = context.get_forward(irs.float.forward_curve_id.as_ref())?;
-            irs.pv_float_leg(disc.as_ref(), fwd.as_ref(), as_of, fixings)?
-        }
+        FloatingLegCompounding::Simple => irs.pv_float_leg(context, as_of)?,
         FloatingLegCompounding::CompoundedInArrears { .. }
         | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
             let proj = if irs.is_single_curve_ois() {

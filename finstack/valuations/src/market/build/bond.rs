@@ -217,26 +217,75 @@ fn dirty_price_from_ytm_with_frequency_ctx(
     as_of: finstack_core::dates::Date,
     ytm: f64,
 ) -> Result<f64> {
+    use crate::instruments::fixed_income::bond::pricing::quote_conversions::periods_per_year;
+
     let day_count = bond.cashflow_spec.day_count();
     let freq = bond.cashflow_spec.frequency();
-    let mut pv = NeumaierAccumulator::new();
+    let dc_ctx = DayCountContext {
+        frequency: Some(freq),
+        ..Default::default()
+    };
 
+    // Street / ISMA Rule 251 convention: discount by integer coupon-period count
+    // plus a fractional remaining first period `nu`. Measuring the first period
+    // off the unadjusted schedule (rather than the BDC-adjusted payment date)
+    // is what keeps the par-bond identity (y = c  =>  clean = 100) exact for
+    // bonds whose coupon dates get shifted by business-day convention.
+    //
+    //   df_k = (1 + y/m)^(-(nu + (k - 1)))
+    //
+    // where `m = periods_per_year(freq)` and flows are indexed k = 1, 2, ...
+    // in chronological order starting from the first future coupon.
+    let future_dates: Vec<finstack_core::dates::Date> = {
+        let mut v: Vec<_> = flows
+            .iter()
+            .filter_map(|(d, _)| if *d > as_of { Some(*d) } else { None })
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    };
+
+    let Some(&next_coupon) = future_dates.first() else {
+        return Ok(0.0);
+    };
+
+    let m = periods_per_year(freq)?.max(1.0);
+    let period_length = 1.0 / m;
+    let time_to_next = day_count.year_fraction(as_of, next_coupon, dc_ctx)?;
+    // `nu` is the remaining first period expressed in period units, clamped to
+    // [0, 1]. It equals (time_to_next / period_length); a small overshoot above
+    // 1.0 can happen if the next coupon was BDC-rolled forward across a
+    // weekend, but that is absorbed by the integer index below so the formula
+    // stays robust.
+    let nu = (time_to_next / period_length).clamp(0.0, 1.0);
+
+    let mut pv = NeumaierAccumulator::new();
     for &(date, amount) in flows {
         if date <= as_of {
             continue;
         }
-        let t = day_count.year_fraction(
-            as_of,
-            date,
-            DayCountContext {
-                frequency: Some(freq),
-                ..Default::default()
-            },
-        )?;
-        if t > 0.0 {
-            let df = df_from_yield(ytm, t, YieldCompounding::Street, freq)?;
-            pv.add(amount.amount() * df);
+        // 1-based coupon-period index from the next coupon date.
+        let k = future_dates
+            .iter()
+            .position(|d| *d == date)
+            .map(|i| i + 1)
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "flow date {} not in ordered future-flow list",
+                    date
+                ))
+            })?;
+        let exponent = nu + (k as f64 - 1.0);
+        if exponent <= 0.0 {
+            pv.add(amount.amount());
+            continue;
         }
+        // Use Periodic compounding at (1 + y/m)^(-exponent); this matches the
+        // Street / ISMA formula applied to an integer-plus-stub schedule.
+        let t_equiv = exponent * period_length;
+        let df = df_from_yield(ytm, t_equiv, YieldCompounding::Street, freq)?;
+        pv.add(amount.amount() * df);
     }
 
     Ok(pv.total())

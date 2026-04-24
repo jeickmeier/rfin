@@ -32,15 +32,6 @@ __all__ = [
     "CalibrationResult",
     "validate_calibration_json",
     "calibrate",
-    "metrics_table_from_dict",
-    "cashflow_ladder",
-    "scenario_matrix",
-    "waterfall_from_steps",
-    "format_bps",
-    "format_pct",
-    "format_currency",
-    "format_ratio",
-    "format_scientific",
     "bs_cos_price",
     "vg_cos_price",
     "merton_jump_cos_price",
@@ -48,9 +39,6 @@ __all__ = [
     "snowball_coupon_profile",
     "cms_spread_option_intrinsic",
     "callable_range_accrual_accrued",
-    "execute_recovery_waterfall",
-    "analyze_exchange_offer",
-    "analyze_lme",
     "ValuationCache",
 ]
 
@@ -1093,129 +1081,6 @@ def calibrate(json: str) -> CalibrationResult:
         True
         >>> curve = result.market.get_discount("USD-OIS")  # doctest: +SKIP
     """
-    ...
-
-# ---------------------------------------------------------------------------
-# Report-generation components
-# ---------------------------------------------------------------------------
-
-def metrics_table_from_dict(
-    instrument_id: str,
-    as_of: str,
-    currency: str,
-    npv: float,
-    metrics: dict[str, float],
-) -> dict:
-    """Build a structured metrics table from a flat ``{name: value}`` dict.
-
-    Units (currency-per-bp, percent, years, ratio, …) are auto-inferred from
-    the metric name.
-
-    Args:
-        instrument_id: Identifier used in the table header.
-        as_of: Valuation date in ISO 8601 format.
-        currency: Currency code (e.g. ``"USD"``).
-        npv: Present value for the subtitle row.
-        metrics: Ordered mapping of metric id → raw numeric value.
-
-    Returns:
-        ``{"json": dict, "markdown": str, "component_type": "metrics_table"}``.
-
-    Example:
-        >>> from finstack.valuations import metrics_table_from_dict
-        >>> out = metrics_table_from_dict(
-        ...     "BOND-001",
-        ...     "2025-01-15",
-        ...     "USD",
-        ...     1_000_000.0,
-        ...     {"dv01": 425.0, "ytm": 0.0475},
-        ... )
-        >>> print(out["markdown"])  # doctest: +SKIP
-    """
-    ...
-
-def cashflow_ladder(
-    instrument_id: str,
-    currency: str,
-    dates: list[str],
-    principal: list[float],
-    interest: list[float],
-    frequency: str = "quarterly",
-) -> dict:
-    """Build a time-bucketed cashflow summary.
-
-    Args:
-        instrument_id: Label for the ladder.
-        currency: Currency code (display-only).
-        dates: ISO 8601 dates aligned with *principal* and *interest*.
-        principal: Principal amounts per date; same length as *dates*.
-        interest: Interest amounts per date; same length as *dates*.
-        frequency: ``"monthly"``, ``"quarterly"``, ``"semi_annual"``, or
-            ``"annual"``.
-
-    Returns:
-        ``{"json": dict, "markdown": str, "component_type": "cashflow_ladder"}``.
-        The ``json`` payload contains ``buckets``, ``total``, and
-        ``weighted_avg_life``.
-    """
-    ...
-
-def scenario_matrix(
-    title: str,
-    scenarios: list[tuple[str, dict[str, float]]],
-    base_case: str | None = None,
-) -> dict:
-    """Build a scenario-name × metric matrix.
-
-    Args:
-        title: Display title for the matrix.
-        scenarios: Ordered ``(scenario_name, {metric_id: value})`` pairs.
-        base_case: Optional scenario name to use as the delta reference.
-
-    Returns:
-        ``{"json": dict, "markdown": str, "component_type": "scenario_matrix"}``.
-    """
-    ...
-
-def waterfall_from_steps(
-    title: str,
-    currency: str,
-    start_value: float,
-    end_value: float,
-    steps: list[tuple[str, float]],
-) -> dict:
-    """Build a waterfall chart data object from ordered factor contributions.
-
-    Args:
-        title: Display title for the chart.
-        currency: Currency code (display-only).
-        start_value: Opening (T₀) value.
-        end_value: Closing (T₁) value.
-        steps: Ordered ``(label, contribution)`` pairs.
-
-    Returns:
-        ``{"json": dict, "markdown": str, "component_type": "waterfall_data"}``.
-    """
-    ...
-
-def format_bps(value: float, decimals: int = 1) -> str:
-    """Format a decimal fraction in basis points (``0.0025`` → ``"25.0 bps"``)."""
-    ...
-
-def format_pct(value: float, decimals: int = 2) -> str:
-    """Format a decimal fraction as a percentage (``0.0534`` → ``"5.34%"``)."""
-    ...
-
-def format_currency(value: float, currency: str = "USD", decimals: int = 2) -> str:
-    """Format a currency amount with thousands separators."""
-    ...
-
-def format_ratio(value: float, decimals: int = 2) -> str:
-    """Format a dimensionless ratio with an ``x`` suffix (``3.5`` → ``"3.50x"``)."""
-    ...
-
-def format_scientific(value: float, sig_figs: int = 3) -> str:
-    """Format a number in scientific notation (``0.000123`` → ``"1.23e-4"``)."""
     ...
 
 # ---------------------------------------------------------------------------

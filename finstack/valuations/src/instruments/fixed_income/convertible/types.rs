@@ -429,7 +429,7 @@ impl ConvertibleBond {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         use time::macros::date;
 
-        let coupon_rate = crate::utils::decimal::f64_to_decimal(0.02, "coupon_rate")?;
+        let coupon_rate = finstack_core::decimal::f64_to_decimal(0.02)?;
 
         ConvertibleBond::builder()
             .id(InstrumentId::new("CB-TECH-5Y"))
@@ -486,7 +486,7 @@ impl ConvertibleBond {
 
         let issue = date!(2024 - 03 - 15);
         let maturity = date!(2027 - 03 - 15);
-        let coupon_rate = crate::utils::decimal::f64_to_decimal(0.05, "coupon_rate")?;
+        let coupon_rate = finstack_core::decimal::f64_to_decimal(0.05)?;
 
         ConvertibleBond::builder()
             .id(InstrumentId::new("CB-MAND-DECS-3Y"))

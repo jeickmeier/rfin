@@ -29,15 +29,6 @@ decompose_factor_risk = _valuations.decompose_factor_risk
 CalibrationResult = _valuations.CalibrationResult
 validate_calibration_json = _valuations.validate_calibration_json
 calibrate = _valuations.calibrate
-metrics_table_from_dict = _valuations.metrics_table_from_dict
-cashflow_ladder = _valuations.cashflow_ladder
-scenario_matrix = _valuations.scenario_matrix
-waterfall_from_steps = _valuations.waterfall_from_steps
-format_bps = _valuations.format_bps
-format_pct = _valuations.format_pct
-format_currency = _valuations.format_currency
-format_ratio = _valuations.format_ratio
-format_scientific = _valuations.format_scientific
 tarn_coupon_profile = _valuations.tarn_coupon_profile
 snowball_coupon_profile = _valuations.snowball_coupon_profile
 cms_spread_option_intrinsic = _valuations.cms_spread_option_intrinsic
@@ -46,9 +37,6 @@ bs_cos_price = _valuations.bs_cos_price
 vg_cos_price = _valuations.vg_cos_price
 merton_jump_cos_price = _valuations.merton_jump_cos_price
 ValuationCache = _valuations.ValuationCache
-execute_recovery_waterfall = _valuations.execute_recovery_waterfall
-analyze_exchange_offer = _valuations.analyze_exchange_offer
-analyze_lme = _valuations.analyze_lme
 
 __all__: list[str] = [
     "CalibrationResult",
@@ -58,14 +46,11 @@ __all__: list[str] = [
     "SensitivityMatrix",
     "ValuationCache",
     "ValuationResult",
-    "analyze_exchange_offer",
-    "analyze_lme",
     "attribute_pnl",
     "attribute_pnl_from_spec",
     "bs_cos_price",
     "calibrate",
     "callable_range_accrual_accrued",
-    "cashflow_ladder",
     "cms_spread_option_intrinsic",
     "compute_factor_sensitivities",
     "compute_pnl_profiles",
@@ -73,25 +58,16 @@ __all__: list[str] = [
     "decompose_factor_risk",
     "default_attribution_metrics",
     "default_waterfall_order",
-    "execute_recovery_waterfall",
-    "format_bps",
-    "format_currency",
-    "format_pct",
-    "format_ratio",
-    "format_scientific",
     "instruments",
     "list_standard_metrics",
     "list_standard_metrics_grouped",
     "merton_jump_cos_price",
-    "metrics_table_from_dict",
     "price_instrument",
     "price_instrument_with_metrics",
-    "scenario_matrix",
     "snowball_coupon_profile",
     "tarn_coupon_profile",
     "validate_attribution_json",
     "validate_calibration_json",
     "validate_instrument_json",
     "vg_cos_price",
-    "waterfall_from_steps",
 ]

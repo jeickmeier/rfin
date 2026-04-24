@@ -12,7 +12,6 @@ mod exotic_rates;
 mod factor_model;
 mod fourier;
 mod pricing;
-mod reporting;
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
@@ -148,7 +147,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     attribution::register(py, &m)?;
     factor_model::register(py, &m)?;
     calibration::register(py, &m)?;
-    reporting::register(py, &m)?;
     fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
     cache::register(py, &m)?;
@@ -178,15 +176,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "CalibrationResult",
             "validate_calibration_json",
             "calibrate",
-            "metrics_table_from_dict",
-            "cashflow_ladder",
-            "scenario_matrix",
-            "waterfall_from_steps",
-            "format_bps",
-            "format_pct",
-            "format_currency",
-            "format_ratio",
-            "format_scientific",
             "bs_cos_price",
             "vg_cos_price",
             "merton_jump_cos_price",

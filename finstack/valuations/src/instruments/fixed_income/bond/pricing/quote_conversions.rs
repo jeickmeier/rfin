@@ -857,7 +857,7 @@ pub fn price_from_dm(
         &mut b.cashflow_spec
     {
         // Convert dm (in decimal) to basis points and add to spread_bp (Decimal)
-        let dm_bp = crate::utils::decimal::f64_to_decimal(dm * 1e4, "dm")?;
+        let dm_bp = finstack_core::decimal::f64_to_decimal(dm * 1e4)?;
         spec.rate_spec.spread_bp += dm_bp;
     }
     Ok(b.value(curves, as_of)?.amount())

@@ -265,7 +265,10 @@ fn test_irs_value_matches_combined_signed_schedule() {
     let value = swap.value(&market, as_of).unwrap();
     assert!(
         (value.amount() - expected_pv).abs() < 1.0e-6,
-        "IRS value should reconcile to the combined signed schedule"
+        "IRS value should reconcile to the combined signed schedule: value={} expected={} diff={}",
+        value.amount(),
+        expected_pv,
+        value.amount() - expected_pv
     );
 }
 

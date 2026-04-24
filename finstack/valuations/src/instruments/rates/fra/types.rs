@@ -261,7 +261,7 @@ impl ForwardRateAgreement {
             .fixing_date(date!(2024 - 04 - 01))
             .start_date(date!(2024 - 04 - 03))
             .maturity(date!(2024 - 07 - 03))
-            .fixed_rate(crate::utils::decimal::f64_to_decimal(0.045, "fixed_rate")?)
+            .fixed_rate(finstack_core::decimal::f64_to_decimal(0.045)?)
             .day_count(DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -304,10 +304,7 @@ impl ForwardRateAgreement {
             .notional(notional)
             .start_date(start_date)
             .maturity(maturity)
-            .fixed_rate(crate::utils::decimal::f64_to_decimal(
-                fixed_rate,
-                "fixed_rate",
-            )?)
+            .fixed_rate(finstack_core::decimal::f64_to_decimal(fixed_rate)?)
             .day_count(conv.day_count)
             .reset_lag(conv.default_reset_lag_days)
             .discount_curve_id(CurveId::new(discount_curve_id))
@@ -669,7 +666,7 @@ mod tests {
             .start_date(start)
             .maturity(end)
             .fixed_rate(
-                crate::utils::decimal::f64_to_decimal(0.05, "fixed_rate")
+                finstack_core::decimal::f64_to_decimal(0.05)
                     .expect("fixed rate should convert in test"),
             )
             .day_count(finstack_core::dates::DayCount::Act360)
@@ -724,7 +721,7 @@ mod tests {
             .start_date(start)
             .maturity(end)
             .fixed_rate(
-                crate::utils::decimal::f64_to_decimal(0.04, "fixed_rate")
+                finstack_core::decimal::f64_to_decimal(0.04)
                     .expect("fixed rate should convert in test"),
             ) // Different from market rate
             .day_count(finstack_core::dates::DayCount::Act360)
