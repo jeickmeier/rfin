@@ -1990,32 +1990,37 @@ def rolling_volatility(
         True
     """
 
-def value_at_risk(returns: list[float], confidence: float = 0.95, ann_factor: float | None = None) -> float:
+def value_at_risk(returns: list[float], confidence: float = 0.95) -> float:
     """Historical Value-at-Risk.
+
+    Reported in the native period of ``returns``. Use ``parametric_var`` or
+    ``cornish_fisher_var`` for horizon-scaled estimates — sqrt-T scaling is
+    invalid for non-parametric quantiles.
 
     Args:
         returns: Simple returns.
         confidence: Confidence level.
-        ann_factor: Optional annualization for reporting scale.
 
     Returns:
-        VaR.
+        VaR (non-positive).
 
     Example:
         >>> value_at_risk([-0.5, -0.01, 0.02], 0.95) <= 0
         True
     """
 
-def expected_shortfall(returns: list[float], confidence: float = 0.95, ann_factor: float | None = None) -> float:
+def expected_shortfall(returns: list[float], confidence: float = 0.95) -> float:
     """Expected Shortfall (CVaR).
+
+    Reported in the native period of ``returns``; sqrt-T scaling is invalid
+    for non-parametric tail means.
 
     Args:
         returns: Simple returns.
         confidence: Confidence level.
-        ann_factor: Optional annualization.
 
     Returns:
-        Expected shortfall.
+        Expected shortfall (non-positive).
 
     Example:
         >>> expected_shortfall([-0.5, -0.01, 0.02], 0.95) <= 0

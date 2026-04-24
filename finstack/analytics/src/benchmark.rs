@@ -964,6 +964,7 @@ where
 ///
 /// - Fama & French (1993): see docs/REFERENCES.md#fama-french-1993
 /// - Higham: see docs/REFERENCES.md#higham-accuracy-and-stability
+#[tracing::instrument(level = "debug", skip(returns, factors), fields(n = returns.len(), k = factors.len(), ann_factor = ann_factor))]
 pub fn multi_factor_greeks(
     returns: &[f64],
     factors: &[&[f64]],

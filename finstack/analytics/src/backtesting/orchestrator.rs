@@ -39,6 +39,7 @@ use super::types::{BacktestResult, Breach, MultiModelComparison, VarBacktestConf
 /// assert_eq!(result.traffic_light.zone, TrafficLightZone::Green);
 /// ```
 #[must_use]
+#[tracing::instrument(level = "debug", skip(var_forecasts, realized_pnl, config), fields(n = var_forecasts.len(), confidence = config.confidence, window = config.window_size))]
 pub fn run_backtest(
     var_forecasts: &[f64],
     realized_pnl: &[f64],
@@ -130,6 +131,7 @@ pub fn rolling_var_forecasts(
 ///
 /// `MultiModelComparison` containing one `BacktestResult` per model.
 #[must_use]
+#[tracing::instrument(level = "debug", skip(models, realized_pnl, config), fields(n_models = models.len(), n_obs = realized_pnl.len(), confidence = config.confidence))]
 pub fn compare_var_backtests(
     models: &[(VarMethod, &[f64])],
     realized_pnl: &[f64],

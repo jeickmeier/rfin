@@ -567,8 +567,8 @@ export interface AnalyticsNamespace {
   modifiedSharpe(returns: number[], riskFreeRate: number, confidence: number, annFactor: number): number;
   estimateRuin(returns: number[], definition: RuinDefinition, model: RuinModel): RuinEstimateJson;
   // Risk metrics — tail
-  valueAtRisk(returns: number[], confidence: number, annFactor?: number): number;
-  expectedShortfall(returns: number[], confidence: number, annFactor?: number): number;
+  valueAtRisk(returns: number[], confidence: number): number;
+  expectedShortfall(returns: number[], confidence: number): number;
   parametricVar(returns: number[], confidence: number, annFactor?: number): number;
   cornishFisherVar(returns: number[], confidence: number, annFactor?: number): number;
   skewness(returns: number[]): number;
@@ -639,6 +639,12 @@ export interface AnalyticsNamespace {
   trafficLight(exceptions: number, n: number, confidence: number): TrafficLightResultJson;
   runBacktest(varForecasts: number[], realizedPnl: number[], confidence: number, windowSize: number): BacktestResultJson;
   rollingVarForecasts(returns: number[], lookback: number, confidence: number, method: string): [number[], number[]];
+  /**
+   * Batched rolling-VaR forecasts across multiple `(lookback, confidence, method)`
+   * configurations over the same return series. Amortizes the JS↔WASM serde
+   * round-trip paid per call by `rollingVarForecasts`.
+   */
+  rollingVarBatch(returns: number[], configs: [number, number, string][]): [number[], number[]][];
   compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;
   pnlExplanation(hypotheticalPnl: number[], riskTheoreticalPnl: number[], varForecasts: number[]): PnlExplanationJson;
   // GARCH volatility models

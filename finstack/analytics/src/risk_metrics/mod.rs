@@ -22,6 +22,34 @@ mod return_based;
 mod rolling;
 mod tail_risk;
 
+/// Convert a sentinel-returning metric value into a typed error at a
+/// boundary where invalid input should surface explicitly.
+///
+/// The risk metrics in this module return sentinel values (`NaN`, `0.0`,
+/// or `±∞`) for invalid inputs because that matches the pipeline ergonomics
+/// expected by DataFrame- and array-based callers. Applications that need
+/// strict error propagation can wrap the result:
+///
+/// ```rust
+/// use finstack_analytics::risk_metrics::{require_finite, value_at_risk};
+///
+/// let returns = [0.01, 0.02, -0.01, 0.03];
+/// let var = require_finite(value_at_risk(&returns, 0.99))?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
+///
+/// # Errors
+///
+/// Returns [`finstack_core::error::InputError::Invalid`] if `value` is not
+/// finite (i.e. it is `NaN`, `+∞`, or `-∞`).
+pub fn require_finite(value: f64) -> crate::Result<f64> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(crate::error::InputError::Invalid.into())
+    }
+}
+
 pub(crate) use return_based::invalid_annualization_factor;
 pub use return_based::{
     cagr, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean, mean_return,
