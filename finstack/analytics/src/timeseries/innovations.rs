@@ -21,18 +21,15 @@ pub enum InnovationDist {
 impl FromStr for InnovationDist {
     type Err = String;
 
-    /// Parse a human-friendly innovation distribution label.
+    /// Parse an innovation distribution label (case-insensitive).
     ///
-    /// Accepted (case-insensitive) aliases:
-    /// - `Gaussian`: `"gaussian"`, `"normal"`, `"gauss"`, `"n"`
-    /// - `StudentT`: `"student_t"`, `"student-t"`, `"studentt"`, `"t"`.
-    ///   The degrees-of-freedom parameter is seeded at 8.0 and is typically
-    ///   re-estimated by the MLE routine; callers that need a specific initial
-    ///   `nu` should construct the variant directly.
+    /// Canonical forms: `"gaussian"`, `"student_t"`. Student-t seeds `nu = 8.0`;
+    /// the MLE routine typically re-estimates `nu`. Callers that need a specific
+    /// initial `nu` should construct the variant directly.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "gaussian" | "normal" | "gauss" | "n" => Ok(InnovationDist::Gaussian),
-            "student_t" | "student-t" | "studentt" | "t" => Ok(InnovationDist::StudentT(8.0)),
+            "gaussian" => Ok(InnovationDist::Gaussian),
+            "student_t" => Ok(InnovationDist::StudentT(8.0)),
             other => Err(format!(
                 "unknown distribution '{other}'; expected 'gaussian' or 'student_t'"
             )),
@@ -157,20 +154,16 @@ mod tests {
     }
 
     #[test]
-    fn parses_aliases() {
+    fn parses_canonical_forms() {
         assert_eq!(
             "gaussian".parse::<InnovationDist>().unwrap(),
-            InnovationDist::Gaussian
-        );
-        assert_eq!(
-            "Normal".parse::<InnovationDist>().unwrap(),
             InnovationDist::Gaussian
         );
         let InnovationDist::StudentT(nu) = "student_t".parse::<InnovationDist>().unwrap() else {
             panic!("expected StudentT variant");
         };
         assert!((nu - 8.0).abs() < 1e-12);
-        let InnovationDist::StudentT(_) = "  T  ".parse::<InnovationDist>().unwrap() else {
+        let InnovationDist::StudentT(_) = "  STUDENT_T  ".parse::<InnovationDist>().unwrap() else {
             panic!("expected StudentT variant");
         };
         assert!("nope".parse::<InnovationDist>().is_err());

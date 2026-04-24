@@ -565,32 +565,40 @@ impl PyPerformance {
         risk_free_rate: f64,
         confidence: f64,
     ) -> PyResult<Bound<'py, PyAny>> {
+        // (name, value) pairs driven by a single source of truth so adding a
+        // metric is one line, not three places to update.
+        let metrics: [(&str, Vec<f64>); 22] = [
+            ("cagr", self.inner.cagr()),
+            ("mean_return", self.inner.mean_return(true)),
+            ("volatility", self.inner.volatility(true)),
+            ("sharpe", self.inner.sharpe(risk_free_rate)),
+            ("sortino", self.inner.sortino(0.0)),
+            ("calmar", self.inner.calmar()),
+            ("max_drawdown", self.inner.max_drawdown()),
+            ("value_at_risk", self.inner.value_at_risk(confidence)),
+            (
+                "expected_shortfall",
+                self.inner.expected_shortfall(confidence),
+            ),
+            ("tracking_error", self.inner.tracking_error()),
+            ("information_ratio", self.inner.information_ratio()),
+            ("skewness", self.inner.skewness()),
+            ("kurtosis", self.inner.kurtosis()),
+            ("geometric_mean", self.inner.geometric_mean()),
+            ("downside_deviation", self.inner.downside_deviation(0.0)),
+            ("omega_ratio", self.inner.omega_ratio(0.0)),
+            ("gain_to_pain", self.inner.gain_to_pain()),
+            ("ulcer_index", self.inner.ulcer_index()),
+            ("pain_index", self.inner.pain_index()),
+            ("recovery_factor", self.inner.recovery_factor()),
+            ("tail_ratio", self.inner.tail_ratio(confidence)),
+            ("r_squared", self.inner.r_squared()),
+        ];
+
         let data = PyDict::new(py);
-        data.set_item("cagr", self.inner.cagr())?;
-        data.set_item("mean_return", self.inner.mean_return(true))?;
-        data.set_item("volatility", self.inner.volatility(true))?;
-        data.set_item("sharpe", self.inner.sharpe(risk_free_rate))?;
-        data.set_item("sortino", self.inner.sortino(0.0))?;
-        data.set_item("calmar", self.inner.calmar())?;
-        data.set_item("max_drawdown", self.inner.max_drawdown())?;
-        data.set_item("value_at_risk", self.inner.value_at_risk(confidence))?;
-        data.set_item(
-            "expected_shortfall",
-            self.inner.expected_shortfall(confidence),
-        )?;
-        data.set_item("tracking_error", self.inner.tracking_error())?;
-        data.set_item("information_ratio", self.inner.information_ratio())?;
-        data.set_item("skewness", self.inner.skewness())?;
-        data.set_item("kurtosis", self.inner.kurtosis())?;
-        data.set_item("geometric_mean", self.inner.geometric_mean())?;
-        data.set_item("downside_deviation", self.inner.downside_deviation(0.0))?;
-        data.set_item("omega_ratio", self.inner.omega_ratio(0.0))?;
-        data.set_item("gain_to_pain", self.inner.gain_to_pain())?;
-        data.set_item("ulcer_index", self.inner.ulcer_index())?;
-        data.set_item("pain_index", self.inner.pain_index())?;
-        data.set_item("recovery_factor", self.inner.recovery_factor())?;
-        data.set_item("tail_ratio", self.inner.tail_ratio(confidence))?;
-        data.set_item("r_squared", self.inner.r_squared())?;
+        for (name, values) in metrics {
+            data.set_item(name, values)?;
+        }
 
         let names = self.inner.ticker_names();
         let index: Vec<&str> = names.iter().map(|s| s.as_str()).collect();

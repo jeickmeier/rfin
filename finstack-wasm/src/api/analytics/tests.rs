@@ -123,8 +123,8 @@ mod tests {
         let r = vec![
             0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.015, -0.005, 0.02, -0.01,
         ];
-        let var = fa::risk_metrics::value_at_risk(&r, 0.95, None);
-        let es = fa::risk_metrics::expected_shortfall(&r, 0.95, None);
+        let var = fa::risk_metrics::value_at_risk(&r, 0.95);
+        let es = fa::risk_metrics::expected_shortfall(&r, 0.95);
         assert!(var.is_finite());
         assert!(es.is_finite());
     }

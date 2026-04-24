@@ -28,11 +28,17 @@ fn compensated_add(sum: &mut f64, compensation: &mut f64, value: f64) {
 }
 
 /// Policy for handling benchmark dates that are missing from the target grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+///
+/// Defaults to [`ErrorOnMissingDates`](Self::ErrorOnMissingDates): silently
+/// injecting zero returns for missing observations has historically masked
+/// alignment bugs (stale feeds, calendar mismatches), so opt-in zero-fill
+/// must be stated explicitly.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BenchmarkAlignmentPolicy {
     /// Preserve legacy behavior by synthesizing a zero return for missing dates.
     ZeroReturnOnMissingDates,
     /// Reject missing benchmark dates explicitly.
+    #[default]
     ErrorOnMissingDates,
 }
 

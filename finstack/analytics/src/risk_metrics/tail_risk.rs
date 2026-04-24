@@ -20,7 +20,11 @@ fn valid_horizon(ann_factor: Option<f64>) -> bool {
 /// under the historical distribution.
 ///
 /// Returns a **negative** number representing the loss threshold.
-/// The `ann_factor` parameter is not applied (see parameter docs below).
+///
+/// Historical VaR is reported in the native period of the input return
+/// series; for horizon-scaled estimates use [`parametric_var`] or
+/// [`cornish_fisher_var`] since sqrt-T scaling is invalid for
+/// non-parametric quantiles.
 ///
 /// # Quantile interpolation
 ///
@@ -31,9 +35,6 @@ fn valid_horizon(ann_factor: Option<f64>) -> bool {
 ///
 /// * `returns` - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95` for 95% VaR.
-/// * `ann_factor` - Reserved; not applied for historical (empirical) VaR
-///   because sqrt-T scaling is invalid for non-parametric quantiles. Pass
-///   `None`.
 ///
 /// # Returns
 ///
@@ -45,7 +46,7 @@ fn valid_horizon(ann_factor: Option<f64>) -> bool {
 /// use finstack_analytics::risk_metrics::value_at_risk;
 ///
 /// let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
-/// let var95 = value_at_risk(&data, 0.95, None);
+/// let var95 = value_at_risk(&data, 0.95);
 /// assert!(var95 < -0.8);
 /// ```
 ///
@@ -53,7 +54,7 @@ fn valid_horizon(ann_factor: Option<f64>) -> bool {
 ///
 /// - J.P. Morgan RiskMetrics (1996): see docs/REFERENCES.md#jpmorgan1996RiskMetrics
 #[must_use]
-pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
+pub fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -61,29 +62,8 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
         return f64::NAN;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    let var = quantile(&mut data, 1.0 - confidence);
-    let _ = ann_factor;
-    var
+    quantile(&mut data, 1.0 - confidence)
 }
-
-/// Checked variant of [`value_at_risk`] that rejects invalid inputs with an
-/// error instead of returning [`f64::NAN`].
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)`, any return is
-/// non-finite, or `ann_factor` is present but not positive finite.
-pub fn value_at_risk_checked(
-    returns: &[f64],
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_positive_horizon(ann_factor)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(value_at_risk(returns, confidence, ann_factor))
-}
-
 /// Expected Shortfall (CVaR / ES) at the given confidence level.
 ///
 /// The mean of all returns that fall at or below the VaR threshold,
@@ -95,14 +75,13 @@ pub fn value_at_risk_checked(
 ///
 /// ES is always at least as bad (negative) as VaR at the same confidence
 /// level, and satisfies the sub-additivity axiom of coherent risk measures.
+/// Reported in the native period of the input return series; sqrt-T scaling
+/// is invalid for non-parametric tail means.
 ///
 /// # Arguments
 ///
 /// * `returns`    - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
-/// * `ann_factor` - Reserved; not applied for historical (empirical) ES
-///   because sqrt-T scaling is invalid for non-parametric tail means. Pass
-///   `None`.
 ///
 /// # Returns
 ///
@@ -115,8 +94,8 @@ pub fn value_at_risk_checked(
 /// use finstack_analytics::risk_metrics::{value_at_risk, expected_shortfall};
 ///
 /// let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
-/// let var = value_at_risk(&data, 0.95, None);
-/// let es  = expected_shortfall(&data, 0.95, None);
+/// let var = value_at_risk(&data, 0.95);
+/// let es  = expected_shortfall(&data, 0.95);
 /// // ES must be at least as bad as VaR.
 /// assert!(es <= var);
 /// ```
@@ -125,7 +104,7 @@ pub fn value_at_risk_checked(
 ///
 /// - Artzner et al. (1999): see docs/REFERENCES.md#artzner1999CoherentRisk
 #[must_use]
-pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
+pub fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -142,32 +121,12 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
             tail_count += 1;
         }
     }
-    let _ = ann_factor;
     if tail_count == 0 {
         var_threshold
     } else {
         tail_sum / tail_count as f64
     }
 }
-
-/// Checked variant of [`expected_shortfall`] that rejects invalid inputs with
-/// an error instead of returning [`f64::NAN`].
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)`, any return is
-/// non-finite, or `ann_factor` is present but not positive finite.
-pub fn expected_shortfall_checked(
-    returns: &[f64],
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_positive_horizon(ann_factor)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(expected_shortfall(returns, confidence, ann_factor))
-}
-
 /// Tail ratio = |upper tail| / |lower tail|.
 ///
 /// Computes the ratio of the absolute upper quantile to the absolute lower
@@ -218,20 +177,6 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     }
     upper / lower
 }
-
-/// Checked variant of [`tail_ratio`] that rejects invalid confidence levels and
-/// non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)` or any return is
-/// non-finite.
-pub fn tail_ratio_checked(returns: &[f64], confidence: f64) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(tail_ratio(returns, confidence))
-}
-
 /// Fraction of returns above the upper quantile threshold (outlier wins).
 ///
 /// Counts how many returns exceed the `confidence` quantile of the
@@ -270,20 +215,6 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
     let count = returns.iter().filter(|&&r| r > threshold).count();
     count as f64 / returns.len() as f64
 }
-
-/// Checked variant of [`outlier_win_ratio`] that rejects invalid confidence
-/// levels and non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)` or any return is
-/// non-finite.
-pub fn outlier_win_ratio_checked(returns: &[f64], confidence: f64) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(outlier_win_ratio(returns, confidence))
-}
-
 /// Fraction of returns below the lower quantile threshold (outlier losses).
 ///
 /// Counts how many returns fall strictly below the `(1 - confidence)`
@@ -323,20 +254,6 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
     let count = returns.iter().filter(|&&r| r < threshold).count();
     count as f64 / returns.len() as f64
 }
-
-/// Checked variant of [`outlier_loss_ratio`] that rejects invalid confidence
-/// levels and non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)` or any return is
-/// non-finite.
-pub fn outlier_loss_ratio_checked(returns: &[f64], confidence: f64) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(outlier_loss_ratio(returns, confidence))
-}
-
 /// Fisher-corrected sample skewness (G₁) of a return distribution.
 ///
 /// Measures asymmetry: positive skewness indicates a longer right tail
@@ -475,25 +392,6 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
         None => m + z * vol,
     }
 }
-
-/// Checked variant of [`parametric_var`] that rejects invalid confidence,
-/// annualization horizon, and non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)`, `ann_factor` is
-/// present but not positive finite, or any return is non-finite.
-pub fn parametric_var_checked(
-    returns: &[f64],
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_positive_horizon(ann_factor)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(parametric_var(returns, confidence, ann_factor))
-}
-
 /// Cornish-Fisher Value-at-Risk: adjusts Gaussian VaR for skewness and kurtosis.
 ///
 /// Uses the Cornish-Fisher expansion to produce a more accurate VaR
@@ -564,25 +462,6 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
         None => m + z_cf * vol,
     }
 }
-
-/// Checked variant of [`cornish_fisher_var`] that rejects invalid confidence,
-/// annualization horizon, and non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `confidence` is outside `(0, 1)`, `ann_factor` is
-/// present but not positive finite, or any return is non-finite.
-pub fn cornish_fisher_var_checked(
-    returns: &[f64],
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> crate::Result<f64> {
-    super::ensure_strict_confidence(confidence)?;
-    super::ensure_positive_horizon(ann_factor)?;
-    super::ensure_finite_returns(returns)?;
-    Ok(cornish_fisher_var(returns, confidence, ann_factor))
-}
-
 /// Compute mean, standard deviation, skewness (G₁), and excess kurtosis (G₂) in a single pass.
 ///
 /// Uses a one-pass algorithm accumulating central moments (Pebay 2008, Terriberry 2007).
@@ -646,15 +525,15 @@ mod tests {
     #[test]
     fn var_basic() {
         let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
-        let var = value_at_risk(&data, 0.95, None);
+        let var = value_at_risk(&data, 0.95);
         assert!(var < -0.8);
     }
 
     #[test]
     fn es_is_worse_than_var() {
         let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
-        let var = value_at_risk(&data, 0.95, None);
-        let es = expected_shortfall(&data, 0.95, None);
+        let var = value_at_risk(&data, 0.95);
+        let es = expected_shortfall(&data, 0.95);
         assert!(es <= var);
     }
 
@@ -673,7 +552,7 @@ mod tests {
     #[test]
     fn expected_shortfall_includes_all_values_at_var_threshold() {
         let data = [-3.0, -1.0, -1.0, 10.0];
-        let es = expected_shortfall(&data, 0.5, None);
+        let es = expected_shortfall(&data, 0.5);
         let expected = (-3.0 - 1.0 - 1.0) / 3.0;
         assert!((es - expected).abs() < 1e-12);
     }
@@ -779,26 +658,10 @@ mod tests {
             vec![-0.01; 50],
         ];
         for data in &datasets {
-            let var = value_at_risk(data, 0.95, None);
-            let es = expected_shortfall(data, 0.95, None);
+            let var = value_at_risk(data, 0.95);
+            let es = expected_shortfall(data, 0.95);
             assert!(es <= var + 1e-14, "ES must be ≤ VaR: es={es}, var={var}");
         }
-    }
-
-    #[test]
-    fn historical_var_does_not_apply_sqrt_time_scaling() {
-        let returns = [-0.03, -0.02, -0.01, 0.01, 0.02];
-        let period_var = value_at_risk(&returns, 0.95, None);
-        let annualized_var = value_at_risk(&returns, 0.95, Some(252.0));
-        assert!((annualized_var - period_var).abs() < 1e-14);
-    }
-
-    #[test]
-    fn historical_es_does_not_apply_sqrt_time_scaling() {
-        let returns = [-0.03, -0.02, -0.01, 0.01, 0.02];
-        let period_es = expected_shortfall(&returns, 0.95, None);
-        let annualized_es = expected_shortfall(&returns, 0.95, Some(252.0));
-        assert!((annualized_es - period_es).abs() < 1e-14);
     }
 
     #[test]

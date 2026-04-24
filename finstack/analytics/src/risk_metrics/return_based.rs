@@ -37,25 +37,16 @@ pub enum AnnualizationConvention {
 impl FromStr for AnnualizationConvention {
     type Err = String;
 
-    /// Parse a human-friendly annualization convention label.
+    /// Parse an annualization convention label (case-insensitive).
     ///
-    /// Accepted (case-insensitive, leading/trailing whitespace allowed) aliases:
-    /// - `Act365_25`: `"act365_25"`, `"act36525"`, `"act/365.25"`, `"default"`
-    /// - `Act365Fixed`: `"act365fixed"`, `"act365_fixed"`, `"act/365f"`, `"act365f"`
-    /// - `ActAct`: `"actact"`, `"act_act"`, `"actualactual"`, `"actual_actual"`
+    /// Canonical forms: `"act365_25"`, `"act365_fixed"`, `"act_act"`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "act365_25" | "act36525" | "act/365.25" | "default" => {
-                Ok(AnnualizationConvention::Act365_25)
-            }
-            "act365fixed" | "act365_fixed" | "act/365f" | "act365f" => {
-                Ok(AnnualizationConvention::Act365Fixed)
-            }
-            "actact" | "act_act" | "actualactual" | "actual_actual" => {
-                Ok(AnnualizationConvention::ActAct)
-            }
+            "act365_25" => Ok(AnnualizationConvention::Act365_25),
+            "act365_fixed" => Ok(AnnualizationConvention::Act365Fixed),
+            "act_act" => Ok(AnnualizationConvention::ActAct),
             other => Err(format!(
-                "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, actact"
+                "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, act_act"
             )),
         }
     }
@@ -158,31 +149,6 @@ pub fn cagr(returns: &[f64], basis: CagrBasis) -> f64 {
         CagrBasis::Factor(ann_factor) => cagr_from_factor(returns, ann_factor),
     }
 }
-
-/// Checked variant of [`cagr`] for production callers that must reject invalid
-/// inputs explicitly instead of receiving [`f64::NAN`].
-///
-/// # Errors
-///
-/// Returns an error when `returns` is empty, any return is non-finite or below
-/// `-100%`, a factor basis is not positive and finite, or a date basis has a
-/// non-positive holding period.
-pub fn cagr_checked(returns: &[f64], basis: CagrBasis) -> crate::Result<f64> {
-    super::ensure_non_empty_returns(returns)?;
-    super::ensure_compoundable_returns(returns)?;
-    match basis {
-        CagrBasis::Dates { start, end, .. } => {
-            if end <= start {
-                return super::invalid_input();
-            }
-        }
-        CagrBasis::Factor(ann_factor) => {
-            super::ensure_annualization_factor(true, ann_factor)?;
-        }
-    }
-    Ok(cagr(returns, basis))
-}
-
 fn cagr_from_dates(
     returns: &[f64],
     start: crate::dates::Date,
@@ -308,24 +274,6 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
         m
     }
 }
-
-/// Checked variant of [`mean_return`] that rejects invalid annualization and
-/// non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `annualize` is `true` and `ann_factor` is not positive
-/// finite, or when any return is non-finite.
-pub fn mean_return_checked(
-    returns: &[f64],
-    annualize: bool,
-    ann_factor: f64,
-) -> crate::Result<f64> {
-    super::ensure_finite_returns(returns)?;
-    super::ensure_annualization_factor(annualize, ann_factor)?;
-    Ok(mean_return(returns, annualize, ann_factor))
-}
-
 /// Volatility (standard deviation of returns), optionally annualized.
 ///
 /// Uses **sample** standard deviation (n-1 denominator), consistent with
@@ -369,20 +317,6 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
         v
     }
 }
-
-/// Checked variant of [`volatility`] that rejects invalid annualization and
-/// non-finite return observations with an error.
-///
-/// # Errors
-///
-/// Returns an error when `annualize` is `true` and `ann_factor` is not positive
-/// finite, or when any return is non-finite.
-pub fn volatility_checked(returns: &[f64], annualize: bool, ann_factor: f64) -> crate::Result<f64> {
-    super::ensure_finite_returns(returns)?;
-    super::ensure_annualization_factor(annualize, ann_factor)?;
-    Ok(volatility(returns, annualize, ann_factor))
-}
-
 /// Sharpe ratio = (annualized return − risk-free rate) / annualized volatility.
 ///
 /// Measures risk-adjusted return relative to total (upside + downside)
@@ -488,28 +422,6 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
         dd
     }
 }
-
-/// Checked variant of [`downside_deviation`] that rejects invalid
-/// annualization, non-finite thresholds, and non-finite return observations.
-///
-/// # Errors
-///
-/// Returns an error when `mar` is non-finite, when `annualize` is `true` and
-/// `ann_factor` is not positive finite, or when any return is non-finite.
-pub fn downside_deviation_checked(
-    returns: &[f64],
-    mar: f64,
-    annualize: bool,
-    ann_factor: f64,
-) -> crate::Result<f64> {
-    if !mar.is_finite() {
-        return super::invalid_input();
-    }
-    super::ensure_finite_returns(returns)?;
-    super::ensure_annualization_factor(annualize, ann_factor)?;
-    Ok(downside_deviation(returns, mar, annualize, ann_factor))
-}
-
 /// Sortino ratio: penalises only downside volatility.
 ///
 /// Unlike the Sharpe ratio, the Sortino ratio uses the **downside deviation**
@@ -573,28 +485,6 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f
         excess_mean / dd
     }
 }
-
-/// Checked variant of [`sortino`] that rejects invalid annualization,
-/// non-finite thresholds, and non-finite return observations.
-///
-/// # Errors
-///
-/// Returns an error when `mar` is non-finite, when `annualize` is `true` and
-/// `ann_factor` is not positive finite, or when any return is non-finite.
-pub fn sortino_checked(
-    returns: &[f64],
-    annualize: bool,
-    ann_factor: f64,
-    mar: f64,
-) -> crate::Result<f64> {
-    if !mar.is_finite() {
-        return super::invalid_input();
-    }
-    super::ensure_finite_returns(returns)?;
-    super::ensure_annualization_factor(annualize, ann_factor)?;
-    Ok(sortino(returns, annualize, ann_factor, mar))
-}
-
 /// Explicit ruin event definition for simulated portfolio paths.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum RuinDefinition {
@@ -781,6 +671,7 @@ fn valid_ruin_definition(definition: RuinDefinition) -> bool {
 /// # References
 ///
 /// - Press et al.: see docs/REFERENCES.md#press-numerical-recipes
+#[tracing::instrument(level = "debug", skip(returns), fields(n_returns = returns.len(), horizon = model.horizon_periods, n_paths = model.n_paths, seed = model.seed))]
 pub fn estimate_ruin(
     returns: &[f64],
     definition: RuinDefinition,
@@ -845,39 +736,6 @@ pub fn estimate_ruin(
         model.confidence_level,
     )
 }
-
-/// Checked variant of [`estimate_ruin`] that rejects invalid bootstrap model,
-/// return, or ruin-definition inputs with an error.
-///
-/// Empty return samples, zero horizons, and zero path counts preserve the
-/// legacy zero-probability estimate because no simulation is required.
-///
-/// # Errors
-///
-/// Returns an error for a zero block size on non-empty simulations, non-finite
-/// returns, returns below `-100%`, invalid ruin-definition thresholds, or a
-/// confidence level outside `(0, 1)`.
-pub fn estimate_ruin_checked(
-    returns: &[f64],
-    definition: RuinDefinition,
-    model: &RuinModel,
-) -> crate::Result<RuinEstimate> {
-    if model.confidence_level <= 0.0
-        || model.confidence_level >= 1.0
-        || !model.confidence_level.is_finite()
-    {
-        return super::invalid_input();
-    }
-    if returns.is_empty() || model.horizon_periods == 0 || model.n_paths == 0 {
-        return Ok(estimate_ruin(returns, definition, model));
-    }
-    if model.block_size == 0 || !valid_ruin_definition(definition) {
-        return super::invalid_input();
-    }
-    super::ensure_compoundable_returns(returns)?;
-    Ok(estimate_ruin(returns, definition, model))
-}
-
 /// Geometric mean return per period.
 ///
 /// The compound-average return: the constant per-period return that
@@ -1086,25 +944,17 @@ mod tests {
     }
 
     #[test]
-    fn annualization_convention_parses_aliases() {
+    fn annualization_convention_parses_canonical_forms() {
         assert_eq!(
             "act365_25".parse::<AnnualizationConvention>().unwrap(),
             AnnualizationConvention::Act365_25
         );
         assert_eq!(
-            "default".parse::<AnnualizationConvention>().unwrap(),
-            AnnualizationConvention::Act365_25
-        );
-        assert_eq!(
-            "Act/365F".parse::<AnnualizationConvention>().unwrap(),
+            "act365_fixed".parse::<AnnualizationConvention>().unwrap(),
             AnnualizationConvention::Act365Fixed
         );
         assert_eq!(
-            "  ActAct  ".parse::<AnnualizationConvention>().unwrap(),
-            AnnualizationConvention::ActAct
-        );
-        assert_eq!(
-            "actual_actual".parse::<AnnualizationConvention>().unwrap(),
+            "  act_act  ".parse::<AnnualizationConvention>().unwrap(),
             AnnualizationConvention::ActAct
         );
         assert!("nope".parse::<AnnualizationConvention>().is_err());

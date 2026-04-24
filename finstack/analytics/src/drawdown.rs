@@ -585,6 +585,23 @@ pub fn mean_drawdown(drawdowns: &[f64]) -> f64 {
     }
 }
 
+/// `numerator / denominator` with signed infinity when `denominator == 0.0`
+/// and `0.0` when both are zero. Shared by all six drawdown-derived ratios.
+#[inline]
+fn ratio_or_sign_infinity(numerator: f64, denominator: f64) -> f64 {
+    if denominator == 0.0 {
+        if numerator > 0.0 {
+            f64::INFINITY
+        } else if numerator < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        }
+    } else {
+        numerator / denominator
+    }
+}
+
 /// Calmar ratio = CAGR / |max drawdown|.
 ///
 /// Compares annualized growth against the worst peak-to-trough loss,
@@ -617,16 +634,7 @@ pub fn mean_drawdown(drawdowns: &[f64]) -> f64 {
 /// - Young (1991): see docs/REFERENCES.md#youngCalmar1991
 #[must_use]
 pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
-    if max_dd == 0.0 {
-        return if cagr_val > 0.0 {
-            f64::INFINITY
-        } else if cagr_val < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
-    }
-    cagr_val / max_dd.abs()
+    ratio_or_sign_infinity(cagr_val, max_dd.abs())
 }
 
 /// Recovery factor: total return / |max drawdown|.
@@ -656,16 +664,7 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
 /// ```
 #[must_use]
 pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
-    if max_dd == 0.0 {
-        return if total_return > 0.0 {
-            f64::INFINITY
-        } else if total_return < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
-    }
-    total_return / max_dd.abs()
+    ratio_or_sign_infinity(total_return, max_dd.abs())
 }
 
 /// Martin ratio (Ulcer Performance Index): CAGR / Ulcer Index.
@@ -696,16 +695,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 /// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
 #[must_use]
 pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
-    if ulcer == 0.0 {
-        return if cagr_val > 0.0 {
-            f64::INFINITY
-        } else if cagr_val < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
-    }
-    cagr_val / ulcer
+    ratio_or_sign_infinity(cagr_val, ulcer)
 }
 
 /// Sterling ratio: risk-adjusted return using average drawdown.
@@ -739,17 +729,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 /// - Kestner (1996): see docs/REFERENCES.md#kestner1996
 #[must_use]
 pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
-    if avg_dd == 0.0 {
-        let excess = cagr_val - risk_free_rate;
-        return if excess > 0.0 {
-            f64::INFINITY
-        } else if excess < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
-    }
-    (cagr_val - risk_free_rate) / avg_dd.abs()
+    ratio_or_sign_infinity(cagr_val - risk_free_rate, avg_dd.abs())
 }
 
 /// Burke ratio: return per unit of drawdown-based risk (RMS of drawdowns).
@@ -792,17 +772,7 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
     let n = dd_episodes.len() as f64;
     let ss: f64 = dd_episodes.iter().map(|&d| d * d).sum();
     let rms = (ss / n).sqrt();
-    if rms == 0.0 {
-        let excess = cagr_val - risk_free_rate;
-        return if excess > 0.0 {
-            f64::INFINITY
-        } else if excess < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
-    }
-    (cagr_val - risk_free_rate) / rms
+    ratio_or_sign_infinity(cagr_val - risk_free_rate, rms)
 }
 
 /// Pain ratio: return per unit of average drawdown pain.
@@ -831,17 +801,7 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 /// ```
 #[must_use]
 pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
-    if pain == 0.0 {
-        let excess = cagr_val - risk_free_rate;
-        return if excess > 0.0 {
-            f64::INFINITY
-        } else if excess < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            0.0
-        };
-    }
-    (cagr_val - risk_free_rate) / pain
+    ratio_or_sign_infinity(cagr_val - risk_free_rate, pain)
 }
 
 #[cfg(test)]

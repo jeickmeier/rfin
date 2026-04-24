@@ -292,8 +292,8 @@ let mean_r = returns.iter().sum::<f64>() / returns.len() as f64 * ann;
 let vol    = volatility(&returns, true, ann);
 let sr     = sharpe(mean_r, vol, 0.05);
 let so     = sortino(&returns, true, ann, 0.0);
-let var    = value_at_risk(&returns, 0.95, None);
-let es     = expected_shortfall(&returns, 0.95, None);
+let var    = value_at_risk(&returns, 0.95);
+let es     = expected_shortfall(&returns, 0.95);
 
 assert!(es <= var); // ES is always at least as bad as VaR
 ```

@@ -32,21 +32,16 @@ pub enum VarMethod {
 impl FromStr for VarMethod {
     type Err = String;
 
-    /// Parse a human-friendly VaR method label.
+    /// Parse a human-friendly VaR method label (case-insensitive).
     ///
-    /// Accepted (case-insensitive) aliases:
-    /// - `Historical`: `"historical"`, `"hist"`
-    /// - `Parametric`: `"parametric"`, `"gaussian"`, `"normal"`
-    /// - `CornishFisher`: `"cornishfisher"`, `"cornish_fisher"`, `"cornish-fisher"`, `"cf"`
+    /// Canonical forms: `"historical"`, `"parametric"`, `"cornish_fisher"`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "historical" | "hist" => Ok(VarMethod::Historical),
-            "parametric" | "gaussian" | "normal" => Ok(VarMethod::Parametric),
-            "cornishfisher" | "cornish_fisher" | "cornish-fisher" | "cf" => {
-                Ok(VarMethod::CornishFisher)
-            }
+            "historical" => Ok(VarMethod::Historical),
+            "parametric" => Ok(VarMethod::Parametric),
+            "cornish_fisher" => Ok(VarMethod::CornishFisher),
             other => Err(format!(
-                "unknown VaR method '{other}' (expected Historical, Parametric, or CornishFisher)"
+                "unknown VaR method '{other}' (expected historical, parametric, or cornish_fisher)"
             )),
         }
     }
@@ -281,27 +276,21 @@ mod parse_tests {
     use super::*;
 
     #[test]
-    fn var_method_parses_aliases() {
+    fn var_method_parses_canonical_forms() {
         assert_eq!(
             "Historical".parse::<VarMethod>().unwrap(),
             VarMethod::Historical
         );
-        assert_eq!("hist".parse::<VarMethod>().unwrap(), VarMethod::Historical);
         assert_eq!(
             "parametric".parse::<VarMethod>().unwrap(),
             VarMethod::Parametric
         );
         assert_eq!(
-            "Normal".parse::<VarMethod>().unwrap(),
-            VarMethod::Parametric
-        );
-        assert_eq!(
-            "Cornish-Fisher".parse::<VarMethod>().unwrap(),
+            "cornish_fisher".parse::<VarMethod>().unwrap(),
             VarMethod::CornishFisher
         );
-        assert_eq!("cf".parse::<VarMethod>().unwrap(), VarMethod::CornishFisher);
         assert_eq!(
-            "  hist  ".parse::<VarMethod>().unwrap(),
+            "  historical  ".parse::<VarMethod>().unwrap(),
             VarMethod::Historical
         );
     }

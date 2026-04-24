@@ -121,25 +121,26 @@ impl Multiple {
 impl FromStr for Multiple {
     type Err = String;
 
+    /// Parse a multiple identifier (case-insensitive).
+    ///
+    /// Canonical forms: `"ev_ebitda"`, `"ev_revenue"`, `"ev_ebit"`, `"ev_fcf"`,
+    /// `"pe"`, `"pb"`, `"ptbv"`, `"p_fcf"`, `"dividend_yield"`,
+    /// `"spread_per_turn"`, `"yield_per_coverage"`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "evebitda" | "ev_ebitda" | "ev/ebitda" => Ok(Self::EvEbitda),
-            "evrevenue" | "ev_revenue" | "ev/revenue" => Ok(Self::EvRevenue),
-            "evebit" | "ev_ebit" | "ev/ebit" => Ok(Self::EvEbit),
-            "evfcf" | "ev_fcf" | "ev/fcf" => Ok(Self::EvFcf),
-            "pe" | "p_e" | "p/e" => Ok(Self::Pe),
-            "pb" | "p_b" | "p/b" => Ok(Self::Pb),
-            "ptbv" | "p_tbv" | "p/tbv" => Ok(Self::Ptbv),
-            "pfcf" | "p_fcf" | "p/fcf" => Ok(Self::PFcf),
-            "dividendyield" | "dividend_yield" | "dividend/yield" | "div_yield" => {
-                Ok(Self::DividendYield)
-            }
-            "spreadperturn" | "spread_per_turn" | "spread/turn" => Ok(Self::SpreadPerTurn),
-            "yieldpercoverage" | "yield_per_coverage" | "yield/coverage" => {
-                Ok(Self::YieldPerCoverage)
-            }
+            "ev_ebitda" => Ok(Self::EvEbitda),
+            "ev_revenue" => Ok(Self::EvRevenue),
+            "ev_ebit" => Ok(Self::EvEbit),
+            "ev_fcf" => Ok(Self::EvFcf),
+            "pe" => Ok(Self::Pe),
+            "pb" => Ok(Self::Pb),
+            "ptbv" => Ok(Self::Ptbv),
+            "p_fcf" => Ok(Self::PFcf),
+            "dividend_yield" => Ok(Self::DividendYield),
+            "spread_per_turn" => Ok(Self::SpreadPerTurn),
+            "yield_per_coverage" => Ok(Self::YieldPerCoverage),
             other => Err(format!(
-                "unknown multiple {other:?}; expected one of EvEbitda, EvRevenue, EvEbit, EvFcf, Pe, Pb, Ptbv, PFcf, DividendYield, SpreadPerTurn, YieldPerCoverage"
+                "unknown multiple {other:?}; expected one of ev_ebitda, ev_revenue, ev_ebit, ev_fcf, pe, pb, ptbv, p_fcf, dividend_yield, spread_per_turn, yield_per_coverage"
             )),
         }
     }

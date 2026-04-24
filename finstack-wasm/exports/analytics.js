@@ -85,6 +85,7 @@ export const analytics = {
   trafficLight: wasm.trafficLight,
   runBacktest: wasm.runBacktest,
   rollingVarForecasts: wasm.rollingVarForecasts,
+  rollingVarBatch: wasm.rollingVarBatch,
   compareVarBacktests: wasm.compareVarBacktests,
   pnlExplanation: wasm.pnlExplanation,
   // GARCH volatility models

@@ -143,19 +143,11 @@ pub fn group_by_period(
 /// Compute period-level statistics from a flat list of periodic returns.
 ///
 /// This is the canonical, binding-friendly entry point: hosts that already
-/// have per-period compounded returns and do not care about concrete
-/// `PeriodId` labels pass them in directly. Synthetic month identifiers are
-/// used internally because [`period_stats_from_grouped`] only consumes the
-/// return values.
+/// have per-period compounded returns pass them in directly, without needing
+/// to fabricate `PeriodId` labels.
 #[must_use]
 pub fn period_stats(returns: &[f64]) -> PeriodStats {
-    let grouped: Vec<(PeriodId, f64)> = returns
-        .iter()
-        .copied()
-        .enumerate()
-        .map(|(index, ret)| (PeriodId::month(2000, (index as u8 % 12) + 1), ret))
-        .collect();
-    period_stats_from_grouped(&grouped)
+    period_stats_inner(returns)
 }
 
 /// Compute period-level statistics from grouped returns.
@@ -192,7 +184,15 @@ pub fn period_stats(returns: &[f64]) -> PeriodStats {
 /// assert!((stats.win_rate - 0.75).abs() < 1e-12);
 /// ```
 pub fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
-    if grouped.is_empty() {
+    // The period-id label is discarded; the stats depend only on the return
+    // series. Delegating via a slice keeps the two public entry points
+    // trivially equivalent and makes it obvious that no synthetic ids matter.
+    let returns: Vec<f64> = grouped.iter().map(|&(_, r)| r).collect();
+    period_stats_inner(&returns)
+}
+
+fn period_stats_inner(returns: &[f64]) -> PeriodStats {
+    if returns.is_empty() {
         return PeriodStats {
             best: 0.0,
             worst: 0.0,
@@ -223,7 +223,7 @@ pub fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     let mut consecutive_wins = 0usize;
     let mut consecutive_losses = 0usize;
 
-    for &(_, r) in grouped {
+    for &r in returns {
         if r > best {
             best = r;
         }
@@ -253,7 +253,7 @@ pub fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
         }
     }
 
-    let total = grouped.len();
+    let total = returns.len();
     let total_sum = total_acc.total();
     let win_sum = win_acc.total();
     let loss_sum = loss_acc.total();

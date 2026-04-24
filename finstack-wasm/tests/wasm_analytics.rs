@@ -119,13 +119,13 @@ fn estimate_ruin_returns_struct_like_object() {
 
 #[wasm_bindgen_test]
 fn value_at_risk_finite() {
-    let v = value_at_risk(returns_js(), 0.95, None).unwrap();
+    let v = value_at_risk(returns_js(), 0.95).unwrap();
     assert!(v.is_finite());
 }
 
 #[wasm_bindgen_test]
 fn expected_shortfall_finite() {
-    let v = expected_shortfall(returns_js(), 0.95, Some(252.0)).unwrap();
+    let v = expected_shortfall(returns_js(), 0.95).unwrap();
     assert!(v.is_finite());
 }
 

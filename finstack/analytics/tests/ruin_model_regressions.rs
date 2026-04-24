@@ -1,6 +1,4 @@
-use finstack_analytics::risk_metrics::{
-    estimate_ruin, estimate_ruin_checked, RuinDefinition, RuinModel,
-};
+use finstack_analytics::risk_metrics::{estimate_ruin, RuinDefinition, RuinModel};
 use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
@@ -170,28 +168,6 @@ fn ruin_model_rejects_returns_below_negative_one() {
         estimate.probability.is_nan(),
         "returns below -100% should be rejected instead of clipped into zero wealth"
     );
-}
-
-#[test]
-fn checked_ruin_model_rejects_invalid_inputs_with_error() {
-    let returns = [0.01, -1.10, 0.02];
-    let model = RuinModel {
-        horizon_periods: 12,
-        n_paths: 256,
-        block_size: 2,
-        seed: 5,
-        confidence_level: 0.95,
-    };
-
-    let result = estimate_ruin_checked(
-        &returns,
-        RuinDefinition::TerminalFloor {
-            floor_fraction: 0.8,
-        },
-        &model,
-    );
-
-    assert!(result.is_err());
 }
 
 #[test]

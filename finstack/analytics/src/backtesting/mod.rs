@@ -30,9 +30,7 @@ mod types;
 pub use metrics::{
     christoffersen_test, classify_breaches, kupiec_test, pnl_explanation, traffic_light,
 };
-pub use orchestrator::{
-    compare_var_backtests, rolling_var_forecasts, rolling_var_forecasts_with_fn, run_backtest,
-};
+pub use orchestrator::{compare_var_backtests, rolling_var_forecasts, run_backtest};
 pub use types::{
     BacktestResult, Breach, ChristoffersenResult, KupiecResult, MultiModelComparison,
     PnlExplanation, TrafficLightResult, TrafficLightZone, VarBacktestConfig, VarMethod,

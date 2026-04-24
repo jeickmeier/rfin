@@ -87,6 +87,7 @@ impl Performance {
     /// ).unwrap();
     /// assert_eq!(perf.ticker_names(), &["SPY"]);
     /// ```
+    #[tracing::instrument(level = "debug", skip(dates, prices, ticker_names, benchmark_ticker), fields(n_tickers = prices.len(), n_dates = dates.len(), freq = ?freq))]
     pub fn new(
         dates: Vec<Date>,
         prices: Vec<Vec<f64>>,
@@ -326,14 +327,6 @@ impl Performance {
         (0..self.ticker_names.len()).map(f).collect()
     }
 
-    #[inline]
-    fn try_map_tickers<T, F>(&self, f: F) -> crate::Result<Vec<T>>
-    where
-        F: FnMut(usize) -> crate::Result<T>,
-    {
-        (0..self.ticker_names.len()).map(f).collect()
-    }
-
     // ── Scalar metrics per ticker ──
 
     /// CAGR for each ticker.
@@ -343,20 +336,6 @@ impl Performance {
         };
         let basis = risk_metrics::CagrBasis::dates(start, end);
         self.map_tickers(|i| risk_metrics::cagr(self.active_returns(i), basis))
-    }
-
-    /// Checked CAGR for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if any ticker's active return series is invalid for
-    /// CAGR computation.
-    pub fn cagr_checked(&self) -> crate::Result<Vec<f64>> {
-        let Some((start, end)) = self.active_holding_period() else {
-            return Ok(vec![0.0; self.ticker_names.len()]);
-        };
-        let basis = risk_metrics::CagrBasis::dates(start, end);
-        self.try_map_tickers(|i| risk_metrics::cagr_checked(self.active_returns(i), basis))
     }
 
     /// Mean return for each ticker.
@@ -374,18 +353,6 @@ impl Performance {
         })
     }
 
-    /// Checked mean return for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if annualization is requested with an invalid
-    /// annualization factor or any active return is non-finite.
-    pub fn mean_return_checked(&self, annualize: bool) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::mean_return_checked(self.active_returns(i), annualize, self.ann())
-        })
-    }
-
     /// Volatility (sample standard deviation) for each ticker.
     ///
     /// # Arguments
@@ -398,18 +365,6 @@ impl Performance {
     pub fn volatility(&self, annualize: bool) -> Vec<f64> {
         self.map_tickers(|i| {
             risk_metrics::volatility(self.active_returns(i), annualize, self.ann())
-        })
-    }
-
-    /// Checked volatility for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if annualization is requested with an invalid
-    /// annualization factor or any active return is non-finite.
-    pub fn volatility_checked(&self, annualize: bool) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::volatility_checked(self.active_returns(i), annualize, self.ann())
         })
     }
 
@@ -446,18 +401,6 @@ impl Performance {
         self.map_tickers(|i| risk_metrics::sortino(self.active_returns(i), true, self.ann(), mar))
     }
 
-    /// Checked annualized Sortino ratio for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `mar` is non-finite, the annualization factor is
-    /// invalid, or any active return is non-finite.
-    pub fn sortino_checked(&self, mar: f64) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::sortino_checked(self.active_returns(i), true, self.ann(), mar)
-        })
-    }
-
     /// Calmar ratio for each ticker.
     ///
     /// Computes CAGR over the active date window and divides by the absolute
@@ -487,19 +430,7 @@ impl Performance {
     ///
     /// One VaR value per ticker (non-positive).
     pub fn value_at_risk(&self, confidence: f64) -> Vec<f64> {
-        self.map_tickers(|i| risk_metrics::value_at_risk(self.active_returns(i), confidence, None))
-    }
-
-    /// Checked historical Value-at-Risk for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `confidence` is outside `(0, 1)` or any active
-    /// return is non-finite.
-    pub fn value_at_risk_checked(&self, confidence: f64) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::value_at_risk_checked(self.active_returns(i), confidence, None)
-        })
+        self.map_tickers(|i| risk_metrics::value_at_risk(self.active_returns(i), confidence))
     }
 
     /// Expected Shortfall (CVaR) for each ticker (not annualized).
@@ -512,21 +443,7 @@ impl Performance {
     ///
     /// One ES value per ticker (non-positive, always ≤ corresponding VaR).
     pub fn expected_shortfall(&self, confidence: f64) -> Vec<f64> {
-        self.map_tickers(|i| {
-            risk_metrics::expected_shortfall(self.active_returns(i), confidence, None)
-        })
-    }
-
-    /// Checked Expected Shortfall for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `confidence` is outside `(0, 1)` or any active
-    /// return is non-finite.
-    pub fn expected_shortfall_checked(&self, confidence: f64) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::expected_shortfall_checked(self.active_returns(i), confidence, None)
-        })
+        self.map_tickers(|i| risk_metrics::expected_shortfall(self.active_returns(i), confidence))
     }
 
     /// Tail ratio for each ticker.
@@ -540,18 +457,6 @@ impl Performance {
     /// One tail ratio per ticker.
     pub fn tail_ratio(&self, confidence: f64) -> Vec<f64> {
         self.map_tickers(|i| risk_metrics::tail_ratio(self.active_returns(i), confidence))
-    }
-
-    /// Checked tail ratio for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `confidence` is outside `(0, 1)` or any active
-    /// return is non-finite.
-    pub fn tail_ratio_checked(&self, confidence: f64) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::tail_ratio_checked(self.active_returns(i), confidence)
-        })
     }
 
     /// Ulcer Index for each ticker.
@@ -591,22 +496,6 @@ impl Performance {
         model: &RuinModel,
     ) -> Vec<RuinEstimate> {
         self.map_tickers(|i| risk_metrics::estimate_ruin(self.active_returns(i), definition, model))
-    }
-
-    /// Checked ruin probability estimates for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the ruin definition, bootstrap model, or any active
-    /// return series is invalid for ruin simulation.
-    pub fn estimate_ruin_checked(
-        &self,
-        definition: RuinDefinition,
-        model: &RuinModel,
-    ) -> crate::Result<Vec<RuinEstimate>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::estimate_ruin_checked(self.active_returns(i), definition, model)
-        })
     }
 
     /// Bias-corrected sample skewness for each ticker.
@@ -653,18 +542,6 @@ impl Performance {
     pub fn downside_deviation(&self, mar: f64) -> Vec<f64> {
         self.map_tickers(|i| {
             risk_metrics::downside_deviation(self.active_returns(i), mar, true, self.ann())
-        })
-    }
-
-    /// Checked annualized downside deviation for each ticker.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `mar` is non-finite, the annualization factor is
-    /// invalid, or any active return is non-finite.
-    pub fn downside_deviation_checked(&self, mar: f64) -> crate::Result<Vec<f64>> {
-        self.try_map_tickers(|i| {
-            risk_metrics::downside_deviation_checked(self.active_returns(i), mar, true, self.ann())
         })
     }
 

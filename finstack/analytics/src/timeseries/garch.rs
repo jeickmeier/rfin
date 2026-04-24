@@ -426,6 +426,7 @@ fn variance_targeted_omega(
 /// Implements variance targeting grid search for initial parameters,
 /// Nelder-Mead optimization, Hessian-based standard errors, and
 /// information criteria computation.
+#[tracing::instrument(level = "debug", skip(model, returns, config, bounds, stationarity_check), fields(n = returns.len(), dist = ?dist, has_gamma))]
 pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
     model: &M,
     returns: &[f64],

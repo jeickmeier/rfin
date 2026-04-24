@@ -22,66 +22,17 @@ mod return_based;
 mod rolling;
 mod tail_risk;
 
-fn invalid_input<T>() -> crate::Result<T> {
-    Err(crate::error::InputError::Invalid.into())
-}
-
-fn ensure_non_empty_returns(returns: &[f64]) -> crate::Result<()> {
-    if returns.is_empty() {
-        return invalid_input();
-    }
-    Ok(())
-}
-
-fn ensure_finite_returns(returns: &[f64]) -> crate::Result<()> {
-    if returns.iter().any(|r| !r.is_finite()) {
-        return invalid_input();
-    }
-    Ok(())
-}
-
-fn ensure_compoundable_returns(returns: &[f64]) -> crate::Result<()> {
-    if returns.iter().any(|r| !r.is_finite() || *r < -1.0) {
-        return invalid_input();
-    }
-    Ok(())
-}
-
-fn ensure_annualization_factor(annualize: bool, ann_factor: f64) -> crate::Result<()> {
-    if invalid_annualization_factor(annualize, ann_factor) {
-        return invalid_input();
-    }
-    Ok(())
-}
-
-fn ensure_strict_confidence(confidence: f64) -> crate::Result<()> {
-    if !confidence.is_finite() || confidence <= 0.0 || confidence >= 1.0 {
-        return invalid_input();
-    }
-    Ok(())
-}
-
-fn ensure_positive_horizon(ann_factor: Option<f64>) -> crate::Result<()> {
-    if ann_factor.is_some_and(|af| !af.is_finite() || af <= 0.0) {
-        return invalid_input();
-    }
-    Ok(())
-}
-
 pub(crate) use return_based::invalid_annualization_factor;
 pub use return_based::{
-    cagr, cagr_checked, downside_deviation, downside_deviation_checked, estimate_ruin,
-    estimate_ruin_checked, gain_to_pain, geometric_mean, mean_return, mean_return_checked,
-    modified_sharpe, omega_ratio, sharpe, sortino, sortino_checked, volatility, volatility_checked,
-    AnnualizationConvention, CagrBasis, RuinDefinition, RuinEstimate, RuinModel,
+    cagr, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean, mean_return,
+    modified_sharpe, omega_ratio, sharpe, sortino, volatility, AnnualizationConvention, CagrBasis,
+    RuinDefinition, RuinEstimate, RuinModel,
 };
 pub use rolling::{
     rolling_sharpe, rolling_sortino, rolling_volatility, DatedSeries, RollingSharpe,
     RollingSortino, RollingVolatility,
 };
 pub use tail_risk::{
-    cornish_fisher_var, cornish_fisher_var_checked, expected_shortfall, expected_shortfall_checked,
-    kurtosis, moments4, outlier_loss_ratio, outlier_loss_ratio_checked, outlier_win_ratio,
-    outlier_win_ratio_checked, parametric_var, parametric_var_checked, skewness, tail_ratio,
-    tail_ratio_checked, value_at_risk, value_at_risk_checked,
+    cornish_fisher_var, expected_shortfall, kurtosis, moments4, outlier_loss_ratio,
+    outlier_win_ratio, parametric_var, skewness, tail_ratio, value_at_risk,
 };

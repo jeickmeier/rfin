@@ -19,64 +19,19 @@ mod tail_risk_api {
     fn es_le_var() {
         let data = large_data();
         let confidence = 0.95;
-        let var = value_at_risk(&data, confidence, None);
-        let es = expected_shortfall(&data, confidence, None);
+        let var = value_at_risk(&data, confidence);
+        let es = expected_shortfall(&data, confidence);
         assert!(es <= var + TOL, "ES must be <= VaR: es={es}, var={var}");
     }
 
     #[test]
     fn empty_input_consistency() {
         let empty: Vec<f64> = vec![];
-        assert_eq!(value_at_risk(&empty, 0.95, None), 0.0);
-        assert_eq!(expected_shortfall(&empty, 0.95, None), 0.0);
+        assert_eq!(value_at_risk(&empty, 0.95), 0.0);
+        assert_eq!(expected_shortfall(&empty, 0.95), 0.0);
         assert_eq!(tail_ratio(&empty, 0.95), 0.0);
         assert_eq!(outlier_win_ratio(&empty, 0.95), 0.0);
         assert_eq!(outlier_loss_ratio(&empty, 0.95), 0.0);
-    }
-}
-
-mod performance_checked_api {
-    use super::*;
-    use finstack_analytics::Performance;
-    use finstack_core::dates::PeriodKind;
-
-    fn d(year: i32, month: Month, day: u8) -> Date {
-        Date::from_calendar_date(year, month, day).unwrap()
-    }
-
-    fn perf() -> Performance {
-        Performance::new(
-            vec![
-                d(2024, Month::January, 1),
-                d(2024, Month::January, 2),
-                d(2024, Month::January, 3),
-                d(2024, Month::January, 4),
-            ],
-            vec![vec![100.0, 101.0, 99.0, 102.0]],
-            vec!["PORT".to_string()],
-            None,
-            PeriodKind::Daily,
-        )
-        .unwrap()
-    }
-
-    #[test]
-    fn checked_batch_tail_metrics_reject_invalid_confidence() {
-        let perf = perf();
-
-        assert!(perf.value_at_risk_checked(1.0).is_err());
-        assert!(perf.expected_shortfall_checked(0.0).is_err());
-        assert!(perf.tail_ratio_checked(f64::NAN).is_err());
-    }
-
-    #[test]
-    fn checked_batch_volatility_matches_legacy_values() {
-        let perf = perf();
-
-        assert_eq!(
-            perf.volatility_checked(true).unwrap(),
-            perf.volatility(true)
-        );
     }
 }
 

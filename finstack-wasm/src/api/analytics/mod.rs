@@ -21,7 +21,7 @@ mod timeseries;
 pub use aggregation::{group_by_period, period_stats};
 pub use backtesting::{
     christoffersen_test, classify_breaches, compare_var_backtests, kupiec_test, pnl_explanation,
-    rolling_var_forecasts, run_backtest, traffic_light,
+    rolling_var_batch, rolling_var_forecasts, run_backtest, traffic_light,
 };
 pub use benchmark::{
     align_benchmark, batting_average, beta, capture_ratio, down_capture, greeks, information_ratio,

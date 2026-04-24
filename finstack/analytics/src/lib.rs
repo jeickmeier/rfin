@@ -41,7 +41,6 @@ type Result<T> = finstack_core::Result<T>;
 pub mod aggregation;
 pub mod backtesting;
 pub mod benchmark;
-pub mod comps;
 pub mod drawdown;
 pub mod lookback;
 pub mod performance;

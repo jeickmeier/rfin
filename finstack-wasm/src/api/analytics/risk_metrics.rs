@@ -172,25 +172,15 @@ pub fn modified_sharpe(
 }
 
 #[wasm_bindgen(js_name = valueAtRisk)]
-pub fn value_at_risk(
-    returns: JsValue,
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> Result<f64, JsValue> {
+pub fn value_at_risk(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::value_at_risk(&r, confidence, ann_factor))
+    Ok(fa::risk_metrics::value_at_risk(&r, confidence))
 }
 
 #[wasm_bindgen(js_name = expectedShortfall)]
-pub fn expected_shortfall(
-    returns: JsValue,
-    confidence: f64,
-    ann_factor: Option<f64>,
-) -> Result<f64, JsValue> {
+pub fn expected_shortfall(returns: JsValue, confidence: f64) -> Result<f64, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    Ok(fa::risk_metrics::expected_shortfall(
-        &r, confidence, ann_factor,
-    ))
+    Ok(fa::risk_metrics::expected_shortfall(&r, confidence))
 }
 
 #[wasm_bindgen(js_name = parametricVar)]

@@ -138,16 +138,16 @@ fn rolling_volatility(
 
 /// Historical Value-at-Risk.
 #[pyfunction]
-#[pyo3(signature = (returns, confidence = 0.95, ann_factor = None))]
-fn value_at_risk(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
-    fa::risk_metrics::value_at_risk(&returns, confidence, ann_factor)
+#[pyo3(signature = (returns, confidence = 0.95))]
+fn value_at_risk(returns: Vec<f64>, confidence: f64) -> f64 {
+    fa::risk_metrics::value_at_risk(&returns, confidence)
 }
 
 /// Expected Shortfall (CVaR).
 #[pyfunction]
-#[pyo3(signature = (returns, confidence = 0.95, ann_factor = None))]
-fn expected_shortfall(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
-    fa::risk_metrics::expected_shortfall(&returns, confidence, ann_factor)
+#[pyo3(signature = (returns, confidence = 0.95))]
+fn expected_shortfall(returns: Vec<f64>, confidence: f64) -> f64 {
+    fa::risk_metrics::expected_shortfall(&returns, confidence)
 }
 
 /// Parametric VaR (Gaussian assumption).

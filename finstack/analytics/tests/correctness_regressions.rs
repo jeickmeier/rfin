@@ -1,9 +1,6 @@
 use finstack_analytics::aggregation::group_by_period;
 use finstack_analytics::benchmark::{align_benchmark, BenchmarkAlignmentPolicy};
-use finstack_analytics::risk_metrics::{
-    cagr_checked, expected_shortfall_checked, mean_return_checked, tail_ratio_checked,
-    value_at_risk, value_at_risk_checked, volatility_checked, CagrBasis,
-};
+use finstack_analytics::risk_metrics::value_at_risk;
 use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
@@ -33,29 +30,6 @@ fn performance_cagr_uses_default_act_365_25_convention_for_single_return_window(
         expected,
         cagr[0]
     );
-}
-
-#[test]
-fn checked_standalone_risk_metrics_reject_invalid_inputs() {
-    let returns = [0.01, 0.02, -0.01];
-
-    assert!(cagr_checked(&[], CagrBasis::factor(252.0)).is_err());
-    assert!(cagr_checked(&returns, CagrBasis::factor(0.0)).is_err());
-    assert!(mean_return_checked(&returns, true, 0.0).is_err());
-    assert!(volatility_checked(&returns, true, f64::INFINITY).is_err());
-    assert!(value_at_risk_checked(&returns, 0.0, None).is_err());
-    assert!(expected_shortfall_checked(&returns, 1.0, None).is_err());
-    assert!(tail_ratio_checked(&returns, f64::NAN).is_err());
-}
-
-#[test]
-fn checked_standalone_risk_metrics_match_legacy_values_for_valid_inputs() {
-    let returns = [0.01, 0.02, -0.01, 0.03];
-
-    let legacy = value_at_risk(&returns, 0.95, None);
-    let checked = value_at_risk_checked(&returns, 0.95, None).expect("valid VaR input");
-
-    assert_eq!(checked, legacy);
 }
 
 #[test]
@@ -305,11 +279,11 @@ fn value_at_risk_requires_strict_confidence_bounds() {
     let returns = [-0.03, -0.01, 0.01, 0.02];
 
     assert!(
-        value_at_risk(&returns, 0.0, None).is_nan(),
+        value_at_risk(&returns, 0.0).is_nan(),
         "confidence=0 should be rejected"
     );
     assert!(
-        value_at_risk(&returns, 1.0, None).is_nan(),
+        value_at_risk(&returns, 1.0).is_nan(),
         "confidence=1 should be rejected"
     );
 }

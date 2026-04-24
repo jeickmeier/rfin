@@ -81,6 +81,29 @@ pub fn rolling_var_forecasts(
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
 
+/// Batched rolling-VaR forecasts across multiple (lookback, confidence, method)
+/// configurations over the **same** return series.
+///
+/// Amortizes the JS↔WASM serde round-trip that would otherwise be paid
+/// per-call when running, e.g., historical and parametric VaR side by side.
+///
+/// `configs` is an array of `[lookback, confidence, method]` triples; returns
+/// a JSON array of `[forecasts, realized]` pairs aligned with `configs`.
+#[wasm_bindgen(js_name = rollingVarBatch)]
+pub fn rolling_var_batch(returns: JsValue, configs: JsValue) -> Result<JsValue, JsValue> {
+    let returns: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
+    let raw: Vec<(usize, f64, String)> =
+        serde_wasm_bindgen::from_value(configs).map_err(to_js_err)?;
+    let mut batched: Vec<(Vec<f64>, Vec<f64>)> = Vec::with_capacity(raw.len());
+    for (lookback, confidence, method) in raw {
+        let method = parse_var_method(&method)?;
+        batched.push(fa::backtesting::rolling_var_forecasts(
+            &returns, lookback, confidence, method,
+        ));
+    }
+    serde_wasm_bindgen::to_value(&batched).map_err(to_js_err)
+}
+
 #[wasm_bindgen(js_name = compareVarBacktests)]
 pub fn compare_var_backtests(
     models: JsValue,
