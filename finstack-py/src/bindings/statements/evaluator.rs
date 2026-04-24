@@ -5,7 +5,6 @@ use crate::bindings::core::dates::utils::py_to_date;
 use crate::bindings::core::market_data::context::PyMarketContext;
 use crate::bindings::pandas_utils::{selected_table_to_dataframe, table_to_dataframe};
 use crate::errors::display_to_py;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -30,13 +29,13 @@ impl PyStatementResult {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::evaluator::StatementResult =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string(&self.inner).map_err(display_to_py)
     }
 
     /// Get the value for a node at a specific period.
@@ -213,8 +212,7 @@ impl PyEvaluator {
 // ---------------------------------------------------------------------------
 
 fn parse_period_id(s: &str) -> PyResult<finstack_core::dates::PeriodId> {
-    s.parse()
-        .map_err(|e: finstack_core::Error| PyValueError::new_err(e.to_string()))
+    s.parse().map_err(crate::errors::core_to_py)
 }
 
 /// Register evaluator classes.

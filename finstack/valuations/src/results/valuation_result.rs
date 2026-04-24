@@ -7,6 +7,21 @@ use finstack_core::money::Money;
 
 use indexmap::IndexMap;
 
+/// Wire-format schema version for [`ValuationResult`].
+///
+/// Bump this when adding, removing, or renaming fields in a way that is NOT
+/// handled by `#[serde(default)]` on the new field or `#[serde(alias)]` on a
+/// renamed one — i.e., when old deserialized payloads would produce incorrect
+/// results under the new shape. Document every bump in `CHANGELOG.md`.
+///
+/// Downstream consumers reading persisted results should assert
+/// `result.schema_version <= Self::SCHEMA_VERSION` and refuse newer payloads.
+pub const VALUATION_RESULT_SCHEMA_VERSION: u32 = 1;
+
+fn default_valuation_result_schema_version() -> u32 {
+    VALUATION_RESULT_SCHEMA_VERSION
+}
+
 /// Model-specific typed valuation details.
 ///
 /// These details are for rich structured outputs that do not fit the scalar
@@ -147,6 +162,14 @@ pub enum ValuationDetails {
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValuationResult {
+    /// Wire-format schema version (see [`VALUATION_RESULT_SCHEMA_VERSION`]).
+    ///
+    /// Written into every serialized payload so downstream consumers can
+    /// detect schema mismatches when reading persisted results. Defaults to
+    /// the current version on deserialization of pre-versioning payloads.
+    #[serde(default = "default_valuation_result_schema_version")]
+    pub schema_version: u32,
+
     /// Unique identifier for the priced instrument.
     pub instrument_id: String,
 
@@ -338,6 +361,7 @@ impl ValuationResult {
         meta: ResultsMeta,
     ) -> Self {
         Self {
+            schema_version: VALUATION_RESULT_SCHEMA_VERSION,
             instrument_id: instrument_id.to_string(),
             as_of,
             value,

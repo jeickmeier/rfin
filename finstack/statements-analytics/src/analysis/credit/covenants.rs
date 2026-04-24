@@ -362,7 +362,7 @@ pub fn to_table(forecast: &CovenantForecast) -> Result<TableEnvelope> {
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, Tenor};
-    use finstack_statements::evaluator::{ResultsMeta, StatementResult};
+    use finstack_statements::evaluator::StatementResult;
     use finstack_valuations::covenants::CovenantType;
     use finstack_valuations::covenants::{Covenant, CovenantEngine, CovenantSpec};
     use finstack_valuations::metrics::MetricId;
@@ -468,11 +468,7 @@ mod tests {
 
         let results = StatementResult {
             nodes,
-            monetary_nodes: IndexMap::new(),
-            node_value_types: IndexMap::new(),
-            cs_cashflows: None,
-            check_report: None,
-            meta: ResultsMeta::default(),
+            ..StatementResult::default()
         };
 
         // 3. Run Forecast

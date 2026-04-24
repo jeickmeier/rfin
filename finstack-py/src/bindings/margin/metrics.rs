@@ -24,9 +24,7 @@ impl PyMarginUtilization {
     #[new]
     fn new(posted_amount: f64, required_amount: f64, currency: &str) -> PyResult<Self> {
         let ccy: finstack_core::currency::Currency =
-            currency.parse().map_err(|e: strum::ParseError| {
-                pyo3::exceptions::PyValueError::new_err(e.to_string())
-            })?;
+            currency.parse().map_err(crate::errors::display_to_py)?;
         let posted = finstack_core::money::Money::new(posted_amount, ccy);
         let required = finstack_core::money::Money::new(required_amount, ccy);
         Ok(Self {
@@ -93,9 +91,7 @@ impl PyExcessCollateral {
     #[new]
     fn new(collateral_value: f64, required_value: f64, currency: &str) -> PyResult<Self> {
         let ccy: finstack_core::currency::Currency =
-            currency.parse().map_err(|e: strum::ParseError| {
-                pyo3::exceptions::PyValueError::new_err(e.to_string())
-            })?;
+            currency.parse().map_err(crate::errors::display_to_py)?;
         let collateral = finstack_core::money::Money::new(collateral_value, ccy);
         let required = finstack_core::money::Money::new(required_value, ccy);
         Ok(Self {
@@ -172,9 +168,7 @@ impl PyMarginFundingCost {
         currency: &str,
     ) -> PyResult<Self> {
         let ccy: finstack_core::currency::Currency =
-            currency.parse().map_err(|e: strum::ParseError| {
-                pyo3::exceptions::PyValueError::new_err(e.to_string())
-            })?;
+            currency.parse().map_err(crate::errors::display_to_py)?;
         let margin = finstack_core::money::Money::new(margin_posted, ccy);
         Ok(Self {
             inner: finstack_margin::metrics::MarginFundingCost::calculate(
@@ -247,9 +241,7 @@ impl PyHaircut01 {
     #[new]
     fn new(collateral_value: f64, current_haircut: f64, currency: &str) -> PyResult<Self> {
         let ccy: finstack_core::currency::Currency =
-            currency.parse().map_err(|e: strum::ParseError| {
-                pyo3::exceptions::PyValueError::new_err(e.to_string())
-            })?;
+            currency.parse().map_err(crate::errors::display_to_py)?;
         let collateral = finstack_core::money::Money::new(collateral_value, ccy);
         Ok(Self {
             inner: finstack_margin::metrics::Haircut01::calculate(collateral, current_haircut),

@@ -56,17 +56,13 @@ impl Money {
             .map_err(to_js_err)
     }
 
-    /// Multiply by a scalar; errors if `factor` is not finite.
+    /// Multiply by a scalar; errors if `factor` is not finite or the result is not representable.
     #[wasm_bindgen(js_name = mulScalar)]
     pub fn mul_scalar(&self, factor: f64) -> Result<Money, JsValue> {
-        if !factor.is_finite() {
-            return Err(to_js_err(format!(
-                "mul_scalar factor must be finite, got {factor}"
-            )));
-        }
-        Ok(Money {
-            inner: self.inner * factor,
-        })
+        self.inner
+            .checked_mul_f64(factor)
+            .map(|inner| Money { inner })
+            .map_err(to_js_err)
     }
 
     /// Divide by a scalar; errors on division by zero or non-finite / non-representable values.

@@ -367,16 +367,15 @@ fn build_credit_spread_params(
             let feller_ratio = feller_lhs / feller_rhs.max(CIR_MIN_SPREAD);
 
             if feller_ratio < 1.0 {
-                // Feller condition violated - log warning in debug builds
-                // The QE discretization will handle this gracefully but spreads may touch zero
-                #[cfg(debug_assertions)]
-                eprintln!(
-                    "[WARN] CIR Feller condition violated: 2κθ/σ² = {:.3} < 1 (kappa={}, theta={}, sigma={}). \
-                     Credit spreads may touch zero.",
-                    feller_ratio, stable_kappa, stable_theta, sigma
+                // Feller condition violated; QE discretization will still clip to zero.
+                tracing::warn!(
+                    target: "finstack_valuations::credit",
+                    feller_ratio,
+                    kappa = stable_kappa,
+                    theta = stable_theta,
+                    sigma,
+                    "CIR Feller condition violated (2κθ/σ² < 1); credit spreads may touch zero"
                 );
-                // Silence unused variable warning in release builds
-                let _ = feller_ratio;
             }
 
             CreditSpreadParams::new(stable_kappa, stable_theta, *sigma, stable_initial)
@@ -440,13 +439,14 @@ fn build_credit_spread_params(
             let feller_ratio = feller_lhs / feller_rhs.max(CIR_MIN_SPREAD);
 
             if feller_ratio < 1.0 {
-                #[cfg(debug_assertions)]
-                eprintln!(
-                    "[WARN] Market-anchored CIR Feller condition violated: 2κθ/σ² = {:.3} < 1",
-                    feller_ratio
+                tracing::warn!(
+                    target: "finstack_valuations::credit",
+                    feller_ratio,
+                    kappa = k,
+                    theta,
+                    sigma,
+                    "market-anchored CIR Feller condition violated (2κθ/σ² < 1)"
                 );
-                // Silence unused variable warning in release builds
-                let _ = feller_ratio;
             }
 
             CreditSpreadParams::new(k, theta, sigma, s0)

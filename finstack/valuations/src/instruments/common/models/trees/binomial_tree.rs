@@ -60,12 +60,12 @@ impl BinomialTree {
     /// Even step counts may exhibit slower convergence due to the Leisen-Reimer
     /// inversion properties. For optimal accuracy, prefer [`leisen_reimer_odd`](Self::leisen_reimer_odd).
     pub fn leisen_reimer(steps: usize) -> Self {
-        #[cfg(debug_assertions)]
         if steps.is_multiple_of(2) {
-            eprintln!(
-                "Warning: BinomialTree::leisen_reimer called with even steps ({}). \
-                 Leisen-Reimer converges faster with odd steps. Consider using leisen_reimer_odd({}).",
-                steps, steps
+            tracing::warn!(
+                target: "finstack_valuations::trees",
+                steps,
+                "BinomialTree::leisen_reimer called with even step count; odd steps converge faster \
+                 (consider leisen_reimer_odd)"
             );
         }
         Self::new(steps, TreeType::LeisenReimer)

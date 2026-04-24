@@ -2,9 +2,8 @@
 
 use std::sync::Arc;
 
-use crate::utils::to_js_err;
+use crate::utils::{date_to_iso, parse_iso_date, to_js_err};
 use finstack_core::currency::Currency as RustCurrency;
-use finstack_core::dates::Date;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::surfaces::VolCube as RustVolCube;
 use finstack_core::market_data::term_structures::{
@@ -21,24 +20,6 @@ use wasm_bindgen::prelude::*;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Parse an ISO date string (`"YYYY-MM-DD"`) into a Rust [`Date`].
-fn parse_iso_date(s: &str) -> Result<Date, JsValue> {
-    let parts: Vec<&str> = s.split('-').collect();
-    if parts.len() != 3 {
-        return Err(to_js_err(format!("expected YYYY-MM-DD, got {s:?}")));
-    }
-    let year: i32 = parts[0].parse().map_err(to_js_err)?;
-    let month_num: u8 = parts[1].parse().map_err(to_js_err)?;
-    let day: u8 = parts[2].parse().map_err(to_js_err)?;
-    let month = time::Month::try_from(month_num).map_err(to_js_err)?;
-    Date::from_calendar_date(year, month, day).map_err(to_js_err)
-}
-
-/// Format a [`Date`] as `"YYYY-MM-DD"`.
-fn date_to_iso(d: Date) -> String {
-    format!("{:04}-{:02}-{:02}", d.year(), d.month() as u8, d.day())
-}
 
 /// Parse a day-count string.
 fn parse_day_count(s: &str) -> Result<DayCount, JsValue> {
@@ -449,7 +430,7 @@ impl VolCube {
                 params_flat[base + 2], // rho
                 params_flat[base + 3], // nu
             )
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            .map_err(to_js_err)?;
             let shift = params_flat[base + 4];
             if shift.is_finite() {
                 p = p.with_shift(shift);
@@ -457,7 +438,7 @@ impl VolCube {
             sabr_params.push(p);
         }
         let cube = RustVolCube::from_grid(id, expiries, tenors, &sabr_params, forwards)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            .map_err(to_js_err)?;
         Ok(Self {
             inner: Arc::new(cube),
         })
@@ -467,9 +448,7 @@ impl VolCube {
     ///
     /// Returns `Err` if `expiry` or `tenor` falls outside the grid.
     pub fn vol(&self, expiry: f64, tenor: f64, strike: f64) -> Result<f64, JsValue> {
-        self.inner
-            .vol(expiry, tenor, strike)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        self.inner.vol(expiry, tenor, strike).map_err(to_js_err)
     }
 
     /// Implied volatility with clamped extrapolation.

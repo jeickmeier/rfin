@@ -190,7 +190,11 @@ pub fn is_suite_ready(meta: &SuiteMeta, label: &str) -> bool {
     if status == "certified" {
         true
     } else {
-        eprintln!("Skipping {} golden suite (status={})", label, meta.status);
+        tracing::info!(
+            suite = label,
+            status = %meta.status,
+            "skipping non-certified golden suite"
+        );
         false
     }
 }

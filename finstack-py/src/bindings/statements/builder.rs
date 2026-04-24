@@ -4,7 +4,7 @@
 //! the two states into a single class and track readiness at runtime.
 
 use super::types::PyFinancialModelSpec;
-use crate::errors::display_to_py;
+use crate::errors::{core_to_py, display_to_py};
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::types::AmountOrScalar;
@@ -77,9 +77,7 @@ impl PyModelBuilder {
         let parsed: Vec<(PeriodId, AmountOrScalar)> = values
             .into_iter()
             .map(|(p, v)| {
-                let pid: PeriodId = p
-                    .parse()
-                    .map_err(|e: finstack_core::Error| PyValueError::new_err(e.to_string()))?;
+                let pid: PeriodId = p.parse().map_err(core_to_py)?;
                 Ok((pid, AmountOrScalar::scalar(v)))
             })
             .collect::<PyResult<Vec<_>>>()?;

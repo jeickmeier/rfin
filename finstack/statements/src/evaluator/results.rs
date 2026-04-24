@@ -9,6 +9,17 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::types::FinancialModelSpec;
 
+/// Wire-format schema version for [`StatementResult`].
+///
+/// Bump this when adding, removing, or renaming fields in a way that is NOT
+/// handled by `#[serde(default)]` on the new field. Document every bump in
+/// the workspace `CHANGELOG.md` and `docs/SERDE_STABILITY.md`.
+pub const STATEMENT_RESULT_SCHEMA_VERSION: u32 = 1;
+
+fn default_statement_result_schema_version() -> u32 {
+    STATEMENT_RESULT_SCHEMA_VERSION
+}
+
 /// Results from evaluating a financial model.
 ///
 /// Values are stored as an [`IndexMap`] keyed by node identifier so you can
@@ -42,8 +53,12 @@ use crate::types::FinancialModelSpec;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatementResult {
+    /// Wire-format schema version (see [`STATEMENT_RESULT_SCHEMA_VERSION`]).
+    #[serde(default = "default_statement_result_schema_version")]
+    pub schema_version: u32,
+
     /// Map of node_id → (period_id → value) [f64 for scalar results]
     pub nodes: IndexMap<String, IndexMap<PeriodId, f64>>,
 
@@ -123,6 +138,20 @@ pub enum NumericMode {
     Float64,
     /// Decimal fixed-point mode (future)
     Decimal,
+}
+
+impl Default for StatementResult {
+    fn default() -> Self {
+        Self {
+            schema_version: STATEMENT_RESULT_SCHEMA_VERSION,
+            nodes: IndexMap::new(),
+            monetary_nodes: IndexMap::new(),
+            node_value_types: IndexMap::new(),
+            cs_cashflows: None,
+            check_report: None,
+            meta: ResultsMeta::default(),
+        }
+    }
 }
 
 impl StatementResult {

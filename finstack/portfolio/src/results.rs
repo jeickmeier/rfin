@@ -6,11 +6,25 @@ use finstack_core::config::ResultsMeta;
 use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
 
+/// Wire-format schema version for [`PortfolioResult`].
+///
+/// Bump on breaking changes not covered by `#[serde(default)]`. Document every
+/// bump in the workspace `CHANGELOG.md` and `docs/SERDE_STABILITY.md`.
+pub const PORTFOLIO_RESULT_SCHEMA_VERSION: u32 = 1;
+
+fn default_portfolio_result_schema_version() -> u32 {
+    PORTFOLIO_RESULT_SCHEMA_VERSION
+}
+
 /// Complete results from portfolio evaluation.
 ///
 /// Contains valuation, metrics, and metadata about the calculation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioResult {
+    /// Wire-format schema version (see [`PORTFOLIO_RESULT_SCHEMA_VERSION`]).
+    #[serde(default = "default_portfolio_result_schema_version")]
+    pub schema_version: u32,
+
     /// Portfolio valuation results
     pub valuation: PortfolioValuation,
 
@@ -39,6 +53,7 @@ impl PortfolioResult {
         meta: ResultsMeta,
     ) -> Self {
         Self {
+            schema_version: PORTFOLIO_RESULT_SCHEMA_VERSION,
             valuation,
             metrics,
             meta,

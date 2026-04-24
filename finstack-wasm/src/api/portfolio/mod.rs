@@ -725,11 +725,11 @@ mod tests {
         let spec = minimal_portfolio_spec_json();
         let market = empty_market_json();
         let valuation_json = value_portfolio(&spec, &market, false).expect("value");
-        let result = finstack_portfolio::results::PortfolioResult {
-            valuation: serde_json::from_str(&valuation_json).expect("deser"),
-            metrics: Default::default(),
-            meta: Default::default(),
-        };
+        let result = finstack_portfolio::results::PortfolioResult::new(
+            serde_json::from_str(&valuation_json).expect("deser"),
+            Default::default(),
+            Default::default(),
+        );
         let result_json = serde_json::to_string(&result).expect("ser");
         let total = portfolio_result_total_value(&result_json).expect("total");
         assert!(total.is_finite());

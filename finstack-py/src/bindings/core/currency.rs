@@ -2,6 +2,7 @@
 
 use std::str::FromStr;
 
+use crate::errors::display_to_py;
 use finstack_core::currency::Currency;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -47,7 +48,7 @@ impl PyCurrency {
     fn from_numeric(_cls: &Bound<'_, PyType>, code: u16) -> PyResult<Self> {
         Currency::try_from(code)
             .map(Self::from_inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map_err(display_to_py)
     }
 
     /// Three-letter ISO-4217 code (uppercase).
@@ -111,15 +112,14 @@ impl PyCurrency {
     /// Serialize this currency to a JSON string.
     #[allow(clippy::wrong_self_convention)]
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string(&self.inner).map_err(display_to_py)
     }
 
     /// Deserialize a currency from JSON.
     #[classmethod]
     #[pyo3(text_signature = "(cls, json)")]
     fn from_json(_cls: &Bound<'_, PyType>, json: &str) -> PyResult<Self> {
-        let inner: Currency =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: Currency = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self::from_inner(inner))
     }
 }

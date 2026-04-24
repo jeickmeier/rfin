@@ -3,6 +3,10 @@
 //! Utilities for error mapping, JSON serialization, and decimal conversion
 //! used across all domain binding modules.
 
+pub mod date;
+
+pub use date::{date_to_iso, parse_iso_date, parse_iso_dates};
+
 use wasm_bindgen::JsValue;
 
 /// Convert any `Display`-able error into a structured `JsValue` error.

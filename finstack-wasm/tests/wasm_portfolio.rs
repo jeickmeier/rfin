@@ -24,11 +24,11 @@ fn portfolio_result_get_metric_returns_undefined_for_missing() {
     let spec = portfolio_spec_json();
     let market = empty_market_json();
     let valuation_json = value_portfolio(&spec, &market, false).unwrap();
-    let result = finstack_portfolio::results::PortfolioResult {
-        valuation: serde_json::from_str(&valuation_json).unwrap(),
-        metrics: Default::default(),
-        meta: Default::default(),
-    };
+    let result = finstack_portfolio::results::PortfolioResult::new(
+        serde_json::from_str(&valuation_json).unwrap(),
+        Default::default(),
+        Default::default(),
+    );
     let result_json = serde_json::to_string(&result).unwrap();
     let v = portfolio_result_get_metric(&result_json, "nonexistent").unwrap();
     assert!(v == JsValue::UNDEFINED);

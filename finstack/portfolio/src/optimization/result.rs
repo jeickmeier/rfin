@@ -301,6 +301,9 @@ impl PortfolioOptimizationResult {
 /// `turnover`, `trades`, `binding_constraints`, `label`). The `problem` field
 /// is intentionally omitted — it contains `Arc<dyn Instrument>` values that do
 /// not round-trip through serde.
+/// Wire-format schema version for serialized `PortfolioOptimizationResult`.
+pub const PORTFOLIO_OPTIMIZATION_RESULT_SCHEMA_VERSION: u32 = 1;
+
 impl Serialize for PortfolioOptimizationResult {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         let binding_constraints: Vec<String> = self
@@ -308,7 +311,11 @@ impl Serialize for PortfolioOptimizationResult {
             .into_iter()
             .map(|(name, _)| name.to_string())
             .collect();
-        let mut st = serializer.serialize_struct("PortfolioOptimizationResult", 15)?;
+        let mut st = serializer.serialize_struct("PortfolioOptimizationResult", 16)?;
+        st.serialize_field(
+            "schema_version",
+            &PORTFOLIO_OPTIMIZATION_RESULT_SCHEMA_VERSION,
+        )?;
         st.serialize_field("status", &self.status)?;
         st.serialize_field("status_label", &format!("{:?}", self.status))?;
         st.serialize_field("is_feasible", &self.status.is_feasible())?;

@@ -40,16 +40,21 @@ fn apply_scenario<'py>(
     let date = super::parse_date(as_of)?;
 
     let engine = finstack_scenarios::ScenarioEngine::new();
-    let mut ctx = finstack_scenarios::ExecutionContext {
-        market: &mut market,
-        model: &mut model,
-        instruments: None,
-        rate_bindings: None,
-        calendar: None,
-        as_of: date,
-    };
 
-    let report = engine.apply(&spec, &mut ctx).map_err(display_to_py)?;
+    // Release the GIL for scenario application: shifts + re-pricing can run for seconds.
+    let (report, market, model) = py.detach(|| {
+        let mut ctx = finstack_scenarios::ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of: date,
+        };
+        let report = engine.apply(&spec, &mut ctx);
+        (report, market, model)
+    });
+    let report = report.map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item(
@@ -98,16 +103,20 @@ fn apply_scenario_to_market<'py>(
     let date = super::parse_date(as_of)?;
 
     let engine = finstack_scenarios::ScenarioEngine::new();
-    let mut ctx = finstack_scenarios::ExecutionContext {
-        market: &mut market,
-        model: &mut model,
-        instruments: None,
-        rate_bindings: None,
-        calendar: None,
-        as_of: date,
-    };
 
-    let report = engine.apply(&spec, &mut ctx).map_err(display_to_py)?;
+    let (report, market) = py.detach(|| {
+        let mut ctx = finstack_scenarios::ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of: date,
+        };
+        let report = engine.apply(&spec, &mut ctx);
+        (report, market)
+    });
+    let report = report.map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item(

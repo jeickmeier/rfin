@@ -11,10 +11,10 @@ use pyo3::types::{PyList, PyModule, PyTuple, PyType};
 use pyo3::IntoPyObjectExt;
 
 use crate::bindings::core::currency::{extract_currency, PyCurrency};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, display_to_py};
 
 /// Wrapper for [`Money`] exposed to Python as `finstack.core.money.Money`.
-#[pyclass(name = "Money", module = "finstack.core.money", from_py_object)]
+#[pyclass(name = "Money", module = "finstack.core.money", frozen, from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyMoney {
     /// Inner currency-tagged amount.
@@ -131,15 +131,14 @@ impl PyMoney {
     /// Serialize to JSON.
     #[allow(clippy::wrong_self_convention)]
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string(&self.inner).map_err(display_to_py)
     }
 
     /// Deserialize from JSON.
     #[classmethod]
     #[pyo3(text_signature = "(cls, json)")]
     fn from_json(_cls: &Bound<'_, PyType>, json: &str) -> PyResult<Self> {
-        let inner: Money =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: Money = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self::from_inner(inner))
     }
 
@@ -242,33 +241,9 @@ impl PyMoney {
             .map_err(core_to_py)
     }
 
-    /// In-place add.
-    fn __iadd__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        let rhs = extract_money(other)?;
-        self.inner = self.inner.checked_add(rhs).map_err(core_to_py)?;
-        Ok(())
-    }
-
-    /// In-place subtract.
-    fn __isub__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        let rhs = extract_money(other)?;
-        self.inner = self.inner.checked_sub(rhs).map_err(core_to_py)?;
-        Ok(())
-    }
-
-    /// In-place multiply by a scalar.
-    fn __imul__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        let scalar: f64 = other.extract()?;
-        self.inner = self.inner.checked_mul_f64(scalar).map_err(core_to_py)?;
-        Ok(())
-    }
-
-    /// In-place divide by a scalar.
-    fn __itruediv__(&mut self, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        let scalar: f64 = other.extract()?;
-        self.inner = self.inner.checked_div_f64(scalar).map_err(core_to_py)?;
-        Ok(())
-    }
+    // Note: `PyMoney` is `frozen`, so in-place ops are not provided.
+    // Python's `+=`/`-=`/`*=`/`/=` will fall back to the non-in-place dunders
+    // (`__add__`, etc.) and rebind the variable to a fresh `Money`.
 }
 
 /// Register the `finstack.core.money` submodule.

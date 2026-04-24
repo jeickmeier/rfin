@@ -55,7 +55,7 @@ pub use types::{
 };
 
 use crate::market_data::surfaces::VolSurface;
-use std::collections::HashMap;
+use crate::HashMap;
 
 /// Configuration for the arbitrage detection suite.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -160,8 +160,8 @@ pub fn check_surface(
     all_violations.sort_by(|a, b| b.severity.cmp(&a.severity));
 
     // Build aggregation maps
-    let mut counts_by_type: HashMap<ArbitrageType, usize> = HashMap::new();
-    let mut counts_by_severity: HashMap<ArbitrageSeverity, usize> = HashMap::new();
+    let mut counts_by_type: HashMap<ArbitrageType, usize> = HashMap::default();
+    let mut counts_by_severity: HashMap<ArbitrageSeverity, usize> = HashMap::default();
     for v in &all_violations {
         *counts_by_type.entry(v.violation_type).or_insert(0) += 1;
         *counts_by_severity.entry(v.severity).or_insert(0) += 1;

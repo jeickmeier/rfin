@@ -1,6 +1,6 @@
 //! Python wrappers for statement model types and enums.
 
-use pyo3::exceptions::PyValueError;
+use crate::errors::display_to_py;
 use pyo3::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -217,13 +217,13 @@ impl PyFinancialModelSpec {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_statements::FinancialModelSpec =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string(&self.inner).map_err(display_to_py)
     }
 
     /// Model identifier.

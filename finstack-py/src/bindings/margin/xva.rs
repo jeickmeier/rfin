@@ -1,9 +1,8 @@
 //! Python wrappers for XVA types (CVA/DVA/FVA configuration and results).
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, display_to_py};
 use finstack_margin::xva::types as xva;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -104,14 +103,13 @@ impl PyXvaConfig {
     /// Deserialize from JSON.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: xva::XvaConfig =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: xva::XvaConfig = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Validate configuration parameters.
@@ -226,14 +224,13 @@ impl PyExposureProfile {
     /// Deserialize from JSON.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: xva::ExposureProfile =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: xva::ExposureProfile = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Validate internal consistency.
@@ -304,14 +301,13 @@ impl PyXvaResult {
     /// Deserialize from JSON.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: xva::XvaResult =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: xva::XvaResult = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Unilateral CVA (positive = cost).
@@ -494,9 +490,7 @@ impl PyXvaNettingSet {
     ) -> PyResult<Self> {
         let ccy = match reporting_currency {
             Some(s) => {
-                let c: finstack_core::currency::Currency = s
-                    .parse()
-                    .map_err(|e: strum::ParseError| PyValueError::new_err(e.to_string()))?;
+                let c: finstack_core::currency::Currency = s.parse().map_err(display_to_py)?;
                 Some(c)
             }
             None => None,

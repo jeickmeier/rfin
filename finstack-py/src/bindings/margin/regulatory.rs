@@ -6,7 +6,7 @@
 //! Full typed access to every enum variant is intentionally omitted; where
 //! complex configuration is needed, JSON round-tripping is used.
 
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, display_to_py};
 use finstack_core::currency::Currency;
 use finstack_margin::regulatory::{
     frtb::{CorrelationScenario, FrtbRiskClass, FrtbSbaEngine, FrtbSensitivities, RraoPosition},
@@ -22,8 +22,7 @@ use pyo3::types::PyDict;
 // ---------------------------------------------------------------------------
 
 fn parse_currency(code: &str) -> PyResult<Currency> {
-    code.parse::<Currency>()
-        .map_err(|e: strum::ParseError| PyValueError::new_err(e.to_string()))
+    code.parse::<Currency>().map_err(display_to_py)
 }
 
 fn parse_correlation_scenario(s: &str) -> PyResult<CorrelationScenario> {
@@ -117,14 +116,13 @@ impl PyFrtbSensitivities {
     /// Construct from a JSON serialization of `FrtbSensitivities`.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: FrtbSensitivities =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: FrtbSensitivities = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Add a GIRR delta sensitivity (currency per 1bp).
@@ -346,14 +344,13 @@ impl PySaCcrTrade {
     /// Construct from a JSON serialization of `SaCcrTrade`.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: SaCcrTrade =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: SaCcrTrade = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     #[getter]

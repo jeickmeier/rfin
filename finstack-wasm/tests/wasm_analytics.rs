@@ -5,6 +5,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use finstack_wasm::api::analytics::*;
+use finstack_wasm::api::statements_analytics::compute_multiple;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
 
@@ -381,7 +382,7 @@ fn compute_multiple_uses_company_metrics_shape() {
         "ebitda": 1000.0,
     }))
     .unwrap();
-    let v = compute_multiple(metrics, "EvEbitda").unwrap();
+    let v = compute_multiple(metrics, "ev_ebitda").unwrap();
     let parsed: Option<f64> = serde_wasm_bindgen::from_value(v).unwrap();
     assert_eq!(parsed, Some(8.5));
 }

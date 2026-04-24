@@ -11,17 +11,13 @@
 //! The `*Access` enums wrap both paths behind a `Deref<Target = T>` impl so
 //! pipeline functions can accept `T | str` without branching.
 
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::bindings::core::market_data::context::PyMarketContext;
 use crate::bindings::portfolio::types::{PyPortfolio, PyPortfolioResult, PyPortfolioValuation};
 use crate::bindings::statements::evaluator::PyStatementResult;
 use crate::bindings::statements::types::PyFinancialModelSpec;
-
-fn to_py(e: impl std::fmt::Display) -> PyErr {
-    PyValueError::new_err(e.to_string())
-}
+use crate::errors::display_to_py as to_py;
 
 // ---------------------------------------------------------------------------
 // Zero-clone access types (available for callers that only need &T)

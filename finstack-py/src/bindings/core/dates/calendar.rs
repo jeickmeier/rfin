@@ -3,11 +3,21 @@
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::core_to_py;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, CalendarMetadata, CalendarRegistry, HolidayCalendar,
+    adjust, BusinessDayConvention, CalendarMetadata, CalendarRegistry, HolidayCalendar, WeekendRule,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
+
+/// Map [`WeekendRule`] to its stable snake_case serde name.
+const fn weekend_rule_str(rule: WeekendRule) -> &'static str {
+    match rule {
+        WeekendRule::SaturdaySunday => "saturday_sunday",
+        WeekendRule::FridaySaturday => "friday_saturday",
+        WeekendRule::FridayOnly => "friday_only",
+        WeekendRule::None => "none",
+    }
+}
 
 /// Business-day adjustment convention.
 #[pyclass(
@@ -130,7 +140,7 @@ impl PyCalendarMetadata {
             id: m.id.to_string(),
             name: m.name.to_string(),
             ignore_weekends: m.ignore_weekends,
-            weekend_rule: format!("{:?}", m.weekend_rule),
+            weekend_rule: weekend_rule_str(m.weekend_rule).to_string(),
         }
     }
 }
@@ -155,7 +165,8 @@ impl PyCalendarMetadata {
         self.ignore_weekends
     }
 
-    /// Weekend convention used by this calendar (e.g. "SaturdaySunday", "FridaySaturday").
+    /// Weekend convention used by this calendar as a snake_case string
+    /// (e.g. ``"saturday_sunday"``, ``"friday_saturday"``, ``"friday_only"``, ``"none"``).
     #[getter]
     fn weekend_rule(&self) -> &str {
         &self.weekend_rule

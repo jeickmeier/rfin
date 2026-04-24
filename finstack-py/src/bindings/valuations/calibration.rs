@@ -212,10 +212,13 @@ fn validate_calibration_json(json: &str) -> PyResult<String> {
 /// ValueError
 ///     If the JSON is invalid or calibration fails.
 #[pyfunction]
-fn calibrate(json: &str) -> PyResult<PyCalibrationResult> {
+fn calibrate(py: Python<'_>, json: &str) -> PyResult<PyCalibrationResult> {
     let envelope: CalibrationEnvelope = serde_json::from_str(json)
         .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
-    let result = engine::execute(&envelope).map_err(display_to_py)?;
+    // Release the GIL for the duration of the solver: calibration can run for seconds.
+    let result = py
+        .detach(|| engine::execute(&envelope))
+        .map_err(display_to_py)?;
     Ok(PyCalibrationResult { inner: result })
 }
 

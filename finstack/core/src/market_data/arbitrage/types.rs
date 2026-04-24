@@ -4,7 +4,7 @@
 //! structure used by all arbitrage checks. These types are serializable
 //! for audit trails, Python/WASM interop, and downstream reporting.
 
-use std::collections::HashMap;
+use crate::HashMap;
 
 /// A point on the volatility surface where an arbitrage condition is violated.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

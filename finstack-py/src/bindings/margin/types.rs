@@ -1,6 +1,6 @@
 //! Python wrappers for margin domain types and enums.
 
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, display_to_py};
 use finstack_margin as fm;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -446,14 +446,13 @@ impl PyCsaSpec {
     /// Deserialize from a JSON string.
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: fm::CsaSpec =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let inner: fm::CsaSpec = serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to a JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// CSA identifier.
@@ -527,13 +526,13 @@ impl PyEligibleCollateralSchedule {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: fm::EligibleCollateralSchedule =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     /// Serialize to JSON.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     /// Whether rehypothecation is allowed.

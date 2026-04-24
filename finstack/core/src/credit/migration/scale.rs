@@ -1,11 +1,10 @@
 //! Ordered state set defining transition matrix dimensions and label mapping.
 
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::error::MigrationError;
 use crate::types::{moodys_warf_factor, CreditRating};
+use crate::HashMap;
 
 /// An ordered set of states defining a transition matrix's row/column layout.
 ///
@@ -236,7 +235,8 @@ impl RatingScale {
     /// Builds a `RatingScale` from `&[&str]` labels for hardcoded presets.
     fn from_static_labels(labels: &[&str], default_label: Option<&str>) -> Self {
         let labels: Vec<String> = labels.iter().map(|s| (*s).to_owned()).collect();
-        let mut index_map = HashMap::with_capacity(labels.len());
+        let mut index_map: HashMap<String, usize> =
+            HashMap::with_capacity_and_hasher(labels.len(), Default::default());
         for (i, label) in labels.iter().enumerate() {
             index_map.insert(label.clone(), i);
         }
@@ -253,7 +253,8 @@ impl RatingScale {
             return Err(MigrationError::InsufficientStates);
         }
 
-        let mut index_map = HashMap::with_capacity(labels.len());
+        let mut index_map: HashMap<String, usize> =
+            HashMap::with_capacity_and_hasher(labels.len(), Default::default());
         for (i, label) in labels.iter().enumerate() {
             if index_map.insert(label.clone(), i).is_some() {
                 return Err(MigrationError::DuplicateLabel {

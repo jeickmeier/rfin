@@ -319,14 +319,7 @@ fn test_export_with_builtin_metrics() {
 
 #[test]
 fn test_empty_results_export() {
-    let results = StatementResult {
-        nodes: indexmap::IndexMap::new(),
-        monetary_nodes: indexmap::IndexMap::new(),
-        node_value_types: indexmap::IndexMap::new(),
-        cs_cashflows: None,
-        check_report: None,
-        meta: Default::default(),
-    };
+    let results = StatementResult::default();
 
     let table_long = results.to_table_long().unwrap();
     assert_eq!(table_long.row_count, 0);

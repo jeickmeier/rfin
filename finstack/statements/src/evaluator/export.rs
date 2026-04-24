@@ -126,7 +126,6 @@ pub(crate) fn to_table_wide(results: &StatementResult) -> Result<TableEnvelope> 
 
 #[cfg(test)]
 mod tests {
-    use super::super::ResultsMeta;
     use super::*;
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
@@ -154,11 +153,7 @@ mod tests {
 
         StatementResult {
             nodes,
-            monetary_nodes: IndexMap::new(),
-            node_value_types: IndexMap::new(),
-            cs_cashflows: None,
-            check_report: None,
-            meta: ResultsMeta::default(),
+            ..StatementResult::default()
         }
     }
 
@@ -266,14 +261,7 @@ mod tests {
 
     #[test]
     fn test_empty_results() {
-        let results = StatementResult {
-            nodes: IndexMap::new(),
-            monetary_nodes: IndexMap::new(),
-            node_value_types: IndexMap::new(),
-            cs_cashflows: None,
-            check_report: None,
-            meta: ResultsMeta::default(),
-        };
+        let results = StatementResult::default();
 
         let table_long = to_table_long(&results).expect("test should succeed");
         assert_eq!(table_long.row_count, 0);

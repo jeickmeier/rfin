@@ -44,16 +44,14 @@ impl CachedResult {
 }
 
 /// Cache entry with metadata.
+///
+/// LRU ordering is handled by the underlying `lru` crate via insertion/access
+/// order — no wall-clock timestamp is used, keeping cache behaviour
+/// deterministic across runs.
 #[derive(Debug, Clone)]
 struct CacheEntry {
     /// The cached result.
     result: CachedResult,
-    /// When this entry was last accessed.
-    /// In WASM, this is a dummy value since Instant::now() is not available.
-    #[cfg(target_arch = "wasm32")]
-    last_access: u64, // Use counter instead of Instant in WASM
-    #[cfg(not(target_arch = "wasm32"))]
-    last_access: std::time::Instant,
     /// How many times this entry has been accessed.
     access_count: usize,
     /// Memory size in bytes.
@@ -135,17 +133,7 @@ impl ExpressionCache {
 
         match self.cache.get_mut(&node_id) {
             Some(entry) => {
-                // Update access metadata
-                #[cfg(target_arch = "wasm32")]
-                {
-                    entry.last_access += 1; // Increment counter in WASM
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    entry.last_access = std::time::Instant::now();
-                }
                 entry.access_count += 1;
-
                 self.stats.hits += 1;
                 Some(entry.result.clone())
             }
@@ -181,10 +169,6 @@ impl ExpressionCache {
         // Create new entry
         let entry = CacheEntry {
             result,
-            #[cfg(target_arch = "wasm32")]
-            last_access: 0, // Dummy value in WASM (not used for LRU - lru crate uses insertion order)
-            #[cfg(not(target_arch = "wasm32"))]
-            last_access: std::time::Instant::now(),
             access_count: 1,
             size,
             len,

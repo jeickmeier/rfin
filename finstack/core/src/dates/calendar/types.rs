@@ -146,20 +146,18 @@ impl HolidayCalendar for Calendar {
 
         // Fall back to rule-based evaluation for dates outside bitset range
         // or when bitsets are not available
-        #[cfg(debug_assertions)]
-        {
-            if !(BASE_YEAR..=END_YEAR).contains(&date.year()) {
-                // Emit a one-time warning per process when falling back
-                static ONCE: core::sync::atomic::AtomicBool =
-                    core::sync::atomic::AtomicBool::new(false);
-                if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
-                    eprintln!(
-                        "[finstack] Calendar '{}' falling back to rule-based evaluation outside [{}, {}] bitset range",
-                        self.id,
-                        BASE_YEAR,
-                        END_YEAR
-                    );
-                }
+        if !(BASE_YEAR..=END_YEAR).contains(&date.year()) {
+            // Emit a one-time warning per process when falling back
+            static ONCE: core::sync::atomic::AtomicBool =
+                core::sync::atomic::AtomicBool::new(false);
+            if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
+                tracing::warn!(
+                    calendar = self.id,
+                    year = date.year(),
+                    base_year = BASE_YEAR,
+                    end_year = END_YEAR,
+                    "calendar falling back to rule-based evaluation outside bitset range"
+                );
             }
         }
         let mut is_holiday = self.rules.iter().any(|rule| rule.applies(date));

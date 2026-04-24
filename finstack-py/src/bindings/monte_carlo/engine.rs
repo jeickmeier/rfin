@@ -45,6 +45,7 @@ impl PyMcEngine {
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, currency=None))]
     fn price_european_call(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -58,10 +59,11 @@ impl PyMcEngine {
         let pricer = EuropeanPricer::new(self.inner.config().num_paths)
             .with_seed(self.seed)
             .with_parallel(self.inner.config().use_parallel);
-        pricer
-            .price_gbm_call(spot, strike, rate, div_yield, vol, t_max, num_steps, ccy)
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        py.detach(|| {
+            pricer.price_gbm_call(spot, strike, rate, div_yield, vol, t_max, num_steps, ccy)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 
     /// Price a European put under GBM.
@@ -69,6 +71,7 @@ impl PyMcEngine {
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, currency=None))]
     fn price_european_put(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -82,10 +85,11 @@ impl PyMcEngine {
         let pricer = EuropeanPricer::new(self.inner.config().num_paths)
             .with_seed(self.seed)
             .with_parallel(self.inner.config().use_parallel);
-        pricer
-            .price_gbm_put(spot, strike, rate, div_yield, vol, t_max, num_steps, ccy)
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        py.detach(|| {
+            pricer.price_gbm_put(spot, strike, rate, div_yield, vol, t_max, num_steps, ccy)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {
@@ -119,6 +123,7 @@ pub(super) fn resolve_currency(
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_paths=100_000, seed=42, num_steps=252, currency=None))]
 fn price_european_call(
+    py: Python<'_>,
     spot: f64,
     strike: f64,
     rate: f64,
@@ -134,8 +139,7 @@ fn price_european_call(
     let pricer = EuropeanPricer::new(num_paths)
         .with_seed(seed)
         .with_parallel(false);
-    pricer
-        .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+    py.detach(|| pricer.price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy))
         .map(PyMonteCarloResult::from_inner)
         .map_err(core_to_py)
 }
@@ -145,6 +149,7 @@ fn price_european_call(
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_paths=100_000, seed=42, num_steps=252, currency=None))]
 fn price_european_put(
+    py: Python<'_>,
     spot: f64,
     strike: f64,
     rate: f64,
@@ -160,8 +165,7 @@ fn price_european_put(
     let pricer = EuropeanPricer::new(num_paths)
         .with_seed(seed)
         .with_parallel(false);
-    pricer
-        .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+    py.detach(|| pricer.price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy))
         .map(PyMonteCarloResult::from_inner)
         .map_err(core_to_py)
 }

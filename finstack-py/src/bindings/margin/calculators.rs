@@ -1,7 +1,7 @@
 //! Python wrappers for margin calculators (VM + IM result types).
 
 use super::types::{PyCsaSpec, PyImMethodology};
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, display_to_py};
 use finstack_margin as fm;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -97,9 +97,7 @@ impl PyVmCalculator {
         month: u8,
         day: u8,
     ) -> PyResult<PyVmResult> {
-        let ccy: finstack_core::currency::Currency = currency
-            .parse()
-            .map_err(|e: strum::ParseError| PyValueError::new_err(e.to_string()))?;
+        let ccy: finstack_core::currency::Currency = currency.parse().map_err(display_to_py)?;
         let exp = finstack_core::money::Money::new(exposure, ccy);
         let posted = finstack_core::money::Money::new(posted_collateral, ccy);
         let m = time::Month::try_from(month)

@@ -15,14 +15,13 @@ mod pricing;
 mod sabr;
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
-use pyo3::exceptions::PyValueError;
+use crate::errors::display_to_py;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 /// Parse an ISO 8601 date string into a `time::Date`.
 fn parse_date(s: &str) -> PyResult<time::Date> {
-    finstack_valuations::pricer::parse_as_of_date(s)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
+    finstack_valuations::pricer::parse_as_of_date(s).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -44,12 +43,12 @@ impl PyValuationResult {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: finstack_valuations::results::ValuationResult =
-            serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            serde_json::from_str(json).map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
+        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
     }
 
     #[getter]
@@ -126,9 +125,8 @@ impl PyValuationResult {
 fn validate_instrument_json(json: &str) -> PyResult<String> {
     let canonical = finstack_valuations::pricer::validate_instrument_json(json)
         .map_err(crate::errors::display_to_py)?;
-    let parsed: serde_json::Value =
-        serde_json::from_str(&canonical).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    serde_json::to_string_pretty(&parsed).map_err(|e| PyValueError::new_err(e.to_string()))
+    let parsed: serde_json::Value = serde_json::from_str(&canonical).map_err(display_to_py)?;
+    serde_json::to_string_pretty(&parsed).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
