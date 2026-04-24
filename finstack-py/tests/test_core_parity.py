@@ -5,6 +5,7 @@ underlying Rust implementation.
 """
 
 from datetime import date
+import json
 import math
 
 from finstack.core.currency import Currency
@@ -248,6 +249,33 @@ class TestDiscountCurveParity:
     def test_df_at_time_zero(self, curve: DiscountCurve) -> None:
         """DF at t=0 is 1.0."""
         assert curve.df(0.0) == pytest.approx(1.0, abs=1e-10)
+
+    def test_default_day_count_uses_rust_curve_id_inference(self) -> None:
+        """USD discount curves default to the Rust-inferred Act/360 market basis."""
+        curve = DiscountCurve(
+            "USD-OIS",
+            date(2024, 1, 1),
+            [(0.0, 1.0), (1.0, 0.95)],
+        )
+        context = MarketContext()
+        context.insert(curve)
+
+        state = json.loads(context.to_json())
+        assert state["curves"][0]["day_count"] == "Act360"
+
+    def test_explicit_day_count_still_overrides_curve_id_inference(self) -> None:
+        """Users can still override the inferred day-count convention explicitly."""
+        curve = DiscountCurve(
+            "USD-OIS",
+            date(2024, 1, 1),
+            [(0.0, 1.0), (1.0, 0.95)],
+            day_count="act_365f",
+        )
+        context = MarketContext()
+        context.insert(curve)
+
+        state = json.loads(context.to_json())
+        assert state["curves"][0]["day_count"] == "Act365F"
 
 
 class TestForwardCurveParity:

@@ -285,10 +285,11 @@ impl HazardCurve {
             return self.lambdas[0];
         }
 
-        let idx = self
-            .knots
-            .partition_point(|&k| k < t)
-            .min(self.lambdas.len() - 1);
+        let mut idx = self.knots.partition_point(|&k| k < t);
+        if self.knots.first().is_some_and(|&k| k <= 1e-9) {
+            idx = idx.saturating_sub(1);
+        }
+        idx = idx.min(self.lambdas.len() - 1);
         self.lambdas[idx]
     }
 
@@ -867,16 +868,25 @@ impl HazardCurveBuilder {
 
         let mut accum = 0.0;
         let mut prev_t = 0.0;
+        let mut has_zero_anchor = false;
+        let mut prev_lambda = None;
 
         for (&t, &lambda) in kvec.iter().zip(lvec.iter()) {
             if t <= 1e-9 {
-                prev_t = t;
+                has_zero_anchor = true;
+                prev_lambda = Some(lambda);
                 continue;
             }
-            accum += lambda * (t - prev_t);
+            let segment_lambda = if has_zero_anchor {
+                prev_lambda.unwrap_or(lambda)
+            } else {
+                lambda
+            };
+            accum += segment_lambda * (t - prev_t);
             interp_kvec.push(t);
             interp_svec.push((-accum).exp());
             prev_t = t;
+            prev_lambda = Some(lambda);
         }
 
         // Build interpolator: LogLinear style implies constant hazard rate

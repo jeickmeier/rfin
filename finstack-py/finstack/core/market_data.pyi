@@ -64,8 +64,8 @@ class DiscountCurve:
         Interpolation style (default ``"monotone_convex"``).
     extrapolation : str
         Extrapolation policy (default ``"flat_forward"``).
-    day_count : str
-        Day-count convention (default ``"act_365f"``).
+    day_count : str | None
+        Day-count convention. When omitted, Rust infers a market default from the curve ID.
 
     Raises
     ------
@@ -94,7 +94,7 @@ class DiscountCurve:
         knots: list[tuple[float, float]],
         interp: str = "monotone_convex",
         extrapolation: str = "flat_forward",
-        day_count: str = "act_365f",
+        day_count: Optional[str] = None,
     ) -> None:
         """Construct a discount curve from knot points.
 
@@ -110,8 +110,8 @@ class DiscountCurve:
             Interpolation style (default ``"monotone_convex"``).
         extrapolation : str
             Extrapolation policy (default ``"flat_forward"``).
-        day_count : str
-            Day-count convention (default ``"act_365f"``).
+        day_count : str | None
+            Day-count convention. When omitted, Rust infers a market default from the curve ID.
 
         Raises
         ------

@@ -53,7 +53,8 @@ fn ttc_to_pit_py(ttc_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyRes
 /// Calibrate a central tendency (long-run average PD) from annual default rates
 /// using the geometric mean (the standard regulatory TtC approach).
 ///
-/// If any rate equals exactly 0.0 the geometric mean is 0.0.
+/// Zero annual default rates are rejected; callers should apply an explicit
+/// smoothing policy before calibration when zero-default years are present.
 ///
 /// Returns the geometric mean in [0, 1].
 #[pyfunction]

@@ -36,3 +36,12 @@ fn cashflows_dts_matches_json_bridge_surface() {
     assert!(dts.contains("bondFromCashflows("));
     assert!(dts.contains("export declare const cashflows: CashflowsNamespace;"));
 }
+
+#[test]
+fn core_daycount_dts_exposes_context_for_context_dependent_conventions() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface DayCountContext"));
+    assert!(dts.contains("yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;"));
+    assert!(dts.contains("DayCountContext: DayCountContextConstructor;"));
+}

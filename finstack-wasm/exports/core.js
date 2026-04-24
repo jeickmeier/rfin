@@ -7,6 +7,7 @@ export const core = {
   Bps: wasm.Bps,
   Percentage: wasm.Percentage,
   DayCount: wasm.DayCount,
+  DayCountContext: wasm.DayCountContext,
   Tenor: wasm.Tenor,
   createDate: wasm.createDate,
   dateFromEpochDays: wasm.dateFromEpochDays,

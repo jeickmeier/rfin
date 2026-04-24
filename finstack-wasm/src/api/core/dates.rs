@@ -2,10 +2,72 @@
 
 use crate::utils::to_js_err;
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, CalendarRegistry, DayCount as RustDayCount, DayCountContext,
-    Tenor as RustTenor,
+    adjust, BusinessDayConvention, CalendarRegistry, DayCount as RustDayCount,
+    DayCountContext as RustDayCountContext, Tenor as RustTenor,
 };
 use wasm_bindgen::prelude::*;
+
+// ---------------------------------------------------------------------------
+// DayCountContext
+// ---------------------------------------------------------------------------
+
+/// Optional context for day-count conventions that need market metadata.
+#[wasm_bindgen(js_name = DayCountContext)]
+#[derive(Clone, Default)]
+pub struct DayCountContext {
+    calendar_code: Option<String>,
+    frequency: Option<RustTenor>,
+    bus_basis: Option<u16>,
+}
+
+impl DayCountContext {
+    fn to_rust_ctx(&self) -> RustDayCountContext<'static> {
+        let registry = CalendarRegistry::global();
+        let calendar = self
+            .calendar_code
+            .as_deref()
+            .and_then(|code| registry.resolve_str(code));
+        RustDayCountContext {
+            calendar,
+            frequency: self.frequency,
+            bus_basis: self.bus_basis,
+            coupon_period: None,
+        }
+    }
+}
+
+#[wasm_bindgen(js_class = DayCountContext)]
+impl DayCountContext {
+    /// Create an empty day-count context.
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> DayCountContext {
+        DayCountContext::default()
+    }
+
+    /// Return a copy with the calendar used by Bus/252.
+    #[wasm_bindgen(js_name = withCalendar)]
+    pub fn with_calendar(&self, calendar_code: &str) -> DayCountContext {
+        let mut next = self.clone();
+        next.calendar_code = Some(calendar_code.to_string());
+        next
+    }
+
+    /// Return a copy with the coupon frequency used by Act/Act ISMA.
+    #[wasm_bindgen(js_name = withFrequency)]
+    pub fn with_frequency(&self, frequency: &Tenor) -> DayCountContext {
+        let mut next = self.clone();
+        next.frequency = Some(frequency.inner);
+        next
+    }
+
+    /// Return a copy with the business-day basis used by Bus/252.
+    #[wasm_bindgen(js_name = withBusBasis)]
+    pub fn with_bus_basis(&self, bus_basis: u16) -> DayCountContext {
+        let mut next = self.clone();
+        next.bus_basis = Some(bus_basis);
+        next
+    }
+}
 
 // ---------------------------------------------------------------------------
 // DayCount
@@ -97,7 +159,22 @@ impl DayCount {
         let start = epoch_to_date(start_epoch_days)?;
         let end = epoch_to_date(end_epoch_days)?;
         self.inner
-            .year_fraction(start, end, DayCountContext::default())
+            .year_fraction(start, end, RustDayCountContext::default())
+            .map_err(to_js_err)
+    }
+
+    /// Compute the year fraction with explicit convention context.
+    #[wasm_bindgen(js_name = yearFractionWithContext)]
+    pub fn year_fraction_with_context(
+        &self,
+        start_epoch_days: i32,
+        end_epoch_days: i32,
+        ctx: &DayCountContext,
+    ) -> Result<f64, JsValue> {
+        let start = epoch_to_date(start_epoch_days)?;
+        let end = epoch_to_date(end_epoch_days)?;
+        self.inner
+            .year_fraction(start, end, ctx.to_rust_ctx())
             .map_err(to_js_err)
     }
 

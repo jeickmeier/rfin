@@ -168,6 +168,31 @@ fn sp_piecewise_verification() {
     );
 }
 
+#[test]
+fn explicit_zero_time_knot_defines_first_positive_interval() {
+    let curve = HazardCurve::builder("SP-ZERO-KNOT")
+        .base_date(base_date())
+        .knots([(0.0, 0.01), (5.0, 0.02)])
+        .build()
+        .unwrap();
+
+    let expected_1 = (-0.01_f64).exp();
+    assert!(
+        (curve.sp(1.0) - expected_1).abs() < 1e-12,
+        "SP at t=1: got {}, expected {}",
+        curve.sp(1.0),
+        expected_1
+    );
+
+    let expected_5 = (-0.01_f64 * 5.0).exp();
+    assert!(
+        (curve.sp(5.0) - expected_5).abs() < 1e-12,
+        "SP at t=5: got {}, expected {}",
+        curve.sp(5.0),
+        expected_5
+    );
+}
+
 // =============================================================================
 // Additional Comprehensive Tests for Phase 1 Coverage
 // =============================================================================

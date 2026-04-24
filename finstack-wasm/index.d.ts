@@ -65,6 +65,7 @@ export interface PercentageConstructor {
 
 export interface DayCount {
   yearFraction(startEpochDays: number, endEpochDays: number): number;
+  yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;
   calendarDays(startEpochDays: number, endEpochDays: number): number;
   toString(): string;
 }
@@ -78,6 +79,16 @@ export interface DayCountConstructor {
   actAct(): DayCount;
   actActIsma(): DayCount;
   bus252(): DayCount;
+}
+
+export interface DayCountContext {
+  withCalendar(calendarCode: string): DayCountContext;
+  withFrequency(frequency: Tenor): DayCountContext;
+  withBusBasis(busBasis: number): DayCountContext;
+}
+
+export interface DayCountContextConstructor {
+  new (): DayCountContext;
 }
 
 export interface Tenor {
@@ -221,6 +232,7 @@ export interface CoreNamespace {
   Bps: BpsConstructor;
   Percentage: PercentageConstructor;
   DayCount: DayCountConstructor;
+  DayCountContext: DayCountContextConstructor;
   Tenor: TenorConstructor;
   createDate(year: number, month: number, day: number): number;
   dateFromEpochDays(days: number): number[];

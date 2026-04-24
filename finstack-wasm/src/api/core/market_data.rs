@@ -95,22 +95,21 @@ impl DiscountCurve {
             Some(ref s) => parse_extrapolation(s)?,
             None => ExtrapolationPolicy::FlatForward,
         };
-        let dc = match day_count {
-            Some(ref s) => parse_day_count(s)?,
-            None => DayCount::Act365F,
-        };
-
         if !knots.len().is_multiple_of(2) {
             return Err(to_js_err("knots array must have even length (t, df pairs)"));
         }
         let pairs: Vec<(f64, f64)> = knots.chunks_exact(2).map(|c| (c[0], c[1])).collect();
 
-        let curve = RustDiscountCurve::builder(id)
+        let mut builder = RustDiscountCurve::builder(id)
             .base_date(base)
-            .day_count(dc)
             .knots(pairs)
             .interp(style)
-            .extrapolation(extrap)
+            .extrapolation(extrap);
+        if let Some(ref s) = day_count {
+            builder = builder.day_count(parse_day_count(s)?);
+        }
+
+        let curve = builder
             .build()
             .map_err(to_js_err)?;
 

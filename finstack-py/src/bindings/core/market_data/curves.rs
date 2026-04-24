@@ -107,28 +107,31 @@ impl PyDiscountCurve {
     /// extrapolation : str, optional
     ///     Extrapolation policy (default ``"flat_forward"``).
     /// day_count : str, optional
-    ///     Day-count convention (default ``"act_365f"``).
+    ///     Day-count convention. When omitted, Rust infers a market default from the curve ID.
     #[new]
-    #[pyo3(signature = (id, base_date, knots, interp="monotone_convex", extrapolation="flat_forward", day_count="act_365f"))]
+    #[pyo3(signature = (id, base_date, knots, interp="monotone_convex", extrapolation="flat_forward", day_count=None))]
     fn new(
         id: &str,
         base_date: &Bound<'_, PyAny>,
         knots: Vec<(f64, f64)>,
         interp: &str,
         extrapolation: &str,
-        day_count: &str,
+        day_count: Option<&str>,
     ) -> PyResult<Self> {
         let base = py_to_date(base_date)?;
         let style = parse_interp_style(interp)?;
         let extrap = parse_extrapolation(extrapolation)?;
-        let dc = parse_day_count(day_count)?;
 
-        let curve = DiscountCurve::builder(id)
+        let mut builder = DiscountCurve::builder(id)
             .base_date(base)
-            .day_count(dc)
             .knots(knots)
             .interp(style)
-            .extrapolation(extrap)
+            .extrapolation(extrap);
+        if let Some(day_count) = day_count {
+            builder = builder.day_count(parse_day_count(day_count)?);
+        }
+
+        let curve = builder
             .build()
             .map_err(core_to_py)?;
 

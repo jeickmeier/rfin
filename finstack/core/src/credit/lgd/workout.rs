@@ -15,8 +15,29 @@
 //! - Qi, M. & Yang, X. (2009). "Loss Given Default of High Loan-to-Value
 //!   Residential Mortgages." Journal of Banking & Finance.
 
-use crate::error::InputError;
+use crate::error::{InputError, NonFiniteKind};
 use crate::Result;
+
+fn non_finite_kind(value: f64) -> NonFiniteKind {
+    if value.is_nan() {
+        NonFiniteKind::NaN
+    } else if value.is_sign_positive() {
+        NonFiniteKind::PosInfinity
+    } else {
+        NonFiniteKind::NegInfinity
+    }
+}
+
+fn validate_finite(value: f64) -> Result<()> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(InputError::NonFiniteValue {
+            kind: non_finite_kind(value),
+        }
+        .into())
+    }
+}
 
 /// Collateral asset class with associated liquidation haircut.
 ///
@@ -61,8 +82,10 @@ impl CollateralPiece {
     ///
     /// # Errors
     ///
-    /// Returns an error if `book_value < 0` or `haircut` is not in \[0, 1\].
+    /// Returns an error if inputs are non-finite, `book_value < 0`, or `haircut` is not in \[0, 1\].
     pub fn new(collateral_type: CollateralType, book_value: f64, haircut: f64) -> Result<Self> {
+        validate_finite(book_value)?;
+        validate_finite(haircut)?;
         if book_value < 0.0 {
             return Err(InputError::NegativeValue.into());
         }
@@ -98,8 +121,10 @@ impl WorkoutCosts {
     ///
     /// # Errors
     ///
-    /// Returns an error if either rate is negative.
+    /// Returns an error if either rate is non-finite or negative.
     pub fn new(direct_cost_rate: f64, indirect_cost_rate: f64) -> Result<Self> {
+        validate_finite(direct_cost_rate)?;
+        validate_finite(indirect_cost_rate)?;
         if direct_cost_rate < 0.0 || indirect_cost_rate < 0.0 {
             return Err(InputError::NegativeValue.into());
         }
@@ -171,8 +196,9 @@ impl WorkoutLgd {
     ///
     /// # Errors
     ///
-    /// Returns an error if `ead <= 0`.
+    /// Returns an error if `ead` is non-finite or `ead <= 0`.
     pub fn lgd(&self, ead: f64) -> Result<f64> {
+        validate_finite(ead)?;
         if ead <= 0.0 {
             return Err(InputError::NonPositiveValue.into());
         }
@@ -251,11 +277,13 @@ impl WorkoutLgdBuilder {
     ///
     /// # Errors
     ///
-    /// Returns an error if workout_years is negative or discount_rate is negative.
+    /// Returns an error if workout_years or discount_rate is non-finite or negative.
     pub fn build(self) -> Result<WorkoutLgd> {
         let workout_years = self.workout_years.unwrap_or(2.0);
         let discount_rate = self.discount_rate.unwrap_or(0.05);
 
+        validate_finite(workout_years)?;
+        validate_finite(discount_rate)?;
         if workout_years < 0.0 {
             return Err(InputError::NegativeValue.into());
         }
@@ -290,6 +318,7 @@ mod tests {
         // Haircut out of range
         assert!(CollateralPiece::new(CollateralType::Cash, 100.0, -0.1).is_err());
         assert!(CollateralPiece::new(CollateralType::Cash, 100.0, 1.1).is_err());
+        assert!(CollateralPiece::new(CollateralType::Cash, f64::NAN, 0.0).is_err());
     }
 
     #[test]
@@ -304,6 +333,8 @@ mod tests {
     fn workout_costs_validation() {
         assert!(WorkoutCosts::new(-0.01, 0.03).is_err());
         assert!(WorkoutCosts::new(0.05, -0.01).is_err());
+        assert!(WorkoutCosts::new(f64::NAN, 0.03).is_err());
+        assert!(WorkoutCosts::new(0.05, f64::INFINITY).is_err());
         assert!(WorkoutCosts::new(0.05, 0.03).is_ok());
     }
 
@@ -385,6 +416,8 @@ mod tests {
         let model = WorkoutLgd::builder().build().expect("valid model");
         assert!(model.lgd(0.0).is_err());
         assert!(model.lgd(-1.0).is_err());
+        assert!(model.lgd(f64::NAN).is_err());
+        assert!(model.lgd(f64::INFINITY).is_err());
     }
 
     #[test]
@@ -393,6 +426,11 @@ mod tests {
         assert!(WorkoutLgd::builder().workout_years(-1.0).build().is_err());
         // Negative discount rate
         assert!(WorkoutLgd::builder().discount_rate(-0.01).build().is_err());
+        assert!(WorkoutLgd::builder().workout_years(f64::NAN).build().is_err());
+        assert!(WorkoutLgd::builder()
+            .discount_rate(f64::INFINITY)
+            .build()
+            .is_err());
     }
 
     #[test]
