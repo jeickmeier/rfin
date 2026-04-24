@@ -23,7 +23,6 @@ use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CashflowRepresentation};
 use finstack_valuations::instruments::DynInstrument;
@@ -381,18 +380,10 @@ fn convert_money_to_base_on_date(
         return Ok(money);
     }
 
-    let fx_matrix = market
-        .fx()
-        .ok_or_else(|| Error::MissingMarketData("FX matrix not available".to_string()))?;
-
-    let query = FxQuery::new(ccy, base_ccy, payment_date);
-    let rate_result = fx_matrix
-        .rate(query)
-        .map_err(|_| Error::FxConversionFailed {
-            from: ccy,
-            to: base_ccy,
-        })?;
-
+    // Emit the cashflow-specific far-future warning before delegating the
+    // actual FX lookup/conversion to the shared `crate::fx::convert_to_base`
+    // helper so the rate application and error mapping stay consistent across
+    // the portfolio crate.
     if should_warn_far_future_fx_conversion(as_of, payment_date, ccy, base_ccy)
         && warned_pairs.insert((ccy, base_ccy, payment_date))
     {
@@ -404,7 +395,7 @@ fn convert_money_to_base_on_date(
         );
     }
 
-    Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
+    crate::fx::convert_to_base(money, payment_date, market, base_ccy)
 }
 
 #[cfg(test)]

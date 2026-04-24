@@ -537,23 +537,11 @@ pub fn attribute_portfolio_pnl(
 
     // Hoisted out of the per-position loop: the closure captures `market_t1`,
     // `base_ccy`, and `as_of_t1` by reference and is reused for every field of
-    // every position.
+    // every position. Delegates to the shared `crate::fx::convert_to_base`
+    // helper so the FX lookup + error mapping stay consistent with the rest of
+    // the portfolio crate.
     let convert = |money: Money| -> Result<Money> {
-        if money.currency() == base_ccy {
-            Ok(money)
-        } else {
-            let fx_matrix = market_t1
-                .fx()
-                .ok_or_else(|| Error::MissingMarketData("FX matrix not available".to_string()))?;
-            let query = FxQuery::new(money.currency(), base_ccy, as_of_t1);
-            let rate_result = fx_matrix
-                .rate(query)
-                .map_err(|_| Error::FxConversionFailed {
-                    from: money.currency(),
-                    to: base_ccy,
-                })?;
-            Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
-        }
+        crate::fx::convert_to_base(money, as_of_t1, market_t1, base_ccy)
     };
 
     for data in position_data {

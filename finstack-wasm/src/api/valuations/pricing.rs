@@ -63,6 +63,29 @@ pub fn price_instrument_with_metrics(
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
+/// Per-flow cashflow envelope (DF / survival / PV) for a discountable instrument.
+///
+/// `model` must be `"discounting"` or `"hazard_rate"`. Unsupported models or
+/// incompatible instrument types throw. For supported pairs, the envelope's
+/// `total_pv` matches the instrument's `base_value` within rounding.
+#[wasm_bindgen(js_name = instrumentCashflowsJson)]
+pub fn instrument_cashflows_json(
+    instrument_json: &str,
+    market_json: &str,
+    as_of: &str,
+    model: &str,
+) -> Result<String, JsValue> {
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    finstack_valuations::instruments::cashflow_export::instrument_cashflows_json(
+        instrument_json,
+        &market,
+        as_of,
+        model,
+    )
+    .map_err(to_js_err)
+}
+
 /// List all metric IDs in the standard metric registry.
 #[wasm_bindgen(js_name = listStandardMetrics)]
 pub fn list_standard_metrics() -> Result<JsValue, JsValue> {

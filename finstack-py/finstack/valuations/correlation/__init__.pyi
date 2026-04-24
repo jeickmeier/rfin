@@ -21,6 +21,7 @@ __all__ = [
     "correlation_bounds",
     "joint_probabilities",
     "validate_correlation_matrix",
+    "nearest_correlation",
     "cholesky_decompose",
 ]
 
@@ -801,6 +802,43 @@ def validate_correlation_matrix(matrix: Sequence[float], n: int) -> None:
     ------
     ValueError
         If the matrix is invalid (not symmetric, not PSD, etc.).
+    """
+    ...
+
+def nearest_correlation(
+    matrix: Sequence[float],
+    n: int,
+    max_iter: int = 200,
+    tol: float = 1e-10,
+) -> list[float]:
+    """Nearest correlation matrix (Higham 2002) for a near-PSD input.
+
+    Projects a symmetric, unit-diagonal, near-PSD matrix onto the set of valid
+    correlation matrices (symmetric, unit diagonal, positive semi-definite)
+    in Frobenius norm. Gross input violations raise rather than being
+    silently reshaped.
+
+    Parameters
+    ----------
+    matrix
+        Flattened row-major ``n x n`` input matrix.
+    n
+        Matrix dimension.
+    max_iter
+        Maximum alternating-projection iterations.
+    tol
+        Frobenius-norm tolerance between successive iterates.
+
+    Returns
+    -------
+    list[float]
+        Flattened row-major ``n x n`` correlation matrix.
+
+    Raises
+    ------
+    ValueError
+        If the input is not square, is grossly asymmetric, the diagonal is
+        far from 1, or the projection does not converge.
     """
     ...
 

@@ -207,3 +207,122 @@ fn test_basecorr_bucket_filtering() {
         unchanged_3
     );
 }
+
+#[test]
+fn test_basecorr_bucket_filtering_uses_tight_detachment_match() {
+    let basecorr = BaseCorrelationCurve::builder("CDX_IG")
+        .knots(vec![
+            (0.03, 0.25),   // 3% detachment
+            (0.0375, 0.30), // 3.75% detachment
+            (0.07, 0.45),   // 7% detachment
+        ])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert(basecorr);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "basecorr_tight_bucket".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::BaseCorrBucketPts {
+            surface_id: "CDX_IG".into(),
+            detachment_bps: Some(vec![300]),
+            maturities: None,
+            points: 0.05,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    let shocked_curve = market.get_base_correlation("CDX_IG").unwrap();
+    assert!((shocked_curve.correlation(0.03) - 0.30).abs() < 1e-6);
+    assert!(
+        (shocked_curve.correlation(0.0375) - 0.30).abs() < 1e-6,
+        "3.75% bucket must not be shocked by a 3% detachment request"
+    );
+}
+
+#[test]
+fn test_basecorr_bucket_filtering_reports_clamp_and_no_match() {
+    let basecorr = BaseCorrelationCurve::builder("CDX_IG")
+        .knots(vec![(0.03, 0.98), (0.07, 0.99)])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert(basecorr);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let engine = ScenarioEngine::new();
+
+    let clamp_scenario = ScenarioSpec {
+        id: "basecorr_clamp".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::BaseCorrBucketPts {
+            surface_id: "CDX_IG".into(),
+            detachment_bps: Some(vec![300]),
+            maturities: None,
+            points: 0.05,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+    let clamp_report = engine.apply(&clamp_scenario, &mut ctx).unwrap();
+    assert!(
+        clamp_report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("clamped")),
+        "expected clamp warning, got {:?}",
+        clamp_report.warnings
+    );
+
+    let no_match_scenario = ScenarioSpec {
+        id: "basecorr_no_match".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::BaseCorrBucketPts {
+            surface_id: "CDX_IG".into(),
+            detachment_bps: Some(vec![500]),
+            maturities: None,
+            points: 0.02,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let no_match_report = engine.apply(&no_match_scenario, &mut ctx).unwrap();
+    assert!(
+        no_match_report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("matched no detachment")),
+        "expected no-match warning, got {:?}",
+        no_match_report.warnings
+    );
+}

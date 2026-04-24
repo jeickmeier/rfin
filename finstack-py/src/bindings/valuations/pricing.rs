@@ -125,11 +125,55 @@ fn list_standard_metrics_grouped() -> std::collections::HashMap<String, Vec<Stri
         .collect()
 }
 
+/// Per-flow cashflow envelope (DF / survival / PV) for a discountable instrument.
+///
+/// Supported ``model`` values are ``"discounting"`` (DF-only PV) and
+/// ``"hazard_rate"`` (DF × survival + recovery on principal). Any other model
+/// key, or an instrument type that isn't priced under the chosen model in the
+/// standard registry, raises ``ValueError``. For the supported combinations,
+/// the returned envelope's ``total_pv`` reconciles with the instrument's
+/// ``base_value``.
+///
+/// Parameters
+/// ----------
+/// instrument_json : str
+///     Tagged instrument JSON.
+/// market : MarketContext | str
+///     A ``MarketContext`` object or a JSON string.
+/// as_of : str
+///     Valuation date in ISO 8601 format.
+/// model : str
+///     ``"discounting"`` (default) or ``"hazard_rate"``.
+///
+/// Returns
+/// -------
+/// str
+///     JSON-serialized ``InstrumentCashflowEnvelope``. Parse and wrap in a
+///     DataFrame via :func:`finstack.valuations.instrument_cashflows`.
+#[pyfunction]
+#[pyo3(signature = (instrument_json, market, as_of, model="discounting"))]
+fn instrument_cashflows_json(
+    instrument_json: &str,
+    market: &Bound<'_, PyAny>,
+    as_of: &str,
+    model: &str,
+) -> PyResult<String> {
+    let market = extract_market(market)?;
+    finstack_valuations::instruments::cashflow_export::instrument_cashflows_json(
+        instrument_json,
+        &market,
+        as_of,
+        model,
+    )
+    .map_err(display_to_py)
+}
+
 /// Register pricing functions on the valuations submodule.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(price_instrument, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(price_instrument_with_metrics, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(list_standard_metrics, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(list_standard_metrics_grouped, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(instrument_cashflows_json, m)?)?;
     Ok(())
 }

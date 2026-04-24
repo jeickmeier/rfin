@@ -40,13 +40,17 @@ pub fn parse_scenario_spec(json_str: &str) -> Result<String, JsValue> {
 /// Specs are merged in priority order (lower number runs first).
 #[wasm_bindgen(js_name = composeScenarios)]
 pub fn compose_scenarios(specs_json: &str) -> Result<String, JsValue> {
+    compose_scenarios_json(specs_json).map_err(to_js_err)
+}
+
+fn compose_scenarios_json(specs_json: &str) -> Result<String, String> {
     let specs: Vec<finstack_scenarios::ScenarioSpec> =
-        serde_json::from_str(specs_json).map_err(to_js_err)?;
+        serde_json::from_str(specs_json).map_err(|e| e.to_string())?;
 
     let engine = finstack_scenarios::ScenarioEngine::new();
-    let composed = engine.compose(specs);
+    let composed = engine.try_compose(specs).map_err(|e| e.to_string())?;
 
-    serde_json::to_string(&composed).map_err(to_js_err)
+    serde_json::to_string(&composed).map_err(|e| e.to_string())
 }
 
 /// Validate a scenario specification JSON without executing it.
@@ -370,6 +374,44 @@ mod tests {
         let arr = format!("[{s1},{s2}]");
         let composed = compose_scenarios(&arr).expect("compose");
         assert!(validate_scenario_spec(&composed).expect("valid"));
+    }
+
+    #[test]
+    fn compose_scenarios_rejects_duplicate_time_rolls() {
+        use finstack_core::market_data::hierarchy::ResolutionMode;
+        use finstack_scenarios::{OperationSpec, ScenarioSpec, TimeRollMode};
+
+        let specs = serde_json::to_string(&vec![
+            ScenarioSpec {
+                id: "roll_1m".into(),
+                name: None,
+                description: None,
+                operations: vec![OperationSpec::TimeRollForward {
+                    period: "1M".into(),
+                    apply_shocks: true,
+                    roll_mode: TimeRollMode::BusinessDays,
+                }],
+                priority: 0,
+                resolution_mode: ResolutionMode::Cumulative,
+            },
+            ScenarioSpec {
+                id: "roll_3m".into(),
+                name: None,
+                description: None,
+                operations: vec![OperationSpec::TimeRollForward {
+                    period: "3M".into(),
+                    apply_shocks: true,
+                    roll_mode: TimeRollMode::BusinessDays,
+                }],
+                priority: 1,
+                resolution_mode: ResolutionMode::Cumulative,
+            },
+        ])
+        .expect("serialize specs");
+
+        let err =
+            compose_scenarios_json(&specs).expect_err("duplicate time rolls should be rejected");
+        assert!(err.contains("TimeRollForward"), "unexpected error: {err}");
     }
 
     #[test]

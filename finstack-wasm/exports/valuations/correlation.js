@@ -8,4 +8,5 @@ export const correlation = {
   correlationBounds: wasm.correlationBounds,
   jointProbabilities: wasm.jointProbabilities,
   validateCorrelationMatrix: wasm.validateCorrelationMatrix,
+  nearestCorrelation: wasm.nearestCorrelation,
 };

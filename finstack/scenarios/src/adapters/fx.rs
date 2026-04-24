@@ -30,7 +30,7 @@ fn post_shock_triangulation_warnings(
     }
 
     let pivot = state.config.pivot_currency;
-    let bumped = fx.with_bumped_rate(base, quote, pct, as_of)?;
+    let bumped = fx.with_bumped_rate(base, quote, pct / 100.0, as_of)?;
     let mut warnings = Vec::new();
 
     for &(from, to, _) in &state.quotes {
@@ -141,12 +141,48 @@ mod tests {
         let market = MarketContext::new().insert_fx(fx);
 
         let warnings =
-            post_shock_triangulation_warnings(&market, Currency::EUR, Currency::USD, 0.10, as_of)
+            post_shock_triangulation_warnings(&market, Currency::EUR, Currency::USD, 10.0, as_of)
                 .expect("warning generation should succeed");
 
         assert!(
-            warnings.iter().any(|warning| warning.contains("EUR/JPY")),
+            warnings
+                .iter()
+                .any(|warning| warning.contains("EUR/JPY")
+                    && warning.contains("implied=198.0000000000")),
             "expected direct cross inconsistency warning, got {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn post_shock_triangulation_check_accepts_valid_negative_percent_shock() {
+        let as_of = date!(2025 - 01 - 01);
+        let fx = FxMatrix::try_with_config(
+            Arc::new(NullFx),
+            FxConfig {
+                pivot_currency: Currency::USD,
+                enable_triangulation: true,
+                cache_capacity: 32,
+            },
+        )
+        .expect("fx config should be valid");
+        fx.set_quotes(&[
+            (Currency::EUR, Currency::USD, 1.20),
+            (Currency::USD, Currency::JPY, 150.0),
+            (Currency::EUR, Currency::JPY, 180.0),
+        ])
+        .expect("quotes should seed");
+        let market = MarketContext::new().insert_fx(fx);
+
+        let warnings =
+            post_shock_triangulation_warnings(&market, Currency::EUR, Currency::USD, -5.0, as_of)
+                .expect("valid -5% shock should not fail preview");
+
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.contains("EUR/JPY")
+                    && warning.contains("implied=171.0000000000")),
+            "expected post-shock state from a -5% bump, got {warnings:?}"
         );
     }
 }

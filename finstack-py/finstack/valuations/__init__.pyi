@@ -39,6 +39,16 @@ __all__ = [
     "snowball_coupon_profile",
     "cms_spread_option_intrinsic",
     "callable_range_accrual_accrued",
+    "bs_price",
+    "bs_greeks",
+    "bs_implied_vol",
+    "black76_implied_vol",
+    "SabrParameters",
+    "SabrModel",
+    "SabrSmile",
+    "SabrCalibrator",
+    "instrument_cashflows",
+    "instrument_cashflows_json",
 ]
 
 class ValuationResult:
@@ -322,6 +332,60 @@ def price_instrument_with_metrics(
         >>> from finstack.valuations import price_instrument_with_metrics
         >>> price_instrument_with_metrics(inst_json, mkt_json, "2025-01-15", metrics=["dv01"])  # doctest: +SKIP
         ''
+    """
+    ...
+
+def instrument_cashflows_json(
+    instrument_json: str,
+    market: MarketContext | str,
+    as_of: str,
+    model: str = "discounting",
+) -> str:
+    """Per-flow cashflow envelope (DF / survival / PV) for a discountable instrument.
+
+    Supports ``model in {"discounting", "hazard_rate"}``. The envelope's
+    ``total_pv`` reconciles with the instrument's ``base_value`` for the
+    supported model-instrument pairs.
+
+    Args:
+        instrument_json: Tagged instrument JSON.
+        market: ``MarketContext`` instance or JSON string.
+        as_of: ISO 8601 valuation date.
+        model: ``"discounting"`` (DF only) or ``"hazard_rate"`` (adds
+            survival probability, conditional default probability, and
+            recovery-adjusted principal PV).
+
+    Returns:
+        JSON-serialized ``InstrumentCashflowEnvelope``.
+
+    Raises:
+        ValueError: If ``model`` is unsupported or the instrument type isn't
+            priced under that model.
+    """
+    ...
+
+def instrument_cashflows(
+    instrument_json: str,
+    market: MarketContext | str,
+    as_of: str,
+    *,
+    model: str = "discounting",
+) -> tuple[dict, pd.DataFrame]:
+    """DataFrame-friendly wrapper around :func:`instrument_cashflows_json`.
+
+    Parses the JSON envelope returned by the low-level binding and constructs
+    a per-flow ``pandas.DataFrame`` with ``date`` / ``reset_date`` parsed as
+    ``datetime64``. See :func:`instrument_cashflows_json` for argument and
+    error semantics.
+
+    Returns:
+        ``(envelope, df)`` where ``envelope`` is the parsed dict and ``df``
+        carries one row per flow with columns ``date``, ``amount``,
+        ``currency``, ``kind``, ``accrual_factor``, ``year_fraction``,
+        ``rate``, ``reset_date``, ``discount_factor``, ``survival_probability``,
+        ``conditional_default_prob``, ``inflation_index_ratio``,
+        ``prepayment_smm``, ``beginning_balance``, ``ending_balance``, and
+        ``pv``.
     """
     ...
 
@@ -1081,6 +1145,168 @@ def calibrate(json: str) -> CalibrationResult:
         >>> curve = result.market.get_discount("USD-OIS")  # doctest: +SKIP
     """
     ...
+
+# ---------------------------------------------------------------------------
+# Closed-form analytic primitives (Black-Scholes / Black-76)
+# ---------------------------------------------------------------------------
+
+def bs_price(
+    spot: float,
+    strike: float,
+    r: float,
+    q: float,
+    sigma: float,
+    t: float,
+    is_call: bool,
+) -> float:
+    """Per-unit Black-Scholes / Garman-Kohlhagen price of a European option.
+
+    All rates are continuously compounded decimals; ``sigma`` is annualized
+    vol; ``t`` is years to expiry. Pass ``is_call=False`` for puts.
+    """
+    ...
+
+def bs_greeks(
+    spot: float,
+    strike: float,
+    r: float,
+    q: float,
+    sigma: float,
+    t: float,
+    is_call: bool,
+    theta_days: float = 365.0,
+) -> dict[str, float]:
+    """Black-Scholes / Garman-Kohlhagen Greeks as a dict.
+
+    Returns ``{"delta", "gamma", "vega", "theta", "rho", "rho_q"}``. ``vega``
+    and both rho values are per 1% move; ``theta`` is per-day using the
+    ``theta_days`` day-count denominator (ACT/365 by default).
+    """
+    ...
+
+def bs_implied_vol(
+    spot: float,
+    strike: float,
+    r: float,
+    q: float,
+    t: float,
+    price: float,
+    is_call: bool,
+) -> float:
+    """Solve for Black-Scholes implied volatility given a target price."""
+    ...
+
+def black76_implied_vol(
+    forward: float,
+    strike: float,
+    df: float,
+    t: float,
+    price: float,
+    is_call: bool,
+) -> float:
+    """Solve for Black-76 (forward-based) implied volatility given a target price."""
+    ...
+
+# ---------------------------------------------------------------------------
+# SABR volatility smile
+# ---------------------------------------------------------------------------
+
+class SabrParameters:
+    """SABR parameters ``(alpha, beta, nu, rho)`` with optional ``shift``.
+
+    Enforces ``alpha > 0``, ``beta in [0, 1]``, ``nu >= 0``, ``rho in
+    [-1, 1]``, and ``shift > 0`` when supplied.
+    """
+
+    def __init__(
+        self,
+        alpha: float,
+        beta: float,
+        nu: float,
+        rho: float,
+        shift: float | None = None,
+    ) -> None: ...
+    @staticmethod
+    def equity_default() -> SabrParameters:
+        """Equity-standard defaults ``(alpha=0.20, beta=1.0, nu=0.30, rho=-0.20)``."""
+        ...
+
+    @staticmethod
+    def rates_default() -> SabrParameters:
+        """Rates-standard defaults ``(alpha=0.02, beta=0.5, nu=0.30, rho=0.0)``."""
+        ...
+
+    @property
+    def alpha(self) -> float: ...
+    @property
+    def beta(self) -> float: ...
+    @property
+    def nu(self) -> float: ...
+    @property
+    def rho(self) -> float: ...
+    @property
+    def shift(self) -> float | None: ...
+    def is_shifted(self) -> bool:
+        """``True`` when parameters include a non-zero shift (negative-rate support)."""
+        ...
+
+class SabrModel:
+    """Hagan-2002 SABR volatility model."""
+
+    def __init__(self, params: SabrParameters) -> None: ...
+    def implied_vol(self, forward: float, strike: float, t: float) -> float:
+        """Black-style implied volatility under the Hagan-2002 expansion."""
+        ...
+
+    @property
+    def params(self) -> SabrParameters: ...
+    def supports_negative_rates(self) -> bool: ...
+
+class SabrSmile:
+    """Volatility smile generator for a fixed ``(forward, t)`` pair."""
+
+    def __init__(
+        self,
+        params: SabrParameters,
+        forward: float,
+        t: float,
+    ) -> None: ...
+    def atm_vol(self) -> float: ...
+    def implied_vol(self, strike: float) -> float: ...
+    def generate_smile(self, strikes: list[float]) -> list[float]: ...
+    def arbitrage_diagnostics(
+        self,
+        strikes: list[float],
+        r: float = 0.0,
+        q: float = 0.0,
+    ) -> dict:
+        """Butterfly + monotonicity arbitrage diagnostics on ``strikes``.
+
+        Returns a dict with ``arbitrage_free``, ``butterfly_violations``,
+        and ``monotonicity_violations``.
+        """
+        ...
+
+class SabrCalibrator:
+    """SABR calibrator (Levenberg-Marquardt with beta fixed)."""
+
+    def __init__(self) -> None: ...
+    @staticmethod
+    def high_precision() -> SabrCalibrator:
+        """Tighter tolerance and higher iteration cap for production fits."""
+        ...
+
+    def with_tolerance(self, tolerance: float) -> SabrCalibrator: ...
+    def calibrate(
+        self,
+        forward: float,
+        strikes: list[float],
+        market_vols: list[float],
+        t: float,
+        beta: float = 1.0,
+    ) -> SabrParameters:
+        """Fit ``(alpha, nu, rho)`` to market vols with ``beta`` fixed."""
+        ...
 
 # ---------------------------------------------------------------------------
 # Fourier option pricing helpers

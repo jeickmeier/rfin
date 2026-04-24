@@ -122,7 +122,11 @@ pub use state_serde::{
 use crate::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::money::fx::FxMatrix;
+use crate::currency::Currency;
+use crate::dates::Date;
+use crate::error::InputError;
+use crate::money::fx::{FxMatrix, FxQuery};
+use crate::money::Money;
 use crate::types::CurveId;
 
 use super::{
@@ -208,6 +212,65 @@ impl MarketContext {
     #[inline]
     pub fn fx(&self) -> Option<&Arc<FxMatrix>> {
         self.fx.as_ref()
+    }
+
+    /// Borrow the FX matrix, returning a `NotFound` error if absent.
+    ///
+    /// Convenience wrapper around [`Self::fx`] for the common case where an
+    /// absent FX matrix should surface as a `NotFound` error keyed by
+    /// `"fx_matrix"`. Use this to avoid repeating the
+    /// `fx().ok_or_else(|| InputError::NotFound { id: "fx_matrix".into() })`
+    /// pattern.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InputError::NotFound`] with id `"fx_matrix"` when this
+    /// context has no FX matrix attached.
+    #[inline]
+    pub fn fx_required(&self) -> crate::Result<&Arc<FxMatrix>> {
+        self.fx.as_ref().ok_or_else(|| {
+            InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            }
+            .into()
+        })
+    }
+
+    /// Convert a [`Money`] amount into `target_ccy` using the embedded FX matrix.
+    ///
+    /// Centralizes the "same-ccy shortcut → FX matrix lookup → rate application"
+    /// pattern used across valuations, portfolio, margin, and cashflow aggregation.
+    /// Returns the input unchanged when it is already denominated in `target_ccy`.
+    ///
+    /// Callers that need a different error taxonomy (e.g. portfolio's
+    /// `MissingMarketData` / `FxConversionFailed` split) should perform their own
+    /// [`Self::fx_required`] check and call [`FxMatrix::rate`] directly, preserving
+    /// the domain-specific error mapping while still sharing the rate lookup
+    /// machinery.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - Monetary amount to convert.
+    /// * `target_ccy` - Destination currency.
+    /// * `as_of` - Date used for the FX rate lookup.
+    ///
+    /// # Errors
+    ///
+    /// * [`InputError::NotFound`] (id `"fx_matrix"`) when no FX matrix is attached.
+    /// * Any error surfaced by [`FxMatrix::rate`] when the requested pair is
+    ///   unavailable.
+    pub fn convert_money(
+        &self,
+        amount: Money,
+        target_ccy: Currency,
+        as_of: Date,
+    ) -> crate::Result<Money> {
+        if amount.currency() == target_ccy {
+            return Ok(amount);
+        }
+        let fx = self.fx_required()?;
+        let rate = fx.rate(FxQuery::new(amount.currency(), target_ccy, as_of))?;
+        Ok(Money::new(amount.amount() * rate.rate, target_ccy))
     }
 
     /// Snapshot (clone) all stored volatility surfaces.
@@ -389,10 +452,74 @@ impl MarketContext {
 #[cfg(test)]
 mod tests {
     use super::MarketContext;
+    use crate::currency::Currency;
+    use crate::error::InputError;
+    use crate::money::fx::{FxMatrix, SimpleFxProvider};
+    use crate::money::Money;
+    use std::sync::Arc;
+    use time::macros::date;
 
     #[test]
     fn market_context_is_send_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<MarketContext>();
+    }
+
+    #[test]
+    fn fx_required_errors_when_matrix_absent() {
+        let ctx = MarketContext::new();
+        // `FxMatrix` does not impl Debug, so we can't use `unwrap_err` directly.
+        let err = match ctx.fx_required() {
+            Ok(_) => panic!("expected fx_required to error on empty context"),
+            Err(e) => e,
+        };
+        assert!(
+            matches!(
+                err,
+                crate::Error::Input(InputError::NotFound { ref id }) if id == "fx_matrix"
+            ),
+            "unexpected error: {err:?}",
+        );
+    }
+
+    #[test]
+    fn convert_money_same_currency_is_identity() {
+        let ctx = MarketContext::new();
+        let amount = Money::new(1_000.0, Currency::USD);
+        let out = ctx
+            .convert_money(amount, Currency::USD, date!(2025 - 01 - 15))
+            .expect("same-ccy conversion should not consult FX");
+        assert_eq!(out, amount);
+    }
+
+    #[test]
+    fn convert_money_uses_fx_matrix_rate() {
+        let provider = SimpleFxProvider::new();
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.1)
+            .expect("valid rate");
+        let ctx = MarketContext::new().insert_fx(FxMatrix::new(Arc::new(provider)));
+        let eur = Money::new(1_000.0, Currency::EUR);
+        let usd = ctx
+            .convert_money(eur, Currency::USD, date!(2025 - 01 - 15))
+            .expect("EUR->USD should succeed");
+        assert_eq!(usd.currency(), Currency::USD);
+        assert!((usd.amount() - 1_100.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn convert_money_missing_matrix_returns_not_found() {
+        let ctx = MarketContext::new();
+        let eur = Money::new(1_000.0, Currency::EUR);
+        let err = ctx
+            .convert_money(eur, Currency::USD, date!(2025 - 01 - 15))
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                crate::Error::Input(InputError::NotFound { ref id }) if id == "fx_matrix"
+            ),
+            "unexpected error: {err:?}",
+        );
     }
 }

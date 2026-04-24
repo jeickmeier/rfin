@@ -332,7 +332,7 @@ pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
 pub use factors::{
     CurveRestoreFlags, MarketRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
 };
-pub use helpers::{compute_pnl, compute_pnl_with_fx, convert_currency, reprice_instrument};
+pub use helpers::{compute_pnl, compute_pnl_with_fx, reprice_instrument};
 
 use crate::instruments::common_impl::traits::Instrument;
 use finstack_core::currency::Currency;

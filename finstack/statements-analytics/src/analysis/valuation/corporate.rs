@@ -242,11 +242,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
     context: DcfEvalContext<'_>,
 ) -> Result<(CorporateValuationResult, ExplanationTrace)> {
     let first_forecast_period = model.periods.iter().find(|period| !period.is_actual);
-    let last_actual_period = model
-        .periods
-        .iter()
-        .filter(|period| period.is_actual)
-        .next_back();
+    let last_actual_period = model.periods.iter().rfind(|period| period.is_actual);
 
     // Initialize explanation trace
     let mut trace = ExplanationTrace::new("corporate_dcf");

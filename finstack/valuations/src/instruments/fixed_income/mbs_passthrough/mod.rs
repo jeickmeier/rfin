@@ -71,5 +71,5 @@ pub(crate) mod pricer;
 pub mod servicing;
 mod types;
 
-pub use pricer::{AgencyMbsDiscountingPricer, MbsCashflow};
+pub use pricer::{generate_cashflows, AgencyMbsDiscountingPricer, MbsCashflow};
 pub use types::{AgencyMbsPassthrough, AgencyProgram, PoolType};

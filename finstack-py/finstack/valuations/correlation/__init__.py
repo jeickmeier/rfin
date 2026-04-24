@@ -24,6 +24,7 @@ CorrelatedBernoulli = _corr.CorrelatedBernoulli
 correlation_bounds = _corr.correlation_bounds
 joint_probabilities = _corr.joint_probabilities
 validate_correlation_matrix = _corr.validate_correlation_matrix
+nearest_correlation = _corr.nearest_correlation
 cholesky_decompose = _corr.cholesky_decompose
 
 __all__: list[str] = [
@@ -40,5 +41,6 @@ __all__: list[str] = [
     "cholesky_decompose",
     "correlation_bounds",
     "joint_probabilities",
+    "nearest_correlation",
     "validate_correlation_matrix",
 ]

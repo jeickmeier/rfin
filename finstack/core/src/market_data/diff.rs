@@ -422,18 +422,9 @@ pub fn measure_fx_shift(
 ) -> Result<f64> {
     use crate::money::fx::FxQuery;
 
-    // Get FX matrices
-    let fx_t0 = market_t0
-        .fx()
-        .ok_or_else(|| crate::error::InputError::NotFound {
-            id: "FX_MATRIX".to_string(),
-        })?;
-
-    let fx_t1 = market_t1
-        .fx()
-        .ok_or_else(|| crate::error::InputError::NotFound {
-            id: "FX_MATRIX".to_string(),
-        })?;
+    // Get FX matrices via the shared helper on MarketContext.
+    let fx_t0 = market_t0.fx_required()?;
+    let fx_t1 = market_t1.fx_required()?;
 
     // Get rates using FxQuery with the provided valuation dates
     let query_t0 = FxQuery::new(base_ccy, quote_ccy, as_of_t0);

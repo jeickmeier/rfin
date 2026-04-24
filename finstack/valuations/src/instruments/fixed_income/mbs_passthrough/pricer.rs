@@ -64,7 +64,13 @@ pub(crate) fn sifma_settlement_for_period(period_end: Date) -> Result<Date> {
 }
 
 /// Generate projected cashflows for an agency MBS.
-pub(crate) fn generate_cashflows(
+///
+/// Exposed publicly for binding-layer consumers (e.g. the `instrument_cashflows`
+/// export, which joins pool-state metadata — SMM, beginning/ending balance —
+/// onto the canonical `CashFlowSchedule` rows). Internal details of
+/// [`MbsCashflow`] may evolve between minor releases; callers should treat the
+/// struct as a read-only diagnostic view.
+pub fn generate_cashflows(
     mbs: &AgencyMbsPassthrough,
     as_of: Date,
     max_periods: Option<u32>,

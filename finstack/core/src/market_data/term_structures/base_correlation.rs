@@ -73,6 +73,13 @@ use crate::math::interp::{types::Interp, ExtrapolationPolicy, InterpStyle};
 use crate::types::CurveId;
 use crate::Result;
 
+/// Absolute detachment tolerance for bucket shocks.
+///
+/// Scenario detachment filters are already normalized to the same unit as
+/// curve detachments before they reach the curve, so bucket matching should be
+/// exact apart from floating-point roundoff.
+pub const BASE_CORR_DETACHMENT_MATCH_TOLERANCE: f64 = 1.0e-10;
+
 // ============================================================================
 // Arbitrage Validation Types
 // ============================================================================
@@ -415,7 +422,10 @@ impl BaseCorrelationCurve {
             .zip(self.correlations.iter().copied())
             .map(|(det, corr)| {
                 let matches = detachment_filter
-                    .map(|flt| flt.iter().any(|d| (d - det).abs() < 0.01))
+                    .map(|flt| {
+                        flt.iter()
+                            .any(|d| (d - det).abs() <= BASE_CORR_DETACHMENT_MATCH_TOLERANCE)
+                    })
                     .unwrap_or(true);
                 if matches {
                     (det, (corr + points).clamp(0.0, 1.0))

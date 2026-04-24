@@ -89,6 +89,8 @@ pub mod dataframe;
 pub mod error;
 /// Factor-model portfolio risk decomposition outputs and engines.
 pub mod factor_model;
+/// Shared FX conversion helpers (e.g. converting position values to base currency).
+pub mod fx;
 /// Grouping and aggregation by attributes or books.
 pub mod grouping;
 /// Liquidity risk metrics, spread estimation, and portfolio scoring.

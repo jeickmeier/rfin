@@ -1,7 +1,8 @@
 //! Helper utilities for P&L attribution.
 //!
 //! Provides shared functions for market context manipulation, instrument repricing,
-//! currency conversion, and common `PnlAttribution` assembly.
+//! and common `PnlAttribution` assembly. Currency conversion itself lives on
+//! [`MarketContext::convert_money`] — call sites here use it directly.
 
 use super::types::{AttributionMethod, CarryDetail, PnlAttribution};
 use crate::instruments::common_impl::traits::Instrument;
@@ -9,9 +10,8 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::{FxConversionPolicy, FxPolicyMeta, FxQuery};
+use finstack_core::money::fx::{FxConversionPolicy, FxPolicyMeta};
 use finstack_core::money::Money;
-use finstack_core::Error;
 use finstack_core::Result;
 use std::sync::Arc;
 
@@ -36,44 +36,6 @@ pub fn reprice_instrument(
     as_of: Date,
 ) -> Result<Money> {
     instrument.value(market, as_of)
-}
-
-/// Convert money to a target currency using FX rates from market context.
-///
-/// # Arguments
-///
-/// * `money` - Amount to convert
-/// * `target_ccy` - Target currency
-/// * `market` - Market context with FX matrix
-/// * `as_of` - Valuation date
-///
-/// # Returns
-///
-/// Converted amount in target currency.
-///
-/// # Errors
-///
-/// Returns error if FX matrix is missing or rate lookup fails.
-pub fn convert_currency(
-    money: Money,
-    target_ccy: Currency,
-    market: &MarketContext,
-    as_of: Date,
-) -> Result<Money> {
-    if money.currency() == target_ccy {
-        return Ok(money);
-    }
-
-    let fx_matrix = market.fx().ok_or_else(|| {
-        Error::from(finstack_core::InputError::NotFound {
-            id: "fx_matrix".to_string(),
-        })
-    })?;
-
-    let query = FxQuery::new(money.currency(), target_ccy, as_of);
-    let rate_result = fx_matrix.rate(query)?;
-
-    Ok(Money::new(money.amount() * rate_result.rate, target_ccy))
 }
 
 /// Compute P&L between two valuations in target currency.
@@ -102,8 +64,8 @@ pub fn compute_pnl(
     market_t1: &MarketContext,
     as_of_t1: Date,
 ) -> Result<Money> {
-    let val_t0_converted = convert_currency(val_t0, target_ccy, market_t1, as_of_t1)?;
-    let val_t1_converted = convert_currency(val_t1, target_ccy, market_t1, as_of_t1)?;
+    let val_t0_converted = market_t1.convert_money(val_t0, target_ccy, as_of_t1)?;
+    let val_t1_converted = market_t1.convert_money(val_t1, target_ccy, as_of_t1)?;
 
     val_t1_converted.checked_sub(val_t0_converted)
 }
@@ -164,8 +126,8 @@ pub fn compute_pnl_with_fx(
     as_of_t0: Date,
     as_of_t1: Date,
 ) -> Result<Money> {
-    let val_t0_converted = convert_currency(val_t0, target_ccy, market_fx_t0, as_of_t0)?;
-    let val_t1_converted = convert_currency(val_t1, target_ccy, market_fx_t1, as_of_t1)?;
+    let val_t0_converted = market_fx_t0.convert_money(val_t0, target_ccy, as_of_t0)?;
+    let val_t1_converted = market_fx_t1.convert_money(val_t1, target_ccy, as_of_t1)?;
 
     val_t1_converted.checked_sub(val_t0_converted)
 }
@@ -249,6 +211,7 @@ pub(crate) fn finalize_attribution(
 mod tests {
     use super::*;
     use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+    use finstack_core::Error;
     use std::sync::Arc;
     use time::macros::date;
 
@@ -272,30 +235,6 @@ mod tests {
                 Err(Error::Validation("FX rate not found".to_string()))
             }
         }
-    }
-
-    #[test]
-    fn test_convert_currency_same_ccy() {
-        let money = Money::new(1000.0, Currency::USD);
-        let market = MarketContext::new();
-        let as_of = date!(2025 - 01 - 15);
-
-        let result = convert_currency(money, Currency::USD, &market, as_of)
-            .expect("Currency conversion should succeed in test");
-        assert_eq!(result, money);
-    }
-
-    #[test]
-    fn test_convert_currency_with_fx() {
-        let money = Money::new(1000.0, Currency::EUR);
-        let fx = FxMatrix::new(Arc::new(TestFx));
-        let market = MarketContext::new().insert_fx(fx);
-        let as_of = date!(2025 - 01 - 15);
-
-        let result = convert_currency(money, Currency::USD, &market, as_of)
-            .expect("Currency conversion should succeed in test");
-        assert_eq!(result.amount(), 1100.0);
-        assert_eq!(result.currency(), Currency::USD);
     }
 
     #[test]

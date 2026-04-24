@@ -3,8 +3,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
+
 use finstack_margin::{ImMethodology, NettingSetId, SimmCalculator, SimmSensitivities};
 
 use crate::margin::netting_set::{NettingSet, NettingSetManager};
@@ -328,15 +328,11 @@ impl PortfolioMarginAggregator {
     }
 
     /// Convert a monetary amount to base currency using the FX matrix.
+    ///
+    /// Thin wrapper over [`crate::fx::convert_to_base`] that returns the
+    /// converted amount as `f64` (margin aggregation works in scalar space).
     fn convert_to_base(&self, amount: Money, market: &MarketContext, as_of: Date) -> Result<f64> {
-        let fx_matrix = market.fx().ok_or_else(|| {
-            Error::missing_market_data("FX matrix not available for margin aggregation")
-        })?;
-        let query = FxQuery::new(amount.currency(), self.base_currency, as_of);
-        let rate_result = fx_matrix
-            .rate(query)
-            .map_err(|_| Error::fx_conversion(amount.currency(), self.base_currency))?;
-        Ok(amount.amount() * rate_result.rate)
+        crate::fx::convert_to_base(amount, as_of, market, self.base_currency).map(|m| m.amount())
     }
 
     /// Calculate SIMM total IM and breakdown by risk class in a single pass.

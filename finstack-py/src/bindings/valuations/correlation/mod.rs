@@ -772,6 +772,54 @@ fn validate_correlation_matrix(matrix: Vec<f64>, n: usize) -> PyResult<()> {
     corr::validate_correlation_matrix(&matrix, n).map_err(display_to_py)
 }
 
+/// Nearest correlation matrix (Higham 2002) for a near-PSD input.
+///
+/// Given a symmetric matrix ``matrix`` (flattened row-major, length ``n*n``)
+/// that is approximately a correlation matrix but has small PSD violations,
+/// returns the nearest valid correlation matrix (symmetric, unit diagonal,
+/// PSD) in Frobenius norm using Higham's alternating-projection algorithm
+/// with Dykstra's correction.
+///
+/// Typical use: repair a shrinkage or thresholded sample correlation that
+/// fails Cholesky by a small margin. Gross violations (asymmetric by more
+/// than ``1e-6``, diagonal further than ``1e-3`` from ``1.0``) raise rather
+/// than being silently reshaped.
+///
+/// Parameters
+/// ----------
+/// matrix : list[float]
+///     Flattened row-major ``n x n`` input matrix.
+/// n : int
+///     Matrix dimension.
+/// max_iter : int, optional
+///     Maximum alternating-projection iterations (default ``200``).
+/// tol : float, optional
+///     Frobenius-norm tolerance between successive iterates (default
+///     ``1e-10``).
+///
+/// Returns
+/// -------
+/// list[float]
+///     Flattened row-major ``n x n`` correlation matrix with unit diagonal
+///     and PSD.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If the input is not square, is grossly asymmetric, the diagonal is
+///     far from 1, or the projection does not converge.
+#[pyfunction]
+#[pyo3(signature = (matrix, n, max_iter=200, tol=1e-10))]
+fn nearest_correlation(
+    matrix: Vec<f64>,
+    n: usize,
+    max_iter: usize,
+    tol: f64,
+) -> PyResult<Vec<f64>> {
+    let opts = corr::NearestCorrelationOpts { max_iter, tol };
+    corr::nearest_correlation_matrix(&matrix, n, opts).map_err(display_to_py)
+}
+
 /// Cholesky decomposition of a correlation matrix (flattened row-major).
 ///
 /// Returns the lower-triangular factor L as a flat ``list[float]``.
@@ -809,6 +857,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(correlation_bounds, &m)?)?;
     m.add_function(wrap_pyfunction!(joint_probabilities, &m)?)?;
     m.add_function(wrap_pyfunction!(validate_correlation_matrix, &m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_correlation, &m)?)?;
     m.add_function(wrap_pyfunction!(cholesky_decompose, &m)?)?;
 
     let all = PyList::new(
@@ -827,6 +876,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "correlation_bounds",
             "joint_probabilities",
             "validate_correlation_matrix",
+            "nearest_correlation",
             "cholesky_decompose",
         ],
     )?;

@@ -74,7 +74,19 @@ use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOptions;
 
 use crate::engine::ApplicationReport;
-use crate::{ExecutionContext, ScenarioEngine, ScenarioSpec};
+use crate::{ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
+
+fn horizon_unsupported_instrument_operation(scenario: &ScenarioSpec) -> Option<&'static str> {
+    scenario.operations.iter().find_map(|op| match op {
+        OperationSpec::InstrumentPricePctByType { .. } => Some("InstrumentPricePctByType"),
+        OperationSpec::InstrumentPricePctByAttr { .. } => Some("InstrumentPricePctByAttr"),
+        OperationSpec::InstrumentSpreadBpByType { .. } => Some("InstrumentSpreadBpByType"),
+        OperationSpec::InstrumentSpreadBpByAttr { .. } => Some("InstrumentSpreadBpByAttr"),
+        OperationSpec::AssetCorrelationPts { .. } => Some("AssetCorrelationPts"),
+        OperationSpec::PrepayDefaultCorrelationPts { .. } => Some("PrepayDefaultCorrelationPts"),
+        _ => None,
+    })
+}
 
 /// Horizon total return analyzer.
 ///
@@ -156,6 +168,14 @@ impl HorizonAnalysis {
         as_of_t0: Date,
         scenario: &ScenarioSpec,
     ) -> crate::Result<HorizonResult> {
+        if let Some(op_name) = horizon_unsupported_instrument_operation(scenario) {
+            return Err(crate::Error::Validation(format!(
+                "{op_name} is not supported by HorizonAnalysis because attribution uses one \
+                 instrument instance for both t0 and t1 pricing. Apply instrument-scoped \
+                 shocks before calling horizon analysis or use a market-only horizon scenario."
+            )));
+        }
+
         // 1. Price at t0
         let initial_value = instrument
             .value(market_t0, as_of_t0)
@@ -547,6 +567,37 @@ mod tests {
         assert!(
             result.attribution.rates_curves_pnl.amount().abs() > 1e-6,
             "shock-only: rates P&L should be non-zero"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn instrument_scoped_shocks_are_rejected_in_horizon_analysis() -> crate::Result<()> {
+        let as_of = date!(2025 - 01 - 15);
+        let instrument = test_bond(as_of)?;
+        let market = test_market(as_of)?;
+
+        let scenario = ScenarioSpec {
+            id: "instrument_shock".into(),
+            name: None,
+            description: None,
+            operations: vec![crate::OperationSpec::InstrumentPricePctByType {
+                instrument_types: vec![finstack_valuations::pricer::InstrumentType::Bond],
+                pct: -10.0,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let analyzer = HorizonAnalysis::default();
+        let err = analyzer
+            .compute(&instrument, &market, as_of, &scenario)
+            .expect_err("instrument-scoped horizon shocks should fail loudly");
+
+        assert!(
+            err.to_string().contains("InstrumentPricePctByType")
+                && err.to_string().contains("not supported by HorizonAnalysis"),
+            "unexpected error: {err}"
         );
         Ok(())
     }

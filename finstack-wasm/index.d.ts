@@ -738,6 +738,20 @@ export interface CorrelationNamespace {
    * both are linked, the generated binding is whichever the linker keeps last.
    */
   validateCorrelationMatrix(matrix: number[], n: number): void;
+  /**
+   * Nearest correlation matrix (Higham 2002) for a near-PSD input.
+   *
+   * Projects a symmetric, near-unit-diagonal, near-PSD matrix onto the set of
+   * valid correlation matrices in Frobenius norm. Gross input violations
+   * (asymmetry > 1e-6 or diagonal far from 1) throw rather than being silently
+   * reshaped.
+   */
+  nearestCorrelation(
+    matrix: number[],
+    n: number,
+    maxIter?: number,
+    tol?: number
+  ): number[];
 }
 
 // --- monte_carlo ----------------------------------------------------------
@@ -851,6 +865,86 @@ export interface ValuationInstrumentsNamespace {
   listStandardMetricsGrouped(): Record<string, string[]>;
 }
 
+// --- SABR (Stochastic Alpha Beta Rho) volatility -------------------------
+
+export interface SabrParameters {
+  readonly alpha: number;
+  readonly beta: number;
+  readonly nu: number;
+  readonly rho: number;
+  readonly shift: number | undefined;
+  isShifted(): boolean;
+}
+
+export interface SabrParametersConstructor {
+  new (
+    alpha: number,
+    beta: number,
+    nu: number,
+    rho: number,
+    shift?: number
+  ): SabrParameters;
+  /** Equity-standard defaults `(alpha=0.20, beta=1.0, nu=0.30, rho=-0.20)`. */
+  equityDefault(): SabrParameters;
+  /** Rates-standard defaults `(alpha=0.02, beta=0.5, nu=0.30, rho=0.0)`. */
+  ratesDefault(): SabrParameters;
+}
+
+export interface SabrModel {
+  impliedVol(forward: number, strike: number, t: number): number;
+  supportsNegativeRates(): boolean;
+}
+
+export interface SabrModelConstructor {
+  new (params: SabrParameters): SabrModel;
+}
+
+export interface SabrSmileArbitrageResult {
+  arbitrageFree: boolean;
+  butterflyViolations: Array<{
+    strike: number;
+    butterfly_value: number;
+    severity_pct: number;
+  }>;
+  monotonicityViolations: Array<{
+    strike_low: number;
+    strike_high: number;
+    price_low: number;
+    price_high: number;
+  }>;
+}
+
+export interface SabrSmile {
+  atmVol(): number;
+  impliedVol(strike: number): number;
+  generateSmile(strikes: number[]): number[];
+  arbitrageDiagnostics(
+    strikes: number[],
+    r?: number,
+    q?: number
+  ): SabrSmileArbitrageResult;
+}
+
+export interface SabrSmileConstructor {
+  new (params: SabrParameters, forward: number, t: number): SabrSmile;
+}
+
+export interface SabrCalibrator {
+  calibrate(
+    forward: number,
+    strikes: number[],
+    marketVols: number[],
+    t: number,
+    beta: number
+  ): SabrParameters;
+}
+
+export interface SabrCalibratorConstructor {
+  new (): SabrCalibrator;
+  /** Tighter tolerance for production fits. */
+  highPrecision(): SabrCalibrator;
+}
+
 export interface ValuationsNamespace {
   /** Credit-correlation infrastructure (copulas, recovery, factor models). */
   correlation: CorrelationNamespace;
@@ -872,10 +966,80 @@ export interface ValuationsNamespace {
     metrics: string[],
     pricingOptions?: string | null
   ): string;
+  /**
+   * Per-flow cashflow envelope (DF / survival / PV) for a discountable
+   * instrument. `model` must be `"discounting"` or `"hazard_rate"`; the
+   * envelope's `total_pv` reconciles with `base_value` for supported pairs.
+   */
+  instrumentCashflowsJson(
+    instrumentJson: string,
+    marketJson: string,
+    asOf: string,
+    model: string
+  ): string;
   listStandardMetrics(): string[];
   /** List all standard metrics organized by group.
    *  Returns an object mapping group name to sorted metric ID arrays. */
   listStandardMetricsGrouped(): Record<string, string[]>;
+  /** Per-unit Black-Scholes / Garman-Kohlhagen price of a European option.
+   *  All rates are continuously compounded decimals; `sigma` is annualized vol;
+   *  `t` is years to expiry. */
+  bsPrice(
+    spot: number,
+    strike: number,
+    r: number,
+    q: number,
+    sigma: number,
+    t: number,
+    isCall: boolean
+  ): number;
+  /** Black-Scholes / Garman-Kohlhagen Greeks as a dict
+   *  `{delta, gamma, vega, theta, rho, rhoQ}`. `vega` and both rho values are
+   *  per 1% move; `theta` is per-day under the `thetaDays` day-count. */
+  bsGreeks(
+    spot: number,
+    strike: number,
+    r: number,
+    q: number,
+    sigma: number,
+    t: number,
+    isCall: boolean,
+    thetaDays?: number
+  ): {
+    delta: number;
+    gamma: number;
+    vega: number;
+    theta: number;
+    rho: number;
+    rhoQ: number;
+  };
+  /** Solve for Black-Scholes implied volatility given a target price. */
+  bsImpliedVol(
+    spot: number,
+    strike: number,
+    r: number,
+    q: number,
+    t: number,
+    price: number,
+    isCall: boolean
+  ): number;
+  /** Solve for Black-76 (forward-based) implied volatility given a target price. */
+  black76ImpliedVol(
+    forward: number,
+    strike: number,
+    df: number,
+    t: number,
+    price: number,
+    isCall: boolean
+  ): number;
+  /** SABR parameters `(alpha, beta, nu, rho)` with optional `shift`. */
+  SabrParameters: SabrParametersConstructor;
+  /** Hagan-2002 SABR volatility model. */
+  SabrModel: SabrModelConstructor;
+  /** SABR smile generator for a fixed `(forward, t)` pair. */
+  SabrSmile: SabrSmileConstructor;
+  /** Levenberg-Marquardt SABR calibrator (beta fixed). */
+  SabrCalibrator: SabrCalibratorConstructor;
   /** Run P&L attribution for a single instrument. */
   attributePnl(
     instrumentJson: string,

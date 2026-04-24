@@ -152,6 +152,14 @@ pub mod models {
     pub use super::common_impl::models::*;
 }
 
+/// Per-flow cashflow export with DF / survival / PV columns.
+///
+/// See [`cashflow_export::instrument_cashflows_json`] for the primary entry
+/// point used by the Python and WASM bindings.
+pub mod cashflow_export {
+    pub use super::common_impl::cashflow_export::*;
+}
+
 pub use common_impl::fx_dates::{
     add_joint_business_days, adjust_joint_calendar, roll_spot_date, ResolvedCalendarPair,
 };

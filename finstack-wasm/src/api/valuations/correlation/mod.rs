@@ -234,6 +234,26 @@ pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> Vec<f64> {
     vec![p11, p10, p01, p00]
 }
 
+/// Nearest correlation matrix (Higham 2002).
+///
+/// Given a flat row-major `n*n` matrix that is approximately a correlation
+/// matrix but fails Cholesky by a small margin, returns the nearest valid
+/// correlation matrix (symmetric, unit diagonal, PSD) in Frobenius norm.
+/// Gross input violations raise rather than being silently reshaped.
+#[wasm_bindgen(js_name = nearestCorrelation)]
+pub fn nearest_correlation(
+    matrix: Vec<f64>,
+    n: usize,
+    max_iter: Option<usize>,
+    tol: Option<f64>,
+) -> Result<Vec<f64>, JsValue> {
+    let opts = corr::NearestCorrelationOpts {
+        max_iter: max_iter.unwrap_or(200),
+        tol: tol.unwrap_or(1e-10),
+    };
+    corr::nearest_correlation_matrix(&matrix, n, opts).map_err(to_js_err)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -307,5 +327,22 @@ mod tests {
         assert_eq!(j.len(), 4);
         let sum: f64 = j.iter().sum();
         assert!((sum - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn nearest_correlation_repairs_near_psd_input() {
+        // Valid correlation matrix passes through unchanged.
+        #[rustfmt::skip]
+        let good = vec![
+            1.0, 0.5, 0.3,
+            0.5, 1.0, 0.4,
+            0.3, 0.4, 1.0,
+        ];
+        let out =
+            nearest_correlation(good.clone(), 3, None, None).expect("good matrix should project");
+        assert_eq!(out.len(), 9);
+        for i in 0..3 {
+            assert!((out[i * 3 + i] - 1.0).abs() < 1e-9);
+        }
     }
 }

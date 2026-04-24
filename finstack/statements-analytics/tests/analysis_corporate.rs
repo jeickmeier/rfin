@@ -324,8 +324,7 @@ fn test_dcf_uses_forecast_boundary_for_valuation_date_and_auto_net_debt() {
     let last_actual = model
         .periods
         .iter()
-        .filter(|p| p.is_actual)
-        .next_back()
+        .rfind(|p| p.is_actual)
         .expect("actual period should exist");
     let dcf = result
         .dcf_instrument

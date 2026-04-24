@@ -62,7 +62,9 @@ fn compose_scenarios(specs_json: &str) -> PyResult<String> {
     let specs: Vec<finstack_scenarios::ScenarioSpec> = serde_json::from_str(specs_json)
         .map_err(|e| PyValueError::new_err(format!("Failed to parse specs JSON: {e}")))?;
     let engine = finstack_scenarios::ScenarioEngine::new();
-    let composed = engine.compose(specs);
+    let composed = engine
+        .try_compose(specs)
+        .map_err(|e| PyValueError::new_err(format!("Scenario composition failed: {e}")))?;
     serde_json::to_string(&composed)
         .map_err(|e| PyValueError::new_err(format!("Failed to serialize composed spec: {e}")))
 }
@@ -202,4 +204,52 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     modules.set_item(&qual, &m)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn duplicate_time_roll_specs_json() -> String {
+        use finstack_core::market_data::hierarchy::ResolutionMode;
+        use finstack_scenarios::{OperationSpec, ScenarioSpec, TimeRollMode};
+
+        let specs = vec![
+            ScenarioSpec {
+                id: "roll_1m".into(),
+                name: None,
+                description: None,
+                operations: vec![OperationSpec::TimeRollForward {
+                    period: "1M".into(),
+                    apply_shocks: true,
+                    roll_mode: TimeRollMode::BusinessDays,
+                }],
+                priority: 0,
+                resolution_mode: ResolutionMode::Cumulative,
+            },
+            ScenarioSpec {
+                id: "roll_3m".into(),
+                name: None,
+                description: None,
+                operations: vec![OperationSpec::TimeRollForward {
+                    period: "3M".into(),
+                    apply_shocks: true,
+                    roll_mode: TimeRollMode::BusinessDays,
+                }],
+                priority: 1,
+                resolution_mode: ResolutionMode::Cumulative,
+            },
+        ];
+        serde_json::to_string(&specs).expect("serialize specs")
+    }
+
+    #[test]
+    fn compose_scenarios_rejects_duplicate_time_rolls() {
+        let err = compose_scenarios(&duplicate_time_roll_specs_json())
+            .expect_err("duplicate time rolls should be rejected");
+        assert!(
+            err.to_string().contains("TimeRollForward"),
+            "unexpected error: {err}"
+        );
+    }
 }

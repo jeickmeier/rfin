@@ -4,6 +4,7 @@
 //! JSON-based instrument loading, the standard pricer pipeline, and
 //! P&L attribution across multiple methodologies.
 
+mod analytic;
 pub(crate) mod attribution;
 mod calibration;
 pub mod correlation;
@@ -11,6 +12,7 @@ mod exotic_rates;
 mod factor_model;
 mod fourier;
 mod pricing;
+mod sabr;
 
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use pyo3::exceptions::PyValueError;
@@ -143,6 +145,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyValuationResult>()?;
     m.add_function(wrap_pyfunction!(validate_instrument_json, &m)?)?;
     pricing::register(py, &m)?;
+    analytic::register(py, &m)?;
+    sabr::register(py, &m)?;
     attribution::register(py, &m)?;
     factor_model::register(py, &m)?;
     calibration::register(py, &m)?;
@@ -157,6 +161,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "validate_instrument_json",
             "price_instrument",
             "price_instrument_with_metrics",
+            "instrument_cashflows_json",
             "list_standard_metrics",
             "list_standard_metrics_grouped",
             "PnlAttribution",
@@ -181,6 +186,14 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "snowball_coupon_profile",
             "cms_spread_option_intrinsic",
             "callable_range_accrual_accrued",
+            "bs_price",
+            "bs_greeks",
+            "bs_implied_vol",
+            "black76_implied_vol",
+            "SabrParameters",
+            "SabrModel",
+            "SabrSmile",
+            "SabrCalibrator",
             "correlation",
         ],
     )?;
