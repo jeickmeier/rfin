@@ -12,7 +12,6 @@
 //! - Analytic bounds type: absolute vs. relative-to-initial-spot
 //! - MC throughput: 252 observations, 1K paths (with mc_seed_scenario)
 
-#![cfg(feature = "mc")]
 #![allow(clippy::unwrap_used)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};

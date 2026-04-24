@@ -11,7 +11,6 @@
 // - Discretization scheme convergence
 // - RNG distribution properties
 
-#[cfg(feature = "mc")]
 mod tests {
     use finstack_monte_carlo::discretization::euler::EulerMaruyama;
     use finstack_monte_carlo::discretization::exact::ExactGbm;

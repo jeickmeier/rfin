@@ -14,7 +14,6 @@ use finstack_core::InputError;
 use finstack_core::Result;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::traits::RandomStream;
 
 /// Covenant forecast configuration.
@@ -143,7 +142,6 @@ pub trait ModelTimeSeries {
 }
 
 /// Forecast a covenant using a generic time-series model adapter.
-#[cfg_attr(not(feature = "mc"), allow(unused_variables))]
 pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     covenant: &CovenantSpec,
     model: &MTS,
@@ -233,18 +231,14 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         }
     }
 
-    #[cfg(feature = "mc")]
     let mut breach_probability = deterministic_breach_prob.clone();
-    #[cfg(not(feature = "mc"))]
-    let breach_probability = deterministic_breach_prob.clone();
 
-    #[cfg(feature = "mc")]
     let mut breach_probability_stderr_mc = vec![0.0f64; values.len()];
 
     // MC overlay: GBM shock scaled by time horizon.
     // shock = exp(-0.5 * sigma^2 * T + sigma * sqrt(T) * Z)
     // where T = year-fraction from reference date to test date.
-    #[cfg(feature = "mc")]
+
     if config.stochastic {
         let sigma = config.volatility.unwrap_or(0.0);
         let total_paths = config.num_paths.max(1);
@@ -354,14 +348,11 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
 
     let comparator = bound_kind;
 
-    #[cfg(feature = "mc")]
     let breach_probability_stderr = if config.stochastic {
         breach_probability_stderr_mc
     } else {
         vec![0.0; breach_probability.len()]
     };
-    #[cfg(not(feature = "mc"))]
-    let breach_probability_stderr = vec![0.0; breach_probability.len()];
 
     Ok(CovenantForecast {
         covenant_id: id,
@@ -552,7 +543,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "mc")]
+
     fn stochastic_breach_probability_moves_with_vol() {
         // Debt/EBITDA <= 1.0, base ~ 1.0; with high vol, breach prob should be material
         let spec = CovenantSpec::with_metric(

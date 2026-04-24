@@ -82,6 +82,9 @@ pub(crate) struct StochasticPricerConfig {
 
     /// Random seed for Monte Carlo
     pub seed: u64,
+
+    /// Maximum terminal paths allowed for explicit path-preserving tree mode.
+    pub max_tree_paths: usize,
 }
 
 impl StochasticPricerConfig {
@@ -100,6 +103,7 @@ impl StochasticPricerConfig {
             es_confidence: 0.95,
             generate_cashflows: false,
             seed: 42,
+            max_tree_paths: 100_000,
         }
     }
 
@@ -120,6 +124,7 @@ impl StochasticPricerConfig {
             es_confidence: 0.95,
             generate_cashflows: false,
             seed: 42,
+            max_tree_paths: 100_000,
         }
     }
 
@@ -139,7 +144,14 @@ impl StochasticPricerConfig {
             es_confidence: 0.95,
             generate_cashflows: false,
             seed: 42,
+            max_tree_paths: 100_000,
         }
+    }
+
+    /// Set maximum terminal paths for explicit tree mode.
+    pub(crate) fn with_max_tree_paths(mut self, max_paths: usize) -> Self {
+        self.max_tree_paths = max_paths.max(1);
+        self
     }
 
     /// Set pricing mode.
@@ -191,6 +203,7 @@ impl std::fmt::Debug for StochasticPricerConfig {
             .field("pricing_mode", &self.pricing_mode)
             .field("compute_risk_metrics", &self.compute_risk_metrics)
             .field("es_confidence", &self.es_confidence)
+            .field("max_tree_paths", &self.max_tree_paths)
             .finish()
     }
 }

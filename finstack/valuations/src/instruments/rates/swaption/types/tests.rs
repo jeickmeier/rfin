@@ -6,8 +6,6 @@
 //! 3. Convergence: as K → F, the formula converges to the ATM limit
 
 use super::lognormal_to_normal_vol;
-#[cfg(not(feature = "mc"))]
-use super::BermudanSwaption;
 
 /// Test the lognormal-to-normal vol conversion formula at ATM.
 ///
@@ -79,31 +77,6 @@ fn test_lognormal_to_normal_vol_convergence() {
             diff
         );
     }
-}
-
-#[cfg(not(feature = "mc"))]
-#[test]
-fn bermudan_canonical_pricing_path_mentions_mc_requirement() {
-    use crate::instruments::common_impl::traits::Instrument;
-
-    let instrument = BermudanSwaption::example();
-    let err = instrument
-        .price_with_metrics(
-            &finstack_core::market_data::context::MarketContext::new(),
-            instrument.swap_start,
-            &[],
-            crate::instruments::PricingOptions::default(),
-        )
-        .expect_err("canonical pricing path should fail without mc feature");
-    let msg = format!("{err}");
-    assert!(
-        msg.contains("`mc`"),
-        "Error should mention mc feature: {msg}"
-    );
-    assert!(
-        msg.contains("non-LSMC") || msg.contains("LSMC"),
-        "Error should mention the non-LSMC fallback: {msg}"
-    );
 }
 
 /// Test that the correction factor stays in reasonable bounds.

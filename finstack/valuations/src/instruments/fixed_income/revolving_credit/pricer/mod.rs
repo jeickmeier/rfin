@@ -38,11 +38,8 @@
 //! ```
 
 mod components;
-#[cfg(feature = "mc")]
 pub mod monte_carlo_discretization;
-#[cfg(feature = "mc")]
 pub mod monte_carlo_process;
-#[cfg(feature = "mc")]
 pub mod path_generator;
 pub(crate) mod unified;
 
@@ -116,7 +113,6 @@ mod tests {
         // With 5% facility rate and 3% discount rate, NPV should be negative
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_unified_pricer_stochastic() {
         use super::super::types::{CreditSpreadProcessSpec, McConfig};

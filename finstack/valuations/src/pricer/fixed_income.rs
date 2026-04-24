@@ -41,7 +41,7 @@ pub(crate) fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
             ModelKey::Discounting,
         ),
     );
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::RevolvingCredit,
         ModelKey::MonteCarloGBM,

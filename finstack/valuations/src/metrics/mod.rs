@@ -232,7 +232,6 @@ pub(crate) use sensitivities::cs01::{
     GenericBucketedCs01, GenericBucketedCs01Hazard, GenericParallelCs01, GenericParallelCs01Hazard,
 };
 pub(crate) use sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
-#[cfg(feature = "mc")]
 pub(crate) use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
     HasExpiry, HasPricingOverrides,
@@ -438,7 +437,6 @@ pub fn standard_registry() -> &'static MetricRegistry {
         crate::instruments::commodity::commodity_spread_option::metrics::register_commodity_spread_option_metrics(&mut registry);
 
         // Exotic / MC-priced instruments
-        #[cfg(feature = "mc")]
         {
             crate::instruments::exotics::lookback_option::metrics::register_lookback_option_metrics(&mut registry);
             crate::instruments::exotics::asian_option::metrics::register_asian_option_metrics(&mut registry);

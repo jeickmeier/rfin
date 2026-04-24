@@ -18,7 +18,6 @@
 // - Price: 1% relative error for 100,000 paths (3σ confidence)
 // - This accounts for MC standard error while catching significant bugs
 
-#[cfg(feature = "mc")]
 #[allow(clippy::expect_used)]
 mod golden_tests {
     use finstack_monte_carlo::prelude::{ExactGbm, GbmProcess, PhiloxRng};

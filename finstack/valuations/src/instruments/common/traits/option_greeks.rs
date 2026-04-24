@@ -218,7 +218,7 @@ macro_rules! impl_equity_exotic_traits {
         $crate::impl_equity_exotic_traits!(@mc_overrides $ty);
         $crate::impl_equity_exotic_traits!(@mc_daycount $ty);
 
-        #[cfg(feature = "mc")]
+
         impl $crate::metrics::HasExpiry for $ty {
             fn expiry(&self) -> finstack_core::dates::Date {
                 self.expiry
@@ -242,7 +242,7 @@ macro_rules! impl_equity_exotic_traits {
     };
 
     (@mc_overrides $ty:ty) => {
-        #[cfg(feature = "mc")]
+
         impl $crate::metrics::HasPricingOverrides for $ty {
             fn pricing_overrides_mut(
                 &mut self,
@@ -253,7 +253,7 @@ macro_rules! impl_equity_exotic_traits {
     };
 
     (@mc_daycount $ty:ty) => {
-        #[cfg(feature = "mc")]
+
         impl $crate::metrics::HasDayCount for $ty {
             fn day_count(&self) -> finstack_core::dates::DayCount {
                 self.day_count

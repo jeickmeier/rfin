@@ -20,6 +20,3 @@ rayon = "1.11"
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }
-
-[features]
-default = []

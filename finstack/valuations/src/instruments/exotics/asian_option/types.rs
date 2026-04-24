@@ -184,7 +184,6 @@ impl AsianOption {
     }
 
     /// Calculate the net present value of this Asian option using Monte Carlo.
-    #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

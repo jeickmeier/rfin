@@ -82,7 +82,6 @@ fn test_mc_pricer_stochastic_utilization() {
 }
 
 #[test]
-#[cfg(feature = "mc")]
 fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
     use finstack_valuations::instruments::fixed_income::revolving_credit::{
         CreditSpreadProcessSpec, McConfig,
@@ -404,7 +403,6 @@ fn test_mc_utilization_mean_reversion() {
 /// Near-zero utilization volatility ensures deterministic paths so the
 /// difference is entirely due to the cap reducing the interest rate.
 #[test]
-#[cfg(feature = "mc")]
 fn test_mc_stochastic_floating_rate_index_cap() {
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_valuations::cashflow::builder::FloatingRateSpec;

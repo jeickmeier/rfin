@@ -12,7 +12,6 @@ pub mod discount;
 /// Hazard-rate pricing with fractional recovery of par (FRP).
 pub mod hazard;
 /// Merton structural credit Monte Carlo for PIK bonds.
-#[cfg(feature = "mc")]
 pub mod merton_mc;
 /// Binomial tree pricing for callable/putable bonds and OAS.
 pub mod tree;

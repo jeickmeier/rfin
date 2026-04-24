@@ -207,3 +207,28 @@ fn test_bus_252_requires_calendar() {
         "Bus/252 should error without a calendar in DayCountContext"
     );
 }
+
+#[test]
+fn contractual_accrual_boundaries_are_not_business_day_adjusted() {
+    use finstack_cashflows::builder::date_generation::build_dates;
+    use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
+
+    let schedule = build_dates(
+        d(2024, 8, 31),
+        d(2025, 8, 31),
+        Tenor::annual(),
+        StubKind::None,
+        BusinessDayConvention::Following,
+        false,
+        0,
+        "weekends_only",
+    )
+    .expect("schedule should build");
+
+    assert_eq!(schedule.periods.len(), 1);
+    let period = schedule.periods[0];
+    assert_eq!(period.accrual_start, d(2024, 8, 31));
+    assert_eq!(period.accrual_end, d(2025, 8, 31));
+    assert_eq!(period.payment_date, d(2025, 9, 1));
+    assert_eq!(schedule.dates, vec![d(2025, 9, 1)]);
+}

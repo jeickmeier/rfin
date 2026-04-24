@@ -231,7 +231,6 @@ fn test_bond_serde_roundtrip_preserves_funding_curve_id() {
     );
 }
 
-#[cfg(feature = "mc")]
 #[test]
 fn bond_price_merton_mc_api() {
     use crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig;

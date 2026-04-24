@@ -43,16 +43,13 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 
 use super::traits::Valuable;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::{
     state_keys, Discretization, PathState, RandomStream, StochasticProcess,
 };
 
 use super::netting::{apply_collateral, apply_netting};
 use super::types::{ExposureProfile, XvaConfig, XvaNettingSet};
-#[cfg(feature = "mc")]
 use super::types::{StochasticExposureConfig, StochasticExposureProfile};
 
 /// Map a year fraction to a whole-day offset using ACT/365F-style scaling.
@@ -132,7 +129,6 @@ fn convert_to_reporting(
     Ok(value.amount() * rate)
 }
 
-#[cfg(feature = "mc")]
 fn interpolate_quantile(samples: &mut [f64], quantile: f64) -> f64 {
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     if samples.len() == 1 {
@@ -347,7 +343,7 @@ pub fn compute_exposure_profile(
 /// use finstack_margin::xva::exposure::compute_stochastic_exposure_profile;
 /// use finstack_margin::xva::types::{StochasticExposureConfig, XvaConfig};
 ///
-/// # #[cfg(feature = "mc")]
+/// #
 /// # fn example<P, D>(process: &P, discretization: &D) -> finstack_core::Result<()>
 /// # where
 /// #     P: finstack_monte_carlo::core::StochasticProcess,
@@ -384,7 +380,6 @@ pub fn compute_exposure_profile(
 ///
 /// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
 /// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
-#[cfg(feature = "mc")]
 pub fn compute_stochastic_exposure_profile<P, D, V>(
     process: &P,
     discretization: &D,
@@ -977,7 +972,6 @@ mod tests {
         assert!((profile.epe[0] - 300.0).abs() < 1e-12);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn stochastic_exposure_profile_uses_quantile_based_pfe() {
         use crate::xva::types::StochasticExposureConfig;
@@ -1015,7 +1009,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn stochastic_exposure_profile_collapses_to_deterministic_when_paths_are_identical() {
         use crate::xva::types::StochasticExposureConfig;

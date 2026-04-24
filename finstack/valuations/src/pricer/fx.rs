@@ -72,7 +72,7 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
     );
 
     // FX Barrier Option
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::FxBarrierOption,
         ModelKey::MonteCarloGBM,

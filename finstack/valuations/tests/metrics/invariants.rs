@@ -7,6 +7,7 @@
 //!
 //! Uses proptest for property-based testing to discover edge cases.
 
+use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -16,6 +17,7 @@ use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use proptest::prelude::*;
+use serde_json::json;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -36,6 +38,49 @@ fn build_discount_curve(rate: f64) -> DiscountCurve {
         ])
         .build()
         .unwrap()
+}
+
+#[test]
+fn bucketed_dv01_uses_configured_bucket_grid() {
+    let as_of = date!(2025 - 01 - 01);
+    let maturity = as_of.saturating_add(time::Duration::days(10 * 365));
+    let bond = Bond::builder()
+        .id("CUSTOM_DV01_GRID".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .issue_date(as_of)
+        .maturity(maturity)
+        .cashflow_spec(CashflowSpec::fixed(
+            0.05,
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+        ))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .expect("bond");
+    let market = MarketContext::new().insert(build_discount_curve(0.04));
+    let pv = bond.value(&market, as_of).expect("pv");
+    let mut cfg = FinstackConfig::default();
+    cfg.extensions.insert(
+        "valuations.sensitivities.v1",
+        json!({"dv01_buckets_years": [4.0, 6.0]}),
+    );
+
+    let mut context =
+        MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv, Arc::new(cfg));
+    standard_registry()
+        .compute(&[MetricId::BucketedDv01], &mut context)
+        .expect("bucketed dv01");
+
+    let keys: Vec<&str> = context.computed.keys().map(MetricId::as_str).collect();
+    assert!(
+        keys.contains(&"bucketed_dv01::USD-OIS::4y")
+            && keys.contains(&"bucketed_dv01::USD-OIS::6y"),
+        "custom DV01 buckets missing from computed keys: {keys:?}"
+    );
+    assert!(
+        !keys.contains(&"bucketed_dv01::USD-OIS::5y"),
+        "standard bucket leaked despite custom grid: {keys:?}"
+    );
 }
 
 proptest! {
@@ -175,7 +220,6 @@ proptest! {
     }
 }
 
-#[cfg(feature = "mc")]
 mod mc_invariants {
     //! Monte Carlo determinism invariants.
     //!

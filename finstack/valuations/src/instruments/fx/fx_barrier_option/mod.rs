@@ -30,7 +30,6 @@
 //! - [`crate::instruments::fx::fx_option`] for vanilla FX options
 
 pub(crate) mod metrics;
-#[cfg(feature = "mc")]
 pub mod monte_carlo;
 pub(crate) mod pricer;
 pub(crate) mod types;

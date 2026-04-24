@@ -20,9 +20,7 @@ use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::estimate::Estimate;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::results::{MoneyEstimate, MonteCarloResult};
 
 use super::super::cashflow_engine::{
@@ -32,7 +30,6 @@ use super::super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 use super::components::compute_upfront_fee_pv;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 
-#[cfg(feature = "mc")]
 use super::path_generator::generate_three_factor_paths;
 
 /// Result for a single path valuation.
@@ -52,7 +49,6 @@ pub struct PathResult {
 ///
 /// Extends the standard `MonteCarloResult` with individual path results
 /// for distribution analysis and visualization.
-#[cfg(feature = "mc")]
 #[derive(Debug)]
 pub struct EnhancedMonteCarloResult {
     /// Standard MC statistics (mean, std error, CI)
@@ -302,17 +298,8 @@ impl RevolvingCreditPricer {
                 Ok(result.pv)
             }
             DrawRepaySpec::Stochastic(_) => {
-                #[cfg(feature = "mc")]
-                {
-                    let enhanced = Self::price_monte_carlo(facility, market, as_of)?;
-                    Ok(enhanced.mc_result.estimate.mean)
-                }
-                #[cfg(not(feature = "mc"))]
-                {
-                    Err(finstack_core::Error::Validation(
-                        "MC feature required for stochastic pricing".to_string(),
-                    ))
-                }
+                let enhanced = Self::price_monte_carlo(facility, market, as_of)?;
+                Ok(enhanced.mc_result.estimate.mean)
             }
         }
     }
@@ -347,7 +334,6 @@ impl RevolvingCreditPricer {
     /// # Returns
     ///
     /// Enhanced Monte Carlo result with full path details
-    #[cfg(feature = "mc")]
     pub fn price_with_paths(
         facility: &RevolvingCredit,
         market: &MarketContext,
@@ -368,7 +354,6 @@ impl RevolvingCreditPricer {
     /// 2. Generates cashflows for each path
     /// 3. Prices each path deterministically
     /// 4. Computes MC statistics across all paths
-    #[cfg(feature = "mc")]
     fn price_monte_carlo(
         facility: &RevolvingCredit,
         market: &MarketContext,
@@ -679,7 +664,7 @@ impl Pricer for RevolvingCreditPricer {
                 Self::price(facility, market, as_of)
                     .map_err(|e| PricingError::from_core(e, ctx.clone()))?
             }
-            #[cfg(feature = "mc")]
+
             ModelKey::MonteCarloGBM => {
                 // For MC, we ensure we're using the MC path
                 let enhanced = Self::price_with_paths(facility, market, as_of)
@@ -707,19 +692,19 @@ impl Pricer for RevolvingCreditPricer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "mc")]
+
     use crate::instruments::fixed_income::revolving_credit::{
         BaseRateSpec, CreditSpreadProcessSpec, DrawRepaySpec, McConfig, RevolvingCredit,
         RevolvingCreditFees, StochasticUtilizationSpec, UtilizationProcess,
     };
     use finstack_core::dates::DayCount;
-    #[cfg(feature = "mc")]
+
     use finstack_core::market_data::context::MarketContext;
-    #[cfg(feature = "mc")]
+
     use finstack_core::market_data::term_structures::DiscountCurve;
-    #[cfg(feature = "mc")]
+
     use finstack_core::money::Money;
-    #[cfg(feature = "mc")]
+
     use finstack_core::{currency::Currency, dates::Tenor};
     use time::Month;
 
@@ -814,7 +799,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_price_with_paths_uses_moneyestimate_defaults() {
         let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");

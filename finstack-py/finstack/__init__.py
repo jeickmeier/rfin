@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 __all__ = [
     "analytics",
+    "cashflows",
     "core",
     "margin",
     "monte_carlo",
@@ -33,6 +34,7 @@ _SUBMODULES: frozenset[str] = frozenset(__all__)
 if TYPE_CHECKING:
     from . import (
         analytics as analytics,
+        cashflows as cashflows,
         core as core,
         margin as margin,
         monte_carlo as monte_carlo,

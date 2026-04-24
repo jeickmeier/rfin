@@ -11,10 +11,8 @@
 
 pub mod control_variate;
 
-#[cfg(feature = "mc")]
 pub mod moment_matching;
 
-#[cfg(feature = "mc")]
 pub mod importance_sampling;
 
 pub use control_variate::{

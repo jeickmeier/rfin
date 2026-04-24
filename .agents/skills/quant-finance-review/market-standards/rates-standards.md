@@ -1,5 +1,23 @@
 # Interest Rate Instrument Standards
 
+## Benchmark Transition Baseline
+
+As of April 2026, treat LIBOR as a legacy/fallback benchmark, not a default production benchmark for new pricing. FCA states all 35 LIBOR settings have permanently ceased, and ICE describes LIBOR benchmark cessation in September 2024. ISDA no longer supports the 2006 ISDA Definitions and provides the 2021 Interest Rate Derivatives Definitions as the current digital framework.
+
+Audit implications:
+
+- Flag any generic `LIBOR`/`USDLibor` default path unless it is explicitly scoped to legacy contracts, historical fixings, fallback modeling, or migration tests.
+- Do not replace LIBOR with a single generic `SOFR` enum. Model overnight SOFR, SOFR Index, SOFR Averages, Term SOFR, simple in-arrears, compounded in-arrears, lookback, lockout, observation shift, and payment delay as distinct convention choices.
+- Keep fallback spread adjustment, cessation/loss-of-representativeness trigger, contractual fallback waterfall, and historical fixing behavior explicit.
+- Prefer instrument templates based on current CCP/venue/confirmation standards over hard-coded 2006-era defaults.
+
+Reference URLs for live re-checks:
+
+- FCA LIBOR transition: https://www.fca.org.uk/markets/libor-transition
+- ICE LIBOR: https://www.ice.com/iba/libor
+- New York Fed SOFR Averages and Index: https://www.newyorkfed.org/markets/reference-rates/sofr-averages-and-index
+- ISDA 2021 Interest Rate Derivatives Definitions: https://www.isda.org/2021/05/01/2021-isda-interest-rate-derivatives-definitions/
+
 ## Term-Index / Legacy IRS
 
 ### Standard market conventions

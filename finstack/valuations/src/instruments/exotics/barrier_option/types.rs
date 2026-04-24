@@ -196,7 +196,6 @@ impl BarrierOption {
     }
 
     /// Calculate the net present value using Monte Carlo.
-    #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -241,20 +240,7 @@ impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         if self.use_gobet_miri {
-            #[cfg(feature = "mc")]
-            {
-                return self.npv_mc(market, as_of);
-            }
-            #[cfg(not(feature = "mc"))]
-            {
-                return Err(finstack_core::Error::Validation(
-                    "BarrierOption is configured for discrete monitoring correction \
-                     (use_gobet_miri=true), but Monte Carlo support is disabled. \
-                     Rebuild with feature `mc` or set use_gobet_miri=false for \
-                     continuous-monitoring analytical pricing."
-                        .to_string(),
-                ));
-            }
+            return self.npv_mc(market, as_of);
         }
 
         use crate::instruments::exotics::barrier_option::pricer::BarrierOptionAnalyticalPricer;
@@ -297,46 +283,6 @@ mod tests {
     use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
-
-    #[cfg(not(feature = "mc"))]
-    #[test]
-    fn value_rejects_discrete_mode_when_mc_disabled() {
-        let option = super::BarrierOption::example().expect("BarrierOption example is valid");
-        let market = finstack_core::market_data::context::MarketContext::new();
-        let as_of = option.expiry;
-        let err =
-            crate::instruments::common_impl::traits::Instrument::value(&option, &market, as_of)
-                .expect_err("discrete mode should fail without mc feature");
-        assert!(
-            format!("{err}").contains("use_gobet_miri=true"),
-            "Error should explain explicit discrete-mode requirement"
-        );
-    }
-
-    #[cfg(not(feature = "mc"))]
-    #[test]
-    fn canonical_pricing_path_rejects_discrete_mode_when_mc_disabled() {
-        use crate::instruments::common_impl::traits::Instrument;
-
-        let option = super::BarrierOption::example().expect("BarrierOption example is valid");
-        let err = option
-            .price_with_metrics(
-                &finstack_core::market_data::context::MarketContext::new(),
-                option.expiry,
-                &[],
-                crate::instruments::PricingOptions::default(),
-            )
-            .expect_err("canonical pricing path should fail without mc feature");
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("`mc`"),
-            "Error should mention mc feature: {msg}"
-        );
-        assert!(
-            msg.contains("continuous-monitoring"),
-            "Error should mention the continuous-monitoring fallback: {msg}"
-        );
-    }
 
     #[test]
     fn expired_barrier_requires_observed_state() {

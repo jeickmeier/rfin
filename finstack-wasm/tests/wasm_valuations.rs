@@ -6,7 +6,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use finstack_wasm::api::valuations::pricing::{
-    list_standard_metrics, price_instrument_with_metrics,
+    list_standard_metrics, price_instrument, price_instrument_with_metrics,
 };
 use wasm_bindgen_test::*;
 
@@ -39,6 +39,70 @@ fn market_context_json() -> String {
         .unwrap();
     let ctx = MarketContext::new().insert(disc);
     serde_json::to_string(&ctx).unwrap()
+}
+
+fn structured_credit_instrument_json() -> String {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, DayCount};
+    use finstack_core::money::Money;
+    use finstack_valuations::cashflow::builder::{
+        DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
+    };
+    use finstack_valuations::instruments::fixed_income::structured_credit::{
+        DealType, Pool, PoolAsset, Seniority, StochasticDefaultSpec, StochasticPrepaySpec,
+        StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
+    };
+    use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
+    use time::Month;
+
+    let closing = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    let mut pool = Pool::new("POOL", DealType::ABS, Currency::USD);
+    pool.assets.push(PoolAsset::fixed_rate_bond(
+        "A1",
+        Money::new(1_000_000.0, Currency::USD),
+        0.06,
+        maturity,
+        DayCount::Thirty360,
+    ));
+    let tranches = TrancheStructure::new(vec![
+        Tranche::new(
+            "SR",
+            0.0,
+            80.0,
+            Seniority::Senior,
+            Money::new(800_000.0, Currency::USD),
+            TrancheCoupon::Fixed { rate: 0.05 },
+            maturity,
+        )
+        .unwrap(),
+        Tranche::new(
+            "EQ",
+            80.0,
+            100.0,
+            Seniority::Equity,
+            Money::new(200_000.0, Currency::USD),
+            TrancheCoupon::Fixed { rate: 0.0 },
+            maturity,
+        )
+        .unwrap(),
+    ])
+    .unwrap();
+    let mut sc =
+        StructuredCredit::new_abs("ABS-STOCH-PV", pool, tranches, closing, maturity, "USD-OIS")
+            .with_payment_calendar("nyse");
+    sc.credit_model.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.0);
+    sc.credit_model.default_spec = DefaultModelSpec::constant_cdr(0.0);
+    sc.credit_model.recovery_spec = RecoveryModelSpec::with_lag(0.40, 0);
+    sc.credit_model.stochastic_prepay_spec = Some(StochasticPrepaySpec::deterministic(
+        sc.credit_model.prepayment_spec.clone(),
+    ));
+    sc.credit_model.stochastic_default_spec = Some(StochasticDefaultSpec::deterministic(
+        sc.credit_model.default_spec.clone(),
+    ));
+    sc.pricing_overrides = PricingOverrides::default().with_mc_paths(1);
+
+    serde_json::to_string(&InstrumentJson::StructuredCredit(Box::new(sc))).unwrap()
 }
 
 #[wasm_bindgen_test]
@@ -78,4 +142,33 @@ fn price_instrument_with_metrics_accepts_pricing_options() {
     assert!(!result.is_empty());
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert!(parsed.is_object());
+}
+
+#[wasm_bindgen_test]
+fn price_instrument_structured_credit_stochastic_returns_details() {
+    let inst = structured_credit_instrument_json();
+    let mkt = market_context_json();
+    let result =
+        price_instrument(&inst, &mkt, "2024-01-01", "structured_credit_stochastic").expect("price");
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["details"]["type"], "structured_credit_stochastic");
+    let tranches = parsed["details"]["data"]["tranche_results"]
+        .as_array()
+        .expect("tranche_results array");
+    assert_eq!(tranches.len(), 2);
+}
+
+#[wasm_bindgen_test]
+fn price_instrument_structured_credit_stochastic_missing_market_data_errors() {
+    let inst = structured_credit_instrument_json();
+    let empty_market =
+        serde_json::to_string(&finstack_core::market_data::context::MarketContext::new()).unwrap();
+    let err = price_instrument(
+        &inst,
+        &empty_market,
+        "2024-01-01",
+        "structured_credit_stochastic",
+    )
+    .expect_err("missing discount curve should error");
+    assert!(format!("{err:?}").contains("USD-OIS"));
 }

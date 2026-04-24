@@ -246,8 +246,7 @@ pub(crate) fn sale_proceeds_at(
         let terminal_noi_n = future_noi_flows(asset, as_of)?
             .iter()
             .copied()
-            .filter(|(date, _)| *date <= exit_date)
-            .next_back()
+            .rfind(|(date, _)| *date <= exit_date)
             .map(|(_, amount)| amount)
             .ok_or_else(|| {
                 CoreError::Validation("No NOI on/before exit_date for terminal value".into())

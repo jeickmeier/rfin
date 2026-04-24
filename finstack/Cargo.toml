@@ -7,11 +7,6 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
-[features]
-default = []
-# Capability pass-throughs: gate compile-time cost in sub-crates.
-mc = ["finstack_monte_carlo/mc", "finstack_margin/mc", "finstack_valuations/mc"]
-
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core" }
 finstack_analytics = { package = "finstack-analytics", path = "analytics" }

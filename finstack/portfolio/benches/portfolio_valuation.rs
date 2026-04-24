@@ -652,7 +652,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             expiry,
             swap_start,
             swap_end,
-        );
+        )
+        .expect("valid benchmark swaption params");
 
         let swaption = Swaption::new_payer(
             swaption_id.clone(),

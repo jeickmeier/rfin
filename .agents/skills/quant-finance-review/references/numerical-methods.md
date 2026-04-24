@@ -4,6 +4,13 @@ Detailed review criteria for numerical computing in quant finance.
 
 ## Floating-Point Arithmetic
 
+### Invalid numeric states
+
+- Reject or quarantine `NaN`, infinite, negative-discount-factor, negative-variance, and invalid-probability states at module boundaries.
+- Flag `return f64::NAN` in pricing/risk paths unless the API explicitly models missing numeric output and every caller handles it.
+- Rust: flag `partial_cmp(...).unwrap()` on floats. Use explicit NaN handling or `total_cmp` only when the chosen NaN ordering is financially acceptable.
+- Treat solver failure as structured diagnostics with method, iterations, bracket/bounds, residual, and inputs needed for replay.
+
 ### Catastrophic Cancellation
 
 When subtracting nearly equal numbers, relative error explodes. Common in:

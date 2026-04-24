@@ -102,7 +102,6 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
             _ => {}
         }
 
-        #[cfg(feature = "mc")]
         {
             clone.pricing_overrides.model_config.merton_mc_config = None;
         }
@@ -141,7 +140,6 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Bond {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Bond {
     /// Price this bond using the Merton Monte Carlo structural credit model.
     ///

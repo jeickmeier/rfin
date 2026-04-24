@@ -6,7 +6,6 @@
 //! `CliquetOption` uses an internal GBM MC engine with step count driven by the number of reset dates.
 
 #![allow(clippy::unwrap_used)]
-#![cfg(feature = "mc")]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use finstack_core::currency::Currency;

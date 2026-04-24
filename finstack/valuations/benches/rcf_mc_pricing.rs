@@ -15,7 +15,6 @@
 //! - Single-factor (utilization only) vs. 3-factor (+ rate + credit) cost
 //! - Correlated vs. independent factors
 
-#![cfg(feature = "mc")]
 #![allow(clippy::unwrap_used)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};

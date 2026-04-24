@@ -4,38 +4,23 @@
 //! using Monte Carlo simulation with QE discretization and Brownian bridge
 //! barrier correction.
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::exotics::barrier_option::types::BarrierOption;
-#[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
-#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountContext};
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
 
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::discretization::qe_heston::QeHeston;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::engine::McEngine;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::barrier::BarrierOptionPayoff;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::barrier::{BarrierType as McBarrierType, OptionKind};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::heston::{HestonParams, HestonProcess};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::seed;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::time_grid::TimeGrid;
 
 /// Barrier option Heston Monte Carlo pricer.
@@ -44,13 +29,11 @@ use finstack_monte_carlo::time_grid::TimeGrid;
 /// QE discretization. The barrier is monitored on the spot component (state[0])
 /// of the Heston path. Heston parameters are sourced from market scalars with
 /// sensible defaults.
-#[cfg(feature = "mc")]
 pub(crate) struct BarrierOptionHestonMcPricer {
     num_paths: usize,
     steps_per_year: f64,
 }
 
-#[cfg(feature = "mc")]
 impl BarrierOptionHestonMcPricer {
     /// Create a new barrier option Heston MC pricer with default configuration.
     pub(crate) fn new() -> Self {
@@ -203,14 +186,12 @@ impl BarrierOptionHestonMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for BarrierOptionHestonMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for BarrierOptionHestonMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloHeston)
@@ -244,7 +225,6 @@ impl Pricer for BarrierOptionHestonMcPricer {
 }
 
 /// Price an expired barrier option using explicit observed barrier state.
-#[cfg(feature = "mc")]
 fn price_expired_barrier(
     inst: &BarrierOption,
     curves: &MarketContext,

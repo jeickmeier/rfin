@@ -6,8 +6,6 @@
 //! continuity adjustments that reduce the bias of discretely monitored
 //! simulations.
 
-#[cfg(feature = "mc")]
 pub mod bridge;
 
-#[cfg(feature = "mc")]
 pub mod corrections;

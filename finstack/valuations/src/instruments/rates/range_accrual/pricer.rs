@@ -13,31 +13,20 @@
 //! - Quanto drift adjustment (requires `quanto_correlation` and `fx_vol_surface_id`)
 //! - Historical fixings for mid-life valuations (via `past_fixings_in_range`)
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::rates::range_accrual::monte_carlo::RangeAccrualPayoff;
-#[cfg(feature = "mc")]
 use crate::instruments::rates::range_accrual::types::RangeAccrual;
-#[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
-#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountContext};
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
-#[cfg(feature = "mc")]
 use finstack_core::Result;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Resolve the FX spot required for a quanto range-accrual payoff.
@@ -48,7 +37,6 @@ use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 /// adjustment term (which scales multiplicatively with `fx_spot`). Callers
 /// that truly want an ATM approximation should set `fx_spot_id = None`
 /// explicitly.
-#[cfg(feature = "mc")]
 fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> Result<f64> {
     let fx_spot_id = inst.quanto.as_ref().and_then(|q| q.fx_spot_id.as_deref());
 
@@ -71,12 +59,10 @@ fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> Result<f64> {
 }
 
 /// Range accrual Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct RangeAccrualMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl RangeAccrualMcPricer {
     /// Create a new range accrual MC pricer with default config.
     pub fn new() -> Self {
@@ -218,7 +204,6 @@ impl RangeAccrualMcPricer {
 }
 
 /// Compute value when only past fixings exist (no future observations).
-#[cfg(feature = "mc")]
 fn compute_past_only_value(inst: &RangeAccrual) -> Result<Money> {
     match (inst.past_fixings_in_range, inst.total_past_observations) {
         (Some(in_range), Some(total)) if total > 0 => {
@@ -231,14 +216,12 @@ fn compute_past_only_value(inst: &RangeAccrual) -> Result<Money> {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for RangeAccrualMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for RangeAccrualMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::RangeAccrual, ModelKey::MonteCarloGBM)
@@ -271,7 +254,6 @@ impl Pricer for RangeAccrualMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &RangeAccrual,
     curves: &MarketContext,
@@ -301,7 +283,6 @@ pub(crate) fn compute_pv(
 /// - Uses effective bounds based on `BoundsType` (absolute or relative to initial spot)
 /// - Applies quanto drift adjustment using FX spot for vol lookup when available
 /// - Includes historical fixings in the accrual calculation for mid-life valuations
-#[cfg(feature = "mc")]
 pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
     use crate::instruments::common_impl::models::volatility::black::d1_d2_black76;
     use finstack_core::math::special_functions::norm_cdf;
@@ -456,7 +437,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
     Ok(Money::new(pv, inst.notional.currency()))
 }
 
-#[cfg(all(test, feature = "mc"))]
+#[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;

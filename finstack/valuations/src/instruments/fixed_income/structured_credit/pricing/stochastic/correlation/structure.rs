@@ -71,43 +71,66 @@ impl Default for CorrelationStructure {
 }
 
 impl CorrelationStructure {
-    /// Create a flat correlation structure.
+    /// Create a flat correlation structure without altering supplied values.
+    ///
+    /// Use [`Self::try_flat`] when ingesting calibration or market-data input
+    /// that must fail fast on invalid correlations.
     pub fn flat(asset_correlation: f64, prepay_default_correlation: f64) -> Self {
         CorrelationStructure::Flat {
-            asset_correlation: asset_correlation.clamp(0.0, 0.99),
-            prepay_default_correlation: prepay_default_correlation.clamp(-0.99, 0.99),
+            asset_correlation,
+            prepay_default_correlation,
         }
     }
 
-    /// Create a sectored correlation structure.
+    /// Create a flat correlation structure and validate supplied values.
+    pub fn try_flat(
+        asset_correlation: f64,
+        prepay_default_correlation: f64,
+    ) -> Result<Self, String> {
+        let structure = Self::flat(asset_correlation, prepay_default_correlation);
+        structure.validate()?;
+        Ok(structure)
+    }
+
+    /// Create a sectored correlation structure without altering supplied values.
+    ///
+    /// Use [`Self::try_sectored`] when ingesting calibration or market-data
+    /// input that must fail fast on invalid correlations.
     pub fn sectored(intra_sector: f64, inter_sector: f64, prepay_default: f64) -> Self {
         CorrelationStructure::Sectored {
-            intra_sector: intra_sector.clamp(0.0, 0.99),
-            inter_sector: inter_sector.clamp(0.0, 0.99),
-            prepay_default: prepay_default.clamp(-0.99, 0.99),
+            intra_sector,
+            inter_sector,
+            prepay_default,
         }
     }
 
-    /// Create a custom matrix correlation structure.
-    pub fn matrix(correlations: Vec<f64>, labels: Vec<String>) -> Self {
-        // Validate matrix is square
-        let n = labels.len();
-        let expected_size = n * n;
-        let corrs = if correlations.len() == expected_size {
-            correlations
-        } else {
-            // Create identity matrix as fallback
-            let mut identity = vec![0.0; expected_size];
-            for i in 0..n {
-                identity[i * n + i] = 1.0;
-            }
-            identity
-        };
+    /// Create a sectored correlation structure and validate supplied values.
+    pub fn try_sectored(
+        intra_sector: f64,
+        inter_sector: f64,
+        prepay_default: f64,
+    ) -> Result<Self, String> {
+        let structure = Self::sectored(intra_sector, inter_sector, prepay_default);
+        structure.validate()?;
+        Ok(structure)
+    }
 
+    /// Create a custom matrix correlation structure without altering supplied values.
+    ///
+    /// Use [`Self::try_matrix`] when ingesting calibration or market-data input
+    /// that must fail fast on invalid matrices.
+    pub fn matrix(correlations: Vec<f64>, labels: Vec<String>) -> Self {
         CorrelationStructure::Matrix {
-            correlations: corrs,
+            correlations,
             labels,
         }
+    }
+
+    /// Create a custom matrix correlation structure and validate supplied values.
+    pub fn try_matrix(correlations: Vec<f64>, labels: Vec<String>) -> Result<Self, String> {
+        let structure = Self::matrix(correlations, labels);
+        structure.validate()?;
+        Ok(structure)
     }
 
     /// RMBS standard correlation structure.
@@ -396,12 +419,14 @@ impl CorrelationStructure {
                     for j in 0..n {
                         if i != j {
                             let idx = i * n + j;
-                            let target = new_corrs[idx] + delta;
-                            let clamped = target.clamp(LO, HI);
-                            if (clamped - target).abs() > 1e-12 {
-                                clamp_count += 1;
+                            if let Some(rho) = new_corrs.get_mut(idx) {
+                                let target = *rho + delta;
+                                let clamped = target.clamp(LO, HI);
+                                if (clamped - target).abs() > 1e-12 {
+                                    clamp_count += 1;
+                                }
+                                *rho = clamped;
                             }
-                            new_corrs[idx] = clamped;
                         }
                     }
                 }
@@ -414,7 +439,10 @@ impl CorrelationStructure {
                     None
                 };
                 (
-                    CorrelationStructure::matrix(new_corrs, labels.clone()),
+                    CorrelationStructure::Matrix {
+                        correlations: new_corrs,
+                        labels: labels.clone(),
+                    },
                     clamp_info,
                 )
             }
@@ -423,8 +451,9 @@ impl CorrelationStructure {
 
     /// Validate the correlation structure.
     ///
-    /// For `Flat` and `Sectored` variants, checks that every correlation is
-    /// within \[-1, 1\]. For `Matrix`, additionally verifies that:
+    /// For `Flat` and `Sectored` variants, checks that asset correlations are
+    /// within \[0, 0.99\] and prepay-default correlations are within
+    /// \[-0.99, 0.99\]. For `Matrix`, verifies that:
     /// - diagonal elements are 1.0
     /// - the matrix is symmetric
     /// - all entries are within \[-1, 1\]
@@ -438,9 +467,11 @@ impl CorrelationStructure {
                 asset_correlation,
                 prepay_default_correlation,
             } => {
-                validate_correlation_value(*asset_correlation, "asset_correlation")?;
+                validate_correlation_value(*asset_correlation, 0.0, 0.99, "asset_correlation")?;
                 validate_correlation_value(
                     *prepay_default_correlation,
+                    -0.99,
+                    0.99,
                     "prepay_default_correlation",
                 )?;
                 Ok(())
@@ -450,9 +481,9 @@ impl CorrelationStructure {
                 inter_sector,
                 prepay_default,
             } => {
-                validate_correlation_value(*intra_sector, "intra_sector")?;
-                validate_correlation_value(*inter_sector, "inter_sector")?;
-                validate_correlation_value(*prepay_default, "prepay_default")?;
+                validate_correlation_value(*intra_sector, 0.0, 0.99, "intra_sector")?;
+                validate_correlation_value(*inter_sector, 0.0, 0.99, "inter_sector")?;
+                validate_correlation_value(*prepay_default, -0.99, 0.99, "prepay_default")?;
                 Ok(())
             }
             CorrelationStructure::Matrix {
@@ -478,7 +509,7 @@ impl CorrelationStructure {
                     for j in (i + 1)..n {
                         let rho_ij = correlations[i * n + j];
                         let rho_ji = correlations[j * n + i];
-                        validate_correlation_value(rho_ij, &format!("[{i},{j}]"))?;
+                        validate_correlation_value(rho_ij, -1.0, 1.0, &format!("[{i},{j}]"))?;
                         if (rho_ij - rho_ji).abs() > 1e-10 {
                             return Err(format!(
                                 "Matrix not symmetric: [{i},{j}]={rho_ij} != [{j},{i}]={rho_ji}"
@@ -593,11 +624,11 @@ impl CorrelationStructure {
     }
 }
 
-/// Validate that a single correlation value is within [-1, 1].
-fn validate_correlation_value(rho: f64, name: &str) -> Result<(), String> {
-    if !(-1.0..=1.0).contains(&rho) {
+/// Validate that a single correlation value is within an inclusive range.
+fn validate_correlation_value(rho: f64, lo: f64, hi: f64, name: &str) -> Result<(), String> {
+    if !(lo..=hi).contains(&rho) {
         return Err(format!(
-            "Correlation {name} = {rho} outside valid range [-1, 1]"
+            "Correlation {name} = {rho} outside valid range [{lo}, {hi}]"
         ));
     }
     Ok(())
@@ -658,11 +689,39 @@ mod tests {
     }
 
     #[test]
-    fn test_clamping() {
+    fn test_constructors_preserve_invalid_input() {
         let corr = CorrelationStructure::flat(1.5, -1.5);
 
-        assert!(corr.asset_correlation() <= 0.99);
-        assert!(corr.prepay_default_correlation() >= -0.99);
+        assert_eq!(corr.asset_correlation(), 1.5);
+        assert_eq!(corr.prepay_default_correlation(), -1.5);
+        assert!(corr.validate().is_err());
+
+        let sectored = CorrelationStructure::sectored(1.5, -0.1, -1.5);
+        assert_eq!(sectored.intra_sector_correlation(), Some(1.5));
+        assert_eq!(sectored.inter_sector_correlation(), Some(-0.1));
+        assert!(sectored.validate().is_err());
+
+        let matrix = CorrelationStructure::matrix(
+            vec![1.0, 0.2, 0.2],
+            vec!["A".to_string(), "B".to_string()],
+        );
+        let result = matrix.validate();
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("expected validation error for wrong-sized matrix")
+            .contains("size mismatch"));
+        assert!(matrix.bump_asset(0.1).validate().is_err());
+    }
+
+    #[test]
+    fn test_try_constructors_reject_invalid_input() {
+        assert!(CorrelationStructure::try_flat(1.5, -0.3).is_err());
+        assert!(CorrelationStructure::try_sectored(0.3, -0.1, -0.2).is_err());
+        assert!(CorrelationStructure::try_matrix(
+            vec![1.0, 0.2, 0.2],
+            vec!["A".to_string(), "B".to_string()],
+        )
+        .is_err());
     }
 
     #[test]

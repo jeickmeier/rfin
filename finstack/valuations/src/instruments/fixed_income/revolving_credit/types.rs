@@ -424,7 +424,6 @@ pub struct StochasticUtilizationSpec {
     ///
     /// When present, enables multi-factor modeling with credit spread
     /// and interest rate dynamics, correlation, and default modeling.
-    #[cfg(feature = "mc")]
     pub mc_config: Option<McConfig>,
 }
 
@@ -432,7 +431,6 @@ pub struct StochasticUtilizationSpec {
 ///
 /// Enables multi-factor modeling with credit risk, interest rate dynamics,
 /// correlation between factors, and default modeling.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct McConfig {
     /// Correlation matrix (3x3) between [utilization, rate, credit].
@@ -468,7 +466,6 @@ pub struct McConfig {
     pub util_credit_corr: Option<f64>,
 }
 
-#[cfg(feature = "mc")]
 impl McConfig {
     /// Validate the configuration parameters.
     ///
@@ -554,7 +551,6 @@ impl McConfig {
 }
 
 /// Credit spread process specification.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum CreditSpreadProcessSpec {
     /// CIR process for stochastic credit spread/hazard rate.
@@ -593,7 +589,6 @@ pub enum CreditSpreadProcessSpec {
 }
 
 /// Interest rate process specification (for floating rates).
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum InterestRateProcessSpec {
     /// Hull-White 1-factor model for short rate.
@@ -813,7 +808,7 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
             let mut fallback = self.clone();
             // If the stochastic spec carried a market-anchored hazard reference in its MC config,
             // propagate that to the deterministic fallback so survival weighting is preserved.
-            #[cfg(feature = "mc")]
+
             if let super::types::DrawRepaySpec::Stochastic(spec) = &self.draw_repay_spec {
                 if let Some(mc_cfg) = &spec.mc_config {
                     if let super::types::CreditSpreadProcessSpec::MarketAnchored {

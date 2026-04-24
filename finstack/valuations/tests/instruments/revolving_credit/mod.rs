@@ -19,7 +19,6 @@
 //! - `RevolvingCreditFees` has different structure (no `tiered` method, uses tier vectors)
 //! - No `cashflows()` method - uses internal cashflow engine
 
-#[cfg(feature = "mc")]
 pub mod mc;
 
 mod basic;
@@ -29,7 +28,6 @@ mod fixings;
 pub mod metrics;
 mod pricing;
 mod revolving_credit_acceptance;
-#[cfg(feature = "mc")]
 mod revolving_credit_parity;
 mod revolving_credit_properties;
 mod test_pricing_review;

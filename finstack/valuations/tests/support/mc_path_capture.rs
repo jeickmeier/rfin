@@ -202,7 +202,6 @@ fn test_path_capture_determinism_philox() {
     }
 }
 
-#[cfg(feature = "mc")]
 #[test]
 fn test_path_capture_determinism_sobol() {
     let config = PathDependentPricerConfig::new(50)

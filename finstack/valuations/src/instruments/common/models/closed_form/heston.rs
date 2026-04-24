@@ -140,7 +140,6 @@ impl HestonParams {
     }
 }
 
-#[cfg(feature = "mc")]
 impl From<finstack_monte_carlo::process::heston::HestonParams> for HestonParams {
     fn from(value: finstack_monte_carlo::process::heston::HestonParams) -> Self {
         Self {

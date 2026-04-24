@@ -157,6 +157,17 @@ impl<I> UnifiedDv01Calculator<I> {
             _phantom: PhantomData,
         }
     }
+
+    fn effective_key_rate_buckets<'a>(
+        &'a self,
+        defaults: &'a sens_config::SensitivitiesConfig,
+    ) -> &'a [f64] {
+        if self.config.buckets.as_slice() == sens_config::STANDARD_BUCKETS_YEARS {
+            defaults.dv01_buckets_years.as_slice()
+        } else {
+            self.config.buckets.as_slice()
+        }
+    }
 }
 
 impl<I> Default for UnifiedDv01Calculator<I> {
@@ -173,11 +184,11 @@ where
         let instrument: &I = context.instrument_as()?;
 
         // Resolve bump size from config, then layer instrument overrides.
-        let bump_bp = sens_config::from_context_or_default(
+        let defaults = sens_config::from_context_or_default(
             context.config(),
             context.metric_overrides.as_ref(),
-        )?
-        .rate_bump_bp;
+        )?;
+        let bump_bp = defaults.rate_bump_bp;
 
         // Collect curves based on configuration
         let curves = self.collect_curves(instrument, context.curves.as_ref())?;
@@ -191,7 +202,8 @@ where
                 self.compute_parallel_per_curve(context, &curves, bump_bp)
             }
             Dv01ComputationMode::KeyRateTriangular => {
-                self.compute_key_rate_triangular(context, &curves, bump_bp)
+                let buckets = self.effective_key_rate_buckets(&defaults);
+                self.compute_key_rate_triangular(context, &curves, bump_bp, buckets)
             }
         }
     }
@@ -352,6 +364,7 @@ where
         context: &mut MetricContext,
         curves: &[(CurveId, RatesCurveKind)],
         bump_bp: f64,
+        buckets: &[f64],
     ) -> finstack_core::Result<f64> {
         if curves.is_empty() {
             return Ok(0.0);
@@ -363,8 +376,13 @@ where
         for (curve_id, _kind) in curves.iter() {
             let curve_metric_id = MetricId::custom(format!("{}::{}", base, curve_id.as_str()));
 
-            let curve_total =
-                self.compute_triangular_for_curve(context, curve_id, curve_metric_id, bump_bp)?;
+            let curve_total = self.compute_triangular_for_curve(
+                context,
+                curve_id,
+                curve_metric_id,
+                bump_bp,
+                buckets,
+            )?;
 
             total_dv01 += curve_total;
         }
@@ -382,10 +400,10 @@ where
         curve_id: &CurveId,
         metric_id: MetricId,
         bump_bp: f64,
+        buckets: &[f64],
     ) -> finstack_core::Result<f64> {
         let as_of = context.as_of;
 
-        let buckets = &self.config.buckets;
         let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> =
             Vec::with_capacity(buckets.len());
 

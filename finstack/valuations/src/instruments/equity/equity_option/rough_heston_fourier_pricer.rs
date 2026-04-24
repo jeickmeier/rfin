@@ -4,17 +4,11 @@
 //! to price European equity options under the rough Heston model (El Euch & Rosenbaum 2019).
 //! Model parameters are sourced from market scalars with sensible defaults.
 
-#[cfg(feature = "mc")]
 use super::pricer::{collect_inputs_extended, option_currency};
-#[cfg(feature = "mc")]
 use super::types::EquityOption;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::parameters::OptionType;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
 
 /// Equity option rough Heston semi-analytical pricer (Fourier inversion).
@@ -33,10 +27,8 @@ use finstack_core::money::Money;
 /// | `ROUGH_HESTON_SIGMA_V` | 0.3 | Vol-of-vol |
 /// | `ROUGH_HESTON_RHO` | -0.7 | Spot-vol correlation |
 /// | `ROUGH_HESTON_HURST` | 0.1 | Hurst exponent |
-#[cfg(feature = "mc")]
 pub(crate) struct EquityOptionRoughHestonFourierPricer;
 
-#[cfg(feature = "mc")]
 impl EquityOptionRoughHestonFourierPricer {
     /// Create a new rough Heston Fourier pricer.
     pub(crate) fn new() -> Self {
@@ -44,7 +36,6 @@ impl EquityOptionRoughHestonFourierPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for EquityOptionRoughHestonFourierPricer {
     fn default() -> Self {
         Self::new()
@@ -52,12 +43,10 @@ impl Default for EquityOptionRoughHestonFourierPricer {
 }
 
 /// Extract a unitless scalar from market data, falling back to a default.
-#[cfg(feature = "mc")]
 fn get_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
     crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
 }
 
-#[cfg(feature = "mc")]
 impl crate::pricer::Pricer for EquityOptionRoughHestonFourierPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

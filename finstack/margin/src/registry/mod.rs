@@ -568,15 +568,40 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
         let concentration_thresholds =
             parse_concentration_thresholds(&record.concentration_thresholds)?;
 
-        let cq_bucket_weights = default_cq_bucket_weights(&cq_delta_weights);
-        let cq_intra_bucket_correlation = 0.42;
-        let cq_inter_bucket_correlations = default_cq_inter_bucket_correlations();
-        let cq_concentration_thresholds = default_cq_concentration_thresholds(
-            concentration_thresholds
-                .get(&SimmRiskClass::CreditQualifying)
-                .copied()
-                .unwrap_or(9_500_000.0),
-        );
+        let require_cq_tables = version == SimmVersion::V2_6;
+        let cq_bucket_weights =
+            parse_cq_bucket_weights(&record.cq_bucket_weights, require_cq_tables)?
+                .unwrap_or_else(|| default_cq_bucket_weights(&cq_delta_weights));
+        let cq_intra_bucket_correlation =
+            record
+                .cq_intra_bucket_correlation
+                .unwrap_or(if version == SimmVersion::V2_6 {
+                    0.46
+                } else {
+                    0.42
+                });
+        if !(-1.0..=1.0).contains(&cq_intra_bucket_correlation) {
+            return Err(Error::Validation(
+                "simm.cq_intra_bucket_correlation must be in [-1,1]".to_string(),
+            ));
+        }
+        let cq_inter_bucket_correlations = parse_cq_inter_bucket_correlations(
+            &record.cq_inter_bucket_correlations,
+            require_cq_tables,
+        )?
+        .unwrap_or_else(default_cq_inter_bucket_correlations);
+        let cq_concentration_thresholds = parse_cq_concentration_thresholds(
+            &record.cq_concentration_thresholds,
+            require_cq_tables,
+        )?
+        .unwrap_or_else(|| {
+            default_cq_concentration_thresholds(
+                concentration_thresholds
+                    .get(&SimmRiskClass::CreditQualifying)
+                    .copied()
+                    .unwrap_or(9_500_000.0),
+            )
+        });
         let commodity_inter_bucket_correlations =
             crate::calculators::im::simm::default_commodity_inter_bucket_correlations_flat();
 
@@ -704,6 +729,51 @@ fn parse_simm_risk_class(value: &str) -> Result<SimmRiskClass> {
     }
 }
 
+fn parse_simm_credit_sector(value: &str) -> Result<SimmCreditSector> {
+    match value.to_ascii_lowercase().as_str() {
+        "ig_sovereign" | "sovereign" | "bucket_1" | "1" => Ok(SimmCreditSector::Sovereign),
+        "ig_financial" | "financial" | "bucket_2" | "2" => Ok(SimmCreditSector::Financial),
+        "ig_basic_materials" | "basic_materials" | "bucket_3" | "3" => {
+            Ok(SimmCreditSector::BasicMaterials)
+        }
+        "ig_consumer" | "ig_consumer_goods" | "consumer" | "consumer_goods" | "bucket_4" | "4" => {
+            Ok(SimmCreditSector::ConsumerGoods)
+        }
+        "ig_technology_media"
+        | "technology_media"
+        | "technology_telecommunications"
+        | "bucket_5"
+        | "5" => Ok(SimmCreditSector::TechnologyMedia),
+        "ig_health_care" | "health_care" | "healthcare_utilities" | "bucket_6" | "6" => {
+            Ok(SimmCreditSector::HealthCare)
+        }
+        "hy_sovereign" | "high_yield_sovereign" | "bucket_7" | "7" => {
+            Ok(SimmCreditSector::HighYieldSovereign)
+        }
+        "hy_financial" | "high_yield_financial" | "bucket_8" | "8" => {
+            Ok(SimmCreditSector::HighYieldFinancial)
+        }
+        "hy_basic_materials" | "high_yield_basic_materials" | "bucket_9" | "9" => {
+            Ok(SimmCreditSector::HighYieldBasicMaterials)
+        }
+        "hy_consumer" | "hy_consumer_goods" | "high_yield_consumer" | "bucket_10" | "10" => {
+            Ok(SimmCreditSector::HighYieldConsumerGoods)
+        }
+        "hy_technology_media" | "high_yield_technology_media" | "bucket_11" | "11" => {
+            Ok(SimmCreditSector::HighYieldTechnologyMedia)
+        }
+        "hy_health_care" | "high_yield_health_care" | "bucket_12" | "12" => {
+            Ok(SimmCreditSector::HighYieldHealthCare)
+        }
+        "index" => Ok(SimmCreditSector::Index),
+        "securitized" | "securitised" => Ok(SimmCreditSector::Securitized),
+        "residual" => Ok(SimmCreditSector::Residual),
+        other => Err(Error::Validation(format!(
+            "unknown SIMM credit qualifying sector '{other}'"
+        ))),
+    }
+}
+
 fn parse_number_map(value: &Value, context: &str) -> Result<HashMap<String, f64>> {
     let obj = value
         .as_object()
@@ -716,6 +786,87 @@ fn parse_number_map(value: &Value, context: &str) -> Result<HashMap<String, f64>
         out.insert(k.clone(), num);
     }
     Ok(out)
+}
+
+fn parse_cq_bucket_weights(
+    value: &Value,
+    required: bool,
+) -> Result<Option<HashMap<SimmCreditSector, f64>>> {
+    parse_credit_sector_number_map(value, "simm.cq_bucket_weights", required)
+}
+
+fn parse_cq_concentration_thresholds(
+    value: &Value,
+    required: bool,
+) -> Result<Option<HashMap<SimmCreditSector, f64>>> {
+    parse_credit_sector_number_map(value, "simm.cq_concentration_thresholds", required)
+}
+
+fn parse_credit_sector_number_map(
+    value: &Value,
+    context: &str,
+    required: bool,
+) -> Result<Option<HashMap<SimmCreditSector, f64>>> {
+    if value.is_null() {
+        return if required {
+            Err(Error::Validation(format!("{context} missing")))
+        } else {
+            Ok(None)
+        };
+    }
+    let obj = value
+        .as_object()
+        .ok_or_else(|| Error::Validation(format!("{context} must be an object")))?;
+    let mut out = HashMap::default();
+    for (k, v) in obj {
+        let sector = parse_simm_credit_sector(k)?;
+        let num = v.as_f64().ok_or_else(|| {
+            Error::Validation(format!("{context} value for key '{k}' must be a number"))
+        })?;
+        out.insert(sector, num);
+    }
+    Ok(Some(out))
+}
+
+fn parse_cq_inter_bucket_correlations(
+    value: &Value,
+    required: bool,
+) -> Result<Option<HashMap<(SimmCreditSector, SimmCreditSector), f64>>> {
+    if value.is_null() {
+        return if required {
+            Err(Error::Validation(
+                "simm.cq_inter_bucket_correlations missing".to_string(),
+            ))
+        } else {
+            Ok(None)
+        };
+    }
+    let obj = value.as_object().ok_or_else(|| {
+        Error::Validation("simm.cq_inter_bucket_correlations must be an object".to_string())
+    })?;
+    let mut out = HashMap::default();
+    for (k, v) in obj {
+        let (a, b) = k.split_once("__").ok_or_else(|| {
+            Error::Validation(format!(
+                "invalid cq_inter_bucket_correlations key '{k}': expected 'sector_a__sector_b'"
+            ))
+        })?;
+        let rho = v.as_f64().ok_or_else(|| {
+            Error::Validation(format!(
+                "cq_inter_bucket_correlations value for '{k}' must be a number"
+            ))
+        })?;
+        if !(-1.0..=1.0).contains(&rho) {
+            return Err(Error::Validation(format!(
+                "cq_inter_bucket_correlations value for '{k}' must be in [-1,1]"
+            )));
+        }
+        out.insert(
+            ordered_credit_sector_pair(parse_simm_credit_sector(a)?, parse_simm_credit_sector(b)?),
+            rho,
+        );
+    }
+    Ok(Some(out))
 }
 
 fn parse_ir_tenor_correlations(value: &Value) -> Result<HashMap<(String, String), f64>> {
@@ -787,11 +938,11 @@ fn to_timing(record: &wire::MarginCallTimingRecord) -> MarginCallTiming {
     }
 }
 
-/// Build default per-sector bucket weights from the existing `cq_delta_weights` map.
+/// Build legacy per-sector bucket weights from the existing broad `cq_delta_weights` map.
 ///
-/// Maps the three broad categories (sovereigns, financials, corporates) in the
-/// existing registry to the nine ISDA SIMM v2.6 credit qualifying sector buckets.
-/// Covered bonds use a lower weight (42); the Residual bucket uses 500.
+/// Used only for non-v2.6 parameter sets or overlays that pre-date the explicit
+/// CQ bucket tables. SIMM v2.6 requires registry-backed tables and does not use
+/// this fallback.
 fn default_cq_bucket_weights(
     cq_delta_weights: &HashMap<String, f64>,
 ) -> HashMap<SimmCreditSector, f64> {
@@ -806,36 +957,28 @@ fn default_cq_bucket_weights(
         (SimmCreditSector::ConsumerGoods, corp),
         (SimmCreditSector::TechnologyMedia, corp),
         (SimmCreditSector::HealthCare, corp),
-        (SimmCreditSector::Index, corp),
-        (SimmCreditSector::Securitized, 42.0),
+        (SimmCreditSector::HighYieldSovereign, sov),
+        (SimmCreditSector::HighYieldFinancial, fin),
+        (SimmCreditSector::HighYieldBasicMaterials, corp),
+        (SimmCreditSector::HighYieldConsumerGoods, corp),
+        (SimmCreditSector::HighYieldTechnologyMedia, corp),
+        (SimmCreditSector::HighYieldHealthCare, corp),
         (SimmCreditSector::Residual, 500.0),
     ]
     .into_iter()
     .collect()
 }
 
-/// Build default inter-bucket correlations for credit qualifying sectors.
+/// Build legacy inter-bucket correlations for credit qualifying sectors.
 ///
-/// Uses a simplified single correlation value of 0.27 across all sector pairs
-/// per ISDA SIMM v2.6. The Residual bucket has zero correlation with all others.
-// TODO: Replace with the full ISDA SIMM v2.6 inter-bucket correlation matrix.
+/// Uses a simplified single correlation value of 0.27 across all sector pairs.
+/// SIMM v2.6 requires explicit registry tables and does not use this fallback.
 fn default_cq_inter_bucket_correlations() -> HashMap<(SimmCreditSector, SimmCreditSector), f64> {
-    use SimmCreditSector::*;
-    let sectors = [
-        Sovereign,
-        Financial,
-        BasicMaterials,
-        ConsumerGoods,
-        TechnologyMedia,
-        HealthCare,
-        Index,
-        Securitized,
-        Residual,
-    ];
     let mut map = HashMap::default();
+    let sectors = simm_cq_validation_sectors();
     for (i, &a) in sectors.iter().enumerate() {
         for &b in sectors.iter().skip(i + 1) {
-            let rho = if a == Residual || b == Residual {
+            let rho = if a == SimmCreditSector::Residual || b == SimmCreditSector::Residual {
                 0.0
             } else {
                 0.27
@@ -849,12 +992,17 @@ fn default_cq_inter_bucket_correlations() -> HashMap<(SimmCreditSector, SimmCred
 
 /// Build default per-bucket concentration thresholds for credit qualifying.
 ///
-/// Uses the aggregate CQ concentration threshold for each bucket as a
-/// simplified default. Per ISDA SIMM v2.6, each bucket has its own
-/// concentration threshold; the full calibration table should be provided
-/// via registry overlay when available.
-// TODO: Replace with per-bucket calibrated thresholds from ISDA SIMM v2.6.
+/// Uses the aggregate CQ concentration threshold for each bucket as a legacy
+/// fallback. SIMM v2.6 requires explicit registry tables and does not use this
+/// fallback.
 fn default_cq_concentration_thresholds(aggregate_threshold: f64) -> HashMap<SimmCreditSector, f64> {
+    simm_cq_validation_sectors()
+        .into_iter()
+        .map(|sector| (sector, aggregate_threshold))
+        .collect()
+}
+
+fn simm_cq_validation_sectors() -> [SimmCreditSector; 13] {
     use SimmCreditSector::*;
     [
         Sovereign,
@@ -863,13 +1011,14 @@ fn default_cq_concentration_thresholds(aggregate_threshold: f64) -> HashMap<Simm
         ConsumerGoods,
         TechnologyMedia,
         HealthCare,
-        Index,
-        Securitized,
+        HighYieldSovereign,
+        HighYieldFinancial,
+        HighYieldBasicMaterials,
+        HighYieldConsumerGoods,
+        HighYieldTechnologyMedia,
+        HighYieldHealthCare,
         Residual,
     ]
-    .into_iter()
-    .map(|sector| (sector, aggregate_threshold))
-    .collect()
 }
 
 fn validate_simm_params(p: &SimmParams) -> Result<()> {
@@ -905,7 +1054,57 @@ fn validate_simm_params(p: &SimmParams) -> Result<()> {
     for (rc, v) in &p.concentration_thresholds {
         validate_non_negative(&format!("simm.concentration_thresholds[{rc:?}]"), *v)?;
     }
+    validate_cq_tables(p)?;
     validate_simm_correlations_psd(p)?;
+    Ok(())
+}
+
+fn validate_cq_tables(p: &SimmParams) -> Result<()> {
+    let sectors = simm_cq_validation_sectors();
+    for sector in sectors {
+        let require_v26 = p.version == SimmVersion::V2_6;
+        let weight = p.cq_bucket_weights.get(&sector).copied();
+        if require_v26 && weight.is_none() {
+            return Err(Error::Validation(format!(
+                "SIMM registry {:?}: cq_bucket_weights missing {sector:?}",
+                p.version
+            )));
+        }
+        if let Some(v) = weight {
+            validate_non_negative(&format!("simm.cq_bucket_weights[{sector:?}]"), v)?;
+        }
+
+        let threshold = p.cq_concentration_thresholds.get(&sector).copied();
+        if require_v26 && threshold.is_none() {
+            return Err(Error::Validation(format!(
+                "SIMM registry {:?}: cq_concentration_thresholds missing {sector:?}",
+                p.version
+            )));
+        }
+        if let Some(v) = threshold {
+            validate_non_negative(&format!("simm.cq_concentration_thresholds[{sector:?}]"), v)?;
+        }
+    }
+
+    for (i, &a) in sectors.iter().enumerate() {
+        for &b in sectors.iter().skip(i + 1) {
+            let key = ordered_credit_sector_pair(a, b);
+            let rho = p.cq_inter_bucket_correlations.get(&key).copied();
+            if p.version == SimmVersion::V2_6 && rho.is_none() {
+                return Err(Error::Validation(format!(
+                    "SIMM registry {:?}: cq_inter_bucket_correlations missing ({a:?},{b:?})",
+                    p.version
+                )));
+            }
+            if let Some(v) = rho {
+                if !(-1.0..=1.0).contains(&v) {
+                    return Err(Error::Validation(format!(
+                        "simm.cq_inter_bucket_correlations[({a:?},{b:?})] must be in [-1,1]"
+                    )));
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -921,16 +1120,13 @@ fn validate_simm_params(p: &SimmParams) -> Result<()> {
 ///
 /// 1. `risk_class_correlations` — 6×6 matrix across `SimmRiskClass`.
 /// 2. `ir_tenor_correlations` — n×n matrix over the `ir_delta_weights` tenor keys.
-/// 3. `cq_inter_bucket_correlations` — 9×9 matrix across `SimmCreditSector`.
+/// 3. `cq_inter_bucket_correlations` — full credit-qualifying bucket matrix across
+///    `SimmCreditSector`.
 ///
 /// Missing off-diagonal entries are filled with the calculator's own fallback
 /// value (see `SimmParams::correlation` / `cq_inter_bucket_correlation`) so the
 /// validated matrix is the one the calculator will actually observe at runtime.
 fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
-    use crate::SimmCreditSector::{
-        BasicMaterials, ConsumerGoods, Financial, HealthCare, Index, Residual, Securitized,
-        Sovereign, TechnologyMedia,
-    };
     use crate::SimmRiskClass::{
         Commodity, CreditNonQualifying, CreditQualifying, Equity, Fx, InterestRate,
     };
@@ -976,19 +1172,8 @@ fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
         },
     )?;
 
-    // 3. CQ inter-bucket correlations (9x9). Missing pairs fall back to 0.27 per
-    //    the calculator's `SimmParams::cq_inter_bucket_correlation`.
-    let sectors = [
-        Sovereign,
-        Financial,
-        BasicMaterials,
-        ConsumerGoods,
-        TechnologyMedia,
-        HealthCare,
-        Index,
-        Securitized,
-        Residual,
-    ];
+    // 3. CQ inter-bucket correlations over the full v2.6 bucket set.
+    let sectors = simm_cq_validation_sectors();
     validate_dense_correlation_matrix(
         &sectors,
         "cq_inter_bucket_correlations",
@@ -998,7 +1183,7 @@ fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
             p.cq_inter_bucket_correlations
                 .get(&key)
                 .copied()
-                .unwrap_or(0.27)
+                .unwrap_or(0.0)
         },
     )?;
 
@@ -1246,6 +1431,37 @@ mod tests {
         // satisfy PSD after the new check is wired in.
         let params = base_simm_params();
         validate_simm_correlations_psd(&params).expect("embedded SIMM correlations must be PSD");
+    }
+
+    #[test]
+    fn simm_v26_credit_qualifying_tables_are_registry_backed() {
+        let registry = embedded_registry().expect("embedded registry should load");
+        let params = registry.simm.get("v2_6").expect("v2_6 params");
+
+        assert_eq!(
+            params
+                .cq_bucket_weights
+                .get(&SimmCreditSector::Sovereign)
+                .copied(),
+            Some(75.0)
+        );
+        assert_eq!(
+            params
+                .cq_inter_bucket_correlations
+                .get(&ordered_credit_sector_pair(
+                    SimmCreditSector::Sovereign,
+                    SimmCreditSector::Financial
+                ))
+                .copied(),
+            Some(0.38)
+        );
+        assert_eq!(
+            params
+                .cq_concentration_thresholds
+                .get(&SimmCreditSector::Sovereign)
+                .copied(),
+            Some(1_000_000.0)
+        );
     }
 
     #[test]

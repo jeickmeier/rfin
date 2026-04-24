@@ -274,8 +274,24 @@ pub(crate) fn projected_compounded_float_leg_schedule(
             continue;
         }
 
-        let accrual_start = period.accrual_start;
-        let accrual_end = period.accrual_end;
+        // Adjust accrual window to business days for RFR compounding. The schedule
+        // builder intentionally preserves unadjusted roll dates (for bond-style
+        // unadjusted-accrual conventions), but overnight-rate compounding requires a
+        // business-day window — otherwise the inner loop can step onto weekends/holidays
+        // and the observation-shift back-roll can collapse two adjacent steps onto the
+        // same date (see `seek_business_day` semantics from a non-business day).
+        let (accrual_start, accrual_end) = if let Some(cal) = cal {
+            use finstack_core::dates::adjust;
+            (
+                adjust(period.accrual_start, float.bdc, cal)?,
+                adjust(period.accrual_end, float.bdc, cal)?,
+            )
+        } else {
+            (period.accrual_start, period.accrual_end)
+        };
+        if accrual_end <= accrual_start {
+            continue;
+        }
         let allow_fast_path =
             as_of <= accrual_start && total_shift == 0 && proj.is_none_or(|p| disc.id() == p.id());
 

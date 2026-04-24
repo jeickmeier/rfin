@@ -327,7 +327,6 @@ impl BumpConfig {
 /// that allows the pricer registry to access the MC configuration from
 /// `PricingOverrides`.
 /// Not serializable (set programmatically, not from JSON).
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone)]
 pub struct MertonMcOverride(
     pub crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig,
@@ -364,7 +363,7 @@ pub struct ModelConfig {
     ///
     /// When set, the `MertonMc` pricer in the registry uses this config.
     /// Set programmatically; not serialized.
-    #[cfg(feature = "mc")]
+
     #[serde(skip)]
     pub merton_mc_config: Option<MertonMcOverride>,
     /// Exercise friction cost for issuer/borrower calls, expressed as **cents per 100 of par**.
@@ -781,7 +780,6 @@ impl PricingOverrides {
     }
 
     /// Set the Merton Monte Carlo configuration for structural credit pricing.
-    #[cfg(feature = "mc")]
     pub fn with_merton_mc(
         mut self,
         config: crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig,

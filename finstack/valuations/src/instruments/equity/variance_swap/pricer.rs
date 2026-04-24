@@ -37,7 +37,7 @@ fn smile_convexity_adjusted_variance(
     let atm_variance = vol_atm * vol_atm;
 
     let strikes = surface.strikes();
-    let lower = strikes.iter().copied().filter(|&k| k < forward).next_back();
+    let lower = strikes.iter().copied().rfind(|&k| k < forward);
     let upper = strikes.iter().copied().find(|&k| k > forward);
 
     let (Some(k_lo), Some(k_hi)) = (lower, upper) else {

@@ -25,16 +25,10 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-// These imports are used by the `#[cfg(feature = "mc")]` test below
-#[cfg(feature = "mc")]
 use super::helpers::*;
-#[cfg(feature = "mc")]
 use finstack_core::dates::DayCount;
-#[cfg(feature = "mc")]
 use finstack_valuations::instruments::Instrument;
-#[cfg(feature = "mc")]
 use std::time::Instant;
-#[cfg(feature = "mc")]
 use time::macros::date;
 
 /// Test that a quarterly observation autocall with ACT/365 surface and ACT/360 curve prices correctly.
@@ -49,7 +43,6 @@ use time::macros::date;
 /// - Runtime ≤ 50ms for 50k paths (adjusted for test hardware)
 #[ignore = "slow"]
 #[test]
-#[cfg(feature = "mc")]
 fn test_autocallable_mismatched_day_count_bases() {
     let as_of = date!(2024 - 01 - 01);
 
@@ -123,7 +116,6 @@ fn test_autocallable_mismatched_day_count_bases() {
 /// seed scenario, enabling reproducible scenario analysis.
 #[ignore = "slow"]
 #[test]
-#[cfg(feature = "mc")]
 fn test_autocallable_deterministic_seeding() {
     let as_of = date!(2024 - 01 - 01);
 
@@ -177,7 +169,6 @@ fn test_autocallable_deterministic_seeding() {
 /// the pricing should be stable and the time calculations should be internally consistent.
 #[ignore = "slow"]
 #[test]
-#[cfg(feature = "mc")]
 fn test_autocallable_same_day_count_basis() {
     let as_of = date!(2024 - 01 - 01);
 
@@ -246,7 +237,6 @@ fn test_autocallable_same_day_count_basis() {
 /// disc_dc but df_ratios used inst.day_count, causing inconsistent timing.
 #[ignore = "slow"]
 #[test]
-#[cfg(feature = "mc")]
 fn test_observation_times_consistent_with_df_ratios() {
     let as_of = date!(2024 - 01 - 01);
 

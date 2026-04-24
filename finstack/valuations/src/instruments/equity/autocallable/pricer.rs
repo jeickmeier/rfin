@@ -1,41 +1,28 @@
 //! Autocallable Monte Carlo pricer.
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::equity::autocallable::monte_carlo::{
     AutocallablePayoff, FinalPayoffType as McFinalPayoffType,
 };
-#[cfg(feature = "mc")]
 use crate::instruments::equity::autocallable::types::{Autocallable, FinalPayoffType};
-#[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
-#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountContext};
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
-#[cfg(feature = "mc")]
 use finstack_core::Result;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Autocallable Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct AutocallableMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl AutocallableMcPricer {
     /// Create a new autocallable MC pricer with default config.
     pub fn new() -> Self {
@@ -175,25 +162,15 @@ impl AutocallableMcPricer {
         );
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
+
         use finstack_monte_carlo::seed;
 
         let base_cfg = self.merged_path_config(inst);
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            base_cfg.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         let mut config = base_cfg;
@@ -213,14 +190,12 @@ impl AutocallableMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for AutocallableMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for AutocallableMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::Autocallable, ModelKey::MonteCarloGBM)
@@ -253,7 +228,6 @@ impl Pricer for AutocallableMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &Autocallable,
     curves: &MarketContext,

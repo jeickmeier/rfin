@@ -111,11 +111,9 @@ impl SwaptionVolTarget {
                         .to_string(),
                 )
                 })?;
-            {
-                ConventionRegistry::try_global()?
-                    .require_rate_index(&idx_key)?
-                    .default_fixed_leg_day_count
-            }
+            ConventionRegistry::try_global()?
+                .require_rate_index(&idx_key)?
+                .default_fixed_leg_day_count
         };
 
         for q in quotes {

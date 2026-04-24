@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 analytics: Any
+cashflows: Any
 core: Any
 correlation: Any
 margin: Any

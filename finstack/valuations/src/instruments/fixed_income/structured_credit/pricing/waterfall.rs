@@ -79,6 +79,8 @@ pub struct WaterfallContext<'a> {
     /// This ensures the waterfall uses up-to-date balances after principal payments
     /// and PIK accretion rather than stale original balances.
     pub tranche_balances: Option<&'a HashMap<String, Money>>,
+    /// Deferred interest claims carried from prior periods.
+    pub deferred_interest: Option<&'a HashMap<String, Money>>,
     /// Current reserve account balance (passed dynamically each period).
     /// Used by `PaymentCalculation::ReserveReplenishment` to compute shortfall.
     pub reserve_balance: Money,
@@ -130,6 +132,7 @@ fn execute_waterfall_core(
         payment_date: context.payment_date,
         market: context.market,
         tranche_balances: context.tranche_balances,
+        deferred_interest: context.deferred_interest,
         reserve_balance: context.reserve_balance,
     };
 
@@ -395,6 +398,8 @@ pub(crate) struct AllocationContext<'a> {
     pub(crate) market: &'a MarketContext,
     /// Current tranche balances (overrides tranche.current_balance when present)
     pub(crate) tranche_balances: Option<&'a HashMap<String, Money>>,
+    /// Deferred interest claims carried from prior periods.
+    pub(crate) deferred_interest: Option<&'a HashMap<String, Money>>,
     /// Current reserve account balance (passed dynamically each period)
     pub(crate) reserve_balance: Money,
 }
@@ -405,7 +410,7 @@ impl<'a> AllocationContext<'a> {
     /// Pass `tranche_balances` to use current (dynamic) tranche balances for
     /// interest accrual and principal calculations instead of the static balances
     /// stored on the `Tranche` definitions.
-    #[allow(dead_code)] // public API constructor
+    #[allow(dead_code, clippy::too_many_arguments)] // public API constructor
     pub(crate) fn new(
         base_currency: Currency,
         tranches: &'a TrancheStructure,
@@ -413,6 +418,7 @@ impl<'a> AllocationContext<'a> {
         payment_date: Date,
         market: &'a MarketContext,
         tranche_balances: Option<&'a HashMap<String, Money>>,
+        deferred_interest: Option<&'a HashMap<String, Money>>,
         reserve_balance: Money,
     ) -> Self {
         let mut tranche_index = HashMap::default();
@@ -429,6 +435,7 @@ impl<'a> AllocationContext<'a> {
             payment_date,
             market,
             tranche_balances,
+            deferred_interest,
             reserve_balance,
         }
     }
@@ -494,6 +501,7 @@ fn allocate_sequential(
             ctx.tranches,
             &ctx.tranche_index,
             ctx.tranche_balances,
+            ctx.deferred_interest,
             ctx.pool_balance,
             period_start,
             ctx.payment_date,
@@ -597,6 +605,7 @@ fn allocate_pro_rata(
             ctx.tranches,
             &ctx.tranche_index,
             ctx.tranche_balances,
+            ctx.deferred_interest,
             ctx.pool_balance,
             period_start,
             ctx.payment_date,
@@ -849,6 +858,7 @@ fn calculate_payment_amount(
     tranches: &TrancheStructure,
     tranche_index: &HashMap<&str, usize>,
     tranche_balances: Option<&HashMap<String, Money>>,
+    deferred_interest: Option<&HashMap<String, Money>>,
     pool_balance: Money,
     period_start: Date,
     payment_date: Date,
@@ -899,7 +909,14 @@ fn calculate_payment_amount(
                 payment_date,
                 DayCountContext::default(),
             )?;
-            (balance.amount() * rate * accrual_fraction, *rounding)
+            let carried = deferred_interest
+                .and_then(|d| d.get(tranche_id.as_str()))
+                .map(|m| m.amount())
+                .unwrap_or(0.0);
+            (
+                balance.amount() * rate * accrual_fraction + carried,
+                *rounding,
+            )
         }
 
         PaymentCalculation::TranchePrincipal {

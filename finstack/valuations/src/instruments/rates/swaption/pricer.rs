@@ -13,19 +13,14 @@ use finstack_core::money::Money;
 use std::sync::Arc;
 
 // LSMC imports (gated by feature)
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::parameters::OptionType;
-#[cfg(feature = "mc")]
 use crate::instruments::rates::swaption::pricing::monte_carlo_lsmc::{
     SwaptionLsmcConfig, SwaptionLsmcPricer as SharedSwaptionLsmcPricer,
 };
-#[cfg(feature = "mc")]
 use crate::instruments::rates::swaption::pricing::monte_carlo_payoff::{
     BermudanSwaptionPayoff, SwapSchedule, SwaptionType,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::basis::PolynomialBasis;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::ou::{calibrate_theta_from_curve, HullWhite1FProcess};
 
 // ========================= NEW SIMPLIFIED PRICER =========================
@@ -630,7 +625,6 @@ impl BermudanSwaptionPricer {
     /// - Polynomial basis functions for regression
     /// - Antithetic variates for variance reduction
     /// - Standard error estimation in results
-    #[cfg(feature = "mc")]
     fn price_lsmc(
         &self,
         swaption: &BermudanSwaption,
@@ -862,18 +856,6 @@ impl BermudanSwaptionPricer {
         );
 
         Ok(result)
-    }
-
-    /// Fallback for when MC feature is disabled.
-    #[cfg(not(feature = "mc"))]
-    fn price_lsmc(
-        &self,
-        swaption: &BermudanSwaption,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ValuationResult, PricingError> {
-        // Fall back to tree pricing when MC is disabled
-        self.price_tree(swaption, market, as_of)
     }
 }
 

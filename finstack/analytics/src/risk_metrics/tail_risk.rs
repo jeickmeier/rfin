@@ -66,6 +66,24 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
     var
 }
 
+/// Checked variant of [`value_at_risk`] that rejects invalid inputs with an
+/// error instead of returning [`f64::NAN`].
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)`, any return is
+/// non-finite, or `ann_factor` is present but not positive finite.
+pub fn value_at_risk_checked(
+    returns: &[f64],
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_positive_horizon(ann_factor)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(value_at_risk(returns, confidence, ann_factor))
+}
+
 /// Expected Shortfall (CVaR / ES) at the given confidence level.
 ///
 /// The mean of all returns that fall at or below the VaR threshold,
@@ -132,6 +150,24 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
     }
 }
 
+/// Checked variant of [`expected_shortfall`] that rejects invalid inputs with
+/// an error instead of returning [`f64::NAN`].
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)`, any return is
+/// non-finite, or `ann_factor` is present but not positive finite.
+pub fn expected_shortfall_checked(
+    returns: &[f64],
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_positive_horizon(ann_factor)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(expected_shortfall(returns, confidence, ann_factor))
+}
+
 /// Tail ratio = |upper tail| / |lower tail|.
 ///
 /// Computes the ratio of the absolute upper quantile to the absolute lower
@@ -183,6 +219,19 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     upper / lower
 }
 
+/// Checked variant of [`tail_ratio`] that rejects invalid confidence levels and
+/// non-finite return observations with an error.
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)` or any return is
+/// non-finite.
+pub fn tail_ratio_checked(returns: &[f64], confidence: f64) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(tail_ratio(returns, confidence))
+}
+
 /// Fraction of returns above the upper quantile threshold (outlier wins).
 ///
 /// Counts how many returns exceed the `confidence` quantile of the
@@ -220,6 +269,19 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
     let threshold = quantile(&mut data, confidence);
     let count = returns.iter().filter(|&&r| r > threshold).count();
     count as f64 / returns.len() as f64
+}
+
+/// Checked variant of [`outlier_win_ratio`] that rejects invalid confidence
+/// levels and non-finite return observations with an error.
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)` or any return is
+/// non-finite.
+pub fn outlier_win_ratio_checked(returns: &[f64], confidence: f64) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(outlier_win_ratio(returns, confidence))
 }
 
 /// Fraction of returns below the lower quantile threshold (outlier losses).
@@ -260,6 +322,19 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
     let threshold = quantile(&mut data, 1.0 - confidence);
     let count = returns.iter().filter(|&&r| r < threshold).count();
     count as f64 / returns.len() as f64
+}
+
+/// Checked variant of [`outlier_loss_ratio`] that rejects invalid confidence
+/// levels and non-finite return observations with an error.
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)` or any return is
+/// non-finite.
+pub fn outlier_loss_ratio_checked(returns: &[f64], confidence: f64) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(outlier_loss_ratio(returns, confidence))
 }
 
 /// Fisher-corrected sample skewness (G₁) of a return distribution.
@@ -401,6 +476,24 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
     }
 }
 
+/// Checked variant of [`parametric_var`] that rejects invalid confidence,
+/// annualization horizon, and non-finite return observations with an error.
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)`, `ann_factor` is
+/// present but not positive finite, or any return is non-finite.
+pub fn parametric_var_checked(
+    returns: &[f64],
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_positive_horizon(ann_factor)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(parametric_var(returns, confidence, ann_factor))
+}
+
 /// Cornish-Fisher Value-at-Risk: adjusts Gaussian VaR for skewness and kurtosis.
 ///
 /// Uses the Cornish-Fisher expansion to produce a more accurate VaR
@@ -470,6 +563,24 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
         Some(af) => m * af + z_cf * vol * af.sqrt(),
         None => m + z_cf * vol,
     }
+}
+
+/// Checked variant of [`cornish_fisher_var`] that rejects invalid confidence,
+/// annualization horizon, and non-finite return observations with an error.
+///
+/// # Errors
+///
+/// Returns an error when `confidence` is outside `(0, 1)`, `ann_factor` is
+/// present but not positive finite, or any return is non-finite.
+pub fn cornish_fisher_var_checked(
+    returns: &[f64],
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> crate::Result<f64> {
+    super::ensure_strict_confidence(confidence)?;
+    super::ensure_positive_horizon(ann_factor)?;
+    super::ensure_finite_returns(returns)?;
+    Ok(cornish_fisher_var(returns, confidence, ann_factor))
 }
 
 /// Compute mean, standard deviation, skewness (G₁), and excess kurtosis (G₂) in a single pass.

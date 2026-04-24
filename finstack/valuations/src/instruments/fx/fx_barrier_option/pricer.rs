@@ -13,24 +13,18 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 
 // MC-specific imports
-#[cfg(feature = "mc")]
 use crate::instruments::fx::fx_barrier_option::monte_carlo::FxBarrierCall;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::barrier::BarrierType as McBarrierType;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// FX barrier option Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct FxBarrierOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl FxBarrierOptionMcPricer {
     /// Create a new FX barrier option MC pricer with default config.
     pub fn new() -> Self {
@@ -149,23 +143,13 @@ impl FxBarrierOptionMcPricer {
         )?;
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
+
         use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            self.config.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         let mut config = self.merged_path_config(inst);
@@ -185,14 +169,12 @@ impl FxBarrierOptionMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for FxBarrierOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for FxBarrierOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM)
@@ -225,7 +207,6 @@ impl Pricer for FxBarrierOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &FxBarrierOption,
     curves: &MarketContext,

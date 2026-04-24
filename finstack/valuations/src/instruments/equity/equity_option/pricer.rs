@@ -706,18 +706,14 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
 
 // ========================= HESTON FOURIER PRICER =========================
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::closed_form::heston::{
     heston_call_price_fourier, heston_put_price_fourier, HestonParams,
 };
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
 
 /// Equity option Heston semi-analytical pricer (Fourier inversion).
-#[cfg(feature = "mc")]
 pub(crate) struct EquityOptionHestonFourierPricer;
 
-#[cfg(feature = "mc")]
 impl EquityOptionHestonFourierPricer {
     /// Create a new Heston Fourier transform pricer
     pub(crate) fn new() -> Self {
@@ -725,14 +721,12 @@ impl EquityOptionHestonFourierPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for EquityOptionHestonFourierPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

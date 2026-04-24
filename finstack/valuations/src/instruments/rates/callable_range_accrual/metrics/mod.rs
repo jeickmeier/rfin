@@ -1,10 +1,8 @@
 //! Callable Range Accrual metrics module.
 
-#[cfg(feature = "mc")]
 use crate::metrics::MetricRegistry;
 
 /// Register callable range accrual metrics with the registry.
-#[cfg(feature = "mc")]
 pub fn register_callable_range_accrual_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{Dv01CalculatorConfig, MetricId, UnifiedDv01Calculator};
     use crate::pricer::InstrumentType;

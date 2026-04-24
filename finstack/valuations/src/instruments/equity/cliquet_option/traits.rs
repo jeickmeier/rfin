@@ -1,14 +1,12 @@
 //! Trait implementations for CliquetOption
 
 use crate::instruments::equity::cliquet_option::CliquetOption;
-#[cfg(feature = "mc")]
 use crate::metrics::HasExpiry;
 
 crate::impl_equity_exotic_traits!(@equity CliquetOption);
 crate::impl_equity_exotic_traits!(@mc_overrides CliquetOption);
 crate::impl_equity_exotic_traits!(@mc_daycount CliquetOption);
 
-#[cfg(feature = "mc")]
 impl HasExpiry for CliquetOption {
     fn expiry(&self) -> finstack_core::dates::Date {
         self.reset_dates

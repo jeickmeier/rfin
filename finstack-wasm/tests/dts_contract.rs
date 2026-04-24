@@ -22,3 +22,17 @@ fn analytics_dts_matches_runtime_hotspots() {
     assert!(dts.contains("martinRatio(cagr: number, ulcer: number): number;"));
     assert!(dts.contains("The WASM analytics namespace intentionally exposes pure functions"));
 }
+
+#[test]
+fn cashflows_dts_matches_json_bridge_surface() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface CashflowsNamespace"));
+    assert!(dts
+        .contains("buildCashflowSchedule(specJson: string, marketJson?: string | null): string;"));
+    assert!(dts.contains("validateCashflowSchedule(scheduleJson: string): string;"));
+    assert!(dts.contains("datedFlows(scheduleJson: string): string;"));
+    assert!(dts.contains("accruedInterest("));
+    assert!(dts.contains("bondFromCashflows("));
+    assert!(dts.contains("export declare const cashflows: CashflowsNamespace;"));
+}

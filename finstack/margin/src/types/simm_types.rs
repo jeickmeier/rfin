@@ -52,23 +52,35 @@ pub enum SimmRiskClass {
 )]
 #[non_exhaustive]
 pub enum SimmCreditSector {
-    /// Bucket 1: Sovereigns including central banks
+    /// Bucket 1: IG sovereigns including central banks.
     Sovereign,
-    /// Bucket 2: Financials (banks, insurance, broker-dealers)
+    /// Bucket 2: IG financials including government-backed financials.
     Financial,
-    /// Bucket 3: Basic materials / energy / industrials
+    /// Bucket 3: IG basic materials, energy, and industrials.
     BasicMaterials,
-    /// Bucket 4: Consumer goods / services
+    /// Bucket 4: IG consumer goods and services.
     ConsumerGoods,
-    /// Bucket 5: Technology / media / telecoms
+    /// Bucket 5: IG technology, telecommunications.
     TechnologyMedia,
-    /// Bucket 6: Health care / utilities
+    /// Bucket 6: IG health care, utilities, local government, and government-backed corporates.
     HealthCare,
-    /// Bucket 7: Indices (CDX.NA.IG, iTraxx, etc.)
+    /// Bucket 7: HY / non-rated sovereigns including central banks.
+    HighYieldSovereign,
+    /// Bucket 8: HY / non-rated financials including government-backed financials.
+    HighYieldFinancial,
+    /// Bucket 9: HY / non-rated basic materials, energy, and industrials.
+    HighYieldBasicMaterials,
+    /// Bucket 10: HY / non-rated consumer goods and services.
+    HighYieldConsumerGoods,
+    /// Bucket 11: HY / non-rated technology, telecommunications.
+    HighYieldTechnologyMedia,
+    /// Bucket 12: HY / non-rated health care, utilities, local government, and government-backed corporates.
+    HighYieldHealthCare,
+    /// Legacy broad index bucket. Production v2.6 registry parameters map this to Residual.
     Index,
-    /// Bucket 8: Covered bonds / securitized
+    /// Legacy broad securitized bucket. Production v2.6 registry parameters map this to Residual.
     Securitized,
-    /// Residual bucket
+    /// Residual bucket.
     Residual,
 }
 

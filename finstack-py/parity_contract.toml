@@ -73,6 +73,20 @@ risk_metrics = { python = "finstack.analytics", status = "flattened", note = "Ri
 timeseries   = { python = "finstack.analytics", status = "flattened", note = "GARCH-family models and diagnostics exposed flat on finstack.analytics" }
 
 # ---------------------------------------------------------------------------
+# finstack-cashflows  →  finstack.cashflows
+# ---------------------------------------------------------------------------
+[crates.cashflows]
+rust_crate = "finstack-cashflows"
+rust_lib   = "finstack/cashflows/src/lib.rs"
+python_package = "finstack.cashflows"
+visibility = "pub"
+status = "exists"
+note = "First binding slice is JSON-only: schedule build/validate/flows/accrual and custom-cashflow bond JSON creation."
+
+[crates.cashflows.modules]
+json = { python = "finstack.cashflows", status = "exists", note = "build_cashflow_schedule, validate_cashflow_schedule, dated_flows, accrued_interest, bond_from_cashflows exposed flat on finstack.cashflows" }
+
+# ---------------------------------------------------------------------------
 # finstack-margin  →  finstack.margin
 # ---------------------------------------------------------------------------
 [crates.margin]
@@ -232,5 +246,4 @@ utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 "finstack_core::validation"      = "Internal validation helpers; not exposed in Python bindings"
 "finstack_statements::utils"     = "Internal utilities; not part of public Python surface"
 "finstack_portfolio::scenarios"  = "Feature-gated `scenarios`; available through finstack.scenarios instead"
-"finstack-cashflows"             = "Internal crate; not re-exported from umbrella"
 "finstack-valuations-macros"     = "Proc-macro crate; compile-time only, no Python surface"

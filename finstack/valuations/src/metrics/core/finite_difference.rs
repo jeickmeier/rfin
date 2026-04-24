@@ -25,8 +25,6 @@ pub(crate) mod bump_sizes {
     /// Correlation bump: 1% (0.01)
     ///
     /// Used by correlation sensitivity calculators (e.g., quanto options).
-    /// Only exercised when the `mc` feature is active.
-    #[cfg_attr(not(feature = "mc"), allow(dead_code))]
     pub(crate) const CORRELATION: f64 = 0.01;
 }
 

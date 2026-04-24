@@ -28,7 +28,6 @@ pub(crate) fn register_rates_pricers(registry: &mut PricerRegistry) {
         ModelKey::Tree,
         crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondOasPricer,
     );
-    #[cfg(feature = "mc")]
     registry.register(
         InstrumentType::Bond,
         ModelKey::MertonMc,
@@ -90,7 +89,7 @@ pub(crate) fn register_rates_pricers(registry: &mut PricerRegistry) {
     // Bond Future
     registry.register(
         InstrumentType::BondFuture,
-        ModelKey::Discounting,
+        ModelKey::BondFutureCleanPriceProxy,
         crate::instruments::fixed_income::bond_future::pricer::BondFuturePricer,
     );
 

@@ -102,12 +102,10 @@
 //! - [`crate::instruments::rates::swaption::VolatilityModel`] for selecting Black vs Normal
 
 /// Bermudan swaption pricer using Cheyette + rough stochastic volatility
-#[cfg(feature = "mc")]
 pub(crate) mod cheyette_rough_pricer;
 /// Hull-White 1-factor tree pricer for European swaptions
 pub(crate) mod hw_pricer;
 /// Bermudan swaption pricer using LMM/BGM Monte Carlo
-#[cfg(feature = "mc")]
 pub(crate) mod lmm_pricer;
 /// Swaption risk metrics (delta, vega, theta, rho)
 pub(crate) mod metrics;

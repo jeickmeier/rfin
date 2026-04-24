@@ -67,6 +67,7 @@ fn build_sc(id: &str, pool_balance: f64) -> StructuredCredit {
         legal_maturity(),
         "USD-OIS",
     )
+    .with_payment_calendar("nyse")
 }
 
 #[test]
@@ -96,17 +97,48 @@ fn stochastic_pricing_is_deterministic_and_returns_tranche_results() {
 
     let as_of = closing_date();
     let first = sc
-        .price_stochastic_with_mode(&market, as_of, PricingMode::Tree)
+        .price_stochastic_with_mode(
+            &market,
+            as_of,
+            PricingMode::MonteCarlo {
+                num_paths: 1,
+                antithetic: false,
+            },
+        )
         .expect("stochastic pricing");
     let second = sc
-        .price_stochastic_with_mode(&market, as_of, PricingMode::Tree)
+        .price_stochastic_with_mode(
+            &market,
+            as_of,
+            PricingMode::MonteCarlo {
+                num_paths: 1,
+                antithetic: false,
+            },
+        )
         .expect("stochastic pricing");
 
     assert!(first.npv.amount().is_finite());
     assert_eq!(first.tranche_results.len(), 1);
-    assert_eq!(first.pricing_mode, "Tree");
+    assert_eq!(first.pricing_mode, "MonteCarlo(1)");
     assert_eq!(first.npv.amount(), second.npv.amount());
     assert_eq!(first.tranche_results.len(), second.tranche_results.len());
+}
+
+#[test]
+fn stochastic_pricing_rejects_invalid_correlation_structure() {
+    let mut sc = build_sc("ABS-BAD-CORR", 1_000_000.0);
+    sc.with_correlation(CorrelationStructure::matrix(
+        vec![1.0, 0.2, 0.2],
+        vec!["A".to_string(), "B".to_string()],
+    ));
+    let mut market = MarketContext::new();
+    market = market.insert(discount_curve(closing_date()));
+
+    let err = sc
+        .price_stochastic_with_mode(&market, closing_date(), PricingMode::Tree)
+        .expect_err("invalid correlation should fail before pricing");
+
+    assert!(format!("{err:?}").contains("Correlation matrix size mismatch"));
 }
 
 #[test]

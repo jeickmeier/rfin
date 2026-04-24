@@ -243,6 +243,8 @@ pub(super) struct SimmRecord {
     pub(super) mpor_days: u32,
     pub(super) ir_delta_weights: Value,
     pub(super) cq_delta_weights: Value,
+    #[serde(default)]
+    pub(super) cq_bucket_weights: Value,
     pub(super) cnq_delta_weight: f64,
     pub(super) equity_delta_weight: f64,
     pub(super) fx_delta_weight: f64,
@@ -258,6 +260,12 @@ pub(super) struct SimmRecord {
     pub(super) ir_vega_weight: Option<f64>,
     #[serde(default)]
     pub(super) cq_vega_weight: Option<f64>,
+    #[serde(default)]
+    pub(super) cq_intra_bucket_correlation: Option<f64>,
+    #[serde(default)]
+    pub(super) cq_inter_bucket_correlations: Value,
+    #[serde(default)]
+    pub(super) cq_concentration_thresholds: Value,
     #[serde(default)]
     pub(super) cnq_vega_weight: Option<f64>,
     #[serde(default)]

@@ -442,7 +442,13 @@ fn test_bond_future_pricer_registry_ctd_npv() {
 
     let registry = standard_registry();
     let result = registry
-        .price(&future, ModelKey::Discounting, &market, as_of, None)
+        .price(
+            &future,
+            ModelKey::BondFutureCleanPriceProxy,
+            &market,
+            as_of,
+            None,
+        )
         .expect("Registry pricing should succeed");
 
     let expected =

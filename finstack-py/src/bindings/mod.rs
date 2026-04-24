@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 
 pub mod analytics;
+pub mod cashflows;
 pub mod core;
 pub(crate) mod extract;
 pub mod margin;
@@ -24,6 +25,7 @@ pub fn register_root(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     core::register(py, m)?;
     analytics::register(py, m)?;
+    cashflows::register(py, m)?;
     monte_carlo::register(py, m)?;
     margin::register(py, m)?;
     valuations::register(py, m)?;
@@ -37,6 +39,7 @@ pub fn register_root(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         [
             "core",
             "analytics",
+            "cashflows",
             "monte_carlo",
             "margin",
             "valuations",

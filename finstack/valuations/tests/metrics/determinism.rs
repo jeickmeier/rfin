@@ -15,7 +15,6 @@
 //! - CmsOption (Delta, Vega)
 //! - RangeAccrual (Delta, Vega)
 
-#[cfg(feature = "mc")]
 mod tests {
     // Imports are only used when `slow` feature is enabled, so allow unused warnings
     #[allow(unused_imports)]

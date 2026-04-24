@@ -74,12 +74,10 @@ impl Pricer for CommodityOptionBlackPricer {
 /// delegates to `CommodityOption::npv_mc`. The `CommodityMcParams` must be
 /// supplied via the instrument's `pricing_overrides.mc_config` (future work)
 /// or by calling `npv_mc` directly.
-#[cfg(feature = "mc")]
 pub struct CommodityOptionMcPricer {
     mc_params: super::types::CommodityMcParams,
 }
 
-#[cfg(feature = "mc")]
 impl CommodityOptionMcPricer {
     /// Create a new Schwartz-Smith MC pricer.
     pub fn new(mc_params: super::types::CommodityMcParams) -> Self {
@@ -87,7 +85,6 @@ impl CommodityOptionMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for CommodityOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(

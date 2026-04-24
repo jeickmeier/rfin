@@ -4,6 +4,13 @@ Review criteria for risk management implementations.
 
 ## Value at Risk (VaR)
 
+### Sign convention baseline
+
+- Define VaR on losses unless the API explicitly returns a signed P&L threshold: `loss = -pnl`.
+- For positive-loss reporting, `VaR_95` is the 95th percentile of the loss distribution and `ES_95` is the average loss conditional on loss being at or beyond that threshold.
+- Flag APIs that return negative VaR without making clear that the value is a P&L quantile.
+- Verify percentile orientation carefully: 95% confidence VaR on returns usually corresponds to the 5th percentile of P&L or returns, not the 95th percentile of gains.
+
 ### Historical Simulation
 
 - Check that the historical window is appropriate (250 days typical, but regime-dependent).
@@ -46,6 +53,7 @@ Review criteria for risk management implementations.
 - Check that stressed Greeks are recalculated (not using base-case Greeks with stressed prices).
 - Verify that liquidity stress is modeled: wider bid-ask spreads, reduced volumes, increased market impact.
 - For regulatory stress tests: verify that the scenario specification matches the regulatory guidance exactly.
+- Prefer typed shock units: rate bp, credit-spread bp, vol points, relative spot percentage, absolute price, FX spot, and curve/key-rate shocks. Flag raw `f64` shocks without unit naming.
 
 ## Greeks Computation
 

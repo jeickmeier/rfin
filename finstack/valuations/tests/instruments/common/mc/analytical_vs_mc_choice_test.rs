@@ -1,6 +1,5 @@
 //! Test demonstrating that users can choose between analytical and MC pricing.
 
-#[cfg(feature = "mc")]
 mod choice_tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount};

@@ -1,10 +1,8 @@
 //! Snowball / Inverse Floater metrics module.
 
-#[cfg(feature = "mc")]
 use crate::metrics::MetricRegistry;
 
 /// Register snowball metrics with the registry.
-#[cfg(feature = "mc")]
 pub fn register_snowball_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{Dv01CalculatorConfig, MetricId, UnifiedDv01Calculator};
     use crate::pricer::InstrumentType;

@@ -6,16 +6,12 @@
 // mod dv01; // removed - using GenericParallelDv01
 // mod vanna; // removed - using GenericFdVanna
 // mod volga; // removed - using GenericFdVolga
-#[cfg(feature = "mc")]
 mod rho;
 
-#[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
-#[cfg(feature = "mc")]
 use std::sync::Arc;
 
 /// Register lookback option metrics with the registry.
-#[cfg(feature = "mc")]
 pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVolga};
     use crate::pricer::InstrumentType;
@@ -46,7 +42,7 @@ pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
     );
 
     // Other metrics use custom implementations
-    #[cfg(feature = "mc")]
+
     {
         crate::register_metrics! {
             registry: registry,

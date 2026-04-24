@@ -295,8 +295,8 @@ macro_rules! instrument_json_into_boxed_match {
         $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal @ $boxed_schema_path:literal $(, $boxed_alias:literal)*;)*
     ) => {
         match $instrument_json {
-            $(InstrumentJson::$variant(instrument) => Ok(Box::new(instrument)),)*
-            $(InstrumentJson::$boxed_variant(instrument) => Ok(Box::new(*instrument)),)*
+            $(InstrumentJson::$variant(instrument) => Ok::<Box<DynInstrument>, finstack_core::Error>(Box::new(instrument) as Box<DynInstrument>),)*
+            $(InstrumentJson::$boxed_variant(instrument) => Ok::<Box<DynInstrument>, finstack_core::Error>(Box::new(*instrument) as Box<DynInstrument>),)*
         }
     };
 }
@@ -326,6 +326,15 @@ macro_rules! instrument_json_from_dyn_match {
     }};
 }
 
+fn validate_loaded_instrument(instrument: &DynInstrument) -> Result<()> {
+    if let Some(overrides) = instrument.pricing_overrides() {
+        overrides.validate()?;
+    } else if let Some(overrides) = instrument.scenario_overrides() {
+        overrides.validate()?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 macro_rules! instrument_json_canonical_types {
     (
@@ -351,7 +360,10 @@ impl InstrumentJson {
     ///
     /// Returns an error if spec validation fails during conversion.
     pub fn into_boxed(self) -> Result<Box<DynInstrument>> {
-        with_instrument_json_registry!(instrument_json_into_boxed_match, self)
+        let instrument: Box<DynInstrument> =
+            with_instrument_json_registry!(instrument_json_into_boxed_match, self)?;
+        validate_loaded_instrument(instrument.as_ref())?;
+        Ok(instrument)
     }
 
     /// Convert a concrete instrument trait object into its tagged JSON form.
@@ -615,9 +627,7 @@ impl InstrumentEnvelope {
     }
 
     fn finalize_loaded_instrument(instrument: Box<DynInstrument>) -> Result<Box<DynInstrument>> {
-        if let Some(overrides) = instrument.scenario_overrides() {
-            overrides.validate()?;
-        }
+        validate_loaded_instrument(instrument.as_ref())?;
         Ok(instrument)
     }
 

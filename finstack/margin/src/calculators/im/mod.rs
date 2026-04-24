@@ -38,6 +38,21 @@ pub(crate) fn conservative_im(exposure_base: Money, conservative_rate: f64) -> M
     Money::new(exposure_base.amount().abs(), exposure_base.currency()) * conservative_rate
 }
 
+pub(crate) fn require_im_exposure_base(
+    methodology: &str,
+    instrument: &dyn Marginable,
+    context: &MarketContext,
+    as_of: Date,
+    missing_source: &str,
+) -> finstack_core::Result<Money> {
+    instrument.im_exposure_base(context, as_of)?.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "{methodology} IM for instrument '{}' requires {missing_source} or an explicit IM exposure base; refusing to use current MtM as a notional proxy",
+            instrument.id()
+        ))
+    })
+}
+
 /// Unified external-IM input source used by calculators that can be driven
 /// by an externally provided IM number (CCP feed, internal VaR/ES model).
 ///

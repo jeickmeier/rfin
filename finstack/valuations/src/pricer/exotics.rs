@@ -18,7 +18,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Asian Option
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::AsianOption,
         ModelKey::MonteCarloGBM,
@@ -36,7 +36,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Barrier Option
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::BarrierOption,
         ModelKey::MonteCarloGBM,
@@ -49,7 +49,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Lookback Option
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::LookbackOption,
         ModelKey::MonteCarloGBM,
@@ -69,7 +69,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Autocallable
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::Autocallable,
         ModelKey::MonteCarloGBM,
@@ -105,7 +105,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Cliquet Option
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::CliquetOption,
         ModelKey::MonteCarloGBM,
@@ -113,7 +113,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Range Accrual
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::RangeAccrual,
         ModelKey::MonteCarloGBM,
@@ -128,7 +128,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     // via `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via
     // `with_calibrated_model(...)`; otherwise pricing returns
     // `PricingError::ModelFailure`.
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::MonteCarloHullWhite1F,
@@ -157,7 +157,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Barrier Option - Monte Carlo Heston
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::BarrierOption,
         ModelKey::MonteCarloHeston,
@@ -165,7 +165,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Asian Option - Monte Carlo Heston
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::AsianOption,
         ModelKey::MonteCarloHeston,
@@ -173,7 +173,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Bermudan Swaption - LMM Monte Carlo
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::LmmMonteCarlo,
@@ -181,7 +181,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // Bermudan Swaption - Cheyette Rough Vol Monte Carlo
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::MonteCarloCheyetteRoughVol,

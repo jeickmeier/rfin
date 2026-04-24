@@ -12,7 +12,6 @@
 //! - PIK mode: cash vs. PIK vs. PIK-toggle
 //! - Barrier type: terminal vs. first-passage (Brownian bridge)
 
-#![cfg(feature = "mc")]
 #![allow(clippy::unwrap_used)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};

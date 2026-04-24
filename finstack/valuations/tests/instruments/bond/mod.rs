@@ -13,7 +13,6 @@ mod cashflows;
 mod friction_cost;
 mod helpers_tests;
 mod integration;
-#[cfg(feature = "mc")]
 mod merton_mc_convergence;
 mod metrics;
 mod pricing;

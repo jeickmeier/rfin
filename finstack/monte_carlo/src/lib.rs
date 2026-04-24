@@ -26,21 +26,17 @@
 //!
 //! # What Is Available
 //!
-//! Without the `mc` feature, the crate provides the base building blocks needed
-//! for vanilla Monte Carlo pricing:
+//! The crate provides:
 //!
 //! - [`rng::philox::PhiloxRng`] for deterministic pseudo-random sampling
+//! - [`rng::sobol::SobolRng`] for quasi-random Sobol generators
 //! - [`process::gbm::GbmProcess`] and related Brownian / OU-style processes
-//! - [`discretization::exact::ExactGbm`] and other always-on exact schemes
-//! - vanilla payoffs and the core [`traits`] / [`engine`] infrastructure
-//!
-//! Enabling `mc` adds the heavier Monte Carlo surface:
-//!
-//! - quasi-random Sobol generators and Brownian-bridge utilities
 //! - Heston, CIR, Hull-White, jump-diffusion, Bates, and Schwartz-Smith models
+//! - [`discretization::exact::ExactGbm`] and other exact schemes
 //! - Euler / Milstein / QE discretizations, path-dependent payoffs, LSMC, Greeks,
 //!   and advanced variance reduction
 //! - deterministic seed helpers in [`crate::seed`]
+//! - vanilla and exotic payoffs and the core [`traits`] / [`engine`] infrastructure
 //!
 //! The `parallel` feature enables Rayon-backed path simulation. Parallel mode
 //! requires an RNG that supports deterministic stream splitting, such as
@@ -129,7 +125,6 @@ pub mod traits;
 // --- Pricing infrastructure ---
 pub mod barriers;
 pub mod engine;
-#[cfg(feature = "mc")]
 pub mod engine_fractional;
 pub mod greeks;
 pub mod payoff;
@@ -138,7 +133,7 @@ pub mod results;
 pub mod seed;
 pub mod variance_reduction;
 
-#[cfg(all(test, feature = "mc"))]
+#[cfg(test)]
 mod mc_process_params_serialization;
 
 pub use traits::{
@@ -148,8 +143,7 @@ pub use traits::{
 
 /// Prelude for convenient imports of the main Monte Carlo entry points.
 ///
-/// Items behind the `mc` feature remain feature-gated here as well. Use this
-/// module when you want the crate's common engine, process, payoff, and pricer
+/// Use this module when you want the crate's common engine, process, payoff, and pricer
 /// types without spelling their full paths.
 pub mod prelude {
     // --- Core traits and infrastructure ---
@@ -163,25 +157,18 @@ pub mod prelude {
 
     // --- RNG ---
     pub use super::rng::philox::PhiloxRng;
-    #[cfg(feature = "mc")]
     pub use super::rng::sobol::SobolRng;
 
     // --- Processes ---
-    #[cfg(feature = "mc")]
     pub use super::process::bates::{BatesParams, BatesProcess};
     pub use super::process::brownian::{BrownianParams, BrownianProcess, MultiBrownianProcess};
-    #[cfg(feature = "mc")]
     pub use super::process::cir::{CirParams, CirPlusPlusProcess, CirProcess};
     pub use super::process::correlation::{apply_correlation, cholesky_decomposition};
     pub use super::process::gbm::{GbmParams, GbmProcess, MultiGbmProcess};
-    #[cfg(feature = "mc")]
     pub use super::process::heston::{HestonParams, HestonProcess};
-    #[cfg(feature = "mc")]
     pub use super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
     pub use super::process::multi_ou::{MultiOuParams, MultiOuProcess};
-    #[cfg(feature = "mc")]
     pub use super::process::ou::{HullWhite1FParams, HullWhite1FProcess, VasicekProcess};
-    #[cfg(feature = "mc")]
     pub use super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
 
     // --- Discretization schemes ---
@@ -189,22 +176,19 @@ pub mod prelude {
     // Route everything through the `discretization` module's own re-exports
     // (see `src/discretization/mod.rs`) so there is one canonical public path
     // per scheme. The prelude is a curated list on top of that.
-    #[cfg(feature = "mc")]
     pub use super::discretization::{
-        CheyetteRoughEuler, EulerMaruyama, ExactHullWhite1F, ExactSchwartzSmith, JumpEuler,
-        LogEuler, LogMilstein, Milstein, QeCir, QeHeston, RoughBergomiEuler, RoughHestonHybrid,
+        CheyetteRoughEuler, EulerMaruyama, ExactGbm, ExactHullWhite1F, ExactMultiGbm,
+        ExactMultiGbmCorrelated, ExactSchwartzSmith, JumpEuler, LogEuler, LogMilstein, Milstein,
+        QeCir, QeHeston, RoughBergomiEuler, RoughHestonHybrid,
     };
-    pub use super::discretization::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 
     // --- Engine and configuration ---
     pub use super::engine::{
         McEngine, McEngineBuilder, McEngineConfig, PathCaptureConfig, PathCaptureMode,
     };
-    #[cfg(feature = "mc")]
     pub use super::engine_fractional::simulate_path_fractional;
 
     // --- Fractional noise ---
-    #[cfg(feature = "mc")]
     pub use super::rng::fbm::{
         create_fbm_generator, FbmGeneratorType, FractionalNoiseConfig, FractionalNoiseGenerator,
     };
@@ -213,25 +197,19 @@ pub mod prelude {
     pub use super::traits::Payoff;
 
     // --- Payoffs ---
-    #[cfg(feature = "mc")]
     pub use super::payoff::asian::{
         geometric_asian_call_closed_form, AsianCall, AsianPut, AveragingMethod,
     };
-    #[cfg(feature = "mc")]
     pub use super::payoff::barrier::{BarrierOptionPayoff, BarrierType};
-    #[cfg(feature = "mc")]
     pub use super::payoff::basket::{
         margrabe_exchange_option, BasketCall, BasketPut, BasketType, ExchangeOption,
     };
     pub use super::payoff::vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};
 
     // --- Pricers ---
-    #[cfg(feature = "mc")]
     pub use super::pricer::basis::{LaguerreBasis, PolynomialBasis};
     pub use super::pricer::european::EuropeanPricer;
-    #[cfg(feature = "mc")]
     pub use super::pricer::lsmc::{AmericanCall, AmericanPut, LsmcConfig, LsmcPricer};
-    #[cfg(feature = "mc")]
     pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
 
     // --- Variance reduction ---

@@ -497,6 +497,17 @@ pub enum ModelKey {
     /// Used for: Bermudan swaptions, exotic rate derivatives requiring
     /// multi-factor forward rate dynamics.
     LmmMonteCarlo = 33,
+    /// Structured-credit stochastic scenario waterfall model.
+    ///
+    /// Used for: ABS/CLO/RMBS/CMBS tranche PVs with path-level waterfall cashflows.
+    StructuredCreditStochastic = 34,
+    /// Bond future clean-price proxy model.
+    ///
+    /// Used for: bond futures when only the current CTD clean-price proxy is
+    /// available. This is intentionally separate from [`Discounting`](Self::Discounting)
+    /// because it does not model delivery carry, invoice economics, or delivery
+    /// optionality.
+    BondFutureCleanPriceProxy = 35,
     /// Monte Carlo with rough Bergomi (rBergomi) stochastic volatility.
     ///
     /// Used for: European/exotic equity options requiring rough volatility
@@ -575,6 +586,8 @@ impl std::fmt::Display for ModelKey {
             ModelKey::MonteCarloSchwartzSmith => "monte_carlo_schwartz_smith",
             ModelKey::StaticReplication => "static_replication",
             ModelKey::LmmMonteCarlo => "lmm_monte_carlo",
+            ModelKey::StructuredCreditStochastic => "structured_credit_stochastic",
+            ModelKey::BondFutureCleanPriceProxy => "bond_future_clean_price_proxy",
             ModelKey::MonteCarloRoughBergomi => "monte_carlo_rough_bergomi",
             ModelKey::MonteCarloRoughHeston => "monte_carlo_rough_heston",
             ModelKey::RoughHestonFourier => "rough_heston_fourier",
@@ -633,6 +646,12 @@ impl std::str::FromStr for ModelKey {
             }
             "static_replication" | "static_rep" | "replication" => Ok(ModelKey::StaticReplication),
             "lmm_monte_carlo" | "lmm_mc" | "lmm" | "bgm" | "bgm_mc" => Ok(ModelKey::LmmMonteCarlo),
+            "structured_credit_stochastic" | "structured_credit_mc" | "sc_stochastic" => {
+                Ok(ModelKey::StructuredCreditStochastic)
+            }
+            "bond_future_clean_price_proxy" | "bond_future_proxy" | "bond_future_clean_proxy" => {
+                Ok(ModelKey::BondFutureCleanPriceProxy)
+            }
             "monte_carlo_rough_bergomi" | "mc_rbergomi" | "rbergomi" | "rough_bergomi" => {
                 Ok(ModelKey::MonteCarloRoughBergomi)
             }

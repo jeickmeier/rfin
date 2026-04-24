@@ -46,8 +46,8 @@
 //! # Available Generators
 //!
 //! - [`philox::PhiloxRng`]: Counter-based PRNG for parallel pseudo-random simulation
-//! - [`sobol::SobolRng`]: Low-discrepancy sequence for quasi-Monte Carlo (when `mc` feature enabled)
-//! - [`brownian_bridge::BrownianBridge`]: Path construction with variance reduction (when `mc` feature enabled)
+//! - [`sobol::SobolRng`]: Low-discrepancy sequence for quasi-Monte Carlo
+//! - [`brownian_bridge::BrownianBridge`]: Path construction with variance reduction
 //!
 //! For Sobol PCA utilities, see [`finstack_core::math::random::sobol_pca`].
 //!
@@ -60,16 +60,10 @@
 //!   ACM TOMACS 8(1):3-30.
 
 pub mod brownian_bridge;
-pub mod philox;
-
-#[cfg(feature = "mc")]
-pub mod sobol;
-
-#[cfg(feature = "mc")]
-pub mod poisson;
-
-#[cfg(feature = "mc")]
 pub mod fbm;
+pub mod philox;
+pub mod poisson;
+pub mod sobol;
 
 pub use brownian_bridge::BrownianBridge;
 pub use philox::PhiloxRng;

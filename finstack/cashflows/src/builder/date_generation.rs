@@ -10,7 +10,7 @@
 //! - Apply business day adjustments using calendars
 
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, HolidayCalendar, ScheduleBuilder, StubKind, Tenor,
+    adjust, BusinessDayConvention, Date, DateExt, HolidayCalendar, ScheduleBuilder, StubKind, Tenor,
 };
 
 use super::calendar::resolve_calendar_strict;
@@ -50,13 +50,15 @@ pub struct PeriodSchedule {
 pub(crate) fn build_schedule_period(
     accrual_start: Date,
     accrual_end: Date,
+    bdc: BusinessDayConvention,
     payment_lag_days: i32,
     cal: &dyn HolidayCalendar,
 ) -> finstack_core::Result<SchedulePeriod> {
+    let adjusted_payment = adjust(accrual_end, bdc, cal)?;
     let payment_date = if payment_lag_days == 0 {
-        accrual_end
+        adjusted_payment
     } else {
-        accrual_end.add_business_days(payment_lag_days, cal)?
+        adjusted_payment.add_business_days(payment_lag_days, cal)?
     };
     Ok(SchedulePeriod {
         accrual_start,
@@ -131,23 +133,14 @@ pub fn build_dates(
     payment_lag_days: i32,
     calendar_id: &str,
 ) -> finstack_core::Result<PeriodSchedule> {
-    let mut builder = ScheduleBuilder::new(start, end)?
+    let builder = ScheduleBuilder::new(start, end)?
         .frequency(freq)
         .stub_rule(stub)
         .end_of_month(end_of_month);
     let cal = resolve_calendar_strict(calendar_id)?;
-    builder = builder.adjust_with(bdc, cal);
 
     let schedule = builder.build()?;
-    let mut dates = schedule.dates;
-
-    // Ensure the schedule reaches the requested `end` when it falls exactly on a regular boundary.
-    //
-    // Some schedules can terminate at the penultimate boundary (e.g. 5Y semi-annual coupons)
-    // which would omit the maturity payment date from downstream coupon emission.
-    if matches!(dates.last(), Some(last) if *last < end) {
-        dates.push(end);
-    }
+    let dates = schedule.dates;
 
     if dates.len() < 2 {
         return Ok(PeriodSchedule {
@@ -162,7 +155,7 @@ pub fn build_dates(
     let mut first_or_last = finstack_core::HashSet::default();
 
     for window in dates.windows(2) {
-        let period = build_schedule_period(window[0], window[1], payment_lag_days, cal)?;
+        let period = build_schedule_period(window[0], window[1], bdc, payment_lag_days, cal)?;
         payment_dates.push(period.payment_date);
         periods.push(period);
     }

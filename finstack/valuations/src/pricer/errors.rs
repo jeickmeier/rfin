@@ -173,7 +173,6 @@ fn format_context(ctx: &PricingErrorContext) -> String {
 
 /// Provide a more actionable error for MC-gated pricers in non-MC builds.
 pub(crate) fn actionable_unknown_pricer_message(_key: PricerKey) -> Option<String> {
-    #[cfg(not(feature = "mc"))]
     {
         if _key.model.requires_mc_feature() {
             let extra_hint = match (_key.instrument, _key.model) {

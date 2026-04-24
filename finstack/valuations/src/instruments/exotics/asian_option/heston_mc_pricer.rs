@@ -4,36 +4,22 @@
 //! using Monte Carlo simulation with QE discretization. Averaging is
 //! performed on the spot component (state[0]) of the Heston path.
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::exotics::asian_option::types::AsianOption;
-#[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
-#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountContext};
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
 
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::discretization::qe_heston::QeHeston;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::engine::McEngine;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::asian::{AsianCall, AsianPut, AveragingMethod};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::heston::{HestonParams, HestonProcess};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::seed;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::time_grid::TimeGrid;
 
 /// Asian option Heston Monte Carlo pricer.
@@ -42,14 +28,12 @@ use finstack_monte_carlo::time_grid::TimeGrid;
 /// QE discretization. Averaging is performed on the spot component of the
 /// Heston two-factor path. Heston parameters are sourced from market scalars
 /// with sensible defaults.
-#[cfg(feature = "mc")]
 pub(crate) struct AsianOptionHestonMcPricer {
     num_paths: usize,
     steps_per_year: f64,
     min_steps: usize,
 }
 
-#[cfg(feature = "mc")]
 impl AsianOptionHestonMcPricer {
     /// Create a new Asian option Heston MC pricer with default configuration.
     pub(crate) fn new() -> Self {
@@ -255,14 +239,12 @@ impl AsianOptionHestonMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for AsianOptionHestonMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for AsianOptionHestonMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::AsianOption, ModelKey::MonteCarloHeston)

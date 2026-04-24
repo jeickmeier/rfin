@@ -2,7 +2,6 @@
 
 // Common imports for all pricers
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::two_clock::TwoClockParams;
 use crate::instruments::exotics::barrier_option::types::BarrierOption;
 use crate::pricer::{
@@ -16,29 +15,23 @@ use finstack_core::money::Money;
 // DayCountContext is now threaded via `TwoClockParams`; the test-only
 // import is retained here because analytical tests still build without
 // `mc` and need the reference.
-#[cfg(all(test, feature = "mc"))]
+#[cfg(test)]
 #[allow(unused_imports)]
 use finstack_core::dates::DayCountContext;
 
 // MC-specific imports
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::barrier::BarrierOptionPayoff;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::barrier::{BarrierType as McBarrierType, OptionKind};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Barrier option Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct BarrierOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl BarrierOptionMcPricer {
     /// Create a new barrier option MC pricer with default config.
     pub fn new() -> Self {
@@ -160,23 +153,13 @@ impl BarrierOptionMcPricer {
         );
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
+
         use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            self.config.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         // Create config with derived seed
@@ -276,22 +259,12 @@ impl BarrierOptionMcPricer {
         );
 
         // Seed
-        #[cfg(feature = "mc")]
+
         use finstack_monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            self.config.seed
+            seed::derive_seed(&inst.id, "base")
         };
         let mut cfg = self.config.clone();
         cfg.seed = seed;
@@ -314,14 +287,12 @@ impl BarrierOptionMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for BarrierOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for BarrierOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloGBM)
@@ -349,7 +320,6 @@ impl Pricer for BarrierOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &BarrierOption,
     curves: &MarketContext,
@@ -364,7 +334,6 @@ pub(crate) fn compute_pv(
 /// Returns `(pv, Option<(delta, vega)>)` where the Greeks are from the
 /// Likelihood Ratio Method. Greeks are `None` if the option is expired.
 #[allow(dead_code)] // May be used by external bindings or tests
-#[cfg(feature = "mc")]
 pub fn npv_with_lrm_greeks(
     inst: &BarrierOption,
     curves: &MarketContext,
@@ -809,7 +778,7 @@ mod tests {
     /// discount factor at expiry but differ in day-count, and assert
     /// the prices differ measurably. A single-clock `r_eff =
     /// -ln(DF)/t_vol` would collapse the two cases to the same price.
-    #[cfg(feature = "mc")]
+
     #[test]
     fn two_clock_migration_drift_respects_curve_day_count() {
         use finstack_monte_carlo::pricer::path_dependent::PathDependentPricerConfig;

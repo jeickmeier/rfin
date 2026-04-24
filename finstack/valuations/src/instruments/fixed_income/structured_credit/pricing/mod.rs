@@ -10,6 +10,7 @@
 pub(crate) mod coverage_tests;
 pub(crate) mod deterministic;
 pub(crate) mod diversion;
+pub(crate) mod simulation_engine;
 pub(crate) mod stochastic;
 pub(crate) mod waterfall;
 

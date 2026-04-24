@@ -28,7 +28,7 @@ pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
             ModelKey::Discounting,
         ),
     );
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::EquityOption,
         ModelKey::HestonFourier,
@@ -114,7 +114,7 @@ pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
     );
 
     // Equity Option - Monte Carlo Heston
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::EquityOption,
         ModelKey::MonteCarloHeston,
@@ -122,7 +122,7 @@ pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
     );
 
     // Equity Option - Rough Heston Fourier
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::EquityOption,
         ModelKey::RoughHestonFourier,
@@ -130,7 +130,7 @@ pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
     );
 
     // Equity Option - Monte Carlo Rough Heston
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::EquityOption,
         ModelKey::MonteCarloRoughHeston,
@@ -138,7 +138,7 @@ pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
     );
 
     // Equity Option - Monte Carlo Rough Bergomi
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::EquityOption,
         ModelKey::MonteCarloRoughBergomi,

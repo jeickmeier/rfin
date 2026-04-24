@@ -149,7 +149,7 @@ pub enum AccrualMethod {
 }
 
 /// Ex-coupon convention applied to coupon flows.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ExCouponRule {
     /// Number of days before coupon date that go ex.
     pub days_before_coupon: u32,
@@ -161,7 +161,7 @@ pub struct ExCouponRule {
 }
 
 /// Generic configuration for schedule-driven interest accrual.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct AccrualConfig {
     /// Accrual method (Linear or Compounded).
     pub method: AccrualMethod,

@@ -333,17 +333,7 @@ impl crate::instruments::common_impl::traits::Instrument for RangeAccrual {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         self.validate()?;
-        #[cfg(feature = "mc")]
-        {
-            crate::instruments::rates::range_accrual::pricer::compute_pv(self, market, as_of)
-        }
-        #[cfg(not(feature = "mc"))]
-        {
-            let _ = (market, as_of);
-            Err(finstack_core::Error::Validation(
-                "MC feature required for RangeAccrual pricing".to_string(),
-            ))
-        }
+        crate::instruments::rates::range_accrual::pricer::compute_pv(self, market, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {
@@ -378,32 +368,3 @@ crate::impl_empty_cashflow_provider!(
     RangeAccrual,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
-
-#[cfg(test)]
-mod tests {
-    #[cfg(not(feature = "mc"))]
-    #[test]
-    fn canonical_pricing_path_mentions_mc_requirement() {
-        use crate::instruments::common_impl::traits::Instrument;
-
-        let instrument = super::RangeAccrual::example();
-        let as_of = instrument
-            .observation_dates
-            .first()
-            .copied()
-            .expect("RangeAccrual example should have observation dates");
-        let err = instrument
-            .price_with_metrics(
-                &finstack_core::market_data::context::MarketContext::new(),
-                as_of,
-                &[],
-                crate::instruments::PricingOptions::default(),
-            )
-            .expect_err("canonical pricing path should fail without mc feature");
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("`mc`"),
-            "Error should mention mc feature: {msg}"
-        );
-    }
-}

@@ -117,20 +117,21 @@ impl SimmParams {
 
 // Lookup helpers for credit qualifying bucket parameters.
 impl SimmParams {
+    fn canonical_cq_sector(sector: SimmCreditSector) -> SimmCreditSector {
+        match sector {
+            SimmCreditSector::Index | SimmCreditSector::Securitized => SimmCreditSector::Residual,
+            other => other,
+        }
+    }
+
     fn cq_bucket_weight(&self, sector: SimmCreditSector) -> f64 {
-        self.cq_bucket_weights
-            .get(&sector)
-            .copied()
-            .unwrap_or_else(|| {
-                // Fallback: use "corporates" weight from legacy map
-                self.cq_delta_weights
-                    .get("corporates")
-                    .copied()
-                    .unwrap_or(73.0)
-            })
+        let sector = Self::canonical_cq_sector(sector);
+        self.cq_bucket_weights.get(&sector).copied().unwrap_or(0.0)
     }
 
     fn cq_inter_bucket_correlation(&self, a: SimmCreditSector, b: SimmCreditSector) -> f64 {
+        let a = Self::canonical_cq_sector(a);
+        let b = Self::canonical_cq_sector(b);
         if a == b {
             return 1.0;
         }
@@ -138,10 +139,11 @@ impl SimmParams {
         self.cq_inter_bucket_correlations
             .get(&key)
             .copied()
-            .unwrap_or(0.27)
+            .unwrap_or(0.0)
     }
 
     fn cq_concentration_factor(&self, sector: SimmCreditSector, net_ws: f64) -> f64 {
+        let sector = Self::canonical_cq_sector(sector);
         if let Some(&threshold) = self.cq_concentration_thresholds.get(&sector) {
             if threshold > 0.0 && net_ws.abs() > threshold {
                 (net_ws.abs() / threshold).sqrt()
@@ -309,8 +311,10 @@ fn resolve_simm_params(
 ///
 /// * Every `(tenor_i, tenor_j)` pair from `ir_delta_weights` must have a
 ///   corresponding entry in `ir_tenor_correlations` (ordered pair form).
-/// * `cq_delta_weights` must contain the `"corporates"` key used by
-///   [`SimmCalculator::calculate_credit_delta`] for qualifying credit.
+/// * `cq_delta_weights` must contain the `"corporates"` key used by the legacy
+///   scalar qualifying-credit path.
+/// * SIMM v2.6 must include explicit CQ bucket weights, inter-bucket
+///   correlations, and per-bucket concentration thresholds.
 fn validate_simm_params(params: &SimmParams) -> finstack_core::Result<()> {
     if !params.cq_delta_weights.contains_key("corporates") {
         return Err(finstack_core::Error::Validation(format!(
@@ -343,6 +347,50 @@ fn validate_simm_params(params: &SimmParams) -> finstack_core::Result<()> {
             missing_pairs.len(),
             sample
         )));
+    }
+
+    if params.version == SimmVersion::V2_6 {
+        use SimmCreditSector::*;
+        let sectors = [
+            Sovereign,
+            Financial,
+            BasicMaterials,
+            ConsumerGoods,
+            TechnologyMedia,
+            HealthCare,
+            HighYieldSovereign,
+            HighYieldFinancial,
+            HighYieldBasicMaterials,
+            HighYieldConsumerGoods,
+            HighYieldTechnologyMedia,
+            HighYieldHealthCare,
+            Residual,
+        ];
+        for sector in sectors {
+            if !params.cq_bucket_weights.contains_key(&sector) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "SIMM registry {:?}: cq_bucket_weights missing {sector:?}",
+                    params.version
+                )));
+            }
+            if !params.cq_concentration_thresholds.contains_key(&sector) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "SIMM registry {:?}: cq_concentration_thresholds missing {sector:?}",
+                    params.version
+                )));
+            }
+        }
+        for (i, &a) in sectors.iter().enumerate() {
+            for &b in sectors.iter().skip(i + 1) {
+                let key = ordered_credit_sector_pair(a, b);
+                if !params.cq_inter_bucket_correlations.contains_key(&key) {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "SIMM registry {:?}: cq_inter_bucket_correlations missing ({a:?},{b:?})",
+                        params.version
+                    )));
+                }
+            }
+        }
     }
 
     Ok(())
@@ -1580,31 +1628,24 @@ mod tests {
     // -------------------------------------------------------------------------
 
     #[test]
-    fn bucketed_single_bucket_matches_scalar() {
+    fn bucketed_single_bucket_uses_sector_weight_and_concentration() {
         // When all sensitivities are in one bucket with one name, the bucketed
-        // aggregation should produce: K = |cs01 * weight|, matching the scalar
-        // path (which computes |sum * corporates_weight|).
+        // aggregation should produce K = |cs01 * sector_weight| multiplied by
+        // the bucket concentration factor.
         let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
         let cs01 = 50_000.0;
         let sector = SimmCreditSector::BasicMaterials;
         let weight = calc.params.cq_bucket_weight(sector);
-
-        // Scalar path uses "corporates" weight for qualifying credit.
-        let scalar_margin = calc.calculate_credit_delta(cs01, true);
+        let raw_ws = cs01 * weight;
+        let cf = calc.params.cq_concentration_factor(sector, raw_ws);
 
         // Bucketed path: single name in one bucket.
         let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
         bucketed.insert((sector, "ISSUER_A".to_string(), "5Y".to_string()), cs01);
         let bucketed_margin = calc.calculate_credit_delta_bucketed(&bucketed);
 
-        // Both should equal |cs01 * weight| since BasicMaterials uses the
-        // corporates weight.
-        let expected = (cs01 * weight).abs();
-        assert!(
-            (scalar_margin - expected).abs() < 1.0,
-            "scalar mismatch: expected {expected}, got {scalar_margin}"
-        );
+        let expected = (raw_ws * cf).abs();
         assert!(
             (bucketed_margin - expected).abs() < 1.0,
             "bucketed mismatch: expected {expected}, got {bucketed_margin}"
@@ -1618,11 +1659,7 @@ mod tests {
         // into one bucket with no diversification benefit).
         let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
-        let cs01_per_name = 50_000.0;
-
-        // Scalar path: total across all names.
-        let total_cs01 = cs01_per_name * 4.0;
-        let scalar_margin = calc.calculate_credit_delta(total_cs01, true);
+        let cs01_per_name = 1_000.0;
 
         // Bucketed path: spread across four different sectors.
         let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
@@ -1659,11 +1696,15 @@ mod tests {
             cs01_per_name,
         );
         let bucketed_margin = calc.calculate_credit_delta_bucketed(&bucketed);
+        let gross_weighted: f64 = bucketed
+            .iter()
+            .map(|((sector, _, _), cs01)| (cs01 * calc.params.cq_bucket_weight(*sector)).abs())
+            .sum();
 
         assert!(
-            bucketed_margin < scalar_margin,
+            bucketed_margin < gross_weighted,
             "diversified bucketed margin ({bucketed_margin}) should be less \
-             than scalar margin ({scalar_margin})"
+             than gross weighted margin ({gross_weighted})"
         );
         // The bucketed margin should still be positive.
         assert!(bucketed_margin > 0.0, "bucketed margin should be positive");
@@ -1683,14 +1724,21 @@ mod tests {
         let weight_a = calc.params.cq_bucket_weight(sector_a);
         let weight_b = calc.params.cq_bucket_weight(sector_b);
 
-        // Single-name per bucket: K_b = |cs01 * weight|
-        let k_a = (cs01_a * weight_a).abs();
-        let k_b = (cs01_b * weight_b).abs();
+        let ws_a = cs01_a * weight_a;
+        let ws_b = cs01_b * weight_b;
+        let cf_a = calc.params.cq_concentration_factor(sector_a, ws_a);
+        let cf_b = calc.params.cq_concentration_factor(sector_b, ws_b);
+
+        // Single-name per bucket: K_b = |cs01 * weight * concentration_factor|
+        let k_a = (ws_a * cf_a).abs();
+        let k_b = (ws_b * cf_b).abs();
+        let s_a = (ws_a * cf_a).clamp(-k_a, k_a);
+        let s_b = (ws_b * cf_b).clamp(-k_b, k_b);
 
         let gamma = calc.params.cq_inter_bucket_correlation(sector_a, sector_b);
 
-        // Expected: sqrt(K_a^2 + K_b^2 + 2*gamma*K_a*K_b)
-        let expected = (k_a * k_a + k_b * k_b + 2.0 * gamma * k_a * k_b).sqrt();
+        // Expected: sqrt(K_a^2 + K_b^2 + 2*gamma*S_a*S_b)
+        let expected = (k_a * k_a + k_b * k_b + 2.0 * gamma * s_a * s_b).sqrt();
 
         let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
         bucketed.insert((sector_a, "GOVT_A".to_string(), "5Y".to_string()), cs01_a);
@@ -1716,9 +1764,13 @@ mod tests {
 
         let ws_1 = cs01_1 * weight;
         let ws_2 = cs01_2 * weight;
+        let cf = calc.params.cq_concentration_factor(sector, ws_1 + ws_2);
 
-        // K_b = sqrt(ws_1^2 + ws_2^2 + 2*rho*ws_1*ws_2)
-        let expected = (ws_1 * ws_1 + ws_2 * ws_2 + 2.0 * rho * ws_1 * ws_2).sqrt();
+        // K_b = sqrt((cf*ws_1)^2 + (cf*ws_2)^2 + 2*rho*(cf*ws_1)*(cf*ws_2))
+        let scaled_1 = cf * ws_1;
+        let scaled_2 = cf * ws_2;
+        let expected =
+            (scaled_1 * scaled_1 + scaled_2 * scaled_2 + 2.0 * rho * scaled_1 * scaled_2).sqrt();
 
         let mut bucketed: HashMap<(SimmCreditSector, String, String), f64> = HashMap::default();
         bucketed.insert((sector, "BANK_A".to_string(), "5Y".to_string()), cs01_1);

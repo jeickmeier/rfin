@@ -601,11 +601,14 @@ impl CDSTranchePricer {
         }
 
         // Calculate min, max, average
-        let (min, max, sum) = impacts
-            .iter()
-            .fold((f64::MAX, f64::MIN, 0.0), |(min, max, sum), &impact| {
-                (min.min(impact), max.max(impact), sum + impact)
-            });
+        let (min, max, sum) = if impacts.is_empty() {
+            (0.0, 0.0, 0.0)
+        } else {
+            impacts.iter().fold(
+                (f64::INFINITY, f64::NEG_INFINITY, 0.0),
+                |(min, max, sum), &impact| (min.min(impact), max.max(impact), sum + impact),
+            )
+        };
 
         let average = if !impacts.is_empty() {
             sum / (impacts.len() as f64)
@@ -614,8 +617,8 @@ impl CDSTranchePricer {
         };
 
         Ok(JumpToDefaultResult {
-            min: if min == f64::MAX { 0.0 } else { min },
-            max: if max == f64::MIN { 0.0 } else { max },
+            min,
+            max,
             average,
             count: impacting_count,
         })

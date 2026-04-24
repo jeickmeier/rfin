@@ -6,7 +6,7 @@
 //! the standard pricer registry.
 
 use super::{standard_registry, ModelKey};
-use crate::instruments::{Instrument, InstrumentJson, MetricPricingOverrides};
+use crate::instruments::{Instrument, InstrumentEnvelope, InstrumentJson, MetricPricingOverrides};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
@@ -23,6 +23,7 @@ pub fn parse_instrument_json(json: &str) -> finstack_core::Result<InstrumentJson
 /// Validate tagged instrument JSON against the pricing contract and return its
 /// canonical JSON representation.
 pub fn validate_instrument_json(json: &str) -> finstack_core::Result<String> {
+    parse_boxed_instrument_json(json, None)?;
     let parsed = parse_instrument_json(json)?;
     serde_json::to_string(&parsed)
         .map_err(|e| Error::Validation(format!("invalid instrument JSON: {e}")))
@@ -35,8 +36,7 @@ pub fn parse_boxed_instrument_json(
     pricing_options: Option<&str>,
 ) -> finstack_core::Result<Box<dyn Instrument>> {
     let effective_json = instrument_json_for_pricing(instrument_json, pricing_options)?;
-    let parsed = parse_instrument_json(effective_json.as_ref())?;
-    parsed.into_boxed()
+    InstrumentEnvelope::from_str(effective_json.as_ref())
 }
 
 /// Parse an ISO 8601 as-of date for JSON pricing helpers.
@@ -131,6 +131,7 @@ fn instrument_json_for_pricing<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::equity::equity_option::EquityOption;
     use crate::instruments::fixed_income::bond::Bond;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -159,6 +160,13 @@ mod tests {
         MarketContext::new().insert(disc)
     }
 
+    fn equity_option_json_with_negative_vol_override() -> String {
+        let option = EquityOption::example().expect("option");
+        let mut json = serde_json::to_value(InstrumentJson::EquityOption(option)).expect("json");
+        json["spec"]["pricing_overrides"]["implied_volatility"] = Value::from(-0.20);
+        serde_json::to_string(&json).expect("serialize")
+    }
+
     #[test]
     fn instrument_json_for_pricing_merges_metric_overrides() {
         let json = bond_instrument_json();
@@ -174,6 +182,31 @@ mod tests {
         assert_eq!(
             parsed["spec"]["pricing_overrides"]["breakeven_config"]["target"],
             "z_spread"
+        );
+    }
+
+    #[test]
+    fn validate_instrument_json_rejects_invalid_pricing_overrides() {
+        let err = validate_instrument_json(&equity_option_json_with_negative_vol_override())
+            .expect_err("negative implied volatility override must be rejected");
+        assert!(
+            err.to_string().contains("NegativeValue") || err.to_string().contains("negative"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_boxed_instrument_json_rejects_invalid_pricing_overrides() {
+        let err = match parse_boxed_instrument_json(
+            &equity_option_json_with_negative_vol_override(),
+            None,
+        ) {
+            Ok(_) => panic!("negative implied volatility override must be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("NegativeValue") || err.to_string().contains("negative"),
+            "unexpected error: {err}"
         );
     }
 
@@ -197,6 +230,10 @@ mod tests {
         assert_eq!(
             parse_model_key("monte_carlo_gbm").expect("ok"),
             ModelKey::MonteCarloGBM
+        );
+        assert_eq!(
+            parse_model_key("bond_future_clean_price_proxy").expect("ok"),
+            ModelKey::BondFutureCleanPriceProxy
         );
     }
 

@@ -4,38 +4,23 @@
 //! using Monte Carlo simulation with the QE (Quadratic Exponential) discretization
 //! scheme.
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::equity::equity_option::pricer::collect_inputs_extended;
-#[cfg(feature = "mc")]
 use crate::instruments::equity::equity_option::types::EquityOption;
-#[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
-#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_core::dates::Date;
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
 
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::discretization::qe_heston::QeHeston;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::engine::McEngine;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::vanilla::{EuropeanCall, EuropeanPut};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::heston::{HestonParams, HestonProcess};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::seed;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::time_grid::TimeGrid;
 
 /// Equity option Heston Monte Carlo pricer.
@@ -43,13 +28,11 @@ use finstack_monte_carlo::time_grid::TimeGrid;
 /// Prices European equity options under the Heston stochastic volatility model
 /// using QE discretization. Heston parameters are sourced from market scalars
 /// (HESTON_KAPPA, HESTON_THETA, etc.) with sensible defaults.
-#[cfg(feature = "mc")]
 pub(crate) struct EquityOptionHestonMcPricer {
     num_paths: usize,
     steps_per_year: f64,
 }
 
-#[cfg(feature = "mc")]
 impl EquityOptionHestonMcPricer {
     /// Create a new Heston MC pricer with default configuration.
     pub(crate) fn new() -> Self {
@@ -160,14 +143,12 @@ impl EquityOptionHestonMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for EquityOptionHestonMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for EquityOptionHestonMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::EquityOption, ModelKey::MonteCarloHeston)

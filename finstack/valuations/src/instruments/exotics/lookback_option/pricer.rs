@@ -12,24 +12,19 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 // MC-specific imports
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::lookback::{
     FloatingStrikeLookbackCall, FloatingStrikeLookbackPut, Lookback, LookbackDirection,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Lookback option Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct LookbackOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl LookbackOptionMcPricer {
     /// Create a new lookback option MC pricer with default config.
     pub fn new() -> Self {
@@ -115,23 +110,13 @@ impl LookbackOptionMcPricer {
         let currency = inst.notional.currency();
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
+
         use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            base_cfg.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         let mut config = base_cfg;
@@ -250,14 +235,12 @@ impl LookbackOptionMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for LookbackOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for LookbackOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::LookbackOption, ModelKey::MonteCarloGBM)
@@ -285,7 +268,6 @@ impl Pricer for LookbackOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &LookbackOption,
     curves: &MarketContext,

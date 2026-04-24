@@ -373,7 +373,7 @@ impl crate::pricer::Pricer for BondFuturePricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(
             crate::pricer::InstrumentType::BondFuture,
-            crate::pricer::ModelKey::Discounting,
+            crate::pricer::ModelKey::BondFutureCleanPriceProxy,
         )
     }
 
@@ -397,7 +397,7 @@ impl crate::pricer::Pricer for BondFuturePricer {
         let ctx = crate::pricer::PricingErrorContext::new()
             .instrument_id(future.id.as_str())
             .instrument_type(crate::pricer::InstrumentType::BondFuture)
-            .model(crate::pricer::ModelKey::Discounting);
+            .model(crate::pricer::ModelKey::BondFutureCleanPriceProxy);
 
         // Delegate to BondFuture::value(), which resolves the CTD bond and computes NPV.
         let npv = future
@@ -947,7 +947,7 @@ mod tests {
         let registry = crate::pricer::standard_registry();
         let key = crate::pricer::PricerKey::new(
             crate::pricer::InstrumentType::BondFuture,
-            crate::pricer::ModelKey::Discounting,
+            crate::pricer::ModelKey::BondFutureCleanPriceProxy,
         );
 
         // Should be able to retrieve the pricer
@@ -972,8 +972,8 @@ mod tests {
         );
         assert_eq!(
             key.model,
-            crate::pricer::ModelKey::Discounting,
-            "Pricer should use Discounting model"
+            crate::pricer::ModelKey::BondFutureCleanPriceProxy,
+            "Pricer should use explicit clean-price proxy model"
         );
     }
 

@@ -24,7 +24,6 @@ use finstack_core::Result;
 ///
 /// When provided, enables simulation-based pricing using the specified
 /// stochastic model instead of the default Black-76 analytical formula.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CommodityMcParams {
     /// Pricing model to use for simulation.
@@ -41,7 +40,6 @@ pub struct CommodityMcParams {
 /// Commodity option pricing model selection.
 ///
 /// Determines the stochastic dynamics used for Monte Carlo simulation.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum CommodityPricingModel {
     /// Analytical Black-76 (no MC needed; included for completeness).
@@ -349,7 +347,6 @@ impl CommodityOption {
     /// # Returns
     ///
     /// Present value as `Money` in the underlying currency.
-    #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
         mc_params: &CommodityMcParams,

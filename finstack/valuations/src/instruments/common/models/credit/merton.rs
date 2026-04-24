@@ -26,7 +26,6 @@ use finstack_core::math::norm_cdf;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::{InputError, Result};
 
-#[cfg(feature = "mc")]
 use finstack_core::math::random::{poisson_inverse_cdf, RandomNumberGenerator};
 
 // ---------------------------------------------------------------------------
@@ -709,7 +708,6 @@ impl MertonModel {
 // ---------------------------------------------------------------------------
 
 /// Results from Monte Carlo path simulation.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone)]
 pub struct SimulatedPaths {
     /// Time grid from 0 to T.
@@ -722,7 +720,6 @@ pub struct SimulatedPaths {
     pub num_steps: usize,
 }
 
-#[cfg(feature = "mc")]
 impl MertonModel {
     /// Simulate asset value paths using Monte Carlo.
     ///
@@ -1377,7 +1374,6 @@ mod tests {
     // Monte Carlo path simulation tests
     // -----------------------------------------------------------------------
 
-    #[cfg(feature = "mc")]
     #[test]
     fn simulate_paths_deterministic_with_seed() {
         use finstack_core::math::random::Pcg64Rng;
@@ -1392,7 +1388,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn simulate_paths_gbm_mean_converges() {
         use finstack_core::math::random::Pcg64Rng;
@@ -1413,7 +1408,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn simulate_paths_correct_dimensions() {
         use finstack_core::math::random::Pcg64Rng;
@@ -1439,7 +1433,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn jump_diffusion_produces_different_paths() {
         use finstack_core::math::random::Pcg64Rng;

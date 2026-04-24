@@ -794,6 +794,27 @@ export interface MarginNamespace {
 
 export declare const margin: MarginNamespace;
 
+// --- cashflows -------------------------------------------------------------
+
+export interface CashflowsNamespace {
+  buildCashflowSchedule(specJson: string, marketJson?: string | null): string;
+  validateCashflowSchedule(scheduleJson: string): string;
+  datedFlows(scheduleJson: string): string;
+  accruedInterest(
+    scheduleJson: string,
+    asOf: string,
+    configJson?: string | null
+  ): number;
+  bondFromCashflows(
+    instrumentId: string,
+    scheduleJson: string,
+    discountCurveId: string,
+    quotedClean?: number | null
+  ): string;
+}
+
+export declare const cashflows: CashflowsNamespace;
+
 // --- valuations ------------------------------------------------------------
 
 export interface ValuationInstrumentsNamespace {

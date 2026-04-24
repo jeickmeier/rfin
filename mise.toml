@@ -84,18 +84,18 @@ run = "cargo build --workspace --exclude finstack-py --exclude finstack-wasm --r
 
 [tasks.rust-test]
 description = "Run Rust tests via cargo-nextest"
-run = "cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --no-fail-fast"
+run = "cargo nextest run --workspace --exclude finstack-py --lib --test '*' --no-fail-fast"
 
 [tasks.rust-test-slow]
 description = "Run Rust tests including ignored/slow ones"
-run = "cargo nextest run --workspace --exclude finstack-py --features mc --lib --test '*' --run-ignored all --no-fail-fast"
+run = "cargo nextest run --workspace --exclude finstack-py --lib --test '*' --run-ignored all --no-fail-fast"
 
 [tasks.rust-test-cov]
 description = "Run Rust tests with HTML coverage report"
 run = """
 mkdir -p target/llvm-cov/profraw
 LLVM_PROFILE_FILE="$PWD/target/llvm-cov/profraw/default_%m_%p.profraw" \
-  cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --features mc \
+  cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm \
     --ignore-filename-regex '(tests?/|target/|\\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)' \
     --html --output-dir target/llvm-cov
 echo "HTML report: target/llvm-cov/html/index.html"
@@ -105,12 +105,12 @@ echo "HTML report: target/llvm-cov/html/index.html"
 description = "Format + auto-fix Rust code (cargo fmt + clippy --fix, mutating)"
 run = [
   "cargo fmt --all",
-  "cargo clippy --all-targets --features mc --fix --allow-dirty -- -D warnings",
+  "cargo clippy --all-targets --fix --allow-dirty -- -D warnings",
 ]
 
 [tasks.rust-lint]
 description = "Lint Rust (fmt --check + clippy, check-only)"
-run = ["cargo fmt --all -- --check", "cargo clippy --all-targets --features mc"]
+run = ["cargo fmt --all -- --check", "cargo clippy --all-targets"]
 
 [tasks.rust-audit]
 description = "Audit Rust dependencies via cargo-deny"
@@ -230,8 +230,8 @@ run = [
 ]
 
 [tasks.wasm-gen-bindings]
-description = "Export TypeScript types from Rust"
-run = "cargo run -p finstack-wasm --bin ts_export --features ts_export"
+description = "Export TypeScript types from Rust (writes finstack-wasm/types/generated/)"
+run = "cargo test -p finstack-valuations --test integration --features ts_export -- schema::ts_export"
 
 # ─────────────────────────────────────────────────────────────────
 # Packaging (wheels)

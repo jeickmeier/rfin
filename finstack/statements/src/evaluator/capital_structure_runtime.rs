@@ -176,11 +176,7 @@ pub(crate) fn resolve_opening_balance(
         }
     };
 
-    if let Some((_, m)) = outstanding_path
-        .iter()
-        .filter(|(d, _)| *d <= period_start)
-        .next_back()
-    {
+    if let Some((_, m)) = outstanding_path.iter().rfind(|(d, _)| *d <= period_start) {
         return Ok(abs_money(m));
     }
 

@@ -5,6 +5,7 @@ use finstack_core::dates::Date;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::Rate;
+use finstack_core::{Error, Result};
 use rust_decimal::Decimal;
 
 /// Swaption-specific parameters.
@@ -35,21 +36,22 @@ pub struct SwaptionParams {
 }
 
 impl SwaptionParams {
-    /// Create payer swaption parameters
+    /// Create payer swaption parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] if `strike` is non-finite or cannot be
+    /// represented as a [`Decimal`].
     pub fn payer(
         notional: Money,
         strike: f64,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             notional,
-            // Safety: `Decimal::try_from(f64)` only fails for NaN/Inf, which are
-            // not valid strike values. Panicking on invalid input is intentional.
-            #[allow(clippy::expect_used)]
-            strike: Decimal::try_from(strike)
-                .expect("strike must be a finite f64 (not NaN or Inf)"),
+            strike: strike_decimal(strike)?,
             expiry,
             swap_start,
             swap_end,
@@ -58,24 +60,25 @@ impl SwaptionParams {
             float_freq: None,
             day_count: None,
             vol_model: None,
-        }
+        })
     }
 
     /// Create payer swaption parameters using a typed strike rate.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] if the typed strike cannot be represented
+    /// as a [`Decimal`].
     pub fn payer_rate(
         notional: Money,
         strike: Rate,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             notional,
-            // Safety: `Rate::as_decimal()` returns an f64; `try_from` only fails for
-            // NaN/Inf, which are not valid rates. Panicking on invalid input is intentional.
-            #[allow(clippy::expect_used)]
-            strike: Decimal::try_from(strike.as_decimal())
-                .expect("strike must be a finite rate (not NaN or Inf)"),
+            strike: strike_decimal(strike.as_decimal())?,
             expiry,
             swap_start,
             swap_end,
@@ -84,24 +87,25 @@ impl SwaptionParams {
             float_freq: None,
             day_count: None,
             vol_model: None,
-        }
+        })
     }
 
-    /// Create receiver swaption parameters
+    /// Create receiver swaption parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] if `strike` is non-finite or cannot be
+    /// represented as a [`Decimal`].
     pub fn receiver(
         notional: Money,
         strike: f64,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             notional,
-            // Safety: `Decimal::try_from(f64)` only fails for NaN/Inf, which are
-            // not valid strike values. Panicking on invalid input is intentional.
-            #[allow(clippy::expect_used)]
-            strike: Decimal::try_from(strike)
-                .expect("strike must be a finite f64 (not NaN or Inf)"),
+            strike: strike_decimal(strike)?,
             expiry,
             swap_start,
             swap_end,
@@ -110,24 +114,25 @@ impl SwaptionParams {
             float_freq: None,
             day_count: None,
             vol_model: None,
-        }
+        })
     }
 
     /// Create receiver swaption parameters using a typed strike rate.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] if the typed strike cannot be represented
+    /// as a [`Decimal`].
     pub fn receiver_rate(
         notional: Money,
         strike: Rate,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             notional,
-            // Safety: `Rate::as_decimal()` returns an f64; `try_from` only fails for
-            // NaN/Inf, which are not valid rates. Panicking on invalid input is intentional.
-            #[allow(clippy::expect_used)]
-            strike: Decimal::try_from(strike.as_decimal())
-                .expect("strike must be a finite rate (not NaN or Inf)"),
+            strike: strike_decimal(strike.as_decimal())?,
             expiry,
             swap_start,
             swap_end,
@@ -136,7 +141,7 @@ impl SwaptionParams {
             float_freq: None,
             day_count: None,
             vol_model: None,
-        }
+        })
     }
 
     /// Override fixed leg payment frequency
@@ -167,6 +172,20 @@ impl SwaptionParams {
     }
 }
 
+fn strike_decimal(strike: f64) -> Result<Decimal> {
+    if !strike.is_finite() {
+        return Err(Error::Validation(format!(
+            "swaption strike must be finite, got {strike}"
+        )));
+    }
+
+    Decimal::try_from(strike).map_err(|err| {
+        Error::Validation(format!(
+            "swaption strike {strike} cannot be represented as Decimal: {err}"
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,8 +206,10 @@ mod tests {
         let (expiry, swap_start, swap_end) = sample_dates();
         let notional = Money::new(5_000_000.0, Currency::USD);
 
-        let payer = SwaptionParams::payer(notional, 0.0325, expiry, swap_start, swap_end);
-        let receiver = SwaptionParams::receiver(notional, 0.031, expiry, swap_start, swap_end);
+        let payer = SwaptionParams::payer(notional, 0.0325, expiry, swap_start, swap_end)
+            .expect("valid payer params");
+        let receiver = SwaptionParams::receiver(notional, 0.031, expiry, swap_start, swap_end)
+            .expect("valid receiver params");
 
         assert_eq!(payer.notional, notional);
         assert_eq!(payer.strike, Decimal::new(325, 4));
@@ -211,9 +232,11 @@ mod tests {
         let notional = Money::new(1_250_000.0, Currency::EUR);
         let strike = Rate::from_bps(275);
 
-        let payer = SwaptionParams::payer_rate(notional, strike, expiry, swap_start, swap_end);
+        let payer = SwaptionParams::payer_rate(notional, strike, expiry, swap_start, swap_end)
+            .expect("valid payer params");
         let receiver =
-            SwaptionParams::receiver_rate(notional, strike, expiry, swap_start, swap_end);
+            SwaptionParams::receiver_rate(notional, strike, expiry, swap_start, swap_end)
+                .expect("valid receiver params");
 
         let expected = Decimal::new(275, 4);
         assert_eq!(payer.strike, expected);
@@ -232,6 +255,7 @@ mod tests {
             swap_start,
             swap_end,
         )
+        .expect("valid payer params")
         .with_fixed_frequency(Tenor::semi_annual())
         .with_float_frequency(Tenor::quarterly())
         .with_day_count(DayCount::Act365F)
@@ -244,18 +268,36 @@ mod tests {
     }
 
     #[test]
-    fn constructors_reject_non_finite_strike_inputs() {
+    fn constructors_reject_non_finite_strike_inputs_without_panicking() {
         let (expiry, swap_start, swap_end) = sample_dates();
         let notional = Money::new(1_000_000.0, Currency::USD);
 
-        let payer = std::panic::catch_unwind(|| {
+        let payer_result = std::panic::catch_unwind(|| {
             SwaptionParams::payer(notional, f64::NAN, expiry, swap_start, swap_end)
         });
-        let receiver = std::panic::catch_unwind(|| {
+        let receiver_result = std::panic::catch_unwind(|| {
             SwaptionParams::receiver(notional, f64::INFINITY, expiry, swap_start, swap_end)
         });
 
-        assert!(payer.is_err(), "NaN strike should panic");
-        assert!(receiver.is_err(), "infinite strike should panic");
+        assert!(payer_result.is_ok(), "NaN strike should not panic");
+        assert!(receiver_result.is_ok(), "infinite strike should not panic");
+
+        let payer = payer_result.expect("payer constructor should not unwind");
+        let receiver = receiver_result.expect("receiver constructor should not unwind");
+
+        assert_validation_error(payer, "NaN strike");
+        assert_validation_error(receiver, "infinite strike");
+    }
+
+    fn assert_validation_error(result: Result<SwaptionParams>, label: &str) {
+        match result {
+            Err(Error::Validation(message)) => {
+                assert!(
+                    message.contains("swaption strike must be finite"),
+                    "{label} returned unexpected validation message: {message}"
+                );
+            }
+            other => panic!("{label} should return a validation error, got {other:?}"),
+        }
     }
 }

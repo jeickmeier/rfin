@@ -5,19 +5,12 @@
 //! fractional kernel internally using standard normal increments — no fBM generator
 //! is required.
 
-#[cfg(feature = "mc")]
 use super::pricer::{collect_inputs_extended, option_currency};
-#[cfg(feature = "mc")]
 use super::types::EquityOption;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::parameters::OptionType;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use finstack_core::dates::Date;
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
 
 /// Monte Carlo pricer for the rough Heston model.
@@ -28,7 +21,6 @@ use finstack_core::money::Money;
 ///
 /// Rough Heston parameters are read from market scalars with the `ROUGH_HESTON_*`
 /// prefix — see [`super::rough_heston_fourier_pricer`] for the full key listing.
-#[cfg(feature = "mc")]
 pub(crate) struct EquityOptionRoughHestonMcPricer {
     /// Number of Monte Carlo paths.
     num_paths: usize,
@@ -36,7 +28,6 @@ pub(crate) struct EquityOptionRoughHestonMcPricer {
     num_steps: usize,
 }
 
-#[cfg(feature = "mc")]
 impl EquityOptionRoughHestonMcPricer {
     /// Create a new rough Heston MC pricer with explicit configuration.
     pub(crate) fn new(num_paths: usize, num_steps: usize) -> Self {
@@ -47,7 +38,6 @@ impl EquityOptionRoughHestonMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for EquityOptionRoughHestonMcPricer {
     fn default() -> Self {
         Self::new(100_000, 100)
@@ -55,12 +45,10 @@ impl Default for EquityOptionRoughHestonMcPricer {
 }
 
 /// Extract a unitless scalar from market data, falling back to a default.
-#[cfg(feature = "mc")]
 fn get_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
     crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
 }
 
-#[cfg(feature = "mc")]
 impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

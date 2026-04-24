@@ -60,7 +60,6 @@ type RateCurveData = Option<(Vec<f64>, Vec<f64>)>;
 /// # Returns
 ///
 /// Vector of `ThreeFactorPathData`, one per simulated path
-#[cfg(feature = "mc")]
 pub fn generate_three_factor_paths(
     stoch_spec: &StochasticUtilizationSpec,
     mc_config: &McConfig,
@@ -344,7 +343,6 @@ use super::super::MIN_CIR_SPREAD as CIR_MIN_SPREAD;
 /// For CIR processes, validates the Feller condition: 2κθ > σ². When violated,
 /// the process can reach zero. A warning is logged but the process proceeds
 /// since the QE discretization handles boundary behavior gracefully.
-#[cfg(feature = "mc")]
 fn build_credit_spread_params(
     mc_config: &McConfig,
     facility: &RevolvingCredit,
@@ -546,7 +544,6 @@ fn refine_time_grid(times: &[f64]) -> RefinedGrid {
 ///
 /// Uses `partition_point` for O(log n) interval lookup on sorted time grids,
 /// with flat extrapolation beyond boundaries.
-#[cfg(feature = "mc")]
 fn interpolate_rate(t: f64, times: &[f64], rates: &[f64]) -> f64 {
     if times.is_empty() {
         return 0.0;
@@ -565,18 +562,4 @@ fn interpolate_rate(t: f64, times: &[f64], rates: &[f64]) -> f64 {
     let i = idx.saturating_sub(1);
     let alpha = (t - times[i]) / (times[i + 1] - times[i]);
     rates[i] + alpha * (rates[i + 1] - rates[i])
-}
-
-/// Stub for non-MC builds
-#[cfg(not(feature = "mc"))]
-pub fn generate_three_factor_paths(
-    _stoch_spec: &StochasticUtilizationSpec,
-    _mc_config: &McConfig,
-    _facility: &RevolvingCredit,
-    _market: &MarketContext,
-    _payment_dates: &[Date],
-) -> Result<Vec<ThreeFactorPathData>> {
-    Err(finstack_core::Error::Validation(
-        "MC feature required for path generation".to_string(),
-    ))
 }

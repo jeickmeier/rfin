@@ -12,32 +12,23 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
 // MC-specific imports
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::engine::PathCaptureConfig;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::estimate::Estimate;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::payoff::asian::{AsianCall, AsianPut};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::results::MoneyEstimate;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::variance_reduction::control_variate::{
     apply_control_variate, covariance,
 };
 
 /// Asian option Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct AsianOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl AsianOptionMcPricer {
     /// Create a new Asian option MC pricer with default config.
     pub fn new() -> Self {
@@ -167,23 +158,12 @@ impl AsianOptionMcPricer {
         };
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
         use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            base_cfg.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         // Create config with derived seed
@@ -634,22 +614,11 @@ impl AsianOptionMcPricer {
         };
 
         // Seed handling
-        #[cfg(feature = "mc")]
         use finstack_monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            base_cfg.seed
+            seed::derive_seed(&inst.id, "base")
         };
         let mut cfg = base_cfg;
         cfg.seed = seed;
@@ -708,14 +677,12 @@ impl AsianOptionMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for AsianOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for AsianOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::AsianOption, ModelKey::MonteCarloGBM)
@@ -743,7 +710,6 @@ impl Pricer for AsianOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &AsianOption,
     curves: &MarketContext,
@@ -755,7 +721,6 @@ pub(crate) fn compute_pv(
 
 /// Present value with LRM Greeks via Monte Carlo.
 #[allow(dead_code)] // May be used by external bindings or tests
-#[cfg(feature = "mc")]
 pub fn npv_with_lrm_greeks(
     inst: &AsianOption,
     curves: &MarketContext,
@@ -1298,7 +1263,6 @@ mod tests {
         assert!((pv - expected_money).abs() < 1e-12);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn mc_pricer_expired_uses_realized_arithmetic_average() {
         let as_of = date(2025, 6, 30);
@@ -1325,7 +1289,6 @@ mod tests {
         assert!((pv - expected).abs() < 1e-12);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn mc_pricer_expired_without_fixings_falls_back_to_spot() {
         let as_of = date(2025, 6, 30);
@@ -1345,7 +1308,6 @@ mod tests {
         assert!((pv - 20.0).abs() < 1e-12);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn expired_lrm_wrapper_returns_intrinsic_and_no_greeks() {
         let as_of = date(2025, 6, 30);
@@ -1367,7 +1329,6 @@ mod tests {
         assert_eq!(greeks, None);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn mc_price_dyn_wraps_market_data_errors() {
         let as_of = date(2025, 1, 2);
@@ -1611,7 +1572,6 @@ mod tests {
         assert_eq!(pv, 0.0);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn mc_pricer_expired_without_fixings_uses_price_scalar_spot_fallback() {
         let as_of = date(2025, 6, 30);

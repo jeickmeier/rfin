@@ -27,9 +27,6 @@ criterion = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 
-[features]
-default = []
-
 [[bench]]
 name = "portfolio_valuation"
 harness = false

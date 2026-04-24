@@ -1,6 +1,7 @@
-"""Test that all 10 domain subpackages are importable with expected exports."""
+"""Test that domain subpackages are importable with expected exports."""
 
 import json
+from pathlib import Path
 
 from finstack.core.market_data import MarketContext
 
@@ -84,6 +85,20 @@ class TestAnalyticsNamespace:
         assert not hasattr(analytics, "rolling_sharpe_values")
         assert not hasattr(analytics, "rolling_sortino_values")
         assert not hasattr(analytics, "rolling_volatility_values")
+
+
+class TestCashflowsNamespace:
+    """Verify the cashflows subpackage."""
+
+    def test_cashflows_exports(self) -> None:
+        """Cashflows should expose the JSON bridge functions."""
+        from finstack.cashflows import (  # noqa: F401
+            accrued_interest,
+            bond_from_cashflows,
+            build_cashflow_schedule,
+            dated_flows,
+            validate_cashflow_schedule,
+        )
 
 
 class TestCorrelationNamespace:
@@ -238,8 +253,19 @@ class TestValuationsNamespace:
         """Valuations should export ValuationResult and validation function."""
         from finstack.valuations import (  # noqa: F401
             ValuationResult,
+            bs_cos_price,
+            merton_jump_cos_price,
             validate_instrument_json,
+            vg_cos_price,
         )
+
+    def test_valuations_stub_exports_fourier_pricers(self) -> None:
+        """Valuations stubs should declare the runtime Fourier pricing exports."""
+        stub_path = Path(__file__).parents[1] / "finstack" / "valuations" / "__init__.pyi"
+        stub = stub_path.read_text()
+        for name in ("bs_cos_price", "vg_cos_price", "merton_jump_cos_price"):
+            assert f'"{name}"' in stub
+            assert f"def {name}(" in stub
 
     def test_valuations_instruments_namespace_exports(self) -> None:
         """Instrument helpers should be available from valuations.instruments."""

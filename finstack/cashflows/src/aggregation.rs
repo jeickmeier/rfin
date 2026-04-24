@@ -294,6 +294,41 @@ where
     Ok(out)
 }
 
+fn pv_by_period_precomputed(
+    sorted: &[CashFlow],
+    pv_per_flow: &[Money],
+    periods: &[Period],
+) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
+    debug_assert_eq!(sorted.len(), pv_per_flow.len());
+    let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
+    let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
+    let mut flow_idx = 0usize;
+    let n = sorted.len();
+
+    for p in periods {
+        while flow_idx < n && sorted[flow_idx].date < p.start {
+            flow_idx += 1;
+        }
+
+        per_ccy.clear();
+        while flow_idx < n && sorted[flow_idx].date < p.end {
+            let pv = pv_per_flow[flow_idx];
+            per_ccy.entry(pv.currency()).or_default().add(pv.amount());
+            flow_idx += 1;
+        }
+
+        if !per_ccy.is_empty() {
+            let mut result: IndexMap<Currency, Money> = IndexMap::with_capacity(per_ccy.len());
+            for (&ccy, acc) in &per_ccy {
+                result.insert(ccy, Money::new(acc.total(), ccy));
+            }
+            out.insert(p.id, result);
+        }
+    }
+
+    out
+}
+
 /// Checked variant that works directly on `CashFlow` slices without intermediate allocation.
 ///
 /// Filters out `DefaultedNotional` flows during PV computation. Requires flows
@@ -639,17 +674,7 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed_with_timing(
             };
             let pv_per_flow =
                 precompute_integrated_pv(sorted, disc, hazard, recovery_rate, &date_ctx)?;
-            // Index by position. `pv_by_period_generic` iterates flows in
-            // order, so we can use a cursor closure.
-            let pv_per_flow_ref = &pv_per_flow;
-            let cursor = std::cell::Cell::new(0usize);
-            let pv_fn = |cf: &CashFlow, _df: f64, _sp: f64| {
-                let i = cursor.get();
-                cursor.set(i + 1);
-                debug_assert_eq!(pv_per_flow_ref[i].currency(), cf.amount.currency());
-                pv_per_flow_ref[i]
-            };
-            pv_by_period_generic(sorted, periods, disc, Some(hazard), &date_ctx, pv_fn)
+            Ok(pv_by_period_precomputed(sorted, &pv_per_flow, periods))
         }
     }
 }
@@ -1116,5 +1141,46 @@ mod credit_pv_tests {
         let expected = 1_000_000.0 * 0.8 + 0.40 * 1_000_000.0 * 0.2;
         assert!((v_integrated - expected).abs() < 1e-6);
         assert!((v_at_pay - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn recovery_timing_integrated_uses_matching_pv_after_skipped_flows() {
+        let base = d(2025, 1, 1);
+        let periods = vec![Period {
+            id: PeriodId::quarter(2025, 3),
+            start: d(2025, 7, 1),
+            end: d(2026, 1, 1),
+            is_actual: false,
+        }];
+        let disc = FlatDiscount { base };
+        let hazard = FlatSurvival;
+        let flows = vec![
+            flow(d(2025, 3, 1), 111.0, CFKind::Fixed),
+            flow(d(2025, 10, 1), 1_000.0, CFKind::Fixed),
+        ];
+
+        let out = pv_by_period_credit_adjusted_detailed_with_timing(
+            &flows,
+            &periods,
+            &disc,
+            Some(&hazard),
+            None,
+            RecoveryTiming::AtDefaultIntegrated,
+            DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
+        )
+        .expect("integrated pricing");
+
+        let pv = out
+            .get(&periods[0].id)
+            .and_then(|m| m.get(&Currency::USD))
+            .map(|m| m.amount())
+            .expect("period pv");
+        let expected = 1_000.0 * 0.95;
+        assert!(
+            (pv - expected).abs() < 1e-9,
+            "expected {}, got {}",
+            expected,
+            pv
+        );
     }
 }

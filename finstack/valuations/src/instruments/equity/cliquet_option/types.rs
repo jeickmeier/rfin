@@ -143,18 +143,8 @@ impl crate::instruments::common_impl::traits::Instrument for CliquetOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        #[cfg(feature = "mc")]
-        {
-            use crate::instruments::equity::cliquet_option::pricer;
-            pricer::compute_pv(self, market, as_of)
-        }
-        #[cfg(not(feature = "mc"))]
-        {
-            let _ = (market, as_of);
-            Err(finstack_core::Error::Validation(
-                "MC feature required for CliquetOption pricing".to_string(),
-            ))
-        }
+        use crate::instruments::equity::cliquet_option::pricer;
+        pricer::compute_pv(self, market, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {
@@ -182,27 +172,3 @@ crate::impl_empty_cashflow_provider!(
     CliquetOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
-
-#[cfg(test)]
-mod tests {
-    #[cfg(not(feature = "mc"))]
-    #[test]
-    fn canonical_pricing_path_mentions_mc_requirement() {
-        use crate::instruments::common_impl::traits::Instrument;
-
-        let instrument = super::CliquetOption::example().expect("CliquetOption example is valid");
-        let err = instrument
-            .price_with_metrics(
-                &finstack_core::market_data::context::MarketContext::new(),
-                instrument.expiry,
-                &[],
-                crate::instruments::PricingOptions::default(),
-            )
-            .expect_err("canonical pricing path should fail without mc feature");
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("`mc`"),
-            "Error should mention mc feature: {msg}"
-        );
-    }
-}

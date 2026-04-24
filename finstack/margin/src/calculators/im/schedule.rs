@@ -201,10 +201,9 @@ impl RegulatorySchedule {
 /// There are two distinct entry points:
 /// - [`Self::calculate_for_notional`] applies the schedule to an explicit
 ///   notional amount supplied by the caller.
-/// - [`ImCalculator::calculate`] uses `instrument.mtm_for_vm(...).abs()` as a
-///   conservative placeholder exposure base because [`crate::traits::Marginable`] does not yet
-///   expose a regulatory notional measure. That trait-based path therefore does
-///   **not** implement full regulatory schedule margin.
+/// - [`ImCalculator::calculate`] requires [`Marginable::im_exposure_base`] to
+///   supply a regulatory notional or approved exposure base. It fails closed
+///   when that input is absent.
 ///
 /// # Formula
 ///
@@ -212,8 +211,8 @@ impl RegulatorySchedule {
 /// Explicit notional helper:
 /// IM = |Notional| × Schedule_Rate(asset_class, maturity)
 ///
-/// Trait-based fallback:
-/// IM_proxy = |Current_MtM| × Schedule_Rate(default_asset_class, default_maturity)
+/// Trait-based path:
+/// IM = |Explicit_IM_Exposure_Base| × Schedule_Rate(default_asset_class, default_maturity)
 /// ```
 ///
 /// # Conventions
@@ -476,8 +475,13 @@ impl ImCalculator for ScheduleImCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        let mtm = instrument.mtm_for_vm(context, as_of)?;
-        let notional = Money::new(mtm.amount().abs(), mtm.currency());
+        let notional = super::require_im_exposure_base(
+            "Schedule",
+            instrument,
+            context,
+            as_of,
+            "a regulatory notional",
+        )?;
 
         let im_amount = self.calculate_for_notional(
             notional,
@@ -536,6 +540,59 @@ mod tests {
 
         // 5y IR uses long bucket (4%) since maturity >= 5.0
         assert_eq!(im.amount(), 4_000_000.0);
+    }
+
+    #[test]
+    fn trait_path_fails_closed_without_explicit_exposure_base() {
+        #[derive(Clone)]
+        struct AtMarketInstrument {
+            id: String,
+            value: Money,
+        }
+
+        impl Marginable for AtMarketInstrument {
+            fn id(&self) -> &str {
+                &self.id
+            }
+
+            fn margin_spec(&self) -> Option<&crate::OtcMarginSpec> {
+                None
+            }
+
+            fn netting_set_id(&self) -> Option<crate::NettingSetId> {
+                None
+            }
+
+            fn simm_sensitivities(
+                &self,
+                _market: &MarketContext,
+                _as_of: Date,
+            ) -> Result<crate::SimmSensitivities> {
+                Ok(crate::SimmSensitivities::new(self.value.currency()))
+            }
+
+            fn mtm_for_vm(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+                Ok(self.value)
+            }
+        }
+
+        let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard calculator should load from embedded registry");
+        let instrument = AtMarketInstrument {
+            id: "ATM-SWAP".to_string(),
+            value: Money::new(0.0, Currency::USD),
+        };
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let err = calc
+            .calculate(&instrument, &market, as_of)
+            .expect_err("schedule IM must not use zero MtM as a notional proxy");
+
+        assert!(
+            err.to_string().contains("exposure base"),
+            "expected missing exposure-base error, got {err}"
+        );
     }
 
     #[test]

@@ -58,10 +58,9 @@ use tracing::{debug, warn};
 ///
 /// # Notes
 ///
-/// The schedule and clearing-house fallback calculators currently rely on
-/// `instrument.mtm_for_vm(...).abs()` when dispatched through the generic
-/// [`Marginable`] interface, so these paths are conservative placeholders rather
-/// than full regulatory-notional or CCP-engine replications.
+/// The schedule, clearing-house, and internal-model fallback calculators
+/// require [`Marginable::im_exposure_base`] or an external IM source. They fail
+/// closed instead of using current MtM as a pseudo-notional.
 #[derive(Debug, Clone, Default)]
 pub struct InitialMarginMetric {
     /// Override SIMM calculator (uses default if None)
@@ -438,6 +437,7 @@ mod tests {
         id: String,
         value: Money,
         margin_spec: Option<OtcMarginSpec>,
+        im_exposure_base: Option<Money>,
         sensitivities: Option<SimmSensitivities>,
     }
 
@@ -447,8 +447,14 @@ mod tests {
                 id: "TEST-INST".to_string(),
                 value,
                 margin_spec,
+                im_exposure_base: None,
                 sensitivities: None,
             }
+        }
+
+        fn with_im_exposure_base(mut self, exposure_base: Money) -> Self {
+            self.im_exposure_base = Some(exposure_base);
+            self
         }
 
         fn with_sensitivities(mut self, sensitivities: SimmSensitivities) -> Self {
@@ -484,12 +490,18 @@ mod tests {
         fn mtm_for_vm(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
             Ok(self.value)
         }
+
+        fn im_exposure_base(&self, _market: &MarketContext, _as_of: Date) -> Result<Option<Money>> {
+            Ok(self.im_exposure_base)
+        }
     }
 
     #[test]
     fn uses_clearing_house_calculator_for_cleared_spec() {
         let spec = OtcMarginSpec::cleared("LCH", Currency::USD).expect("registry should load");
-        let instrument = TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec));
+        let exposure_base = Money::new(100_000_000.0, Currency::USD);
+        let instrument = TestInstrument::new(Money::new(0.0, Currency::USD), Some(spec))
+            .with_im_exposure_base(exposure_base);
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
@@ -507,7 +519,8 @@ mod tests {
             im_params.threshold = Money::new(0.0, Currency::USD);
             im_params.mta = Money::new(0.0, Currency::USD);
         }
-        let instrument = TestInstrument::new(Money::new(20_000_000.0, Currency::USD), Some(spec));
+        let instrument = TestInstrument::new(Money::new(0.0, Currency::USD), Some(spec))
+            .with_im_exposure_base(Money::new(20_000_000.0, Currency::USD));
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
@@ -561,8 +574,8 @@ mod tests {
             im_params.mta = Money::new(0.0, Currency::USD);
         }
 
-        let instrument =
-            TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec_gross));
+        let instrument = TestInstrument::new(Money::new(0.0, Currency::USD), Some(spec_gross))
+            .with_im_exposure_base(Money::new(100_000_000.0, Currency::USD));
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
@@ -585,8 +598,8 @@ mod tests {
             im_params.mta = Money::new(0.0, Currency::USD);
         }
 
-        let instrument2 =
-            TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec_net));
+        let instrument2 = TestInstrument::new(Money::new(0.0, Currency::USD), Some(spec_net))
+            .with_im_exposure_base(Money::new(100_000_000.0, Currency::USD));
         let net_im = metric
             .calculate(&instrument2, &market, as_of)
             .expect("im")

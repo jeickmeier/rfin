@@ -41,6 +41,9 @@ __all__ = [
     "format_currency",
     "format_ratio",
     "format_scientific",
+    "bs_cos_price",
+    "vg_cos_price",
+    "merton_jump_cos_price",
     "tarn_coupon_profile",
     "snowball_coupon_profile",
     "cms_spread_option_intrinsic",
@@ -1213,6 +1216,54 @@ def format_ratio(value: float, decimals: int = 2) -> str:
 
 def format_scientific(value: float, sig_figs: int = 3) -> str:
     """Format a number in scientific notation (``0.000123`` → ``"1.23e-4"``)."""
+    ...
+
+# ---------------------------------------------------------------------------
+# Fourier option pricing helpers
+# ---------------------------------------------------------------------------
+
+def bs_cos_price(
+    spot: float,
+    strike: float,
+    rate: float,
+    dividend: float,
+    vol: float,
+    maturity: float,
+    is_call: bool,
+    n_terms: int = 128,
+) -> float:
+    """Price a European option under Black-Scholes with the COS method."""
+    ...
+
+def vg_cos_price(
+    spot: float,
+    strike: float,
+    rate: float,
+    dividend: float,
+    sigma: float,
+    theta: float,
+    nu: float,
+    maturity: float,
+    is_call: bool,
+    n_terms: int = 128,
+) -> float:
+    """Price a European option under Variance Gamma with the COS method."""
+    ...
+
+def merton_jump_cos_price(
+    spot: float,
+    strike: float,
+    rate: float,
+    dividend: float,
+    sigma: float,
+    mu_jump: float,
+    sigma_jump: float,
+    lambda_: float,
+    maturity: float,
+    is_call: bool,
+    n_terms: int = 128,
+) -> float:
+    """Price a European option under Merton jump-diffusion with the COS method."""
     ...
 
 # ---------------------------------------------------------------------------

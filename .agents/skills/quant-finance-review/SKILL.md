@@ -3,12 +3,22 @@ name: quant-finance-review
 description: >
   Use when reviewing quant finance code, pricing models, trading logic, risk
   calculations, calibration, market convention handling, or numerical
-  stability in Rust, Python, WASM, or SQL.
+  stability in Rust, Python, WASM, or SQL. Trigger for full-workspace quant
+  production audits, line-level correctness reviews, pricing/risk defect
+  hunts, and benchmark-convention checks.
 ---
 
 # Quant Finance Review
 
 Review code like a senior quantitative developer responsible for getting prices, risk, and conventions right in production. Default to a practitioner mindset: would this hold up in a live book, against market standards, and under stress at end-of-day risk time?
+
+## Audit Discipline
+
+- Inspect the available code before giving findings. If repository files are present, do not answer with only a generic audit framework.
+- For `rfin`, start broad with `cargo metadata --no-deps --format-version 1`, then trace the affected crates, bindings, parity contract, tests, and examples.
+- Ground every finding in a concrete file and line when code is available. If code is unavailable, state that limitation and provide only a search plan/checklist.
+- Separate current-production benchmark standards from legacy workflows. Treat LIBOR as legacy-only unless the code explicitly models fallback or historical contracts.
+- Prefer targeted verification tied to the defect over slow whole-workspace runs unless the change crosses crate or binding boundaries.
 
 ## When to Use
 
@@ -63,6 +73,19 @@ Use when the user asks for a broader audit or gap analysis. Check coverage, exte
 6. **Report findings first**
    Lead with bugs, regressions, and material risks ordered by severity. Keep summary text brief.
 
+## Full-Workspace Audit Workflow
+
+1. **Map the workspace**
+   Run `cargo metadata --no-deps --format-version 1` and identify canonical Rust crates, Python bindings, WASM bindings, parity contracts, tests, benches, and examples.
+2. **Prioritize financial invariants**
+   Search first for valuation date, discounting, day-count, calendars, curve selection, fixings, clean/dirty price, shock units, solver failures, and NaN handling.
+3. **Trace canonical paths**
+   Follow Rust implementation -> Rust tests -> PyO3/WASM wrappers -> stubs/types -> parity contract -> examples/notebooks for exposed behavior.
+4. **Use the production audit playbook**
+   Open `references/production-audit-playbook.md` for search patterns and defect classes when doing broad audits or when initial findings are sparse.
+5. **Verify with the narrowest meaningful commands**
+   Run focused Rust tests, parity checks, binding topology audits, or format/lint commands that prove the reviewed surface. State any unrelated blockers exactly.
+
 ## Severity Guide
 
 - **Blocker**: incorrect price, P&L, risk, or trade economics; broken market standard; materially wrong benchmark result
@@ -101,6 +124,7 @@ Use the lighter files first; open the deeper references only when needed.
 - `market-standards/cross-asset-checklist.md`
 
 ### Quant references
+- `references/production-audit-playbook.md`
 - `references/numerical-methods.md`
 - `references/pricing-models.md`
 - `references/risk-models.md`

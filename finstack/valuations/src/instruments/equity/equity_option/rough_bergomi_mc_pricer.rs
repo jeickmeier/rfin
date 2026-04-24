@@ -6,19 +6,12 @@
 //! representation of fractional Brownian motion, unlike the rough Heston model
 //! which uses standard Brownian motion with a singular kernel.
 
-#[cfg(feature = "mc")]
 use super::pricer::{collect_inputs_extended, option_currency};
-#[cfg(feature = "mc")]
 use super::types::EquityOption;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::parameters::OptionType;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use finstack_core::dates::Date;
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
 
 /// Monte Carlo pricer for the rough Bergomi model.
@@ -37,7 +30,6 @@ use finstack_core::money::Money;
 /// | `RBERGOMI_ETA` | 1.9 | Vol-of-vol scaling |
 /// | `RBERGOMI_HURST` | 0.07 | Hurst exponent |
 /// | `RBERGOMI_RHO` | -0.9 | Spot-vol correlation |
-#[cfg(feature = "mc")]
 pub(crate) struct EquityOptionRoughBergomiMcPricer {
     /// Number of Monte Carlo paths.
     num_paths: usize,
@@ -45,7 +37,6 @@ pub(crate) struct EquityOptionRoughBergomiMcPricer {
     num_steps: usize,
 }
 
-#[cfg(feature = "mc")]
 impl EquityOptionRoughBergomiMcPricer {
     /// Create a new rBergomi MC pricer with explicit configuration.
     pub(crate) fn new(num_paths: usize, num_steps: usize) -> Self {
@@ -56,7 +47,6 @@ impl EquityOptionRoughBergomiMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for EquityOptionRoughBergomiMcPricer {
     fn default() -> Self {
         Self::new(100_000, 100)
@@ -64,13 +54,11 @@ impl Default for EquityOptionRoughBergomiMcPricer {
 }
 
 /// Extract a unitless scalar from market data, falling back to a default.
-#[cfg(feature = "mc")]
 fn get_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
     crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
 }
 
 /// Run the fractional MC simulation loop for a concrete payoff type.
-#[cfg(feature = "mc")]
 #[allow(clippy::too_many_arguments)]
 fn simulate_rbergomi<F: finstack_monte_carlo::traits::Payoff>(
     num_paths: usize,
@@ -128,7 +116,6 @@ fn simulate_rbergomi<F: finstack_monte_carlo::traits::Payoff>(
     Ok(sum / num_paths as f64)
 }
 
-#[cfg(feature = "mc")]
 impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

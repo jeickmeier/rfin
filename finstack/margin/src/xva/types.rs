@@ -400,7 +400,6 @@ impl ExposureProfile {
 ///
 /// `pfe_quantile` is a decimal probability, so `0.975` means the 97.5th
 /// percentile of positive exposure.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct StochasticExposureConfig {
     /// Number of Monte Carlo paths to simulate.
@@ -415,7 +414,6 @@ pub struct StochasticExposureConfig {
     pub pfe_quantile: f64,
 }
 
-#[cfg(feature = "mc")]
 impl Default for StochasticExposureConfig {
     /// Create the default stochastic exposure configuration.
     ///
@@ -429,7 +427,6 @@ impl Default for StochasticExposureConfig {
     }
 }
 
-#[cfg(feature = "mc")]
 impl StochasticExposureConfig {
     /// Validate stochastic exposure simulation parameters.
     ///
@@ -463,7 +460,6 @@ impl StochasticExposureConfig {
 /// The embedded [`ExposureProfile`] contains the pathwise averages needed for CVA/DVA/FVA
 /// integration, while `pfe_profile` preserves the chosen tail quantile of the simulated
 /// positive exposure distribution.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct StochasticExposureProfile {
     /// Average MtM/EPE/ENE profile used by the XVA calculators.
@@ -479,7 +475,6 @@ pub struct StochasticExposureProfile {
     pub pfe_quantile: f64,
 }
 
-#[cfg(feature = "mc")]
 impl StochasticExposureProfile {
     /// Maximum PFE across the simulated horizon.
     ///

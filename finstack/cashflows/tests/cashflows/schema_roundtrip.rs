@@ -14,6 +14,7 @@ use finstack_cashflows::builder::specs::{
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 /// Generic envelope for cashflow specs with schema version.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -110,6 +111,83 @@ where
         original_value, reserialized_value,
         "Roundtrip mismatch for envelope"
     );
+}
+
+fn fixed_schedule_build_spec() -> serde_json::Value {
+    json!({
+        "notional": {
+            "initial": {"amount": "1000000", "currency": "USD"},
+            "amort": "None"
+        },
+        "issue": "2024-08-31",
+        "maturity": "2025-08-31",
+        "fixed_coupons": [{
+            "coupon_type": "Cash",
+            "rate": "0.06",
+            "freq": {"count": 12, "unit": "months"},
+            "dc": "Thirty360",
+            "bdc": "following",
+            "calendar_id": "weekends_only",
+            "stub": "None",
+            "end_of_month": false,
+            "payment_lag_days": 0
+        }]
+    })
+}
+
+#[test]
+fn test_json_bridge_build_validate_flows_and_accrual() {
+    let spec_json = fixed_schedule_build_spec().to_string();
+    let schedule_json = finstack_cashflows::build_cashflow_schedule_json(&spec_json, None)
+        .expect("schedule should build from JSON");
+
+    let schedule: finstack_cashflows::builder::CashFlowSchedule =
+        serde_json::from_str(&schedule_json).expect("schedule JSON should deserialize");
+    assert!(schedule.flows.iter().any(|flow| matches!(
+        flow.kind,
+        finstack_cashflows::primitives::CFKind::Fixed
+            | finstack_cashflows::primitives::CFKind::FloatReset
+            | finstack_cashflows::primitives::CFKind::Stub
+            | finstack_cashflows::primitives::CFKind::InflationCoupon
+    )));
+    assert_eq!(
+        schedule.meta.issue_date,
+        Some(time::macros::date!(2024 - 08 - 31))
+    );
+
+    let validated = finstack_cashflows::validate_cashflow_schedule_json(&schedule_json)
+        .expect("schedule should validate");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&schedule_json).expect("schedule value"),
+        serde_json::from_str::<serde_json::Value>(&validated).expect("validated value")
+    );
+
+    let dated = finstack_cashflows::dated_flows_json(&schedule_json).expect("dated flows");
+    let dated_flows: Vec<finstack_cashflows::DatedFlowJson> =
+        serde_json::from_str(&dated).expect("dated flow JSON");
+    assert_eq!(dated_flows.len(), schedule.flows.len());
+
+    let accrued = finstack_cashflows::accrued_interest_json(&schedule_json, "2025-02-28", None)
+        .expect("accrued interest");
+    assert!(accrued > 0.0, "expected positive accrued interest");
+}
+
+#[test]
+fn test_json_bridge_amortizing_schedule_build() {
+    let mut spec = fixed_schedule_build_spec();
+    spec["maturity"] = json!("2026-08-31");
+    spec["notional"]["amort"] = json!({
+        "LinearTo": {"final_notional": {"amount": "0", "currency": "USD"}}
+    });
+
+    let schedule_json = finstack_cashflows::build_cashflow_schedule_json(&spec.to_string(), None)
+        .expect("amortizing schedule should build");
+    let schedule: finstack_cashflows::builder::CashFlowSchedule =
+        serde_json::from_str(&schedule_json).expect("schedule JSON should deserialize");
+    assert!(schedule.flows.iter().any(|flow| matches!(
+        flow.kind,
+        finstack_cashflows::primitives::CFKind::Amortization
+    )));
 }
 
 fn canonicalize_floating_rate_keys(value: &mut serde_json::Value) {

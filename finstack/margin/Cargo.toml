@@ -10,7 +10,7 @@ description = "Margin, collateral, and XVA primitives for Finstack"
 
 [dependencies]
 finstack-core = { path = "../core" }
-finstack-monte-carlo = { path = "../monte_carlo", default-features = false, optional = true }
+finstack-monte-carlo = { path = "../monte_carlo", default-features = false }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["raw_value"] }
@@ -19,7 +19,3 @@ tracing = { version = "0.1", default-features = false, features = ["attributes"]
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }
-
-[features]
-default = []
-mc = ["dep:finstack-monte-carlo", "finstack-monte-carlo/mc"]

@@ -595,7 +595,6 @@ fn test_deterministic_with_credit_risk() {
     println!("Credit adjustment: {:.2}%", credit_adjustment_pct);
 }
 
-#[cfg(feature = "mc")]
 #[test]
 fn test_deterministic_stochastic_convergence_with_credit_risk() {
     use finstack_core::market_data::term_structures::HazardCurve;

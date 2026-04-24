@@ -61,7 +61,7 @@ pub(crate) fn register_commodity_pricers(registry: &mut PricerRegistry) {
     );
 
     // Commodity Option - Monte Carlo Schwartz-Smith
-    #[cfg(feature = "mc")]
+
     registry.register(
         InstrumentType::CommodityOption,
         ModelKey::MonteCarloSchwartzSmith,

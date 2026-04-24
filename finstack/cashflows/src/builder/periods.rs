@@ -8,7 +8,7 @@ use finstack_core::dates::{
 };
 use finstack_core::InputError;
 
-use super::calendar::{adjust_date, resolve_calendar_strict};
+use super::calendar::resolve_calendar_strict;
 use super::date_generation::{build_dates, build_schedule_period, PeriodSchedule};
 use super::emission::compute_reset_date;
 
@@ -139,9 +139,13 @@ pub fn build_single_period(
     params: BuildPeriodsParams<'_>,
 ) -> finstack_core::Result<SchedulePeriod> {
     let cal = resolve_calendar_strict(params.calendar_id)?;
-    let accrual_start = adjust_date(params.start, params.bdc, params.calendar_id)?;
-    let accrual_end = adjust_date(params.end, params.bdc, params.calendar_id)?;
-    let period = build_schedule_period(accrual_start, accrual_end, params.payment_lag_days, cal)?;
+    let period = build_schedule_period(
+        params.start,
+        params.end,
+        params.bdc,
+        params.payment_lag_days,
+        cal,
+    )?;
     let payment_date = period.payment_date;
     let schedule = PeriodSchedule {
         periods: vec![period],

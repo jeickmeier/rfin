@@ -40,7 +40,6 @@ finstack-statements-analytics = { path = "../statements-analytics" }
 
 [features]
 default = []
-mc = ["finstack-monte-carlo/mc", "finstack-margin/mc"]
 ts_export = ["dep:ts-rs"]
 
 [[bench]]
@@ -94,7 +93,6 @@ harness = false
 [[bench]]
 name = "mc_pricing"
 harness = false
-required-features = ["mc"]
 
 [[bench]]
 name = "fi_misc_pricing"
@@ -103,7 +101,6 @@ harness = false
 [[bench]]
 name = "mc_exotics_pricing"
 harness = false
-required-features = ["mc"]
 
 [[bench]]
 name = "bucketed_risk"

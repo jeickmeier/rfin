@@ -133,7 +133,6 @@ impl QuantoOption {
     /// # Errors
     ///
     /// Always returns an error indicating MC is not supported.
-    #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
         _curves: &finstack_core::market_data::context::MarketContext,
@@ -568,7 +567,6 @@ mod tests {
         assert!(deps.discount_curves.iter().any(|c| c.as_str() == "JPY-OIS"));
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_quanto_option_mc_is_unsupported() {
         use finstack_core::market_data::context::MarketContext;

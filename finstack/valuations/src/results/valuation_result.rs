@@ -7,6 +7,19 @@ use finstack_core::money::Money;
 
 use indexmap::IndexMap;
 
+/// Model-specific typed valuation details.
+///
+/// These details are for rich structured outputs that do not fit the scalar
+/// `measures` map while still belonging in the standard valuation envelope.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+pub enum ValuationDetails {
+    /// Scenario-waterfall structured credit stochastic pricing result.
+    StructuredCreditStochastic(
+        crate::instruments::fixed_income::structured_credit::StochasticPricingResult,
+    ),
+}
+
 /// Complete valuation result envelope with NPV, risk metrics, and metadata.
 ///
 /// This is the primary output structure returned by pricing operations.
@@ -190,6 +203,10 @@ pub struct ValuationResult {
     /// Always interpret a measure together with its [`MetricId`] contract.
     pub measures: IndexMap<MetricId, f64>,
 
+    /// Optional rich model-specific pricing detail.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<ValuationDetails>,
+
     /// Calculation metadata and policy stamps.
     ///
     /// Contains:
@@ -325,6 +342,7 @@ impl ValuationResult {
             as_of,
             value,
             measures: IndexMap::new(),
+            details: None,
             meta,
             covenants: None,
             explanation: None,
@@ -419,6 +437,12 @@ impl ValuationResult {
     /// ```
     pub fn with_measures(mut self, measures: IndexMap<MetricId, f64>) -> Self {
         self.measures = measures;
+        self
+    }
+
+    /// Attach rich model-specific valuation details.
+    pub fn with_details(mut self, details: ValuationDetails) -> Self {
+        self.details = Some(details);
         self
     }
 

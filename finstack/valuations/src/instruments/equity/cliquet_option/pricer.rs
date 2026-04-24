@@ -1,47 +1,29 @@
 //! Cliquet option Monte Carlo pricer.
 
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
-#[cfg(feature = "mc")]
 use crate::instruments::equity::cliquet_option::monte_carlo::{
     CliquetCallPayoff, CliquetPayoffType as McPayoffType,
 };
-#[cfg(feature = "mc")]
 use crate::instruments::equity::cliquet_option::types::{CliquetOption, CliquetPayoffType};
-#[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
-#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountContext};
-#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
-#[cfg(feature = "mc")]
 use finstack_core::money::Money;
-#[cfg(feature = "mc")]
 use finstack_core::Result;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::engine::{McEngine, McEngineConfig};
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::paths::ProcessParams;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::process::metadata::ProcessMetadata;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::time_grid::TimeGrid;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::traits::Discretization;
-#[cfg(feature = "mc")]
 use finstack_monte_carlo::traits::StochasticProcess;
 
 /// Piecewise constant GBM process for cliquet options.
 /// Handles term structure of volatility and rates between reset dates.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone)]
 struct PiecewiseGbmProcess {
     /// End times of intervals (sorted)
@@ -54,7 +36,6 @@ struct PiecewiseGbmProcess {
     sigmas: Vec<f64>,
 }
 
-#[cfg(feature = "mc")]
 impl StochasticProcess for PiecewiseGbmProcess {
     fn dim(&self) -> usize {
         1
@@ -79,7 +60,6 @@ impl StochasticProcess for PiecewiseGbmProcess {
     }
 }
 
-#[cfg(feature = "mc")]
 impl ProcessMetadata for PiecewiseGbmProcess {
     fn metadata(&self) -> ProcessParams {
         let mut params = ProcessParams::new("PiecewiseGBM");
@@ -94,18 +74,15 @@ impl ProcessMetadata for PiecewiseGbmProcess {
 }
 
 /// Exact discretization for Piecewise GBM.
-#[cfg(feature = "mc")]
 #[derive(Debug, Clone, Default)]
 struct PiecewiseExactGbm;
 
-#[cfg(feature = "mc")]
 impl PiecewiseExactGbm {
     fn new() -> Self {
         Self
     }
 }
 
-#[cfg(feature = "mc")]
 impl Discretization<PiecewiseGbmProcess> for PiecewiseExactGbm {
     fn step(
         &self,
@@ -135,12 +112,10 @@ impl Discretization<PiecewiseGbmProcess> for PiecewiseExactGbm {
 }
 
 /// Cliquet option Monte Carlo pricer.
-#[cfg(feature = "mc")]
 pub struct CliquetOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
-#[cfg(feature = "mc")]
 impl CliquetOptionMcPricer {
     /// Create a new cliquet option MC pricer with default config.
     pub fn new() -> Self {
@@ -341,23 +316,13 @@ impl CliquetOptionMcPricer {
         };
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
+
         use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            self.config.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         // Build time grid that includes reset dates to ensure exact period boundaries.
@@ -436,14 +401,12 @@ impl CliquetOptionMcPricer {
     }
 }
 
-#[cfg(feature = "mc")]
 impl Default for CliquetOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "mc")]
 impl Pricer for CliquetOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::CliquetOption, ModelKey::MonteCarloGBM)
@@ -471,7 +434,6 @@ impl Pricer for CliquetOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
-#[cfg(feature = "mc")]
 pub(crate) fn compute_pv(
     inst: &CliquetOption,
     curves: &MarketContext,
@@ -481,7 +443,7 @@ pub(crate) fn compute_pv(
     pricer.price_internal(inst, curves, as_of)
 }
 
-#[cfg(all(test, feature = "mc"))]
+#[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;

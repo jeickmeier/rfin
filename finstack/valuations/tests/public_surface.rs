@@ -4,7 +4,6 @@ use finstack_valuations::prelude::{
     TermLoan, VarianceSwap,
 };
 
-#[cfg(feature = "mc")]
 use finstack_valuations::prelude::AsianOption;
 
 #[test]
@@ -20,7 +19,7 @@ fn valuations_prelude_exposes_desk_quant_instruments_and_params() {
     assert_type::<ConvertibleBond>();
     assert_type::<StructuredCredit>();
     assert_type::<BarrierOption>();
-    #[cfg(feature = "mc")]
+
     assert_type::<AsianOption>();
     assert_type::<VarianceSwap>();
     assert_type::<TermLoan>();

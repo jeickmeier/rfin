@@ -81,8 +81,8 @@ impl InternalModelImCalculator {
     }
 
     /// Calculate IM using conservative estimate.
-    pub fn calculate_conservative(&self, notional: Money) -> Money {
-        super::conservative_im(notional, self.conservative_rate)
+    pub fn calculate_conservative(&self, exposure_base: Money) -> Money {
+        super::conservative_im(exposure_base, self.conservative_rate)
     }
 }
 
@@ -93,26 +93,39 @@ impl ImCalculator for InternalModelImCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        // Use PV as proxy for notional
-        let mtm = instrument.mtm_for_vm(context, as_of)?;
-        let currency = mtm.currency();
-        let notional = Money::new(mtm.amount().abs(), currency);
-
-        let mut im_amount = self.calculate_conservative(notional);
         let mut mpor_days = self.mpor_days;
         let mut label = "internal_model".to_string();
 
-        if let Some(source) = &self.input_source {
-            if let Some(amount) = source.external_initial_margin(instrument, context, as_of) {
-                im_amount = amount;
-            }
+        let im_amount = if let Some(source) = &self.input_source {
             if let Some(override_mpor) = source.external_mpor_days() {
                 mpor_days = override_mpor;
             }
             if let Some(name) = source.external_model_name() {
                 label = name;
             }
-        }
+            match source.external_initial_margin(instrument, context, as_of) {
+                Some(amount) => amount,
+                None => {
+                    let exposure_base = super::require_im_exposure_base(
+                        "InternalModel",
+                        instrument,
+                        context,
+                        as_of,
+                        "an external IM source amount",
+                    )?;
+                    self.calculate_conservative(exposure_base)
+                }
+            }
+        } else {
+            let exposure_base = super::require_im_exposure_base(
+                "InternalModel",
+                instrument,
+                context,
+                as_of,
+                "an external IM source amount",
+            )?;
+            self.calculate_conservative(exposure_base)
+        };
 
         let mut breakdown = HashMap::default();
         breakdown.insert(label, im_amount);
@@ -220,5 +233,23 @@ mod tests {
 
         assert_eq!(result.amount.amount(), 2_500_000.0);
         assert!(result.breakdown.contains_key("internal_var"));
+    }
+
+    #[test]
+    fn fails_closed_without_model_source_or_exposure_base() {
+        let calc = InternalModelImCalculator::default();
+        let instrument = TestInstrument::new(Money::new(0.0, Currency::USD));
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let err = calc
+            .calculate(&instrument, &market, as_of)
+            .expect_err("internal-model IM must not use zero MtM as a notional proxy");
+
+        assert!(
+            err.to_string().contains("external IM source")
+                && err.to_string().contains("exposure base"),
+            "expected missing source/exposure-base error, got {err}"
+        );
     }
 }

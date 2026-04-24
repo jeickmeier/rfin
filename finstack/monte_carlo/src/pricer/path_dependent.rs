@@ -11,10 +11,8 @@ use crate::estimate::Estimate;
 use crate::online_stats::OnlineStats;
 use crate::process::gbm::GbmProcess;
 use crate::process::metadata::ProcessMetadata;
-#[cfg(feature = "mc")]
 use crate::rng::brownian_bridge::BrownianBridge;
 use crate::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
 use crate::rng::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 use crate::time_grid::TimeGrid;
 use crate::traits::{Discretization, RandomStream, StochasticProcess};
@@ -186,7 +184,6 @@ impl PathDependentPricer {
         Self { config }
     }
 
-    #[cfg(feature = "mc")]
     fn validate_sobol_configuration(
         &self,
         time_grid: &TimeGrid,
@@ -244,7 +241,6 @@ impl PathDependentPricer {
         Ok(sobol_dimension)
     }
 
-    #[cfg(feature = "mc")]
     #[allow(clippy::too_many_arguments)]
     fn price_with_sobol<P>(
         &self,
@@ -460,7 +456,6 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
-        #[cfg(feature = "mc")]
         if self.config.use_sobol {
             return self
                 .price_with_sobol(
@@ -537,7 +532,6 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
-        #[cfg(feature = "mc")]
         if self.config.use_sobol {
             let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
             return self.price_with_sobol(
@@ -709,7 +703,6 @@ impl PathDependentPricer {
 /// [`PathDependentPricer::validate_sobol_configuration`]) the draw is
 /// converted to a scalar Brownian motion `w_path` and then scaled to standard
 /// normals per step by `(w[i+1] - w[i]) / sqrt(dt_i)`.
-#[cfg(feature = "mc")]
 fn fill_sobol_increments(
     z_path: &[f64],
     z_increments: &mut [f64],
@@ -746,14 +739,12 @@ fn fill_sobol_increments(
 /// the Sobol pricer outer loop, so the engine's per-path `rng.split(..)` call
 /// is bypassed by delegating to `simulate_path`/`simulate_path_with_capture`
 /// directly.
-#[cfg(feature = "mc")]
 struct SobolPathStream<'a> {
     z_increments: &'a [f64],
     cursor: usize,
     aux: PhiloxRng,
 }
 
-#[cfg(feature = "mc")]
 impl<'a> SobolPathStream<'a> {
     fn new(z_increments: &'a [f64], aux: PhiloxRng) -> Self {
         Self {
@@ -764,7 +755,6 @@ impl<'a> SobolPathStream<'a> {
     }
 }
 
-#[cfg(feature = "mc")]
 impl<'a> RandomStream for SobolPathStream<'a> {
     /// Per-path Sobol adapters never split; the outer Sobol pricer owns a
     /// single adapter per path, so this always returns `None`.
@@ -846,7 +836,6 @@ mod tests {
         assert!(result.mean.amount() > 0.0);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_sobol_price_with_grid_multiple_paths() {
         let config = PathDependentPricerConfig::new(8)
@@ -867,7 +856,6 @@ mod tests {
         assert_eq!(result.num_paths, 8);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_sobol_price_with_paths_multiple_paths() {
         fn interpolated_percentile(sorted_values: &[f64], percentile: f64) -> f64 {
@@ -920,7 +908,6 @@ mod tests {
         assert_eq!(result.estimate.max, Some(final_values[len - 1]));
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_sobol_brownian_bridge_supports_irregular_grid() {
         let config = PathDependentPricerConfig::new(8)
@@ -941,7 +928,6 @@ mod tests {
         assert_eq!(result.num_paths, 8);
     }
 
-    #[cfg(feature = "mc")]
     #[test]
     fn test_sobol_rejects_excessive_dimension() {
         let config = PathDependentPricerConfig::new(1)

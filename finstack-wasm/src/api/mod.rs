@@ -3,6 +3,7 @@
 //! Each submodule corresponds to one Rust crate domain.
 
 pub mod analytics;
+pub mod cashflows;
 pub mod core;
 pub mod margin;
 pub mod monte_carlo;

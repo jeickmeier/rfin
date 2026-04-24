@@ -3,24 +3,18 @@
 //! Provides full greek coverage for quanto options including FX-specific
 //! sensitivities (FX delta, FX vega) and correlation risk.
 
-#[cfg(feature = "mc")]
 mod correlation01;
 // mod dv01; // removed - using GenericParallelDv01
-#[cfg(feature = "mc")]
 mod fx_delta;
-#[cfg(feature = "mc")]
 mod fx_vega;
 
-#[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
-#[cfg(feature = "mc")]
 use std::sync::Arc;
 
 /// Register quanto option metrics with the registry.
-#[cfg(feature = "mc")]
 pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
-    #[cfg(feature = "mc")]
+
     {
         // Standard greeks
         crate::register_metrics! {

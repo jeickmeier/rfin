@@ -91,6 +91,7 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::traits::{schedule_from_classified_flows, ScheduleBuildOpts};
 use crate::constants::DECIMAL_TO_PERCENT;
+use crate::correlation::RecoverySpec as StochasticRecoverySpec;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
     PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
@@ -107,7 +108,6 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Error as CoreError;
 
 use finstack_core::HashMap;
 use std::collections::BTreeMap;
@@ -509,13 +509,25 @@ impl StructuredCredit {
             .max(0.0))
     }
 
-    /// Stochastic pricing convenience that defaults to the tree-based engine.
+    /// Stochastic pricing convenience that defaults to Monte Carlo.
     pub fn price_stochastic(
         &self,
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<StochasticPricingResult> {
-        self.price_stochastic_with_mode(context, as_of, PricingMode::Tree)
+        let num_paths = self
+            .pricing_overrides
+            .model_config
+            .mc_paths
+            .unwrap_or(10_000);
+        self.price_stochastic_with_mode(
+            context,
+            as_of,
+            PricingMode::MonteCarlo {
+                num_paths,
+                antithetic: num_paths > 1,
+            },
+        )
     }
 
     /// Stochastic pricing with an explicit mode (tree, Monte Carlo, or hybrid).
@@ -525,16 +537,20 @@ impl StructuredCredit {
         as_of: Date,
         pricing_mode: PricingMode,
     ) -> finstack_core::Result<StochasticPricingResult> {
-        let tree_config = self.build_scenario_tree_config(as_of)?;
+        let mut tree_config = self.build_scenario_tree_config(as_of)?;
+        if let Some(tree_steps) = self.pricing_overrides.model_config.tree_steps {
+            tree_config.num_periods = tree_steps.max(1);
+        }
         let discount_curve = context.get_discount(self.discount_curve_id.as_str())?;
         let config = StochasticPricerConfig::new(as_of, discount_curve, tree_config)
             .with_pricing_mode(pricing_mode);
-        self.run_stochastic_pricer(config)
+        self.run_stochastic_pricer(config, context)
     }
 
     fn run_stochastic_pricer(
         &self,
         config: StochasticPricerConfig,
+        context: &MarketContext,
     ) -> finstack_core::Result<StochasticPricingResult> {
         let currency = self.pool.base_currency();
         let notional = self.pool.total_balance()?.amount();
@@ -547,35 +563,26 @@ impl StructuredCredit {
             ));
         }
 
+        self.validate_stochastic_tranches()?;
+
         let pricer = StochasticPricer::new(config);
-        let mut result = pricer
-            .price(notional, currency)
-            .map_err(CoreError::Validation)?;
+        let result = pricer.price(self, context)?;
 
-        let tranche_specs: Vec<(String, String, f64, f64)> = self
-            .tranches
-            .tranches
-            .iter()
-            .map(|t| {
-                (
-                    t.id.to_string(),
-                    format!("{:?}", t.seniority),
-                    t.attachment_point / 100.0,
-                    t.detachment_point / 100.0,
-                )
-            })
-            .collect();
-
-        if !tranche_specs.is_empty() {
-            if let Ok(tranche_results) = pricer.price_tranches(&tranche_specs, notional, currency) {
-                result = result.with_tranche_results(tranche_results);
-            }
+        if result.tranche_results.len() != self.tranches.tranches.len() {
+            return Err(finstack_core::Error::Validation(format!(
+                "stochastic pricing produced {} tranche results for {} input tranches",
+                result.tranche_results.len(),
+                self.tranches.tranches.len()
+            )));
         }
 
         Ok(result)
     }
 
-    fn build_scenario_tree_config(&self, as_of: Date) -> finstack_core::Result<ScenarioTreeConfig> {
+    pub(crate) fn build_scenario_tree_config(
+        &self,
+        as_of: Date,
+    ) -> finstack_core::Result<ScenarioTreeConfig> {
         let months_to_maturity = as_of.months_until(self.maturity).max(1) as usize;
         let horizon_years = DayCount::Act365F
             .year_fraction(as_of, self.maturity, DayCountContext::default())?
@@ -586,8 +593,13 @@ impl StructuredCredit {
             ScenarioTreeConfig::new(months_to_maturity, horizon_years, BranchingSpec::fixed(3));
 
         let (prepay, default, correlation) = self.effective_stochastic_specs();
+        correlation
+            .validate()
+            .map_err(finstack_core::Error::Validation)?;
         tree_config.prepay_spec = prepay;
         tree_config.default_spec = default;
+        tree_config.recovery_spec =
+            StochasticRecoverySpec::constant(self.credit_model.recovery_spec.rate);
         tree_config.correlation = correlation;
         tree_config.pool_coupon = self.pool.weighted_avg_coupon();
         tree_config.initial_balance = self.pool.total_balance()?.amount().max(1.0);
@@ -599,6 +611,52 @@ impl StructuredCredit {
         tree_config.initial_seasoning = seasoning;
         tree_config = tree_config.with_seed(self.derive_seed(as_of));
         Ok(tree_config)
+    }
+
+    fn validate_stochastic_tranches(&self) -> finstack_core::Result<()> {
+        let mut previous_detachment = 0.0;
+        const EPS: f64 = 1e-9;
+
+        for (idx, tranche) in self.tranches.tranches.iter().enumerate() {
+            let attachment = tranche.attachment_point;
+            let detachment = tranche.detachment_point;
+            if !attachment.is_finite() || !detachment.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "structured-credit tranche '{}' has non-finite attachment/detachment",
+                    tranche.id
+                )));
+            }
+            if !(0.0..=100.0).contains(&attachment)
+                || !(0.0..=100.0).contains(&detachment)
+                || attachment >= detachment
+            {
+                return Err(finstack_core::Error::Validation(format!(
+                    "structured-credit tranche '{}' has invalid attachment/detachment [{attachment}, {detachment}]",
+                    tranche.id
+                )));
+            }
+            if idx == 0 && attachment.abs() > EPS {
+                return Err(finstack_core::Error::Validation(format!(
+                    "structured-credit tranche '{}' starts at {attachment}; first attachment must be 0",
+                    tranche.id
+                )));
+            }
+            if idx > 0 && (attachment - previous_detachment).abs() > EPS {
+                return Err(finstack_core::Error::Validation(format!(
+                    "structured-credit tranche '{}' creates a gap/overlap: attachment {attachment} after previous detachment {previous_detachment}",
+                    tranche.id
+                )));
+            }
+            previous_detachment = detachment;
+        }
+
+        if !self.tranches.tranches.is_empty() && (previous_detachment - 100.0).abs() > EPS {
+            return Err(finstack_core::Error::Validation(format!(
+                "structured-credit final tranche detachment must be exactly 100, got {previous_detachment}"
+            )));
+        }
+
+        Ok(())
     }
 
     fn derive_seed(&self, as_of: Date) -> u64 {

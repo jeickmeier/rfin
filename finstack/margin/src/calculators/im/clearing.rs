@@ -163,14 +163,10 @@ pub use super::ExternalImSource as CcpMarginInputSource;
 ///
 /// Provides CCP-specific initial-margin approximations for cleared derivatives.
 /// When a [`CcpMarginInputSource`] is attached, the calculator uses the
-/// externally supplied IM amount and optional MPOR override. Otherwise it falls
-/// back to a conservative placeholder computed from the absolute current MtM.
-///
-/// The fallback path is intentionally simpler than a real CCP model:
-/// `calculate()` reads `instrument.mtm_for_vm(...).abs()` and multiplies it by a
-/// decimal conservative rate loaded from the registry or built-in defaults.
-/// This makes the result a proxy for cleared IM, not a replication of a CCP VaR
-/// or SPAN engine.
+/// externally supplied IM amount and optional MPOR override. Otherwise it
+/// requires [`Marginable::im_exposure_base`] and scales that explicit CCP
+/// exposure base by a conservative rate. It refuses to use current MtM as a
+/// pseudo-notional.
 ///
 /// # Real-World Implementation
 ///
@@ -183,8 +179,7 @@ pub use super::ExternalImSource as CcpMarginInputSource;
 ///
 /// - `conservative_rate` values are decimal fractions, so `0.02` means 2%.
 /// - MPOR is expressed in calendar days.
-/// - The proxy fallback uses absolute current MtM as the exposure base, not
-///   regulatory notional or CCP scan risk.
+/// - The proxy fallback uses [`Marginable::im_exposure_base`], not current MtM.
 ///
 /// # Example
 ///
@@ -373,19 +368,34 @@ impl ImCalculator for ClearingHouseImCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        let mtm = instrument.mtm_for_vm(context, as_of)?;
-        let notional = Money::new(mtm.amount().abs(), mtm.currency());
-
-        let mut im_amount = self.calculate_conservative(notional);
         let mut mpor_days = self.params().mpor_days;
-        if let Some(source) = &self.input_source {
-            if let Some(amount) = source.external_initial_margin(instrument, context, as_of) {
-                im_amount = amount;
-            }
+        let im_amount = if let Some(source) = &self.input_source {
             if let Some(override_mpor) = source.external_mpor_days() {
                 mpor_days = override_mpor;
             }
-        }
+            match source.external_initial_margin(instrument, context, as_of) {
+                Some(amount) => amount,
+                None => {
+                    let exposure_base = super::require_im_exposure_base(
+                        "ClearingHouse",
+                        instrument,
+                        context,
+                        as_of,
+                        "an external IM source amount",
+                    )?;
+                    self.calculate_conservative(exposure_base)
+                }
+            }
+        } else {
+            let exposure_base = super::require_im_exposure_base(
+                "ClearingHouse",
+                instrument,
+                context,
+                as_of,
+                "an external IM source amount",
+            )?;
+            self.calculate_conservative(exposure_base)
+        };
 
         let mut breakdown = HashMap::default();
         breakdown.insert(self.methodology.to_string(), im_amount);
@@ -565,5 +575,23 @@ mod tests {
         assert_eq!(fallback.amount(), 2_000_000.0);
         assert_eq!(im.amount.amount(), 3_000_000.0);
         assert_eq!(im.mpor_days, 7);
+    }
+
+    #[test]
+    fn fails_closed_without_external_source_or_exposure_base() {
+        let calc = ClearingHouseImCalculator::lch_swapclear();
+        let instrument = TestInstrument::new(Money::new(0.0, Currency::USD));
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let err = calc
+            .calculate(&instrument, &market, as_of)
+            .expect_err("CCP IM must not use zero MtM as a notional proxy");
+
+        assert!(
+            err.to_string().contains("external IM source")
+                && err.to_string().contains("exposure base"),
+            "expected missing source/exposure-base error, got {err}"
+        );
     }
 }

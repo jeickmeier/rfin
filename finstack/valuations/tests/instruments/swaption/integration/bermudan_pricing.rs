@@ -349,7 +349,6 @@ fn build_market_context() -> MarketContext {
 }
 
 /// Test LSMC vs Tree: prices should be in same ballpark.
-#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_vs_tree_sanity() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -470,7 +469,6 @@ fn test_lsmc_vs_tree_sanity() {
 }
 
 /// Test LSMC determinism: same seed produces identical results.
-#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_determinism() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -508,7 +506,6 @@ fn test_lsmc_determinism() {
 }
 
 /// Test LSMC with different seeds produces different results.
-#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_different_seeds() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
@@ -547,7 +544,6 @@ fn test_lsmc_different_seeds() {
 }
 
 /// Test LSMC pricer key is correct.
-#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_pricer_key() {
     let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default());
@@ -600,7 +596,6 @@ fn test_tree_refuses_uncalibrated_default_when_require_calibration_set() {
 }
 
 /// Same guarantee on the LSMC path.
-#[cfg(feature = "mc")]
 #[test]
 fn test_lsmc_refuses_uncalibrated_default_when_require_calibration_set() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");
@@ -629,7 +624,6 @@ fn test_lsmc_refuses_uncalibrated_default_when_require_calibration_set() {
 /// successfully with the uncalibrated default. This preserves the
 /// existing direct-constructor behaviour for tests and bespoke
 /// workflows.
-#[cfg(feature = "mc")]
 #[test]
 fn test_permissive_default_still_prices_with_warning() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");
@@ -657,7 +651,6 @@ fn test_permissive_default_still_prices_with_warning() {
 /// With a calibrated (non-default) HullWhiteParams, `require_calibration`
 /// should be transparent — pricing succeeds just as it would without
 /// the flag.
-#[cfg(feature = "mc")]
 #[test]
 fn test_require_calibration_with_explicit_params_prices_successfully() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid");

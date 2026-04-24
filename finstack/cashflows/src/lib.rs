@@ -156,6 +156,7 @@ pub mod traits;
 
 /// Generic schedule-driven interest accrual engine.
 pub mod accrual;
+pub mod json;
 
 mod serde_defaults;
 
@@ -166,6 +167,10 @@ mod serde_defaults;
 pub use accrual::{accrued_interest_amount, AccrualConfig, AccrualMethod, ExCouponRule};
 pub use aggregation::RecoveryTiming;
 pub use builder::CashFlowBuilder;
+pub use json::{
+    accrued_interest_json, build_cashflow_schedule_json, dated_flows_json,
+    validate_cashflow_schedule_json, CashflowScheduleBuildSpec, DatedFlowJson, PrincipalEventSpec,
+};
 pub use traits::{
     schedule_from_classified_flows, schedule_from_dated_flows, CashflowProvider, ScheduleBuildOpts,
 };

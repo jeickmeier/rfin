@@ -196,7 +196,6 @@ impl LookbackOption {
             .build()
     }
     /// Calculate the net present value using Monte Carlo.
-    #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -241,20 +240,7 @@ impl crate::instruments::common_impl::traits::Instrument for LookbackOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         if self.use_gobet_miri {
-            #[cfg(feature = "mc")]
-            {
-                return self.npv_mc(market, as_of);
-            }
-            #[cfg(not(feature = "mc"))]
-            {
-                return Err(finstack_core::Error::Validation(
-                    "LookbackOption is configured for discrete monitoring correction \
-                     (use_gobet_miri=true), but Monte Carlo support is disabled. \
-                     Rebuild with feature `mc` or set use_gobet_miri=false for \
-                     continuous-monitoring analytical pricing."
-                        .to_string(),
-                ));
-            }
+            return self.npv_mc(market, as_of);
         }
 
         use crate::instruments::exotics::lookback_option::pricer::LookbackOptionAnalyticalPricer;

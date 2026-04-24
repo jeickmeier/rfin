@@ -1,4 +1,3 @@
-#![cfg(feature = "mc")]
 //! Property-based tests for revolving credit facilities.
 //!
 //! These tests use proptest to verify invariants hold across a wide range of inputs.
@@ -293,7 +292,7 @@ proptest! {
             seed: Some(42),
             antithetic: false,
             use_sobol_qmc: false,
-            #[cfg(feature = "mc")]
+
             mc_config: None,
         };
 

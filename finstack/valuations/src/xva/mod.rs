@@ -10,7 +10,6 @@ pub use types::{
     CsaTerms, ExposureDiagnostics, ExposureProfile, FundingConfig, XvaConfig, XvaNettingSet,
     XvaResult,
 };
-#[cfg(feature = "mc")]
 pub use types::{StochasticExposureConfig, StochasticExposureProfile};
 
 pub mod exposure {
@@ -44,13 +43,11 @@ pub mod exposure {
         )
     }
 
-    #[cfg(feature = "mc")]
     pub use finstack_margin::xva::exposure::compute_stochastic_exposure_profile;
 }
 
 pub use cva::{compute_bilateral_xva, compute_cva, compute_dva, compute_fva};
 pub use exposure::compute_exposure_profile;
-#[cfg(feature = "mc")]
 pub use exposure::compute_stochastic_exposure_profile;
 
 mod bridge;

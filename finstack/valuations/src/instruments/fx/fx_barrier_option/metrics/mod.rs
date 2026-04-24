@@ -7,7 +7,6 @@
 use crate::metrics::MetricRegistry;
 
 /// Register FX barrier option metrics with the registry.
-#[cfg(feature = "mc")]
 pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
@@ -26,24 +25,6 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::FxBarrierOption>::default()),
             (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::FxBarrierOption>::default()),
-        ]
-    }
-}
-
-/// Register FX barrier option metrics when MC feature is not available.
-#[cfg(not(feature = "mc"))]
-pub(crate) fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
-    use crate::pricer::InstrumentType;
-    crate::register_metrics! {
-        registry: registry,
-        instrument: InstrumentType::FxBarrierOption,
-        metrics: [
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::FxBarrierOption,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::FxBarrierOption,
-            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }
 }

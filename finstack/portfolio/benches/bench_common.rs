@@ -669,7 +669,8 @@ pub fn create_institutional_portfolio(num_positions: usize) -> Portfolio {
             expiry,
             expiry,
             maturity_5y(),
-        );
+        )
+        .expect("valid benchmark swaption params");
         let swaption = Swaption::new_payer(
             swaption_id.clone(),
             &params,

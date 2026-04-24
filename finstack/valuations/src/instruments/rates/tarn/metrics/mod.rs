@@ -3,11 +3,9 @@
 //! Provides DV01 and bucketed DV01 for TARN instruments.
 //! Full MC-based Greeks will be added when MC pricers are implemented.
 
-#[cfg(feature = "mc")]
 use crate::metrics::MetricRegistry;
 
 /// Register TARN metrics with the registry.
-#[cfg(feature = "mc")]
 pub fn register_tarn_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{Dv01CalculatorConfig, MetricId, UnifiedDv01Calculator};
     use crate::pricer::InstrumentType;

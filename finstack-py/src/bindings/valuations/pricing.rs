@@ -16,7 +16,8 @@ use pyo3::prelude::*;
 ///     Valuation date in ISO 8601 format (``"YYYY-MM-DD"``).
 /// model : str
 ///     Model key: ``"discounting"`` (default), ``"black76"``, ``"hazard_rate"``,
-///     ``"hull_white_1f"``, ``"tree"``, ``"normal"``, ``"monte_carlo_gbm"``, etc.
+///     ``"hull_white_1f"``, ``"tree"``, ``"normal"``, ``"monte_carlo_gbm"``,
+///     ``"bond_future_clean_price_proxy"``, etc.
 ///
 /// Returns
 /// -------

@@ -892,7 +892,6 @@ fn test_estimate_num_simulated_paths_defaults_and_propagates() {
 
 /// Antithetic pricing should produce `num_paths` estimators and
 /// `2 * num_paths` simulated paths. Without antithetics both counts match.
-#[cfg(feature = "mc")]
 #[test]
 fn test_engine_antithetic_records_simulated_path_count() {
     use crate::discretization::ExactGbm;
@@ -982,7 +981,6 @@ fn test_estimate_serde_backward_compatibility() {
 /// stochastic process's declared factor correlation to the shocks driving a
 /// scheme that does not apply correlation internally
 /// (see [`crate::traits::Discretization::applies_correlation_internally`]).
-#[cfg(feature = "mc")]
 mod correlation_regression {
     use super::*;
     use crate::discretization::{EulerMaruyama, ExactMultiGbmCorrelated, QeHeston};
