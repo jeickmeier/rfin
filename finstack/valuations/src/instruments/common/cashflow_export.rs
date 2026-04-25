@@ -248,18 +248,36 @@ fn build_envelope(
             envelope_currency = Some(ccy);
         }
 
-        let year_fraction = signed_year_fraction(as_of_date, flow.date, curve_dc, dc_ctx)?;
-        let discount_factor = discount.df(year_fraction);
+        let year_fraction = curve_dc.signed_year_fraction(as_of_date, flow.date, dc_ctx)?;
 
-        let (survival_probability, conditional_default_prob) = match hazard_arc.as_ref() {
-            Some(h) => {
-                let sp = h.sp(year_fraction);
-                let cond_pd = (prev_sp - sp).max(0.0);
-                prev_sp = sp;
-                (Some(sp), Some(cond_pd))
-            }
-            None => (None, None),
-        };
+        // Past-dated flows (date < as_of) are already settled. Calling
+        // `discount.df(t)` with negative t extrapolates the curve backwards and
+        // can return DF > 1, overstating the export's PV column. Survival
+        // probability has the same problem.  Treat past flows as undiscounted
+        // face value with no default adjustment so the audit trail matches the
+        // holder-view PV semantics used by `Instrument::value`.
+        let (discount_factor, survival_probability, conditional_default_prob) =
+            if year_fraction < 0.0 {
+                let sp = if hazard_arc.is_some() {
+                    Some(1.0)
+                } else {
+                    None
+                };
+                let cond_pd = sp.map(|_| 0.0);
+                (1.0, sp, cond_pd)
+            } else {
+                let df = discount.df(year_fraction);
+                let (sp, cond_pd) = match hazard_arc.as_ref() {
+                    Some(h) => {
+                        let sp = h.sp(year_fraction);
+                        let cond_pd = (prev_sp - sp).max(0.0);
+                        prev_sp = sp;
+                        (Some(sp), Some(cond_pd))
+                    }
+                    None => (None, None),
+                };
+                (df, sp, cond_pd)
+            };
 
         let pv = compute_pv(
             flow.kind,
@@ -293,7 +311,18 @@ fn build_envelope(
         });
     }
 
-    let currency = envelope_currency.unwrap_or(Currency::USD);
+    // The reporting currency comes from the schedule's flows. An empty
+    // schedule (or one whose currency couldn't be inferred for any other
+    // reason) is a real problem for an XccySwap / FxSwap export, where a
+    // silent USD default would mis-tag `total_pv` against the wrong unit.
+    // Fail loudly instead.
+    let currency = envelope_currency.ok_or_else(|| {
+        Error::Validation(format!(
+            "instrument_cashflows: cannot determine reporting currency for instrument '{instrument_id}' \
+             — schedule has no flows with a currency stamp. \
+             This typically indicates a corrupt or empty cashflow schedule."
+        ))
+    })?;
 
     Ok(InstrumentCashflowEnvelope {
         instrument_id,
@@ -352,23 +381,11 @@ fn compute_pv(
     amount * df * (sp + recovery_term)
 }
 
-/// Signed year fraction from `as_of` to `date` under `dc`. Negative when the
-/// cashflow date precedes `as_of`, matching the credit-adjusted PV aggregation
-/// convention used elsewhere in the cashflow pipeline.
-fn signed_year_fraction(
-    as_of: Date,
-    date: Date,
-    dc: finstack_core::dates::DayCount,
-    dc_ctx: DayCountContext,
-) -> Result<f64> {
-    if date == as_of {
-        Ok(0.0)
-    } else if date > as_of {
-        dc.year_fraction(as_of, date, dc_ctx)
-    } else {
-        Ok(-dc.year_fraction(date, as_of, dc_ctx)?)
-    }
-}
+// Removed: local `signed_year_fraction` helper. The canonical method
+// `finstack_core::DayCount::signed_year_fraction(start, end, ctx)` provides
+// identical semantics (negative when `end < start`, zero on equality, positive
+// when `end > start`) and propagates day-count failures via `Result`. Callers
+// in this file now use it directly.
 
 // ---------------------------------------------------------------------------
 // Silence unused imports when built without dependent instruments in scope.

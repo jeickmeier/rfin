@@ -5,7 +5,7 @@
 //! Returns a [`PdeSolution2D`] with bilinear interpolation and finite-difference
 //! Greeks.
 
-use super::adi::{fill_boundaries, CraigSneydStepper};
+use super::adi::{fill_boundaries, AdiWorkBuffers, CraigSneydStepper};
 use super::grid::{find_interval, find_nearest};
 use super::grid2d::Grid2D;
 use super::problem2d::PdeProblem2D;
@@ -110,8 +110,13 @@ impl Solver2D {
         let levels = self.stepper.time_levels(maturity);
         let n_steps = self.stepper.n_steps();
 
+        // Pre-allocate ADI scratch buffers once per solve and reuse across all
+        // timesteps. The previous implementation allocated six Vecs per step,
+        // costing O(n_steps) allocations on hot pricing paths.
+        let mut buffers = AdiWorkBuffers::for_grid(&self.grid);
+
         for step in 0..n_steps {
-            self.stepper.step(
+            self.stepper.step_with_buffers(
                 problem,
                 &self.grid,
                 &mut u_full,
@@ -119,6 +124,7 @@ impl Solver2D {
                 levels[step],
                 levels[step + 1],
                 step,
+                &mut buffers,
             );
         }
 

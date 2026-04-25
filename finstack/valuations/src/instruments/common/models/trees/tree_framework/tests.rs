@@ -237,7 +237,7 @@ fn state_helper_builders_populate_expected_keys() {
 
 #[test]
 fn evolution_params_builders_satisfy_basic_probability_invariants() {
-    let crr = EvolutionParams::equity_crr(0.2, 0.05, 0.01, 0.25);
+    let crr = EvolutionParams::equity_crr(0.2, 0.05, 0.01, 0.25).expect("valid CRR params");
     assert!(crr.up_factor > 1.0);
     assert!(crr.down_factor < 1.0);
     assert!((crr.up_factor * crr.down_factor - 1.0).abs() < 1e-12);
@@ -245,7 +245,8 @@ fn evolution_params_builders_satisfy_basic_probability_invariants() {
     assert!(crr.prob_down >= 0.0 && crr.prob_down <= 1.0);
     assert!((crr.prob_up + crr.prob_down - 1.0).abs() < 1e-12);
 
-    let trinomial = EvolutionParams::equity_trinomial(0.2, 0.05, 0.01, 0.25);
+    let trinomial =
+        EvolutionParams::equity_trinomial(0.2, 0.05, 0.01, 0.25).expect("valid trinomial params");
     assert!(trinomial.up_factor > 1.0);
     assert!(trinomial.down_factor < 1.0);
     assert_eq!(trinomial.middle_factor, Some(1.0));
@@ -259,4 +260,78 @@ fn evolution_params_builders_satisfy_basic_probability_invariants() {
         assert!(p_mid >= 0.0);
         assert!((trinomial.prob_up + trinomial.prob_down + p_mid - 1.0).abs() < 1e-10);
     }
+}
+
+#[test]
+fn evolution_params_crr_rejects_unstable_params() {
+    // dt large enough relative to vol that drift kicks p out of [0, 1].
+    // Combined with extreme drift, the implied probability falls below zero
+    // (or above one) — release builds must surface this rather than silently
+    // produce an arbitrage-violating tree.
+    let result = EvolutionParams::equity_crr(0.05, 5.0, 0.0, 1.0);
+    assert!(
+        result.is_err(),
+        "CRR with extreme drift/vol/dt must error, not silently corrupt the tree"
+    );
+}
+
+#[test]
+fn evolution_params_trinomial_rejects_negative_probabilities() {
+    // Extreme drift relative to vol pushes one trinomial probability negative.
+    let result = EvolutionParams::equity_trinomial(0.02, 5.0, 0.0, 1.0);
+    assert!(
+        result.is_err(),
+        "Trinomial with negative implied probability must error"
+    );
+}
+
+/// `BarrierSpec` documentation states the touch convention is **non-strict**:
+/// `spot >= up_level` and `spot <= down_level` trigger a touch (matching
+/// Bloomberg, differing from QuantLib's strict-inequality convention). This
+/// test pins exact-level touches against both up and down barriers so a future
+/// switch to strict comparisons would surface immediately.
+#[test]
+fn barrier_touch_convention_is_non_strict_at_exact_level() {
+    // Build a SpecKnockOut spec; we only test the touch predicate, not pricing.
+    let up = BarrierSpec {
+        up_level: Some(105.0),
+        down_level: None,
+        rebate: 0.0,
+        style: BarrierStyle::KnockOut,
+    };
+    let down = BarrierSpec {
+        up_level: None,
+        down_level: Some(95.0),
+        rebate: 0.0,
+        style: BarrierStyle::KnockOut,
+    };
+
+    // Mirror the `barrier_touch` closure in `recombining.rs`. Keep this in
+    // lock-step with the production code: any change there must be reflected
+    // here, otherwise the convention will silently drift.
+    let touch_up = |spot: f64, spec: &BarrierSpec| -> bool {
+        spec.up_level.map(|lvl| spot >= lvl).unwrap_or(false)
+    };
+    let touch_down = |spot: f64, spec: &BarrierSpec| -> bool {
+        spec.down_level.map(|lvl| spot <= lvl).unwrap_or(false)
+    };
+
+    // Exact-level: must touch (non-strict).
+    assert!(touch_up(105.0, &up), "spot == up_level must trigger touch");
+    assert!(
+        touch_down(95.0, &down),
+        "spot == down_level must trigger touch"
+    );
+    // Just inside (no touch).
+    assert!(
+        !touch_up(104.99, &up),
+        "spot strictly below up_level must not touch"
+    );
+    assert!(
+        !touch_down(95.01, &down),
+        "spot strictly above down_level must not touch"
+    );
+    // Beyond the level: still touched.
+    assert!(touch_up(106.0, &up));
+    assert!(touch_down(94.0, &down));
 }

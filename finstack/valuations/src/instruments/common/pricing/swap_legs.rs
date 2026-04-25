@@ -257,26 +257,10 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 /// ```
 #[inline]
 pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Result<f64> {
-    // Use date-based DF calculation which internally handles as_of != base_date scenarios
-    let df = disc.df_between_dates(as_of, target)?;
-
-    // Validate the result DF (not the intermediate as_of DF)
-    if !df.is_finite() {
-        return Err(finstack_core::Error::Validation(format!(
-            "Discount factor between {} and {} is not finite (df={:?}). \
-             This may indicate extreme rate scenarios or curve extrapolation issues.",
-            as_of, target, df
-        )));
-    }
-    if df <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "Discount factor between {} and {} is non-positive (df={:.3e}) which is non-physical. \
-             Check curve construction and rate levels.",
-            as_of, target, df
-        )));
-    }
-
-    Ok(df)
+    // Single source of truth lives in `pricing::time::relative_df_discount_curve`;
+    // this name is retained for the swap-leg call sites and docstrings that
+    // pre-date the consolidation.
+    crate::instruments::common_impl::pricing::time::relative_df_discount_curve(disc, as_of, target)
 }
 
 /// Apply a payment-delay in business days using an optional holiday calendar.
@@ -745,10 +729,14 @@ where
         // Determine the index rate: use historical fixing if reset is in the past,
         // otherwise project from the forward curve
         let index_rate = if reset_date < as_of {
-            // Past reset: require historical fixing (exact date match for term resets)
+            // Past reset: require historical fixing (exact date match for term resets).
+            // Pass the actual forward-curve identifier so the resulting validation
+            // error tells the operator which index reset is missing — at 2 AM,
+            // "fixing required for 'floating-leg' on 2025-04-15" is unactionable;
+            // "fixing required for 'USD-SOFR-3M' on 2025-04-15" is.
             finstack_core::market_data::fixings::require_fixing_value_exact(
                 fixings,
-                "floating-leg",
+                fwd.id().as_str(),
                 reset_date,
                 as_of,
             )?

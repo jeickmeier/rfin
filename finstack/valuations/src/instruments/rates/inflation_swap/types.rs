@@ -4,7 +4,6 @@ use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
-use crate::instruments::common_impl::helpers::signed_year_fraction;
 use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
@@ -248,7 +247,12 @@ impl InflationSwap {
         let default_anchor =
             Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         if curve.base_date() == default_anchor {
-            let t = signed_year_fraction(DayCount::Act365F, fallback_base, lookup_date);
+            // Anchor curves degrade to `t = 0` on day-count failure; this
+            // matches `cpi(0)` returning the anchor value. Silent fallback is
+            // intentional but kept visible at the call site.
+            let t = DayCount::Act365F
+                .signed_year_fraction(fallback_base, lookup_date, DayCountContext::default())
+                .unwrap_or(0.0);
             Ok(curve.cpi(t))
         } else {
             curve.cpi_on_date(lookup_date)

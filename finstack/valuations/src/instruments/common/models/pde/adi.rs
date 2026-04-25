@@ -33,6 +33,76 @@ use super::grid2d::Grid2D;
 use super::operator2d::{apply_cross_derivative, Operators2D};
 use super::problem2d::PdeProblem2D;
 
+/// Reusable per-step scratch buffers for Craig-Sneyd ADI.
+///
+/// Sized to the largest grid the caller intends to step. Reusing this across
+/// timesteps (and across grids of identical shape) lets `Solver2D` skip the
+/// six allocations the previous implementation performed every call to
+/// [`CraigSneydStepper::step_with_buffers`].
+#[derive(Clone, Default)]
+pub struct AdiWorkBuffers {
+    x_line: Vec<f64>,
+    y_line: Vec<f64>,
+    line_out: Vec<f64>,
+    rhs_buf: Vec<f64>,
+    y0: Vec<f64>,
+    y1: Vec<f64>,
+    ax_u: Vec<f64>,
+    ay_u: Vec<f64>,
+}
+
+impl AdiWorkBuffers {
+    /// Pre-allocate buffers sized to a particular grid.
+    pub fn for_grid(grid: &Grid2D) -> Self {
+        let nx_int = grid.nx_interior();
+        let ny_int = grid.ny_interior();
+        let interior = nx_int * ny_int;
+        let line_max = nx_int.max(ny_int);
+        Self {
+            x_line: vec![0.0; nx_int],
+            y_line: vec![0.0; ny_int],
+            line_out: vec![0.0; line_max],
+            rhs_buf: vec![0.0; line_max],
+            y0: vec![0.0; interior],
+            y1: vec![0.0; interior],
+            ax_u: vec![0.0; interior],
+            ay_u: vec![0.0; interior],
+        }
+    }
+
+    /// Resize all buffers in place if the grid shape changed.
+    fn resize_for(&mut self, grid: &Grid2D) {
+        let nx_int = grid.nx_interior();
+        let ny_int = grid.ny_interior();
+        let interior = nx_int * ny_int;
+        let line_max = nx_int.max(ny_int);
+        if self.x_line.len() != nx_int {
+            self.x_line.resize(nx_int, 0.0);
+        }
+        if self.y_line.len() != ny_int {
+            self.y_line.resize(ny_int, 0.0);
+        }
+        if self.line_out.len() != line_max {
+            self.line_out.resize(line_max, 0.0);
+        }
+        if self.rhs_buf.len() != line_max {
+            self.rhs_buf.resize(line_max, 0.0);
+        }
+        if self.y0.len() != interior {
+            self.y0.resize(interior, 0.0);
+        }
+        if self.y1.len() != interior {
+            self.y1.resize(interior, 0.0);
+        }
+        if self.ax_u.len() != interior {
+            self.ax_u.resize(interior, 0.0);
+        }
+        if self.ay_u.len() != interior {
+            self.ay_u.resize(interior, 0.0);
+        }
+    }
+}
+
 /// Craig-Sneyd ADI time stepper for 2D problems.
 ///
 /// Supports both standard Craig-Sneyd (`theta = 0.5`) and a Rannacher-like
@@ -81,6 +151,9 @@ impl CraigSneydStepper {
 
     /// Execute one Craig-Sneyd ADI step from `t_from` to `t_to` (backward).
     ///
+    /// Allocates fresh work buffers on every call; prefer
+    /// [`CraigSneydStepper::step_with_buffers`] when stepping in a loop.
+    ///
     /// `u_full` is the full (boundary-inclusive) solution of length `nx * ny`.
     /// `u_int` is the interior solution of length `nx_int * ny_int` (row-major).
     /// Both are updated in place.
@@ -95,6 +168,33 @@ impl CraigSneydStepper {
         t_to: f64,
         step_index: usize,
     ) {
+        let mut buffers = AdiWorkBuffers::for_grid(grid);
+        self.step_with_buffers(
+            problem,
+            grid,
+            u_full,
+            u_int,
+            t_from,
+            t_to,
+            step_index,
+            &mut buffers,
+        );
+    }
+
+    /// Like [`CraigSneydStepper::step`], but reuses caller-owned scratch
+    /// buffers instead of allocating six fresh `Vec`s on every call.
+    #[allow(clippy::too_many_arguments)]
+    pub fn step_with_buffers(
+        &self,
+        problem: &dyn PdeProblem2D,
+        grid: &Grid2D,
+        u_full: &mut [f64],
+        u_int: &mut [f64],
+        t_from: f64,
+        t_to: f64,
+        step_index: usize,
+        buffers: &mut AdiWorkBuffers,
+    ) {
         let dt = t_from - t_to;
         debug_assert!(dt > 0.0);
 
@@ -107,6 +207,18 @@ impl CraigSneydStepper {
         let nx_int = grid.nx_interior();
         let ny_int = grid.ny_interior();
 
+        buffers.resize_for(grid);
+        let AdiWorkBuffers {
+            x_line,
+            y_line,
+            line_out,
+            rhs_buf,
+            y0,
+            y1,
+            ax_u,
+            ay_u,
+        } = buffers;
+
         // Assemble operators at t_from (for the explicit evaluation)
         let ops = Operators2D::assemble(problem, grid, t_from);
 
@@ -114,22 +226,12 @@ impl CraigSneydStepper {
         // Y_0 = u^n + dt * (A_x * u^n + A_y * u^n + A_xy * u^n + c * u^n)
         let cross = apply_cross_derivative(&ops.cross_deriv, u_full, grid);
 
-        // Pre-allocate work buffers (reused across loop iterations)
-        let mut x_line = vec![0.0; nx_int];
-        let mut y_line = vec![0.0; ny_int];
-        let mut line_out = vec![0.0; nx_int.max(ny_int)];
-        let mut rhs_buf = vec![0.0; nx_int.max(ny_int)];
-
-        let mut y0 = vec![0.0; nx_int * ny_int];
-        let mut ax_u = vec![0.0; nx_int * ny_int];
-        let mut ay_u = vec![0.0; nx_int * ny_int];
-
         // Compute A_x * u^n for each y-line
         for jj in 0..ny_int {
             for ii in 0..nx_int {
                 x_line[ii] = u_int[ii * ny_int + jj];
             }
-            ops.op_x[jj].apply_into(&x_line, &mut line_out[..nx_int]);
+            ops.op_x[jj].apply_into(x_line, &mut line_out[..nx_int]);
             for ii in 0..nx_int {
                 ax_u[ii * ny_int + jj] = line_out[ii];
             }
@@ -140,7 +242,7 @@ impl CraigSneydStepper {
             for jj in 0..ny_int {
                 y_line[jj] = u_int[ii * ny_int + jj];
             }
-            ops.op_y[ii].apply_into(&y_line, &mut line_out[..ny_int]);
+            ops.op_y[ii].apply_into(y_line, &mut line_out[..ny_int]);
             for jj in 0..ny_int {
                 ay_u[ii * ny_int + jj] = line_out[jj];
             }
@@ -163,7 +265,6 @@ impl CraigSneydStepper {
         };
 
         let alpha_x = theta * dt;
-        let mut y1 = vec![0.0; nx_int * ny_int];
 
         for jj in 0..ny_int {
             for ii in 0..nx_int {
@@ -199,7 +300,7 @@ impl CraigSneydStepper {
         }
 
         // Update interior solution
-        u_int.copy_from_slice(&y0);
+        u_int.copy_from_slice(y0);
 
         // Reconstruct full solution from interior + boundary conditions
         fill_boundaries(problem, grid, u_full, u_int, t_to);

@@ -1,5 +1,6 @@
 //! Par spread calculator for equity TRS.
 
+use crate::instruments::common_impl::pricing::swap_legs::ANNUITY_EPSILON;
 use crate::instruments::common_impl::pricing::TrsEngine;
 use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -29,10 +30,12 @@ impl MetricCalculator for ParSpreadCalculator {
         let as_of = context.as_of;
 
         let annuity = trs.financing_annuity(curves, as_of)?;
-        if annuity.abs() < 1e-10 {
-            return Err(Error::Validation(
-                "Financing annuity too small for par spread calculation".into(),
-            ));
+        if annuity.abs() < ANNUITY_EPSILON {
+            return Err(Error::Validation(format!(
+                "Equity TRS par spread: financing annuity {annuity:.3e} below \
+                 ANNUITY_EPSILON ({ANNUITY_EPSILON:.0e}). Division would amplify rounding \
+                 noise into the par spread."
+            )));
         }
 
         let tr_pv = trs.pv_total_return_leg(curves, as_of)?;
