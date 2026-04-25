@@ -582,9 +582,19 @@ pub struct ScheduleBuilder<'a> {
     freq: Tenor,
     stub: StubKind,
     conv: Option<BusinessDayConvention>,
+    /// Borrowed calendar (set by [`adjust_with`](Self::adjust_with)).
+    /// Mutually exclusive with [`Self::deferred_calendar_id`].
     cal: Option<&'a dyn HolidayCalendar>,
-    /// Pending calendar ID from `adjust_with_id` - resolved at build time.
-    pending_calendar_id: Option<String>,
+    /// Calendar ID to be resolved at [`build`](Self::build) time.
+    ///
+    /// Set by [`adjust_with_id`](Self::adjust_with_id) when the caller has a
+    /// string ID rather than a borrowed `&dyn HolidayCalendar`. Deferred
+    /// resolution is intentional: it lets the build path apply
+    /// [`ScheduleErrorPolicy`] uniformly (strict / warning / graceful) when
+    /// the registry lookup fails, instead of forcing every binding caller
+    /// (Python, WASM) to thread the registry + error-policy themselves.
+    /// Mutually exclusive with [`Self::cal`].
+    deferred_calendar_id: Option<String>,
     eom: bool,
     /// Standard IMM mode (third Wednesday of Mar/Jun/Sep/Dec) for futures.
     imm_mode: bool,
@@ -627,7 +637,7 @@ impl<'a> ScheduleBuilder<'a> {
             stub: StubKind::None,
             conv: None,
             cal: None,
-            pending_calendar_id: None,
+            deferred_calendar_id: None,
             eom: false,
             imm_mode: false,
             cds_imm_mode: false,
@@ -859,7 +869,7 @@ impl<'a> ScheduleBuilder<'a> {
     #[must_use]
     pub fn adjust_with_id(mut self, conv: BusinessDayConvention, calendar_id: &str) -> Self {
         self.conv = Some(conv);
-        self.pending_calendar_id = Some(calendar_id.to_string());
+        self.deferred_calendar_id = Some(calendar_id.to_string());
         self
     }
 
@@ -907,7 +917,7 @@ impl<'a> ScheduleBuilder<'a> {
 
         // Resolve pending calendar ID if present, otherwise use directly provided calendar
         let resolved_cal: Option<&dyn HolidayCalendar> =
-            if let Some(ref calendar_id) = self.pending_calendar_id {
+            if let Some(ref calendar_id) = self.deferred_calendar_id {
                 match calendar_by_id(calendar_id) {
                     Some(cal) => Some(cal),
                     None => {

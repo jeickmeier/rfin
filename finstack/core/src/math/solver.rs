@@ -53,16 +53,22 @@
 //!
 //! # References
 //!
+//! See [`docs/REFERENCES.md`](../../../../docs/REFERENCES.md) for canonical
+//! anchors:
+//!
 //! - **Newton-Raphson**:
 //!   - Press, W. H., et al. (2007). *Numerical Recipes: The Art of Scientific Computing*
 //!     (3rd ed.). Cambridge University Press. Section 9.4.
+//!     ([`press-numerical-recipes`](../../../../docs/REFERENCES.md#press-numerical-recipes))
 //!   - Burden, R. L., & Faires, J. D. (2010). *Numerical Analysis* (9th ed.).
 //!     Brooks/Cole. Section 2.3.
 //!
 //! - **Brent's Method**:
 //!   - Brent, R. P. (1973). *Algorithms for Minimization without Derivatives*.
 //!     Prentice-Hall. Chapter 4.
+//!     ([`brent-1973`](../../../../docs/REFERENCES.md#brent-1973))
 //!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.3.
+//!     ([`press-numerical-recipes`](../../../../docs/REFERENCES.md#press-numerical-recipes))
 
 use crate::Result;
 
@@ -484,6 +490,14 @@ impl NewtonSolver {
             last_fx = fx;
 
             if !fx.is_finite() {
+                tracing::warn!(
+                    algorithm = "newton",
+                    iteration,
+                    last_x = x,
+                    residual = fx,
+                    category = "non_finite_function",
+                    "newton: bailout — function returned non-finite value"
+                );
                 return Err(InputError::SolverConvergenceFailed {
                     iterations: iteration,
                     residual: fx,
@@ -502,6 +516,15 @@ impl NewtonSolver {
             last_fpx = fpx;
 
             if !fpx.is_finite() {
+                tracing::warn!(
+                    algorithm = "newton",
+                    iteration,
+                    last_x = x,
+                    residual = fx.abs(),
+                    derivative = fpx,
+                    category = "non_finite_derivative",
+                    "newton: bailout — derivative returned non-finite value"
+                );
                 return Err(InputError::SolverConvergenceFailed {
                     iterations: iteration,
                     residual: fx.abs(),
@@ -514,6 +537,16 @@ impl NewtonSolver {
             // Reject when derivative is too small (absolute OR relative to function value)
             // to prevent divergent Newton steps where f/f' overflows
             if fpx.abs() < self.min_derivative || fpx.abs() < self.min_derivative_rel * fx.abs() {
+                tracing::warn!(
+                    algorithm = "newton",
+                    iteration,
+                    last_x = x,
+                    residual = fx.abs(),
+                    derivative_abs = fpx.abs(),
+                    min_derivative = self.min_derivative,
+                    category = "derivative_too_small",
+                    "newton: bailout — derivative too small for stable Newton step"
+                );
                 return Err(InputError::SolverConvergenceFailed {
                     iterations: iteration,
                     residual: fx.abs(),
@@ -537,6 +570,16 @@ impl NewtonSolver {
             x = x_new;
         }
 
+        tracing::warn!(
+            algorithm = "newton",
+            iterations = self.max_iterations,
+            last_x = x,
+            residual = last_fx.abs(),
+            last_derivative = last_fpx,
+            tolerance = self.tolerance,
+            category = "max_iterations_exceeded",
+            "newton: bailout — max iterations reached without convergence"
+        );
         Err(InputError::SolverConvergenceFailed {
             iterations: self.max_iterations,
             residual: last_fx.abs(),
@@ -812,6 +855,19 @@ impl BrentSolver {
             return Ok((a, b));
         }
 
+        tracing::warn!(
+            algorithm = "brent_bracket_search",
+            iterations = expansion_iterations,
+            initial_guess,
+            a,
+            b,
+            fa,
+            fb,
+            bracket_min = self.bracket_min,
+            bracket_max = self.bracket_max,
+            category = "no_sign_change",
+            "brent: bailout — no sign change found within bracket bounds"
+        );
         Err(InputError::SolverConvergenceFailed {
             iterations: expansion_iterations,
             residual: fa.abs().min(fb.abs()),
@@ -900,6 +956,15 @@ impl BrentSolver {
         }
         // Require a valid bracket
         if flo.signum() == fhi.signum() {
+            tracing::warn!(
+                algorithm = "brent",
+                lo,
+                hi,
+                flo,
+                fhi,
+                category = "invalid_bracket_same_sign",
+                "brent: bailout — bracket endpoints have same sign"
+            );
             return Err(InputError::SolverConvergenceFailed {
                 iterations: 0,
                 residual: flo.abs().min(fhi.abs()),
@@ -1000,6 +1065,15 @@ impl BrentSolver {
         }
 
         // Max iterations reached without convergence - return error
+        tracing::warn!(
+            algorithm = "brent",
+            iterations = self.max_iterations,
+            last_x = b,
+            residual = fb.abs(),
+            tolerance = self.tolerance,
+            category = "max_iterations_exceeded",
+            "brent: bailout — max iterations reached without convergence"
+        );
         Err(InputError::SolverConvergenceFailed {
             iterations: self.max_iterations,
             residual: fb.abs(),

@@ -42,6 +42,13 @@ use super::types::{ExtrapolationPolicy, DERIVATIVE_EPSILON};
 /// # Ok(())
 /// # }
 /// ```
+// API STABILITY: `InterpFn` is implemented by a single generic blanket
+// `impl<S: InterpolationStrategy> InterpFn for Interpolator<S>` (see
+// `generic.rs`). Each concrete strategy — `LinearStrategy`, `LogLinearStrategy`,
+// `MonotoneConvexStrategy`, `CubicHermiteStrategy`,
+// `PiecewiseQuadraticForwardStrategy` — produces a distinct concrete impl.
+// The "1 impl" count is misleading; the trait is the polymorphic boundary
+// that powers `Box<dyn InterpFn>` in `style.build_boxed(...)`. Keep.
 pub trait InterpFn: Send + Sync + Debug {
     /// Interpolate at coordinate `x`.
     ///

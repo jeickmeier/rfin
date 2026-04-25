@@ -32,10 +32,14 @@
 //!
 //! # References
 //!
+//! See [`docs/REFERENCES.md`](../../../../docs/REFERENCES.md) for canonical
+//! anchors:
+//!
 //! - **Gaussian Quadrature**:
 //!   - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
 //!     Chapter 25 (Numerical Integration).
 //!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 4.5.
+//!     ([`press-numerical-recipes`](../../../../docs/REFERENCES.md#press-numerical-recipes))
 //!
 //! - **Adaptive Methods**:
 //!   - Davis, P. J., & Rabinowitz, P. (1984). *Methods of Numerical Integration*

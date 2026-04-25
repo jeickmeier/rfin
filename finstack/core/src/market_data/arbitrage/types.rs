@@ -41,6 +41,12 @@ pub enum ArbitrageType {
 }
 
 /// Categorical severity of an arbitrage violation.
+///
+/// Severity is a *function of magnitude relative to tolerance*, not of
+/// arbitrage type. The same `Butterfly` violation can be `Negligible` (a
+/// rounding artifact at deep wings) or `Critical` (negative density at ATM).
+/// Use the `Ord` derive to filter or sort: `Negligible` < `Minor` < `Major`
+/// < `Critical`.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
@@ -106,7 +112,22 @@ pub struct ArbitrageReport {
     /// Count of violations by severity.
     pub counts_by_severity: HashMap<ArbitrageSeverity, usize>,
     /// Wall-clock time for the full check suite (microseconds).
+    ///
+    /// **Non-deterministic.** This field is populated from the host's
+    /// monotonic clock and varies between runs. It is excluded from serde
+    /// when zero (which is also the default after deserialization), so
+    /// golden-test snapshots remain reproducible: serialize sets the field
+    /// only on freshly-computed reports, and the field is dropped from
+    /// the wire format when the report is round-tripped from a snapshot.
+    /// Use [`Self::skip_elapsed`] to drop it explicitly when comparing.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub elapsed_us: u64,
+}
+
+/// Helper for `#[serde(skip_serializing_if = ...)]`.
+#[inline]
+fn is_zero_u64(v: &u64) -> bool {
+    *v == 0
 }
 
 impl ArbitrageReport {
@@ -121,5 +142,16 @@ impl ArbitrageReport {
     /// True if any violation is at or above the given severity.
     pub fn has_violations_above(&self, min: ArbitrageSeverity) -> bool {
         self.violations.iter().any(|v| v.severity >= min)
+    }
+
+    /// Return a copy of this report with `elapsed_us` zeroed.
+    ///
+    /// Use when comparing reports against deterministic snapshots: clock
+    /// readings vary between runs and would otherwise cause golden-test
+    /// false negatives.
+    #[must_use]
+    pub fn skip_elapsed(mut self) -> Self {
+        self.elapsed_us = 0;
+        self
     }
 }

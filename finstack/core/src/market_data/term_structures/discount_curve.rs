@@ -665,6 +665,18 @@ impl DiscountCurve {
     /// Rebuild only the interpolator from the current knots and discount factors.
     ///
     /// Skips sort/validation -- caller must ensure data invariants hold.
+    ///
+    /// # Performance
+    ///
+    /// This call clones `self.knots` and `self.dfs` (both `Box<[f64]>`) into
+    /// a fresh interpolator, since the interpolator consumes its inputs.
+    /// On scenario × pillar × curve bump cycles this is on the hot path
+    /// (one clone-pair per bump). The planned long-term fix is to migrate
+    /// the storage type to `Arc<[f64]>` and make the interpolator accept
+    /// `Arc<[f64]>` so this clone becomes a refcount bump; that touches
+    /// ~47 call sites across `math::interp` and all curve types and is
+    /// deferred to a follow-up change-set, gated by the contention
+    /// benchmarks (`benches/curve_bumps_parallel.rs`, future).
     fn rebuild_interp(&mut self) -> crate::Result<()> {
         self.interp = super::common::build_interp_input_error(
             self.style,
@@ -972,13 +984,9 @@ impl DiscountCurve {
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         let id: CurveId = id.into();
         let day_count = infer_discount_curve_day_count(id.as_str());
-        // Epoch date - unwrap_or provides defensive fallback for infallible operation
-        let base =
-            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         DiscountCurveBuilder {
             id,
-            base,
-            base_is_set: false,
+            base: None,
             day_count,
             points: Vec::new(),
             style: InterpStyle::MonotoneConvex,
@@ -1193,8 +1201,9 @@ pub enum ValidationMode {
 /// ```
 pub struct DiscountCurveBuilder {
     pub(crate) id: CurveId,
-    pub(crate) base: Date,
-    pub(crate) base_is_set: bool,
+    /// Valuation / base date. `None` until [`Self::base_date`] is called;
+    /// [`Self::build`] requires `Some(_)` and errors on `None`.
+    pub(crate) base: Option<Date>,
     pub(crate) day_count: DayCount,
     pub(crate) points: Vec<(f64, f64)>, // (t, df)
     pub(crate) style: InterpStyle,
@@ -1207,8 +1216,7 @@ pub struct DiscountCurveBuilder {
 impl DiscountCurveBuilder {
     /// Override the default **base date** (valuation date).
     pub fn base_date(mut self, d: Date) -> Self {
-        self.base = d;
-        self.base_is_set = true;
+        self.base = Some(d);
         self
     }
     /// Choose the day-count basis for discount time mapping.
@@ -1427,6 +1435,9 @@ impl DiscountCurveBuilder {
     /// For general use, prefer [`Self::build`] which includes full validation.
     #[doc(hidden)]
     pub fn build_for_solver(self) -> crate::Result<DiscountCurve> {
+        let base = self
+            .base
+            .ok_or(crate::error::InputError::Invalid)?;
         if self.points.len() < 2 {
             return Err(crate::error::InputError::TooFewPoints.into());
         }
@@ -1450,7 +1461,7 @@ impl DiscountCurveBuilder {
 
         Ok(DiscountCurve {
             id: self.id,
-            base: self.base,
+            base,
             day_count: self.day_count,
             knots,
             dfs,
@@ -1468,9 +1479,9 @@ impl DiscountCurveBuilder {
     /// If the first knot time is `> 0.0`, automatically prepends `(0.0, 1.0)` to
     /// ensure the round-trip invariant `DF(0) = 1.0` (ISDA/QuantLib standard).
     pub fn build(mut self) -> crate::Result<DiscountCurve> {
-        if !self.base_is_set {
-            return Err(crate::error::InputError::Invalid.into());
-        }
+        let base = self
+            .base
+            .ok_or(crate::error::InputError::Invalid)?;
         if !self.points.is_empty() {
             self.points.sort_by(|a, b| a.0.total_cmp(&b.0));
             let first_t = self.points[0].0;
@@ -1512,7 +1523,7 @@ impl DiscountCurveBuilder {
 
         Ok(DiscountCurve {
             id: self.id,
-            base: self.base,
+            base,
             day_count: self.day_count,
             knots,
             dfs,

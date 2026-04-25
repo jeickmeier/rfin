@@ -366,6 +366,12 @@ pub trait Forward: TermStructure {
 /// let sp_1y = curve.sp(1.0);
 /// assert!(sp_1y < 1.0 && sp_1y > 0.0); // Survival prob decreases over time
 /// ```
+// API STABILITY: this trait has only one in-crate implementor (`HazardCurve`)
+// today, but it is consumed polymorphically through `&dyn Survival` in
+// `finstack-valuations` (see
+// `valuations/src/instruments/fixed_income/revolving_credit/pricer/components.rs`).
+// The trait is the documented integration point for any future hazard
+// source — keep it.
 pub trait Survival: TermStructure {
     /// Survival probability up to time `t`.
     ///

@@ -510,7 +510,9 @@ where
     }
     if has_multiple_sign_changes(data.iter().map(|&(_, amt)| amt)) {
         tracing::warn!(
-            "Cashflows contain multiple sign changes; IRR may be non-unique, returning the first converged solution"
+            num_flows = data.len(),
+            algorithm = "newton_then_brent",
+            "xirr: cashflows contain multiple sign changes; IRR may be non-unique, returning the first converged solution"
         );
     }
 
