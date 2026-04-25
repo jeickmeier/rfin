@@ -160,6 +160,38 @@ Full remediation is tracked separately.
   should keep the old name working with a `#[deprecated]` annotation
   pointing at the replacement.
 
+### 7.1 Deprecation timeline
+
+When marking a public API `#[deprecated]`, the annotation MUST cite the
+release in which it was deprecated and the planned removal release:
+
+```rust
+#[deprecated(
+    since = "0.5.0",
+    note = "use `BondYield::g_spread` instead; removed in 0.7.0"
+)]
+pub fn legacy_g_spread(...) -> f64 { ... }
+```
+
+Standard cadence:
+
+* **Deprecation introduced**: at the next minor release.
+* **Removal**: at minimum two minor releases later. With our current
+  `0.x.y` numbering that means the API stays callable across at least
+  two `0.x` cycles after the warning lands.
+* **Major-version bump (`1.0`, `2.0` …)**: bulk-removes anything still
+  marked deprecated. Bindings (`finstack-py`, `finstack-wasm`) are
+  rebuilt against the new surface in the same release.
+
+Exceptions (smaller window) require a brief note in the relevant
+crate's `CHANGELOG.md` explaining why two-minor-release notice is not
+practical (e.g. the API is known-unsafe and continued exposure would
+be misleading). Keep the exceptions rare.
+
+The deprecation message should always tell the reader **what to use
+instead** — a `#[deprecated]` without a forward pointer is a maintenance
+trap when the binding crates are auto-regenerated.
+
 ---
 
 ## 8. References

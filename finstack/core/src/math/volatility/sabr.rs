@@ -681,6 +681,18 @@ pub fn calibrate_sabr(
         (Some(lm), None) => lm,
         (None, Some(cd)) => cd,
         (None, None) => {
+            tracing::warn!(
+                algorithm = "sabr_calibration",
+                forward,
+                expiry,
+                beta,
+                n_strikes = strikes.len(),
+                alpha_init,
+                rho_init,
+                nu_init,
+                category = "both_solvers_failed",
+                "sabr: bailout — both LM and coordinate-descent solvers failed to converge"
+            );
             return Err(crate::Error::Validation(
                 "SABR calibration failed: both LM and fallback solvers failed to converge"
                     .to_string(),
@@ -691,6 +703,19 @@ pub fn calibrate_sabr(
     // Validate convergence: RMSE should be reasonable
     let rmse = (best_obj / strikes.len() as f64).sqrt();
     if rmse > 0.05 {
+        tracing::warn!(
+            algorithm = "sabr_calibration",
+            forward,
+            expiry,
+            beta,
+            n_strikes = strikes.len(),
+            rmse,
+            alpha,
+            rho,
+            nu,
+            category = "rmse_too_high",
+            "sabr: bailout — calibration RMSE exceeds 5% threshold"
+        );
         return Err(crate::Error::Validation(format!(
             "SABR calibration RMSE too high: {rmse:.4} (>5%). Parameters may not fit the market data well."
         )));

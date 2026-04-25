@@ -14,6 +14,39 @@ use super::error::PdCalibrationError;
 /// Stores (tenor, cumulative_pd) pairs where cumulative PD is monotonically
 /// non-decreasing and bounded in [0, 1]. Interpolation is log-linear on
 /// survival probability (equivalent to piecewise-constant hazard rates).
+///
+/// Construct via [`PdTermStructureBuilder`]; this type has no public
+/// constructor.
+///
+/// # Examples
+///
+/// Build a term structure from explicit cumulative PDs and read off
+/// cumulative, marginal, and instantaneous hazard rates:
+///
+/// ```
+/// use finstack_core::credit::pd::PdTermStructureBuilder;
+///
+/// let ts = PdTermStructureBuilder::new()
+///     .with_cumulative_pds(&[(1.0, 0.002), (3.0, 0.008), (5.0, 0.018)])
+///     .build()
+///     .expect("valid term structure");
+///
+/// // Cumulative PD interpolates log-linearly on survival probability.
+/// let pd_2y = ts.cumulative_pd(2.0);
+/// assert!(pd_2y > 0.002 && pd_2y < 0.008);
+///
+/// // Marginal PD over [t1, t2] is conditional on survival to t1.
+/// let fwd = ts.marginal_pd(1.0, 2.0);
+/// assert!(fwd > 0.0 && fwd < 1.0);
+///
+/// // Hazard rate is piecewise constant between grid points.
+/// let h = ts.hazard_rate(2.0);
+/// assert!(h > 0.0);
+///
+/// // Inspect the underlying grid.
+/// assert_eq!(ts.tenors(), &[1.0, 3.0, 5.0]);
+/// assert_eq!(ts.cumulative_pds(), &[0.002, 0.008, 0.018]);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PdTermStructure {
     /// Sorted tenor grid in years.

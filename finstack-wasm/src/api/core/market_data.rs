@@ -41,6 +41,29 @@ fn parse_extrapolation(s: &str) -> Result<ExtrapolationPolicy, JsValue> {
 // ---------------------------------------------------------------------------
 
 /// Discount factor curve for present-value calculations.
+///
+/// Built from `(time, discount_factor)` pillars where `time` is a year
+/// fraction from `baseDate` and `df` is the price today of $1 paid at that
+/// time. Defaults reflect the most common practitioner convention
+/// (Hagan-West monotone-convex interpolation, flat-forward extrapolation,
+/// Act/365 fixed day-count).
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// // OIS-style USD curve, base-date 2025-01-02, three pillars.
+/// const curve = new core.DiscountCurve(
+///   "USD-OIS",
+///   "2025-01-02",
+///   [0.0, 1.0, 1.0, 0.95, 5.0, 0.78],
+///   "monotone_convex",
+///   "flat_forward",
+///   "act_365f",
+/// );
+/// curve.df(2.5);          // discount factor at 2.5y
+/// curve.zero(2.5);        // continuously-compounded zero rate at 2.5y
+/// ```
 #[wasm_bindgen(js_name = DiscountCurve)]
 pub struct DiscountCurve {
     #[wasm_bindgen(skip)]
@@ -51,13 +74,22 @@ pub struct DiscountCurve {
 impl DiscountCurve {
     /// Construct from an array of `[time, df]` pairs.
     ///
-    /// # Arguments
-    /// * `id` - Curve identifier.
-    /// * `baseDate` - ISO date string (``"YYYY-MM-DD"``).
-    /// * `knots` - Flat `[t0, df0, t1, df1, …]` array.
-    /// * `interp` - Interpolation style (default ``"monotone_convex"``).
-    /// * `extrapolation` - Extrapolation policy (default ``"flat_forward"``).
-    /// * `dayCount` - Day-count convention (default ``"act_365f"``).
+    /// @param id - Curve identifier (e.g. `"USD-OIS"`). Used as the lookup
+    /// key inside a `MarketContext`.
+    /// @param baseDate - ISO-8601 date string (`"YYYY-MM-DD"`). All `time`
+    /// values are interpreted as year fractions from this date under
+    /// `dayCount`.
+    /// @param knots - Flat `[t0, df0, t1, df1, …]` array. `t` in years,
+    /// `df` strictly positive. Length must be even.
+    /// @param interp - Interpolation style (default `"monotone_convex"`).
+    /// One of `"linear"`, `"log_linear"`, `"monotone_convex"`,
+    /// `"cubic_hermite"`, `"piecewise_quadratic_forward"`.
+    /// @param extrapolation - Extrapolation policy (default
+    /// `"flat_forward"`). One of `"flat_zero"`, `"flat_forward"`, `"nan"`.
+    /// @param dayCount - Day-count convention (default `"act_365f"`).
+    /// @returns The constructed `DiscountCurve`.
+    /// @throws If `knots` length is odd, the date is malformed, the
+    /// interpolation style is unknown, or any `df` is non-positive.
     #[wasm_bindgen(constructor)]
     pub fn new(
         id: &str,

@@ -30,6 +30,34 @@ fn option_type(is_call: bool) -> OptionType {
 }
 
 /// Per-unit Black-Scholes / Garman-Kohlhagen price of a European option.
+///
+/// @param spot - Spot price of the underlying.
+/// @param strike - Strike of the option.
+/// @param r - Risk-free rate, **decimal** continuously compounded
+/// (e.g. `0.05` for 5%).
+/// @param q - Continuous dividend yield (or foreign rate for FX),
+/// **decimal** continuously compounded.
+/// @param sigma - Annualized volatility, **decimal**
+/// (e.g. `0.20` for 20%).
+/// @param t - Time to expiry in **years**.
+/// @param isCall - `true` for a call, `false` for a put.
+/// @returns Per-unit option price.
+///
+/// @example
+/// ```javascript
+/// import init, { valuations } from "finstack-wasm";
+/// await init();
+/// const price = valuations.bsPrice(
+///   100,    // spot
+///   100,    // strike (ATM)
+///   0.05,   // r = 5%
+///   0.0,    // q = 0
+///   0.20,   // sigma = 20%
+///   1.0,    // 1 year
+///   true,   // call
+/// );
+/// // price ≈ 10.45
+/// ```
 #[wasm_bindgen(js_name = bsPrice)]
 pub fn bs_price_js(
     spot: f64,
@@ -45,7 +73,26 @@ pub fn bs_price_js(
 
 /// Black-Scholes / Garman-Kohlhagen Greeks as a `{delta, gamma, vega, theta, rho, rhoQ}` object.
 ///
-/// `thetaDays` is the day-count denominator for theta (default 365).
+/// @param spot - Spot price of the underlying.
+/// @param strike - Strike of the option.
+/// @param r - Risk-free rate, **decimal** continuously compounded.
+/// @param q - Dividend yield (or foreign rate for FX), **decimal**
+/// continuously compounded.
+/// @param sigma - Annualized volatility, **decimal**.
+/// @param t - Time to expiry in **years**.
+/// @param isCall - `true` for a call, `false` for a put.
+/// @param thetaDays - Day-count denominator for theta. Default `365`.
+/// Pass `252` for trading-day theta.
+/// @returns Object `{ delta, gamma, vega, theta, rho, rhoQ }`. `vega` and
+/// both rho values are **per 1% move**; `theta` is **per day** under
+/// `thetaDays`.
+/// @throws If serialization to JS fails (should not happen on valid inputs).
+///
+/// @example
+/// ```javascript
+/// const g = valuations.bsGreeks(100, 100, 0.05, 0.0, 0.20, 1.0, true);
+/// // g.delta ≈ 0.64, g.gamma ≈ 0.019, g.vega ≈ 0.38 (per 1% vol)
+/// ```
 #[wasm_bindgen(js_name = bsGreeks)]
 #[allow(clippy::too_many_arguments)]
 pub fn bs_greeks_js(
@@ -80,6 +127,23 @@ pub fn bs_greeks_js(
 }
 
 /// Solve for Black-Scholes / Garman-Kohlhagen implied volatility.
+///
+/// @param spot - Spot price of the underlying.
+/// @param strike - Strike of the option.
+/// @param r - Risk-free rate, **decimal** continuously compounded.
+/// @param q - Dividend yield, **decimal** continuously compounded.
+/// @param t - Time to expiry in **years**.
+/// @param price - Observed option price (per unit).
+/// @param isCall - `true` for a call, `false` for a put.
+/// @returns Annualized implied volatility, **decimal** (e.g. `0.20`).
+/// @throws If `price` is below intrinsic value, above the no-arbitrage
+/// upper bound, or the solver fails to converge.
+///
+/// @example
+/// ```javascript
+/// const iv = valuations.bsImpliedVol(100, 100, 0.05, 0.0, 1.0, 10.45, true);
+/// // iv ≈ 0.20
+/// ```
 #[wasm_bindgen(js_name = bsImpliedVol)]
 pub fn bs_implied_vol_js(
     spot: f64,

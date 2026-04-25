@@ -118,7 +118,13 @@ pub(crate) fn try_repr_div_f64(a: AmountRepr, rhs: f64) -> Result<AmountRepr, Er
         };
         return Err(InputError::NonFiniteValue { kind }.into());
     }
-    if rhs == 0.0 {
+    // Exact-zero check on f64 is intentional and well-defined: division by
+    // any non-zero divisor (however small) is representable as a Decimal,
+    // but division by exact 0.0 (positive or negative) is not. The
+    // surrounding `is_finite` guard already rejects NaN / ±Inf.
+    #[allow(clippy::float_cmp)]
+    let is_zero = rhs == 0.0;
+    if is_zero {
         return Err(InputError::Invalid.into());
     }
     let Some(rhs_decimal) = Decimal::from_f64_retain(rhs) else {

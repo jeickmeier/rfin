@@ -75,7 +75,28 @@ impl DayCountContext {
 
 /// Day-count convention for computing year fractions and day counts.
 ///
-/// Dates are represented as epoch days (i32, days since 1970-01-01).
+/// Dates are represented as **epoch days** (`i32`, days since 1970-01-01).
+/// Use `createDate` to convert from a `(year, month, day)` triple.
+///
+/// Available conventions and their factories:
+/// - `act_360` → `DayCount.act360`
+/// - `act_365f` → `DayCount.act365f`
+/// - `30_360` → `DayCount.thirty360`
+/// - `30e_360` → `DayCount.thirtyE360`
+/// - `act_act` (ISDA) → `DayCount.actAct`
+/// - `act_act_isma` (ICMA) → `DayCount.actActIsma`
+/// - `bus_252` → `DayCount.bus252`
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const dc = core.DayCount.act365f();
+/// const start = core.createDate(2025, 1, 15);
+/// const end   = core.createDate(2025, 7, 15);
+/// const yf    = dc.yearFraction(start, end);
+/// // yf ≈ 0.4959 (181 / 365)
+/// ```
 #[wasm_bindgen(js_name = DayCount)]
 pub struct DayCount {
     #[wasm_bindgen(skip)]
@@ -84,8 +105,12 @@ pub struct DayCount {
 
 #[wasm_bindgen(js_class = DayCount)]
 impl DayCount {
-    /// Parse a day-count convention from its string name
-    /// (e.g. `"act_360"`, `"30_360"`, `"act_act"`).
+    /// Parse a day-count convention from its string name.
+    ///
+    /// @param name - Convention name (e.g. `"act_360"`, `"30_360"`, `"act_act"`).
+    /// Underscored snake_case is canonical.
+    /// @returns The parsed `DayCount`.
+    /// @throws If `name` is not a recognized day-count convention.
     #[wasm_bindgen(constructor)]
     pub fn new(name: &str) -> Result<DayCount, JsValue> {
         name.parse::<RustDayCount>()
@@ -150,6 +175,24 @@ impl DayCount {
     }
 
     /// Compute the year fraction between two dates given as epoch days.
+    ///
+    /// @param startEpochDays - Start date as days since 1970-01-01.
+    /// @param endEpochDays - End date as days since 1970-01-01.
+    /// @returns Year fraction (`>= 0` if `end >= start`).
+    /// @throws If either date is out of representable range.
+    ///
+    /// For Act/Act ISMA and Bus/252, prefer `DayCount.yearFractionWithContext`
+    /// with a configured `DayCountContext` — without context, those
+    /// conventions fall back to reasonable defaults but may not match the
+    /// issuer's market convention.
+    ///
+    /// @example
+    /// ```javascript
+    /// const dc = core.DayCount.act360();
+    /// const start = core.createDate(2025, 1, 15);
+    /// const end   = core.createDate(2025, 4, 15);
+    /// dc.yearFraction(start, end); // 90 / 360 = 0.25
+    /// ```
     #[wasm_bindgen(js_name = yearFraction)]
     pub fn year_fraction(
         &self,
@@ -203,6 +246,23 @@ impl DayCount {
 // ---------------------------------------------------------------------------
 
 /// A financial tenor such as `3M`, `1Y`, or `2W`.
+///
+/// Tenors carry a numeric count and a unit (days, weeks, months, years).
+/// Parse from strings or use the named-period factories (`Tenor.daily`,
+/// `Tenor.weekly`, `Tenor.monthly`, `Tenor.quarterly`, `Tenor.semiAnnual`,
+/// `Tenor.annual`).
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const t = new core.Tenor("3M");
+/// t.toString();        // "3M"
+/// t.toYearsSimple();   // 0.25
+///
+/// const annual = core.Tenor.annual();
+/// annual.toString();   // "1Y"
+/// ```
 #[wasm_bindgen(js_name = Tenor)]
 pub struct Tenor {
     #[wasm_bindgen(skip)]
@@ -211,7 +271,12 @@ pub struct Tenor {
 
 #[wasm_bindgen(js_class = Tenor)]
 impl Tenor {
-    /// Parse a tenor string (e.g. `"3M"`, `"1Y"`, `"2W"`).
+    /// Parse a tenor string.
+    ///
+    /// @param s - Tenor string. Accepted forms include `"3M"`, `"1Y"`,
+    /// `"2W"`, `"7D"`, `"6M"`, `"10Y"`. Whitespace is permitted.
+    /// @returns The parsed `Tenor`.
+    /// @throws If `s` cannot be parsed (unknown unit, missing count).
     #[wasm_bindgen(constructor)]
     pub fn new(s: &str) -> Result<Tenor, JsValue> {
         RustTenor::parse(s)

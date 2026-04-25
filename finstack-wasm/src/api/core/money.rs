@@ -6,6 +6,22 @@ use finstack_core::money::Money as RustMoney;
 use wasm_bindgen::prelude::*;
 
 /// Currency-tagged monetary amount.
+///
+/// Money values pin a numeric amount to a [`Currency`]. Arithmetic
+/// (`add`, `sub`) refuses to mix currencies; scalar multiplication and
+/// division preserve the currency.
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const usd = new core.Currency("USD");
+/// const total = new core.Money(1_000_000, usd);
+/// const fee   = new core.Money(50, usd);
+/// const net   = total.sub(fee);                 // Money { amount: 999950, currency: USD }
+/// const tax   = net.mulScalar(0.07);            // 7% of net
+/// console.log(net.toString(), tax.toString());  // "USD 999950.00", "USD 69996.50"
+/// ```
 #[wasm_bindgen(js_name = Money)]
 pub struct Money {
     #[wasm_bindgen(skip)]
@@ -14,9 +30,20 @@ pub struct Money {
 
 #[wasm_bindgen(js_class = Money)]
 impl Money {
-    /// Creates a new money value using the currency’s ISO minor units and bankers rounding.
+    /// Creates a new money value using the currency's ISO minor units and bankers rounding.
     ///
-    /// Returns an error if `amount` is not finite or cannot be represented.
+    /// @param amount - Numeric amount in major units (must be finite).
+    /// @param currency - Currency tag.
+    /// @returns The constructed `Money`.
+    /// @throws If `amount` is non-finite (NaN, ±∞) or cannot be represented as a `Decimal`.
+    ///
+    /// @example
+    /// ```javascript
+    /// const usd = new core.Currency("USD");
+    /// const m = new core.Money(1234.56, usd);
+    /// m.amount;          // 1234.56
+    /// m.currency.code;   // "USD"
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(amount: f64, currency: &Currency) -> Result<Money, JsValue> {
         RustMoney::try_new(amount, currency.inner)
@@ -25,12 +52,16 @@ impl Money {
     }
 
     /// Numeric amount in major units as `f64`.
+    ///
+    /// @returns Amount in major units (e.g. dollars, not cents).
     #[wasm_bindgen(getter, js_name = amount)]
     pub fn amount(&self) -> f64 {
         self.inner.amount()
     }
 
     /// Currency of this amount.
+    ///
+    /// @returns The [`Currency`] this amount is tagged with.
     #[wasm_bindgen(getter, js_name = currency)]
     pub fn currency(&self) -> Currency {
         Currency {
@@ -38,7 +69,20 @@ impl Money {
         }
     }
 
-    /// Add two amounts; errors if currencies differ or the operation is not representable.
+    /// Add two amounts.
+    ///
+    /// @param other - Another `Money` value.
+    /// @returns Sum, in the same currency.
+    /// @throws If `other.currency` differs from `this.currency`, or the
+    /// operation is not representable as a `Decimal`.
+    ///
+    /// @example
+    /// ```javascript
+    /// const usd = new core.Currency("USD");
+    /// const a = new core.Money(10, usd);
+    /// const b = new core.Money(5, usd);
+    /// a.add(b).amount;  // 15
+    /// ```
     #[wasm_bindgen(js_name = add)]
     pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
         self.inner
@@ -47,7 +91,12 @@ impl Money {
             .map_err(to_js_err)
     }
 
-    /// Subtract two amounts; errors if currencies differ or the operation is not representable.
+    /// Subtract two amounts.
+    ///
+    /// @param other - Another `Money` value.
+    /// @returns Difference, in the same currency.
+    /// @throws If `other.currency` differs from `this.currency`, or the
+    /// operation is not representable as a `Decimal`.
     #[wasm_bindgen(js_name = sub)]
     pub fn sub(&self, other: &Money) -> Result<Money, JsValue> {
         self.inner
@@ -56,7 +105,11 @@ impl Money {
             .map_err(to_js_err)
     }
 
-    /// Multiply by a scalar; errors if `factor` is not finite or the result is not representable.
+    /// Multiply by a scalar.
+    ///
+    /// @param factor - Dimensionless multiplier (must be finite).
+    /// @returns Scaled amount, in the same currency.
+    /// @throws If `factor` is non-finite or the result is not representable.
     #[wasm_bindgen(js_name = mulScalar)]
     pub fn mul_scalar(&self, factor: f64) -> Result<Money, JsValue> {
         self.inner
@@ -65,7 +118,11 @@ impl Money {
             .map_err(to_js_err)
     }
 
-    /// Divide by a scalar; errors on division by zero or non-finite / non-representable values.
+    /// Divide by a scalar.
+    ///
+    /// @param divisor - Dimensionless divisor (must be finite and non-zero).
+    /// @returns Scaled amount, in the same currency.
+    /// @throws If `divisor` is zero, non-finite, or the result is not representable.
     #[wasm_bindgen(js_name = divScalar)]
     pub fn div_scalar(&self, divisor: f64) -> Result<Money, JsValue> {
         self.inner
@@ -75,6 +132,9 @@ impl Money {
     }
 
     /// Negate the monetary amount.
+    ///
+    /// @returns Negated amount in the same currency.
+    /// @throws If the negation is not representable as a `Decimal`.
     #[wasm_bindgen(js_name = negate)]
     pub fn negate(&self) -> Result<Money, JsValue> {
         self.inner
@@ -84,6 +144,8 @@ impl Money {
     }
 
     /// Default string representation (e.g. `"USD 10.00"`).
+    ///
+    /// @returns Formatted amount with currency code.
     #[wasm_bindgen(js_name = toString)]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {

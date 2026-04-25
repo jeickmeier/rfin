@@ -87,6 +87,37 @@ pub struct OhlsonOScoreInput {
 /// # Errors
 ///
 /// Returns [`CreditScoringError::NonFiniteInput`] if any input is NaN or infinite.
+///
+/// # Examples
+///
+/// A healthy firm: low leverage, positive earnings, no recent losses.
+///
+/// **Note on `log_total_assets_adjusted`:** Ohlson's published `-0.407`
+/// coefficient is calibrated to a specific scale (1970s GNP-deflated USD,
+/// log-transformed). See [`OhlsonOScoreInput::log_total_assets_adjusted`]
+/// for the recommended input shape.
+///
+/// ```
+/// use finstack_core::credit::scoring::{ohlson_o_score, OhlsonOScoreInput, ScoringZone};
+///
+/// let healthy = OhlsonOScoreInput {
+///     log_total_assets_adjusted: 12.0,
+///     total_liabilities_to_total_assets: 0.40,
+///     working_capital_to_total_assets: 0.20,
+///     current_liabilities_to_current_assets: 0.50,
+///     liabilities_exceed_assets: 0.0,
+///     net_income_to_total_assets: 0.08,
+///     funds_from_operations_to_total_liabilities: 0.30,
+///     negative_net_income_two_years: 0.0,
+///     net_income_change: 0.10,
+/// };
+/// let result = ohlson_o_score(&healthy)?;
+/// assert!(result.score < 0.38);
+/// assert_eq!(result.zone, ScoringZone::Safe);
+/// // Implied PD via logistic transform: 1 / (1 + exp(-O))
+/// assert!(result.implied_pd < 0.05);
+/// # Ok::<_, finstack_core::credit::scoring::CreditScoringError>(())
+/// ```
 pub fn ohlson_o_score(input: &OhlsonOScoreInput) -> Result<ScoringResult, CreditScoringError> {
     check_finite("log_total_assets_adjusted", input.log_total_assets_adjusted)?;
     check_finite(

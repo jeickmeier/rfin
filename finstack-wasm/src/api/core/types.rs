@@ -5,6 +5,24 @@ use finstack_core::types::{Bps as RustBps, Percentage as RustPercentage, Rate as
 use wasm_bindgen::prelude::*;
 
 /// Interest or discount rate stored as a decimal (e.g. `0.05` is 5%).
+///
+/// Conventions:
+/// - **Decimal**: `0.05` represents 5%.
+/// - **Percent**: `5.0` represents 5%.
+/// - **Basis points**: `500` represents 5% (1 bp = 0.01%).
+///
+/// Use the `fromPercent` or `fromBps` factories to avoid scaling errors
+/// when working with quoted rates.
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const r = core.Rate.fromBps(250);     // 2.5% as 250 bps
+/// r.asDecimal;  // 0.025
+/// r.asPercent;  // 2.5
+/// r.asBps;      // 250
+/// ```
 #[wasm_bindgen(js_name = Rate)]
 pub struct Rate {
     #[wasm_bindgen(skip)]
@@ -13,7 +31,17 @@ pub struct Rate {
 
 #[wasm_bindgen(js_class = Rate)]
 impl Rate {
-    /// Creates a rate from a decimal value (0.05 = 5%). Errors if `decimal` is not finite.
+    /// Create a rate from a decimal value.
+    ///
+    /// @param decimal - Rate as a decimal (e.g. `0.05` for 5%).
+    /// @returns The constructed `Rate`.
+    /// @throws If `decimal` is non-finite (NaN, ±∞).
+    ///
+    /// @example
+    /// ```javascript
+    /// const r = new core.Rate(0.05);  // 5%
+    /// r.asPercent;  // 5
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(decimal: f64) -> Result<Rate, JsValue> {
         RustRate::try_from_decimal(decimal)
@@ -21,7 +49,17 @@ impl Rate {
             .map_err(to_js_err)
     }
 
-    /// Creates a rate from a percent figure (5.0 = 5%).
+    /// Create a rate from a percent figure.
+    ///
+    /// @param pct - Percent value (e.g. `5.0` for 5%).
+    /// @returns The constructed `Rate`.
+    /// @throws If `pct` is non-finite.
+    ///
+    /// @example
+    /// ```javascript
+    /// const r = core.Rate.fromPercent(5.0);
+    /// r.asDecimal;  // 0.05
+    /// ```
     #[wasm_bindgen(js_name = fromPercent)]
     pub fn from_percent(pct: f64) -> Result<Rate, JsValue> {
         if !pct.is_finite() {
@@ -32,26 +70,43 @@ impl Rate {
             .map_err(to_js_err)
     }
 
-    /// Creates a rate from basis points (500 bps = 5%). `bps` is rounded to the nearest integer.
+    /// Create a rate from basis points.
+    ///
+    /// @param bps - Rate in basis points (e.g. `500` for 5%). Rounded to the
+    /// nearest integer bp.
+    /// @returns The constructed `Rate`.
+    /// @throws If `bps` is non-finite.
+    ///
+    /// @example
+    /// ```javascript
+    /// const r = core.Rate.fromBps(250);  // 2.5%
+    /// r.asDecimal;  // 0.025
+    /// ```
     #[wasm_bindgen(js_name = fromBps)]
     pub fn from_bps(bps: f64) -> Result<Rate, JsValue> {
         let b = RustBps::try_new(bps).map_err(to_js_err)?;
         Ok(Rate { inner: b.as_rate() })
     }
 
-    /// Rate as a decimal (0.05 for 5%).
+    /// Rate as a decimal (e.g. `0.05` for 5%).
+    ///
+    /// @returns Decimal rate.
     #[wasm_bindgen(getter, js_name = asDecimal)]
     pub fn as_decimal(&self) -> f64 {
         self.inner.as_decimal()
     }
 
-    /// Rate as a percent (5.0 for 5%).
+    /// Rate as a percent (e.g. `5.0` for 5%).
+    ///
+    /// @returns Percent rate.
     #[wasm_bindgen(getter, js_name = asPercent)]
     pub fn as_percent(&self) -> f64 {
         self.inner.as_percent()
     }
 
-    /// Rate in basis points (rounded to the nearest integer).
+    /// Rate in basis points, rounded to the nearest integer (e.g. `500` for 5%).
+    ///
+    /// @returns Rate in bps.
     #[wasm_bindgen(getter, js_name = asBps)]
     pub fn as_bps(&self) -> i32 {
         self.inner.as_bps()
@@ -59,6 +114,17 @@ impl Rate {
 }
 
 /// Basis points (1 bp = 0.01%, 10_000 bps = 100%).
+///
+/// Stored as integer bps internally; constructors round to the nearest bp.
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const spread = new core.Bps(125);
+/// spread.asDecimal();  // 0.0125
+/// spread.asBps();      // 125
+/// ```
 #[wasm_bindgen(js_name = Bps)]
 pub struct Bps {
     #[wasm_bindgen(skip)]
@@ -67,7 +133,12 @@ pub struct Bps {
 
 #[wasm_bindgen(js_class = Bps)]
 impl Bps {
-    /// Creates basis points from a floating value; input is rounded to the nearest integer bp.
+    /// Create basis points from a floating value.
+    ///
+    /// @param value - Value in basis points (e.g. `25` for 25 bps). Rounded
+    /// to the nearest integer bp.
+    /// @returns The constructed `Bps`.
+    /// @throws If `value` is non-finite.
     #[wasm_bindgen(constructor)]
     pub fn new(value: f64) -> Result<Bps, JsValue> {
         RustBps::try_new(value)
@@ -76,19 +147,35 @@ impl Bps {
     }
 
     /// Value as a decimal (e.g. 25 bp → 0.0025).
+    ///
+    /// @returns Decimal equivalent.
     #[wasm_bindgen(js_name = asDecimal)]
     pub fn as_decimal(&self) -> f64 {
         self.inner.as_decimal()
     }
 
     /// Value in whole basis points.
+    ///
+    /// @returns Integer bps.
     #[wasm_bindgen(js_name = asBps)]
     pub fn as_bps(&self) -> i32 {
         self.inner.as_bps()
     }
 }
 
-/// Percentage stored in percent points (5.0 means 5%).
+/// Percentage stored in percent points (`5.0` means 5%).
+///
+/// Use this when you want the API to be explicit that the value is in
+/// percent (rather than decimal). Equivalent to `Rate` for arithmetic.
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const p = new core.Percentage(5.0);
+/// p.asDecimal();  // 0.05
+/// p.asPercent();  // 5
+/// ```
 #[wasm_bindgen(js_name = Percentage)]
 pub struct Percentage {
     #[wasm_bindgen(skip)]
@@ -97,7 +184,11 @@ pub struct Percentage {
 
 #[wasm_bindgen(js_class = Percentage)]
 impl Percentage {
-    /// Creates a percentage; errors if the value is not finite.
+    /// Create a percentage.
+    ///
+    /// @param value - Value in percent (e.g. `5.0` for 5%).
+    /// @returns The constructed `Percentage`.
+    /// @throws If `value` is non-finite.
     #[wasm_bindgen(constructor)]
     pub fn new(value: f64) -> Result<Percentage, JsValue> {
         RustPercentage::try_new(value)
@@ -106,12 +197,16 @@ impl Percentage {
     }
 
     /// Value as a decimal (5% → 0.05).
+    ///
+    /// @returns Decimal equivalent.
     #[wasm_bindgen(js_name = asDecimal)]
     pub fn as_decimal(&self) -> f64 {
         self.inner.as_decimal()
     }
 
     /// Value in percent points.
+    ///
+    /// @returns Percent value.
     #[wasm_bindgen(js_name = asPercent)]
     pub fn as_percent(&self) -> f64 {
         self.inner.as_percent()

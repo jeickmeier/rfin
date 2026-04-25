@@ -23,6 +23,16 @@ parking_lot = "0.12"
 lru = "0.16"
 indexmap = { workspace = true, features = ["serde"] }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
+# `schemars` is a build-time/runtime dependency for JSON-Schema derivation.
+# It is consumed downstream by `finstack-valuations` (see
+# `finstack/valuations/tests/schema_audit.rs` and `valuations/schemas/`),
+# which means feature-gating `JsonSchema` derives in this crate would
+# cascade into the binding crates and the schema-parity test harness.
+# Until a binary-size or compile-time bench shows the cost is material,
+# `schemars` stays an unconditional dependency. Re-evaluate when the
+# workspace adopts a `wasm-only` build profile that drops the JSON-schema
+# story (binding consumers don't need it at runtime, only at build time
+# for `valuations/schemas/` regeneration).
 schemars = { workspace = true }
 statrs = { version = "0.18", default-features = false }
 nalgebra = { version = "0.34", features = ["serde-serialize"] }
@@ -102,6 +112,10 @@ harness = false
 
 [[bench]]
 name = "factor_model"
+harness = false
+
+[[bench]]
+name = "contention"
 harness = false
 
 [package.metadata.docs.rs]

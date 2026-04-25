@@ -27,7 +27,17 @@ use time::Month;
 
 /// Period frequency type.
 ///
-/// Defines the frequency of periods (quarterly, monthly, etc.).
+/// Defines the frequency of periodic schedules (cashflow rolls, return-series
+/// resampling, statement reporting). Each variant carries an implied
+/// "periods-per-year" used by [`PeriodKind::periods_per_year`] and by
+/// downstream annualization helpers in `finstack-analytics`.
+///
+/// `Daily` follows the trading-day convention (252 per year), not the
+/// calendar-day convention (365 per year). Use `Weekly` if you need
+/// calendar-week granularity.
+///
+/// Parses from short and long string forms via [`std::str::FromStr`]
+/// (e.g. `"q"` or `"quarterly"`).
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
 )]
