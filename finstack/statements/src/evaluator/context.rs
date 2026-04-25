@@ -10,6 +10,9 @@ use crate::evaluator::results::EvalWarning;
 use crate::types::{NodeId, NodeValueType};
 use finstack_core::dates::{PeriodId, PeriodKind};
 use indexmap::IndexMap;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// Evaluation context for a single period.
@@ -49,6 +52,20 @@ pub struct EvaluationContext {
 
     /// Warnings collected while evaluating this period
     pub warnings: Vec<EvalWarning>,
+
+    /// Per-context memoization of sorted historical lookups.
+    ///
+    /// Within a single period's evaluation many formulas (rolling, expanding,
+    /// statistical, time-series) reach back into the same node's history.
+    /// Each lookup previously rebuilt a fresh `BTreeMap<PeriodId, f64>` by
+    /// iterating `historical_results`. We now cache the constructed map keyed
+    /// by node identifier (or capital-structure reference) so repeated calls
+    /// in the same period are O(1) refcount bumps instead of O(P) walks.
+    ///
+    /// The cache is intentionally `RefCell` (not Mutex) — `EvaluationContext`
+    /// is per-period and never crosses thread boundaries; Monte Carlo paths
+    /// build fresh contexts inside their own thread closures.
+    pub(crate) sorted_history_cache: RefCell<IndexMap<String, Rc<BTreeMap<PeriodId, f64>>>>,
 }
 
 impl EvaluationContext {
@@ -115,7 +132,20 @@ impl EvaluationContext {
             node_value_types: Arc::new(IndexMap::new()),
             capital_structure_cashflows: None,
             warnings: Vec::new(),
+            sorted_history_cache: RefCell::new(IndexMap::new()),
         }
+    }
+
+    /// Invalidate the sorted-history cache for a single node.
+    ///
+    /// Call this whenever the current-period value for `node_id` changes
+    /// after the cache has been populated — otherwise downstream rolling /
+    /// statistical functions can read a stale "current" entry. Cheap when
+    /// the cache is empty (the common case during the first pass over a
+    /// period's nodes).
+    pub(crate) fn invalidate_sorted_cache(&self, node_id: &str) {
+        let mut cache = self.sorted_history_cache.borrow_mut();
+        cache.shift_remove(node_id);
     }
 
     /// Set capital structure cashflows for this context.
@@ -161,6 +191,12 @@ impl EvaluationContext {
         }
 
         self.current_values[*idx] = Some(value);
+        // Drop any cached sorted-history entry whose "current" view depended on
+        // the previous value — repeat sets on the same node within a period are
+        // rare but they happen (e.g., normalization rewrites), and a stale
+        // cache here would silently feed yesterday's value to rolling /
+        // statistical functions.
+        self.invalidate_sorted_cache(node_id);
         Ok(())
     }
 

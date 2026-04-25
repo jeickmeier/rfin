@@ -1,0 +1,1 @@
+annualize_rate(ewm_mean(returns, 0.94), 252, 1)

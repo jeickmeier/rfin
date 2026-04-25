@@ -23,14 +23,14 @@
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
-use crate::evaluator::formula_aggregates::evaluate_historical_function;
 use crate::evaluator::formula_helpers::{collect_historical_values_sorted, is_truthy};
 use crate::evaluator::results::EvalWarning;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
-use finstack_core::math::{kahan_sum, quantile_linear_or_nan, ZERO_TOLERANCE};
+use finstack_core::math::ZERO_TOLERANCE;
 use indexmap::IndexMap;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 pub(crate) use crate::evaluator::formula_helpers::{
     calculate_mean, calculate_median, calculate_std, calculate_variance,
@@ -250,7 +250,7 @@ pub(crate) fn collect_expression_values_sorted(
     expr: &Expr,
     context: &EvaluationContext,
     node_id: Option<&str>,
-) -> Result<BTreeMap<PeriodId, f64>> {
+) -> Result<Rc<BTreeMap<PeriodId, f64>>> {
     match &expr.node {
         ExprNode::Column(name) => return collect_historical_values_sorted(name, context),
         ExprNode::Literal(value) => {
@@ -259,7 +259,7 @@ pub(crate) fn collect_expression_values_sorted(
                 values.insert(*period, *value);
             }
             values.insert(context.period_id, *value);
-            return Ok(values);
+            return Ok(Rc::new(values));
         }
         _ => {}
     }
@@ -278,7 +278,7 @@ pub(crate) fn collect_expression_values_sorted(
         values.insert(period, value);
     }
 
-    Ok(values)
+    Ok(Rc::new(values))
 }
 
 /// Returns `true` if the expression tree contains any time-series or
@@ -377,13 +377,9 @@ pub(crate) fn collect_expression_window_values(
         return Ok(values);
     }
 
-    let mut values: Vec<f64> = collect_expression_values_sorted(expr, context, node_id)?
-        .into_values()
-        .rev()
-        .take(window_size)
-        .collect();
-    values.reverse();
-    Ok(values)
+    let sorted = collect_expression_values_sorted(expr, context, node_id)?;
+    let skip_count = sorted.len().saturating_sub(window_size);
+    Ok(sorted.values().skip(skip_count).copied().collect())
 }
 
 /// Recursively evaluate an expression.
@@ -413,7 +409,9 @@ pub(crate) fn evaluate_expr(
             }
             map_err_with_node(context.get_value(name), node_id)
         }
-        ExprNode::Call(func, args) => evaluate_function(func, args, context, node_id),
+        ExprNode::Call(func, args) => {
+            crate::evaluator::formula_dispatch::evaluate_function(func, args, context, node_id)
+        }
         ExprNode::BinOp { op, left, right } => {
             // Note: Binary operations are evaluated directly here rather than
             // through the Function enum. This is intentional - see module docs.
@@ -512,304 +510,12 @@ pub(crate) fn evaluate_expr(
     }
 }
 
-/// Evaluate a function call.
-fn evaluate_function(
-    func: &Function,
-    args: &[Expr],
-    context: &mut EvaluationContext,
-    node_id: Option<&str>,
-) -> Result<f64> {
-    use crate::evaluator::formula_timeseries::{
-        eval_diff, eval_growth_rate, eval_lag, eval_lead, eval_pct_change, eval_shift,
-    };
+// `evaluate_function` lives in [`crate::evaluator::formula_dispatch`].
+// Local tests below use the dispatch module's re-export to keep call sites
+// concise while still exercising the same code path used by `evaluate_expr`.
+#[cfg(test)]
+use crate::evaluator::formula_dispatch::evaluate_function;
 
-    // Handle real functions from finstack-core
-    match func {
-        Function::Lag => eval_lag(args, context, node_id),
-        Function::Lead => eval_lead(node_id),
-        Function::Diff => eval_diff(args, context, node_id),
-        Function::PctChange => eval_pct_change(args, context, node_id),
-        Function::GrowthRate => eval_growth_rate(args, context, node_id),
-        Function::RollingMean
-        | Function::RollingSum
-        | Function::RollingStd
-        | Function::RollingVar
-        | Function::RollingMedian
-        | Function::RollingMin
-        | Function::RollingMax
-        | Function::RollingCount
-        | Function::Std
-        | Function::Var
-        | Function::Median
-        | Function::CumSum
-        | Function::CumProd
-        | Function::CumMin
-        | Function::CumMax
-        | Function::Ytd
-        | Function::Qtd
-        | Function::FiscalYtd
-        | Function::Ttm => evaluate_historical_function(func, args, context, node_id),
-
-        // Other functions
-        Function::Shift => eval_shift(args, context, node_id),
-
-        Function::Rank => {
-            require_min_args("rank", args, 1, node_id)?;
-
-            let current_value = evaluate_expr(&args[0], context, node_id)?;
-
-            let node_name = if let ExprNode::Column(name) = &args[0].node {
-                name
-            } else {
-                return Err(eval_error(
-                    node_id,
-                    "rank() requires a column reference as its argument",
-                ));
-            };
-
-            let all_values = collect_all_historical_values(node_name, context)?;
-
-            // Rank semantics (1-based, ascending, ties share the minimum rank):
-            //
-            //   rank = 1 + count(v < current_value)
-            //
-            // If `current_value` is non-finite, return NaN (missing data).
-            // If no historical observations exist, return NaN rather than a
-            // synthetic rank of 1 — `unwrap_or(1.0)` would make "no data"
-            // look identical to "best observation".
-            if !current_value.is_finite() || all_values.is_empty() {
-                return Ok(f64::NAN);
-            }
-
-            let strictly_less = all_values
-                .iter()
-                .filter(|&&v| v.is_finite() && v < current_value - ZERO_TOLERANCE)
-                .count();
-            Ok((strictly_less + 1) as f64)
-        }
-
-        Function::Quantile => {
-            // Quantile/Percentile Calculation
-            //
-            // # Interpolation Method
-            //
-            // This implementation uses **linear interpolation** (equivalent to numpy's
-            // `interpolation='linear'` or pandas' `interpolation='linear'`, also known
-            // as R's type=7 quantile).
-            //
-            // The formula is:
-            //   index = q * (n - 1)
-            //   quantile = x[floor(index)] * (1 - frac) + x[ceil(index)] * frac
-            //
-            // where frac = index - floor(index).
-            //
-            // # Comparison with Other Methods
-            //
-            // - **R-1 to R-9**: R provides 9 different quantile types. This is R-7.
-            // - **Excel PERCENTILE**: Uses a similar linear interpolation (R-7 equivalent).
-            // - **numpy default**: Also uses linear interpolation (R-7 equivalent).
-            // - **SciPy**: Defaults to R-9 (Blom's method) for some functions.
-            //
-            // For most financial applications, R-7/linear interpolation is appropriate
-            // as it provides intuitive results and matches Excel behavior.
-            //
-            // # Edge Cases
-            //
-            // - q=0.0: Returns minimum value
-            // - q=1.0: Returns maximum value
-            // - n=1: Returns the single value for any q
-            // - Empty data: Returns NaN
-            require_args("quantile", args, 2, node_id)?;
-
-            // Get the quantile level (e.g., 0.25 for 25th percentile)
-            let quantile = evaluate_expr(&args[1], context, node_id)?;
-            if !(0.0..=1.0).contains(&quantile) {
-                return Err(eval_error(node_id, "quantile must be between 0 and 1"));
-            }
-
-            // Get node name for historical data
-            let node_name = if let ExprNode::Column(name) = &args[0].node {
-                name
-            } else {
-                return Err(eval_error(
-                    node_id,
-                    "quantile() requires a column reference",
-                ));
-            };
-
-            // Collect all values, then delegate the interpolation math to the
-            // shared core kernel after dropping non-finite entries in place.
-            let mut values = collect_all_historical_values(node_name, context)?;
-            values.retain(|v| v.is_finite());
-            if values.is_empty() {
-                return Ok(f64::NAN);
-            }
-            Ok(quantile_linear_or_nan(&values, quantile))
-        }
-
-        Function::EwmMean => crate::evaluator::formula_ewm::eval_ewm_mean(args, context, node_id),
-
-        Function::Abs => {
-            require_args("abs", args, 1, node_id)?;
-            let value = evaluate_expr(&args[0], context, node_id)?;
-            Ok(value.abs())
-        }
-
-        Function::Sign => {
-            require_args("sign", args, 1, node_id)?;
-            let value = evaluate_expr(&args[0], context, node_id)?;
-            if value.is_nan() {
-                Ok(f64::NAN)
-            } else if value > 0.0 {
-                Ok(1.0)
-            } else if value < 0.0 {
-                Ok(-1.0)
-            } else {
-                Ok(0.0)
-            }
-        }
-
-        // Custom financial functions: skip non-finite (NaN or ±∞) inputs so
-        // compensated summation stays well-defined. Empty finite set → NaN.
-        Function::Sum => {
-            require_min_args("sum", args, 1, node_id)?;
-
-            let mut values = Vec::with_capacity(args.len());
-            for arg in args {
-                let value = evaluate_expr(arg, context, node_id)?;
-                if value.is_finite() {
-                    values.push(value);
-                }
-            }
-
-            if values.is_empty() {
-                Ok(f64::NAN)
-            } else {
-                Ok(kahan_sum(values.iter().copied()))
-            }
-        }
-
-        Function::Mean => {
-            require_min_args("mean", args, 1, node_id)?;
-
-            let mut values = Vec::with_capacity(args.len());
-            for arg in args {
-                let value = evaluate_expr(arg, context, node_id)?;
-                if value.is_finite() {
-                    values.push(value);
-                }
-            }
-
-            if values.is_empty() {
-                Ok(f64::NAN)
-            } else {
-                Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
-            }
-        }
-
-        Function::Annualize => {
-            if args.is_empty() || args.len() > 2 {
-                return Err(eval_error(
-                    node_id,
-                    "annualize() requires 1 or 2 arguments (value, [periods_per_year])",
-                ));
-            }
-
-            // Annualize a FLOW value (cash flows, income, expenses)
-            // by multiplying by periods per year.
-            //
-            // For periodic RATES, use annualize_rate() instead.
-            let value = evaluate_expr(&args[0], context, node_id)?;
-            let periods_per_year = if args.len() == 2 {
-                evaluate_expr(&args[1], context, node_id)?
-            } else {
-                context.period_kind.periods_per_year() as f64
-            };
-
-            if value.is_nan() || periods_per_year.is_nan() {
-                Ok(f64::NAN)
-            } else if periods_per_year <= 0.0 {
-                Err(eval_error(
-                    node_id,
-                    "annualize() periods_per_year must be positive",
-                ))
-            } else {
-                Ok(value * periods_per_year)
-            }
-        }
-
-        Function::AnnualizeRate => {
-            require_args("annualize_rate", args, 3, node_id)?;
-
-            // Annualize a PERIODIC RATE (interest rates, returns, growth rates)
-            // using either simple or compound methodology.
-            //
-            // Arguments:
-            // - rate: Periodic rate (e.g., 0.02 for 2% quarterly return)
-            // - periods_per_year: Number of periods in a year (4 for quarterly, 12 for monthly)
-            // - compounding: 0.0 for simple, 1.0 for compound
-            //
-            // Simple:   annual_rate = periodic_rate × periods_per_year
-            // Compound: annual_rate = (1 + periodic_rate)^periods_per_year - 1
-            //
-            // Examples:
-            // - Quarterly return of 2%:
-            //   Simple:   annualize_rate(0.02, 4, 0) = 0.08 (8%)
-            //   Compound: annualize_rate(0.02, 4, 1) = 0.0824 (8.24%)
-            let rate = evaluate_expr(&args[0], context, node_id)?;
-            let periods_per_year = evaluate_expr(&args[1], context, node_id)?;
-            let compounding = evaluate_expr(&args[2], context, node_id)?;
-
-            if rate.is_nan() || periods_per_year.is_nan() || compounding.is_nan() {
-                return Ok(f64::NAN);
-            }
-
-            if periods_per_year <= 0.0 {
-                return Err(eval_error(
-                    node_id,
-                    "annualize_rate() periods_per_year must be positive",
-                ));
-            }
-
-            // Determine methodology based on compounding parameter
-            if compounding == 0.0 {
-                // Simple annualization
-                Ok(rate * periods_per_year)
-            } else {
-                // Compound annualization: (1 + rate)^periods - 1
-                let result = (1.0 + rate).powf(periods_per_year) - 1.0;
-                if result.is_finite() {
-                    Ok(result)
-                } else {
-                    tracing::warn!(
-                        "annualize_rate() overflow: (1 + {})^{} is not finite",
-                        rate,
-                        periods_per_year
-                    );
-                    Ok(f64::NAN)
-                }
-            }
-        }
-
-        Function::Coalesce => {
-            require_min_args("coalesce", args, 2, node_id)?;
-
-            for arg in args {
-                let value = evaluate_expr(arg, context, node_id)?;
-                if !value.is_nan() {
-                    return Ok(value);
-                }
-            }
-
-            // If all values are NaN, return the last one
-            evaluate_expr(&args[args.len() - 1], context, node_id)
-        }
-
-        Function::EwmStd | Function::EwmVar => {
-            crate::evaluator::formula_ewm::eval_ewm_std_or_var(func, args, context, node_id)
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -817,6 +523,7 @@ mod tests {
     use crate::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
     use finstack_core::currency::Currency;
     use finstack_core::expr::{Expr, Function};
+    use finstack_core::math::kahan_sum;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
 

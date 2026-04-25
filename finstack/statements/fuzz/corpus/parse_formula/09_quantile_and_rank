@@ -1,0 +1,1 @@
+quantile(returns, 0.95) - rank(returns)

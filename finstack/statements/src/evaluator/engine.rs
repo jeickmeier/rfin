@@ -125,6 +125,17 @@ impl Evaluator {
         as_of: finstack_core::dates::Date,
     ) -> Result<StatementResult> {
         self.evaluate_inner(model, Some(market_ctx), Some(as_of))
+            .inspect_err(|err| {
+                tracing::error!(
+                    model_id = %model.id,
+                    periods = model.periods.len(),
+                    nodes = model.nodes.len(),
+                    has_market = true,
+                    %as_of,
+                    error = %err,
+                    "statement evaluation (with market) failed"
+                );
+            })
     }
 
     /// Internal evaluation implementation shared by [`Evaluator::evaluate`] and
@@ -371,7 +382,15 @@ impl Evaluator {
     ///
     /// Returns `StatementResult` containing the evaluated values for all nodes and periods.
     pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<StatementResult> {
-        self.evaluate_inner(model, None, None)
+        self.evaluate_inner(model, None, None).inspect_err(|err| {
+            tracing::error!(
+                model_id = %model.id,
+                periods = model.periods.len(),
+                nodes = model.nodes.len(),
+                error = %err,
+                "statement evaluation failed"
+            );
+        })
     }
 
     /// Prepare the evaluator for repeated evaluations of the same model structure.
@@ -415,6 +434,30 @@ impl Evaluator {
         model: &FinancialModelSpec,
         prepared: &PreparedEvaluation,
     ) -> Result<StatementResult> {
+        self.evaluate_prepared_inner(model, prepared)
+            .inspect_err(|err| {
+                tracing::error!(
+                    model_id = %model.id,
+                    periods = model.periods.len(),
+                    nodes = model.nodes.len(),
+                    error = %err,
+                    "prepared statement evaluation failed"
+                );
+            })
+    }
+
+    fn evaluate_prepared_inner(
+        &mut self,
+        model: &FinancialModelSpec,
+        prepared: &PreparedEvaluation,
+    ) -> Result<StatementResult> {
+        let _span = tracing::info_span!(
+            "statements.evaluate_prepared",
+            model_id = model.id.as_str(),
+            periods = model.periods.len(),
+            nodes = model.nodes.len(),
+        )
+        .entered();
         self.forecast_cache.clear();
 
         let mut historical: std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>> =
@@ -474,6 +517,25 @@ impl Evaluator {
     /// Monte Carlo evaluation currently focuses on statement forecasts and
     /// does not support capital structure (`capital_structure`) integration.
     pub fn evaluate_monte_carlo(
+        &mut self,
+        model: &FinancialModelSpec,
+        config: &MonteCarloConfig,
+    ) -> Result<MonteCarloResults> {
+        self.evaluate_monte_carlo_inner(model, config)
+            .inspect_err(|err| {
+                tracing::error!(
+                    model_id = %model.id,
+                    paths = config.n_paths,
+                    periods = model.periods.len(),
+                    nodes = model.nodes.len(),
+                    seed = config.seed,
+                    error = %err,
+                    "Monte Carlo evaluation failed"
+                );
+            })
+    }
+
+    fn evaluate_monte_carlo_inner(
         &mut self,
         model: &FinancialModelSpec,
         config: &MonteCarloConfig,

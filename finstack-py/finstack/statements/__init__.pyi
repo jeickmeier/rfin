@@ -251,6 +251,8 @@ class NumericMode:
     >>> from finstack.statements import NumericMode
     >>> NumericMode.float64()
     NumericMode(...)
+    >>> NumericMode.decimal()
+    NumericMode(...)
     """
 
     @staticmethod
@@ -261,6 +263,20 @@ class NumericMode:
         -------
         NumericMode
             IEEE-754 double-precision mode.
+        """
+        ...
+
+    @staticmethod
+    def decimal() -> NumericMode:
+        """Use decimal arithmetic for evaluation.
+
+        Slower than ``float64`` but avoids floating-point rounding error;
+        prefer for currency-sensitive calculations.
+
+        Returns
+        -------
+        NumericMode
+            Decimal arithmetic mode.
         """
         ...
 

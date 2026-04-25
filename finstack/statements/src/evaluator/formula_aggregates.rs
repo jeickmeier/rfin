@@ -129,7 +129,8 @@ fn evaluate_statistical_function(
         collect_all_historical_values(node_name, context)?
     } else {
         collect_expression_values_sorted(&args[0], context, node_id)?
-            .into_values()
+            .values()
+            .copied()
             .collect()
     };
     let values = retain_finite(&raw_values);
@@ -157,7 +158,8 @@ fn evaluate_cumulative_function(
         collect_all_historical_values(node_name, context)?
     } else {
         collect_expression_values_sorted(&args[0], context, node_id)?
-            .into_values()
+            .values()
+            .copied()
             .collect()
     };
     let values = retain_finite(&raw_values);

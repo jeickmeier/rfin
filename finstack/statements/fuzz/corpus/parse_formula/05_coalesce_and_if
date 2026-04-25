@@ -1,0 +1,1 @@
+if (revenue > 0, coalesce(margin, 0), -1.0)

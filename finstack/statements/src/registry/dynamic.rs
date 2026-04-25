@@ -10,6 +10,16 @@ use std::collections::HashSet;
 ///
 /// Stores metrics organized by namespace and provides lookup, validation,
 /// and compilation services so metric formulas can be reused across models.
+///
+/// # Thread safety
+///
+/// `Registry` is **not** internally synchronised. Build the registry once at
+/// startup (typically via [`Registry::with_builtins`] plus any caller-loaded
+/// JSON), then share it as `Arc<Registry>` for concurrent read access — the
+/// underlying `IndexMap` lookups are safe to call from multiple threads as
+/// long as no thread is mutating. If you need concurrent mutation, wrap the
+/// registry in `RwLock` at the call site rather than baking a lock into the
+/// type, since the common case (build-once-share-many) does not need one.
 #[derive(Debug, Clone, Default)]
 pub struct Registry {
     /// Map of fully-qualified metric ID → metric definition

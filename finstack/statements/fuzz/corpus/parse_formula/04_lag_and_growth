@@ -1,0 +1,1 @@
+growth_rate(revenue) - lag(revenue, 1) / revenue

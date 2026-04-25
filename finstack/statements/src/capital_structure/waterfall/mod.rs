@@ -66,7 +66,7 @@ use std::collections::HashSet;
 
 use cash_distribution::{allocate_pro_rata, apply_cash_cap_to_category, StagedInstrumentFlow};
 use excess_cash_flow::calculate_ecf_sweep;
-use payment_in_kind::{evaluate_pik_toggle, is_pik_enabled};
+use payment_in_kind::{apply_pik_transitions, evaluate_pik_toggle, is_pik_enabled};
 use payment_stack::{extra_principal_priority, priority_index, waterfall_currency};
 use period_close::update_cumulative_metrics;
 
@@ -167,38 +167,13 @@ pub fn execute_waterfall(
         .unwrap_or(0);
 
     if let Some(enable_pik) = pik_enable {
-        for instrument_id in contractual_flows.keys() {
-            let should_apply = pik_targets
-                .as_ref()
-                .map(|set| set.contains(instrument_id))
-                .unwrap_or(true);
-            if !should_apply {
-                continue;
-            }
-            let periods_active = state
-                .pik_periods_active
-                .get(instrument_id.as_str())
-                .copied()
-                .unwrap_or(0);
-            let currently_pik = state
-                .pik_mode
-                .get(instrument_id.as_str())
-                .copied()
-                .unwrap_or(false);
-            let effective_pik =
-                if currently_pik && !enable_pik && periods_active < min_periods_in_pik {
-                    true
-                } else {
-                    enable_pik
-                };
-            state
-                .pik_mode
-                .insert(instrument_id.to_string(), effective_pik);
-            state.pik_periods_active.insert(
-                instrument_id.to_string(),
-                if effective_pik { periods_active + 1 } else { 0 },
-            );
-        }
+        apply_pik_transitions(
+            state,
+            contractual_flows,
+            enable_pik,
+            pik_targets.as_ref(),
+            min_periods_in_pik,
+        );
     }
 
     // --- Step 2: ECF / sweep ---

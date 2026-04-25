@@ -1,0 +1,1 @@
+sum(rev_q1, rev_q2, rev_q3) / mean(margin_q1, margin_q2)
