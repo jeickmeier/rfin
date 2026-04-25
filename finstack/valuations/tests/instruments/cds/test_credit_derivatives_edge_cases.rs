@@ -467,4 +467,3 @@ fn test_recovery01_recalibrates_hazard_curve_with_par_spreads() {
          sensitivity for spread-bootstrapped curves."
     );
 }
-

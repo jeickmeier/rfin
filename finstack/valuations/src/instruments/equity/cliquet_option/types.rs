@@ -346,10 +346,7 @@ mod validation_tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build();
-        assert!(
-            result.is_err(),
-            "reset_dates after expiry must be rejected"
-        );
+        assert!(result.is_err(), "reset_dates after expiry must be rejected");
     }
 
     #[test]
@@ -372,10 +369,7 @@ mod validation_tests {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build();
-        assert!(
-            result.is_err(),
-            "unsorted reset_dates must be rejected"
-        );
+        assert!(result.is_err(), "unsorted reset_dates must be rejected");
     }
 
     #[test]

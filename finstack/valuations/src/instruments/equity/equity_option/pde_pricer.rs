@@ -47,7 +47,10 @@ impl EquityOptionPdePricer {
         as_of: Date,
     ) -> Result<Money, PricingError> {
         let inputs = collect_inputs_extended(inst, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D))
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D),
+            )
         })?;
         let spot = inputs.spot;
         let r = inputs.r;
@@ -122,7 +125,10 @@ impl EquityOptionPdePricer {
                 .build(),
         }
         .map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D))
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D),
+            )
         })?;
 
         let solution = solver.solve(&pde, t);

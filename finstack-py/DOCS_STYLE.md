@@ -70,7 +70,7 @@ def __init__(self, amount: float, currency: Currency | str) -> None:
 
 #### 3. Examples
 
-Required for every public class, classmethod, and free function. Examples should be runnable as `>>> ` doctests in `.pyi` (we don't run them automatically yet, but write them so we can opt into pytest doctest later).
+Required for every public class, classmethod, and free function. Examples should be runnable as `>>>` doctests in `.pyi` (we don't run them automatically yet, but write them so we can opt into pytest doctest later).
 
 For `#[pymethods]` accessor patterns where the example is identical to a sibling, you may reference the class-level example instead of duplicating.
 

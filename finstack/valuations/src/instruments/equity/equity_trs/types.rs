@@ -137,9 +137,7 @@ struct EquityTotalReturnSwapUnchecked {
 impl TryFrom<EquityTotalReturnSwapUnchecked> for EquityTotalReturnSwap {
     type Error = finstack_core::Error;
 
-    fn try_from(
-        value: EquityTotalReturnSwapUnchecked,
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: EquityTotalReturnSwapUnchecked) -> std::result::Result<Self, Self::Error> {
         let inst = Self {
             id: value.id,
             notional: value.notional,
@@ -271,9 +269,7 @@ impl EquityTotalReturnSwap {
                 "EquityTRS notional amount must be finite".into(),
             ));
         }
-        if !self.dividend_tax_rate.is_finite()
-            || !(0.0..=1.0).contains(&self.dividend_tax_rate)
-        {
+        if !self.dividend_tax_rate.is_finite() || !(0.0..=1.0).contains(&self.dividend_tax_rate) {
             return Err(finstack_core::Error::Validation(format!(
                 "EquityTRS '{}' dividend_tax_rate must be in [0.0, 1.0], got {}",
                 self.id.as_str(),
@@ -544,10 +540,7 @@ mod validation_tests {
     #[test]
     fn validate_rejects_unsorted_discrete_dividends() {
         let mut trs = base();
-        trs.discrete_dividends = vec![
-            (date!(2024 - 06 - 15), 1.0),
-            (date!(2024 - 03 - 15), 1.0),
-        ];
+        trs.discrete_dividends = vec![(date!(2024 - 06 - 15), 1.0), (date!(2024 - 03 - 15), 1.0)];
         let err = trs.validate().expect_err("unsorted dividends");
         assert!(err.to_string().contains("strictly increasing"));
     }

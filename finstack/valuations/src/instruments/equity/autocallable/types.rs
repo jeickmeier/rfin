@@ -433,10 +433,7 @@ mod validation_tests {
             .observation_dates(vec![date!(2024 - 12 - 31), date!(2025 - 01 - 31)])
             .expiry(date!(2024 - 12 - 31))
             .build();
-        assert!(
-            result.is_err(),
-            "observation after expiry must be rejected"
-        );
+        assert!(result.is_err(), "observation after expiry must be rejected");
     }
 
     #[test]

@@ -792,8 +792,14 @@ mod tests {
     fn validate_rejects_unsorted_flows() {
         let mut dcf = build_simple_dcf_gordon();
         dcf.flows = vec![
-            (Date::from_calendar_date(2027, Month::January, 1).unwrap(), 100.0),
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 100.0),
+            (
+                Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+                100.0,
+            ),
+            (
+                Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                100.0,
+            ),
         ];
         let err = dcf.validate().expect_err("unsorted must error");
         assert!(err.to_string().contains("strictly increasing"));
@@ -803,7 +809,9 @@ mod tests {
     fn validate_rejects_flow_on_or_before_valuation_date() {
         let mut dcf = build_simple_dcf_gordon();
         dcf.flows = vec![(dcf.valuation_date, 100.0)];
-        let err = dcf.validate().expect_err("flow on valuation_date must error");
+        let err = dcf
+            .validate()
+            .expect_err("flow on valuation_date must error");
         assert!(err.to_string().contains("strictly after valuation_date"));
     }
 

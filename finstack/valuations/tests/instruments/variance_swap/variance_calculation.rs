@@ -57,9 +57,9 @@ fn test_get_historical_prices_errors_when_past_observations_lack_data() {
     );
 
     // Act
-    let err = swap
-        .get_historical_prices(&ctx, swap.maturity)
-        .expect_err("missing historical data must error, not silently mark to zero realised variance");
+    let err = swap.get_historical_prices(&ctx, swap.maturity).expect_err(
+        "missing historical data must error, not silently mark to zero realised variance",
+    );
 
     // Assert
     let msg = err.to_string();

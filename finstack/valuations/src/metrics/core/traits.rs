@@ -415,9 +415,7 @@ impl MetricContext {
     /// value, OID-EIR, …) all need the same cashflow schedule. Without this
     /// cache, evaluating N metrics on a long DDTL reruns the cashflow builder
     /// N times. Subsequent calls return the cached vector.
-    pub fn cashflows_cached(
-        &mut self,
-    ) -> finstack_core::Result<&Vec<(Date, Money)>> {
+    pub fn cashflows_cached(&mut self) -> finstack_core::Result<&Vec<(Date, Money)>> {
         if self.cashflows.is_none() {
             let flows = self.instrument.dated_cashflows(&self.curves, self.as_of)?;
             self.cashflows = Some(flows);

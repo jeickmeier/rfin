@@ -232,7 +232,7 @@ For five core types, examples are present and runnable in the `.pyi` docstring o
       |       ^^^^^^^^^ no item named `Portfolio` in scope
   ```
 
-  `Portfolio` here is `finstack_portfolio::Portfolio` from another crate; it is referenced in the doc but not in scope. Either fully qualify (` [`finstack_portfolio::Portfolio`] `) or drop the link.
+  `Portfolio` here is `finstack_portfolio::Portfolio` from another crate; it is referenced in the doc but not in scope. Either fully qualify (`[`finstack_portfolio::Portfolio`]`) or drop the link.
 
 - AGENTS.md cites `#![forbid(unsafe_code)]` and `-D missing_docs` for the binding crate. The crate compiles, so `missing_docs` itself isn't tripping — but the broken-link warning slips through the gate.
 
@@ -293,7 +293,7 @@ The WASM crate has the most-stringent financial-doc requirements (per `DOCS_STYL
 
 | Priority | File:Line | Action |
 |----------|-----------|--------|
-| P0 | `finstack-wasm/src/api/portfolio/mod.rs:179` | Fix the broken intra-doc link. Either ` [`finstack_portfolio::Portfolio`] ` or remove the brackets. This is the only thing standing between `cargo doc -p finstack-wasm` and a clean `RUSTDOCFLAGS="-D warnings"` gate. |
+| P0 | `finstack-wasm/src/api/portfolio/mod.rs:179` | Fix the broken intra-doc link. Either `[`finstack_portfolio::Portfolio`]` or remove the brackets. This is the only thing standing between `cargo doc -p finstack-wasm` and a clean `RUSTDOCFLAGS="-D warnings"` gate. |
 | P0 | `finstack-wasm/src/api/**/*.rs` | Backfill `@example` blocks per `DOCS_STYLE.md`. **Start with the 10-15 highest-traffic exports** (priority list below in §5.2). Use `cashflows.rs` as the template for `@param`/`@returns`/`@throws` shape. |
 | P1 | `finstack-wasm/src/api/**/*.rs` | Bring all sampled modules to the `cashflows.rs` baseline for `@param`/`@returns`/`@throws`. The `# Arguments` style in `market_data.rs` should be migrated to `@param` for JSDoc to render. |
 | P1 | `finstack-wasm/index.d.ts` | Add JSDoc per export with at least Summary + `@example`. Where the underlying Rust binding has `@param`/`@returns`/`@throws`, mirror them. The file is hand-written so it can't rely on wasm-pack to forward; this is manual work but high-leverage (TypeScript IntelliSense is the main consumer experience per `DOCS_STYLE.md`). |

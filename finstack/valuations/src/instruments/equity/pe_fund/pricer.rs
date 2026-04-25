@@ -89,8 +89,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         let fund =
             expect_inst::<PrivateMarketsFund>(instrument, InstrumentType::PrivateMarketsFund)?;
 
-        let err_ctx =
-            || PricingErrorContext::from_instrument(fund).model(ModelKey::Discounting);
+        let err_ctx = || PricingErrorContext::from_instrument(fund).model(ModelKey::Discounting);
 
         let as_of = if let Some(ref discount_curve_id) = fund.discount_curve_id {
             let disc = market
@@ -116,9 +115,8 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
                 })?
         };
 
-        let pv = compute_pv(fund, market).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), err_ctx())
-        })?;
+        let pv = compute_pv(fund, market)
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), err_ctx()))?;
 
         Ok(ValuationResult::stamped(fund.id(), as_of, pv))
     }

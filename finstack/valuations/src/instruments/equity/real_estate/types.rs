@@ -607,7 +607,9 @@ mod tests {
     fn validate_rejects_zero_terminal_cap_rate() {
         let mut asset = build_dcf_asset();
         asset.terminal_cap_rate = Some(0.0);
-        let err = asset.validate().expect_err("zero terminal_cap_rate must error");
+        let err = asset
+            .validate()
+            .expect_err("zero terminal_cap_rate must error");
         assert!(err.to_string().contains("terminal_cap_rate"));
     }
 

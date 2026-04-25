@@ -48,10 +48,7 @@ pub(crate) struct Recovery01Calculator;
 /// per-issuer overrides (curves, recovery rates, weights). Mirrors the
 /// pricer's own rebuild logic so that heterogeneous bespoke tranches are
 /// not silently downgraded to the homogeneous binomial path during bumping.
-fn rebuild_with_recovery(
-    original: &CreditIndexData,
-    new_recovery: f64,
-) -> Result<CreditIndexData> {
+fn rebuild_with_recovery(original: &CreditIndexData, new_recovery: f64) -> Result<CreditIndexData> {
     let mut builder = CreditIndexData::builder()
         .num_constituents(original.num_constituents)
         .recovery_rate(new_recovery)
@@ -244,7 +241,10 @@ mod tests {
         let bumped = rebuild_with_recovery(&original, 0.42).expect("rebuild");
 
         assert!((bumped.recovery_rate - 0.42).abs() < 1e-12);
-        assert!(bumped.issuer_credit_curves.is_some(), "issuer_curves dropped");
+        assert!(
+            bumped.issuer_credit_curves.is_some(),
+            "issuer_curves dropped"
+        );
         assert!(
             bumped.issuer_recovery_rates.is_some(),
             "issuer_recovery_rates dropped"

@@ -54,9 +54,7 @@ class Money:
     Money(150.0, 'USD')
     """
 
-    def __init__(
-        self, amount: Union[float, int, Decimal], currency: Union[Currency, str]
-    ) -> None:
+    def __init__(self, amount: Union[float, int, Decimal], currency: Union[Currency, str]) -> None:
         """Construct from an amount and a currency.
 
         Parameters
@@ -78,9 +76,7 @@ class Money:
         ...
 
     @classmethod
-    def from_decimal(
-        cls, amount: Decimal, currency: Union[Currency, str]
-    ) -> Money:
+    def from_decimal(cls, amount: Decimal, currency: Union[Currency, str]) -> Money:
         """Construct from a ``decimal.Decimal``, preserving full precision.
 
         This is the recommended entry point when the caller already holds a

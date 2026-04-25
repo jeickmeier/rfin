@@ -625,9 +625,11 @@ impl TermLoanTreePricer {
                 ..Default::default()
             });
             tree.calibrate(disc.as_ref(), time_to_maturity)
-                .map_err(|e| finstack_core::Error::Validation(format!(
-                    "TermLoan OAS short-rate tree calibration failed: {e}"
-                )))?;
+                .map_err(|e| {
+                    finstack_core::Error::Validation(format!(
+                        "TermLoan OAS short-rate tree calibration failed: {e}"
+                    ))
+                })?;
             let initial_rate = tree.rate_at_node(0, 0).unwrap_or_else(|_| disc.zero(0.0));
             Some((tree, initial_rate))
         };

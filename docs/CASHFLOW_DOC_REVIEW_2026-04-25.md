@@ -242,18 +242,20 @@ A sub-agent reviewed [builder/calendar.rs](../finstack/cashflows/src/builder/cal
 
 All five `#[pyfunction]`s have docstrings in NumPy/Sphinx format with Parameters / Returns sections. The `register()` function sets a clear module `__doc__`.
 
-- **Blocker:** `dated_flows` docstring (line 47–62) says it returns _"JSON array of `{date, amount, currency, kind}` entries."_ The actual JSON shape comes from [DatedFlowJson](../finstack/cashflows/src/json.rs#L60-L66):
+- **Blocker:** `dated_flows` docstring (line 47–62) says it returns *"JSON array of `{date, amount, currency, kind}` entries."* The actual JSON shape comes from [DatedFlowJson](../finstack/cashflows/src/json.rs#L60-L66):
+
   ```rust
   pub struct DatedFlowJson {
       pub date: Date,
       pub amount: Money,
   }
   ```
+
   Money serializes as `{amount, currency}`, so the actual shape is `{date, amount: {amount, currency}}`. There is no top-level `currency`, and there is no `kind` at all. The Rust-side docstring at [json.rs:254–265](../finstack/cashflows/src/json.rs#L254-L265) correctly describes this ("intentionally omits CFKind and accrual metadata"). The Python binding docstring is the one that's stale.
 
 - **Minor:** `bond_from_cashflows` (line 89) lives in the cashflows binding but depends on `finstack_valuations` for `Bond::from_cashflows`. Worth a one-liner noting that it's a convenience wrapper that crosses crates.
 
-#### Python: [finstack-py/finstack/cashflows/__init__.py](../finstack-py/finstack/cashflows/__init__.py) and [__init__.pyi](../finstack-py/finstack/cashflows/__init__.pyi)
+#### Python: [finstack-py/finstack/cashflows/**init**.py](../finstack-py/finstack/cashflows/__init__.py) and [**init**.pyi](../finstack-py/finstack/cashflows/__init__.pyi)
 
 - **Minor:** Both files have a one-line module docstring `"""Cashflow schedule JSON construction and validation."""`. Adequate for a thin re-export façade. The `.pyi` has no per-function docstrings, which is conventional for stub files.
 - `__all__` ordering matches between `.py` and `.pyi` (both alphabetical). Good.
@@ -277,6 +279,7 @@ All five `#[wasm_bindgen]` functions have JSDoc-style `///` docs with `@param`, 
 #### WASM: [finstack-wasm/index.d.ts](../finstack-wasm/index.d.ts) (`CashflowsNamespace` slice at lines 931–946)
 
 - **Major:** **Zero JSDoc** on the `CashflowsNamespace` interface or any of its methods. Compare with the rest of `index.d.ts` — most other namespaces are similarly bare, so this is a workspace-wide pattern, not a cashflows-specific regression. Still, the function signatures have nothing pointing TypeScript users back to the rich `///` docs in `api/cashflows.rs`. Worth adding at minimum `@see` references:
+
   ```typescript
   export interface CashflowsNamespace {
     /**
@@ -287,6 +290,7 @@ All five `#[wasm_bindgen]` functions have JSDoc-style `///` docs with `@param`, 
     // ...
   }
   ```
+
   If no docs URL is published, at minimum copy the @param / @returns from the Rust side.
 
 #### WASM: [finstack-wasm/tests/wasm_cashflows.rs](../finstack-wasm/tests/wasm_cashflows.rs)

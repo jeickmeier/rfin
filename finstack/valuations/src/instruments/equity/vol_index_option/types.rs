@@ -199,9 +199,7 @@ struct VolatilityIndexOptionUnchecked {
 impl TryFrom<VolatilityIndexOptionUnchecked> for VolatilityIndexOption {
     type Error = finstack_core::Error;
 
-    fn try_from(
-        value: VolatilityIndexOptionUnchecked,
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: VolatilityIndexOptionUnchecked) -> std::result::Result<Self, Self::Error> {
         let inst = Self {
             id: value.id,
             notional: value.notional,

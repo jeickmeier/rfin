@@ -255,10 +255,7 @@ impl Money {
     /// will surface those errors before reaching this constructor; this method
     /// validates the residual edge case where the value is malformed only after
     /// arithmetic.
-    pub fn from_decimal(
-        amount: rust_decimal::Decimal,
-        currency: Currency,
-    ) -> Result<Self, Error> {
+    pub fn from_decimal(amount: rust_decimal::Decimal, currency: Currency) -> Result<Self, Error> {
         // rust_decimal::Decimal models a fixed-precision number with no
         // NaN/Infinity representation, so finiteness is structural. The
         // remaining concern is converting back to f64 for downstream f64-only

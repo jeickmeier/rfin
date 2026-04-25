@@ -30,9 +30,7 @@ def test_decimal_via_polymorphic_constructor_matches_classmethod() -> None:
     raw = "987654321.123456789"
     m1 = Money(Decimal(raw), "USD")
     m2 = Money.from_decimal(Decimal(raw), "USD")
-    assert m1.format(decimals=9, show_currency=False) == m2.format(
-        decimals=9, show_currency=False
-    )
+    assert m1.format(decimals=9, show_currency=False) == m2.format(decimals=9, show_currency=False)
 
 
 def test_decimal_subclass_uses_decimal_path_not_float() -> None:

@@ -45,7 +45,7 @@
 
 | # | Severity | Location | Issue |
 |---|---|---|---|
-| 1 | **Critical** | `finstack/analytics/src/lib.rs:29` (+ `:39`) | Broken intra-doc link `[\`crate::dates::PeriodKind\`]` — `dates` is `pub(crate) use` (line 39), so rustdoc cannot resolve it from the public surface. With the README's own verification command `RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-analytics --no-deps --all-features`, this is a hard error. **Fix:** make the re-export `pub` (preferred) or rewrite as `[\`finstack_core::dates::PeriodKind\`]`. |
+| 1 | **Critical** | `finstack/analytics/src/lib.rs:29` (+ `:39`) | Broken intra-doc link `[\`crate::dates::PeriodKind\`]` — `dates` is `pub(crate) use` (line 39), so rustdoc cannot resolve it from the public surface. With the README's own verification command `RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-analytics --no-deps --all-features`, this is a hard error. **Fix:** make the re-export`pub` (preferred) or rewrite as `[\`finstack_core::dates::PeriodKind\`]`. |
 | 2 | **Critical** | `finstack/analytics/src/benchmark.rs:362–405` | `beta` doc claims "for `n ≥ 40` the normal critical value 1.96 is used" but the implementation uses the t-critical at df=40 (~2.021) until df ≥ 240. **Either the doc or the code is wrong.** Verify against intent and fix. |
 | 3 | **Critical** | `finstack-py/src/bindings/analytics/mod.rs:32–148` | `__all__` omits `GarchFit` and `GarchParams`. Both classes are registered via `timeseries::register()` (lines 479–480) and visible on the module, but `from finstack.analytics import *` and IDE auto-import won't see them. **Fix:** add `"GarchFit"`, `"GarchParams"` to the types block. |
 | 4 | **Critical** | `finstack-wasm/index.d.ts:269–282` and `:434–447` | `interface PeriodStats` is **declared twice** with identical bodies. TS allows it via declaration merging, but a future edit to one block without the other silently breaks the contract. **Fix:** delete one. |
@@ -85,7 +85,7 @@
 - **High** `analytics/types.rs:17, 99, 140, 181, 227, 273, 324, 385, 421, 457, 510, 560, 606, 669, 716, 749, 808, 869, 921` — `pub(super) inner` fields lack `///` comments. Only the last two (lines 974, 1028) carry docs. If `inner` should be `pub(crate)` per `AGENTS.md`, this becomes a `-D missing_docs` build error.
 - **High** Cross-cutting — Docstring style mixes Rust-flavored markup that renders awkwardly in Python `help()`:
   - `[\`PyPerformance\`]` intra-doc-links appear as literal `[\`PyPerformance\`]`
-  - `:class:\`KupiecResult\`` Sphinx role markers (e.g. `backtesting.rs:66, 90`) only render under Sphinx; in plain `help()` they're raw text
+  - `:class:\`KupiecResult\`` Sphinx role markers (e.g. `backtesting.rs:66, 90`) only render under Sphinx; in plain`help()` they're raw text
   - Rust `# Arguments` / `# Returns` headings (~30 occurrences across `backtesting.rs`, `timeseries.rs`) are not idiomatic Python. Convert to NumPy/Google style or unify on Rust style if Sphinx is the target.
 - **High** Cross-cutting — Conventions from Rust README (decimal returns, non-positive drawdowns, non-negative CDaR, right-labeled rolling, explicit annualization) **not surfaced anywhere visible to Python users**. Module `__doc__` (`mod.rs:19–21`) is one sentence.
 - **High** Cross-cutting — Default-value documentation missing in PyO3 docstrings. `volatility(returns, annualize=True, ann_factor=252.0)` — defaults emitted via `text_signature` but the `///` body never explains the 252 convention.
@@ -561,7 +561,7 @@ No `comps` Rust source, no `comps` Python bindings, no `comps` WASM bindings. **
 
 ### Blockers
 
-- [x] Fix `finstack/analytics/src/lib.rs:29` broken intra-doc link — **resolved 2026-04-25**: changed `[\`crate::dates::PeriodKind\`]` to `[\`finstack_core::dates::PeriodKind\`]`; demoted misleading `///` on `pub(crate) use` re-export to `//`. `RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-analytics` now passes.
+- [x] Fix `finstack/analytics/src/lib.rs:29` broken intra-doc link — **resolved 2026-04-25**: changed `[\`crate::dates::PeriodKind\`]` to `[\`finstack_core::dates::PeriodKind\`]`; demoted misleading`///` on `pub(crate) use` re-export to `//`.`RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-analytics` now passes.
 - [x] Fix `finstack/analytics/src/benchmark.rs:362–405` `beta` doc/code mismatch — **resolved 2026-04-25**: replaced the inaccurate "`n ≥ 40` uses 1.96" claim with the actual step-down table (df 38–59 → 2.021, 60–119 → 2.000, 120–239 → 1.980, ≥ 240 → 1.96).
 - [x] Fix `finstack/analytics/src/drawdown.rs:691–733` `martin_ratio` doc/example contradiction — **resolved 2026-04-25**: replaced "Returns 0.0 if Ulcer Index is zero" with the full sentinel convention (`±∞` for nonzero/0, `0.0` only for `0/0`); added matching example.
 - [x] Fix `finstack-py/src/bindings/analytics/mod.rs` `__all__` to include `GarchFit`, `GarchParams` — **resolved 2026-04-25**: added to the types block. (Verified `__init__.py` and `__init__.pyi` already had them.)

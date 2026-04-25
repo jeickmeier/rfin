@@ -470,8 +470,8 @@ mod tests {
     #[test]
     fn resolve_mc_paths_rejects_override_above_cap() {
         let too_many = mc_defaults::MAX_MC_PATHS + 1;
-        let err = resolve_mc_paths(Some(too_many), 50_000)
-            .expect_err("override above cap must error");
+        let err =
+            resolve_mc_paths(Some(too_many), 50_000).expect_err("override above cap must error");
         let msg = err.to_string();
         assert!(msg.contains("MAX_MC_PATHS"));
         assert!(msg.contains(&too_many.to_string()));

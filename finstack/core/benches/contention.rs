@@ -113,8 +113,7 @@ fn bench_expr_scratch_contention(c: &mut Criterion) {
     let n = 1024usize;
     let xs: Vec<f64> = (0..n).map(|i| i as f64).collect();
     let ys: Vec<f64> = (0..n).map(|i| (i as f64) * 0.5).collect();
-    let ctx: Arc<SimpleContext> =
-        Arc::new(SimpleContext::new(["x", "y"]).expect("unique columns"));
+    let ctx: Arc<SimpleContext> = Arc::new(SimpleContext::new(["x", "y"]).expect("unique columns"));
 
     for &threads in &[1usize, 2, 4, 8] {
         let evals_per_thread = 256usize;

@@ -67,9 +67,9 @@ fn money_from_amount(obj: &Bound<'_, PyAny>, ccy: Currency) -> PyResult<Money> {
         let d = decimal_from_py(obj)?;
         return Money::from_decimal(d, ccy).map_err(core_to_py);
     }
-    let amount: f64 = obj.extract().map_err(|_| {
-        PyTypeError::new_err("Money amount must be float, int, or decimal.Decimal")
-    })?;
+    let amount: f64 = obj
+        .extract()
+        .map_err(|_| PyTypeError::new_err("Money amount must be float, int, or decimal.Decimal"))?;
     Money::try_new(amount, ccy).map_err(core_to_py)
 }
 

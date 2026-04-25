@@ -316,8 +316,7 @@ fn all_pricing_modes_succeed_on_canonical_deal() {
     let close = closing_date();
     let market = MarketContext::new().insert(discount_curve(close));
 
-    let tree = sc
-        .price_stochastic_with_mode(&market, close, PricingMode::Tree);
+    let tree = sc.price_stochastic_with_mode(&market, close, PricingMode::Tree);
     // Tree mode may legitimately reject this fixture if the deal's payment
     // schedule exceeds tree_steps capacity — that's the documented safety
     // guard. Skip the comparison in that case but still verify MC + Hybrid
@@ -356,8 +355,10 @@ fn all_pricing_modes_succeed_on_canonical_deal() {
         )
         .expect("Hybrid mode must price");
 
-    let mut entries: Vec<(&str, &finstack_valuations::instruments::fixed_income::structured_credit::StochasticPricingResult)> =
-        Vec::new();
+    let mut entries: Vec<(
+        &str,
+        &finstack_valuations::instruments::fixed_income::structured_credit::StochasticPricingResult,
+    )> = Vec::new();
     if let Some(t) = tree_priced.as_ref() {
         entries.push(("Tree", t));
     }

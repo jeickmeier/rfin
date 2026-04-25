@@ -1435,9 +1435,7 @@ impl DiscountCurveBuilder {
     /// For general use, prefer [`Self::build`] which includes full validation.
     #[doc(hidden)]
     pub fn build_for_solver(self) -> crate::Result<DiscountCurve> {
-        let base = self
-            .base
-            .ok_or(crate::error::InputError::Invalid)?;
+        let base = self.base.ok_or(crate::error::InputError::Invalid)?;
         if self.points.len() < 2 {
             return Err(crate::error::InputError::TooFewPoints.into());
         }
@@ -1479,9 +1477,7 @@ impl DiscountCurveBuilder {
     /// If the first knot time is `> 0.0`, automatically prepends `(0.0, 1.0)` to
     /// ensure the round-trip invariant `DF(0) = 1.0` (ISDA/QuantLib standard).
     pub fn build(mut self) -> crate::Result<DiscountCurve> {
-        let base = self
-            .base
-            .ok_or(crate::error::InputError::Invalid)?;
+        let base = self.base.ok_or(crate::error::InputError::Invalid)?;
         if !self.points.is_empty() {
             self.points.sort_by(|a, b| a.0.total_cmp(&b.0));
             let first_t = self.points[0].0;

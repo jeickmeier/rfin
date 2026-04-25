@@ -422,9 +422,7 @@ mod tests {
             .underlying_ticker("SPX".to_string())
             .notional(Money::new(2_250_000.0, Currency::USD))
             .expiry(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
-            .last_trading_date(
-                Date::from_calendar_date(2025, Month::June, 19).expect("valid date"),
-            )
+            .last_trading_date(Date::from_calendar_date(2025, Month::June, 19).expect("valid date"))
             .entry_price_opt(None)
             .quoted_price_opt(Some(4550.0))
             .position(Position::Long)
@@ -456,9 +454,7 @@ mod tests {
             .underlying_ticker("SPX".to_string())
             .notional(Money::new(2_250_000.0, Currency::USD))
             .expiry(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
-            .last_trading_date(
-                Date::from_calendar_date(2025, Month::June, 19).expect("valid date"),
-            )
+            .last_trading_date(Date::from_calendar_date(2025, Month::June, 19).expect("valid date"))
             .entry_price_opt(None)
             .quoted_price_opt(None)
             .position(Position::Long)

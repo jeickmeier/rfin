@@ -33,16 +33,15 @@ pub(super) fn cached_full_schedule(
         // Clone the instrument Arc so we can drop the context borrow before
         // calling generate_cashflows, then re-borrow context to write the cache.
         let inst = Arc::clone(&context.instrument);
-        let loan = inst
-            .as_any()
-            .downcast_ref::<TermLoan>()
-            .ok_or_else(|| finstack_core::InputError::NotFound {
+        let loan = inst.as_any().downcast_ref::<TermLoan>().ok_or_else(|| {
+            finstack_core::InputError::NotFound {
                 id: format!(
                     "instrument downcast: expected TermLoan, got {} (id={})",
                     context.instrument.key(),
                     context.instrument.id(),
                 ),
-            })?;
+            }
+        })?;
         let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
             loan,
             &context.curves,

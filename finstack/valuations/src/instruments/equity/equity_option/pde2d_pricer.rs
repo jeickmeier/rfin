@@ -53,7 +53,10 @@ impl EquityOptionHestonPdePricer {
         as_of: Date,
     ) -> Result<Money, PricingError> {
         let inputs = collect_inputs_extended(inst, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D))
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D),
+            )
         })?;
         let spot = inputs.spot;
         let r = inputs.r;
@@ -73,7 +76,10 @@ impl EquityOptionHestonPdePricer {
         // centralized defaults; validation (positive κ/θ/σᵥ/v₀, ρ ∈ (−1, 1))
         // is enforced by `HestonParams::from_market`.
         let cf_params = ClosedFormHestonParams::from_market(market, r, q).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D))
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D),
+            )
         })?;
         let theta_v = cf_params.theta;
         let v0 = cf_params.v0;
