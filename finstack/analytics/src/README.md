@@ -25,9 +25,11 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 
 - **`lib.rs`**
   - Public entrypoint for the analytics crate.
-  - Re-exports the high-level `Performance` facade and core result types.
+  - Re-exports the high-level `Performance` facade and core result types
+    (`PeriodStats`, `LookbackReturns`, `BacktestResult`).
   - Standalone functions remain in domain modules such as `risk_metrics`,
-    `benchmark`, `drawdown`, `returns`, `aggregation`, and `lookback`.
+    `benchmark`, `drawdown`, `returns`, `aggregation`, `lookback`,
+    `backtesting`, and `timeseries`.
 
 - **`performance.rs`**
   - `Performance`: stateful orchestrator holding pre-computed returns, drawdowns, and benchmark data for a universe of tickers.
@@ -72,6 +74,22 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
   - Date-index selectors returning `Range<usize>` into sorted date arrays: `mtd_select`, `qtd_select`, `ytd_select`, `fytd_select`.
   - All accept an `offset_days` parameter to shift window starts.
   - Uses binary search; no allocations.
+
+- **`backtesting/`** (directory module)
+  - VaR backtesting infrastructure. Submodules: `types`, `metrics`, `orchestrator`.
+  - Coverage tests: `kupiec_test` (POF unconditional coverage), `christoffersen_test` (joint conditional coverage).
+  - Basel-style classification: `traffic_light`, `TrafficLightZone`, `capital_multiplier()`.
+  - Orchestrators: `run_backtest`, `rolling_var_forecasts`, `compare_var_backtests`.
+  - FRTB P&L explanation: `pnl_explanation`.
+  - Output types: `KupiecResult`, `ChristoffersenResult`, `TrafficLightResult`, `BacktestResult`, `MultiModelComparison`, `PnlExplanation`.
+
+- **`timeseries/`** (directory module)
+  - GARCH-family volatility models and diagnostics. Submodules: `garch` (trait + MLE driver), `garch11`, `gjr_garch11`, `egarch11`, `forecast`, `diagnostics`, `innovations`, `optimizer`.
+  - Models: `Garch11`, `GjrGarch11`, `Egarch11` all implement the `GarchModel` trait. References: Bollerslev (1986), Glosten-Jagannathan-Runkle (1993), Nelson (1991).
+  - Forecasting: `forecast_garch_fit`, `vol_term_structure`, `STANDARD_HORIZONS`.
+  - Diagnostics: `ljung_box`, `arch_lm`, `aic`, `bic`, `hqic`.
+  - Selection: `compare_garch_models`, `auto_garch` (BIC-ranked).
+  - Innovations: `InnovationDist::Gaussian` and `InnovationDist::StudentT(nu)`.
 
 ---
 
@@ -494,7 +512,7 @@ The analytics module is **pure-function-first**: analytics logic lives in statel
 
 5. **Add the reference** (if it has a canonical academic source) to `docs/REFERENCES.md`.
 
-6. **Wire up the Python binding** in `finstack-py/src/analytics/performance.rs` and update the `.pyi` stub.
+6. **Wire up the bindings** in `finstack-py/src/bindings/analytics/` (PyO3) and `finstack-wasm/src/api/analytics/` (wasm-bindgen). Update the matching `finstack-py/finstack/analytics/__init__.pyi` stub and the `parity_contract.toml` entry. See `AGENTS.md` "Naming Strategy" for the triplet-update workflow.
 
 ### Adding a New Rolling Series
 

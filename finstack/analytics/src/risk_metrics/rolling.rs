@@ -235,6 +235,11 @@ fn nan_pad(values: &[f64], n: usize) -> Vec<f64> {
 /// Computes the Sortino ratio independently for each `window`-length
 /// sub-slice, advancing one period at a time.
 ///
+/// The minimum acceptable return (MAR) is fixed at `0.0` for this rolling
+/// kernel: downside is measured against zero. Callers that need a non-zero
+/// MAR should compose the standalone [`super::sortino`] over their own
+/// windowing.
+///
 /// # Arguments
 ///
 /// * `returns`    - Slice of period simple returns.

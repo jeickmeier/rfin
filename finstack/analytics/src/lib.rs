@@ -26,22 +26,30 @@
 //!
 //! Key conventions:
 //! - returns are simple decimal returns unless a function explicitly says otherwise
-//! - annualization uses the caller-supplied or [`finstack_core::dates::PeriodKind`]-derived
-//!   periods-per-year factor
+//! - annualization uses the caller-supplied periods-per-year factor or the one
+//!   derived from `finstack_core::dates::PeriodKind` when called through
+//!   [`crate::performance::Performance`]
 //! - drawdown depths are non-positive fractions such as `-0.25` for a 25% loss
 //! - benchmark-relative metrics operate on return series, not fill-forwarded prices
+//! - rolling series are right-labeled: each output value is dated by the last
+//!   observation in its window
 //!
-//! See [`crate::risk_metrics`] for return- and tail-based ratios,
-//! [`crate::drawdown`] for drawdown path analytics, and
-//! [`crate::benchmark`] for benchmark-relative regressions and attribution.
+//! Module map:
+//! - [`crate::returns`] — return transforms, compounding, rebasing
+//! - [`crate::risk_metrics`] — return- and tail-based ratios + rolling kernels
+//! - [`crate::drawdown`] — drawdown paths, episodes, and drawdown-derived ratios
+//! - [`crate::benchmark`] — benchmark alignment, greeks, multi-factor regression
+//! - [`crate::aggregation`] — period grouping and trading statistics
+//! - [`crate::lookback`] — MTD / QTD / YTD / FYTD index selectors
+//! - [`crate::backtesting`] — VaR backtesting (Kupiec, Christoffersen, Basel)
+//! - [`crate::timeseries`] — GARCH-family volatility models and diagnostics
+//! - [`crate::performance`] — stateful `Performance` facade over a price panel
 
-// Internal re-exports of upstream `finstack_core` modules so this crate can
-// write `crate::dates::Date`, `crate::error::InputError`, etc. These are
-// `pub(crate)` because they are not part of this crate's public API; users
-// should import directly from `finstack_core`.
+// Internal re-exports of frequently used `finstack-core` modules.
+// Kept `pub(crate)` so they don't leak into the public API; downstream callers
+// should import from `finstack_core` directly.
 pub(crate) use finstack_core::{dates, error, math};
 
-/// Alias for the crate-wide result type.
 type Result<T> = finstack_core::Result<T>;
 
 pub mod aggregation;

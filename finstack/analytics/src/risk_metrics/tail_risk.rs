@@ -1,6 +1,15 @@
 //! Tail-risk and distribution-shape metrics: VaR, ES, skewness, kurtosis.
 //!
 //! All functions operate on `&[f64]` return slices and return scalar `f64`.
+//!
+//! Conventions:
+//! - returns are simple decimal returns (`-0.05` for a 5% loss)
+//! - VaR / ES / parametric VaR / Cornish-Fisher VaR are reported in **return
+//!   space**: a 5% loss reads as `-0.05`. Output is non-positive for losses
+//! - confidence levels are in `(0, 1)`, e.g. `0.95` for 95% VaR
+//! - sample skewness uses Fisher's `G_1`; sample excess kurtosis uses `G_2`
+//!   (matching Excel `SKEW()` / `KURT()`)
+//! - empty inputs return `0.0` rather than panicking
 
 use crate::math::stats::{mean, quantile, variance};
 

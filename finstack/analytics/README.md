@@ -171,6 +171,8 @@ assert!(stats.win_rate >= 0.0);
 | `benchmark` | Benchmark-relative and regression-style analytics | `tracking_error`, `information_ratio`, `beta`, `greeks`, `rolling_greeks`, `multi_factor_greeks`, `align_benchmark` |
 | `aggregation` | Period compounding and trading statistics | `group_by_period`, `period_stats`, `PeriodStats` |
 | `lookback` | Index-range selectors for dated arrays | `mtd_select`, `qtd_select`, `ytd_select`, `fytd_select` |
+| `backtesting` | VaR backtesting, regulatory traffic-light, P&L explanation | `kupiec_test`, `christoffersen_test`, `traffic_light`, `run_backtest`, `rolling_var_forecasts`, `compare_var_backtests`, `pnl_explanation`, `BacktestResult` |
+| `timeseries` | GARCH-family volatility models + diagnostics | `Garch11`, `GjrGarch11`, `Egarch11`, `GarchModel`, `forecast_garch_fit`, `vol_term_structure`, `auto_garch`, `ljung_box`, `arch_lm`, `aic`/`bic`/`hqic` |
 
 ## Core Types
 
@@ -291,6 +293,18 @@ Reach for adjacent crates when you need:
 - `finstack-core` for low-level dates, calendars, math, and market-data types,
 - `finstack-valuations` for pricing, Greeks, and instrument-specific models,
 - `finstack-py` for Python-facing analytics workflows and DataFrame ergonomics.
+
+## Bindings notes
+
+- The Python surface is intentionally **flat**: every analytics submodule
+  (`returns`, `risk_metrics`, `drawdown`, ...) is collapsed into
+  `finstack.analytics`. The `Performance` facade is exposed there. See
+  `parity_contract.toml` for the canonical mapping. A few internal Rust
+  variants (e.g. `period_stats_from_grouped`) are intentionally Rust-only.
+- The WASM surface is intentionally **stateless**: only the standalone pure
+  functions are exported. The `Performance` panel facade is not exposed in
+  WASM today; compose the standalone functions in JS/TS or use the Python
+  bindings.
 
 ## References
 

@@ -27,13 +27,17 @@ pub struct PeriodStats {
     pub avg_win: f64,
     /// Mean of negative-return periods.
     pub avg_loss: f64,
-    /// avg_win / |avg_loss|.
+    /// `avg_win / |avg_loss|`. `0.0` when there are no wins; `+∞` when wins
+    /// exist but there are no losses.
     pub payoff_ratio: f64,
     /// Sum of wins / sum of |losses| (gross profit / gross loss).
+    /// `0.0` when there are no wins; `+∞` when wins exist but there are no
+    /// losses.
     pub profit_factor: f64,
-    /// CPC index (Common Sense Ratio): profit_factor × win_rate × payoff_ratio.
+    /// CPC index (Common Sense Ratio): `profit_factor × win_rate × payoff_ratio`.
     pub cpc_ratio: f64,
-    /// Kelly criterion: win_rate − loss_rate / payoff_ratio.
+    /// Kelly criterion: `win_rate − (loss_rate / payoff_ratio)`. The division
+    /// binds tighter than the subtraction.
     pub kelly_criterion: f64,
 }
 

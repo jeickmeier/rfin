@@ -117,6 +117,11 @@ impl Performance {
     /// * `benchmark_ticker` is supplied but not found in `ticker_names`.
     /// * derived returns are non-finite or below `-1.0`.
     ///
+    /// # Tracing
+    ///
+    /// Emits a `debug`-level `tracing` span named `Performance::new` with
+    /// `n_tickers`, `n_dates`, and `freq` fields.
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -748,7 +753,7 @@ impl Performance {
         })
     }
 
-    /// Gain-to-pain ratio for each ticker.
+    /// Gain-to-pain ratio for each ticker (sum of returns / sum of |losses|).
     ///
     /// # Returns
     ///
@@ -774,6 +779,10 @@ impl Performance {
     /// # Arguments
     ///
     /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    ///
+    /// # Returns
+    ///
+    /// One non-positive parametric VaR per ticker in column order.
     pub fn parametric_var(&self, confidence: f64) -> Vec<f64> {
         self.map_tickers(|i| risk_metrics::parametric_var(self.active_returns(i), confidence, None))
     }
@@ -783,6 +792,10 @@ impl Performance {
     /// # Arguments
     ///
     /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    ///
+    /// # Returns
+    ///
+    /// One non-positive Cornish-Fisher VaR per ticker in column order.
     pub fn cornish_fisher_var(&self, confidence: f64) -> Vec<f64> {
         self.map_tickers(|i| {
             risk_metrics::cornish_fisher_var(self.active_returns(i), confidence, None)
@@ -826,6 +839,10 @@ impl Performance {
     ///
     /// * `risk_free_rate` - Annualized risk-free rate.
     /// * `n` - Number of worst drawdowns to average.
+    ///
+    /// # Returns
+    ///
+    /// One Sterling ratio per ticker in column order.
     pub fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
         let cagrs = self.cagr();
         self.map_tickers(|i| {
@@ -840,6 +857,10 @@ impl Performance {
     ///
     /// * `risk_free_rate` - Annualized risk-free rate.
     /// * `n` - Number of worst drawdown episodes to use.
+    ///
+    /// # Returns
+    ///
+    /// One Burke ratio per ticker in column order.
     pub fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
         let cagrs = self.cagr();
         let dates = self.active_dates();
@@ -865,6 +886,10 @@ impl Performance {
     /// # Arguments
     ///
     /// * `risk_free_rate` - Annualized risk-free rate.
+    ///
+    /// # Returns
+    ///
+    /// One pain ratio per ticker in column order.
     pub fn pain_ratio(&self, risk_free_rate: f64) -> Vec<f64> {
         let cagrs = self.cagr();
         self.map_tickers(|i| {
@@ -905,6 +930,11 @@ impl Performance {
     /// # Arguments
     ///
     /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
+    ///
+    /// # Returns
+    ///
+    /// One non-negative CDaR value per ticker in column order. CDaR is
+    /// reported as an absolute tail drawdown depth.
     pub fn cdar(&self, confidence: f64) -> Vec<f64> {
         self.map_tickers(|i| cdar(self.active_drawdown_values(i), confidence))
     }
@@ -1292,11 +1322,11 @@ impl Performance {
 
     // ── Accessors ──
 
-    /// Active date vector adjusted for return computation.
+    /// Full return-aligned date vector (independent of any active window).
     ///
-    /// # Returns
-    ///
-    /// The return-aligned date grid after applying any active date window.
+    /// Returns the date grid that pairs with each row of internal returns,
+    /// covering the full constructed range. To get just the dates inside
+    /// the currently selected analysis window, use [`Self::active_dates`].
     pub fn dates(&self) -> &[Date] {
         &self.dates
     }
