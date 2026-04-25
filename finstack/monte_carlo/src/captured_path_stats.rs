@@ -27,7 +27,15 @@ pub(crate) fn apply_captured_path_statistics(
     }
 
     let mut values: Vec<f64> = paths.iter().map(|path| path.final_value).collect();
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    // The engine validates discounted payoffs in `validate_discounted_payoff`
+    // before they reach captured paths, so non-finite values should not
+    // appear here. `total_cmp` gives a deterministic NaN ordering as a
+    // belt-and-braces guarantee in case a future caller bypasses the engine.
+    debug_assert!(
+        values.iter().all(|v| v.is_finite()),
+        "captured-path final_value should be finite by engine invariant; got non-finite"
+    );
+    values.sort_by(|a, b| a.total_cmp(b));
 
     let len = values.len();
     let median = if len.is_multiple_of(2) {

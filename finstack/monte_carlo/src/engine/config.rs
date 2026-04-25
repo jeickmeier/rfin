@@ -23,16 +23,29 @@ pub struct McEngineConfig {
     /// reports both counts: `num_paths` for the statistical sample size and
     /// `num_simulated_paths` for the raw simulation work.
     pub num_paths: usize,
-    /// Informational seed value recorded on the configuration for
-    /// reproducibility and logging purposes only.
+    /// Caller-controlled seed: a metadata value that the **engine never reads
+    /// internally** but that callers conventionally pass to
+    /// [`PhiloxRng::new`](crate::rng::philox::PhiloxRng::new) when constructing
+    /// the `rng: &R` argument for [`McEngine::price`] /
+    /// [`McEngine::price_with_capture`].
     ///
-    /// **Important:** the engine does *not* consume this field to drive the
-    /// simulation. Path generation is driven by the `rng: &R` argument passed
-    /// to [`McEngine::price`] / [`McEngine::price_with_capture`]. If you need
-    /// a specific seed, construct the `rng` accordingly (for example
-    /// `PhiloxRng::new(seed)`). Keeping `rng` separate allows Greek routines
-    /// and bootstrap-style callers to reuse the same source of randomness
-    /// across multiple `price` calls (common random numbers).
+    /// # Why is this here at all?
+    ///
+    /// Greek routines, bootstrap-style callers, and any code computing
+    /// finite-difference / common-random-number Greeks need a single shared
+    /// seed across multiple `price()` invocations. Storing the seed on the
+    /// config rather than burying it inside the engine lets the caller
+    /// re-instantiate the same `PhiloxRng` for each scenario (`base`, `up`,
+    /// `down`). The crate-internal `seed::derive_seed(instrument_id,
+    /// scenario)` helper produces deterministic values for this pattern.
+    ///
+    /// # Idiomatic use
+    ///
+    /// ```ignore
+    /// let cfg = McEngineConfig::new(num_paths, time_grid).with_seed(42);
+    /// let rng = PhiloxRng::new(cfg.seed);  // explicit; engine does not auto-build
+    /// engine.price(&rng, /* ... */)?;
+    /// ```
     pub seed: u64,
     /// Time grid for discretization
     pub time_grid: TimeGrid,

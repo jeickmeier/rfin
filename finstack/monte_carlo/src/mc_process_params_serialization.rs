@@ -97,7 +97,7 @@ fn test_cir_params_serialization() {
 fn test_bates_params_serialization() {
     let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
     let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.05, 0.1).unwrap();
-    let params = BatesParams::new(heston, jump);
+    let params = BatesParams::new(heston, jump).expect("matching r/q");
 
     let restored = roundtrip_json(&params);
 
@@ -263,7 +263,8 @@ fn test_schwartz_smith_params_serialization() {
         0.02, // μ_Y = long-term drift
         0.15, // σ_Y = long-term volatility
         -0.5, // ρ = correlation
-    );
+    )
+    .expect("valid params");
 
     let restored = roundtrip_json(&params);
 
@@ -287,13 +288,13 @@ fn test_edge_case_zero_volatilities() {
 #[test]
 fn test_edge_case_extreme_correlations() {
     // Test perfect positive correlation
-    let params_pos = SchwartzSmithParams::new(2.0, 0.3, 0.02, 0.15, 1.0);
+    let params_pos = SchwartzSmithParams::new(2.0, 0.3, 0.02, 0.15, 1.0).expect("valid");
     let restored_pos = roundtrip_json(&params_pos);
     assert_eq!(params_pos.rho, restored_pos.rho);
     assert_eq!(restored_pos.rho, 1.0);
 
     // Test perfect negative correlation
-    let params_neg = SchwartzSmithParams::new(2.0, 0.3, 0.02, 0.15, -1.0);
+    let params_neg = SchwartzSmithParams::new(2.0, 0.3, 0.02, 0.15, -1.0).expect("valid");
     let restored_neg = roundtrip_json(&params_neg);
     assert_eq!(params_neg.rho, restored_neg.rho);
     assert_eq!(restored_neg.rho, -1.0);

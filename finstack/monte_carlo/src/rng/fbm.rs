@@ -197,10 +197,12 @@ pub struct HybridFbm {
     /// b increments and the residual standard deviation.
     /// `cond_weights[i - b]` = (`Vec<f64>` of length b, residual_std: `f64`).
     cond_weights: Vec<(Vec<f64>, f64)>,
-    /// Far-field kernel weights. For step i (i >= b), `far_weights[i - b][j]`
-    /// is the Molchan-Golosov kernel weight for old increment j (j < i - b).
-    /// Each inner vec has length max(0, i − b).
-    far_weights: Vec<Vec<f64>>,
+    /// Flat storage for the triangular far-field kernel weights. For step
+    /// `i = b + k` (k = 0, 1, ...), the kernel weights for old increments
+    /// 0..k live at `far_weights[k*(k-1)/2 .. k*(k-1)/2 + k]`. Storing as a
+    /// single allocation improves cache locality vs. the previous
+    /// `Vec<Vec<f64>>` layout, where each row chased a separate heap pointer.
+    far_weights: Vec<f64>,
 }
 
 impl HybridFbm {
@@ -244,9 +246,13 @@ impl HybridFbm {
         let near_cholesky = near_chol.l();
 
         // Build conditional-mean weights and far-field weights for steps b..n.
+        // far_weights uses triangular flat storage: total entries
+        // 0 + 1 + ... + (n-b-1) = (n-b)*(n-b-1)/2.
         let kernel = MolchanGolosovKernel::new(h);
         let mut cond_weights = Vec::with_capacity(n.saturating_sub(b));
-        let mut far_weights = Vec::with_capacity(n.saturating_sub(b));
+        let nb = n.saturating_sub(b);
+        let total_far = nb.saturating_mul(nb.saturating_sub(1)) / 2;
+        let mut far_weights = Vec::with_capacity(total_far);
 
         for i in b..n {
             // Covariance of increment i with the previous b increments.
@@ -279,23 +285,41 @@ impl HybridFbm {
             let var_i =
                 fbm_increment_covariance(times[i], times[i + 1], times[i], times[i + 1], h.value());
             let explained: f64 = cov_vec.iter().zip(w.iter()).map(|(c, wi)| c * wi).sum();
-            let cond_var = (var_i - explained).max(0.0);
+            let raw_cond_var = var_i - explained;
+            // Conditional variance must be non-negative in exact arithmetic;
+            // small negative values arise from floating-point roundoff and are
+            // clamped to zero. Larger negatives indicate the conditional-block
+            // covariance solve is numerically unstable (typically a poorly
+            // conditioned near-field block) and would silently zero the
+            // innovation term, so we surface them via tracing.
+            let abs_var_i = var_i.abs();
+            if raw_cond_var < -1e-9 * abs_var_i.max(1.0) {
+                tracing::warn!(
+                    step = i,
+                    var_i,
+                    explained,
+                    raw_cond_var,
+                    "HybridFbm: conditional variance clamped to zero from a significantly negative \
+                     value; near-field Cholesky / linear-solve may be ill-conditioned and the \
+                     innovation term has been suppressed for this step"
+                );
+            }
+            let cond_var = raw_cond_var.max(0.0);
             let cond_std = cond_var.sqrt();
 
             cond_weights.push((w.as_slice().to_vec(), cond_std));
 
-            // Far-field: kernel weights for old increments 0..i-b
+            // Far-field: kernel weights for old increments 0..i-b, appended
+            // contiguously to the flat triangular store.
             let num_far = i.saturating_sub(b);
-            let mut fw = Vec::with_capacity(num_far);
             for j in 0..num_far {
                 // Midpoint of the j-th increment interval
                 let s_mid = 0.5 * (times[j] + times[j + 1]);
                 let t_mid = 0.5 * (times[i] + times[i + 1]);
                 let dt_j = times[j + 1] - times[j];
                 // Kernel weight: K(t_mid, s_mid) * sqrt(dt_j)
-                fw.push(kernel.evaluate(t_mid, s_mid) * dt_j.sqrt());
+                far_weights.push(kernel.evaluate(t_mid, s_mid) * dt_j.sqrt());
             }
-            far_weights.push(fw);
         }
 
         Ok(Self {
@@ -336,8 +360,11 @@ impl FractionalNoiseGenerator for HybridFbm {
                 val += w[k] * out[i - b + k];
             }
 
-            // Far-field: kernel-weighted sum of old increments.
-            let fw = &self.far_weights[idx];
+            // Far-field: kernel-weighted sum of old increments. The
+            // triangular flat storage layout puts row `idx` of length
+            // `idx` at offset `idx*(idx-1)/2`.
+            let row_start = idx * idx.saturating_sub(1) / 2;
+            let fw = &self.far_weights[row_start..row_start + idx];
             for (j, &weight) in fw.iter().enumerate() {
                 val += weight * out[j];
             }

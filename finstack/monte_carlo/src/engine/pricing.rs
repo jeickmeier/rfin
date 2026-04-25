@@ -156,6 +156,23 @@ impl McEngine {
             ));
         }
 
+        if self.config.time_grid.num_steps() == 0 {
+            return Err(finstack_core::Error::Validation(
+                "Monte Carlo time_grid must contain at least one simulation step; \
+                 a zero-step grid would simply re-evaluate the payoff at t=0 with no \
+                 path dynamics and is rejected to surface the configuration mistake"
+                    .to_string(),
+            ));
+        }
+
+        if process.dim() == 0 {
+            return Err(finstack_core::Error::Validation(
+                "StochasticProcess::dim() must be at least 1; a zero-dimensional process \
+                 has no state to simulate"
+                    .to_string(),
+            ));
+        }
+
         if initial_state.len() != process.dim() {
             return Err(finstack_core::Error::Validation(format!(
                 "initial_state length {} does not match process dimension {}",
@@ -302,6 +319,16 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
+        let _span = tracing::info_span!(
+            "mc_price",
+            num_paths = self.config.num_paths,
+            num_steps = self.config.time_grid.num_steps(),
+            parallel = self.config.use_parallel,
+            antithetic = self.config.antithetic,
+            chunk_size = self.config.chunk_size,
+        )
+        .entered();
+
         self.validate_runtime(rng, process, initial_state, discount_factor, None)?;
 
         let estimate = self.run_loops(
@@ -314,6 +341,13 @@ impl McEngine {
             discount_factor,
             /* capture = */ false,
         )?;
+
+        tracing::debug!(
+            mean = estimate.0.mean,
+            stderr = estimate.0.stderr,
+            num_paths = estimate.0.num_paths,
+            "mc_price completed"
+        );
 
         Ok(MoneyEstimate::from_estimate(estimate.0, currency))
     }
@@ -579,8 +613,12 @@ impl McEngine {
             Vec::new()
         };
 
-        // Single clone reused across all paths (reset between iterations)
+        // Long-lived clones reused across all paths (reset between iterations).
+        // The antithetic branch needs an independent second payoff for the
+        // mirrored path; we allocate it lazily so non-antithetic runs pay
+        // for exactly one clone rather than two.
         let mut payoff_local = payoff.clone();
+        let mut payoff_anti: Option<F> = self.config.antithetic.then(|| payoff.clone());
         let use_split_streams = rng.supports_splitting();
         let mut sequential_rng = (!use_split_streams).then(|| rng.clone());
 
@@ -604,6 +642,10 @@ impl McEngine {
 
             payoff_local.reset();
             payoff_local.on_path_start(&mut *path_rng);
+            if let Some(p) = payoff_anti.as_mut() {
+                p.reset();
+                p.on_path_start(&mut *path_rng);
+            }
 
             let should_capture = capture
                 && self
@@ -631,13 +673,15 @@ impl McEngine {
                 )?;
                 captured_paths.push(path);
                 v
-            } else if self.config.antithetic {
+            } else if let Some(payoff_anti_mut) = payoff_anti.as_mut() {
+                // antithetic = true ⇒ payoff_anti is Some by construction.
                 self.simulate_antithetic_pair(
                     &mut *path_rng,
                     process,
                     disc,
                     initial_state,
                     &mut payoff_local,
+                    payoff_anti_mut,
                     &mut state,
                     &mut state_a,
                     &mut z,
@@ -759,13 +803,22 @@ impl McEngine {
                 } else {
                     Vec::new()
                 };
+                // One per-thread payoff buffer, plus a lazily-allocated second
+                // one reused for antithetic pairs (None when antithetic is off,
+                // so non-antithetic chunks pay for one clone instead of two).
                 let mut payoff_clone = payoff.clone();
+                let mut payoff_anti: Option<F> =
+                    self.config.antithetic.then(|| payoff.clone());
 
                 for path_id in range.clone() {
                     let mut path_rng = rng.split(path_id as u64).ok_or_else(|| finstack_core::Error::Validation("RandomStream does not support stream splitting; use a splittable generator such as PhiloxRng or run in serial mode without per-path splitting".to_string()))?;
 
                     payoff_clone.reset();
                     payoff_clone.on_path_start(&mut path_rng);
+                    if let Some(p) = payoff_anti.as_mut() {
+                        p.reset();
+                        p.on_path_start(&mut path_rng);
+                    }
 
                     let should_capture = capture
                         && self
@@ -791,13 +844,15 @@ impl McEngine {
                         )?;
                         chunk_paths.push(path);
                         v
-                    } else if self.config.antithetic {
+                    } else if let Some(payoff_anti_mut) = payoff_anti.as_mut() {
+                        // antithetic = true ⇒ payoff_anti is Some by construction.
                         self.simulate_antithetic_pair(
                             &mut path_rng,
                             process,
                             disc,
                             initial_state,
                             &mut payoff_clone,
+                            payoff_anti_mut,
                             &mut state,
                             &mut state_a,
                             &mut z,

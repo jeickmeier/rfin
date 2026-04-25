@@ -28,16 +28,20 @@
 //! )?;
 //! ```
 
+use crate::engine::{run_path_loop, NoiseHook};
 use crate::time_grid::TimeGrid;
-use crate::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
+#[cfg(test)]
+use crate::traits::PathState;
+use crate::traits::{Discretization, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
 /// Simulate a single Monte Carlo path with fractional noise injection.
 ///
-/// At each time step, standard normals are drawn from `rng` for all factors.
-/// Then `z[fbm_z_index]` is overwritten with the pre-generated fBM increment
-/// for that step.
+/// Thin wrapper over the shared per-path loop with a [`NoiseHook::InjectFbm`]
+/// hook that overwrites `z[fbm_z_index]` with `fbm_increments[step]` after
+/// drawing i.i.d. shocks. Correlation is not applied; rough-volatility schemes
+/// encode their factor structure inside `disc.step`.
 ///
 /// # Arguments
 ///
@@ -52,7 +56,9 @@ use finstack_core::Result;
 /// * `fbm_z_index` — index in `z` where the fBM increment is injected
 /// * `state` — reusable state buffer (length = `process.dim()`)
 /// * `z` — reusable noise buffer (length = `process.num_factors()`)
-/// * `work` — reusable work buffer (length = `disc.work_size(process)`)
+/// * `work` — reusable work buffer (length = `disc.work_size(process)`); the
+///   loop zeros it at the start of every path so rough-vol discretizations
+///   don't need to detect path boundaries via fragile float comparisons.
 ///
 /// # Errors
 ///
@@ -78,47 +84,26 @@ where
     D: Discretization<P>,
     F: Payoff,
 {
-    state.copy_from_slice(initial_state);
-
-    // Zero work buffer at the start of each path so discretizations don't
-    // need to detect path boundaries via fragile float comparisons.
-    for w in work.iter_mut() {
-        *w = 0.0;
-    }
-
-    let mut path_state = PathState::new(0, 0.0);
-    process.populate_path_state(state, &mut path_state);
-    path_state.set_uniform_random(rng.next_u01());
-    payoff.on_event(&mut path_state);
-
-    for step in 0..time_grid.num_steps() {
-        let t = time_grid.time(step);
-        let dt = time_grid.dt(step);
-
-        rng.fill_std_normals(z);
-
-        // Inject fBM increment, replacing the standard normal at z_index.
-        debug_assert!(
-            step < fbm_increments.len(),
-            "fBM increments shorter than time grid: step {step} >= len {}",
-            fbm_increments.len()
-        );
-        debug_assert!(
-            fbm_z_index < z.len(),
-            "fbm_z_index {fbm_z_index} out of bounds for z len {}",
-            z.len()
-        );
-        z[fbm_z_index] = fbm_increments[step];
-
-        disc.step(process, t, dt, state, z, work);
-
-        path_state.set_step_time(step + 1, t + dt);
-        process.populate_path_state(state, &mut path_state);
-        path_state.set_uniform_random(rng.next_u01());
-        payoff.on_event(&mut path_state);
-    }
-
-    Ok(payoff.value(currency).amount())
+    // No engine-side correlation: rough-vol schemes apply factor structure inside `disc.step`.
+    // `z_raw` is unused in the InjectFbm path, so a zero-length slice suffices.
+    let mut z_raw: [f64; 0] = [];
+    run_path_loop(
+        rng,
+        time_grid,
+        process,
+        disc,
+        initial_state,
+        payoff,
+        state,
+        z,
+        &mut z_raw,
+        work,
+        NoiseHook::InjectFbm {
+            z_index: fbm_z_index,
+            increments: fbm_increments,
+        },
+        currency,
+    )
 }
 
 #[cfg(test)]

@@ -33,6 +33,8 @@
 //! budgets but not as an accurate diagnostic of the finite-difference noise.
 
 use super::super::engine::McEngine;
+use crate::engine::build_correlation_factor;
+use crate::online_stats::OnlineStats;
 use crate::traits::Payoff;
 use crate::traits::{Discretization, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
@@ -227,6 +229,226 @@ where
     Ok((gamma, stderr))
 }
 
+// ---------------------------------------------------------------------------
+// CRN-paired finite differences (true CRN stderr)
+// ---------------------------------------------------------------------------
+
+/// Run a paired CRN finite-difference loop and return per-path payoff
+/// differences for each of `n_states` initial-state perturbations.
+///
+/// Each path uses an independent splittable substream keyed on `path_id`. The
+/// substream is re-cloned for each perturbation so all `n_states` variants
+/// consume identical shock sequences — this is what makes the per-path
+/// difference a tight CRN estimator.
+///
+/// Returns a `Vec<Vec<f64>>` of length `n_states` where each inner vector has
+/// length `engine.config.num_paths` and contains discounted payoff amounts
+/// (currency stripped via `MoneyEstimate`-style conversion).
+#[allow(clippy::too_many_arguments)]
+fn paired_per_path_payoffs<R, P, D, F>(
+    engine: &McEngine,
+    rng: &R,
+    process: &P,
+    disc: &D,
+    initial_states: &[Vec<f64>],
+    payoff: &F,
+    currency: Currency,
+    discount_factor: f64,
+) -> Result<Vec<Vec<f64>>>
+where
+    R: RandomStream,
+    P: StochasticProcess,
+    D: Discretization<P>,
+    F: Payoff,
+{
+    let n_states = initial_states.len();
+    debug_assert!(
+        n_states >= 1,
+        "paired_per_path_payoffs requires at least one initial state"
+    );
+
+    let cfg = engine.config();
+    let dim = process.dim();
+    let num_factors = process.num_factors();
+    let work_size = disc.work_size(process);
+
+    // Validate state shapes once.
+    for (i, s) in initial_states.iter().enumerate() {
+        if s.len() != dim {
+            return Err(finstack_core::Error::Validation(format!(
+                "paired finite-diff initial_states[{i}].len() = {} does not match process dim = {}",
+                s.len(),
+                dim
+            )));
+        }
+    }
+
+    let correlation = build_correlation_factor(process, disc)?;
+    let mut payoff_local = payoff.clone();
+    let mut state = vec![0.0; dim];
+    let mut z = vec![0.0; num_factors];
+    let mut z_raw = vec![
+        0.0;
+        if correlation.is_some() {
+            num_factors
+        } else {
+            0
+        }
+    ];
+    let mut work = vec![0.0; work_size];
+
+    let mut per_state_values: Vec<Vec<f64>> =
+        (0..n_states).map(|_| Vec::with_capacity(cfg.num_paths)).collect();
+
+    for path_id in 0..cfg.num_paths {
+        let base_split = rng.split(path_id as u64).ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "RandomStream reports splitting support but split() returned None for paired \
+                 finite-diff Greek"
+                    .to_string(),
+            )
+        })?;
+
+        for (state_idx, s0) in initial_states.iter().enumerate() {
+            let mut path_rng = base_split.clone();
+            payoff_local.reset();
+            payoff_local.on_path_start(&mut path_rng);
+            let v = engine.simulate_path(
+                &mut path_rng,
+                process,
+                disc,
+                s0,
+                &mut payoff_local,
+                &mut state,
+                &mut z,
+                &mut z_raw,
+                &mut work,
+                correlation.as_ref(),
+                currency,
+            )?;
+            let discounted = v * discount_factor;
+            if !discounted.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "non-finite paired finite-diff payoff on path {path_id}, state index \
+                     {state_idx}: payoff={v}, discount_factor={discount_factor}"
+                )));
+            }
+            per_state_values[state_idx].push(discounted);
+        }
+    }
+
+    Ok(per_state_values)
+}
+
+/// Compute delta with **true CRN stderr** by per-path pairing.
+///
+/// Like [`finite_diff_delta`] but reports the proper paired standard error
+/// `stderr({(V_up_i − V_down_i) / 2h})`, which exploits the strong positive
+/// correlation introduced by common random numbers and is typically one to two
+/// orders of magnitude tighter than the conservative independence bound.
+///
+/// Always runs serially (paired stderr requires deterministic per-path order).
+/// The pricer's `use_parallel` flag is honored only by [`finite_diff_delta`].
+///
+/// # Returns
+///
+/// `(delta, stderr)` where `stderr` is the **paired** standard error.
+///
+/// # Errors
+///
+/// Returns [`finstack_core::Error::Validation`] when the RNG is not
+/// splittable, when configuration is invalid, or when any path simulation
+/// fails (e.g., non-finite payoff).
+#[allow(clippy::too_many_arguments)]
+pub fn finite_diff_delta_crn<R, P, D, F>(
+    engine: &McEngine,
+    rng: &R,
+    process: &P,
+    disc: &D,
+    initial_spot: f64,
+    payoff: &F,
+    currency: Currency,
+    discount_factor: f64,
+    bump_size: f64,
+) -> Result<(f64, f64)>
+where
+    R: RandomStream,
+    P: StochasticProcess,
+    D: Discretization<P>,
+    F: Payoff,
+{
+    require_splittable_rng(rng, "finite_diff_delta_crn")?;
+    let h = bump_amount(initial_spot, bump_size);
+
+    let initial_states = vec![
+        vec![initial_spot + h],
+        vec![(initial_spot - h).max(1e-12)],
+    ];
+    let per_state =
+        paired_per_path_payoffs(engine, rng, process, disc, &initial_states, payoff, currency, discount_factor)?;
+
+    let v_up = &per_state[0];
+    let v_down = &per_state[1];
+    let mut stats = OnlineStats::new();
+    for i in 0..v_up.len() {
+        stats.update((v_up[i] - v_down[i]) / (2.0 * h));
+    }
+    Ok((stats.mean(), stats.stderr()))
+}
+
+/// Compute gamma with **true CRN stderr** by per-path pairing.
+///
+/// Like [`finite_diff_gamma`] but reports the paired standard error of the
+/// per-path second-difference estimator
+/// `(V_up_i − 2 V_base_i + V_down_i) / h²`, which is typically one to two
+/// orders of magnitude tighter than the independence bound.
+///
+/// # Returns
+///
+/// `(gamma, stderr)` where `stderr` is the **paired** standard error.
+///
+/// # Errors
+///
+/// See [`finite_diff_delta_crn`].
+#[allow(clippy::too_many_arguments)]
+pub fn finite_diff_gamma_crn<R, P, D, F>(
+    engine: &McEngine,
+    rng: &R,
+    process: &P,
+    disc: &D,
+    initial_spot: f64,
+    payoff: &F,
+    currency: Currency,
+    discount_factor: f64,
+    bump_size: f64,
+) -> Result<(f64, f64)>
+where
+    R: RandomStream,
+    P: StochasticProcess,
+    D: Discretization<P>,
+    F: Payoff,
+{
+    require_splittable_rng(rng, "finite_diff_gamma_crn")?;
+    let h = bump_amount(initial_spot, bump_size);
+
+    let initial_states = vec![
+        vec![initial_spot + h],
+        vec![initial_spot],
+        vec![(initial_spot - h).max(1e-12)],
+    ];
+    let per_state =
+        paired_per_path_payoffs(engine, rng, process, disc, &initial_states, payoff, currency, discount_factor)?;
+
+    let v_up = &per_state[0];
+    let v_base = &per_state[1];
+    let v_down = &per_state[2];
+    let mut stats = OnlineStats::new();
+    for i in 0..v_up.len() {
+        stats.update((v_up[i] - 2.0 * v_base[i] + v_down[i]) / (h * h));
+    }
+    Ok((stats.mean(), stats.stderr()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::super::engine::McEngineConfig;
@@ -272,6 +494,66 @@ mod tests {
         // ATM call delta should be around 0.5
         assert!(delta > 0.3 && delta < 0.7);
         assert!(stderr.is_finite() && stderr >= 0.0);
+    }
+
+    #[test]
+    fn test_finite_diff_delta_crn_tighter_than_independence_bound() {
+        let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 5_000,
+            seed: 42,
+            time_grid,
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1000,
+            path_capture: crate::engine::PathCaptureConfig::default(),
+            antithetic: false,
+        });
+
+        let rng = PhiloxRng::new(42);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
+        let disc = ExactGbm::new();
+        let call = EuropeanCall::new(100.0, 1.0, 50);
+
+        let (_, se_indep) = finite_diff_delta(
+            &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD, 1.0, 0.01,
+        )
+        .expect("ok");
+        let (delta_crn, se_crn) = finite_diff_delta_crn(
+            &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD, 1.0, 0.01,
+        )
+        .expect("ok");
+
+        assert!(delta_crn > 0.3 && delta_crn < 0.7);
+        // CRN paired stderr should be (much) smaller for a smooth call payoff.
+        assert!(se_crn < se_indep);
+    }
+
+    #[test]
+    fn test_finite_diff_gamma_crn_paired_stderr() {
+        let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 5_000,
+            seed: 42,
+            time_grid,
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1000,
+            path_capture: crate::engine::PathCaptureConfig::default(),
+            antithetic: false,
+        });
+
+        let rng = PhiloxRng::new(42);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
+        let disc = ExactGbm::new();
+        let call = EuropeanCall::new(100.0, 1.0, 50);
+
+        let (gamma_crn, se_crn) = finite_diff_gamma_crn(
+            &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD, 1.0, 0.01,
+        )
+        .expect("ok");
+        assert!(gamma_crn > 0.0);
+        assert!(se_crn.is_finite() && se_crn >= 0.0);
     }
 
     #[test]

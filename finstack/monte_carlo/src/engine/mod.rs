@@ -56,3 +56,4 @@ pub use pricing::McEngine;
 
 #[allow(unused_imports)]
 pub(crate) use pricing::{build_correlation_factor, validate_discounted_payoff};
+pub(crate) use simulation::{run_path_loop, NoiseHook};

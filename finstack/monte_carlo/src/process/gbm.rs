@@ -234,6 +234,8 @@ impl ProcessMetadata for GbmProcess {
     }
 }
 
+// Contract: `GbmProcess::diffusion` returns `sigma * x[0]`, satisfying the
+// proportional-diffusion contract `σ(X) = σ_const · X` exactly.
 impl ProportionalDiffusion for GbmProcess {}
 
 /// Multi-factor GBM (for correlated assets).
@@ -358,6 +360,8 @@ impl ProcessMetadata for MultiGbmProcess {
     }
 }
 
+// Contract: each component diffusion is `σ_i * x[i]`, so the proportional
+// contract holds independently in every dimension.
 impl ProportionalDiffusion for MultiGbmProcess {}
 
 #[cfg(test)]

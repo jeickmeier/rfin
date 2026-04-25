@@ -209,8 +209,15 @@ pub mod prelude {
     // --- Pricers ---
     pub use super::pricer::basis::{LaguerreBasis, PolynomialBasis};
     pub use super::pricer::european::EuropeanPricer;
-    pub use super::pricer::lsmc::{AmericanCall, AmericanPut, LsmcConfig, LsmcPricer};
+    pub use super::pricer::lsmc::{
+        AmericanCall, AmericanPut, ExercisePolicy, LsmcConfig, LsmcPricer,
+    };
     pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
+
+    // --- Greeks ---
+    pub use super::greeks::finite_diff::{
+        finite_diff_delta, finite_diff_delta_crn, finite_diff_gamma, finite_diff_gamma_crn,
+    };
 
     // --- Variance reduction ---
     pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};

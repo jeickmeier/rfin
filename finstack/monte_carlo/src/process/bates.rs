@@ -34,18 +34,27 @@ pub struct BatesParams {
 
 impl BatesParams {
     /// Create new Bates parameters.
-    pub fn new(heston: HestonParams, jump: MertonJumpParams) -> Self {
-        // Ensure consistency: r, q, and base sigma should align
-        assert!(
-            (heston.r - jump.gbm.r).abs() < 1e-12,
-            "Risk-free rate must match between Heston and jump params"
-        );
-        assert!(
-            (heston.q - jump.gbm.q).abs() < 1e-12,
-            "Dividend yield must match between Heston and jump params"
-        );
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the Heston and jump parameter blocks disagree on
+    /// the risk-free rate or dividend yield (mismatches more than `1e-12`).
+    /// Both blocks must reference the same risk-neutral measure.
+    pub fn new(heston: HestonParams, jump: MertonJumpParams) -> finstack_core::Result<Self> {
+        if (heston.r - jump.gbm.r).abs() >= 1e-12 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Risk-free rate mismatch between Heston (r={}) and jump (r={}) params",
+                heston.r, jump.gbm.r
+            )));
+        }
+        if (heston.q - jump.gbm.q).abs() >= 1e-12 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Dividend yield mismatch between Heston (q={}) and jump (q={}) params",
+                heston.q, jump.gbm.q
+            )));
+        }
 
-        Self { heston, jump }
+        Ok(Self { heston, jump })
     }
 
     /// Compensated drift for risk-neutral measure.
@@ -128,7 +137,7 @@ mod tests {
         let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.05, 0.1).unwrap();
 
-        let bates = BatesParams::new(heston, jump);
+        let bates = BatesParams::new(heston, jump).expect("matching r/q");
 
         assert_eq!(bates.heston.r, 0.05);
         assert_eq!(bates.jump.lambda, 1.0);
@@ -139,7 +148,7 @@ mod tests {
         let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 2.0, 0.0, 0.05).unwrap();
 
-        let bates = BatesParams::new(heston, jump);
+        let bates = BatesParams::new(heston, jump).expect("matching r/q");
 
         let drift = bates.compensated_drift();
 
@@ -152,7 +161,7 @@ mod tests {
     fn test_bates_process_drift() {
         let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.02, 0.08).unwrap();
-        let bates_params = BatesParams::new(heston, jump);
+        let bates_params = BatesParams::new(heston, jump).expect("matching r/q");
 
         let process = BatesProcess::new(bates_params);
 
@@ -174,7 +183,7 @@ mod tests {
     fn test_bates_process_diffusion() {
         let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, 0.0, 0.1).unwrap();
-        let bates_params = BatesParams::new(heston, jump);
+        let bates_params = BatesParams::new(heston, jump).expect("matching r/q");
 
         let process = BatesProcess::new(bates_params);
 

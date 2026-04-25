@@ -17,25 +17,17 @@ use finstack_core::{Error, HashMap, Result};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-/// Default state-variable indices for common single-factor layouts.
+/// Default state-variable index for the spot in single-factor layouts.
 ///
-/// These constants are convenience aliases for common cases such as GBM and
-/// Heston. They are not a universal schema for all models. In particular,
-/// `IDX_VARIANCE` and `IDX_SHORT_RATE` intentionally alias the same slot because
-/// the meaning of `state[1]` depends on the process family. Multi-asset and
-/// less standard models should prefer
-/// [`PathDataset::process_params.factor_names`](PathDataset::process_params) or
-/// [`PathDataset::state_var_keys`] to interpret captured state vectors.
+/// Higher indices are intentionally not aliased here: `state[1]` means
+/// "variance" in stochastic-vol models and "short rate" in HW1F-style rate
+/// models, so naming both would invite confusion at call sites that mix
+/// model families. Multi-asset and less standard models should prefer
+/// [`PathDataset::process_params.factor_names`](PathDataset::process_params)
+/// or [`PathDataset::state_var_keys`] to interpret captured state vectors.
 pub(crate) mod state_indices {
-    /// Spot price (equity/FX) - index 0
+    /// Spot price (equity/FX) — slot 0 across all single-asset processes.
     pub const IDX_SPOT: usize = 0;
-    /// Stochastic variance (Heston, etc.) - index 1
-    pub const IDX_VARIANCE: usize = 1;
-    /// Short rate (Hull-White, etc.) - index 1 (aliases variance in current engine)
-    pub const IDX_SHORT_RATE: usize = 1;
-    /// Credit spread - index 2
-    #[allow(dead_code)]
-    pub const IDX_CREDIT_SPREAD: usize = 2;
 }
 
 /// Classifies captured cashflows by economic meaning.
@@ -138,19 +130,23 @@ impl PathPoint {
 
     /// Get variance (convenience method for standard stochastic volatility models).
     ///
-    /// Returns the value at `state_indices::IDX_VARIANCE` if it exists.
-    /// For multi-asset models, use `state` directly with the schema from `PathDataset`.
+    /// Returns `state[1]` if present, treating it as the variance state for
+    /// Heston-family models. For multi-asset or non-stochastic-vol models,
+    /// use `state` directly with the schema from `PathDataset`.
     pub fn variance(&self) -> Option<f64> {
-        self.state.get(state_indices::IDX_VARIANCE).copied()
+        // Slot 1 is variance in stochastic-vol models. Same numeric slot,
+        // different meaning, in HW1F-style rate models — see `short_rate`.
+        self.state.get(1).copied()
     }
 
     /// Get the short rate for common interest-rate layouts.
     ///
-    /// Returns the value at `state_indices::IDX_SHORT_RATE` if it exists. This
-    /// is only a convenience alias; for stochastic-volatility processes the same
-    /// slot may instead represent variance.
+    /// Returns `state[1]` if present, treating it as the short-rate state for
+    /// HW1F-style models. This shares the same numeric slot as
+    /// [`Self::variance`]; the meaning is process-defined and the caller is
+    /// responsible for picking the accessor that matches the process family.
     pub fn short_rate(&self) -> Option<f64> {
-        self.state.get(state_indices::IDX_SHORT_RATE).copied()
+        self.state.get(1).copied()
     }
 
     /// Add a generic cashflow to this point.

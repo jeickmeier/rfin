@@ -160,8 +160,18 @@ pub mod state_keys {
 
     /// Return the canonical state key for the indexed spot of a multi-asset process.
     ///
-    /// Indices `0..INDEXED_SPOT_INLINE` map to static `&str` literals (no allocation).
-    /// Larger indices are interned once in a process-wide cache (rare in practice).
+    /// Indices `0..INDEXED_SPOT_INLINE` (currently 128) map directly to static
+    /// `&str` literals with no allocation. Indices above that bound trigger an
+    /// interning step that **leaks one heap allocation per distinct index**
+    /// into a process-wide [`std::sync::Mutex`]-protected cache. This is
+    /// deliberate — the keys must outlive any path simulation and live for
+    /// `'static`, and `Box::leak` is the simplest way to obtain that guarantee.
+    ///
+    /// In practice the leak budget is tiny: a multi-asset basket of 200 names
+    /// leaks ~72 strings (indices 128..200) on first use, then nothing more.
+    /// Workloads that genuinely need thousands of indexed spots should consider
+    /// raising [`INDEXED_SPOT_INLINE`] at the source rather than relying on
+    /// the overflow path.
     pub fn indexed_spot(index: usize) -> &'static str {
         if index < INDEXED_SPOT_INLINE {
             INDEXED_SPOT_TABLE[index]
@@ -588,14 +598,34 @@ pub trait StochasticProcess: Send + Sync {
     }
 }
 
-/// Marker trait for processes with proportional (GBM-like) diffusion.
+/// Marker for processes with **GBM-style proportional diffusion**: `σ(X) = σ_const · X`.
 ///
-/// A process has proportional diffusion when σ(X) = σ_const × X, which means
-/// ∂σ/∂X = σ/X. This is the only case where the Milstein correction term
-/// `½σσ'(Z²−1)Δt` is exact with the approximation σ' ≈ σ/X.
+/// # Numerical contract (read carefully)
 ///
-/// Implement this trait for any process where the diffusion is proportional
-/// to the state variable in each dimension.
+/// A correct implementation guarantees that the diffusion coefficient is
+/// strictly proportional to the state variable in each dimension, so
+/// `∂σ/∂X = σ/X` holds exactly. Under that contract the
+/// [`crate::discretization::Milstein`] correction term
+/// `½ σ σ' (Z² − 1) Δt` reduces to its exact GBM form using `σ' ≈ σ/X`.
+///
+/// **Implementing this trait on a process where the diffusion is *not*
+/// proportional silently corrupts every Milstein-discretised price you
+/// produce** — Milstein degrades to Euler accuracy *and* applies an
+/// incorrect Itô correction. The crate's `#![forbid(unsafe_code)]` posture
+/// prevents this from being modelled as an `unsafe` trait, so the contract
+/// is enforced by convention and code review:
+///
+/// - Only implement on processes whose `diffusion(t, x)` returns `σ_const ·
+///   x[i]` for every state component `i` simulated by Milstein.
+/// - Do **not** implement on CIR, OU, Heston variance, jump-diffusion, or
+///   any stochastic-volatility variance state. None of these satisfy the
+///   contract.
+/// - When in doubt, omit the impl. Milstein/`LogMilstein` are bounded on
+///   `ProportionalDiffusion`, so omitting the impl yields a compile error
+///   rather than a silently-biased run.
+///
+/// This trait is intentionally safe to **call** but dangerous to **implement**.
+/// New impls must be reviewed against the proportional-diffusion contract.
 pub trait ProportionalDiffusion: StochasticProcess {}
 
 /// Time discretization scheme for SDEs.
