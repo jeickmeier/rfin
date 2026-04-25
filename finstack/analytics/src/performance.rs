@@ -241,7 +241,11 @@ impl Performance {
     /// Designate a different ticker as the benchmark for all subsequent analytics.
     ///
     /// Updates the internal benchmark return and drawdown caches to point to
-    /// the new ticker's pre-computed series.
+    /// the new ticker's pre-computed series. Respects the currently active
+    /// date window without recomputation: the windowed-drawdown cache built by
+    /// [`Self::reset_date_range`] already contains an entry for every ticker,
+    /// so flipping the benchmark index implicitly retargets the windowed
+    /// benchmark drawdowns without touching the cache.
     ///
     /// # Arguments
     ///
@@ -260,6 +264,9 @@ impl Performance {
             .ok_or(crate::error::InputError::Invalid)?;
         self.benchmark_idx = idx;
         self.bench_returns = self.returns.get(idx).cloned().unwrap_or_default();
+        // Full-history drawdown for the new benchmark; the windowed view is
+        // served by `active_window_drawdowns[benchmark_idx]`, which is
+        // already populated for every ticker by `refresh_active_drawdown_cache`.
         self.bench_drawdown = self.drawdowns.get(idx).cloned().unwrap_or_default();
         Ok(())
     }

@@ -52,6 +52,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "PnlExplanation",
             "MultiModelComparison",
             "VarianceForecast",
+            "GarchFit",
+            "GarchParams",
             // Performance class
             "Performance",
             // Aggregation

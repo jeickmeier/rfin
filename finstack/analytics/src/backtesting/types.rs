@@ -109,7 +109,10 @@ pub struct KupiecResult {
     pub total_observations: usize,
     /// Observed breach rate: breach_count / total_observations.
     pub observed_rate: f64,
-    /// Whether H0 is rejected at the 5% significance level.
+    /// Whether H0 is rejected at the **5% significance level**
+    /// (i.e. `p_value < 0.05`). The threshold is hard-coded; the
+    /// [`VarBacktestConfig::significance`] field on the orchestrator
+    /// config is currently informational and does not change this flag.
     pub reject_h0_5pct: bool,
 }
 
@@ -140,7 +143,11 @@ pub struct ChristoffersenResult {
     /// Transition matrix counts: [n00, n01, n10, n11] where n_ij counts
     /// transitions from state i to state j (0 = miss, 1 = hit).
     pub transition_counts: [usize; 4],
-    /// Whether H0 (joint) is rejected at the 5% significance level.
+    /// Whether H0 (joint conditional coverage) is rejected at the
+    /// **5% significance level** (`p_value_cc < 0.05`). The threshold is
+    /// hard-coded; the [`VarBacktestConfig::significance`] field on the
+    /// orchestrator config is currently informational and does not change
+    /// this flag.
     pub reject_h0_5pct: bool,
 }
 
@@ -224,11 +231,20 @@ pub struct MultiModelComparison {
 /// level, and optional P&L explanation inputs.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VarBacktestConfig {
-    /// VaR confidence level (e.g. 0.99 for 99% VaR). Default: 0.99.
+    /// VaR confidence level (e.g. 0.99 for 99% VaR). Must lie in `(0, 1)`;
+    /// values outside this range cause [`KupiecResult::p_value`] to be
+    /// `NaN`. Default: 0.99.
     pub confidence: f64,
     /// Basel traffic-light window size. Default: 250 (trading days).
     pub window_size: usize,
     /// Significance level for hypothesis tests. Default: 0.05.
+    ///
+    /// **Currently informational only.** [`KupiecResult::reject_h0_5pct`]
+    /// and [`ChristoffersenResult::reject_h0_5pct`] are hard-coded at the
+    /// 5% level regardless of this field; setting it via
+    /// [`VarBacktestConfig::with_significance`] does not change the
+    /// reject flags returned by [`crate::backtesting::run_backtest`].
+    /// Tracked as a future API extension.
     pub significance: f64,
 }
 
@@ -264,6 +280,11 @@ impl VarBacktestConfig {
     }
 
     /// Override the significance level used by hypothesis tests (e.g. `0.05`).
+    ///
+    /// **Note:** as of the current API, this value is recorded on the config
+    /// but does not affect [`KupiecResult::reject_h0_5pct`] or
+    /// [`ChristoffersenResult::reject_h0_5pct`], which are hard-coded at the
+    /// 5% level. See the field-level note on [`VarBacktestConfig::significance`].
     #[must_use]
     pub fn with_significance(mut self, significance: f64) -> Self {
         self.significance = significance;
