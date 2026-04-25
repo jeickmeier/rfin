@@ -288,16 +288,17 @@ fn resolve_simm_params(
     if let Some(found) = registry.simm.values().find(|p| p.version == version) {
         return Ok(found);
     }
-    if let Some(default_id) = &registry.simm_default {
-        if let Some(p) = registry.simm.get(default_id) {
-            return Ok(p);
-        }
-    }
-    registry
+    let available: Vec<String> = registry
         .simm
         .values()
-        .next()
-        .ok_or_else(|| finstack_core::Error::Validation("SIMM registry is empty".to_string()))
+        .map(|p| format!("{:?}", p.version))
+        .collect();
+    Err(finstack_core::Error::Validation(format!(
+        "SIMM registry does not contain version {:?}. Available versions: [{}]. \
+         Update the registry overlay or pass a supported SimmVersion.",
+        version,
+        available.join(", ")
+    )))
 }
 
 /// Validate SIMM parameter completeness before constructing a calculator.

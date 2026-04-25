@@ -201,22 +201,18 @@ fn fx_vega(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
         return 0.0;
     }
 
-    let weighted: Vec<f64> = sens
-        .fx_vega
-        .values()
-        .map(|v| v * fx::FX_VEGA_RISK_WEIGHT)
-        .collect();
-
+    // FX vega: single bucket, uniform off-diagonal correlation. Use the
+    // O(n) closed form (see `delta::fx_delta` for the identity).
     let rho = scenario.scale_correlation(fx::FX_INTER_PAIR_CORRELATION);
-
-    let mut sum = 0.0;
-    for (i, ws_i) in weighted.iter().enumerate() {
-        for (j, ws_j) in weighted.iter().enumerate() {
-            let corr = if i == j { 1.0 } else { rho };
-            sum += corr * ws_i * ws_j;
-        }
+    let mut sum_ws = 0.0;
+    let mut sum_ws_sq = 0.0;
+    for v in sens.fx_vega.values() {
+        let ws = v * fx::FX_VEGA_RISK_WEIGHT;
+        sum_ws += ws;
+        sum_ws_sq += ws * ws;
     }
-    sum.max(0.0).sqrt()
+    let k_squared = (1.0 - rho) * sum_ws_sq + rho * sum_ws * sum_ws;
+    k_squared.max(0.0).sqrt()
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ use crate::traits::Marginable;
 use crate::types::ImMethodology;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::neumaier_sum;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
@@ -432,13 +433,26 @@ impl ScheduleImCalculator {
             return None;
         }
 
-        let signed_mtm_sum: f64 = positions.iter().map(|(mtm, _)| mtm.amount()).sum();
-        let gross_mtm_sum: f64 = positions.iter().map(|(mtm, _)| mtm.amount().abs()).sum();
-        let gross_notional_sum: f64 = positions
-            .iter()
-            .map(|(_, notional)| notional.amount().abs())
-            .sum();
+        // Neumaier compensated summation guards against catastrophic
+        // cancellation in `signed_mtm_sum` when long/short MTMs nearly
+        // offset across a large netting set: a naive f64 sum can leave
+        // a residual far larger than the true cancellation error, which
+        // would skew the NGR ratio. `gross_mtm_sum` is a sum of
+        // non-negative `|mtm|` values, so it is always >= 0, but we
+        // still use compensated summation for numerical consistency.
+        let signed_mtm_sum: f64 = neumaier_sum(positions.iter().map(|(mtm, _)| mtm.amount()));
+        let gross_mtm_sum: f64 =
+            neumaier_sum(positions.iter().map(|(mtm, _)| mtm.amount().abs()));
+        let gross_notional_sum: f64 = neumaier_sum(
+            positions
+                .iter()
+                .map(|(_, notional)| notional.amount().abs()),
+        );
 
+        // Reject only literally non-positive denominators; sub-unit
+        // notionals are legitimate for low-denomination currencies
+        // (e.g., JPY) and the NGR clamp `clamp(0.0, 1.0)` already caps
+        // any spurious near-zero division.
         if gross_mtm_sum <= 0.0 || gross_notional_sum <= 0.0 {
             return None;
         }

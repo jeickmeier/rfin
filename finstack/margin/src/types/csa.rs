@@ -33,11 +33,12 @@ pub struct MarginCallTiming {
 }
 
 impl Default for MarginCallTiming {
-    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
-        let registry =
-            embedded_registry().expect("embedded margin registry is a compile-time asset");
-        registry.defaults.timing.standard.clone()
+        crate::registry::embedded_registry_or_panic()
+            .defaults
+            .timing
+            .standard
+            .clone()
     }
 }
 
@@ -232,9 +233,15 @@ impl CsaSpec {
 }
 
 impl Default for CsaSpec {
-    #[allow(clippy::expect_used)] // Embedded margin registry is a compile-time asset.
     fn default() -> Self {
-        Self::usd_regulatory().expect("embedded margin registry is a compile-time asset")
+        // Touch the embedded registry first via the consolidated panic
+        // helper so any compile-time-asset failure surfaces with the
+        // standard message; `usd_regulatory()` would also fail at the
+        // same point but with a less specific error chain.
+        let _ = crate::registry::embedded_registry_or_panic();
+        #[allow(clippy::expect_used)] // proven reachable only on a build-pipeline regression
+        Self::usd_regulatory()
+            .expect("usd_regulatory(): embedded margin registry must already be loaded")
     }
 }
 

@@ -18,6 +18,6 @@ pub mod girr;
 pub mod registry;
 
 pub use registry::{
-    CommodityParams, CorrelationScenarioParams, EquityParams, FrtbParams, FrtbRevision, FxParams,
-    GirrParams,
+    CommodityParams, CorrelationScenarioParams, DrcParams, EquityParams, FrtbParams, FrtbRevision,
+    FxParams, GirrParams,
 };

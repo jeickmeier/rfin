@@ -209,6 +209,10 @@ pub fn compute_exposure_profile(
 
     let mut market_roll_failures: usize = 0;
     let mut instrument_valuation_failures: usize = 0;
+    // Bail as soon as the failure count exceeds 50% of the requested
+    // grid; continuing past that point only allocates zeros that the
+    // post-loop check is going to reject anyway.
+    let max_market_roll_failures = n / 2;
 
     for &t in &config.time_grid {
         // Convert years to days using ACT/365F convention
@@ -222,6 +226,13 @@ pub fn compute_exposure_profile(
                 // Market data can't be rolled this far; record zero exposure
                 // but track the failure for the quality check below.
                 market_roll_failures += 1;
+                if market_roll_failures > max_market_roll_failures {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Exposure simulation aborted: market data roll failed for \
+                         {market_roll_failures} of {n} time points (>50%); check \
+                         market data coverage for the requested horizon"
+                    )));
+                }
                 times.push(t);
                 mtm_values.push(0.0);
                 epe.push(0.0);
@@ -270,15 +281,9 @@ pub fn compute_exposure_profile(
         ene.push(negative_exposure);
     }
 
-    // Fail if too many time points couldn't be evaluated — this indicates
-    // a data quality issue rather than normal instrument maturity.
-    if market_roll_failures > n / 2 {
-        return Err(finstack_core::Error::Validation(format!(
-            "Exposure simulation: {market_roll_failures}/{n} time points failed \
-             market data roll (>50%); check market data coverage"
-        )));
-    }
-
+    // The early-exit inside the loop already guarantees
+    // `market_roll_failures <= n / 2`. Any non-zero failure count is
+    // worth surfacing but does not by itself fail the simulation.
     if market_roll_failures > 0 || instrument_valuation_failures > 0 {
         tracing::warn!(
             market_roll_failures,
@@ -405,14 +410,28 @@ where
     }
 
     let time_count = xva_config.time_grid.len();
-    let mut pathwise_mtms = vec![Vec::with_capacity(stochastic_config.num_paths); time_count];
+    let num_paths = stochastic_config.num_paths;
+    // Single flat *time-major* buffer indexed as
+    // `[step_idx * num_paths + path_idx]`. One heap allocation
+    // (vs. `time_count` for the old `Vec<Vec<f64>>`) and aggregation
+    // walks each row contiguously, matching the access pattern of the
+    // post-loop mean/quantile reductions. Simulation writes are
+    // strided by `num_paths`, but the per-step valuation closure
+    // dominates wall-time and prefetchers handle a stride this large
+    // well; quantile + sum reductions are the cache-sensitive phase.
+    let total_cells = time_count.checked_mul(num_paths).ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Stochastic exposure: time_count ({time_count}) * num_paths ({num_paths}) overflows usize"
+        ))
+    })?;
+    let mut pathwise_mtms = vec![0.0f64; total_cells];
     let base_rng = PhiloxRng::new(stochastic_config.seed);
 
     let mut state_vector = vec![0.0; process.dim()];
     let mut shocks = vec![0.0; process.num_factors()];
     let mut work = vec![0.0; discretization.work_size(process)];
 
-    for path_idx in 0..stochastic_config.num_paths {
+    for path_idx in 0..num_paths {
         let mut rng = base_rng.substream((path_idx + 1) as u64);
         state_vector.copy_from_slice(initial_state);
         let mut prev_t = 0.0;
@@ -428,7 +447,7 @@ where
             process.populate_path_state(&state_vector, &mut path_state);
 
             let mtm = valuation_fn(&path_state)?;
-            pathwise_mtms[step_idx].push(mtm);
+            pathwise_mtms[step_idx * num_paths + path_idx] = mtm;
             prev_t = t;
         }
     }
@@ -437,17 +456,28 @@ where
     let mut epe = Vec::with_capacity(time_count);
     let mut ene = Vec::with_capacity(time_count);
     let mut pfe_profile = Vec::with_capacity(time_count);
+    let mut positive_buf = Vec::with_capacity(num_paths);
+    let path_count_f = num_paths as f64;
 
-    for mtms in &pathwise_mtms {
-        let path_count = mtms.len() as f64;
-        let mut positive_exposure: Vec<f64> = mtms.iter().map(|v| v.max(0.0)).collect();
-        let negative_exposure: Vec<f64> = mtms.iter().map(|v| (-v).max(0.0)).collect();
-
-        mtm_values.push(mtms.iter().sum::<f64>() / path_count);
-        epe.push(positive_exposure.iter().sum::<f64>() / path_count);
-        ene.push(negative_exposure.iter().sum::<f64>() / path_count);
+    for step_idx in 0..time_count {
+        positive_buf.clear();
+        let mut sum_mtm = 0.0;
+        let mut sum_pos = 0.0;
+        let mut sum_neg = 0.0;
+        let row_start = step_idx * num_paths;
+        let row = &pathwise_mtms[row_start..row_start + num_paths];
+        for &mtm in row {
+            sum_mtm += mtm;
+            let pos = mtm.max(0.0);
+            sum_pos += pos;
+            sum_neg += (-mtm).max(0.0);
+            positive_buf.push(pos);
+        }
+        mtm_values.push(sum_mtm / path_count_f);
+        epe.push(sum_pos / path_count_f);
+        ene.push(sum_neg / path_count_f);
         pfe_profile.push(interpolate_quantile(
-            &mut positive_exposure,
+            &mut positive_buf,
             stochastic_config.pfe_quantile,
         ));
     }

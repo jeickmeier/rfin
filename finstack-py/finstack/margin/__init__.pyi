@@ -771,7 +771,8 @@ class NettingSetId:
 
     @property
     def counterparty_id(self) -> str:
-        """Counterparty identifier.
+        """Counterparty identifier. For cleared netting sets this returns
+        the CCP id; for bilateral, the explicit counterparty id.
 
         Returns
         -------
@@ -782,6 +783,34 @@ class NettingSetId:
         --------
         >>> NettingSetId.bilateral("X", "Y").counterparty_id
         'X'
+        >>> NettingSetId.cleared("LCH").counterparty_id
+        'LCH'
+        """
+        ...
+
+    @property
+    def csa_id(self) -> str | None:
+        """CSA identifier when bilateral; ``None`` for cleared sets.
+
+        Examples
+        --------
+        >>> NettingSetId.bilateral("X", "CSA-001").csa_id
+        'CSA-001'
+        >>> NettingSetId.cleared("LCH").csa_id is None
+        True
+        """
+        ...
+
+    @property
+    def ccp_id(self) -> str | None:
+        """CCP identifier when cleared; ``None`` for bilateral sets.
+
+        Examples
+        --------
+        >>> NettingSetId.cleared("LCH").ccp_id
+        'LCH'
+        >>> NettingSetId.bilateral("X", "CSA").ccp_id is None
+        True
         """
         ...
 

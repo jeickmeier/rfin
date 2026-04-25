@@ -27,6 +27,15 @@ use finstack_core::HashMap;
 /// IR supervisory correlation continuous-compounding rate per CRE52.54.
 const IR_SUPERVISORY_DISCOUNT_RATE: f64 = 0.05;
 
+/// Minimum supervisory duration in years (10 business days).
+///
+/// CRE52.48 imposes a 10-business-day floor on remaining maturity for the
+/// unmargined maturity factor; we apply the same floor to supervisory
+/// duration so in-flight IR trades with nearly-zero remaining tenor do
+/// not collapse to zero effective notional. 10 business days ≈ 10/250
+/// years.
+const MIN_SUPERVISORY_DURATION_YEARS: f64 = 10.0 / 250.0;
+
 /// IR maturity-bucket correlation matrix off-diagonal entries per
 /// CRE52.54 (1.4 for adjacent buckets, 0.6 for non-adjacent).
 const IR_ADJACENT_BUCKET_CORR: f64 = 1.4;
@@ -165,7 +174,7 @@ pub fn supervisory_duration(start_years: f64, end_years: f64) -> f64 {
     let s = start_years.max(0.0);
     let e = end_years.max(s);
     let sd = ((-r * s).exp() - (-r * e).exp()) / r;
-    sd.max(0.0)
+    sd.max(MIN_SUPERVISORY_DURATION_YEARS)
 }
 
 /// Non-IR add-on with the simplified hedging-set-level

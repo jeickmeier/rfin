@@ -139,15 +139,27 @@ impl VmCalculator {
             target_month = 1;
             target_year += 1;
         }
-        let month = Month::try_from(target_month as u8).unwrap_or(Month::December);
-        let mut day = d;
-        loop {
+        // Invariant: target_month ∈ [1, 12] by construction above, so the
+        // u8 cast and Month conversion are infallible. We assert that
+        // explicitly rather than swallowing a hypothetical failure into a
+        // silent fallback.
+        debug_assert!(
+            (1..=12).contains(&target_month),
+            "target_month outside [1,12]: {target_month}"
+        );
+        #[allow(clippy::expect_used)] // proven unreachable by the assert above
+        let month = Month::try_from(target_month as u8)
+            .expect("target_month is in [1, 12] by construction");
+        // d is in [1, 31] from `to_calendar_date`. Walk it down until
+        // the (year, month, day) triple is valid, e.g. Feb 30 → Feb 28.
+        for day in (1..=d).rev() {
             if let Ok(candidate) = Date::from_calendar_date(target_year, month, day) {
                 return self.adjust_to_business_day(candidate);
             }
-            // Clamp to last valid day of month
-            day = u8::try_from((day as i32 - 1).max(1)).unwrap_or(1);
         }
+        // Every month has at least one valid day, so the loop above
+        // always returns. Reaching this point would indicate a logic bug.
+        unreachable!("no valid day found in {target_year}-{target_month:02}");
     }
 
     /// Create a new VM calculator with the given CSA specification.

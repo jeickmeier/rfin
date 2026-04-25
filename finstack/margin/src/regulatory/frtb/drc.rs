@@ -143,25 +143,39 @@ pub fn drc_charge(positions: &[DrcPosition]) -> f64 {
     total
 }
 
+use std::sync::LazyLock;
+
+static DRC_RW_BY_BUCKET: LazyLock<finstack_core::HashMap<u8, f64>> =
+    LazyLock::new(|| DRC_RISK_WEIGHTS.iter().copied().collect());
+static DRC_LGD_BY_SENIORITY: LazyLock<finstack_core::HashMap<DrcSeniority, f64>> =
+    LazyLock::new(|| DRC_LGD.iter().copied().collect());
+
 /// Look up DRC risk weight by rating bucket.
 ///
 /// Unknown buckets fall back to the Unrated weight (15% per MAR22.24),
 /// matching how the Basel text treats exposures that lack an external
 /// rating. Callers who want a stricter policy should validate rating
 /// assignment upstream and not rely on this fallback.
+///
+/// The defaults are mirrored in
+/// [`crate::regulatory::frtb::params::DrcParams::d457`] so a
+/// [`super::params::FrtbParams`] bundle carries the same values for
+/// audit-trail tagging and JSON-overlay substitution.
 fn drc_risk_weight(rating_bucket: u8) -> f64 {
-    DRC_RISK_WEIGHTS
-        .iter()
-        .find(|(b, _)| *b == rating_bucket)
-        .map(|(_, w)| *w)
+    DRC_RW_BY_BUCKET
+        .get(&rating_bucket)
+        .copied()
         .unwrap_or(0.15) // Default: Unrated per MAR22.24
 }
 
 /// Look up LGD by seniority.
+///
+/// Defaults to 75% (senior unsecured) per Basel guidance for unmapped
+/// seniorities. Mirrored in
+/// [`crate::regulatory::frtb::params::DrcParams::d457`].
 fn drc_lgd(seniority: DrcSeniority) -> f64 {
-    DRC_LGD
-        .iter()
-        .find(|(s, _)| *s == seniority)
-        .map(|(_, lgd)| *lgd)
+    DRC_LGD_BY_SENIORITY
+        .get(&seniority)
+        .copied()
         .unwrap_or(0.75) // Default: senior unsecured
 }

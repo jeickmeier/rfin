@@ -134,32 +134,37 @@ pub const CSR_SEC_NONCTP_INTRA_BUCKET_CORRELATION: f64 = 0.30;
 /// CSR sec non-CTP inter-bucket correlation.
 pub const CSR_SEC_NONCTP_INTER_BUCKET_CORRELATION: f64 = 0.20;
 
+use std::sync::LazyLock;
+
+use finstack_core::HashMap;
+
+// Index the small `pub const` slices into hashmaps so per-trade lookups
+// are O(1). Built once on first use; the registry-backed `FrtbParams`
+// path remains the source of truth for revision-tagged parameters.
+static CSR_NONSEC_BY_BUCKET: LazyLock<HashMap<u8, f64>> =
+    LazyLock::new(|| CSR_NONSEC_RISK_WEIGHTS.iter().copied().collect());
+static CSR_SEC_CTP_BY_BUCKET: LazyLock<HashMap<u8, f64>> =
+    LazyLock::new(|| CSR_SEC_CTP_RISK_WEIGHTS.iter().copied().collect());
+static CSR_SEC_NONCTP_BY_BUCKET: LazyLock<HashMap<u8, f64>> =
+    LazyLock::new(|| CSR_SEC_NONCTP_RISK_WEIGHTS.iter().copied().collect());
+
 /// Look up a CSR non-sec risk weight by bucket.
 #[must_use]
 pub fn csr_nonsec_risk_weight(bucket: u8) -> f64 {
-    CSR_NONSEC_RISK_WEIGHTS
-        .iter()
-        .find(|(b, _)| *b == bucket)
-        .map(|(_, w)| *w)
-        .unwrap_or(5.0) // Default risk weight for unmapped buckets
+    CSR_NONSEC_BY_BUCKET.get(&bucket).copied().unwrap_or(5.0)
 }
 
 /// Look up a CSR sec CTP risk weight by bucket.
 #[must_use]
 pub fn csr_sec_ctp_risk_weight(bucket: u8) -> f64 {
-    CSR_SEC_CTP_RISK_WEIGHTS
-        .iter()
-        .find(|(b, _)| *b == bucket)
-        .map(|(_, w)| *w)
-        .unwrap_or(8.0)
+    CSR_SEC_CTP_BY_BUCKET.get(&bucket).copied().unwrap_or(8.0)
 }
 
 /// Look up a CSR sec non-CTP risk weight by bucket.
 #[must_use]
 pub fn csr_sec_nonctp_risk_weight(bucket: u8) -> f64 {
-    CSR_SEC_NONCTP_RISK_WEIGHTS
-        .iter()
-        .find(|(b, _)| *b == bucket)
-        .map(|(_, w)| *w)
+    CSR_SEC_NONCTP_BY_BUCKET
+        .get(&bucket)
+        .copied()
         .unwrap_or(5.0)
 }

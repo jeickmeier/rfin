@@ -4,8 +4,25 @@
 //! used by the [`Marginable`](crate::traits::Marginable) trait
 //! and SIMM calculator.
 
+use core::hash::Hash;
 use finstack_core::currency::Currency;
 use finstack_core::HashMap;
+
+/// Add every `(key, value)` from `source` into `target`, accumulating
+/// values for keys that already exist.
+///
+/// Centralises the per-bucket merge step used by
+/// [`SimmSensitivities::merge`] so adding a new sensitivity bucket is a
+/// one-line change in `merge` rather than a copy-paste-edit cycle that
+/// risks dropping the new field.
+fn merge_into<K>(target: &mut HashMap<K, f64>, source: &HashMap<K, f64>)
+where
+    K: Eq + Hash + Clone,
+{
+    for (key, &value) in source {
+        *target.entry(key.clone()).or_insert(0.0) += value;
+    }
+}
 
 /// Risk classes for SIMM categorization.
 #[derive(
@@ -346,48 +363,26 @@ impl SimmSensitivities {
     ///
     /// Sensitivities are added together, enabling risk offsetting within a netting set.
     pub fn merge(&mut self, other: &SimmSensitivities) {
-        for (key, &value) in &other.ir_delta {
-            *self.ir_delta.entry(key.clone()).or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.ir_vega {
-            *self.ir_vega.entry(key.clone()).or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.credit_qualifying_delta {
-            *self
-                .credit_qualifying_delta
-                .entry(key.clone())
-                .or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.credit_non_qualifying_delta {
-            *self
-                .credit_non_qualifying_delta
-                .entry(key.clone())
-                .or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.equity_delta {
-            *self.equity_delta.entry(key.clone()).or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.equity_vega {
-            *self.equity_vega.entry(key.clone()).or_insert(0.0) += value;
-        }
-        for (&key, &value) in &other.fx_delta {
-            *self.fx_delta.entry(key).or_insert(0.0) += value;
-        }
-        for (&key, &value) in &other.fx_vega {
-            *self.fx_vega.entry(key).or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.commodity_delta {
-            *self.commodity_delta.entry(key.clone()).or_insert(0.0) += value;
-        }
-        for (&key, &value) in &other.curvature {
-            *self.curvature.entry(key).or_insert(0.0) += value;
-        }
-        for (key, &value) in &other.credit_qualifying_delta_bucketed {
-            *self
-                .credit_qualifying_delta_bucketed
-                .entry(key.clone())
-                .or_insert(0.0) += value;
-        }
+        merge_into(&mut self.ir_delta, &other.ir_delta);
+        merge_into(&mut self.ir_vega, &other.ir_vega);
+        merge_into(
+            &mut self.credit_qualifying_delta,
+            &other.credit_qualifying_delta,
+        );
+        merge_into(
+            &mut self.credit_non_qualifying_delta,
+            &other.credit_non_qualifying_delta,
+        );
+        merge_into(&mut self.equity_delta, &other.equity_delta);
+        merge_into(&mut self.equity_vega, &other.equity_vega);
+        merge_into(&mut self.fx_delta, &other.fx_delta);
+        merge_into(&mut self.fx_vega, &other.fx_vega);
+        merge_into(&mut self.commodity_delta, &other.commodity_delta);
+        merge_into(&mut self.curvature, &other.curvature);
+        merge_into(
+            &mut self.credit_qualifying_delta_bucketed,
+            &other.credit_qualifying_delta_bucketed,
+        );
     }
 
     /// Get total IR delta across all currencies and tenors.

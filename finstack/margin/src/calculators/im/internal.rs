@@ -19,14 +19,16 @@ use std::sync::Arc;
 pub use super::ExternalImSource as InternalModelInputSource;
 
 /// Internal model IM calculator.
+///
+/// Fields are private; use the builder methods ([`Self::new`],
+/// [`Self::with_conservative_rate`], [`Self::with_mpor_days`],
+/// [`Self::with_input_source`]) so invariants — most notably that
+/// `conservative_rate` lies in `[0, 1]` — are enforced at the boundary.
 #[derive(Clone)]
 pub struct InternalModelImCalculator {
-    /// Margin period of risk (days)
-    pub mpor_days: u32,
-    /// Conservative fallback rate applied to notional proxy
-    pub conservative_rate: f64,
-    /// Optional external internal-model input source
-    pub input_source: Option<Arc<dyn super::ExternalImSource>>,
+    mpor_days: u32,
+    conservative_rate: f64,
+    input_source: Option<Arc<dyn super::ExternalImSource>>,
 }
 
 impl std::fmt::Debug for InternalModelImCalculator {
@@ -59,6 +61,18 @@ impl InternalModelImCalculator {
         Self::default()
     }
 
+    /// Margin period of risk in days.
+    #[must_use]
+    pub fn mpor_days(&self) -> u32 {
+        self.mpor_days
+    }
+
+    /// Conservative fallback rate applied to a notional proxy.
+    #[must_use]
+    pub fn conservative_rate(&self) -> f64 {
+        self.conservative_rate
+    }
+
     /// Attach an internal-model input source.
     #[must_use]
     pub fn with_input_source(mut self, source: Arc<dyn super::ExternalImSource>) -> Self {
@@ -67,10 +81,21 @@ impl InternalModelImCalculator {
     }
 
     /// Override the conservative fallback rate.
-    #[must_use]
-    pub fn with_conservative_rate(mut self, rate: f64) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] if `rate` is not a
+    /// finite value in `[0, 1]` — a negative or NaN rate would silently
+    /// produce a negative or non-finite IM, which would in turn corrupt
+    /// any downstream margin call.
+    pub fn with_conservative_rate(mut self, rate: f64) -> Result<Self> {
+        if !rate.is_finite() || !(0.0..=1.0).contains(&rate) {
+            return Err(finstack_core::Error::Validation(format!(
+                "InternalModel conservative_rate must be a finite value in [0, 1], got {rate}"
+            )));
+        }
         self.conservative_rate = rate;
-        self
+        Ok(self)
     }
 
     /// Override the MPOR in days.
@@ -83,6 +108,25 @@ impl InternalModelImCalculator {
     /// Calculate IM using conservative estimate.
     pub fn calculate_conservative(&self, exposure_base: Money) -> Money {
         super::conservative_im(exposure_base, self.conservative_rate)
+    }
+
+    /// Conservative `|exposure_base| × rate` fallback used when no
+    /// external internal-model IM is available. Fails closed if the
+    /// instrument cannot supply a regulatory exposure base.
+    fn conservative_fallback(
+        &self,
+        instrument: &dyn Marginable,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        let exposure_base = super::require_im_exposure_base(
+            "InternalModel",
+            instrument,
+            context,
+            as_of,
+            "an external IM source amount",
+        )?;
+        Ok(self.calculate_conservative(exposure_base))
     }
 }
 
@@ -103,28 +147,14 @@ impl ImCalculator for InternalModelImCalculator {
             if let Some(name) = source.external_model_name() {
                 label = name;
             }
-            match source.external_initial_margin(instrument, context, as_of) {
-                Some(amount) => amount,
-                None => {
-                    let exposure_base = super::require_im_exposure_base(
-                        "InternalModel",
-                        instrument,
-                        context,
-                        as_of,
-                        "an external IM source amount",
-                    )?;
-                    self.calculate_conservative(exposure_base)
-                }
-            }
+            source
+                .external_initial_margin(instrument, context, as_of)
+                .map_or_else(
+                    || self.conservative_fallback(instrument, context, as_of),
+                    Ok,
+                )?
         } else {
-            let exposure_base = super::require_im_exposure_base(
-                "InternalModel",
-                instrument,
-                context,
-                as_of,
-                "an external IM source amount",
-            )?;
-            self.calculate_conservative(exposure_base)
+            self.conservative_fallback(instrument, context, as_of)?
         };
 
         let mut breakdown = HashMap::default();

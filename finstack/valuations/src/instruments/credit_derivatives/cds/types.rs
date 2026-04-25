@@ -528,8 +528,8 @@ pub struct CreditDefaultSwap {
     /// Optional OTC margin specification for VM/IM.
     ///
     /// For cleared CDS (e.g., via ICE Clear Credit), use
-    /// `OtcMarginSpec::ice_clear_credit()`. For bilateral CDS,
-    /// use `OtcMarginSpec::bilateral_simm()`.
+    /// `OtcMarginSpec::cleared("ICE", Currency::USD)`. For bilateral
+    /// CDS, use `OtcMarginSpec::bilateral_simm(...)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Additional attributes

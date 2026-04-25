@@ -15,6 +15,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{commodity, equity, fx, girr};
+use crate::regulatory::frtb::drc::{DRC_LGD, DRC_RISK_WEIGHTS};
+use crate::regulatory::frtb::types::DrcSeniority;
 use finstack_core::Error as MarginError;
 
 /// Revision identifier tagging a [`FrtbParams`] to its regulatory vintage.
@@ -92,6 +94,25 @@ pub struct CommodityParams {
     pub curvature_risk_weight: f64,
 }
 
+/// DRC (Default Risk Charge) parameter bundle.
+///
+/// Mirrors the `pub const` tables in [`crate::regulatory::frtb::drc`]
+/// so DRC parameters travel with [`FrtbParams`] for audit-trail tagging
+/// and so a JSON overlay can substitute alternate weights (e.g. d554)
+/// without recompiling.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DrcParams {
+    /// Risk weights by rating bucket id (1=AAA … 9=Defaulted).
+    pub risk_weights: Vec<(u8, f64)>,
+    /// Loss-given-default by seniority.
+    pub lgd: Vec<(DrcSeniority, f64)>,
+    /// Risk weight applied to unmapped rating buckets. Per MAR22.24 the
+    /// Basel default is 15% (the Unrated bucket).
+    pub unrated_risk_weight: f64,
+    /// LGD applied to unmapped seniorities. Default 75% (senior unsecured).
+    pub unrated_lgd: f64,
+}
+
 /// FX parameter bundle.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FxParams {
@@ -151,8 +172,24 @@ pub struct FrtbParams {
     pub commodity: CommodityParams,
     /// FX parameters.
     pub fx: FxParams,
+    /// Default Risk Charge parameters.
+    #[serde(default = "DrcParams::d457")]
+    pub drc: DrcParams,
     /// Correlation scenario multipliers.
     pub correlation_scenarios: CorrelationScenarioParams,
+}
+
+impl DrcParams {
+    /// Default DRC parameter set matching [`DRC_RISK_WEIGHTS`] / [`DRC_LGD`] (BCBS d457).
+    #[must_use]
+    pub fn d457() -> Self {
+        Self {
+            risk_weights: DRC_RISK_WEIGHTS.to_vec(),
+            lgd: DRC_LGD.to_vec(),
+            unrated_risk_weight: 0.15,
+            unrated_lgd: 0.75,
+        }
+    }
 }
 
 impl FrtbParams {
@@ -193,6 +230,7 @@ impl FrtbParams {
                 curvature_risk_weight: fx::FX_CURVATURE_RISK_WEIGHT,
                 inter_pair_correlation: fx::FX_INTER_PAIR_CORRELATION,
             },
+            drc: DrcParams::d457(),
             correlation_scenarios: CorrelationScenarioParams::default(),
         }
     }
@@ -309,6 +347,25 @@ impl FrtbParams {
         range_pct("fx.vega_risk_weight", self.fx.vega_risk_weight)?;
         range_pct("fx.curvature_risk_weight", self.fx.curvature_risk_weight)?;
         range_corr("fx.inter_pair_correlation", self.fx.inter_pair_correlation)?;
+
+        // DRC.
+        for (bucket, w) in &self.drc.risk_weights {
+            range_pct(&format!("drc.risk_weights[{bucket}]"), *w)?;
+        }
+        for (seniority, lgd) in &self.drc.lgd {
+            if !lgd.is_finite() || !(0.0..=1.0).contains(lgd) {
+                return Err(MarginError::Validation(format!(
+                    "FRTB param 'drc.lgd[{seniority:?}]': LGD must be in [0, 1], got {lgd}"
+                )));
+            }
+        }
+        range_pct("drc.unrated_risk_weight", self.drc.unrated_risk_weight)?;
+        if !self.drc.unrated_lgd.is_finite() || !(0.0..=1.0).contains(&self.drc.unrated_lgd) {
+            return Err(MarginError::Validation(format!(
+                "FRTB param 'drc.unrated_lgd': LGD must be in [0, 1], got {}",
+                self.drc.unrated_lgd
+            )));
+        }
 
         // Correlation scenarios — sanity-check that low < high under the
         // default rho = 0.5 anchor.

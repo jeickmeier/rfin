@@ -401,10 +401,23 @@ impl PyNettingSetId {
         self.inner.is_cleared()
     }
 
-    /// Counterparty identifier.
+    /// Counterparty identifier. For cleared netting sets this is the
+    /// CCP id; for bilateral, the explicit counterparty id.
     #[getter]
     fn counterparty_id(&self) -> &str {
-        &self.inner.counterparty_id
+        self.inner.counterparty_id()
+    }
+
+    /// CSA identifier when bilateral; `None` for cleared netting sets.
+    #[getter]
+    fn csa_id(&self) -> Option<&str> {
+        self.inner.csa_id()
+    }
+
+    /// CCP identifier when cleared; `None` for bilateral netting sets.
+    #[getter]
+    fn ccp_id(&self) -> Option<&str> {
+        self.inner.ccp_id()
     }
 
     fn __repr__(&self) -> String {

@@ -616,6 +616,6 @@ mod tests {
 
         let netting_set = swap.netting_set_id().expect("netting set");
         assert!(netting_set.is_cleared());
-        assert_eq!(netting_set.ccp_id, Some("LCH".to_string()));
+        assert_eq!(netting_set.ccp_id(), Some("LCH"));
     }
 }
