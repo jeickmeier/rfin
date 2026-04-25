@@ -77,15 +77,14 @@ impl PathDependentPricerConfig {
     }
 
     /// Enable/disable parallel execution.
+    ///
+    /// Note that parallel mode is incompatible with `use_sobol = true` because
+    /// Sobol sequences do not support deterministic stream splitting. The
+    /// combination is rejected by [`Self::validate`] (and by the pricer at
+    /// `price()` time); previous releases silently flipped `use_parallel` to
+    /// `false`, which masked configuration mistakes.
     pub fn with_parallel(mut self, parallel: bool) -> Self {
         self.use_parallel = parallel;
-        if parallel && self.use_sobol {
-            tracing::warn!(
-                "PathDependentPricer: Sobol sequences do not support stream splitting; \
-                 automatically disabling parallel mode. Set use_parallel=false explicitly to suppress this warning."
-            );
-            self.use_parallel = false;
-        }
         self
     }
 
@@ -126,18 +125,17 @@ impl PathDependentPricerConfig {
     }
 
     /// Enable Sobol quasi-random sequence.
+    ///
+    /// Defaults `use_brownian_bridge` to `true` when enabling Sobol because
+    /// Brownian bridge construction is the standard variance-reduction
+    /// companion to QMC. Override afterwards via
+    /// [`Self::with_brownian_bridge`] if needed. The combination
+    /// `use_sobol = true && use_parallel = true` is rejected by
+    /// [`Self::validate`].
     pub fn with_sobol(mut self, use_sobol: bool) -> Self {
         self.use_sobol = use_sobol;
         if use_sobol {
-            // Default to enabling Brownian bridge when using Sobol unless explicitly turned off later
             self.use_brownian_bridge = true;
-            if self.use_parallel {
-                tracing::warn!(
-                    "PathDependentPricer: Sobol sequences do not support stream splitting; \
-                     automatically disabling parallel mode. Set use_parallel=false explicitly to suppress this warning."
-                );
-                self.use_parallel = false;
-            }
         }
         self
     }
@@ -166,6 +164,71 @@ impl PathDependentPricerConfig {
             self.min_steps,
             required_times,
         )
+    }
+
+    /// Validate the configuration eagerly, before any path is simulated.
+    ///
+    /// Surface configuration mistakes at builder time rather than at
+    /// `price()` time, where the failure is more expensive to debug. The
+    /// pricer also calls this internally so callers who skip the explicit
+    /// `validate()` step still receive the same diagnostics.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] when:
+    ///
+    /// - `num_paths == 0`,
+    /// - `chunk_size == 0`,
+    /// - `use_sobol && use_parallel` (Sobol cannot be split into independent
+    ///   per-thread streams),
+    /// - `use_sobol && antithetic` (not currently supported),
+    /// - `steps_per_year` is non-positive or non-finite,
+    /// - sampled path capture is enabled with `count == 0` or
+    ///   `count > num_paths`.
+    pub fn validate(&self) -> Result<()> {
+        if self.num_paths == 0 {
+            return Err(finstack_core::Error::Validation(
+                "PathDependentPricerConfig: num_paths must be greater than zero".to_string(),
+            ));
+        }
+        if self.chunk_size == 0 {
+            return Err(finstack_core::Error::Validation(
+                "PathDependentPricerConfig: chunk_size must be greater than zero".to_string(),
+            ));
+        }
+        if !(self.steps_per_year.is_finite() && self.steps_per_year > 0.0) {
+            return Err(finstack_core::Error::Validation(format!(
+                "PathDependentPricerConfig: steps_per_year must be finite and positive, got {}",
+                self.steps_per_year
+            )));
+        }
+        if self.use_sobol && self.use_parallel {
+            return Err(finstack_core::Error::Validation(
+                "PathDependentPricerConfig: Sobol QMC requires serial execution; \
+                 set use_parallel = false or use_sobol = false"
+                    .to_string(),
+            ));
+        }
+        if self.use_sobol && self.antithetic {
+            return Err(finstack_core::Error::Validation(
+                "PathDependentPricerConfig: antithetic variates are not supported with use_sobol = true"
+                    .to_string(),
+            ));
+        }
+        if self.path_capture.enabled {
+            if let crate::engine::PathCaptureMode::Sample { count, .. } =
+                self.path_capture.capture_mode
+            {
+                if count == 0 || count > self.num_paths {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "PathDependentPricerConfig: path-capture sample count must satisfy \
+                         1 <= count <= num_paths (got count = {count}, num_paths = {})",
+                        self.num_paths
+                    )));
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -229,27 +292,10 @@ impl PathDependentPricer {
         time_grid: &TimeGrid,
         num_factors: usize,
     ) -> Result<usize> {
-        if self.config.use_parallel {
-            return Err(finstack_core::Error::Validation(
-                "Sobol pricing requires serial execution in PathDependentPricer".to_string(),
-            ));
-        }
-
-        if self.config.antithetic {
-            return Err(finstack_core::Error::Validation(
-                "Sobol pricing currently does not support antithetic variates".to_string(),
-            ));
-        }
-
-        if let crate::engine::PathCaptureMode::Sample { count, .. } =
-            self.config.path_capture.capture_mode
-        {
-            if self.config.path_capture.enabled && (count == 0 || count > self.config.num_paths) {
-                return Err(finstack_core::Error::Validation(format!(
-                    "Sobol path capture sample count must be between 1 and num_paths (got {count})"
-                )));
-            }
-        }
+        // Generic-config invariants (parallel/antithetic/sample-count) are
+        // enforced once in `PathDependentPricerConfig::validate`, called from
+        // each price entry point. Only Sobol-dimension-specific checks live
+        // here.
 
         // Brownian bridge path construction allocates the leading Sobol
         // dimensions to terminal/midpoint increments of a single scalar
@@ -485,6 +531,7 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
+        self.config.validate()?;
         if self.config.use_sobol {
             return self
                 .price_with_sobol(
@@ -561,6 +608,7 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
+        self.config.validate()?;
         if self.config.use_sobol {
             let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
             return self.price_with_sobol(
@@ -628,6 +676,7 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
+        self.config.validate()?;
         // Force path capture to get terminal spots and final discounted payoff values
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
         let engine_config = McEngineConfig {
@@ -816,6 +865,39 @@ impl<'a> RandomStream for SobolPathStream<'a> {
 #[cfg(test)]
 mod tests {
     use super::{PathDependentPricer, PathDependentPricerConfig};
+
+    #[test]
+    fn test_validate_rejects_sobol_plus_parallel() {
+        let cfg = PathDependentPricerConfig::new(1_000)
+            .with_parallel(true)
+            .with_sobol(true);
+        let err = cfg
+            .validate()
+            .expect_err("Sobol + parallel must be rejected");
+        assert!(err.to_string().contains("Sobol"));
+    }
+
+    #[test]
+    fn test_validate_rejects_sobol_plus_antithetic() {
+        let cfg = PathDependentPricerConfig::new(1_000)
+            .with_parallel(false)
+            .with_sobol(true)
+            .with_antithetic(true);
+        let err = cfg
+            .validate()
+            .expect_err("Sobol + antithetic must be rejected");
+        assert!(err.to_string().contains("antithetic"));
+    }
+
+    #[test]
+    fn test_validate_rejects_zero_paths() {
+        let cfg = PathDependentPricerConfig::new(0);
+        let err = cfg
+            .validate()
+            .expect_err("zero paths must be rejected");
+        assert!(err.to_string().contains("num_paths"));
+    }
+
     use crate::payoff::asian::{AsianCall, AveragingMethod};
     use crate::process::gbm::{GbmParams, GbmProcess};
     use crate::rng::sobol::MAX_SOBOL_DIMENSION;

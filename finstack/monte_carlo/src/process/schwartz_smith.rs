@@ -42,25 +42,54 @@ impl SchwartzSmithParams {
     ///
     /// * `kappa_x` - Mean reversion speed (must be > 0)
     /// * `sigma_x` - Short-term volatility (must be > 0)
-    /// * `mu_y` - Long-term drift
+    /// * `mu_y` - Long-term drift (must be finite)
     /// * `sigma_y` - Long-term volatility (must be > 0)
     /// * `rho` - Correlation between X and Y (must be in [-1, 1])
-    pub fn new(kappa_x: f64, sigma_x: f64, mu_y: f64, sigma_y: f64, rho: f64) -> Self {
-        assert!(kappa_x > 0.0, "kappa_x must be positive");
-        assert!(sigma_x > 0.0, "sigma_x must be positive");
-        assert!(sigma_y > 0.0, "sigma_y must be positive");
-        assert!(
-            (-1.0..=1.0).contains(&rho),
-            "Correlation rho must be in [-1, 1]"
-        );
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when any positivity constraint is violated, when
+    /// `mu_y` is non-finite, or when `rho` falls outside `[-1, 1]`.
+    pub fn new(
+        kappa_x: f64,
+        sigma_x: f64,
+        mu_y: f64,
+        sigma_y: f64,
+        rho: f64,
+    ) -> finstack_core::Result<Self> {
+        if !(kappa_x > 0.0 && kappa_x.is_finite()) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Schwartz-Smith kappa_x must be finite and positive, got {kappa_x}"
+            )));
+        }
+        if !(sigma_x > 0.0 && sigma_x.is_finite()) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Schwartz-Smith sigma_x must be finite and positive, got {sigma_x}"
+            )));
+        }
+        if !mu_y.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Schwartz-Smith mu_y must be finite, got {mu_y}"
+            )));
+        }
+        if !(sigma_y > 0.0 && sigma_y.is_finite()) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Schwartz-Smith sigma_y must be finite and positive, got {sigma_y}"
+            )));
+        }
+        if !(rho.is_finite() && (-1.0..=1.0).contains(&rho)) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Schwartz-Smith correlation rho must be finite and in [-1, 1], got {rho}"
+            )));
+        }
 
-        Self {
+        Ok(Self {
             kappa_x,
             sigma_x,
             mu_y,
             sigma_y,
             rho,
-        }
+        })
     }
 }
 
@@ -178,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_schwartz_smith_creation() {
-        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
+        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5).unwrap();
         let process = SchwartzSmithProcess::new(params, 0.0, 4.5);
 
         assert_eq!(process.dim(), 2);
@@ -188,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_schwartz_smith_from_spot() {
-        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
+        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5).unwrap();
         let spot_0 = 90.0;
         let process = SchwartzSmithProcess::from_spot(params, spot_0, None);
 
@@ -201,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_schwartz_smith_drift() {
-        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
+        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5).unwrap();
         let process = SchwartzSmithProcess::new(params, 0.0, 4.5);
 
         let x = [0.1, 4.5];
@@ -217,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_schwartz_smith_diffusion() {
-        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
+        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5).unwrap();
         let process = SchwartzSmithProcess::new(params, 0.0, 4.5);
 
         let x = [0.1, 4.5];
@@ -231,7 +260,7 @@ mod tests {
 
     #[test]
     fn test_spot_from_state() {
-        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
+        let params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5).unwrap();
         let process = SchwartzSmithProcess::new(params, 0.0, 4.5);
 
         let state = [0.0, 4.5]; // X=0, Y=ln(90)≈4.5

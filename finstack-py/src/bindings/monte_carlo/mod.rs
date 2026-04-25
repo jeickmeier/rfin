@@ -8,6 +8,7 @@
 
 mod analytical;
 mod engine;
+mod greeks;
 mod pricers;
 mod results;
 mod time_grid;
@@ -28,6 +29,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     engine::register(py, &m)?;
     pricers::register(py, &m)?;
     analytical::register(py, &m)?;
+    greeks::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -43,6 +45,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "black_scholes_put",
             "price_european_call",
             "price_european_put",
+            "fd_delta",
+            "fd_delta_crn",
+            "fd_gamma",
+            "fd_gamma_crn",
         ],
     )?;
     m.setattr("__all__", all)?;

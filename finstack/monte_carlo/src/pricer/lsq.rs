@@ -71,6 +71,41 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
     }
 }
 
+/// Fit basis-function regression coefficients (no prediction loop).
+///
+/// Use this when the caller wants to retain the regression coefficients
+/// — for example, to apply a frozen exercise policy to an independent path
+/// set in two-pass LSMC.
+///
+/// # Arguments
+///
+/// * `x` - State variables (spot prices or swap rates)
+/// * `y` - Discounted continuation values to fit
+/// * `basis` - Basis functions evaluated at each x value
+///
+/// # Returns
+///
+/// Coefficient vector β with length `basis.num_basis()`.
+pub fn regression_coefficients_with_basis<B>(x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
+where
+    B: BasisFunctions + ?Sized,
+{
+    let n = x.len();
+    let k = basis.num_basis();
+
+    // Build design matrix X (n x k). One reusable basis_vals buffer.
+    let mut design = vec![0.0; n * k];
+    let mut basis_vals = vec![0.0; k];
+
+    for (i, &x_val) in x.iter().enumerate() {
+        basis.evaluate(x_val, &mut basis_vals);
+        let row_start = i * k;
+        design[row_start..row_start + k].copy_from_slice(&basis_vals);
+    }
+
+    solve_least_squares(&design, y, n, k)
+}
+
 /// Perform LSMC regression with basis functions.
 ///
 /// This is the complete regression workflow used by both equity and swaption LSMC:
@@ -91,25 +126,12 @@ pub fn regression_with_basis<B>(x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f
 where
     B: BasisFunctions + ?Sized,
 {
-    let n = x.len();
+    let coeffs = regression_coefficients_with_basis(x, y, basis)?;
     let k = basis.num_basis();
 
-    // Build design matrix X (n x k)
-    let mut design = vec![0.0; n * k];
-    let mut basis_vals = vec![0.0; k];
-
-    for (i, &x_val) in x.iter().enumerate() {
-        basis.evaluate(x_val, &mut basis_vals);
-        for j in 0..k {
-            design[i * k + j] = basis_vals[j];
-        }
-    }
-
-    // Solve least squares using SVD (numerically stable for ill-conditioned systems)
-    let coeffs = solve_least_squares(&design, y, n, k)?;
-
     // Predict continuation values
-    let mut predictions = vec![0.0; n];
+    let mut basis_vals = vec![0.0; k];
+    let mut predictions = vec![0.0; x.len()];
     for (i, &x_val) in x.iter().enumerate() {
         basis.evaluate(x_val, &mut basis_vals);
         let mut pred = 0.0;

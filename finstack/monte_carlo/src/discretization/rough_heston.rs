@@ -147,13 +147,11 @@ impl Discretization<RoughHestonProcess> for RoughHestonHybrid {
         let p = process.params();
 
         // ── Determine step index ──────────────────────────────────
-        // The engine zeros the work buffer before each path, so step 0 starts
-        // with a clean state. Subsequent steps read the counter from work.
-        let step = if t < 1e-15 {
-            0
-        } else {
-            work[self.num_steps] as usize
-        };
+        // The engine zero-initialises `work` before every path
+        // (see `run_path_loop` in engine/simulation.rs), so the step
+        // counter starts at 0.0 cleanly without resorting to `t < ε`
+        // heuristics to detect path boundaries.
+        let step = work[self.num_steps] as usize;
 
         let v_current = x[1].max(0.0);
         let z_vol = z[1]; // Standard normal for variance noise
@@ -355,6 +353,11 @@ mod tests {
 
     #[test]
     fn test_work_buffer_reset_across_paths() {
+        // The engine (run_path_loop) is now responsible for zeroing the work
+        // buffer at the start of every path; the discretization simply
+        // increments the counter. This test verifies that pattern: after path
+        // 1, the caller zeros `work` exactly the way the engine does, then
+        // path 2 starts cleanly.
         let process = make_process();
         let n = 5;
         let times = uniform_grid(n, 0.05);
@@ -378,12 +381,15 @@ mod tests {
         let step_after_p1 = work[n] as usize;
         assert_eq!(step_after_p1, n);
 
-        // Start path 2 — t ≈ 0 triggers reset
+        // Start path 2 — engine resets the work buffer.
+        for w in work.iter_mut() {
+            *w = 0.0;
+        }
         x[0] = 100.0;
         x[1] = 0.04;
         disc.step(&process, 0.0, times[1] - times[0], &mut x, &z, &mut work);
 
-        // Step counter should be 1 (reset then incremented)
+        // Step counter should be 1 (zeroed then incremented).
         assert_eq!(
             work[n] as usize, 1,
             "Step counter should reset for new path"

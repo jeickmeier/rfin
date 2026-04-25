@@ -41,10 +41,14 @@ impl PyEuropeanPricer {
     }
 
     /// Price a European call option under GBM.
+    ///
+    /// Releases the GIL during the Monte Carlo run so other Python threads
+    /// can make progress.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
     fn price_call(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -55,17 +59,21 @@ impl PyEuropeanPricer {
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
-        self.build_pricer()
-            .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+        let pricer = self.build_pricer();
+        py.detach(|| pricer.price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy))
             .map(PyMonteCarloResult::from_inner)
             .map_err(core_to_py)
     }
 
     /// Price a European put option under GBM.
+    ///
+    /// Releases the GIL during the Monte Carlo run so other Python threads
+    /// can make progress.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
     fn price_put(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -76,8 +84,8 @@ impl PyEuropeanPricer {
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
-        self.build_pricer()
-            .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+        let pricer = self.build_pricer();
+        py.detach(|| pricer.price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy))
             .map(PyMonteCarloResult::from_inner)
             .map_err(core_to_py)
     }
@@ -123,10 +131,13 @@ impl PyPathDependentPricer {
     }
 
     /// Price an Asian call under GBM dynamics.
+    ///
+    /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
     fn price_asian_call(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -142,15 +153,18 @@ impl PyPathDependentPricer {
         let payoff = AsianCall::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
         let df = (-rate * expiry).exp();
         self.run_gbm(
-            &payoff, spot, rate, div_yield, vol, expiry, num_steps, ccy, df,
+            py, &payoff, spot, rate, div_yield, vol, expiry, num_steps, ccy, df,
         )
     }
 
     /// Price an Asian put under GBM dynamics.
+    ///
+    /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
     fn price_asian_put(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -166,7 +180,7 @@ impl PyPathDependentPricer {
         let payoff = AsianPut::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
         let df = (-rate * expiry).exp();
         self.run_gbm(
-            &payoff, spot, rate, div_yield, vol, expiry, num_steps, ccy, df,
+            py, &payoff, spot, rate, div_yield, vol, expiry, num_steps, ccy, df,
         )
     }
 
@@ -191,6 +205,7 @@ impl PyPathDependentPricer {
     #[allow(clippy::too_many_arguments)]
     fn run_gbm(
         &self,
+        py: Python<'_>,
         payoff: &impl finstack_monte_carlo::traits::Payoff,
         spot: f64,
         rate: f64,
@@ -210,8 +225,8 @@ impl PyPathDependentPricer {
             .with_parallel(self.use_parallel);
         let pricer = PathDependentPricer::new(config);
         let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
-        pricer
-            .price(
+        py.detach(|| {
+            pricer.price(
                 &process,
                 spot,
                 expiry,
@@ -220,8 +235,9 @@ impl PyPathDependentPricer {
                 currency,
                 discount_factor,
             )
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 }
 
@@ -380,10 +396,13 @@ impl PyLsmcPricer {
     }
 
     /// Price an American put under GBM dynamics.
+    ///
+    /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=50, currency=None))]
     fn price_american_put(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -406,19 +425,23 @@ impl PyLsmcPricer {
         let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 
         let basis = self.build_basis(strike)?;
-        pricer
-            .price(
+        py.detach(|| {
+            pricer.price(
                 &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
             )
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 
     /// Price an American call under GBM dynamics.
+    ///
+    /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=50, currency=None))]
     fn price_american_call(
         &self,
+        py: Python<'_>,
         spot: f64,
         strike: f64,
         rate: f64,
@@ -441,12 +464,108 @@ impl PyLsmcPricer {
         let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
 
         let basis = self.build_basis(strike)?;
-        pricer
-            .price(
+        py.detach(|| {
+            pricer.price(
                 &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
             )
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
+    }
+
+    /// Two-pass unbiased American put price (training fit + out-of-sample pricing).
+    ///
+    /// Mitigates the in-sample upward bias of single-pass LSMC: the regression
+    /// is fit on a training path set seeded by the pricer's `seed`, and the
+    /// frozen exercise policy is replayed against an *independent* path set
+    /// seeded by `pricing_seed`. `pricing_seed` must differ from `seed`;
+    /// matching seeds reintroduce the bias and are rejected.
+    ///
+    /// Releases the GIL during both Monte Carlo passes.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        spot, strike, rate, div_yield, vol, expiry, pricing_seed,
+        num_steps=50, currency=None,
+    ))]
+    fn price_american_put_unbiased(
+        &self,
+        py: Python<'_>,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        div_yield: f64,
+        vol: f64,
+        expiry: f64,
+        pricing_seed: u64,
+        num_steps: usize,
+        currency: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyMonteCarloResult> {
+        use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
+
+        let ccy = resolve_currency(currency)?;
+        let exercise = AmericanPut::new(strike).map_err(core_to_py)?;
+        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
+        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
+            .map_err(core_to_py)?
+            .with_seed(self.seed)
+            .with_parallel(self.use_parallel);
+        let pricer = LsmcPricer::new(config);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
+
+        let basis = self.build_basis(strike)?;
+        py.detach(|| {
+            pricer.price_unbiased(
+                &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
+                pricing_seed,
+            )
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
+    }
+
+    /// Two-pass unbiased American call price.
+    ///
+    /// See [`Self::price_american_put_unbiased`] for the bias-mitigation
+    /// rationale and the meaning of `pricing_seed`.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        spot, strike, rate, div_yield, vol, expiry, pricing_seed,
+        num_steps=50, currency=None,
+    ))]
+    fn price_american_call_unbiased(
+        &self,
+        py: Python<'_>,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        div_yield: f64,
+        vol: f64,
+        expiry: f64,
+        pricing_seed: u64,
+        num_steps: usize,
+        currency: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyMonteCarloResult> {
+        use finstack_monte_carlo::pricer::lsmc::{AmericanCall, LsmcConfig, LsmcPricer};
+
+        let ccy = resolve_currency(currency)?;
+        let exercise = AmericanCall::new(strike).map_err(core_to_py)?;
+        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
+        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
+            .map_err(core_to_py)?
+            .with_seed(self.seed)
+            .with_parallel(self.use_parallel);
+        let pricer = LsmcPricer::new(config);
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
+
+        let basis = self.build_basis(strike)?;
+        py.detach(|| {
+            pricer.price_unbiased(
+                &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
+                pricing_seed,
+            )
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {

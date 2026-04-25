@@ -33,18 +33,33 @@ Available functionality:
 - Exact, Euler, Milstein, QE, jump-Euler, and model-specific discretizations
 - Vanilla and path-dependent payoffs such as European, Asian, basket, barrier,
   and lookback options
-- European, path-dependent, and Longstaff-Schwartz LSMC pricers
+- European, path-dependent, and Longstaff-Schwartz LSMC pricers, including
+  a two-pass unbiased variant (`LsmcPricer::price_unbiased`) that mitigates
+  the in-sample upward bias of single-pass LSMC by training the regression
+  on one path set and replaying the frozen exercise policy on a second,
+  independent path set
 - Monte Carlo Greeks via pathwise, likelihood-ratio, and finite-difference
-  estimators
+  estimators, including paired common-random-number variants
+  (`finite_diff_delta_crn` / `finite_diff_gamma_crn`) that report the true
+  per-path paired standard error — typically 1–2 orders of magnitude
+  tighter than the conservative independence bound, which matters when
+  sizing hedge ratios
 - Online summary statistics and currency-aware pricing results
 - Optional captured-path datasets for diagnostics and visualization
-- Variance-reduction tools such as antithetic pairing, control variates, moment
-  matching, and importance sampling
+- Variance-reduction tools: antithetic pairing (engine-native) and control
+  variates with closed-form Black-Scholes are always available
 
 ## Feature Flags
 
-This crate currently declares no optional Cargo features. Rayon-backed parallel
-simulation and the broader model/pricer/payoff surface are compiled by default.
+- `vr-experimental` (off by default): compiles the experimental
+  `importance_sampling` and `moment_matching` variance-reduction modules.
+  These estimators are not yet wired into the engine or pricers and are
+  intended for offline development and evaluation rather than production
+  pricing. Production paths use control variates and antithetic pairing,
+  both of which are always available.
+
+Rayon-backed parallel simulation is compiled by default; there is no opt-out
+flag for it currently.
 
 ## Core Workflow
 
@@ -158,6 +173,77 @@ if let Some(paths) = result.paths() {
 }
 ```
 
+### Unbiased American Pricing (Two-Pass LSMC)
+
+Single-pass Longstaff-Schwartz LSMC fits the regression and prices on the
+same path set, which biases the resulting price upward. The crate provides a
+two-pass workflow that mitigates this bias by training the policy on one
+path set and replaying it on a second, independent set:
+
+```rust,no_run
+use finstack_core::currency::Currency;
+use finstack_monte_carlo::prelude::*;
+
+let cfg = LsmcConfig::new(50_000, vec![25, 50, 75, 100], 100)
+    .expect("valid config")
+    .with_seed(42);
+let pricer = LsmcPricer::new(cfg);
+let process = GbmProcess::with_params(0.05, 0.0, 0.3).unwrap();
+let put = AmericanPut::new(100.0).unwrap();
+let basis = PolynomialBasis::new(2);
+
+let unbiased = pricer
+    .price_unbiased(
+        &process, 100.0, 1.0, 100, &put, &basis,
+        Currency::USD, 0.05,
+        /* pricing_seed = */ 4243, // must differ from the configured seed
+    )
+    .expect("two-pass pricing should succeed");
+
+assert!(unbiased.mean.amount() > 0.0);
+```
+
+For finer control, use [`LsmcPricer::fit_exercise_policy`] and
+[`LsmcPricer::price_with_policy`] to fit and price separately and reuse the
+captured [`ExercisePolicy`] across multiple pricing scenarios.
+
+### Greeks With Common Random Numbers
+
+Finite-difference Greeks come in two flavours:
+
+- The default `finite_diff_delta` / `finite_diff_gamma` report a
+  conservative independence-bound stderr that overstates the true error by
+  one to two orders of magnitude when CRN cancellation kicks in.
+- The paired variants `finite_diff_delta_crn` / `finite_diff_gamma_crn`
+  drive a per-path paired loop and report the true paired standard error —
+  use them whenever the stderr will be propagated into hedge sizing or risk
+  budgets. They are serial-only (paired stderr requires deterministic
+  per-path pairing).
+
+```rust,no_run
+use finstack_core::currency::Currency;
+use finstack_monte_carlo::prelude::*;
+
+let engine = McEngine::builder()
+    .num_paths(20_000)
+    .seed(42)
+    .uniform_grid(1.0, 50)
+    .parallel(false)
+    .build()
+    .expect("valid config");
+let rng = PhiloxRng::new(42);
+let gbm = GbmProcess::with_params(0.05, 0.0, 0.2).unwrap();
+let disc = ExactGbm::new();
+let call = EuropeanCall::new(100.0, 1.0, 50);
+
+let (delta, paired_stderr) = finite_diff_delta_crn(
+    &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD,
+    /* discount_factor = */ (-0.05_f64).exp(),
+    /* relative bump = */ 0.01,
+)
+.expect("CRN delta should succeed");
+```
+
 ### Compact GBM-Only Entry Point
 
 If you only need a European-style payoff under GBM dynamics, use
@@ -249,8 +335,10 @@ All payoff and pricer modules are compiled by default:
 ### Other supporting modules
 
 - `rng` for pseudo-random and quasi-random generation
-- `variance_reduction` for antithetic, control-variate, moment-matching, and
-  importance-sampling helpers
+- `variance_reduction` for control-variate helpers (always available);
+  `importance_sampling` and `moment_matching` are gated behind the
+  `vr-experimental` feature. Antithetic pairing is engine-native and
+  configured via `McEngineConfig::antithetic`
 - `greeks` for pathwise, LRM, and finite-difference estimators
 - `barriers` for Brownian-bridge hit checks and continuity corrections
 - `time_grid` for simulation time grids expressed in year fractions

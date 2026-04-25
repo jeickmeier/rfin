@@ -28,7 +28,7 @@
 //! an Andersen-Broadie dual upper bound to bracket the true value.
 
 use super::super::results::MoneyEstimate;
-use super::lsq::regression_with_basis;
+use super::lsq::{regression_coefficients_with_basis, regression_with_basis};
 use crate::discretization::exact::ExactGbm;
 use crate::estimate::Estimate;
 use crate::online_stats::OnlineStats;
@@ -39,6 +39,29 @@ use crate::time_grid::TimeGrid;
 use crate::traits::{Discretization, RandomStream};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
+
+/// A frozen LSMC exercise policy fit on one path set, applicable to another.
+///
+/// Captures the per-exercise-date least-squares regression coefficients used to
+/// approximate continuation values. Apply it via [`LsmcPricer::price_with_policy`]
+/// to a fresh, independent path set to recover an *out-of-sample* American option
+/// price free of the in-sample regression bias.
+///
+/// Build one with [`LsmcPricer::fit_exercise_policy`].
+#[derive(Debug, Clone)]
+pub struct ExercisePolicy {
+    /// Per-exercise-step regression coefficients in (step, coefficients) pairs,
+    /// sorted by descending step (matches the backward-induction order). Only
+    /// dates strictly inside `(0, num_steps)` are stored; terminal exercise is
+    /// always applied.
+    pub coefficients_by_date: Vec<(usize, Vec<f64>)>,
+    /// Number of basis functions used during fitting; the same basis must be
+    /// passed to [`LsmcPricer::price_with_policy`].
+    pub num_basis: usize,
+    /// Number of simulation steps in the training run; the pricing run must
+    /// agree.
+    pub num_steps: usize,
+}
 
 /// Immediate exercise payoff function.
 ///
@@ -257,13 +280,34 @@ impl LsmcPricer {
         time_to_maturity: f64,
         num_steps: usize,
     ) -> Result<Vec<Vec<f64>>> {
+        self.generate_paths_with_seed(
+            process,
+            initial_spot,
+            time_to_maturity,
+            num_steps,
+            self.config.seed,
+        )
+    }
+
+    /// Generate Monte Carlo paths with an explicit seed override.
+    ///
+    /// Used by the two-pass API to draw an independent path set for out-of-sample
+    /// pricing while reusing the configuration's path count and parallelism.
+    fn generate_paths_with_seed(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+        seed: u64,
+    ) -> Result<Vec<Vec<f64>>> {
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
 
         if self.config.use_parallel {
-            return self.generate_paths_parallel(process, initial_spot, &time_grid, num_steps);
+            return self.generate_paths_parallel(process, initial_spot, &time_grid, num_steps, seed);
         }
 
-        self.generate_paths_serial(process, initial_spot, &time_grid, num_steps)
+        self.generate_paths_serial(process, initial_spot, &time_grid, num_steps, seed)
     }
 
     /// Serial path generation.
@@ -273,9 +317,10 @@ impl LsmcPricer {
         initial_spot: f64,
         time_grid: &TimeGrid,
         num_steps: usize,
+        seed: u64,
     ) -> Result<Vec<Vec<f64>>> {
         let disc = ExactGbm::new();
-        let rng = PhiloxRng::new(self.config.seed);
+        let rng = PhiloxRng::new(seed);
         let mut paths = Vec::with_capacity(self.config.num_paths);
 
         for path_id in 0..self.config.num_paths {
@@ -310,10 +355,11 @@ impl LsmcPricer {
         initial_spot: f64,
         time_grid: &TimeGrid,
         num_steps: usize,
+        seed: u64,
     ) -> Result<Vec<Vec<f64>>> {
         use rayon::prelude::*;
 
-        let rng = PhiloxRng::new(self.config.seed);
+        let rng = PhiloxRng::new(seed);
         let disc = ExactGbm::new();
 
         let paths: Vec<Vec<f64>> = (0..self.config.num_paths)
@@ -484,6 +530,356 @@ impl LsmcPricer {
         }
 
         Ok(present_values)
+    }
+
+    /// Two-pass step 1: fit a frozen exercise policy on a training path set.
+    ///
+    /// Generates `num_paths` training paths with the configured seed, runs
+    /// backward induction, and records the per-exercise-date regression
+    /// coefficients without computing a price. Use [`Self::price_with_policy`]
+    /// to apply the returned policy to a fresh, independent path set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when path generation or any regression solve fails.
+    #[allow(clippy::too_many_arguments)]
+    pub fn fit_exercise_policy<E, B>(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+        exercise: &E,
+        basis: &B,
+        discount_rate: f64,
+    ) -> Result<ExercisePolicy>
+    where
+        E: ImmediateExercise,
+        B: BasisFunctions + ?Sized,
+    {
+        let paths = self.generate_paths(process, initial_spot, time_to_maturity, num_steps)?;
+        self.fit_policy_from_paths(
+            &paths,
+            exercise,
+            basis,
+            discount_rate,
+            time_to_maturity,
+            num_steps,
+        )
+    }
+
+    /// Two-pass step 2: price using a frozen [`ExercisePolicy`] on independent paths.
+    ///
+    /// `pricing_seed` selects the RNG seed used to draw the pricing path set.
+    /// It must differ from the seed that produced `policy` to obtain an
+    /// out-of-sample (unbiased) estimate; passing the same seed reproduces the
+    /// in-sample result.
+    ///
+    /// `num_steps` and `basis.num_basis()` must match the values used to fit
+    /// the policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `num_steps` or basis size disagree with the policy
+    /// or if path generation fails.
+    #[allow(clippy::too_many_arguments)]
+    pub fn price_with_policy<E, B>(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+        exercise: &E,
+        basis: &B,
+        policy: &ExercisePolicy,
+        currency: Currency,
+        discount_rate: f64,
+        pricing_seed: u64,
+    ) -> Result<MoneyEstimate>
+    where
+        E: ImmediateExercise,
+        B: BasisFunctions + ?Sized,
+    {
+        if policy.num_steps != num_steps {
+            return Err(finstack_core::Error::Validation(format!(
+                "ExercisePolicy num_steps ({}) does not match pricing num_steps ({})",
+                policy.num_steps, num_steps
+            )));
+        }
+        if policy.num_basis != basis.num_basis() {
+            return Err(finstack_core::Error::Validation(format!(
+                "ExercisePolicy num_basis ({}) does not match basis size ({})",
+                policy.num_basis,
+                basis.num_basis()
+            )));
+        }
+
+        let paths = self.generate_paths_with_seed(
+            process,
+            initial_spot,
+            time_to_maturity,
+            num_steps,
+            pricing_seed,
+        )?;
+
+        let values = self.apply_policy_to_paths(
+            &paths,
+            exercise,
+            basis,
+            policy,
+            discount_rate,
+            time_to_maturity,
+            num_steps,
+        );
+
+        let mut stats = OnlineStats::new();
+        for &v in &values {
+            stats.update(v);
+        }
+        let estimate = Estimate::new(
+            stats.mean(),
+            stats.stderr(),
+            stats.confidence_interval(0.05),
+            values.len(),
+        )
+        .with_std_dev(stats.std_dev());
+
+        Ok(MoneyEstimate::from_estimate(estimate, currency))
+    }
+
+    /// Convenience: run the full two-pass workflow with disjoint seeds.
+    ///
+    /// Fits an exercise policy on a training run seeded with the pricer's
+    /// configured seed, then prices on a fresh run seeded with `pricing_seed`.
+    /// Returns the unbiased out-of-sample price estimate. Equivalent to
+    /// calling [`Self::fit_exercise_policy`] followed by
+    /// [`Self::price_with_policy`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `pricing_seed == self.config.seed` (the two passes
+    /// would share paths and the result would be biased), or if either pass
+    /// fails.
+    #[allow(clippy::too_many_arguments)]
+    pub fn price_unbiased<E, B>(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+        exercise: &E,
+        basis: &B,
+        currency: Currency,
+        discount_rate: f64,
+        pricing_seed: u64,
+    ) -> Result<MoneyEstimate>
+    where
+        E: ImmediateExercise,
+        B: BasisFunctions + ?Sized,
+    {
+        if pricing_seed == self.config.seed {
+            return Err(finstack_core::Error::Validation(
+                "price_unbiased requires pricing_seed != configured training seed; \
+                 sharing paths between regression fitting and pricing reintroduces in-sample bias"
+                    .to_string(),
+            ));
+        }
+
+        let policy = self.fit_exercise_policy(
+            process,
+            initial_spot,
+            time_to_maturity,
+            num_steps,
+            exercise,
+            basis,
+            discount_rate,
+        )?;
+
+        self.price_with_policy(
+            process,
+            initial_spot,
+            time_to_maturity,
+            num_steps,
+            exercise,
+            basis,
+            &policy,
+            currency,
+            discount_rate,
+            pricing_seed,
+        )
+    }
+
+    /// Backward induction that records per-date regression coefficients.
+    ///
+    /// Mirrors [`Self::backward_induction`] but stores raw coefficients at each
+    /// interior exercise date instead of producing present values, so the policy
+    /// can be replayed against an independent path set. Insufficient ITM paths
+    /// or singular regressions skip the date (no exercise) just like the
+    /// in-sample variant.
+    fn fit_policy_from_paths<E, B>(
+        &self,
+        paths: &[Vec<f64>],
+        exercise: &E,
+        basis: &B,
+        discount_rate: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+    ) -> Result<ExercisePolicy>
+    where
+        E: ImmediateExercise,
+        B: BasisFunctions + ?Sized,
+    {
+        let num_paths = paths.len();
+        let dt = time_to_maturity / num_steps as f64;
+
+        let mut cashflows = vec![0.0; num_paths];
+        let mut exercise_times = vec![time_to_maturity; num_paths];
+        for (i, path) in paths.iter().enumerate() {
+            cashflows[i] = exercise.exercise_value(path[num_steps]);
+        }
+
+        let mut sorted_exercise_dates = self.config.exercise_dates.clone();
+        sorted_exercise_dates.sort_unstable();
+        sorted_exercise_dates.reverse();
+
+        let mut regression_x: Vec<f64> = Vec::with_capacity(num_paths / 2);
+        let mut regression_y: Vec<f64> = Vec::with_capacity(num_paths / 2);
+        let mut regression_indices: Vec<usize> = Vec::with_capacity(num_paths / 2);
+        let mut basis_vals = vec![0.0; basis.num_basis()];
+        let mut coefficients_by_date: Vec<(usize, Vec<f64>)> = Vec::new();
+
+        for &exercise_step in &sorted_exercise_dates {
+            if exercise_step == 0 || exercise_step >= num_steps {
+                continue;
+            }
+            let t = exercise_step as f64 * dt;
+
+            regression_x.clear();
+            regression_y.clear();
+            regression_indices.clear();
+
+            for (i, path) in paths.iter().enumerate() {
+                let spot = path[exercise_step];
+                let immediate = exercise.exercise_value(spot);
+                if immediate > 0.0 {
+                    let time_to_cashflow = exercise_times[i] - t;
+                    let discounted_cf = cashflows[i] * (-discount_rate * time_to_cashflow).exp();
+                    regression_x.push(spot);
+                    regression_y.push(discounted_cf);
+                    regression_indices.push(i);
+                }
+            }
+
+            if regression_x.len() > basis.num_basis() + 10 {
+                match regression_coefficients_with_basis(&regression_x, &regression_y, basis) {
+                    Ok(coeffs) => {
+                        // Use the fitted coefficients to update training cashflows
+                        // (so subsequent earlier-date regressions see the right Y).
+                        for &i in &regression_indices {
+                            let spot = paths[i][exercise_step];
+                            basis.evaluate(spot, &mut basis_vals);
+                            let mut continuation = 0.0;
+                            for k in 0..coeffs.len() {
+                                continuation += coeffs[k] * basis_vals[k];
+                            }
+                            let immediate = exercise.exercise_value(spot);
+                            if immediate > continuation {
+                                cashflows[i] = immediate;
+                                exercise_times[i] = t;
+                            }
+                        }
+                        coefficients_by_date.push((exercise_step, coeffs));
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            exercise_step,
+                            itm_paths = regression_x.len(),
+                            "LSMC fit_exercise_policy regression failed: {err}"
+                        );
+                    }
+                }
+            } else {
+                tracing::debug!(
+                    exercise_step,
+                    itm_paths = regression_x.len(),
+                    "LSMC fit_exercise_policy: insufficient ITM paths, skipping date"
+                );
+            }
+        }
+
+        Ok(ExercisePolicy {
+            coefficients_by_date,
+            num_basis: basis.num_basis(),
+            num_steps,
+        })
+    }
+
+    /// Apply a frozen exercise policy forward in time on independent paths.
+    ///
+    /// Walks each path step by step, exercising at the first interior date
+    /// where `immediate > continuation = β · basis(spot)`; otherwise the path
+    /// receives the terminal European payoff. This forward sweep cannot reuse
+    /// the path-set's own discounted cashflows (those would inject in-sample
+    /// bias), which is the whole point of the two-pass scheme.
+    fn apply_policy_to_paths<E, B>(
+        &self,
+        paths: &[Vec<f64>],
+        exercise: &E,
+        basis: &B,
+        policy: &ExercisePolicy,
+        discount_rate: f64,
+        time_to_maturity: f64,
+        num_steps: usize,
+    ) -> Vec<f64>
+    where
+        E: ImmediateExercise,
+        B: BasisFunctions + ?Sized,
+    {
+        let dt = time_to_maturity / num_steps as f64;
+
+        // Sort policy ascending so we can walk paths forward.
+        let mut policy_dates: Vec<&(usize, Vec<f64>)> = policy.coefficients_by_date.iter().collect();
+        policy_dates.sort_by_key(|(step, _)| *step);
+
+        let mut basis_vals = vec![0.0; basis.num_basis()];
+        let mut present_values = Vec::with_capacity(paths.len());
+
+        for path in paths {
+            let mut exercised = false;
+            let mut path_pv = 0.0;
+
+            for (step, coeffs) in &policy_dates {
+                let s = *step;
+                if s == 0 || s >= num_steps {
+                    continue;
+                }
+                let spot = path[s];
+                let immediate = exercise.exercise_value(spot);
+                if immediate <= 0.0 {
+                    continue;
+                }
+                basis.evaluate(spot, &mut basis_vals);
+                let mut continuation = 0.0;
+                for k in 0..coeffs.len() {
+                    continuation += coeffs[k] * basis_vals[k];
+                }
+                if immediate > continuation {
+                    let t = s as f64 * dt;
+                    path_pv = immediate * (-discount_rate * t).exp();
+                    exercised = true;
+                    break;
+                }
+            }
+
+            if !exercised {
+                let terminal = exercise.exercise_value(path[num_steps]);
+                path_pv = terminal * (-discount_rate * time_to_maturity).exp();
+            }
+
+            present_values.push(path_pv);
+        }
+
+        present_values
     }
 }
 
@@ -700,6 +1096,88 @@ mod tests {
         let cfg =
             LsmcConfig::new(100, vec![5, 10, 20], 20).expect("terminal date should be accepted");
         assert_eq!(cfg.exercise_dates, vec![5, 10, 20]);
+    }
+
+    #[test]
+    fn test_two_pass_lsmc_produces_finite_unbiased_price() {
+        let exercise_dates = vec![25, 50, 75, 100];
+        let config = LsmcConfig::new(2_000, exercise_dates, 100)
+            .unwrap()
+            .with_seed(42);
+        let pricer = LsmcPricer::new(config);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3).unwrap());
+        let put = AmericanPut::new(100.0).unwrap();
+        let basis = PolynomialBasis::new(2);
+
+        let unbiased = pricer
+            .price_unbiased(
+                &gbm,
+                100.0,
+                1.0,
+                100,
+                &put,
+                &basis,
+                Currency::USD,
+                0.05,
+                /* pricing_seed = */ 4243,
+            )
+            .expect("two-pass LSMC should succeed");
+
+        assert!(unbiased.mean.amount().is_finite());
+        assert!(unbiased.mean.amount() > 0.0);
+        assert!(unbiased.mean.amount() < 50.0);
+    }
+
+    #[test]
+    fn test_price_unbiased_rejects_matching_seeds() {
+        let cfg = LsmcConfig::new(100, vec![10], 20).unwrap().with_seed(7);
+        let pricer = LsmcPricer::new(cfg);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
+        let put = AmericanPut::new(100.0).unwrap();
+        let basis = PolynomialBasis::new(2);
+
+        let result = pricer.price_unbiased(
+            &gbm,
+            100.0,
+            1.0,
+            20,
+            &put,
+            &basis,
+            Currency::USD,
+            0.05,
+            /* pricing_seed = */ 7,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_price_with_policy_rejects_basis_mismatch() {
+        let cfg = LsmcConfig::new(500, vec![10], 20).unwrap().with_seed(1);
+        let pricer = LsmcPricer::new(cfg);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2).unwrap());
+        let put = AmericanPut::new(100.0).unwrap();
+        let basis_train = PolynomialBasis::new(2);
+        let basis_price = PolynomialBasis::new(3);
+
+        let policy = pricer
+            .fit_exercise_policy(&gbm, 100.0, 1.0, 20, &put, &basis_train, 0.05)
+            .unwrap();
+
+        let err = pricer
+            .price_with_policy(
+                &gbm,
+                100.0,
+                1.0,
+                20,
+                &put,
+                &basis_price,
+                &policy,
+                Currency::USD,
+                0.05,
+                999,
+            )
+            .expect_err("basis mismatch should be rejected");
+        assert!(err.to_string().contains("num_basis"));
     }
 
     #[test]

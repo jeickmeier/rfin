@@ -65,37 +65,55 @@ impl GbmWithDividends {
     /// * `params` - Base GBM parameters (set q=0 if all dividends are discrete)
     /// * `dividends` - Dividend schedule (time, dividend)
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if dividend times are not sorted in ascending order.
-    pub fn new(params: GbmParams, mut dividends: Vec<(f64, Dividend)>) -> Self {
+    /// Returns an error if any dividend time is non-finite, or two dividends
+    /// share the same time after sorting.
+    pub fn new(
+        params: GbmParams,
+        mut dividends: Vec<(f64, Dividend)>,
+    ) -> finstack_core::Result<Self> {
+        for (i, (t, _)) in dividends.iter().enumerate() {
+            if !t.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Dividend time at index {i} must be finite, got {t}"
+                )));
+            }
+        }
+
         // Sort dividends by time using total_cmp for safe float comparison
         dividends.sort_by(|a, b| a.0.total_cmp(&b.0));
 
-        // Validate sorted order
+        // Validate strictly increasing order
         for i in 1..dividends.len() {
-            assert!(
-                dividends[i].0 > dividends[i - 1].0,
-                "Dividend times must be strictly increasing"
-            );
+            if dividends[i].0 <= dividends[i - 1].0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Dividend times must be strictly increasing; \
+                     dividend[{}].time = {} <= dividend[{}].time = {}",
+                    i,
+                    dividends[i].0,
+                    i - 1,
+                    dividends[i - 1].0
+                )));
+            }
         }
 
-        Self { params, dividends }
+        Ok(Self { params, dividends })
     }
 
-    /// Create with explicit parameters and dividends.
     /// Create with explicit parameters and dividends.
     ///
     /// # Errors
     ///
-    /// Returns an error if any parameter is invalid (see [`GbmParams::new`]).
+    /// Returns an error if any parameter is invalid (see [`GbmParams::new`]) or
+    /// if dividend times are non-finite or not strictly increasing.
     pub fn with_params(
         r: f64,
         q: f64,
         sigma: f64,
         dividends: Vec<(f64, Dividend)>,
     ) -> finstack_core::Result<Self> {
-        Ok(Self::new(GbmParams::new(r, q, sigma)?, dividends))
+        Self::new(GbmParams::new(r, q, sigma)?, dividends)
     }
 
     /// Get the base GBM parameters.
@@ -157,6 +175,10 @@ impl StochasticProcess for GbmWithDividends {
     }
 }
 
+// Contract: continuous diffusion between dividend dates is `sigma * x[0]`,
+// so the proportional contract holds. Discrete dividends are applied by the
+// matched discretization (`ExactGbmWithDividends`) outside the Milstein step,
+// preserving the contract for the diffusion piece.
 impl ProportionalDiffusion for GbmWithDividends {}
 
 #[cfg(test)]
@@ -166,19 +188,22 @@ mod tests {
 
     #[test]
     fn test_num_factors_one_per_gbm_subinterval_budget() {
-        let empty = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), vec![]);
+        let empty =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), vec![]).unwrap();
         assert_eq!(empty.num_factors(), 1);
 
         let one_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.0, 0.2).unwrap(),
             vec![(0.5, Dividend::Cash(1.0))],
-        );
+        )
+        .unwrap();
         assert_eq!(one_div.num_factors(), 2);
 
         let two_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.0, 0.2).unwrap(),
             vec![(0.25, Dividend::Cash(0.5)), (0.75, Dividend::Cash(0.5))],
-        );
+        )
+        .unwrap();
         assert_eq!(two_div.num_factors(), 3);
     }
 
@@ -215,7 +240,8 @@ mod tests {
     fn test_gbm_with_dividends_creation() {
         let dividends = vec![(0.25, Dividend::Cash(0.50)), (0.50, Dividend::Cash(0.50))];
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let gbm_div =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends).unwrap();
 
         assert_eq!(gbm_div.dividends().len(), 2);
         assert_eq!(gbm_div.dim(), 1);
@@ -229,7 +255,8 @@ mod tests {
             (0.75, Dividend::Cash(1.00)),
         ];
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let gbm_div =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends).unwrap();
 
         // Interval (0.2, 0.6] should capture dividends at 0.25 and 0.50
         let divs = gbm_div.dividends_in_interval(0.2, 0.4);
@@ -254,7 +281,8 @@ mod tests {
             (0.50, Dividend::Proportional(0.02)), // 2%
         ];
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let gbm_div =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends).unwrap();
 
         let spot = 100.0;
 
@@ -275,7 +303,8 @@ mod tests {
             (0.50, Dividend::Cash(0.75)),
         ];
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let gbm_div =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends).unwrap();
 
         // Should be sorted
         assert_eq!(gbm_div.dividends()[0].0, 0.25);
@@ -284,13 +313,22 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Dividend times must be strictly increasing")]
-    fn test_duplicate_dividend_times() {
+    fn test_duplicate_dividend_times_returns_error() {
         let dividends = vec![
             (0.25, Dividend::Cash(0.5)),
             (0.25, Dividend::Cash(0.5)), // Duplicate time
         ];
 
-        let _ = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let result = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        assert!(result.is_err());
+        let msg = result.err().unwrap().to_string();
+        assert!(msg.contains("strictly increasing"));
+    }
+
+    #[test]
+    fn test_non_finite_dividend_time_returns_error() {
+        let dividends = vec![(f64::NAN, Dividend::Cash(0.5))];
+        let result = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        assert!(result.is_err());
     }
 }

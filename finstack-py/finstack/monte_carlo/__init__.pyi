@@ -1175,6 +1175,61 @@ class LsmcPricer:
         """
         ...
 
+    def price_american_put_unbiased(
+        self,
+        spot: float,
+        strike: float,
+        rate: float,
+        div_yield: float,
+        vol: float,
+        expiry: float,
+        pricing_seed: int,
+        num_steps: int = 50,
+        currency: str | None = None,
+    ) -> MonteCarloResult:
+        """Two-pass unbiased American put price.
+
+        Mitigates the in-sample upward bias of single-pass LSMC by fitting
+        the regression on a training path set seeded by the pricer's ``seed``
+        and pricing on an independent path set seeded by ``pricing_seed``.
+
+        Args:
+            spot: Spot.
+            strike: Strike.
+            rate: Risk-free rate.
+            div_yield: Dividend yield.
+            vol: Volatility.
+            expiry: Maturity in years.
+            pricing_seed: Seed for the pricing pass; must differ from the
+                pricer's training seed (passing the same value reintroduces
+                the in-sample bias and is rejected).
+            num_steps: Exercise grid steps (default ``50``).
+            currency: ISO string or None for USD.
+
+        Returns:
+            Out-of-sample MonteCarloResult.
+        """
+        ...
+
+    def price_american_call_unbiased(
+        self,
+        spot: float,
+        strike: float,
+        rate: float,
+        div_yield: float,
+        vol: float,
+        expiry: float,
+        pricing_seed: int,
+        num_steps: int = 50,
+        currency: str | None = None,
+    ) -> MonteCarloResult:
+        """Two-pass unbiased American call price.
+
+        See :meth:`price_american_put_unbiased` for the bias-mitigation
+        rationale and the meaning of ``pricing_seed``.
+        """
+        ...
+
 def black_scholes_call(
     spot: float,
     strike: float,
@@ -1308,5 +1363,128 @@ def price_european_put(
         >>> from finstack.monte_carlo import price_european_put
         >>> price_european_put(100, 100, 0.05, 0.0, 0.2, 1.0, num_paths=2000).num_paths
         2000
+    """
+    ...
+
+def fd_delta(
+    spot: float,
+    strike: float,
+    rate: float,
+    div_yield: float,
+    vol: float,
+    expiry: float,
+    num_paths: int = 10_000,
+    seed: int = 42,
+    num_steps: int = 50,
+    bump_size: float = 0.01,
+    option_type: str = "call",
+    currency: str | None = None,
+) -> tuple[float, float]:
+    """Finite-difference delta for a European option (independence-bound stderr).
+
+    Reports a conservative upper bound on the standard error that treats
+    the bumped and base runs as if they were statistically independent.
+    For hedge-ratio sizing prefer :func:`fd_delta_crn`, which returns the
+    tighter paired CRN stderr.
+
+    Args:
+        spot: Spot price.
+        strike: Strike.
+        rate: Risk-free rate.
+        div_yield: Dividend yield.
+        vol: Volatility.
+        expiry: Maturity in years.
+        num_paths: Paths per evaluation (default ``10_000``).
+        seed: RNG seed (default ``42``).
+        num_steps: Time-grid steps (default ``50``).
+        bump_size: Relative bump fraction of spot (default ``0.01``).
+        option_type: ``"call"`` or ``"put"``.
+        currency: ISO currency code or None for USD.
+
+    Returns:
+        ``(delta, stderr)``.
+    """
+    ...
+
+def fd_delta_crn(
+    spot: float,
+    strike: float,
+    rate: float,
+    div_yield: float,
+    vol: float,
+    expiry: float,
+    num_paths: int = 10_000,
+    seed: int = 42,
+    num_steps: int = 50,
+    bump_size: float = 0.01,
+    option_type: str = "call",
+    currency: str | None = None,
+) -> tuple[float, float]:
+    """Finite-difference delta with paired common-random-number stderr.
+
+    Computes per-path paired differences and reports their true standard
+    error, which exploits CRN cancellation and is typically 1–2 orders of
+    magnitude tighter than the independence bound returned by
+    :func:`fd_delta`. Always runs serially.
+
+    Args:
+        spot: Spot price.
+        strike: Strike.
+        rate: Risk-free rate.
+        div_yield: Dividend yield.
+        vol: Volatility.
+        expiry: Maturity in years.
+        num_paths: Paths per evaluation (default ``10_000``).
+        seed: RNG seed (default ``42``).
+        num_steps: Time-grid steps (default ``50``).
+        bump_size: Relative bump fraction of spot (default ``0.01``).
+        option_type: ``"call"`` or ``"put"``.
+        currency: ISO currency code or None for USD.
+
+    Returns:
+        ``(delta, paired_stderr)``.
+    """
+    ...
+
+def fd_gamma(
+    spot: float,
+    strike: float,
+    rate: float,
+    div_yield: float,
+    vol: float,
+    expiry: float,
+    num_paths: int = 10_000,
+    seed: int = 42,
+    num_steps: int = 50,
+    bump_size: float = 0.01,
+    option_type: str = "call",
+    currency: str | None = None,
+) -> tuple[float, float]:
+    """Finite-difference gamma (independence-bound stderr).
+
+    See :func:`fd_gamma_crn` for the tighter paired CRN variant. Returns
+    ``(gamma, stderr)``.
+    """
+    ...
+
+def fd_gamma_crn(
+    spot: float,
+    strike: float,
+    rate: float,
+    div_yield: float,
+    vol: float,
+    expiry: float,
+    num_paths: int = 10_000,
+    seed: int = 42,
+    num_steps: int = 50,
+    bump_size: float = 0.01,
+    option_type: str = "call",
+    currency: str | None = None,
+) -> tuple[float, float]:
+    """Finite-difference gamma with paired common-random-number stderr.
+
+    Returns ``(gamma, paired_stderr)`` where the standard error is the
+    per-path paired error of ``(V_up_i − 2 V_base_i + V_down_i) / h²``.
+    Always runs serially.
     """
     ...

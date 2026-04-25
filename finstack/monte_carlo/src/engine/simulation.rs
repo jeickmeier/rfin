@@ -13,25 +13,120 @@ use finstack_core::math::linalg::CorrelationFactor;
 use finstack_core::Result;
 use smallvec::SmallVec;
 
-/// Fill `z` with N(0,1) draws, optionally correlated via `correlation`.
+/// Strategy for filling the per-step shock vector `z`.
 ///
-/// When `correlation` is `Some`, shocks are drawn into `z_raw` and mapped
-/// through the Cholesky factor into `z`. When `None`, shocks are drawn
-/// directly into `z` and `z_raw` is untouched.
+/// - `Correlation` — draw i.i.d. shocks and (optionally) Cholesky-transform
+///   them with `factor`. The standard McEngine path loop uses this.
+/// - `InjectFbm` — draw i.i.d. shocks then overwrite `z[z_index]` with
+///   `increments[step]`. The rough-volatility / fractional Monte Carlo path
+///   loop uses this to splice pre-generated fBM increments into a single
+///   factor slot. Correlation is always `None` in this mode because rough
+///   schemes encode their factor structure inside `disc.step`.
+pub(crate) enum NoiseHook<'a> {
+    Correlation(Option<&'a CorrelationFactor>),
+    InjectFbm {
+        z_index: usize,
+        increments: &'a [f64],
+    },
+}
+
+/// Fill `z` with the shocks chosen by `hook` for time step `step`.
 #[inline]
-fn fill_correlated_shocks<R: RandomStream>(
+fn fill_shocks<R: RandomStream>(
     rng: &mut R,
-    correlation: Option<&CorrelationFactor>,
     z: &mut [f64],
     z_raw: &mut [f64],
+    step: usize,
+    hook: &NoiseHook<'_>,
 ) {
-    match correlation {
-        Some(cf) => {
+    match hook {
+        NoiseHook::Correlation(Some(cf)) => {
             rng.fill_std_normals(z_raw);
             cf.apply(z_raw, z);
         }
-        None => rng.fill_std_normals(z),
+        NoiseHook::Correlation(None) => rng.fill_std_normals(z),
+        NoiseHook::InjectFbm {
+            z_index,
+            increments,
+        } => {
+            rng.fill_std_normals(z);
+            debug_assert!(
+                step < increments.len(),
+                "fBM increments shorter than time grid: step {step} >= len {}",
+                increments.len()
+            );
+            debug_assert!(
+                *z_index < z.len(),
+                "fbm_z_index {z_index} out of bounds for z len {}",
+                z.len()
+            );
+            z[*z_index] = increments[step];
+        }
     }
+}
+
+/// Shared per-path simulation loop used by [`McEngine::simulate_path`] and the
+/// fractional-noise wrapper in [`crate::engine_fractional`].
+///
+/// Drives a single path through `time_grid`, generating shocks via `hook`,
+/// stepping the discretization, and dispatching payoff events. Returns the
+/// undiscounted payoff amount in `currency`.
+///
+/// The work buffer is zero-initialised before every path. This makes
+/// path-history-dependent discretizations (e.g. [`crate::discretization::RoughHestonHybrid`])
+/// work without fragile float comparisons such as `t < ε` to detect path
+/// boundaries — the cost is one memset of `work_size()` doubles per path,
+/// which is negligible relative to the path simulation itself.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_path_loop<R, P, D, F>(
+    rng: &mut R,
+    time_grid: &crate::time_grid::TimeGrid,
+    process: &P,
+    disc: &D,
+    initial_state: &[f64],
+    payoff: &mut F,
+    state: &mut [f64],
+    z: &mut [f64],
+    z_raw: &mut [f64],
+    work: &mut [f64],
+    hook: NoiseHook<'_>,
+    currency: Currency,
+) -> Result<f64>
+where
+    R: RandomStream,
+    P: StochasticProcess,
+    D: Discretization<P>,
+    F: Payoff,
+{
+    state.copy_from_slice(initial_state);
+
+    // Always zero the work buffer at path start so discretizations that
+    // accumulate path-history state (rough Heston Volterra integrand,
+    // step counters, etc.) start every path from a known clean state without
+    // resorting to fragile float-based path-boundary detection.
+    for w in work.iter_mut() {
+        *w = 0.0;
+    }
+
+    let mut path_state = PathState::new(0, 0.0);
+    process.populate_path_state(state, &mut path_state);
+    path_state.set_uniform_random(rng.next_u01());
+    payoff.on_event(&mut path_state);
+
+    for step in 0..time_grid.num_steps() {
+        let t = time_grid.time(step);
+        let dt = time_grid.dt(step);
+
+        fill_shocks(rng, z, z_raw, step, &hook);
+        disc.step(process, t, dt, state, z, work);
+
+        path_state.set_step_time(step + 1, t + dt);
+        process.populate_path_state(state, &mut path_state);
+        path_state.set_uniform_random(rng.next_u01());
+        payoff.on_event(&mut path_state);
+    }
+
+    Ok(payoff.value(currency).amount())
 }
 
 impl McEngine {
@@ -61,34 +156,20 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
-        // Initialize state
-        state.copy_from_slice(initial_state);
-
-        // Create initial path state
-        let mut path_state = PathState::new(0, 0.0);
-        process.populate_path_state(state, &mut path_state);
-        path_state.set_uniform_random(rng.next_u01());
-        payoff.on_event(&mut path_state);
-
-        // Simulate path through time steps
-        for step in 0..self.config.time_grid.num_steps() {
-            let t = self.config.time_grid.time(step);
-            let dt = self.config.time_grid.dt(step);
-
-            fill_correlated_shocks(rng, correlation, z, z_raw);
-            disc.step(process, t, dt, state, z, work);
-
-            path_state.set_step_time(step + 1, t + dt);
-            process.populate_path_state(state, &mut path_state);
-            path_state.set_uniform_random(rng.next_u01());
-
-            // Process payoff event
-            payoff.on_event(&mut path_state);
-        }
-
-        // Extract payoff value (currency will be added by caller)
-        let payoff_money = payoff.value(currency);
-        Ok(payoff_money.amount())
+        run_path_loop(
+            rng,
+            &self.config.time_grid,
+            process,
+            disc,
+            initial_state,
+            payoff,
+            state,
+            z,
+            z_raw,
+            work,
+            NoiseHook::Correlation(correlation),
+            currency,
+        )
     }
 
     /// Simulate a single Monte Carlo path with full capture.
@@ -145,11 +226,12 @@ impl McEngine {
         simulated_path.add_point(initial_point);
 
         // Simulate path through time steps
+        let hook = NoiseHook::Correlation(correlation);
         for step in 0..self.config.time_grid.num_steps() {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            fill_correlated_shocks(rng, correlation, z, z_raw);
+            fill_shocks(rng, z, z_raw, step, &hook);
             disc.step(process, t, dt, state, z, work);
 
             path_state.set_step_time(step + 1, t + dt);
@@ -201,6 +283,11 @@ impl McEngine {
     /// Uses separate work buffers for primary and antithetic paths to prevent
     /// state corruption in discretizations with stateful work buffers (e.g.,
     /// rough Heston, rBergomi, Cheyette rough-vol).
+    ///
+    /// `payoff_p` and `payoff_a` are caller-owned per-pair scratch payoffs
+    /// that this method `reset()`s in place — the caller hoists the two
+    /// clones outside the per-path loop so we don't allocate-and-discard a
+    /// fresh payoff on every pair.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_antithetic_pair<R, P, D, F>(
         &self,
@@ -208,7 +295,8 @@ impl McEngine {
         process: &P,
         disc: &D,
         initial_state: &[f64],
-        payoff: &mut F,
+        payoff_p: &mut F,
+        payoff_a: &mut F,
         state_p: &mut [f64],
         state_a: &mut [f64],
         z: &mut [f64],
@@ -225,28 +313,29 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
-        // Primary path state and payoff
+        // Both payoffs are reset by the caller (so on_path_start has already
+        // run and any per-path RNG draws are stable across the pair).
+        // Primary path
         state_p.copy_from_slice(initial_state);
-        let mut payoff_p = payoff.clone();
         let mut path_state_p = PathState::new(0, 0.0);
         process.populate_path_state(state_p, &mut path_state_p);
         let u_init = rng.next_u01();
         path_state_p.set_uniform_random(u_init);
         payoff_p.on_event(&mut path_state_p);
 
-        // Antithetic path state and payoff
+        // Antithetic path
         state_a.copy_from_slice(initial_state);
-        let mut payoff_a = payoff.clone();
         let mut path_state_a = PathState::new(0, 0.0);
         process.populate_path_state(state_a, &mut path_state_a);
         path_state_a.set_uniform_random(1.0 - u_init);
         payoff_a.on_event(&mut path_state_a);
 
+        let hook = NoiseHook::Correlation(correlation);
         for step in 0..self.config.time_grid.num_steps() {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            fill_correlated_shocks(rng, correlation, z, z_raw);
+            fill_shocks(rng, z, z_raw, step, &hook);
             for i in 0..z.len() {
                 z_anti[i] = -z[i];
             }

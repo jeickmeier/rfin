@@ -405,7 +405,7 @@ impl CommodityOption {
                 }
 
                 let ss_params =
-                    SchwartzSmithParams::new(rn_kappa, *sigma_x, *mu_y, *sigma_y, *rho_xy);
+                    SchwartzSmithParams::new(rn_kappa, *sigma_x, *mu_y, *sigma_y, *rho_xy)?;
 
                 // Get initial spot price
                 let initial_spot = if let Some(spot) = self.spot_price(market)? {

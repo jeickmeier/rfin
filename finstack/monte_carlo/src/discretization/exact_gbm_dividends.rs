@@ -28,8 +28,15 @@
 //! `√(Δtᵢ/Δt)` scaling fixes the total variance but distorts intermediate
 //! marginals (path-dependent and dividend timing).
 
-use super::super::process::gbm_dividends::GbmWithDividends;
+use super::super::process::gbm_dividends::{Dividend, GbmWithDividends};
 use super::super::traits::Discretization;
+use smallvec::SmallVec;
+
+/// Stack-allocated capacity for the typical number of dividend
+/// sub-intervals per simulation step (most steps see 0–1 dividends, so
+/// the inline buffer of 4 covers virtually all cases without heap
+/// allocation in the hot path).
+type SubIntervals = SmallVec<[(f64, f64, Option<Dividend>); 4]>;
 
 /// Exact discretization for GBM with discrete dividends.
 ///
@@ -78,8 +85,10 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
             spot = self.evolve_gbm(spot, r, q, sigma, dt, z[0]);
         } else {
             let mut z_idx = 0_usize;
-            // Sub-divide interval at dividend times
-            let mut sub_intervals = Vec::new();
+            // Sub-divide interval at dividend times. Most steps see 0–1
+            // dividends so the inline SmallVec buffer of 4 keeps this on the
+            // stack and avoids per-step heap allocation in the hot path.
+            let mut sub_intervals: SubIntervals = SmallVec::new();
             let mut prev_time = t;
 
             for (div_time, div) in &dividends_in_period {
@@ -88,7 +97,7 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
                     sub_intervals.push((prev_time, *div_time, None));
                 }
                 // Mark dividend application point
-                sub_intervals.push((*div_time, *div_time, Some(*div)));
+                sub_intervals.push((*div_time, *div_time, Some((*div).clone())));
                 prev_time = *div_time;
             }
 
@@ -97,7 +106,7 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
                 sub_intervals.push((prev_time, t + dt, None));
             }
 
-            for (start, end, div_opt) in sub_intervals {
+            for (start, end, div_opt) in sub_intervals.into_iter() {
                 if let Some(div) = div_opt {
                     // Apply dividend jump
                     spot = div.apply(spot);
@@ -134,7 +143,8 @@ mod tests {
         let gbm_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.02, 0.2).unwrap(),
             vec![], // No dividends
-        );
+        )
+        .unwrap();
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -153,7 +163,8 @@ mod tests {
         // With cash dividend, spot should jump down
         let dividends = vec![(0.005, Dividend::Cash(1.0))]; // Dividend at t=0.005
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let gbm_div =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends).unwrap();
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -178,7 +189,8 @@ mod tests {
         let gbm_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.0, 0.1).unwrap(), // Low vol for stability
             dividends,
-        );
+        )
+        .unwrap();
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -199,7 +211,8 @@ mod tests {
         let gbm_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.0, 0.0).unwrap(), // Zero vol for deterministic test
             dividends,
-        );
+        )
+        .unwrap();
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -219,7 +232,8 @@ mod tests {
         // Large dividend that could make spot negative
         let dividends = vec![(0.005, Dividend::Cash(150.0))];
 
-        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends);
+        let gbm_div =
+            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), dividends).unwrap();
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
