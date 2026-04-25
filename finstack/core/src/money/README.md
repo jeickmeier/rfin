@@ -351,7 +351,7 @@ When extending this module, keep in mind the core invariants from the `core` rul
 
 - **No implicit FX**: never introduce cross‑currency arithmetic that does not go through `FxProvider`/`FxMatrix`.
 - **Determinism and precision**: keep all arithmetic on `Decimal` (`AmountRepr`) and apply rounding via `RoundingMode` and `FinstackConfig`.
-- **Stable serde**: for any new public type, gate serialization under the `serde` feature with stable field names and defaults.
+- **Stable serde**: for any new public type, keep serialization field names and defaults stable.
 - **No `unsafe`** and no panics in public code paths (use `crate::Result<T>` and `crate::Error`).
 
 ### Examples of safe extensions

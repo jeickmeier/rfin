@@ -315,7 +315,7 @@ If you need to tune caching behaviour beyond the defaults:
 
 - For currency‑aware arithmetic, FX, or anything that must respect `Amount`/`Currency` invariants,
   use the higher‑level **statements**, **valuations**, or **portfolio** layers.
-- For heavy DataFrame‑level pushdown, use Polars via the re‑exports in `core` and the statement/valuation engines built on top.
+- For heavy DataFrame‑level pushdown, use the statement or valuation engines built on top of this scalar layer.
 - For cross‑currency or policy‑aware math, use the dedicated primitives in `core::money`, `core::dates`, and `core::market_data`.
 
 Use `core::expr` when you need **fast, deterministic, scalar expressions over `f64` slices** with

@@ -173,7 +173,47 @@ impl PathDependentPricerConfig {
 ///
 /// Prices options that depend on the path history (Asians, barriers, lookbacks).
 ///
-/// See unit tests and `examples/` for usage.
+/// The pricer is intended for higher-level payoff types that expose required
+/// fixing or monitoring times. For direct GBM European pricing, prefer
+/// [`crate::pricer::european::EuropeanPricer`]; for custom process /
+/// discretization combinations, use [`crate::engine::McEngine`] directly.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_core::currency::Currency;
+/// use finstack_monte_carlo::payoff::asian::{AsianCall, AveragingMethod};
+/// use finstack_monte_carlo::pricer::path_dependent::{
+///     PathDependentPricer, PathDependentPricerConfig,
+/// };
+/// use finstack_monte_carlo::process::gbm::GbmProcess;
+///
+/// let config = PathDependentPricerConfig::new(10_000)
+///     .with_seed(42)
+///     .with_parallel(false);
+/// let pricer = PathDependentPricer::new(config);
+/// let process = GbmProcess::with_params(0.05, 0.02, 0.20).unwrap();
+/// let payoff = AsianCall::new(
+///     100.0,
+///     1.0,
+///     AveragingMethod::Arithmetic,
+///     (1..=252).collect(),
+/// );
+///
+/// let result = pricer
+///     .price(
+///         &process,
+///         100.0,
+///         1.0,
+///         252,
+///         &payoff,
+///         Currency::USD,
+///         (-0.05_f64).exp(),
+///     )
+///     .unwrap();
+///
+/// assert!(result.mean.amount().is_finite());
+/// ```
 pub struct PathDependentPricer {
     config: PathDependentPricerConfig,
 }

@@ -2,34 +2,52 @@
 //!
 //! This module implements the complete ECL computation pipeline:
 //!
-//! - **Stage classification** ([`staging`]) -- IFRS 9 three-stage impairment model
+//! - **Stage classification** ([`crate::analysis::ecl::staging`]) -- IFRS 9 three-stage impairment model
 //!   with quantitative (PD delta, DPD backstops) and qualitative triggers
-//! - **ECL calculation** ([`engine`]) -- time-bucketed PD x LGD x EAD x DF
+//! - **ECL calculation** ([`crate::analysis::ecl::engine`]) -- time-bucketed PD x LGD x EAD x DF
 //!   integration with probability-weighted macro scenarios
-//! - **CECL variant** ([`cecl`]) -- US GAAP ASC 326 lifetime ECL with
+//! - **CECL variant** ([`crate::analysis::ecl::cecl`]) -- US GAAP ASC 326 lifetime ECL with
 //!   reasonable-and-supportable forecast and historical reversion
-//! - **Portfolio aggregation** ([`portfolio`]) -- stage breakdown, segment
+//! - **Portfolio aggregation** ([`crate::analysis::ecl::portfolio`]) -- stage breakdown, segment
 //!   analysis, migration matrices, and provision waterfall
 //!
 //! # Quick Start
 //!
-//! ```rust,ignore
-//! use finstack_statements_analytics::analysis::ecl::*;
+//! ```rust,no_run
+//! use finstack_statements_analytics::analysis::ecl::{
+//!     EclConfigBuilder, EclEngine, Exposure, QualitativeFlags, RawPdCurve, Stage,
+//! };
 //!
-//! // 1. Define a PD curve
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let pd_curve = RawPdCurve::new("BBB", vec![
-//!     (0.0, 0.0), (1.0, 0.02), (5.0, 0.10),
+//!     (0.0, 0.0),
+//!     (1.0, 0.02),
+//!     (5.0, 0.10),
 //! ])?;
 //!
-//! // 2. Build ECL configuration
-//! let config = EclConfigBuilder::new()
-//!     .bucket_width(0.25)
-//!     .build()?;
+//! let exposure = Exposure {
+//!     id: "loan-1".to_string(),
+//!     segments: vec!["corporate".to_string()],
+//!     ead: 1_000_000.0,
+//!     eir: 0.06,
+//!     remaining_maturity_years: 3.0,
+//!     lgd: 0.45,
+//!     days_past_due: 0,
+//!     current_rating: Some("BBB".to_string()),
+//!     origination_rating: Some("BBB".to_string()),
+//!     qualitative_flags: QualitativeFlags::default(),
+//!     consecutive_performing_periods: 0,
+//!     previous_stage: None,
+//! };
 //!
-//! // 3. Create engine and process exposures
-//! let scenario = &config.scenarios[0];
-//! let engine = EclEngine::new(config, vec![(scenario, &pd_curve)]);
+//! let config = EclConfigBuilder::new().bucket_width(0.25).build()?;
+//! let scenario = config.scenarios[0].clone();
+//! let engine = EclEngine::new(config, vec![(&scenario, &pd_curve)]);
 //! let result = engine.process_exposure(&exposure)?;
+//!
+//! assert_eq!(result.stage_result.stage, Stage::Stage1);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # References

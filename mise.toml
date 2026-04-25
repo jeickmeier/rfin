@@ -40,7 +40,7 @@ depends = ["rust-build", "python-build", "wasm-build"]
 
 [tasks.all-test]
 description = "Run all tests (Rust + Python + WASM)"
-depends = ["rust-test", "python-test", "wasm-test"]
+depends = ["rust-test", "rust-doc", "python-test", "wasm-test"]
 
 [tasks.all-fmt]
 description = "Format + auto-fix Rust, Python, and WASM code (mutating)"
@@ -85,6 +85,13 @@ run = "cargo build --workspace --exclude finstack-py --exclude finstack-wasm --r
 [tasks.rust-test]
 description = "Run Rust tests via cargo-nextest"
 run = "cargo nextest run --workspace --exclude finstack-py --lib --test '*' --no-fail-fast"
+
+[tasks.rust-doc]
+description = "Build core docs with strict rustdoc and run core doctests"
+run = [
+  "RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-core --no-deps",
+  "cargo test -p finstack-core --doc",
+]
 
 [tasks.rust-test-slow]
 description = "Run Rust tests including ignored/slow ones"

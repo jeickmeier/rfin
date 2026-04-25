@@ -28,10 +28,22 @@ impl CashFlowBuilder {
     /// repeatedly — the schedule compilation, date collection, and
     /// amortization setup are done once and reused.
     ///
-    /// ```ignore
-    /// let prepared = builder.prepared()?;
-    /// let base    = prepared.project(Some(&market))?;
-    /// let bumped  = prepared.project(Some(&bumped_market))?;
+    /// ```rust,no_run
+    /// use finstack_cashflows::builder::CashFlowBuilder;
+    /// use finstack_core::market_data::context::MarketContext;
+    ///
+    /// fn reprice_many(
+    ///     builder: &CashFlowBuilder,
+    ///     market: &MarketContext,
+    ///     bumped_market: &MarketContext,
+    /// ) -> finstack_core::Result<()> {
+    ///     let prepared = builder.prepared()?;
+    ///     let base = prepared.project(Some(market))?;
+    ///     let bumped = prepared.project(Some(bumped_market))?;
+    ///
+    ///     let _ = (base, bumped);
+    ///     Ok(())
+    /// }
     /// ```
     pub fn build_with_curves(
         &self,

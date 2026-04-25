@@ -55,7 +55,7 @@ fn default_statement_result_schema_version() -> u32 {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatementResult {
-    /// Wire-format schema version (see [`STATEMENT_RESULT_SCHEMA_VERSION`]).
+    /// Wire-format schema version. Current wire format: `STATEMENT_RESULT_SCHEMA_VERSION`.
     #[serde(default = "default_statement_result_schema_version")]
     pub schema_version: u32,
 

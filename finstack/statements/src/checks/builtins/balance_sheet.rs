@@ -19,7 +19,8 @@ pub struct BalanceSheetArticulation {
     pub liabilities_nodes: Vec<NodeId>,
     /// Node IDs whose values represent total equity.
     pub equity_nodes: Vec<NodeId>,
-    /// Tolerance override; falls back to [`crate::CheckConfig::default_tolerance`].
+    /// Tolerance override; falls back to
+    /// [`CheckConfig::default_tolerance`](crate::checks::CheckConfig::default_tolerance).
     pub tolerance: Option<f64>,
 }
 

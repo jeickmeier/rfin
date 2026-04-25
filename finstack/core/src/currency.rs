@@ -10,7 +10,7 @@
 //! - Numeric currency codes as enum discriminants
 //! - Decimal precision (minor units) for each currency
 //! - Case-insensitive parsing from strings
-//! - Serialization support with the `serde` feature
+//! - Serialization support with stable serde field names
 //! - Zero-cost abstractions (2-byte size)
 //!
 //! # Examples

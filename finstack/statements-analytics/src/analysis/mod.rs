@@ -9,7 +9,7 @@
 //! - **[`crate::analysis::reports`]** — Formatted P&L summaries and credit assessment reports
 //! - **[`mod@crate::analysis::goal_seek`]** — Root-finding for target metric values
 //! - **[`crate::analysis::backtesting`]** — Forecast accuracy metrics
-//! - **[`crate::analysis::ecl`]** — Expected credit loss (IFRS 9 staging, CECL, portfolio aggregation) *(feature: `ecl`)*
+//! - **[`crate::analysis::ecl`]** — Expected credit loss (IFRS 9 staging, CECL, portfolio aggregation)
 //!
 //! ## Where To Start
 //!

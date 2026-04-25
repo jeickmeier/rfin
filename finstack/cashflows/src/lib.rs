@@ -53,19 +53,34 @@
 //!
 //! ## Building a Cashflow Schedule
 //!
-//! ```rust,ignore
-//! use finstack_cashflows::builder::CashFlowSchedule;
+//! ```rust
+//! use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
 //! use finstack_core::currency::Currency;
+//! use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 //! use finstack_core::money::Money;
-//! use finstack_core::dates::{create_date, DayCount};
+//! use rust_decimal_macros::dec;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! // Create a cashflow schedule using the builder pattern
-//! let mut builder = CashFlowSchedule::builder();
+//! let issue = Date::from_calendar_date(2025, Month::January, 15)?;
+//! let maturity = Date::from_calendar_date(2026, Month::January, 15)?;
 //!
-//! // Add principal, coupons, etc. using builder methods
-//! // (See CashFlowSchedule::builder() for full API)
+//! let schedule = CashFlowSchedule::builder()
+//!     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+//!     .fixed_cf(FixedCouponSpec {
+//!         coupon_type: CouponType::Cash,
+//!         rate: dec!(0.05),
+//!         freq: Tenor::semi_annual(),
+//!         dc: DayCount::Thirty360,
+//!         bdc: BusinessDayConvention::Following,
+//!         calendar_id: "weekends_only".to_string(),
+//!         stub: StubKind::None,
+//!         end_of_month: false,
+//!         payment_lag_days: 0,
+//!     })
+//!     .build_with_curves(None)?;
+//!
+//! assert!(!schedule.flows.is_empty());
 //! # Ok(())
 //! # }
 //! ```
@@ -106,6 +121,8 @@
 //!
 //! ```rust,no_run
 //! use finstack_cashflows::builder::CashFlowSchedule;
+//! use finstack_cashflows::aggregation::DateContext;
+//! use finstack_cashflows::builder::PvDiscountSource;
 //! use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
 //! use finstack_core::market_data::traits::Discounting;
 //!
@@ -115,12 +132,10 @@
 //!     disc: &dyn Discounting,
 //!     base: Date,
 //! ) -> finstack_core::Result<()> {
-//!     let pv_map = schedule.pv_by_period_with_ctx(
+//!     let pv_map = schedule.pv_by_period(
 //!         periods,
-//!         disc,
-//!         base,
-//!         DayCount::Act365F,
-//!         DayCountContext::default(),
+//!         PvDiscountSource::Discount { disc, credit: None },
+//!         DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
 //!     )?;
 //!
 //!     let _ = pv_map;

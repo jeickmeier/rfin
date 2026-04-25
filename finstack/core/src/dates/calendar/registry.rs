@@ -43,8 +43,9 @@ impl CalendarRegistry<'_> {
     /// Resolve many calendars by id, returning them as an owned `Vec`.
     ///
     /// Unknown ids are silently dropped; the returned order matches input order
-    /// for the ids that did resolve. Build a [`CompositeCalendar`] by borrowing
-    /// the returned `Vec` as a slice:
+    /// for the ids that did resolve. Build a
+    /// [`CompositeCalendar`](crate::dates::CompositeCalendar) by borrowing the
+    /// returned `Vec` as a slice:
     ///
     /// ```
     /// # use finstack_core::dates::{CalendarRegistry, CompositeCalendar, CompositeMode};

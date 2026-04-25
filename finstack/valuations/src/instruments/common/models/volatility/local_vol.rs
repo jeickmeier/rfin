@@ -160,7 +160,7 @@ pub struct DupireParams<'a> {
     pub strikes: &'a [f64],
     /// Grid of times (years) for the local vol surface.
     pub times: &'a [f64],
-    /// Lognormal ([`VolatilityModel::Black`]) or normal ([`VolatilityModel::Normal`]).
+    /// Lognormal (`VolatilityModel::Black`) or normal (`VolatilityModel::Normal`).
     pub vol_model: VolatilityModel,
 }
 
@@ -171,7 +171,7 @@ impl LocalVolBuilder {
     /// Construct Local Volatility from Implied Volatility using Dupire's formula.
     ///
     /// Supports both lognormal (Black) and normal (Bachelier) volatility models.
-    /// For rates-scale data (forward ~ 0.01-0.05), use [`VolatilityModel::Normal`]
+    /// For rates-scale data (forward ~ 0.01-0.05), use `VolatilityModel::Normal`
     /// with normal implied vols to avoid the numerical instability of the lognormal
     /// model at small absolute levels.
     ///

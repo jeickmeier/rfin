@@ -1,18 +1,25 @@
 //! Volatility surface arbitrage detection framework.
 //!
-//! Provides model-free arbitrage detection for any [`VolSurface`] regardless
-//! of how it was constructed (market quotes, SABR, SVI, etc.), plus
-//! SVI-specific checks that operate on raw calibrated parameters.
+//! Provides model-free arbitrage detection for any
+//! [`VolSurface`](crate::market_data::surfaces::VolSurface) regardless of how
+//! it was constructed (market quotes, SABR, SVI, etc.), plus SVI-specific
+//! checks that operate on raw calibrated parameters.
 //!
 //! # Architecture
 //!
-//! - **Types** ([`types`]): Violation taxonomy, severity model, and report
-//! - **Checks** ([`checks`]): Composable [`ArbitrageCheck`] trait with
-//!   implementations for butterfly, calendar spread, and local vol density
-//! - **SVI checks** ([`checks::svi`]): Moment bounds, Gatheral-Jacquier
-//!   density, and cross-slice calendar spread for SVI parameterizations
-//! - **Orchestrator** ([`check_surface`]): Runs all enabled checks and
-//!   aggregates results into an [`ArbitrageReport`]
+//! - **Types** ([`types`][crate::market_data::arbitrage::types]): Violation
+//!   taxonomy, severity model, and report
+//! - **Checks** ([`checks`][crate::market_data::arbitrage::checks]):
+//!   Composable [`ArbitrageCheck`][crate::market_data::arbitrage::ArbitrageCheck]
+//!   trait with implementations for butterfly, calendar spread, and local vol
+//!   density
+//! - **SVI checks** ([`checks::svi`][crate::market_data::arbitrage::checks::svi]):
+//!   Moment bounds, Gatheral-Jacquier density, and cross-slice calendar spread
+//!   for SVI parameterizations
+//! - **Orchestrator**
+//!   ([`check_surface`][crate::market_data::arbitrage::check_surface]): Runs all
+//!   enabled checks and aggregates results into an
+//!   [`ArbitrageReport`][crate::market_data::arbitrage::ArbitrageReport]
 //!
 //! # Usage
 //!

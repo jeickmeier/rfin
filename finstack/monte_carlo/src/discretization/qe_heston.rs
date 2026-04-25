@@ -77,7 +77,8 @@ pub enum IntegratedVarianceMethod {
 /// - [`IntegratedVarianceMethod::Trapezoidal`] (default): (v_t + v_{t+Δt}) / 2 × Δt
 /// - [`IntegratedVarianceMethod::MeanReversionAdjusted`]: Uses conditional expectation formula
 ///
-/// The exact method is more accurate for high mean-reversion or coarse time steps.
+/// The mean-reversion-adjusted method is more accurate for high mean-reversion
+/// or coarse time steps, but remains an approximation.
 #[derive(Debug, Clone)]
 pub struct QeHeston {
     /// Critical value for ψ (default 1.5)
@@ -112,7 +113,7 @@ impl QeHeston {
     ///     QeHeston, IntegratedVarianceMethod
     /// };
     ///
-    /// // Use exact integrated variance for high-kappa scenarios
+    /// // Use the mean-reversion-adjusted approximation for high-kappa scenarios.
     /// let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::MeanReversionAdjusted);
     /// ```
     pub fn with_integrated_variance(mut self, method: IntegratedVarianceMethod) -> Self {
@@ -120,9 +121,10 @@ impl QeHeston {
         self
     }
 
-    /// Create with exact integrated variance for high mean-reversion scenarios.
+    /// Create with the mean-reversion-adjusted integrated variance approximation.
     ///
     /// This is recommended when κ > 5 or using coarse time steps (Δt > 0.1 years).
+    /// The method is not a Broadie-Kaya exact integrated-variance draw.
     pub fn exact_variance() -> Self {
         Self {
             psi_c: 1.5,
@@ -160,7 +162,7 @@ impl QeHeston {
     ///
     /// Standard in the QE scheme, adequate for typical time steps (monthly or finer).
     ///
-    /// ## Exact (mean-reversion-adjusted trapezoidal)
+    /// ## Mean-reversion-adjusted trapezoidal
     ///
     /// Corrects the trapezoidal rule with a mean-reversion weighting factor:
     /// ```text

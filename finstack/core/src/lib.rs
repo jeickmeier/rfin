@@ -127,9 +127,6 @@ pub mod factor_model;
 ///
 /// Provides unified loading, comparison, and assertion utilities for golden tests
 /// across all finstack crates. See [`golden`] module documentation for details.
-///
-/// Enabled by the `golden` cargo feature. Opt in explicitly for builds that
-/// need golden-test infrastructure.
 pub mod golden;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;

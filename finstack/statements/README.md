@@ -1,12 +1,13 @@
 # finstack-statements
 
-`finstack-statements` is the statement-modeling crate in Finstack. It builds and evaluates period-based financial models, supports forecast methods and capital-structure-aware formulas, and provides analysis helpers such as DCF, sensitivity, variance, and Monte Carlo.
+`finstack-statements` is the statement-modeling crate in Finstack. It builds and evaluates period-based financial models, supports deterministic and stochastic forecast methods, exposes a formula DSL, manages reusable metric registries, and integrates capital-structure cashflows into statement formulas.
+
+Higher-level analysis workflows such as DCF, sensitivity analysis, variance analysis, scorecards, and covenant-oriented reports live in `finstack-statements-analytics`.
 
 ## Operational Notes
 
 - Built-in metrics are compile-time embedded. Deployments do not need a runtime `data/metrics` directory.
 - Capital-structure-aware formulas require `Evaluator::evaluate_with_market(&model, &market_ctx, as_of)`.
-- DCF valuation now fails closed on missing `currency`, `debt`, or `cash` inputs unless the caller provides explicit overrides.
 - Monte Carlo results preserve path-evaluation warnings when the simulated paths remain finite. Non-finite Monte Carlo path values are treated as hard failures during aggregation.
 
 ## Runtime Notes
@@ -22,10 +23,13 @@ cargo test -p finstack-statements
 cargo bench -p finstack-statements --bench statements_operations --no-run
 ```
 
-## Key Docs
+## Key Module Docs
 
-- `docs/architecture.md`
-- `docs/operations.md`
+- `src/lib.rs` - crate overview, quick start, and module map.
+- `src/dsl/mod.rs` - formula DSL operators, function reference, and examples.
+- `src/evaluator/mod.rs` - evaluation entry points, precedence, and result conventions.
+- `src/capital_structure/mod.rs` - `cs.*` formula namespace and market-context evaluation.
+- `data/metrics/README.md` - built-in metric registry conventions.
 
 ## Verification
 

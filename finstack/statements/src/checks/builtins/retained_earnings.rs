@@ -35,7 +35,8 @@ pub struct RetainedEarningsReconciliation {
     pub dividends_node: Option<NodeId>,
     /// Additional adjustment nodes (buybacks, AOCI, etc.).
     pub other_adjustments: Vec<NodeId>,
-    /// Tolerance override; falls back to [`crate::CheckConfig::default_tolerance`].
+    /// Tolerance override; falls back to
+    /// [`CheckConfig::default_tolerance`](crate::checks::CheckConfig::default_tolerance).
     pub tolerance: Option<f64>,
     /// Sign convention applied to the `dividends_node` input. Defaults
     /// to [`SignConventionPolicy::MagnitudePositive`].

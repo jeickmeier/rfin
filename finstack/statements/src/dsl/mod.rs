@@ -18,36 +18,33 @@
 //! - `and`, `or`
 //! - `not expr` / `!expr`
 //!
-//! ### Time-Series Functions
-//! - `lag(expr, n)` - Previous n periods
-//! - `diff(expr, n)` - First difference
-//! - `pct_change(expr, n)` - Percentage change
+//! ### Function Reference
 //!
-//! ### Rolling Window Functions
-//! - `rolling_mean(expr, window)` - Rolling average
-//! - `rolling_sum(expr, window)` - Rolling sum
-//! - `rolling_std(expr, window)` - Rolling standard deviation
-//! - `rolling_min(expr, window)` - Rolling minimum
-//! - `rolling_max(expr, window)` - Rolling maximum
+//! | Function | Arity | Behavior |
+//! | --- | --- | --- |
+//! | `if(condition, then_expr, else_expr)` | 3 | Conditional expression; non-zero values are truthy. |
+//! | `min(a, b, ...)`, `max(a, b, ...)` | 2+ | Pairwise min/max lowered to nested conditionals. NaN comparison behavior follows IEEE 754. |
+//! | `abs(expr)`, `sign(expr)` | 1 | Absolute value and sign indicator (`-1`, `0`, `1`, or NaN). |
+//! | `sum(...)`, `mean(...)` | 1+ | Aggregate finite argument values; non-finite values are skipped. |
+//! | `coalesce(expr, default, ...)` | 2+ | First finite argument, or NaN when every argument is non-finite. |
+//! | `lag(expr, n)`, `shift(expr, n)` | 2 | Historical offset lookup. `lag` requires a non-negative offset; `shift` accepts signed offsets. |
+//! | `diff(expr[, n])`, `pct_change(expr[, n])` | 1-2 | Difference or percentage change versus `n` periods ago, defaulting to 1. Missing or near-zero denominators return NaN. |
+//! | `growth_rate(expr[, periods])` | 1-2 | Compound annual growth rate between the current value and `periods` periods ago. Defaults to the current period frequency. |
+//! | `cumsum(expr)`, `cumprod(expr)`, `cummin(expr)`, `cummax(expr)` | 1 | Cumulative aggregate through the current period, skipping non-finite values. |
+//! | `rolling_mean(expr, window)`, `rolling_sum(expr, window)`, `rolling_std(expr, window)`, `rolling_var(expr, window)`, `rolling_median(expr, window)`, `rolling_min(expr, window)`, `rolling_max(expr, window)`, `rolling_count(expr, window)` | 2 | Rolling-window aggregate over finite observations. Empty finite windows return NaN except `rolling_count`, which returns a count. |
+//! | `std(expr)`, `var(expr)`, `median(expr)` | 1 | Historical distribution statistic over finite observations available through the current period. |
+//! | `rank(expr[, ascending])`, `quantile(expr, q)` | 1-2 | Historical rank and linear quantile over finite observations. |
+//! | `ewm_mean(column, alpha)` | 2 | Exponentially weighted moving mean for a column reference. |
+//! | `ewm_std(column, alpha[, adjust])`, `ewm_var(column, alpha[, adjust])` | 2-3 | Exponentially weighted variance or standard deviation. The optional `adjust` flag controls pandas-compatible bias correction. |
+//! | `ttm(expr)`, `ltm(expr)` | 1 | Trailing-twelve-month sum. Quarterly models require 4 quarters; monthly models require 12 months. |
+//! | `ytd(expr)` | 1 | Calendar year-to-date finite sum. |
+//! | `qtd(expr)` | 1 | Quarter-to-date finite sum for monthly models. |
+//! | `fiscal_ytd(expr, start_month)` | 2 | Fiscal year-to-date finite sum using a 1-12 fiscal start month. |
+//! | `annualize(expr[, periods])` | 1-2 | Scale a period value to an annual amount. Defaults to the current period frequency. |
+//! | `annualize_rate(expr[, periods])` | 1-2 | Compound a period rate to an annual rate. Defaults to the current period frequency. |
 //!
-//! ### Statistical Functions
-//! - `std(expr)` - Standard deviation
-//! - `var(expr)` - Variance
-//! - `median(expr)` - Median value
-//!
-//! ### Custom Functions (Phase 2.6)
-//! - `sum(...)` - Sum multiple values
-//! - `mean(...)` - Average of values
-//! - `annualize(expr, periods)` - Annualize a value (defaults to period frequency when periods omitted)
-//! - `growth_rate(expr, periods)` - Compound annual growth rate between current period and `periods` ago
-//! - `ttm(expr)` / `ltm(expr)` - Trailing / last twelve months
-//! - `ytd(expr)` - Calendar year-to-date sum
-//! - `qtd(expr)` - Quarter-to-date sum (for monthly models)
-//! - `fiscal_ytd(expr, start_month)` - Fiscal year-to-date sum with configurable fiscal start month
-//! - `coalesce(expr, default)` - Null coalescing
-//!
-//! ### Conditional
-//! - `if(condition, then_expr, else_expr)` - Conditional expression
+//! `lead(...)` is intentionally not available because forward-looking formulas
+//! can leak future values into historical periods.
 //!
 //! ## Example
 //!

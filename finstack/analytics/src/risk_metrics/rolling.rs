@@ -6,7 +6,7 @@
 use crate::dates::Date;
 use finstack_core::math::neumaier_sum;
 
-use super::return_based::sharpe;
+use super::return_based::{invalid_annualization_factor, sharpe};
 
 /// Number of slide steps before the incremental rolling kernel fully
 /// recomputes its running moments from the current window.
@@ -75,6 +75,13 @@ impl DatedSeries {
     }
 }
 
+fn nan_series(dates: &[Date], start: usize, len: usize) -> DatedSeries {
+    DatedSeries {
+        values: vec![f64::NAN; len],
+        dates: dates[start..start + len].to_vec(),
+    }
+}
+
 /// Output of a rolling Sharpe ratio computation (see [`DatedSeries`]).
 pub type RollingSharpe = DatedSeries;
 
@@ -122,6 +129,9 @@ pub fn rolling_sharpe(
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
         return DatedSeries::default();
+    }
+    if invalid_annualization_factor(true, ann_factor) {
+        return nan_series(dates, window - 1, n - window + 1);
     }
     let w = window as f64;
     let mut out = DatedSeries::with_capacity(n - window + 1);
@@ -184,6 +194,9 @@ pub fn rolling_volatility(
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
         return DatedSeries::default();
+    }
+    if invalid_annualization_factor(true, ann_factor) {
+        return nan_series(dates, window - 1, n - window + 1);
     }
     let w = window as f64;
     let mut out = DatedSeries::with_capacity(n - window + 1);
@@ -257,6 +270,9 @@ pub fn rolling_sortino(
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
         return DatedSeries::default();
+    }
+    if invalid_annualization_factor(true, ann_factor) {
+        return nan_series(dates, window - 1, n - window + 1);
     }
     let w = window as f64;
     let mut out = DatedSeries::with_capacity(n - window + 1);
@@ -401,6 +417,27 @@ mod tests {
     fn rolling_volatility_empty_window() {
         let rv = rolling_volatility(&[0.01], &[jan1(2025)], 5, 252.0);
         assert!(rv.values.is_empty());
+    }
+
+    #[test]
+    fn rolling_metrics_return_nan_values_for_invalid_ann_factor() {
+        let returns: Vec<f64> = (0..10).map(|i| (i as f64 - 5.0) * 0.01).collect();
+        let dates: Vec<Date> = (0..10).map(|i| jan1(2025) + Duration::days(i)).collect();
+
+        let rv = rolling_volatility(&returns, &dates, 5, 0.0);
+        assert_eq!(rv.values.len(), 6);
+        assert_eq!(rv.dates.len(), 6);
+        assert!(rv.values.iter().all(|value| value.is_nan()));
+
+        let rs = rolling_sharpe(&returns, &dates, 5, -252.0, 0.0);
+        assert_eq!(rs.values.len(), 6);
+        assert_eq!(rs.dates.len(), 6);
+        assert!(rs.values.iter().all(|value| value.is_nan()));
+
+        let rso = rolling_sortino(&returns, &dates, 5, f64::INFINITY);
+        assert_eq!(rso.values.len(), 6);
+        assert_eq!(rso.dates.len(), 6);
+        assert!(rso.values.iter().all(|value| value.is_nan()));
     }
 
     #[test]

@@ -585,7 +585,7 @@ fn apply_flow_to_outstanding(
 ///
 /// Returns a [`finstack_core::Error::Validation`] if any period contains more
 /// than one currency or its aggregated `Money` currency disagrees with the
-/// outer map key. Use in combination with [`CashFlowSchedule::pv_by_period_with_ctx`]
+/// outer map key. Use in combination with [`CashFlowSchedule::pv_by_period`]
 /// (or related methods) when the caller expects a homogeneous currency result.
 pub fn require_single_currency(
     pv_map: IndexMap<PeriodId, IndexMap<Currency, Money>>,
@@ -620,6 +620,10 @@ pub struct PvCreditAdjustment<'a> {
 }
 
 /// Discount-source variants for periodized PV aggregation.
+///
+/// Use [`Self::Discount`] when the caller has already resolved curve handles.
+/// Use [`Self::Market`] when the schedule should resolve discount and optional
+/// hazard curves from a [`MarketContext`] for each call.
 #[derive(Clone, Copy)]
 pub enum PvDiscountSource<'a> {
     /// Use already-resolved discounting and optional credit-adjustment handles.
@@ -642,6 +646,53 @@ pub enum PvDiscountSource<'a> {
 
 impl CashFlowSchedule {
     /// Compute periodized PVs from either resolved discount handles or a market context.
+    ///
+    /// Cashflows are grouped into the supplied reporting periods using
+    /// half-open period boundaries. Plain discounting uses `amount * df(t)`.
+    /// Credit-adjusted discounting additionally survival-adjusts flows and can
+    /// apply recovery assumptions to principal-like cashflows.
+    ///
+    /// # Arguments
+    ///
+    /// * `periods` - Reporting periods that define the output buckets.
+    /// * `source` - Discount source and optional credit-adjustment inputs.
+    /// * `date_ctx` - Valuation date, day-count convention, and day-count
+    ///   context used to convert cashflow dates into discount times.
+    ///
+    /// # Returns
+    ///
+    /// Map from `PeriodId` to per-currency present-value totals. Empty periods
+    /// are omitted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if curve lookup fails, day-count conversion fails, or
+    /// credit-adjusted inputs are internally inconsistent.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_cashflows::aggregation::DateContext;
+    /// use finstack_cashflows::builder::{CashFlowSchedule, PvDiscountSource};
+    /// use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
+    /// use finstack_core::market_data::traits::Discounting;
+    ///
+    /// fn schedule_pv_by_period(
+    ///     schedule: &CashFlowSchedule,
+    ///     periods: &[Period],
+    ///     disc: &dyn Discounting,
+    ///     base: Date,
+    /// ) -> finstack_core::Result<()> {
+    ///     let pv = schedule.pv_by_period(
+    ///         periods,
+    ///         PvDiscountSource::Discount { disc, credit: None },
+    ///         DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
+    ///     )?;
+    ///
+    ///     let _ = pv;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn pv_by_period(
         &self,
         periods: &[Period],

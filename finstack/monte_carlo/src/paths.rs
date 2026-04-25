@@ -72,7 +72,8 @@ pub enum CashflowType {
 /// # State Vector Layout
 ///
 /// The `state` vector contains the raw state variables in process-defined order.
-/// For simple single-asset models, [`state_indices`] provides common aliases.
+/// For simple single-asset models, the crate's internal `state_indices`
+/// constants provide common aliases.
 /// For multi-asset or process-specific layouts, consult
 /// [`PathDataset::process_params.factor_names`](PathDataset::process_params) or
 /// [`PathDataset::state_var_keys`].

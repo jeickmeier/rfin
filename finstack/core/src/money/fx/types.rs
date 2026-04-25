@@ -123,7 +123,7 @@ impl Default for FxPolicyMeta {
     }
 }
 
-/// Configuration for [`FxMatrix`] behaviour.
+/// Configuration for [`FxMatrix`](crate::money::fx::FxMatrix) behaviour.
 ///
 /// Controls triangulation and caching.
 ///

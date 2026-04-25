@@ -44,7 +44,7 @@ pub struct FinancialModelSpec {
 
     /// Schema version for forward compatibility.
     ///
-    /// Validated on deserialize against [`CURRENT_SCHEMA_VERSION`]; unknown
+    /// Validated on deserialize against `CURRENT_SCHEMA_VERSION`; unknown
     /// versions fail deserialization rather than silently accepting drift.
     #[serde(
         default = "default_schema_version",

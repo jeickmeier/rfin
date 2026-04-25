@@ -68,10 +68,60 @@ pub struct DatedFlowJson {
 impl CashflowScheduleBuildSpec {
     /// Build a canonical cashflow schedule.
     ///
+    /// This applies the same builder pipeline used by Rust callers: principal
+    /// setup, amortization, fixed coupons, floating coupons, fees, principal
+    /// events, validation, and deterministic sorting.
+    ///
+    /// # Arguments
+    ///
+    /// * `market` - Optional market context used for floating-rate projection.
+    ///   Fixed-rate schedules can pass `None`.
+    ///
+    /// # Returns
+    ///
+    /// Fully materialized [`CashFlowSchedule`] with canonical metadata and
+    /// sorted cashflows.
+    ///
     /// # Errors
     ///
     /// Returns an error when the specification is internally inconsistent or
     /// when floating coupons require market data that is unavailable.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::json::CashflowScheduleBuildSpec;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let spec_json = r#"{
+    ///   "notional": {
+    ///     "initial": { "amount": "1000000", "currency": "USD" },
+    ///     "amort": "None"
+    ///   },
+    ///   "issue": "2024-08-31",
+    ///   "maturity": "2025-08-31",
+    ///   "fixed_coupons": [{
+    ///     "coupon_type": "Cash",
+    ///     "rate": "0.06",
+    ///     "freq": { "count": 12, "unit": "months" },
+    ///     "dc": "Thirty360",
+    ///     "bdc": "following",
+    ///     "calendar_id": "weekends_only",
+    ///     "stub": "None",
+    ///     "end_of_month": false,
+    ///     "payment_lag_days": 0
+    ///   }]
+    /// }"#;
+    ///
+    /// let spec: CashflowScheduleBuildSpec = serde_json::from_str(spec_json).expect("valid spec");
+    /// let schedule = spec.build(None)?;
+    /// assert_eq!(
+    ///     schedule.meta.issue_date,
+    ///     Some(Date::from_calendar_date(2024, Month::August, 31).expect("valid date"))
+    /// );
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn build(&self, market: Option<&MarketContext>) -> Result<CashFlowSchedule> {
         let mut builder = CashFlowSchedule::builder();
         let _ = builder
@@ -97,10 +147,57 @@ impl CashflowScheduleBuildSpec {
 
 /// Build a schedule from JSON and return canonical schedule JSON.
 ///
+/// The input must be a JSON-encoded [`CashflowScheduleBuildSpec`]. The output
+/// is the canonical serde representation of [`CashFlowSchedule`], including
+/// builder-populated metadata such as `meta.issue_date` and deterministic
+/// cashflow ordering. The payload is not wrapped in a schema envelope; callers
+/// that store versioned examples should track that version outside this bridge.
+///
+/// # Arguments
+///
+/// * `spec_json` - JSON-encoded [`CashflowScheduleBuildSpec`].
+/// * `market_json` - Optional JSON-encoded [`MarketContext`] used for floating
+///   coupon projection.
+///
+/// # Returns
+///
+/// Canonical JSON string for the generated [`CashFlowSchedule`].
+///
 /// # Errors
 ///
 /// Returns an error if the input JSON cannot be parsed, the market JSON is
 /// invalid, the build spec is inconsistent, or the output cannot be serialized.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::build_cashflow_schedule_json;
+///
+/// let spec_json = r#"{
+///   "notional": {
+///     "initial": { "amount": "1000000", "currency": "USD" },
+///     "amort": "None"
+///   },
+///   "issue": "2024-08-31",
+///   "maturity": "2025-08-31",
+///   "fixed_coupons": [{
+///     "coupon_type": "Cash",
+///     "rate": "0.06",
+///     "freq": { "count": 12, "unit": "months" },
+///     "dc": "Thirty360",
+///     "bdc": "following",
+///     "calendar_id": "weekends_only",
+///     "stub": "None",
+///     "end_of_month": false,
+///     "payment_lag_days": 0
+///   }]
+/// }"#;
+///
+/// let schedule_json = build_cashflow_schedule_json(spec_json, None)?;
+/// assert!(schedule_json.contains("\"flows\""));
+/// assert!(schedule_json.contains("\"issue_date\":\"2024-08-31\""));
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn build_cashflow_schedule_json(spec_json: &str, market_json: Option<&str>) -> Result<String> {
     let spec: CashflowScheduleBuildSpec = serde_json::from_str(spec_json).map_err(|err| {
         Error::Validation(format!("invalid cashflow schedule build spec JSON: {err}"))
@@ -112,9 +209,43 @@ pub fn build_cashflow_schedule_json(spec_json: &str, market_json: Option<&str>) 
 
 /// Validate a schedule JSON payload and return canonical schedule JSON.
 ///
+/// Canonicalization parses the payload as [`CashFlowSchedule`] and serializes
+/// it back with the Rust serde model. This verifies the shape and normalizes
+/// serialization, but it does not rebuild or regenerate cashflows from an
+/// economic spec.
+///
+/// # Arguments
+///
+/// * `schedule_json` - JSON-encoded [`CashFlowSchedule`].
+///
+/// # Returns
+///
+/// Canonical JSON string for the parsed schedule.
+///
 /// # Errors
 ///
 /// Returns an error if the input is not a valid [`CashFlowSchedule`] JSON value.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::{build_cashflow_schedule_json, validate_cashflow_schedule_json};
+///
+/// let spec_json = r#"{
+///   "notional": {
+///     "initial": { "amount": "1000000", "currency": "USD" },
+///     "amort": "None"
+///   },
+///   "issue": "2024-08-31",
+///   "maturity": "2025-08-31",
+///   "fixed_coupons": []
+/// }"#;
+///
+/// let schedule_json = build_cashflow_schedule_json(spec_json, None)?;
+/// let canonical = validate_cashflow_schedule_json(&schedule_json)?;
+/// assert_eq!(serde_json::from_str::<serde_json::Value>(&canonical).unwrap()["meta"]["issue_date"], "2024-08-31");
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn validate_cashflow_schedule_json(schedule_json: &str) -> Result<String> {
     let schedule = parse_schedule(schedule_json)?;
     serialize_json(&schedule, "cashflow schedule")
@@ -122,10 +253,45 @@ pub fn validate_cashflow_schedule_json(schedule_json: &str) -> Result<String> {
 
 /// Extract dated amounts from a schedule JSON payload.
 ///
+/// The returned JSON is an array of [`DatedFlowJson`] values. Each entry
+/// contains the cashflow date and currency-tagged amount; it intentionally
+/// omits `CFKind` and accrual metadata for callers that only need dated cash
+/// amounts.
+///
+/// # Arguments
+///
+/// * `schedule_json` - JSON-encoded [`CashFlowSchedule`].
+///
+/// # Returns
+///
+/// JSON array of dated amount objects.
+///
 /// # Errors
 ///
 /// Returns an error if the schedule JSON is invalid or the output cannot be
 /// serialized.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::{build_cashflow_schedule_json, dated_flows_json};
+///
+/// let spec_json = r#"{
+///   "notional": {
+///     "initial": { "amount": "1000000", "currency": "USD" },
+///     "amort": "None"
+///   },
+///   "issue": "2024-08-31",
+///   "maturity": "2025-08-31",
+///   "fixed_coupons": []
+/// }"#;
+///
+/// let schedule_json = build_cashflow_schedule_json(spec_json, None)?;
+/// let flows_json = dated_flows_json(&schedule_json)?;
+/// let flows: Vec<serde_json::Value> = serde_json::from_str(&flows_json).unwrap();
+/// assert!(!flows.is_empty());
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn dated_flows_json(schedule_json: &str) -> Result<String> {
     let schedule = parse_schedule(schedule_json)?;
     let flows: Vec<DatedFlowJson> = schedule
@@ -141,10 +307,55 @@ pub fn dated_flows_json(schedule_json: &str) -> Result<String> {
 
 /// Compute accrued interest from a schedule JSON payload.
 ///
+/// The schedule is parsed as [`CashFlowSchedule`], `as_of` is parsed as an
+/// ISO-8601 date, and `config_json` is parsed as [`AccrualConfig`] when
+/// supplied. When `config_json` is `None`, [`AccrualConfig::default`] is used.
+///
+/// # Arguments
+///
+/// * `schedule_json` - JSON-encoded [`CashFlowSchedule`].
+/// * `as_of` - ISO-8601 date string such as `"2025-02-28"`.
+/// * `config_json` - Optional JSON-encoded [`AccrualConfig`].
+///
+/// # Returns
+///
+/// Scalar accrued-interest amount in the schedule's currency space.
+///
 /// # Errors
 ///
 /// Returns an error if the schedule, as-of date, or optional accrual config JSON
 /// cannot be parsed.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::{accrued_interest_json, build_cashflow_schedule_json};
+///
+/// let spec_json = r#"{
+///   "notional": {
+///     "initial": { "amount": "1000000", "currency": "USD" },
+///     "amort": "None"
+///   },
+///   "issue": "2024-08-31",
+///   "maturity": "2025-08-31",
+///   "fixed_coupons": [{
+///     "coupon_type": "Cash",
+///     "rate": "0.06",
+///     "freq": { "count": 12, "unit": "months" },
+///     "dc": "Thirty360",
+///     "bdc": "following",
+///     "calendar_id": "weekends_only",
+///     "stub": "None",
+///     "end_of_month": false,
+///     "payment_lag_days": 0
+///   }]
+/// }"#;
+///
+/// let schedule_json = build_cashflow_schedule_json(spec_json, None)?;
+/// let accrued = accrued_interest_json(&schedule_json, "2025-02-28", None)?;
+/// assert!(accrued > 0.0);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn accrued_interest_json(
     schedule_json: &str,
     as_of: &str,

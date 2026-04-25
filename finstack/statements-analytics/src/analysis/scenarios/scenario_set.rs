@@ -142,6 +142,46 @@ impl ScenarioSet {
     /// Returns an error if the scenario set is empty, if parent chains are
     /// invalid, if overrides reference missing nodes, or if model evaluation
     /// fails for any scenario.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements::types::AmountOrScalar;
+    /// use finstack_statements_analytics::analysis::{ScenarioDefinition, ScenarioSet};
+    /// use indexmap::IndexMap;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let period = PeriodId::quarter(2025, 1);
+    /// let model = ModelBuilder::new("scenario-model")
+    ///     .periods("2025Q1..Q1", None)?
+    ///     .value("revenue", &[(period, AmountOrScalar::scalar(100.0))])
+    ///     .build()?;
+    ///
+    /// let mut scenarios = IndexMap::new();
+    /// scenarios.insert(
+    ///     "base".to_string(),
+    ///     ScenarioDefinition {
+    ///         model_id: Some(model.id.clone()),
+    ///         parent: None,
+    ///         overrides: IndexMap::new(),
+    ///     },
+    /// );
+    /// scenarios.insert(
+    ///     "downside".to_string(),
+    ///     ScenarioDefinition {
+    ///         model_id: Some(model.id.clone()),
+    ///         parent: Some("base".to_string()),
+    ///         overrides: IndexMap::from([("revenue".to_string(), 90.0)]),
+    ///     },
+    /// );
+    ///
+    /// let results = ScenarioSet { scenarios }.evaluate_all(&model)?;
+    /// assert_eq!(results.len(), 2);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn evaluate_all(&self, base_model: &FinancialModelSpec) -> Result<ScenarioResults> {
         if self.scenarios.is_empty() {
             return Err(Error::invalid_input(
@@ -189,6 +229,43 @@ impl ScenarioSet {
     /// # References
     ///
     /// - One-pass variance decomposition context: `docs/REFERENCES.md#welford-1962`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements::types::AmountOrScalar;
+    /// use finstack_statements_analytics::analysis::{ScenarioDefinition, ScenarioSet};
+    /// use indexmap::IndexMap;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let period = PeriodId::quarter(2025, 1);
+    /// let model = ModelBuilder::new("scenario-model")
+    ///     .periods("2025Q1..Q1", None)?
+    ///     .value("revenue", &[(period, AmountOrScalar::scalar(100.0))])
+    ///     .build()?;
+    ///
+    /// let scenarios = IndexMap::from([
+    ///     ("base".to_string(), ScenarioDefinition {
+    ///         model_id: Some(model.id.clone()),
+    ///         parent: None,
+    ///         overrides: IndexMap::new(),
+    ///     }),
+    ///     ("downside".to_string(), ScenarioDefinition {
+    ///         model_id: Some(model.id.clone()),
+    ///         parent: Some("base".to_string()),
+    ///         overrides: IndexMap::from([("revenue".to_string(), 90.0)]),
+    ///     }),
+    /// ]);
+    ///
+    /// let set = ScenarioSet { scenarios };
+    /// let results = set.evaluate_all(&model)?;
+    /// let diff = set.diff(&results, "base", "downside", &["revenue".to_string()], &[period])?;
+    /// assert_eq!(diff.baseline, "base");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn diff(
         &self,
         results: &ScenarioResults,
@@ -246,6 +323,32 @@ impl ScenarioSet {
     ///
     /// Returns an error if the named scenario does not exist or the parent
     /// chain is cyclic.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements_analytics::analysis::{ScenarioDefinition, ScenarioSet};
+    /// use indexmap::IndexMap;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let scenarios = IndexMap::from([
+    ///     ("base".to_string(), ScenarioDefinition {
+    ///         model_id: None,
+    ///         parent: None,
+    ///         overrides: IndexMap::new(),
+    ///     }),
+    ///     ("stress".to_string(), ScenarioDefinition {
+    ///         model_id: None,
+    ///         parent: Some("base".to_string()),
+    ///         overrides: IndexMap::new(),
+    ///     }),
+    /// ]);
+    ///
+    /// let set = ScenarioSet { scenarios };
+    /// assert_eq!(set.trace("stress")?, vec!["base".to_string(), "stress".to_string()]);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn trace(&self, scenario: &str) -> Result<Vec<String>> {
         let mut lineage = Vec::new();
         let mut seen = IndexSet::new();
@@ -327,11 +430,39 @@ impl ScenarioSet {
 
 impl ScenarioResults {
     /// Return the number of scenarios.
+    ///
+    /// # Returns
+    ///
+    /// The number of evaluated scenarios held by this result envelope.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements_analytics::analysis::ScenarioResults;
+    /// use indexmap::IndexMap;
+    ///
+    /// let results = ScenarioResults { scenarios: IndexMap::new() };
+    /// assert_eq!(results.len(), 0);
+    /// ```
     pub fn len(&self) -> usize {
         self.scenarios.len()
     }
 
     /// Check if there are no scenarios.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the envelope contains no evaluated scenarios.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements_analytics::analysis::ScenarioResults;
+    /// use indexmap::IndexMap;
+    ///
+    /// let results = ScenarioResults { scenarios: IndexMap::new() };
+    /// assert!(results.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.scenarios.is_empty()
     }
@@ -352,6 +483,55 @@ impl ScenarioResults {
     /// The baseline scenario is chosen as:
     /// - `"base"` if present, otherwise
     /// - the first scenario in insertion order.
+    ///
+    /// # Arguments
+    ///
+    /// * `metrics` - Node ids to include in the comparison table.
+    ///
+    /// # Returns
+    ///
+    /// A [`TableEnvelope`] with one row per `(period, metric)` pair and one
+    /// value column per scenario.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the result set or metric list is empty, or if table
+    /// construction invariants fail.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements::types::AmountOrScalar;
+    /// use finstack_statements_analytics::analysis::{ScenarioDefinition, ScenarioSet};
+    /// use indexmap::IndexMap;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let period = PeriodId::quarter(2025, 1);
+    /// let model = ModelBuilder::new("scenario-model")
+    ///     .periods("2025Q1..Q1", None)?
+    ///     .value("revenue", &[(period, AmountOrScalar::scalar(100.0))])
+    ///     .build()?;
+    /// let scenarios = IndexMap::from([
+    ///     ("base".to_string(), ScenarioDefinition {
+    ///         model_id: Some(model.id.clone()),
+    ///         parent: None,
+    ///         overrides: IndexMap::new(),
+    ///     }),
+    ///     ("downside".to_string(), ScenarioDefinition {
+    ///         model_id: Some(model.id.clone()),
+    ///         parent: Some("base".to_string()),
+    ///         overrides: IndexMap::from([("revenue".to_string(), 90.0)]),
+    ///     }),
+    /// ]);
+    /// let results = ScenarioSet { scenarios }.evaluate_all(&model)?;
+    ///
+    /// let table = results.to_comparison_table(&["revenue"])?;
+    /// assert!(!table.columns.is_empty());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn to_comparison_table(&self, metrics: &[&str]) -> Result<TableEnvelope> {
         if self.scenarios.is_empty() {
             return Err(Error::invalid_input(

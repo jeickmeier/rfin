@@ -154,6 +154,19 @@ fn simulate_rate_paths(
     paths
 }
 
+/// Numerical safety cap on the adjusted SMM.
+///
+/// This is **not a market convention** — it is a guard against full-balance
+/// prepayment in a single month, which would zero out the remaining schedule
+/// and risk divide-by-zero / NaN in downstream amortization. A 0.9999 cap
+/// implies a residual ≥ 1bp of pool balance per month, which is below MC
+/// noise and below any rationally observable prepayment behavior.
+///
+/// Do not raise to 1.0 (degenerate balance) and do not lower below ~0.99 (real
+/// pool data, e.g. burnout-adjusted refi waves, can plausibly clear ≥ 99% in a
+/// single month under extreme rate moves).
+const SMM_SAFETY_CAP: f64 = 0.9999;
+
 /// Compute rate-dependent SMM (Single Monthly Mortality) from the base PSA model.
 ///
 /// The base SMM from the PSA model is adjusted by a multiplier that depends on
@@ -164,10 +177,11 @@ fn simulate_rate_paths(
 /// ```
 ///
 /// This captures the refinancing incentive: lower rates → faster prepayment.
+/// The output is clamped to `[0.0, SMM_SAFETY_CAP]` for numerical robustness;
+/// see [`SMM_SAFETY_CAP`] for the rationale.
 fn rate_adjusted_smm(base_smm: f64, current_rate: f64, base_rate: f64, sensitivity: f64) -> f64 {
     let multiplier = (-sensitivity * (current_rate - base_rate)).exp();
-    // Cap at 0.9999 to prevent full balance prepayment in a single period
-    (base_smm * multiplier).clamp(0.0, 0.9999)
+    (base_smm * multiplier).clamp(0.0, SMM_SAFETY_CAP)
 }
 
 /// Price MBS on a single rate path with a given OAS.
@@ -495,9 +509,9 @@ mod tests {
         let adj_high = rate_adjusted_smm(base_smm, 0.06, base_rate, 7.0);
         assert!(adj_high < base_smm);
 
-        // SMM should be capped at 0.9999
+        // SMM should be capped at the numerical safety threshold
         let extreme = rate_adjusted_smm(0.5, -0.10, base_rate, 20.0);
-        assert!(extreme <= 0.9999);
+        assert!(extreme <= SMM_SAFETY_CAP);
     }
 
     #[test]

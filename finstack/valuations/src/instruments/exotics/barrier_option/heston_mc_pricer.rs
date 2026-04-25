@@ -48,25 +48,6 @@ impl BarrierOptionHestonMcPricer {
         crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
     }
 
-    fn convert_barrier_type(
-        bt: crate::instruments::exotics::barrier_option::types::BarrierType,
-    ) -> McBarrierType {
-        match bt {
-            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndOut => {
-                McBarrierType::UpAndOut
-            }
-            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndIn => {
-                McBarrierType::UpAndIn
-            }
-            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndOut => {
-                McBarrierType::DownAndOut
-            }
-            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndIn => {
-                McBarrierType::DownAndIn
-            }
-        }
-    }
-
     fn convert_option_kind(option_type: crate::instruments::OptionType) -> OptionKind {
         match option_type {
             crate::instruments::OptionType::Call => OptionKind::Call,
@@ -133,7 +114,7 @@ impl BarrierOptionHestonMcPricer {
         let maturity_step = time_grid.num_steps();
 
         // Create barrier payoff (uses vol-surface sigma for bridge correction)
-        let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
+        let mc_barrier_type: McBarrierType = inst.barrier_type.into();
         let payoff = BarrierOptionPayoff::new(
             inst.strike,
             inst.barrier.amount(),

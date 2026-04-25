@@ -3,9 +3,9 @@
 //! # Why centralize
 //!
 //! Each calibration target previously emitted its own hard-coded
-//! model-version string into [`CalibrationReport::model_version`], so
-//! any version bump touched several unrelated files and the strings
-//! were visible only to reviewers who happened to grep for them.
+//! `CalibrationReport::model_version` string, so any version bump touched
+//! several unrelated files and the strings were visible only to reviewers who
+//! happened to grep for them.
 //!
 //! Centralizing them here means:
 //!

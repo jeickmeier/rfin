@@ -245,7 +245,7 @@ impl YieldPca {
     /// Generate a yield change scenario by shocking principal components.
     ///
     /// Reconstructs a yield change vector as:
-    ///   Delta_y = sum_k shocks[k] * sqrt(eigenvalue_k) * loading_k
+    ///   Delta_y = sum_k shocks\[k\] * sqrt(eigenvalue_k) * loading_k
     ///
     /// where shocks are in units of standard deviations.
     ///

@@ -64,6 +64,32 @@ impl ScheduleParams {
     // ── Generic presets (calendar-agnostic) ──────────────────────────────────
 
     /// Quarterly payments with Act/360 day count and Modified Following BDC.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters using a weekends-only calendar, short-front stubs,
+    /// no end-of-month rolling, and no payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::quarterly_act360();
+    /// assert_eq!(params.freq, Tenor::quarterly());
+    /// assert_eq!(params.dc, DayCount::Act360);
+    /// assert_eq!(params.bdc, BusinessDayConvention::ModifiedFollowing);
+    /// assert_eq!(params.calendar_id, "weekends_only");
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn quarterly_act360() -> Self {
         Self::preset(
             Tenor::quarterly(),
@@ -74,6 +100,31 @@ impl ScheduleParams {
     }
 
     /// Semi-annual payments with 30/360 day count and Modified Following BDC.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters using a weekends-only calendar, short-front stubs,
+    /// no end-of-month rolling, and no payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::semiannual_30360();
+    /// assert_eq!(params.freq, Tenor::semi_annual());
+    /// assert_eq!(params.dc, DayCount::Thirty360);
+    /// assert_eq!(params.bdc, BusinessDayConvention::ModifiedFollowing);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn semiannual_30360() -> Self {
         Self::preset(
             Tenor::semi_annual(),
@@ -84,6 +135,31 @@ impl ScheduleParams {
     }
 
     /// Annual payments with Act/Act day count and Following BDC.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters using a weekends-only calendar, short-front stubs,
+    /// no end-of-month rolling, and no payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::annual_actact();
+    /// assert_eq!(params.freq, Tenor::annual());
+    /// assert_eq!(params.dc, DayCount::ActAct);
+    /// assert_eq!(params.bdc, BusinessDayConvention::Following);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn annual_actact() -> Self {
         Self::preset(
             Tenor::annual(),
@@ -98,6 +174,34 @@ impl ScheduleParams {
     /// USD SOFR swap (quarterly, Act/360, Modified Following, USNY, T+2 payment lag).
     ///
     /// Follows ARRC SOFR conventions and ISDA 2021 definitions.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for a USD SOFR-style floating leg with USNY
+    /// calendar and two-business-day payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::usd_sofr_swap();
+    /// assert_eq!(params.freq, Tenor::quarterly());
+    /// assert_eq!(params.dc, DayCount::Act360);
+    /// assert_eq!(params.bdc, BusinessDayConvention::ModifiedFollowing);
+    /// assert_eq!(params.calendar_id, "usny");
+    /// assert_eq!(params.payment_lag_days, 2);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#arrc-sofr-users-guide`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn usd_sofr_swap() -> Self {
         Self::preset_with_lag(
             Tenor::quarterly(),
@@ -109,6 +213,32 @@ impl ScheduleParams {
     }
 
     /// USD corporate bond (semi-annual, 30/360, Following, USNY).
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for a plain USD corporate bond coupon schedule.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::usd_corporate_bond();
+    /// assert_eq!(params.freq, Tenor::semi_annual());
+    /// assert_eq!(params.dc, DayCount::Thirty360);
+    /// assert_eq!(params.bdc, BusinessDayConvention::Following);
+    /// assert_eq!(params.calendar_id, "usny");
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#icma-rule-book`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn usd_corporate_bond() -> Self {
         Self::preset(
             Tenor::semi_annual(),
@@ -119,6 +249,32 @@ impl ScheduleParams {
     }
 
     /// USD Treasury bond (semi-annual, Act/Act, Following, USNY).
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for a USD Treasury-style coupon schedule.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::usd_treasury();
+    /// assert_eq!(params.freq, Tenor::semi_annual());
+    /// assert_eq!(params.dc, DayCount::ActAct);
+    /// assert_eq!(params.bdc, BusinessDayConvention::Following);
+    /// assert_eq!(params.calendar_id, "usny");
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#icma-rule-book`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn usd_treasury() -> Self {
         Self::preset(
             Tenor::semi_annual(),
@@ -133,6 +289,34 @@ impl ScheduleParams {
     /// EUR ESTR swap (annual, Act/360, Modified Following, TARGET2, T+2 payment lag).
     ///
     /// Follows ECB €STR conventions.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for a EUR €STR-style floating leg with TARGET2
+    /// calendar and two-business-day payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::eur_estr_swap();
+    /// assert_eq!(params.freq, Tenor::annual());
+    /// assert_eq!(params.dc, DayCount::Act360);
+    /// assert_eq!(params.bdc, BusinessDayConvention::ModifiedFollowing);
+    /// assert_eq!(params.calendar_id, "target2");
+    /// assert_eq!(params.payment_lag_days, 2);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#ecb-estr-methodology`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn eur_estr_swap() -> Self {
         Self::preset_with_lag(
             Tenor::annual(),
@@ -144,6 +328,32 @@ impl ScheduleParams {
     }
 
     /// EUR government bond (annual, Act/Act, Following, TARGET2).
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for an annual EUR government bond coupon schedule.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::eur_gov_bond();
+    /// assert_eq!(params.freq, Tenor::annual());
+    /// assert_eq!(params.dc, DayCount::ActAct);
+    /// assert_eq!(params.bdc, BusinessDayConvention::Following);
+    /// assert_eq!(params.calendar_id, "target2");
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#icma-rule-book`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn eur_gov_bond() -> Self {
         Self::preset(
             Tenor::annual(),
@@ -158,6 +368,34 @@ impl ScheduleParams {
     /// GBP SONIA swap (annual, Act/365F, Modified Following, GBLO, no payment lag).
     ///
     /// Follows BoE SONIA conventions.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for a GBP SONIA-style floating leg with GBLO
+    /// calendar and no payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::gbp_sonia_swap();
+    /// assert_eq!(params.freq, Tenor::annual());
+    /// assert_eq!(params.dc, DayCount::Act365F);
+    /// assert_eq!(params.bdc, BusinessDayConvention::ModifiedFollowing);
+    /// assert_eq!(params.calendar_id, "gblo");
+    /// assert_eq!(params.payment_lag_days, 0);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#boe-sonia-key-features`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn gbp_sonia_swap() -> Self {
         Self::preset(
             Tenor::annual(),
@@ -172,6 +410,34 @@ impl ScheduleParams {
     /// JPY TONA swap (annual, Act/365F, Modified Following, JPTO, T+2 payment lag).
     ///
     /// Follows BoJ TONA conventions.
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Schedule parameters for a JPY TONA-style floating leg with JPTO
+    /// calendar and two-business-day payment lag.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::ScheduleParams;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    ///
+    /// let params = ScheduleParams::jpy_tona_swap();
+    /// assert_eq!(params.freq, Tenor::annual());
+    /// assert_eq!(params.dc, DayCount::Act365F);
+    /// assert_eq!(params.bdc, BusinessDayConvention::ModifiedFollowing);
+    /// assert_eq!(params.calendar_id, "jpto");
+    /// assert_eq!(params.payment_lag_days, 2);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#boj-tona`
+    /// - `docs/REFERENCES.md#isda-2006-definitions`
     pub fn jpy_tona_swap() -> Self {
         Self::preset_with_lag(
             Tenor::annual(),

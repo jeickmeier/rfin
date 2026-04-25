@@ -26,6 +26,7 @@
 //!
 //! ## Example
 //! ```rust,no_run
+//! use finstack_core::market_data::{context::MarketContext, DiscountCurve};
 //! use finstack_statements::prelude::*;
 //!
 //! use time::macros::date;
@@ -53,7 +54,18 @@
 //!         "cs.interest_expense.total + cs.principal_payment.total",
 //!     )?
 //!     .build()?;
-//! # let _ = model;
+//!
+//! let market_ctx = MarketContext::new().insert(
+//!     DiscountCurve::builder("USD-OIS")
+//!         .base_date(issue_date)
+//!         .knots([(0.0, 1.0), (5.0, 0.90)])
+//!         .build()?,
+//! );
+//!
+//! let mut evaluator = Evaluator::new();
+//! let results = evaluator.evaluate_with_market(&model, &market_ctx, issue_date)?;
+//! let q1_interest = results.get("interest_expense", &PeriodId::quarter(2025, 1));
+//! # let _ = q1_interest;
 //! # Ok(())
 //! # }
 //! ```

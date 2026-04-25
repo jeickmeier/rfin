@@ -5,11 +5,14 @@
 //!
 //! # Module Organization
 //!
-//! - [`seniority`]: Beta-distributed recovery by debt seniority class.
-//! - [`workout`]: Collateral-first recovery waterfall with costs and
-//!   time-to-resolution discounting.
-//! - [`downturn`]: Frye-Jacobs and regulatory-floor downturn LGD adjustments.
-//! - [`ead`]: Exposure at default with Credit Conversion Factors.
+//! - [`seniority`][crate::credit::lgd::seniority]: Beta-distributed recovery
+//!   by debt seniority class.
+//! - [`workout`][crate::credit::lgd::workout]: Collateral-first recovery
+//!   waterfall with costs and time-to-resolution discounting.
+//! - [`downturn`][crate::credit::lgd::downturn]: Frye-Jacobs and
+//!   regulatory-floor downturn LGD adjustments.
+//! - [`ead`][crate::credit::lgd::ead]: Exposure at default with Credit
+//!   Conversion Factors.
 
 pub mod downturn;
 pub mod ead;

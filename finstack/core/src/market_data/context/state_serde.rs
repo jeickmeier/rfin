@@ -39,8 +39,7 @@ macro_rules! define_curve_state {
     } ),* $(,)?) => {
         /// Serializable state representation for any curve type.
         ///
-        /// Produced when the crate is compiled with the `serde` feature to persist
-        /// market data snapshots.
+        /// Produced when persisting market data snapshots through serde.
         #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
         #[serde(tag = "type", rename_all = "snake_case")]
         pub enum CurveState {

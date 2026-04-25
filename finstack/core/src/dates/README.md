@@ -17,7 +17,7 @@ Everything is accessible via `finstack_core::dates`, and is designed to be:
 
 - **Deterministic**: No randomness; date math is pure and repeatable
 - **Panic‑free in public APIs**: functions return `crate::Result<T>` for invalid input
-- **Wire‑stable**: public enums and DTOs are serde‑ready under the `serde` feature
+- **Wire‑stable**: public enums and DTOs are serde-ready with stable field names
 
 ---
 

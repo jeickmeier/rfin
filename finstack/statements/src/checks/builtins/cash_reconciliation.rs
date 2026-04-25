@@ -24,7 +24,8 @@ pub struct CashReconciliation {
     pub cfi_node: Option<NodeId>,
     /// Optional node for cash from financing.
     pub cff_node: Option<NodeId>,
-    /// Tolerance override; falls back to [`crate::CheckConfig::default_tolerance`].
+    /// Tolerance override; falls back to
+    /// [`CheckConfig::default_tolerance`](crate::checks::CheckConfig::default_tolerance).
     pub tolerance: Option<f64>,
 }
 

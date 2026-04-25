@@ -8,6 +8,53 @@ impl CashFlowBuilder {
     /// A step-up coupon starts at an initial rate and steps to different rates
     /// on specified dates. The compiler translates this into per-period fixed
     /// coupon schedules with the appropriate rate for each period.
+    ///
+    /// # Arguments
+    ///
+    /// * `spec` - Step-up coupon definition containing the initial rate, step
+    ///   schedule, payment split, and schedule conventions.
+    ///
+    /// # Returns
+    ///
+    /// Mutable builder reference for fluent chaining.
+    ///
+    /// # Errors
+    ///
+    /// This method records a deferred error if principal dates have not been
+    /// set. Date generation, calendar lookup, coupon split validation, and
+    /// day-count failures are returned by [`build_with_curves`](Self::build_with_curves)
+    /// or [`prepared`](Self::prepared).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::{CashFlowSchedule, CouponType, StepUpCouponSpec};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+    /// use finstack_core::money::Money;
+    /// use rust_decimal_macros::dec;
+    /// use time::Month;
+    ///
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    /// let step = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+    /// let maturity = Date::from_calendar_date(2027, Month::January, 1).expect("valid date");
+    /// let mut builder = CashFlowSchedule::builder();
+    ///
+    /// let _ = builder
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .step_up_cf(StepUpCouponSpec {
+    ///         coupon_type: CouponType::Cash,
+    ///         initial_rate: dec!(0.04),
+    ///         step_schedule: vec![(step, dec!(0.05))],
+    ///         freq: Tenor::semi_annual(),
+    ///         dc: DayCount::Thirty360,
+    ///         bdc: BusinessDayConvention::Following,
+    ///         calendar_id: "weekends_only".to_string(),
+    ///         stub: StubKind::None,
+    ///         end_of_month: false,
+    ///         payment_lag_days: 0,
+    ///     });
+    /// ```
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn step_up_cf(&mut self, spec: StepUpCouponSpec) -> &mut Self {
         self.push_full_horizon_coupon(

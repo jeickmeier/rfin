@@ -263,12 +263,22 @@ impl ForecastSpec {
         }
     }
 
-    /// Create a normal distribution forecast.
+    /// Create an additive normal random-walk forecast.
+    ///
+    /// Forecasted values follow `value[t] = value[t-1] + mean + std_dev * z[t]`,
+    /// where `z[t]` is a deterministic standard-normal draw derived from `seed`.
+    /// Use this for additive level changes such as absolute EBITDA deltas or
+    /// working-capital movements. `std_dev` is the per-period volatility and must
+    /// be non-negative.
     ///
     /// # Arguments
-    /// * `mean` - Mean value
-    /// * `std_dev` - Standard deviation
+    /// * `mean` - Per-period additive drift
+    /// * `std_dev` - Per-period additive volatility
     /// * `seed` - Random seed for deterministic results
+    ///
+    /// # References
+    ///
+    /// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
     pub fn normal(mean: f64, std_dev: f64, seed: u64) -> Self {
         let mut params = IndexMap::new();
         params.insert("mean".into(), serde_json::json!(mean));
@@ -280,12 +290,24 @@ impl ForecastSpec {
         }
     }
 
-    /// Create a log-normal distribution forecast.
+    /// Create a multiplicative log-normal path forecast.
+    ///
+    /// When the base value is non-zero, forecasted values follow
+    /// `value[t] = value[t-1] * exp(mean - 0.5 * std_dev^2 + std_dev * z[t])`.
+    /// The `-0.5 * std_dev^2` term is the standard log-normal drift adjustment
+    /// so `mean` is interpreted as the expected log-return drift. When the base
+    /// value is zero, the path falls back to independent
+    /// `exp(mean + std_dev * z[t])` draws because multiplication by zero would
+    /// otherwise collapse the whole path.
     ///
     /// # Arguments
-    /// * `mean` - Mean value
-    /// * `std_dev` - Standard deviation
+    /// * `mean` - Per-period log-return drift
+    /// * `std_dev` - Per-period log-return volatility
     /// * `seed` - Random seed for deterministic results
+    ///
+    /// # References
+    ///
+    /// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
     pub fn lognormal(mean: f64, std_dev: f64, seed: u64) -> Self {
         let mut params = IndexMap::new();
         params.insert("mean".into(), serde_json::json!(mean));

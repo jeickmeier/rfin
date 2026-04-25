@@ -324,6 +324,63 @@ impl XccySwap {
         self
     }
 
+    /// Pre-flight check that every leg whose currency differs from
+    /// [`Self::reporting_currency`] is reachable through the market's FX matrix.
+    ///
+    /// Runs at the top of [`Instrument::base_value`] so a missing or
+    /// underspecified FX matrix surfaces as a single, informative error
+    /// (naming both currencies and the offending leg) rather than a generic
+    /// `NotFound { id: "fx_matrix" }` raised mid-loop deep inside cashflow
+    /// conversion.
+    ///
+    /// We probe with `as_of`-equivalent tenor `payment_date = leg.start` (or
+    /// any concrete date), since [`finstack_core::money::fx::FxMatrix`] resolves
+    /// reachability up front independent of forward-date specifics.
+    fn validate_fx_reachable(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+    ) -> Result<()> {
+        let needs_fx = self.leg1.currency != self.reporting_currency
+            || self.leg2.currency != self.reporting_currency;
+        if !needs_fx {
+            return Ok(());
+        }
+        let fx = market.fx().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "XccySwap '{}' requires fx_matrix in market context: leg1={} leg2={} reporting={}",
+                self.id.as_str(),
+                self.leg1.currency,
+                self.leg2.currency,
+                self.reporting_currency,
+            ))
+        })?;
+
+        for (label, leg) in [("leg1", &self.leg1), ("leg2", &self.leg2)] {
+            if leg.currency == self.reporting_currency {
+                continue;
+            }
+            // Probe FX with a representative payment date (leg.start). Reachability
+            // failure here will surface as a precise currency-pair error rather than
+            // a generic NotFound from the inner cashflow loop.
+            fx.rate(FxQuery::new(
+                leg.currency,
+                self.reporting_currency,
+                leg.start,
+            ))
+            .map_err(|err| {
+                finstack_core::Error::Validation(format!(
+                    "XccySwap '{}' FX path unreachable for {}: {}->{} ({})",
+                    self.id.as_str(),
+                    label,
+                    leg.currency,
+                    self.reporting_currency,
+                    err,
+                ))
+            })?;
+        }
+        Ok(())
+    }
+
     fn validate_leg(&self, leg: &XccySwapLeg) -> Result<()> {
         if leg.notional.currency() != leg.currency {
             return Err(finstack_core::Error::CurrencyMismatch {
@@ -661,6 +718,12 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
             )));
         }
 
+        // Pre-flight FX reachability: fail loud with currency-pair context
+        // BEFORE descending into per-cashflow conversion. Without this, missing
+        // FX surfaces as `NotFound { id: "fx_matrix" }` from deep inside the
+        // schedule loop, hiding which leg/pair was the offender.
+        self.validate_fx_reachable(market)?;
+
         let s1 = self.leg_schedule(&self.leg1)?;
         let s2 = self.leg_schedule(&self.leg2)?;
 
@@ -726,6 +789,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {
 mod tests {
     use super::*;
     use crate::cashflow::CashflowProvider;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
     use time::Month;
 
@@ -823,6 +887,101 @@ mod tests {
         assert!(flows
             .iter()
             .any(|(_, money)| money.currency() == Currency::EUR));
+    }
+
+    #[test]
+    fn base_value_fails_loud_when_fx_matrix_is_missing() {
+        // Reproduces the audit scenario: USD/EUR XCCY with EUR reporting,
+        // market context has both curves but NO FxMatrix. Pre-flight
+        // reachability must reject up front with a message naming the
+        // instrument id and both leg currencies, NOT a generic NotFound
+        // surfaced from inside the per-cashflow loop.
+        let as_of = date(2025, Month::January, 1);
+        let market = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 1.0), (1.0, 0.95)])
+                    .build()
+                    .expect("usd curve"),
+            )
+            .insert(
+                DiscountCurve::builder("EUR-OIS")
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 1.0), (1.0, 0.97)])
+                    .build()
+                    .expect("eur curve"),
+            )
+            .insert(
+                ForwardCurve::builder("USD-SOFR-3M", 0.25)
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 0.04), (1.0, 0.04)])
+                    .build()
+                    .expect("usd forward"),
+            )
+            .insert(
+                ForwardCurve::builder("EUR-EURIBOR-3M", 0.25)
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 0.03), (1.0, 0.03)])
+                    .build()
+                    .expect("eur forward"),
+            );
+
+        let start = date(2025, Month::January, 2);
+        let end = date(2026, Month::January, 2);
+        let swap = XccySwap::new(
+            "XCCY-NOFX",
+            XccySwapLeg {
+                currency: Currency::USD,
+                notional: Money::new(1_000_000.0, Currency::USD),
+                side: LegSide::Receive,
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                discount_curve_id: CurveId::new("USD-OIS"),
+                start,
+                end,
+                frequency: Tenor::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                stub: StubKind::ShortFront,
+                spread_bp: Decimal::ZERO,
+                payment_lag_days: 0,
+                calendar_id: None,
+                reset_lag_days: None,
+                allow_calendar_fallback: true,
+            },
+            XccySwapLeg {
+                currency: Currency::EUR,
+                notional: Money::new(900_000.0, Currency::EUR),
+                side: LegSide::Pay,
+                forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
+                discount_curve_id: CurveId::new("EUR-OIS"),
+                start,
+                end,
+                frequency: Tenor::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                stub: StubKind::ShortFront,
+                spread_bp: Decimal::ZERO,
+                payment_lag_days: 0,
+                calendar_id: None,
+                reset_lag_days: None,
+                allow_calendar_fallback: true,
+            },
+            Currency::EUR, // reporting != either leg directly
+        );
+
+        let err = swap
+            .base_value(&market, as_of)
+            .expect_err("missing FxMatrix must be rejected pre-flight");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("XCCY-NOFX"),
+            "error must name the instrument id, got: {msg}"
+        );
+        assert!(
+            msg.contains("fx_matrix") || msg.contains("FX path"),
+            "error must explain that FX is required, got: {msg}"
+        );
     }
 
     #[test]

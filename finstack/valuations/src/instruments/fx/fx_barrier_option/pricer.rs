@@ -43,25 +43,6 @@ impl FxBarrierOptionMcPricer {
         c
     }
 
-    fn convert_barrier_type(
-        bt: crate::instruments::exotics::barrier_option::types::BarrierType,
-    ) -> McBarrierType {
-        match bt {
-            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndOut => {
-                McBarrierType::UpAndOut
-            }
-            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndIn => {
-                McBarrierType::UpAndIn
-            }
-            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndOut => {
-                McBarrierType::DownAndOut
-            }
-            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndIn => {
-                McBarrierType::DownAndIn
-            }
-        }
-    }
-
     /// Price an FX barrier option using Monte Carlo.
     fn price_internal(
         &self,
@@ -126,7 +107,7 @@ impl FxBarrierOptionMcPricer {
         // If Quanto is needed, it should be explicit.
         let quanto_adjustment = 0.0;
 
-        let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
+        let mc_barrier_type: McBarrierType = inst.barrier_type.into();
         let payoff = FxBarrierCall::new(
             inst.strike,
             inst.barrier,

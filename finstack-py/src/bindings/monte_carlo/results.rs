@@ -66,7 +66,10 @@ impl PyMonteCarloResult {
         self.inner.num_simulated_paths
     }
 
-    /// Number of paths skipped due to non-finite payoffs.
+    /// Legacy skipped-path count from older survivor-pricing results.
+    ///
+    /// Current engines reject non-finite discounted payoffs instead of
+    /// censoring paths, so new results should report zero here.
     #[getter]
     fn num_skipped(&self) -> usize {
         self.inner.num_skipped
@@ -178,7 +181,10 @@ impl PyEstimate {
         self.inner.num_simulated_paths
     }
 
-    /// Number of paths skipped due to non-finite payoffs.
+    /// Legacy skipped-path count from older survivor-pricing results.
+    ///
+    /// Current engines reject non-finite discounted payoffs instead of
+    /// censoring paths, so new estimates should report zero here.
     #[getter]
     fn num_skipped(&self) -> usize {
         self.inner.num_skipped

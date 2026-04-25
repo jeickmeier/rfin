@@ -28,8 +28,13 @@
 //!
 //! # Rate Bounds
 //!
-//! The solver rejects rates below [`MIN_VALID_RATE`] (-99.9%) as these represent
+//! The solver rejects rates below `MIN_VALID_RATE` (-99.9%) as these represent
 //! near-total loss scenarios that are economically implausible for most applications.
+//!
+//! # References
+//!
+//! - Brent, R. P. (1973), *Algorithms for Minimization Without Derivatives*.
+//! - Hull, J. C., *Options, Futures, and Other Derivatives*.
 
 use crate::dates::{Date, DayCount, DayCountContext};
 use crate::error::InputError;
@@ -60,7 +65,40 @@ pub(crate) const DEFAULT_GUESS: f64 = 0.1;
 /// The solver rejects any root at or below this threshold.
 pub(crate) const MIN_VALID_RATE: f64 = -0.999;
 
-/// Calculate IRR for periodic cashflows.
+/// Calculate the internal rate of return for periodic cashflows.
+///
+/// Periodic IRR treats `cashflows[i]` as occurring at integer time `i`, so the
+/// returned rate is per period rather than annualized unless the input periods
+/// are annual.
+///
+/// # Arguments
+///
+/// - `cashflows`: Cashflow amounts ordered by period. At least one positive and
+///   one negative amount are required.
+/// - `guess`: Optional initial solver guess as a decimal rate. `None` uses the
+///   crate default of 10%.
+///
+/// # Returns
+///
+/// Returns the rate `r` that makes `sum(cashflows[i] / (1 + r)^i)` approximately
+/// zero. When the cashflow sequence admits multiple roots, the deterministic
+/// selection rule described in the module docs is used.
+///
+/// # Errors
+///
+/// Returns an error if there are fewer than two cashflows, no sign change, or no
+/// valid root above `MIN_VALID_RATE` can be found within the configured solver
+/// bounds.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::irr;
+///
+/// let rate = irr(&[-100.0, 60.0, 60.0], None)?;
+/// assert!((rate - 0.1306623863).abs() < 1e-8);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 #[inline]
 pub fn irr(cashflows: &[f64], guess: Option<f64>) -> crate::Result<f64> {
     solve_rate_of_return(
@@ -73,12 +111,90 @@ pub fn irr(cashflows: &[f64], guess: Option<f64>) -> crate::Result<f64> {
 }
 
 /// Calculate XIRR for dated cashflows using the default `Act365F` convention.
+///
+/// XIRR sorts flows by date, measures each date from the earliest flow, and
+/// solves for an annualized decimal rate. Prefer [`xirr_with_daycount`] when
+/// the valuation convention should be explicit at the call site.
+///
+/// # Arguments
+///
+/// - `cashflows`: `(date, amount)` pairs. The input may be unsorted; same-date
+///   flows are aggregated before solving.
+/// - `guess`: Optional initial solver guess as a decimal annual rate. `None`
+///   uses the crate default of 10%.
+///
+/// # Returns
+///
+/// Returns the annualized rate `r` that makes the dated NPV approximately zero
+/// under `Act365F` year fractions.
+///
+/// # Errors
+///
+/// Returns an error if there are fewer than two flows, no sign change, a
+/// day-count calculation fails, or no valid root above `MIN_VALID_RATE` can be
+/// found.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::xirr;
+/// use finstack_core::dates::create_date;
+/// use time::Month;
+///
+/// let flows = [
+///     (create_date(2025, Month::January, 1)?, -100.0),
+///     (create_date(2026, Month::January, 1)?, 110.0),
+/// ];
+/// let rate = xirr(&flows, None)?;
+/// assert!((rate - 0.10).abs() < 1e-8);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 #[inline]
 pub fn xirr(cashflows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64> {
     xirr_with_daycount(cashflows, DayCount::Act365F, guess)
 }
 
-/// Calculate XIRR for dated cashflows with an explicit day count convention.
+/// Calculate XIRR for dated cashflows with an explicit day-count convention.
+///
+/// Use this overload when the annualization basis matters for pricing,
+/// reporting, or reconciliation. For conventions that require coupon or
+/// calendar context, use [`xirr_with_daycount_ctx`].
+///
+/// # Arguments
+///
+/// - `cashflows`: `(date, amount)` pairs. The input may be unsorted; same-date
+///   flows are aggregated before solving.
+/// - `day_count`: Convention used to convert dates into year fractions from the
+///   earliest flow date.
+/// - `guess`: Optional initial solver guess as a decimal annual rate. `None`
+///   uses the crate default of 10%.
+///
+/// # Returns
+///
+/// Returns the annualized rate `r` that makes the dated NPV approximately zero
+/// under the supplied day-count convention.
+///
+/// # Errors
+///
+/// Returns an error if there are fewer than two flows, no sign change, the
+/// day-count convention cannot evaluate a year fraction for the inputs, or no
+/// valid root above `MIN_VALID_RATE` can be found.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::xirr_with_daycount;
+/// use finstack_core::dates::{create_date, DayCount};
+/// use time::Month;
+///
+/// let flows = [
+///     (create_date(2025, Month::January, 1)?, -100.0),
+///     (create_date(2026, Month::January, 1)?, 110.0),
+/// ];
+/// let rate = xirr_with_daycount(&flows, DayCount::Act365F, None)?;
+/// assert!((rate - 0.10).abs() < 1e-8);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 #[inline]
 pub fn xirr_with_daycount(
     cashflows: &[(Date, f64)],
@@ -270,7 +386,49 @@ impl InternalRateOfReturn for [(Date, f64)] {
 /// Calculate XIRR with an explicit day-count context.
 ///
 /// Use this helper for day-count conventions that require additional context,
-/// such as `ActActIsma` (coupon frequency) or `Bus252` (holiday calendar).
+/// such as `ActActIsma` coupon metadata or `Bus252` holiday calendars.
+///
+/// # Arguments
+///
+/// - `flows`: `(date, amount)` pairs. The input may be unsorted; same-date flows
+///   are aggregated after converting dates to year fractions.
+/// - `day_count`: Convention used to convert dates into year fractions.
+/// - `ctx`: Supplemental day-count context, such as coupon schedule information
+///   or business-day calendar data.
+/// - `guess`: Optional initial solver guess as a decimal annual rate. `None`
+///   uses the crate default of 10%.
+///
+/// # Returns
+///
+/// Returns the annualized rate `r` that makes the dated NPV approximately zero
+/// under the supplied day-count convention and context.
+///
+/// # Errors
+///
+/// Returns an error if there are fewer than two flows, no sign change, the
+/// day-count convention rejects the supplied context, or no valid root above
+/// `MIN_VALID_RATE` can be found.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::xirr_with_daycount_ctx;
+/// use finstack_core::dates::{create_date, DayCount, DayCountContext};
+/// use time::Month;
+///
+/// let flows = [
+///     (create_date(2025, Month::January, 1)?, -100.0),
+///     (create_date(2026, Month::January, 1)?, 110.0),
+/// ];
+/// let rate = xirr_with_daycount_ctx(
+///     &flows,
+///     DayCount::Act365F,
+///     DayCountContext::default(),
+///     None,
+/// )?;
+/// assert!((rate - 0.10).abs() < 1e-8);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn xirr_with_daycount_ctx(
     flows: &[(Date, f64)],
     day_count: DayCount,
@@ -501,7 +659,10 @@ where
     count_sign_changes(iter) > 1
 }
 
-/// Extended result from IRR calculation with root-ambiguity metadata.
+/// Extended result from an IRR calculation with root-ambiguity metadata.
+///
+/// Use this when callers need to surface whether a cashflow pattern may have
+/// multiple economically meaningful roots, rather than only the selected rate.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IrrResult {
     /// The computed internal rate of return.
@@ -519,6 +680,23 @@ pub struct IrrResult {
 ///
 /// Zero values are skipped. This count is used by Descartes' rule of signs
 /// to bound the number of positive real roots.
+///
+/// # Arguments
+///
+/// - `iter`: Cashflow-like numeric sequence.
+///
+/// # Returns
+///
+/// Returns the number of times the non-zero sign changes as the sequence is
+/// traversed from left to right.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::count_sign_changes;
+///
+/// assert_eq!(count_sign_changes([-100.0, 0.0, 60.0, -10.0]), 2);
+/// ```
 pub fn count_sign_changes<I>(iter: I) -> usize
 where
     I: IntoIterator<Item = f64>,
@@ -545,6 +723,32 @@ where
 }
 
 /// Calculate IRR with root-ambiguity metadata for periodic cashflows.
+///
+/// # Arguments
+///
+/// - `cashflows`: Cashflow amounts ordered by period.
+/// - `guess`: Optional initial solver guess as a decimal rate.
+///
+/// # Returns
+///
+/// Returns an [`IrrResult`] containing the selected rate, the number of sign
+/// changes, and a flag indicating whether multiple roots are possible.
+///
+/// # Errors
+///
+/// Returns the same errors as [`irr`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::irr_detailed;
+///
+/// let result = irr_detailed(&[-100.0, 110.0], None)?;
+/// assert!((result.rate - 0.10).abs() < 1e-8);
+/// assert_eq!(result.sign_changes, 1);
+/// assert!(!result.multiple_roots_possible);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn irr_detailed(cashflows: &[f64], guess: Option<f64>) -> crate::Result<IrrResult> {
     let rate = cashflows.irr(guess)?;
     let sign_changes = count_sign_changes(cashflows.iter().copied());
@@ -556,6 +760,38 @@ pub fn irr_detailed(cashflows: &[f64], guess: Option<f64>) -> crate::Result<IrrR
 }
 
 /// Calculate XIRR with root-ambiguity metadata for dated cashflows.
+///
+/// # Arguments
+///
+/// - `cashflows`: `(date, amount)` pairs.
+/// - `day_count`: Convention used to convert dates into year fractions.
+/// - `guess`: Optional initial solver guess as a decimal annual rate.
+///
+/// # Returns
+///
+/// Returns an [`IrrResult`] containing the selected annualized rate, the number
+/// of sign changes, and a flag indicating whether multiple roots are possible.
+///
+/// # Errors
+///
+/// Returns the same errors as [`xirr_with_daycount`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::xirr_detailed;
+/// use finstack_core::dates::{create_date, DayCount};
+/// use time::Month;
+///
+/// let flows = [
+///     (create_date(2025, Month::January, 1)?, -100.0),
+///     (create_date(2026, Month::January, 1)?, 110.0),
+/// ];
+/// let result = xirr_detailed(&flows, DayCount::Act365F, None)?;
+/// assert!((result.rate - 0.10).abs() < 1e-8);
+/// assert_eq!(result.sign_changes, 1);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn xirr_detailed(
     cashflows: &[(Date, f64)],
     day_count: DayCount,

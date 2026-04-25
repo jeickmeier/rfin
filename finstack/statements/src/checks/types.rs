@@ -59,8 +59,8 @@ impl SignConventionPolicy {
     /// models that ship data with a different sign convention continue
     /// to run; a convention flip that materially affects the
     /// reconciliation still produces a separate reconciliation
-    /// finding. Use [`finstack_core::money::Decimal`] boundary
-    /// conversions to enforce the convention strictly at ingest.
+    /// finding. Use `rust_decimal::Decimal` boundary conversions to
+    /// enforce the convention strictly at ingest.
     #[must_use]
     pub fn validate(
         &self,

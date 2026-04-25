@@ -52,7 +52,7 @@ Two important convention notes:
   - `mod.rs`: documentation and re-exports for all curve types.
   - `discount_curve.rs`: discount factor curves (`DiscountCurve`) implementing:
     - `TermStructure` + `Discounting` traits.
-    - Builder pattern with `base_date`, `day_count`, `knots`, `set_interp`, and extrapolation controls.
+    - Builder pattern with `base_date`, `day_count`, `knots`, `interp`, and extrapolation controls.
   - `forward_curve.rs`: forward-rate curves (`ForwardCurve`) with tenor-aware builders (e.g., 3M forward) and knot-based interpolation.
   - `hazard_curve.rs`: credit hazard/survival curves (`HazardCurve`) with survival/probability helpers; used for credit pricing.
   - `inflation.rs`: real/breakeven inflation term structures (`InflationCurve`) built from CPI levels.
@@ -61,7 +61,7 @@ Two important convention notes:
   - All curve types:
     - Use validated knot sets (via `validate_knots`) and pluggable interpolation (`InterpStyle`).
     - Implement `TermStructure` and domain-specific traits from `traits.rs` where appropriate.
-    - Support serde via `*State` DTOs when the `serde` feature is enabled.
+    - Support serde via `*State` DTOs when runtime types need explicit wire shapes.
 
 - **`surfaces/`**
   - `mod.rs`: documentation and re-export of `VolSurface`.
@@ -137,7 +137,7 @@ All curve and surface types:
 
 - Use year-fraction time coordinates backed by `dates::DayCount`.
 - Validate knots and grid structure up-front.
-- Support serde under the `serde` feature via `*State` DTOs or direct derives.
+- Support serde via `*State` DTOs or direct derives with stable field names.
 
 ### Scalars and Time Series
 
@@ -178,7 +178,7 @@ These types are stored inside `MarketContext` under `prices`, `series`, and `inf
   - `roll_forward(days)` for constant-curve roll-down scenarios.
   - `bump_fx_spot` for FX-specific percentage bumps (via `FxMatrix`).
 - **Serialization**
-  - Under the `serde` feature, `MarketContext` serializes via `MarketContextState` with stable field names:
+  - `MarketContext` serializes via `MarketContextState` with stable field names:
     - `curves`, `surfaces`, `prices`, `series`, `inflation_indices`, `credit_indices`, `collateral`.
   - `MarketContextState` is the canonical wire shape for Python/WASM bindings and long-lived storage.
 
@@ -203,14 +203,14 @@ let base = date!(2025 - 01 - 01);
 let disc = DiscountCurve::builder("USD-OIS")
     .base_date(base)
     .knots([(0.0, 1.0), (5.0, 0.88)])
-    .set_interp(InterpStyle::MonotoneConvex)
+    .interp(InterpStyle::MonotoneConvex)
     .build()
     ?;
 
 let fwd3m = ForwardCurve::builder("USD-SOFR3M", 0.25)
     .base_date(base)
     .knots([(0.0, 0.03), (5.0, 0.04)])
-    .set_interp(InterpStyle::Linear)
+    .interp(InterpStyle::Linear)
     .build()
     ?;
 
@@ -339,7 +339,7 @@ fn measure_shift(market_t0: MarketContext, market_t1: MarketContext) -> finstack
 
 Use `TenorSamplingMethod::Dynamic` or `Custom` when you need knot-aware or instrument-specific bucket definitions.
 
-### Serialize and Deserialize a MarketContext (serde feature)
+### Serialize and Deserialize a MarketContext
 
 ```rust
 use finstack_core::market_data::context::MarketContext;
@@ -356,8 +356,6 @@ let round_tripped: MarketContext = serde_json::from_str(&json)?;
 
 assert_eq!(ctx.stats().total_curves, round_tripped.stats().total_curves);
 ```
-
-This requires the `serde` feature on `finstack-core` (enabled by default).
 
 ---
 
@@ -377,7 +375,7 @@ The `market_data` module is **core infrastructure** and must remain deterministi
    - Use `math::interp::InterpStyle` and wire it through the builder.
    - Validate monotonicity or positivity invariants as required by the domain.
 3. **Serde and state**
-   - Under the `serde` feature, add a `*State` DTO if the runtime type cannot cleanly derive serde.
+   - Add a `*State` DTO if the runtime type cannot cleanly derive serde.
    - Implement `to_state` / `from_state` if necessary and integrate with `CurveState` / `MarketContextState`.
 4. **Wire into `MarketContext`**
    - Consider extending `CurveStorage` and `MarketContext` insert/get helpers if the new curve should be first-class.
@@ -395,7 +393,7 @@ The `market_data` module is **core infrastructure** and must remain deterministi
      - Storage in `MarketContext` (similar to `VolSurface`).
      - `Bumpable` implementation and, if needed, `MarketBump` variants.
 3. **Serde**
-   - Add `Serialize`/`Deserialize` (or a `*State` DTO) under the `serde` feature.
+   - Add `Serialize`/`Deserialize` (or a `*State` DTO) with stable field names.
    - Extend `MarketContextState` if the surface is stored there.
 
 ### Adding New Scalars or Time-Series Types
@@ -424,7 +422,7 @@ The `market_data` module is **core infrastructure** and must remain deterministi
 
 - When adding new stored objects:
   - Add fields to `MarketContext` with clear doc comments.
-  - Update `MarketContextState` and its `From<&MarketContext>` / `TryFrom<MarketContextState>` implementations under the `serde` feature.
+  - Update `MarketContextState` and its `From<&MarketContext>` / `TryFrom<MarketContextState>` implementations.
   - Extend `stats`, `total_objects`, and any relevant iterators.
 - Avoid:
   - Introducing hidden global state or singletons.

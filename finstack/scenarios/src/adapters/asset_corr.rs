@@ -2,11 +2,11 @@
 //!
 //! This module provides the [`AssetCorrAdapter`] which translates the
 //! [`OperationSpec::AssetCorrelationPts`] /
-//! [`OperationSpec::PrepayDefaultCorrelationPts`] variants into
-//! [`ScenarioEffect`]s consumed by the engine. The actual correlation bump is
-//! applied by the engine via [`CorrelationStructure`] helpers; this module
-//! keeps only the adapter and a small set of `#[cfg(test)]` helpers that
-//! verify clamping behaviour on sample instruments.
+//! [`OperationSpec::PrepayDefaultCorrelationPts`] variants into engine-internal
+//! effects. The actual correlation bump is applied by the engine via
+//! [`CorrelationStructure`](finstack_valuations::instruments::fixed_income::structured_credit::CorrelationStructure)
+//! helpers; this module keeps only the adapter and a small set of `#[cfg(test)]`
+//! helpers that verify clamping behaviour on sample instruments.
 //!
 //! # Clamping
 //!

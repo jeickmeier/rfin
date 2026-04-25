@@ -241,7 +241,7 @@ If you need to extend `CashFlow` itself:
 
 - Keep the struct **compact**; check the size bound test and update it if there is a justified change.
 - Document new fields thoroughly and update `CashFlow::validate()` to enforce invariants.
-- Ensure serde (under the `serde` feature) remains stable:
+- Ensure serde wire formats remain stable:
   - Use defaults for new optional fields.
   - Avoid renaming existing serialized fields.
 

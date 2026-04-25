@@ -260,7 +260,7 @@ impl Payoff for Forward {
     ///
     /// Captures the terminal spot price at maturity. If spot is not available
     /// in the path state, defaults to 0.0, which will result in a payoff of
-    /// (F - 0) × N for long positions or (0 - F) × N for short positions.
+    /// (0 - F) × N for long positions or (F - 0) × N for short positions.
     fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);

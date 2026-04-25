@@ -18,7 +18,7 @@
 #[must_use]
 pub fn ljung_box(series: &[f64], lags: usize) -> (f64, f64) {
     let n = series.len();
-    if n < lags + 1 || lags == 0 {
+    if lags == 0 || n <= lags {
         return (0.0, 1.0);
     }
 
@@ -59,7 +59,7 @@ pub fn ljung_box(series: &[f64], lags: usize) -> (f64, f64) {
 #[must_use]
 pub fn arch_lm(residuals: &[f64], lags: usize) -> (f64, f64) {
     let n = residuals.len();
-    if n < lags + 2 || lags == 0 {
+    if lags == 0 || n.saturating_sub(1) <= lags {
         return (0.0, 1.0);
     }
 
@@ -290,6 +290,11 @@ mod tests {
     }
 
     #[test]
+    fn ljung_box_handles_extreme_lag_without_overflow() {
+        assert_eq!(ljung_box(&[0.01, -0.01], usize::MAX), (0.0, 1.0));
+    }
+
+    #[test]
     fn ljung_box_autocorrelated_series() {
         // AR(1) process should show autocorrelation
         let n = 500;
@@ -322,6 +327,11 @@ mod tests {
         let (stat, pval) = arch_lm(&resid, 5);
         assert!(stat.is_finite());
         assert!((0.0..=1.0).contains(&pval));
+    }
+
+    #[test]
+    fn arch_lm_handles_extreme_lag_without_overflow() {
+        assert_eq!(arch_lm(&[0.01, -0.01], usize::MAX), (0.0, 1.0));
     }
 
     #[test]

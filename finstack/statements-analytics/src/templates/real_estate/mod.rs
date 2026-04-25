@@ -76,6 +76,35 @@ fn sum_expr_or_zero(nodes: &[&str]) -> String {
 ///
 /// Returns an error if `revenue_nodes` or `expense_nodes` is empty, or if any
 /// computed node cannot be added to the builder.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::PeriodId;
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_statements::types::AmountOrScalar;
+/// use finstack_statements_analytics::templates::real_estate::add_noi_buildup;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let period = PeriodId::quarter(2025, 1);
+/// let builder = ModelBuilder::new("property")
+///     .periods("2025Q1..Q1", None)?
+///     .value("rent", &[(period, AmountOrScalar::scalar(100.0))])
+///     .value("opex", &[(period, AmountOrScalar::scalar(40.0))]);
+///
+/// let builder = add_noi_buildup(
+///     builder,
+///     "total_revenue",
+///     &["rent"],
+///     "total_expenses",
+///     &["opex"],
+///     "noi",
+/// )?;
+/// let model = builder.build()?;
+/// assert!(model.nodes.contains_key("noi"));
+/// # Ok(())
+/// # }
+/// ```
 pub fn add_noi_buildup(
     builder: ModelBuilder<Ready>,
     total_revenue_node: &str,
@@ -119,6 +148,28 @@ pub fn add_noi_buildup(
 ///
 /// Returns an error if CapEx nodes are provided but cannot be combined into a
 /// valid formula, or if the new node cannot be added.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::PeriodId;
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_statements::types::AmountOrScalar;
+/// use finstack_statements_analytics::templates::real_estate::add_ncf_buildup;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let period = PeriodId::quarter(2025, 1);
+/// let builder = ModelBuilder::new("property")
+///     .periods("2025Q1..Q1", None)?
+///     .value("noi", &[(period, AmountOrScalar::scalar(60.0))])
+///     .value("capex", &[(period, AmountOrScalar::scalar(10.0))]);
+///
+/// let builder = add_ncf_buildup(builder, "noi", &["capex"], "ncf")?;
+/// let model = builder.build()?;
+/// assert!(model.nodes.contains_key("ncf"));
+/// # Ok(())
+/// # }
+/// ```
 pub fn add_ncf_buildup(
     builder: ModelBuilder<Ready>,
     noi_node: &str,
@@ -170,6 +221,32 @@ impl SimpleLeaseSpec {
     ///
     /// Returns an error if the node id is empty, or if numeric fields are non-finite
     /// or outside their supported ranges.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when the lease fields are structurally valid.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements_analytics::templates::real_estate::SimpleLeaseSpec;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let lease = SimpleLeaseSpec {
+    ///     node_id: "tenant_a".to_string(),
+    ///     start: PeriodId::quarter(2025, 1),
+    ///     end: None,
+    ///     base_rent: 25_000.0,
+    ///     growth_rate: 0.01,
+    ///     free_rent_periods: 0,
+    ///     occupancy: 1.0,
+    /// };
+    ///
+    /// lease.validate()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn validate(&self) -> Result<()> {
         if self.node_id.trim().is_empty() {
             return Err(Error::build(
@@ -353,6 +430,29 @@ impl RenewalSpec {
     /// Returns an error if probability or rent factor are non-finite, if
     /// probability is outside `[0, 1]`, or if the renewal term/rent factor are
     /// not positive.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when the renewal fields are structurally valid.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements_analytics::templates::real_estate::RenewalSpec;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let renewal = RenewalSpec {
+    ///     downtime_periods: 1,
+    ///     term_periods: 4,
+    ///     probability: 0.75,
+    ///     rent_factor: 1.05,
+    ///     free_rent_periods: 1,
+    /// };
+    ///
+    /// renewal.validate()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn validate(&self) -> Result<()> {
         if self.term_periods == 0 {
             return Err(Error::build(
@@ -441,6 +541,39 @@ impl LeaseSpec {
     ///
     /// Returns an error if numeric fields are non-finite, if occupancy is outside
     /// `[0, 1]`, if the node id is empty, or if nested renewal data is invalid.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when the lease fields are structurally valid. Period-grid
+    /// checks are performed by [`add_rent_roll`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements_analytics::templates::real_estate::{
+    ///     LeaseGrowthConvention, LeaseSpec,
+    /// };
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let lease = LeaseSpec {
+    ///     node_id: "tenant_a".to_string(),
+    ///     start: PeriodId::quarter(2025, 1),
+    ///     end: Some(PeriodId::quarter(2025, 4)),
+    ///     base_rent: 25_000.0,
+    ///     growth_rate: 0.0,
+    ///     growth_convention: LeaseGrowthConvention::PerPeriod,
+    ///     rent_steps: vec![],
+    ///     free_rent_periods: 0,
+    ///     free_rent_windows: vec![],
+    ///     occupancy: 1.0,
+    ///     renewal: None,
+    /// };
+    ///
+    /// lease.validate()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn validate(&self) -> Result<()> {
         if self.node_id.trim().is_empty() {
             return Err(Error::build(
@@ -552,6 +685,38 @@ fn apply_free_window(is_free: &mut [bool], start_idx: usize, len: u32) -> Result
 /// # References
 ///
 /// - Property cashflow and fixed-income style discounting context: `docs/REFERENCES.md#hull-options-futures`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::PeriodId;
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_statements_analytics::templates::real_estate::{
+///     add_rent_roll, LeaseGrowthConvention, LeaseSpec, RentRollOutputNodes,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let builder = ModelBuilder::new("property").periods("2025Q1..Q4", None)?;
+/// let lease = LeaseSpec {
+///     node_id: "tenant_a".to_string(),
+///     start: PeriodId::quarter(2025, 1),
+///     end: Some(PeriodId::quarter(2025, 4)),
+///     base_rent: 25_000.0,
+///     growth_rate: 0.0,
+///     growth_convention: LeaseGrowthConvention::PerPeriod,
+///     rent_steps: vec![],
+///     free_rent_periods: 1,
+///     free_rent_windows: vec![],
+///     occupancy: 1.0,
+///     renewal: None,
+/// };
+///
+/// let builder = add_rent_roll(builder, &[lease], &RentRollOutputNodes::default())?;
+/// let model = builder.build()?;
+/// assert!(model.nodes.contains_key("rent_effective"));
+/// # Ok(())
+/// # }
+/// ```
 pub fn add_rent_roll(
     builder: ModelBuilder<Ready>,
     leases: &[LeaseSpec],
@@ -957,6 +1122,54 @@ impl Default for PropertyTemplateNodes {
 /// # References
 ///
 /// - Property cashflow and discounting context: `docs/REFERENCES.md#hull-options-futures`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::PeriodId;
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_statements::types::AmountOrScalar;
+/// use finstack_statements_analytics::templates::real_estate::{
+///     add_property_operating_statement, LeaseGrowthConvention, LeaseSpec,
+///     ManagementFeeBase, ManagementFeeSpec, PropertyTemplateNodes,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let period = PeriodId::quarter(2025, 1);
+/// let builder = ModelBuilder::new("property")
+///     .periods("2025Q1..Q4", None)?
+///     .value("parking_income", &[(period, AmountOrScalar::scalar(5_000.0))])
+///     .value("repairs", &[(period, AmountOrScalar::scalar(8_000.0))])
+///     .value("capex", &[(period, AmountOrScalar::scalar(10_000.0))]);
+/// let lease = LeaseSpec {
+///     node_id: "tenant_a".to_string(),
+///     start: PeriodId::quarter(2025, 1),
+///     end: Some(PeriodId::quarter(2025, 4)),
+///     base_rent: 25_000.0,
+///     growth_rate: 0.0,
+///     growth_convention: LeaseGrowthConvention::PerPeriod,
+///     rent_steps: vec![],
+///     free_rent_periods: 0,
+///     free_rent_windows: vec![],
+///     occupancy: 1.0,
+///     renewal: None,
+/// };
+/// let fee = ManagementFeeSpec { rate: 0.03, base: ManagementFeeBase::Egi };
+///
+/// let builder = add_property_operating_statement(
+///     builder,
+///     &[lease],
+///     &["parking_income"],
+///     &["repairs"],
+///     &["capex"],
+///     Some(fee),
+///     &PropertyTemplateNodes::default(),
+/// )?;
+/// let model = builder.build()?;
+/// assert!(model.nodes.contains_key("ncf"));
+/// # Ok(())
+/// # }
+/// ```
 pub fn add_property_operating_statement(
     mut builder: ModelBuilder<Ready>,
     leases: &[LeaseSpec],

@@ -95,11 +95,25 @@ impl Evaluator {
     /// and you need instrument pricing. For models without capital structure, call
     /// [`Evaluator::evaluate`] instead.
     ///
+    /// # As-of visibility
+    ///
+    /// The `as_of` date is also the explicit-value visibility cutoff. Explicit
+    /// values on actual periods are visible only when `period.start <= as_of`.
+    /// Actual periods that start after `as_of` keep their place in the model
+    /// timeline, but their explicit values are hidden and the evaluator resolves
+    /// the node through forecast or formula fallbacks using the normal precedence
+    /// rules. This avoids leaking future actuals while preserving the current
+    /// actual period when the as-of date is on or after that period's start.
+    ///
+    /// `actuals_until` still controls which periods are classified as actuals.
+    /// `as_of` only controls whether explicit values in those actual periods are
+    /// visible during this evaluation run.
+    ///
     /// # Arguments
     ///
     /// * `model` - The financial model specification
     /// * `market_ctx` - Market context for pricing instruments
-    /// * `as_of` - Valuation date for pricing
+    /// * `as_of` - Valuation date for pricing and explicit-value visibility
     ///
     /// # Returns
     ///

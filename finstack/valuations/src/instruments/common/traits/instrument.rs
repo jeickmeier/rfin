@@ -508,7 +508,7 @@ pub trait Instrument: CashflowProvider + Send + Sync {
     /// Compute the scenario-adjusted present value.
     ///
     /// Default implementation invokes [`Instrument::base_value`] and applies any
-    /// active [`ScenarioPricingOverrides`] exactly once. Instruments should not
+    /// active [`crate::instruments::ScenarioPricingOverrides`] exactly once. Instruments should not
     /// override this method; implement pricing logic in `base_value` instead.
     ///
     /// # Arguments

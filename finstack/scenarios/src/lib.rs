@@ -82,11 +82,11 @@
 //!
 //! # Documentation Conventions
 //!
-//! Public APIs in `finstack-scenarios` follow the workspace documentation standard in
-//! `docs/DOCUMENTATION_STANDARD.md`. Finance-sensitive APIs state units and market
-//! conventions explicitly, including percent versus basis-point inputs, compounding,
-//! day-count handling, and calendar behavior. When an API follows a canonical market
-//! convention or numerical method, its rustdoc links to `docs/REFERENCES.md`.
+//! Public APIs in `finstack-scenarios` document units and market conventions
+//! explicitly, including percent versus basis-point inputs, compounding,
+//! day-count handling, and calendar behavior. When an API follows a canonical
+//! market convention or numerical method, its rustdoc links to
+//! `docs/REFERENCES.md`.
 
 /// Adaptations for scenario execution across domains.
 pub mod adapters;

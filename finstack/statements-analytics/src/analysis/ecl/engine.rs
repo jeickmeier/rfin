@@ -126,12 +126,39 @@ impl Default for EclConfig {
 /// Validates configuration on `build()`:
 /// - Scenario weights must sum to 1.0 (within 1e-6 tolerance)
 /// - Bucket width must be positive
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_statements_analytics::analysis::ecl::{
+///     EclConfigBuilder, LgdType, MacroScenario,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let config = EclConfigBuilder::new()
+///     .bucket_width(0.25)
+///     .scenarios(vec![
+///         MacroScenario { id: "base".to_string(), weight: 0.7, lgd_override: None },
+///         MacroScenario { id: "downside".to_string(), weight: 0.3, lgd_override: Some(0.55) },
+///     ])
+///     .lgd_type(LgdType::PointInTime)
+///     .build()?;
+///
+/// assert_eq!(config.scenarios.len(), 2);
+/// # Ok(())
+/// # }
+/// ```
 pub struct EclConfigBuilder {
     config: EclConfig,
 }
 
 impl EclConfigBuilder {
     /// Create a new builder with default configuration.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with quarterly buckets, one 100% base scenario,
+    /// default IFRS 9 staging thresholds, and point-in-time LGD.
     pub fn new() -> Self {
         Self {
             config: EclConfig::default(),
@@ -139,36 +166,85 @@ impl EclConfigBuilder {
     }
 
     /// Set the time bucket width in years.
+    ///
+    /// # Arguments
+    ///
+    /// * `years` - Width of each ECL integration bucket in years.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn bucket_width(mut self, years: f64) -> Self {
         self.config.bucket_width_years = years;
         self
     }
 
     /// Set the staging configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `staging` - IFRS 9 staging thresholds and curing settings.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn staging(mut self, staging: StagingConfig) -> Self {
         self.config.staging = staging;
         self
     }
 
     /// Replace all scenarios.
+    ///
+    /// # Arguments
+    ///
+    /// * `scenarios` - Complete probability-weighted macro scenario set.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn scenarios(mut self, scenarios: Vec<MacroScenario>) -> Self {
         self.config.scenarios = scenarios;
         self
     }
 
     /// Add a single scenario.
+    ///
+    /// # Arguments
+    ///
+    /// * `scenario` - Scenario to append to the existing scenario set.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn add_scenario(mut self, scenario: MacroScenario) -> Self {
         self.config.scenarios.push(scenario);
         self
     }
 
     /// Set the LGD methodology.
+    ///
+    /// # Arguments
+    ///
+    /// * `lgd_type` - LGD methodology label to store in the configuration.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn lgd_type(mut self, lgd_type: LgdType) -> Self {
         self.config.lgd_type = lgd_type;
         self
     }
 
     /// Validate and build the configuration.
+    ///
+    /// # Returns
+    ///
+    /// A validated [`EclConfig`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when scenario weights do not sum to 1.0, when bucket
+    /// width is not positive, or when no scenarios are configured.
     pub fn build(self) -> Result<EclConfig> {
         let total_weight: f64 = self.config.scenarios.iter().map(|s| s.weight).sum();
         if (total_weight - 1.0).abs() > 1e-6 {
@@ -276,6 +352,51 @@ pub struct ExposureEclResult {
 /// * `stage` -- Assigned IFRS 9 stage (determines ECL horizon)
 /// * `pd_source` -- PD term structure for the exposure's rating
 /// * `config` -- ECL calculation parameters
+///
+/// # Returns
+///
+/// An [`EclResult`] with the total ECL, measurement horizon, and bucket-level
+/// contribution detail.
+///
+/// # Errors
+///
+/// Returns an error if exposure validation fails or if the PD source cannot
+/// provide a cumulative PD for the exposure rating and horizon.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_statements_analytics::analysis::ecl::{
+///     compute_ecl_single, EclConfig, Exposure, QualitativeFlags, RawPdCurve, Stage,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let exposure = Exposure {
+///     id: "loan-1".to_string(),
+///     segments: vec![],
+///     ead: 100_000.0,
+///     eir: 0.05,
+///     remaining_maturity_years: 1.0,
+///     lgd: 0.40,
+///     days_past_due: 0,
+///     current_rating: Some("BBB".to_string()),
+///     origination_rating: Some("BBB".to_string()),
+///     qualitative_flags: QualitativeFlags::default(),
+///     consecutive_performing_periods: 0,
+///     previous_stage: None,
+/// };
+/// let pd_curve = RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 0.02)])?;
+///
+/// let result = compute_ecl_single(&exposure, Stage::Stage1, &pd_curve, &EclConfig::default())?;
+/// assert!(result.ecl > 0.0);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # References
+///
+/// - IFRS 9 B5.5.28-33 -- Measurement of expected credit losses.
+/// - Duffie & Singleton (2003), *Credit Risk: Pricing, Measurement and Management*.
 pub fn compute_ecl_single(
     exposure: &Exposure,
     stage: Stage,
@@ -349,12 +470,66 @@ pub fn compute_ecl_single(
 /// * `stage` -- Assigned IFRS 9 stage
 /// * `pd_sources` -- Slice of (scenario, PD source) pairs
 /// * `config` -- ECL calculation parameters
+///
+/// # Returns
+///
+/// A [`WeightedEclResult`] containing the probability-weighted ECL and each
+/// scenario's individual result.
+///
+/// # Errors
+///
+/// Returns an error if `pd_sources` is empty, if exposure validation fails, or
+/// if any scenario PD source cannot provide cumulative PDs for the exposure.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_statements_analytics::analysis::ecl::{
+///     compute_ecl_weighted, EclConfig, Exposure, MacroScenario, PdTermStructure,
+///     QualitativeFlags, RawPdCurve, Stage,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let exposure = Exposure {
+///     id: "loan-1".to_string(),
+///     segments: vec![],
+///     ead: 100_000.0,
+///     eir: 0.05,
+///     remaining_maturity_years: 1.0,
+///     lgd: 0.40,
+///     days_past_due: 0,
+///     current_rating: Some("BBB".to_string()),
+///     origination_rating: Some("BBB".to_string()),
+///     qualitative_flags: QualitativeFlags::default(),
+///     consecutive_performing_periods: 0,
+///     previous_stage: None,
+/// };
+/// let pd_curve = RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 0.02)])?;
+/// let scenario = MacroScenario { id: "base".to_string(), weight: 1.0, lgd_override: None };
+/// let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> =
+///     vec![(&scenario, &pd_curve)];
+///
+/// let result = compute_ecl_weighted(&exposure, Stage::Stage1, &pd_sources, &EclConfig::default())?;
+/// assert_eq!(result.scenario_breakdown.len(), 1);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # References
+///
+/// - IFRS 9 B5.5.42 -- Probability-weighted scenarios.
 pub fn compute_ecl_weighted(
     exposure: &Exposure,
     stage: Stage,
     pd_sources: &[(&MacroScenario, &dyn PdTermStructure)],
     config: &EclConfig,
 ) -> Result<WeightedEclResult> {
+    if pd_sources.is_empty() {
+        return Err(Error::Validation(
+            "At least one PD source is required for weighted ECL".to_string(),
+        ));
+    }
+
     let mut weighted_ecl = 0.0;
     let mut scenario_results = Vec::with_capacity(pd_sources.len());
 
@@ -385,6 +560,26 @@ pub fn compute_ecl_weighted(
 ///
 /// Holds configuration and PD sources, provides a single entry point for
 /// portfolio-level ECL computation.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_statements_analytics::analysis::ecl::{
+///     EclConfig, EclEngine, MacroScenario, PdTermStructure, RawPdCurve,
+/// };
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let config = EclConfig::default();
+/// let scenario = MacroScenario { id: "base".to_string(), weight: 1.0, lgd_override: None };
+/// let pd_curve = RawPdCurve::new("BBB", vec![(0.0, 0.0), (1.0, 0.02)])?;
+/// let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> =
+///     vec![(&scenario, &pd_curve)];
+///
+/// let engine = EclEngine::new(config, pd_sources);
+/// assert_eq!(engine.config().scenarios.len(), 1);
+/// # Ok(())
+/// # }
+/// ```
 pub struct EclEngine<'a> {
     config: EclConfig,
     pd_sources: Vec<(&'a MacroScenario, &'a dyn PdTermStructure)>,
@@ -395,6 +590,21 @@ impl<'a> EclEngine<'a> {
     ///
     /// The first element in `pd_sources` is used as the base scenario for
     /// stage classification.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - ECL bucket, staging, scenario, and LGD settings.
+    /// * `pd_sources` - Probability-weighted macro scenarios paired with their
+    ///   PD term structures.
+    ///
+    /// # Returns
+    ///
+    /// An engine that can classify exposures and compute weighted ECL.
+    ///
+    /// # Errors
+    ///
+    /// Construction does not validate `pd_sources`; [`Self::process_exposure`]
+    /// returns an error if the source list is empty.
     pub fn new(
         config: EclConfig,
         pd_sources: Vec<(&'a MacroScenario, &'a dyn PdTermStructure)>,
@@ -403,9 +613,28 @@ impl<'a> EclEngine<'a> {
     }
 
     /// Classify and compute ECL for a single exposure.
+    ///
+    /// # Arguments
+    ///
+    /// * `exposure` - Exposure to stage and measure.
+    ///
+    /// # Returns
+    ///
+    /// A combined staging and probability-weighted ECL result.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the engine has no PD sources, if staging fails, or
+    /// if ECL calculation fails for any scenario.
     pub fn process_exposure(&self, exposure: &Exposure) -> Result<ExposureEclResult> {
         // Use base scenario PD for staging
-        let base_pd = self.pd_sources[0].1;
+        let base_pd = self
+            .pd_sources
+            .first()
+            .map(|(_, pd_source)| *pd_source)
+            .ok_or_else(|| {
+                Error::Validation("At least one PD source is required for EclEngine".to_string())
+            })?;
         let stage_result = classify_stage(exposure, base_pd, &self.config.staging)?;
         let ecl_result =
             compute_ecl_weighted(exposure, stage_result.stage, &self.pd_sources, &self.config)?;
@@ -416,6 +645,10 @@ impl<'a> EclEngine<'a> {
     }
 
     /// Access the engine's configuration.
+    ///
+    /// # Returns
+    ///
+    /// The validated configuration stored by the engine.
     pub fn config(&self) -> &EclConfig {
         &self.config
     }
@@ -670,5 +903,24 @@ mod tests {
 
         assert_eq!(result.stage_result.stage, Stage::Stage1);
         assert!(result.ecl_result.ecl > 0.0);
+    }
+
+    #[test]
+    fn test_compute_ecl_weighted_rejects_empty_pd_sources() {
+        let exposure = make_exposure();
+        let pd_sources: Vec<(&MacroScenario, &dyn PdTermStructure)> = Vec::new();
+        let result =
+            compute_ecl_weighted(&exposure, Stage::Stage1, &pd_sources, &EclConfig::default());
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ecl_engine_rejects_empty_pd_sources() {
+        let engine = EclEngine::new(EclConfig::default(), Vec::new());
+        let exposure = make_exposure();
+        let result = engine.process_exposure(&exposure);
+
+        assert!(result.is_err());
     }
 }

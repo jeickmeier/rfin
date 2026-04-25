@@ -126,8 +126,8 @@
 //!
 //! # See Also
 //!
-//! - [`crate::instruments::traits::Instrument`] for the core instrument trait
-//! - [`crate::instruments::traits::Attributes`] for tagging and scenario selection
+//! - [`crate::instruments::Instrument`] for the core instrument trait
+//! - [`crate::instruments::Attributes`] for tagging and scenario selection
 //! - [`crate::pricer`] for pricing registry and dispatch
 //! - [`crate::metrics`] for risk metric calculations
 //!

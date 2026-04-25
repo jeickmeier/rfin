@@ -90,6 +90,28 @@ pub struct CorporateAnalysisBuilder {
 
 impl CorporateAnalysisBuilder {
     /// Create a new builder for the given financial model.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - Statement model to evaluate and analyze.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no market context, no DCF valuation, and `"ebitda"` as
+    /// the default credit coverage node.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements_analytics::analysis::CorporateAnalysisBuilder;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("demo").periods("2025Q1..Q1", None)?.build()?;
+    /// let _builder = CorporateAnalysisBuilder::new(model);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(model: FinancialModelSpec) -> Self {
         Self {
             model,
@@ -104,6 +126,15 @@ impl CorporateAnalysisBuilder {
     ///
     /// This context is forwarded both to statement evaluation and to DCF
     /// valuation if equity analysis is enabled.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - Market data context to use during statement evaluation and
+    ///   valuation.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn market(mut self, ctx: MarketContext) -> Self {
         self.market = Some(ctx);
         self
@@ -113,6 +144,14 @@ impl CorporateAnalysisBuilder {
     ///
     /// The date controls market-context lookups during evaluation. It does not
     /// change the model's discrete period grid.
+    ///
+    /// # Arguments
+    ///
+    /// * `date` - Valuation date for market-context lookups.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn as_of(mut self, date: Date) -> Self {
         self.as_of = Some(date);
         self
@@ -121,6 +160,30 @@ impl CorporateAnalysisBuilder {
     /// Configure DCF equity valuation with default options.
     ///
     /// `wacc` uses decimal form, so `0.10` means `10%`.
+    ///
+    /// # Arguments
+    ///
+    /// * `wacc` - Weighted-average cost of capital in decimal form.
+    /// * `terminal_value` - Terminal value methodology for the DCF bridge.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder with equity valuation enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements_analytics::analysis::CorporateAnalysisBuilder;
+    /// use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("demo").periods("2025Q1..Q4", None)?.build()?;
+    /// let _builder = CorporateAnalysisBuilder::new(model)
+    ///     .dcf(0.10, TerminalValueSpec::GordonGrowth { growth_rate: 0.02 });
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn dcf(mut self, wacc: f64, terminal_value: TerminalValueSpec) -> Self {
         self.equity_mode = Some(EquityMode::Dcf {
             wacc,
@@ -135,6 +198,16 @@ impl CorporateAnalysisBuilder {
     /// Configure DCF equity valuation with custom options.
     ///
     /// `wacc` uses decimal form, so `0.10` means `10%`.
+    ///
+    /// # Arguments
+    ///
+    /// * `wacc` - Weighted-average cost of capital in decimal form.
+    /// * `terminal_value` - Terminal value methodology for the DCF bridge.
+    /// * `options` - DCF extraction and discounting options.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder with equity valuation enabled.
     pub fn dcf_with_options(
         mut self,
         wacc: f64,
@@ -155,6 +228,15 @@ impl CorporateAnalysisBuilder {
     ///
     /// Must be called after [`Self::dcf`] or [`Self::dcf_with_options`]; has no
     /// effect otherwise.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing unlevered free cash flow.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder. If DCF has not been configured, the builder is
+    /// returned unchanged.
     pub fn dcf_node(mut self, node: &str) -> Self {
         if let Some(EquityMode::Dcf {
             ref mut ufcf_node, ..
@@ -169,6 +251,15 @@ impl CorporateAnalysisBuilder {
     ///
     /// Must be called after [`Self::dcf`] or [`Self::dcf_with_options`]; has no
     /// effect otherwise.
+    ///
+    /// # Arguments
+    ///
+    /// * `net_debt` - Net debt amount to subtract from enterprise value.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder. If DCF has not been configured, the builder is
+    /// returned unchanged.
     pub fn net_debt_override(mut self, net_debt: f64) -> Self {
         if let Some(EquityMode::Dcf {
             net_debt_override: ref mut nd,
@@ -184,6 +275,14 @@ impl CorporateAnalysisBuilder {
     ///
     /// The selected node is used as the numerator in DSCR and interest-coverage
     /// calculations.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Statement node id to use as the coverage numerator.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn coverage_node(mut self, node: &str) -> Self {
         self.coverage_node = node.to_string();
         self
@@ -214,6 +313,27 @@ impl CorporateAnalysisBuilder {
     ///
     /// - Discounting context for DCF outputs: `docs/REFERENCES.md#hull-options-futures`
     /// - Coverage and leverage interpretation: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements::types::AmountOrScalar;
+    /// use finstack_statements_analytics::analysis::CorporateAnalysisBuilder;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let period = PeriodId::quarter(2025, 1);
+    /// let model = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q1", None)?
+    ///     .value("ebitda", &[(period, AmountOrScalar::scalar(100.0))])
+    ///     .build()?;
+    ///
+    /// let analysis = CorporateAnalysisBuilder::new(model).analyze()?;
+    /// assert!(analysis.equity.is_none());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn analyze(self) -> Result<CorporateAnalysis> {
         // Step 1: Evaluate statement
         let mut evaluator = finstack_statements::evaluator::Evaluator::new();

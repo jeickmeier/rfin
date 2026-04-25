@@ -19,36 +19,26 @@ surface that exists today rather than a wishlist of future products.
 
 ## Feature Flags
 
-| Flag | Purpose |
-|------|---------|
-| `parallel` | Enables Rayon-backed parallel path simulation. This is part of the default feature set. |
-| `mc` | Enables the broader Monte Carlo surface: Sobol/QMC, Heston/CIR/Hull-White/Bates/jump models, path-dependent pricers, Greeks, and the advanced variance-reduction modules. |
-
-Without `mc`, the crate still supports vanilla GBM-style pricing with
-`PhiloxRng`, exact discretization, core engine traits, and vanilla payoffs.
+This crate currently declares no optional Cargo features. Rayon-backed parallel
+simulation and the full model/pricer/payoff surface are compiled by default.
 
 ## Public Surface
 
-### Always available
+### Public modules
 
 - `engine`: `McEngine`, `McEngineConfig`, path-capture configuration
 - `traits`: `RandomStream`, `StochasticProcess`, `Discretization`, `Payoff`, `PathState`
 - `rng::philox`: deterministic pseudo-random generator with splittable streams
-- `process`: GBM, Brownian, multi-GBM, multi-OU, process metadata helpers
+- `rng::sobol`, `rng::poisson`, and Brownian-bridge utilities
+- `process`: GBM, Brownian, multi-GBM, multi-OU, Heston, CIR,
+  Hull-White / Vasicek, Bates, Merton jump diffusion, Schwartz-Smith, LMM,
+  rough Bergomi, rough Heston, Cheyette rough-rate, and process metadata helpers
 - `discretization`: exact GBM and related exact schemes
-- `payoff::vanilla`: European call/put, digital, forward
+- `payoff`: European, Asian, barrier, basket, lookback, digital, and forward payoffs
+- `pricer`: European, path-dependent, Longstaff-Schwartz LSMC, and regression basis helpers
+- `greeks`: pathwise, likelihood-ratio, and finite-difference estimators
+- `variance_reduction`: antithetic, control variate, moment matching, and importance sampling
 - `results`, `estimate`, `paths`, `time_grid`, `online_stats`
-
-### Requires `mc`
-
-- `rng::sobol`, `rng::poisson`
-- `process`: Heston, CIR, Hull-White / Vasicek, Bates, Merton jump diffusion,
-  Schwartz-Smith
-- `discretization`: Euler, Milstein, QE-CIR, QE-Heston, jump-Euler,
-  exact Hull-White, exact Schwartz-Smith
-- `payoff`: Asian, barrier, basket, lookback
-- `pricer`: path-dependent pricing, Longstaff-Schwartz LSMC, regression basis functions
-- `greeks`, `seed`, moment matching, importance sampling, barrier corrections
 
 ## Conventions
 
@@ -76,7 +66,8 @@ let engine = McEngine::builder()
     .expect("valid Monte Carlo configuration");
 
 let rng = PhiloxRng::new(7);
-let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+let process = GbmProcess::with_params(0.03, 0.01, 0.20)
+    .expect("valid GBM parameters");
 let disc = ExactGbm::new();
 let payoff = EuropeanCall::new(100.0, 1.0, 252);
 let discount_factor = (-0.03_f64).exp();

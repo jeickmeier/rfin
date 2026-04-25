@@ -16,7 +16,7 @@
 //! use finstack_valuations::instruments::fixed_income::bond_future::{
 //!     BondFuture, BondFutureSpecs, DeliverableBond, Position,
 //! };
-//! use finstack_valuations::instruments::common_impl::traits::Attributes;
+//! use finstack_valuations::instruments::Attributes;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::types::{InstrumentId, CurveId};

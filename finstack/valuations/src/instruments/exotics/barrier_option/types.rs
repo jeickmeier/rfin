@@ -35,6 +35,22 @@ impl std::fmt::Display for BarrierType {
     }
 }
 
+/// One-line conversion from the valuations-side `BarrierType` to the
+/// `finstack_monte_carlo` payoff enum. Replaces three identical
+/// `convert_barrier_type` helpers that previously lived in
+/// `exotics/barrier_option/{pricer,heston_mc_pricer}.rs` and
+/// `fx/fx_barrier_option/pricer.rs`.
+impl From<BarrierType> for finstack_monte_carlo::payoff::barrier::BarrierType {
+    fn from(bt: BarrierType) -> Self {
+        match bt {
+            BarrierType::UpAndOut => Self::UpAndOut,
+            BarrierType::UpAndIn => Self::UpAndIn,
+            BarrierType::DownAndOut => Self::DownAndOut,
+            BarrierType::DownAndIn => Self::DownAndIn,
+        }
+    }
+}
+
 impl std::str::FromStr for BarrierType {
     type Err = String;
 

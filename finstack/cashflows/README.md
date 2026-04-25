@@ -256,9 +256,11 @@ assert!(aggregated.contains_key(&PeriodId::quarter(2025, 1)));
 Schedule-level PV helpers are the stable public interface in this crate.
 
 ```rust,no_run
+use finstack_cashflows::aggregation::DateContext;
 use finstack_cashflows::builder::CashFlowSchedule;
+use finstack_cashflows::builder::{PvCreditAdjustment, PvDiscountSource};
 use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
-use finstack_core::market_data::traits::Discounting;
+use finstack_core::market_data::traits::{Discounting, Survival};
 
 fn periodized_pv(
     schedule: &CashFlowSchedule,
@@ -266,22 +268,39 @@ fn periodized_pv(
     disc: &dyn Discounting,
     base: Date,
 ) -> finstack_core::Result<()> {
-    let pv_map = schedule.pv_by_period_with_ctx(
+    let pv_map = schedule.pv_by_period(
         periods,
-        disc,
-        base,
-        DayCount::Act365F,
-        DayCountContext::default(),
+        PvDiscountSource::Discount { disc, credit: None },
+        DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
+    )?;
+
+    let _ = pv_map;
+    Ok(())
+}
+
+fn credit_adjusted_periodized_pv(
+    schedule: &CashFlowSchedule,
+    periods: &[Period],
+    disc: &dyn Discounting,
+    hazard: &dyn Survival,
+    base: Date,
+) -> finstack_core::Result<()> {
+    let pv_map = schedule.pv_by_period(
+        periods,
+        PvDiscountSource::Discount {
+            disc,
+            credit: Some(PvCreditAdjustment {
+                hazard: Some(hazard),
+                recovery_rate: Some(0.40),
+            }),
+        },
+        DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
     )?;
 
     let _ = pv_map;
     Ok(())
 }
 ```
-
-If you need credit-adjusted PV, use
-`CashFlowSchedule::pv_by_period_with_market_and_ctx` or
-`CashFlowSchedule::pv_by_period_with_survival_and_ctx`.
 
 ### Implement `CashflowProvider`
 
@@ -327,7 +346,7 @@ impl CashflowProvider for FixedBondLike {
                 end_of_month: false,
                 payment_lag_days: 0,
             })
-            .build()
+            .build_with_curves(None)
     }
 }
 ```

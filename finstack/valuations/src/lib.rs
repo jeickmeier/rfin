@@ -230,8 +230,9 @@
 //! - [`crate::attribution`]: P&L attribution analysis
 //! - [`crate::covenants`]: Covenant checking for structured products
 //! - [`crate::cashflow`]: Advanced cashflow schedule builders
-//! - [`crate::instruments::common`]: Shared traits, parameters, schedules, models,
-//!   and MC primitives
+//! - [`crate::instruments`]: Shared traits and parameters, plus the
+//!   [`crate::instruments::pricing`] and [`crate::instruments::models`]
+//!   submodules for reusable schedules, pricing helpers, models, and MC primitives
 //! - [`crate::market`]: Market quote schemas and conventions
 //! - [`crate::calibration::bumps`]: Shared re-calibration helpers for scenarios
 //!

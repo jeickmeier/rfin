@@ -56,6 +56,17 @@ pub(crate) fn compute_conversion_value(bond: &ConvertibleBond, spot: f64) -> Res
                     lower_conversion_price, upper_conversion_price
                 )));
             }
+            // Reject inverted bounds. Without this guard the three-regime payoff
+            // below collapses degenerately (no `lower < spot <= upper` regime
+            // can fire) and produces NaN-adjacent values that propagate
+            // silently into PV. Data-entry inversion at trade capture is the
+            // most likely source.
+            if *lower_conversion_price > *upper_conversion_price {
+                return Err(Error::Validation(format!(
+                    "MandatoryVariable conversion bounds inverted: lower={lower_conversion_price} \
+                     must be <= upper={upper_conversion_price}"
+                )));
+            }
             let face = bond.notional.amount();
             if spot <= *lower_conversion_price {
                 Ok((face / lower_conversion_price) * spot)
@@ -312,6 +323,12 @@ impl ConvertibleBondValuator {
                 return Err(Error::Validation(format!(
                     "Conversion prices must be positive: lower={}, upper={}",
                     lower_conversion_price, upper_conversion_price
+                )));
+            }
+            if *lower_conversion_price > *upper_conversion_price {
+                return Err(Error::Validation(format!(
+                    "MandatoryVariable conversion bounds inverted: lower={lower_conversion_price} \
+                     must be <= upper={upper_conversion_price}"
                 )));
             }
         }
@@ -1593,5 +1610,49 @@ mod tests {
             "30/360 accrued should be reasonable: {}",
             accrued
         );
+    }
+
+    #[test]
+    fn mandatory_variable_inverted_bounds_rejected_at_pricing() {
+        // Data-entry inversion: lower > upper. Without the new guard, the
+        // three-regime payoff in compute_conversion_value would silently fall
+        // into the wrong branch and produce non-monotone PV. Pricing must
+        // reject up front with a Validation error naming both bounds.
+        let mut bond = create_test_bond();
+        let conversion_date =
+            Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+        bond.conversion.policy = ConversionPolicy::MandatoryVariable {
+            conversion_date,
+            upper_conversion_price: 80.0,  // intentionally < lower
+            lower_conversion_price: 120.0, // intentionally > upper
+        };
+
+        let market = create_test_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+
+        let err = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(50), as_of)
+            .expect_err("inverted bounds must be rejected");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("inverted") && msg.contains("120") && msg.contains("80"),
+            "error must name the inverted bounds, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn mandatory_variable_inverted_bounds_rejected_in_compute_conversion_value() {
+        // Direct call site (used at-maturity early-exit and reachable from
+        // greeks recomputation).
+        let mut bond = create_test_bond();
+        let conversion_date =
+            Date::from_calendar_date(2030, Month::January, 1).expect("valid date");
+        bond.conversion.policy = ConversionPolicy::MandatoryVariable {
+            conversion_date,
+            upper_conversion_price: 50.0,
+            lower_conversion_price: 200.0,
+        };
+        let err =
+            compute_conversion_value(&bond, 100.0).expect_err("inverted bounds must be rejected");
+        assert!(format!("{err}").contains("inverted"));
     }
 }

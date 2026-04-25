@@ -13,7 +13,7 @@
 //!   match with a catch-all `_` pattern for forward compatibility
 //! - **Fuzzy suggestions**: Missing curve errors include similar IDs based on
 //!   edit distance to guide users toward corrections
-//! - **Serializable**: All error types support `serde` when the feature is enabled
+//! - **Serializable**: All error types support serde wire formats
 //!
 //! # Error Categories
 //!

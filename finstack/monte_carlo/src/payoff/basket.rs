@@ -47,8 +47,6 @@ pub enum BasketType {
 ///
 /// A call option where the underlying is a basket of multiple assets.
 /// The basket value is computed according to the `basket_type`.
-///
-/// See unit tests and `examples/` for usage.
 #[derive(Debug, Clone)]
 pub struct BasketCall {
     /// Strike price

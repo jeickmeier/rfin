@@ -102,7 +102,7 @@ pub fn rolling_var_forecasts(
         VarMethod::Parametric => |w, c| crate::risk_metrics::parametric_var(w, c, None),
         VarMethod::CornishFisher => |w, c| crate::risk_metrics::cornish_fisher_var(w, c, None),
     };
-    if returns.len() <= lookback {
+    if lookback == 0 || returns.len() <= lookback {
         return (Vec::new(), Vec::new());
     }
     let n = returns.len() - lookback;
@@ -197,6 +197,14 @@ mod unit_tests {
         let returns = vec![-0.01; 5];
         let (forecasts, realized) =
             rolling_var_forecasts(&returns, 10, 0.99, VarMethod::Historical);
+        assert!(forecasts.is_empty());
+        assert!(realized.is_empty());
+    }
+
+    #[test]
+    fn rolling_var_forecasts_zero_lookback_empty() {
+        let returns = vec![-0.01, 0.02, -0.03];
+        let (forecasts, realized) = rolling_var_forecasts(&returns, 0, 0.99, VarMethod::Historical);
         assert!(forecasts.is_empty());
         assert!(realized.is_empty());
     }

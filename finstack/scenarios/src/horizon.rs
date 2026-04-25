@@ -157,10 +157,19 @@ impl HorizonAnalysis {
     /// analysis is a pure mark-to-scenario (carry will be zero, `horizon_days`
     /// will be `None`).
     ///
+    /// Horizon analysis supports market-state scenarios. It rejects operations
+    /// that mutate the instrument collection itself, including instrument
+    /// price/spread shocks and structured-credit correlation shocks, because
+    /// attribution prices the same instrument instance at both `t0` and `t1`.
+    /// Apply those instrument-scoped changes before calling this method, or use
+    /// a market-only horizon scenario.
+    ///
     /// # Errors
     ///
     /// Returns an error if scenario application or attribution fails (e.g.
-    /// missing market data for a curve referenced in the spec).
+    /// missing market data for a curve referenced in the spec), or if the
+    /// scenario contains an instrument-scoped operation unsupported by horizon
+    /// attribution.
     pub fn compute(
         &self,
         instrument: &Arc<dyn Instrument>,

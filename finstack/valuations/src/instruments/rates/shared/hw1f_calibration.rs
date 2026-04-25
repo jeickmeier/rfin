@@ -4,9 +4,9 @@
 //! 1. Explicit overrides in `PricingOverrides.model_config` (keys `hw1f_kappa`, `hw1f_sigma`).
 //! 2. Calibrated from the instrument's swaption vol surface (if provided). Not
 //!    yet implemented — providing a `vol_surface_id` without explicit
-//!    overrides returns [`Error::Calibration`] so callers cannot silently
+//!    overrides returns `finstack_core::Error::Calibration` so callers cannot silently
 //!    receive default parameters when they expect calibration.
-//! 3. [`HullWhiteParams::default()`] when neither overrides nor surface are
+//! 3. `HullWhiteParams::default()` when neither overrides nor surface are
 //!    provided, with a `tracing::warn!` log.
 
 // NOTE: swaption::pricer::HullWhiteParams is used (not
@@ -32,7 +32,7 @@ pub struct Hw1fResolveRequest<'a> {
 /// Resolve HW1F parameters following the documented precedence.
 ///
 /// Never returns an error for the "no surface + no overrides" case; instead
-/// emits a `tracing::warn!` and returns [`HullWhiteParams::default()`].
+/// emits a `tracing::warn!` and returns `HullWhiteParams::default()`.
 /// An error is only returned when overrides are malformed.
 ///
 /// `_market` is currently unused and reserved for the surface-calibration

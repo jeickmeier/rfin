@@ -419,7 +419,7 @@ impl BermudanSwaptionPricer {
 
     /// Require calibrated Hull-White parameters before pricing.
     ///
-    /// When set, [`pricing a Bermudan swaption`](Self::price) returns
+    /// When set, [`pricing a Bermudan swaption`](Self::price_dyn) returns
     /// `Err(PricingError::ModelFailure { .. })` if the pricer holds the
     /// uncalibrated `HullWhiteParams::default()` (κ=3%, σ=1%) *and* no
     /// pre-calibrated model has been supplied via

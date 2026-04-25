@@ -86,6 +86,24 @@ impl DefaultModelSpec {
     }
 
     /// Constant CDR (no curve).
+    ///
+    /// # Arguments
+    ///
+    /// * `cdr` - Annual constant default rate as a decimal share.
+    ///
+    /// # Returns
+    ///
+    /// Default model with no seasoning curve.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::DefaultModelSpec;
+    ///
+    /// let spec = DefaultModelSpec::constant_cdr(0.02);
+    /// assert!(spec.mdr(12)? > 0.0);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn constant_cdr(cdr: f64) -> Self {
         Self { cdr, curve: None }
     }
@@ -94,6 +112,29 @@ impl DefaultModelSpec {
     ///
     /// The implementation ramps annual CDR to a 6% peak by month 30, then
     /// decays linearly to a 3% terminal annual CDR by month 60.
+    ///
+    /// # Arguments
+    ///
+    /// * `speed_multiplier` - SDA speed multiplier, where `1.0` means 100% SDA.
+    ///
+    /// # Returns
+    ///
+    /// Default model using the SDA seasoning curve.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::DefaultModelSpec;
+    ///
+    /// let spec = DefaultModelSpec::sda(1.0);
+    /// assert!(spec.mdr(30)? > spec.mdr(1)?);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-cds-standard-model`
+    /// - `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn sda(speed_multiplier: f64) -> Self {
         Self {
             cdr: 0.03, // 100% SDA terminal rate
@@ -102,6 +143,23 @@ impl DefaultModelSpec {
     }
 
     /// 2% CDR (common baseline).
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Default model equivalent to [`Self::constant_cdr`] with `cdr = 0.02`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::DefaultModelSpec;
+    ///
+    /// let spec = DefaultModelSpec::cdr_2pct();
+    /// assert_eq!(spec.cdr, 0.02);
+    /// ```
     pub fn cdr_2pct() -> Self {
         Self::constant_cdr(0.02)
     }

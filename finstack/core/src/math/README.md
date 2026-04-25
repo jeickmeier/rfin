@@ -1,6 +1,6 @@
 ## Math Module (core)
 
-The `math` module in `finstack-core` provides **deterministic numerical building blocks** used across curves, cashflows, valuations, scenarios, and portfolio analytics. It focuses on **stable floating‑point algorithms** and **finance‑oriented utilities**, avoiding heap allocations where possible and keeping behavior deterministic (especially under the `deterministic` feature).
+The `math` module in `finstack-core` provides **deterministic numerical building blocks** used across curves, cashflows, valuations, scenarios, and portfolio analytics. It focuses on **stable floating‑point algorithms** and **finance‑oriented utilities**, avoiding heap allocations where possible and keeping behavior deterministic.
 
 - **Root finding and optimization**: 1D and multi‑dimensional solvers for pricing and calibration
 - **Integration and interpolation**: Quadrature rules and curve interpolation for term structures

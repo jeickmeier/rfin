@@ -62,19 +62,61 @@
 //!
 //! # Examples
 //!
-//! ```rust,no_run
-//! use finstack_monte_carlo::process::gbm::{GbmProcess, GbmParams};
+//! ```rust
+//! use finstack_monte_carlo::process::gbm::GbmProcess;
+//! use finstack_monte_carlo::traits::StochasticProcess;
 //!
-//! let params = GbmParams::new(
+//! let gbm = GbmProcess::with_params(
 //!     0.05,  // r = 5% risk-free rate
 //!     0.02,  // q = 2% dividend yield
-//!     0.20,  // σ = 20% volatility
+//!     0.20,  // sigma = 20% volatility
+//! )
+//! .unwrap();
+//!
+//! let mut drift = [0.0];
+//! let mut diffusion = [0.0];
+//! gbm.drift(0.0, &[100.0], &mut drift);
+//! gbm.diffusion(0.0, &[100.0], &mut diffusion);
+//!
+//! assert_eq!(gbm.dim(), 1);
+//! assert!((drift[0] - 3.0).abs() < 1e-12);
+//! assert!((diffusion[0] - 20.0).abs() < 1e-12);
+//! ```
+//!
+//! Full pricing example:
+//!
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
+//! use finstack_monte_carlo::prelude::*;
+//!
+//! let engine = McEngine::builder()
+//!     .num_paths(10_000)
+//!     .uniform_grid(1.0, 252)
+//!     .parallel(false)
+//!     .build()
+//!     .unwrap();
+//! let rng = PhiloxRng::new(42);
+//!
+//! let gbm = GbmProcess::with_params(
+//!     0.05,  // r = 5% risk-free rate
+//!     0.02,  // q = 2% dividend yield
+//!     0.20,  // sigma = 20% volatility
 //! ).unwrap();
+//! let disc = ExactGbm::new();
+//! let payoff = EuropeanCall::new(100.0, 1.0, 252);
+//! let result = engine
+//!     .price(
+//!         &rng,
+//!         &gbm,
+//!         &disc,
+//!         &[100.0],
+//!         &payoff,
+//!         Currency::USD,
+//!         (-0.05_f64).exp(),
+//!     )
+//!     .unwrap();
 //!
-//! let gbm = GbmProcess::new(params);
-//!
-//! // Use in MC engine for path generation
-//! // let paths = engine.generate_paths(&gbm, spot, time_grid)?;
+//! assert!(result.mean.amount().is_finite());
 //! ```
 
 use super::super::paths::ProcessParams;

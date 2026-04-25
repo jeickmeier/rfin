@@ -13,11 +13,60 @@ pub struct RecoveryModelSpec {
 
 impl RecoveryModelSpec {
     /// Standard recovery with lag.
+    ///
+    /// # Arguments
+    ///
+    /// * `rate` - Recovery rate as a decimal share in `[0.0, 1.0]`.
+    /// * `recovery_lag` - Number of months between default and recovery cashflow.
+    ///
+    /// # Returns
+    ///
+    /// Recovery model with the supplied rate and lag. Call
+    /// [`validate`](Self::validate) for range checking.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::RecoveryModelSpec;
+    ///
+    /// let spec = RecoveryModelSpec::with_lag(0.40, 12);
+    /// spec.validate()?;
+    /// assert_eq!(spec.recovery_lag, 12);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-cds-standard-model`
     pub fn with_lag(rate: f64, recovery_lag: u32) -> Self {
         Self { rate, recovery_lag }
     }
 
     /// Standard recovery with lag using a typed percentage.
+    ///
+    /// # Arguments
+    ///
+    /// * `rate` - Recovery rate as a typed percentage.
+    /// * `recovery_lag` - Number of months between default and recovery cashflow.
+    ///
+    /// # Returns
+    ///
+    /// Recovery model with the supplied rate converted to decimal form.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::RecoveryModelSpec;
+    /// use finstack_core::types::Percentage;
+    ///
+    /// let spec = RecoveryModelSpec::with_lag_pct(Percentage::new(40.0), 6);
+    /// assert_eq!(spec.rate, 0.40);
+    /// assert_eq!(spec.recovery_lag, 6);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-cds-standard-model`
     pub fn with_lag_pct(rate: Percentage, recovery_lag: u32) -> Self {
         Self {
             rate: rate.as_decimal(),

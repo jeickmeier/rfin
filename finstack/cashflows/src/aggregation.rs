@@ -2,8 +2,8 @@
 //!
 //! # Rounding Policy
 //!
-//! PV aggregation functions (`pv_by_period_with_ctx` and
-//! `pv_by_period_credit_adjusted_detailed`) apply per-flow rounding: each
+//! PV aggregation functions (including
+//! [`crate::builder::CashFlowSchedule::pv_by_period`]) apply per-flow rounding: each
 //! cashflow's PV is rounded at `Money::new` ingestion (using
 //! currency-specific ISO-4217 minor units and bankers rounding), then
 //! summed using exact currency-safe arithmetic. This ensures determinism
@@ -451,8 +451,7 @@ fn credit_adjusted_period_pv(cf: &CashFlow, df: f64, sp: f64, recovery_rate: Opt
 ///
 /// * [`AtPaymentDate`](Self::AtPaymentDate) — recovery is assumed paid on the
 ///   scheduled payment date `T`. This is the closed-form "end-of-interval"
-///   approximation and is the historical default. See
-///   [`credit_adjusted_period_pv`].
+///   approximation and is the historical default.
 /// * [`AtDefaultIntegrated`](Self::AtDefaultIntegrated) — recovery is
 ///   integrated over the interval `(T_prev, T]` using the ISDA "default at
 ///   midpoint" closed form: the expected default mass `sp(T_prev) − sp(T)`
@@ -500,7 +499,8 @@ fn time_discount_survival(
 
 /// Currency-preserving aggregation of cashflow present values by period with credit adjustment and recovery support.
 ///
-/// Like [`pv_by_period_with_ctx`], but works on full `CashFlow` objects (preserving `CFKind`) and supports credit adjustment + recovery.
+/// Like [`crate::builder::CashFlowSchedule::pv_by_period`], but works on full
+/// `CashFlow` objects (preserving `CFKind`) and supports credit adjustment + recovery.
 /// This allows applying recovery rates to principal flows while assuming zero recovery for interest flows.
 ///
 /// # Recovery Logic

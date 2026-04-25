@@ -12,7 +12,7 @@ use num_complex::Complex64;
 /// phi(u, t) = exp(iu * omega * t) * (1 - iu * theta * nu + 0.5 * sigma^2 * nu * u^2)^{-t/nu}
 ///
 /// where omega = (1/nu) * ln(1 - theta * nu - 0.5 * sigma^2 * nu) is the
-/// convexity correction ensuring E[S_T] = S_0 * exp((r-q)*T).
+/// convexity correction ensuring `E[S_T] = S_0 * exp((r-q)*T)`.
 ///
 /// # Parameter validity
 ///

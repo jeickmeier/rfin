@@ -6,10 +6,10 @@
 //!
 //! 1. **Forward pass.** For each path the harness runs the full simulation
 //!    and records per-path the deterministic PV reported by
-//!    [`Payoff::value`], as well as the short-rate and the inactive flag
+//!    [`finstack_monte_carlo::traits::Payoff::value`], as well as the short-rate and the inactive flag
 //!    at each exercise date.
 //! 2. **Backward pass.** Starting from maturity, the harness regresses
-//!    continuation values via [`solve_least_squares`] against the
+//!    continuation values via [`finstack_monte_carlo::pricer::lsq::solve_least_squares`] against the
 //!    [`standard_basis`] (ITM + active paths only) and rolls the per-path
 //!    cashflow vector back, overwriting `cashflow[p]` with the call value
 //!    whenever exercise is optimal.
@@ -17,7 +17,7 @@
 //!    as the LSMC PV estimate together with a 95% confidence interval.
 //!
 //! Product payoffs implement [`ExerciseBoundaryPayoff`] (a supertrait of
-//! [`Payoff`]); the harness is entirely agnostic to the product-specific
+//! [`finstack_monte_carlo::traits::Payoff`]); the harness is entirely agnostic to the product-specific
 //! cashflow logic.
 //!
 //! # In-sample upward bias
@@ -82,7 +82,7 @@ impl RateExoticHw1fLsmcPricer {
     /// increasing, if `exercise_times` are not a subset of `event_times`,
     /// if `call_prices` length does not match `exercise_times`, or if the
     /// time-grid construction fails. Propagates errors from
-    /// [`solve_least_squares`].
+    /// [`finstack_monte_carlo::pricer::lsq::solve_least_squares`].
     pub fn price<F, P>(&self, payoff_factory: F) -> Result<MoneyEstimate>
     where
         F: Fn() -> P + Sync,

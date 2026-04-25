@@ -1183,7 +1183,11 @@ def black_scholes_call(
     vol: float,
     expiry: float,
 ) -> float:
-    """Black–Scholes European call price (undiscounted payoff convention in Rust).
+    """Black–Scholes European call present value under GBM.
+
+    Uses continuously compounded ``rate`` and ``div_yield`` with volatility
+    quoted in decimal form. This is a closed-form option price, not a raw
+    terminal payoff.
 
     Args:
         spot: Spot.
@@ -1194,7 +1198,7 @@ def black_scholes_call(
         expiry: Time to maturity.
 
     Returns:
-        Call price.
+        Present value of the European call.
 
     Example:
         >>> from finstack.monte_carlo import black_scholes_call
@@ -1211,7 +1215,11 @@ def black_scholes_put(
     vol: float,
     expiry: float,
 ) -> float:
-    """Black–Scholes European put price.
+    """Black–Scholes European put present value under GBM.
+
+    Uses continuously compounded ``rate`` and ``div_yield`` with volatility
+    quoted in decimal form. This is a closed-form option price, not a raw
+    terminal payoff.
 
     Args:
         spot: Spot.
@@ -1222,7 +1230,7 @@ def black_scholes_put(
         expiry: Time to maturity.
 
     Returns:
-        Put price.
+        Present value of the European put.
 
     Example:
         >>> from finstack.monte_carlo import black_scholes_put

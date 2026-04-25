@@ -7,18 +7,20 @@
 //!
 //! # Components
 //!
-//! - [`copula`]: Copula models for default correlation (Gaussian, Student-t, RFL, Multi-factor)
-//! - [`recovery`]: Recovery rate models (constant, market-correlated)
-//! - [`factor_model`]: Factor models for correlated behavior
+//! - [`crate::correlation::copula`]: Copula models for default correlation (Gaussian, Student-t, RFL, Multi-factor)
+//! - [`crate::correlation::recovery`]: Recovery rate models (constant, market-correlated)
+//! - [`crate::correlation::factor_model`]: Factor models for correlated behavior
 //!
-//! Joint probability utilities ([`CorrelatedBernoulli`], [`correlation_bounds`],
-//! [`joint_probabilities`]) are re-exported from [`finstack_core::math::probability`].
+//! Joint probability utilities ([`crate::correlation::CorrelatedBernoulli`],
+//! [`crate::correlation::correlation_bounds`],
+//! [`crate::correlation::joint_probabilities`]) are re-exported from
+//! [`finstack_core::math::probability`].
 //!
 //! # Utilities
 //!
-//! - [`factor_model::validate_correlation_matrix`]: Validate correlation matrices
-//! - [`factor_model::cholesky_decompose`]: Cholesky decomposition for correlated factor generation
-//! - [`correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
+//! - [`crate::correlation::validate_correlation_matrix`]: Validate correlation matrices
+//! - [`crate::correlation::cholesky_decompose`]: Cholesky decomposition for correlated factor generation
+//! - [`crate::correlation::correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
 //!
 //! # Conventions
 //!

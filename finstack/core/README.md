@@ -35,12 +35,11 @@ The main crate-local documentation lives in the module READMEs under `src/`:
 - `src/money/README.md`
 - `src/types/README.md`
 
-## Features
+## Cargo Features
 
-| Feature | Default | Purpose |
-|---|---|---|
-| `tracing` | yes | Enables tracing instrumentation hooks used by higher-level crates and tools. |
-| `golden` | no | Enables helpers used by golden-test workflows. |
+`finstack-core` currently defines no crate-local Cargo features. Shared
+capabilities such as serde wire formats, tracing calls, and golden-test helpers
+are compiled as part of the crate.
 
 ## Typical Usage
 
@@ -55,7 +54,7 @@ Or consume it through the umbrella crate:
 
 ```toml
 [dependencies]
-finstack = { path = "../finstack", features = ["core"] }
+finstack = { path = "../finstack" }
 ```
 
 ## Where It Fits
@@ -73,8 +72,10 @@ behavior:
 
 ```bash
 cargo fmt -p finstack-core
-cargo clippy -p finstack-core --all-targets --all-features -- -D warnings
+cargo clippy -p finstack-core --all-targets -- -D warnings
 cargo test -p finstack-core
+RUSTDOCFLAGS="-D warnings" cargo doc -p finstack-core --no-deps
+cargo test -p finstack-core --doc
 ```
 
 ## License

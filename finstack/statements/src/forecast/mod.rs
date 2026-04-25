@@ -64,7 +64,7 @@ use finstack_core::dates::PeriodId;
 ///
 /// Use this for the standalone deterministic forecast path. Statistical
 /// methods use the seed recorded in `spec.params`. Monte Carlo evaluation
-/// calls [`apply_forecast_seeded`] to layer an additional per-path seed.
+/// layers an additional per-path seed internally.
 ///
 /// # Arguments
 ///

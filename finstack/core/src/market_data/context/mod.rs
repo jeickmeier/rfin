@@ -16,9 +16,11 @@
 //! - **Public surface**: `new`, `insert_*`, typed getters (`get_discount`, `surface`,
 //!   `price`, `series`, etc.), scenario helpers (`bump`, scratch bump tokens),
 //!   stats (`stats`) and serde states (`CurveState`, `MarketContextState`).
-//! - **Advanced plumbing**: [`CurveStorage`] is intentionally public because
-//!   scenario adapters and snapshot serde use it across crate boundaries, but
-//!   most callers should prefer the typed insert/getter methods.
+//! - **Advanced plumbing**:
+//!   [`CurveStorage`][crate::market_data::context::CurveStorage] is
+//!   intentionally public because scenario adapters and snapshot serde use it
+//!   across crate boundaries, but most callers should prefer the typed
+//!   insert/getter methods.
 //! - **Internal details**: map layout, caches, and rebind mechanics are not a
 //!   stable API. Prefer the public methods above for all access and mutation.
 //!
@@ -67,7 +69,7 @@ pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 ///
 /// Returned by operations that can invalidate credit indices or change
 /// context state in non-obvious ways. Always populated regardless of
-/// whether the `tracing` feature is enabled.
+/// subscriber configuration.
 #[derive(Clone, Debug, Default)]
 pub struct ContextMutationInfo {
     /// Credit indices that were invalidated and removed because their

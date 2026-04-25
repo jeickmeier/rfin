@@ -27,13 +27,13 @@ Top‑level modules in `finstack/core/src`:
   aggregating market data. See `market_data/README.md`.
 - **`math/`**: Interpolation framework, root‑finding solvers, integration, statistics, random numbers,
   summation utilities, and basic linear algebra. See `math/README.md`.
-- **`expr/`**: Expression engine (AST, planner, evaluator) with scalar and Polars‑lowered execution paths.
+- **`expr/`**: Expression engine (AST, planner, evaluator) with scalar DAG and cached execution paths.
   See `expr/README.md`.
 - **`cashflow/`**: Cashflow primitives, discounting helpers, XIRR/IRR, and performance utilities.
   See `cashflow/README.md`.
 - **`types/`**: Newtype identifiers (`CurveId`, `InstrumentId`, etc.), rate types, ratings, and shared
   scalar types. See `types/README.md`.
-- **`volatility.rs`**: Volatility conventions and conversion helpers.
+- **`math/volatility/`**: Volatility models, conversion helpers, and option pricing formulas.
 - **`error.rs`**: Unified error type (`Error`) and input/validation error variants; re‑exported as
   `finstack_core::Error`.
 - **`explain.rs`**: Explainability infrastructure for tracing and annotating computations.
@@ -118,7 +118,7 @@ fn main() -> finstack_core::Result<()> {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (5.0, 0.9)])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()?;
 
     let df_3y = curve.df(3.0);
@@ -149,8 +149,8 @@ The high‑level process is:
   - **Determinism**: serial ≡ parallel; avoid time‑dependent behavior and randomness.
   - **Currency‑safety**: never perform implicit FX; require an `FxProvider`/`FxMatrix` and document
     `FxConversionPolicy`.
-  - **Serde stability**: for new public types, either derive `Serialize`/`Deserialize` behind the
-    `serde` feature or introduce `*State`/`*Spec` DTOs with `to_state`/`from_state` helpers.
+  - **Serde stability**: for new public types, either derive `Serialize`/`Deserialize` with stable
+    field names or introduce `*State`/`*Spec` DTOs with `to_state`/`from_state` helpers.
   - **Type safety**: prefer newtype IDs from `types::id` (`CurveId`, `InstrumentId`, etc.) over raw
     `String`.
 

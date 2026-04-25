@@ -36,9 +36,12 @@
 //! # Relationship to covenants
 //!
 //! The covenant engine ([`finstack_valuations::covenants`]) accepts any
-//! scalar time-series via [`ModelTimeSeries`]; plugging the output of
-//! [`AdjustedNetDebtSpec::compute_series`] into a covenant with the
-//! [`CovenantType::MaxDebtToEBITDA`] variant produces a fully-adjusted
+//! scalar time-series via
+//! [`ModelTimeSeries`](finstack_valuations::covenants::ModelTimeSeries);
+//! plugging the output of [`AdjustedNetDebtSpec::compute_series`] into a
+//! covenant with the
+//! [`CovenantType::MaxDebtToEBITDA`](finstack_valuations::covenants::CovenantType::MaxDebtToEBITDA)
+//! variant produces a fully-adjusted
 //! leverage forecast without changing the covenant engine itself.
 //!
 //! A full `AdjustedNetDebt`-typed node in `FinancialModelSpec` is
@@ -59,6 +62,34 @@ use serde::{Deserialize, Serialize};
 /// [`StatementResult`] at each period; missing optional nodes default
 /// to zero so callers with partial models can still produce a defined
 /// "Net Debt = Debt − Cash" figure.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::PeriodId;
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_statements::evaluator::Evaluator;
+/// use finstack_statements::types::AmountOrScalar;
+/// use finstack_statements_analytics::analysis::credit::AdjustedNetDebtSpec;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let period = PeriodId::quarter(2025, 1);
+/// let model = ModelBuilder::new("credit-model")
+///     .periods("2025Q1..Q1", None)?
+///     .value("debt", &[(period, AmountOrScalar::scalar(1_000.0))])
+///     .value("cash", &[(period, AmountOrScalar::scalar(200.0))])
+///     .build()?;
+/// let mut evaluator = Evaluator::new();
+/// let results = evaluator.evaluate(&model)?;
+///
+/// let spec = AdjustedNetDebtSpec::builder("debt".into())
+///     .cash("cash".into())
+///     .build();
+///
+/// assert_eq!(spec.compute(&results, &period), Some(800.0));
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdjustedNetDebtSpec {
     /// Total debt node (mandatory).
@@ -86,6 +117,27 @@ pub struct AdjustedNetDebtSpec {
 
 impl AdjustedNetDebtSpec {
     /// Start a fluent builder configured with the mandatory total-debt node.
+    ///
+    /// # Arguments
+    ///
+    /// * `total_debt_node` - Node id containing total balance-sheet debt.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the mandatory debt node and no optional
+    /// adjustments.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements_analytics::analysis::credit::AdjustedNetDebtSpec;
+    ///
+    /// let spec = AdjustedNetDebtSpec::builder("debt".into())
+    ///     .cash("cash".into())
+    ///     .build();
+    ///
+    /// assert_eq!(spec.total_debt_node, "debt");
+    /// ```
     #[must_use]
     pub fn builder(total_debt_node: NodeId) -> AdjustedNetDebtSpecBuilder {
         AdjustedNetDebtSpecBuilder {
@@ -106,6 +158,50 @@ impl AdjustedNetDebtSpec {
     /// Returns `None` if the mandatory `total_debt_node` is missing at
     /// the requested period — the metric is undefined without a debt
     /// anchor. All other missing nodes default to zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `results` - Evaluated statement result containing the configured
+    ///   component nodes.
+    /// * `period` - Period at which to compute adjusted net debt.
+    ///
+    /// # Returns
+    ///
+    /// `Some(adjusted_net_debt)` when the mandatory debt node is present, or
+    /// `None` when total debt is missing for the requested period.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements::evaluator::Evaluator;
+    /// use finstack_statements::types::AmountOrScalar;
+    /// use finstack_statements_analytics::analysis::credit::AdjustedNetDebtSpec;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let period = PeriodId::quarter(2025, 1);
+    /// let model = ModelBuilder::new("credit-model")
+    ///     .periods("2025Q1..Q1", None)?
+    ///     .value("debt", &[(period, AmountOrScalar::scalar(1_000.0))])
+    ///     .value("cash", &[(period, AmountOrScalar::scalar(150.0))])
+    ///     .value("leases", &[(period, AmountOrScalar::scalar(50.0))])
+    ///     .build()?;
+    /// let mut evaluator = Evaluator::new();
+    /// let results = evaluator.evaluate(&model)?;
+    /// let spec = AdjustedNetDebtSpec::builder("debt".into())
+    ///     .cash("cash".into())
+    ///     .operating_lease_debt("leases".into())
+    ///     .build();
+    ///
+    /// assert_eq!(spec.compute(&results, &period), Some(900.0));
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - Rating-agency adjusted leverage convention: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn compute(&self, results: &StatementResult, period: &PeriodId) -> Option<f64> {
         let debt = results.get(self.total_debt_node.as_str(), period)?;
 
@@ -137,6 +233,56 @@ impl AdjustedNetDebtSpec {
     /// Returns an [`IndexMap<PeriodId, f64>`] preserving the period
     /// ordering from the evaluator. Periods where total debt is missing
     /// are omitted from the output.
+    ///
+    /// # Arguments
+    ///
+    /// * `results` - Evaluated statement result containing the configured
+    ///   component nodes.
+    ///
+    /// # Returns
+    ///
+    /// A period-indexed adjusted-net-debt series. The series is empty when the
+    /// mandatory total-debt node is absent from the result set.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::PeriodId;
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_statements::evaluator::Evaluator;
+    /// use finstack_statements::types::AmountOrScalar;
+    /// use finstack_statements_analytics::analysis::credit::AdjustedNetDebtSpec;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let q1 = PeriodId::quarter(2025, 1);
+    /// let q2 = PeriodId::quarter(2025, 2);
+    /// let model = ModelBuilder::new("credit-model")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .value("debt", &[
+    ///         (q1, AmountOrScalar::scalar(1_000.0)),
+    ///         (q2, AmountOrScalar::scalar(900.0)),
+    ///     ])
+    ///     .value("cash", &[
+    ///         (q1, AmountOrScalar::scalar(100.0)),
+    ///         (q2, AmountOrScalar::scalar(125.0)),
+    ///     ])
+    ///     .build()?;
+    /// let mut evaluator = Evaluator::new();
+    /// let results = evaluator.evaluate(&model)?;
+    /// let spec = AdjustedNetDebtSpec::builder("debt".into())
+    ///     .cash("cash".into())
+    ///     .build();
+    ///
+    /// let series = spec.compute_series(&results);
+    /// assert_eq!(series.get(&q1), Some(&900.0));
+    /// assert_eq!(series.get(&q2), Some(&775.0));
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - Rating-agency adjusted leverage convention: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     #[must_use]
     pub fn compute_series(&self, results: &StatementResult) -> IndexMap<PeriodId, f64> {
         let mut series = IndexMap::new();
@@ -160,6 +306,14 @@ pub struct AdjustedNetDebtSpecBuilder {
 
 impl AdjustedNetDebtSpecBuilder {
     /// Configure the cash / cash-equivalent node to subtract.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing cash and cash equivalents.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[must_use]
     pub fn cash(mut self, node: NodeId) -> Self {
         self.spec.cash_node = Some(node);
@@ -167,6 +321,15 @@ impl AdjustedNetDebtSpecBuilder {
     }
 
     /// Configure the marketable-securities node to subtract.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing marketable securities or short-term
+    ///   investments.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[must_use]
     pub fn marketable_securities(mut self, node: NodeId) -> Self {
         self.spec.marketable_securities_node = Some(node);
@@ -174,6 +337,14 @@ impl AdjustedNetDebtSpecBuilder {
     }
 
     /// Configure the capitalized-operating-lease node to add.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing capitalized operating lease debt.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[must_use]
     pub fn operating_lease_debt(mut self, node: NodeId) -> Self {
         self.spec.operating_lease_debt_node = Some(node);
@@ -181,6 +352,14 @@ impl AdjustedNetDebtSpecBuilder {
     }
 
     /// Configure the pension-deficit node to add.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing the unfunded pension deficit.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[must_use]
     pub fn pension_deficit(mut self, node: NodeId) -> Self {
         self.spec.pension_deficit_node = Some(node);
@@ -188,6 +367,14 @@ impl AdjustedNetDebtSpecBuilder {
     }
 
     /// Append an additional debt-like addition node.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing another debt-like obligation to add.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[must_use]
     pub fn add_other_addition(mut self, node: NodeId) -> Self {
         self.spec.other_additions.push(node);
@@ -195,6 +382,15 @@ impl AdjustedNetDebtSpecBuilder {
     }
 
     /// Append an additional subtraction node.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - Node id containing another liquid-asset or adjustment item
+    ///   to subtract.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[must_use]
     pub fn add_other_subtraction(mut self, node: NodeId) -> Self {
         self.spec.other_subtractions.push(node);
@@ -202,6 +398,22 @@ impl AdjustedNetDebtSpecBuilder {
     }
 
     /// Finalize the spec.
+    ///
+    /// # Returns
+    ///
+    /// The completed [`AdjustedNetDebtSpec`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_statements_analytics::analysis::credit::AdjustedNetDebtSpec;
+    ///
+    /// let spec = AdjustedNetDebtSpec::builder("debt".into())
+    ///     .cash("cash".into())
+    ///     .build();
+    ///
+    /// assert_eq!(spec.cash_node.as_ref().map(|node| node.as_str()), Some("cash"));
+    /// ```
     #[must_use]
     pub fn build(self) -> AdjustedNetDebtSpec {
         self.spec

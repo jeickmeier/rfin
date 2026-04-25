@@ -108,10 +108,20 @@ impl GarchParams {
             GarchFamily::Egarch11 => None,
             GarchFamily::Garch11 | GarchFamily::GjrGarch11 => {
                 let p = self.persistence();
-                if p >= 1.0 || p <= 0.0 {
+                if !self.omega.is_finite()
+                    || self.omega <= 0.0
+                    || !p.is_finite()
+                    || p >= 1.0
+                    || p <= 0.0
+                {
                     return None;
                 }
-                Some(self.omega / (1.0 - p))
+                let variance = self.omega / (1.0 - p);
+                if variance.is_finite() && variance > 0.0 {
+                    Some(variance)
+                } else {
+                    None
+                }
             }
         }
     }
@@ -122,7 +132,7 @@ impl GarchParams {
     #[must_use]
     pub fn half_life(&self) -> Option<f64> {
         let p = self.persistence();
-        if p <= 0.0 || p >= 1.0 {
+        if !p.is_finite() || p <= 0.0 || p >= 1.0 {
             return None;
         }
         Some(2.0_f64.ln() / (-p.ln()))
@@ -652,7 +662,8 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use super::{variance_targeted_omega, GarchFamily};
+    use super::{variance_targeted_omega, GarchFamily, GarchParams};
+    use crate::timeseries::InnovationDist;
 
     #[test]
     fn variance_targeting_matches_garch_family() {
@@ -669,5 +680,44 @@ mod tests {
 
         let egarch = variance_targeted_omega(GarchFamily::Egarch11, sample_var, alpha, beta, gamma);
         assert!((egarch - sample_var.ln() * (1.0 - beta)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn unconditional_variance_rejects_invalid_symmetric_params() {
+        let params = GarchParams {
+            omega: -0.00001,
+            alpha: 0.05,
+            beta: 0.90,
+            gamma: None,
+            dist: InnovationDist::Gaussian,
+            family: GarchFamily::Garch11,
+            mean: 0.0,
+        };
+        assert!(params.unconditional_variance().is_none());
+
+        let params = GarchParams {
+            omega: f64::NAN,
+            alpha: 0.05,
+            beta: 0.90,
+            gamma: None,
+            dist: InnovationDist::Gaussian,
+            family: GarchFamily::Garch11,
+            mean: 0.0,
+        };
+        assert!(params.unconditional_variance().is_none());
+    }
+
+    #[test]
+    fn half_life_rejects_non_finite_persistence() {
+        let params = GarchParams {
+            omega: 0.00001,
+            alpha: f64::NAN,
+            beta: 0.90,
+            gamma: None,
+            dist: InnovationDist::Gaussian,
+            family: GarchFamily::Garch11,
+            mean: 0.0,
+        };
+        assert!(params.half_life().is_none());
     }
 }

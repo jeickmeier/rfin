@@ -81,7 +81,8 @@ let engine = McEngine::builder()
     .expect("valid Monte Carlo configuration");
 
 let rng = PhiloxRng::new(7);
-let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+let process = GbmProcess::with_params(0.03, 0.01, 0.20)
+    .expect("valid GBM parameters");
 let disc = ExactGbm::new();
 let payoff = EuropeanCall::new(100.0, 1.0, 252);
 let discount_factor = (-0.03_f64).exp();
@@ -128,7 +129,8 @@ let engine = McEngine::builder()
     .expect("valid Monte Carlo configuration");
 
 let rng = PhiloxRng::new(11);
-let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+let process = GbmProcess::with_params(0.03, 0.01, 0.20)
+    .expect("valid GBM parameters");
 let disc = ExactGbm::new();
 let payoff = EuropeanCall::new(100.0, 1.0, 12);
 let discount_factor = (-0.03_f64).exp();
@@ -184,7 +186,7 @@ It constructs a time grid, `PhiloxRng`, `ExactGbm`, and `McEngine` internally.
 
 ### Processes
 
-Always available:
+All process modules are compiled by default:
 
 - `process::gbm`
 - `process::brownian`
@@ -192,9 +194,6 @@ Always available:
 - `process::multi_ou`
 - `process::correlation`
 - `process::metadata`
-
-Available with `mc`:
-
 - `process::heston`
 - `process::cir`
 - `process::ou`
@@ -208,13 +207,10 @@ Available with `mc`:
 
 ### Discretization schemes
 
-Always available:
+All discretization modules are compiled by default:
 
 - `discretization::exact`
 - `discretization::exact_gbm_dividends`
-
-Available with `mc`:
-
 - `discretization::euler`
 - `discretization::milstein`
 - `discretization::qe_heston`
@@ -229,17 +225,14 @@ Available with `mc`:
 
 ### Payoffs and pricers
 
-Always available:
+All payoff and pricer modules are compiled by default:
 
 - `payoff::vanilla`
-- `pricer::european`
-
-Available with `mc`:
-
 - `payoff::asian`
 - `payoff::barrier`
 - `payoff::basket`
 - `payoff::lookback`
+- `pricer::european`
 - `pricer::path_dependent`
 - `pricer::lsmc`
 - `pricer::basis`
@@ -297,8 +290,8 @@ Parallel execution has a few important constraints:
   `PhiloxRng` is the intended default for this case.
 - Sobol / quasi-random generators do not support stream splitting, so they must
   be used in serial mode.
-- The default feature set includes `parallel`, but you can still request serial
-  execution per run.
+- Rayon-backed parallel execution is compiled in by default, but you can still
+  request serial execution per run.
 - A `chunk_size` of `1000` means "use the engine's adaptive chunking heuristic".
 
 ## Runtime Constraints and Unsupported Combinations
@@ -393,8 +386,7 @@ From the workspace root:
 
 ```bash
 cargo test -p finstack-monte-carlo
-cargo test -p finstack-monte-carlo --features mc
-cargo test -p finstack-monte-carlo --features mc -- --ignored
+cargo test -p finstack-monte-carlo -- --ignored
 cargo doc -p finstack-monte-carlo --no-deps
 ```
 

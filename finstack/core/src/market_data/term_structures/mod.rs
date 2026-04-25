@@ -53,7 +53,7 @@
 //! ## Choosing an interpolation style
 //! All curves are bootstrapped from knot points and allow selecting an
 //! [`crate::math::interp::InterpStyle`] via a builder method such as
-//! `interp(...)` or `set_interp(...)`, depending on the curve type.
+//! `interp(...)`.
 //!
 //! # Conventions
 //!

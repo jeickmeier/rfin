@@ -30,8 +30,10 @@ use std::vec::Vec;
 ///
 /// # Fields
 ///
-/// - `plan`: Optional pre-built execution plan (overrides compiled plan)
+/// - `plan`: Internal optional pre-built execution plan, exposed through
+///   [`EvalOpts::has_plan`].
 /// - `cache_budget_mb`: Optional cache size in megabytes
+/// - `max_arena_bytes`: Maximum scratch arena allocation in bytes
 ///
 /// # Examples
 ///
@@ -44,11 +46,8 @@ use std::vec::Vec;
 /// let expr = CompiledExpr::new(Expr::column("x"));
 ///
 /// // Evaluate with custom cache
-/// let opts = EvalOpts {
-///     plan: None,
-///     cache_budget_mb: Some(16),
-///     max_arena_bytes: 1_073_741_824,
-/// };
+/// let mut opts = EvalOpts::default();
+/// opts.cache_budget_mb = Some(16);
 /// let out = expr.eval(&ctx, &cols, opts).expect("column lookup should succeed");
 /// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```

@@ -162,7 +162,7 @@ pub enum ValuationDetails {
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValuationResult {
-    /// Wire-format schema version (see [`VALUATION_RESULT_SCHEMA_VERSION`]).
+    /// Wire-format schema version (see `VALUATION_RESULT_SCHEMA_VERSION`).
     ///
     /// Written into every serialized payload so downstream consumers can
     /// detect schema mismatches when reading persisted results. Defaults to

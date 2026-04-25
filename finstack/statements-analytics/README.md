@@ -25,14 +25,10 @@ Core capabilities:
 | Price instruments, run covenant engines, and perform market-based valuation work | `finstack-valuations` |
 | Use dates, money, curves, and other foundational types | `finstack-core` |
 
-## Feature Flags
+## Verification
 
-| Feature | Effect | Operational note |
-|---------|--------|------------------|
-| `default` | Core analytics runtime | Suitable for most statement-analysis flows |
-| `parallel` | Forwards parallel Monte Carlo support from `finstack-statements` | Useful when scenario or Monte Carlo workflows need Rayon-backed execution |
-
-Recommended verification matrix:
+This crate does not currently define crate-local Cargo feature flags. The
+standard verification target is:
 
 ```bash
 cargo test -p finstack-statements-analytics

@@ -1,8 +1,7 @@
 //! Numerical helpers: root finding, summation, statistics, distributions, and mathematical functions.
 //!
-//! The implementations avoid heap allocation where possible. When the
-//! `deterministic` feature is enabled, functions prefer numerically stable,
-//! order-preserving algorithms.
+//! The implementations avoid heap allocation where possible and prefer
+//! numerically stable, order-preserving algorithms.
 //!
 //! # Root Finding
 //!

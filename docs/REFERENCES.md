@@ -55,6 +55,35 @@ risk calculation with a standard reference.
   discounting, term-structure construction, and interest-rate modeling
   conventions.
 
+<a id="arrc-sofr-users-guide"></a>
+
+### ARRC SOFR Users Guide
+
+- Alternative Reference Rates Committee. *SOFR: A User's Guide*. Practitioner
+  reference for SOFR floating-rate conventions, including in-arrears
+  compounding, observation shifts, lookbacks, and payment lags.
+
+<a id="ecb-estr-methodology"></a>
+
+### ECB ESTR Methodology
+
+- European Central Bank. *Euro Short-Term Rate (€STR) Methodology and Policies*.
+  Reference for €STR publication and euro overnight rate conventions.
+
+<a id="boe-sonia-key-features"></a>
+
+### BoE SONIA Key Features
+
+- Bank of England. *SONIA Key Features and Policies*. Reference for SONIA
+  publication and sterling overnight rate conventions.
+
+<a id="boj-tona"></a>
+
+### BoJ TONA
+
+- Bank of Japan. *Uncollateralized Overnight Call Rate*. Reference for the Tokyo
+  overnight average rate and yen overnight money-market conventions.
+
 <a id="hagan-west-monotone-convex"></a>
 
 ### Hagan West Monotone Convex

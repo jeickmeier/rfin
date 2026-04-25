@@ -4,6 +4,41 @@ use super::*;
 
 impl CashFlowBuilder {
     /// Sets principal details and instrument horizon.
+    ///
+    /// This must be called before full-horizon coupon helpers such as
+    /// [`fixed_cf`](Self::fixed_cf), [`floating_cf`](Self::floating_cf), or
+    /// [`step_up_cf`](Self::step_up_cf). Those helpers infer their start and
+    /// end dates from this principal horizon.
+    ///
+    /// Calling this method clears any previously recorded sticky builder error.
+    /// It does not clear coupons, fees, or principal events already pushed onto
+    /// the builder, so prefer creating a fresh builder for a new instrument.
+    ///
+    /// # Arguments
+    ///
+    /// * `initial` - Initial outstanding principal and currency.
+    /// * `issue_date` - Contract issue or funding date.
+    /// * `maturity` - Contract maturity date.
+    ///
+    /// # Returns
+    ///
+    /// Mutable builder reference for fluent chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::CashFlowSchedule;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use finstack_core::money::Money;
+    /// use time::Month;
+    ///
+    /// let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+    /// let maturity = Date::from_calendar_date(2030, Month::January, 15).expect("valid date");
+    /// let mut builder = CashFlowSchedule::builder();
+    ///
+    /// let _ = builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
+    /// ```
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
         self.pending_error = None;
@@ -17,6 +52,46 @@ impl CashFlowBuilder {
     }
 
     /// Configures amortization on the current notional.
+    ///
+    /// The amortization rule is attached to the notional previously set by
+    /// [`principal`](Self::principal). If no principal has been set, this method
+    /// is a no-op; missing principal is reported later by
+    /// [`build_with_curves`](Self::build_with_curves) or
+    /// [`prepared`](Self::prepared).
+    ///
+    /// # Arguments
+    ///
+    /// * `spec` - Principal paydown rule to apply during schedule generation.
+    ///
+    /// # Returns
+    ///
+    /// Mutable builder reference for fluent chaining.
+    ///
+    /// # Errors
+    ///
+    /// This method does not return errors directly. Validation failures such as
+    /// mismatched amortization currency, increasing remaining-principal paths,
+    /// or excessive custom principal are returned by the terminal build step.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::{AmortizationSpec, CashFlowSchedule};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use finstack_core::money::Money;
+    /// use time::Month;
+    ///
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+    /// let maturity = Date::from_calendar_date(2028, Month::January, 1).expect("valid date");
+    /// let mut builder = CashFlowSchedule::builder();
+    ///
+    /// let _ = builder
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .amortization(AmortizationSpec::LinearTo {
+    ///         final_notional: Money::new(0.0, Currency::USD),
+    ///     });
+    /// ```
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn amortization(&mut self, spec: AmortizationSpec) -> &mut Self {
         if let Some(n) = &mut self.notional {

@@ -14,7 +14,8 @@ The crate centers on a small set of core types:
 - `ExecutionContext`: mutable application context for market data, statement
   models, rate bindings, and the as-of date.
 - `ApplicationReport`: warnings and execution details returned by application.
-- `RateBinding`: optional bridge between statement nodes and market curves.
+- `RateBindingSpec`: optional bridge between statement nodes and market curves,
+  applied through `OperationSpec::RateBinding`.
 
 ## Supported Operation Families
 

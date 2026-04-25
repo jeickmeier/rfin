@@ -8,7 +8,7 @@
 //!
 //! Run with:
 //! ```sh
-//! cargo bench -p finstack-monte-carlo --features mc
+//! cargo bench -p finstack-monte-carlo
 //! ```
 
 #![allow(clippy::unwrap_used)]

@@ -99,11 +99,47 @@ impl PrepaymentModelSpec {
     }
 
     /// Constant CPR (no curve).
+    ///
+    /// # Arguments
+    ///
+    /// * `cpr` - Annual constant prepayment rate as a decimal share.
+    ///
+    /// # Returns
+    ///
+    /// Prepayment model with no seasoning curve.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::PrepaymentModelSpec;
+    ///
+    /// let spec = PrepaymentModelSpec::constant_cpr(0.06);
+    /// assert!(spec.smm(12)? > 0.0);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn constant_cpr(cpr: f64) -> Self {
         Self { cpr, curve: None }
     }
 
     /// Constant CPR (no curve) using a typed percentage.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpr` - Annual constant prepayment rate as a typed percentage.
+    ///
+    /// # Returns
+    ///
+    /// Prepayment model with no seasoning curve.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::PrepaymentModelSpec;
+    /// use finstack_core::types::Percentage;
+    ///
+    /// let spec = PrepaymentModelSpec::constant_cpr_pct(Percentage::new(6.0));
+    /// assert_eq!(spec.cpr, 0.06);
+    /// ```
     pub fn constant_cpr_pct(cpr: Percentage) -> Self {
         Self {
             cpr: cpr.as_decimal(),
@@ -115,6 +151,28 @@ impl PrepaymentModelSpec {
     ///
     /// The implementation uses the standard PSA ramp to a 6% annual CPR over
     /// 30 months, then holds that terminal CPR flat.
+    ///
+    /// # Arguments
+    ///
+    /// * `speed_multiplier` - PSA speed multiplier, where `1.0` means 100% PSA.
+    ///
+    /// # Returns
+    ///
+    /// Prepayment model using the PSA seasoning curve.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::PrepaymentModelSpec;
+    ///
+    /// let spec = PrepaymentModelSpec::psa(1.0);
+    /// assert!(spec.smm(30)? > spec.smm(1)?);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn psa(speed_multiplier: f64) -> Self {
         Self {
             cpr: 0.06, // 100% PSA terminal rate
@@ -123,6 +181,24 @@ impl PrepaymentModelSpec {
     }
 
     /// 100% PSA (standard prepayment assumption).
+    ///
+    /// # Arguments
+    ///
+    /// None.
+    ///
+    /// # Returns
+    ///
+    /// Prepayment model equivalent to [`Self::psa`] with `speed_multiplier = 1.0`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::PrepaymentModelSpec;
+    ///
+    /// let spec = PrepaymentModelSpec::psa_100();
+    /// assert!(spec.smm(60)? > 0.0);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn psa_100() -> Self {
         Self::psa(1.0)
     }
@@ -140,12 +216,19 @@ impl PrepaymentModelSpec {
     ///
     /// # Example
     ///
-    /// ```text
-    /// // 5-year lockout, then 10% CPR
+    /// ```rust
+    /// use finstack_cashflows::builder::PrepaymentModelSpec;
+    ///
+    /// // 5-year lockout, then 10% CPR.
     /// let spec = PrepaymentModelSpec::cmbs_with_lockout(60, 0.10);
-    /// assert_eq!(spec.smm(30), 0.0);  // During lockout
-    /// assert!(spec.smm(61) > 0.0);    // After lockout
+    /// assert_eq!(spec.smm(30)?, 0.0);
+    /// assert!(spec.smm(61)? > 0.0);
+    /// # Ok::<(), finstack_core::Error>(())
     /// ```
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn cmbs_with_lockout(lockout_months: u32, post_lockout_cpr: f64) -> Self {
         Self {
             cpr: post_lockout_cpr,

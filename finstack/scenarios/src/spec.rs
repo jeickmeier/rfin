@@ -298,7 +298,12 @@ pub enum OperationSpec {
         points: f64,
     },
 
-    /// Bucket-specific base correlation shifts.
+    /// Bucket-specific base correlation shifts by detachment.
+    ///
+    /// The current base-correlation representation is one-dimensional by
+    /// detachment point. Maturity filters are accepted in the wire format for
+    /// forward compatibility, but non-empty maturity filters are rejected during
+    /// application until term-structured base-correlation surfaces are supported.
     ///
     /// # Example
     /// ```rust
@@ -307,7 +312,7 @@ pub enum OperationSpec {
     /// let op = OperationSpec::BaseCorrBucketPts {
     ///     surface_id: "CDX_IG".into(),
     ///     detachment_bps: Some(vec![300, 700]), // 3% and 7% detachment
-    ///     maturities: None, // all maturities
+    ///     maturities: None, // required today: base correlation is detachment-only
     ///     points: 0.03,
     /// };
     /// ```
@@ -316,7 +321,10 @@ pub enum OperationSpec {
         surface_id: String,
         /// Optional detachment points in basis points (e.g., 300 for 3%).
         detachment_bps: Option<Vec<i32>>,
-        /// Optional maturity strings (e.g., "5Y").
+        /// Reserved maturity filters for future term-structured base correlation.
+        ///
+        /// Use `None` or an empty vector today. Non-empty maturity filters are
+        /// rejected because `BaseCorrelationCurve` has no maturity dimension.
         maturities: Option<Vec<String>>,
         /// Absolute shift in correlation points.
         points: f64,
@@ -409,8 +417,12 @@ pub enum OperationSpec {
     /// Bind a statement rate node to a market curve for this scenario.
     ///
     /// The rate at the specified tenor is extracted from the curve and applied
-    /// to the node, overriding any static value. The binding is also registered
-    /// in the execution context so it persists across subsequent time rolls.
+    /// to the node, overriding any static value. If
+    /// [`ExecutionContext::rate_bindings`](crate::engine::ExecutionContext::rate_bindings)
+    /// is initialized with `Some(_)`, the binding is also registered there so
+    /// later scenario applications can keep the statement node synchronized with
+    /// market curve rolls and shocks. When the context field is `None`, this
+    /// operation performs a one-shot update and does not persist the binding.
     ///
     /// # Example
     /// ```rust
@@ -692,9 +704,12 @@ pub enum CurveKind {
     VolIndex,
 }
 
-/// Identifies which category of volatility surface an operation targets.
+/// Labels which category of volatility surface an operation represents.
 ///
-/// Drives lookups into the relevant vol collections in market data.
+/// The current market context stores volatility surfaces in a single collection,
+/// so scenario adapters look up surfaces by `surface_id`; `VolSurfaceKind` is
+/// retained as explicit metadata for serde contracts, template discovery, and
+/// future validation.
 ///
 /// # Examples
 /// ```rust
@@ -748,9 +763,11 @@ pub enum TenorMatchMode {
 /// # Non-additivity of `Approximate`
 ///
 /// [`TimeRollMode::Approximate`] is **not additive across composed rolls**.
-/// Because months collapse to a fixed 30-day count, two `6M` rolls produce
-/// 360 days rather than the 365/366 days of a calendar year, so
-/// `6M + 6M ≠ 1Y`. For chained horizons or scenario composition prefer
+/// Month periods use [`crate::utils::parse_period_to_days`], which rounds
+/// `months * 365 / 12` independently for each operation. For example, `6M`
+/// resolves to 183 days, so two `6M` approximate rolls produce 366 days while
+/// one `12M` or `1Y` roll resolves to 365 days. For chained horizons or
+/// scenario composition prefer
 /// [`TimeRollMode::BusinessDays`] or [`TimeRollMode::CalendarDays`], which
 /// both resolve the target date via [`finstack_core::dates::Tenor`] and are
 /// additive modulo the chosen business-day convention.
@@ -762,10 +779,10 @@ pub enum TimeRollMode {
     BusinessDays,
     /// Pure calendar-day addition (no business-day adjustment even if a calendar exists).
     CalendarDays,
-    /// Explicit approximate mode using fixed day counts (legacy 30/365 semantics).
+    /// Explicit approximate mode using fixed day counts and rounded `365 / 12` months.
     ///
     /// See the enum-level "Non-additivity" note: composed rolls in this mode
-    /// do not commute with calendar arithmetic (`6M + 6M = 360d ≠ 1Y`).
+    /// do not commute with calendar arithmetic (`6M + 6M = 366d != 1Y`).
     Approximate,
 }
 

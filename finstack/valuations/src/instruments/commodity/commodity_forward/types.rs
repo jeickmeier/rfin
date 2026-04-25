@@ -159,7 +159,7 @@ pub struct CommodityForward {
     /// Optional market convention for this commodity.
     ///
     /// When set, provides default settlement days and calendar if not
-    /// explicitly specified. See [`CommodityConvention`] for available options.
+    /// explicitly specified. See `CommodityConvention` for available options.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub convention: Option<CommodityConvention>,

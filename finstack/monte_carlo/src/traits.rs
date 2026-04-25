@@ -639,7 +639,7 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
     /// schemes) must return `true`.
     ///
     /// Returns `false` by default, which lets the engine build a Cholesky
-    /// factor from [`StochasticProcess::correlation`] and apply it to the
+    /// factor from [`StochasticProcess::factor_correlation`] and apply it to the
     /// raw shocks before each `step` call.
     fn applies_correlation_internally(&self) -> bool {
         false
@@ -656,31 +656,112 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
 /// return a final `Money` value. This ensures all results carry
 /// explicit currency information. The engine calls `reset()` before each path
 /// and then invokes `on_event()` at the initial state and after every time step.
+///
+/// # Event Order
+///
+/// For each simulated path, the engine calls methods in this order:
+///
+/// 1. [`Payoff::reset`] to clear state from the previous path.
+/// 2. [`Payoff::on_path_start`] with the path-local random stream.
+/// 3. [`Payoff::on_event`] at the initial state and after every time step.
+/// 4. [`Payoff::value`] once, after the terminal event.
+///
+/// Implementations should treat [`Payoff::value`] as an undiscounted payoff.
+/// The generic [`crate::engine::McEngine`] applies the caller-supplied
+/// discount factor outside the payoff.
+///
+/// # Cashflow Capture
+///
+/// A payoff can attach diagnostic cashflows by calling
+/// [`PathState::add_cashflow`] or [`PathState::add_typed_cashflow`] during
+/// [`Payoff::on_event`]. When path capture is enabled, the engine drains those
+/// cashflows into the captured [`crate::paths::PathPoint`] for that event.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+/// use finstack_monte_carlo::traits::{state_keys, PathState, Payoff};
+///
+/// #[derive(Clone)]
+/// struct TerminalCall {
+///     strike: f64,
+///     terminal_spot: f64,
+/// }
+///
+/// impl TerminalCall {
+///     fn new(strike: f64) -> Self {
+///         Self {
+///             strike,
+///             terminal_spot: 0.0,
+///         }
+///     }
+/// }
+///
+/// impl Payoff for TerminalCall {
+///     fn on_event(&mut self, state: &mut PathState) {
+///         if let Some(spot) = state.get(state_keys::SPOT) {
+///             self.terminal_spot = spot;
+///         }
+///     }
+///
+///     fn value(&self, currency: Currency) -> Money {
+///         Money::new((self.terminal_spot - self.strike).max(0.0), currency)
+///     }
+///
+///     fn reset(&mut self) {
+///         self.terminal_spot = 0.0;
+///     }
+/// }
+///
+/// let mut payoff = TerminalCall::new(100.0);
+/// let mut state = PathState::new(1, 1.0);
+/// state.set(state_keys::SPOT, 112.0);
+///
+/// payoff.reset();
+/// payoff.on_event(&mut state);
+///
+/// assert_eq!(payoff.value(Currency::USD).amount(), 12.0);
+/// ```
 pub trait Payoff: Send + Sync + Clone {
-    /// Process a path event (fixing, barrier check, etc.).
+    /// Process one path event such as a fixing, barrier check, or cashflow date.
     ///
-    /// The PathState is mutable to allow payoffs to record cashflows
-    /// using `state.add_cashflow()`. These cashflows will be transferred
-    /// to PathPoint during path capture.
+    /// The engine passes a mutable [`PathState`] so payoffs can record
+    /// diagnostic cashflows with [`PathState::add_cashflow`] or
+    /// [`PathState::add_typed_cashflow`]. Payoffs should read named state
+    /// variables from the state rather than assuming a raw process vector
+    /// layout.
     fn on_event(&mut self, state: &mut PathState);
 
     /// Compute final payoff value in the specified currency (undiscounted).
+    ///
+    /// The returned [`Money`] is in payoff-date units. The generic engine
+    /// multiplies it by the run-level `discount_factor` after this method
+    /// returns.
     fn value(&self, currency: Currency) -> Money;
 
-    /// Reset payoff state for next path.
+    /// Reset all path-local state before simulating the next path.
+    ///
+    /// Implementations must clear terminal fixings, barrier flags, accumulated
+    /// averages, random thresholds, and any other state that should not leak
+    /// between paths.
     fn reset(&mut self);
 
     /// Optional payoff-level discount factor hook.
     ///
     /// The generic [`crate::engine::McEngine`] still expects an explicit
-    /// `discount_factor` argument and does not infer it from this method.
+    /// `discount_factor` argument and does not infer it from this method. This
+    /// hook exists for specialized pricers that own discounting internally.
     fn discount_factor(&self) -> f64 {
         1.0
     }
 
     /// Optional hook invoked at the start of each path with access to RNG.
     ///
-    /// Useful to draw per-path random variables (e.g., default threshold E ~ Exp(1)).
+    /// Use this to draw per-path random variables such as default thresholds
+    /// before the first event is processed. Implementations that draw here
+    /// should also clear the drawn value in [`Payoff::reset`].
     fn on_path_start<R: RandomStream>(&mut self, _rng: &mut R) {}
 }
 
