@@ -18,5 +18,6 @@ pub mod correlation;
 pub mod exotic_rates;
 pub mod factor_model;
 pub mod fourier;
+pub mod fx;
 pub mod pricing;
 pub mod sabr;

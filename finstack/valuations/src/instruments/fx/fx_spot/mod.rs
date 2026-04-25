@@ -42,12 +42,9 @@
 //! - [`crate::instruments::fx::fx_option`] for FX option pricing
 //! - [`crate::instruments::fx::fx_swap`] for FX forwards
 
-pub(crate) mod metrics;
-/// FX spot pricer implementation
-pub(crate) mod pricer;
 mod types;
 
-pub use pricer::FxSpotPricer;
+pub(crate) mod metrics;
 pub use types::FxSpot;
 
 // Re-export metric calculators for test access.

@@ -169,6 +169,10 @@ impl FxDigitalOption {
 impl crate::instruments::common_impl::traits::Instrument for FxDigitalOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxDigitalOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

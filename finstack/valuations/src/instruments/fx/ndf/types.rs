@@ -318,7 +318,8 @@ impl std::str::FromStr for NdfFixingSource {
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = Ndf::validate)]
+#[serde(deny_unknown_fields, try_from = "NdfUnchecked")]
 pub struct Ndf {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -343,7 +344,8 @@ pub struct Ndf {
     /// Quote convention for contract_rate and fixing_rate.
     pub quote_convention: NdfQuoteConvention,
     /// Optional foreign (base) currency discount curve ID.
-    /// If not provided, forward rate estimation uses settlement curve as fallback.
+    /// Required for pre-fixing forward estimation unless `forward_rate_override`
+    /// is supplied.
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foreign_discount_curve_id: Option<CurveId>,
@@ -364,6 +366,13 @@ pub struct Ndf {
     #[builder(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_rate_override: Option<f64>,
+    /// Explicit pre-fixing forward rate in `quote_convention` units.
+    ///
+    /// Use this for NDF market quotes or basis-adjusted forwards when a base
+    /// currency discount curve is unavailable.
+    #[builder(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forward_rate_override: Option<f64>,
     /// Optional base currency calendar.
     #[builder(default)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -379,6 +388,86 @@ pub struct Ndf {
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct NdfUnchecked {
+    /// Unique instrument identifier.
+    id: InstrumentId,
+    /// Base currency (restricted/non-deliverable currency, numerator).
+    base_currency: Currency,
+    /// Settlement currency (freely convertible, typically USD, denominator and PV currency).
+    settlement_currency: Currency,
+    /// Fixing date (rate observation date, typically T-2 before maturity).
+    #[schemars(with = "String")]
+    fixing_date: Date,
+    /// Maturity/settlement date.
+    #[schemars(with = "String")]
+    maturity: Date,
+    /// Notional amount in base currency.
+    notional: Money,
+    /// Contract forward rate. Interpretation depends on `quote_convention`.
+    contract_rate: f64,
+    /// Settlement currency discount curve ID.
+    domestic_discount_curve_id: CurveId,
+    /// Quote convention for contract_rate and fixing_rate.
+    quote_convention: NdfQuoteConvention,
+    /// Optional foreign (base) currency discount curve ID.
+    #[serde(default)]
+    foreign_discount_curve_id: Option<CurveId>,
+    /// Observed fixing rate. Interpretation depends on `quote_convention`.
+    #[serde(default)]
+    fixing_rate: Option<f64>,
+    /// Official fixing source/benchmark enum for type-safe specification.
+    #[serde(default)]
+    fixing_source_enum: Option<NdfFixingSource>,
+    /// Optional spot rate override for forward rate calculation.
+    #[serde(default)]
+    spot_rate_override: Option<f64>,
+    /// Explicit pre-fixing forward rate in `quote_convention` units.
+    #[serde(default)]
+    forward_rate_override: Option<f64>,
+    /// Optional base currency calendar.
+    #[serde(default)]
+    base_calendar_id: Option<String>,
+    /// Optional settlement currency calendar.
+    #[serde(default)]
+    quote_calendar_id: Option<String>,
+    /// Per-instrument pricing/sensitivity override knobs.
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging.
+    attributes: Attributes,
+}
+
+impl TryFrom<NdfUnchecked> for Ndf {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: NdfUnchecked) -> std::result::Result<Self, Self::Error> {
+        let ndf = Self {
+            id: value.id,
+            base_currency: value.base_currency,
+            settlement_currency: value.settlement_currency,
+            fixing_date: value.fixing_date,
+            maturity: value.maturity,
+            notional: value.notional,
+            contract_rate: value.contract_rate,
+            domestic_discount_curve_id: value.domestic_discount_curve_id,
+            quote_convention: value.quote_convention,
+            foreign_discount_curve_id: value.foreign_discount_curve_id,
+            fixing_rate: value.fixing_rate,
+            fixing_source_enum: value.fixing_source_enum,
+            spot_rate_override: value.spot_rate_override,
+            forward_rate_override: value.forward_rate_override,
+            base_calendar_id: value.base_calendar_id,
+            quote_calendar_id: value.quote_calendar_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        ndf.validate()?;
+        Ok(ndf)
+    }
 }
 
 impl Ndf {
@@ -403,6 +492,7 @@ impl Ndf {
             .contract_rate(7.25)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
+            .forward_rate_override_opt(Some(7.25))
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(
                 Attributes::new()
@@ -456,6 +546,42 @@ impl Ndf {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// Validate NDF economics at construction boundaries.
+    pub fn validate(&self) -> Result<()> {
+        if self.base_currency == self.settlement_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF base_currency ({}) must differ from settlement_currency ({})",
+                self.base_currency, self.settlement_currency
+            )));
+        }
+        if self.notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF notional currency ({}) must match base_currency ({})",
+                self.notional.currency(),
+                self.base_currency
+            )));
+        }
+        if self.fixing_date > self.maturity {
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF fixing_date ({}) must be <= maturity ({})",
+                self.fixing_date, self.maturity
+            )));
+        }
+
+        Self::validate_rate("contract_rate", self.contract_rate)?;
+        if let Some(rate) = self.fixing_rate {
+            Self::validate_rate("fixing_rate", rate)?;
+        }
+        if let Some(rate) = self.spot_rate_override {
+            Self::validate_rate("spot_rate_override", rate)?;
+        }
+        if let Some(rate) = self.forward_rate_override {
+            Self::validate_rate("forward_rate_override", rate)?;
+        }
+        self.validate_fixing_source()?;
         Ok(())
     }
 
@@ -585,6 +711,11 @@ impl Ndf {
     fn estimate_forward_rate(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         use finstack_core::money::fx::FxQuery;
 
+        if let Some(rate) = self.forward_rate_override {
+            Self::validate_rate("forward_rate_override", rate)?;
+            return Ok(rate);
+        }
+
         // Determine which direction to query based on convention
         let (from_ccy, to_ccy) = match self.quote_convention {
             NdfQuoteConvention::BasePerSettlement => {
@@ -610,47 +741,37 @@ impl Ndf {
                 }
             }
         } else {
-            // No FX matrix, use contract rate as proxy (simplified)
-            return Ok(self.contract_rate);
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF {} requires FxMatrix or spot_rate_override to estimate a forward rate",
+                self.id
+            )));
         };
 
         // Get settlement discount factor
         let settlement_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
         let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity)?;
 
-        // If foreign curve available, use CIRP
         if let Some(ref foreign_curve_id) = self.foreign_discount_curve_id {
-            if let Ok(foreign_disc) = market.get_discount(foreign_curve_id.as_str()) {
-                let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity)?;
-                // Forward rate via covered interest rate parity (Hull Ch.5)
-                // For BasePerSettlement (e.g. CNY per USD): F = S × DF_settlement / DF_base
-                //   The "base" currency is the numerator (CNY), "settlement" is denominator (USD).
-                //   CIRP: F/S = DF_denominator / DF_numerator = DF_settlement / DF_base
-                // For SettlementPerBase (e.g. USD per CNY): F = S × DF_base / DF_settlement
-                //   The "settlement" currency is the numerator (USD), "base" is denominator (CNY).
-                //   CIRP: F/S = DF_denominator / DF_numerator = DF_base / DF_settlement
-                let forward = match self.quote_convention {
-                    NdfQuoteConvention::BasePerSettlement => spot * df_settlement / df_foreign,
-                    NdfQuoteConvention::SettlementPerBase => spot * df_foreign / df_settlement,
-                };
-                return Ok(forward);
-            }
+            let foreign_disc = market.get_discount(foreign_curve_id.as_str())?;
+            let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity)?;
+            // Forward rate via covered interest rate parity (Hull Ch.5)
+            // For BasePerSettlement (e.g. CNY per USD): F = S × DF_settlement / DF_base
+            //   The "base" currency is the numerator (CNY), "settlement" is denominator (USD).
+            //   CIRP: F/S = DF_denominator / DF_numerator = DF_settlement / DF_base
+            // For SettlementPerBase (e.g. USD per CNY): F = S × DF_base / DF_settlement
+            //   The "settlement" currency is the numerator (USD), "base" is denominator (CNY).
+            //   CIRP: F/S = DF_denominator / DF_numerator = DF_base / DF_settlement
+            let forward = match self.quote_convention {
+                NdfQuoteConvention::BasePerSettlement => spot * df_settlement / df_foreign,
+                NdfQuoteConvention::SettlementPerBase => spot * df_foreign / df_settlement,
+            };
+            return Ok(forward);
         }
 
-        // Fallback for restricted currencies: assume flat basis (F ≈ S).
-        // This is a simplification; in practice you'd use NDF market quotes or basis curves.
-        // For restricted currencies without a foreign discount curve, the forward rate
-        // cannot be properly estimated via CIRP. Consider providing a foreign_discount_curve_id
-        // or using an NDF-specific basis curve for more accurate valuations.
-        tracing::warn!(
-            instrument = %self.id,
-            base_currency = %self.base_currency,
-            settlement_currency = %self.settlement_currency,
-            "NDF forward rate estimation falling back to spot ≈ forward (no foreign curve). \
-             This may produce material errors for long-dated NDFs. \
-             Provide a foreign_discount_curve_id for CIRP-based forward estimation."
-        );
-        Ok(spot)
+        Err(finstack_core::Error::Validation(format!(
+            "NDF {} requires foreign_discount_curve_id or forward_rate_override for pre-fixing forward estimation",
+            self.id
+        )))
     }
 
     /// Set the quote convention.
@@ -845,7 +966,6 @@ impl CashflowProvider for Ndf {
 mod tests {
     use super::*;
     use crate::cashflow::CashflowProvider;
-    use crate::instruments::common_impl::traits::Instrument;
     use time::Month;
 
     #[test]
@@ -940,6 +1060,21 @@ mod tests {
         assert_eq!(ndf.id.as_str(), deserialized.id.as_str());
         assert_eq!(ndf.base_currency, deserialized.base_currency);
         assert_eq!(ndf.settlement_currency, deserialized.settlement_currency);
+    }
+
+    #[test]
+    fn test_ndf_serde_rejects_invalid_contract_rate() {
+        let ndf = Ndf::example();
+        let mut json = serde_json::to_value(&ndf).expect("serialize");
+        json["contract_rate"] = serde_json::json!(0.0);
+
+        let err = serde_json::from_value::<Ndf>(json)
+            .expect_err("invalid contract_rate should fail during deserialization");
+        assert!(
+            err.to_string().contains("contract_rate"),
+            "error should mention contract_rate: {}",
+            err
+        );
     }
 
     #[test]
@@ -1180,7 +1315,7 @@ mod tests {
 
     #[test]
     fn test_ndf_validate_fixing_source_mismatch_warns() {
-        let ndf = Ndf::builder()
+        let err = Ndf::builder()
             .id(InstrumentId::new("USDINR"))
             .base_currency(Currency::INR)
             .settlement_currency(Currency::USD)
@@ -1193,12 +1328,9 @@ mod tests {
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc)) // Wrong! PBOC is for CNY
             .attributes(Attributes::new())
             .build()
-            .expect("should build");
+            .expect_err("builder should reject fixing source mismatch");
 
-        // INR with PBOC is a mismatch
-        let result = ndf.validate_fixing_source();
-        assert!(result.is_err(), "Should warn about fixing source mismatch");
-        let err_msg = result.expect_err("expected an error").to_string();
+        let err_msg = err.to_string();
         assert!(
             err_msg.contains("CNY") && err_msg.contains("INR"),
             "Error should mention currency mismatch: {}",
@@ -1229,7 +1361,7 @@ mod tests {
 
     #[test]
     fn test_ndf_invalid_contract_rate_errors() {
-        let ndf = Ndf::builder()
+        let err = Ndf::builder()
             .id(InstrumentId::new("USDCNY"))
             .base_currency(Currency::CNY)
             .settlement_currency(Currency::USD)
@@ -1241,15 +1373,7 @@ mod tests {
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
-            .expect("builder allows economic validation at valuation time");
-
-        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
-        let err = ndf
-            .value(
-                &finstack_core::market_data::context::MarketContext::new(),
-                as_of,
-            )
-            .expect_err("invalid contract rate should fail");
+            .expect_err("builder should reject invalid contract rate");
         assert!(
             err.to_string().contains("contract_rate"),
             "error should mention contract_rate: {err}"
@@ -1258,7 +1382,7 @@ mod tests {
 
     #[test]
     fn test_ndf_invalid_fixing_rate_errors() {
-        let ndf = Ndf::builder()
+        let err = Ndf::builder()
             .id(InstrumentId::new("USDCNY"))
             .base_currency(Currency::CNY)
             .settlement_currency(Currency::USD)
@@ -1271,15 +1395,7 @@ mod tests {
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
-            .expect("builder allows economic validation at valuation time");
-
-        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
-        let err = ndf
-            .value(
-                &finstack_core::market_data::context::MarketContext::new(),
-                as_of,
-            )
-            .expect_err("invalid fixing rate should fail");
+            .expect_err("builder should reject invalid fixing rate");
         assert!(
             err.to_string().contains("fixing_rate"),
             "error should mention fixing_rate: {err}"

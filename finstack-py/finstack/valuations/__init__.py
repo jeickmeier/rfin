@@ -13,6 +13,7 @@ from finstack.valuations import (
     correlation as correlation,
     credit as credit,
     credit_derivatives as credit_derivatives,
+    fx as fx,
     instruments as instruments,
 )
 
@@ -130,9 +131,12 @@ __all__: list[str] = [
     "compute_factor_sensitivities",
     "compute_pnl_profiles",
     "correlation",
+    "credit",
+    "credit_derivatives",
     "decompose_factor_risk",
     "default_attribution_metrics",
     "default_waterfall_order",
+    "fx",
     "instrument_cashflows",
     "instrument_cashflows_json",
     "instruments",

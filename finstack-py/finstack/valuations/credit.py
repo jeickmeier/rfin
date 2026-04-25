@@ -11,9 +11,9 @@ CreditState = _valuations.credit.CreditState
 ToggleExerciseModel = _valuations.credit.ToggleExerciseModel
 
 __all__ = [
-    "MertonModel",
+    "CreditState",
     "DynamicRecoverySpec",
     "EndogenousHazardSpec",
-    "CreditState",
+    "MertonModel",
     "ToggleExerciseModel",
 ]

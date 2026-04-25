@@ -46,12 +46,6 @@ pub(crate) fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             (BaseAmount, base_amount::BaseAmountCalculator),
             // QuoteAmount removed - it's just result.value which is always available
             (InverseRate, inverse_rate::InverseRateCalculator),
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::FxSpot,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
-            (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::FxSpot,
-            >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     };
 }
@@ -123,15 +117,7 @@ mod tests {
         assert!((result.value.amount() - base_value.amount()).abs() < 1e-6);
     }
 
-    #[test]
-    fn dv01_is_zero() {
-        // FX Spot has no discount or forward curves, so generic DV01 returns 0
-        let fx = sample_fx();
-        let mut ctx = context_for(fx, d(2025, 1, 15));
-        let calc = crate::metrics::UnifiedDv01Calculator::<crate::instruments::FxSpot>::new(
-            crate::metrics::Dv01CalculatorConfig::parallel_combined(),
-        );
-        let value = calc.calculate(&mut ctx).expect("should succeed");
-        assert_eq!(value, 0.0, "FxSpot DV01 should be exactly 0.0");
-    }
+    // FxSpot intentionally does not register DV01/BucketedDv01: it has no
+    // discount or forward curve dependency. FX risk is exposed through
+    // FxDelta and Fx01.
 }

@@ -555,22 +555,16 @@ use crate::instruments::fx::fx_barrier_option::vanna_volga::{
     vanna_volga_barrier_adjustment, VannaVolgaQuotes,
 };
 
-/// FX Barrier option Vanna-Volga pricer (continuous monitoring with smile correction).
+/// Internal FX barrier option Vanna-Volga pricer.
 ///
 /// Applies the Vanna-Volga method (Castagna & Mercurio 2007) to adjust the
 /// analytical BS barrier price for smile effects, using three market pillar
-/// volatilities (25Δ put, ATM, 25Δ call). Registered under
-/// [`ModelKey::FxBarrierVannaVolga`] by
-/// [`crate::pricer::fx::register_fx_pricers`].
+/// volatilities (25Δ put, ATM, 25Δ call).
 ///
-/// # Market-quote source
-///
-/// The three pillar vols are read from the instrument's
-/// [`FxBarrierOption::vv_quotes`] field when present. When absent (for
-/// instruments configured without an explicit VV smile), the pricer falls
-/// back to a degenerate symmetric smile constructed from the ATM vol at
-/// the instrument's strike — equivalent to the BS price and so usable as
-/// a shape-compatible default rather than a smile model.
+/// This pricer is intentionally not registered in the standard registry until
+/// the instrument or market-data contract carries per-trade smile quotes.
+/// Standard dispatch should use [`ModelKey::FxBarrierBSContinuous`] or
+/// [`ModelKey::MonteCarloGBM`].
 ///
 pub(crate) struct FxBarrierOptionVannaVolgaPricer {
     /// Market quotes for the three-point smile. When `None`, a symmetric
@@ -580,12 +574,10 @@ pub(crate) struct FxBarrierOptionVannaVolgaPricer {
 }
 
 impl FxBarrierOptionVannaVolgaPricer {
-    /// Create a Vanna-Volga pricer that derives its smile quotes from the
-    /// pricing inputs at `price_dyn` time. The pricer uses the instrument's
-    /// ATM vol as the central pillar and constructs symmetric 25Δ pillar
-    /// strikes; production deployments should either (a) populate
-    /// `FxBarrierOption::vv_quotes` with real 25Δ vols or (b) call
-    /// `with_quotes` to bind explicit market quotes.
+    /// Create a Vanna-Volga pricer without bound smile quotes.
+    ///
+    /// Calls fail until explicit market quotes are supplied with
+    /// [`Self::with_quotes`].
     pub(crate) fn new() -> Self {
         Self { quotes: None }
     }

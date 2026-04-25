@@ -7,7 +7,7 @@ use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranche;
-use finstack_valuations::instruments::{Instrument, InstrumentJson};
+use finstack_valuations::instruments::InstrumentJson;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule};
 
@@ -43,7 +43,11 @@ macro_rules! credit_derivative_wrapper {
             }
 
             fn validate(&self) -> PyResult<()> {
-                self.inner.validate().map_err(display_to_py)
+                let json = serde_json::to_string(&InstrumentJson::$variant(self.inner.clone()))
+                    .map_err(display_to_py)?;
+                finstack_valuations::pricer::validate_instrument_json(&json)
+                    .map(|_| ())
+                    .map_err(display_to_py)
             }
 
             fn price(&self, market: &Bound<'_, PyAny>, as_of: &str) -> PyResult<PyValuationResult> {

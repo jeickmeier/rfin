@@ -11,7 +11,8 @@ use finstack_valuations::cashflow::builder::{
 };
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     CorrelationStructure, DealType, Pool, PoolAsset, PricingMode, Seniority, StochasticDefaultSpec,
-    StochasticPrepaySpec, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
+    StochasticPrepaySpec, StochasticPricingResult, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure,
 };
 use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
@@ -138,14 +139,20 @@ fn stochastic_single_path(sc: &StructuredCredit, market: &MarketContext) -> Valu
         .expect("stochastic json pricing")
 }
 
+fn stochastic_details(result: &ValuationResult) -> StochasticPricingResult {
+    let Some(ValuationDetails::StructuredCreditStochastic(details)) = &result.details else {
+        panic!("expected structured-credit stochastic details");
+    };
+    details.clone()
+}
+
 #[test]
 fn single_path_stochastic_pv_matches_deterministic_tranche_pv() {
     let sc = structured_credit(false);
     let market = fixed_market();
 
     let result = stochastic_single_path(&sc, &market);
-    let ValuationDetails::StructuredCreditStochastic(details) =
-        result.details.expect("stochastic details");
+    let details = stochastic_details(&result);
 
     for tranche in &details.tranche_results {
         let deterministic = sc
@@ -167,8 +174,7 @@ fn stochastic_json_result_contains_full_tranche_details() {
     let market = fixed_market();
 
     let result = stochastic_single_path(&sc, &market);
-    let ValuationDetails::StructuredCreditStochastic(details) =
-        result.details.expect("stochastic details");
+    let details = stochastic_details(&result);
 
     assert_eq!(details.tranche_results.len(), sc.tranches.tranches.len());
     assert_eq!(result.value, details.npv);

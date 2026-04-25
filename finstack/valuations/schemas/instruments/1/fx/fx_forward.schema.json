@@ -1408,9 +1408,10 @@
           "properties": {
             "attributes": {
               "$ref": "#/$defs/Attributes",
-              "description": "Attributes for scenario selection and tagging"
+              "description": "Attributes for scenario selection and tagging."
             },
             "base_calendar_id": {
+              "default": null,
               "description": "Optional base currency calendar for business day adjustment.",
               "type": [
                 "string",
@@ -1422,6 +1423,7 @@
               "description": "Base currency (foreign currency, numerator of the pair)."
             },
             "contract_rate": {
+              "default": null,
               "description": "Contract forward rate (quote per base). If None, valued at-market.",
               "format": "double",
               "type": [
@@ -1469,9 +1471,10 @@
                 "vol_surface_extrapolation": "error",
                 "ytm_bump_decimal": null
               },
-              "description": "Attributes for tagging and selection."
+              "description": "Per-instrument pricing/sensitivity override knobs."
             },
             "quote_calendar_id": {
+              "default": null,
               "description": "Optional quote currency calendar for business day adjustment.",
               "type": [
                 "string",
@@ -1483,6 +1486,7 @@
               "description": "Quote currency (domestic currency, denominator of the pair, PV currency)."
             },
             "spot_rate_override": {
+              "default": null,
               "description": "Optional spot rate override (quote per base). If None, source from FxMatrix.",
               "format": "double",
               "type": [

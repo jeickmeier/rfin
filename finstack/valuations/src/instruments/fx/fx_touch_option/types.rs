@@ -256,6 +256,10 @@ impl FxTouchOption {
 impl crate::instruments::common_impl::traits::Instrument for FxTouchOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxTouchOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn base_value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -466,7 +470,7 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for FxTouchOptio
             bump_bp,
         )?;
         let pv_bumped = self.value(&bumped, as_of)?.amount();
-        Ok(pv_bumped - base_pv)
+        Ok((pv_bumped - base_pv) / bump_bp)
     }
 }
 

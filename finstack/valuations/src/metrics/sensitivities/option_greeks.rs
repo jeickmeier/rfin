@@ -21,9 +21,31 @@ fn requested_value<I>(
 where
     I: Instrument + OptionGreeksProvider + 'static,
 {
+    if let Some(value) = context.computed.get(&metric_id) {
+        return Ok(*value);
+    }
+
     let inst: &I = context.instrument_as()?;
     let greeks = inst.option_greeks(&context.curves, context.as_of, &request)?;
+    store_available_greeks(context, greeks);
     extract(greeks).ok_or_else(|| metric_not_found(metric_id))
+}
+
+fn store_available_greeks(context: &mut MetricContext, greeks: OptionGreeks) {
+    for (metric, value) in [
+        (MetricId::Delta, greeks.delta),
+        (MetricId::Gamma, greeks.gamma),
+        (MetricId::Vega, greeks.vega),
+        (MetricId::Theta, greeks.theta),
+        (MetricId::Rho, greeks.rho_bp),
+        (MetricId::ForeignRho, greeks.foreign_rho_bp),
+        (MetricId::Vanna, greeks.vanna),
+        (MetricId::Volga, greeks.volga),
+    ] {
+        if let Some(value) = value {
+            context.computed.entry(metric).or_insert(value);
+        }
+    }
 }
 
 /// Delta metric calculator (cash delta).

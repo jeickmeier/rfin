@@ -8,12 +8,14 @@ from finstack.core.market_data import MarketContext
 from finstack.valuations import correlation as correlation
 from finstack.valuations import credit as credit
 from finstack.valuations import credit_derivatives as credit_derivatives
+from finstack.valuations import fx as fx
 from finstack.valuations import instruments as instruments
 
 __all__ = [
     "correlation",
     "credit",
     "credit_derivatives",
+    "fx",
     "instruments",
     "ValuationResult",
     "validate_instrument_json",
@@ -291,7 +293,7 @@ def price_instrument(
     instrument_json: str,
     market_json: str,
     as_of: str,
-    model: str = "discounting",
+    model: str = "default",
 ) -> str:
     """Price an instrument using the standard registry and a model key.
 
@@ -299,7 +301,7 @@ def price_instrument(
         instrument_json: Tagged instrument JSON.
         market_json: JSON-serialized ``MarketContext``.
         as_of: Valuation date in ISO 8601 format.
-        model: Model key: ``discounting`` (default), ``black76``, ``hazard_rate``,
+        model: Model key: ``default`` (instrument-native default), ``discounting``, ``black76``, ``hazard_rate``,
             ``hull_white_1f``, ``tree``, ``normal``, ``monte_carlo_gbm``, etc.
 
     Returns:
@@ -316,7 +318,7 @@ def price_instrument_with_metrics(
     instrument_json: str,
     market_json: str,
     as_of: str,
-    model: str = "discounting",
+    model: str = "default",
     metrics: list[str] = [],
     pricing_options: str | None = None,
 ) -> str:

@@ -12,17 +12,32 @@ fn benchmark_script() -> String {
         .expect("read finstack-wasm/benchmarks/bench.mjs")
 }
 
+fn contains_ignoring_ws(haystack: &str, needle: &str) -> bool {
+    let compact_haystack: String = haystack.chars().filter(|c| !c.is_whitespace()).collect();
+    let compact_needle: String = needle.chars().filter(|c| !c.is_whitespace()).collect();
+    compact_haystack.contains(&compact_needle)
+}
+
 #[test]
 fn analytics_dts_matches_runtime_hotspots() {
     let dts = index_dts();
 
     assert!(dts.contains("dates: string[];"));
-    assert!(dts.contains("rollingGreeks(returns: number[], benchmark: number[], dates: string[], window: number, annFactor: number): RollingGreeksResult;"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "rollingGreeks(returns: number[], benchmark: number[], dates: string[], window: number, annFactor: number): RollingGreeksResult;",
+    ));
     assert!(
         dts.contains("classifyBreaches(varForecasts: number[], realizedPnl: number[]): boolean[];")
     );
-    assert!(dts.contains("rollingVarForecasts(returns: number[], lookback: number, confidence: number, method: string): [number[], number[]];"));
-    assert!(dts.contains("compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "rollingVarForecasts(returns: number[], lookback: number, confidence: number, method: string): [number[], number[]];",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;",
+    ));
     assert!(dts
         .contains("excessReturns(returns: number[], rf: number[], nperiods?: number): number[];"));
     assert!(dts.contains("martinRatio(cagr: number, ulcer: number): number;"));
@@ -41,6 +56,27 @@ fn cashflows_dts_matches_json_bridge_surface() {
     assert!(dts.contains("accruedInterest("));
     assert!(dts.contains("bondFromCashflows("));
     assert!(dts.contains("export declare const cashflows: CashflowsNamespace;"));
+}
+
+#[test]
+fn valuations_dts_exposes_direct_fx_instruments() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface FxNamespace"));
+    assert!(dts.contains("FxSpot: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("FxForward: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("FxSwap: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("Ndf: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("FxOption: FxInstrumentConstructor<FxOptionInstrument>;"));
+    assert!(dts.contains("FxBarrierOption: FxInstrumentConstructor<FxOptionInstrument>;"));
+    assert!(dts.contains("QuantoOption: FxInstrumentConstructor<FxOptionInstrument>;"));
+    assert!(dts.contains("fx: FxNamespace;"));
+    assert!(dts
+        .contains("foreignRho(marketJson: string, asOf: string, model?: string | null): number;"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "greeks(marketJson: string, asOf: string, model?: string | null): Record<string, number>;",
+    ));
 }
 
 #[test]
@@ -66,7 +102,10 @@ fn core_daycount_dts_exposes_context_for_context_dependent_conventions() {
     let dts = index_dts();
 
     assert!(dts.contains("export interface DayCountContext"));
-    assert!(dts.contains("yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;",
+    ));
     assert!(dts.contains("DayCountContext: DayCountContextConstructor;"));
 }
 

@@ -9,4 +9,4 @@ CDSIndex = _valuations.credit_derivatives.CDSIndex
 CDSTranche = _valuations.credit_derivatives.CDSTranche
 CDSOption = _valuations.credit_derivatives.CDSOption
 
-__all__ = ["CreditDefaultSwap", "CDSIndex", "CDSTranche", "CDSOption"]
+__all__ = ["CDSIndex", "CDSOption", "CDSTranche", "CreditDefaultSwap"]

@@ -13,7 +13,6 @@ fn base_amount(fx: &FxSpot) -> f64 {
 pub struct BaseAmountCalculator;
 
 impl MetricCalculator for BaseAmountCalculator {
-    #[inline(never)]
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fx: &FxSpot = context.instrument_as()?;
         Ok(base_amount(fx))

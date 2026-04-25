@@ -55,11 +55,8 @@
 //! - [`crate::instruments::fx::fx_spot::FxSpot`] for spot FX positions
 //! - [`crate::instruments::fx::fx_option::FxOption`] for FX options
 
-/// Pricer for FX forwards.
-pub(crate) mod pricer;
 mod types;
 
-pub use pricer::FxForwardDiscountingPricer;
 pub use types::FxForward;
 
 /// Metrics submodule for FX forward risk measures.

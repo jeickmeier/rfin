@@ -53,6 +53,14 @@ pub fn parse_model_key(model: &str) -> finstack_core::Result<ModelKey> {
         .map_err(|e| Error::Validation(format!("Unknown model key: '{model}'. {e}")))
 }
 
+fn resolve_model_key(instrument: &dyn Instrument, model: &str) -> finstack_core::Result<ModelKey> {
+    if model.trim().eq_ignore_ascii_case("default") {
+        Ok(instrument.default_model())
+    } else {
+        parse_model_key(model)
+    }
+}
+
 /// Price a tagged instrument JSON payload using the shared standard registry.
 pub fn price_instrument_json(
     instrument_json: &str,
@@ -62,7 +70,7 @@ pub fn price_instrument_json(
 ) -> finstack_core::Result<ValuationResult> {
     let instrument = parse_boxed_instrument_json(instrument_json, None)?;
     let as_of = parse_as_of_date(as_of)?;
-    let model = parse_model_key(model)?;
+    let model = resolve_model_key(instrument.as_ref(), model)?;
     standard_registry()
         .price_with_metrics(
             instrument.as_ref(),
@@ -86,7 +94,7 @@ pub fn price_instrument_json_with_metrics(
 ) -> finstack_core::Result<ValuationResult> {
     let instrument = parse_boxed_instrument_json(instrument_json, pricing_options)?;
     let as_of = parse_as_of_date(as_of)?;
-    let model = parse_model_key(model)?;
+    let model = resolve_model_key(instrument.as_ref(), model)?;
     let metric_ids: Vec<MetricId> = metrics.iter().map(MetricId::custom).collect();
     standard_registry()
         .price_with_metrics(
@@ -140,6 +148,7 @@ mod tests {
     use super::*;
     use crate::instruments::equity::equity_option::EquityOption;
     use crate::instruments::fixed_income::bond::Bond;
+    use crate::instruments::fx::FxOption;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
@@ -165,6 +174,29 @@ mod tests {
             .build()
             .expect("curve");
         MarketContext::new().insert(disc)
+    }
+
+    #[test]
+    fn default_model_resolves_to_instrument_native_model() {
+        let bond = Bond::fixed(
+            "TEST-BOND",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            time::Date::from_calendar_date(2024, time::Month::January, 1).expect("date"),
+            time::Date::from_calendar_date(2034, time::Month::January, 1).expect("date"),
+            "USD-OIS",
+        )
+        .expect("bond");
+        assert_eq!(
+            resolve_model_key(&bond, "default").expect("model"),
+            ModelKey::Discounting
+        );
+
+        let fx_option = FxOption::example().expect("fx option");
+        assert_eq!(
+            resolve_model_key(&fx_option, "default").expect("model"),
+            ModelKey::Black76
+        );
     }
 
     fn equity_option_json_with_negative_vol_override() -> String {

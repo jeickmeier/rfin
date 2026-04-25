@@ -32,6 +32,8 @@ pub fn validate_instrument_json(json: &str) -> Result<String, JsValue> {
 }
 
 /// Price an instrument from its tagged JSON and return a ValuationResult JSON.
+///
+/// Pass `model = "default"` to use the instrument-native default model.
 #[wasm_bindgen(js_name = priceInstrument)]
 pub fn price_instrument(
     instrument_json: &str,
@@ -48,6 +50,8 @@ pub fn price_instrument(
 }
 
 /// Price an instrument with explicit metric requests.
+///
+/// Pass `model = "default"` to use the instrument-native default model.
 #[wasm_bindgen(js_name = priceInstrumentWithMetrics)]
 pub fn price_instrument_with_metrics(
     instrument_json: &str,

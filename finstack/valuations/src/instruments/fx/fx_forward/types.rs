@@ -66,7 +66,8 @@ use time::macros::date;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = FxForward::validate)]
+#[serde(deny_unknown_fields, try_from = "FxForwardUnchecked")]
 pub struct FxForward {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -106,6 +107,67 @@ pub struct FxForward {
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct FxForwardUnchecked {
+    /// Unique instrument identifier.
+    id: InstrumentId,
+    /// Base currency (foreign currency, numerator of the pair).
+    base_currency: Currency,
+    /// Quote currency (domestic currency, denominator of the pair, PV currency).
+    quote_currency: Currency,
+    /// Maturity/settlement date.
+    #[schemars(with = "String")]
+    maturity: Date,
+    /// Notional amount in base currency.
+    notional: Money,
+    /// Contract forward rate (quote per base). If None, valued at-market.
+    #[serde(default)]
+    contract_rate: Option<f64>,
+    /// Domestic (quote currency) discount curve ID.
+    domestic_discount_curve_id: CurveId,
+    /// Foreign (base currency) discount curve ID.
+    foreign_discount_curve_id: CurveId,
+    /// Optional spot rate override (quote per base). If None, source from FxMatrix.
+    #[serde(default)]
+    spot_rate_override: Option<f64>,
+    /// Optional base currency calendar for business day adjustment.
+    #[serde(default)]
+    base_calendar_id: Option<String>,
+    /// Optional quote currency calendar for business day adjustment.
+    #[serde(default)]
+    quote_calendar_id: Option<String>,
+    /// Per-instrument pricing/sensitivity override knobs.
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging.
+    attributes: Attributes,
+}
+
+impl TryFrom<FxForwardUnchecked> for FxForward {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: FxForwardUnchecked) -> std::result::Result<Self, Self::Error> {
+        let forward = Self {
+            id: value.id,
+            base_currency: value.base_currency,
+            quote_currency: value.quote_currency,
+            maturity: value.maturity,
+            notional: value.notional,
+            contract_rate: value.contract_rate,
+            domestic_discount_curve_id: value.domestic_discount_curve_id,
+            foreign_discount_curve_id: value.foreign_discount_curve_id,
+            spot_rate_override: value.spot_rate_override,
+            base_calendar_id: value.base_calendar_id,
+            quote_calendar_id: value.quote_calendar_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        forward.validate()?;
+        Ok(forward)
+    }
 }
 
 impl FxForward {
@@ -398,15 +460,39 @@ impl FxForward {
     ///     .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
     ///     .build()
     ///     .unwrap()
-    ///     .with_forward_points(spot, forward_points);
+    ///     .with_forward_points(spot, forward_points)
+    ///     .unwrap();
     ///
     /// // Contract rate = 1.1000 + 0.0050 = 1.1050
     /// assert!((forward.contract_rate.unwrap() - 1.1050).abs() < 1e-10);
     /// ```
-    pub fn with_forward_points(mut self, spot_rate: f64, forward_points: f64) -> Self {
-        self.contract_rate = Some(spot_rate + forward_points);
+    pub fn with_forward_points(
+        mut self,
+        spot_rate: f64,
+        forward_points: f64,
+    ) -> finstack_core::Result<Self> {
+        let contract_rate = spot_rate + forward_points;
+        if !spot_rate.is_finite() || spot_rate <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX forward spot_rate must be positive and finite, got {}",
+                spot_rate
+            )));
+        }
+        if !forward_points.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX forward forward_points must be finite, got {}",
+                forward_points
+            )));
+        }
+        if !contract_rate.is_finite() || contract_rate <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX forward contract_rate from spot_rate + forward_points must be positive and finite, got {}",
+                contract_rate
+            )));
+        }
+        self.contract_rate = Some(contract_rate);
         self.spot_rate_override = Some(spot_rate);
-        self
+        Ok(self)
     }
 
     /// Compute the market forward rate via covered interest rate parity.
@@ -703,7 +789,8 @@ mod tests {
             .attributes(Attributes::new())
             .build()
             .expect("should build")
-            .with_forward_points(1.10, 0.0050);
+            .with_forward_points(1.10, 0.0050)
+            .expect("valid forward points");
 
         assert_eq!(forward.spot_rate_override, Some(1.10));
         assert!((forward.contract_rate.expect("contract rate set") - 1.105).abs() < 1e-10);
@@ -739,6 +826,21 @@ mod tests {
         assert_eq!(forward.id.as_str(), deserialized.id.as_str());
         assert_eq!(forward.base_currency, deserialized.base_currency);
         assert_eq!(forward.quote_currency, deserialized.quote_currency);
+    }
+
+    #[test]
+    fn test_fx_forward_serde_rejects_invalid_contract_rate() {
+        let forward = FxForward::example().unwrap();
+        let mut json = serde_json::to_value(&forward).expect("serialize");
+        json["contract_rate"] = serde_json::json!(-1.0);
+
+        let err = serde_json::from_value::<FxForward>(json)
+            .expect_err("invalid contract rate should fail during deserialization");
+        assert!(
+            err.to_string().contains("contract_rate"),
+            "error should mention contract_rate: {}",
+            err
+        );
     }
 
     #[test]

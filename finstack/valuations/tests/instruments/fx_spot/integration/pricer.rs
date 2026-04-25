@@ -3,30 +3,39 @@
 use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::context::MarketContext, money::Money};
 use finstack_valuations::{
-    instruments::equity::Equity,
-    instruments::{fx::fx_spot::FxSpotPricer, Instrument},
-    pricer::{InstrumentType, ModelKey, Pricer},
+    instruments::Instrument,
+    pricer::{standard_registry, InstrumentType, ModelKey, PricerKey},
 };
 
 #[test]
-fn test_pricer_key() {
-    let pricer = FxSpotPricer::new();
-    let key = pricer.key();
+fn test_registry_pricer_key() {
+    let key = PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting);
+    let registry = standard_registry();
 
-    assert_eq!(key.instrument, InstrumentType::FxSpot);
-    assert_eq!(key.model, ModelKey::Discounting);
+    assert!(
+        registry.get_pricer(key).is_some(),
+        "FxSpot discounting pricer should be registered"
+    );
 }
 
 #[test]
-fn test_pricer_price_dyn() {
+fn test_registry_prices_fx_spot() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
-    let pricer = FxSpotPricer::new();
+    let registry = standard_registry();
     let market = MarketContext::new();
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    let instrument: &dyn Instrument = &fx;
-    let result = pricer.price_dyn(instrument, &market, as_of).unwrap();
+    let result = registry
+        .price_with_metrics(
+            &fx,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        )
+        .unwrap();
 
     assert_eq!(result.instrument_id, "EURUSD");
     assert_approx_eq(result.value.amount(), 1_200_000.0, EPSILON, "PV");
@@ -34,7 +43,7 @@ fn test_pricer_price_dyn() {
 
 #[test]
 fn test_pricer_with_various_instruments() {
-    let pricer = FxSpotPricer::new();
+    let registry = standard_registry();
     let market = MarketContext::new();
 
     let instruments: Vec<Box<dyn Instrument>> = vec![
@@ -58,44 +67,36 @@ fn test_pricer_with_various_instruments() {
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     for inst in instruments {
-        let result = pricer.price_dyn(inst.as_ref(), &market, as_of);
+        let result = registry.price_with_metrics(
+            inst.as_ref(),
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        );
         assert!(result.is_ok(), "Pricer should price all FX instruments");
     }
 }
 
 #[test]
-fn test_pricer_wrong_instrument_type_fails() {
-    let pricer = FxSpotPricer::new();
-    let market = MarketContext::new();
-    let as_of =
-        finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-
-    let equity = Equity::new("AAPL", "AAPL", Currency::USD)
-        .with_price(100.0)
-        .with_shares(10.0);
-
-    let result = pricer.price_dyn(&equity, &market, as_of);
-    assert!(result.is_err(), "Pricer should reject non-FX instruments");
-}
-
-#[test]
-fn test_pricer_default_constructor() {
-    let pricer = FxSpotPricer;
-    let key = pricer.key();
-
-    assert_eq!(key.instrument, InstrumentType::FxSpot);
-}
-
-#[test]
 fn test_pricer_consistent_with_instrument_value() {
     let fx = eurusd_with_notional(2_500_000.0, 1.22);
-    let pricer = FxSpotPricer::new();
+    let registry = standard_registry();
     let market = MarketContext::new();
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    // Price via pricer
-    let pricer_result = pricer.price_dyn(&fx, &market, as_of).unwrap();
+    let pricer_result = registry
+        .price_with_metrics(
+            &fx,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        )
+        .unwrap();
 
     // Price via instrument
     let instrument_value = fx.value(&market, test_date()).unwrap();
@@ -113,12 +114,21 @@ fn test_pricer_with_fx_matrix() {
     let fx = sample_eurusd()
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap();
-    let pricer = FxSpotPricer::new();
+    let registry = standard_registry();
     let market = market_with_fx_matrix(); // EUR/USD = 1.20
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    let result = pricer.price_dyn(&fx, &market, as_of).unwrap();
+    let result = registry
+        .price_with_metrics(
+            &fx,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        )
+        .unwrap();
 
     assert_approx_eq(
         result.value.amount(),
@@ -131,12 +141,21 @@ fn test_pricer_with_fx_matrix() {
 #[test]
 fn test_pricer_valuation_result_structure() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
-    let pricer = FxSpotPricer::new();
+    let registry = standard_registry();
     let market = MarketContext::new();
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    let result = pricer.price_dyn(&fx, &market, as_of).unwrap();
+    let result = registry
+        .price_with_metrics(
+            &fx,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            Default::default(),
+        )
+        .unwrap();
 
     assert_eq!(result.instrument_id, "EURUSD");
     assert_eq!(result.value.currency(), Currency::USD);

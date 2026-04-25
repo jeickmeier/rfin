@@ -1,5 +1,6 @@
 import * as wasm from '../pkg/finstack_wasm.js';
 import { correlation } from './valuations/correlation.js';
+import { fx } from './valuations/fx.js';
 
 export const valuations = {
   correlation,
@@ -24,6 +25,7 @@ export const valuations = {
     priceInstrument: wasm.priceInstrument,
     priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,
   },
+  fx,
   instruments: {
     validateInstrumentJson: wasm.validateInstrumentJson,
     priceInstrument: wasm.priceInstrument,

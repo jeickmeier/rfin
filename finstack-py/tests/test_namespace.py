@@ -281,3 +281,21 @@ class TestValuationsNamespace:
         assert hasattr(instruments, "price_instrument")
         assert hasattr(instruments, "price_instrument_with_metrics")
         assert hasattr(instruments, "list_standard_metrics")
+
+    def test_valuations_fx_namespace_exports(self) -> None:
+        """Direct FX instruments should be available from valuations.fx."""
+        from finstack.valuations import fx
+
+        for name in (
+            "FxSpot",
+            "FxForward",
+            "FxSwap",
+            "Ndf",
+            "FxOption",
+            "FxDigitalOption",
+            "FxTouchOption",
+            "FxBarrierOption",
+            "FxVarianceSwap",
+            "QuantoOption",
+        ):
+            assert hasattr(fx, name)

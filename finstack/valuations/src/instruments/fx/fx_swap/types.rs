@@ -28,7 +28,8 @@ use crate::impl_instrument_base;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = FxSwap::validate)]
+#[serde(deny_unknown_fields, try_from = "FxSwapUnchecked")]
 pub struct FxSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -70,7 +71,105 @@ pub struct FxSwap {
     pub attributes: Attributes,
 }
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct FxSwapUnchecked {
+    /// Unique instrument identifier.
+    id: InstrumentId,
+    /// Base currency (foreign).
+    base_currency: Currency,
+    /// Quote currency (domestic).
+    quote_currency: Currency,
+    /// Near leg settlement date (spot leg).
+    #[schemars(with = "String")]
+    near_date: Date,
+    /// Far leg settlement date (forward leg).
+    #[schemars(with = "String")]
+    far_date: Date,
+    /// Notional amount in base currency (exchanged on near, reversed on far).
+    base_notional: Money,
+    /// Domestic discount curve id (quote currency).
+    domestic_discount_curve_id: CurveId,
+    /// Foreign discount curve id (base currency).
+    foreign_discount_curve_id: CurveId,
+    /// Optional near leg FX rate (quote per base). If None, source from market.
+    #[serde(default)]
+    near_rate: Option<f64>,
+    /// Optional far leg FX rate (quote per base). If None, source from forwards.
+    #[serde(default)]
+    far_rate: Option<f64>,
+    /// Optional base currency calendar for spot/settlement adjustment metadata.
+    #[serde(default)]
+    base_calendar_id: Option<String>,
+    /// Optional quote currency calendar for spot/settlement adjustment metadata.
+    #[serde(default)]
+    quote_calendar_id: Option<String>,
+    /// Per-instrument pricing/sensitivity override knobs.
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    /// Attributes for scenario selection and tagging.
+    attributes: Attributes,
+}
+
+impl TryFrom<FxSwapUnchecked> for FxSwap {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: FxSwapUnchecked) -> std::result::Result<Self, Self::Error> {
+        let swap = Self {
+            id: value.id,
+            base_currency: value.base_currency,
+            quote_currency: value.quote_currency,
+            near_date: value.near_date,
+            far_date: value.far_date,
+            base_notional: value.base_notional,
+            domestic_discount_curve_id: value.domestic_discount_curve_id,
+            foreign_discount_curve_id: value.foreign_discount_curve_id,
+            near_rate: value.near_rate,
+            far_rate: value.far_rate,
+            base_calendar_id: value.base_calendar_id,
+            quote_calendar_id: value.quote_calendar_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        swap.validate()?;
+        Ok(swap)
+    }
+}
+
 impl FxSwap {
+    /// Validate FX swap economics at construction boundaries.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.base_currency == self.quote_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxSwap base_currency ({}) must differ from quote_currency ({})",
+                self.base_currency, self.quote_currency
+            )));
+        }
+        if self.base_notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxSwap base_notional currency ({}) must match base_currency ({})",
+                self.base_notional.currency(),
+                self.base_currency
+            )));
+        }
+        if self.near_date > self.far_date {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxSwap near_date ({}) must be <= far_date ({})",
+                self.near_date, self.far_date
+            )));
+        }
+        for (name, rate) in [("near_rate", self.near_rate), ("far_rate", self.far_rate)] {
+            if let Some(rate) = rate {
+                if !rate.is_finite() || rate <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "FxSwap {name} must be positive and finite, got {rate}"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Create a canonical example FX swap for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD swap with realistic forward points.
@@ -344,6 +443,8 @@ mod tests {
     use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
+    use std::sync::Arc;
     use time::Month;
 
     fn date(year: i32, month: Month, day: u8) -> Date {
@@ -362,7 +463,18 @@ mod tests {
             .build()
             .expect("should build");
 
-        MarketContext::new().insert(usd_curve).insert(eur_curve)
+        let fx_provider = {
+            let provider = Arc::new(SimpleFxProvider::new());
+            provider
+                .set_quote(Currency::EUR, Currency::USD, 1.10)
+                .expect("valid EUR/USD quote");
+            provider
+        };
+
+        MarketContext::new()
+            .insert(usd_curve)
+            .insert(eur_curve)
+            .insert_fx(FxMatrix::new(fx_provider))
     }
 
     #[test]
@@ -385,11 +497,7 @@ mod tests {
 
     #[test]
     fn test_fx_swap_rejects_invalid_date_ordering() {
-        let as_of = date(2024, Month::January, 3);
-        let market = base_market(as_of);
-
-        // Create swap with near_date > far_date (invalid)
-        let swap = FxSwap::builder()
+        let err = FxSwap::builder()
             .id(InstrumentId::new("INVALID-SWAP"))
             .base_currency(Currency::EUR)
             .quote_currency(Currency::USD)
@@ -402,15 +510,29 @@ mod tests {
             .far_rate_opt(Some(1.12))
             .attributes(Attributes::new())
             .build()
-            .expect("should build");
+            .expect_err("near_date > far_date should be rejected at construction");
 
-        let result = swap.value(&market, as_of);
-        assert!(result.is_err(), "Should reject invalid date ordering");
-        let err_msg = result.expect_err("expected an error").to_string();
+        let err_msg = err.to_string();
         assert!(
             err_msg.contains("near_date") && err_msg.contains("far_date"),
             "Error should mention date ordering: {}",
             err_msg
+        );
+    }
+
+    #[test]
+    fn test_fx_swap_serde_rejects_invalid_date_ordering() {
+        let swap = FxSwap::example();
+        let mut json = serde_json::to_value(&swap).expect("serialize");
+        json["near_date"] = serde_json::json!("2024-07-05");
+        json["far_date"] = serde_json::json!("2024-01-05");
+
+        let err = serde_json::from_value::<FxSwap>(json)
+            .expect_err("near_date > far_date should fail during deserialization");
+        assert!(
+            err.to_string().contains("near_date") && err.to_string().contains("far_date"),
+            "error should mention date ordering: {}",
+            err
         );
     }
 

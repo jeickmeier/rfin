@@ -1,7 +1,7 @@
 // Type declarations for the finstack-wasm namespaced facade.
 // Shapes follow `wasm-bindgen` JS names in `src/api/**` (see Rust `js_name`).
 
-export { default } from "./pkg/finstack_wasm";
+export { default } from './pkg/finstack_wasm';
 
 // --- core -----------------------------------------------------------------
 
@@ -65,7 +65,11 @@ export interface PercentageConstructor {
 
 export interface DayCount {
   yearFraction(startEpochDays: number, endEpochDays: number): number;
-  yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;
+  yearFractionWithContext(
+    startEpochDays: number,
+    endEpochDays: number,
+    ctx: DayCountContext
+  ): number;
   calendarDays(startEpochDays: number, endEpochDays: number): number;
   toString(): string;
 }
@@ -181,12 +185,7 @@ export interface FxRateResult {
 
 export interface FxMatrix {
   setQuote(base: string, quote: string, rate: number): void;
-  rate(
-    base: string,
-    quote: string,
-    date: string,
-    policy?: FxConversionPolicy
-  ): FxRateResult;
+  rate(base: string, quote: string, date: string, policy?: FxConversionPolicy): FxRateResult;
 }
 
 export interface FxMatrixConstructor {
@@ -236,11 +235,7 @@ export interface CoreNamespace {
   Tenor: TenorConstructor;
   createDate(year: number, month: number, day: number): number;
   dateFromEpochDays(days: number): number[];
-  adjustBusinessDay(
-    epochDays: number,
-    convention: string,
-    calendarCode: string
-  ): number;
+  adjustBusinessDay(epochDays: number, convention: string, calendarCode: string): number;
   availableCalendars(): string[];
   DiscountCurve: DiscountCurveConstructor;
   ForwardCurve: ForwardCurveConstructor;
@@ -287,8 +282,8 @@ export interface PeriodStats {
 }
 
 /** Breach indicator from VaR backtesting: "Hit" or "Miss". */
-export type Breach = "Hit" | "Miss";
-export type VarMethod = "Historical" | "Parametric" | "CornishFisher";
+export type Breach = 'Hit' | 'Miss';
+export type VarMethod = 'Historical' | 'Parametric' | 'CornishFisher';
 
 /** Kupiec Proportion of Failures (POF) unconditional coverage test result. */
 export interface KupiecResultJson {
@@ -314,7 +309,7 @@ export interface ChristoffersenResultJson {
 }
 
 /** Basel traffic-light zone: "Green", "Yellow", or "Red". */
-export type TrafficLightZone = "Green" | "Yellow" | "Red";
+export type TrafficLightZone = 'Green' | 'Yellow' | 'Red';
 
 /** Basel traffic-light classification result. */
 export interface TrafficLightResultJson {
@@ -560,11 +555,21 @@ export interface AnalyticsNamespace {
   volatility(returns: number[], annualize: boolean, annFactor: number): number;
   meanReturn(returns: number[], annualize: boolean, annFactor: number): number;
   cagr(returns: number[], basis: CagrBasis): number;
-  downsideDeviation(returns: number[], threshold: number, annualize: boolean, annFactor: number): number;
+  downsideDeviation(
+    returns: number[],
+    threshold: number,
+    annualize: boolean,
+    annFactor: number
+  ): number;
   geometricMean(returns: number[]): number;
   omegaRatio(returns: number[], threshold: number): number;
   gainToPain(returns: number[]): number;
-  modifiedSharpe(returns: number[], riskFreeRate: number, confidence: number, annFactor: number): number;
+  modifiedSharpe(
+    returns: number[],
+    riskFreeRate: number,
+    confidence: number,
+    annFactor: number
+  ): number;
   estimateRuin(returns: number[], definition: RuinDefinition, model: RuinModel): RuinEstimateJson;
   // Risk metrics — tail
   valueAtRisk(returns: number[], confidence: number): number;
@@ -577,9 +582,25 @@ export interface AnalyticsNamespace {
   outlierWinRatio(returns: number[], confidence: number): number;
   outlierLossRatio(returns: number[], confidence: number): number;
   // Risk metrics — rolling (dated structs)
-  rollingSharpe(returns: number[], dates: string[], window: number, annFactor: number, riskFreeRate: number): RollingSharpe;
-  rollingSortino(returns: number[], dates: string[], window: number, annFactor: number): RollingSortino;
-  rollingVolatility(returns: number[], dates: string[], window: number, annFactor: number): RollingVolatility;
+  rollingSharpe(
+    returns: number[],
+    dates: string[],
+    window: number,
+    annFactor: number,
+    riskFreeRate: number
+  ): RollingSharpe;
+  rollingSortino(
+    returns: number[],
+    dates: string[],
+    window: number,
+    annFactor: number
+  ): RollingSortino;
+  rollingVolatility(
+    returns: number[],
+    dates: string[],
+    window: number,
+    annFactor: number
+  ): RollingVolatility;
   // Returns
   simpleReturns(prices: number[]): number[];
   compSum(returns: number[]): number[];
@@ -611,8 +632,18 @@ export interface AnalyticsNamespace {
     targetDates: string[],
     policy: BenchmarkAlignmentPolicy
   ): number[];
-  trackingError(returns: number[], benchmark: number[], annualize: boolean, annFactor: number): number;
-  informationRatio(returns: number[], benchmark: number[], annualize: boolean, annFactor: number): number;
+  trackingError(
+    returns: number[],
+    benchmark: number[],
+    annualize: boolean,
+    annFactor: number
+  ): number;
+  informationRatio(
+    returns: number[],
+    benchmark: number[],
+    annualize: boolean,
+    annFactor: number
+  ): number;
   rSquared(returns: number[], benchmark: number[]): number;
   upCapture(returns: number[], benchmark: number[]): number;
   downCapture(returns: number[], benchmark: number[]): number;
@@ -622,7 +653,13 @@ export interface AnalyticsNamespace {
   mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
   beta(portfolio: number[], benchmark: number[]): BetaResult;
   greeks(returns: number[], benchmark: number[], annFactor: number): GreeksResult;
-  rollingGreeks(returns: number[], benchmark: number[], dates: string[], window: number, annFactor: number): RollingGreeksResult;
+  rollingGreeks(
+    returns: number[],
+    benchmark: number[],
+    dates: string[],
+    window: number,
+    annFactor: number
+  ): RollingGreeksResult;
   multiFactorGreeks(returns: number[], factors: number[][], annFactor: number): MultiFactorResult;
   // Aggregation
   groupByPeriod(dates: string[], returns: number[], periodKind: string): [string, number][];
@@ -631,22 +668,47 @@ export interface AnalyticsNamespace {
   mtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
   qtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
   ytdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
-  fytdSelect(dates: string[], asOf: string, offsetDays: number, fiscalStartMonth: number, fiscalStartDay: number): [number, number];
+  fytdSelect(
+    dates: string[],
+    asOf: string,
+    offsetDays: number,
+    fiscalStartMonth: number,
+    fiscalStartDay: number
+  ): [number, number];
   // Backtesting
   classifyBreaches(varForecasts: number[], realizedPnl: number[]): boolean[];
   kupiecTest(breachCount: number, n: number, confidence: number): KupiecResultJson;
   christoffersenTest(breachIndicators: boolean[], confidence: number): ChristoffersenResultJson;
   trafficLight(exceptions: number, n: number, confidence: number): TrafficLightResultJson;
-  runBacktest(varForecasts: number[], realizedPnl: number[], confidence: number, windowSize: number): BacktestResultJson;
-  rollingVarForecasts(returns: number[], lookback: number, confidence: number, method: string): [number[], number[]];
+  runBacktest(
+    varForecasts: number[],
+    realizedPnl: number[],
+    confidence: number,
+    windowSize: number
+  ): BacktestResultJson;
+  rollingVarForecasts(
+    returns: number[],
+    lookback: number,
+    confidence: number,
+    method: string
+  ): [number[], number[]];
   /**
    * Batched rolling-VaR forecasts across multiple `(lookback, confidence, method)`
    * configurations over the same return series. Amortizes the JS↔WASM serde
    * round-trip paid per call by `rollingVarForecasts`.
    */
   rollingVarBatch(returns: number[], configs: [number, number, string][]): [number[], number[]][];
-  compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;
-  pnlExplanation(hypotheticalPnl: number[], riskTheoreticalPnl: number[], varForecasts: number[]): PnlExplanationJson;
+  compareVarBacktests(
+    models: [string, number[]][],
+    realizedPnl: number[],
+    confidence: number,
+    windowSize: number
+  ): MultiModelComparisonJson;
+  pnlExplanation(
+    hypotheticalPnl: number[],
+    riskTheoreticalPnl: number[],
+    varForecasts: number[]
+  ): PnlExplanationJson;
   // GARCH volatility models
   fitGarch11(returns: number[], distribution: string): GarchFitJson;
   fitEgarch11(returns: number[], distribution: string): GarchFitJson;
@@ -707,11 +769,7 @@ export interface RecoverySpec {
 
 export interface RecoverySpecConstructor {
   constant(rate: number): RecoverySpec;
-  marketCorrelated(
-    mean: number,
-    vol: number,
-    correlation: number
-  ): RecoverySpec;
+  marketCorrelated(mean: number, vol: number, correlation: number): RecoverySpec;
 }
 
 /** Exported class; construct instances via `CopulaSpec.build()` (no public `new`). */
@@ -745,12 +803,7 @@ export interface CorrelationNamespace {
    * (asymmetry > 1e-6 or diagonal far from 1) throw rather than being silently
    * reshaped.
    */
-  nearestCorrelation(
-    matrix: number[],
-    n: number,
-    maxIter?: number,
-    tol?: number
-  ): number[];
+  nearestCorrelation(matrix: number[], n: number, maxIter?: number, tol?: number): number[];
 }
 
 // --- monte_carlo ----------------------------------------------------------
@@ -759,44 +812,98 @@ export interface CorrelationNamespace {
 
 export interface MonteCarloNamespace {
   priceEuropeanCall(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string
   ): MonteCarloEstimateJson;
   priceEuropeanPut(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string
   ): MonteCarloEstimateJson;
   priceAsianCall(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string
   ): MonteCarloEstimateJson;
   priceAsianPut(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string
   ): MonteCarloEstimateJson;
   priceAmericanPut(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string,
-    useParallel?: boolean, basis?: string, basisDegree?: number
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string,
+    useParallel?: boolean,
+    basis?: string,
+    basisDegree?: number
   ): MonteCarloEstimateJson;
   priceAmericanCall(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number, numPaths: number, seed: bigint,
-    numSteps?: number, currency?: string,
-    useParallel?: boolean, basis?: string, basisDegree?: number
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string,
+    useParallel?: boolean,
+    basis?: string,
+    basisDegree?: number
   ): MonteCarloEstimateJson;
   blackScholesCall(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number
   ): number;
   blackScholesPut(
-    spot: number, strike: number, rate: number, divYield: number,
-    vol: number, expiry: number
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number
   ): number;
 }
 
@@ -827,11 +934,7 @@ export interface CashflowsNamespace {
   buildCashflowSchedule(specJson: string, marketJson?: string | null): string;
   validateCashflowSchedule(scheduleJson: string): string;
   datedFlows(scheduleJson: string): string;
-  accruedInterest(
-    scheduleJson: string,
-    asOf: string,
-    configJson?: string | null
-  ): number;
+  accruedInterest(scheduleJson: string, asOf: string, configJson?: string | null): number;
   bondFromCashflows(
     instrumentId: string,
     scheduleJson: string,
@@ -846,12 +949,7 @@ export declare const cashflows: CashflowsNamespace;
 
 export interface ValuationInstrumentsNamespace {
   validateInstrumentJson(json: string): string;
-  priceInstrument(
-    instrumentJson: string,
-    marketJson: string,
-    asOf: string,
-    model: string
-  ): string;
+  priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(
     instrumentJson: string,
     marketJson: string,
@@ -862,6 +960,50 @@ export interface ValuationInstrumentsNamespace {
   ): string;
   listStandardMetrics(): string[];
   listStandardMetricsGrouped(): Record<string, string[]>;
+}
+
+export type FxInstrumentSpec = Record<string, unknown> | string;
+
+export interface FxInstrument {
+  toJSON(): string;
+  price(marketJson: string, asOf: string, model?: string | null): string;
+  priceWithMetrics(
+    marketJson: string,
+    asOf: string,
+    metrics: string[],
+    model?: string | null,
+    pricingOptions?: string | null
+  ): string;
+}
+
+export interface FxOptionInstrument extends FxInstrument {
+  delta(marketJson: string, asOf: string, model?: string | null): number;
+  gamma(marketJson: string, asOf: string, model?: string | null): number;
+  vega(marketJson: string, asOf: string, model?: string | null): number;
+  theta(marketJson: string, asOf: string, model?: string | null): number;
+  rho(marketJson: string, asOf: string, model?: string | null): number;
+  foreignRho(marketJson: string, asOf: string, model?: string | null): number;
+  vanna(marketJson: string, asOf: string, model?: string | null): number;
+  volga(marketJson: string, asOf: string, model?: string | null): number;
+  greeks(marketJson: string, asOf: string, model?: string | null): Record<string, number>;
+}
+
+export interface FxInstrumentConstructor<T extends FxInstrument> {
+  new (spec: FxInstrumentSpec): T;
+  fromJSON(json: string): T;
+}
+
+export interface FxNamespace {
+  FxSpot: FxInstrumentConstructor<FxInstrument>;
+  FxForward: FxInstrumentConstructor<FxInstrument>;
+  FxSwap: FxInstrumentConstructor<FxInstrument>;
+  Ndf: FxInstrumentConstructor<FxInstrument>;
+  FxOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxDigitalOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxTouchOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxBarrierOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxVarianceSwap: FxInstrumentConstructor<FxInstrument>;
+  QuantoOption: FxInstrumentConstructor<FxOptionInstrument>;
 }
 
 // --- SABR (Stochastic Alpha Beta Rho) volatility -------------------------
@@ -876,13 +1018,7 @@ export interface SabrParameters {
 }
 
 export interface SabrParametersConstructor {
-  new (
-    alpha: number,
-    beta: number,
-    nu: number,
-    rho: number,
-    shift?: number
-  ): SabrParameters;
+  new (alpha: number, beta: number, nu: number, rho: number, shift?: number): SabrParameters;
   /** Equity-standard defaults `(alpha=0.20, beta=1.0, nu=0.30, rho=-0.20)`. */
   equityDefault(): SabrParameters;
   /** Rates-standard defaults `(alpha=0.02, beta=0.5, nu=0.30, rho=0.0)`. */
@@ -917,11 +1053,7 @@ export interface SabrSmile {
   atmVol(): number;
   impliedVol(strike: number): number;
   generateSmile(strikes: number[]): number[];
-  arbitrageDiagnostics(
-    strikes: number[],
-    r?: number,
-    q?: number
-  ): SabrSmileArbitrageResult;
+  arbitrageDiagnostics(strikes: number[], r?: number, q?: number): SabrSmileArbitrageResult;
 }
 
 export interface SabrSmileConstructor {
@@ -961,11 +1093,7 @@ export interface ValuationCreditNamespace {
   ): string;
   mertonDefaultProbability(modelJson: string, horizon: number): number;
   dynamicRecoveryConstantJson(recovery: number): string;
-  endogenousHazardPowerLawJson(
-    baseHazard: number,
-    baseLeverage: number,
-    exponent: number
-  ): string;
+  endogenousHazardPowerLawJson(baseHazard: number, baseLeverage: number, exponent: number): string;
   creditStateJson(
     hazardRate: number,
     leverage: number,
@@ -996,12 +1124,7 @@ export interface CreditDerivativesNamespace {
   fromJson(instrumentJson: string): string;
   toJson(instrumentJson: string): string;
   validate(instrumentJson: string): string;
-  priceInstrument(
-    instrumentJson: string,
-    marketJson: string,
-    asOf: string,
-    model: string
-  ): string;
+  priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(
     instrumentJson: string,
     marketJson: string,
@@ -1019,16 +1142,13 @@ export interface ValuationsNamespace {
   credit: ValuationCreditNamespace;
   /** CDS-family JSON wrappers and pricing helpers. */
   creditDerivatives: CreditDerivativesNamespace;
+  /** Direct FX instrument wrappers. */
+  fx: FxNamespace;
   /** Instrument JSON validation and pricing helpers. */
   instruments: ValuationInstrumentsNamespace;
   validateValuationResultJson(json: string): string;
   validateInstrumentJson(json: string): string;
-  priceInstrument(
-    instrumentJson: string,
-    marketJson: string,
-    asOf: string,
-    model: string
-  ): string;
+  priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(
     instrumentJson: string,
     marketJson: string,
@@ -1113,8 +1233,8 @@ export interface ValuationsNamespace {
     q: number,
     sigma: number,
     t: number,
-    direction: "up" | "down",
-    knock: "in" | "out"
+    direction: 'up' | 'down',
+    knock: 'in' | 'out'
   ): number;
   /** Arithmetic (Turnbull-Wakeman) or geometric (Kemna-Vorst) Asian option. */
   asianOptionPrice(
@@ -1125,7 +1245,7 @@ export interface ValuationsNamespace {
     sigma: number,
     t: number,
     numFixings: number,
-    averaging?: "arithmetic" | "geometric",
+    averaging?: 'arithmetic' | 'geometric',
     isCall?: boolean
   ): number;
   /** Conze-Viswanathan lookback option. */
@@ -1137,7 +1257,7 @@ export interface ValuationsNamespace {
     sigma: number,
     t: number,
     extremum: number,
-    strikeType?: "fixed" | "floating",
+    strikeType?: 'fixed' | 'floating',
     isCall?: boolean
   ): number;
   /** Quanto (FX-adjusted cross-currency) option price in domestic currency. */
@@ -1294,11 +1414,7 @@ export interface StatementsNamespace {
   validateEcfSweepSpec(json: string): string;
   validatePikToggleSpec(json: string): string;
   evaluateModel(modelJson: string): string;
-  evaluateModelWithMarket(
-    modelJson: string,
-    marketJson: string,
-    asOf: string,
-  ): string;
+  evaluateModelWithMarket(modelJson: string, marketJson: string, asOf: string): string;
   parseFormula(formula: string): string;
   validateFormula(formula: string): boolean;
 }
@@ -1316,21 +1432,10 @@ export interface GoalSeekResult {
 
 export interface StatementsAnalyticsNamespace {
   runSensitivity(modelJson: string, configJson: string): string;
-  runVariance(
-    baseJson: string,
-    comparisonJson: string,
-    configJson: string
-  ): string;
+  runVariance(baseJson: string, comparisonJson: string, configJson: string): string;
   evaluateScenarioSet(modelJson: string, scenarioSetJson: string): string;
-  backtestForecast(
-    actual: number[],
-    forecast: number[]
-  ): BacktestForecastMetricsJson;
-  generateTornadoEntries(
-    resultJson: string,
-    metricNode: string,
-    period?: string
-  ): string;
+  backtestForecast(actual: number[], forecast: number[]): BacktestForecastMetricsJson;
+  generateTornadoEntries(resultJson: string, metricNode: string, period?: string): string;
   runMonteCarlo(modelJson: string, configJson: string): string;
   goalSeek(
     modelJson: string,
@@ -1343,17 +1448,8 @@ export interface StatementsAnalyticsNamespace {
     upperBound: number
   ): GoalSeekResult;
   traceDependencies(modelJson: string, nodeId: string): string;
-  explainFormula(
-    modelJson: string,
-    resultsJson: string,
-    nodeId: string,
-    period: string
-  ): string;
-  plSummaryReport(
-    resultsJson: string,
-    lineItems: string[],
-    periods: string[]
-  ): string;
+  explainFormula(modelJson: string, resultsJson: string, nodeId: string, period: string): string;
+  plSummaryReport(resultsJson: string, lineItems: string[], periods: string[]): string;
   creditAssessmentReport(resultsJson: string, asOf: string): string;
   // Comps — comparable company analysis
   percentileRank(value: number, data: number[]): number | null;
@@ -1400,30 +1496,20 @@ export interface PortfolioNamespace {
   parsePortfolioSpec(jsonStr: string): string;
   buildPortfolioFromSpec(specJson: string): string;
   portfolioResultTotalValue(resultJson: string): number;
-  portfolioResultGetMetric(
-    resultJson: string,
-    metricId: string
-  ): number | undefined;
+  portfolioResultGetMetric(resultJson: string, metricId: string): number | undefined;
   aggregateMetrics(
     valuationJson: string,
     baseCcy: string,
     marketJson: string,
     asOf: string
   ): string;
-  valuePortfolio(
-    specJson: string,
-    marketJson: string,
-    strictRisk: boolean
-  ): string;
+  valuePortfolio(specJson: string, marketJson: string, strictRisk: boolean): string;
   aggregateFullCashflows(specJson: string, marketJson: string): string;
   /**
    * Fast-path cashflow aggregation that reuses a built `Portfolio` handle.
    * Skips the `PortfolioSpec` parse + `Portfolio::from_spec` rebuild cost.
    */
-  aggregateFullCashflowsBuilt(
-    portfolio: Portfolio,
-    marketJson: string
-  ): string;
+  aggregateFullCashflowsBuilt(portfolio: Portfolio, marketJson: string): string;
   applyScenarioAndRevalue(
     specJson: string,
     scenarioJson: string,
@@ -1431,11 +1517,7 @@ export interface PortfolioNamespace {
   ): ScenarioRevalueResult;
   /** Optimize portfolio weights using the LP-based optimizer. */
   optimizePortfolio(specJson: string, marketJson: string): string;
-  replayPortfolio(
-    specJson: string,
-    snapshotsJson: string,
-    configJson: string
-  ): string;
+  replayPortfolio(specJson: string, snapshotsJson: string, configJson: string): string;
   parametricVarDecomposition(
     positionIdsJson: string,
     weightsJson: string,
@@ -1462,11 +1544,7 @@ export interface PortfolioNamespace {
   ): string;
   rollEffectiveSpread(returnsJson: string): number;
   amihudIlliquidity(returnsJson: string, volumesJson: string): number;
-  daysToLiquidate(
-    positionValue: number,
-    avgDailyVolume: number,
-    participationRate: number
-  ): number;
+  daysToLiquidate(positionValue: number, avgDailyVolume: number, participationRate: number): number;
   liquidityTier(daysToLiquidate: number): string;
   lvarBangia(
     varValue: number,
