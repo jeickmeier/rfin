@@ -372,10 +372,21 @@ fn beta_ci_critical_value(sample_size: usize) -> f64 {
 ///
 /// The **95% two-sided** interval uses `β ± t_{n−2, 0.975} × SE(β)`, where
 /// `t_{n−2, 0.975}` is the **Student's t** critical value for `n − 2` degrees
-/// of freedom (implemented as a small fixed table for `n − 2 ≤ 37`). For
-/// `n − 2 ≥ 38` (i.e. `n ≥ 40`), the **normal** critical value **1.96**
-/// (two-sided 95%) is used as the usual asymptotic approximation to the
-/// t distribution.
+/// of freedom. Exact tabulated values are used for `n − 2 ≤ 37`; for larger
+/// samples the implementation steps down through conservative anchors before
+/// reaching the asymptotic normal limit:
+///
+/// | `n − 2`     | Critical value                                |
+/// |-------------|-----------------------------------------------|
+/// | `1..=37`    | exact Student's t at that df                  |
+/// | `38..=59`   | `2.021` (t at df = 40, used as a step-down)   |
+/// | `60..=119`  | `2.000` (t at df = 60)                        |
+/// | `120..=239` | `1.980` (t at df = 120)                       |
+/// | `≥ 240`     | `1.96`  (asymptotic normal)                   |
+///
+/// This is conservative for `38 ≤ n − 2 < 240` (intervals are slightly wider
+/// than the exact t critical), and converges to the normal approximation only
+/// for very large samples.
 ///
 /// Requires at least 3 observations; returns `NaN` for standard error and
 /// CI bounds when `n < 3`.

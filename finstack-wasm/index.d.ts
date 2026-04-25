@@ -266,21 +266,6 @@ export declare const core: CoreNamespace;
 
 // --- analytics ------------------------------------------------------------
 
-export interface PeriodStats {
-  best: number;
-  worst: number;
-  consecutive_wins: number;
-  consecutive_losses: number;
-  win_rate: number;
-  avg_return: number;
-  avg_win: number;
-  avg_loss: number;
-  payoff_ratio: number;
-  profit_factor: number;
-  cpc_ratio: number;
-  kelly_criterion: number;
-}
-
 /** Breach indicator from VaR backtesting: "Hit" or "Miss". */
 export type Breach = 'Hit' | 'Miss';
 export type VarMethod = 'Historical' | 'Parametric' | 'CornishFisher';

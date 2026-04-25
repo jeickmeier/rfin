@@ -26,7 +26,7 @@
 //!
 //! Key conventions:
 //! - returns are simple decimal returns unless a function explicitly says otherwise
-//! - annualization uses the caller-supplied or [`crate::dates::PeriodKind`]-derived
+//! - annualization uses the caller-supplied or [`finstack_core::dates::PeriodKind`]-derived
 //!   periods-per-year factor
 //! - drawdown depths are non-positive fractions such as `-0.25` for a 25% loss
 //! - benchmark-relative metrics operate on return series, not fill-forwarded prices
@@ -35,7 +35,10 @@
 //! [`crate::drawdown`] for drawdown path analytics, and
 //! [`crate::benchmark`] for benchmark-relative regressions and attribution.
 
-/// Re-export core date, error, and math modules used throughout the crate.
+// Internal re-exports of upstream `finstack_core` modules so this crate can
+// write `crate::dates::Date`, `crate::error::InputError`, etc. These are
+// `pub(crate)` because they are not part of this crate's public API; users
+// should import directly from `finstack_core`.
 pub(crate) use finstack_core::{dates, error, math};
 
 /// Alias for the crate-wide result type.

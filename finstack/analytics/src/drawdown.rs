@@ -679,7 +679,11 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The Martin ratio. Returns `0.0` if the Ulcer Index is zero.
+/// The Martin ratio. Sentinels follow the shared drawdown-ratio convention:
+///
+/// - `±∞` when `ulcer == 0.0` and `cagr_val ≠ 0.0` (positive numerator → `+∞`,
+///   negative → `−∞`)
+/// - `0.0` when both `cagr_val == 0.0` and `ulcer == 0.0`
 ///
 /// # Examples
 ///
@@ -688,6 +692,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 ///
 /// assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
 /// assert_eq!(martin_ratio(0.10, 0.0), f64::INFINITY);
+/// assert_eq!(martin_ratio(0.0, 0.0), 0.0);
 /// ```
 ///
 /// # References
