@@ -76,8 +76,6 @@ pub fn bump_hazard_spreads(
                 snapped_months = ((raw_months as f64 / 3.0).round() as i32).max(1) * 3;
             }
         }
-        let snapped_years = snapped_months as f64 / 12.0;
-
         let mut bumped_spread = spread_bp;
 
         // Apply bump
@@ -87,8 +85,10 @@ pub fn bump_hazard_spreads(
             }
             BumpRequest::Tenors(targets) => {
                 for (target_t, bp) in targets {
-                    // 0.1 year tolerance for bucket matching
-                    if (snapped_years - target_t).abs() < 0.1 {
+                    // Match against the original curve tenor, not the snapped
+                    // CDS schedule tenor, so bucketed reports preserve
+                    // irregular pillars such as 7Y or 25Y.
+                    if (tenor_years - target_t).abs() < 0.1 {
                         bumped_spread += bp;
                         // Assuming we want to apply multiple bumps if they overlap,
                         // or just the first match?
@@ -100,7 +100,7 @@ pub fn bump_hazard_spreads(
         }
 
         quotes.push(CdsQuote::CdsParSpread {
-            id: format!("BUMP-{}-{:.4}", issuer, snapped_years).into(),
+            id: format!("BUMP-{}-{:.4}", issuer, tenor_years).into(),
             entity: issuer.clone(),
             // Use tenor pillars so CDS schedule generation can snap to market-standard
             // IMM maturities. Using ad-hoc `Date` pillars can create invalid

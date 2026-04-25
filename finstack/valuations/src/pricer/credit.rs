@@ -16,18 +16,14 @@ use crate::instruments::fixed_income::structured_credit::{
     StochasticPricingResult, StructuredCredit,
 };
 use crate::metrics::MetricId;
-use crate::results::{ValuationDetails, ValuationResult};
+use crate::results::{CreditDerivativeValuationDetails, ValuationDetails, ValuationResult};
 use finstack_core::market_data::context::MarketContext;
 use indexmap::IndexMap;
 
 /// Register pricers for credit instruments.
 pub(crate) fn register_credit_pricers(registry: &mut PricerRegistry) {
     // CDS
-    registry.register(
-        InstrumentType::CDS,
-        ModelKey::HazardRate,
-        crate::instruments::common_impl::GenericInstrumentPricer::cds(),
-    );
+    registry.register(InstrumentType::CDS, ModelKey::HazardRate, CDSHazardPricer);
 
     // CDS Index
     registry.register(
@@ -64,6 +60,46 @@ pub(crate) fn register_credit_pricers(registry: &mut PricerRegistry) {
         ModelKey::StructuredCreditStochastic,
         StructuredCreditStochasticPricer,
     );
+}
+
+struct CDSHazardPricer;
+
+impl Pricer for CDSHazardPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> PricingResult<ValuationResult> {
+        let cds =
+            expect_inst::<crate::instruments::CreditDefaultSwap>(instrument, InstrumentType::CDS)?;
+        let value = cds.base_value(market, as_of).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+
+        Ok(
+            ValuationResult::stamped(cds.id(), as_of, value).with_details(
+                ValuationDetails::CreditDerivative(credit_derivative_details(
+                    ModelKey::HazardRate,
+                    Some("isda_standard_model"),
+                )),
+            ),
+        )
+    }
+}
+
+fn credit_derivative_details(
+    model_key: ModelKey,
+    integration_method: Option<&str>,
+) -> CreditDerivativeValuationDetails {
+    CreditDerivativeValuationDetails {
+        model_key: format!("{model_key:?}"),
+        integration_method: integration_method.map(str::to_string),
+    }
 }
 
 struct StructuredCreditStochasticPricer;

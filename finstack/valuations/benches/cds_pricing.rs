@@ -122,6 +122,36 @@ fn bench_cds_cs01(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_cds_cs01_variants(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cds_cs01_variants");
+    let market = create_market();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let cds = create_cds(5);
+
+    let cases = [
+        ("parallel_rebootstrap", MetricId::Cs01),
+        ("bucketed_rebootstrap", MetricId::BucketedCs01),
+        ("parallel_hazard", MetricId::Cs01Hazard),
+        ("bucketed_hazard", MetricId::BucketedCs01Hazard),
+    ];
+
+    for (name, metric) in cases {
+        let metrics = [metric];
+        group.bench_function(name, |b| {
+            b.iter(|| {
+                cds.price_with_metrics(
+                    black_box(&market),
+                    black_box(as_of),
+                    black_box(metrics.as_slice()),
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
+            });
+        });
+    }
+
+    group.finish();
+}
+
 fn bench_cds_par_spread(c: &mut Criterion) {
     let mut group = c.benchmark_group("cds_par_spread");
     let market = create_market();
@@ -147,5 +177,11 @@ fn bench_cds_par_spread(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_cds_pv, bench_cds_cs01, bench_cds_par_spread);
+criterion_group!(
+    benches,
+    bench_cds_pv,
+    bench_cds_cs01,
+    bench_cds_cs01_variants,
+    bench_cds_par_spread
+);
 criterion_main!(benches);

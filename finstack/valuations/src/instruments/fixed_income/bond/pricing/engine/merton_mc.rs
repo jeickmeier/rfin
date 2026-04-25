@@ -664,6 +664,7 @@ impl MertonMcEngine {
                                         distance_to_default: Some(dd),
                                         leverage,
                                         accreted_notional: n_current,
+                                        coupon_due: coupon_amount,
                                         asset_value: Some(v),
                                     };
 

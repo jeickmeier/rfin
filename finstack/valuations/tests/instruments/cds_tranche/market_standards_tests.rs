@@ -192,15 +192,11 @@ fn test_standard_tranche_derives_contractual_effective_date_for_seasoned_trade()
 
 #[test]
 fn test_cs01_bump_units_exist() {
-    // Market Standard: CS01 can be measured as:
-    // 1. Hazard rate bump (spread duration)
-    // 2. Spread bump (additive)
+    // Market Standard: tranche CS01 bumps hazard rates directly.
 
     let hazard_bump = Cs01BumpUnits::HazardRateBp;
-    let spread_bump = Cs01BumpUnits::SpreadBpAdditive;
 
     assert!(matches!(hazard_bump, Cs01BumpUnits::HazardRateBp));
-    assert!(matches!(spread_bump, Cs01BumpUnits::SpreadBpAdditive));
 }
 
 #[test]

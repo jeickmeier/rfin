@@ -1,8 +1,7 @@
 use super::config::CDSPricerConfig;
 use super::helpers::{
-    approx_default_density, date_from_hazard_time, df_asof_to, haz_t,
-    isda_standard_model_boundaries, midpoint_default_date, restructuring_adjustment_factor,
-    settlement_date, sp_cond_to,
+    date_from_hazard_time, df_asof_to, haz_t, isda_standard_model_boundaries,
+    midpoint_default_date, restructuring_adjustment_factor, settlement_date, sp_cond_to,
 };
 use super::IntegrationMethod;
 use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT};
@@ -10,11 +9,9 @@ use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_core::dates::{Date, HolidayCalendar};
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
-use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
-use std::cell::RefCell;
 
 /// CDS pricing engine. Stateless wrapper carrying configuration.
 #[derive(Debug)]
@@ -183,37 +180,6 @@ impl CDSPricer {
         };
         let protection_pv = match self.config.integration_method {
             IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(&inputs)?,
-            IntegrationMethod::GaussianQuadrature => {
-                match self.protection_leg_gaussian_quadrature_cond(&inputs) {
-                    Ok(pv) => pv,
-                    Err(e) => {
-                        tracing::warn!(
-                            method = "GaussianQuadrature",
-                            error = %e,
-                            t_start = t_start,
-                            t_end = t_end,
-                            "Integration failed, falling back to midpoint method"
-                        );
-                        self.protection_leg_midpoint_cond(&inputs)?
-                    }
-                }
-            }
-            IntegrationMethod::AdaptiveSimpson => {
-                match self.protection_leg_adaptive_simpson_cond(&inputs) {
-                    Ok(pv) => pv,
-                    Err(e) => {
-                        tracing::warn!(
-                            method = "AdaptiveSimpson",
-                            error = %e,
-                            t_start = t_start,
-                            t_end = t_end,
-                            "Integration failed, falling back to midpoint method"
-                        );
-                        self.protection_leg_midpoint_cond(&inputs)?
-                    }
-                }
-            }
-            IntegrationMethod::IsdaExact => self.protection_leg_isda_exact_cond(&inputs)?,
             IntegrationMethod::IsdaStandardModel => {
                 self.protection_leg_isda_standard_model_cond(&inputs)?
             }
@@ -322,42 +288,12 @@ impl CDSPricer {
     /// | Method | AoD implementation |
     /// |--------|--------------------|
     /// | `Midpoint` | Period midpoint with conditional survival |
-    /// | `IsdaExact` | Piecewise fixed-step midpoint quadrature |
     /// | `IsdaStandardModel` | Analytical piecewise-constant integration over hazard/disc knots |
-    /// | `GaussianQuadrature` | Gauss-Legendre on hazard-time axis with conditional density |
-    /// | `AdaptiveSimpson` | Adaptive Simpson on hazard-time axis with conditional density |
     pub(super) fn accrual_on_default_dispatch(&self, inp: AodInputs<'_>) -> Result<f64> {
         match self.config.integration_method {
             IntegrationMethod::Midpoint => self.accrual_on_default_midpoint_cond(inp),
-            IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact_cond(inp),
             IntegrationMethod::IsdaStandardModel => {
                 self.accrual_on_default_isda_standard_model_cond(inp)
-            }
-            IntegrationMethod::GaussianQuadrature => {
-                match self.accrual_on_default_gaussian_quadrature_cond(inp) {
-                    Ok(pv) => Ok(pv),
-                    Err(e) => {
-                        tracing::warn!(
-                            method = "GaussianQuadrature",
-                            error = %e,
-                            "AoD integration failed, falling back to midpoint"
-                        );
-                        self.accrual_on_default_midpoint_cond(inp)
-                    }
-                }
-            }
-            IntegrationMethod::AdaptiveSimpson => {
-                match self.accrual_on_default_adaptive_simpson_cond(inp) {
-                    Ok(pv) => Ok(pv),
-                    Err(e) => {
-                        tracing::warn!(
-                            method = "AdaptiveSimpson",
-                            error = %e,
-                            "AoD integration failed, falling back to midpoint"
-                        );
-                        self.accrual_on_default_midpoint_cond(inp)
-                    }
-                }
             }
         }
     }
@@ -393,58 +329,6 @@ impl CDSPricer {
         let df = df_asof_to(inp.disc, inp.as_of, settle_date)?;
 
         Ok(inp.spread * 0.5 * tau_remaining * default_prob * df)
-    }
-
-    /// Piecewise fixed-step midpoint quadrature over [start, end] (ISDA exact
-    /// variant), using conditional survival and relative discount factors.
-    pub(super) fn accrual_on_default_isda_exact_cond(&self, inp: AodInputs<'_>) -> Result<f64> {
-        if inp.end_date <= inp.start_date {
-            return Ok(0.0);
-        }
-        let t_start = haz_t(inp.surv, inp.start_date)?;
-        let t_end = haz_t(inp.surv, inp.end_date)?;
-        let t_asof = haz_t(inp.surv, inp.as_of)?;
-        let sp_asof = inp.surv.sp(t_asof);
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
-            return Ok(0.0);
-        }
-
-        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
-        let period_length_haz = t_end - t_start;
-        if period_length_haz <= 0.0 || tau_remaining <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let steps = self.config.effective_steps(period_length_haz).max(1);
-        let dt = period_length_haz / steps as f64;
-        let mut accrual_pv = 0.0;
-
-        for i in 0..steps {
-            let t1 = t_start + i as f64 * dt;
-            let t2 = t1 + dt;
-            let sp1 = inp.surv.sp(t1) / sp_asof;
-            let sp2 = inp.surv.sp(t2) / sp_asof;
-            if !(sp1 > sp2 && sp1 > 0.0) {
-                continue;
-            }
-            // Default assumed at interval midpoint; accrual fraction scaled by
-            // position within the accrual period on the instrument day-count.
-            let t_mid = (t1 + t2) * 0.5;
-            let position = ((t_mid - t_start) / period_length_haz).clamp(0.0, 1.0);
-            let accrued_tau = tau_remaining * position;
-
-            let default_date = date_from_hazard_time(inp.surv, t_mid);
-            let settle_date = settlement_date(
-                default_date,
-                inp.settlement_delay,
-                inp.calendar,
-                self.config.business_days_per_year,
-            )?;
-            let df = df_asof_to(inp.disc, inp.as_of, settle_date)?;
-
-            accrual_pv += inp.spread * accrued_tau * (sp1 - sp2) * df;
-        }
-        Ok(accrual_pv)
     }
 
     /// ISDA Standard Model AoD: analytical integration over piecewise-constant
@@ -542,142 +426,5 @@ impl CDSPricer {
             accrual_pv += contribution;
         }
         Ok(accrual_pv)
-    }
-
-    /// Gauss-Legendre quadrature on hazard-time axis with conditional density
-    /// and relative discount factors.
-    pub(super) fn accrual_on_default_gaussian_quadrature_cond(
-        &self,
-        inp: AodInputs<'_>,
-    ) -> Result<f64> {
-        if inp.end_date <= inp.start_date {
-            return Ok(0.0);
-        }
-        let t_start = haz_t(inp.surv, inp.start_date)?;
-        let t_end = haz_t(inp.surv, inp.end_date)?;
-        if t_start >= t_end {
-            return Ok(0.0);
-        }
-        let t_asof = haz_t(inp.surv, inp.as_of)?;
-        let sp_asof = inp.surv.sp(t_asof);
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
-            return Ok(0.0);
-        }
-
-        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
-        let period_length_haz = t_end - t_start;
-        if tau_remaining <= 0.0 || period_length_haz <= 0.0 {
-            return Ok(0.0);
-        }
-        let tau_per_haz = tau_remaining / period_length_haz;
-
-        let h = period_length_haz * numerical::INTEGRATION_STEP_FACTOR;
-        let err: RefCell<Option<Error>> = RefCell::new(None);
-        let integrand = |t: f64| {
-            if err.borrow().is_some() {
-                return 0.0;
-            }
-            let density = approx_default_density(inp.surv, t, h, t_start, t_end) / sp_asof;
-            let default_date = date_from_hazard_time(inp.surv, t);
-            let settle = match settlement_date(
-                default_date,
-                inp.settlement_delay,
-                inp.calendar,
-                self.config.business_days_per_year,
-            ) {
-                Ok(d) => d,
-                Err(e) => {
-                    *err.borrow_mut() = Some(e);
-                    return 0.0;
-                }
-            };
-            let df = match df_asof_to(inp.disc, inp.as_of, settle) {
-                Ok(d) => d,
-                Err(e) => {
-                    *err.borrow_mut() = Some(e);
-                    return 0.0;
-                }
-            };
-            let tau = (t - t_start).max(0.0) * tau_per_haz;
-            inp.spread * tau * density * df
-        };
-
-        let result =
-            gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())?;
-        if let Some(e) = err.into_inner() {
-            return Err(e);
-        }
-        Ok(result)
-    }
-
-    /// Adaptive Simpson on hazard-time axis with conditional density and
-    /// relative discount factors.
-    pub(super) fn accrual_on_default_adaptive_simpson_cond(
-        &self,
-        inp: AodInputs<'_>,
-    ) -> Result<f64> {
-        if inp.end_date <= inp.start_date {
-            return Ok(0.0);
-        }
-        let t_start = haz_t(inp.surv, inp.start_date)?;
-        let t_end = haz_t(inp.surv, inp.end_date)?;
-        if t_start >= t_end {
-            return Ok(0.0);
-        }
-        let t_asof = haz_t(inp.surv, inp.as_of)?;
-        let sp_asof = inp.surv.sp(t_asof);
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
-            return Ok(0.0);
-        }
-
-        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
-        let period_length_haz = t_end - t_start;
-        if tau_remaining <= 0.0 || period_length_haz <= 0.0 {
-            return Ok(0.0);
-        }
-        let tau_per_haz = tau_remaining / period_length_haz;
-
-        let h = period_length_haz * numerical::INTEGRATION_STEP_FACTOR;
-        let err: RefCell<Option<Error>> = RefCell::new(None);
-        let integrand = |t: f64| {
-            if err.borrow().is_some() {
-                return 0.0;
-            }
-            let density = approx_default_density(inp.surv, t, h, t_start, t_end) / sp_asof;
-            let default_date = date_from_hazard_time(inp.surv, t);
-            let settle = match settlement_date(
-                default_date,
-                inp.settlement_delay,
-                inp.calendar,
-                self.config.business_days_per_year,
-            ) {
-                Ok(d) => d,
-                Err(e) => {
-                    *err.borrow_mut() = Some(e);
-                    return 0.0;
-                }
-            };
-            let df = match df_asof_to(inp.disc, inp.as_of, settle) {
-                Ok(d) => d,
-                Err(e) => {
-                    *err.borrow_mut() = Some(e);
-                    return 0.0;
-                }
-            };
-            let tau = (t - t_start).max(0.0) * tau_per_haz;
-            inp.spread * tau * density * df
-        };
-
-        let result = adaptive_simpson(
-            integrand,
-            t_start,
-            t_end,
-            self.config.tolerance,
-            self.config.adaptive_max_depth,
-        )?;
-        if let Some(e) = err.into_inner() {
-            return Err(e);
-        }
-        Ok(result)
     }
 }

@@ -111,25 +111,6 @@ fn test_cs01_hazard_rate_bump() {
 }
 
 #[test]
-fn test_cs01_spread_additive_bump() {
-    // Arrange
-    let mut config = CDSTranchePricerConfig::default();
-    config.cs01_bump_units = Cs01BumpUnits::SpreadBpAdditive;
-    let pricer = CDSTranchePricer::with_params(config);
-
-    let tranche = mezzanine_tranche();
-    let market = standard_market_context();
-    let as_of = base_date();
-
-    // Act
-    let result = pricer.calculate_cs01(&tranche, &market, as_of);
-
-    // Assert
-    assert!(result.is_ok());
-    assert!(result.unwrap().is_finite());
-}
-
-#[test]
 fn test_cs01_different_bump_sizes() {
     // Arrange
     let market = standard_market_context();

@@ -50,14 +50,10 @@ pub enum AssetDynamics {
         /// Volatility of log-jump size.
         jump_vol: f64,
     },
-    /// CreditGrades model extension (simplified).
+    /// CreditGrades model extension with stochastic-barrier survival adjustment.
     ///
-    /// This is a simplified version of the CreditGrades model (Finger et al. 2002)
-    /// that uses a deterministic barrier `B = D * R_mean` without the stochastic
-    /// barrier term. The full CreditGrades model includes barrier uncertainty via
-    /// `B = D * L_bar * exp(lambda * sigma_L^2 / 2)`, which modifies the survival
-    /// probability formula. The `barrier_uncertainty` parameter is stored for
-    /// future extension but does not currently affect `default_probability()`.
+    /// `default_probability()` applies the standard approximate CreditGrades
+    /// survival function using the barrier uncertainty parameter.
     CreditGrades {
         /// Uncertainty in the default barrier level (reserved for future use).
         barrier_uncertainty: f64,
@@ -78,6 +74,33 @@ pub enum BarrierType {
         /// Growth rate of the default barrier over time.
         barrier_growth_rate: f64,
     },
+}
+
+fn credit_grades_default_probability(
+    asset_value: f64,
+    asset_vol: f64,
+    debt_barrier: f64,
+    barrier_uncertainty: f64,
+    horizon: f64,
+) -> f64 {
+    if horizon <= 0.0 {
+        return 0.0;
+    }
+
+    let lambda = barrier_uncertainty.max(0.0);
+    let a_t = (asset_vol.mul_add(asset_vol, lambda * lambda / horizon) * horizon).sqrt();
+    if a_t <= 0.0 {
+        return if asset_value <= debt_barrier {
+            1.0
+        } else {
+            0.0
+        };
+    }
+
+    let d = (asset_value / debt_barrier) * (lambda * lambda).exp();
+    let ln_d = d.ln();
+    let survival = norm_cdf(-0.5 * a_t + ln_d / a_t) - d * norm_cdf(-0.5 * a_t - ln_d / a_t);
+    (1.0 - survival).clamp(0.0, 1.0)
 }
 
 /// Merton structural credit model.
@@ -214,6 +237,20 @@ impl MertonModel {
     /// approximation can slightly exceed 1.0 when the risk-neutral drift
     /// is strongly negative (i.e., sigma >> sqrt(2r)).
     pub fn default_probability(&self, horizon: f64) -> f64 {
+        if let AssetDynamics::CreditGrades {
+            barrier_uncertainty,
+            ..
+        } = self.dynamics
+        {
+            return credit_grades_default_probability(
+                self.asset_value,
+                self.asset_vol,
+                self.debt_barrier,
+                barrier_uncertainty,
+                horizon,
+            );
+        }
+
         match self.barrier_type {
             BarrierType::Terminal => {
                 let dd = self.distance_to_default(horizon);
@@ -712,12 +749,59 @@ impl MertonModel {
 pub struct SimulatedPaths {
     /// Time grid from 0 to T.
     pub times: Vec<f64>,
-    /// Asset values indexed as `asset_values[path_idx][time_idx]`.
-    pub asset_values: Vec<Vec<f64>>,
+    /// Asset values in row-major order: `path_idx * (num_steps + 1) + time_idx`.
+    pub asset_values: Vec<f64>,
     /// Number of paths simulated.
     pub num_paths: usize,
     /// Number of time steps.
     pub num_steps: usize,
+}
+
+impl SimulatedPaths {
+    /// Number of stored values per path, including the initial value.
+    #[must_use]
+    pub fn values_per_path(&self) -> usize {
+        self.num_steps + 1
+    }
+
+    /// Return one asset value by path and time-grid index.
+    #[must_use]
+    pub fn get(&self, path_idx: usize, time_idx: usize) -> Option<f64> {
+        if path_idx >= self.num_paths || time_idx > self.num_steps {
+            return None;
+        }
+        self.asset_values
+            .get(path_idx * self.values_per_path() + time_idx)
+            .copied()
+    }
+
+    /// Return the contiguous row for one path.
+    #[must_use]
+    pub fn path(&self, path_idx: usize) -> Option<&[f64]> {
+        if path_idx >= self.num_paths {
+            return None;
+        }
+        let start = path_idx * self.values_per_path();
+        let end = start + self.values_per_path();
+        self.asset_values.get(start..end)
+    }
+
+    /// Iterate over path rows.
+    pub fn iter_paths(&self) -> impl Iterator<Item = &[f64]> {
+        self.asset_values.chunks_exact(self.values_per_path())
+    }
+
+    /// Materialize nested path storage for callers that need the old shape.
+    #[must_use]
+    pub fn to_nested(&self) -> Vec<Vec<f64>> {
+        self.iter_paths().map(<[f64]>::to_vec).collect()
+    }
+}
+
+struct StepJumpData {
+    base_count: usize,
+    anti_count: usize,
+    jump_normals: Vec<f64>,
 }
 
 impl MertonModel {
@@ -789,28 +873,37 @@ impl MertonModel {
             (num_paths, false)
         };
 
-        let mut all_paths: Vec<Vec<f64>> = Vec::with_capacity(num_paths);
+        let values_per_path = num_steps + 1;
+        let mut all_paths: Vec<f64> = Vec::with_capacity(num_paths * values_per_path);
+        let mut normals = vec![0.0; num_steps];
 
         for _ in 0..n_base {
             // Generate normals for this base path
-            let normals: Vec<f64> = (0..num_steps).map(|_| rng.normal(0.0, 1.0)).collect();
+            normals.iter_mut().for_each(|z| *z = rng.normal(0.0, 1.0));
 
             // Generate jump data if needed
-            let jump_data: Option<Vec<(usize, Vec<f64>)>> = jump_params.map(|(lambda, _, _)| {
+            let jump_data: Option<Vec<StepJumpData>> = jump_params.map(|(lambda, _, _)| {
                 let lambda_dt = lambda * dt;
                 (0..num_steps)
                     .map(|_| {
-                        let n_jumps = poisson_inverse_cdf(lambda_dt, rng.uniform());
+                        let u = rng.uniform();
+                        let base_count = poisson_inverse_cdf(lambda_dt, u);
+                        let anti_count =
+                            poisson_inverse_cdf(lambda_dt, (1.0 - u).min(1.0 - f64::EPSILON));
+                        let max_count = base_count.max(anti_count);
                         let jump_normals: Vec<f64> =
-                            (0..n_jumps).map(|_| rng.normal(0.0, 1.0)).collect();
-                        (n_jumps, jump_normals)
+                            (0..max_count).map(|_| rng.normal(0.0, 1.0)).collect();
+                        StepJumpData {
+                            base_count,
+                            anti_count,
+                            jump_normals,
+                        }
                     })
                     .collect()
             });
 
             // Build the base path
-            let mut base_path = Vec::with_capacity(num_steps + 1);
-            base_path.push(v0);
+            all_paths.push(v0);
             let mut v = v0;
 
             for step in 0..num_steps {
@@ -819,44 +912,39 @@ impl MertonModel {
 
                 // Apply jumps if present
                 if let (Some(ref jd), Some((_, mu_j, sigma_j))) = (&jump_data, jump_params) {
-                    let (_n_jumps, ref jump_z) = jd[step];
-                    for &jz in jump_z {
+                    let jump_step = &jd[step];
+                    for &jz in jump_step.jump_normals.iter().take(jump_step.base_count) {
                         v *= (mu_j - 0.5 * sigma_j * sigma_j + sigma_j * jz).exp();
                     }
                 }
 
-                base_path.push(v);
+                all_paths.push(v);
             }
 
-            all_paths.push(base_path);
-
             // Build the antithetic (mirror) path if requested
-            if gen_antithetic && all_paths.len() < num_paths {
-                let mut anti_path = Vec::with_capacity(num_steps + 1);
-                anti_path.push(v0);
+            if gen_antithetic && all_paths.len() / values_per_path < num_paths {
+                all_paths.push(v0);
                 let mut v_anti = v0;
 
                 for step in 0..num_steps {
                     let z = -normals[step]; // Negated normal
                     v_anti *= (drift_per_step + diffusion * z).exp();
 
-                    // Apply jumps (same jump counts and jump normals — only diffusion Z is negated)
                     if let (Some(ref jd), Some((_, mu_j, sigma_j))) = (&jump_data, jump_params) {
-                        let (_n_jumps, ref jump_z) = jd[step];
-                        for &jz in jump_z {
+                        let jump_step = &jd[step];
+                        for &jz in jump_step.jump_normals.iter().take(jump_step.anti_count) {
+                            let jz = -jz;
                             v_anti *= (mu_j - 0.5 * sigma_j * sigma_j + sigma_j * jz).exp();
                         }
                     }
 
-                    anti_path.push(v_anti);
+                    all_paths.push(v_anti);
                 }
-
-                all_paths.push(anti_path);
             }
         }
 
         // Trim to exact num_paths in case antithetic generated one extra
-        all_paths.truncate(num_paths);
+        all_paths.truncate(num_paths * values_per_path);
 
         SimulatedPaths {
             times,
@@ -1370,6 +1458,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn credit_grades_barrier_uncertainty_affects_pd() {
+        let low_lambda =
+            MertonModel::credit_grades(25.0, 0.50, 80.0, 0.04, 0.10, 0.40).expect("cg");
+        let high_lambda =
+            MertonModel::credit_grades(25.0, 0.50, 80.0, 0.04, 0.60, 0.40).expect("cg");
+        assert_ne!(
+            low_lambda.default_probability(5.0),
+            high_lambda.default_probability(5.0),
+            "CreditGrades barrier uncertainty must feed the survival function"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Monte Carlo path simulation tests
     // -----------------------------------------------------------------------
@@ -1383,7 +1484,8 @@ mod tests {
         let paths1 = m.simulate_paths(10, 60, 5.0, &mut rng1, false);
         let paths2 = m.simulate_paths(10, 60, 5.0, &mut rng2, false);
         assert_eq!(
-            paths1.asset_values[0], paths2.asset_values[0],
+            paths1.path(0),
+            paths2.path(0),
             "Same seed should give same paths"
         );
     }
@@ -1395,8 +1497,7 @@ mod tests {
         let mut rng = Pcg64Rng::new(42);
         let paths = m.simulate_paths(50_000, 60, 5.0, &mut rng, true);
         let mean_terminal: f64 = paths
-            .asset_values
-            .iter()
+            .iter_paths()
             .map(|p| *p.last().expect("non-empty"))
             .sum::<f64>()
             / paths.num_paths as f64;
@@ -1417,8 +1518,8 @@ mod tests {
         assert_eq!(paths.num_paths, 100);
         assert_eq!(paths.num_steps, 60);
         assert_eq!(paths.times.len(), 61); // includes t=0
-        assert_eq!(paths.asset_values.len(), 100);
-        assert_eq!(paths.asset_values[0].len(), 61);
+        assert_eq!(paths.asset_values.len(), 100 * 61);
+        assert_eq!(paths.values_per_path(), 61);
         assert!(
             (paths.times[0] - 0.0).abs() < 1e-10,
             "First time should be 0"
@@ -1428,7 +1529,7 @@ mod tests {
             "Last time should be horizon"
         );
         assert!(
-            (paths.asset_values[0][0] - 100.0).abs() < 1e-10,
+            (paths.get(0, 0).expect("path value") - 100.0).abs() < 1e-10,
             "Should start at V\u{2080}"
         );
     }
@@ -1457,13 +1558,11 @@ mod tests {
         let paths_jd = m_jd.simulate_paths(100, 60, 5.0, &mut rng2, false);
         // JD paths should differ from GBM (different drift compensation + jumps)
         let gbm_terminal: f64 = paths_gbm
-            .asset_values
-            .iter()
+            .iter_paths()
             .map(|p| *p.last().expect("non-empty"))
             .sum::<f64>();
         let jd_terminal: f64 = paths_jd
-            .asset_values
-            .iter()
+            .iter_paths()
             .map(|p| *p.last().expect("non-empty"))
             .sum::<f64>();
         assert!(

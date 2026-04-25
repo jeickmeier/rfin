@@ -35,7 +35,10 @@
 //! [`crate::drawdown`] for drawdown path analytics, and
 //! [`crate::benchmark`] for benchmark-relative regressions and attribution.
 
+/// Re-export core date, error, and math modules used throughout the crate.
 pub(crate) use finstack_core::{dates, error, math};
+
+/// Alias for the crate-wide result type.
 type Result<T> = finstack_core::Result<T>;
 
 pub mod aggregation;

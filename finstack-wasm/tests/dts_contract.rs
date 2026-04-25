@@ -80,3 +80,18 @@ fn statements_dts_matches_runtime_exports() {
     assert!(dts.contains("validateCheckSuiteSpec(json: string): string;"));
     assert!(dts.contains("export declare const statements: StatementsNamespace;"));
 }
+
+#[test]
+fn valuations_dts_exposes_credit_namespaces() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface ValuationCreditNamespace"));
+    assert!(dts.contains("mertonModelJson("));
+    assert!(dts.contains("creditGradesModelJson("));
+    assert!(dts.contains("toggleExerciseOptimalJson("));
+    assert!(dts.contains("export interface CreditDerivativesNamespace"));
+    assert!(dts.contains("creditDefaultSwapExampleJson(): string;"));
+    assert!(dts.contains("cdsOptionExampleJson(): string;"));
+    assert!(dts.contains("credit: ValuationCreditNamespace;"));
+    assert!(dts.contains("creditDerivatives: CreditDerivativesNamespace;"));
+}

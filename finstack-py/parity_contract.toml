@@ -145,6 +145,8 @@ attribution  = { python = "finstack.valuations",              status = "exists",
 instruments  = { python = "finstack.valuations.instruments",  status = "exists", note = "Instrument JSON validation and pricing helpers live under finstack.valuations.instruments; root aliases remain for compatibility" }
 calibration  = { python = "finstack.valuations.calibration",  status = "missing", note = "Bindings are currently exported from finstack.valuations root" }
 correlation  = { python = "finstack.valuations.correlation",  status = "exists", note = "Former standalone finstack-correlation crate; nested under valuations" }
+credit       = { python = "finstack.valuations.credit",       status = "exists", note = "Structural credit models and PIK toggle helpers" }
+credit_derivatives = { python = "finstack.valuations.credit_derivatives", status = "exists", note = "Typed wrappers for CDS, CDS index, tranche, and option JSON pricing" }
 # All other valuations submodules are deferred pending detailed lib.rs audit (Wave 3)
 
 # ---------------------------------------------------------------------------

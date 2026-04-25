@@ -50,6 +50,7 @@ pub fn require_finite(value: f64) -> crate::Result<f64> {
     }
 }
 
+/// Shared guard for invalid annualization factor inputs.
 pub(crate) use return_based::invalid_annualization_factor;
 pub use return_based::{
     cagr, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean, mean_return,

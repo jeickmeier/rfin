@@ -944,9 +944,81 @@ export interface SabrCalibratorConstructor {
   highPrecision(): SabrCalibrator;
 }
 
+export interface ValuationCreditNamespace {
+  mertonModelJson(
+    assetValue: number,
+    assetVol: number,
+    debtBarrier: number,
+    riskFreeRate: number
+  ): string;
+  creditGradesModelJson(
+    equityValue: number,
+    equityVol: number,
+    totalDebt: number,
+    riskFreeRate: number,
+    barrierUncertainty: number,
+    meanRecovery: number
+  ): string;
+  mertonDefaultProbability(modelJson: string, horizon: number): number;
+  dynamicRecoveryConstantJson(recovery: number): string;
+  endogenousHazardPowerLawJson(
+    baseHazard: number,
+    baseLeverage: number,
+    exponent: number
+  ): string;
+  creditStateJson(
+    hazardRate: number,
+    leverage: number,
+    accretedNotional: number,
+    couponDue: number,
+    distanceToDefault?: number | null,
+    assetValue?: number | null
+  ): string;
+  toggleExerciseThresholdJson(
+    variable: 'hazard_rate' | 'distance_to_default' | 'leverage',
+    threshold: number,
+    direction: 'above' | 'below'
+  ): string;
+  toggleExerciseOptimalJson(
+    nestedPaths: number,
+    equityDiscountRate: number,
+    assetVol: number,
+    riskFreeRate: number,
+    horizon: number
+  ): string;
+}
+
+export interface CreditDerivativesNamespace {
+  creditDefaultSwapExampleJson(): string;
+  cdsIndexExampleJson(): string;
+  cdsTrancheExampleJson(): string;
+  cdsOptionExampleJson(): string;
+  fromJson(instrumentJson: string): string;
+  toJson(instrumentJson: string): string;
+  validate(instrumentJson: string): string;
+  priceInstrument(
+    instrumentJson: string,
+    marketJson: string,
+    asOf: string,
+    model: string
+  ): string;
+  priceInstrumentWithMetrics(
+    instrumentJson: string,
+    marketJson: string,
+    asOf: string,
+    model: string,
+    metrics: string[],
+    pricingOptions?: string | null
+  ): string;
+}
+
 export interface ValuationsNamespace {
   /** Credit-correlation infrastructure (copulas, recovery, factor models). */
   correlation: CorrelationNamespace;
+  /** Structural credit models and toggle-exercise helpers. */
+  credit: ValuationCreditNamespace;
+  /** CDS-family JSON wrappers and pricing helpers. */
+  creditDerivatives: CreditDerivativesNamespace;
   /** Instrument JSON validation and pricing helpers. */
   instruments: ValuationInstrumentsNamespace;
   validateValuationResultJson(json: string): string;

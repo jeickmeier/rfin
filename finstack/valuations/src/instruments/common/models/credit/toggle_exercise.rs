@@ -45,6 +45,9 @@ pub struct CreditState {
     pub leverage: f64,
     /// Accreted (PIK-augmented) notional outstanding.
     pub accreted_notional: f64,
+    /// Cash coupon amount due at this decision date.
+    #[serde(default)]
+    pub coupon_due: f64,
     /// Fair value of the firm's assets, if available.
     pub asset_value: Option<f64>,
 }
@@ -166,7 +169,7 @@ fn optimal_toggle_decision(
     state: &CreditState,
     rng: &mut dyn RandomNumberGenerator,
 ) -> bool {
-    let seed_bits = (rng.uniform() * u64::MAX as f64) as u64;
+    let seed_bits = rng.next_u64();
     optimal_toggle_decision_seeded(o, state, seed_bits)
 }
 
@@ -184,7 +187,10 @@ fn optimal_toggle_decision_seeded(o: &OptimalToggle, state: &CreditState, seed_b
         return false;
     }
 
-    let coupon = (n * o.equity_discount_rate).max(0.0);
+    let coupon = state.coupon_due.max(0.0);
+    if coupon == 0.0 {
+        return false;
+    }
 
     let v_cash_start = (v - coupon).max(0.0);
     let barrier_cash = n;
@@ -192,16 +198,10 @@ fn optimal_toggle_decision_seeded(o: &OptimalToggle, state: &CreditState, seed_b
     let v_pik_start = v;
     let barrier_pik = n + coupon;
 
-    let cash_viable = v_cash_start > barrier_cash;
-    let pik_viable = v_pik_start > barrier_pik;
-
-    if !cash_viable && pik_viable {
+    if v_cash_start <= barrier_cash {
         return true;
     }
-    if !cash_viable && !pik_viable {
-        return true;
-    }
-    if cash_viable && !pik_viable {
+    if v_pik_start <= barrier_pik {
         return false;
     }
 
@@ -214,7 +214,7 @@ fn optimal_toggle_decision_seeded(o: &OptimalToggle, state: &CreditState, seed_b
 
     let model_pik = NestedEquityMcModel {
         sigma: o.asset_vol,
-        risk_free_rate: o.risk_free_rate - o.equity_discount_rate,
+        risk_free_rate: o.risk_free_rate,
         discount_rate: o.equity_discount_rate,
         horizon: o.horizon,
     };
@@ -232,7 +232,7 @@ fn optimal_toggle_decision_seeded(o: &OptimalToggle, state: &CreditState, seed_b
         v_pik_start,
         barrier_pik,
         model_pik,
-        seed_bits.wrapping_add(1_000_000),
+        seed_bits ^ 0x9E37_79B9_7F4A_7C15,
     );
 
     avg_equity_pik > avg_equity_cash
@@ -272,7 +272,7 @@ fn nested_equity_mc(
     let mut total_payoff = 0.0;
 
     for path_idx in 0..num_paths {
-        let mut nested_rng = Pcg64Rng::new(base_seed.wrapping_add(path_idx as u64));
+        let mut nested_rng = Pcg64Rng::new_with_stream(base_seed, path_idx as u64);
         let mut v = v_start;
         let mut defaulted = false;
 
@@ -334,7 +334,21 @@ impl ToggleExerciseModel {
 
     /// Returns `true` if the borrower elects PIK at this coupon date.
     pub fn should_pik(&self, state: &CreditState, rng: &mut dyn RandomNumberGenerator) -> bool {
-        self.should_pik_with_uniform(state, rng.uniform())
+        match self {
+            Self::Threshold(t) => {
+                let value = extract_state_value(state, &t.state_variable);
+                match t.direction {
+                    ThresholdDirection::Above => value > t.threshold,
+                    ThresholdDirection::Below => value < t.threshold,
+                }
+            }
+            Self::Stochastic(s) => {
+                let value = extract_state_value(state, &s.state_variable);
+                let p = 1.0 / (1.0 + (-s.intercept - s.sensitivity * value).exp());
+                rng.uniform() < p
+            }
+            Self::OptimalExercise(o) => optimal_toggle_decision(o, state, rng),
+        }
     }
 
     /// Deterministic variant of [`should_pik`](Self::should_pik) that uses a
@@ -484,8 +498,8 @@ mod tests {
 
     /// Helper to build an `OptimalToggle` with typical parameters.
     ///
-    /// Uses a 2% coupon-rate proxy (equity_discount_rate) so that the
-    /// per-period coupon is small relative to the equity cushion.
+    /// Tests set `CreditState::coupon_due` explicitly; the discount rate is
+    /// only the equity-holder discount rate.
     fn make_optimal_toggle(nested_paths: usize) -> OptimalToggle {
         OptimalToggle {
             nested_paths,
@@ -504,6 +518,7 @@ mod tests {
             hazard_rate: 0.20,
             leverage: 0.50,
             accreted_notional: 100.0,
+            coupon_due: 2.0,
             asset_value: Some(200.0),
             ..Default::default()
         };
@@ -517,7 +532,7 @@ mod tests {
         // paying cash would push asset value below the default barrier.
         // PIK preserves cash and is the only viable survival strategy.
         //
-        // Setup: V=104, N=100, coupon_rate=0.05, coupon=5.
+        // Setup: V=104, N=100, coupon=5.
         //   Cash: V_start = 104-5 = 99 < barrier(100) → immediate default!
         //   PIK:  V_start = 104, barrier = 105        → cushion of -1 (also tight)
         //
@@ -538,6 +553,7 @@ mod tests {
             distance_to_default: Some(0.5),
             leverage: n / v,
             accreted_notional: n,
+            coupon_due: 5.0,
             asset_value: Some(v),
         };
         assert!(
@@ -547,25 +563,31 @@ mod tests {
     }
 
     #[test]
-    fn optimal_toggle_prefers_cash_when_healthy() {
-        // When the firm is far from default, paying cash is preferable
-        // because it avoids accreting notional (which raises the future
-        // default barrier).
-        let model = ToggleExerciseModel::OptimalExercise(make_optimal_toggle(500));
+    fn optimal_toggle_prefers_cash_on_exact_tie() {
+        // With zero drift and zero volatility, paying cash and PIK leave the
+        // same terminal equity value. The model breaks economic ties by paying
+        // cash, avoiding unnecessary debt accretion.
+        let model = ToggleExerciseModel::OptimalExercise(OptimalToggle {
+            nested_paths: 32,
+            equity_discount_rate: 0.02,
+            asset_vol: 0.0,
+            risk_free_rate: 0.0,
+            horizon: 1.0,
+        });
         let mut rng = Pcg64Rng::new(99);
         let n = 100.0;
-        // Asset value 3x notional -- very healthy.
         let v = n * 3.0;
         let state = CreditState {
             hazard_rate: 0.02,
             distance_to_default: Some(5.0),
             leverage: n / v,
             accreted_notional: n,
+            coupon_due: 2.0,
             asset_value: Some(v),
         };
         assert!(
             !model.should_pik(&state, &mut rng),
-            "Healthy firm (V/N = 3.0) should prefer cash to keep barrier low"
+            "Equal continuation values should tie-break to cash"
         );
     }
 
@@ -576,6 +598,7 @@ mod tests {
             hazard_rate: 0.10,
             leverage: 0.60,
             accreted_notional: 100.0,
+            coupon_due: 2.0,
             asset_value: Some(166.67),
             ..Default::default()
         };

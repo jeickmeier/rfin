@@ -90,10 +90,15 @@ impl crate::pricer::Pricer for SimpleCDSTrancheHazardPricer {
             })?;
 
         // Return stamped result
-        Ok(crate::results::ValuationResult::stamped(
-            cds_tranche.id(),
-            as_of,
-            pv,
-        ))
+        Ok(
+            crate::results::ValuationResult::stamped(cds_tranche.id(), as_of, pv).with_details(
+                crate::results::ValuationDetails::CreditDerivative(
+                    crate::results::CreditDerivativeValuationDetails {
+                        model_key: format!("{:?}", self.model_key),
+                        integration_method: Some("isda_standard_model".to_string()),
+                    },
+                ),
+            ),
+        )
     }
 }

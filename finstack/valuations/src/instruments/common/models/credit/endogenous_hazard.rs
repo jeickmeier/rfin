@@ -155,12 +155,7 @@ impl EndogenousHazardSpec {
     /// Compute the hazard rate after PIK accrual changes the notional.
     ///
     /// Leverage is computed as `accreted_notional / asset_value`.
-    pub fn hazard_after_pik_accrual(
-        &self,
-        _original_notional: f64,
-        accreted_notional: f64,
-        asset_value: f64,
-    ) -> f64 {
+    pub fn hazard_after_pik_accrual(&self, accreted_notional: f64, asset_value: f64) -> f64 {
         let leverage = accreted_notional / asset_value;
         self.hazard_at_leverage(leverage)
     }
@@ -260,8 +255,8 @@ mod tests {
     #[test]
     fn pik_accrual_increases_hazard() {
         let spec = EndogenousHazardSpec::power_law(0.10, 1.5, 2.5).unwrap();
-        let h_before = spec.hazard_after_pik_accrual(100.0, 100.0, 66.67);
-        let h_after = spec.hazard_after_pik_accrual(100.0, 120.0, 66.67);
+        let h_before = spec.hazard_after_pik_accrual(100.0, 66.67);
+        let h_after = spec.hazard_after_pik_accrual(120.0, 66.67);
         assert!(
             h_after > h_before,
             "PIK accrual should increase hazard: before={h_before}, after={h_after}"

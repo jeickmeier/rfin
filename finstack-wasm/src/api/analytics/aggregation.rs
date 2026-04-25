@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use super::support::parse_iso_dates;
 
+/// Group returns by calendar period and return `(period_id, compounded_return)` pairs.
 #[wasm_bindgen(js_name = groupByPeriod)]
 pub fn group_by_period(
     dates: JsValue,
@@ -18,6 +19,7 @@ pub fn group_by_period(
     serde_wasm_bindgen::to_value(&grouped).map_err(to_js_err)
 }
 
+/// Compute aggregated period statistics from a flat list of periodic returns.
 #[wasm_bindgen(js_name = periodStats)]
 pub fn period_stats(returns: JsValue) -> Result<JsValue, JsValue> {
     let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;

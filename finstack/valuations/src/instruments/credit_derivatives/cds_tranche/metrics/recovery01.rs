@@ -37,6 +37,7 @@ impl MetricCalculator for Recovery01Calculator {
         // Create bumped credit index (up)
         use finstack_core::market_data::term_structures::CreditIndexData;
         let bumped_recovery_up = (base_recovery + RECOVERY_BUMP).clamp(0.0, 1.0);
+        let up_delta = bumped_recovery_up - base_recovery;
         let bumped_index_up = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(bumped_recovery_up)
@@ -59,6 +60,7 @@ impl MetricCalculator for Recovery01Calculator {
 
         // Create bumped credit index (down)
         let bumped_recovery_down = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
+        let down_delta = base_recovery - bumped_recovery_down;
         let bumped_index_down = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(bumped_recovery_down)
@@ -79,8 +81,11 @@ impl MetricCalculator for Recovery01Calculator {
             .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
         let pv_down = tranche.value(&curves_down, as_of)?.amount();
 
-        // Recovery01 = (PV_up - PV_down) / (2 * bump_size)
-        let recovery01 = (pv_up - pv_down) / (2.0 * RECOVERY_BUMP);
+        let span = up_delta + down_delta;
+        if span <= 0.0 {
+            return Ok(0.0);
+        }
+        let recovery01 = (pv_up - pv_down) / span * RECOVERY_BUMP;
 
         Ok(recovery01)
     }

@@ -22,10 +22,12 @@ pub enum GarchFamily {
     Egarch11,
 }
 
+/// Default GARCH family tag used by `#[serde(default = "...")]`.
 fn default_garch_family() -> GarchFamily {
     GarchFamily::Garch11
 }
 
+/// Default mean parameter (`0.0`) used by `#[serde(default = "...")]`.
 fn default_mean() -> f64 {
     0.0
 }

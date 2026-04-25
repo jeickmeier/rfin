@@ -171,7 +171,7 @@ fn test_settlement_delay_reduces_protection_pv() {
     cds0.protection.settlement_delay = 0;
     cds20.protection.settlement_delay = 20;
     let pricer = CDSPricer::with_config(CDSPricerConfig {
-        integration_method: IntegrationMethod::GaussianQuadrature,
+        integration_method: IntegrationMethod::IsdaStandardModel,
         ..Default::default()
     });
     let pv0 = pricer
@@ -635,15 +635,15 @@ fn test_integration_method_recommendations_cover_boundaries() {
     );
     assert_eq!(
         IntegrationMethod::recommended(10.01, false),
-        IntegrationMethod::AdaptiveSimpson
+        IntegrationMethod::IsdaStandardModel
     );
     assert_eq!(
         IntegrationMethod::recommended(0.25, true),
-        IntegrationMethod::GaussianQuadrature
+        IntegrationMethod::Midpoint
     );
     assert_eq!(
         IntegrationMethod::recommended(30.0, true),
-        IntegrationMethod::GaussianQuadrature
+        IntegrationMethod::IsdaStandardModel
     );
 }
 
@@ -679,11 +679,6 @@ fn test_pricer_config_factories_helpers_and_validation_paths() {
     assert_eq!(simplified.integration_method, IntegrationMethod::Midpoint);
     assert!(!simplified.use_isda_coupon_dates);
     assert!(!simplified.adaptive_steps);
-    assert_eq!(simplified.validated_gl_order(), 4);
-
-    let mut invalid_gl = standard.clone();
-    invalid_gl.gl_order = 3;
-    assert_eq!(invalid_gl.validated_gl_order(), 8);
 
     let mut adaptive = simplified.clone();
     adaptive.adaptive_steps = true;
@@ -700,10 +695,6 @@ fn test_pricer_config_factories_helpers_and_validation_paths() {
 
     let invalid_cases = {
         let mut cases = Vec::new();
-
-        let mut cfg = standard.clone();
-        cfg.tolerance = 0.0;
-        cases.push((cfg, "tolerance"));
 
         let mut cfg = standard.clone();
         cfg.steps_per_year = 0;
@@ -724,10 +715,6 @@ fn test_pricer_config_factories_helpers_and_validation_paths() {
         let mut cfg = standard.clone();
         cfg.business_days_per_year = 0.0;
         cases.push((cfg, "business_days_per_year"));
-
-        let mut cfg = standard.clone();
-        cfg.adaptive_max_depth = 0;
-        cases.push((cfg, "adaptive_max_depth"));
 
         cases
     };

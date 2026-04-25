@@ -1,4 +1,4 @@
-use super::config::{CDSTranchePricer, Cs01BumpUnits};
+use super::config::CDSTranchePricer;
 use super::registry::JumpToDefaultResult;
 use crate::cashflow::builder::build_dates;
 use crate::cashflow::primitives::CFKind;
@@ -419,20 +419,7 @@ impl CDSTranchePricer {
         }
 
         let original_index_arc = market_ctx.get_credit_index(&tranche.credit_index_id)?;
-
-        // Calculate the hazard rate bump based on configured units
-        let delta_lambda = match self.params.cs01_bump_units {
-            Cs01BumpUnits::HazardRateBp => {
-                // 1.0 bump_size interpreted as 1 bp in hazard rate
-                self.params.cs01_bump_size * 1e-4
-            }
-            Cs01BumpUnits::SpreadBpAdditive => {
-                // Proxy: convert a spread bp to hazard bp via 1/(1-recovery)
-                // This is a common approximation for small bump sizes.
-                let rr = original_index_arc.recovery_rate;
-                (self.params.cs01_bump_size * 1e-4) / (1.0 - rr).max(1e-6_f64)
-            }
-        };
+        let delta_lambda = self.params.cs01_bump_size * 1e-4;
 
         // Central difference: (PV_up - PV_down) / 2 for O(h²) accuracy
         let bumped_index_up = self.bump_index_hazard(original_index_arc.as_ref(), delta_lambda)?;

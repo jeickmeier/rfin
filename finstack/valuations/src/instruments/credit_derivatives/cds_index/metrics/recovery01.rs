@@ -40,14 +40,37 @@ impl MetricCalculator for Recovery01Calculator {
             bumped
         };
 
+        let effective_delta = |idx: &CDSIndex, delta: f64| -> f64 {
+            if idx.constituents.is_empty() {
+                let base = idx.protection.recovery_rate;
+                (base + delta).clamp(0.0, 1.0) - base
+            } else {
+                let sum: f64 = idx
+                    .constituents
+                    .iter()
+                    .map(|con| {
+                        let base = con.credit.recovery_rate;
+                        (base + delta).clamp(0.0, 1.0) - base
+                    })
+                    .sum();
+                sum / idx.constituents.len() as f64
+            }
+        };
+
+        let up_delta = effective_delta(index, RECOVERY_BUMP);
+        let down_delta = -effective_delta(index, -RECOVERY_BUMP);
+
         let index_up = bump(index, RECOVERY_BUMP);
         let pv_up = index_up.value(&context.curves, as_of)?.amount();
 
         let index_down = bump(index, -RECOVERY_BUMP);
         let pv_down = index_down.value(&context.curves, as_of)?.amount();
 
-        // Recovery01 = PV change for a 1% recovery shift (symmetric bump)
-        let recovery01 = (pv_up - pv_down) / 2.0;
+        let span = up_delta + down_delta;
+        if span <= 0.0 {
+            return Ok(0.0);
+        }
+        let recovery01 = (pv_up - pv_down) / span * RECOVERY_BUMP;
 
         Ok(recovery01)
     }

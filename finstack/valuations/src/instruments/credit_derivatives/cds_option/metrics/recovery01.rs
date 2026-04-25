@@ -36,15 +36,20 @@ impl MetricCalculator for Recovery01Calculator {
         // At R=1.0 the protection leg PV is zero; at R=0.0 synthetic CDS may fail.
         let mut option_up = option.clone();
         option_up.recovery_rate = (base_recovery + RECOVERY_BUMP).clamp(0.001, 0.999);
+        let up_delta = option_up.recovery_rate - base_recovery;
         let pv_up = option_up.value(&context.curves, as_of)?.amount();
 
         // Create option with bumped recovery (down)
         let mut option_down = option.clone();
         option_down.recovery_rate = (base_recovery - RECOVERY_BUMP).clamp(0.001, 0.999);
+        let down_delta = base_recovery - option_down.recovery_rate;
         let pv_down = option_down.value(&context.curves, as_of)?.amount();
 
-        // Recovery01 = (PV_up - PV_down) / (2 * bump_size)
-        let recovery01 = (pv_up - pv_down) / (2.0 * RECOVERY_BUMP);
+        let span = up_delta + down_delta;
+        if span <= 0.0 {
+            return Ok(0.0);
+        }
+        let recovery01 = (pv_up - pv_down) / span * RECOVERY_BUMP;
 
         Ok(recovery01)
     }

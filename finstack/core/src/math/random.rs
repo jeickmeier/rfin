@@ -73,6 +73,17 @@ pub trait RandomNumberGenerator {
     /// Generate uniform random number in [0, 1)
     fn uniform(&mut self) -> f64;
 
+    /// Generate a random 64-bit value.
+    ///
+    /// Implementations with native integer output should override this method.
+    /// The default combines two uniforms so existing RNG implementations remain
+    /// source-compatible.
+    fn next_u64(&mut self) -> u64 {
+        let hi = (self.uniform() * (u32::MAX as f64 + 1.0)) as u64;
+        let lo = (self.uniform() * (u32::MAX as f64 + 1.0)) as u64;
+        (hi << 32) | lo
+    }
+
     /// Generate normal random number with specified mean and standard deviation
     fn normal(&mut self, mean: f64, std_dev: f64) -> f64;
 
@@ -256,6 +267,11 @@ impl RandomNumberGenerator for Pcg64Rng {
     #[inline]
     fn uniform(&mut self) -> f64 {
         self.inner.random()
+    }
+
+    #[inline]
+    fn next_u64(&mut self) -> u64 {
+        self.inner.next_u64()
     }
 
     fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {

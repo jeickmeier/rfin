@@ -341,7 +341,7 @@ impl CDSOptionPricer {
     /// Delta for CDS option w.r.t. forward spread (per unit spread, i.e., per 100%).
     ///
     /// **WARNING**: Returns sensitivity per *decimal* spread, not per basis point.
-    /// For a per-bp delta, use [`delta_per_bp`] or divide by `bp_per_unit` (10,000).
+    /// For a per-bp delta, divide by `bp_per_unit` (10,000).
     ///
     /// Note: Requires `risky_annuity` (PV of annuity) to scale the result properly.
     pub(crate) fn delta(
@@ -392,7 +392,7 @@ impl CDSOptionPricer {
     /// Gamma per unit spread squared (i.e., ∂²V/∂S² where S is the decimal spread).
     ///
     /// **WARNING**: Returns sensitivity per *decimal* spread squared, not per bp squared.
-    /// For a per-bp² gamma, use [`gamma_per_bp`] or divide by `bp_per_unit²` (10⁸).
+    /// For a per-bp² gamma, divide by `bp_per_unit²` (10⁸).
     ///
     /// Returns 0.0 when time-to-expiry or volatility are too small for stable
     /// numerical calculation (denominator approaches zero).
@@ -453,43 +453,6 @@ impl CDSOptionPricer {
             0.0
         };
         Ok(scale * risky_annuity * forward * norm_pdf(d1) * t.sqrt() / 100.0)
-    }
-
-    /// Delta per basis point: sensitivity of option value to a 1bp change in forward spread.
-    ///
-    /// This is the market-standard unit for credit option delta on trading desks.
-    /// Equals `delta(...)  / bp_per_unit`.
-    #[allow(dead_code)]
-    pub(crate) fn delta_per_bp(
-        &self,
-        option: &CDSOption,
-        forward_spread_bp: f64,
-        risky_annuity: f64,
-        sigma: f64,
-        t: f64,
-    ) -> Result<f64> {
-        Ok(
-            self.delta(option, forward_spread_bp, risky_annuity, sigma, t)?
-                / self.config.bp_per_unit,
-        )
-    }
-
-    /// Gamma per basis point squared: second derivative per 1bp² change in spread.
-    ///
-    /// Equals `gamma(...)  / bp_per_unit²`.
-    #[allow(dead_code)]
-    pub(crate) fn gamma_per_bp(
-        &self,
-        option: &CDSOption,
-        forward_spread_bp: f64,
-        risky_annuity: f64,
-        sigma: f64,
-        t: f64,
-    ) -> Result<f64> {
-        Ok(
-            self.gamma(option, forward_spread_bp, risky_annuity, sigma, t)?
-                / (self.config.bp_per_unit * self.config.bp_per_unit),
-        )
     }
 
     /// Finite-difference theta (complete, including risky annuity decay).
@@ -718,11 +681,16 @@ impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
             })?;
 
         // Return stamped result
-        Ok(crate::results::ValuationResult::stamped(
-            cds_option.id(),
-            as_of,
-            pv,
-        ))
+        Ok(
+            crate::results::ValuationResult::stamped(cds_option.id(), as_of, pv).with_details(
+                crate::results::ValuationDetails::CreditDerivative(
+                    crate::results::CreditDerivativeValuationDetails {
+                        model_key: format!("{:?}", self.model_key),
+                        integration_method: None,
+                    },
+                ),
+            ),
+        )
     }
 }
 

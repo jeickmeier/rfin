@@ -8,6 +8,8 @@ mod analytic;
 pub(crate) mod attribution;
 mod calibration;
 pub mod correlation;
+mod credit;
+mod credit_derivatives;
 mod exotic_rates;
 mod factor_model;
 mod fourier;
@@ -151,6 +153,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
     correlation::register(py, &m)?;
+    credit::register(py, &m)?;
+    credit_derivatives::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -197,6 +201,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "SabrSmile",
             "SabrCalibrator",
             "correlation",
+            "credit",
+            "credit_derivatives",
         ],
     )?;
     m.setattr("__all__", all)?;

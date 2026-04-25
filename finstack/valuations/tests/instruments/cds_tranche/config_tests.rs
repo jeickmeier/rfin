@@ -143,27 +143,13 @@ fn test_cs01_bump_units_hazard_rate() {
 }
 
 #[test]
-fn test_cs01_bump_units_spread_additive() {
-    // Arrange & Act
-    let units = Cs01BumpUnits::SpreadBpAdditive;
-
-    // Assert
-    assert!(matches!(units, Cs01BumpUnits::SpreadBpAdditive));
-}
-
-#[test]
 fn test_cs01_bump_units_equality() {
     // Arrange
     let hazard1 = Cs01BumpUnits::HazardRateBp;
     let hazard2 = Cs01BumpUnits::HazardRateBp;
-    let spread = Cs01BumpUnits::SpreadBpAdditive;
 
     // Assert
     assert_eq!(hazard1, hazard2, "Same enum variants should be equal");
-    assert_ne!(
-        hazard1, spread,
-        "Different enum variants should not be equal"
-    );
 }
 
 // ==================== Heterogeneous Method Tests ====================

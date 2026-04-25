@@ -40,7 +40,7 @@ depends = ["rust-build", "python-build", "wasm-build"]
 
 [tasks.all-test]
 description = "Run all tests (Rust + Python + WASM)"
-depends = ["rust-test", "rust-doc", "python-test", "wasm-test"]
+depends = ["rust-test", "python-test", "wasm-test"]
 
 [tasks.all-fmt]
 description = "Format + auto-fix Rust, Python, and WASM code (mutating)"

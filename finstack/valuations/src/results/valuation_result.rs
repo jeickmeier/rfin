@@ -29,10 +29,21 @@ fn default_valuation_result_schema_version() -> u32 {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum ValuationDetails {
+    /// Credit-derivative pricing metadata.
+    CreditDerivative(CreditDerivativeValuationDetails),
     /// Scenario-waterfall structured credit stochastic pricing result.
     StructuredCreditStochastic(
         crate::instruments::fixed_income::structured_credit::StochasticPricingResult,
     ),
+}
+
+/// Metadata for CDS-family valuation paths.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct CreditDerivativeValuationDetails {
+    /// Registered model key used by the pricer.
+    pub model_key: String,
+    /// CDS integration method actually used, when applicable.
+    pub integration_method: Option<String>,
 }
 
 /// Complete valuation result envelope with NPV, risk metrics, and metadata.

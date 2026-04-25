@@ -11,7 +11,6 @@ use finstack_core::{Error, Result};
 #[derive(Debug, Clone)]
 pub(crate) struct CDSPricerConfig {
     /// Number of integration steps per year for protection leg (used with Midpoint method).
-    /// For adaptive integration, use `min_steps_per_year` and `adaptive_steps` instead.
     pub(crate) steps_per_year: usize,
     /// Minimum integration steps per year (floor for adaptive step calculation).
     pub(crate) min_steps_per_year: usize,
@@ -20,8 +19,6 @@ pub(crate) struct CDSPricerConfig {
     pub(crate) adaptive_steps: bool,
     /// Include accrual on default in premium leg calculation
     pub(crate) include_accrual: bool,
-    /// Tolerance for iterative calculations
-    pub(crate) tolerance: f64,
     /// Integration method for protection leg calculation
     pub(crate) integration_method: IntegrationMethod,
     /// Use ISDA standard coupon dates (20th of Mar/Jun/Sep/Dec)
@@ -39,11 +36,6 @@ pub(crate) struct CDSPricerConfig {
     /// production pricing. When enabled, protection PV ordering follows
     /// `Xr14 <= Mr14 <= Mm14 <= Cr14` heuristically.
     pub(crate) enable_restructuring_approximation: bool,
-    /// Gauss–Legendre order for GaussianQuadrature method.
-    /// Supported values: 2, 4, 8, 16. Invalid values default to 8.
-    pub(crate) gl_order: usize,
-    /// Maximum recursion depth for AdaptiveSimpson integration
-    pub(crate) adaptive_max_depth: usize,
     /// Business days per year for settlement delay calculations (region-specific).
     /// Default: 252 (US), alternatives: 250 (UK), 255 (Japan)
     pub(crate) business_days_per_year: f64,
@@ -52,9 +44,6 @@ pub(crate) struct CDSPricerConfig {
     /// Tolerance for bootstrapping solver
     pub(crate) bootstrap_tolerance: f64,
 }
-
-/// Supported Gauss-Legendre orders for numerical integration.
-const SUPPORTED_GL_ORDERS: [usize; 4] = [2, 4, 8, 16];
 
 impl Default for CDSPricerConfig {
     fn default() -> Self {
@@ -78,13 +67,10 @@ impl CDSPricerConfig {
             min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
             adaptive_steps: true,
             include_accrual: true,
-            tolerance: numerical::ZERO_TOLERANCE,
             integration_method: IntegrationMethod::IsdaStandardModel,
             use_isda_coupon_dates: true,
             par_spread_uses_full_premium: false,
             enable_restructuring_approximation: false,
-            gl_order: 8,
-            adaptive_max_depth: 12,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
             bootstrap_max_iterations: 100,
             bootstrap_tolerance: numerical::SOLVER_TOLERANCE,
@@ -109,20 +95,6 @@ impl CDSPricerConfig {
         }
     }
 
-    /// Create an ISDA configuration tuned for distressed credits (spreads > 1000bp).
-    ///
-    /// Doubles the minimum integration points compared to standard configuration
-    /// to reduce integration error for hazard curves with rapid changes at short
-    /// tenors. Uses the ISDA Standard Model for consistency.
-    #[must_use]
-    pub(crate) fn isda_distressed() -> Self {
-        Self {
-            steps_per_year: isda::STANDARD_INTEGRATION_POINTS * 2,
-            min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS * 2,
-            ..Self::isda_standard()
-        }
-    }
-
     /// Create a simplified configuration for faster but less accurate pricing.
     ///
     /// Uses midpoint integration without adaptive steps. Suitable for
@@ -134,28 +106,13 @@ impl CDSPricerConfig {
             min_steps_per_year: 52,
             adaptive_steps: false,
             include_accrual: true,
-            tolerance: 1e-7,
             integration_method: IntegrationMethod::Midpoint,
             use_isda_coupon_dates: false,
             par_spread_uses_full_premium: false,
             enable_restructuring_approximation: false,
-            gl_order: 4,
-            adaptive_max_depth: 10,
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
             bootstrap_max_iterations: 100,
             bootstrap_tolerance: numerical::SOLVER_TOLERANCE,
-        }
-    }
-
-    /// Get validated Gauss-Legendre order (2, 4, 8, or 16).
-    ///
-    /// Returns the configured `gl_order` if supported, otherwise defaults to 8.
-    #[must_use]
-    pub(crate) fn validated_gl_order(&self) -> usize {
-        if SUPPORTED_GL_ORDERS.contains(&self.gl_order) {
-            self.gl_order
-        } else {
-            8 // Default to 8-point quadrature
         }
     }
 
@@ -173,26 +130,6 @@ impl CDSPricerConfig {
         }
     }
 
-    /// Calculate effective integration steps based on tenor and spread level.
-    ///
-    /// Like [`effective_steps`](Self::effective_steps), but doubles the points
-    /// when the CDS par spread indicates a distressed credit (> 1000bp = 0.10
-    /// decimal). Distressed hazard curves exhibit rapid changes at short tenors
-    /// that require finer integration grids.
-    #[must_use]
-    pub(crate) fn effective_steps_for_spread(
-        &self,
-        tenor_years: f64,
-        spread_decimal: f64,
-    ) -> usize {
-        let base = self.effective_steps(tenor_years);
-        if spread_decimal > 0.10 {
-            base * 2
-        } else {
-            base
-        }
-    }
-
     /// Validate configuration parameters.
     ///
     /// Returns an error if any parameter is out of valid range. This method provides
@@ -201,13 +138,11 @@ impl CDSPricerConfig {
     /// # Errors
     ///
     /// Returns a validation error if:
-    /// - `tolerance` is not positive
     /// - `steps_per_year` is zero
     /// - `min_steps_per_year` is zero
     /// - `bootstrap_max_iterations` is zero
     /// - `bootstrap_tolerance` is not positive
     /// - `business_days_per_year` is not positive
-    /// - `adaptive_max_depth` is zero
     ///
     /// # Examples
     ///
@@ -218,11 +153,6 @@ impl CDSPricerConfig {
     /// assert!(config.validate().is_ok());
     /// ```
     pub(crate) fn validate(&self) -> Result<()> {
-        if self.tolerance <= 0.0 {
-            return Err(Error::Validation(
-                "CDSPricerConfig: tolerance must be positive".into(),
-            ));
-        }
         if self.steps_per_year == 0 {
             return Err(Error::Validation(
                 "CDSPricerConfig: steps_per_year must be at least 1".into(),
@@ -246,11 +176,6 @@ impl CDSPricerConfig {
         if self.business_days_per_year <= 0.0 {
             return Err(Error::Validation(
                 "CDSPricerConfig: business_days_per_year must be positive".into(),
-            ));
-        }
-        if self.adaptive_max_depth == 0 {
-            return Err(Error::Validation(
-                "CDSPricerConfig: adaptive_max_depth must be at least 1".into(),
             ));
         }
         Ok(())

@@ -9,7 +9,12 @@ import json as _json
 from typing import TYPE_CHECKING, Any
 
 from finstack.finstack import valuations as _valuations
-from finstack.valuations import correlation as correlation, instruments as instruments
+from finstack.valuations import (
+    correlation as correlation,
+    credit as credit,
+    credit_derivatives as credit_derivatives,
+    instruments as instruments,
+)
 
 if TYPE_CHECKING:
     import pandas as pd

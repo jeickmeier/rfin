@@ -3,6 +3,27 @@ import { correlation } from './valuations/correlation.js';
 
 export const valuations = {
   correlation,
+  credit: {
+    mertonModelJson: wasm.mertonModelJson,
+    creditGradesModelJson: wasm.creditGradesModelJson,
+    mertonDefaultProbability: wasm.mertonDefaultProbability,
+    dynamicRecoveryConstantJson: wasm.dynamicRecoveryConstantJson,
+    endogenousHazardPowerLawJson: wasm.endogenousHazardPowerLawJson,
+    creditStateJson: wasm.creditStateJson,
+    toggleExerciseThresholdJson: wasm.toggleExerciseThresholdJson,
+    toggleExerciseOptimalJson: wasm.toggleExerciseOptimalJson,
+  },
+  creditDerivatives: {
+    creditDefaultSwapExampleJson: wasm.creditDefaultSwapExampleJson,
+    cdsIndexExampleJson: wasm.cdsIndexExampleJson,
+    cdsTrancheExampleJson: wasm.cdsTrancheExampleJson,
+    cdsOptionExampleJson: wasm.cdsOptionExampleJson,
+    fromJson: wasm.validateInstrumentJson,
+    toJson: wasm.validateInstrumentJson,
+    validate: wasm.validateInstrumentJson,
+    priceInstrument: wasm.priceInstrument,
+    priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,
+  },
   instruments: {
     validateInstrumentJson: wasm.validateInstrumentJson,
     priceInstrument: wasm.priceInstrument,
