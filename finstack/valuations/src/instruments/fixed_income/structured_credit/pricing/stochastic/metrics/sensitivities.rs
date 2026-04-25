@@ -5,7 +5,7 @@
 //! - RecoveryCorrelation01: Sensitivity to recovery-default correlation
 //! - PrepaymentVol01: Sensitivity to prepayment volatility
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use super::calculator::StochasticMetricsCalculator;
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;

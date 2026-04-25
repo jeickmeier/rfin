@@ -1,7 +1,9 @@
 //! RMBS-specific metrics (LTV, FICO, WAL with PSA adjustments).
 
-use crate::instruments::fixed_income::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::pricing::run_simulation;
+use crate::instruments::fixed_income::structured_credit::{DealType, StructuredCredit};
 use crate::metrics::MetricContext;
+use finstack_core::dates::{DayCount, DayCountContext};
 
 /// RMBS Weighted Average LTV calculator
 pub struct RmbsLtvCalculator {
@@ -72,16 +74,33 @@ impl crate::metrics::MetricCalculator for RmbsWalCalculator {
             .downcast_ref::<StructuredCredit>()
             .ok_or(finstack_core::InputError::Invalid)?;
 
-        // Use the pool's WAM calculation (approximation), adjusted for PSA speed
-        let base_wal = rmbs.pool.weighted_avg_maturity(context.as_of);
+        if rmbs.deal_type != DealType::RMBS {
+            return Err(finstack_core::InputError::Invalid.into());
+        }
 
-        // Extract psa_speed from behavior overrides, default to 1.0 (100% PSA)
-        let psa_speed = rmbs.behavior_overrides.psa_speed_multiplier.unwrap_or(1.0);
+        let tranche_flows = run_simulation(rmbs, context.curves.as_ref(), context.as_of)?;
+        let mut weighted_principal_time = 0.0;
+        let mut total_principal = 0.0;
 
-        // Higher PSA speeds shorten WAL
-        // Simplified adjustment: WAL / (1 + PSA/2)
-        let adjusted_wal = base_wal / (1.0 + psa_speed / 2.0);
+        for flows in tranche_flows.values() {
+            for (date, amount) in &flows.principal_flows {
+                if *date <= context.as_of || amount.amount() <= 0.0 {
+                    continue;
+                }
+                let years = DayCount::Act365F.year_fraction(
+                    context.as_of,
+                    *date,
+                    DayCountContext::default(),
+                )?;
+                weighted_principal_time += amount.amount() * years;
+                total_principal += amount.amount();
+            }
+        }
 
-        Ok(adjusted_wal)
+        if total_principal <= f64::EPSILON {
+            Ok(0.0)
+        } else {
+            Ok(weighted_principal_time / total_principal)
+        }
     }
 }

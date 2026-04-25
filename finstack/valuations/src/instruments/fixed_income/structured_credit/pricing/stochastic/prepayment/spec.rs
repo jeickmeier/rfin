@@ -4,7 +4,9 @@
 //! enabling configuration and deferred construction.
 
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
-use super::{FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepayment};
+use super::{
+    FactorCorrelatedPrepay, RegimeSwitchingPrepay, RichardRollPrepay, StochasticPrepayment,
+};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;
 
@@ -64,6 +66,12 @@ pub enum StochasticPrepaySpec {
         transition_up: f64,
         /// Transition probability: high -> low (per month)
         transition_down: f64,
+        /// Factor loading for systematic prepayment shocks.
+        #[serde(default = "default_factor_loading")]
+        factor_loading: f64,
+        /// CPR volatility for systematic prepayment shocks.
+        #[serde(default = "default_cpr_volatility")]
+        cpr_volatility: f64,
     },
 }
 
@@ -129,6 +137,8 @@ impl StochasticPrepaySpec {
             high_cpr: high_cpr.clamp(0.0, 1.0),
             transition_up: transition_up.clamp(0.0, 1.0),
             transition_down: transition_down.clamp(0.0, 1.0),
+            factor_loading: default_factor_loading(),
+            cpr_volatility: default_cpr_volatility(),
         }
     }
 
@@ -194,11 +204,21 @@ impl StochasticPrepaySpec {
                 30, // default ramp months
             ))),
 
-            StochasticPrepaySpec::RegimeSwitching { .. } => {
-                // Regime switching would require a separate model implementation
-                // For now, return None (placeholder)
-                None
-            }
+            StochasticPrepaySpec::RegimeSwitching {
+                low_cpr,
+                high_cpr,
+                transition_up,
+                transition_down,
+                factor_loading,
+                cpr_volatility,
+            } => Some(Box::new(RegimeSwitchingPrepay::new(
+                *low_cpr,
+                *high_cpr,
+                *transition_up,
+                *transition_down,
+                *factor_loading,
+                *cpr_volatility,
+            ))),
         }
     }
 
@@ -213,7 +233,7 @@ impl StochasticPrepaySpec {
             StochasticPrepaySpec::Deterministic(_) => None,
             StochasticPrepaySpec::FactorCorrelated { factor_loading, .. } => Some(*factor_loading),
             StochasticPrepaySpec::RichardRoll { factor_loading, .. } => Some(*factor_loading),
-            StochasticPrepaySpec::RegimeSwitching { .. } => None,
+            StochasticPrepaySpec::RegimeSwitching { factor_loading, .. } => Some(*factor_loading),
         }
     }
 
@@ -273,6 +293,18 @@ mod tests {
 
         let model = model.expect("Should build Richard-Roll model");
         assert_eq!(model.model_name(), "Richard-Roll Prepayment Model");
+    }
+
+    #[test]
+    fn test_regime_switching_spec_builds_model() {
+        let spec = StochasticPrepaySpec::regime_switching(0.04, 0.18, 0.10, 0.20);
+
+        assert!(spec.is_stochastic());
+        assert!(spec.factor_loading().is_some());
+
+        let model = spec.build().expect("regime-switching model should build");
+        assert_eq!(model.model_name(), "Regime-Switching Prepayment");
+        assert!(model.conditional_smm(24, &[2.0], 0.05, 1.0) > model.expected_smm(24));
     }
 
     #[test]

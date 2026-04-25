@@ -3,7 +3,10 @@
 //! Provides a serializable specification enum for stochastic default models,
 //! enabling configuration and deferred construction.
 
-use super::{CopulaBasedDefault, HazardCurveDefault, IntensityProcessDefault, StochasticDefault};
+use super::{
+    CopulaBasedDefault, FactorCorrelatedDefault, HazardCurveDefault, IntensityProcessDefault,
+    StochasticDefault,
+};
 use crate::cashflow::builder::specs::DefaultModelSpec;
 use crate::instruments::common_impl::models::correlation::copula::CopulaSpec;
 use finstack_core::market_data::term_structures::HazardCurve;
@@ -292,11 +295,15 @@ impl StochasticDefaultSpec {
                 .with_correlation(*correlation),
             )),
 
-            StochasticDefaultSpec::FactorCorrelated { .. } => {
-                // Factor-correlated default would need a separate implementation
-                // For now, use copula-based as fallback
-                None
-            }
+            StochasticDefaultSpec::FactorCorrelated {
+                base_spec,
+                factor_loading,
+                cdr_volatility,
+            } => Some(Box::new(FactorCorrelatedDefault::new(
+                base_spec.clone(),
+                *factor_loading,
+                *cdr_volatility,
+            ))),
 
             StochasticDefaultSpec::HazardCurveBased {
                 hazard_curve,
@@ -390,6 +397,22 @@ mod tests {
         assert!(model.is_some());
         let model = model.expect("Should build intensity process model");
         assert_eq!(model.model_name(), "Intensity Process Default Model");
+    }
+
+    #[test]
+    fn test_factor_correlated_spec_builds_model() {
+        let spec = StochasticDefaultSpec::factor_correlated(
+            DefaultModelSpec::constant_cdr(0.02),
+            0.4,
+            0.2,
+        );
+
+        assert!(spec.is_stochastic());
+        assert_eq!(spec.correlation(), Some(0.4));
+
+        let model = spec.build().expect("factor-correlated model should build");
+        assert_eq!(model.model_name(), "Factor-Correlated Default");
+        assert!(model.conditional_mdr(12, &[2.0], &Default::default()) > model.expected_mdr(12));
     }
 
     #[test]

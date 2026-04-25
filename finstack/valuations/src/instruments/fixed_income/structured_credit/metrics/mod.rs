@@ -64,7 +64,7 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
     );
     registry.register_metric(
         MetricId::CmbsDscr,
-        Arc::new(deal_specific::CmbsDscrCalculator::new(1.25)),
+        Arc::new(deal_specific::CmbsDscrCalculator::new()),
         &[InstrumentType::StructuredCredit],
     );
 

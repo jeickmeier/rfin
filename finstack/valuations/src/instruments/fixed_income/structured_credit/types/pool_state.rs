@@ -4,7 +4,7 @@ use finstack_core::dates::{Date, DayCount};
 /// Structure of Arrays (SoA) layout for pool assets to improve cache locality
 /// and enable vectorization during pricing.
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // WIP: SoA layout for vectorized pricing
+#[allow(dead_code)]
 pub(crate) struct PoolState {
     /// Asset identifiers
     pub(crate) ids: Vec<String>,

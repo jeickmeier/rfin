@@ -157,13 +157,12 @@ fn execute_waterfall_core(
     // shortfall implicitly cures the smaller one. Then sum across tranches.
     let diversion_active = coverage_test_results.iter().any(|r| !r.is_passing);
     let total_cure_amount: Money = {
-        // Group cure amounts by tranche (extract tranche_id from test_id "OC_XXX" / "IC_XXX")
+        // Group cure amounts by the typed tranche id on the test result.
         let mut per_tranche_max: HashMap<&str, f64> = HashMap::default();
         for r in &coverage_test_results {
             if let Some(cure) = r.cure_amount {
                 if cure.amount() > 0.0 {
-                    // Extract tranche id: test_id format is "OC_<tranche_id>" or "IC_<tranche_id>"
-                    let tranche_id = r.test_id.split_once('_').map_or("", |(_prefix, id)| id);
+                    let tranche_id = r.tranche_id.as_str();
                     let entry = per_tranche_max.entry(tranche_id).or_insert(0.0);
                     *entry = entry.max(cure.amount());
                 }
@@ -300,7 +299,7 @@ fn execute_waterfall_core(
         for result in &coverage_test_results {
             if let Some(cure) = result.cure_amount {
                 if cure.amount() > 0.0 {
-                    let tranche_id = result.test_id.split_once('_').map_or("", |(_, id)| id);
+                    let tranche_id = result.tranche_id.as_str();
                     let reason = if result.test_id.starts_with("OC_") {
                         "OC cure"
                     } else {
@@ -803,6 +802,7 @@ fn evaluate_coverage_tests(
             let result = oc_test.calculate(&ctx)?;
             results.push(CoverageTestResult {
                 test_id: format!("OC_{}", trigger.tranche_id),
+                tranche_id: result.tranche_id,
                 current_ratio: result.current_ratio,
                 is_passing: result.is_passing,
                 cure_amount: result.cure_amount,
@@ -829,6 +829,7 @@ fn evaluate_coverage_tests(
             let result = ic_test.calculate(&ctx)?;
             results.push(CoverageTestResult {
                 test_id: format!("IC_{}", trigger.tranche_id),
+                tranche_id: result.tranche_id,
                 current_ratio: result.current_ratio,
                 is_passing: result.is_passing,
                 cure_amount: result.cure_amount,
@@ -843,6 +844,7 @@ fn evaluate_coverage_tests(
 #[derive(Debug, Clone)]
 struct CoverageTestResult {
     test_id: String,
+    tranche_id: String,
     current_ratio: f64,
     is_passing: bool,
     /// Amount needed to cure the breach (divert to senior principal).

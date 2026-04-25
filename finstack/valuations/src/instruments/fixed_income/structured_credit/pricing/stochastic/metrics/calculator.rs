@@ -2,7 +2,7 @@
 //!
 //! Computes risk metrics from scenario trees or Monte Carlo paths.
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
     ScenarioTree, ScenarioTreeConfig,

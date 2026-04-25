@@ -1,8 +1,9 @@
 //! CMBS-specific metrics (LTV, DSCR).
 
 use crate::constants::DECIMAL_TO_PERCENT;
-use crate::instruments::fixed_income::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::{DealType, StructuredCredit};
 use crate::metrics::MetricContext;
+use finstack_core::money::Money;
 
 /// CMBS Weighted Average LTV calculator
 pub struct CmbsLtvCalculator {
@@ -34,14 +35,18 @@ impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
 }
 
 /// CMBS DSCR calculator
-pub struct CmbsDscrCalculator {
-    noi_multiplier: f64,
-}
+pub struct CmbsDscrCalculator;
 
 impl CmbsDscrCalculator {
-    /// Create a new DSCR calculator with specified NOI multiplier
-    pub fn new(noi_multiplier: f64) -> Self {
-        Self { noi_multiplier }
+    /// Create a new DSCR calculator.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for CmbsDscrCalculator {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -53,18 +58,39 @@ impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
             .downcast_ref::<StructuredCredit>()
             .ok_or(finstack_core::InputError::Invalid)?;
 
-        // DSCR = Net Operating Income / Debt Service
-        // Assume NOI is a multiple of the pool interest
-        let pool_interest = cmbs.pool.weighted_avg_coupon() * cmbs.pool.total_balance()?.amount();
-        let noi = pool_interest * self.noi_multiplier;
-
-        // Debt service (interest + principal payments)
-        let debt_service = pool_interest;
-
-        if debt_service > 0.0 {
-            Ok(noi / debt_service)
-        } else {
-            Ok(f64::INFINITY)
+        if cmbs.deal_type != DealType::CMBS {
+            return Err(finstack_core::InputError::Invalid.into());
         }
+
+        let noi = required_money(cmbs.credit_factors.annual_noi, "annual_noi")?;
+        let debt_service = required_money(
+            cmbs.credit_factors.annual_debt_service,
+            "annual_debt_service",
+        )?;
+
+        if noi.currency() != debt_service.currency() {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: noi.currency(),
+                actual: debt_service.currency(),
+            });
+        }
+        if !debt_service.amount().is_finite() || debt_service.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "CMBS DSCR requires positive annual_debt_service".to_string(),
+            ));
+        }
+        if !noi.amount().is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "CMBS DSCR requires finite annual_noi".to_string(),
+            ));
+        }
+
+        Ok(noi.amount() / debt_service.amount())
     }
+}
+
+fn required_money(value: Option<Money>, field: &str) -> finstack_core::Result<Money> {
+    value.ok_or_else(|| {
+        finstack_core::Error::Validation(format!("CMBS DSCR requires credit_factors.{field}"))
+    })
 }

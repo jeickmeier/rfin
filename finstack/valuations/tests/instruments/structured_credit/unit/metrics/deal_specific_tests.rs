@@ -54,6 +54,7 @@ fn rmbs_instrument() -> StructuredCredit {
         Date::from_calendar_date(2030, Month::January, 1).unwrap(),
         "USD-OIS",
     )
+    .with_payment_calendar("nyse")
 }
 
 fn cmbs_instrument() -> StructuredCredit {
@@ -286,18 +287,45 @@ fn test_cmbs_metrics_require_cmbs_deal_type() {
 }
 
 #[test]
-fn test_cmbs_dscr_calculator_returns_configured_noi_multiple() {
-    let dscr = CmbsDscrCalculator::new(1.35)
+fn test_cmbs_dscr_calculator_uses_typed_noi_and_debt_service() {
+    let mut cmbs = cmbs_instrument();
+    cmbs.credit_factors.annual_noi = Some(Money::new(1_350_000.0, Currency::USD));
+    cmbs.credit_factors.annual_debt_service = Some(Money::new(1_000_000.0, Currency::USD));
+
+    let dscr = CmbsDscrCalculator::new()
         .calculate(&mut metric_context(
-            cmbs_instrument(),
+            cmbs,
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
         ))
         .unwrap();
 
-    assert!(
-        (dscr - 1.35).abs() < 1e-12,
-        "Current CMBS DSCR implementation should equal the configured NOI multiplier"
-    );
+    assert!((dscr - 1.35).abs() < 1e-12);
+}
+
+#[test]
+fn test_cmbs_dscr_requires_typed_inputs_and_matching_currency() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    let missing = CmbsDscrCalculator::new()
+        .calculate(&mut metric_context(cmbs_instrument(), as_of))
+        .expect_err("missing typed inputs should be rejected");
+    assert!(missing.to_string().contains("annual_noi"));
+
+    let mut mismatch = cmbs_instrument();
+    mismatch.credit_factors.annual_noi = Some(Money::new(1_350_000.0, Currency::USD));
+    mismatch.credit_factors.annual_debt_service = Some(Money::new(1_000_000.0, Currency::EUR));
+    let err = CmbsDscrCalculator::new()
+        .calculate(&mut metric_context(mismatch, as_of))
+        .expect_err("currency mismatch should be rejected");
+    assert!(matches!(err, finstack_core::Error::CurrencyMismatch { .. }));
+
+    let mut zero_service = cmbs_instrument();
+    zero_service.credit_factors.annual_noi = Some(Money::new(1_350_000.0, Currency::USD));
+    zero_service.credit_factors.annual_debt_service = Some(Money::new(0.0, Currency::USD));
+    let err = CmbsDscrCalculator::new()
+        .calculate(&mut metric_context(zero_service, as_of))
+        .expect_err("zero debt service should be rejected");
+    assert!(err.to_string().contains("annual_debt_service"));
 }
 
 #[test]

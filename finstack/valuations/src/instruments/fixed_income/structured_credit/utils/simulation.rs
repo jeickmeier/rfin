@@ -70,7 +70,7 @@ impl RecoveryQueue {
 }
 
 /// Cashflows generated in a single payment period.
-#[allow(dead_code)] // WIP: used by stochastic simulation path
+#[allow(dead_code)]
 pub(crate) struct PeriodFlows {
     /// Interest collected from pool assets.
     pub(crate) interest_collections: Money,
@@ -88,7 +88,7 @@ impl PeriodFlows {
 }
 
 /// Update tranche balance after payment.
-#[allow(dead_code)] // WIP: used by stochastic simulation path
+#[allow(dead_code)]
 pub(crate) fn update_tranche_balance(
     tranche_balances: &mut HashMap<String, Money>,
     tranche_id: &str,

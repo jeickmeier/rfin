@@ -33,7 +33,7 @@
 //! - Richard, S.F., & Roll, R. (1989). "Prepayments on Fixed-Rate Mortgage-Backed Securities."
 //!   *Journal of Portfolio Management*, 15(3), 9-14.
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use super::traits::StochasticPrepayment;
 use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;

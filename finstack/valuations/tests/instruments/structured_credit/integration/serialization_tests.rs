@@ -388,6 +388,8 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
             ltv: Some(0.85),
             delinquency_days: 15,
             unemployment_rate: Some(0.04),
+            annual_noi: None,
+            annual_debt_service: None,
             custom_factors: vec![("fico_band".to_string(), 700.0)].into_iter().collect(),
         };
 

@@ -162,6 +162,12 @@ pub struct CreditFactors {
     pub delinquency_days: u32,
     /// Unemployment rate.
     pub unemployment_rate: Option<f64>,
+    /// Annual net operating income for CMBS collateral, when provided.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annual_noi: Option<Money>,
+    /// Annual debt service for CMBS collateral, when provided.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annual_debt_service: Option<Money>,
     /// Additional custom factors.
     pub custom_factors: HashMap<String, f64>,
 }
@@ -418,16 +424,17 @@ impl StructuredCredit {
     ///
     /// Industry standard: typically 0.10 (10%).
     ///
-    /// # Panics
-    /// Panics if `threshold` is not in `(0.0, 1.0)`.
-    #[must_use]
-    pub fn with_cleanup_call(mut self, threshold: f64) -> Self {
-        assert!(
-            threshold > 0.0 && threshold < 1.0,
-            "cleanup_call_pct must be in (0, 1), got {threshold}"
-        );
+    /// # Errors
+    /// Returns a validation error if `threshold` is not finite or is outside
+    /// `(0.0, 1.0)`.
+    pub fn with_cleanup_call(mut self, threshold: f64) -> finstack_core::Result<Self> {
+        if !threshold.is_finite() || threshold <= 0.0 || threshold >= 1.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "cleanup_call_pct must be finite and in (0, 1), got {threshold}"
+            )));
+        }
         self.cleanup_call_pct = Some(threshold);
-        self
+        Ok(self)
     }
 
     /// Calculate current loss percentage of the pool.
@@ -552,14 +559,11 @@ impl StructuredCredit {
         config: StochasticPricerConfig,
         context: &MarketContext,
     ) -> finstack_core::Result<StochasticPricingResult> {
-        let currency = self.pool.base_currency();
         let notional = self.pool.total_balance()?.amount();
 
         if notional.abs() <= f64::EPSILON {
-            return Ok(StochasticPricingResult::new(
-                Money::new(0.0, currency),
-                Money::new(0.0, currency),
-                0,
+            return Err(finstack_core::Error::Validation(
+                "structured-credit stochastic pricing requires positive pool notional".to_string(),
             ));
         }
 

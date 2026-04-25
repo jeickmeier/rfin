@@ -19,13 +19,15 @@
 //! - Schönbucher, P. J. (2003). "Credit Derivatives Pricing Models."
 
 mod copula_based;
+mod factor_correlated;
 mod hazard_curve_adapter;
 mod intensity_process;
 mod spec;
 mod traits;
 
 pub(crate) use copula_based::CopulaBasedDefault;
+pub(crate) use factor_correlated::FactorCorrelatedDefault;
 pub(crate) use hazard_curve_adapter::HazardCurveDefault;
 pub(crate) use intensity_process::IntensityProcessDefault;
 pub use spec::StochasticDefaultSpec;
-pub(crate) use traits::StochasticDefault;
+pub(crate) use traits::{MacroCreditFactors, StochasticDefault};

@@ -376,6 +376,9 @@ pub struct AssetPool {
     /// Deal type classification
     pub deal_type: DealType,
 
+    /// Base currency for every asset and pool-level account.
+    pub base_currency: Currency,
+
     /// Underlying assets
     pub assets: Vec<PoolAsset>,
 
@@ -513,6 +516,7 @@ impl AssetPool {
         Self {
             id: id.into(),
             deal_type,
+            base_currency,
             assets: Vec::new(),
             cumulative_defaults: zero_money,
             cumulative_recoveries: zero_money,
@@ -574,7 +578,7 @@ impl AssetPool {
                 weighted_rate += asset.rate * weight;
                 weighted_spread += asset.spread_bps() * weight;
 
-                let days_to_maturity = (asset.maturity - as_of).whole_days() as f64;
+                let days_to_maturity = (asset.maturity - as_of).whole_days().max(0) as f64;
                 weighted_maturity_days += days_to_maturity * weight;
 
                 if let Some(acq_date) = asset.acquisition_date {
@@ -620,19 +624,21 @@ impl AssetPool {
     pub fn total_balance(&self) -> finstack_core::Result<Money> {
         self.assets
             .iter()
-            .try_fold(Money::new(0.0, self.base_currency()), |acc, asset| {
+            .try_fold(Money::new(0.0, self.base_currency), |acc, asset| {
+                self.validate_asset_currency(asset)?;
                 acc.checked_add(asset.balance)
             })
     }
 
     /// Total pool balance excluding defaulted assets
     pub fn performing_balance(&self) -> finstack_core::Result<Money> {
-        self.assets
-            .iter()
-            .filter(|a| !a.is_defaulted)
-            .try_fold(Money::new(0.0, self.base_currency()), |acc, asset| {
+        self.assets.iter().filter(|a| !a.is_defaulted).try_fold(
+            Money::new(0.0, self.base_currency),
+            |acc, asset| {
+                self.validate_asset_currency(asset)?;
                 acc.checked_add(asset.balance)
-            })
+            },
+        )
     }
 
     /// Calculate weighted average coupon
@@ -760,12 +766,20 @@ impl AssetPool {
         }
     }
 
-    /// Base currency of the pool (from first asset)
+    /// Base currency of the pool.
     pub fn base_currency(&self) -> Currency {
-        self.assets
-            .first()
-            .map(|a| a.balance.currency())
-            .unwrap_or(Currency::USD)
+        self.base_currency
+    }
+
+    fn validate_asset_currency(&self, asset: &PoolAsset) -> finstack_core::Result<()> {
+        let actual = asset.balance.currency();
+        if actual != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual,
+            });
+        }
+        Ok(())
     }
 
     /// Get assets by industry

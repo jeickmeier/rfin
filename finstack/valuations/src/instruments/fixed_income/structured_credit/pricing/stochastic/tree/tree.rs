@@ -3,7 +3,7 @@
 //! Non-recombining tree for stochastic structured credit analysis.
 //! Designed for accuracy over speed, preserving full path information.
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use super::{
     config::ScenarioTreeConfig,
@@ -109,7 +109,11 @@ impl ScenarioTree {
 
             for (position, parent_idx) in current_positions {
                 let burnout_factor = self.nodes[parent_idx].burnout_factor;
-                let branch_count = self.config.branching.branches_at_node(0.0).clamp(1, 3);
+                let branch_count = self
+                    .config
+                    .branching
+                    .branches_at_node(vol_sq_dt)
+                    .clamp(1, 3);
                 let deltas: Vec<i32> = match branch_count {
                     1 => vec![0],
                     2 => vec![-1, 1],
@@ -160,6 +164,14 @@ impl ScenarioTree {
 
     fn merge_nodes(&mut self, target_idx: usize, incoming: ScenarioNode) {
         let target = &mut self.nodes[target_idx];
+        assert_eq!(
+            target.period, incoming.period,
+            "recombined scenario nodes must share the same period"
+        );
+        assert_eq!(
+            target.seasoning, incoming.seasoning,
+            "recombined scenario nodes must share the same seasoning"
+        );
         let total_prob = target.cumulative_probability + incoming.cumulative_probability;
         if total_prob <= f64::EPSILON {
             return;

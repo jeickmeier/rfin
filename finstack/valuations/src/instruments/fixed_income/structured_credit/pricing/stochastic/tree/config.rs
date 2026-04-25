@@ -3,7 +3,7 @@
 //! Defines the parameters for scenario tree generation including
 //! time horizon, branching, and model specifications.
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use super::super::{
     correlation::CorrelationStructure, default::StochasticDefaultSpec,
@@ -87,7 +87,7 @@ impl BranchingSpec {
     ///
     /// For fixed branching, always returns the fixed number.
     /// For adaptive/stratified, returns the base or calculated number.
-    pub(crate) fn branches_at_node(&self, _variance: f64) -> usize {
+    pub(crate) fn branches_at_node(&self, variance: f64) -> usize {
         match self {
             BranchingSpec::Fixed { branches } => *branches,
             BranchingSpec::Adaptive {
@@ -95,17 +95,13 @@ impl BranchingSpec {
                 max,
                 variance_threshold,
             } => {
-                // Simple adaptive logic: more branches if variance is high
-                if _variance > *variance_threshold {
+                if variance > *variance_threshold {
                     *max
                 } else {
                     *min
                 }
             }
-            BranchingSpec::Stratified { .. } => {
-                // For stratified, we generate paths directly, not branches
-                3 // Default fallback
-            }
+            BranchingSpec::Stratified { num_paths, .. } => *num_paths,
         }
     }
 
@@ -115,8 +111,8 @@ impl BranchingSpec {
             BranchingSpec::Fixed { branches } => {
                 saturating_pow(*branches, num_periods).min(MAX_NODE_CAPACITY)
             }
-            BranchingSpec::Adaptive { min, .. } => {
-                saturating_pow(*min, num_periods).min(MAX_NODE_CAPACITY)
+            BranchingSpec::Adaptive { max, .. } => {
+                saturating_pow(*max, num_periods).min(MAX_NODE_CAPACITY)
             }
             BranchingSpec::Stratified { num_paths, .. } => (*num_paths).min(MAX_NODE_CAPACITY),
         }
@@ -325,6 +321,14 @@ mod tests {
 
         // High variance: maximum branches
         assert_eq!(spec.branches_at_node(0.5), 5);
+    }
+
+    #[test]
+    fn test_branching_spec_stratified_uses_terminal_path_count() {
+        let spec = BranchingSpec::stratified(250);
+
+        assert_eq!(spec.branches_at_node(0.5), 250);
+        assert_eq!(spec.estimate_terminal_nodes(12), 250);
     }
 
     #[test]

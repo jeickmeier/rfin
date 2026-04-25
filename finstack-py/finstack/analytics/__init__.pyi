@@ -11,6 +11,14 @@ import datetime
 from typing import Sequence
 
 import pandas as pd
+from finstack.statements_analytics import (
+    compute_multiple as compute_multiple,
+    peer_stats as peer_stats,
+    percentile_rank as percentile_rank,
+    regression_fair_value as regression_fair_value,
+    score_relative_value as score_relative_value,
+    z_score as z_score,
+)
 
 __all__ = [
     "PeriodStats",
@@ -43,6 +51,7 @@ __all__ = [
     "run_backtest",
     "rolling_var_forecasts",
     "compare_var_backtests",
+    "compute_multiple",
     "pnl_explanation",
     "mtd_select",
     "qtd_select",
@@ -117,6 +126,11 @@ __all__ = [
     "forecast_garch_fit",
     "ljung_box",
     "arch_lm",
+    "peer_stats",
+    "percentile_rank",
+    "regression_fair_value",
+    "score_relative_value",
+    "z_score",
     "aic",
     "bic",
     "hqic",

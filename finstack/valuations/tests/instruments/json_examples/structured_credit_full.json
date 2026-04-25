@@ -8,6 +8,7 @@
       "pool": {
         "id": "POOL-FULL",
         "deal_type": "CLO",
+        "base_currency": "USD",
         "assets": [
           {
             "id": "LOAN1",

@@ -47,9 +47,19 @@ mod tests {
         custom_config
             .coverage_tests
             .add_oc_test("CLASS_A", 1.25)
+            .expect("valid OC trigger");
+        custom_config
+            .coverage_tests
             .add_oc_test("CLASS_B", 1.15)
+            .expect("valid OC trigger");
+        custom_config
+            .coverage_tests
             .add_ic_test("CLASS_A", 1.20)
-            .add_ic_test("CLASS_B", 1.10);
+            .expect("valid IC trigger");
+        custom_config
+            .coverage_tests
+            .add_ic_test("CLASS_B", 1.10)
+            .expect("valid IC trigger");
 
         // Verify configuration
         assert_eq!(
@@ -355,10 +365,20 @@ mod tests {
 
         config
             .coverage_tests
-            .add_oc_test("CLASS_A", 1.27) // AA rated tranche
-            .add_oc_test("CLASS_B", 1.17) // A rated tranche
+            .add_oc_test("CLASS_A", 1.27)
+            .expect("valid OC trigger"); // AA rated tranche
+        config
+            .coverage_tests
+            .add_oc_test("CLASS_B", 1.17)
+            .expect("valid OC trigger"); // A rated tranche
+        config
+            .coverage_tests
             .add_ic_test("CLASS_A", 1.22)
-            .add_ic_test("CLASS_B", 1.12);
+            .expect("valid IC trigger");
+        config
+            .coverage_tests
+            .add_ic_test("CLASS_B", 1.12)
+            .expect("valid IC trigger");
 
         // 3. Calculate pool metrics using market-standard methods
 

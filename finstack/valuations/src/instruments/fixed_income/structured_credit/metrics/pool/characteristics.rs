@@ -1,7 +1,10 @@
 //! Pool characteristic metrics for structured credit.
 
+use crate::instruments::fixed_income::structured_credit::types::constants;
+use crate::instruments::fixed_income::structured_credit::utils::rates::psa_to_cpr;
 use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::dates::DateExt;
 use finstack_core::Result;
 
 /// Calculates WAM (Weighted Average Maturity) for the underlying pool.
@@ -76,14 +79,16 @@ impl MetricCalculator for CprCalculator {
             }
 
             if let Some(psa_mult) = sc.behavior_overrides.psa_speed_multiplier {
-                // PSA model: 100% PSA = 6% CPR at 30 months
-                return Ok(psa_mult * 0.06);
+                return Ok(psa_to_cpr(
+                    psa_mult,
+                    deal_seasoning_month(sc, context.as_of),
+                ));
             }
 
             // Fall back to deal type defaults
             use super::super::super::types::DealType;
             return Ok(match sc.deal_type {
-                DealType::RMBS => 0.06,                 // 6% CPR (100% PSA)
+                DealType::RMBS => psa_to_cpr(1.0, deal_seasoning_month(sc, context.as_of)),
                 DealType::ABS | DealType::Auto => 0.15, // 15% CPR
                 DealType::CMBS => 0.10,                 // 10% CPR (open period)
                 DealType::CLO => 0.15,                  // 15% CPR typical
@@ -128,22 +133,52 @@ impl MetricCalculator for CdrCalculator {
             }
 
             if let Some(sda_mult) = sc.behavior_overrides.sda_speed_multiplier {
-                // Derive from SDA speed
-                // SDA 100% ≈ 0.6% CDR at peak
-                return Ok(sda_mult * 0.006);
+                return Ok(sda_to_cdr(
+                    sda_mult,
+                    deal_seasoning_month(sc, context.as_of),
+                ));
             }
 
             // Fall back to deal type defaults
             use super::super::super::types::DealType;
             return Ok(match sc.deal_type {
                 DealType::ABS | DealType::Auto => 0.01, // 1% default for ABS
-                DealType::RMBS => 0.006,                // 0.6% (100% SDA)
-                DealType::CMBS => 0.01,                 // 1% default for CMBS
-                DealType::CLO => 0.02,                  // 2% CDR base case
+                DealType::RMBS => sda_to_cdr(1.0, deal_seasoning_month(sc, context.as_of)),
+                DealType::CMBS => 0.01, // 1% default for CMBS
+                DealType::CLO => 0.02,  // 2% CDR base case
                 _ => 0.01,
             });
         }
 
         Ok(0.0)
     }
+}
+
+fn deal_seasoning_month(sc: &StructuredCredit, as_of: finstack_core::dates::Date) -> u32 {
+    if as_of > sc.closing_date {
+        sc.closing_date.months_until(as_of).max(1)
+    } else {
+        1
+    }
+}
+
+fn sda_to_cdr(speed_multiplier: f64, month: u32) -> f64 {
+    let speed_multiplier = speed_multiplier.max(0.0);
+    if speed_multiplier == 0.0 {
+        return 0.0;
+    }
+
+    let cdr = if month <= constants::SDA_PEAK_MONTH {
+        (month as f64 / constants::SDA_PEAK_MONTH as f64) * constants::SDA_PEAK_CDR
+    } else if month <= constants::SDA_PEAK_MONTH * 2 {
+        let months_past_peak = (month - constants::SDA_PEAK_MONTH) as f64;
+        let decline_period = constants::SDA_PEAK_MONTH as f64;
+        constants::SDA_PEAK_CDR
+            - (months_past_peak / decline_period)
+                * (constants::SDA_PEAK_CDR - constants::SDA_TERMINAL_CDR)
+    } else {
+        constants::SDA_TERMINAL_CDR
+    };
+
+    (cdr * speed_multiplier).clamp(0.0, 1.0)
 }

@@ -185,15 +185,33 @@ impl CoverageTestConfig {
     }
 
     /// Add OC test for a tranche
-    pub fn add_oc_test(&mut self, tranche_id: impl Into<String>, trigger_level: f64) -> &mut Self {
+    pub fn add_oc_test(
+        &mut self,
+        tranche_id: impl Into<String>,
+        trigger_level: f64,
+    ) -> finstack_core::Result<&mut Self> {
+        if !trigger_level.is_finite() || trigger_level <= 1.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "OC trigger level must be finite and greater than 1.0, got {trigger_level}"
+            )));
+        }
         self.oc_triggers.insert(tranche_id.into(), trigger_level);
-        self
+        Ok(self)
     }
 
     /// Add IC test for a tranche
-    pub fn add_ic_test(&mut self, tranche_id: impl Into<String>, trigger_level: f64) -> &mut Self {
+    pub fn add_ic_test(
+        &mut self,
+        tranche_id: impl Into<String>,
+        trigger_level: f64,
+    ) -> finstack_core::Result<&mut Self> {
+        if !trigger_level.is_finite() || trigger_level <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "IC trigger level must be finite and positive, got {trigger_level}"
+            )));
+        }
         self.ic_triggers.insert(tranche_id.into(), trigger_level);
-        self
+        Ok(self)
     }
 
     /// Set custom haircuts
@@ -468,11 +486,21 @@ mod tests {
     #[test]
     fn test_coverage_test_config() {
         let mut config = CoverageTestConfig::new();
-        config.add_oc_test("CLASS_A", 1.25);
-        config.add_ic_test("CLASS_A", 1.20);
+        config.add_oc_test("CLASS_A", 1.25).unwrap();
+        config.add_ic_test("CLASS_A", 1.20).unwrap();
 
         assert_eq!(config.oc_triggers.get("CLASS_A"), Some(&1.25));
         assert_eq!(config.ic_triggers.get("CLASS_A"), Some(&1.20));
+    }
+
+    #[test]
+    fn test_coverage_test_config_rejects_invalid_triggers() {
+        let mut config = CoverageTestConfig::new();
+
+        assert!(config.add_oc_test("CLASS_A", 1.0).is_err());
+        assert!(config.add_oc_test("CLASS_A", f64::NAN).is_err());
+        assert!(config.add_ic_test("CLASS_A", 0.0).is_err());
+        assert!(config.add_ic_test("CLASS_A", f64::INFINITY).is_err());
     }
 
     #[test]

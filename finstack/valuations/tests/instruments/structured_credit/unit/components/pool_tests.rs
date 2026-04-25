@@ -201,13 +201,34 @@ fn test_asset_pool_total_balance_calculation() {
 #[test]
 fn test_asset_pool_empty_pool_balance() {
     // Arrange
-    let pool = Pool::new("EMPTY", DealType::ABS, Currency::USD);
+    let pool = Pool::new("EMPTY", DealType::ABS, Currency::EUR);
 
     // Act
     let total = pool.total_balance().unwrap();
 
     // Assert
     assert_eq!(total.amount(), 0.0);
+    assert_eq!(total.currency(), Currency::EUR);
+    assert_eq!(pool.base_currency(), Currency::EUR);
+}
+
+#[test]
+fn test_asset_pool_rejects_asset_currency_mismatch() {
+    let mut pool = Pool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(10_000_000.0, Currency::EUR),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+        finstack_core::dates::DayCount::Act360,
+    ));
+
+    let err = pool
+        .total_balance()
+        .expect_err("mixed asset currencies should be rejected");
+
+    assert!(matches!(err, finstack_core::Error::CurrencyMismatch { .. }));
 }
 
 #[test]

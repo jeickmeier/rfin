@@ -1007,6 +1007,12 @@ fn calculate_pool_flows_with_rates(request: RatedPoolFlowRequest<'_, '_>) -> Res
 
         // M1: Scheduled amortization for amortizing assets
         let scheduled_principal = if state.pool_state.is_amortizing[i] && rate > 0.0 {
+            if !rate.is_finite() || rate <= -1.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "invalid amortization rate for pool asset '{}': {rate}",
+                    state.pool_state.ids[i]
+                )));
+            }
             // Compute level payment using period-native amortization math:
             // period_rate = annual_rate * months_per_period / 12
             // remaining_periods = remaining_months / months_per_period
@@ -1019,6 +1025,13 @@ fn calculate_pool_flows_with_rates(request: RatedPoolFlowRequest<'_, '_>) -> Res
             let period_rate = (1.0 + rate).powf(request.months_per_period / 12.0) - 1.0;
             let remaining_periods_f64 = remaining_months / request.months_per_period;
             let denom = 1.0 - (1.0 + period_rate).powf(-remaining_periods_f64);
+            if !period_rate.is_finite() || !remaining_periods_f64.is_finite() || !denom.is_finite()
+            {
+                return Err(finstack_core::Error::Validation(format!(
+                    "invalid amortization math for pool asset '{}': rate={rate}, period_rate={period_rate}",
+                    state.pool_state.ids[i]
+                )));
+            }
 
             let period_payment = if denom.abs() > 1e-12 && remaining_periods_f64 > 0.0 {
                 balance * period_rate / denom
@@ -1026,6 +1039,12 @@ fn calculate_pool_flows_with_rates(request: RatedPoolFlowRequest<'_, '_>) -> Res
                 // If denominator is ~0 (very short term), return full balance
                 balance
             };
+            if !period_payment.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "invalid level payment for pool asset '{}': {period_payment}",
+                    state.pool_state.ids[i]
+                )));
+            }
 
             // Scheduled principal = level payment - interest (for this period)
             (period_payment - balance * period_rate)

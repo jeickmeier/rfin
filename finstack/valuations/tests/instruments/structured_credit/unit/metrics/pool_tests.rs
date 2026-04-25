@@ -12,8 +12,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    calculate_pool_stats, CloWarfCalculator, DealType, Pool, PoolAsset, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
+    calculate_pool_stats, CdrCalculator, CloWarfCalculator, CprCalculator, DealType, Pool,
+    PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
 };
 use finstack_valuations::metrics::{MetricCalculator, MetricContext};
 use std::sync::Arc;
@@ -179,5 +179,40 @@ fn test_clo_warf_calculator_uses_default_factor_for_missing_ratings() {
     assert!(
         (warf - 3650.0).abs() < 1e-10,
         "Missing ratings should fall back to 3650, got {warf}"
+    );
+}
+
+#[test]
+fn test_rmbs_cpr_and_cdr_use_current_deal_seasoning() {
+    let pool = Pool::new("POOL", DealType::RMBS, Currency::USD);
+    let mut instrument = StructuredCredit::new_rmbs(
+        "TEST_RMBS_SPEEDS",
+        pool,
+        tranche_structure(),
+        Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+        maturity_date(),
+        "USD-OIS",
+    );
+    instrument.behavior_overrides.psa_speed_multiplier = Some(1.0);
+    instrument.behavior_overrides.sda_speed_multiplier = Some(1.0);
+
+    let mut context = MetricContext::new(
+        Arc::new(instrument),
+        Arc::new(MarketContext::new()),
+        Date::from_calendar_date(2025, Month::July, 1).unwrap(),
+        Money::new(0.0, Currency::USD),
+        MetricContext::default_config(),
+    );
+
+    let cpr = CprCalculator.calculate(&mut context).unwrap();
+    let cdr = CdrCalculator.calculate(&mut context).unwrap();
+
+    assert!(
+        (cpr - 0.012).abs() < 1e-12,
+        "six-month 100 PSA CPR should be 1.2%, got {cpr}"
+    );
+    assert!(
+        (cdr - 0.0012).abs() < 1e-12,
+        "six-month 100 SDA CDR should be 0.12%, got {cdr}"
     );
 }

@@ -3,7 +3,7 @@
 //! Each node in the scenario tree contains the full state needed for
 //! structured credit valuation at that point in time and state space.
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use std::fmt;
 

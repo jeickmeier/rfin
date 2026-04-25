@@ -16,7 +16,7 @@
 //! - PSA Standard Prepayment Model assumptions
 //! - Basel IRB correlation formulas
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 /// RMBS standard calibration parameters.
 ///

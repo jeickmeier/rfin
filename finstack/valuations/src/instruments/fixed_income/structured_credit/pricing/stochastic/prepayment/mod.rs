@@ -18,11 +18,13 @@
 //! - Schwartz, E.S., & Torous, W.N. (1989). "Prepayment and the Valuation of Mortgage-Backed Securities."
 
 mod factor_correlated;
+mod regime_switching;
 mod richard_roll;
 mod spec;
 mod traits;
 
 pub(crate) use factor_correlated::FactorCorrelatedPrepay;
+pub(crate) use regime_switching::RegimeSwitchingPrepay;
 pub(crate) use richard_roll::RichardRollPrepay;
 pub use spec::StochasticPrepaySpec;
 pub(crate) use traits::StochasticPrepayment;

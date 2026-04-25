@@ -23,7 +23,7 @@
 //! - Factor loading (β): 0.3-0.5
 //! - CPR volatility (σ): 0.15-0.30
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use super::traits::StochasticPrepayment;
 use crate::cashflow::builder::specs::{PrepaymentCurve, PrepaymentModelSpec};

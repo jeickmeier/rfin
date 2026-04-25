@@ -1,6 +1,6 @@
 //! Stochastic pricer configuration.
 
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+#![allow(dead_code)]
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::DiscountCurve;

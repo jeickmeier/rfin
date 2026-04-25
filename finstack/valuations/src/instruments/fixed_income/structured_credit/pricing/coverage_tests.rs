@@ -201,6 +201,7 @@ impl CoverageTest {
 
         Ok(TestResult {
             test_id,
+            tranche_id: context.tranche_id.to_string(),
             current_ratio: ratio,
             is_passing,
             cure_amount,
@@ -308,6 +309,7 @@ impl CoverageTest {
 
         Ok(TestResult {
             test_id,
+            tranche_id: context.tranche_id.to_string(),
             current_ratio: ratio,
             is_passing,
             cure_amount: None,
@@ -348,6 +350,9 @@ pub struct TestContext<'a> {
 pub struct TestResult {
     /// Test identifier.
     pub test_id: String,
+    /// Tranche identifier associated with the test.
+    #[serde(default)]
+    pub tranche_id: String,
     /// Current calculated ratio.
     pub current_ratio: f64,
     /// Whether test is currently passing.

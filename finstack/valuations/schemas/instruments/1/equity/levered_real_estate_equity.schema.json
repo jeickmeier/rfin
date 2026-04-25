@@ -865,6 +865,10 @@
                   },
                   "type": "array"
                 },
+                "base_currency": {
+                  "$ref": "#/$defs/Currency",
+                  "description": "Base currency for every asset and pool-level account."
+                },
                 "collection_account": {
                   "$ref": "#/$defs/Money",
                   "description": "Pool-level accounts\nCollection account balance (collected but not yet distributed)"
@@ -934,6 +938,7 @@
               "required": [
                 "id",
                 "deal_type",
+                "base_currency",
                 "assets",
                 "cumulative_defaults",
                 "cumulative_recoveries",
@@ -6519,6 +6524,28 @@
             "CreditFactors": {
               "description": "Credit factors affecting default probability.",
               "properties": {
+                "annual_debt_service": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Annual debt service for CMBS collateral, when provided."
+                },
+                "annual_noi": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Annual net operating income for CMBS collateral, when provided."
+                },
                 "credit_score": {
                   "description": "Current FICO/credit score.",
                   "format": "uint32",
@@ -17000,6 +17027,18 @@
                   "additionalProperties": false,
                   "description": "Regime-switching prepayment model.\n\nTwo-state Markov model for prepayment regimes (high/low).",
                   "properties": {
+                    "cpr_volatility": {
+                      "default": 0.2,
+                      "description": "CPR volatility for systematic prepayment shocks.",
+                      "format": "double",
+                      "type": "number"
+                    },
+                    "factor_loading": {
+                      "default": 0.4,
+                      "description": "Factor loading for systematic prepayment shocks.",
+                      "format": "double",
+                      "type": "number"
+                    },
                     "high_cpr": {
                       "description": "CPR in high prepayment regime",
                       "format": "double",
@@ -17619,7 +17658,7 @@
                   "description": "Pricing overrides."
                 },
                 "target_coupon": {
-                  "description": "Target cumulative coupon level (triggers early redemption).",
+                  "description": "Target cumulative coupon level (triggers early redemption).\n\nA zero target is allowed and represents redemption at the first\nfuture coupon date without coupon accrual.",
                   "format": "double",
                   "type": "number"
                 }

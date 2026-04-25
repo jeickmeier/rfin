@@ -316,14 +316,16 @@ See also `pricing/stochastic/README.md` for stochastic modeling.
 
 - [x] Make `CreditModelConfig` defaults deal-type-specific via `CreditModelConfig::for_deal_type()`
 - [x] Rename `PricingMode::MonteCarlo` to `PricingMode::TreeResampling` (old variant deprecated)
-- [x] Deprecate `PricingMode::Hybrid` with clear warning
+- [x] Implement `PricingMode::Hybrid` as tree-prefix enumeration with seeded MC suffix paths
 - [x] Add `pik_enabled` field to `Tranche` — only PIK-enabled tranches accrete shortfall into balance (`types/tranches.rs`, `pricing/deterministic.rs`)
 - [x] Accrued interest calculator prefers interest-only flows from `TrancheCashflows` (`metrics/pricing/accrued.rs`)
 
 ### Moderate (backlog)
 
 - [x] Store `tranche_id` directly in coverage test results instead of parsing from string IDs
-- [x] Avoid `loss_alloc_order.clone()` per period in `simulate_period`
+- [ ] Avoid `loss_alloc_order.clone()` per period in `simulate_period`
+- [x] Require typed CMBS NOI/debt-service inputs for DSCR
+- [x] Calculate RMBS WAL from simulated principal flows under current PSA assumptions
 - [x] Replace YTM fallback `0.05` in `value_tranche_with_metrics` with `NaN`
 - [x] Widen `Z_SPREAD_MIN` to -1000bp for legacy premium pools
 - [x] Track recovery proceeds separately in `WaterfallDistribution` and `WaterfallContext`

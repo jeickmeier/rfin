@@ -71,22 +71,16 @@ fn build_sc(id: &str, pool_balance: f64) -> StructuredCredit {
 }
 
 #[test]
-fn stochastic_pricing_zero_notional_returns_zero_result() {
+fn stochastic_pricing_zero_notional_returns_validation_error() {
     let sc = build_sc("ABS-ZERO", 0.0);
     let mut market = MarketContext::new();
     market = market.insert(discount_curve(closing_date()));
 
-    let result = sc
+    let err = sc
         .price_stochastic_with_mode(&market, closing_date(), PricingMode::Tree)
-        .expect("stochastic pricing");
+        .expect_err("zero-notional stochastic pricing should be rejected");
 
-    assert_eq!(result.npv.amount(), 0.0);
-    assert_eq!(result.expected_loss.amount(), 0.0);
-    assert!(
-        result.tranche_results.is_empty(),
-        "zero notional should skip tranche pricing"
-    );
-    assert_eq!(result.num_paths, 0);
+    assert!(err.to_string().contains("positive pool notional"));
 }
 
 #[test]
@@ -122,6 +116,41 @@ fn stochastic_pricing_is_deterministic_and_returns_tranche_results() {
     assert_eq!(first.pricing_mode, "MonteCarlo(1)");
     assert_eq!(first.npv.amount(), second.npv.amount());
     assert_eq!(first.tranche_results.len(), second.tranche_results.len());
+}
+
+#[test]
+fn cleanup_call_builder_rejects_invalid_thresholds() {
+    let sc = build_sc("ABS-CLEANUP", 1_000_000.0);
+
+    assert!(sc.clone().with_cleanup_call(0.10).is_ok());
+    assert!(sc.clone().with_cleanup_call(0.0).is_err());
+    assert!(sc.clone().with_cleanup_call(1.0).is_err());
+    assert!(sc.with_cleanup_call(f64::NAN).is_err());
+}
+
+#[test]
+fn monte_carlo_parallel_path_evaluation_is_reproducible() {
+    let sc = build_sc("ABS-MC-REPRO", 1_000_000.0);
+    let mut market = MarketContext::new();
+    market = market.insert(discount_curve(closing_date()));
+    let mode = PricingMode::MonteCarlo {
+        num_paths: 8,
+        antithetic: true,
+    };
+
+    let first = sc
+        .price_stochastic_with_mode(&market, closing_date(), mode.clone())
+        .expect("first MC price");
+    let second = sc
+        .price_stochastic_with_mode(&market, closing_date(), mode)
+        .expect("second MC price");
+
+    assert_eq!(first.num_paths, 8);
+    assert_eq!(first.npv.amount(), second.npv.amount());
+    assert_eq!(
+        first.tranche_results[0].npv.amount(),
+        second.tranche_results[0].npv.amount()
+    );
 }
 
 #[test]

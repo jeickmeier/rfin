@@ -116,7 +116,48 @@ fn test_oc_test_passing_scenario() {
 
     // Assert: 125M / 100M = 1.25 (exactly at threshold, should pass)
     assert!(result.is_passing);
+    assert_eq!(result.tranche_id, "SENIOR");
     assert!((result.current_ratio - 1.25).abs() < 0.01);
+}
+
+#[test]
+fn test_coverage_test_result_preserves_tranche_id_with_underscore() {
+    let mut pool = Pool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(100_000_000.0, Currency::USD),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+        finstack_core::dates::DayCount::Act360,
+    ));
+
+    let tranche = Tranche::new(
+        "CLASS_A_1",
+        0.0,
+        100.0,
+        Seniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let context = context_for_tranche(
+        &pool,
+        &tranches,
+        "CLASS_A_1",
+        Money::new(0.0, Currency::USD),
+        Money::new(0.0, Currency::USD),
+    );
+
+    let result = CoverageTest::new_oc(1.25)
+        .calculate(&context)
+        .expect("coverage calculation");
+
+    assert_eq!(result.test_id, "oc_test_125");
+    assert_eq!(result.tranche_id, "CLASS_A_1");
+    assert!(result.cure_amount.is_some());
 }
 
 #[test]

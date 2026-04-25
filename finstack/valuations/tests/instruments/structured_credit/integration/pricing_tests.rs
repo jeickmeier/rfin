@@ -342,7 +342,7 @@ fn test_structured_credit_registry_exposes_clo_warf() {
 
 #[test]
 fn test_structured_credit_registry_exposes_cmbs_dscr() {
-    let sc = StructuredCredit::new_cmbs(
+    let mut sc = StructuredCredit::new_cmbs(
         "TEST_CMBS_DSCR",
         create_simple_cmbs_pool(),
         create_simple_tranches(),
@@ -351,6 +351,8 @@ fn test_structured_credit_registry_exposes_cmbs_dscr() {
         "USD-OIS",
     )
     .with_payment_calendar("nyse");
+    sc.credit_factors.annual_noi = Some(Money::new(1_250_000.0, Currency::USD));
+    sc.credit_factors.annual_debt_service = Some(Money::new(1_000_000.0, Currency::USD));
 
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 

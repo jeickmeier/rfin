@@ -6,6 +6,7 @@ use crate::correlation::{FactorSpec, RecoverySpec};
 use crate::instruments::fixed_income::structured_credit::pricing::simulation_engine::{
     run_simulation_with_source, PeriodPoolShock, StochasticPathFlowSource,
 };
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::default::MacroCreditFactors;
 use crate::instruments::fixed_income::structured_credit::pricing::{
     StochasticDefaultSpec, StochasticPrepaySpec,
 };
@@ -15,6 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rayon::prelude::*;
 use std::cmp::Ordering;
 
 /// Stochastic pricing engine for structured credit.
@@ -44,11 +46,10 @@ impl StochasticPricer {
                 num_paths,
                 antithetic,
             } => self.price_monte_carlo(instrument, context, *num_paths, *antithetic),
-            PricingMode::Hybrid { .. } => Err(finstack_core::Error::Validation(
-                "Structured-credit stochastic Hybrid mode is disabled until conditional suffix \
-                 path aggregation is implemented"
-                    .to_string(),
-            )),
+            PricingMode::Hybrid {
+                tree_periods,
+                mc_paths,
+            } => self.price_hybrid(instrument, context, *tree_periods, *mc_paths),
         }
     }
 
@@ -74,13 +75,14 @@ impl StochasticPricer {
             .config
             .tree_config
             .branching
-            .branches_at_node(0.0)
+            .branches_at_node(self.branching_variance_proxy())
             .max(1);
         let path_count = terminal_paths.max(1);
         let mut collector = ScenarioCollector::new(instrument, path_count)?;
         for path_index in 0..path_count {
-            let shocks = self.tree_path_shocks(instrument, path_index, branch_count)?;
-            self.record_path(instrument, context, shocks, &mut collector)?;
+            let shocks = self.tree_path_shocks(instrument, path_index, path_count, branch_count)?;
+            let output = self.price_path(instrument, context, shocks)?;
+            collector.record_output(output);
         }
         Ok(collector.finalize(self, "Tree"))
     }
@@ -98,9 +100,124 @@ impl StochasticPricer {
             ));
         }
 
-        let mut rng = Pcg64Rng::new(self.config.seed);
+        let factor_sets = self.monte_carlo_factor_sets(instrument, num_paths, antithetic);
+        let mode = if antithetic {
+            format!("MonteCarlo({}, antithetic)", num_paths)
+        } else {
+            format!("MonteCarlo({num_paths})")
+        };
+        self.price_factor_sets(instrument, context, factor_sets, num_paths, &mode)
+    }
+
+    fn price_hybrid(
+        &self,
+        instrument: &StructuredCredit,
+        context: &MarketContext,
+        tree_periods: usize,
+        mc_paths: usize,
+    ) -> Result<StochasticPricingResult> {
+        if tree_periods == 0 {
+            return Err(finstack_core::Error::Validation(
+                "Hybrid pricing requires at least one tree prefix period".to_string(),
+            ));
+        }
+        if mc_paths == 0 {
+            return Err(finstack_core::Error::Validation(
+                "Hybrid pricing requires at least one Monte Carlo suffix path".to_string(),
+            ));
+        }
+
+        let branch_count = self
+            .config
+            .tree_config
+            .branching
+            .branches_at_node(self.branching_variance_proxy())
+            .max(1);
+        let prefix_count = self
+            .config
+            .tree_config
+            .branching
+            .estimate_terminal_nodes(tree_periods)
+            .max(1);
+        let total_paths = prefix_count.checked_mul(mc_paths).ok_or_else(|| {
+            finstack_core::Error::Validation("Hybrid pricing path count overflow".to_string())
+        })?;
+        if total_paths > self.config.max_tree_paths {
+            return Err(finstack_core::Error::Validation(format!(
+                "Hybrid pricing requires {total_paths} paths, above max_tree_paths={}",
+                self.config.max_tree_paths
+            )));
+        }
+
+        let months_per_period = instrument.frequency.months().unwrap_or(1).max(1) as usize;
+        let month_count = self.month_count(instrument);
+        let prefix_months = tree_periods
+            .saturating_mul(months_per_period)
+            .min(month_count);
+        let suffix_months = month_count.saturating_sub(prefix_months);
+        let has_stochastic_rates = self.has_stochastic_rates();
+
+        let mut factor_sets = Vec::with_capacity(total_paths);
+        for prefix_index in 0..prefix_count {
+            let prefix =
+                self.tree_path_factors(prefix_index, prefix_count, branch_count, prefix_months);
+            for suffix_index in 0..mc_paths {
+                let path_index = prefix_index * mc_paths + suffix_index;
+                let mut rng = Pcg64Rng::new(self.path_seed(path_index));
+                let mut factors = prefix.clone();
+                factors.extend((0..suffix_months).map(|_| {
+                    if has_stochastic_rates {
+                        rng.normal(0.0, 1.0)
+                    } else {
+                        0.0
+                    }
+                }));
+                factor_sets.push(factors);
+            }
+        }
+
+        self.price_factor_sets(
+            instrument,
+            context,
+            factor_sets,
+            total_paths,
+            &format!("Hybrid(tree_periods={tree_periods}, mc_paths={mc_paths})"),
+        )
+    }
+
+    fn price_factor_sets(
+        &self,
+        instrument: &StructuredCredit,
+        context: &MarketContext,
+        factor_sets: Vec<Vec<f64>>,
+        num_paths: usize,
+        pricing_mode: &str,
+    ) -> Result<StochasticPricingResult> {
+        let outputs: Vec<PathScenarioOutput> = factor_sets
+            .into_par_iter()
+            .map(|factors| {
+                let shocks = self.path_shocks_from_factors(instrument, &factors)?;
+                self.price_path(instrument, context, shocks)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         let mut collector = ScenarioCollector::new(instrument, num_paths)?;
+        for output in outputs {
+            collector.record_output(output);
+        }
+
+        Ok(collector.finalize(self, pricing_mode))
+    }
+
+    fn monte_carlo_factor_sets(
+        &self,
+        instrument: &StructuredCredit,
+        num_paths: usize,
+        antithetic: bool,
+    ) -> Vec<Vec<f64>> {
+        let mut rng = Pcg64Rng::new(self.config.seed);
         let mut paired_factors: Option<Vec<f64>> = None;
+        let mut factor_sets = Vec::with_capacity(num_paths);
 
         for path_index in 0..num_paths {
             let factors = if antithetic && path_index % 2 == 1 {
@@ -117,25 +234,17 @@ impl StochasticPricer {
                 }
                 factors
             };
-            let shocks = self.path_shocks_from_factors(instrument, &factors)?;
-            self.record_path(instrument, context, shocks, &mut collector)?;
+            factor_sets.push(factors);
         }
-
-        let mode = if antithetic {
-            format!("MonteCarlo({}, antithetic)", num_paths)
-        } else {
-            format!("MonteCarlo({num_paths})")
-        };
-        Ok(collector.finalize(self, &mode))
+        factor_sets
     }
 
-    fn record_path(
+    fn price_path(
         &self,
         instrument: &StructuredCredit,
         context: &MarketContext,
         shocks: Vec<PeriodPoolShock>,
-        collector: &mut ScenarioCollector,
-    ) -> Result<()> {
+    ) -> Result<PathScenarioOutput> {
         let mut source = StochasticPathFlowSource::new(shocks);
         let path_results = run_simulation_with_source(
             instrument,
@@ -146,6 +255,7 @@ impl StochasticPricer {
 
         let mut deal_pv = 0.0;
         let mut deal_loss = 0.0;
+        let mut tranches = Vec::with_capacity(instrument.tranches.tranches.len());
         for (idx, tranche) in instrument.tranches.tranches.iter().enumerate() {
             let tranche_result = path_results.get(tranche.id.as_str()).ok_or_else(|| {
                 finstack_core::Error::Validation(format!(
@@ -160,10 +270,13 @@ impl StochasticPricer {
             )?;
             deal_pv += metrics.pv;
             deal_loss += metrics.loss;
-            collector.record_tranche(idx, metrics);
+            tranches.push((idx, metrics));
         }
-        collector.record_deal(deal_pv, deal_loss);
-        Ok(())
+        Ok(PathScenarioOutput {
+            deal_pv,
+            deal_loss,
+            tranches,
+        })
     }
 
     fn random_factors(&self, instrument: &StructuredCredit, rng: &mut Pcg64Rng) -> Vec<f64> {
@@ -177,26 +290,45 @@ impl StochasticPricer {
     fn tree_path_shocks(
         &self,
         instrument: &StructuredCredit,
-        mut path_index: usize,
+        path_index: usize,
+        path_count: usize,
         branch_count: usize,
     ) -> Result<Vec<PeriodPoolShock>> {
         let month_count = self.month_count(instrument);
+        let factors = self.tree_path_factors(path_index, path_count, branch_count, month_count);
+        self.path_shocks_from_factors(instrument, &factors)
+    }
+
+    fn tree_path_factors(
+        &self,
+        mut path_index: usize,
+        path_count: usize,
+        branch_count: usize,
+        month_count: usize,
+    ) -> Vec<f64> {
+        let path_count = path_count.max(1);
         let branch_count = branch_count.max(1);
         let mut factors = Vec::with_capacity(month_count);
+        let stratified = matches!(
+            self.config.tree_config.branching,
+            super::super::tree::BranchingSpec::Stratified { .. }
+        );
 
-        for _ in 0..month_count {
-            let branch = path_index % branch_count;
-            path_index /= branch_count;
-            let z = if self.has_stochastic_rates() {
-                let p = (branch as f64 + 0.5) / branch_count as f64;
+        for month in 0..month_count {
+            let z = if !self.has_stochastic_rates() {
+                0.0
+            } else if stratified {
+                let p = (((path_index + month) % path_count) as f64 + 0.5) / path_count as f64;
                 finstack_core::math::standard_normal_inv_cdf(p)
             } else {
-                0.0
+                let branch = path_index % branch_count;
+                path_index /= branch_count;
+                let p = (branch as f64 + 0.5) / branch_count as f64;
+                finstack_core::math::standard_normal_inv_cdf(p)
             };
             factors.push(z);
         }
-
-        self.path_shocks_from_factors(instrument, &factors)
+        factors
     }
 
     fn path_shocks_from_factors(
@@ -222,22 +354,22 @@ impl StochasticPricer {
             } else {
                 &[][..]
             };
-            shocks.push(self.aggregate_monthly_shocks(month_slice));
+            shocks.push(self.aggregate_monthly_shocks(start as u32, month_slice));
         }
 
         Ok(shocks)
     }
 
-    fn aggregate_monthly_shocks(&self, factors: &[f64]) -> PeriodPoolShock {
+    fn aggregate_monthly_shocks(&self, start_month: u32, factors: &[f64]) -> PeriodPoolShock {
         if factors.is_empty() {
-            return self.monthly_shock(0.0);
+            return self.monthly_shock(start_month.saturating_add(1), 0.0);
         }
 
         let mut prepay_survival = 1.0;
         let mut default_survival = 1.0;
         let mut recovery_sum = 0.0;
-        for factor in factors {
-            let shock = self.monthly_shock(*factor);
+        for (offset, factor) in factors.iter().enumerate() {
+            let shock = self.monthly_shock(start_month.saturating_add(offset as u32 + 1), *factor);
             prepay_survival *= 1.0 - shock.smm;
             default_survival *= 1.0 - shock.mdr;
             recovery_sum += shock.recovery_rate;
@@ -251,82 +383,57 @@ impl StochasticPricer {
         }
     }
 
-    fn monthly_shock(&self, z: f64) -> PeriodPoolShock {
+    fn monthly_shock(&self, month_offset: u32, z: f64) -> PeriodPoolShock {
         let factor = if self.has_stochastic_rates() { z } else { 0.0 };
-        let prepay_factor = self.prepay_factor_scale() * factor;
-        let default_factor = self.default_factor_scale() * factor;
-        let base_smm = self.config.tree_config.prepay_spec.base_smm();
-        let base_mdr = self.config.tree_config.default_spec.base_mdr();
+        let seasoning = self
+            .config
+            .tree_config
+            .initial_seasoning
+            .saturating_add(month_offset);
+        let factors = [factor];
 
         PeriodPoolShock {
-            smm: (base_smm * prepay_factor.exp()).clamp(0.0, 0.50),
-            mdr: (base_mdr * default_factor.exp()).clamp(0.0, 0.50),
+            smm: self.conditional_smm(seasoning, &factors),
+            mdr: self.conditional_mdr(seasoning, &factors),
             recovery_rate: self.recovery_rate(factor),
         }
     }
 
-    fn prepay_factor_scale(&self) -> f64 {
-        let model_scale = match &self.config.tree_config.prepay_spec {
-            StochasticPrepaySpec::Deterministic(_) => 0.0,
-            StochasticPrepaySpec::FactorCorrelated {
-                factor_loading,
-                cpr_volatility,
-                ..
+    fn conditional_smm(&self, seasoning: u32, factors: &[f64]) -> f64 {
+        if let Some(model) = self.config.tree_config.prepay_spec.build() {
+            return model
+                .conditional_smm(seasoning, factors, self.config.tree_config.pool_coupon, 1.0)
+                .clamp(0.0, 0.50);
+        }
+        match &self.config.tree_config.prepay_spec {
+            StochasticPrepaySpec::Deterministic(spec) => {
+                spec.smm(seasoning).unwrap_or(0.0).clamp(0.0, 0.50)
             }
-            | StochasticPrepaySpec::RichardRoll {
-                factor_loading,
-                cpr_volatility,
-                ..
-            } => factor_loading * cpr_volatility,
-            StochasticPrepaySpec::RegimeSwitching { .. } => {
-                self.config.correlation_prepay_loading()
-            }
-        };
-        model_scale * self.factor_model_prepay_scale()
-    }
-
-    fn default_factor_scale(&self) -> f64 {
-        let model_scale = match &self.config.tree_config.default_spec {
-            StochasticDefaultSpec::Deterministic(_) => 0.0,
-            StochasticDefaultSpec::Copula { correlation, .. } => correlation.sqrt(),
-            StochasticDefaultSpec::IntensityProcess {
-                factor_sensitivity,
-                volatility,
-                ..
-            }
-            | StochasticDefaultSpec::HazardCurveBased {
-                factor_sensitivity,
-                volatility,
-                ..
-            } => factor_sensitivity * volatility,
-            StochasticDefaultSpec::FactorCorrelated {
-                factor_loading,
-                cdr_volatility,
-                ..
-            } => factor_loading * cdr_volatility,
-        };
-        model_scale * self.factor_model_credit_scale()
-    }
-
-    fn factor_model_prepay_scale(&self) -> f64 {
-        match &self.config.tree_config.factor_spec {
-            FactorSpec::SingleFactor { volatility, .. } => *volatility,
-            FactorSpec::TwoFactor { prepay_vol, .. } => *prepay_vol,
-            FactorSpec::MultiFactor { volatilities, .. } => {
-                volatilities.first().copied().unwrap_or(1.0)
-            }
+            _ => self
+                .config
+                .tree_config
+                .prepay_spec
+                .base_smm()
+                .clamp(0.0, 0.50),
         }
     }
 
-    fn factor_model_credit_scale(&self) -> f64 {
-        match &self.config.tree_config.factor_spec {
-            FactorSpec::SingleFactor { volatility, .. } => *volatility,
-            FactorSpec::TwoFactor { credit_vol, .. } => *credit_vol,
-            FactorSpec::MultiFactor { volatilities, .. } => volatilities
-                .get(1)
-                .or_else(|| volatilities.first())
-                .copied()
-                .unwrap_or(1.0),
+    fn conditional_mdr(&self, seasoning: u32, factors: &[f64]) -> f64 {
+        if let Some(model) = self.config.tree_config.default_spec.build() {
+            return model
+                .conditional_mdr(seasoning, factors, &MacroCreditFactors::default())
+                .clamp(0.0, 0.50);
+        }
+        match &self.config.tree_config.default_spec {
+            StochasticDefaultSpec::Deterministic(spec) => {
+                spec.mdr(seasoning).unwrap_or(0.0).clamp(0.0, 0.50)
+            }
+            _ => self
+                .config
+                .tree_config
+                .default_spec
+                .base_mdr()
+                .clamp(0.0, 0.50),
         }
     }
 
@@ -368,16 +475,55 @@ impl StochasticPricer {
             / months_per_period;
         base_periods.saturating_add(2).max(1)
     }
-}
 
-trait CorrelationLoading {
-    fn correlation_prepay_loading(&self) -> f64;
-}
+    fn branching_variance_proxy(&self) -> f64 {
+        let factor_var = match &self.config.tree_config.factor_spec {
+            FactorSpec::SingleFactor { volatility, .. } => volatility * volatility,
+            FactorSpec::TwoFactor {
+                credit_vol,
+                prepay_vol,
+                ..
+            } => credit_vol * credit_vol + prepay_vol * prepay_vol,
+            FactorSpec::MultiFactor { volatilities, .. } => {
+                volatilities.iter().map(|v| v * v).sum::<f64>()
+            }
+        };
+        let prepay_loading = self
+            .config
+            .tree_config
+            .prepay_spec
+            .factor_loading()
+            .unwrap_or(0.0);
+        let default_loading = self
+            .config
+            .tree_config
+            .default_spec
+            .correlation()
+            .unwrap_or(0.0);
+        let recovery_loading = match &self.config.tree_config.recovery_spec {
+            RecoverySpec::Constant { .. } => 0.0,
+            RecoverySpec::MarketCorrelated {
+                factor_correlation,
+                recovery_volatility,
+                ..
+            } => factor_correlation * recovery_volatility,
+        };
 
-impl CorrelationLoading for StochasticPricerConfig {
-    fn correlation_prepay_loading(&self) -> f64 {
-        self.tree_config.correlation.prepay_factor_loading()
+        (factor_var * (prepay_loading.abs() + default_loading.abs() + recovery_loading.abs()))
+            .clamp(0.0, 1.0)
     }
+
+    fn path_seed(&self, path_index: usize) -> u64 {
+        self.config
+            .seed
+            .wrapping_add((path_index as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15))
+    }
+}
+
+struct PathScenarioOutput {
+    deal_pv: f64,
+    deal_loss: f64,
+    tranches: Vec<(usize, PathTrancheMetrics)>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -558,6 +704,13 @@ impl ScenarioCollector {
         self.deal_losses.push(loss);
     }
 
+    fn record_output(&mut self, output: PathScenarioOutput) {
+        for (idx, metrics) in output.tranches {
+            self.record_tranche(idx, metrics);
+        }
+        self.record_deal(output.deal_pv, output.deal_loss);
+    }
+
     fn finalize(
         mut self,
         pricer: &StochasticPricer,
@@ -707,7 +860,7 @@ mod tests {
     }
 
     #[test]
-    fn hybrid_mode_errors_until_conditional_suffix_is_implemented() {
+    fn hybrid_mode_prices_tree_prefix_and_mc_suffix_paths() {
         let instrument = test_instrument();
         let market = MarketContext::new().insert((*test_discount_curve()).clone());
         let config = StochasticPricerConfig::new(
@@ -721,10 +874,11 @@ mod tests {
         });
         let pricer = StochasticPricer::new(config);
 
-        let err = pricer
-            .price(&instrument, &market)
-            .expect_err("hybrid should fail");
+        let result = pricer.price(&instrument, &market).expect("hybrid price");
 
-        assert!(err.to_string().contains("Hybrid mode"));
+        assert_eq!(result.num_paths, 800);
+        assert_eq!(result.tranche_results.len(), 1);
+        assert!(result.npv.amount().is_finite());
+        assert!(result.pricing_mode.contains("Hybrid"));
     }
 }

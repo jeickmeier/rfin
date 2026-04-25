@@ -128,10 +128,10 @@ impl FromStr for Multiple {
     /// `"spread_per_turn"`, `"yield_per_coverage"`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "ev_ebitda" => Ok(Self::EvEbitda),
-            "ev_revenue" => Ok(Self::EvRevenue),
-            "ev_ebit" => Ok(Self::EvEbit),
-            "ev_fcf" => Ok(Self::EvFcf),
+            "ev_ebitda" | "evebitda" => Ok(Self::EvEbitda),
+            "ev_revenue" | "evrevenue" => Ok(Self::EvRevenue),
+            "ev_ebit" | "evebit" => Ok(Self::EvEbit),
+            "ev_fcf" | "evfcf" => Ok(Self::EvFcf),
             "pe" => Ok(Self::Pe),
             "pb" => Ok(Self::Pb),
             "ptbv" => Ok(Self::Ptbv),
