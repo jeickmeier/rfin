@@ -4,40 +4,24 @@ use crate::constants::{numerical, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT};
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::dates::{adjust, next_cds_date, Date};
+#[cfg(test)]
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 
 impl CDSPricer {
-    /// Generate payment schedule for CDS with ISDA standard dates support.
+    /// Generate the canonical CDS payment schedule.
     ///
-    /// When `use_isda_coupon_dates` is enabled, generates IMM dates (20th of
-    /// Mar/Jun/Sep/Dec) with business day adjustment per the CDS calendar.
+    /// CDS pricing uses the ISDA IMM-20 schedule with business-day adjustment
+    /// per the instrument calendar.
     #[must_use = "schedule generation is pure computation"]
     pub(crate) fn generate_schedule(
         &self,
         cds: &CreditDefaultSwap,
         _as_of: Date,
     ) -> Result<Vec<Date>> {
-        if self.config.use_isda_coupon_dates {
-            self.generate_isda_schedule(cds)
-        } else {
-            let sched = crate::cashflow::builder::build_dates(
-                cds.premium.start,
-                cds.premium.end,
-                cds.premium.frequency,
-                cds.premium.stub,
-                cds.premium.bdc,
-                false,
-                0,
-                cds.premium
-                    .calendar_id
-                    .as_deref()
-                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-            )?;
-            Ok(sched.dates)
-        }
+        self.generate_isda_schedule(cds)
     }
 
     /// Generate ISDA standard coupon dates (20th of Mar/Jun/Sep/Dec).
@@ -88,19 +72,7 @@ impl CDSPricer {
         cds: &CreditDefaultSwap,
         as_of: Date,
     ) -> Result<Vec<CouponPeriod>> {
-        if self.config.use_isda_coupon_dates {
-            self.generate_isda_coupon_periods(cds, as_of)
-        } else {
-            let schedule = self.generate_schedule(cds, as_of)?;
-            Ok(schedule
-                .windows(2)
-                .map(|w| CouponPeriod {
-                    accrual_start: w[0],
-                    accrual_end: w[1],
-                    payment_date: w[1],
-                })
-                .collect())
-        }
+        self.generate_isda_coupon_periods(cds, as_of)
     }
 
     fn generate_isda_coupon_periods(
@@ -210,7 +182,7 @@ impl CDSPricer {
                 // coupon part per unit spread
                 ann += unit_spread * accrual * sp * df;
 
-                // AoD part per unit spread in this period (honours integration_method)
+                // AoD part per unit spread in this period.
                 ann += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: unit_spread,
@@ -387,6 +359,7 @@ impl CDSPricer {
     ///    - Sign convention matches the dated upfront and `Instrument::value()`
     ///
     /// Both can be set simultaneously without double-counting.
+    #[cfg(test)]
     pub(crate) fn npv_with_upfront(
         &self,
         cds: &CreditDefaultSwap,
@@ -423,6 +396,7 @@ impl CDSPricer {
     }
 
     /// Resolve curves from MarketContext and compute NPV with upfront.
+    #[cfg(test)]
     pub(crate) fn npv_market(
         &self,
         cds: &CreditDefaultSwap,

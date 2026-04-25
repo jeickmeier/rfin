@@ -1,9 +1,8 @@
 use super::config::CDSPricerConfig;
 use super::helpers::{
     date_from_hazard_time, df_asof_to, haz_t, isda_standard_model_boundaries,
-    midpoint_default_date, restructuring_adjustment_factor, settlement_date, sp_cond_to,
+    restructuring_adjustment_factor, settlement_date, sp_cond_to,
 };
-use super::IntegrationMethod;
 use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
@@ -73,18 +72,20 @@ impl CDSPricer {
     ///
     /// Returns a validation error if the configuration is invalid.
     /// See [`CDSPricerConfig::validate`] for details.
+    #[cfg(test)]
     pub(crate) fn try_with_config(config: CDSPricerConfig) -> Result<Self> {
         config.validate()?;
         Ok(Self { config })
     }
 
     /// Get the configuration for this pricer.
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn config(&self) -> &CDSPricerConfig {
         &self.config
     }
 
-    /// Calculate PV of protection leg with numerical integration.
+    /// Calculate PV of protection leg using ISDA Standard Model integration.
     ///
     /// The protection leg represents the contingent payment made by the
     /// protection seller upon a credit event. Its present value is:
@@ -178,12 +179,7 @@ impl CDSPricer {
             disc,
             surv,
         };
-        let protection_pv = match self.config.integration_method {
-            IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(&inputs)?,
-            IntegrationMethod::IsdaStandardModel => {
-                self.protection_leg_isda_standard_model_cond(&inputs)?
-            }
-        };
+        let protection_pv = self.protection_leg_isda_standard_model_cond(&inputs)?;
 
         // Apply the restructuring adjustment. Contracts with restructuring as a
         // credit event (Cr14, Mr14, Mm14) have protection worth more than Xr14
@@ -210,8 +206,7 @@ impl CDSPricer {
     /// - Discounting: relative DF from `as_of` using discount curve's day-count
     /// - Survival: conditional survival given no default before `as_of` using hazard curve's day-count
     /// - Accrual: instrument's premium leg day-count convention (Act/360 for NA, etc.)
-    /// - Accrual-on-default: dispatched through [`Self::accrual_on_default_dispatch`]
-    ///   which honours [`CDSPricerConfig::integration_method`].
+    /// - Accrual-on-default: analytical piecewise-constant integration over hazard/disc knots
     pub(crate) fn pv_premium_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
@@ -276,59 +271,12 @@ impl CDSPricer {
         Ok(premium_pv)
     }
 
-    // ─── Accrual-on-default dispatch and variants ─────────────────────────
+    // ─── Accrual-on-default integration ───────────────────────────────────
 
-    /// Route accrual-on-default to a method-specific implementation based on
-    /// [`CDSPricerConfig::integration_method`].
-    ///
-    /// All implementations use **conditional survival** given no default before
-    /// `as_of` and **relative discount factors** from `as_of`, matching the
-    /// protection-leg conventions.
-    ///
-    /// | Method | AoD implementation |
-    /// |--------|--------------------|
-    /// | `Midpoint` | Period midpoint with conditional survival |
-    /// | `IsdaStandardModel` | Analytical piecewise-constant integration over hazard/disc knots |
+    /// Accrual-on-default using conditional survival and relative discount factors
+    /// from `as_of`, matching the protection-leg conventions.
     pub(super) fn accrual_on_default_dispatch(&self, inp: AodInputs<'_>) -> Result<f64> {
-        match self.config.integration_method {
-            IntegrationMethod::Midpoint => self.accrual_on_default_midpoint_cond(inp),
-            IntegrationMethod::IsdaStandardModel => {
-                self.accrual_on_default_isda_standard_model_cond(inp)
-            }
-        }
-    }
-
-    /// Period midpoint approximation for AoD with conditional survival.
-    ///
-    /// ```text
-    /// AoD ≈ spread * (0.5 * τ_remaining) * DF(as_of→settle(mid))
-    ///     * P(default in (start, end] | survived to as_of)
-    /// ```
-    ///
-    /// `start_date` is already `max(period_start, as_of)` at the call site,
-    /// so this implements a "clean" AoD (no already-accrued premium before
-    /// `as_of`).
-    pub(super) fn accrual_on_default_midpoint_cond(&self, inp: AodInputs<'_>) -> Result<f64> {
-        if inp.end_date <= inp.start_date {
-            return Ok(0.0);
-        }
-
-        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
-
-        let sp_start = sp_cond_to(inp.surv, inp.as_of, inp.start_date)?;
-        let sp_end = sp_cond_to(inp.surv, inp.as_of, inp.end_date)?;
-        let default_prob = (sp_start - sp_end).max(0.0);
-
-        let default_date = midpoint_default_date(inp.surv, inp.start_date, inp.end_date)?;
-        let settle_date = settlement_date(
-            default_date,
-            inp.settlement_delay,
-            inp.calendar,
-            self.config.business_days_per_year,
-        )?;
-        let df = df_asof_to(inp.disc, inp.as_of, settle_date)?;
-
-        Ok(inp.spread * 0.5 * tau_remaining * default_prob * df)
+        self.accrual_on_default_isda_standard_model_cond(inp)
     }
 
     /// ISDA Standard Model AoD: analytical integration over piecewise-constant

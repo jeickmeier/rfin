@@ -34,64 +34,6 @@ pub(super) struct ProtectionLegInputs<'a> {
 }
 
 impl CDSPricer {
-    /// Midpoint method with conditional survival and relative discounting
-    pub(super) fn protection_leg_midpoint_cond(
-        &self,
-        inputs: &ProtectionLegInputs<'_>,
-    ) -> Result<f64> {
-        let ProtectionLegInputs {
-            t_start,
-            t_end,
-            recovery,
-            settlement_delay,
-            calendar,
-            sp_asof,
-            as_of,
-            disc,
-            surv,
-        } = *inputs;
-
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
-            return Ok(0.0);
-        }
-
-        let tenor_years = t_end - t_start;
-        let steps_per_year = self.config.effective_steps(tenor_years);
-        let num_steps = ((tenor_years) * steps_per_year as f64).ceil() as usize;
-        let num_steps = num_steps.max(1);
-        let dt = tenor_years / num_steps as f64;
-        let lgd = 1.0 - recovery;
-        let mut protection_pv = 0.0;
-
-        for i in 0..num_steps {
-            let t1 = t_start + i as f64 * dt;
-            let t2 = t_start + (i + 1) as f64 * dt;
-            let t_mid = (t1 + t2) * 0.5;
-
-            // Conditional survival probabilities. Clamp the default probability
-            // at zero: a strictly monotone hazard curve guarantees sp1 >= sp2,
-            // but numerical roundoff or a mildly non-monotone user curve can
-            // make the difference slightly negative, which would otherwise
-            // contribute a spurious *positive* cash-flow to the protection leg.
-            let sp1 = surv.sp(t1) / sp_asof;
-            let sp2 = surv.sp(t2) / sp_asof;
-            let default_prob = (sp1 - sp2).max(0.0);
-
-            // Discount on actual dates (supports discount/hazard curves with different day-counts).
-            let default_date = date_from_hazard_time(surv, t_mid);
-            let settle_date = settlement_date(
-                default_date,
-                settlement_delay,
-                calendar,
-                self.config.business_days_per_year,
-            )?;
-            let df = df_asof_to(disc, as_of, settle_date)?;
-
-            protection_pv += lgd * default_prob * df;
-        }
-        Ok(protection_pv)
-    }
-
     /// ISDA Standard Model with conditional survival and relative discounting
     pub(super) fn protection_leg_isda_standard_model_cond(
         &self,

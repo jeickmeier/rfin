@@ -2,12 +2,11 @@
 //!
 //! Provides deterministic valuation for Credit Default Swaps (CDS) with
 //! support for ISDA-style premium schedules, accrual-on-default, and
-//! ISDA-standard and midpoint numerical integration for the protection leg.
+//! ISDA Standard Model integration for the protection leg.
 //!
 //! The engine exposes present value calculations for the protection and
-//! premium legs, par spread, risky annuity, PV01/CS01, and a simple
-//! bootstrapping helper for hazard curves. Heavy numerics are kept here to
-//! isolate pricing policy from instrument data shapes.
+//! premium legs, par spread, risky annuity, and PV01/CS01. Heavy numerics are
+//! kept here to isolate pricing policy from instrument data shapes.
 //!
 //! # Par Spread Calculation
 //!
@@ -75,7 +74,6 @@
 //! - O'Kane, D. "Modelling Single-name and Multi-name Credit Derivatives" (2008), Chapter 5
 //! - Hull, J.C. & White, A. "Valuing Credit Default Swaps I: No Counterparty Default Risk"
 
-mod bootstrap;
 mod config;
 mod engine;
 mod helpers;
@@ -85,36 +83,7 @@ mod metrics;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use bootstrap::{BootstrapConvention, CDSBootstrapper};
-pub(crate) use config::{max_deliverable_maturity, CDSPricerConfig};
+#[cfg(test)]
+pub(crate) use config::max_deliverable_maturity;
+pub(crate) use config::CDSPricerConfig;
 pub(crate) use engine::CDSPricer;
-
-/// Numerical integration method for the protection leg.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum IntegrationMethod {
-    /// Simple midpoint rule with fixed steps (non-ISDA).
-    ///
-    /// Fast but lower accuracy. Suitable for approximate valuations,
-    /// high-volume batch processing, or when exact ISDA compliance is not required.
-    Midpoint,
-    /// ISDA Standard Model (analytical integration over piecewise constant rates).
-    ///
-    /// The recommended method for production CDS pricing. Uses analytical
-    /// formulas assuming piecewise-constant hazard rates between curve knots,
-    /// aligned with ISDA Standard Model v1.8.2 for the provided curve inputs.
-    IsdaStandardModel,
-}
-
-impl IntegrationMethod {
-    /// Recommended integration method based on instrument characteristics.
-    #[must_use]
-    pub(crate) fn recommended(tenor_years: f64, _is_distressed: bool) -> Self {
-        if tenor_years < 2.0 {
-            // Short tenors: speed matters, error is small
-            Self::Midpoint
-        } else {
-            // Standard tenors: ISDA compliance and speed
-            Self::IsdaStandardModel
-        }
-    }
-}

@@ -13,16 +13,6 @@ use time::Duration;
 // - For survival: use the hazard curve's day-count convention
 // - For accrual: use the instrument's premium leg day-count convention
 
-/// Compute time from discount curve's base date using its day-count convention.
-#[inline]
-pub(super) fn disc_t(disc: &DiscountCurve, date: Date) -> Result<f64> {
-    disc.day_count().year_fraction(
-        disc.base_date(),
-        date,
-        finstack_core::dates::DayCountContext::default(),
-    )
-}
-
 /// Compute time from hazard curve's base date using its day-count convention.
 #[inline]
 pub(super) fn haz_t(surv: &HazardCurve, date: Date) -> Result<f64> {
@@ -77,17 +67,6 @@ pub(super) fn settlement_date(
     Ok(default_date + Duration::days(delay_days))
 }
 
-#[inline]
-pub(super) fn midpoint_default_date(
-    surv: &HazardCurve,
-    start_date: Date,
-    end_date: Date,
-) -> Result<Date> {
-    let t_start = haz_t(surv, start_date)?;
-    let t_end = haz_t(surv, end_date)?;
-    Ok(date_from_hazard_time(surv, 0.5 * (t_start + t_end)))
-}
-
 pub(super) fn isda_standard_model_boundaries(
     t_start: f64,
     t_end: f64,
@@ -138,32 +117,6 @@ pub(super) fn sp_cond_to(surv: &HazardCurve, as_of: Date, date: Date) -> Result<
     } else {
         Ok(0.0) // Already defaulted (or effectively defaulted) by as_of
     }
-}
-
-// ----- Local helpers -----
-#[inline]
-pub(super) fn approx_default_density(
-    surv: &HazardCurve,
-    t: f64,
-    h: f64,
-    t_start: f64,
-    t_end: f64,
-) -> f64 {
-    // Finite-difference approximation of -dS/dt, clipped to [t_start, t_end]
-    let hh = if h <= 0.0 {
-        (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR
-    } else {
-        h
-    };
-    let (s_left, s_right, denom) = if t <= t_start + hh {
-        (surv.sp(t), surv.sp((t + hh).min(t_end)), hh)
-    } else if t >= t_end - hh {
-        (surv.sp((t - hh).max(t_start)), surv.sp(t), hh)
-    } else {
-        (surv.sp(t - hh), surv.sp(t + hh), 2.0 * hh)
-    };
-    let deriv = (s_right - s_left) / denom; // ≈ dS/dt
-    (-deriv).max(0.0)
 }
 
 /// Compute a multiplicative adjustment factor for the protection leg PV

@@ -1,28 +1,18 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use super::helpers::{
-    approx_default_density, date_from_hazard_time, df_asof_to, disc_t, haz_t,
-    midpoint_default_date, restructuring_adjustment_factor, settlement_date, sp_cond_to,
+    date_from_hazard_time, df_asof_to, haz_t, restructuring_adjustment_factor, settlement_date,
+    sp_cond_to,
 };
 use super::*;
-use crate::calibration::api::engine;
-use crate::calibration::api::schema::{
-    CalibrationEnvelope, CalibrationPlan, CalibrationStep, HazardCurveParams, StepParams,
-};
-use crate::calibration::CalibrationMethod;
 use crate::constants::{credit, time as time_constants, ONE_BASIS_POINT};
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
-use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
-use crate::market::quotes::cds::CdsQuote;
-use crate::market::quotes::ids::{Pillar, QuoteId};
-use crate::market::quotes::market_quote::MarketQuote;
+use crate::market::conventions::ids::CdsDocClause;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DateExt, DayCount, Tenor};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
+use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
-use finstack_core::HashMap;
 use rust_decimal::Decimal;
 use time::macros::date;
 use time::Duration;
@@ -92,7 +82,6 @@ fn test_accrual_on_default() {
     let pricer_with = CDSPricer::new();
     let pricer_without = CDSPricer::with_config(CDSPricerConfig {
         include_accrual: false,
-        integration_method: IntegrationMethod::Midpoint,
         ..Default::default()
     });
     let pv_with = pricer_with
@@ -153,8 +142,8 @@ fn test_par_spread_calculation() {
         .npv(&cds_at_par, &disc, &credit, as_of)
         .expect("should succeed");
     // A CDS at par spread should have near-zero NPV. Tolerance of $5000
-    // (~5bp on $10M) accounts for the accrual-on-default midpoint approximation
-    // and discrete quarterly premium schedule vs. continuous protection leg.
+    // (~5bp on $10M) accounts for accrual-on-default and discrete quarterly
+    // premium schedule vs. continuous protection leg.
     assert!(
         npv.amount().abs() < 5000.0,
         "CDS at par spread should have near-zero NPV, got {}",
@@ -170,10 +159,7 @@ fn test_settlement_delay_reduces_protection_pv() {
     let mut cds20 = cds0.clone();
     cds0.protection.settlement_delay = 0;
     cds20.protection.settlement_delay = 20;
-    let pricer = CDSPricer::with_config(CDSPricerConfig {
-        integration_method: IntegrationMethod::IsdaStandardModel,
-        ..Default::default()
-    });
+    let pricer = CDSPricer::new();
     let pv0 = pricer
         .pv_protection_leg(&cds0, &disc, &credit, as_of)
         .expect("should succeed")
@@ -183,171 +169,6 @@ fn test_settlement_delay_reduces_protection_pv() {
         .expect("should succeed")
         .amount();
     assert!(pv20 < pv0);
-}
-
-#[test]
-fn test_isda_standard_model_ignores_step_tuning() {
-    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-    let cds = create_test_cds("CDS-STEP", as_of, as_of.add_months(120), 100.0, 0.40);
-
-    let disc = DiscountCurve::builder("USD-OIS")
-        .base_date(as_of)
-        .knots(vec![
-            (0.0, 1.0),
-            (0.25, 0.995),
-            (0.5, 0.985),
-            (1.0, 0.955),
-            (3.0, 0.860),
-            (7.0, 0.705),
-            (10.0, 0.575),
-        ])
-        .build()
-        .expect("should succeed");
-
-    let credit = HazardCurve::builder("TEST-CREDIT")
-        .base_date(as_of)
-        .recovery_rate(0.40)
-        .knots(vec![
-            (0.25, 0.01),
-            (0.5, 0.08),
-            (1.0, 0.12),
-            (3.0, 0.18),
-            (7.0, 0.22),
-            (10.0, 0.25),
-        ])
-        .build()
-        .expect("should succeed");
-
-    let coarse = CDSPricer::with_config(CDSPricerConfig {
-        integration_method: IntegrationMethod::IsdaStandardModel,
-        steps_per_year: 1,
-        min_steps_per_year: 1,
-        adaptive_steps: false,
-        ..Default::default()
-    });
-    let fine = CDSPricer::with_config(CDSPricerConfig {
-        integration_method: IntegrationMethod::IsdaStandardModel,
-        steps_per_year: 3650,
-        min_steps_per_year: 3650,
-        adaptive_steps: false,
-        ..Default::default()
-    });
-
-    let pv_coarse = coarse
-        .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
-        .expect("coarse pricer should succeed");
-    let pv_fine = fine
-        .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
-        .expect("fine pricer should succeed");
-
-    assert!(
-        (pv_coarse - pv_fine).abs() < 1e-8,
-        "ISDA standard model protection PV should not depend on step tuning; coarse={pv_coarse}, fine={pv_fine}",
-    );
-}
-
-#[test]
-fn test_legacy_bootstrapper_matches_canonical_hazard_target_conventions() {
-    let base = Date::from_calendar_date(2025, time::Month::March, 20).expect("valid date");
-    let currency = Currency::USD;
-    let recovery_rate = 0.40;
-    let cds_spreads = vec![(1.0, 100.0), (3.0, 150.0)];
-
-    let disc = DiscountCurve::builder("TEST-DISC")
-        .base_date(base)
-        .knots(vec![
-            (0.0, 1.0),
-            (1.0, 0.98),
-            (3.0, 0.94),
-            (5.0, 0.88),
-            (10.0, 0.75),
-        ])
-        .build()
-        .expect("discount curve");
-
-    let legacy_curve = CDSBootstrapper::new()
-        .bootstrap_hazard_curve(&cds_spreads, recovery_rate, &disc, base)
-        .expect("legacy bootstrap should succeed");
-
-    let initial_market = MarketContext::new().insert(disc);
-    let quotes = cds_spreads
-        .iter()
-        .map(|(tenor_years, spread_bp)| {
-            MarketQuote::Cds(CdsQuote::CdsParSpread {
-                id: QuoteId::new(format!("CDS-{tenor_years:.1}Y")),
-                entity: "BOOTSTRAP-CONSISTENCY".to_string(),
-                pillar: Pillar::Tenor(Tenor::from_years(*tenor_years, legacy_curve.day_count())),
-                spread_bp: *spread_bp,
-                recovery_rate,
-                convention: CdsConventionKey {
-                    currency,
-                    doc_clause: CdsDocClause::IsdaNa,
-                },
-            })
-        })
-        .collect();
-
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
-
-    let hazard_id: CurveId = "BOOTSTRAP-CONSISTENCY-SENIOR".into();
-    let plan = CalibrationPlan {
-        id: "plan".to_string(),
-        description: None,
-        quote_sets,
-        settings: Default::default(),
-        steps: vec![CalibrationStep {
-            id: "haz".to_string(),
-            quote_set: "credit".to_string(),
-            params: StepParams::Hazard(HazardCurveParams {
-                curve_id: hazard_id.clone(),
-                entity: "BOOTSTRAP-CONSISTENCY".to_string(),
-                seniority: Seniority::Senior,
-                currency,
-                base_date: base,
-                discount_curve_id: "TEST-DISC".into(),
-                recovery_rate,
-                notional: 1.0,
-                method: CalibrationMethod::Bootstrap,
-                interpolation: Default::default(),
-                par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
-                doc_clause: None,
-            }),
-        }],
-    };
-
-    let envelope = CalibrationEnvelope {
-        schema: "finstack.calibration/2".to_string(),
-        plan,
-        initial_market: Some((&initial_market).into()),
-    };
-
-    let result = engine::execute(&envelope).expect("canonical execute");
-    let canonical_ctx =
-        MarketContext::try_from(result.result.final_market).expect("restore context");
-    let canonical_curve = canonical_ctx
-        .get_hazard(hazard_id.as_str())
-        .expect("canonical hazard curve");
-
-    assert_eq!(
-        legacy_curve.day_count(),
-        canonical_curve.day_count(),
-        "legacy bootstrap should use the same day count as canonical hazard calibration"
-    );
-
-    let legacy_knots: Vec<f64> = legacy_curve.knot_points().map(|(t, _)| t).collect();
-    let canonical_knots: Vec<f64> = canonical_curve.knot_points().map(|(t, _)| t).collect();
-    assert_eq!(
-        legacy_knots.len(),
-        canonical_knots.len(),
-        "legacy and canonical curves should have the same number of knots"
-    );
-    for (legacy_t, canonical_t) in legacy_knots.iter().zip(canonical_knots.iter()) {
-        assert!(
-            (legacy_t - canonical_t).abs() <= 1e-12,
-            "legacy bootstrap should use canonical pillar times; legacy={legacy_t}, canonical={canonical_t}"
-        );
-    }
 }
 
 #[test]
@@ -616,46 +437,8 @@ fn test_doc_clause_serde_deserializes_without_field() {
 }
 
 #[test]
-fn test_integration_method_recommendations_cover_boundaries() {
-    assert_eq!(
-        IntegrationMethod::recommended(0.5, false),
-        IntegrationMethod::Midpoint
-    );
-    assert_eq!(
-        IntegrationMethod::recommended(1.99, false),
-        IntegrationMethod::Midpoint
-    );
-    assert_eq!(
-        IntegrationMethod::recommended(2.0, false),
-        IntegrationMethod::IsdaStandardModel
-    );
-    assert_eq!(
-        IntegrationMethod::recommended(10.0, false),
-        IntegrationMethod::IsdaStandardModel
-    );
-    assert_eq!(
-        IntegrationMethod::recommended(10.01, false),
-        IntegrationMethod::IsdaStandardModel
-    );
-    assert_eq!(
-        IntegrationMethod::recommended(0.25, true),
-        IntegrationMethod::Midpoint
-    );
-    assert_eq!(
-        IntegrationMethod::recommended(30.0, true),
-        IntegrationMethod::IsdaStandardModel
-    );
-}
-
-#[test]
 fn test_pricer_config_factories_helpers_and_validation_paths() {
     let standard = CDSPricerConfig::isda_standard();
-    assert_eq!(
-        standard.integration_method,
-        IntegrationMethod::IsdaStandardModel
-    );
-    assert!(standard.use_isda_coupon_dates);
-    assert!(standard.adaptive_steps);
     assert_eq!(
         standard.business_days_per_year,
         time_constants::BUSINESS_DAYS_PER_YEAR_US
@@ -666,26 +449,12 @@ fn test_pricer_config_factories_helpers_and_validation_paths() {
         europe.business_days_per_year,
         time_constants::BUSINESS_DAYS_PER_YEAR_UK
     );
-    assert_eq!(europe.integration_method, standard.integration_method);
 
     let asia = CDSPricerConfig::isda_asia();
     assert_eq!(
         asia.business_days_per_year,
         time_constants::BUSINESS_DAYS_PER_YEAR_JP
     );
-    assert_eq!(asia.integration_method, standard.integration_method);
-
-    let simplified = CDSPricerConfig::simplified();
-    assert_eq!(simplified.integration_method, IntegrationMethod::Midpoint);
-    assert!(!simplified.use_isda_coupon_dates);
-    assert!(!simplified.adaptive_steps);
-
-    let mut adaptive = simplified.clone();
-    adaptive.adaptive_steps = true;
-    adaptive.min_steps_per_year = 20;
-    assert_eq!(adaptive.effective_steps(1.1), 20);
-    assert_eq!(adaptive.effective_steps(3.0), 36);
-    assert_eq!(simplified.effective_steps(30.0), simplified.steps_per_year);
 
     let pricer = CDSPricer::try_with_config(standard.clone()).expect("valid config");
     assert_eq!(
@@ -695,22 +464,6 @@ fn test_pricer_config_factories_helpers_and_validation_paths() {
 
     let invalid_cases = {
         let mut cases = Vec::new();
-
-        let mut cfg = standard.clone();
-        cfg.steps_per_year = 0;
-        cases.push((cfg, "steps_per_year"));
-
-        let mut cfg = standard.clone();
-        cfg.min_steps_per_year = 0;
-        cases.push((cfg, "min_steps_per_year"));
-
-        let mut cfg = standard.clone();
-        cfg.bootstrap_max_iterations = 0;
-        cases.push((cfg, "bootstrap_max_iterations"));
-
-        let mut cfg = standard.clone();
-        cfg.bootstrap_tolerance = 0.0;
-        cases.push((cfg, "bootstrap_tolerance"));
 
         let mut cfg = standard.clone();
         cfg.business_days_per_year = 0.0;
@@ -728,7 +481,7 @@ fn test_pricer_config_factories_helpers_and_validation_paths() {
     }
 
     let mut bad_for_pricer = standard.clone();
-    bad_for_pricer.steps_per_year = 0;
+    bad_for_pricer.business_days_per_year = 0.0;
     assert!(
         CDSPricer::try_with_config(bad_for_pricer).is_err(),
         "try_with_config should reject invalid settings"
@@ -744,72 +497,15 @@ fn test_max_deliverable_maturity_covers_remaining_meta_clauses_and_custom() {
 }
 
 #[test]
-fn test_bootstrap_hazard_curve_rejects_empty_quotes_and_handles_distressed_spreads() {
-    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-    let disc = DiscountCurve::builder("USD-OIS")
-        .base_date(as_of)
-        .knots(vec![(0.0, 1.0), (1.0, 0.97), (3.0, 0.90), (5.0, 0.82)])
-        .build()
-        .expect("discount curve");
-
-    let bootstrapper = CDSBootstrapper::new();
-    let err = bootstrapper
-        .bootstrap_hazard_curve(&[], 0.40, &disc, as_of)
-        .expect_err("empty spread set should be rejected");
-    assert!(matches!(
-        err,
-        finstack_core::Error::Input(finstack_core::InputError::TooFewPoints)
-    ));
-
-    let distressed = bootstrapper
-        .bootstrap_hazard_curve(
-            &[(1.0, 1_200.0), (3.0, 1_600.0), (5.0, 2_000.0)],
-            0.25,
-            &disc,
-            as_of,
-        )
-        .expect("distressed spreads should still bootstrap");
-
-    assert_eq!(distressed.base_date(), as_of);
-    assert_eq!(distressed.recovery_rate(), 0.25);
-    assert!(distressed.knot_points().count() >= 3);
-}
-
-#[test]
 fn test_schedule_generation_respects_isda_flag_and_calendar_availability() {
     let start = Date::from_calendar_date(2025, time::Month::July, 1).expect("valid date");
     let end = Date::from_calendar_date(2026, time::Month::July, 1).expect("valid date");
     let cds = create_test_cds("CDS-SCHED", start, end, 100.0, 0.40);
 
-    let simplified = CDSPricer::with_config(CDSPricerConfig::simplified());
-    let regular_schedule = simplified
-        .generate_schedule(&cds, start)
-        .expect("regular schedule");
-    let expected_regular = crate::cashflow::builder::build_dates(
-        cds.premium.start,
-        cds.premium.end,
-        cds.premium.frequency,
-        cds.premium.stub,
-        cds.premium.bdc,
-        false,
-        0,
-        cds.premium
-            .calendar_id
-            .as_deref()
-            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-    )
-    .expect("expected regular schedule")
-    .dates;
-    assert_eq!(regular_schedule, expected_regular);
-
     let isda = CDSPricer::new();
     let adjusted_schedule = isda
         .generate_isda_schedule(&cds)
         .expect("adjusted ISDA schedule");
-    assert_ne!(
-        regular_schedule, adjusted_schedule,
-        "non-ISDA schedule should differ from IMM-style ISDA schedule"
-    );
 
     let mut cds_no_calendar = cds.clone();
     cds_no_calendar.premium.calendar_id = None;
@@ -953,19 +649,6 @@ fn test_time_and_settlement_helpers_match_curve_and_calendar_conventions() {
     let base_date = disc.base_date();
     let one_year = base_date.add_months(12);
 
-    let expected_disc_t = disc
-        .day_count()
-        .year_fraction(
-            base_date,
-            one_year,
-            finstack_core::dates::DayCountContext::default(),
-        )
-        .expect("discount year fraction");
-    assert!(
-        (disc_t(&disc, one_year).expect("disc_t") - expected_disc_t).abs() < 1e-12,
-        "disc_t should respect the discount curve day-count"
-    );
-
     let expected_haz_t = credit
         .day_count()
         .year_fraction(
@@ -1015,12 +698,6 @@ fn test_time_and_settlement_helpers_match_curve_and_calendar_conventions() {
         monday,
         "calendar-aware settlement should advance by business days"
     );
-
-    let midpoint = midpoint_default_date(&credit, base_date, one_year).expect("midpoint");
-    let midpoint_time = 0.5
-        * (haz_t(&credit, base_date).expect("haz_t start")
-            + haz_t(&credit, one_year).expect("haz_t end"));
-    assert_eq!(midpoint, date_from_hazard_time(&credit, midpoint_time));
 }
 
 #[test]
@@ -1057,18 +734,6 @@ fn test_discount_survival_and_default_density_helpers_cover_boundary_cases() {
         0.0,
         "conditional survival should floor to zero after effective default"
     );
-
-    let t_start = 0.5;
-    let t_end = 1.5;
-    let h = 0.1;
-    let center_density = approx_default_density(&credit, 1.0, h, t_start, t_end);
-    let expected_center_density = -((credit.sp(1.0 + h) - credit.sp(1.0 - h)) / (2.0 * h));
-    assert!(
-        (center_density - expected_center_density.max(0.0)).abs() < 1e-12,
-        "interior default density should use central differences"
-    );
-    assert!(approx_default_density(&credit, t_start, 0.0, t_start, t_end) >= 0.0);
-    assert!(approx_default_density(&credit, t_end, 0.0, t_start, t_end) >= 0.0);
 }
 
 #[test]
@@ -1110,65 +775,6 @@ fn test_restructuring_adjustment_factor_scales_with_clause_and_remaining_tenor()
         "modified-modified restructuring should sit between MR14 and its full uplift"
     );
     assert_eq!(cr14_long, 1.05);
-}
-
-#[test]
-fn test_bootstrap_convention_defaults_and_representative_keys_match_regions() {
-    let default_convention = BootstrapConvention::default();
-    assert!(default_convention.use_imm_dates);
-    assert_eq!(
-        default_convention.representative_convention_key(),
-        CdsConventionKey {
-            currency: Currency::USD,
-            doc_clause: CdsDocClause::IsdaNa,
-        }
-    );
-
-    let eu = BootstrapConvention {
-        convention: crate::instruments::credit_derivatives::cds::CDSConvention::IsdaEu,
-        use_imm_dates: true,
-    };
-    assert_eq!(
-        eu.representative_convention_key(),
-        CdsConventionKey {
-            currency: Currency::EUR,
-            doc_clause: CdsDocClause::IsdaEu,
-        }
-    );
-
-    let asia = BootstrapConvention {
-        convention: crate::instruments::credit_derivatives::cds::CDSConvention::IsdaAs,
-        use_imm_dates: true,
-    };
-    assert_eq!(
-        asia.representative_convention_key(),
-        CdsConventionKey {
-            currency: Currency::JPY,
-            doc_clause: CdsDocClause::IsdaAs,
-        }
-    );
-
-    let custom = BootstrapConvention {
-        convention: crate::instruments::credit_derivatives::cds::CDSConvention::Custom,
-        use_imm_dates: false,
-    };
-    assert_eq!(
-        custom.representative_convention_key(),
-        CdsConventionKey {
-            currency: Currency::USD,
-            doc_clause: CdsDocClause::Custom,
-        }
-    );
-
-    let bootstrapper = CDSBootstrapper::default();
-    assert_eq!(
-        bootstrapper.config.integration_method,
-        CDSPricerConfig::default().integration_method
-    );
-    assert_eq!(
-        bootstrapper.convention.representative_convention_key(),
-        default_convention.representative_convention_key()
-    );
 }
 
 // ── Forward-starting CDS tests ──────────────────────────────────────
