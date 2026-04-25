@@ -296,14 +296,14 @@ pub fn carino_link(periods: &[BrinsonPeriodResult]) -> Result<CarinoLinkedAttrib
     }
     let r_p_total = compounded_p - 1.0;
     let r_b_total = compounded_b - 1.0;
-    let big_k = carino_coefficient(r_p_total, r_b_total);
+    let big_k = carino_coefficient(r_p_total, r_b_total)?;
 
     let mut linked_alloc = vec![NeumaierAccumulator::new(); sector_names.len()];
     let mut linked_sel = vec![NeumaierAccumulator::new(); sector_names.len()];
     let mut linked_inter = vec![NeumaierAccumulator::new(); sector_names.len()];
 
     for period in periods {
-        let k_t = carino_coefficient(period.portfolio_return, period.benchmark_return);
+        let k_t = carino_coefficient(period.portfolio_return, period.benchmark_return)?;
         let scale = k_t / big_k;
         for (i, e) in period.sectors.iter().enumerate() {
             linked_alloc[i].add(scale * e.allocation);
@@ -354,19 +354,28 @@ pub fn carino_link(periods: &[BrinsonPeriodResult]) -> Result<CarinoLinkedAttrib
 ///
 /// This is the limit-preserving form from Carino (1999) §4, which keeps
 /// the smoothing continuous as `r_p` and `r_b` converge.
-fn carino_coefficient(r_p: f64, r_b: f64) -> f64 {
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidInput`] when either return is at or below
+/// −100 % (`1 + r ≤ 0`). The Carino formula uses `ln(1 + r)`, which is
+/// undefined in that regime, and silently substituting unity would mask a
+/// genuine modeling error in the upstream period returns.
+fn carino_coefficient(r_p: f64, r_b: f64) -> Result<f64> {
     let one_plus_rp = 1.0 + r_p;
     let one_plus_rb = 1.0 + r_b;
     if one_plus_rp <= 0.0 || one_plus_rb <= 0.0 {
-        // Degenerate regime (≤ −100 % return); fall back to unity so
-        // the caller still sees a defined value rather than NaN.
-        return 1.0;
+        return Err(Error::invalid_input(format!(
+            "Carino coefficient is undefined for returns ≤ -100% \
+             (got r_p = {r_p}, r_b = {r_b}); upstream period returns \
+             likely contain a modeling error"
+        )));
     }
     let diff = r_p - r_b;
     if diff.abs() < 1e-12 {
-        1.0 / one_plus_rp
+        Ok(1.0 / one_plus_rp)
     } else {
-        (one_plus_rp.ln() - one_plus_rb.ln()) / diff
+        Ok((one_plus_rp.ln() - one_plus_rb.ln()) / diff)
     }
 }
 
@@ -498,11 +507,20 @@ mod tests {
     /// form.
     #[test]
     fn carino_coefficient_handles_equal_returns() {
-        let k = carino_coefficient(0.05, 0.05);
+        let k = carino_coefficient(0.05, 0.05).expect("equal returns must yield 1 / (1 + r)");
         assert!(
             (k - 1.0 / 1.05).abs() < 1e-12,
             "k(0.05, 0.05) must be 1/1.05, got {k}"
         );
+    }
+
+    /// Returns at or below −100 % violate the domain of `ln(1 + r)`. The
+    /// coefficient must surface this as an error rather than silently
+    /// returning unity, which would produce meaningless attribution weights.
+    #[test]
+    fn carino_coefficient_rejects_negative_unity_or_below() {
+        assert!(carino_coefficient(-1.0, 0.05).is_err());
+        assert!(carino_coefficient(0.05, -1.5).is_err());
     }
 
     #[test]

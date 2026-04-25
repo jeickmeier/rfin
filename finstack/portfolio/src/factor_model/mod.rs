@@ -63,3 +63,72 @@ pub use types::{FactorContribution, PositionFactorContribution, RiskDecompositio
 pub use whatif::{
     FactorContributionDelta, PositionChange, StressResult, WhatIfEngine, WhatIfResult,
 };
+
+/// Flatten a row-major nested `Vec<Vec<f64>>` into a contiguous `Vec<f64>` after
+/// validating squareness against `n`.
+///
+/// Returns the flat row-major buffer expected by [`ParametricPositionDecomposer`]
+/// and [`HistoricalPositionDecomposer`]. Callers that already hold a flat buffer
+/// should bypass this helper and pass the buffer directly.
+///
+/// # Errors
+///
+/// Returns [`finstack_core::Error::Validation`] when the matrix has the wrong
+/// number of rows or any row has the wrong number of columns. The error
+/// message includes the expected/actual dimensions and the offending row index
+/// so the same diagnostic surfaces in both the Python and WASM bindings.
+///
+/// # Arguments
+///
+/// * `matrix` - Row-major nested vector (each inner vec is one row).
+/// * `n` - Expected square dimension.
+/// * `label` - Caller-provided label included in error messages (e.g. `"covariance"`).
+pub fn flatten_square_matrix(
+    matrix: Vec<Vec<f64>>,
+    n: usize,
+    label: &str,
+) -> finstack_core::Result<Vec<f64>> {
+    if matrix.len() != n {
+        return Err(finstack_core::Error::Validation(format!(
+            "{label} must have {n} rows, got {}",
+            matrix.len()
+        )));
+    }
+    let mut flat = Vec::with_capacity(n * n);
+    for (i, row) in matrix.into_iter().enumerate() {
+        if row.len() != n {
+            return Err(finstack_core::Error::Validation(format!(
+                "{label} row {i} must have {n} columns, got {}",
+                row.len()
+            )));
+        }
+        flat.extend(row);
+    }
+    Ok(flat)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::flatten_square_matrix;
+
+    #[test]
+    fn flatten_square_matrix_round_trip() {
+        let m = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let flat = flatten_square_matrix(m, 2, "cov").expect("valid 2x2");
+        assert_eq!(flat, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn flatten_square_matrix_rejects_wrong_row_count() {
+        let m = vec![vec![1.0, 2.0]];
+        let err = flatten_square_matrix(m, 2, "cov").expect_err("missing row");
+        assert!(err.to_string().contains("cov must have 2 rows"));
+    }
+
+    #[test]
+    fn flatten_square_matrix_rejects_wrong_column_count() {
+        let m = vec![vec![1.0, 2.0, 3.0], vec![1.0, 2.0]];
+        let err = flatten_square_matrix(m, 2, "cov").expect_err("wrong row width");
+        assert!(err.to_string().contains("row 0 must have 2 columns"));
+    }
+}

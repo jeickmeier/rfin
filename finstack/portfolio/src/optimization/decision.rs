@@ -1,4 +1,5 @@
 use super::problem::PortfolioOptimizationProblem;
+use super::tolerances::{GROSS_BASE_TOL, MIN_WEIGHT_TOL, PV_PER_UNIT_TOL};
 use super::types::{MissingMetricPolicy, WeightingScheme};
 use crate::error::{Error, Result};
 use crate::types::{AttributeValue, PositionId};
@@ -239,8 +240,8 @@ pub(crate) fn build_decision_space(
         // up-front so the caller can either re-price or remove the
         // candidate rather than discovering the no-op after solving.
         if matches!(problem.weighting, WeightingScheme::ValueWeight)
-            && pv_unit.abs() < 1e-12
-            && candidate.max_weight.abs() > 1e-12
+            && pv_unit.abs() < PV_PER_UNIT_TOL
+            && candidate.max_weight.abs() > PV_PER_UNIT_TOL
         {
             return Err(Error::invalid_input(format!(
                 "candidate {} has zero base-currency PV under the current market; \
@@ -267,7 +268,7 @@ pub(crate) fn build_decision_space(
         });
 
         let candidate_min_weight = if problem.trade_universe.allow_short_candidates
-            && candidate.min_weight.abs() < 1e-12
+            && candidate.min_weight.abs() < MIN_WEIGHT_TOL
         {
             -candidate.max_weight
         } else {
@@ -290,7 +291,7 @@ pub(crate) fn build_decision_space(
         WeightingScheme::NotionalWeight => {
             // For NotionalWeight: use signed quantity / gross absolute quantity
             // This gives weights based on notional exposure, not PV
-            if gross_notional.abs() > 1e-6 {
+            if gross_notional.abs() > GROSS_BASE_TOL {
                 for item in &items {
                     if item.is_existing {
                         let notional = position_notionals
@@ -311,7 +312,7 @@ pub(crate) fn build_decision_space(
         WeightingScheme::ValueWeight | WeightingScheme::UnitScaling => {
             // For ValueWeight/UnitScaling: use signed PV / gross market value
             // This handles hedged portfolios where net PV is ~0 but we still want meaningful weights.
-            if gross_pv_base.abs() > 1e-6 {
+            if gross_pv_base.abs() > GROSS_BASE_TOL {
                 for (item, feat) in items.iter().zip(&features) {
                     if item.is_existing {
                         current_weights

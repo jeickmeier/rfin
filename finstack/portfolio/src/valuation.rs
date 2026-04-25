@@ -7,7 +7,7 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
-use finstack_core::money::{fx::FxQuery, Money};
+use finstack_core::money::Money;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::results::ValuationResult;
 use indexmap::IndexMap;
@@ -78,7 +78,15 @@ pub struct PortfolioValuation {
 }
 
 impl PortfolioValuation {
-    /// Get the value for a specific position.
+    /// Look up the value for a single position by string id.
+    ///
+    /// The underlying `position_values` field is `IndexMap<PositionId, _>`
+    /// where [`PositionId`] is a newtype around `String`. Callers that have a
+    /// `&str` (e.g. from a CLI argument, a binding, or a foreign string)
+    /// would otherwise have to round-trip through `PositionId::new` / a
+    /// `Borrow<str>` lookup; this accessor provides the borrow-aware path
+    /// directly. Internal callers (selective repricing, liquidity scoring,
+    /// FX checks) all rely on it.
     ///
     /// # Arguments
     ///
@@ -87,21 +95,35 @@ impl PortfolioValuation {
         self.position_values.get(position_id)
     }
 
-    /// Get the total value for a specific entity.
+    /// Look up the total value for a single entity by string id.
+    ///
+    /// Same `&str` ergonomics rationale as [`Self::get_position_value`] —
+    /// avoids a `EntityId::new` allocation at every call site. Used by
+    /// margin and metric-aggregation paths that already hold borrowed entity
+    /// strings.
     ///
     /// # Arguments
     ///
-    /// * `entity_id` - Entity identifier to query (accepts &str or &EntityId).
+    /// * `entity_id` - Entity identifier to query (accepts `&str` or `&EntityId`).
     pub fn get_entity_value(&self, entity_id: &str) -> Option<&Money> {
         self.by_entity.get(entity_id)
     }
 
-    /// Returns true when any position is missing requested risk metrics.
+    /// Whether any position fell back to PV-only because its risk metrics
+    /// failed.
+    ///
+    /// Equivalent to `!self.degraded_positions.is_empty()`. Provided as a
+    /// named predicate so risk-report dashboards can read intent off the
+    /// call site instead of reasoning about empty-vector semantics.
     pub fn has_degraded_risk(&self) -> bool {
         !self.degraded_positions.is_empty()
     }
 
-    /// Position IDs whose valuation fell back to PV-only.
+    /// Borrow the list of position ids whose valuation fell back to PV-only.
+    ///
+    /// Returns a `&[PositionId]` rather than exposing the raw `Vec` so the
+    /// public API does not commit to vector semantics (size, order, growth)
+    /// that internal aggregation may want to change.
     pub fn degraded_positions(&self) -> &[PositionId] {
         &self.degraded_positions
     }
@@ -411,33 +433,11 @@ fn value_single_position(
     // Scale by quantity using unit-aware scaling logic.
     let scaled_native = position.scale_value(value_native);
 
-    // Convert to base currency
-    let value_base = if scaled_native.currency() == portfolio.base_ccy {
-        scaled_native
-    } else {
-        // Get FX matrix
-        let fx_matrix = market
-            .fx()
-            .ok_or_else(|| Error::MissingMarketData("FX matrix not available".to_string()))?;
-
-        // Get FX rate
-        let query = FxQuery::new(
-            scaled_native.currency(),
-            portfolio.base_ccy,
-            portfolio.as_of,
-        );
-        let rate_result = fx_matrix
-            .rate(query)
-            .map_err(|_| Error::FxConversionFailed {
-                from: scaled_native.currency(),
-                to: portfolio.base_ccy,
-            })?;
-
-        Money::new(
-            scaled_native.amount() * rate_result.rate,
-            portfolio.base_ccy,
-        )
-    };
+    // Convert to base currency via the shared FX helper so error semantics and
+    // FxMatrix lookup conventions stay aligned with cashflows / attribution /
+    // margin aggregation.
+    let value_base =
+        crate::fx::convert_to_base(scaled_native, portfolio.as_of, market, portfolio.base_ccy)?;
 
     Ok(PositionValue {
         position_id: position.position_id.clone(),

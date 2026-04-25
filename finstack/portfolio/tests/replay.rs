@@ -152,6 +152,7 @@ mod replay_tests {
             mode: ReplayMode::PvOnly,
             attribution_method: Default::default(),
             valuation_options: Default::default(),
+            on_error: Default::default(),
         };
 
         let result = finstack_portfolio::replay::replay_portfolio(
@@ -210,6 +211,7 @@ mod replay_tests {
             mode: ReplayMode::PvAndPnl,
             attribution_method: Default::default(),
             valuation_options: Default::default(),
+            on_error: Default::default(),
         };
 
         let result = finstack_portfolio::replay::replay_portfolio(
@@ -256,6 +258,7 @@ mod replay_tests {
             mode: ReplayMode::FullAttribution,
             attribution_method: AttributionMethod::Parallel,
             valuation_options: Default::default(),
+            on_error: Default::default(),
         };
 
         let result = finstack_portfolio::replay::replay_portfolio(
@@ -308,6 +311,7 @@ mod replay_tests {
             mode: ReplayMode::PvAndPnl,
             attribution_method: Default::default(),
             valuation_options: Default::default(),
+            on_error: Default::default(),
         };
 
         let result = finstack_portfolio::replay::replay_portfolio(
@@ -335,6 +339,7 @@ mod replay_tests {
             mode: ReplayMode::FullAttribution,
             attribution_method: AttributionMethod::Parallel,
             valuation_options: Default::default(),
+            on_error: Default::default(),
         };
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: ReplayConfig = serde_json::from_str(&json).unwrap();
@@ -360,6 +365,7 @@ mod replay_tests {
             mode: ReplayMode::PvAndPnl,
             attribution_method: Default::default(),
             valuation_options: Default::default(),
+            on_error: Default::default(),
         };
 
         let result = finstack_portfolio::replay::replay_portfolio(

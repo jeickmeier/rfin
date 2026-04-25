@@ -60,13 +60,85 @@ pub fn optimize_from_spec(
     config: &FinstackConfig,
 ) -> Result<PortfolioOptimizationResult> {
     let portfolio = Portfolio::from_spec(spec.portfolio.clone())?;
+    optimize_from_parts(
+        &portfolio,
+        &spec.objective,
+        &spec.constraints,
+        spec.weighting,
+        spec.missing_metric_policy,
+        spec.label.as_deref(),
+        market,
+        config,
+    )
+}
 
-    let mut problem = PortfolioOptimizationProblem::new(portfolio, spec.objective.clone());
-    problem.weighting = spec.weighting;
-    problem.missing_metric_policy = spec.missing_metric_policy;
-    problem.label = spec.label.clone();
-    problem = problem.with_constraints(spec.constraints.clone());
+/// Optimization-spec sans embedded portfolio.
+///
+/// Mirrors [`PortfolioOptimizationSpec`] for callers that already hold a
+/// built [`Portfolio`] (typed FFI handles, repeated optimization across
+/// scenarios, etc.) and want to skip the per-call `from_spec` rebuild.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OptimizationParameters {
+    /// Optimization objective.
+    pub objective: Objective,
+    /// Constraints on the optimized portfolio.
+    #[serde(default)]
+    pub constraints: Vec<Constraint>,
+    /// How weights are defined.
+    #[serde(default = "default_weighting")]
+    pub weighting: WeightingScheme,
+    /// Policy for handling positions missing required metrics.
+    #[serde(default)]
+    pub missing_metric_policy: MissingMetricPolicy,
+    /// Optional label for auditability.
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
+/// Run portfolio optimization against an already-built `Portfolio`.
+///
+/// Use this in hot paths (FFI handles, scenario sweeps) to avoid the cost of
+/// `Portfolio::from_spec` on every call. The semantics match
+/// [`optimize_from_spec`] otherwise.
+#[allow(clippy::too_many_arguments)]
+pub fn optimize_from_parts(
+    portfolio: &Portfolio,
+    objective: &Objective,
+    constraints: &[Constraint],
+    weighting: WeightingScheme,
+    missing_metric_policy: MissingMetricPolicy,
+    label: Option<&str>,
+    market: &MarketContext,
+    config: &FinstackConfig,
+) -> Result<PortfolioOptimizationResult> {
+    let mut problem = PortfolioOptimizationProblem::new(portfolio.clone(), objective.clone());
+    problem.weighting = weighting;
+    problem.missing_metric_policy = missing_metric_policy;
+    problem.label = label.map(str::to_string);
+    problem = problem.with_constraints(constraints.to_vec());
 
     let optimizer = DefaultLpOptimizer;
     optimizer.optimize(&problem, market, config)
+}
+
+/// Run portfolio optimization against a built `Portfolio` plus pre-parsed
+/// [`OptimizationParameters`]. Convenience wrapper over
+/// [`optimize_from_parts`] for binding code that already has a parameters
+/// struct on hand.
+pub fn optimize_with_parameters(
+    portfolio: &Portfolio,
+    params: &OptimizationParameters,
+    market: &MarketContext,
+    config: &FinstackConfig,
+) -> Result<PortfolioOptimizationResult> {
+    optimize_from_parts(
+        portfolio,
+        &params.objective,
+        &params.constraints,
+        params.weighting,
+        params.missing_metric_policy,
+        params.label.as_deref(),
+        market,
+        config,
+    )
 }

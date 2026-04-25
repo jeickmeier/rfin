@@ -262,9 +262,15 @@ impl LvarCalculator {
         } else {
             0.0
         };
-        let endogenous_cost = if profile.avg_daily_volume > 0.0 {
+        // Endogenous cost: square-root size-dependent spread widening. The
+        // coefficient is a calibration parameter (default 0.1, but no
+        // canonical published source — see `LiquidityConfig::endogenous_spread_coef`).
+        // Set to 0.0 in config to disable.
+        let endogenous_cost = if profile.avg_daily_volume > 0.0
+            && self.config.endogenous_spread_coef > 0.0
+        {
             let ratio = position_shares / profile.avg_daily_volume;
-            let impact = 0.1 * profile.spread() * ratio.powf(0.5);
+            let impact = self.config.endogenous_spread_coef * profile.spread() * ratio.powf(0.5);
             impact / profile.mid * pv
         } else {
             0.0

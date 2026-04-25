@@ -61,6 +61,20 @@ pub struct DecompositionConfig {
     /// Whether to compute incremental VaR (expensive: one full repricing
     /// per position).
     pub compute_incremental: bool,
+
+    /// Optional RNG seed for Monte Carlo simulation paths.
+    ///
+    /// `None` lets the underlying `SimulationDecomposer` pick its default
+    /// (currently a hard-coded seed for reproducible test runs). Set this
+    /// explicitly when reproducibility is part of an audit or risk-report
+    /// contract — supplying the seed in the config rather than only at the
+    /// decomposer call site keeps the seed visible in serialized risk
+    /// artifacts and reviewable from the same struct that fixes confidence
+    /// and method.
+    ///
+    /// Has no effect on the parametric or historical paths, which are
+    /// deterministic given their inputs.
+    pub seed: Option<u64>,
 }
 
 impl DecompositionConfig {
@@ -70,6 +84,7 @@ impl DecompositionConfig {
             confidence: 0.95,
             method: DecompositionMethod::Parametric,
             compute_incremental: false,
+            seed: None,
         }
     }
 
@@ -79,6 +94,7 @@ impl DecompositionConfig {
             confidence: 0.99,
             method: DecompositionMethod::Parametric,
             compute_incremental: false,
+            seed: None,
         }
     }
 
@@ -88,12 +104,22 @@ impl DecompositionConfig {
             confidence,
             method: DecompositionMethod::Historical,
             compute_incremental: false,
+            seed: None,
         }
     }
 
     /// Enable incremental VaR computation.
     pub fn with_incremental(mut self) -> Self {
         self.compute_incremental = true;
+        self
+    }
+
+    /// Pin the RNG seed for any simulation-path decomposition.
+    ///
+    /// See [`Self::seed`] for behaviour notes.
+    #[must_use]
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = Some(seed);
         self
     }
 }
@@ -725,6 +751,22 @@ impl HistoricalPositionDecomposer {
             )));
         }
 
+        // Pre-flight: any non-finite P&L corrupts the sort below
+        // (`partial_cmp(NaN, _) = None`) and silently degrades the tail
+        // ordering. Surface this as an explicit error so an upstream
+        // numerical fault (e.g. a near-singular covariance feeding a Cholesky)
+        // is caught rather than masked.
+        if let Some(bad_idx) = position_pnls.iter().position(|p| !p.is_finite()) {
+            let scenario = bad_idx / n;
+            let position = bad_idx % n;
+            return Err(finstack_core::Error::Validation(format!(
+                "position_pnls contains non-finite value at scenario {scenario}, \
+                 position {position} (value = {}); upstream P&L generator must \
+                 produce finite values",
+                position_pnls[bad_idx]
+            )));
+        }
+
         // Compute portfolio P&L for each scenario.
         let mut portfolio_pnls: Vec<(usize, f64)> = (0..n_scenarios)
             .map(|s| {
@@ -734,7 +776,8 @@ impl HistoricalPositionDecomposer {
             })
             .collect();
 
-        // Sort ascending by portfolio P&L (worst first).
+        // Sort ascending by portfolio P&L (worst first). All inputs are finite
+        // by the pre-flight check above, so `partial_cmp` never returns None.
         portfolio_pnls.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Number of tail scenarios = floor((1 - confidence) * n_scenarios).
@@ -755,26 +798,53 @@ impl HistoricalPositionDecomposer {
             / n_tail as f64;
 
         // Per-position Component ES: average of position-level losses in tail.
-        // For large (n_tail * n) problems, reading the per-tail-scenario loss
-        // rows in parallel is worthwhile; the subsequent accumulation runs
-        // serially in input order so the floating-point sum is bit-identical
-        // across runs. For small problems the allocation overhead of the
-        // intermediate `tail_rows` Vec outweighs any gain, so we fall back to
-        // an in-place serial accumulation that matches the original behavior.
+        //
+        // For large (n_tail * n) problems we shard the tail by position
+        // groups: each Rayon worker accumulates a slice of positions across
+        // every tail scenario. This avoids the O(n_tail * n) intermediate
+        // allocation of the previous `Vec<Vec<f64>>` materialization and lets
+        // each worker stream over the contiguous `position_pnls` buffer
+        // directly. The serial path is unchanged for small problems where
+        // Rayon overhead dominates.
+        //
+        // The serial fold over scenarios produces an order-deterministic sum
+        // across runs by sticking to the sorted-tail order of `portfolio_pnls`.
         const PARALLEL_TAIL_THRESHOLD: usize = 100_000;
         let mut component_es_vec = vec![0.0; n];
         if n_tail.saturating_mul(n) >= PARALLEL_TAIL_THRESHOLD {
             use rayon::prelude::*;
-            let tail_rows: Vec<Vec<f64>> = portfolio_pnls[..n_tail]
-                .par_iter()
-                .map(|&(s, _)| {
-                    let row_start = s * n;
-                    (0..n).map(|i| -position_pnls[row_start + i]).collect()
+            // Capture sorted tail scenario indices once so workers can index
+            // directly into the flat `position_pnls` buffer without each
+            // taking a `&portfolio_pnls` slice (which would force them to
+            // duplicate the destructure).
+            let tail_indices: Vec<usize> =
+                portfolio_pnls[..n_tail].iter().map(|&(s, _)| s).collect();
+
+            // Shard the position axis (cheap) instead of the scenario axis.
+            // Each chunk holds [start, end) and accumulates the negative-sum
+            // for those positions across every tail scenario. Output is a
+            // flat `Vec<f64>` (no nested Vec<Vec<f64>> allocation).
+            const POSITION_CHUNK: usize = 256;
+            let chunked: Vec<(usize, Vec<f64>)> = (0..n)
+                .step_by(POSITION_CHUNK)
+                .collect::<Vec<_>>()
+                .into_par_iter()
+                .map(|start| {
+                    let end = (start + POSITION_CHUNK).min(n);
+                    let mut local = vec![0.0; end - start];
+                    for &s in &tail_indices {
+                        let row_start = s * n;
+                        for (j, slot) in local.iter_mut().enumerate() {
+                            *slot += -position_pnls[row_start + start + j];
+                        }
+                    }
+                    (start, local)
                 })
                 .collect();
-            for row in &tail_rows {
-                for i in 0..n {
-                    component_es_vec[i] += row[i];
+
+            for (start, local) in chunked {
+                for (j, v) in local.iter().enumerate() {
+                    component_es_vec[start + j] = *v;
                 }
             }
         } else {
@@ -1465,6 +1535,85 @@ mod tests {
                 c.marginal_es.is_some(),
                 "parametric marginal_es must be Some for {}",
                 c.position_id
+            );
+        }
+
+        Ok(())
+    }
+
+    /// The historical decomposer chooses between an in-place serial
+    /// accumulation and a position-axis-sharded Rayon fan-out at the
+    /// `PARALLEL_TAIL_THRESHOLD = 100_000` cutoff. The two paths sum the
+    /// same f64 values in different orders, so floating-point round-off can
+    /// diverge between them. This regression test asserts the divergence is
+    /// bounded by a tight relative tolerance — bit-equality is not promised
+    /// and would over-constrain the implementation, but a hedge fund's risk
+    /// reports must not flip-flop materially as `n_tail * n` straddles the
+    /// threshold.
+    #[test]
+    fn historical_serial_parallel_tail_parity() -> TestResult {
+        // Pick (n_scenarios, n) so that n_tail * n is well inside the
+        // parallel branch. n_scenarios = 4_000, n = 600, confidence = 0.95
+        // => n_tail = 200, n_tail * n = 120_000 > 100_000.
+        let n_scenarios = 4_000_usize;
+        let n = 600_usize;
+        let confidence = 0.95_f64;
+
+        // Build a deterministic synthetic P&L matrix so the test is
+        // reproducible and covers a mix of profits and losses.
+        let mut pnls = Vec::with_capacity(n_scenarios * n);
+        for s in 0..n_scenarios {
+            for i in 0..n {
+                let v = ((s as f64 * 0.013) - (i as f64 * 0.007)).sin() * 1_000.0;
+                pnls.push(v);
+            }
+        }
+        let ids: Vec<PositionId> = (0..n).map(|i| PositionId::new(format!("P{i}"))).collect();
+        let mut config = DecompositionConfig::historical(confidence);
+        config.confidence = confidence;
+
+        // Both runs go through the parallel path because n_tail * n is
+        // above PARALLEL_TAIL_THRESHOLD. The point of the test is to
+        // assert the parallel result agrees with a hand-rolled serial
+        // accumulator over the same sorted-tail order.
+        let decomposer = HistoricalPositionDecomposer;
+        let parallel_result = decomposer.decompose_from_pnls(&pnls, &ids, n_scenarios, &config)?;
+
+        // Serial reference: replicate the inner accumulation directly so we
+        // know exactly which order was used.
+        let mut portfolio_pnls: Vec<(usize, f64)> = (0..n_scenarios)
+            .map(|s| {
+                let row_start = s * n;
+                let pnl: f64 = pnls[row_start..row_start + n].iter().sum();
+                (s, pnl)
+            })
+            .collect();
+        portfolio_pnls
+            .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let n_tail = ((1.0 - confidence) * n_scenarios as f64).floor() as usize;
+        let mut serial_ces = vec![0.0_f64; n];
+        for &(s, _) in &portfolio_pnls[..n_tail] {
+            let row_start = s * n;
+            for i in 0..n {
+                serial_ces[i] += -pnls[row_start + i];
+            }
+        }
+        for v in serial_ces.iter_mut() {
+            *v /= n_tail as f64;
+        }
+
+        // The parallel path's component_es is exposed as `component_es` on
+        // each contribution. Compare to the serial reference position by
+        // position with a tight relative tolerance.
+        for (i, contrib) in parallel_result.es_contributions.iter().enumerate() {
+            let par = contrib.component_es;
+            let ser = serial_ces[i];
+            let scale = par.abs().max(ser.abs()).max(1.0);
+            assert!(
+                (par - ser).abs() <= 1e-9 * scale,
+                "serial/parallel CES diverged at position {i}: \
+                 serial={ser}, parallel={par}, |diff|={}, scale={scale}",
+                (par - ser).abs()
             );
         }
 

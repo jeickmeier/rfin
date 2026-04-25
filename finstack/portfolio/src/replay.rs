@@ -24,6 +24,24 @@ pub enum ReplayMode {
     FullAttribution,
 }
 
+/// What to do when a single snapshot fails to revalue.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplayErrorPolicy {
+    /// Fail the entire replay on the first valuation error. This is the
+    /// historical behaviour and the right default for hedge-fund risk
+    /// reporting where a missing snapshot must surface, not be silently
+    /// skipped. Default.
+    #[default]
+    Strict,
+    /// Skip snapshots that fail to revalue and continue. Failed dates are
+    /// reported on `ReplayResult::skipped_dates` so callers can surface them
+    /// to ops without losing the rest of the timeline. Use this when
+    /// running ad-hoc backfills where a single bad day shouldn't discard
+    /// weeks of computed steps.
+    BestEffort,
+}
+
 /// Configuration for a replay run.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReplayConfig {
@@ -35,6 +53,9 @@ pub struct ReplayConfig {
     /// Valuation options forwarded to `value_portfolio`.
     #[serde(default)]
     pub valuation_options: crate::valuation::PortfolioValuationOptions,
+    /// Strict-vs-best-effort handling of per-snapshot failures.
+    #[serde(default)]
+    pub on_error: ReplayErrorPolicy,
 }
 
 /// A dated snapshot in the JSON wire format used by bindings.
@@ -171,6 +192,11 @@ pub struct ReplayResult {
     pub steps: Vec<ReplayStep>,
     /// Aggregate statistics.
     pub summary: ReplaySummary,
+    /// Snapshots that were skipped because their valuation failed and the
+    /// run was configured for [`ReplayErrorPolicy::BestEffort`]. Empty in
+    /// strict mode (the run would have aborted instead).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_dates: Vec<(Date, String)>,
 }
 
 use crate::portfolio::Portfolio;
@@ -220,8 +246,10 @@ pub fn replay_portfolio(
     let use_outer_parallel = portfolio.positions.len() < REPLAY_OUTER_PARALLEL_POSITION_THRESHOLD
         && timeline.snapshots.len() >= REPLAY_OUTER_PARALLEL_SNAPSHOT_THRESHOLD;
 
-    // Phase A: value the portfolio at every snapshot date.
-    let valuations: Vec<PortfolioValuation> = if use_outer_parallel {
+    // Phase A: value the portfolio at every snapshot date. Per-snapshot
+    // results are kept as `Result<_>` so the strict / best-effort branch
+    // below can decide whether a single failure aborts the run.
+    let valuation_results: Vec<Result<PortfolioValuation>> = if use_outer_parallel {
         use rayon::prelude::*;
         timeline
             .snapshots
@@ -234,7 +262,7 @@ pub fn replay_portfolio(
                     &config.valuation_options,
                 )
             })
-            .collect::<Result<Vec<_>>>()?
+            .collect()
     } else {
         timeline
             .snapshots
@@ -247,30 +275,61 @@ pub fn replay_portfolio(
                     &config.valuation_options,
                 )
             })
-            .collect::<Result<Vec<_>>>()?
+            .collect()
     };
+
+    // Pair each result with its dated snapshot so best-effort skipping can
+    // record which dates dropped out without losing the alignment.
+    let mut skipped_dates: Vec<(Date, String)> = Vec::new();
+    let mut surviving: Vec<(Date, &MarketContext, PortfolioValuation)> =
+        Vec::with_capacity(timeline.len());
+    for ((date, market), result) in timeline.snapshots.iter().zip(valuation_results) {
+        match result {
+            Ok(v) => surviving.push((*date, market, v)),
+            Err(e) => match config.on_error {
+                ReplayErrorPolicy::Strict => return Err(e),
+                ReplayErrorPolicy::BestEffort => {
+                    tracing::warn!(
+                        date = %date,
+                        error = %e,
+                        "Replay snapshot skipped under best-effort policy"
+                    );
+                    skipped_dates.push((*date, e.to_string()));
+                }
+            },
+        }
+    }
+
+    if surviving.is_empty() {
+        return Err(Error::InvalidInput(format!(
+            "Replay produced no valid steps: {} of {} snapshots failed under \
+             best-effort policy. Inspect skipped_dates on the result for \
+             the originating error messages.",
+            skipped_dates.len(),
+            timeline.len()
+        )));
+    }
 
     // Phase B: assemble ReplayStep entries with P&L and (optionally)
     // attribution. Runs serially — the per-step work is cheap (subtractions
     // and one attribution call) and serial ordering keeps tracing output
     // deterministic. Attribution itself already fans out over positions via
     // `attribute_portfolio_pnl`.
-    let mut steps = Vec::with_capacity(timeline.len());
+    let mut steps = Vec::with_capacity(surviving.len());
 
-    let (first_date, _) = &timeline.snapshots[0];
-    let mut valuations_iter = valuations.into_iter();
-    let val_0 = valuations_iter.next().ok_or_else(|| {
-        Error::InvalidInput("ReplayTimeline must be non-empty (unreachable)".into())
+    let mut surviving_iter = surviving.into_iter();
+    let (first_date, mut prev_market, val_0) = surviving_iter.next().ok_or_else(|| {
+        Error::InvalidInput("Replay must have at least one valid step (unreachable)".into())
     })?;
     steps.push(ReplayStep {
-        date: *first_date,
+        date: first_date,
         valuation: val_0,
         daily_pnl: None,
         cumulative_pnl: None,
         attribution: None,
     });
 
-    for ((date, market), val_i) in timeline.snapshots.iter().skip(1).zip(valuations_iter) {
+    for (date, market, val_i) in surviving_iter {
         let prev_step = &steps[steps.len() - 1];
 
         let daily_pnl = if compute_pnl {
@@ -294,12 +353,17 @@ pub fn replay_portfolio(
         };
 
         let attribution = if compute_attribution {
+            // Attribute step-over-step using the *previous surviving*
+            // market, not `timeline.snapshots[steps.len() - 1]`. The two
+            // diverge under best-effort policy when intermediate snapshots
+            // were skipped: skipping must collapse the prev/curr pair to
+            // the latest pair that actually produced valuations.
             let attr = crate::attribution::attribute_portfolio_pnl(
                 portfolio,
-                &timeline.snapshots[steps.len() - 1].1,
+                prev_market,
                 market,
                 prev_step.date,
-                *date,
+                date,
                 finstack_config,
                 config.attribution_method.clone(),
             )?;
@@ -309,16 +373,25 @@ pub fn replay_portfolio(
         };
 
         steps.push(ReplayStep {
-            date: *date,
+            date,
             valuation: val_i,
             daily_pnl,
             cumulative_pnl,
             attribution,
         });
+
+        // Advance the prev-market reference for the next iteration; this is
+        // what keeps best-effort attribution aligned even when intermediate
+        // snapshots were skipped.
+        prev_market = market;
     }
 
     let summary = compute_summary(&steps);
-    Ok(ReplayResult { steps, summary })
+    Ok(ReplayResult {
+        steps,
+        summary,
+        skipped_dates,
+    })
 }
 
 fn compute_summary(steps: &[ReplayStep]) -> ReplaySummary {

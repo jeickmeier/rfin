@@ -13,9 +13,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 from finstack.core.money import Money
+import pytest
 
 
 def test_decimal_preserves_19_digit_precision() -> None:
@@ -30,9 +29,7 @@ def test_decimal_via_polymorphic_constructor_matches_classmethod() -> None:
     raw = "987654321.123456789"
     m1 = Money(Decimal(raw), "USD")
     m2 = Money.from_decimal(Decimal(raw), "USD")
-    assert m1.format(decimals=9, show_currency=False) == m2.format(
-        decimals=9, show_currency=False
-    )
+    assert m1.format(decimals=9, show_currency=False) == m2.format(decimals=9, show_currency=False)
 
 
 def test_decimal_subclass_uses_decimal_path_not_float() -> None:
@@ -53,17 +50,17 @@ def test_decimal_subclass_uses_decimal_path_not_float() -> None:
 
 
 def test_decimal_infinity_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Invalid Decimal value "Infinity"'):
         Money(Decimal("Infinity"), "USD")
 
 
 def test_decimal_negative_infinity_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Invalid Decimal value "-Infinity"'):
         Money(Decimal("-Infinity"), "USD")
 
 
 def test_decimal_nan_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Invalid Decimal value "NaN"'):
         Money(Decimal("NaN"), "USD")
 
 

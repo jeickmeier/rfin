@@ -77,10 +77,24 @@ impl ParametricDecomposer {
         // rank-deficient (PSD-but-not-PD) matrices — these arise naturally
         // when users regularize a covariance matrix with shrinkage or when
         // two factors are perfectly collinear at a given as-of.
+        //
+        // The error message includes the smallest diagonal entry (a cheap
+        // proxy for "where conditioning likely failed") and the matrix size
+        // so risk teams can diagnose whether they need shrinkage / ridge
+        // regularization without re-running an external tool.
         if n > 0 {
             cholesky(data, n).map_err(|e| {
+                let min_diag = (0..n)
+                    .map(|i| data[i * n + i])
+                    .fold(f64::INFINITY, f64::min);
+                let max_diag = (0..n)
+                    .map(|i| data[i * n + i])
+                    .fold(f64::NEG_INFINITY, f64::max);
                 finstack_core::Error::Validation(format!(
-                    "Covariance matrix is not positive semi-definite: {e}"
+                    "Covariance matrix is not positive semi-definite \
+                     (n = {n}, min diagonal = {min_diag:.6e}, max diagonal = {max_diag:.6e}): \
+                     {e}. Consider Ledoit-Wolf shrinkage or a ridge regularization \
+                     of the covariance estimate."
                 ))
             })?;
         }

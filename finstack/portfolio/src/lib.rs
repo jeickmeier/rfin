@@ -131,3 +131,16 @@ pub mod replay;
 pub use builder::PortfolioBuilder;
 pub use error::{Error, Result};
 pub use portfolio::Portfolio;
+pub use types::{AttributeTest, AttributeValue, ComparisonOp, Entity, EntityId, PositionId};
+
+// Headline analytics types at the crate root so callers don't have to thread
+// through long module paths for the most common workflows. Anything not
+// re-exported here is still reachable via its module path; the goal is just
+// to surface the canonical entry points.
+pub use position::{Position, PositionUnit};
+pub use portfolio::PortfolioSpec;
+pub use results::PortfolioResult;
+pub use valuation::{
+    revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions,
+    PositionValue, RequestedMetrics,
+};

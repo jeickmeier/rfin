@@ -30,3 +30,7 @@ rust_decimal_macros = { workspace = true }
 [[bench]]
 name = "portfolio_valuation"
 harness = false
+
+[[bench]]
+name = "parallel_thresholds"
+harness = false

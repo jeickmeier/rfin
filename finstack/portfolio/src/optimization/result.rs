@@ -1,4 +1,5 @@
 use super::problem::PortfolioOptimizationProblem;
+use super::tolerances::{SLACK_TOL, WEIGHT_TOL};
 use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
@@ -181,9 +182,6 @@ impl PortfolioOptimizationResult {
     /// whose weight changes are materially non-zero.
     #[must_use]
     pub fn to_trade_list(&self) -> Vec<TradeSpec> {
-        // Tolerance for determining if a weight change is significant.
-        const WEIGHT_TOLERANCE: f64 = 1e-9;
-
         let mut trades: Vec<TradeSpec> = self
             .optimal_weights
             .iter()
@@ -191,8 +189,10 @@ impl PortfolioOptimizationResult {
                 let current_weight = self.current_weights.get(pos_id).copied().unwrap_or(0.0);
                 let delta_weight = target_weight - current_weight;
 
-                // Skip positions with negligible change
-                if !delta_weight.is_finite() || delta_weight.abs() < WEIGHT_TOLERANCE {
+                // Skip positions with negligible change.
+                // See `optimization::tolerances::WEIGHT_TOL` for the rationale
+                // behind the chosen scale.
+                if !delta_weight.is_finite() || delta_weight.abs() < WEIGHT_TOL {
                     return None;
                 }
 
@@ -202,9 +202,9 @@ impl PortfolioOptimizationResult {
                 let current_qty = existing_position.map(|p| p.quantity).unwrap_or(0.0);
                 let target_qty = self.implied_quantities.get(pos_id).copied().unwrap_or(0.0);
 
-                let trade_type = if is_candidate && target_weight > WEIGHT_TOLERANCE {
+                let trade_type = if is_candidate && target_weight > WEIGHT_TOL {
                     TradeType::NewPosition
-                } else if !is_candidate && target_weight < WEIGHT_TOLERANCE {
+                } else if !is_candidate && target_weight < WEIGHT_TOL {
                     TradeType::CloseOut
                 } else {
                     TradeType::Existing
@@ -275,11 +275,11 @@ impl PortfolioOptimizationResult {
     /// Constraint names and slack values for approximately binding constraints.
     #[must_use]
     pub fn binding_constraints(&self) -> Vec<(&str, f64)> {
-        const SLACK_TOLERANCE: f64 = 1e-6; // Defined locally as it was a const in optim.rs
-
+        // See `optimization::tolerances::SLACK_TOL` for the rationale behind
+        // the chosen scale.
         self.constraint_slacks
             .iter()
-            .filter(|(_, &slack)| slack.abs() < SLACK_TOLERANCE)
+            .filter(|(_, &slack)| slack.abs() < SLACK_TOL)
             .map(|(name, &slack)| (name.as_str(), slack))
             .collect()
     }

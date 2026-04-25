@@ -137,12 +137,36 @@ pub struct PortfolioMarginResult {
     pub total_margin: Money,
     /// Results by netting set
     pub by_netting_set: HashMap<NettingSetId, NettingSetMargin>,
-    /// Number of positions included in margin calculation
+    /// Number of positions included in margin calculation (i.e. those that
+    /// successfully landed in a netting set with computed margin).
     pub total_positions: usize,
-    /// Number of positions without margin specs (excluded)
+    /// Number of positions for which the engine did not produce a margin
+    /// figure. This is the count of `portfolio.positions.len() -
+    /// total_positions` and therefore conflates two qualitatively different
+    /// cases: (a) positions whose instruments are not marginable at all and
+    /// (b) positions whose sensitivity computation failed and were
+    /// recorded in [`Self::degraded_positions`]. Callers that need to
+    /// distinguish the two should subtract `degraded_positions.len()` from
+    /// this count to recover the count of truly non-marginable positions.
     pub positions_without_margin: usize,
     /// Positions whose sensitivity or VM valuation failed during aggregation.
+    /// Each entry pairs the position id with the originating error message.
+    /// These positions are also counted in [`Self::positions_without_margin`].
     pub degraded_positions: Vec<(PositionId, String)>,
+}
+
+impl PortfolioMarginResult {
+    /// Number of portfolio positions that genuinely have no margin spec
+    /// (i.e. non-marginable instruments), excluding positions that the
+    /// SIMM engine attempted but failed to score. This is the
+    /// `positions_without_margin - degraded_positions.len()` figure that
+    /// risk reports usually want when distinguishing "instrument types we
+    /// don't margin" from "we tried to margin this but the calc broke".
+    #[must_use]
+    pub fn truly_non_marginable_count(&self) -> usize {
+        self.positions_without_margin
+            .saturating_sub(self.degraded_positions.len())
+    }
 }
 
 impl PortfolioMarginResult {

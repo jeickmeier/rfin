@@ -4,6 +4,7 @@ use super::decision::{
 };
 use super::problem::PortfolioOptimizationProblem;
 use super::result::{OptimizationStatus, PortfolioOptimizationResult};
+use super::tolerances::PV_PER_UNIT_TOL;
 use super::types::{MetricExpr, MissingMetricPolicy, PerPositionMetric, WeightingScheme};
 use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
@@ -545,7 +546,7 @@ impl DefaultLpOptimizer {
             let qty = match problem.weighting {
                 WeightingScheme::NotionalWeight => w_star * reconstruction_denominator,
                 WeightingScheme::ValueWeight => {
-                    if feat.pv_per_unit.abs() > 1e-12 {
+                    if feat.pv_per_unit.abs() > PV_PER_UNIT_TOL {
                         (w_star * reconstruction_denominator) / feat.pv_per_unit
                     } else {
                         0.0

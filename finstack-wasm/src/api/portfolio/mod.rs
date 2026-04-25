@@ -2,6 +2,45 @@
 //!
 //! Exposes portfolio spec parsing, validation, and result extraction
 //! via JSON round-trip functions for JavaScript/TypeScript consumption.
+//!
+//! # Stability tiers
+//!
+//! The exports below fall into three stability tiers. Treat the tier as a
+//! contract about how disruptive future changes are likely to be.
+//!
+//! **Stable** — golden-tested, signatures preserved across releases:
+//! - `Portfolio` (typed handle: `fromSpec`, `toSpecJson`, `id`, `asOf`,
+//!   `baseCcy`, `numPositions`)
+//! - `parsePortfolioSpec`, `buildPortfolioFromSpec`
+//! - `valuePortfolio`, `valuePortfolioBuilt`,
+//!   `aggregateFullCashflows`, `aggregateFullCashflowsBuilt`,
+//!   `applyScenarioAndRevalue`, `applyScenarioAndRevalueBuilt`
+//! - `aggregateMetrics`, `portfolioResultTotalValue`,
+//!   `portfolioResultGetMetric`
+//! - `replayPortfolio`
+//!
+//! **Stable, JSON-shape may evolve** — function names stable, but the
+//! returned / accepted JSON payload structure may grow additive
+//! (non-breaking) fields between releases:
+//! - `optimizePortfolio` / `optimizePortfolioBuilt`
+//!   (`PortfolioOptimizationSpec` / `OptimizationParameters` /
+//!   `PortfolioOptimizationResult` JSON)
+//! - `parametricVarDecomposition`, `parametricEsDecomposition`,
+//!   `historicalVarDecomposition`, `evaluateRiskBudget`
+//!
+//! **Experimental** — calibration parameters or signatures still under
+//! review:
+//! - `lvarBangia` — endogenous-cost coefficient is a placeholder, see
+//!   `LiquidityConfig::endogenous_spread_coef` in the Rust crate.
+//! - `almgrenChrissImpact` — `delta` is fixed at 0.5; the underlying
+//!   `optimal_trajectory` accepts only `delta = 1` (linear impact).
+//! - `kyleLambda`, `rollEffectiveSpread`, `amihudIlliquidity`,
+//!   `daysToLiquidate`, `liquidityTier` — small free functions; may be
+//!   re-grouped or renamed.
+//!
+//! For repeated calls against the same portfolio (scenario sweeps,
+//! interactive dashboards), prefer the `*Built` variants which take a
+//! `Portfolio` handle and skip the per-call `from_spec` rebuild.
 
 use std::sync::Arc;
 
@@ -192,6 +231,87 @@ pub fn aggregate_full_cashflows_built(
         finstack_portfolio::cashflows::aggregate_full_cashflows(&portfolio.inner, &market)
             .map_err(to_js_err)?;
     serde_json::to_string(&cashflows).map_err(to_js_err)
+}
+
+/// Value an already-built [`Portfolio`] handle. Skips the per-call
+/// `PortfolioSpec` parse + `Portfolio::from_spec` rebuild that
+/// [`value_portfolio`] performs; use this when sweeping market scenarios
+/// against a fixed portfolio.
+#[wasm_bindgen(js_name = valuePortfolioBuilt)]
+pub fn value_portfolio_built(
+    portfolio: &WasmPortfolio,
+    market_json: &str,
+    strict_risk: bool,
+) -> Result<String, JsValue> {
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let config = finstack_core::config::FinstackConfig::default();
+    let options = finstack_portfolio::valuation::PortfolioValuationOptions {
+        strict_risk,
+        ..Default::default()
+    };
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &portfolio.inner,
+        &market,
+        &config,
+        &options,
+    )
+    .map_err(to_js_err)?;
+    serde_json::to_string(&valuation).map_err(to_js_err)
+}
+
+/// Apply a scenario to an already-built [`Portfolio`] handle and revalue.
+/// Returns a JSON object with `valuation` and `report` string keys.
+#[wasm_bindgen(js_name = applyScenarioAndRevalueBuilt)]
+pub fn apply_scenario_and_revalue_built(
+    portfolio: &WasmPortfolio,
+    scenario_json: &str,
+    market_json: &str,
+) -> Result<JsValue, JsValue> {
+    let scenario: finstack_scenarios::ScenarioSpec =
+        serde_json::from_str(scenario_json).map_err(to_js_err)?;
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let config = finstack_core::config::FinstackConfig::default();
+    let (valuation, report) = finstack_portfolio::scenarios::apply_and_revalue(
+        &portfolio.inner,
+        &scenario,
+        &market,
+        &config,
+    )
+    .map_err(to_js_err)?;
+    let val_json = serde_json::to_string(&valuation).map_err(to_js_err)?;
+    let report_json = serde_json::to_string(&report).map_err(to_js_err)?;
+    let out = serde_json::json!({
+        "valuation": val_json,
+        "report": report_json,
+    });
+    serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
+}
+
+/// Optimize an already-built [`Portfolio`] handle against pre-parsed
+/// [`OptimizationParameters`] (objective + constraints + weighting). Skips
+/// the per-call portfolio rebuild; use this for scenario-sweep style
+/// workflows.
+#[wasm_bindgen(js_name = optimizePortfolioBuilt)]
+pub fn optimize_portfolio_built(
+    portfolio: &WasmPortfolio,
+    params_json: &str,
+    market_json: &str,
+) -> Result<String, JsValue> {
+    let params: finstack_portfolio::optimization::OptimizationParameters =
+        serde_json::from_str(params_json).map_err(to_js_err)?;
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let config = finstack_core::config::FinstackConfig::default();
+    let result = finstack_portfolio::optimization::optimize_with_parameters(
+        &portfolio.inner,
+        &params,
+        &market,
+        &config,
+    )
+    .map_err(to_js_err)?;
+    serde_json::to_string_pretty(&result).map_err(to_js_err)
 }
 
 /// Apply a scenario to a portfolio and revalue.
@@ -468,28 +588,15 @@ pub fn evaluate_risk_budget(
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
+/// Forward to the shared `finstack_portfolio::factor_model::flatten_square_matrix`
+/// and remap the validation error to a `JsValue` so the same matrix-validation
+/// diagnostics surface from both the WASM and Python bindings.
 fn flatten_square_matrix(
     matrix: Vec<Vec<f64>>,
     n: usize,
     label: &str,
 ) -> Result<Vec<f64>, JsValue> {
-    if matrix.len() != n {
-        return Err(to_js_err(format!(
-            "{label} must have {n} rows, got {}",
-            matrix.len()
-        )));
-    }
-    let mut flat = Vec::with_capacity(n * n);
-    for (i, row) in matrix.into_iter().enumerate() {
-        if row.len() != n {
-            return Err(to_js_err(format!(
-                "{label} row {i} must have {n} columns, got {}",
-                row.len()
-            )));
-        }
-        flat.extend(row);
-    }
-    Ok(flat)
+    finstack_portfolio::factor_model::flatten_square_matrix(matrix, n, label).map_err(to_js_err)
 }
 
 // =============================================================================
