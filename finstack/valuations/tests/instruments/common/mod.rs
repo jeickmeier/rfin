@@ -15,3 +15,4 @@ pub mod parameters;
 pub mod test_discountable;
 pub mod test_helpers;
 pub mod test_pricing;
+pub mod test_rates_credit_tree;

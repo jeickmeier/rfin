@@ -594,10 +594,10 @@ impl<'a> TsiveriotisZhangEngine<'a> {
         // parameters, which breaks standard CRR recombination.
         let params = match tree_type {
             ConvertibleTreeType::Binomial(_) => {
-                EvolutionParams::equity_crr(volatility, risk_free_rate, dividend_yield, dt)
+                EvolutionParams::equity_crr(volatility, risk_free_rate, dividend_yield, dt)?
             }
             ConvertibleTreeType::Trinomial(_) => {
-                EvolutionParams::equity_trinomial(volatility, risk_free_rate, dividend_yield, dt)
+                EvolutionParams::equity_trinomial(volatility, risk_free_rate, dividend_yield, dt)?
             }
         };
 

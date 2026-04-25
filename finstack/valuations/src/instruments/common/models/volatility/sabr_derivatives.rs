@@ -8,6 +8,12 @@ use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
+/// Floor volatility returned when the SABR formula is undefined for the
+/// configured forward/strike/shift triple. Calibration treats this as an
+/// effectively-zero gradient contribution; operators are warned via
+/// `tracing::warn!` when this branch fires.
+const SABR_FLOOR_VOL: f64 = 1e-4;
+
 /// Internal parameter bundle for derivative calculations.
 #[derive(Debug, Clone)]
 struct SABRDerivParams {
@@ -190,11 +196,11 @@ impl SABRCalibrationDerivatives {
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
-        // FIX: Handle negative rates for LogNormal SABR (beta ~ 1.0)
-        // If forward or strike <= 0, standard LogNormal fails.
-        // We apply a "virtual shift" if none is provided but rates are negative.
+        // Negative-rate handling for LogNormal SABR (beta ~ 1.0).
+        // Standard LogNormal SABR fails for f <= 0 or K <= 0; if the user did
+        // not configure a shift we fall back to a 200 bp default ONLY when
+        // negative rates would otherwise blow up the formula.
         let shift = if (beta - 1.0).abs() < 1e-5 && (f_raw <= 0.0 || k_raw <= 0.0) {
-            // Use configured shift, or default heuristic shift (200bps = 0.02)
             self.market_data.shift.unwrap_or(0.02)
         } else {
             self.market_data.shift.unwrap_or(0.0)
@@ -203,10 +209,24 @@ impl SABRCalibrationDerivatives {
         let f = f_raw + shift;
         let k = k_raw + shift;
 
-        // Fallback for extreme negative rates where shift wasn't enough
+        // If the chosen shift is still insufficient (e.g. SOFR at -2 % with no
+        // explicit shift configured), the only honest answer is that the
+        // formula is undefined here. Emit a structured warning so operators
+        // can see the floor activation in logs, then return a clearly-zero
+        // gradient with a small positive vol — calibration will treat this
+        // point as a no-op contribution rather than panic.
         if f <= 0.0 || k <= 0.0 {
-            // Return small floor volatility to avoid panic
-            return (0.0001, 0.0, 0.0, 0.0);
+            tracing::warn!(
+                target: "finstack_valuations::sabr",
+                forward = f_raw,
+                strike = k_raw,
+                shift,
+                beta,
+                "SABR volatility undefined: forward+shift or strike+shift is non-positive. \
+                 Configure an explicit `shift` on SABRMarketData large enough to lift both \
+                 (forward + shift) and (strike + shift) above zero."
+            );
+            return (SABR_FLOOR_VOL, 0.0, 0.0, 0.0);
         }
 
         // Handle ATM case

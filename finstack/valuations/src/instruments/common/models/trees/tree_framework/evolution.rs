@@ -46,26 +46,40 @@ pub struct EvolutionParams {
 }
 
 impl EvolutionParams {
-    /// Create evolution parameters for a single equity factor (CRR model)
-    pub fn equity_crr(volatility: f64, risk_free_rate: f64, dividend_yield: f64, dt: f64) -> Self {
+    /// Create evolution parameters for a single equity factor (CRR model).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] when the implied risk-neutral
+    /// probability falls outside `[0, 1]` or any factor is non-positive (which
+    /// happens for extreme combinations of `vol`, `drift`, `dt`). Release builds
+    /// must enforce this — silent arbitrage in lattice probabilities is a
+    /// production hazard.
+    pub fn equity_crr(
+        volatility: f64,
+        risk_free_rate: f64,
+        dividend_yield: f64,
+        dt: f64,
+    ) -> finstack_core::Result<Self> {
         let u = (volatility * dt.sqrt()).exp();
         let d = 1.0 / u;
         let drift = risk_free_rate - dividend_yield;
         let p = ((drift * dt).exp() - d) / (u - d);
 
-        debug_assert!(
-            (0.0..=1.0).contains(&p),
-            "CRR probability p={} out of bounds [0,1]. Check parameters: vol={}, r={}, q={}, dt={}",
-            p,
-            volatility,
-            risk_free_rate,
-            dividend_yield,
-            dt
-        );
-        debug_assert!(u > 0.0, "Up factor must be positive: u={}", u);
-        debug_assert!(d > 0.0, "Down factor must be positive: d={}", d);
+        if !(0.0..=1.0).contains(&p) {
+            return Err(finstack_core::Error::Validation(format!(
+                "CRR probability p={} out of bounds [0,1] for vol={}, r={}, q={}, dt={}",
+                p, volatility, risk_free_rate, dividend_yield, dt
+            )));
+        }
+        if !(u > 0.0 && d > 0.0) {
+            return Err(finstack_core::Error::Validation(format!(
+                "CRR up/down factors must be positive: u={}, d={}",
+                u, d
+            )));
+        }
 
-        Self {
+        Ok(Self {
             volatility,
             drift,
             up_factor: u,
@@ -74,16 +88,24 @@ impl EvolutionParams {
             prob_up: p,
             prob_down: 1.0 - p,
             prob_middle: None,
-        }
+        })
     }
 
-    /// Create evolution parameters for trinomial tree
+    /// Create evolution parameters for trinomial tree.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] when any of the three
+    /// risk-neutral probabilities is negative or the probabilities fail to sum
+    /// to one within `1e-10`. This catches arbitrage-violating parameter
+    /// combinations (extreme drift/vol/dt) in release builds; debug-only
+    /// `debug_assert!` was insufficient.
     pub fn equity_trinomial(
         volatility: f64,
         risk_free_rate: f64,
         dividend_yield: f64,
         dt: f64,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let u = (volatility * (2.0 * dt).sqrt()).exp();
         let d = 1.0 / u;
         let m = 1.0;
@@ -97,20 +119,21 @@ impl EvolutionParams {
         let p_d = (((volatility * sqrt_dt_half).exp() - exp_drift_half) / denominator).powi(2);
         let p_m = 1.0 - p_u - p_d;
 
-        debug_assert!(
-            p_u >= 0.0 && p_d >= 0.0 && p_m >= 0.0,
-            "Trinomial probabilities must be non-negative: p_u={}, p_d={}, p_m={}",
-            p_u,
-            p_d,
-            p_m
-        );
-        debug_assert!(
-            (p_u + p_d + p_m - 1.0).abs() < 1e-10,
-            "Trinomial probabilities must sum to 1: p_u + p_d + p_m = {}",
-            p_u + p_d + p_m
-        );
+        if !(p_u >= 0.0 && p_d >= 0.0 && p_m >= 0.0) {
+            return Err(finstack_core::Error::Validation(format!(
+                "Trinomial probabilities must be non-negative: p_u={}, p_d={}, p_m={} \
+                 (vol={}, r={}, q={}, dt={})",
+                p_u, p_d, p_m, volatility, risk_free_rate, dividend_yield, dt
+            )));
+        }
+        if (p_u + p_d + p_m - 1.0).abs() >= 1e-10 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Trinomial probabilities must sum to 1: p_u + p_d + p_m = {}",
+                p_u + p_d + p_m
+            )));
+        }
 
-        Self {
+        Ok(Self {
             volatility,
             drift,
             up_factor: u,
@@ -119,7 +142,7 @@ impl EvolutionParams {
             prob_up: p_u,
             prob_down: p_d,
             prob_middle: Some(p_m),
-        }
+        })
     }
 }
 

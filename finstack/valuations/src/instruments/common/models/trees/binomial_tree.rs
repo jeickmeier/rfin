@@ -34,6 +34,52 @@ pub enum TreeType {
     Tian,
 }
 
+/// Vanilla / Bermudan / barrier option valuator for the binomial recombining
+/// engine.
+///
+/// Single source of truth for the call/put intrinsic-vs-continuation logic. The
+/// previous implementation declared three near-identical `struct OptionValuator`
+/// variants inline inside `price`, `price_barrier_out`, and `price_barrier_in*`;
+/// the only meaningful difference was whether early-exercise dates were
+/// supplied. With `exercise_steps = None` the valuator behaves like a pure
+/// European; otherwise it applies American/Bermudan early exercise at the
+/// requested step indices.
+struct OptionValuator {
+    strike: f64,
+    option_type: OptionType,
+    exercise_steps: Option<HashSet<usize>>,
+}
+
+impl TreeValuator for OptionValuator {
+    fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
+        let s = state
+            .spot()
+            .ok_or_else(|| Error::internal("option node state missing spot at maturity"))?;
+        Ok(intrinsic(self.option_type, s, self.strike))
+    }
+
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64, _dt: f64) -> Result<f64> {
+        if let Some(steps) = &self.exercise_steps {
+            if steps.contains(&state.step) {
+                let s = state
+                    .spot()
+                    .ok_or_else(|| Error::internal("option node state missing spot"))?;
+                let exercise = intrinsic(self.option_type, s, self.strike);
+                return Ok(continuation_value.max(exercise));
+            }
+        }
+        Ok(continuation_value)
+    }
+}
+
+#[inline]
+fn intrinsic(option_type: OptionType, spot: f64, strike: f64) -> f64 {
+    match option_type {
+        OptionType::Call => (spot - strike).max(0.0),
+        OptionType::Put => (strike - spot).max(0.0),
+    }
+}
+
 /// Binomial tree for option pricing
 #[derive(Debug, Clone)]
 pub struct BinomialTree {
@@ -277,45 +323,6 @@ impl BinomialTree {
         let exercise_set: Option<HashSet<usize>> =
             exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<usize>>());
 
-        struct OptionValuator {
-            strike: f64,
-            option_type: OptionType,
-            exercise_steps: Option<HashSet<usize>>,
-        }
-
-        impl TreeValuator for OptionValuator {
-            fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
-                let s = state
-                    .spot()
-                    .ok_or_else(|| Error::internal("option node state missing spot at maturity"))?;
-                Ok(match self.option_type {
-                    OptionType::Call => (s - self.strike).max(0.0),
-                    OptionType::Put => (self.strike - s).max(0.0),
-                })
-            }
-
-            fn value_at_node(
-                &self,
-                state: &NodeState,
-                continuation_value: f64,
-                _dt: f64,
-            ) -> Result<f64> {
-                if let Some(steps) = &self.exercise_steps {
-                    if steps.contains(&state.step) {
-                        let s = state
-                            .spot()
-                            .ok_or_else(|| Error::internal("option node state missing spot"))?;
-                        let exercise = match self.option_type {
-                            OptionType::Call => (s - self.strike).max(0.0),
-                            OptionType::Put => (self.strike - s).max(0.0),
-                        };
-                        return Ok(continuation_value.max(exercise));
-                    }
-                }
-                Ok(continuation_value)
-            }
-        }
-
         let valuator = OptionValuator {
             strike: market_params.strike,
             option_type: market_params.option_type,
@@ -468,35 +475,12 @@ impl BinomialTree {
             market_params.dividend_yield,
         )?;
 
-        // Use same valuator as vanilla
-        struct OptionValuator {
-            strike: f64,
-            option_type: OptionType,
-        }
-
-        impl TreeValuator for OptionValuator {
-            fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
-                let s = state
-                    .spot()
-                    .ok_or_else(|| Error::internal("barrier option node state missing spot"))?;
-                Ok(match self.option_type {
-                    OptionType::Call => (s - self.strike).max(0.0),
-                    OptionType::Put => (self.strike - s).max(0.0),
-                })
-            }
-            fn value_at_node(
-                &self,
-                _state: &NodeState,
-                continuation_value: f64,
-                _dt: f64,
-            ) -> Result<f64> {
-                Ok(continuation_value)
-            }
-        }
-
+        // Pure-European barrier — no early exercise; reuse the shared valuator
+        // with `exercise_steps: None`.
         let valuator = OptionValuator {
             strike: market_params.strike,
             option_type: market_params.option_type,
+            exercise_steps: None,
         };
 
         let initial_vars = single_factor_equity_state(
@@ -556,45 +540,6 @@ impl BinomialTree {
 
         let exercise_set =
             exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<_>>());
-
-        struct OptionValuator {
-            strike: f64,
-            option_type: OptionType,
-            exercise_steps: Option<HashSet<usize>>,
-        }
-
-        impl TreeValuator for OptionValuator {
-            fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
-                let s = state
-                    .spot()
-                    .ok_or_else(|| Error::internal("barrier option node state missing spot"))?;
-                Ok(match self.option_type {
-                    OptionType::Call => (s - self.strike).max(0.0),
-                    OptionType::Put => (self.strike - s).max(0.0),
-                })
-            }
-
-            fn value_at_node(
-                &self,
-                state: &NodeState,
-                continuation_value: f64,
-                _dt: f64,
-            ) -> Result<f64> {
-                if let Some(steps) = &self.exercise_steps {
-                    if steps.contains(&state.step) {
-                        let s = state.spot().ok_or_else(|| {
-                            Error::internal("barrier option node state missing spot")
-                        })?;
-                        let exercise = match self.option_type {
-                            OptionType::Call => (s - self.strike).max(0.0),
-                            OptionType::Put => (self.strike - s).max(0.0),
-                        };
-                        return Ok(continuation_value.max(exercise));
-                    }
-                }
-                Ok(continuation_value)
-            }
-        }
 
         let valuator = OptionValuator {
             strike: market_params.strike,

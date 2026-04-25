@@ -52,6 +52,14 @@ use finstack_core::math::special_functions::norm_cdf;
 /// in the general form is still well-conditioned and the L'Hôpital limiting
 /// form is sufficiently accurate. Previous values of 1e-2 and 1e-4 created
 /// visible price discontinuities at the switching boundary.
+///
+/// **Note:** an early audit recommendation was to scale the threshold relative
+/// to `max(|r|, |q|)` to absorb curve-interpolation noise around `b = r - q`.
+/// That premise is mathematically wrong here: what matters for the limiting
+/// form's accuracy is whether `|b|` is small in **absolute** terms (so that
+/// σ²/(2b) is finite enough that the general form has not yet collapsed). At
+/// `|b| ≈ 5e-7` (5× the floor) the general form is still well-conditioned and
+/// the limiting form mis-prices by O(20%) — so we keep an absolute floor.
 const RATE_EQ_DIV_TOL: f64 = 1e-7;
 
 /// Price a fixed-strike lookback call option (continuous monitoring).
@@ -630,7 +638,7 @@ mod tests {
     #[test]
     fn test_rate_eq_div_tol_boundary_continuity() {
         // Verify that the general formula and L'Hôpital limiting form agree
-        // at the RATE_EQ_DIV_TOL crossover boundary (|b| = 1e-4).
+        // at the RATE_EQ_DIV_TOL crossover boundary (|b| = 1e-7).
         let spot = 100.0;
         let s_min = 95.0;
         let s_max = 105.0;
@@ -641,10 +649,10 @@ mod tests {
         let eps = 1e-6; // Tiny perturbation around the boundary
 
         // --- Floating-strike lookback call ---
-        // Just inside tolerance (limiting form): b = 1e-4 - eps ≈ 0
+        // Just inside tolerance (limiting form): b = 1e-7 - eps ≈ 0
         let r_inside = q + super::RATE_EQ_DIV_TOL - eps;
         let call_inside = floating_strike_lookback_call(spot, time, r_inside, q, vol, s_min);
-        // Just outside tolerance (general form): b = 1e-4 + eps
+        // Just outside tolerance (general form): b = 1e-7 + eps
         let r_outside = q + super::RATE_EQ_DIV_TOL + eps;
         let call_outside = floating_strike_lookback_call(spot, time, r_outside, q, vol, s_min);
 

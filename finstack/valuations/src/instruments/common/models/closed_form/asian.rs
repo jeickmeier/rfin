@@ -244,6 +244,16 @@ pub fn geometric_asian_call_df(
         0.0
     };
 
+    // Zero-vol degenerate case: the geometric average is deterministic, so the
+    // option is worth the discounted forward intrinsic. Guarding here avoids
+    // routing a zero `vol_adj` through the BS pricer where downstream Greeks
+    // could divide by sigma.
+    if vol <= 0.0 {
+        return df
+            * (deterministic_geometric_forward(spot, time, rate, div_yield, num_fixings) - strike)
+                .max(0.0);
+    }
+
     let n = num_fixings as f64;
 
     // Adjusted volatility and dividend yield for geometric average.
@@ -321,6 +331,13 @@ pub fn geometric_asian_put_df(
     } else {
         0.0
     };
+
+    // Zero-vol degenerate: see `geometric_asian_call_df` for rationale.
+    if vol <= 0.0 {
+        return df
+            * (strike - deterministic_geometric_forward(spot, time, rate, div_yield, num_fixings))
+                .max(0.0);
+    }
 
     let n = num_fixings as f64;
 
@@ -421,6 +438,16 @@ pub fn arithmetic_asian_call_tw_df(
         0.0
     };
 
+    // Zero-vol degenerate: arithmetic average is deterministic, so the option
+    // is the discounted forward intrinsic. The downstream `m2 <= m1*m1` guard
+    // catches the same case via moment math, but explicit early-return makes
+    // the contract obvious and shields against future modifications to the
+    // moment calculation.
+    if vol <= 0.0 {
+        let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
+        return df * (m1 - strike).max(0.0);
+    }
+
     // Compute first moment: E[A]
     let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
 
@@ -508,6 +535,12 @@ pub fn arithmetic_asian_put_tw_df(
         0.0
     };
 
+    // Zero-vol degenerate: see `arithmetic_asian_call_tw_df` for rationale.
+    if vol <= 0.0 {
+        let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
+        return df * (strike - m1).max(0.0);
+    }
+
     let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
     let m2 = compute_arithmetic_mean_second_moment(spot, time, rate, div_yield, vol, num_fixings);
 
@@ -531,6 +564,28 @@ pub fn arithmetic_asian_put_tw_df(
     let put_price = df * (strike * norm_cdf(-d2) - m1 * norm_cdf(-d1));
 
     put_price.max(0.0)
+}
+
+/// Deterministic geometric average of `S * exp((r - q) t_i)` over discrete
+/// fixings (or the continuous limit for `num_fixings == 0`).
+///
+/// Used as the zero-vol degenerate value in `geometric_asian_*_df`. The
+/// log-mean of an n-fixing geometric average with linear-in-time drift is
+/// `(r - q)·T·(n+1)/(2n)`; for the continuous limit it is `(r - q)·T/2`.
+fn deterministic_geometric_forward(
+    spot: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    num_fixings: usize,
+) -> f64 {
+    let drift = rate - div_yield;
+    let mean_t_over_t = if num_fixings == 0 {
+        0.5
+    } else {
+        (num_fixings as f64 + 1.0) / (2.0 * num_fixings as f64)
+    };
+    spot * (drift * time * mean_t_over_t).exp()
 }
 
 /// Compute E[A] for arithmetic average with discrete fixings.

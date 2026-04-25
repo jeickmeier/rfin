@@ -5,9 +5,10 @@
 //! Use them to enforce structural invariants (ordering, finiteness, positivity),
 //! and keep market-standard checks in instrument-specific validation.
 //!
-//! Some helpers are forward-looking and may not yet be used by all instruments.
-
-#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
+//! Almost every helper here has at least one production caller; the few that
+//! are kept for symmetry with their used siblings carry an explicit
+//! `#[allow(dead_code)]` so the lint surface tells the truth about which
+//! validators are unwired.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -57,7 +58,11 @@ pub(crate) fn validate_date_range_non_strict(
 }
 
 /// Validate `end >= start` using a custom error message.
+///
+/// Kept for symmetry with `validate_date_range_strict_with`; no production
+/// callers today (most non-strict checks use the message-less variant).
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn validate_date_range_non_strict_with(
     start: Date,
     end: Date,
@@ -190,7 +195,11 @@ pub(crate) fn rate_outside_range(value: f64, min: f64, max: f64) -> bool {
 }
 
 /// Require that both options are either set or unset.
+///
+/// Kept for use by future option-pair validations (e.g. matched-pair
+/// metadata in calibration plans). No production callers today.
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn require_both_or_none<T, U>(
     a: &Option<T>,
     b: &Option<U>,
@@ -200,7 +209,11 @@ pub(crate) fn require_both_or_none<T, U>(
 }
 
 /// Require that if `a` is set, then `b` must also be set.
+///
+/// Kept for use by future option-pair validations. No production callers
+/// today.
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn require_if_some<T, U>(
     a: &Option<T>,
     b: &Option<U>,

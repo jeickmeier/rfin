@@ -281,4 +281,50 @@ mod tests {
             );
         }
     }
+
+    /// Cross-derivative weights must use **per-cell** spacing `(h_left, h_right)`
+    /// so that non-uniform grids stay consistent. The previous test only
+    /// covered uniform grids; with two distinct non-uniform spacings on each
+    /// axis, any off-by-one or mis-indexed `h_left/h_right` would be visible.
+    #[test]
+    fn cross_derivative_of_product_on_non_uniform_grid() {
+        // Deliberately uneven grids so `h_left != h_right` at most interior nodes
+        let gx = Grid1D::from_points(vec![0.0, 0.7, 1.5, 2.5, 4.0]).expect("valid x grid");
+        let gy = Grid1D::from_points(vec![0.0, 0.4, 1.0, 2.0, 3.0]).expect("valid y grid");
+        let grid = Grid2D::new(gx, gy);
+
+        let nx = grid.nx();
+        let ny = grid.ny();
+        let mut u_full = vec![0.0; nx * ny];
+        for i in 0..nx {
+            for j in 0..ny {
+                u_full[i * ny + j] = grid.x().points()[i] * grid.y().points()[j];
+            }
+        }
+
+        let nx_int = grid.nx_interior();
+        let ny_int = grid.ny_interior();
+        let cross_coeffs: Vec<f64> = (0..nx_int * ny_int)
+            .map(|flat| {
+                let ii = flat / ny_int;
+                let jj = flat % ny_int;
+                let i = ii + 1;
+                let j = jj + 1;
+                let hx = 0.5 * (grid.x().h_left(i) + grid.x().h_right(i));
+                let hy = 0.5 * (grid.y().h_left(j) + grid.y().h_right(j));
+                1.0 / (4.0 * hx * hy)
+            })
+            .collect();
+
+        let result = apply_cross_derivative(&cross_coeffs, &u_full, &grid);
+
+        // d²(xy)/(dx dy) = 1 — must hold to machine epsilon on any grid because
+        // the central-difference cross-derivative is exact for bilinear u.
+        for (idx, val) in result.iter().enumerate() {
+            assert!(
+                (val - 1.0).abs() < 1e-10,
+                "non-uniform cross-derivative at flat index {idx}: expected 1.0, got {val}"
+            );
+        }
+    }
 }

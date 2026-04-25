@@ -14,6 +14,11 @@ use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
 
 /// Error returned when implied volatility cannot be bracketed (target price may exceed arbitrage bounds).
+///
+/// Kept for the rare paths where the cause is genuinely ambiguous (e.g. NaN
+/// price at the upper bracket). Most call sites build a more specific message
+/// indicating whether the issue is arbitrage violation, MAX_VOL exhaustion,
+/// or a non-finite intermediate.
 const UNBRACKETED_MSG: &str =
     "Cannot bracket implied volatility: price may exceed arbitrage bounds";
 
@@ -75,7 +80,12 @@ pub fn bs_implied_vol(
         OptionType::Put => (strike * (-r * t).exp() - spot * (-q * t).exp()).max(0.0),
     };
     if target_price <= intrinsic {
-        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
+        return Err(finstack_core::Error::Validation(format!(
+            "Implied vol: target price {target_price:.6} is at or below intrinsic value \
+             {intrinsic:.6} for spot={spot}, strike={strike}, r={r}, q={q}, t={t}. \
+             This is an arbitrage violation — the option cannot be worth less than its \
+             intrinsic. Check the input price."
+        )));
     }
 
     let price_at = |sigma: f64| -> f64 { bs_price(spot, strike, r, q, sigma, t, option_type) };
@@ -93,11 +103,36 @@ pub fn bs_implied_vol(
         f_hi = price_at(hi) - target_price;
         tries += 1;
     }
-    if f_hi < 0.0 || !f_hi.is_finite() {
-        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
+    if !f_hi.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "Implied vol: BS price became non-finite at upper bracket sigma={hi:.6} \
+             (target={target_price:.6}, spot={spot}, strike={strike}, t={t}). \
+             Likely cause: numeric overflow at extreme moneyness; check input scale."
+        )));
     }
-    if f_lo > 0.0 || !f_lo.is_finite() {
-        return Err(finstack_core::Error::Validation(UNBRACKETED_MSG.into()));
+    if f_hi < 0.0 {
+        let bs_at_max = price_at(MAX_VOL);
+        return Err(finstack_core::Error::Validation(format!(
+            "Implied vol: target price {target_price:.6} exceeds BS price at MAX_VOL \
+             (sigma={MAX_VOL:.1}) which is {bs_at_max:.6} (spot={spot}, strike={strike}, \
+             t={t}). The implied volatility either exceeds {MAX_VOL:.1} or the input \
+             price violates arbitrage bounds. Verify the price quote."
+        )));
+    }
+    if !f_lo.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "Implied vol: BS price became non-finite at lower bracket sigma={lo:.2e} \
+             (spot={spot}, strike={strike}, t={t})."
+        )));
+    }
+    if f_lo > 0.0 {
+        // Target sits below the lower bracket — this is effectively another
+        // arbitrage violation (price below floor at MIN_VOL).
+        return Err(finstack_core::Error::Validation(format!(
+            "Implied vol: target price {target_price:.6} is below the BS floor at \
+             sigma={lo:.2e} (spot={spot}, strike={strike}, t={t}). Likely an arbitrage \
+             violation in the input quote."
+        )));
     }
 
     // Newton-Raphson with bisection fallback.

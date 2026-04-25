@@ -7,13 +7,39 @@ use finstack_core::types::PriceId;
 
 use serde::{Deserialize, Serialize};
 
+/// Map a currency to the canonical OIS discount curve ID for that ccy.
+///
+/// Returns an explicit `Validation` error for currencies that are not in the
+/// supported set rather than silently falling back to `"USD-OIS"`. Callers that
+/// price cross-border / EM-currency books must surface the unsupported currency
+/// to the user rather than silently mispricing against the wrong curve.
+pub fn default_ois_curve_id(currency: Currency) -> finstack_core::Result<&'static str> {
+    match currency {
+        Currency::USD => Ok("USD-OIS"),
+        Currency::EUR => Ok("EUR-OIS"),
+        Currency::GBP => Ok("GBP-OIS"),
+        Currency::JPY => Ok("JPY-OIS"),
+        Currency::CHF => Ok("CHF-OIS"),
+        Currency::CAD => Ok("CAD-OIS"),
+        Currency::AUD => Ok("AUD-OIS"),
+        Currency::NZD => Ok("NZD-OIS"),
+        other => Err(finstack_core::Error::Validation(format!(
+            "no default OIS curve for currency {other}; supply the discount curve ID explicitly"
+        ))),
+    }
+}
+
 /// Base trait for underlying parameters to enable polymorphic behavior
 pub trait UnderlyingParams {
     /// Get the base currency for pricing
     fn base_currency(&self) -> Currency;
 
-    /// Get the primary curve identifier
-    fn primary_curve_id(&self) -> &str;
+    /// Get the primary curve identifier.
+    ///
+    /// Returns `Err` when the underlying's currency does not have a registered
+    /// default discount curve. Implementations must not silently substitute
+    /// USD-OIS for unknown currencies — that is a known mispricing trap.
+    fn primary_curve_id(&self) -> finstack_core::Result<&str>;
 }
 
 /// FX underlying parameters used by FX options and FX swaps.
@@ -69,8 +95,8 @@ impl UnderlyingParams for FxUnderlyingParams {
         self.base_currency
     }
 
-    fn primary_curve_id(&self) -> &str {
-        self.domestic_discount_curve_id.as_ref()
+    fn primary_curve_id(&self) -> finstack_core::Result<&str> {
+        Ok(self.domestic_discount_curve_id.as_ref())
     }
 }
 
@@ -119,18 +145,8 @@ impl UnderlyingParams for EquityUnderlyingParams {
         self.currency
     }
 
-    fn primary_curve_id(&self) -> &str {
-        match self.currency {
-            Currency::USD => "USD-OIS",
-            Currency::EUR => "EUR-OIS",
-            Currency::GBP => "GBP-OIS",
-            Currency::JPY => "JPY-OIS",
-            Currency::CHF => "CHF-OIS",
-            Currency::CAD => "CAD-OIS",
-            Currency::AUD => "AUD-OIS",
-            Currency::NZD => "NZD-OIS",
-            _ => "USD-OIS", // Fallback for less common currencies
-        }
+    fn primary_curve_id(&self) -> finstack_core::Result<&str> {
+        default_ois_curve_id(self.currency)
     }
 }
 
@@ -169,16 +185,8 @@ impl UnderlyingParams for CommodityUnderlyingParams {
         self.currency
     }
 
-    fn primary_curve_id(&self) -> &str {
-        match self.currency {
-            Currency::USD => "USD-OIS",
-            Currency::EUR => "EUR-OIS",
-            Currency::GBP => "GBP-OIS",
-            Currency::JPY => "JPY-OIS",
-            Currency::CAD => "CAD-OIS",
-            Currency::AUD => "AUD-OIS",
-            _ => "USD-OIS",
-        }
+    fn primary_curve_id(&self) -> finstack_core::Result<&str> {
+        default_ois_curve_id(self.currency)
     }
 }
 
@@ -246,14 +254,37 @@ impl UnderlyingParams for IndexUnderlyingParams {
         self.base_currency
     }
 
-    fn primary_curve_id(&self) -> &str {
-        // Default curve - could be enhanced to be configurable per index
-        match self.base_currency {
-            Currency::USD => "USD-OIS",
-            Currency::EUR => "EUR-OIS",
-            Currency::GBP => "GBP-OIS",
-            Currency::JPY => "JPY-OIS",
-            _ => "USD-OIS", // Fallback
-        }
+    fn primary_curve_id(&self) -> finstack_core::Result<&str> {
+        default_ois_curve_id(self.base_currency)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_ois_curve_id_returns_known_curves() {
+        assert_eq!(default_ois_curve_id(Currency::USD).unwrap(), "USD-OIS");
+        assert_eq!(default_ois_curve_id(Currency::EUR).unwrap(), "EUR-OIS");
+        assert_eq!(default_ois_curve_id(Currency::JPY).unwrap(), "JPY-OIS");
+    }
+
+    #[test]
+    fn default_ois_curve_id_errors_on_unknown_currency() {
+        // No silent USD-OIS fallback for unsupported currencies — this used to
+        // be the source of cross-border mispricings.
+        let err = default_ois_curve_id(Currency::SEK).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("no default OIS curve") && msg.contains("SEK"),
+            "expected diagnostic mentioning the unsupported currency, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn equity_underlying_primary_curve_id_propagates_unsupported_ccy() {
+        let params = EquityUnderlyingParams::new("X.AB", PriceId::new("X.AB.SPOT"), Currency::SEK);
+        assert!(params.primary_curve_id().is_err());
     }
 }

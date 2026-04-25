@@ -20,6 +20,24 @@
 //! which replaces the standard Heston characteristic function with an algebraically equivalent
 //! form using `exp(-dT)` instead of `exp(dT)`. This avoids branch-cut discontinuities in the
 //! complex logarithm and prevents overflow, improving numerical stability.
+//!
+//! # Relationship to [`crate::instruments::common_impl::models::closed_form::heston`]
+//!
+//! There are two Heston implementations in this crate:
+//!
+//! - This module exposes a `HestonModel` struct with `Result`-returning
+//!   `price_european_call/put` methods. Internally it uses **adaptive**
+//!   Gauss-Legendre quadrature (depth-bounded refinement).
+//! - `closed_form::heston` exposes free functions `heston_call_price_fourier` /
+//!   `heston_put_price_fourier` returning bare `f64`, with a precomputed
+//!   composite Gauss-Legendre grid and a strip-pricer for batched-strike
+//!   calibration.
+//!
+//! The two are **algebraically equivalent**; we keep both because they have
+//! different ergonomic and performance trade-offs (adaptive is robust for
+//! one-off pricing, composite is faster for repeated strike sweeps). A
+//! cross-validation test in `closed_form::heston::tests::test_cross_validation_with_volatility_heston`
+//! pins them within 10 bps to catch silent drift between the two.
 
 use finstack_core::math::integration::gauss_legendre_integrate_adaptive;
 use finstack_core::Result;

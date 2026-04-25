@@ -23,21 +23,22 @@ pub fn year_fraction(dc: DayCount, start: Date, end: Date) -> finstack_core::Res
     dc.year_fraction(start, end, DayCountContext::default())
 }
 
-/// Compute a signed year fraction using `dc`.
-///
-/// Returns a positive value when `end >= start` and a negative value when
-/// `end < start`. This preserves the existing fallback behavior used by
-/// inflation curve lookups: day-count errors are treated as a zero interval.
-#[inline]
-pub(crate) fn signed_year_fraction(dc: DayCount, start: Date, end: Date) -> f64 {
-    if end >= start {
-        dc.year_fraction(start, end, DayCountContext::default())
-            .unwrap_or(0.0)
-    } else {
-        -dc.year_fraction(end, start, DayCountContext::default())
-            .unwrap_or(0.0)
-    }
-}
+// Removed: `signed_year_fraction(dc, start, end) -> f64`
+//
+// This was a silent-zero wrapper around `DayCount::signed_year_fraction(start,
+// end, ctx) -> Result<f64>`. Two problems:
+//   1. Hiding the `Result` swallowed day-count failures everywhere it was
+//      called, including the cashflow-export path where errors should bubble.
+//   2. It also duplicated `finstack_core::DayCount::signed_year_fraction` (the
+//      canonical method).
+//
+// Inflation-lag callers genuinely want a silent zero on error (CPI lookups
+// degrade to the anchor on day-count failure), but they should opt into that
+// at the call site:
+//
+//     dc.signed_year_fraction(start, end, DayCountContext::default()).unwrap_or(0.0)
+//
+// All other callers should propagate via `?`.
 
 /// Schedule → PV helper that uses the curve's own day count convention.
 ///
@@ -934,7 +935,10 @@ use finstack_core::market_data::scalars::InflationLag;
 /// - `Days(d)` subtracts d calendar days
 /// - `None` returns the date unchanged
 ///
-/// Unknown variants (the enum is `#[non_exhaustive]`) fall back to no lag.
+/// `InflationLag` is `#[non_exhaustive]`. Any future variant added upstream
+/// without a matching arm here will trip a release-mode `tracing::warn!` so the
+/// silent fallback is auditable in production logs (the previous
+/// `debug_assert!` was stripped in release builds, hiding the gap).
 pub(crate) fn apply_inflation_lag(date: Date, lag: InflationLag) -> Date {
     match lag {
         InflationLag::None => date,
@@ -942,6 +946,13 @@ pub(crate) fn apply_inflation_lag(date: Date, lag: InflationLag) -> Date {
         InflationLag::Days(d) => date - time::Duration::days(d as i64),
         #[allow(unreachable_patterns)]
         _unknown => {
+            tracing::warn!(
+                target: "finstack_valuations::inflation",
+                lag = ?_unknown,
+                "Unhandled InflationLag variant; falling back to no lag. \
+                 A new variant was added to InflationLag in finstack-core \
+                 without a matching arm in apply_inflation_lag."
+            );
             debug_assert!(
                 false,
                 "Unhandled InflationLag variant: {:?}. Falling back to no lag.",

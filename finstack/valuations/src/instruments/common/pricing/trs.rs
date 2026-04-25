@@ -232,7 +232,12 @@ impl TrsEngine {
         let mut total_pv = NeumaierAccumulator::new();
         let currency = notional.currency();
         let ctx = DayCountContext::default();
-        let spread_decimal = financing.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
+        let spread_decimal = financing.spread_bp.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "TRS financing spread_bp ({}) is not representable as f64",
+                financing.spread_bp
+            ))
+        })? / 10_000.0;
 
         for i in 1..period_schedule.dates.len() {
             let period_start = period_schedule.dates[i - 1];

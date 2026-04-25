@@ -27,6 +27,17 @@ pub fn carr_madan_forward_variance(
         return None;
     }
 
+    // Strike grid must be strictly increasing and finite. Carr-Madan integration
+    // assumes a monotone integration domain; non-monotonic or duplicate strikes
+    // produce silently nonsensical variance because `dk` (the trapezoidal width)
+    // becomes zero or negative.
+    if !strikes.iter().all(|k| k.is_finite() && *k > 0.0) {
+        return None;
+    }
+    if !strikes.windows(2).all(|w| w[0] < w[1]) {
+        return None;
+    }
+
     // Find the highest strike at or below the forward
     let k0_idx = {
         let mut idx = 0usize;
@@ -119,5 +130,31 @@ mod tests {
             carr_madan_forward_variance(&strikes, f64::NAN, 0.05, 1.0, vol_fn, bs_fn).is_none()
         );
         assert!(carr_madan_forward_variance(&strikes, -1.0, 0.05, 1.0, vol_fn, bs_fn).is_none());
+    }
+
+    #[test]
+    fn test_carr_madan_rejects_non_monotonic_strike_grid() {
+        let vol_fn = |_t: f64, _k: f64| 0.2;
+        let bs_fn = |_k: f64, _v: f64, _opt: OptionType| -> f64 { 1.0 };
+        // Non-monotonic — third entry breaks the ordering
+        let strikes = vec![80.0, 100.0, 95.0, 120.0];
+        assert!(
+            carr_madan_forward_variance(&strikes, 100.0, 0.05, 1.0, vol_fn, bs_fn).is_none(),
+            "non-monotonic strike grid must be rejected"
+        );
+        // Duplicate strike — the dk for the duplicate is zero
+        let dup_strikes = vec![80.0, 100.0, 100.0, 120.0];
+        assert!(
+            carr_madan_forward_variance(&dup_strikes, 100.0, 0.05, 1.0, vol_fn, bs_fn).is_none(),
+            "duplicate strikes must be rejected"
+        );
+    }
+
+    #[test]
+    fn test_carr_madan_rejects_non_finite_strike() {
+        let vol_fn = |_t: f64, _k: f64| 0.2;
+        let bs_fn = |_k: f64, _v: f64, _opt: OptionType| -> f64 { 1.0 };
+        let strikes = vec![80.0, f64::NAN, 120.0];
+        assert!(carr_madan_forward_variance(&strikes, 100.0, 0.05, 1.0, vol_fn, bs_fn).is_none());
     }
 }

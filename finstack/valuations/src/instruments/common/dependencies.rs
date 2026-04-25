@@ -324,6 +324,14 @@ impl MarketDependencies {
     }
 }
 
+// Insertion-ordered uniqueness via linear scan. Vec preserves insertion order
+// (which the dependency listing relies on for deterministic risk reports), and
+// `Vec::contains` is O(n) per call. For the typical 1-10 dependencies per
+// instrument this is faster than HashSet. If you ever see a single instrument
+// with >100 dependencies (deep CDS tranche slates, large baskets) and it shows
+// up on a profile, swap these for a hash-backed insertion-ordered set
+// (e.g. `indexmap::IndexSet`).
+
 fn push_unique_curve(target: &mut CurveIdVec, id: CurveId) {
     if target.contains(&id) {
         return;
