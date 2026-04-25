@@ -74,6 +74,8 @@ fn from_json_payload(type_tag: &str, json: &str) -> PyResult<String> {
 }
 
 fn pretty_json(json: &str) -> PyResult<String> {
+    // `to_json` on the wrapper is informational/inspection-oriented; pretty
+    // printing here is fine and not on the hot path.
     let value: Value = serde_json::from_str(json).map_err(display_to_py)?;
     serde_json::to_string_pretty(&value).map_err(display_to_py)
 }
@@ -87,7 +89,8 @@ fn price_payload(
     let market = extract_market(market)?;
     let result = finstack_valuations::pricer::price_instrument_json(json, &market, as_of, model)
         .map_err(display_to_py)?;
-    serde_json::to_string_pretty(&result).map_err(display_to_py)
+    // Compact JSON; pretty-print is a 2-3x allocation hit on the pricing path.
+    serde_json::to_string(&result).map_err(display_to_py)
 }
 
 fn price_payload_with_metrics(
@@ -108,7 +111,7 @@ fn price_payload_with_metrics(
         pricing_options,
     )
     .map_err(display_to_py)?;
-    serde_json::to_string_pretty(&result).map_err(display_to_py)
+    serde_json::to_string(&result).map_err(display_to_py)
 }
 
 fn metric_value(
@@ -131,6 +134,33 @@ fn metric_value(
     result
         .metric_str(metric)
         .ok_or_else(|| PyValueError::new_err(format!("metric `{metric}` was not returned")))
+}
+
+/// Compute multiple metrics in a single dispatch and return only the ones
+/// that came back successfully. Used by the option `greeks()` aggregator to
+/// avoid the N+1 cost of one call per greek.
+fn metric_values_present(
+    json: &str,
+    market: &Bound<'_, PyAny>,
+    as_of: &str,
+    model: &str,
+    metrics: &[&'static str],
+) -> PyResult<Vec<(&'static str, f64)>> {
+    let market = extract_market(market)?;
+    let metric_ids: Vec<String> = metrics.iter().map(|m| (*m).to_string()).collect();
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+        json,
+        &market,
+        as_of,
+        model,
+        &metric_ids,
+        None,
+    )
+    .map_err(display_to_py)?;
+    Ok(metrics
+        .iter()
+        .filter_map(|m| result.metric_str(m).map(|v| (*m, v)))
+        .collect())
 }
 
 macro_rules! fx_class {
@@ -262,19 +292,26 @@ macro_rules! fx_option_class {
                 model: &str,
             ) -> PyResult<Bound<'py, PyDict>> {
                 let out = PyDict::new(py);
-                for metric in [
-                    "delta",
-                    "gamma",
-                    "vega",
-                    "theta",
-                    "rho",
-                    "foreign_rho",
-                    "vanna",
-                    "volga",
-                ] {
-                    if let Ok(value) = metric_value(&self.json, market, as_of, model, metric) {
-                        out.set_item(metric, value)?;
-                    }
+                // Single dispatch into the pricing engine; previously this was
+                // 8 separate calls, each round-tripping JSON.
+                let pairs = metric_values_present(
+                    &self.json,
+                    market,
+                    as_of,
+                    model,
+                    &[
+                        "delta",
+                        "gamma",
+                        "vega",
+                        "theta",
+                        "rho",
+                        "foreign_rho",
+                        "vanna",
+                        "volga",
+                    ],
+                )?;
+                for (metric, value) in pairs {
+                    out.set_item(metric, value)?;
                 }
                 Ok(out)
             }
@@ -329,10 +366,11 @@ pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult
     parent.add_submodule(&m)?;
     parent.add("fx", &m)?;
 
-    let parent_name: String = parent
-        .getattr("__name__")
-        .and_then(|attr| attr.extract())
-        .unwrap_or_else(|_| "finstack.finstack.valuations".to_string());
+    // Register the submodule under its fully-qualified path in `sys.modules`
+    // so that `import finstack.valuations.fx` works the same as attribute
+    // access on the parent. PyO3 sets `parent.__name__`; surface any failure
+    // to read it instead of silently using a wrong fallback.
+    let parent_name: String = parent.getattr("__name__")?.extract()?;
     let qual = format!("{parent_name}.fx");
     m.setattr("__package__", &qual)?;
     let sys = PyModule::import(py, "sys")?;

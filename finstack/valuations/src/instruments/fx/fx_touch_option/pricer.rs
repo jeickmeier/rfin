@@ -1,5 +1,6 @@
 //! FX touch option pricer implementation.
 
+use crate::instruments::common_impl::helpers::zero_rate_from_df;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_touch_option::types::{
     BarrierDirection, FxTouchOption, PayoutTiming, TouchType,
@@ -51,6 +52,7 @@ impl FxTouchOptionCalculator {
         }
 
         let price = price_touch(
+            inst,
             spot,
             inst.barrier_level,
             r_d,
@@ -61,7 +63,7 @@ impl FxTouchOptionCalculator {
             inst.barrier_direction,
             inst.payout_timing,
             inst.payout_amount.amount(),
-        );
+        )?;
 
         Ok(Money::new(price, inst.quote_currency))
     }
@@ -83,19 +85,14 @@ impl FxTouchOptionCalculator {
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
-        let df_d = domestic_disc.df(domestic_disc.day_count().year_fraction(
-            as_of,
-            inst.expiry,
-            DayCountContext::default(),
-        )?);
-        let df_f = foreign_disc.df(foreign_disc.day_count().year_fraction(
-            as_of,
-            inst.expiry,
-            DayCountContext::default(),
-        )?);
+        // Date-based DF lookups; rates are derived to satisfy
+        // `exp(-r * t_vol) = df` so day-count differences between the curves
+        // and the vol surface are absorbed into `r`.
+        let df_d = domestic_disc.df_between_dates(as_of, inst.expiry)?;
+        let df_f = foreign_disc.df_between_dates(as_of, inst.expiry)?;
 
-        let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
-        let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
+        let r_d = zero_rate_from_df(df_d, t_vol, "FxTouchOption domestic discount")?;
+        let r_f = zero_rate_from_df(df_f, t_vol, "FxTouchOption foreign discount")?;
 
         let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {
@@ -137,6 +134,7 @@ impl FxTouchOptionCalculator {
 
 #[allow(clippy::too_many_arguments)]
 fn price_touch(
+    inst: &FxTouchOption,
     spot: f64,
     barrier: f64,
     r_d: f64,
@@ -147,26 +145,26 @@ fn price_touch(
     barrier_direction: BarrierDirection,
     payout_timing: PayoutTiming,
     payout: f64,
-) -> f64 {
+) -> Result<f64> {
     let already_breached = match barrier_direction {
         BarrierDirection::Down => spot <= barrier,
         BarrierDirection::Up => spot >= barrier,
     };
     if already_breached {
-        return match touch_type {
+        return Ok(match touch_type {
             TouchType::OneTouch => match payout_timing {
                 PayoutTiming::AtHit => payout,
                 PayoutTiming::AtExpiry => (-r_d * t).exp() * payout,
             },
             TouchType::NoTouch => 0.0,
-        };
+        });
     }
 
     let sigma2 = sigma * sigma;
     let sqrt_t = t.sqrt();
     let sigma_sqrt_t = sigma * sqrt_t;
     if sigma_sqrt_t <= 0.0 || t <= 0.0 {
-        return 0.0;
+        return Ok(0.0);
     }
 
     let mu = (r_d - r_f - sigma2 / 2.0) / sigma2;
@@ -176,7 +174,14 @@ fn price_touch(
     };
     let lambda_sq = mu * mu + 2.0 * lambda_r / sigma2;
     if lambda_sq < 0.0 {
-        return 0.0;
+        // mu^2 + 2*r_d/sigma^2 < 0 requires r_d very negative relative to sigma^2.
+        // Surfacing this as an error beats silently returning 0 — it tells the
+        // caller their rate environment falls outside the closed-form's domain.
+        return Err(finstack_core::Error::Validation(format!(
+            "FxTouchOption {}: lambda^2 = {lambda_sq:.6e} < 0 (r_d={r_d}, sigma={sigma}, \
+             at-hit={:?}); closed-form Rubinstein-Reiner is undefined here",
+            inst.id, payout_timing,
+        )));
     }
     let lambda = lambda_sq.sqrt();
 
@@ -194,7 +199,7 @@ fn price_touch(
     let n_eta_z_prime = finstack_core::math::norm_cdf(eta * z_prime);
     let one_touch_prob = power1 * n_eta_z + power2 * n_eta_z_prime;
 
-    match payout_timing {
+    Ok(match payout_timing {
         PayoutTiming::AtExpiry => {
             let df = (-r_d * t).exp();
             let one_touch_pv = df * payout * one_touch_prob;
@@ -213,37 +218,17 @@ fn price_touch(
                 }
             }
         }
-    }
+    })
 }
 
 /// FX touch option pricer using Rubinstein-Reiner closed-form.
-pub struct SimpleFxTouchOptionPricer {
-    model: ModelKey,
-}
-
-impl SimpleFxTouchOptionPricer {
-    /// Create a new FX touch option pricer with default model.
-    pub fn new() -> Self {
-        Self {
-            model: ModelKey::Black76,
-        }
-    }
-
-    /// Create an FX touch option pricer with specified model key.
-    pub fn with_model(model: ModelKey) -> Self {
-        Self { model }
-    }
-}
-
-impl Default for SimpleFxTouchOptionPricer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Always dispatches at [`ModelKey::Black76`].
+#[derive(Default)]
+pub struct SimpleFxTouchOptionPricer;
 
 impl Pricer for SimpleFxTouchOptionPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::FxTouchOption, self.model)
+        PricerKey::new(InstrumentType::FxTouchOption, ModelKey::Black76)
     }
 
     fn price_dyn(

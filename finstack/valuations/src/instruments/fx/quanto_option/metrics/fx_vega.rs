@@ -1,18 +1,19 @@
 //! FX Vega calculator for quanto options.
 //!
-//! Computes FX vega (FX volatility sensitivity) using finite differences:
-//! bump FX volatility surface, reprice, and compute (PV_vol_up - PV_base) / bump_size.
-//! FX Vega is per 1% FX volatility move.
+//! Computes FX vega (FX volatility sensitivity) using a central finite
+//! difference: bump FX volatility surface up and down by an absolute amount,
+//! reprice, and return `(PV_up - PV_down) / (2 * bump)`.
+//!
+//! Vega is reported per 1 absolute volatility point (e.g. 20% -> 21%), matching
+//! [`bump_sizes::VOLATILITY`] semantics.
 //!
 //! # Note
 //!
-//! Only computed if fx_vol_id is provided. Returns 0 if FX volatility
-//! surface is not available.
+//! Errors if `fx_vol_id` is not set on the instrument.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::quanto_option::QuantoOption;
-use crate::metrics::bump_sizes;
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::metrics::{bump_sizes, bump_surface_vol_absolute, MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// FX Vega calculator for quanto options.
@@ -22,7 +23,6 @@ impl MetricCalculator for FxVegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &QuantoOption = context.instrument_as()?;
         let as_of = context.as_of;
-        let base_pv = context.base_value.amount();
 
         // Check if expired
         let t = option.day_count.year_fraction(
@@ -34,27 +34,24 @@ impl MetricCalculator for FxVegaCalculator {
             return Ok(0.0);
         }
 
-        // Get FX volatility surface (if provided)
+        // Require an FX vol surface id - silent zero hides config errors.
         let fx_vol_id = option.fx_vol_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "fx_vol_id not provided for quanto option".to_string(),
-            })
+            finstack_core::Error::Validation(format!(
+                "QuantoOption {}: fx_vol_id is required to compute FX Vega",
+                option.id
+            ))
         })?;
 
-        let fx_vol_surface = context.curves.get_surface(fx_vol_id.as_str())?;
+        // Absolute bump in vol units (e.g. 20% -> 21%); central difference for O(h^2).
+        let bump = bump_sizes::VOLATILITY;
+        let curves_up =
+            bump_surface_vol_absolute(context.curves.as_ref(), fx_vol_id.as_str(), bump)?;
+        let curves_down =
+            bump_surface_vol_absolute(context.curves.as_ref(), fx_vol_id.as_str(), -bump)?;
 
-        // Bump FX volatility surface by scaling all values (no grid rebuild)
-        let mut curves_bumped = context.curves.as_ref().clone();
-        let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-        let bumped_surface = fx_vol_surface.scaled(scale_factor);
-        curves_bumped = curves_bumped.insert_surface(bumped_surface);
+        let pv_up = option.value(&curves_up, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
-        // Reprice with bumped FX vol
-        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
-
-        // FX Vega = (PV_bumped - PV_base) / bump_size (in vol units)
-        let fx_vega = (pv_bumped - base_pv) / bump_sizes::VOLATILITY;
-
-        Ok(fx_vega)
+        Ok((pv_up - pv_down) / (2.0 * bump))
     }
 }

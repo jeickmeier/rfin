@@ -175,6 +175,10 @@ mod fx_swap;
 #[path = "instruments/fx_variance_swap/mod.rs"]
 mod fx_variance_swap;
 
+/// Quanto option tests - Cross-currency quanto-adjusted equity options
+#[path = "instruments/quanto_option/mod.rs"]
+mod quanto_option;
+
 /// NDF tests - Non-deliverable forwards for restricted currencies
 #[path = "instruments/ndf/mod.rs"]
 mod ndf;

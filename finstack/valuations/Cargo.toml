@@ -41,6 +41,10 @@ finstack-statements-analytics = { path = "../statements-analytics" }
 [features]
 default = []
 ts_export = ["dep:ts-rs"]
+# Vanna-Volga smile-correction pricer for FX barrier options. Aspirational —
+# unregistered until per-trade smile quotes are part of the market-data
+# contract. Enable to pull the analytics into builds for research/calibration.
+fx-vanna-volga = []
 
 [[bench]]
 name = "bond_pricing"

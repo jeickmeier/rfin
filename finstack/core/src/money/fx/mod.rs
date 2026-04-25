@@ -28,7 +28,6 @@
 //! assert_eq!(res.rate, 1.1);
 //! ```
 
-mod cache;
 mod matrix;
 mod provider;
 mod providers;

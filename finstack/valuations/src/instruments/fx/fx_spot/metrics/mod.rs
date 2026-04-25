@@ -44,7 +44,6 @@ pub(crate) fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (SpotRate, spot_rate::SpotRateCalculator),
             (BaseAmount, base_amount::BaseAmountCalculator),
-            // QuoteAmount removed - it's just result.value which is always available
             (InverseRate, inverse_rate::InverseRateCalculator),
         ]
     };

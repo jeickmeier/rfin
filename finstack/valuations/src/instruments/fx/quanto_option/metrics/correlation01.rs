@@ -1,13 +1,15 @@
 //! Correlation sensitivity calculator for quanto options.
 //!
-//! Computes correlation sensitivity using finite differences:
-//! bump correlation between equity and FX, reprice, and compute (PV_corr_up - PV_base) / bump_size.
-//! Correlation01 is per 1% correlation move.
+//! Bumps the equity-FX correlation by an absolute amount on each side and
+//! returns a central finite difference per absolute correlation point. The
+//! pair of bumps is shrunk symmetrically when the base correlation sits
+//! within `bump_sizes::CORRELATION` of [-1, 1] so that the divisor matches
+//! the actual width applied — avoiding the bias the asymmetric clamp would
+//! otherwise introduce near the boundary.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::quanto_option::QuantoOption;
-use crate::metrics::bump_sizes;
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::metrics::{bump_sizes, MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Correlation01 calculator for quanto options.
@@ -17,9 +19,7 @@ impl MetricCalculator for Correlation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &QuantoOption = context.instrument_as()?;
         let as_of = context.as_of;
-        let base_pv = context.base_value.amount();
 
-        // Check if expired
         let t = option.day_count.year_fraction(
             as_of,
             option.expiry,
@@ -29,20 +29,37 @@ impl MetricCalculator for Correlation01Calculator {
             return Ok(0.0);
         }
 
-        // Bump correlation by 1%
-        let bump = bump_sizes::CORRELATION;
-        let new_correlation = (option.correlation + bump).clamp(-1.0, 1.0);
+        let rho = option.correlation;
+        if !rho.is_finite() || !(-1.0..=1.0).contains(&rho) {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption {}: correlation must be in [-1, 1], got {rho}",
+                option.id
+            )));
+        }
 
-        // Create option with bumped correlation
-        let mut option_bumped = option.clone();
-        option_bumped.correlation = new_correlation;
+        // Symmetric, boundary-aware bump: shrink the half-width so both bumped
+        // correlations remain within [-1, 1]. The denominator below matches.
+        let half_bump = bump_sizes::CORRELATION
+            .min(1.0 - rho)
+            .min(1.0 + rho)
+            .max(0.0);
+        if half_bump <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption {}: cannot bump correlation at boundary (rho={rho})",
+                option.id
+            )));
+        }
 
-        // Reprice with bumped correlation
-        let pv_bumped = option_bumped.value(&context.curves, as_of)?.amount();
+        let mut option_up = option.clone();
+        option_up.correlation = rho + half_bump;
+        let pv_up = option_up.value(&context.curves, as_of)?.amount();
 
-        // Correlation01 = (PV_bumped - PV_base) / bump_size
-        let correlation01 = (pv_bumped - base_pv) / bump;
+        let mut option_down = option.clone();
+        option_down.correlation = rho - half_bump;
+        let pv_down = option_down.value(&context.curves, as_of)?.amount();
 
-        Ok(correlation01)
+        // Per absolute 1.0 correlation; multiply by bump_sizes::CORRELATION
+        // outside if a per-1% number is wanted.
+        Ok((pv_up - pv_down) / (2.0 * half_bump))
     }
 }

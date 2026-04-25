@@ -1,6 +1,7 @@
 //! FX barrier option pricers (Monte Carlo and analytical).
 
 // Common imports for all pricers
+use crate::instruments::common_impl::helpers::zero_rate_from_df;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_barrier_option::types::FxBarrierOption;
 use crate::pricer::{
@@ -68,20 +69,12 @@ impl FxBarrierOptionMcPricer {
         // Domestic curve (discounting)
         let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
         let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
-        let r_dom = if t > 0.0 && discount_factor > 0.0 {
-            -discount_factor.ln() / t
-        } else {
-            0.0
-        };
+        let r_dom = zero_rate_from_df(discount_factor, t, "FxBarrierOption domestic discount")?;
 
         // Foreign curve (risk-free rate for drift)
         let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
         let df_for = for_curve.df_between_dates(as_of, inst.expiry)?;
-        let r_for = if t > 0.0 && df_for > 0.0 {
-            -df_for.ln() / t
-        } else {
-            0.0
-        };
+        let r_for = zero_rate_from_df(df_for, t, "FxBarrierOption foreign discount")?;
 
         let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
             &inst.pricing_overrides.market_quotes,
@@ -302,10 +295,7 @@ fn resolve_fx_spot(
 ) -> finstack_core::Result<f64> {
     if let Some(spot_id) = inst.fx_spot_id.as_ref() {
         let spot_scalar = curves.get_price(spot_id)?;
-        let fx_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
+        let fx_spot = crate::metrics::scalar_numeric_value(spot_scalar);
         if !fx_spot.is_finite() || fx_spot <= 0.0 {
             return Err(finstack_core::Error::Validation(format!(
                 "FxBarrierOption spot must be finite and > 0, got {}",
@@ -359,24 +349,16 @@ fn collect_fx_barrier_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
 
-    // Use each curve's own day count for discount factor lookup (consistent
-    // with FxOptionCalculator::collect_inputs), then convert to effective
-    // zero rates consistent with t_vol so that exp(-r * t) = df.
+    // Date-based DF lookups; the resulting `r = -ln(df) / t` then reconstructs
+    // exactly that DF when composed with `exp(-r * t)` in BS, regardless of
+    // the curve vs. vol-surface day-count conventions.
     let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-    let t_disc_dom =
-        disc_curve
-            .day_count()
-            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
-    let df_d = disc_curve.df(t_disc_dom);
-    let r_dom = if t > 0.0 { -df_d.ln() / t } else { 0.0 };
+    let df_d = disc_curve.df_between_dates(as_of, inst.expiry)?;
+    let r_dom = zero_rate_from_df(df_d, t, "FxBarrierOption domestic discount")?;
 
     let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-    let t_disc_for =
-        for_curve
-            .day_count()
-            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
-    let df_f = for_curve.df(t_disc_for);
-    let r_for = if t > 0.0 { -df_f.ln() / t } else { 0.0 };
+    let df_f = for_curve.df_between_dates(as_of, inst.expiry)?;
+    let r_for = zero_rate_from_df(df_f, t, "FxBarrierOption foreign discount")?;
 
     let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
 
@@ -550,7 +532,12 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
 }
 
 // ========================= VANNA-VOLGA PRICER =========================
+//
+// Gated behind the `fx-vanna-volga` feature: the smile-correction pricer is
+// not registered in the production registry until per-trade smile quotes are
+// part of the market-data contract.
 
+#[cfg(feature = "fx-vanna-volga")]
 use crate::instruments::fx::fx_barrier_option::vanna_volga::{
     vanna_volga_barrier_adjustment, VannaVolgaQuotes,
 };
@@ -565,7 +552,7 @@ use crate::instruments::fx::fx_barrier_option::vanna_volga::{
 /// the instrument or market-data contract carries per-trade smile quotes.
 /// Standard dispatch should use [`ModelKey::FxBarrierBSContinuous`] or
 /// [`ModelKey::MonteCarloGBM`].
-///
+#[cfg(feature = "fx-vanna-volga")]
 pub(crate) struct FxBarrierOptionVannaVolgaPricer {
     /// Market quotes for the three-point smile. When `None`, a symmetric
     /// fallback smile is derived from the instrument's ATM vol at pricing
@@ -573,6 +560,7 @@ pub(crate) struct FxBarrierOptionVannaVolgaPricer {
     pub(crate) quotes: Option<VannaVolgaQuotes>,
 }
 
+#[cfg(feature = "fx-vanna-volga")]
 impl FxBarrierOptionVannaVolgaPricer {
     /// Create a Vanna-Volga pricer without bound smile quotes.
     ///
@@ -705,12 +693,14 @@ impl FxBarrierOptionVannaVolgaPricer {
     }
 }
 
+#[cfg(feature = "fx-vanna-volga")]
 impl Default for FxBarrierOptionVannaVolgaPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "fx-vanna-volga")]
 impl Pricer for FxBarrierOptionVannaVolgaPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(
@@ -994,6 +984,7 @@ mod tests {
     /// collapse to zero so the VV price matches the BS analytical
     /// price. This keeps the pricer registration safe for instruments
     /// that haven't yet had smile data wired in.
+    #[cfg(feature = "fx-vanna-volga")]
     #[test]
     fn vanna_volga_errors_without_explicit_quotes() {
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");

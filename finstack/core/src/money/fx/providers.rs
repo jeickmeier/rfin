@@ -132,6 +132,16 @@ impl FxProvider for SimpleFxProvider {
     /// 3. Falls back to reciprocal if available
     /// 4. Returns `NotFound` error otherwise
     ///
+    /// # Date and Policy Are Ignored
+    ///
+    /// `SimpleFxProvider` is a snapshot store: it does **not** honor the `on`
+    /// observation date or the `policy` (cashflow date / settlement date /
+    /// closing rate / average rate). All quotes are treated as the current
+    /// snapshot regardless of the query parameters. Callers who need
+    /// date-aware or policy-aware FX should compose this provider with a
+    /// time-series store at a higher layer, or implement a custom
+    /// [`FxProvider`].
+    ///
     /// # Errors
     ///
     /// Returns `Err` when:

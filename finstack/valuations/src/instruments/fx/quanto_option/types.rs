@@ -180,19 +180,17 @@ impl crate::instruments::common_impl::traits::CurveDependencies for QuantoOption
 }
 
 impl QuantoOption {
-    /// Create a canonical example quanto equity option (Nikkei in USD).
+    /// Create a canonical example quanto equity option (Nikkei in USD)
+    /// expiring on the project-wide stable example epoch.
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use finstack_core::dates::DayCount;
-        use time::Month;
         QuantoOption::builder()
             .id(InstrumentId::new("QUANTO-NKY-USD-CALL"))
             .underlying_ticker("NKY".to_string())
             .equity_strike(Money::new(35000.0, Currency::JPY))
             .option_type(crate::instruments::OptionType::Call)
-            .expiry(
-                Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
-            )
+            .expiry(crate::instruments::common_impl::example_constants::FAR_EXPIRY)
             .notional(Money::new(1_000_000.0, Currency::USD))
             .underlying_quantity_opt(Some(4_000.0))
             .payoff_fx_rate_opt(Some(1.0 / 140.0))
@@ -315,8 +313,6 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for QuantoOpti
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common_impl::traits::Instrument;
-
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -325,31 +321,13 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for QuantoOpti
         if t <= 0.0 {
             return Ok(0.0);
         }
-
-        let spot_scalar = market.get_price(&self.spot_id)?;
-        let current_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
-        let bump_size = current_spot * crate::metrics::bump_sizes::SPOT;
-        if bump_size <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let up = crate::metrics::bump_scalar_price(
+        crate::metrics::central_diff_scalar_relative(
+            self,
             market,
+            as_of,
             &self.spot_id,
             crate::metrics::bump_sizes::SPOT,
-        )?;
-        let pv_up = self.value(&up, as_of)?.amount();
-        let dn = crate::metrics::bump_scalar_price(
-            market,
-            &self.spot_id,
-            -crate::metrics::bump_sizes::SPOT,
-        )?;
-        let pv_dn = self.value(&dn, as_of)?.amount();
-
-        Ok((pv_up - pv_dn) / (2.0 * bump_size))
+        )
     }
 }
 
@@ -373,10 +351,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for QuantoOpti
         let base_pv = self.value(market, as_of)?.amount();
 
         let spot_scalar = market.get_price(&self.spot_id)?;
-        let current_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
+        let current_spot = crate::metrics::scalar_numeric_value(spot_scalar);
         let bump_size = current_spot * crate::metrics::bump_sizes::SPOT;
         if bump_size <= 0.0 {
             return Ok(0.0);
@@ -503,10 +478,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for QuantoOpti
         }
 
         let spot_scalar = market.get_price(&self.spot_id)?;
-        let current_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
+        let current_spot = crate::metrics::scalar_numeric_value(spot_scalar);
         let spot_bump = current_spot * crate::metrics::bump_sizes::SPOT;
         if spot_bump <= 0.0 {
             return Ok(0.0);
@@ -634,7 +606,12 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for QuantoOpt
                 volga: Some(self.option_volga(market, as_of, request.require_base_pv()?)?),
                 ..OptionGreeks::default()
             }),
-            _ => Ok(OptionGreeks::default()),
+            other => Err(finstack_core::Error::Validation(format!(
+                "QuantoOption {}: greek {:?} is not supported by the analytical \
+                 quanto pricer. Supported: Delta, Gamma, Vega, Rho, ForeignRho, \
+                 Vanna, Volga.",
+                self.id, other
+            ))),
         }
     }
 }

@@ -113,6 +113,34 @@ fn metric_value(
         .ok_or_else(|| JsValue::from_str(&format!("metric `{metric}` was not returned")))
 }
 
+/// Compute multiple metrics in a single dispatch and return only the ones
+/// that came back successfully. Used by the option `greeks()` aggregator to
+/// avoid the N+1 cost of one call per greek.
+fn metric_values_present(
+    json: &str,
+    market_json: &str,
+    as_of: &str,
+    model: Option<&str>,
+    metrics: &[&'static str],
+) -> Result<Vec<(&'static str, f64)>, JsValue> {
+    let market: finstack_core::market_data::context::MarketContext =
+        serde_json::from_str(market_json).map_err(to_js_err)?;
+    let metric_ids: Vec<String> = metrics.iter().map(|m| (*m).to_string()).collect();
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+        json,
+        &market,
+        as_of,
+        model.unwrap_or("default"),
+        &metric_ids,
+        None,
+    )
+    .map_err(to_js_err)?;
+    Ok(metrics
+        .iter()
+        .filter_map(|m| result.metric_str(m).map(|v| (*m, v)))
+        .collect())
+}
+
 macro_rules! fx_class {
     ($rust_name:ident, $js_name:literal, $type_tag:literal) => {
         #[wasm_bindgen(js_name = $js_name)]
@@ -257,22 +285,27 @@ macro_rules! fx_option_class {
                 as_of: &str,
                 model: Option<String>,
             ) -> Result<JsValue, JsValue> {
+                // Single dispatch into the pricing engine; previously this was
+                // 8 separate calls, each round-tripping JSON.
+                let pairs = metric_values_present(
+                    &self.json,
+                    market_json,
+                    as_of,
+                    model.as_deref(),
+                    &[
+                        "delta",
+                        "gamma",
+                        "vega",
+                        "theta",
+                        "rho",
+                        "foreign_rho",
+                        "vanna",
+                        "volga",
+                    ],
+                )?;
                 let mut out = Map::new();
-                for metric in [
-                    "delta",
-                    "gamma",
-                    "vega",
-                    "theta",
-                    "rho",
-                    "foreign_rho",
-                    "vanna",
-                    "volga",
-                ] {
-                    if let Ok(value) =
-                        metric_value(&self.json, market_json, as_of, model.clone(), metric)
-                    {
-                        out.insert(metric.to_string(), Value::from(value));
-                    }
+                for (metric, value) in pairs {
+                    out.insert(metric.to_string(), Value::from(value));
                 }
                 serde_wasm_bindgen::to_value(&Value::Object(out)).map_err(to_js_err)
             }

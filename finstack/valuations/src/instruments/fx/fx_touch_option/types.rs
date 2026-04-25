@@ -220,11 +220,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxTouchOptio
 }
 
 impl FxTouchOption {
-    /// Create a canonical example FX touch option for testing and documentation.
-    ///
-    /// Returns a 6-month EUR/USD down-and-in one-touch option.
+    /// Create a canonical example FX touch option expiring on the
+    /// project-wide stable example epoch.
     pub fn example() -> finstack_core::Result<Self> {
-        use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FXTOUCH-EURUSD-OT"))
             .base_currency(Currency::EUR)
@@ -234,7 +232,7 @@ impl FxTouchOption {
             .barrier_direction(BarrierDirection::Down)
             .payout_amount(Money::new(1_000_000.0, Currency::USD))
             .payout_timing(PayoutTiming::AtExpiry)
-            .expiry(date!(2024 - 06 - 21))
+            .expiry(crate::instruments::common_impl::example_constants::FAR_EXPIRY)
             .day_count(DayCount::Act365F)
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .foreign_discount_curve_id(CurveId::new("EUR-OIS"))

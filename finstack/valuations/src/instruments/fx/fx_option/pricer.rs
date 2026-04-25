@@ -1,6 +1,6 @@
 //! FX option pricer implementation using the Garman-Kohlhagen model.
 
-use crate::instruments::common_impl::helpers::year_fraction;
+use crate::instruments::common_impl::helpers::{year_fraction, zero_rate_from_df};
 use crate::instruments::common_impl::models::{bs_greeks, bs_price};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
@@ -88,33 +88,57 @@ fn npv(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     ))
 }
 
-fn collect_inputs(
-    inst: &FxOption,
-    curves: &MarketContext,
-    as_of: Date,
-) -> Result<(f64, f64, f64, f64, f64)> {
-    if as_of >= inst.expiry {
-        return collect_inputs_expired(inst, curves, as_of);
-    }
-
-    let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-    let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-    let t_disc_dom = year_fraction(domestic_disc.day_count(), as_of, inst.expiry)?;
-    let t_disc_for = year_fraction(foreign_disc.day_count(), as_of, inst.expiry)?;
-    let df_d = domestic_disc.df(t_disc_dom);
-    let df_f = foreign_disc.df(t_disc_for);
-    let t_vol = year_fraction(inst.day_count, as_of, inst.expiry)?;
-    let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
-    let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
-
+/// Look up the FX spot via the market's FX matrix.
+fn fx_spot(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<f64> {
     let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
         finstack_core::InputError::NotFound {
             id: "fx_matrix".to_string(),
         },
     ))?;
-    let spot = fx_matrix
+    Ok(fx_matrix
         .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-        .rate;
+        .rate)
+}
+
+/// Pricing inputs without volatility lookup. Used by IV solver and as a base
+/// for the full input collection. Returns `(spot, r_d, r_f, t_vol)` and
+/// short-circuits to `(spot, 0, 0, 0)` when `as_of >= expiry`.
+fn collect_inputs_no_vol(
+    inst: &FxOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<(f64, f64, f64, f64)> {
+    let spot = fx_spot(inst, curves, as_of)?;
+    if as_of >= inst.expiry {
+        return Ok((spot, 0.0, 0.0, 0.0));
+    }
+
+    let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
+    let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
+    // Date-based DF lookups bypass the curve's day-count year-fraction; the
+    // resulting `r = -ln(df) / t_vol` then reconstructs exactly that DF when
+    // composed with `exp(-r * t_vol)` in BS, regardless of curve vs. vol
+    // day-count conventions.
+    let df_d = domestic_disc.df_between_dates(as_of, inst.expiry)?;
+    let df_f = foreign_disc.df_between_dates(as_of, inst.expiry)?;
+    let t_vol = year_fraction(inst.day_count, as_of, inst.expiry)?;
+    let r_d = zero_rate_from_df(df_d, t_vol, "FxOption domestic discount")?;
+    let r_f = zero_rate_from_df(df_f, t_vol, "FxOption foreign discount")?;
+
+    Ok((spot, r_d, r_f, t_vol))
+}
+
+/// Full pricing inputs including volatility. Returns `(spot, r_d, r_f, sigma,
+/// t_vol)` and short-circuits to `(spot, 0, 0, 0, 0)` when expired.
+fn collect_inputs(
+    inst: &FxOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<(f64, f64, f64, f64, f64)> {
+    let (spot, r_d, r_f, t_vol) = collect_inputs_no_vol(inst, curves, as_of)?;
+    if as_of >= inst.expiry {
+        return Ok((spot, 0.0, 0.0, 0.0, 0.0));
+    }
 
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
         impl_vol
@@ -124,61 +148,6 @@ fn collect_inputs(
     };
 
     Ok((spot, r_d, r_f, sigma, t_vol))
-}
-
-fn collect_inputs_expired(
-    inst: &FxOption,
-    curves: &MarketContext,
-    as_of: Date,
-) -> Result<(f64, f64, f64, f64, f64)> {
-    let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
-        finstack_core::InputError::NotFound {
-            id: "fx_matrix".to_string(),
-        },
-    ))?;
-    let spot = fx_matrix
-        .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-        .rate;
-    Ok((spot, 0.0, 0.0, 0.0, 0.0))
-}
-
-fn collect_inputs_no_vol(
-    inst: &FxOption,
-    curves: &MarketContext,
-    as_of: Date,
-) -> Result<(f64, f64, f64, f64)> {
-    if as_of >= inst.expiry {
-        let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
-            finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            },
-        ))?;
-        let spot = fx_matrix
-            .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-            .rate;
-        return Ok((spot, 0.0, 0.0, 0.0));
-    }
-
-    let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-    let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-    let t_disc_dom = year_fraction(domestic_disc.day_count(), as_of, inst.expiry)?;
-    let t_disc_for = year_fraction(foreign_disc.day_count(), as_of, inst.expiry)?;
-    let df_d = domestic_disc.df(t_disc_dom);
-    let df_f = foreign_disc.df(t_disc_for);
-    let t_vol = year_fraction(inst.day_count, as_of, inst.expiry)?;
-    let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
-    let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
-
-    let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
-        finstack_core::InputError::NotFound {
-            id: "fx_matrix".to_string(),
-        },
-    ))?;
-    let spot = fx_matrix
-        .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-        .rate;
-
-    Ok((spot, r_d, r_f, t_vol))
 }
 
 fn implied_vol_impl(
@@ -201,9 +170,11 @@ fn implied_vol_impl(
             )));
     }
 
-    let initial_guess = initial_guess.or(Some(IV_INITIAL_GUESS));
+    // `initial_guess` is currently consumed by the caller via the result type;
+    // the underlying solver picks its own seed when one is not threaded
+    // through. Falls back to `IV_INITIAL_GUESS` for a future signature change.
+    let _ = initial_guess.unwrap_or(IV_INITIAL_GUESS);
     let target_unit = target_price / inst.notional.amount();
-    let _ = initial_guess;
 
     crate::instruments::common_impl::models::bs_implied_vol(
         spot,
@@ -363,34 +334,14 @@ fn price_gk_core(
     bs_price(spot, strike, r_d, r_f, sigma, t, option_type)
 }
 
-/// Registry-facing pricer for vanilla FX options.
-pub struct SimpleFxOptionBlackPricer {
-    model: ModelKey,
-}
-
-impl SimpleFxOptionBlackPricer {
-    /// Create a new FX option pricer using the default model key.
-    pub fn new() -> Self {
-        Self {
-            model: ModelKey::Black76,
-        }
-    }
-
-    /// Create an FX option pricer with a specific model key.
-    pub fn with_model(model: ModelKey) -> Self {
-        Self { model }
-    }
-}
-
-impl Default for SimpleFxOptionBlackPricer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Registry-facing pricer for vanilla FX options. Always dispatches at
+/// [`ModelKey::Black76`] (Garman-Kohlhagen).
+#[derive(Default)]
+pub struct SimpleFxOptionBlackPricer;
 
 impl Pricer for SimpleFxOptionBlackPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::FxOption, self.model)
+        PricerKey::new(InstrumentType::FxOption, ModelKey::Black76)
     }
 
     fn price_dyn(

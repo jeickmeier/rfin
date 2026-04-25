@@ -127,9 +127,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxDigitalOpt
 impl FxDigitalOption {
     /// Create a canonical example FX digital option for testing and documentation.
     ///
-    /// Returns a 6-month EUR/USD cash-or-nothing digital call.
+    /// Returns an EUR/USD cash-or-nothing digital call expiring on the
+    /// project-wide stable example epoch.
     pub fn example() -> finstack_core::Result<Self> {
-        use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FXDIG-EURUSD-CALL"))
             .base_currency(Currency::EUR)
@@ -138,7 +138,7 @@ impl FxDigitalOption {
             .option_type(OptionType::Call)
             .payout_type(DigitalPayoutType::CashOrNothing)
             .payout_amount(Money::new(1_000_000.0, Currency::USD))
-            .expiry(date!(2024 - 06 - 21))
+            .expiry(crate::instruments::common_impl::example_constants::FAR_EXPIRY)
             .day_count(DayCount::Act365F)
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
