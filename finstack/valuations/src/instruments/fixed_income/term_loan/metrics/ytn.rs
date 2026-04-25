@@ -31,26 +31,20 @@ macro_rules! define_ytn {
 
         impl MetricCalculator for $name {
             fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-                let loan: &TermLoan = context.instrument_as()?;
                 let as_of = context.as_of;
-
-                let target = years_ahead(as_of, $years)?;
-                let exercise_date = if target < loan.maturity {
-                    target
-                } else {
+                let target_price = context.base_value;
+                let maturity = {
+                    let loan: &TermLoan = context.instrument_as()?;
                     loan.maturity
                 };
+
+                let target = years_ahead(as_of, $years)?;
+                let exercise_date = if target < maturity { target } else { maturity };
                 if exercise_date <= as_of {
                     return Err(finstack_core::InputError::InvalidDateRange.into());
                 }
 
-                solve_irr_to_date(
-                    loan,
-                    &context.curves,
-                    as_of,
-                    context.base_value,
-                    exercise_date,
-                )
+                solve_irr_to_date(context, target_price, exercise_date)
             }
         }
     };

@@ -4,6 +4,7 @@
 //! metrics. The `MetricCalculator` trait enables custom metric implementations,
 //! while `MetricContext` provides the execution environment with caching.
 
+use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::structured_credit::TrancheCashflows;
 use crate::metrics::risk::MarketHistory;
@@ -190,6 +191,21 @@ pub struct MetricContext {
     /// Cached detailed cashflows with CFKind metadata.
     pub tagged_cashflows: Option<Vec<CashFlow>>,
 
+    /// Cached internal cashflow schedule with full structural metadata
+    /// (notional path, principal events, funding legs).
+    ///
+    /// Populated lazily by instrument-specific callers when several metric
+    /// calculators need the same expensive schedule build (e.g., term loan
+    /// YTM/YTC/YTW/DM/all-in-rate all consume the same `CashFlowSchedule`).
+    /// Stored as `Arc` so callers can hand out cheap clones without holding
+    /// a long-lived borrow of the context. The cache is keyed implicitly to
+    /// a single `(instrument, context.curves, as_of)` evaluation — DO NOT
+    /// reuse a `MetricContext` across different markets or as-of dates.
+    /// Bump-and-reprice paths (DV01/CS01) sidestep this safely because they
+    /// call `reprice_raw(bumped_market, …)` which goes through
+    /// `Instrument::value_raw` directly without consulting the cache.
+    pub(crate) internal_schedule: Option<Arc<CashFlowSchedule>>,
+
     /// Tranche-level detailed cashflow results (for structured credit)
     pub detailed_tranche_cashflows: Option<TrancheCashflows>,
 
@@ -265,6 +281,7 @@ impl MetricContext {
             computed_tensor3: finstack_core::HashMap::default(),
             cashflows: None,
             tagged_cashflows: None,
+            internal_schedule: None,
             detailed_tranche_cashflows: None,
             discount_curve_id: None,
             day_count: None,
@@ -389,6 +406,25 @@ impl MetricContext {
                 .map_err(Into::into);
         }
         instrument.value_raw(market, as_of)
+    }
+
+    /// Return the instrument's signed canonical cashflows, computing and
+    /// caching them on first access.
+    ///
+    /// Many metric calculators (YTM, YTC, YTW, DM, all-in-rate, embedded option
+    /// value, OID-EIR, …) all need the same cashflow schedule. Without this
+    /// cache, evaluating N metrics on a long DDTL reruns the cashflow builder
+    /// N times. Subsequent calls return the cached vector.
+    pub fn cashflows_cached(
+        &mut self,
+    ) -> finstack_core::Result<&Vec<(Date, Money)>> {
+        if self.cashflows.is_none() {
+            let flows = self.instrument.dated_cashflows(&self.curves, self.as_of)?;
+            self.cashflows = Some(flows);
+        }
+        self.cashflows
+            .as_ref()
+            .ok_or_else(|| finstack_core::InputError::Invalid.into())
     }
 
     /// Downcast the instrument to a specific concrete type.

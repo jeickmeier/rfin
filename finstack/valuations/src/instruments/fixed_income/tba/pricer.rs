@@ -8,10 +8,6 @@ use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::fixed_income::mbs_passthrough::{
     pricer::price_mbs, AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
-use crate::pricer::{
-    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
-};
-use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -131,31 +127,6 @@ pub(crate) fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) ->
 #[allow(dead_code)] // Utility available for downstream callers
 pub(crate) fn estimate_fail_cost(position_value: f64, fail_rate: f64, fail_days: u32) -> f64 {
     position_value * fail_rate.max(0.0) * (fail_days as f64) / 360.0
-}
-
-/// Agency TBA discounting pricer.
-#[derive(Debug, Clone, Default)]
-pub(crate) struct AgencyTbaDiscountingPricer;
-
-impl Pricer for AgencyTbaDiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::AgencyTba, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> PricingResult<ValuationResult> {
-        let tba = crate::pricer::expect_inst::<AgencyTba>(instrument, InstrumentType::AgencyTba)?;
-
-        let pv = price_tba(tba, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
-        })?;
-
-        Ok(ValuationResult::stamped(tba.id.as_str(), as_of, pv))
-    }
 }
 
 #[cfg(test)]

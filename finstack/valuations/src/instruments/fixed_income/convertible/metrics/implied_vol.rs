@@ -12,6 +12,8 @@
 //!
 //! Returned as a decimal fraction (e.g., 0.25 = 25% volatility).
 
+use std::cell::Cell;
+
 use crate::instruments::fixed_income::convertible::pricer::{
     calculate_accrued_interest, price_convertible_bond, ConvertibleTreeType,
 };
@@ -72,13 +74,29 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         let base_market = context.curves.as_ref();
 
+        // Validate the unbumped pricing path before entering the solver so that
+        // missing equity / vol / curve inputs surface their real error messages
+        // rather than appearing as opaque solver convergence failures.
+        let _ = price_convertible_bond(bond, base_market, tree_type, as_of)?;
+
+        // Capture the first pricing error so a downstream solver failure can
+        // report the underlying cause. See the OAS solver for why
+        // `take().or(Some(e))` is required instead of `if take().is_none()`.
+        let captured_err: Cell<Option<finstack_core::Error>> = Cell::new(None);
+        let record_err = |e: finstack_core::Error| {
+            let prev = captured_err.take();
+            captured_err.set(prev.or(Some(e)));
+        };
         let objective = |vol: f64| -> f64 {
             let bumped = base_market
                 .clone()
                 .insert_price(&vol_id, MarketScalar::Unitless(vol));
             match price_convertible_bond(bond, &bumped, tree_type, as_of) {
                 Ok(pv) => pv.amount() - target_dirty,
-                Err(_) => f64::NAN,
+                Err(e) => {
+                    record_err(e);
+                    f64::NAN
+                }
             }
         };
 
@@ -87,8 +105,18 @@ impl MetricCalculator for ImpliedVolCalculator {
             .max_iterations(100)
             .bracket_bounds(0.001, 3.0); // 0.1% to 300% vol
 
-        let implied_vol = solver.solve(objective, 0.25)?;
-
-        Ok(implied_vol)
+        match solver.solve(objective, 0.25) {
+            Ok(implied_vol) => Ok(implied_vol),
+            Err(solver_err) => {
+                if let Some(inner) = captured_err.take() {
+                    Err(finstack_core::Error::Validation(format!(
+                        "Convertible implied vol solver failed because pricing failed inside \
+                         the objective: {inner}"
+                    )))
+                } else {
+                    Err(solver_err)
+                }
+            }
+        }
     }
 }

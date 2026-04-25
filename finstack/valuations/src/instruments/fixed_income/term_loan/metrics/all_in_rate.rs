@@ -12,6 +12,8 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::cashflow::CFKind;
 use finstack_core::dates::DayCountContext;
 
+use super::irr_helpers::cached_full_schedule;
+
 /// All-in rate calculator for term loans.
 ///
 /// Returns the cash-cost all-in rate: (cash interest + fees) / time-weighted outstanding.
@@ -25,14 +27,17 @@ pub(crate) struct AllInRateCalculator;
 
 impl MetricCalculator for AllInRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let loan: &TermLoan = context.instrument_as()?;
-        let market = &context.curves;
+        // Snapshot scalar fields off the loan before borrowing the cached schedule.
+        let (dc, maturity) = {
+            let loan: &TermLoan = context.instrument_as()?;
+            (loan.day_count, loan.maturity)
+        };
         let as_of = context.as_of;
 
-        // Build full cashflow schedule — the single source of truth for all flows
-        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            loan, market, as_of,
-        )?;
+        // Use the cached full cashflow schedule — the single source of truth for
+        // all flows. Cached across other yield/spread calculators on the same
+        // loan to avoid repeated rebuilds in multi-metric requests.
+        let schedule = cached_full_schedule(context)?;
 
         // Sum cash interest and fee flows from the schedule (exclude PIK).
         // Only include flows after as_of to match the time-weighted denominator.
@@ -54,7 +59,6 @@ impl MetricCalculator for AllInRateCalculator {
         // We integrate outstanding × year_fraction between consecutive dates.
         let out_path = schedule.outstanding_by_date()?;
 
-        let dc = loan.day_count;
         let mut time_weighted_outstanding = 0.0;
 
         // Integrate piecewise-constant outstanding over the loan life after as_of.
@@ -77,7 +81,7 @@ impl MetricCalculator for AllInRateCalculator {
             if *d <= as_of {
                 continue;
             }
-            let target = (*d).min(loan.maturity);
+            let target = (*d).min(maturity);
             let yf = dc.year_fraction(prev_date, target, DayCountContext::default())?;
             time_weighted_outstanding += prev_outstanding * yf;
             prev_date = target;
@@ -85,8 +89,8 @@ impl MetricCalculator for AllInRateCalculator {
         }
 
         // Extend to maturity if the last outstanding entry is before maturity
-        if prev_date < loan.maturity {
-            let yf = dc.year_fraction(prev_date, loan.maturity, DayCountContext::default())?;
+        if prev_date < maturity {
+            let yf = dc.year_fraction(prev_date, maturity, DayCountContext::default())?;
             time_weighted_outstanding += prev_outstanding * yf;
         }
 

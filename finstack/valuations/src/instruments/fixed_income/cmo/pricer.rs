@@ -10,10 +10,6 @@ use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::fixed_income::mbs_passthrough::pricer::generate_cashflows;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, PoolType};
-use crate::pricer::{
-    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
-};
-use crate::results::ValuationResult;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
@@ -254,31 +250,6 @@ pub(crate) fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) ->
     }
 
     Ok(Money::new(pv, currency))
-}
-
-/// Agency CMO discounting pricer.
-#[derive(Debug, Clone, Default)]
-pub(crate) struct AgencyCmoDiscountingPricer;
-
-impl Pricer for AgencyCmoDiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::AgencyCmo, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> PricingResult<ValuationResult> {
-        let cmo = crate::pricer::expect_inst::<AgencyCmo>(instrument, InstrumentType::AgencyCmo)?;
-
-        let pv = price_cmo(cmo, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
-        })?;
-
-        Ok(ValuationResult::stamped(cmo.id.as_str(), as_of, pv))
-    }
 }
 
 #[cfg(test)]

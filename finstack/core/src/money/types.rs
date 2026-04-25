@@ -241,6 +241,35 @@ impl Money {
         Self::try_new_impl(amount, currency, None)
     }
 
+    /// Construct from a `Decimal` amount, preserving full precision.
+    ///
+    /// Unlike [`Money::new`] / [`Money::try_new`], this constructor never goes
+    /// through `f64`, so it is the preferred entry point when the caller already
+    /// has a high-precision value (e.g., a Python `decimal.Decimal` rendered to
+    /// a string and parsed via `Decimal::from_str`). Use this for hedge-fund
+    /// notionals where IEEE 754 rounding of the input would be unacceptable.
+    ///
+    /// Returns `Err(ConversionOverflow)` if the decimal is finite-but-out-of-bounds
+    /// for the internal representation. `rust_decimal::Decimal` already rejects
+    /// `NaN` / `Infinity` at parse time, so callers parsing user-supplied strings
+    /// will surface those errors before reaching this constructor; this method
+    /// validates the residual edge case where the value is malformed only after
+    /// arithmetic.
+    pub fn from_decimal(
+        amount: rust_decimal::Decimal,
+        currency: Currency,
+    ) -> Result<Self, Error> {
+        // rust_decimal::Decimal models a fixed-precision number with no
+        // NaN/Infinity representation, so finiteness is structural. The
+        // remaining concern is converting back to f64 for downstream f64-only
+        // code paths — guard at construction time so we never hold a value
+        // that can't round-trip through Money::amount().
+        if rust_decimal::prelude::ToPrimitive::to_f64(&amount).is_none() {
+            return Err(Error::Input(InputError::ConversionOverflow));
+        }
+        Ok(Self { amount, currency })
+    }
+
     /// Explicit alias for [`Money::try_new`] that documents retain-precision
     /// intent at the call site.
     ///

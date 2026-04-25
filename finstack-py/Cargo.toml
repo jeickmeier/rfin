@@ -40,3 +40,4 @@ indexmap = { workspace = true }
 # Needed for Month enum used in Date bindings
 time = { workspace = true }
 strum = { workspace = true }
+rust_decimal = { workspace = true }

@@ -284,7 +284,17 @@ impl ConvertibleBondValuator {
             None
         };
 
-        let recovery = bond.recovery_rate.unwrap_or(0.0).clamp(0.0, 1.0);
+        let recovery = match bond.recovery_rate {
+            Some(r) if !r.is_finite() || !(0.0..=1.0).contains(&r) => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Convertible bond {} has recovery_rate={r}; expected finite value in \
+                     [0.0, 1.0] (was previously clamped silently, which masked invalid input)",
+                    bond.id.as_str()
+                )));
+            }
+            Some(r) => r,
+            None => 0.0,
+        };
 
         let mut rf_step_dfs = Vec::with_capacity(steps);
         let mut risky_step_dfs = Vec::with_capacity(steps);
@@ -1654,5 +1664,42 @@ mod tests {
         let err =
             compute_conversion_value(&bond, 100.0).expect_err("inverted bounds must be rejected");
         assert!(format!("{err}").contains("inverted"));
+    }
+
+    /// Regression test: recovery_rate must be validated explicitly, not
+    /// silently clamped to [0.0, 1.0]. Out-of-range or non-finite values
+    /// previously masked invalid inputs (e.g., a typo of 1.5 producing a
+    /// silently-changed 1.0 PV).
+    #[test]
+    fn convertible_recovery_rate_out_of_bounds_errors() {
+        let mut bond = create_test_bond();
+        let market = create_test_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::June, 1).expect("valid date");
+        let tree_type = ConvertibleTreeType::Binomial(50);
+
+        // Above 1.0 — previously clamped to 1.0, now rejected.
+        bond.recovery_rate = Some(1.5);
+        let err = price_convertible_bond(&bond, &market, tree_type, as_of)
+            .expect_err("recovery_rate=1.5 must be rejected");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("recovery_rate") && msg.contains("TEST_CONVERTIBLE"),
+            "error must mention recovery_rate and bond id; got: {msg}"
+        );
+
+        // Negative — previously clamped to 0.0, now rejected.
+        bond.recovery_rate = Some(-0.1);
+        let _ = price_convertible_bond(&bond, &market, tree_type, as_of)
+            .expect_err("negative recovery_rate must be rejected");
+
+        // NaN — previously clamped to 0.0, now rejected.
+        bond.recovery_rate = Some(f64::NAN);
+        let _ = price_convertible_bond(&bond, &market, tree_type, as_of)
+            .expect_err("NaN recovery_rate must be rejected");
+
+        // None — backwards-compat: still treated as 0.0 (no recovery).
+        bond.recovery_rate = None;
+        let _ = price_convertible_bond(&bond, &market, tree_type, as_of)
+            .expect("None recovery_rate must remain valid (defaults to 0.0)");
     }
 }

@@ -10,11 +10,52 @@
 //!   captured in the pre-exercise outstanding used for the redemption leg)
 //! - PIK and negative Notional (funding): always excluded
 
+use std::sync::Arc;
+
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::instruments::TermLoan;
+use crate::metrics::MetricContext;
 use finstack_core::cashflow::{CFKind, InternalRateOfReturn};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+
+/// Return the term loan's full internal cashflow schedule, populating the
+/// shared `MetricContext` cache on first access.
+///
+/// Multiple yield/spread metrics on the same loan call this; the cache avoids
+/// rebuilding the (potentially large) DDTL/PIK schedule per metric. The
+/// downcast is performed internally so callers don't need to thread an
+/// immutable `&TermLoan` borrow through the `&mut MetricContext` access.
+pub(super) fn cached_full_schedule(
+    context: &mut MetricContext,
+) -> finstack_core::Result<Arc<CashFlowSchedule>> {
+    if context.internal_schedule.is_none() {
+        // Clone the instrument Arc so we can drop the context borrow before
+        // calling generate_cashflows, then re-borrow context to write the cache.
+        let inst = Arc::clone(&context.instrument);
+        let loan = inst
+            .as_any()
+            .downcast_ref::<TermLoan>()
+            .ok_or_else(|| finstack_core::InputError::NotFound {
+                id: format!(
+                    "instrument downcast: expected TermLoan, got {} (id={})",
+                    context.instrument.key(),
+                    context.instrument.id(),
+                ),
+            })?;
+        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
+            loan,
+            &context.curves,
+            context.as_of,
+        )?;
+        context.internal_schedule = Some(Arc::new(schedule));
+    }
+    let arc = context
+        .internal_schedule
+        .as_ref()
+        .ok_or(finstack_core::InputError::Invalid)?;
+    Ok(Arc::clone(arc))
+}
 
 /// Resolve the target purchase price for quote-derived term-loan yield metrics.
 ///
@@ -123,37 +164,21 @@ pub(super) fn solve_irr_to_exercise(
 /// This is the core IRR solver used by YT2Y/3Y/4Y metrics.  The redemption is
 /// the pre-exercise outstanding principal (the "sale" price at the horizon).
 ///
-/// Uses the same kind-aware filtering convention as [`solve_irr_to_exercise`].
-///
-/// # Arguments
-///
-/// * `loan` - The term loan instrument
-/// * `curves` - Market context for cashflow generation
-/// * `as_of` - Valuation date
-/// * `target_price` - Purchase price (dirty price, typically base PV)
-/// * `exercise_date` - Horizon date (typically 2Y/3Y/4Y from as_of)
-///
-/// # Returns
-///
-/// IRR (as decimal) that equates the initial price to the present value of
-/// holder-view flows plus outstanding principal at the horizon.
+/// Uses the same kind-aware filtering convention as [`solve_irr_to_exercise`]
+/// and the cached internal schedule from `MetricContext`.
 pub(super) fn solve_irr_to_date(
-    loan: &TermLoan,
-    curves: &finstack_core::market_data::context::MarketContext,
-    as_of: Date,
+    context: &mut MetricContext,
     target_price: Money,
     exercise_date: Date,
 ) -> finstack_core::Result<f64> {
-    // Build full schedule to get outstanding path and flows
-    let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-        loan, curves, as_of,
-    )?;
-
-    // Pre-exercise outstanding (used as "sale" price at horizon)
+    let as_of = context.as_of;
+    let schedule = cached_full_schedule(context)?;
     let out_path = schedule.outstanding_by_date()?;
+
+    // Re-borrow loan for the IRR solver after dropping the cache write borrow.
+    let loan: &TermLoan = context.instrument_as()?;
     let outstanding = outstanding_before(&out_path, exercise_date, loan.currency);
 
-    // Delegate to the unified exercise solver
     solve_irr_to_exercise(
         loan,
         &schedule,

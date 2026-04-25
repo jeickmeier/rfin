@@ -5,10 +5,6 @@
 
 use super::DollarRoll;
 use crate::instruments::fixed_income::tba::pricer::price_tba;
-use crate::pricer::{
-    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
-};
-use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -41,32 +37,6 @@ pub(crate) fn price_dollar_roll(
     let value = back_value.amount() - front_value.amount();
 
     Ok(Money::new(value, roll.notional.currency()))
-}
-
-/// Dollar roll discounting pricer.
-#[derive(Debug, Clone, Default)]
-pub struct DollarRollDiscountingPricer;
-
-impl Pricer for DollarRollDiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::DollarRoll, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> PricingResult<ValuationResult> {
-        let roll =
-            crate::pricer::expect_inst::<DollarRoll>(instrument, InstrumentType::DollarRoll)?;
-
-        let pv = price_dollar_roll(roll, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
-        })?;
-
-        Ok(ValuationResult::stamped(roll.id.as_str(), as_of, pv))
-    }
 }
 
 #[cfg(test)]

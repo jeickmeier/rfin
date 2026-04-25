@@ -614,11 +614,14 @@ impl InflationLinkedBond {
         if matches!(self.indexation_method, IndexationMethod::UK) {
             let valid_uk_lag =
                 matches!(self.lag, InflationLag::Months(3) | InflationLag::Months(8));
-            debug_assert!(
-                valid_uk_lag,
-                "Non-standard UK gilt lag {:?}: expected Months(3) for modern or Months(8) for legacy",
-                self.lag
-            );
+            if !valid_uk_lag {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Non-standard UK gilt lag {:?}: expected Months(3) for modern or \
+                     Months(8) for legacy. Index ratio cannot be reliably computed for \
+                     non-standard lags.",
+                    self.lag
+                )));
+            }
         }
 
         let expected_interp = match self.indexation_method {
@@ -1256,5 +1259,53 @@ mod tests {
                 .any(|flow| flow.date == bond.maturity && flow.kind == CFKind::Notional),
             "expected principal notional flow at maturity"
         );
+    }
+
+    /// Regression test for the UK gilt lag validation that was previously
+    /// `debug_assert!`-only (a release-build silent miscalc). A non-standard
+    /// lag (anything other than 3 or 8 months) must now fail explicitly when
+    /// `index_ratio` is called.
+    #[test]
+    fn uk_gilt_non_standard_lag_returns_err() {
+        let as_of = d(2024, Month::January, 15);
+        let mut bond = sample_bond(DeflationProtection::AllPayments);
+        bond.indexation_method = IndexationMethod::UK;
+        bond.lag = InflationLag::Months(5); // non-standard
+
+        let index = InflationIndex::new(
+            "UK-RPI",
+            vec![(d(2023, Month::January, 1), 100.0), (d(2024, Month::January, 1), 102.0)],
+            Currency::USD,
+        )
+        .expect("index builds");
+
+        let result = bond.index_ratio(as_of, &index);
+        let err = result.expect_err("non-standard UK lag must fail at runtime");
+        assert!(
+            err.to_string().contains("Non-standard UK gilt lag"),
+            "error message should identify the issue: {err}"
+        );
+    }
+
+    #[test]
+    fn uk_gilt_standard_lags_pass_validation() {
+        let as_of = d(2024, Month::January, 15);
+        let mut bond = sample_bond(DeflationProtection::AllPayments);
+        bond.indexation_method = IndexationMethod::UK;
+        bond.lag = InflationLag::Months(3); // modern UK standard
+
+        // Use a Linear-interpolated index to satisfy the modern UK invariant.
+        let index = InflationIndex::new(
+            "UK-RPI",
+            vec![(d(2023, Month::January, 1), 100.0), (d(2024, Month::January, 1), 102.0)],
+            Currency::USD,
+        )
+        .expect("index builds")
+        .with_interpolation(InflationInterpolation::Linear);
+
+        // Modern (3-month) lag must succeed; we don't care about the exact ratio,
+        // just that the validation didn't reject the bond.
+        bond.index_ratio(as_of, &index)
+            .expect("3-month UK gilt lag is valid");
     }
 }
