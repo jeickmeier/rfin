@@ -480,6 +480,17 @@ fn decompose_series_with_mode(
 }
 
 fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
+    // Internal helper. Public callers (`seasonal_forecast_with_decomposition`)
+    // already validate `season_length > 0` and `data.len() >= season_length * 2`,
+    // so the asserts catch any future caller that bypasses those guards before
+    // they reach the modulo / division-by-zero paths below. In release builds
+    // we degrade to a no-op return rather than panicking so a future refactor
+    // that bypasses the public guards cannot crash production.
+    debug_assert!(season_length > 0, "season_length must be > 0");
+    debug_assert!(!data.is_empty(), "data must not be empty");
+    if season_length == 0 || data.is_empty() {
+        return Vec::new();
+    }
     let n = data.len();
     let mut trend = vec![0.0; n];
     let half_season = season_length / 2;
@@ -562,6 +573,14 @@ fn decompose_additive(
     season_length: usize,
     trend: Vec<f64>,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    // `i % season_length` and `sum / season_length` would panic / produce NaN
+    // if season_length were zero. Public callers guard this; assert in case of
+    // future refactors and degrade to empty in release builds rather than
+    // panicking on `i % 0`.
+    debug_assert!(season_length > 0, "season_length must be > 0");
+    if season_length == 0 {
+        return (trend, Vec::new(), vec![0.0; data.len()]);
+    }
     let n = data.len();
 
     // Calculate detrended series
@@ -606,6 +625,13 @@ fn decompose_multiplicative(
     season_length: usize,
     trend: Vec<f64>,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    // See `decompose_additive` — same modulo-zero / divide-by-zero risk if a
+    // future caller bypasses the public-API guards. Multiplicative residuals
+    // default to 1.0 (the identity) when there is nothing to decompose.
+    debug_assert!(season_length > 0, "season_length must be > 0");
+    if season_length == 0 {
+        return (trend, Vec::new(), vec![1.0; data.len()]);
+    }
     let n = data.len();
 
     let detrended: Vec<f64> = data

@@ -158,16 +158,11 @@ mod tests {
     #[test]
     fn validate_financial_model_json_accepts_minimal_model() {
         let model = finstack_statements::FinancialModelSpec::new("test", vec![]);
-        let Ok(json) = serde_json::to_string(&model) else {
-            panic!("model should serialize to JSON");
-        };
-        let Ok(out) = validate_financial_model_json(&json) else {
-            panic!("validate_financial_model_json should accept minimal model");
-        };
-        let Ok(round_trip) = serde_json::from_str::<finstack_statements::FinancialModelSpec>(&out)
-        else {
-            panic!("validated JSON should deserialize");
-        };
+        let json = serde_json::to_string(&model).expect("model should serialize to JSON");
+        let out = validate_financial_model_json(&json)
+            .expect("validate_financial_model_json should accept minimal model");
+        let round_trip = serde_json::from_str::<finstack_statements::FinancialModelSpec>(&out)
+            .expect("validated JSON should deserialize");
         assert_eq!(round_trip.id, "test");
         assert!(round_trip.nodes.is_empty());
     }
@@ -182,13 +177,9 @@ mod tests {
             config: finstack_statements::checks::CheckConfig::default(),
         };
         let json = serde_json::to_string(&spec).expect("serialize");
-        let Ok(out) = validate_check_suite_spec(&json) else {
-            panic!("should accept valid spec");
-        };
-        let Ok(rt) = serde_json::from_str::<finstack_statements::checks::CheckSuiteSpec>(&out)
-        else {
-            panic!("should roundtrip");
-        };
+        let out = validate_check_suite_spec(&json).expect("should accept valid spec");
+        let rt = serde_json::from_str::<finstack_statements::checks::CheckSuiteSpec>(&out)
+            .expect("should roundtrip");
         assert_eq!(rt.name, "test");
     }
 
@@ -196,9 +187,7 @@ mod tests {
     fn validate_waterfall_spec_accepts_default() {
         let spec = finstack_statements::capital_structure::WaterfallSpec::default();
         let json = serde_json::to_string(&spec).expect("serialize");
-        let Ok(out) = validate_waterfall_spec(&json) else {
-            panic!("should accept default spec");
-        };
+        let out = validate_waterfall_spec(&json).expect("should accept default spec");
         assert!(out.contains("priority_of_payments"));
     }
 
@@ -243,9 +232,7 @@ mod tests {
             .build()
             .expect("build");
         let json = serde_json::to_string(&model).expect("serialize");
-        let Ok(out) = evaluate_model(&json) else {
-            panic!("evaluate_model should succeed");
-        };
+        let out = evaluate_model(&json).expect("evaluate_model should succeed");
         let result: finstack_statements::evaluator::StatementResult =
             serde_json::from_str(&out).expect("deserialize result");
         assert!(result.nodes.contains_key("revenue"));
@@ -254,18 +241,14 @@ mod tests {
 
     #[test]
     fn parse_formula_returns_ast_debug() {
-        let Ok(out) = parse_formula("revenue - cogs") else {
-            panic!("parse_formula should succeed");
-        };
+        let out = parse_formula("revenue - cogs").expect("parse_formula should succeed");
         // Debug format contains "BinOp"/"NodeRef" markers
         assert!(!out.is_empty());
     }
 
     #[test]
     fn validate_formula_accepts_valid() {
-        let Ok(ok) = validate_formula("revenue * 0.5") else {
-            panic!("should accept valid formula");
-        };
+        let ok = validate_formula("revenue * 0.5").expect("should accept valid formula");
         assert!(ok);
     }
 

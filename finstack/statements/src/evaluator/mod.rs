@@ -34,6 +34,7 @@ pub(crate) mod export;
 mod forecast_eval;
 pub mod formula;
 mod formula_aggregates;
+mod formula_dispatch;
 mod formula_ewm;
 pub(crate) mod formula_helpers;
 mod formula_timeseries;

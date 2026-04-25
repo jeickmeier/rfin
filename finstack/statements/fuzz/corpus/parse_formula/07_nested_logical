@@ -1,0 +1,1 @@
+(ebitda > 1000) and (debt_balance < 5000) or not (cash <= 0)

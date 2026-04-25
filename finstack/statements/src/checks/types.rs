@@ -231,6 +231,14 @@ fn default_relative_tolerance() -> f64 {
 /// so an analyst can set an absolute floor (currency units) that catches
 /// micro-errors on small balances plus a relative ceiling that scales with
 /// larger balance sheets.
+///
+/// All four fields are part of the public configuration surface and are
+/// intended to be tuned per-deployment via JSON / serde overrides — e.g.,
+/// raising `default_relative_tolerance` to `1e-4` (1 bp) when a downstream
+/// process is known to round to the nearest hundred. The defaults
+/// (`default_tolerance = 0.01`, `default_relative_tolerance = 0.0`,
+/// `materiality_threshold = 0.0`, `min_severity = Info`) are conservative
+/// — they fire on any sub-cent drift and surface every finding.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CheckConfig {
     /// Default **absolute** tolerance for equality comparisons, expressed in
