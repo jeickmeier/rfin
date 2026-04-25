@@ -7,13 +7,13 @@ def price_instrument(
     instrument_json: str,
     market_json: str,
     as_of: str,
-    model: str = "discounting",
+    model: str = "default",
 ) -> str: ...
 def price_instrument_with_metrics(
     instrument_json: str,
     market_json: str,
     as_of: str,
-    model: str = "discounting",
+    model: str = "default",
     metrics: list[str] = [],
     pricing_options: str | None = None,
 ) -> str: ...

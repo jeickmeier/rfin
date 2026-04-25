@@ -15,7 +15,7 @@ use pyo3::prelude::*;
 /// as_of : str
 ///     Valuation date in ISO 8601 format (``"YYYY-MM-DD"``).
 /// model : str
-///     Model key: ``"discounting"`` (default), ``"black76"``, ``"hazard_rate"``,
+///     Model key: ``"default"`` (default), ``"discounting"``, ``"black76"``, ``"hazard_rate"``,
 ///     ``"hull_white_1f"``, ``"tree"``, ``"normal"``, ``"monte_carlo_gbm"``,
 ///     ``"bond_future_clean_price_proxy"``, etc.
 ///
@@ -24,7 +24,7 @@ use pyo3::prelude::*;
 /// str
 ///     JSON-serialized ``ValuationResult``.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market, as_of, model="discounting"))]
+#[pyo3(signature = (instrument_json, market, as_of, model="default"))]
 fn price_instrument(
     instrument_json: &str,
     market: &Bound<'_, PyAny>,
@@ -64,7 +64,7 @@ fn price_instrument(
 /// str
 ///     JSON-serialized ``ValuationResult`` including requested metrics.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market, as_of, model="discounting", metrics=vec![], pricing_options=None))]
+#[pyo3(signature = (instrument_json, market, as_of, model="default", metrics=vec![], pricing_options=None))]
 fn price_instrument_with_metrics(
     instrument_json: &str,
     market: &Bound<'_, PyAny>,

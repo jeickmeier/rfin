@@ -14,9 +14,8 @@ const EPSILON: f64 = 1e-15;
 
 /// Calculates the FX spot rate as `quote_amount / base_amount`.
 ///
-/// Returns 0.0 when the base notional is near-zero (within `EPSILON`)
-/// to avoid division by very small numbers that would produce
-/// numerically unstable results.
+/// Returns an error when the base notional is near-zero because the realized
+/// spot rate is undefined in that case.
 pub struct SpotRateCalculator;
 
 impl MetricCalculator for SpotRateCalculator {
@@ -24,9 +23,10 @@ impl MetricCalculator for SpotRateCalculator {
         let fx: &FxSpot = context.instrument_as()?;
         let base_amt = fx.effective_notional().amount();
 
-        // Use epsilon comparison to avoid division by near-zero values
         if base_amt.abs() < EPSILON {
-            return Ok(0.0);
+            return Err(finstack_core::Error::Validation(format!(
+                "FxSpot spot_rate is undefined for near-zero base notional ({base_amt})"
+            )));
         }
 
         Ok(context.base_value.amount() / base_amt)

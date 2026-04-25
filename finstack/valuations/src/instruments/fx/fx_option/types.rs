@@ -418,6 +418,10 @@ impl FxOption {
 impl crate::instruments::common_impl::traits::Instrument for FxOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
@@ -478,36 +482,27 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxOption 
         request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
         use crate::instruments::common_impl::traits::{
-            OptionDeltaProvider, OptionForeignRhoProvider, OptionGammaProvider, OptionGreekKind,
-            OptionGreeks, OptionRhoProvider, OptionThetaProvider, OptionVannaProvider,
-            OptionVegaProvider, OptionVolgaProvider,
+            OptionGreekKind, OptionGreeks, OptionVannaProvider, OptionVolgaProvider,
         };
 
         match request.greek {
-            OptionGreekKind::Delta => Ok(OptionGreeks {
-                delta: Some(self.option_delta(market, as_of)?),
-                ..OptionGreeks::default()
-            }),
-            OptionGreekKind::Gamma => Ok(OptionGreeks {
-                gamma: Some(self.option_gamma(market, as_of)?),
-                ..OptionGreeks::default()
-            }),
-            OptionGreekKind::Vega => Ok(OptionGreeks {
-                vega: Some(self.option_vega(market, as_of)?),
-                ..OptionGreeks::default()
-            }),
-            OptionGreekKind::Theta => Ok(OptionGreeks {
-                theta: Some(self.option_theta(market, as_of)?),
-                ..OptionGreeks::default()
-            }),
-            OptionGreekKind::Rho => Ok(OptionGreeks {
-                rho_bp: Some(self.option_rho_bp(market, as_of)?),
-                ..OptionGreeks::default()
-            }),
-            OptionGreekKind::ForeignRho => Ok(OptionGreeks {
-                foreign_rho_bp: Some(self.option_foreign_rho_bp(market, as_of)?),
-                ..OptionGreeks::default()
-            }),
+            OptionGreekKind::Delta
+            | OptionGreekKind::Gamma
+            | OptionGreekKind::Vega
+            | OptionGreekKind::Theta
+            | OptionGreekKind::Rho
+            | OptionGreekKind::ForeignRho => {
+                let greeks = self.greeks_internal(market, as_of)?;
+                Ok(OptionGreeks {
+                    delta: Some(greeks.delta),
+                    gamma: Some(greeks.gamma),
+                    vega: Some(greeks.vega),
+                    theta: Some(greeks.theta),
+                    rho_bp: Some(greeks.rho_domestic / 100.0),
+                    foreign_rho_bp: Some(greeks.rho_foreign / 100.0),
+                    ..OptionGreeks::default()
+                })
+            }
             OptionGreekKind::Vanna => Ok(OptionGreeks {
                 vanna: Some(self.option_vanna(market, as_of)?),
                 ..OptionGreeks::default()

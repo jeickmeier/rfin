@@ -1475,20 +1475,20 @@
           "properties": {
             "attributes": {
               "$ref": "#/$defs/Attributes",
-              "description": "Attributes for scenario selection and grouping"
+              "description": "Attributes for scenario selection and grouping."
             },
             "base_currency": {
               "$ref": "#/$defs/Currency",
-              "description": "Base currency (equity denomination)"
+              "description": "Base currency (equity denomination)."
             },
             "correlation": {
-              "description": "Correlation between equity price and FX rate",
+              "description": "Correlation between equity price and FX rate.",
               "format": "double",
               "type": "number"
             },
             "day_count": {
               "$ref": "#/$defs/DayCount",
-              "description": "Day count convention"
+              "description": "Day count convention."
             },
             "div_yield_id": {
               "anyOf": [
@@ -1499,26 +1499,28 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional dividend yield curve ID"
+              "default": null,
+              "description": "Optional dividend yield curve ID."
             },
             "domestic_discount_curve_id": {
               "$ref": "#/$defs/Id",
-              "description": "Discount curve ID (domestic currency)"
+              "description": "Discount curve ID (domestic currency)."
             },
             "equity_strike": {
               "$ref": "#/$defs/Money",
-              "description": "Strike price for equity option"
+              "description": "Strike price for equity option."
             },
             "expiry": {
-              "description": "Option expiry date",
+              "description": "Option expiry date.",
               "type": "string"
             },
             "foreign_discount_curve_id": {
               "$ref": "#/$defs/Id",
-              "description": "Discount curve ID (foreign currency)"
+              "description": "Discount curve ID (foreign currency)."
             },
             "fx_rate_id": {
-              "description": "Optional FX rate identifier",
+              "default": null,
+              "description": "Optional FX rate identifier.",
               "type": [
                 "string",
                 "null"
@@ -1533,22 +1535,24 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional FX volatility surface ID"
+              "default": null,
+              "description": "Optional FX volatility surface ID."
             },
             "id": {
               "$ref": "#/$defs/Id",
-              "description": "Unique instrument identifier"
+              "description": "Unique instrument identifier."
             },
             "notional": {
               "$ref": "#/$defs/Money",
-              "description": "Notional amount (in domestic currency)"
+              "description": "Strike-equivalent domestic reference notional."
             },
             "option_type": {
               "$ref": "#/$defs/OptionType",
-              "description": "Option type (call or put)"
+              "description": "Option type (call or put)."
             },
             "payoff_fx_rate": {
-              "description": "Fixed payoff FX conversion rate from base-currency payoff into quote currency.\n\nExample: for a JPY-underlying option settled in USD at a fixed 140 JPY/USD\nconversion, `payoff_fx_rate` is `1.0 / 140.0` USD per JPY.",
+              "default": null,
+              "description": "Fixed payoff FX conversion rate from base-currency payoff into quote currency.",
               "format": "double",
               "type": [
                 "number",
@@ -1557,18 +1561,19 @@
             },
             "pricing_overrides": {
               "$ref": "#/$defs/PricingOverrides",
-              "description": "Pricing overrides (manual price, yield, spread)"
+              "description": "Pricing overrides (manual price, yield, spread)."
             },
             "quote_currency": {
               "$ref": "#/$defs/Currency",
-              "description": "Quote currency (payment/settlement currency)"
+              "description": "Quote currency (payment/settlement currency)."
             },
             "spot_id": {
               "$ref": "#/$defs/Id",
-              "description": "Equity spot price identifier"
+              "description": "Equity spot price identifier."
             },
             "underlying_quantity": {
-              "description": "Number of underlying units covered by the option payoff.\n\nQuanto pricing is performed per unit of the underlying in the base currency.\nThis quantity converts the per-unit price into contract-level exposure.",
+              "default": null,
+              "description": "Number of underlying units covered by the option payoff.",
               "format": "double",
               "type": [
                 "number",
@@ -1576,12 +1581,12 @@
               ]
             },
             "underlying_ticker": {
-              "description": "Underlying equity ticker symbol",
+              "description": "Underlying equity ticker symbol.",
               "type": "string"
             },
             "vol_surface_id": {
               "$ref": "#/$defs/Id",
-              "description": "Equity volatility surface ID"
+              "description": "Equity volatility surface ID."
             }
           },
           "required": [

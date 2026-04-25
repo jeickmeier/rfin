@@ -44,6 +44,24 @@ fn cashflows_dts_matches_json_bridge_surface() {
 }
 
 #[test]
+fn valuations_dts_exposes_direct_fx_instruments() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface FxNamespace"));
+    assert!(dts.contains("FxSpot: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("FxForward: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("FxSwap: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("Ndf: FxInstrumentConstructor<FxInstrument>;"));
+    assert!(dts.contains("FxOption: FxInstrumentConstructor<FxOptionInstrument>;"));
+    assert!(dts.contains("FxBarrierOption: FxInstrumentConstructor<FxOptionInstrument>;"));
+    assert!(dts.contains("QuantoOption: FxInstrumentConstructor<FxOptionInstrument>;"));
+    assert!(dts.contains("fx: FxNamespace;"));
+    assert!(dts
+        .contains("foreignRho(marketJson: string, asOf: string, model?: string | null): number;"));
+    assert!(dts.contains("greeks(\n    marketJson: string,\n    asOf: string,\n    model?: string | null\n  ): Record<string, number>;"));
+}
+
+#[test]
 fn portfolio_cashflow_api_uses_full_cashflow_name_everywhere() {
     let dts = index_dts();
     let bench = benchmark_script();

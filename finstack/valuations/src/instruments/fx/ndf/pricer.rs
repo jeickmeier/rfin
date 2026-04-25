@@ -114,6 +114,7 @@ mod tests {
             .maturity(Date::from_calendar_date(2024, Month::April, 15).expect("valid date"))
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25) // At market spot
+            .forward_rate_override_opt(Some(7.25))
             .domestic_discount_curve_id(CurveId::new("USD-OIS"))
             .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()

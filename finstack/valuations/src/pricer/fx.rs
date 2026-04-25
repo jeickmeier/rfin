@@ -11,7 +11,9 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::FxSpot,
         ModelKey::Discounting,
-        crate::instruments::fx::fx_spot::pricer::FxSpotPricer,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::FxSpot,
+        >::discounting(InstrumentType::FxSpot),
     );
 
     // FX Swap
@@ -37,13 +39,6 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
         InstrumentType::FxOption,
         ModelKey::Black76,
         crate::instruments::fx::fx_option::pricer::SimpleFxOptionBlackPricer::default(),
-    );
-    registry.register(
-        InstrumentType::FxOption,
-        ModelKey::Discounting,
-        crate::instruments::fx::fx_option::pricer::SimpleFxOptionBlackPricer::with_model(
-            ModelKey::Discounting,
-        ),
     );
 
     // FX Variance Swap
@@ -83,14 +78,9 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
         ModelKey::FxBarrierBSContinuous,
         crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer,
     );
-    // Vanna-Volga smile-corrected FX barrier. Defaults to a degenerate
-    // symmetric smile (equivalent to BS) until callers bind real market
-    // quotes via `FxBarrierOptionVannaVolgaPricer::with_quotes`.
-    registry.register(
-        InstrumentType::FxBarrierOption,
-        ModelKey::FxBarrierVannaVolga,
-        crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionVannaVolgaPricer::new(),
-    );
+    // Vanna-Volga remains an internal helper until market smile quotes are part
+    // of the instrument/market contract. Do not register a standard route that
+    // cannot be parameterized per trade.
 
     // FX Digital Option
     registry.register(
@@ -98,25 +88,11 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
         ModelKey::Black76,
         crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::default(),
     );
-    registry.register(
-        InstrumentType::FxDigitalOption,
-        ModelKey::Discounting,
-        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::with_model(
-            ModelKey::Discounting,
-        ),
-    );
 
     // FX Touch Option
     registry.register(
         InstrumentType::FxTouchOption,
         ModelKey::Black76,
         crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::default(),
-    );
-    registry.register(
-        InstrumentType::FxTouchOption,
-        ModelKey::Discounting,
-        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::with_model(
-            ModelKey::Discounting,
-        ),
     );
 }

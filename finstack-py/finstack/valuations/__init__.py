@@ -9,7 +9,7 @@ import json as _json
 from typing import TYPE_CHECKING, Any
 
 from finstack.finstack import valuations as _valuations
-from finstack.valuations import correlation as correlation, instruments as instruments
+from finstack.valuations import correlation as correlation, fx as fx, instruments as instruments
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -128,6 +128,7 @@ __all__: list[str] = [
     "decompose_factor_risk",
     "default_attribution_metrics",
     "default_waterfall_order",
+    "fx",
     "instrument_cashflows",
     "instrument_cashflows_json",
     "instruments",

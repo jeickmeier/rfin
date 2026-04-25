@@ -1480,9 +1480,10 @@
           "properties": {
             "attributes": {
               "$ref": "#/$defs/Attributes",
-              "description": "Attributes for scenario selection and tagging"
+              "description": "Attributes for scenario selection and tagging."
             },
             "base_calendar_id": {
+              "default": null,
               "description": "Optional base currency calendar.",
               "type": [
                 "string",
@@ -1494,7 +1495,7 @@
               "description": "Base currency (restricted/non-deliverable currency, numerator)."
             },
             "contract_rate": {
-              "description": "Contract forward rate. Interpretation depends on `quote_convention`:\n- BasePerSettlement: base per settlement (e.g., 7.25 CNY per USD)\n- SettlementPerBase: settlement per base (e.g., 0.138 USD per CNY)",
+              "description": "Contract forward rate. Interpretation depends on `quote_convention`.",
               "format": "double",
               "type": "number"
             },
@@ -1507,7 +1508,8 @@
               "type": "string"
             },
             "fixing_rate": {
-              "description": "Observed fixing rate. Interpretation depends on `quote_convention`.\nIf Some, NDF is post-fixing.",
+              "default": null,
+              "description": "Observed fixing rate. Interpretation depends on `quote_convention`.",
               "format": "double",
               "type": [
                 "number",
@@ -1523,7 +1525,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Official fixing source/benchmark enum for type-safe specification.\n\nUse this field for validated fixing sources.\nSee [`NdfFixingSource`] for supported benchmarks and their typical currencies."
+              "default": null,
+              "description": "Official fixing source/benchmark enum for type-safe specification."
             },
             "foreign_discount_curve_id": {
               "anyOf": [
@@ -1534,7 +1537,17 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional foreign (base) currency discount curve ID.\nIf not provided, forward rate estimation uses settlement curve as fallback."
+              "default": null,
+              "description": "Optional foreign (base) currency discount curve ID."
+            },
+            "forward_rate_override": {
+              "default": null,
+              "description": "Explicit pre-fixing forward rate in `quote_convention` units.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "id": {
               "$ref": "#/$defs/Id",
@@ -1568,9 +1581,10 @@
                 "vol_surface_extrapolation": "error",
                 "ytm_bump_decimal": null
               },
-              "description": "Attributes for tagging and selection."
+              "description": "Per-instrument pricing/sensitivity override knobs."
             },
             "quote_calendar_id": {
+              "default": null,
               "description": "Optional settlement currency calendar.",
               "type": [
                 "string",
@@ -1586,7 +1600,8 @@
               "description": "Settlement currency (freely convertible, typically USD, denominator and PV currency)."
             },
             "spot_rate_override": {
-              "description": "Optional spot rate override for forward rate calculation.\nInterpretation depends on `quote_convention`.",
+              "default": null,
+              "description": "Optional spot rate override for forward rate calculation.",
               "format": "double",
               "type": [
                 "number",

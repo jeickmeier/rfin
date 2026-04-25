@@ -102,7 +102,7 @@
 //! # See Also
 //!
 //! - [`FxOption`] for FX option struct
-//! - `pricer::FxOptionCalculator` for pricing calculations
+//! - `pricer` for Garman-Kohlhagen pricing calculations
 //! - `FxOptionGreeks` for Greeks computation
 //! - FX option metrics module for risk metrics
 

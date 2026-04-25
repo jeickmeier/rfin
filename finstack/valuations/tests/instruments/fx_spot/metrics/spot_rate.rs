@@ -57,7 +57,7 @@ fn test_spot_rate_default_notional() {
 }
 
 #[test]
-fn test_spot_rate_zero_notional_returns_zero() {
+fn test_spot_rate_zero_notional_errors() {
     let fx = sample_eurusd()
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
@@ -66,8 +66,14 @@ fn test_spot_rate_zero_notional_returns_zero() {
     let mut ctx = create_context(fx, test_date());
     let calc = SpotRateCalculator;
 
-    let rate = calc.calculate(&mut ctx).unwrap();
-    assert_approx_eq(rate, 0.0, EPSILON, "Zero notional returns zero");
+    let err = calc
+        .calculate(&mut ctx)
+        .expect_err("spot rate is undefined for zero notional");
+    assert!(
+        err.to_string().contains("undefined"),
+        "error should say spot rate is undefined: {}",
+        err
+    );
 }
 
 #[test]

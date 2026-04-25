@@ -123,3 +123,67 @@ mod schema_roundtrip {
     test_roundtrip!(plain: lookback_option, LookbackOption, LookbackOption::example().expect("lo"));
     test_roundtrip!(plain: basket, Basket, Basket::example().expect("bsk"));
 }
+
+mod fx_schema_drift {
+    use finstack_valuations::instruments::*;
+    use schemars::JsonSchema;
+    use serde_json::{Map, Value};
+    use std::path::Path;
+
+    fn checked_in_spec(name: &str) -> Value {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("schemas")
+            .join("instruments")
+            .join("1")
+            .join("fx")
+            .join(format!("{name}.schema.json"));
+        let content = std::fs::read_to_string(&path)
+            .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+        let schema: Value = serde_json::from_str(&content)
+            .unwrap_or_else(|err| panic!("parse {}: {err}", path.display()));
+        schema
+            .pointer("/properties/instrument/properties/spec")
+            .unwrap_or_else(|| panic!("{} missing instrument spec schema", path.display()))
+            .clone()
+    }
+
+    fn generated_spec<T: JsonSchema>() -> Value {
+        let schema = schemars::schema_for!(T);
+        let generated = serde_json::to_value(schema).expect("serialize generated schema");
+        let mut spec = Map::new();
+        for key in [
+            "properties",
+            "required",
+            "type",
+            "additionalProperties",
+            "$defs",
+        ] {
+            if let Some(value) = generated.get(key) {
+                spec.insert(key.to_string(), value.clone());
+            }
+        }
+        Value::Object(spec)
+    }
+
+    fn assert_fx_schema_current<T: JsonSchema>(name: &str) {
+        assert_eq!(
+            checked_in_spec(name),
+            generated_spec::<T>(),
+            "FX schema {name}.schema.json is stale; run `cargo run -p finstack-valuations --bin gen_schemas`"
+        );
+    }
+
+    #[test]
+    fn fx_instrument_schemas_match_schemars_output() {
+        assert_fx_schema_current::<FxSpot>("fx_spot");
+        assert_fx_schema_current::<FxSwap>("fx_swap");
+        assert_fx_schema_current::<FxForward>("fx_forward");
+        assert_fx_schema_current::<Ndf>("ndf");
+        assert_fx_schema_current::<FxOption>("fx_option");
+        assert_fx_schema_current::<FxDigitalOption>("fx_digital_option");
+        assert_fx_schema_current::<FxTouchOption>("fx_touch_option");
+        assert_fx_schema_current::<FxBarrierOption>("fx_barrier_option");
+        assert_fx_schema_current::<FxVarianceSwap>("fx_variance_swap");
+        assert_fx_schema_current::<QuantoOption>("quanto_option");
+    }
+}

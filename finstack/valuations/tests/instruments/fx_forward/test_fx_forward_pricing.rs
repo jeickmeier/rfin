@@ -275,7 +275,8 @@ fn test_fx_forward_with_forward_points() {
         .attributes(Attributes::new())
         .build()
         .expect("should build")
-        .with_forward_points(spot, forward_points);
+        .with_forward_points(spot, forward_points)
+        .expect("valid forward points");
 
     assert_eq!(forward.spot_rate_override, Some(1.10));
     assert!((forward.contract_rate.unwrap() - 1.105).abs() < 1e-10);

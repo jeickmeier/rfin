@@ -70,33 +70,16 @@ fn collect_quanto_inputs(
 }
 
 fn payoff_scale(inst: &QuantoOption) -> finstack_core::Result<f64> {
-    let quantity = inst.underlying_quantity.ok_or_else(|| {
-        finstack_core::Error::Validation(
-            "QuantoOption requires `underlying_quantity`; domestic notional alone is ambiguous"
-                .to_string(),
-        )
-    })?;
-    let fx_rate = inst.payoff_fx_rate.ok_or_else(|| {
-        finstack_core::Error::Validation(
-            "QuantoOption requires `payoff_fx_rate`; domestic notional alone is ambiguous"
-                .to_string(),
-        )
-    })?;
+    inst.validate()?;
 
-    if !quantity.is_finite() || quantity <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "QuantoOption underlying_quantity must be positive and finite; got {}",
-            quantity
-        )));
+    match (inst.underlying_quantity, inst.payoff_fx_rate) {
+        (Some(quantity), Some(fx_rate)) => Ok(quantity * fx_rate),
+        (None, None) => Ok(inst.notional.amount() / inst.equity_strike.amount()),
+        _ => Err(finstack_core::Error::Validation(
+            "QuantoOption requires both underlying_quantity and payoff_fx_rate when either is supplied"
+                .to_string(),
+        )),
     }
-    if !fx_rate.is_finite() || fx_rate <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "QuantoOption payoff_fx_rate must be positive and finite; got {}",
-            fx_rate
-        )));
-    }
-
-    Ok(quantity * fx_rate)
 }
 
 /// Quanto option analytical pricer.

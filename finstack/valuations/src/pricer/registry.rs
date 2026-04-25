@@ -161,6 +161,14 @@ impl PricerRegistry {
         let Some(pricer) = self.get_pricer(key) else {
             return Err(PricingError::UnknownPricer(key));
         };
+        tracing::debug!(
+            instrument_id = %instrument.id(),
+            instrument_type = %instrument.key(),
+            model_key = %model,
+            %as_of,
+            num_metrics = metrics.len(),
+            "dispatching registered pricer"
+        );
         let mut base_result = pricer.price_dyn(instrument, market, as_of)?;
         let effective_cfg = cfg
             .as_deref()
@@ -1063,8 +1071,8 @@ mod tests {
                     InstrumentType::FxOption,
                     ModelKey::Discounting
                 ))
-                .is_some(),
-            "FxOption Discounting pricer should be registered"
+                .is_none(),
+            "FxOption Discounting pricer must not be registered (misleading alias removed)"
         );
         assert!(
             registry
@@ -1074,6 +1082,51 @@ mod tests {
                 ))
                 .is_some(),
             "FxSwap Discounting pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxBarrierOption,
+                    ModelKey::FxBarrierVannaVolga
+                ))
+                .is_none(),
+            "FxBarrierOption Vanna-Volga must not be registered without a quote contract"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxDigitalOption,
+                    ModelKey::Black76
+                ))
+                .is_some(),
+            "FxDigitalOption Black76 pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxDigitalOption,
+                    ModelKey::Discounting
+                ))
+                .is_none(),
+            "FxDigitalOption Discounting pricer must not be registered (misleading alias removed)"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxTouchOption,
+                    ModelKey::Black76
+                ))
+                .is_some(),
+            "FxTouchOption Black76 pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxTouchOption,
+                    ModelKey::Discounting
+                ))
+                .is_none(),
+            "FxTouchOption Discounting pricer must not be registered (misleading alias removed)"
         );
 
         // Equity pricers

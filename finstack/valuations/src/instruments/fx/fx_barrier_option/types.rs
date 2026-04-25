@@ -287,7 +287,7 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for FxBarrierOpt
             bump_bp,
         )?;
         let pv_bumped = self.value(&bumped, as_of)?.amount();
-        Ok(pv_bumped - base_pv)
+        Ok((pv_bumped - base_pv) / bump_bp)
     }
 }
 

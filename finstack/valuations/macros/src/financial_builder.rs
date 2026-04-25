@@ -63,6 +63,7 @@ pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let mut required_fields: Vec<(syn::Ident, syn::Type)> = Vec::new();
     let mut optional_fields: Vec<(syn::Ident, syn::Type)> = Vec::new();
     let mut defaults: HashMap<syn::Ident, Expr> = HashMap::new();
+    let mut custom_validator: Option<Expr> = None;
     // Heuristics for post-build validations
     let mut has_start_date: bool = false;
     let mut has_issue: bool = false;
@@ -71,6 +72,17 @@ pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let mut has_strike_variance: bool = false;
     let mut has_optional_notional: bool = false;
     let mut has_optional_spot_rate: bool = false;
+
+    for attr in &input.attrs {
+        if attr.path().is_ident("builder") {
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("validate") {
+                    custom_validator = Some(meta.value()?.parse()?);
+                }
+                Ok(())
+            });
+        }
+    }
 
     let fields = match input.data {
         Data::Struct(s) => s.fields,
@@ -346,6 +358,11 @@ pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
                     "Builder validation failed: at least one of `notional` or `spot_rate` must be set".to_string()
                 ));
             }
+        });
+    }
+    if let Some(validator) = custom_validator {
+        post_build_checks.extend(quote! {
+            #validator(&__built)?;
         });
     }
 

@@ -55,7 +55,7 @@ impl FxSwapPricingContext {
     /// # Errors
     /// Returns error if:
     /// - Required discount curves are missing
-    /// - FX matrix is missing and no contract near_rate is provided
+    /// - FX matrix is missing
     /// - Discount factors are near-zero (degenerate market data)
     /// - Contract rates are non-positive when explicitly provided
     pub(crate) fn build(swap: &FxSwap, curves: &MarketContext, as_of: Date) -> Result<Self> {
@@ -98,19 +98,17 @@ impl FxSwapPricingContext {
         let df_dom_far = domestic_disc.df_between_dates(as_of, swap.far_date)?;
         let df_for_far = foreign_disc.df_between_dates(as_of, swap.far_date)?;
 
-        // Resolve model spot from FX matrix
+        // Resolve model spot from FX matrix. Explicit swap contract rates define
+        // exchanged cashflows; they are not valid substitutes for market spot.
         let model_spot = if let Some(fx) = curves.fx() {
             (**fx)
                 .rate(FxQuery::new(swap.base_currency, swap.quote_currency, as_of))?
                 .rate
-        } else if let Some(rate) = swap.near_rate {
-            rate
         } else {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::NotFound {
-                    id: "fx_matrix".to_string(),
-                },
-            ));
+            return Err(finstack_core::Error::Validation(format!(
+                "FxSwap {} requires FxMatrix market data for {}/{}; near_rate/far_rate are contract terms and cannot be used as synthetic model spot",
+                swap.id, swap.base_currency, swap.quote_currency
+            )));
         };
 
         // Calculate model forward via covered interest rate parity

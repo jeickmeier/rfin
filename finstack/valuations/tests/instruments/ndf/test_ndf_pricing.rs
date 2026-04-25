@@ -52,6 +52,7 @@ fn test_ndf_pricing_pre_fixing_at_market() {
         .contract_rate(7.25) // At market
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
+        .forward_rate_override_opt(Some(7.25))
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -152,6 +153,7 @@ fn test_ndf_pricing_expired() {
         .contract_rate(7.25)
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
+        .forward_rate_override_opt(Some(7.25))
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -175,6 +177,7 @@ fn test_ndf_registry_pricer() {
         .maturity(maturity)
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
+        .forward_rate_override_opt(Some(7.25))
         .domestic_discount_curve_id(CurveId::new("USD-OIS"))
         .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
@@ -204,6 +207,37 @@ fn test_ndf_registry_pricer() {
         .expect("should price through registry");
 
     assert_eq!(result.value.currency(), Currency::USD);
+}
+
+#[test]
+fn test_ndf_pre_fixing_requires_forward_input() {
+    let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid date");
+    let fixing_date = Date::from_calendar_date(2024, Month::April, 13).expect("valid date");
+    let maturity = Date::from_calendar_date(2024, Month::April, 15).expect("valid date");
+    let market = create_test_market(as_of);
+
+    let ndf = Ndf::builder()
+        .id(InstrumentId::new("USDCNY-NO-FWD"))
+        .base_currency(Currency::CNY)
+        .settlement_currency(Currency::USD)
+        .fixing_date(fixing_date)
+        .maturity(maturity)
+        .notional(Money::new(10_000_000.0, Currency::CNY))
+        .contract_rate(7.25)
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let err = ndf
+        .value(&market, as_of)
+        .expect_err("pre-fixing NDF should require foreign curve or forward override");
+    assert!(
+        err.to_string().contains("forward_rate_override"),
+        "error should mention explicit forward input: {}",
+        err
+    );
 }
 
 #[test]

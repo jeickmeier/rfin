@@ -11,6 +11,7 @@ pub mod correlation;
 mod exotic_rates;
 mod factor_model;
 mod fourier;
+mod fx;
 mod pricing;
 mod sabr;
 
@@ -151,6 +152,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
     correlation::register(py, &m)?;
+    fx::register(py, &m)?;
 
     let all = PyList::new(
         py,
@@ -197,6 +199,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "SabrSmile",
             "SabrCalibrator",
             "correlation",
+            "fx",
         ],
     )?;
     m.setattr("__all__", all)?;

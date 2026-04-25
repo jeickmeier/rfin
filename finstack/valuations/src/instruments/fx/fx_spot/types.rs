@@ -1,9 +1,9 @@
 //! FX Spot types and implementations.
 //!
 //! This file defines the `FxSpot` instrument shape and integrates with the
-//! standard instrument macro. Pricing is delegated to `pricer::FxSpotPricer`
-//! to match the repository conventions (pricing separated from types), and
-//! metrics live under `metrics/`.
+//! standard instrument macro. Pricing lives on the instrument and the standard
+//! registry reaches it through `GenericInstrumentPricer`; metrics live under
+//! `metrics/`.
 //!
 //! # FX Quote Conventions (Market Standards Review - Week 5)
 //!

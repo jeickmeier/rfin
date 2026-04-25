@@ -864,6 +864,54 @@ export interface ValuationInstrumentsNamespace {
   listStandardMetricsGrouped(): Record<string, string[]>;
 }
 
+export type FxInstrumentSpec = Record<string, unknown> | string;
+
+export interface FxInstrument {
+  toJSON(): string;
+  price(marketJson: string, asOf: string, model?: string | null): string;
+  priceWithMetrics(
+    marketJson: string,
+    asOf: string,
+    metrics: string[],
+    model?: string | null,
+    pricingOptions?: string | null
+  ): string;
+}
+
+export interface FxOptionInstrument extends FxInstrument {
+  delta(marketJson: string, asOf: string, model?: string | null): number;
+  gamma(marketJson: string, asOf: string, model?: string | null): number;
+  vega(marketJson: string, asOf: string, model?: string | null): number;
+  theta(marketJson: string, asOf: string, model?: string | null): number;
+  rho(marketJson: string, asOf: string, model?: string | null): number;
+  foreignRho(marketJson: string, asOf: string, model?: string | null): number;
+  vanna(marketJson: string, asOf: string, model?: string | null): number;
+  volga(marketJson: string, asOf: string, model?: string | null): number;
+  greeks(
+    marketJson: string,
+    asOf: string,
+    model?: string | null
+  ): Record<string, number>;
+}
+
+export interface FxInstrumentConstructor<T extends FxInstrument> {
+  new (spec: FxInstrumentSpec): T;
+  fromJSON(json: string): T;
+}
+
+export interface FxNamespace {
+  FxSpot: FxInstrumentConstructor<FxInstrument>;
+  FxForward: FxInstrumentConstructor<FxInstrument>;
+  FxSwap: FxInstrumentConstructor<FxInstrument>;
+  Ndf: FxInstrumentConstructor<FxInstrument>;
+  FxOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxDigitalOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxTouchOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxBarrierOption: FxInstrumentConstructor<FxOptionInstrument>;
+  FxVarianceSwap: FxInstrumentConstructor<FxInstrument>;
+  QuantoOption: FxInstrumentConstructor<FxOptionInstrument>;
+}
+
 // --- SABR (Stochastic Alpha Beta Rho) volatility -------------------------
 
 export interface SabrParameters {
@@ -947,6 +995,8 @@ export interface SabrCalibratorConstructor {
 export interface ValuationsNamespace {
   /** Credit-correlation infrastructure (copulas, recovery, factor models). */
   correlation: CorrelationNamespace;
+  /** Direct FX instrument wrappers. */
+  fx: FxNamespace;
   /** Instrument JSON validation and pricing helpers. */
   instruments: ValuationInstrumentsNamespace;
   validateValuationResultJson(json: string): string;

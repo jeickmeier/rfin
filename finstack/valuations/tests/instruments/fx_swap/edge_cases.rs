@@ -73,21 +73,19 @@ fn test_same_near_far_dates() {
 
 #[test]
 fn test_far_before_near() {
-    // Test swap with far date before near date (invalid)
     let dates = TestDates::standard();
-    let market = setup_standard_market(dates.as_of);
 
-    let swap = create_standard_fx_swap(
-        "INVERTED_DATES",
-        dates.far_date_1y,
-        dates.near_date, // Far before near
-        1_000_000.0,
-    );
-
-    // Should return an error for invalid date ordering
-    let result = swap.value(&market, dates.as_of);
-    assert!(result.is_err(), "Should reject inverted dates");
-    let err = result.expect_err("expected validation error");
+    let err = FxSwap::builder()
+        .id("INVERTED_DATES".to_string().into())
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
+        .near_date(dates.far_date_1y)
+        .far_date(dates.near_date)
+        .base_notional(Money::new(1_000_000.0, Currency::EUR))
+        .domestic_discount_curve_id("USD-OIS".into())
+        .foreign_discount_curve_id("EUR-OIS".into())
+        .build()
+        .expect_err("builder should reject inverted dates");
     assert!(
         err.to_string().contains("near_date") && err.to_string().contains("far_date"),
         "Error should mention date ordering: {}",
@@ -135,7 +133,7 @@ fn test_missing_fx_matrix() {
 
 #[test]
 fn test_missing_fx_matrix_with_contract_rates() {
-    // Test that swap works without FX matrix if contract rates are provided
+    // Contract rates are cashflow terms, not substitutes for model FX spot.
     let dates = TestDates::standard();
 
     // Create market without FX matrix
@@ -167,12 +165,13 @@ fn test_missing_fx_matrix_with_contract_rates() {
         1.15,
     );
 
-    // Should work when contract rates are explicit
     let result = swap.value(&market, dates.as_of);
     assert!(
-        result.is_ok(),
-        "Should work without FX matrix when contract rates provided"
+        result.is_err(),
+        "Should require FX matrix even when contract rates are provided"
     );
+    let err = result.expect_err("expected missing FX matrix validation");
+    assert!(err.to_string().contains("requires FxMatrix"));
 }
 
 #[test]
@@ -192,9 +191,8 @@ fn test_missing_discount_curve() {
 fn test_currency_mismatch_notional() {
     // Test swap with notional currency not matching base currency
     let dates = TestDates::standard();
-    let market = setup_standard_market(dates.as_of);
 
-    let swap = FxSwap::builder()
+    let err = FxSwap::builder()
         .id("CURRENCY_MISMATCH".to_string().into())
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
@@ -204,13 +202,12 @@ fn test_currency_mismatch_notional() {
         .domestic_discount_curve_id("USD-OIS".into())
         .foreign_discount_curve_id("EUR-OIS".into())
         .build()
-        .unwrap();
+        .expect_err("builder should reject notional currency mismatch");
 
-    // Should return error due to currency mismatch
-    let result = swap.value(&market, dates.as_of);
     assert!(
-        result.is_err(),
-        "Should error when notional currency doesn't match base currency"
+        err.to_string().contains("base_notional currency"),
+        "Error should mention notional currency mismatch: {}",
+        err
     );
 }
 
@@ -295,24 +292,22 @@ fn test_extreme_contract_rates() {
 
 #[test]
 fn test_negative_contract_rates() {
-    // Test that negative FX rates are rejected (FX rates must be positive)
     let dates = TestDates::standard();
-    let market = setup_standard_market(dates.as_of);
 
-    let swap = create_fx_swap_with_rates(
-        "NEGATIVE_RATES",
-        dates.near_date,
-        dates.far_date_1y,
-        1_000_000.0,
-        1.10,
-        -0.05, // Negative far rate - should be rejected
-    );
-
-    let result = swap.value(&market, dates.as_of);
-
-    // Negative FX rates are invalid and should be rejected
-    assert!(result.is_err(), "Negative FX rate should be rejected");
-    let err_msg = result.unwrap_err().to_string();
+    let err = FxSwap::builder()
+        .id("NEGATIVE_RATES".to_string().into())
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
+        .near_date(dates.near_date)
+        .far_date(dates.far_date_1y)
+        .base_notional(Money::new(1_000_000.0, Currency::EUR))
+        .domestic_discount_curve_id("USD-OIS".into())
+        .foreign_discount_curve_id("EUR-OIS".into())
+        .near_rate(1.10)
+        .far_rate(-0.05)
+        .build()
+        .expect_err("builder should reject negative FX rates");
+    let err_msg = err.to_string();
     assert!(
         err_msg.contains("positive"),
         "Error should mention rate must be positive: {}",

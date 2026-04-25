@@ -21,7 +21,8 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = QuantoOption::validate)]
+#[serde(deny_unknown_fields, try_from = "QuantoOptionUnchecked")]
 pub struct QuantoOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -34,7 +35,10 @@ pub struct QuantoOption {
     /// Option expiry date
     #[schemars(with = "String")]
     pub expiry: Date,
-    /// Notional amount (in domestic currency)
+    /// Strike-equivalent domestic reference notional.
+    ///
+    /// When `underlying_quantity` and `payoff_fx_rate` are supplied, this must
+    /// equal `underlying_quantity * payoff_fx_rate * equity_strike.amount()`.
     pub notional: Money,
     /// Number of underlying units covered by the option payoff.
     ///
@@ -78,6 +82,91 @@ pub struct QuantoOption {
     pub attributes: Attributes,
 }
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct QuantoOptionUnchecked {
+    /// Unique instrument identifier.
+    id: InstrumentId,
+    /// Underlying equity ticker symbol.
+    underlying_ticker: crate::instruments::equity::spot::Ticker,
+    /// Strike price for equity option.
+    equity_strike: Money,
+    /// Option type (call or put).
+    option_type: OptionType,
+    /// Option expiry date.
+    #[schemars(with = "String")]
+    expiry: Date,
+    /// Strike-equivalent domestic reference notional.
+    notional: Money,
+    /// Number of underlying units covered by the option payoff.
+    #[serde(default)]
+    underlying_quantity: Option<f64>,
+    /// Fixed payoff FX conversion rate from base-currency payoff into quote currency.
+    #[serde(default)]
+    payoff_fx_rate: Option<f64>,
+    /// Base currency (equity denomination).
+    base_currency: Currency,
+    /// Quote currency (payment/settlement currency).
+    quote_currency: Currency,
+    /// Correlation between equity price and FX rate.
+    correlation: f64,
+    /// Day count convention.
+    day_count: finstack_core::dates::DayCount,
+    /// Discount curve ID (domestic currency).
+    domestic_discount_curve_id: CurveId,
+    /// Discount curve ID (foreign currency).
+    foreign_discount_curve_id: CurveId,
+    /// Equity spot price identifier.
+    spot_id: PriceId,
+    /// Equity volatility surface ID.
+    vol_surface_id: CurveId,
+    /// Optional dividend yield curve ID.
+    #[serde(default)]
+    div_yield_id: Option<CurveId>,
+    /// Optional FX rate identifier.
+    #[serde(default)]
+    fx_rate_id: Option<String>,
+    /// Optional FX volatility surface ID.
+    #[serde(default)]
+    fx_vol_id: Option<CurveId>,
+    /// Pricing overrides (manual price, yield, spread).
+    pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping.
+    attributes: Attributes,
+}
+
+impl TryFrom<QuantoOptionUnchecked> for QuantoOption {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: QuantoOptionUnchecked) -> std::result::Result<Self, Self::Error> {
+        let quanto = Self {
+            id: value.id,
+            underlying_ticker: value.underlying_ticker,
+            equity_strike: value.equity_strike,
+            option_type: value.option_type,
+            expiry: value.expiry,
+            notional: value.notional,
+            underlying_quantity: value.underlying_quantity,
+            payoff_fx_rate: value.payoff_fx_rate,
+            base_currency: value.base_currency,
+            quote_currency: value.quote_currency,
+            correlation: value.correlation,
+            day_count: value.day_count,
+            domestic_discount_curve_id: value.domestic_discount_curve_id,
+            foreign_discount_curve_id: value.foreign_discount_curve_id,
+            spot_id: value.spot_id,
+            vol_surface_id: value.vol_surface_id,
+            div_yield_id: value.div_yield_id,
+            fx_rate_id: value.fx_rate_id,
+            fx_vol_id: value.fx_vol_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        quanto.validate()?;
+        Ok(quanto)
+    }
+}
+
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for QuantoOption {
     fn curve_dependencies(
@@ -105,7 +194,7 @@ impl QuantoOption {
                 Date::from_calendar_date(2024, Month::December, 20).expect("Valid example date"),
             )
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .underlying_quantity_opt(Some(100.0))
+            .underlying_quantity_opt(Some(4_000.0))
             .payoff_fx_rate_opt(Some(1.0 / 140.0))
             .base_currency(Currency::JPY)
             .quote_currency(Currency::USD)
@@ -122,6 +211,74 @@ impl QuantoOption {
             .attributes(Attributes::new())
             .build()
             .expect("Example QuantoOption construction should not fail")
+    }
+
+    /// Validate quanto option economics at construction boundaries.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.base_currency == self.quote_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption base_currency ({}) must differ from quote_currency ({})",
+                self.base_currency, self.quote_currency
+            )));
+        }
+        if self.equity_strike.currency() != self.base_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption equity_strike currency ({}) must match base_currency ({})",
+                self.equity_strike.currency(),
+                self.base_currency
+            )));
+        }
+        if self.notional.currency() != self.quote_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption notional currency ({}) must match quote_currency ({})",
+                self.notional.currency(),
+                self.quote_currency
+            )));
+        }
+        if !self.equity_strike.amount().is_finite() || self.equity_strike.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption equity_strike must be positive and finite; got {}",
+                self.equity_strike.amount()
+            )));
+        }
+        if !self.notional.amount().is_finite() || self.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "QuantoOption notional must be positive and finite; got {}",
+                self.notional.amount()
+            )));
+        }
+        match (self.underlying_quantity, self.payoff_fx_rate) {
+            (Some(quantity), Some(fx_rate)) => {
+                if !quantity.is_finite() || quantity <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "QuantoOption underlying_quantity must be positive and finite; got {}",
+                        quantity
+                    )));
+                }
+                if !fx_rate.is_finite() || fx_rate <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "QuantoOption payoff_fx_rate must be positive and finite; got {}",
+                        fx_rate
+                    )));
+                }
+                let expected = quantity * fx_rate * self.equity_strike.amount();
+                let tolerance = 1e-8 * expected.abs().max(self.notional.amount().abs()).max(1.0);
+                if (self.notional.amount() - expected).abs() > tolerance {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "QuantoOption notional ({}) must match underlying_quantity * payoff_fx_rate * equity_strike ({})",
+                        self.notional.amount(),
+                        expected
+                    )));
+                }
+            }
+            (None, None) => {}
+            _ => {
+                return Err(finstack_core::Error::Validation(
+                    "QuantoOption requires both underlying_quantity and payoff_fx_rate when either is supplied".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
     /// Calculate the net present value using Monte Carlo.
     ///
@@ -295,7 +452,7 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for QuantoOption
             bump_bp,
         )?;
         let pv_bumped = self.value(&bumped, as_of)?.amount();
-        Ok(pv_bumped - base_pv)
+        Ok((pv_bumped - base_pv) / bump_bp)
     }
 }
 
@@ -324,7 +481,7 @@ impl crate::instruments::common_impl::traits::OptionForeignRhoProvider for Quant
             bump_bp,
         )?;
         let pv_bumped = self.value(&bumped, as_of)?.amount();
-        Ok(pv_bumped - base_pv)
+        Ok((pv_bumped - base_pv) / bump_bp)
     }
 }
 
@@ -551,7 +708,7 @@ mod tests {
         assert_eq!(option.id.as_str(), "QUANTO-NKY-USD-CALL");
         assert_eq!(option.quote_currency, Currency::USD);
         assert_eq!(option.base_currency, Currency::JPY);
-        assert_eq!(option.underlying_quantity, Some(100.0));
+        assert_eq!(option.underlying_quantity, Some(4_000.0));
         assert!(option.payoff_fx_rate.is_some());
         assert!(option.correlation < 0.0); // Negative correlation in example
     }
@@ -565,6 +722,21 @@ mod tests {
         assert_eq!(deps.discount_curves.len(), 2);
         assert!(deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"));
         assert!(deps.discount_curves.iter().any(|c| c.as_str() == "JPY-OIS"));
+    }
+
+    #[test]
+    fn test_quanto_option_serde_rejects_inconsistent_notional() {
+        let option = QuantoOption::example();
+        let mut json = serde_json::to_value(&option).expect("serialize");
+        json["notional"]["amount"] = serde_json::json!(2_000_000.0);
+
+        let err = serde_json::from_value::<QuantoOption>(json)
+            .expect_err("inconsistent notional should fail during deserialization");
+        assert!(
+            err.to_string().contains("notional"),
+            "error should mention notional consistency: {}",
+            err
+        );
     }
 
     #[test]
