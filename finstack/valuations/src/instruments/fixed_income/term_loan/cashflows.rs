@@ -335,7 +335,13 @@ pub(crate) fn generate_cashflows(
             let _ = builder.fixed_cf(spec);
         }
         super::types::RateSpec::Floating(spec) => {
-            let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or_default();
+            let spread_bp_f64 = spec.spread_bp.to_f64().ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "Term loan {}: floating spread {} bp cannot be represented as f64",
+                    loan.id.as_str(),
+                    spec.spread_bp
+                ))
+            })?;
 
             // Build margin step-up schedule for `float_margin_stepup`.
             //

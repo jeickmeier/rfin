@@ -9,7 +9,8 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
 
 use super::irr_helpers::{
-    outstanding_before, solve_irr_to_exercise, target_price_from_quote_or_model,
+    cached_full_schedule, outstanding_before, solve_irr_to_exercise,
+    target_price_from_quote_or_model,
 };
 
 /// Yield-to-call calculator for callable term loans.
@@ -46,32 +47,27 @@ impl MetricCalculator for YtcCalculator {
                 .calculate(context);
         };
 
-        // Build full schedule to get outstanding path including notional draws/repays
-        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            loan,
-            &context.curves,
-            as_of,
-        )?;
+        // Resolve scalar fields off `loan` before re-borrowing context for the cache.
+        let target_price = target_price_from_quote_or_model(loan, context.base_value);
+        let currency = loan.currency;
+
+        // Use the cached internal schedule (rebuilt only if absent).
+        let schedule = cached_full_schedule(context)?;
 
         // Use pre-exercise outstanding (< call.date) for redemption calculation.
         // outstanding_by_date returns balances AFTER each date, so < gives the
         // balance before any events on the call date.
         let out_path = schedule.outstanding_by_date()?;
-        let outstanding = outstanding_before(&out_path, call.date, loan.currency);
+        let outstanding = outstanding_before(&out_path, call.date, currency);
 
         // Redemption = outstanding * call price (as percentage of par)
         let redemption = Money::new(
             outstanding.amount() * (call.price_pct_of_par / 100.0),
-            loan.currency,
+            currency,
         );
 
-        solve_irr_to_exercise(
-            loan,
-            &schedule,
-            as_of,
-            target_price_from_quote_or_model(loan, context.base_value),
-            call.date,
-            redemption,
-        )
+        // Re-fetch the loan reference (cache write path released the borrow).
+        let loan: &TermLoan = context.instrument_as()?;
+        solve_irr_to_exercise(loan, &schedule, as_of, target_price, call.date, redemption)
     }
 }

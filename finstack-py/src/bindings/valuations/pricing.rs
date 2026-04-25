@@ -35,7 +35,7 @@ fn price_instrument(
     let result =
         finstack_valuations::pricer::price_instrument_json(instrument_json, &market, as_of, model)
             .map_err(display_to_py)?;
-    serde_json::to_string_pretty(&result).map_err(display_to_py)
+    serde_json::to_string(&result).map_err(display_to_py)
 }
 
 /// Price an instrument with explicit metric requests.
@@ -83,7 +83,7 @@ fn price_instrument_with_metrics(
         pricing_options,
     )
     .map_err(display_to_py)?;
-    serde_json::to_string_pretty(&result).map_err(display_to_py)
+    serde_json::to_string(&result).map_err(display_to_py)
 }
 
 /// List all metric IDs in the standard metric registry.

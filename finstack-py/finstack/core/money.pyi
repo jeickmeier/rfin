@@ -17,6 +17,7 @@ Example::
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Union
 
 from finstack.core.currency import Currency
@@ -53,20 +54,50 @@ class Money:
     Money(150.0, 'USD')
     """
 
-    def __init__(self, amount: float, currency: Union[Currency, str]) -> None:
-        """Construct from a finite amount and a currency.
+    def __init__(
+        self, amount: Union[float, int, Decimal], currency: Union[Currency, str]
+    ) -> None:
+        """Construct from an amount and a currency.
 
         Parameters
         ----------
-        amount : float
-            Finite monetary amount.
+        amount : float | int | decimal.Decimal
+            Finite monetary amount. ``Decimal`` inputs preserve full precision
+            (no IEEE 754 round-trip); ``float``/``int`` follow standard IEEE 754
+            semantics. Use ``Decimal`` for hedge-fund-grade notionals where
+            precision matters.
         currency : Currency | str
             Currency object or ISO-4217 alphabetic code string.
 
         Raises
         ------
         ValueError
-            If *amount* is not finite or *currency* is invalid.
+            If *amount* is not finite, cannot be parsed as a Decimal, or
+            *currency* is invalid.
+        """
+        ...
+
+    @classmethod
+    def from_decimal(
+        cls, amount: Decimal, currency: Union[Currency, str]
+    ) -> Money:
+        """Construct from a ``decimal.Decimal``, preserving full precision.
+
+        This is the recommended entry point when the caller already holds a
+        high-precision value. Unlike the regular ``Money(amount, ccy)``
+        constructor's float path, this never rounds through ``f64``.
+
+        Parameters
+        ----------
+        amount : decimal.Decimal
+            Decimal monetary amount.
+        currency : Currency | str
+            Currency object or ISO-4217 code string.
+
+        Raises
+        ------
+        ValueError
+            If *amount* cannot be parsed or *currency* is invalid.
         """
         ...
 

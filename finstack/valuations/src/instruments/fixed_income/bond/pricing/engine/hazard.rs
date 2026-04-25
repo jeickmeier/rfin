@@ -226,11 +226,20 @@ impl HazardBondEngine {
         if surv_raw.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        // Check if already defaulted by as_of
+        // Check for prior default. A survival probability of zero at as_of means
+        // the hazard curve implies the bond has already defaulted, in which case
+        // the holder should be valuing recovery proceeds — not running the alive-leg
+        // pricer. Return an error rather than a silent PV=0 so a misconfigured curve
+        // is caught at the call site.
         let s0 = surv_raw[0].clamp(0.0, 1.0);
         if s0 <= 0.0 {
-            // Already defaulted by as_of; no future value.
-            return Ok(0.0);
+            return Err(finstack_core::Error::Validation(format!(
+                "Hazard curve implies bond {} has zero survival probability at as_of={}; \
+                 already-defaulted bonds must be priced via recovery proceeds, not the \
+                 hazard engine. Check the hazard curve's base date and calibration.",
+                bond.id.as_str(),
+                as_of
+            )));
         }
         // Conditional survival: Q(as_of, T_i) = S(T_i) / S(as_of)
         let surv: Vec<f64> = surv_raw.iter().map(|s| (s / s0).clamp(0.0, 1.0)).collect();
@@ -653,6 +662,48 @@ mod tests {
             "PIK price with higher hazard should be lower (pv_high={}, pv_low={})",
             pv_high.amount(),
             pv_low.amount()
+        );
+    }
+
+    /// Regression test: when the hazard curve implies the bond has already
+    /// defaulted at `as_of` (survival probability at as_of underflows to 0),
+    /// the engine must return an explicit error rather than silently returning
+    /// PV = 0.0. The previous behavior masked malformed credit curves as
+    /// valid zero valuations.
+    #[test]
+    fn hazard_engine_errors_on_prior_default() {
+        // Push as_of well past the curve's last knot so FlatForward
+        // extrapolation drives `S(as_of) = exp(-lambda*t)` below f64's
+        // underflow threshold (~exp(-745)). This keeps the curve builder
+        // happy (lambda stays inside the default sanity bound) while still
+        // producing a true zero at evaluation time.
+        let issue = Date::from_calendar_date(2020, Month::January, 1).expect("valid date");
+        let as_of = Date::from_calendar_date(2100, Month::January, 1).expect("valid date");
+        let maturity = Date::from_calendar_date(2110, Month::January, 1).expect("valid date");
+
+        let bond = build_test_bond(issue, maturity);
+        // Need a discount curve that extends past `as_of` so PV anchoring
+        // works at a far-future as_of.
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (100.0, 0.01)])
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("DiscountCurve builder should succeed");
+        // lambda = 10/year, FlatForward extrapolation. S(80y) = exp(-800) = 0.
+        let hazard = build_flat_hazard("USD-CREDIT", issue, 10.0, 0.4);
+        let market = MarketContext::new().insert(disc).insert(hazard);
+
+        let result = HazardBondEngine::price(&bond, &market, as_of);
+        let err = result.expect_err("prior-default curve must error, not return Ok(0.0)");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("zero survival probability") || msg.contains("already-defaulted"),
+            "error should explain prior default; got: {msg}"
+        );
+        assert!(
+            msg.contains("TEST_BOND_HAZARD"),
+            "error should include bond id for triage; got: {msg}"
         );
     }
 }

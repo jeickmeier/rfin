@@ -13,10 +13,6 @@
 use super::AgencyMbsPassthrough;
 use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::pricer::{
-    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
-};
-use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -77,14 +73,15 @@ pub fn generate_cashflows(
 ) -> Result<Vec<MbsCashflow>> {
     use time::Duration;
 
-    let mut cashflows = Vec::new();
-    let mut balance = mbs.current_face.amount();
-
     if mbs.wam == 0 {
         return Err(finstack_core::Error::Validation(
             "WAM must be positive".to_string(),
         ));
     }
+
+    let cap = max_periods.unwrap_or(mbs.wam) as usize;
+    let mut cashflows = Vec::with_capacity(cap);
+    let mut balance = mbs.current_face.amount();
 
     // Start from the active accrual period containing as_of, unless the pool
     // has a forward issue date inside the month, in which case the partial
@@ -127,8 +124,7 @@ pub fn generate_cashflows(
                 "MBS prepayment model returned invalid SMM={raw_smm} at seasoning {seasoning} months; expected finite value in [0.0, 1.0]"
             )));
         }
-        // Clamp to [0, 0.9999] to avoid degenerate (1 - SMM) -> 0 in cashflow math.
-        let smm = raw_smm.clamp(0.0, 0.9999);
+        let smm = raw_smm;
 
         let remaining_months = mbs.wam.saturating_sub(seasoning);
         let remaining_months = if remaining_months == 0 {
@@ -317,34 +313,6 @@ pub(crate) fn price_with_spread(
     discount_schedule(&schedule, &discount_curve, as_of, spread)
 }
 
-/// Agency MBS discounting pricer.
-#[derive(Debug, Clone, Default)]
-pub struct AgencyMbsDiscountingPricer;
-
-impl Pricer for AgencyMbsDiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::AgencyMbsPassthrough, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> PricingResult<ValuationResult> {
-        let mbs = crate::pricer::expect_inst::<AgencyMbsPassthrough>(
-            instrument,
-            InstrumentType::AgencyMbsPassthrough,
-        )?;
-
-        let pv = price_mbs(mbs, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
-        })?;
-
-        Ok(ValuationResult::stamped(mbs.id.as_str(), as_of, pv))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -529,5 +497,32 @@ mod tests {
         let pv_fast = price_mbs(&mbs_fast, &market, as_of).expect("should price");
 
         assert!((pv_slow.amount() - pv_fast.amount()).abs() > 1.0);
+    }
+
+    /// Regression test for the SMM-clamp removal at the MBS-pricer layer.
+    ///
+    /// `PrepaymentModelSpec::smm` already clamps CPR at `MAX_CPR=0.999999`,
+    /// so the maximum SMM that can reach `generate_cashflows` via the public
+    /// API is `1 - (1 - 0.999999)^(1/12) ≈ 0.6838` — well under the old
+    /// pricer-layer cap of 0.9999. The cap was therefore a no-op on the real
+    /// path, but it would silently truncate any future direct-SMM source that
+    /// produced ≥ 0.9999. This test pins the SMM that arrives at
+    /// `generate_cashflows` so the redundant clamp can never quietly return.
+    #[test]
+    fn smm_at_max_cpr_passes_through_pricer_unchanged() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
+        let mut mbs = create_test_mbs();
+        mbs.prepayment_model = PrepaymentModelSpec::constant_cpr(1.0);
+
+        let expected_smm = 1.0 - (1.0 - 0.999999_f64).powf(1.0 / 12.0);
+        let cashflows = generate_cashflows(&mbs, as_of, Some(1)).expect("should generate");
+        let first = cashflows.first().expect("at least one cashflow");
+
+        // Pricer must propagate exactly what cpr_to_smm produced (no extra clamp).
+        assert!(
+            (first.smm - expected_smm).abs() < 1e-12,
+            "SMM must reach the pricer unclamped: expected {expected_smm}, got {}",
+            first.smm
+        );
     }
 }

@@ -35,16 +35,57 @@ fn extract_money(obj: &Bound<'_, PyAny>) -> PyResult<Money> {
         .map_err(|_| PyTypeError::new_err("expected Money"))
 }
 
+/// Convert a Python ``decimal.Decimal`` (or any object whose ``str()`` yields a
+/// decimal literal) into a `rust_decimal::Decimal` without going through
+/// `f64`. Returns a Python `ValueError` if the string cannot be parsed
+/// (catches NaN/Infinity inputs from the Python side, since
+/// `rust_decimal::Decimal::from_str` rejects those).
+fn decimal_from_py(obj: &Bound<'_, PyAny>) -> PyResult<rust_decimal::Decimal> {
+    let s: String = obj.str()?.extract()?;
+    rust_decimal::Decimal::from_str(&s)
+        .map_err(|e| PyValueError::new_err(format!("Invalid Decimal value {s:?}: {e}")))
+}
+
+/// Return true if `obj` is an instance of `decimal.Decimal` (or any subclass).
+///
+/// Uses the Python `isinstance` check rather than a string compare on
+/// `type(obj).__name__`, so `MyDecimal(Decimal)` subclasses and any third-party
+/// `Decimal`-named classes are distinguished correctly. We import the type
+/// once per call; PyO3 caches `import` lookups internally.
+fn is_python_decimal(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = obj.py();
+    let decimal_module = PyModule::import(py, "decimal")?;
+    let decimal_type = decimal_module.getattr("Decimal")?;
+    obj.is_instance(&decimal_type)
+}
+
+/// Build a [`Money`] from a Python amount that may be `float`, `int`, or
+/// `decimal.Decimal`. `Decimal` inputs (including subclasses) preserve full
+/// precision; numeric inputs follow IEEE 754 semantics.
+fn money_from_amount(obj: &Bound<'_, PyAny>, ccy: Currency) -> PyResult<Money> {
+    if is_python_decimal(obj)? {
+        let d = decimal_from_py(obj)?;
+        return Money::from_decimal(d, ccy).map_err(core_to_py);
+    }
+    let amount: f64 = obj.extract().map_err(|_| {
+        PyTypeError::new_err("Money amount must be float, int, or decimal.Decimal")
+    })?;
+    Money::try_new(amount, ccy).map_err(core_to_py)
+}
+
 #[pymethods]
 impl PyMoney {
     /// Construct from a finite ``amount`` and a [`PyCurrency`] or ISO code string.
+    ///
+    /// ``amount`` may be a Python ``float``, ``int``, or ``decimal.Decimal``.
+    /// When given a ``Decimal``, the value is parsed without going through
+    /// ``f64``, preserving full precision for hedge-fund-grade notionals.
+    /// Floats and ints follow standard IEEE 754 rounding.
     #[new]
     #[pyo3(text_signature = "(amount, currency)")]
-    fn new(amount: f64, currency: &Bound<'_, PyAny>) -> PyResult<Self> {
+    fn new(amount: &Bound<'_, PyAny>, currency: &Bound<'_, PyAny>) -> PyResult<Self> {
         let ccy = extract_currency(currency)?;
-        Money::try_new(amount, ccy)
-            .map(Self::from_inner)
-            .map_err(core_to_py)
+        money_from_amount(amount, ccy).map(Self::from_inner)
     }
 
     /// Zero amount in the given currency.
@@ -53,6 +94,26 @@ impl PyMoney {
     fn zero(_cls: &Bound<'_, PyType>, currency: &Bound<'_, PyAny>) -> PyResult<Self> {
         let ccy = extract_currency(currency)?;
         Money::try_new(0.0, ccy)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
+    }
+
+    /// Construct from a ``decimal.Decimal`` amount, preserving full precision.
+    ///
+    /// Unlike the regular constructor's ``float`` path, this never round-trips
+    /// through ``f64``, so it is the recommended entry point when the caller
+    /// already has a high-precision value (e.g., a portfolio notional carried
+    /// as ``Decimal`` to avoid IEEE 754 drift).
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, amount, currency)")]
+    fn from_decimal(
+        _cls: &Bound<'_, PyType>,
+        amount: &Bound<'_, PyAny>,
+        currency: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let ccy = extract_currency(currency)?;
+        let d = decimal_from_py(amount)?;
+        Money::from_decimal(d, ccy)
             .map(Self::from_inner)
             .map_err(core_to_py)
     }

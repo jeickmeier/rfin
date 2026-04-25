@@ -863,4 +863,95 @@ mod tests {
         assert!(result.mc_result.estimate.min.is_none());
         assert!(result.mc_result.estimate.max.is_none());
     }
+
+    /// Regression test for parallel MC determinism.
+    ///
+    /// After parallelizing the Philox path loop with rayon, two runs with the
+    /// same seed must produce bit-identical PVs and per-path values regardless
+    /// of how many cores rayon uses to execute. This guards against any RNG
+    /// substream initialization regressions or accidental order-dependence in
+    /// the parallel `collect()` pipeline.
+    #[test]
+    fn parallel_mc_is_deterministic_across_runs() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+
+        let make_facility = || {
+            RevolvingCredit::builder()
+                .id("RC-DETERMINISM".into())
+                .commitment_amount(Money::new(1_000_000.0, Currency::USD))
+                .drawn_amount(Money::new(400_000.0, Currency::USD))
+                .commitment_date(start)
+                .maturity(end)
+                .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+                .day_count(DayCount::Act360)
+                .frequency(Tenor::quarterly())
+                .fees(RevolvingCreditFees::default())
+                .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
+                    StochasticUtilizationSpec {
+                        utilization_process: UtilizationProcess::MeanReverting {
+                            target_rate: 0.5,
+                            speed: 0.75,
+                            volatility: 0.05,
+                        },
+                        num_paths: 64,
+                        seed: Some(123_456_789),
+                        antithetic: true,
+                        use_sobol_qmc: false,
+                        mc_config: Some(McConfig {
+                            recovery_rate: 0.4,
+                            credit_spread_process: CreditSpreadProcessSpec::Constant(0.0),
+                            interest_rate_process: None,
+                            correlation_matrix: None,
+                            util_credit_corr: None,
+                        }),
+                    },
+                )))
+                .discount_curve_id("USD-OIS".into())
+                .recovery_rate(0.4)
+                .build()
+                .expect("facility should build")
+        };
+
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(start)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
+            .build()
+            .expect("curve should build");
+        let market = MarketContext::new().insert(disc_curve);
+
+        let r1 = RevolvingCreditPricer::price_with_paths(&make_facility(), &market, start)
+            .expect("first run should price");
+        let r2 = RevolvingCreditPricer::price_with_paths(&make_facility(), &market, start)
+            .expect("second run should price");
+
+        assert_eq!(r1.path_results.len(), r2.path_results.len());
+        // Mean PV must be bit-identical (same seed → same paths → same PVs).
+        let m1 = r1.mc_result.estimate.mean.amount();
+        let m2 = r2.mc_result.estimate.mean.amount();
+        assert_eq!(
+            m1.to_bits(),
+            m2.to_bits(),
+            "parallel MC must be deterministic for fixed seed; got mean1={m1} mean2={m2}"
+        );
+        for (i, (p1, p2)) in r1
+            .path_results
+            .iter()
+            .zip(r2.path_results.iter())
+            .enumerate()
+        {
+            let v1 = p1.pv.amount();
+            let v2 = p2.pv.amount();
+            assert_eq!(
+                v1.to_bits(),
+                v2.to_bits(),
+                "path {i} PV diverges between runs: {v1} vs {v2}"
+            );
+        }
+    }
 }

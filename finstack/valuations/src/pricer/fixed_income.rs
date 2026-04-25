@@ -62,31 +62,43 @@ pub(crate) fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
         crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::default(),
     );
 
-    // Agency MBS Passthrough
+    // Agency MBS Passthrough — uses Instrument::base_value via GenericInstrumentPricer.
+    // Per-instrument *DiscountingPricer wrappers were trivial pass-throughs with no
+    // behavior beyond delegating to the same base_value path; collapsed to the
+    // generic pricer to remove ~100 LoC of boilerplate (FI-TRS and inflation linker
+    // already use the same pattern).
     registry.register(
         InstrumentType::AgencyMbsPassthrough,
         ModelKey::Discounting,
-        crate::instruments::fixed_income::mbs_passthrough::AgencyMbsDiscountingPricer,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough,
+        >::discounting(InstrumentType::AgencyMbsPassthrough),
     );
 
     // Agency TBA
     registry.register(
         InstrumentType::AgencyTba,
         ModelKey::Discounting,
-        crate::instruments::fixed_income::tba::AgencyTbaDiscountingPricer,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::fixed_income::tba::AgencyTba,
+        >::discounting(InstrumentType::AgencyTba),
     );
 
     // Dollar Roll
     registry.register(
         InstrumentType::DollarRoll,
         ModelKey::Discounting,
-        crate::instruments::fixed_income::dollar_roll::DollarRollDiscountingPricer,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::fixed_income::dollar_roll::DollarRoll,
+        >::discounting(InstrumentType::DollarRoll),
     );
 
     // Agency CMO
     registry.register(
         InstrumentType::AgencyCmo,
         ModelKey::Discounting,
-        crate::instruments::fixed_income::cmo::AgencyCmoDiscountingPricer,
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::fixed_income::cmo::AgencyCmo,
+        >::discounting(InstrumentType::AgencyCmo),
     );
 }

@@ -611,6 +611,27 @@ impl TermLoanTreePricer {
             None
         };
 
+        // Pre-calibrate the short-rate tree once when the credit tree is absent.
+        // OAS is passed via state variables on each Brent iteration, so the rate
+        // tree itself never needs re-calibration — calibrating it once outside
+        // the solver loop saves ~50 tree builds per OAS solve (matching the
+        // approach already used above for the credit tree).
+        let sr_tree_and_initial: Option<(ShortRateTree, f64)> = if rc_tree.is_some() {
+            None
+        } else {
+            let mut tree = ShortRateTree::new(ShortRateTreeConfig {
+                steps,
+                volatility: vol,
+                ..Default::default()
+            });
+            tree.calibrate(disc.as_ref(), time_to_maturity)
+                .map_err(|e| finstack_core::Error::Validation(format!(
+                    "TermLoan OAS short-rate tree calibration failed: {e}"
+                )))?;
+            let initial_rate = tree.rate_at_node(0, 0).unwrap_or_else(|_| disc.zero(0.0));
+            Some((tree, initial_rate))
+        };
+
         let objective_fn = |oas_bp: f64| -> f64 {
             if let Some(tree) = rc_tree.as_ref() {
                 // Calibrated credit tree: OAS as a parallel shift to calibrated rates.
@@ -620,19 +641,10 @@ impl TermLoanTreePricer {
                     Ok(model_price) => model_price - dirty_target,
                     Err(_) => 1.0e6,
                 }
-            } else {
-                // Short-rate tree: use built-in OAS key (bp) like the bond pricer.
-                let mut tree = ShortRateTree::new(ShortRateTreeConfig {
-                    steps,
-                    volatility: vol,
-                    ..Default::default()
-                });
-                if tree.calibrate(disc.as_ref(), time_to_maturity).is_err() {
-                    return 1.0e6;
-                }
-                let initial_rate = tree.rate_at_node(0, 0).unwrap_or_else(|_| disc.zero(0.0));
+            } else if let Some((tree, initial_rate)) = sr_tree_and_initial.as_ref() {
+                // Short-rate tree: pre-calibrated; OAS is a parallel shift via state.
                 let mut vars = StateVariables::default();
-                vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
+                vars.insert(short_rate_keys::SHORT_RATE, *initial_rate);
                 vars.insert(short_rate_keys::OAS, oas_bp);
                 match tree.price(vars, time_to_maturity, market, &valuator) {
                     Ok(model_price) => model_price - dirty_target,
@@ -644,6 +656,11 @@ impl TermLoanTreePricer {
                         }
                     }
                 }
+            } else {
+                // Unreachable by construction: if rc_tree is None we always
+                // populate sr_tree_and_initial above. Returning a large residual
+                // keeps the solver well-behaved if this contract is ever broken.
+                1.0e6
             }
         };
 

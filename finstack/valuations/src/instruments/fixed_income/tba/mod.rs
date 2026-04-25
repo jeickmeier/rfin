@@ -45,5 +45,4 @@ pub(crate) mod pricer;
 pub mod settlement;
 mod types;
 
-pub(crate) use pricer::AgencyTbaDiscountingPricer;
 pub use types::{AgencyTba, TbaSettlement, TbaTerm};
