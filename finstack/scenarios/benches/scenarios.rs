@@ -232,9 +232,15 @@ fn bench_scenario_composition(c: &mut Criterion) {
             &scenario_count,
             |b, &count| {
                 let engine = ScenarioEngine::new();
+                // Pre-create scenarios outside `b.iter` so the benchmark
+                // measures composition only (not scenario allocation).
+                let scenarios = create_scenarios_for_composition(count);
                 b.iter(|| {
-                    let scenarios = create_scenarios_for_composition(count);
-                    black_box(engine.compose(black_box(scenarios)))
+                    black_box(
+                        engine
+                            .try_compose(black_box(scenarios.clone()))
+                            .expect("compose should succeed"),
+                    )
                 });
             },
         );

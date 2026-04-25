@@ -132,7 +132,7 @@ fn test_statements_rate_bindings_curve() {
     let rate_bindings = Some(indexmap! {
         "InterestRate".into() => RateBindingSpec {
             node_id: "InterestRate".into(),
-            curve_id: "USD_SOFR".to_string(),
+            curve_id: "USD_SOFR".into(),
             tenor: "1Y".to_string(),
             compounding: Compounding::Continuous,
             day_count: None,
@@ -347,7 +347,7 @@ fn test_three_scenario_composition() {
     };
 
     let engine = ScenarioEngine::new();
-    let composed = engine.compose(vec![s3, s1, s2]); // Intentionally out of order
+    let composed = engine.try_compose(vec![s3, s1, s2]).expect("compose should succeed"); // Intentionally out of order
 
     assert_eq!(composed.operations.len(), 3);
 

@@ -30,7 +30,7 @@ fn test_cap_creation_basic() {
     )
     .expect("valid strike");
 
-    assert_eq!(cap.id, "USD_CAP_3%".into());
+    assert_eq!(cap.id, "USD_CAP_3%");
     assert_eq!(cap.rate_option_type, RateOptionType::Cap);
     assert_eq!(cap.notional.amount(), 10_000_000.0);
     assert_eq!(cap.notional.currency(), Currency::USD);
@@ -61,7 +61,7 @@ fn test_floor_creation_basic() {
     )
     .expect("valid strike");
 
-    assert_eq!(floor.id, "EUR_FLOOR_1%".into());
+    assert_eq!(floor.id, "EUR_FLOOR_1%");
     assert_eq!(floor.rate_option_type, RateOptionType::Floor);
     assert_eq!(floor.notional.amount(), 5_000_000.0);
     assert_eq!(floor.notional.currency(), Currency::EUR);

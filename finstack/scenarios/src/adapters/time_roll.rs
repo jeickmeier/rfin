@@ -121,22 +121,18 @@ pub fn apply_time_roll_forward(
         TimeRollMode::CalendarDays => {
             let tenor =
                 Tenor::parse(period_str).map_err(|e| Error::InvalidPeriod(e.to_string()))?;
-            let target = tenor
-                .add_to_date(old_date, None, BusinessDayConvention::Unadjusted)
-                .map_err(|e| Error::Internal(e.to_string()))?;
+            let target = tenor.add_to_date(old_date, None, BusinessDayConvention::Unadjusted)?;
             let days = (target - old_date).whole_days();
             (target, days)
         }
         TimeRollMode::BusinessDays => {
             let tenor =
                 Tenor::parse(period_str).map_err(|e| Error::InvalidPeriod(e.to_string()))?;
-            let target = tenor
-                .add_to_date(
-                    old_date,
-                    ctx.calendar,
-                    BusinessDayConvention::ModifiedFollowing,
-                )
-                .map_err(|e| Error::Internal(e.to_string()))?;
+            let target = tenor.add_to_date(
+                old_date,
+                ctx.calendar,
+                BusinessDayConvention::ModifiedFollowing,
+            )?;
             let days = (target - old_date).whole_days();
             (target, days)
         }
@@ -165,12 +161,7 @@ pub fn apply_time_roll_forward(
     // Roll all curves forward (adjusts base dates, shifts knots, filters expired)
     // This is the "constant curves" scenario - rates at calendar dates stay the same,
     // but maturities are re-measured from the new base date
-    let rolled_market = ctx.market.roll_forward(day_shift).map_err(|e| {
-        Error::Internal(format!(
-            "Failed to roll market data forward by {} days: {}",
-            day_shift, e
-        ))
-    })?;
+    let rolled_market = ctx.market.roll_forward(day_shift)?;
 
     // Replace market context with rolled version
     *ctx.market = rolled_market;

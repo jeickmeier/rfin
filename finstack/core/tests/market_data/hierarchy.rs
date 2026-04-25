@@ -248,7 +248,7 @@ fn resolve_cumulative_returns_all_occurrences() {
         ids.len(),
         ids
     );
-    assert!(ids.iter().all(|id| *id == CurveId::from("JPM-5Y")));
+    assert!(ids.iter().all(|id| *id == "JPM-5Y"));
 }
 
 #[test]

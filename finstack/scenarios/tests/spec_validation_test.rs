@@ -92,8 +92,12 @@ fn operation_validate_rejects_invalid_inputs() {
         quote: Currency::USD,
         pct: 5.0,
     };
-    let pct_floor = OperationSpec::EquityPricePct {
-        ids: vec!["SPY".into()],
+    // FX still rejects -100% — driving spot to zero would NaN-propagate.
+    // Equity / instrument / vol shocks at -100% are now accepted as legitimate
+    // tail-risk stress.
+    let pct_floor = OperationSpec::MarketFxPct {
+        base: Currency::EUR,
+        quote: Currency::USD,
         pct: -100.0,
     };
     let empty_hierarchy = OperationSpec::HierarchyCurveParallelBp {
@@ -211,20 +215,30 @@ fn operation_validate_rejects_curve_node_and_binding_shape_errors() {
 }
 
 #[test]
-fn operation_validate_rejects_non_finite_and_floor_violations() {
+fn operation_validate_rejects_non_finite_and_fx_floor_violation() {
     let non_finite_fx = OperationSpec::MarketFxPct {
         base: Currency::EUR,
         quote: Currency::USD,
         pct: f64::NAN,
     };
-    let vol_floor = OperationSpec::VolSurfaceBucketPct {
+    let fx_floor = OperationSpec::MarketFxPct {
+        base: Currency::EUR,
+        quote: Currency::USD,
+        pct: -100.0,
+    };
+
+    // Vol surfaces and instrument-by-type shocks now accept any finite pct,
+    // including <= -100, because driving vol to zero or below is meaningful in
+    // tail-risk stress (and `check_arbitrage` flags downstream issues). Only
+    // FX retains the strict floor.
+    let vol_floor_relaxed = OperationSpec::VolSurfaceBucketPct {
         surface_kind: VolSurfaceKind::Equity,
         surface_id: "SPX".into(),
         tenors: None,
         strikes: Some(vec![100.0]),
         pct: -100.0,
     };
-    let type_floor = OperationSpec::InstrumentPricePctByType {
+    let type_floor_relaxed = OperationSpec::InstrumentPricePctByType {
         instrument_types: vec![InstrumentType::Bond],
         pct: -125.0,
     };
@@ -234,16 +248,17 @@ fn operation_validate_rejects_non_finite_and_floor_violations() {
         .expect_err("NaN percentages should fail")
         .to_string()
         .contains("must be finite"));
-    assert!(vol_floor
+    assert!(fx_floor
         .validate()
-        .expect_err("vol surface percent floor should fail")
+        .expect_err("FX percent floor should fail")
         .to_string()
         .contains("greater than -100%"));
-    assert!(type_floor
+    vol_floor_relaxed
         .validate()
-        .expect_err("instrument type percent floor should fail")
-        .to_string()
-        .contains("greater than -100%"));
+        .expect("vol surface -100% bucket shock should now validate");
+    type_floor_relaxed
+        .validate()
+        .expect("instrument-type -125% shock should now validate");
 }
 
 #[test]
@@ -281,7 +296,7 @@ fn scenario_validate_accepts_mixed_valid_operations() {
             OperationSpec::RateBinding {
                 binding: RateBindingSpec {
                     node_id: "InterestRate".into(),
-                    curve_id: "USD_SOFR".to_string(),
+                    curve_id: "USD_SOFR".into(),
                     tenor: "1Y".to_string(),
                     compounding: Compounding::Continuous,
                     day_count: None,

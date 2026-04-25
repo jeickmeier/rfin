@@ -11,6 +11,101 @@ stability contract and schema-version policy.
 
 ## [Unreleased]
 
+### `finstack_scenarios` — production-readiness audit follow-ups
+
+**Breaking changes:**
+
+- **`OperationSpec::CurveParallelBp`**, `CurveNodeBp`, and the `Hierarchy*`
+  curve variants now type `curve_id` and `discount_curve_id` as
+  `finstack_core::types::CurveId` instead of `String`. JSON wire format is
+  unchanged (`CurveId` is `#[serde(transparent)]`), but Rust callers
+  constructing these literals must use `"USD-OIS".into()` rather than
+  `"USD-OIS".to_string()`. Same change applies to `surface_id` in
+  `BaseCorrParallelPts` / `BaseCorrBucketPts` /
+  `VolSurfaceParallelPct` / `VolSurfaceBucketPct` and to
+  `RateBindingSpec::curve_id`.
+- **`CurveKind::VolIndex` removed.** Volatility-index curves now have
+  dedicated variants — `OperationSpec::VolIndexParallelPts { curve_id, points }`
+  and `OperationSpec::VolIndexNodePts { curve_id, nodes, match_mode }` — that
+  use absolute index points (e.g. `+1.0` lifts every knot of a VIX curve by
+  1.0 vol points). The old `bp/100` rescaling shim that overloaded
+  `CurveParallelBp` for vol-index curves is gone; migrate callers to the new
+  variants.
+- **`ApplicationReport::warnings`** is now `Vec<finstack_scenarios::Warning>`
+  rather than `Vec<String>`. The structured enum lets ops alerting pipelines
+  pattern-match on warning categories (`HazardRecalibrationFallback`,
+  `FxTriangulationInconsistent`, `VolSurfaceArbitrage`, …) without parsing
+  free text. The `Display` impl preserves the previous human-readable form;
+  callers that only need the string view can `.iter().map(ToString::to_string)`.
+- **Equity, instrument-price, vol-surface, and instrument-by-type shocks now
+  accept any finite `pct`** (including `<= -100`) — these are legitimate
+  tail-risk stresses. FX shocks retain the strict `<= -100%` rejection because
+  driving a spot rate to zero would propagate NaNs through triangulation.
+- **`ScenarioEngine::compose` is `#[deprecated]`** in favor of `try_compose`.
+  The permissive variant could produce specs with multiple `TimeRollForward`
+  ops that the apply phase rejects; `try_compose` catches that statically.
+
+**Correctness fixes:**
+
+- **Hierarchy-targeted operations now fail fast** when the market context has
+  no hierarchy attached. Previously the engine silently returned
+  `operations_applied = 0` and a "not supported" warning, masking the
+  configuration mistake. The new behaviour is a typed
+  `Error::Validation(...)`.
+- **Hierarchy operations that resolve to zero curves now emit
+  `Warning::HierarchyNoMatch { target_path, op_kind }`** rather than being
+  silently dropped.
+- **Phase 1 of `ScenarioEngine::apply` flushes pending market bumps before
+  generating effects for each operation.** Previously, queued bumps from a
+  prior op were not visible to the next op's adapter, so cross-curve
+  calibrations (e.g. ParCDS recalibration consulting FX) could read stale
+  market state. The fix preserves sequential semantics — every adapter sees
+  the fully-applied prior-op market — while still batching multi-effect
+  outputs from a single op.
+- **`MarketContext` clones reduced.** The `bump_observed` path now applies
+  multiple effects in a single batched call, and the new
+  `MarketContext::iter_discount_curves` accessor lets adapters scan discount
+  curves without materialising a full `MarketContextState`.
+- **Rate-binding `node_id` mismatch is now a hard error** rather than a
+  silent rewrite. The map key is authoritative for routing.
+- **Typed errors propagate end-to-end.** Adapter functions that previously
+  wrapped underlying errors as `Error::Internal(format!("…: {e}"))` now use
+  `?` propagation through the new `Error::Valuations(#[from]
+  finstack_valuations::Error)` variant.
+
+**Performance:**
+
+- `MarketContext::iter_discount_curves` accessor (no more
+  `MarketContextState` materialisation in `resolve_discount_curve_id`).
+- Hierarchy-expansion fast path: returns `Cow::Borrowed` when no
+  `Hierarchy*` variants are present, avoiding an unnecessary clone of the
+  operation list.
+
+**Observability:**
+
+- `tracing::instrument` on `apply` with a `scenario_id` field, plus per-phase
+  `info_span!` (`phase_0_time_roll`, `phase_1_market`, `phase_2_rate_bindings`,
+  `phase_3_statements`, `phase_4_reevaluate`).
+
+**Refactor — internal:**
+
+- Replaced the `ScenarioAdapter` trait + 8 trait impls with a centralised
+  `match` in `engine::generate_effects`. Adapters are now free functions; the
+  exhaustive match catches new `OperationSpec` variants at compile time and
+  removes the silent "Operation not supported" warning fallback.
+- Folded `templates/loader.rs` into `templates/json.rs`.
+
+**FFI:**
+
+- `finstack-py` `apply_scenario` / `apply_scenario_to_market` results gain a
+  `warnings_json: str` key (JSON-encoded list of structured `Warning`
+  records, mirroring the WASM binding); `warnings: list[str]` is preserved
+  for backwards compatibility.
+- `finstack.scenarios.HorizonResult` gains a `warnings_json` property with
+  the same semantics.
+- `finstack-wasm` already returned structured warnings; consistency between
+  the two FFIs is now explicit.
+
 ### Added
 - `schema_version: u32` field on the following persisted result types, with
   `#[serde(default)]` for backward-compatible deserialization of pre-versioning

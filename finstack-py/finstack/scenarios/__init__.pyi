@@ -192,7 +192,11 @@ def apply_scenario(
 
     Returns:
         Dict with ``market_json``, ``model_json``, ``operations_applied`` (``int``),
-        and ``warnings`` (``list[str]``).
+        ``user_operations`` (``int``), ``expanded_operations`` (``int``),
+        ``warnings`` (``list[str]``, rendered Display form), and
+        ``warnings_json`` (``str``, JSON-encoded list of structured ``Warning``
+        records — parse with ``json.loads(...)`` for programmatic
+        ``kind``-based dispatch).
 
     Example:
         >>> from finstack.scenarios import apply_scenario
@@ -214,7 +218,9 @@ def apply_scenario_to_market(
         as_of: ISO 8601 valuation date.
 
     Returns:
-        Dict with ``market_json``, ``operations_applied``, and ``warnings``.
+        Dict with ``market_json``, ``operations_applied``, ``user_operations``,
+        ``expanded_operations``, ``warnings`` (``list[str]``), and
+        ``warnings_json`` (``str``, JSON-encoded list of structured warnings).
 
     Example:
         >>> from finstack.scenarios import apply_scenario_to_market
@@ -273,7 +279,17 @@ class HorizonResult:
 
     @property
     def warnings(self) -> list[str]:
-        """Warnings emitted during scenario application."""
+        """Warnings emitted during scenario application (rendered Display form)."""
+        ...
+
+    @property
+    def warnings_json(self) -> str:
+        """JSON-encoded structured warnings.
+
+        Each entry is a `Warning` record with a ``kind`` discriminator plus
+        variant-specific fields, mirroring the WASM binding. Parse with
+        ``json.loads(...)`` to dispatch on ``kind`` programmatically.
+        """
         ...
 
     def factor_contribution(self, factor: str) -> float:

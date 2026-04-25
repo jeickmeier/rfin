@@ -1,14 +1,11 @@
 //! Instrument-level shock adapters.
 //!
-//! Applies price and spread shocks to instrument collections via pricing overrides,
-//! enabling `OperationSpec` variants to affect subsets of a portfolio by type.
-//! When instruments support pricing_overrides_mut(), shocks are applied functionally.
-//! Otherwise, shocks are stored as metadata attributes for downstream processing.
+//! Applies price and spread shocks to instrument collections via pricing overrides.
+//! When instruments support `scenario_overrides_mut()`, shocks are applied functionally;
+//! otherwise they are stored as metadata attributes for downstream processing.
 
-use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
-use crate::engine::ExecutionContext;
-use crate::error::Result;
-use crate::spec::OperationSpec;
+use crate::adapters::traits::ScenarioEffect;
+use crate::warning::Warning;
 use finstack_valuations::instruments::{Attributes, DynInstrument};
 use finstack_valuations::pricer::InstrumentType;
 
@@ -17,10 +14,6 @@ fn accumulate_optional_shock(current: Option<f64>, delta: f64) -> f64 {
 }
 
 /// Accumulate a shock into an instrument's metadata map.
-///
-/// The serialized representation uses the default `f64` display (shortest
-/// round-trippable decimal), which avoids the silent precision loss that
-/// occurs when repeatedly parsing and re-formatting with a fixed precision.
 fn accumulate_meta_shock(attrs: &mut Attributes, key: &str, delta: f64) {
     let current = attrs
         .meta
@@ -42,66 +35,58 @@ fn instrument_label(attrs: &Attributes) -> String {
         .unwrap_or_else(|| "<unidentified>".to_string())
 }
 
-fn fallback_warning(kind: &str, inst_type: &str, label: &str) -> String {
-    format!(
-        "Instrument {kind} shock fell back to metadata for instrument '{label}' \
-         (type {inst_type}): the pricer does not expose scenario_overrides_mut(), \
-         so the shock is recorded under scenario_{kind}_shock_* but will not affect \
-         valuation unless the downstream consumer reads that metadata."
-    )
+/// Generate a price-shock effect by instrument types.
+pub(crate) fn instrument_price_by_type_effects(
+    instrument_types: &[InstrumentType],
+    pct: f64,
+) -> Vec<ScenarioEffect> {
+    vec![ScenarioEffect::InstrumentPriceShock {
+        types: Some(instrument_types.to_vec()),
+        attrs: None,
+        pct,
+    }]
 }
 
-/// Adapter for instrument operations.
-pub struct InstrumentAdapter;
+/// Generate a price-shock effect by attribute filter.
+pub(crate) fn instrument_price_by_attr_effects(
+    attrs: &indexmap::IndexMap<String, String>,
+    pct: f64,
+) -> Vec<ScenarioEffect> {
+    vec![ScenarioEffect::InstrumentPriceShock {
+        types: None,
+        attrs: Some(attrs.clone()),
+        pct,
+    }]
+}
 
-impl ScenarioAdapter for InstrumentAdapter {
-    fn try_generate_effects(
-        &self,
-        op: &OperationSpec,
-        _ctx: &ExecutionContext,
-    ) -> Result<Option<Vec<ScenarioEffect>>> {
-        match op {
-            OperationSpec::InstrumentPricePctByType {
-                instrument_types,
-                pct,
-            } => Ok(Some(vec![ScenarioEffect::InstrumentPriceShock {
-                types: Some(instrument_types.clone()),
-                attrs: None,
-                pct: *pct,
-            }])),
-            OperationSpec::InstrumentPricePctByAttr { attrs, pct } => {
-                Ok(Some(vec![ScenarioEffect::InstrumentPriceShock {
-                    types: None,
-                    attrs: Some(attrs.clone()),
-                    pct: *pct,
-                }]))
-            }
-            OperationSpec::InstrumentSpreadBpByType {
-                instrument_types,
-                bp,
-            } => Ok(Some(vec![ScenarioEffect::InstrumentSpreadShock {
-                types: Some(instrument_types.clone()),
-                attrs: None,
-                bp: *bp,
-            }])),
-            OperationSpec::InstrumentSpreadBpByAttr { attrs, bp } => {
-                Ok(Some(vec![ScenarioEffect::InstrumentSpreadShock {
-                    types: None,
-                    attrs: Some(attrs.clone()),
-                    bp: *bp,
-                }]))
-            }
-            _ => Ok(None),
-        }
-    }
+/// Generate a spread-shock effect by instrument types.
+pub(crate) fn instrument_spread_by_type_effects(
+    instrument_types: &[InstrumentType],
+    bp: f64,
+) -> Vec<ScenarioEffect> {
+    vec![ScenarioEffect::InstrumentSpreadShock {
+        types: Some(instrument_types.to_vec()),
+        attrs: None,
+        bp,
+    }]
+}
+
+/// Generate a spread-shock effect by attribute filter.
+pub(crate) fn instrument_spread_by_attr_effects(
+    attrs: &indexmap::IndexMap<String, String>,
+    bp: f64,
+) -> Vec<ScenarioEffect> {
+    vec![ScenarioEffect::InstrumentSpreadShock {
+        types: None,
+        attrs: Some(attrs.clone()),
+        bp,
+    }]
 }
 
 /// Kind of instrument shock: price (percent) or spread (bp).
 #[derive(Clone, Copy)]
 enum ShockKind {
-    /// Percentage-point price shock. Raw input is divided by 100 before storage.
     Price,
-    /// Additive spread shock in basis points. Raw input is stored as-is.
     Spread,
 }
 
@@ -129,16 +114,12 @@ impl ShockKind {
 }
 
 /// Apply a shock to every instrument matching `matcher`.
-///
-/// When the pricer exposes `scenario_overrides_mut()`, the shock is accumulated
-/// into the corresponding override field. Otherwise it is recorded under the
-/// instrument's metadata key (with a warning).
 fn apply_shock<M>(
     instruments: &mut [Box<DynInstrument>],
     matcher: M,
     kind: ShockKind,
     raw_value: f64,
-) -> (usize, Vec<String>)
+) -> (usize, Vec<Warning>)
 where
     M: Fn(&Box<DynInstrument>) -> bool,
 {
@@ -162,16 +143,22 @@ where
                     let label = instrument_label(instrument.attributes());
                     let type_name = format!("{:?}", instrument.key());
                     accumulate_meta_shock(instrument.attributes_mut(), kind.meta_key(), delta);
-                    warnings.push(fallback_warning(kind.label(), &type_name, &label));
+                    warnings.push(Warning::InstrumentShockFallback {
+                        shock_kind: kind.label().to_string(),
+                        inst_type: type_name,
+                        label,
+                    });
                 }
             }
             ShockKind::Spread => {
-                // No typed scenario override field exists for spread shocks; record under
-                // instrument metadata for downstream consumers (e.g. curve-bump adapters).
                 let label = instrument_label(instrument.attributes());
                 let type_name = format!("{:?}", instrument.key());
                 accumulate_meta_shock(instrument.attributes_mut(), kind.meta_key(), delta);
-                warnings.push(fallback_warning(kind.label(), &type_name, &label));
+                warnings.push(Warning::InstrumentShockFallback {
+                    shock_kind: kind.label().to_string(),
+                    inst_type: type_name,
+                    label,
+                });
             }
         }
         count += 1;
@@ -181,85 +168,39 @@ where
 }
 
 /// Apply a percentage price shock to instruments matching the provided types.
-///
-/// `pct` is supplied in percentage points (`5.0 = +5%`) and converted into a
-/// decimal shock before storage. When an instrument exposes
-/// `scenario_overrides_mut()`, the shock is applied through pricing overrides.
-/// Otherwise, the helper stores the shock in instrument metadata under
-/// `scenario_price_shock_pct` for downstream consumers.
-///
-/// # Arguments
-///
-/// - `instruments`: Instrument collection to mutate.
-/// - `instrument_types`: Instrument types to match.
-/// - `pct`: Percentage-point price shock to apply.
-///
-/// # Returns
-///
-/// The number of matched instruments that were updated.
 pub fn apply_instrument_type_price_shock(
     instruments: &mut [Box<DynInstrument>],
     instrument_types: &[InstrumentType],
     pct: f64,
-) -> Result<(usize, Vec<String>)> {
-    Ok(apply_shock(
+) -> (usize, Vec<Warning>) {
+    apply_shock(
         instruments,
         |inst| instrument_types.contains(&inst.key()),
         ShockKind::Price,
         pct,
-    ))
+    )
 }
 
-/// Apply a spread shock (basis points) to instruments matching the provided types.
-///
-/// `bp` is additive in basis points. As with price shocks, the helper prefers
-/// functional scenario overrides and falls back to metadata storage under
-/// `scenario_spread_shock_bp` when direct overrides are unavailable.
-///
-/// # Arguments
-///
-/// - `instruments`: Instrument collection to mutate.
-/// - `instrument_types`: Instrument types to match.
-/// - `bp`: Additive spread shock in basis points.
-///
-/// # Returns
-///
-/// The number of matched instruments that were updated.
+/// Apply a spread shock to instruments matching the provided types.
 pub fn apply_instrument_type_spread_shock(
     instruments: &mut [Box<DynInstrument>],
     instrument_types: &[InstrumentType],
     bp: f64,
-) -> Result<(usize, Vec<String>)> {
-    Ok(apply_shock(
+) -> (usize, Vec<Warning>) {
+    apply_shock(
         instruments,
         |inst| instrument_types.contains(&inst.key()),
         ShockKind::Spread,
         bp,
-    ))
+    )
 }
 
 /// Apply a percentage price shock to instruments matching the provided attributes.
-///
-/// Matching is case-insensitive and uses AND semantics across the provided
-/// `attrs` map. Only the metadata map on [`Attributes`] is compared; tag sets
-/// are ignored. `pct` is supplied in percentage points and stored internally as
-/// a decimal shock.
-///
-/// # Arguments
-///
-/// - `instruments`: Instrument collection to mutate.
-/// - `attrs`: Metadata filters to match.
-/// - `pct`: Percentage-point price shock to apply.
-///
-/// # Returns
-///
-/// A tuple `(matched_count, warnings)`. `warnings` contains a single message if
-/// no instruments matched the attribute filter.
 pub fn apply_instrument_attr_price_shock(
     instruments: &mut [Box<DynInstrument>],
     attrs: &indexmap::IndexMap<String, String>,
     pct: f64,
-) -> Result<(usize, Vec<String>)> {
+) -> (usize, Vec<Warning>) {
     let filters = normalise_filters(attrs);
     let (count, mut warnings) = apply_shock(
         instruments,
@@ -268,35 +209,19 @@ pub fn apply_instrument_attr_price_shock(
         pct,
     );
     if count == 0 {
-        warnings.push(format!(
-            "No instruments matched attribute filter {:?}",
-            attrs
-        ));
+        warnings.push(Warning::InstrumentShockNoMatch {
+            filter_desc: format!("{attrs:?}"),
+        });
     }
-    Ok((count, warnings))
+    (count, warnings)
 }
 
 /// Apply a spread shock to instruments matching the provided attributes.
-///
-/// Matching is case-insensitive and uses AND semantics across the provided
-/// `attrs` map. Only the metadata map on [`Attributes`] is compared; tag sets
-/// are ignored.
-///
-/// # Arguments
-///
-/// - `instruments`: Instrument collection to mutate.
-/// - `attrs`: Metadata filters to match.
-/// - `bp`: Additive spread shock in basis points.
-///
-/// # Returns
-///
-/// A tuple `(matched_count, warnings)`. `warnings` contains a single message if
-/// no instruments matched the attribute filter.
 pub fn apply_instrument_attr_spread_shock(
     instruments: &mut [Box<DynInstrument>],
     attrs: &indexmap::IndexMap<String, String>,
     bp: f64,
-) -> Result<(usize, Vec<String>)> {
+) -> (usize, Vec<Warning>) {
     let filters = normalise_filters(attrs);
     let (count, mut warnings) = apply_shock(
         instruments,
@@ -305,17 +230,13 @@ pub fn apply_instrument_attr_spread_shock(
         bp,
     );
     if count == 0 {
-        warnings.push(format!(
-            "No instruments matched attribute filter {:?}",
-            attrs
-        ));
+        warnings.push(Warning::InstrumentShockNoMatch {
+            filter_desc: format!("{attrs:?}"),
+        });
     }
-    Ok((count, warnings))
+    (count, warnings)
 }
 
-/// Case-insensitive AND match across provided filters.
-///
-/// Only the `meta` map on `Attributes` is compared; tag sets are ignored.
 fn matches_attr_filter(attrs: &Attributes, filters: &[(String, String)]) -> bool {
     if filters.is_empty() {
         return true;

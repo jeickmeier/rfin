@@ -169,10 +169,24 @@ impl PyHorizonResult {
         self.inner.scenario_report.expanded_operations
     }
 
-    /// Warnings from scenario application.
+    /// Warnings from scenario application, rendered in human-readable form.
     #[getter]
     fn warnings(&self) -> Vec<String> {
-        self.inner.scenario_report.warnings.clone()
+        self.inner
+            .scenario_report
+            .warnings
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    /// Warnings from scenario application as a JSON-encoded array, mirroring
+    /// the structured `Warning` enum. Parse with `json.loads(...)` to obtain
+    /// `list[dict]` where each entry has a `kind` discriminator plus
+    /// variant-specific fields.
+    #[getter]
+    fn warnings_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner.scenario_report.warnings).map_err(display_to_py)
     }
 
     /// Factor contribution as decimal fraction of initial value.

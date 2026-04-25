@@ -287,6 +287,42 @@ impl<T> PartialEq for Id<T> {
 
 impl<T> Eq for Id<T> {}
 
+impl<T> PartialEq<str> for Id<T> {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl<T> PartialEq<&str> for Id<T> {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl<T> PartialEq<String> for Id<T> {
+    fn eq(&self, other: &String) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl<T> PartialEq<Id<T>> for str {
+    fn eq(&self, other: &Id<T>) -> bool {
+        other.as_str() == self
+    }
+}
+
+impl<T> PartialEq<Id<T>> for &str {
+    fn eq(&self, other: &Id<T>) -> bool {
+        other.as_str() == *self
+    }
+}
+
+impl<T> PartialEq<Id<T>> for String {
+    fn eq(&self, other: &Id<T>) -> bool {
+        other.as_str() == self.as_str()
+    }
+}
+
 impl<T> Hash for Id<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.value.hash(state);

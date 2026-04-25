@@ -1,12 +1,8 @@
 //! Asset correlation shock adapter for structured credit instruments.
 //!
-//! This module provides the [`AssetCorrAdapter`] which translates the
-//! [`OperationSpec::AssetCorrelationPts`] /
-//! [`OperationSpec::PrepayDefaultCorrelationPts`] variants into engine-internal
-//! effects. The actual correlation bump is applied by the engine via
-//! [`CorrelationStructure`](finstack_valuations::instruments::fixed_income::structured_credit::CorrelationStructure)
-//! helpers; this module keeps only the adapter and a small set of `#[cfg(test)]`
-//! helpers that verify clamping behaviour on sample instruments.
+//! These adapters return engine-internal [`ScenarioEffect`]s that the engine
+//! later applies in batch via the structured-credit instrument downcast in
+//! [`crate::engine::ScenarioEngine::apply`].
 //!
 //! # Clamping
 //!
@@ -14,34 +10,16 @@
 //! - Asset correlation: [0, 0.99]
 //! - Prepay-default correlation: [-0.99, 0.99]
 
-use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
-use crate::engine::ExecutionContext;
-use crate::error::Result;
-use crate::spec::OperationSpec;
+use crate::adapters::traits::ScenarioEffect;
 
-/// Adapter for asset correlation operations.
-pub struct AssetCorrAdapter;
+/// Generate an effect for an asset-correlation parallel shock.
+pub(crate) fn asset_corr_effects(delta_pts: f64) -> Vec<ScenarioEffect> {
+    vec![ScenarioEffect::AssetCorrelationShock { delta_pts }]
+}
 
-impl ScenarioAdapter for AssetCorrAdapter {
-    fn try_generate_effects(
-        &self,
-        op: &OperationSpec,
-        _ctx: &ExecutionContext,
-    ) -> Result<Option<Vec<ScenarioEffect>>> {
-        match op {
-            OperationSpec::AssetCorrelationPts { delta_pts } => {
-                Ok(Some(vec![ScenarioEffect::AssetCorrelationShock {
-                    delta_pts: *delta_pts,
-                }]))
-            }
-            OperationSpec::PrepayDefaultCorrelationPts { delta_pts } => {
-                Ok(Some(vec![ScenarioEffect::PrepayDefaultCorrelationShock {
-                    delta_pts: *delta_pts,
-                }]))
-            }
-            _ => Ok(None),
-        }
-    }
+/// Generate an effect for a prepay-default-correlation parallel shock.
+pub(crate) fn prepay_default_corr_effects(delta_pts: f64) -> Vec<ScenarioEffect> {
+    vec![ScenarioEffect::PrepayDefaultCorrelationShock { delta_pts }]
 }
 
 #[cfg(test)]
@@ -51,9 +29,6 @@ mod tests {
     };
 
     /// Test-only helper: apply a parallel shock to asset correlation.
-    ///
-    /// Clamps to `[0, 0.99]` and reports any clamp events via the returned
-    /// warnings vector. Only used by the clamping/parity tests in this module.
     fn apply_asset_correlation_shock(
         instruments: &mut [StructuredCredit],
         shock_points: f64,
@@ -77,9 +52,6 @@ mod tests {
     }
 
     /// Test-only helper: apply a parallel shock to prepay-default correlation.
-    ///
-    /// Clamps to `[-0.99, 0.99]` and reports any clamp events via the returned
-    /// warnings vector. Only used by the clamping/parity tests in this module.
     fn apply_prepay_default_correlation_shock(
         instruments: &mut [StructuredCredit],
         shock_points: f64,

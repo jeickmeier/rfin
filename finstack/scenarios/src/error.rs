@@ -97,6 +97,13 @@ pub enum Error {
     #[error(transparent)]
     Statements(#[from] finstack_statements::error::Error),
 
+    /// Valuations library error.
+    ///
+    /// Used by `HorizonAnalysis` so pricing and attribution failures propagate
+    /// as typed errors rather than as `Internal(String)` downgrades.
+    #[error(transparent)]
+    Valuations(#[from] finstack_valuations::Error),
+
     /// General validation error.
     #[error("Validation error: {0}")]
     Validation(String),
@@ -238,6 +245,7 @@ impl From<Error> for finstack_core::Error {
         match err {
             Error::Core(core) => core,
             Error::Statements(statements) => statements.into(),
+            Error::Valuations(valuations) => valuations.into(),
             Error::Internal(message) => finstack_core::Error::Internal(message),
             other => finstack_core::Error::Validation(other.to_string()),
         }

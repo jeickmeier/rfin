@@ -156,7 +156,7 @@ fn test_rate_binding() {
     let rate_bindings = Some(indexmap! {
         "InterestRate".into() => RateBindingSpec {
             node_id: "InterestRate".into(),
-            curve_id: "USD_SOFR".to_string(),
+            curve_id: "USD_SOFR".into(),
             tenor: "1Y".to_string(),
             compounding: Compounding::Continuous,
             day_count: None,

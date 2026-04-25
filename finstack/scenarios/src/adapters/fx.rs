@@ -1,18 +1,10 @@
 //! Foreign exchange shock adapter.
-//!
-//! This module supports FX shocks through the `OperationSpec::MarketFxPct` variant.
-//! The engine applies FX shocks via `MarketBump::FxPct` which wraps the existing
-//! provider behind a [`BumpedFxProvider`](finstack_core::money::fx::BumpedFxProvider)
-//! so the operation remains deterministic and easy to audit.
 
-use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
+use crate::adapters::traits::ScenarioEffect;
 use crate::engine::ExecutionContext;
 use crate::error::Result;
-use crate::spec::OperationSpec;
+use crate::warning::Warning;
 use finstack_core::market_data::bumps::MarketBump;
-
-/// Adapter for FX operations.
-pub struct FxAdapter;
 
 fn post_shock_triangulation_warnings(
     market: &finstack_core::market_data::context::MarketContext,
@@ -20,7 +12,7 @@ fn post_shock_triangulation_warnings(
     quote: finstack_core::currency::Currency,
     pct: f64,
     as_of: finstack_core::dates::Date,
-) -> Result<Vec<String>> {
+) -> Result<Vec<Warning>> {
     let Some(fx) = market.fx() else {
         return Ok(Vec::new());
     };
@@ -58,40 +50,37 @@ fn post_shock_triangulation_warnings(
 
         let tolerance = 1.0e-8 * direct.abs().max(implied.abs()).max(1.0);
         if (direct - implied).abs() > tolerance {
-            warnings.push(format!(
-                "FX shock on {base}/{quote} leaves direct quote {from}/{to} inconsistent with {pivot}-triangulated cross (direct={direct:.10}, implied={implied:.10})"
-            ));
+            warnings.push(Warning::FxTriangulationInconsistent {
+                detail: format!(
+                    "FX shock on {base}/{quote} leaves direct quote {from}/{to} inconsistent with {pivot}-triangulated cross (direct={direct:.10}, implied={implied:.10})"
+                ),
+            });
         }
     }
 
     Ok(warnings)
 }
 
-impl ScenarioAdapter for FxAdapter {
-    fn try_generate_effects(
-        &self,
-        op: &OperationSpec,
-        ctx: &ExecutionContext,
-    ) -> Result<Option<Vec<ScenarioEffect>>> {
-        match op {
-            OperationSpec::MarketFxPct { base, quote, pct } => {
-                let bump = MarketBump::FxPct {
-                    base: *base,
-                    quote: *quote,
-                    pct: *pct,
-                    as_of: ctx.as_of,
-                };
-                let mut effects = vec![ScenarioEffect::MarketBump(bump)];
-                effects.extend(
-                    post_shock_triangulation_warnings(ctx.market, *base, *quote, *pct, ctx.as_of)?
-                        .into_iter()
-                        .map(ScenarioEffect::Warning),
-                );
-                Ok(Some(effects))
-            }
-            _ => Ok(None),
-        }
-    }
+/// Generate effects for an FX percent shock.
+pub(crate) fn fx_pct_effects(
+    base: finstack_core::currency::Currency,
+    quote: finstack_core::currency::Currency,
+    pct: f64,
+    ctx: &ExecutionContext,
+) -> Result<Vec<ScenarioEffect>> {
+    let bump = MarketBump::FxPct {
+        base,
+        quote,
+        pct,
+        as_of: ctx.as_of,
+    };
+    let mut effects = vec![ScenarioEffect::MarketBump(bump)];
+    effects.extend(
+        post_shock_triangulation_warnings(ctx.market, base, quote, pct, ctx.as_of)?
+            .into_iter()
+            .map(ScenarioEffect::Warning),
+    );
+    Ok(effects)
 }
 
 #[cfg(test)]
@@ -145,10 +134,10 @@ mod tests {
                 .expect("warning generation should succeed");
 
         assert!(
-            warnings
-                .iter()
-                .any(|warning| warning.contains("EUR/JPY")
-                    && warning.contains("implied=198.0000000000")),
+            warnings.iter().any(|warning| {
+                let s = warning.to_string();
+                s.contains("EUR/JPY") && s.contains("implied=198.0000000000")
+            }),
             "expected direct cross inconsistency warning, got {warnings:?}"
         );
     }
@@ -178,10 +167,10 @@ mod tests {
                 .expect("valid -5% shock should not fail preview");
 
         assert!(
-            warnings
-                .iter()
-                .any(|warning| warning.contains("EUR/JPY")
-                    && warning.contains("implied=171.0000000000")),
+            warnings.iter().any(|warning| {
+                let s = warning.to_string();
+                s.contains("EUR/JPY") && s.contains("implied=171.0000000000")
+            }),
             "expected post-shock state from a -5% bump, got {warnings:?}"
         );
     }

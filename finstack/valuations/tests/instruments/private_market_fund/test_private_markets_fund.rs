@@ -312,7 +312,7 @@ fn test_private_markets_fund_creation() {
     let (spec, events) = simple_2x_scenario();
     let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events);
 
-    assert_eq!(pe.id, "TEST_FUND".into());
+    assert_eq!(pe.id, "TEST_FUND");
     assert_eq!(pe.currency, test_currency());
     assert!(pe.discount_curve_id.is_none());
 }

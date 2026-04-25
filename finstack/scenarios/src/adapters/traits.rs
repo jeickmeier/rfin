@@ -1,8 +1,23 @@
-use crate::engine::ExecutionContext;
-use crate::error::Result;
-use crate::spec::{OperationSpec, RateBindingSpec};
+//! Engine-internal effect enum produced by adapter functions.
+//!
+//! Adapter modules expose free functions that translate an [`OperationSpec`]
+//! into a [`Vec<ScenarioEffect>`]. The engine's centralized `match` in
+//! [`crate::engine::ScenarioEngine::apply`] dispatches each operation variant
+//! to the appropriate adapter function and then collapses the resulting
+//! effects against the mutable [`crate::engine::ExecutionContext`].
+//!
+//! This module no longer defines a polymorphic `ScenarioAdapter` trait — the
+//! enum dispatch in the engine provides compile-time exhaustiveness over the
+//! [`OperationSpec`] variants and avoids the silent "operation not supported"
+//! warning the previous trait-based dispatch produced.
+
+use crate::spec::RateBindingSpec;
+use crate::warning::Warning;
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_statements::types::NodeId;
+
+#[allow(unused_imports)] // kept for rustdoc cross-references
+use crate::spec::OperationSpec;
 
 /// Represents the outcome of a scenario operation that can be collected and applied later.
 /// This allows the engine to separate the "decision" phase from the "mutation" phase.
@@ -10,8 +25,8 @@ use finstack_statements::types::NodeId;
 pub(crate) enum ScenarioEffect {
     /// A market data bump to be applied to the context.
     MarketBump(MarketBump),
-    /// A warning message to be recorded.
-    Warning(String),
+    /// A structured warning to be recorded.
+    Warning(Warning),
 
     /// Update a curve in the market (discount, forward, hazard, inflation, or vol-index).
     UpdateCurve(finstack_core::market_data::context::CurveStorage),
@@ -66,14 +81,4 @@ pub(crate) enum ScenarioEffect {
         /// Additive shock in correlation points.
         delta_pts: f64,
     },
-}
-
-/// Trait for adapters that can convert an OperationSpec into effects.
-pub(crate) trait ScenarioAdapter {
-    /// Try to handle an operation. Returns `Ok(None)` if this adapter doesn't handle the op type.
-    fn try_generate_effects(
-        &self,
-        op: &OperationSpec,
-        ctx: &ExecutionContext,
-    ) -> Result<Option<Vec<ScenarioEffect>>>;
 }

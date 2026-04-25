@@ -102,6 +102,8 @@ pub mod spec;
 pub mod templates;
 /// Utility helpers for scenario operations.
 pub mod utils;
+/// Structured warning enum surfaced via `ApplicationReport.warnings`.
+pub mod warning;
 
 pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
@@ -114,3 +116,4 @@ pub use templates::{
     AssetClass, RegisteredTemplate, ScenarioSpecBuilder, Severity, TemplateMetadata,
     TemplateRegistry,
 };
+pub use warning::Warning;

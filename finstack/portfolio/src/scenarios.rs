@@ -219,7 +219,7 @@ mod tests {
             description: None,
             operations: vec![OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
-                curve_id: "USD".to_string(),
+                curve_id: "USD".into(),
                 discount_curve_id: None,
                 bp: 50.0,
             }],

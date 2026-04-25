@@ -121,7 +121,7 @@ fn test_scenario_composition_same_priority() {
     };
 
     let engine = ScenarioEngine::new();
-    let composed = engine.compose(vec![s1, s2]);
+    let composed = engine.try_compose(vec![s1, s2]).expect("compose should succeed");
 
     assert_eq!(composed.operations.len(), 2);
     assert_eq!(composed.id, "s1+s2");
@@ -154,7 +154,7 @@ fn test_scenario_composition_different_priorities() {
     };
 
     let engine = ScenarioEngine::new();
-    let composed = engine.compose(vec![low_priority, high_priority]);
+    let composed = engine.try_compose(vec![low_priority, high_priority]).expect("compose should succeed");
 
     // High priority should come first
     assert_eq!(composed.operations.len(), 2);
@@ -297,7 +297,7 @@ fn test_rate_binding_missing_curve() {
     let rate_bindings = Some(indexmap! {
         "InterestRate".into() => RateBindingSpec {
             node_id: "InterestRate".into(),
-            curve_id: "NONEXISTENT_CURVE".to_string(),
+            curve_id: "NONEXISTENT_CURVE".into(),
             tenor: "1Y".to_string(),
             compounding: Compounding::Continuous,
             day_count: None,
@@ -344,7 +344,7 @@ fn test_rate_binding_missing_node() {
     let rate_bindings = Some(indexmap! {
         "NONEXISTENT_NODE".into() => RateBindingSpec {
             node_id: "NONEXISTENT_NODE".into(),
-            curve_id: "USD_SOFR".to_string(),
+            curve_id: "USD_SOFR".into(),
             tenor: "1Y".to_string(),
             compounding: Compounding::Continuous,
             day_count: None,
