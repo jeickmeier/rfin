@@ -13,9 +13,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 from finstack.core.money import Money
+import pytest
 
 
 def test_decimal_preserves_19_digit_precision() -> None:
@@ -51,17 +50,17 @@ def test_decimal_subclass_uses_decimal_path_not_float() -> None:
 
 
 def test_decimal_infinity_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="got infinity"):
         Money(Decimal("Infinity"), "USD")
 
 
 def test_decimal_negative_infinity_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="got -infinity"):
         Money(Decimal("-Infinity"), "USD")
 
 
 def test_decimal_nan_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="got NaN"):
         Money(Decimal("NaN"), "USD")
 
 
