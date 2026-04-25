@@ -151,6 +151,119 @@ pub fn bump_hazard_shift(
     bump_hazard_shift_fallback(hazard, bump)
 }
 
+/// Re-bootstrap a hazard curve with a *new* recovery assumption while holding
+/// observed CDS par spreads constant.
+///
+/// This is the operation a Recovery01 metric needs in order to capture the
+/// indirect effect of recovery changes on the survival probability term
+/// structure. Because `h ≈ S / (1 - R)` to first order, raising `R` while
+/// holding `S` constant requires the bootstrap to lift `h` (and vice versa).
+/// A naive Recovery01 that bumps the instrument LGD without recalibrating
+/// the hazard curve typically *understates* the true recovery sensitivity by
+/// 2-5x, which matters materially for distressed credits.
+///
+/// # Errors
+///
+/// Returns the original error from `bump_hazard_spreads` if the curve has no
+/// stored par-spread points (uncalibratable) or if the bootstrap fails.
+///
+/// # Arguments
+///
+/// * `hazard` — source curve carrying the observed CDS par spreads
+/// * `new_recovery` — recovery rate to use during re-bootstrapping (clamped to `[0, 1)`)
+/// * `context` — market context providing the discount curve referenced by `discount_id`
+/// * `discount_id` — discount curve identifier used to value the protection leg during bootstrap
+pub fn recalibrate_hazard_with_recovery(
+    hazard: &HazardCurve,
+    new_recovery: f64,
+    context: &MarketContext,
+    discount_id: Option<&CurveId>,
+) -> finstack_core::Result<HazardCurve> {
+    let par_points: Vec<(f64, f64)> = hazard.par_spread_points().collect();
+
+    let Some(discount_id) = discount_id else {
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::NotFound {
+                id: "discount curve for hazard recalibration".to_string(),
+            },
+        ));
+    };
+
+    if par_points.is_empty() {
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::TooFewPoints,
+        ));
+    }
+
+    // Clamp recovery to a numerically safe range. R = 1 leaves zero LGD which
+    // makes spreads non-identifying; we leave a small floor below 1.
+    let new_recovery = new_recovery.clamp(0.0, 0.999_999);
+
+    let base_date = hazard.base_date();
+    let currency = hazard.currency().unwrap_or(Currency::USD);
+    let seniority = hazard.seniority.unwrap_or(Seniority::Senior);
+    let issuer = hazard
+        .issuer()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+
+    let mut quotes = Vec::with_capacity(par_points.len());
+    for (tenor_years, spread_bp) in par_points {
+        let raw_months = (tenor_years * 12.0).round().max(1.0) as i32;
+        const STD_MONTHS: [i32; 11] = [3, 6, 12, 24, 36, 60, 84, 120, 180, 240, 360];
+        let mut snapped_months = raw_months;
+        if let Some(best) = STD_MONTHS
+            .iter()
+            .copied()
+            .min_by(|a, b| (raw_months - a).abs().cmp(&(raw_months - b).abs()))
+        {
+            if (raw_months - best).abs() <= 2 {
+                snapped_months = best;
+            } else {
+                snapped_months = ((raw_months as f64 / 3.0).round() as i32).max(1) * 3;
+            }
+        }
+
+        quotes.push(CdsQuote::CdsParSpread {
+            id: format!("RECOVERY-RECALIB-{}-{:.4}", issuer, tenor_years).into(),
+            entity: issuer.clone(),
+            pillar: crate::market::quotes::ids::Pillar::Tenor(Tenor::new(
+                snapped_months as u32,
+                TenorUnit::Months,
+            )),
+            spread_bp,
+            recovery_rate: new_recovery,
+            convention: crate::market::conventions::ids::CdsConventionKey {
+                currency,
+                doc_clause: crate::market::conventions::ids::CdsDocClause::IsdaNa,
+            },
+        });
+    }
+
+    let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Cds).collect();
+    let params = HazardCurveParams {
+        curve_id: hazard.id().clone(),
+        entity: issuer,
+        seniority,
+        currency,
+        base_date,
+        discount_curve_id: discount_id.clone(),
+        recovery_rate: new_recovery,
+        notional: 1.0,
+        method: CalibrationMethod::Bootstrap,
+        interpolation: Default::default(),
+        par_interp: ParInterp::Linear,
+        doc_clause: None,
+    };
+
+    let cfg = CalibrationConfig::default();
+    let step = StepParams::Hazard(params.clone());
+    let (ctx, _report) =
+        step_runtime::execute_params_and_apply(&step, &market_quotes, context, &cfg)?;
+    let new_curve = ctx.get_hazard(params.curve_id.as_str())?.as_ref().clone();
+    Ok(new_curve)
+}
+
 /// Fallback: bump hazard rates directly (Model Sensitivity / Hazard Delta).
 fn bump_hazard_shift_fallback(
     hazard: &HazardCurve,

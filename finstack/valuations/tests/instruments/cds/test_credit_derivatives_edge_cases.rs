@@ -382,3 +382,89 @@ fn test_jtd_recovery_sensitivity() {
         );
     }
 }
+
+/// Recovery01 must recalibrate the hazard curve (re-bootstrap from par
+/// spreads at the new recovery) when the curve carries par-spread quotes.
+///
+/// We compare the metric's Recovery01 against a hand-rolled "frozen-curve"
+/// Recovery01 that bumps the instrument LGD without recalibrating the
+/// survival curve. For a curve with par_spread_points the two MUST differ —
+/// the recalibrated answer is the production-correct one (h ≈ S/(1-R)
+/// rebalances when R moves), while the frozen-curve answer is the partial
+/// LGD-only sensitivity.
+#[test]
+fn test_recovery01_recalibrates_hazard_curve_with_par_spreads() {
+    let base = base_date();
+    let maturity = Date::from_calendar_date(2030, Month::March, 20).unwrap();
+
+    let recovery = 0.40;
+    // Build a hazard curve carrying its own par-spread quotes (production
+    // shape — mirrors what a bootstrap would store).
+    let hazard = HazardCurve::builder("CDS-CAL-CREDIT")
+        .base_date(base)
+        .recovery_rate(recovery)
+        .knots([(1.0, 0.05), (3.0, 0.05), (5.0, 0.05), (10.0, 0.05)])
+        .par_spreads([(1.0, 300.0), (3.0, 300.0), (5.0, 300.0), (10.0, 300.0)])
+        .build()
+        .unwrap();
+
+    let cds = crate::finstack_test_utils::cds_buy_protection(
+        "CDS-RECALIB",
+        Money::new(10_000_000.0, Currency::USD),
+        300.0,
+        base,
+        maturity,
+        "USD-OIS",
+        "CDS-CAL-CREDIT",
+    )
+    .unwrap();
+    let mut cds_test = cds.clone();
+    cds_test.protection.recovery_rate = recovery;
+
+    let market = MarketContext::new()
+        .insert(create_discount_curve(base))
+        .insert(hazard);
+
+    // Metric path — recalibrates the hazard curve under the bumped recovery.
+    let result = cds_test
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::Recovery01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("Recovery01 should compute on calibrated curve");
+    let recalibrated_recovery01 = result.measures[MetricId::Recovery01.as_str()];
+
+    // Hand-rolled frozen-curve baseline: bump only the instrument LGD,
+    // leave the hazard curve intact. This is what Recovery01 used to do.
+    let bump = 0.01;
+    let mut cds_up = cds_test.clone();
+    cds_up.protection.recovery_rate = recovery + bump;
+    let mut cds_down = cds_test.clone();
+    cds_down.protection.recovery_rate = recovery - bump;
+    let pv_up_frozen = cds_up.value(&market, base).unwrap().amount();
+    let pv_down_frozen = cds_down.value(&market, base).unwrap().amount();
+    let frozen_recovery01 = (pv_up_frozen - pv_down_frozen) / 2.0;
+
+    assert!(
+        recalibrated_recovery01.is_finite(),
+        "Recalibrated Recovery01 should be finite, got {recalibrated_recovery01}"
+    );
+    assert!(
+        frozen_recovery01.is_finite(),
+        "Frozen-curve baseline should be finite"
+    );
+
+    // The two answers MUST differ — that's the whole point of recalibration.
+    let abs_diff = (recalibrated_recovery01 - frozen_recovery01).abs();
+    assert!(
+        abs_diff > 1e-3,
+        "Recalibrated Recovery01 ({recalibrated_recovery01:.6}) should differ \
+         materially from the frozen-curve baseline ({frozen_recovery01:.6}). \
+         Identical values indicate the hazard curve is NOT being recalibrated \
+         on recovery bumps — Recovery01 would then understate the true \
+         sensitivity for spread-bootstrapped curves."
+    );
+}
+

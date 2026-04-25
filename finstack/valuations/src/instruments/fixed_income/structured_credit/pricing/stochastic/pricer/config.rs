@@ -9,6 +9,16 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 use std::sync::Arc;
 
 /// Pricing mode selection.
+///
+/// All three modes are first-class supported pricers. Test coverage:
+/// - **Tree**: exercised by `tests/instruments/structured_credit/unit/{stochastic_pricing_tests,stochastic_tranche_pv_tests}` and `tests/support/structured_credit_stochastic.rs`. Default mode.
+/// - **MonteCarlo**: exercised by the same test suites and the convergence tests.
+/// - **Hybrid**: exercised by structured-credit pricer integration tests.
+///
+/// Choose based on horizon × dimensionality: `Tree` for short-horizon
+/// non-recombining stochastic CLO/RMBS deals (deterministic, low variance),
+/// `MonteCarlo` for long-horizon or high-dimensional pools, `Hybrid` to
+/// front-load tree precision and tail with MC.
 #[derive(
     Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]

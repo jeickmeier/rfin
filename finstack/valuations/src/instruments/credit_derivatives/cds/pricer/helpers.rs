@@ -140,6 +140,21 @@ pub(super) fn sp_cond_to(surv: &HazardCurve, as_of: Date, date: Date) -> Result<
 /// These factors are first-order approximations. In production, a full
 /// restructuring model would separate the restructuring hazard rate from
 /// the default hazard rate.
+///
+/// # Status: opt-in
+///
+/// This adjustment is **disabled by default** (see
+/// [`CDSPricerConfig::default`]) and applied only when callers explicitly
+/// set `enable_restructuring_approximation = true`. The factor is
+/// preserved as a documented first-order heuristic so that:
+///
+/// 1. Desks that need a quick proxy for restructuring uplift can opt in
+///    without taking the cost of a full restructuring-hazard model;
+/// 2. Future replacement with a calibrated restructuring-hazard model
+///    has a clear seam — callers continue to pass the same opt-in flag.
+///
+/// Do not enable this for production marks without sign-off from the
+/// credit-modelling owner.
 pub(super) fn restructuring_adjustment_factor(
     clause: CdsDocClause,
     cds: &CreditDefaultSwap,

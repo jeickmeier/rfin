@@ -3,25 +3,40 @@
 //! Computes Recovery01 (recovery rate sensitivity) using finite differences.
 //! Recovery01 measures the change in PV for a 1% (100bp) change in recovery rate.
 //!
-//! Note: Recovery rate is stored in the credit index, so we need to bump
-//! the recovery rate in the CreditIndexData.
+//! Note: Recovery rate is stored in the credit index, so we bump the recovery
+//! rate inside the `CreditIndexData` while preserving any per-issuer recovery
+//! and weight overrides (which represent independent quotes that should not
+//! move with an index-level recovery shock).
 //!
-//! ## Limitation: Partial Recovery Sensitivity Only
+//! ## Hazard Curve Recalibration
 //!
-//! This calculator bumps the recovery rate in the credit index data but does **not**
-//! recalibrate the underlying hazard curves. Since `h ≈ S / (1 - R)`, changing R
-//! without recalibrating understates the true recovery sensitivity. Professional
-//! systems (Bloomberg, QuantLib) recalibrate the hazard curve after bumping recovery.
-//! This implementation provides a **partial / local** recovery sensitivity only —
-//! traders hedging recovery risk should expect this to differ materially from a
-//! full recalibrated bump for spread-bootstrapped curves (typically by 2-5x for
-//! distressed credits).
+//! When the index hazard curve carries the par-spread quotes it was
+//! bootstrapped from (`par_spread_points` non-empty), the bumped recovery
+//! is propagated through a full re-bootstrap of the index survival curve
+//! so the observed CDS index spreads remain consistent. This captures the
+//! indirect `h ≈ S/(1-R)` effect that dominates the recovery sensitivity for
+//! distressed indices.
+//!
+//! When the curve has no stored par spreads (e.g. a hand-built knot curve
+//! used in tests), the calculator falls back to a frozen-curve bump: only
+//! the index-level recovery rate is updated and the survival curve is
+//! reused unchanged. This produces a *partial* recovery sensitivity that,
+//! for spread-bootstrapped curves, typically understates the true value
+//! by 2-5x.
+//!
+//! Note: per-issuer hazard curves (`issuer_credit_curves`) are *not*
+//! recalibrated by an index-recovery bump — they're independent quotes for
+//! single-name names. An index recovery shock conceptually shifts the index
+//! pricing convention, not the per-issuer recovery agreements.
 
+use crate::calibration::bumps::hazard::recalibrate_hazard_with_recovery;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::Result;
+use std::sync::Arc;
 
 /// Standard recovery rate bump: 1% (0.01)
 const RECOVERY_BUMP: f64 = 0.01;
@@ -56,42 +71,76 @@ fn rebuild_with_recovery(
     builder.build()
 }
 
+/// Build a market with both the index recovery bumped AND (where possible)
+/// the index hazard curve re-bootstrapped from par spreads at the new
+/// recovery. Falls back to bumping the recovery field alone when the curve
+/// carries no stored par spreads.
+fn market_at_bumped_recovery(
+    base_market: &MarketContext,
+    tranche: &CDSTranche,
+    original_index: &CreditIndexData,
+    new_recovery: f64,
+) -> Result<MarketContext> {
+    let mut bumped_index = rebuild_with_recovery(original_index, new_recovery)?;
+
+    let original_curve = &original_index.index_credit_curve;
+    let has_par_quotes = original_curve.par_spread_points().next().is_some();
+
+    if has_par_quotes {
+        // Recalibrate the index hazard curve so the observed CDS index par
+        // spreads stay consistent under the new recovery assumption. This
+        // captures the dominant h ≈ S/(1-R) effect.
+        if let Ok(recalibrated) = recalibrate_hazard_with_recovery(
+            original_curve.as_ref(),
+            new_recovery,
+            base_market,
+            Some(&tranche.discount_curve_id),
+        ) {
+            bumped_index.index_credit_curve = Arc::new(recalibrated);
+        }
+        // If recalibration fails (e.g. degenerate spreads), fall through to
+        // the frozen-curve path so the metric still produces a number.
+    }
+
+    Ok(base_market
+        .clone()
+        .insert_credit_index(&tranche.credit_index_id, bumped_index))
+}
+
 impl MetricCalculator for Recovery01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let tranche: &CDSTranche = context.instrument_as()?;
         let as_of = context.as_of;
+        let market = context.curves.as_ref();
 
-        let original_index = context.curves.get_credit_index(&tranche.credit_index_id)?;
+        let original_index = market.get_credit_index(&tranche.credit_index_id)?;
         let base_recovery = original_index.recovery_rate;
 
         let bumped_recovery_up = (base_recovery + RECOVERY_BUMP).clamp(0.0, 1.0);
         let up_delta = bumped_recovery_up - base_recovery;
-        let bumped_index_up = rebuild_with_recovery(original_index.as_ref(), bumped_recovery_up)?;
-        let curves_up = context
-            .curves
-            .as_ref()
-            .clone()
-            .insert_credit_index(&tranche.credit_index_id, bumped_index_up);
+        let curves_up = market_at_bumped_recovery(
+            market,
+            tranche,
+            original_index.as_ref(),
+            bumped_recovery_up,
+        )?;
         let pv_up = tranche.value(&curves_up, as_of)?.amount();
 
         let bumped_recovery_down = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
         let down_delta = base_recovery - bumped_recovery_down;
-        let bumped_index_down =
-            rebuild_with_recovery(original_index.as_ref(), bumped_recovery_down)?;
-        let curves_down = context
-            .curves
-            .as_ref()
-            .clone()
-            .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
+        let curves_down = market_at_bumped_recovery(
+            market,
+            tranche,
+            original_index.as_ref(),
+            bumped_recovery_down,
+        )?;
         let pv_down = tranche.value(&curves_down, as_of)?.amount();
 
         let span = up_delta + down_delta;
         if span <= 0.0 {
             return Ok(0.0);
         }
-        let recovery01 = (pv_up - pv_down) / span * RECOVERY_BUMP;
-
-        Ok(recovery01)
+        Ok((pv_up - pv_down) / span * RECOVERY_BUMP)
     }
 }
 

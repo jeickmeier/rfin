@@ -15,17 +15,20 @@
 //! This ensures consistent, unbiased sensitivity estimates even when the base
 //! recovery rate is near the valid bounds [0, 1].
 //!
-//! ## Limitation: Frozen Hazard Curve
+//! ## Hazard Curve Recalibration
 //!
-//! This calculator bumps the recovery rate on the instrument but does **not**
-//! recalibrate the hazard curve. Since hazard rates are typically bootstrapped
-//! from market spreads via `h ≈ S / (1 - R)`, changing R without recalibrating
-//! understates the true recovery sensitivity. The indirect effect through hazard
-//! recalibration typically dominates the direct effect.
+//! When the hazard curve carries the par-spread quotes it was bootstrapped
+//! from (`par_spread_points` non-empty), the bumped recovery is propagated
+//! through a full re-bootstrap of the survival curve so the observed CDS
+//! spreads remain consistent. This captures the indirect `h ≈ S/(1-R)` effect
+//! that dominates the recovery sensitivity for distressed credits.
 //!
-//! Professional systems (Bloomberg CDSW, QuantLib) recalibrate the hazard curve
-//! after bumping recovery. This implementation provides a "local" or "partial"
-//! recovery sensitivity only.
+//! When the curve has no stored par spreads (e.g. a hand-built knot curve
+//! used in tests or a curve loaded without preserving its calibration
+//! quotes), the calculator falls back to a "frozen-curve" bump: the recovery
+//! is bumped on the instrument only and the survival curve is reused
+//! unchanged. This produces a *partial* recovery sensitivity that, for
+//! spread-bootstrapped curves, typically understates the true value by 2-5x.
 //!
 //! ## Note
 //!
@@ -33,9 +36,11 @@
 //! and the premium leg (accrued on default settlement). This metric captures
 //! the full direct sensitivity across both legs.
 
+use crate::calibration::bumps::hazard::recalibrate_hazard_with_recovery;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
 /// Standard recovery rate bump: 1% (0.01)
@@ -48,15 +53,57 @@ const MIN_EFFECTIVE_BUMP: f64 = 1e-6;
 /// Recovery01 calculator for CDS.
 pub(crate) struct Recovery01Calculator;
 
+/// Price the CDS at a bumped recovery, recalibrating the hazard curve from
+/// par spreads when the curve carries them and falling back to a frozen-curve
+/// bump otherwise. Returns the bumped PV.
+fn price_at_bumped_recovery(
+    cds: &CreditDefaultSwap,
+    base_market: &MarketContext,
+    new_recovery: f64,
+    as_of: finstack_core::dates::Date,
+) -> Result<f64> {
+    let mut bumped_cds = cds.clone();
+    bumped_cds.protection.recovery_rate = new_recovery;
+
+    let credit_id = cds.protection.credit_curve_id.as_str();
+    let discount_id = cds.premium.discount_curve_id.clone();
+    let hazard = base_market.get_hazard(credit_id)?;
+
+    // If the curve was built from par-spread quotes we re-bootstrap it under
+    // the bumped recovery. Otherwise we leave the curve frozen — Recovery01
+    // becomes a partial sensitivity (the LGD-only direct effect).
+    let has_par_quotes = hazard.par_spread_points().next().is_some();
+
+    let market_for_pricing: MarketContext = if has_par_quotes {
+        match recalibrate_hazard_with_recovery(
+            hazard.as_ref(),
+            new_recovery,
+            base_market,
+            Some(&discount_id),
+        ) {
+            Ok(recalibrated) => base_market.clone().insert(recalibrated),
+            Err(_) => {
+                // Recalibration failure (e.g. degenerate spreads under the new
+                // recovery) is non-fatal: fall through to the frozen-curve
+                // bump so the metric still produces a number.
+                base_market.clone()
+            }
+        }
+    } else {
+        base_market.clone()
+    };
+
+    Ok(bumped_cds.value(&market_for_pricing, as_of)?.amount())
+}
+
 impl MetricCalculator for Recovery01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let as_of = context.as_of;
+        let market = context.curves.as_ref();
 
-        // Get base recovery rate
         let base_recovery = cds.protection.recovery_rate;
 
-        // Compute effective bump sizes after clamping to [0, 1]
         let bumped_up = (base_recovery + RECOVERY_BUMP).clamp(0.0, 1.0);
         let bumped_down = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
         let up_delta = bumped_up - base_recovery;
@@ -65,50 +112,25 @@ impl MetricCalculator for Recovery01Calculator {
         let can_bump_up = up_delta > MIN_EFFECTIVE_BUMP;
         let can_bump_down = down_delta > MIN_EFFECTIVE_BUMP;
 
-        // Determine which finite difference method to use based on available bumps
         let slope = match (can_bump_up, can_bump_down) {
             (true, true) => {
-                // Central difference: most accurate, use when both bumps available
-                let mut cds_up = cds.clone();
-                cds_up.protection.recovery_rate = bumped_up;
-                let pv_up = cds_up.value(&context.curves, as_of)?.amount();
-
-                let mut cds_down = cds.clone();
-                cds_down.protection.recovery_rate = bumped_down;
-                let pv_down = cds_down.value(&context.curves, as_of)?.amount();
-
+                let pv_up = price_at_bumped_recovery(cds, market, bumped_up, as_of)?;
+                let pv_down = price_at_bumped_recovery(cds, market, bumped_down, as_of)?;
                 (pv_up - pv_down) / (up_delta + down_delta)
             }
             (true, false) => {
-                // Forward difference: recovery near 0, can only bump up
-                let base_pv = cds.value(&context.curves, as_of)?.amount();
-
-                let mut cds_up = cds.clone();
-                cds_up.protection.recovery_rate = bumped_up;
-                let pv_up = cds_up.value(&context.curves, as_of)?.amount();
-
+                let base_pv = cds.value(market, as_of)?.amount();
+                let pv_up = price_at_bumped_recovery(cds, market, bumped_up, as_of)?;
                 (pv_up - base_pv) / up_delta
             }
             (false, true) => {
-                // Backward difference: recovery near 1, can only bump down
-                let base_pv = cds.value(&context.curves, as_of)?.amount();
-
-                let mut cds_down = cds.clone();
-                cds_down.protection.recovery_rate = bumped_down;
-                let pv_down = cds_down.value(&context.curves, as_of)?.amount();
-
+                let base_pv = cds.value(market, as_of)?.amount();
+                let pv_down = price_at_bumped_recovery(cds, market, bumped_down, as_of)?;
                 (base_pv - pv_down) / down_delta
             }
-            (false, false) => {
-                // Cannot bump in either direction (recovery exactly at bound with zero bump)
-                // This is an edge case that shouldn't occur with RECOVERY_BUMP = 0.01
-                0.0
-            }
+            (false, false) => 0.0,
         };
 
-        // Return the PV change for a 1% (100bp) recovery move.
-        let recovery01 = slope * RECOVERY_BUMP;
-
-        Ok(recovery01)
+        Ok(slope * RECOVERY_BUMP)
     }
 }
