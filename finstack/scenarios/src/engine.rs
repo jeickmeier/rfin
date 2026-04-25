@@ -1026,8 +1026,7 @@ fn process_effects(
             }
             ScenarioEffect::AssetCorrelationShock { delta_pts } => {
                 flush_pending_bumps(pending_bumps, ctx.market)?;
-                let (count, ws) =
-                    apply_correlation_effect(CorrelationKind::Asset, delta_pts, ctx);
+                let (count, ws) = apply_correlation_effect(CorrelationKind::Asset, delta_pts, ctx);
                 *applied += count;
                 warnings.extend(ws);
             }
@@ -1372,9 +1371,7 @@ mod tests {
     #[test]
     fn apply_emits_warning_when_hierarchy_target_matches_no_curves() {
         use finstack_core::market_data::context::MarketContext;
-        use finstack_core::market_data::hierarchy::{
-            HierarchyTarget, MarketDataHierarchy,
-        };
+        use finstack_core::market_data::hierarchy::{HierarchyTarget, MarketDataHierarchy};
         use finstack_statements::FinancialModelSpec;
         use time::macros::date;
 
@@ -1407,7 +1404,9 @@ mod tests {
             calendar: None,
             as_of: date!(2025 - 01 - 01),
         };
-        let report = engine.apply(&scenario, &mut ctx).expect("apply should succeed");
+        let report = engine
+            .apply(&scenario, &mut ctx)
+            .expect("apply should succeed");
 
         assert_eq!(report.operations_applied, 0);
         assert_eq!(report.expanded_operations, 0);

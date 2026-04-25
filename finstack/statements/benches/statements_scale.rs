@@ -154,7 +154,10 @@ fn build_large_lbo_model(n_nodes: usize, n_months: usize) -> FinancialModelSpec 
     let revenue_values: Vec<(PeriodId, AmountOrScalar)> = (0..n_months)
         .map(|i| {
             let period = PeriodId::month(2024 + (i / 12) as i32, ((i % 12) + 1) as u8);
-            (period, AmountOrScalar::scalar(1_000_000.0 + i as f64 * 1_000.0))
+            (
+                period,
+                AmountOrScalar::scalar(1_000_000.0 + i as f64 * 1_000.0),
+            )
         })
         .collect();
 
@@ -182,9 +185,7 @@ fn build_large_lbo_model(n_nodes: usize, n_months: usize) -> FinancialModelSpec 
             3 => format!("lag(ebitda, 1) * {}", 0.5 + 0.001 * i as f64),
             _ => format!("ebitda - cogs * {}", 0.001 * i as f64),
         };
-        builder = builder
-            .compute(format!("derived_{}", i), formula)
-            .unwrap();
+        builder = builder.compute(format!("derived_{}", i), formula).unwrap();
     }
 
     builder.build().unwrap()
@@ -198,16 +199,12 @@ fn bench_large_lbo_model(c: &mut Criterion) {
         let model = build_large_lbo_model(n_nodes, n_months);
         let label = format!("{}x{}", n_nodes, n_months);
         group.throughput(Throughput::Elements((n_nodes * n_months) as u64));
-        group.bench_with_input(
-            BenchmarkId::new("evaluate", &label),
-            &model,
-            |b, model| {
-                b.iter(|| {
-                    let mut evaluator = Evaluator::new();
-                    black_box(evaluator.evaluate(black_box(model)).unwrap())
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("evaluate", &label), &model, |b, model| {
+            b.iter(|| {
+                let mut evaluator = Evaluator::new();
+                black_box(evaluator.evaluate(black_box(model)).unwrap())
+            });
+        });
     }
     group.finish();
 }

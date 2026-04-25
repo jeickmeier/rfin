@@ -440,8 +440,8 @@ mod tests {
     }
 
     #[test]
-    fn trajectory_rejects_non_linear_delta(
-    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn trajectory_rejects_non_linear_delta() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         // delta != 1 => closed-form sinh schedule is not optimal; the function
         // must error out instead of returning a sub-optimal plan silently.
         let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;

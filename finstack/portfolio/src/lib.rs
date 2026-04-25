@@ -137,8 +137,8 @@ pub use types::{AttributeTest, AttributeValue, ComparisonOp, Entity, EntityId, P
 // through long module paths for the most common workflows. Anything not
 // re-exported here is still reachable via its module path; the goal is just
 // to surface the canonical entry points.
-pub use position::{Position, PositionUnit};
 pub use portfolio::PortfolioSpec;
+pub use position::{Position, PositionUnit};
 pub use results::PortfolioResult;
 pub use valuation::{
     revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions,

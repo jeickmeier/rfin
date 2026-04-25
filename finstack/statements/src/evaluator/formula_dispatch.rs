@@ -154,11 +154,7 @@ pub(crate) fn evaluate_function(
 /// (`rank = 1 + count(historical < current)`). Non-finite current values or
 /// empty histories return `NaN` so callers can distinguish "no data" from
 /// "best observation" — `unwrap_or(1.0)` would lose that distinction.
-fn eval_rank(
-    args: &[Expr],
-    context: &mut EvaluationContext,
-    node_id: Option<&str>,
-) -> Result<f64> {
+fn eval_rank(args: &[Expr], context: &mut EvaluationContext, node_id: Option<&str>) -> Result<f64> {
     require_min_args("rank", args, 1, node_id)?;
 
     let current_value = evaluate_expr(&args[0], context, node_id)?;

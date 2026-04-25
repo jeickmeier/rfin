@@ -59,12 +59,11 @@ pub(super) fn apply_pik_transitions(
             .get(instrument_id.as_str())
             .copied()
             .unwrap_or(false);
-        let effective_pik =
-            if currently_pik && !enable_pik && periods_active < min_periods_in_pik {
-                true
-            } else {
-                enable_pik
-            };
+        let effective_pik = if currently_pik && !enable_pik && periods_active < min_periods_in_pik {
+            true
+        } else {
+            enable_pik
+        };
         state
             .pik_mode
             .insert(instrument_id.to_string(), effective_pik);

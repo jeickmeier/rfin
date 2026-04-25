@@ -268,9 +268,7 @@ fn resolve_discount_curve_id(
         ));
     }
 
-    let hint_str = hint_curve_id
-        .map(|h| h.as_str())
-        .unwrap_or("curve bump");
+    let hint_str = hint_curve_id.map(|h| h.as_str()).unwrap_or("curve bump");
     Err(Error::Validation(format!(
         "Unable to resolve discount curve for '{hint_str}' without an explicit discount_curve_id",
     )))
@@ -463,14 +461,13 @@ pub(crate) fn curve_node_effects(
             }
 
             let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(forwards).collect();
-            let new_curve =
-                finstack_core::market_data::term_structures::ForwardCurve::builder(
-                    base_curve.id().as_str(),
-                    base_curve.tenor(),
-                )
-                .base_date(base_curve.base_date())
-                .knots(bumped_points)
-                .build()?;
+            let new_curve = finstack_core::market_data::term_structures::ForwardCurve::builder(
+                base_curve.id().as_str(),
+                base_curve.tenor(),
+            )
+            .base_date(base_curve.base_date())
+            .knots(bumped_points)
+            .build()?;
 
             Ok(update_effects(new_curve, result.warnings))
         }
@@ -593,7 +590,11 @@ pub(crate) fn curve_node_effects(
                 let t = knots[idx];
                 if t > 1e-12 {
                     if dfs[idx] <= 0.0 {
-                        tracing::warn!(idx, df = dfs[idx], "Non-positive discount factor in commodity curve bump; skipping node");
+                        tracing::warn!(
+                            idx,
+                            df = dfs[idx],
+                            "Non-positive discount factor in commodity curve bump; skipping node"
+                        );
                         continue;
                     }
                     let zero = -(dfs[idx].ln()) / t;
@@ -603,17 +604,16 @@ pub(crate) fn curve_node_effects(
             }
 
             let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(dfs).collect();
-            let new_curve =
-                finstack_core::market_data::term_structures::DiscountCurve::builder(
-                    base_curve.id().as_str(),
-                )
-                .base_date(base_curve.base_date())
-                .day_count(base_curve.day_count())
-                .interp(base_curve.interp_style())
-                .extrapolation(base_curve.extrapolation())
-                .allow_non_monotonic()
-                .knots(bumped_points)
-                .build()?;
+            let new_curve = finstack_core::market_data::term_structures::DiscountCurve::builder(
+                base_curve.id().as_str(),
+            )
+            .base_date(base_curve.base_date())
+            .day_count(base_curve.day_count())
+            .interp(base_curve.interp_style())
+            .extrapolation(base_curve.extrapolation())
+            .allow_non_monotonic()
+            .knots(bumped_points)
+            .build()?;
 
             let mut warnings = result.warnings;
             if let Some(w) = commodity_node_shock_warning(curve_id, nodes) {
@@ -642,15 +642,14 @@ pub(crate) fn vol_index_parallel_effects(
     let knots: Vec<f64> = base_curve.knots().to_vec();
     let bumped_levels: Vec<f64> = base_curve.levels().iter().map(|l| l + points).collect();
     let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(bumped_levels).collect();
-    let new_curve =
-        finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(
-            base_curve.id().as_str(),
-        )
-        .base_date(base_curve.base_date())
-        .day_count(base_curve.day_count())
-        .spot_level((base_curve.spot_level() + points).max(0.0))
-        .knots(bumped_points)
-        .build()?;
+    let new_curve = finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(
+        base_curve.id().as_str(),
+    )
+    .base_date(base_curve.base_date())
+    .day_count(base_curve.day_count())
+    .spot_level((base_curve.spot_level() + points).max(0.0))
+    .knots(bumped_points)
+    .build()?;
 
     Ok(vec![ScenarioEffect::UpdateCurve(CurveStorage::from(
         new_curve,
@@ -696,15 +695,14 @@ pub(crate) fn vol_index_node_effects(
     }
 
     let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(levels).collect();
-    let new_curve =
-        finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(
-            base_curve.id().as_str(),
-        )
-        .base_date(base_curve.base_date())
-        .day_count(base_curve.day_count())
-        .spot_level(base_curve.spot_level())
-        .knots(bumped_points)
-        .build()?;
+    let new_curve = finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(
+        base_curve.id().as_str(),
+    )
+    .base_date(base_curve.base_date())
+    .day_count(base_curve.day_count())
+    .spot_level(base_curve.spot_level())
+    .knots(bumped_points)
+    .build()?;
 
     Ok(update_effects(new_curve, result.warnings))
 }

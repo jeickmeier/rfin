@@ -66,33 +66,32 @@ pub(crate) fn collect_historical_values_sorted(
         return Ok(cached);
     }
 
-    let sorted_periods = if let Some((component, instrument_or_total)) =
-        decode_cs_reference(node_name)
-    {
-        let mut sorted_periods = BTreeMap::new();
-        for period in context.historical_capital_structure_cashflows.keys() {
-            if let Ok(value) =
-                context.get_historical_cs_value(component, instrument_or_total, period)
-            {
-                sorted_periods.insert(*period, value);
+    let sorted_periods =
+        if let Some((component, instrument_or_total)) = decode_cs_reference(node_name) {
+            let mut sorted_periods = BTreeMap::new();
+            for period in context.historical_capital_structure_cashflows.keys() {
+                if let Ok(value) =
+                    context.get_historical_cs_value(component, instrument_or_total, period)
+                {
+                    sorted_periods.insert(*period, value);
+                }
             }
-        }
-        if let Ok(current) = context.get_cs_value(component, instrument_or_total) {
-            sorted_periods.insert(context.period_id, current);
-        }
-        sorted_periods
-    } else {
-        let mut sorted_periods = BTreeMap::new();
-        for (period, values) in context.historical_results.iter() {
-            if let Some(value) = values.get(node_name) {
-                sorted_periods.insert(*period, *value);
+            if let Ok(current) = context.get_cs_value(component, instrument_or_total) {
+                sorted_periods.insert(context.period_id, current);
             }
-        }
-        if let Ok(current) = context.get_value(node_name) {
-            sorted_periods.insert(context.period_id, current);
-        }
-        sorted_periods
-    };
+            sorted_periods
+        } else {
+            let mut sorted_periods = BTreeMap::new();
+            for (period, values) in context.historical_results.iter() {
+                if let Some(value) = values.get(node_name) {
+                    sorted_periods.insert(*period, *value);
+                }
+            }
+            if let Ok(current) = context.get_value(node_name) {
+                sorted_periods.insert(context.period_id, current);
+            }
+            sorted_periods
+        };
 
     let result = Rc::new(sorted_periods);
     context

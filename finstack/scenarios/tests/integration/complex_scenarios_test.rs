@@ -347,7 +347,9 @@ fn test_three_scenario_composition() {
     };
 
     let engine = ScenarioEngine::new();
-    let composed = engine.try_compose(vec![s3, s1, s2]).expect("compose should succeed"); // Intentionally out of order
+    let composed = engine
+        .try_compose(vec![s3, s1, s2])
+        .expect("compose should succeed"); // Intentionally out of order
 
     assert_eq!(composed.operations.len(), 3);
 

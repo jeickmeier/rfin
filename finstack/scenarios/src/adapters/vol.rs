@@ -143,15 +143,20 @@ fn surface_grid(surface: &VolSurface) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
-fn arbitrage_warnings_for_surface(surface_id: &CurveId, surface: &VolSurface) -> Result<Vec<Warning>> {
+fn arbitrage_warnings_for_surface(
+    surface_id: &CurveId,
+    surface: &VolSurface,
+) -> Result<Vec<Warning>> {
     let vols = surface_grid(surface)?;
-    Ok(check_arbitrage(surface.expiries(), surface.strikes(), &vols)
-        .into_iter()
-        .map(|violation| Warning::VolSurfaceArbitrage {
-            surface_id: surface_id.as_str().to_string(),
-            detail: violation.to_string(),
-        })
-        .collect())
+    Ok(
+        check_arbitrage(surface.expiries(), surface.strikes(), &vols)
+            .into_iter()
+            .map(|violation| Warning::VolSurfaceArbitrage {
+                surface_id: surface_id.as_str().to_string(),
+                detail: violation.to_string(),
+            })
+            .collect(),
+    )
 }
 
 /// Generate effects for a parallel vol-surface percent shock.
@@ -233,9 +238,7 @@ pub(crate) fn vol_bucket_effects(
 
     let preview = surface
         .apply_bucket_bump(exp_years.as_deref(), strikes, pct)
-        .ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::DimensionMismatch)
-        })?;
+        .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::DimensionMismatch))?;
     warnings.extend(arbitrage_warnings_for_surface(surface_id, &preview)?);
 
     let bump = MarketBump::VolBucketPct {
@@ -397,13 +400,8 @@ mod tests {
         };
 
         let surface_id = CurveId::from("VOL");
-        let effects = vol_bucket_effects(
-            &surface_id,
-            Some(&["6M".to_string()]),
-            None,
-            -30.0,
-            &ctx,
-        )?;
+        let effects =
+            vol_bucket_effects(&surface_id, Some(&["6M".to_string()]), None, -30.0, &ctx)?;
 
         assert!(effects.iter().any(|effect| matches!(
             effect,

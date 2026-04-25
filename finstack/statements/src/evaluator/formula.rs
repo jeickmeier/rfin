@@ -516,7 +516,6 @@ pub(crate) fn evaluate_expr(
 #[cfg(test)]
 use crate::evaluator::formula_dispatch::evaluate_function;
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

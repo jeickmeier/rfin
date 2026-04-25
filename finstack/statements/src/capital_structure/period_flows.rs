@@ -493,11 +493,13 @@ mod tests {
         // without this assertion.
         let scale_warnings: Vec<&EvalWarning> = warnings
             .iter()
-            .filter(|w| matches!(
-                w,
-                EvalWarning::CapitalStructureCashflowIgnored { kind, .. }
-                    if kind.starts_with("scale_clamped(")
-            ))
+            .filter(|w| {
+                matches!(
+                    w,
+                    EvalWarning::CapitalStructureCashflowIgnored { kind, .. }
+                        if kind.starts_with("scale_clamped(")
+                )
+            })
             .collect();
         assert_eq!(
             scale_warnings.len(),

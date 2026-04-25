@@ -1588,8 +1588,7 @@ mod tests {
                 (s, pnl)
             })
             .collect();
-        portfolio_pnls
-            .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        portfolio_pnls.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         let n_tail = ((1.0 - confidence) * n_scenarios as f64).floor() as usize;
         let mut serial_ces = vec![0.0_f64; n];
         for &(s, _) in &portfolio_pnls[..n_tail] {

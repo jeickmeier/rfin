@@ -121,7 +121,9 @@ fn test_scenario_composition_same_priority() {
     };
 
     let engine = ScenarioEngine::new();
-    let composed = engine.try_compose(vec![s1, s2]).expect("compose should succeed");
+    let composed = engine
+        .try_compose(vec![s1, s2])
+        .expect("compose should succeed");
 
     assert_eq!(composed.operations.len(), 2);
     assert_eq!(composed.id, "s1+s2");
@@ -154,7 +156,9 @@ fn test_scenario_composition_different_priorities() {
     };
 
     let engine = ScenarioEngine::new();
-    let composed = engine.try_compose(vec![low_priority, high_priority]).expect("compose should succeed");
+    let composed = engine
+        .try_compose(vec![low_priority, high_priority])
+        .expect("compose should succeed");
 
     // High priority should come first
     assert_eq!(composed.operations.len(), 2);

@@ -162,7 +162,9 @@ fn test_scenario_composition() {
 
     // Compose scenarios
     let engine = ScenarioEngine::new();
-    let composed = engine.try_compose(vec![s1, s2]).expect("compose should succeed");
+    let composed = engine
+        .try_compose(vec![s1, s2])
+        .expect("compose should succeed");
 
     assert_eq!(composed.operations.len(), 2);
     assert_eq!(composed.id, "base+overlay");
