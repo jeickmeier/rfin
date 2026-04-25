@@ -186,9 +186,7 @@ impl HorizonAnalysis {
         }
 
         // 1. Price at t0
-        let initial_value = instrument
-            .value(market_t0, as_of_t0)
-            .map_err(|e| crate::Error::Internal(format!("t0 pricing failed: {e}")))?;
+        let initial_value = instrument.value(market_t0, as_of_t0)?;
 
         // 2. Clone market and build execution context
         let mut market_t1 = market_t0.clone();
@@ -215,9 +213,7 @@ impl HorizonAnalysis {
             self.run_attribution(instrument, market_t0, &market_t1, as_of_t0, as_of_t1)?;
 
         // 6. Price at t1
-        let terminal_value = instrument
-            .value(&market_t1, as_of_t1)
-            .map_err(|e| crate::Error::Internal(format!("t1 pricing failed: {e}")))?;
+        let terminal_value = instrument.value(&market_t1, as_of_t1)?;
 
         Ok(HorizonResult {
             attribution,
@@ -260,16 +256,18 @@ impl HorizonAnalysis {
             ),
             AttributionMethod::MetricsBased => {
                 let metrics = default_attribution_metrics();
-                let val_t0 = instrument
-                    .price_with_metrics(market_t0, as_of_t0, &metrics, PricingOptions::default())
-                    .map_err(|e| {
-                        crate::Error::Internal(format!("t0 metrics pricing failed: {e}"))
-                    })?;
-                let val_t1 = instrument
-                    .price_with_metrics(market_t1, as_of_t1, &metrics, PricingOptions::default())
-                    .map_err(|e| {
-                        crate::Error::Internal(format!("t1 metrics pricing failed: {e}"))
-                    })?;
+                let val_t0 = instrument.price_with_metrics(
+                    market_t0,
+                    as_of_t0,
+                    &metrics,
+                    PricingOptions::default(),
+                )?;
+                let val_t1 = instrument.price_with_metrics(
+                    market_t1,
+                    as_of_t1,
+                    &metrics,
+                    PricingOptions::default(),
+                )?;
                 attribute_pnl_metrics_based(
                     instrument, market_t0, market_t1, &val_t0, &val_t1, as_of_t0, as_of_t1,
                 )
@@ -278,7 +276,7 @@ impl HorizonAnalysis {
                 instrument, market_t0, market_t1, as_of_t0, as_of_t1, config,
             ),
         };
-        result.map_err(|e| crate::Error::Internal(format!("attribution failed: {e}")))
+        Ok(result?)
     }
 }
 

@@ -4,12 +4,18 @@
 //! [`ScenarioSpec`](crate::spec::ScenarioSpec) definitions and apply them to
 //! a mutable [`ExecutionContext`]. Its responsibilities are:
 //! - enforce a repeatable ordering of operations
-//! - delegate each `OperationSpec` variant to the appropriate adapter module
-//! - collect reporting metadata about how many operations ran and whether any
-//!   warnings were produced during execution
+//! - dispatch each `OperationSpec` variant to the appropriate adapter function
+//!   via a centralized exhaustive `match`
+//! - batch market bumps so the underlying [`MarketContext`] is cloned at most
+//!   once per scenario application instead of once per operation
+//! - collect reporting metadata about how many operations ran and any
+//!   warnings produced during execution
 
+use crate::adapters::traits::ScenarioEffect;
 use crate::error::Result;
 use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec, VolSurfaceKind};
+use crate::warning::Warning;
+use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::hierarchy::{
     HierarchyNode, HierarchyTarget, MarketDataHierarchy, ResolutionMode, TagFilter,
 };
@@ -94,14 +100,13 @@ pub struct ExecutionContext<'a> {
 ///     operations_applied: 3,
 ///     user_operations: 1,
 ///     expanded_operations: 3,
-///     warnings: vec!["fallback curve used".into()],
+///     warnings: vec![],
 ///     rounding_context: Some("default".into()),
 /// };
 ///
 /// assert_eq!(report.operations_applied, 3);
 /// assert_eq!(report.user_operations, 1);
 /// assert_eq!(report.expanded_operations, 3);
-/// assert_eq!(report.warnings.len(), 1);
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ApplicationReport {
@@ -123,8 +128,8 @@ pub struct ApplicationReport {
     /// `operations_applied` when assessing scenario coverage.
     pub expanded_operations: usize,
 
-    /// Warnings generated during application (non-fatal).
-    pub warnings: Vec<String>,
+    /// Structured warnings generated during application (non-fatal).
+    pub warnings: Vec<Warning>,
 
     /// Rounding context stamp (for determinism tracking).
     pub rounding_context: Option<String>,
@@ -212,12 +217,7 @@ fn resolve_hierarchy_matches(
 }
 
 /// Collapse duplicate curve hits to a single match per `curve_id`, keeping the
-/// deepest `matched_depth` seen for each. Required when a tag filter matches
-/// both an ancestor node and one of its descendants: `collect_filtered_matches`
-/// pushes the curves in the overlap twice (once as part of the ancestor's
-/// subtree, once via the descendant match), which under `ResolutionMode::Cumulative`
-/// would apply the same shock multiple times to one curve. Retaining the deepest
-/// depth preserves `MostSpecificWins` semantics for cross-operation dedup.
+/// deepest `matched_depth` seen for each.
 fn dedup_matches_keep_deepest(matches: Vec<HierarchyResolvedMatch>) -> Vec<HierarchyResolvedMatch> {
     let mut best: HashMap<CurveId, usize> = HashMap::default();
     for m in &matches {
@@ -239,37 +239,71 @@ fn dedup_matches_keep_deepest(matches: Vec<HierarchyResolvedMatch>) -> Vec<Hiera
     out
 }
 
+/// Returns `true` if any operation is a hierarchy-targeted variant.
+#[inline]
+fn has_hierarchy_op(operations: &[OperationSpec]) -> bool {
+    operations.iter().any(|op| {
+        matches!(
+            op,
+            OperationSpec::HierarchyCurveParallelBp { .. }
+                | OperationSpec::HierarchyVolSurfaceParallelPct { .. }
+                | OperationSpec::HierarchyEquityPricePct { .. }
+                | OperationSpec::HierarchyBaseCorrParallelPts { .. }
+        )
+    })
+}
+
+/// Result of `expand_hierarchy_operations`: the (possibly-borrowed) list of
+/// direct operations plus any warnings that should be appended to the
+/// `ApplicationReport` (currently only [`Warning::HierarchyNoMatch`]).
+struct ExpansionOutcome<'a> {
+    operations: std::borrow::Cow<'a, [OperationSpec]>,
+    warnings: Vec<Warning>,
+}
+
 /// Expand hierarchy-targeted operations into direct-targeted operations.
 ///
-/// - `Cumulative`: All matching hierarchy operations expand independently.
-/// - `MostSpecificWins`: For each curve, only the deepest (longest path) hierarchy
-///   operation applies.
+/// Errors if the spec contains hierarchy operations but the market context has
+/// no hierarchy attached — that combination would otherwise silently produce
+/// `operations_applied = 0` and a "not supported" warning, which is too quiet
+/// for a stress system.
 ///
-/// When no hierarchy is attached to the market context, returns a clone of the
-/// original operations unchanged.
-fn expand_hierarchy_operations(
-    operations: &[OperationSpec],
+/// When a hierarchy target resolves to zero curves the operation is dropped
+/// from the expanded list and a [`Warning::HierarchyNoMatch`] is emitted so
+/// the caller can detect the (likely-unintended) no-op.
+///
+/// Returns a borrowed slice equivalent (via `Cow`) when the input contains no
+/// hierarchy variants, avoiding an unnecessary clone of the operation list.
+fn expand_hierarchy_operations<'a>(
+    operations: &'a [OperationSpec],
     market: &finstack_core::market_data::context::MarketContext,
     mode: ResolutionMode,
-) -> Vec<OperationSpec> {
-    let hierarchy = match market.hierarchy() {
-        Some(h) => h,
-        None => return operations.to_vec(),
-    };
+) -> Result<ExpansionOutcome<'a>> {
+    if !has_hierarchy_op(operations) {
+        return Ok(ExpansionOutcome {
+            operations: std::borrow::Cow::Borrowed(operations),
+            warnings: Vec::new(),
+        });
+    }
 
-    // Expand hierarchy ops in-place so non-hierarchy ops retain their
-    // original position relative to hierarchy-expanded ops.  This avoids
-    // re-ordering that would, e.g., move a TimeRollForward before shocks
-    // that were originally specified first.
-    //
-    // Phase 1: collect per-position expansions and record which indices
-    //          are hierarchy ops vs pass-through.
+    let hierarchy = market.hierarchy().ok_or_else(|| {
+        crate::error::Error::Validation(
+            "Scenario contains hierarchy-targeted operations but the market context has no \
+             hierarchy attached. Attach a MarketDataHierarchy via MarketContext::set_hierarchy \
+             or remove the Hierarchy* operations from the scenario."
+                .to_string(),
+        )
+    })?;
+
     enum Slot {
         Direct(OperationSpec),
         Expanded(Vec<HierarchyExpansion>),
     }
 
     let mut slots: Vec<Slot> = Vec::with_capacity(operations.len());
+    let mut warnings: Vec<Warning> = Vec::new();
+
+    let join_path = |target: &HierarchyTarget| target.path.join("/");
 
     for op in operations {
         match op {
@@ -280,6 +314,12 @@ fn expand_hierarchy_operations(
                 discount_curve_id,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
+                if matches.is_empty() {
+                    warnings.push(Warning::HierarchyNoMatch {
+                        target_path: join_path(target),
+                        op_kind: "HierarchyCurveParallelBp".to_string(),
+                    });
+                }
                 let exps: Vec<HierarchyExpansion> = matches
                     .into_iter()
                     .map(|matched| HierarchyExpansion {
@@ -290,7 +330,7 @@ fn expand_hierarchy_operations(
                         },
                         operation: OperationSpec::CurveParallelBp {
                             curve_kind: *curve_kind,
-                            curve_id: matched.curve_id.as_str().to_string(),
+                            curve_id: matched.curve_id,
                             discount_curve_id: discount_curve_id.clone(),
                             bp: *bp,
                         },
@@ -304,6 +344,12 @@ fn expand_hierarchy_operations(
                 pct,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
+                if matches.is_empty() {
+                    warnings.push(Warning::HierarchyNoMatch {
+                        target_path: join_path(target),
+                        op_kind: "HierarchyVolSurfaceParallelPct".to_string(),
+                    });
+                }
                 let exps: Vec<HierarchyExpansion> = matches
                     .into_iter()
                     .map(|matched| HierarchyExpansion {
@@ -314,7 +360,7 @@ fn expand_hierarchy_operations(
                         },
                         operation: OperationSpec::VolSurfaceParallelPct {
                             surface_kind: *surface_kind,
-                            surface_id: matched.curve_id.as_str().to_string(),
+                            surface_id: matched.curve_id,
                             pct: *pct,
                         },
                     })
@@ -323,6 +369,12 @@ fn expand_hierarchy_operations(
             }
             OperationSpec::HierarchyEquityPricePct { target, pct } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
+                if matches.is_empty() {
+                    warnings.push(Warning::HierarchyNoMatch {
+                        target_path: join_path(target),
+                        op_kind: "HierarchyEquityPricePct".to_string(),
+                    });
+                }
                 let exps: Vec<HierarchyExpansion> = matches
                     .into_iter()
                     .map(|matched| HierarchyExpansion {
@@ -340,6 +392,12 @@ fn expand_hierarchy_operations(
             }
             OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
+                if matches.is_empty() {
+                    warnings.push(Warning::HierarchyNoMatch {
+                        target_path: join_path(target),
+                        op_kind: "HierarchyBaseCorrParallelPts".to_string(),
+                    });
+                }
                 let exps: Vec<HierarchyExpansion> = matches
                     .into_iter()
                     .map(|matched| HierarchyExpansion {
@@ -348,7 +406,7 @@ fn expand_hierarchy_operations(
                             surface_id: matched.curve_id.clone(),
                         },
                         operation: OperationSpec::BaseCorrParallelPts {
-                            surface_id: matched.curve_id.as_str().to_string(),
+                            surface_id: matched.curve_id,
                             points: *points,
                         },
                     })
@@ -359,24 +417,17 @@ fn expand_hierarchy_operations(
         }
     }
 
-    // Phase 2: apply resolution mode for deduplication across ALL
-    //          hierarchy expansions, then flatten in original order.
-    let all_expansions: Vec<&HierarchyExpansion> = slots
-        .iter()
-        .filter_map(|s| match s {
-            Slot::Expanded(exps) => Some(exps.iter()),
-            Slot::Direct(_) => None,
-        })
-        .flatten()
-        .collect();
-
     let max_depth: HashMap<HierarchyExpansionKey, usize> =
         if matches!(mode, ResolutionMode::MostSpecificWins) {
             let mut md: HashMap<HierarchyExpansionKey, usize> = HashMap::default();
-            for exp in &all_expansions {
-                md.entry(exp.key.clone())
-                    .and_modify(|best| *best = (*best).max(exp.matched_depth))
-                    .or_insert(exp.matched_depth);
+            for slot in &slots {
+                if let Slot::Expanded(exps) = slot {
+                    for exp in exps {
+                        md.entry(exp.key.clone())
+                            .and_modify(|best| *best = (*best).max(exp.matched_depth))
+                            .or_insert(exp.matched_depth);
+                    }
+                }
             }
             md
         } else {
@@ -403,7 +454,147 @@ fn expand_hierarchy_operations(
         }
     }
 
-    result
+    Ok(ExpansionOutcome {
+        operations: std::borrow::Cow::Owned(result),
+        warnings,
+    })
+}
+
+/// Dispatch a single operation to the appropriate adapter and produce its effects.
+///
+/// Centralised match — the engine relies on Rust's exhaustiveness checker to
+/// catch any newly added [`OperationSpec`] variant at compile time. Hierarchy-
+/// targeted variants and `TimeRollForward` are handled separately and are
+/// unreachable here (hierarchy variants are expanded upstream and time-roll is
+/// processed in Phase 0 before this function is invoked).
+fn generate_effects(op: &OperationSpec, ctx: &ExecutionContext) -> Result<Vec<ScenarioEffect>> {
+    use crate::adapters;
+    match op {
+        OperationSpec::MarketFxPct { base, quote, pct } => {
+            adapters::fx::fx_pct_effects(*base, *quote, *pct, ctx)
+        }
+        OperationSpec::EquityPricePct { ids, pct } => {
+            adapters::equity::equity_pct_effects(ids, *pct, ctx)
+        }
+        OperationSpec::CurveParallelBp {
+            curve_kind,
+            curve_id,
+            discount_curve_id,
+            bp,
+        } => adapters::curves::curve_parallel_effects(
+            *curve_kind,
+            curve_id,
+            discount_curve_id.as_ref(),
+            *bp,
+            ctx,
+        ),
+        OperationSpec::CurveNodeBp {
+            curve_kind,
+            curve_id,
+            discount_curve_id,
+            nodes,
+            match_mode,
+        } => adapters::curves::curve_node_effects(
+            *curve_kind,
+            curve_id,
+            discount_curve_id.as_ref(),
+            nodes,
+            *match_mode,
+            ctx,
+        ),
+        OperationSpec::VolIndexParallelPts { curve_id, points } => {
+            adapters::curves::vol_index_parallel_effects(curve_id, *points, ctx)
+        }
+        OperationSpec::VolIndexNodePts {
+            curve_id,
+            nodes,
+            match_mode,
+        } => adapters::curves::vol_index_node_effects(curve_id, nodes, *match_mode, ctx),
+        OperationSpec::BaseCorrParallelPts { surface_id, points } => Ok(
+            adapters::basecorr::base_corr_parallel_effects(surface_id, *points, ctx),
+        ),
+        OperationSpec::BaseCorrBucketPts {
+            surface_id,
+            detachment_bps,
+            maturities,
+            points,
+        } => adapters::basecorr::base_corr_bucket_effects(
+            surface_id,
+            detachment_bps.as_deref(),
+            maturities.as_deref(),
+            *points,
+            ctx,
+        ),
+        OperationSpec::VolSurfaceParallelPct {
+            surface_id, pct, ..
+        } => adapters::vol::vol_parallel_effects(surface_id, *pct, ctx),
+        OperationSpec::VolSurfaceBucketPct {
+            surface_id,
+            tenors,
+            strikes,
+            pct,
+            ..
+        } => adapters::vol::vol_bucket_effects(
+            surface_id,
+            tenors.as_deref(),
+            strikes.as_deref(),
+            *pct,
+            ctx,
+        ),
+        OperationSpec::StmtForecastPercent { node_id, pct } => Ok(
+            adapters::statements::stmt_forecast_percent_effects(node_id, *pct),
+        ),
+        OperationSpec::StmtForecastAssign { node_id, value } => Ok(
+            adapters::statements::stmt_forecast_assign_effects(node_id, *value),
+        ),
+        OperationSpec::RateBinding { binding } => {
+            Ok(adapters::statements::rate_binding_effects(binding))
+        }
+        OperationSpec::InstrumentPricePctByType {
+            instrument_types,
+            pct,
+        } => Ok(adapters::instruments::instrument_price_by_type_effects(
+            instrument_types,
+            *pct,
+        )),
+        OperationSpec::InstrumentPricePctByAttr { attrs, pct } => Ok(
+            adapters::instruments::instrument_price_by_attr_effects(attrs, *pct),
+        ),
+        OperationSpec::InstrumentSpreadBpByType {
+            instrument_types,
+            bp,
+        } => Ok(adapters::instruments::instrument_spread_by_type_effects(
+            instrument_types,
+            *bp,
+        )),
+        OperationSpec::InstrumentSpreadBpByAttr { attrs, bp } => Ok(
+            adapters::instruments::instrument_spread_by_attr_effects(attrs, *bp),
+        ),
+        OperationSpec::AssetCorrelationPts { delta_pts } => {
+            Ok(adapters::asset_corr::asset_corr_effects(*delta_pts))
+        }
+        OperationSpec::PrepayDefaultCorrelationPts { delta_pts } => Ok(
+            adapters::asset_corr::prepay_default_corr_effects(*delta_pts),
+        ),
+        OperationSpec::TimeRollForward { .. }
+        | OperationSpec::HierarchyCurveParallelBp { .. }
+        | OperationSpec::HierarchyVolSurfaceParallelPct { .. }
+        | OperationSpec::HierarchyEquityPricePct { .. }
+        | OperationSpec::HierarchyBaseCorrParallelPts { .. } => {
+            // These variants should never reach the centralized dispatch:
+            // `TimeRollForward` is processed in Phase 0 and `Hierarchy*` ops
+            // are expanded upstream by `expand_hierarchy_operations`. Returning
+            // a typed error rather than panicking preserves the
+            // `#![deny(clippy::panic)]` discipline and lets the caller surface
+            // the bug through the normal error path instead of crashing the
+            // process.
+            Err(crate::error::Error::Internal(format!(
+                "scenario engine reached centralized dispatch for an op that should have been \
+                 handled upstream (Phase 0 or hierarchy expansion); this indicates a bug in the \
+                 dispatch pipeline. Operation: {op:?}"
+            )))
+        }
+    }
 }
 
 /// Orchestrates the deterministic application of a [`ScenarioSpec`].
@@ -434,59 +625,23 @@ impl ScenarioEngine {
 
     /// Compose multiple scenarios into a single deterministic spec.
     ///
-    /// Operations are sorted by priority (lower = first); operations targeting the
-    /// same curve stack additively (two +25bp shocks produce +50bp).
+    /// **Prefer [`ScenarioEngine::try_compose`].** This permissive variant does
+    /// not validate the composed result; in particular it can produce a spec
+    /// with multiple `TimeRollForward` operations which the apply phase will
+    /// reject. It is retained for backwards-compatible library use only.
     ///
-    /// # Arguments
-    /// - `scenarios`: Collection of scenario specifications to combine. Lower
-    ///   `ScenarioSpec::priority` values are treated as higher priority and their
-    ///   operations appear first.
-    ///
-    /// # Returns
-    /// Combined [`ScenarioSpec`] containing all
-    /// operations with deterministic ordering.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_scenarios::{ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind};
-    ///
-    /// let s1 = ScenarioSpec {
-    ///     id: "base".into(),
-    ///     name: None,
-    ///     description: None,
-    ///     operations: vec![
-    ///         OperationSpec::CurveParallelBp {
-    ///             curve_kind: CurveKind::Discount,
-    ///             curve_id: "USD_SOFR".into(),
-    ///             discount_curve_id: None,
-    ///             bp: 25.0,
-    ///         },
-    ///     ],
-    ///     priority: 0,
-    ///     resolution_mode: Default::default(),
-    /// };
-    ///
-    /// let s2 = ScenarioSpec {
-    ///     id: "overlay".into(),
-    ///     name: None,
-    ///     description: None,
-    ///     operations: vec![
-    ///         OperationSpec::StmtForecastPercent {
-    ///             node_id: "Revenue".into(),
-    ///             pct: -5.0,
-    ///         },
-    ///     ],
-    ///     priority: 1,
-    ///     resolution_mode: Default::default(),
-    /// };
-    ///
-    /// let engine = ScenarioEngine::new();
-    /// let composed = engine.compose(vec![s1, s2]);
-    /// assert_eq!(composed.operations.len(), 2);
-    /// ```
+    /// Operations are sorted by priority (lower = first); operations targeting
+    /// the same curve stack additively (two +25bp shocks produce +50bp).
+    #[deprecated(
+        since = "0.4.2",
+        note = "use try_compose, which rejects compositions that would fail at apply time"
+    )]
     #[must_use]
-    pub fn compose(&self, mut scenarios: Vec<ScenarioSpec>) -> ScenarioSpec {
+    pub fn compose(&self, scenarios: Vec<ScenarioSpec>) -> ScenarioSpec {
+        self.compose_inner(scenarios)
+    }
+
+    fn compose_inner(&self, mut scenarios: Vec<ScenarioSpec>) -> ScenarioSpec {
         // Stable sort by priority (lower = higher priority)
         scenarios.sort_by_key(|s| s.priority);
 
@@ -526,10 +681,6 @@ impl ScenarioEngine {
             all_operations.extend(scenario.operations);
         }
 
-        // Operations from all scenarios are concatenated in priority order.
-        // No deduplication: multiple operations targeting the same curve stack
-        // additively (e.g., two +25bp shocks produce +50bp, NOT last-wins).
-
         ScenarioSpec {
             id: composed_id,
             name: composed_name,
@@ -540,25 +691,17 @@ impl ScenarioEngine {
         }
     }
 
-    /// Strict version of [`compose`](Self::compose): returns an error at
-    /// compose time when the concatenated operations would be rejected
-    /// at apply time.
+    /// Strict composition: returns an error at compose time when the
+    /// concatenated operations would be rejected at apply time.
     ///
-    /// Currently the only compose-time-detectable pathology is the
-    /// presence of more than one `OperationSpec::TimeRollForward`
-    /// across the composed scenarios. The apply phase already rejects
-    /// this case, but doing so at compose time gives callers a
-    /// deterministic error-handling point before they build out the
-    /// rest of their execution pipeline.
-    ///
-    /// Production callers should prefer this method; the permissive
-    /// [`compose`](Self::compose) is retained for backwards-compatible
-    /// library use.
+    /// Currently the only compose-time-detectable pathology is the presence of
+    /// more than one [`OperationSpec::TimeRollForward`] across the composed
+    /// scenarios. Production callers should prefer this method.
     pub fn try_compose(
         &self,
         scenarios: Vec<ScenarioSpec>,
     ) -> std::result::Result<ScenarioSpec, crate::error::Error> {
-        let composed = self.compose(scenarios);
+        let composed = self.compose_inner(scenarios);
 
         let time_roll_count = composed
             .operations
@@ -567,11 +710,9 @@ impl ScenarioEngine {
             .count();
         if time_roll_count > 1 {
             return Err(crate::error::Error::validation(format!(
-                "Compose would produce {} TimeRollForward operations; only \
-                 one is allowed per composed scenario. Merge the roll \
-                 periods into a single `TimeRollForward` (preferred) or \
-                 remove the duplicates before calling compose.",
-                time_roll_count,
+                "Compose would produce {time_roll_count} TimeRollForward operations; only \
+                 one is allowed per composed scenario. Merge the roll periods into a single \
+                 `TimeRollForward` (preferred) or remove the duplicates before calling compose."
             )));
         }
 
@@ -582,7 +723,9 @@ impl ScenarioEngine {
     ///
     /// Operations are applied in this order:
     /// 0. Time roll-forward, if present
-    /// 1. Market data (FX, equities, vol surfaces, curves, base correlation)
+    /// 1. Market data (FX, equities, vol surfaces, curves, base correlation) — all
+    ///    [`MarketBump`] effects accumulated during this phase are applied to the
+    ///    context in a single batched [`MarketContext::bump`] call.
     /// 2. Rate bindings update (if configured)
     /// 3. Statement forecast adjustments
     /// 4. Statement re-evaluation
@@ -590,62 +733,7 @@ impl ScenarioEngine {
     /// If a [`crate::spec::OperationSpec::TimeRollForward`] sets
     /// `apply_shocks = false`, the engine returns immediately after phase 0 and
     /// does not apply the remaining operations in `spec`.
-    ///
-    /// # Arguments
-    /// - `spec`: Scenario specification to apply.
-    /// - `ctx`: Mutable execution context that supplies market data, statements,
-    ///   instruments, and rate bindings.
-    ///
-    /// # Returns
-    /// [`ApplicationReport`] summarising how many operations were applied and
-    /// any warnings that were recorded.
-    ///
-    /// # Errors
-    /// Propagates any error returned by adapter modules when an operation cannot
-    /// be completed (for example missing market data, unsupported operation, or
-    /// invalid tenor strings).
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use finstack_scenarios::{ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind, ExecutionContext};
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_statements::FinancialModelSpec;
-    /// use time::macros::date;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut market = MarketContext::new();
-    /// let mut model = FinancialModelSpec::new("test", vec![]);
-    /// let as_of = date!(2025-01-01);
-    ///
-    /// let scenario = ScenarioSpec {
-    ///     id: "test".into(),
-    ///     name: None,
-    ///     description: None,
-    ///     operations: vec![
-    ///         OperationSpec::StmtForecastPercent {
-    ///             node_id: "Revenue".into(),
-    ///             pct: -5.0,
-    ///         },
-    ///     ],
-    ///     priority: 0,
-    ///     resolution_mode: Default::default(),
-    /// };
-    ///
-    /// let engine = ScenarioEngine::new();
-    /// let mut ctx = ExecutionContext {
-    ///     market: &mut market,
-    ///     model: &mut model,
-    ///     instruments: None,
-    ///     rate_bindings: None,
-    ///     calendar: None,
-    ///     as_of,
-    /// };
-    ///
-    /// let report = engine.apply(&scenario, &mut ctx)?;
-    /// # Ok(())
-    /// # }
-    /// ```
+    #[tracing::instrument(skip_all, fields(scenario_id = %spec.id))]
     pub fn apply(
         &self,
         spec: &ScenarioSpec,
@@ -653,40 +741,36 @@ impl ScenarioEngine {
     ) -> Result<ApplicationReport> {
         // Validate up-front so malformed specs cannot reach adapters. FFI
         // bindings (Python, WASM) deserialize JSON straight into a spec and
-        // call this entry point without their own validation pass; the check
-        // here is the single enforcement boundary.
+        // call this entry point without their own validation pass.
         spec.validate()?;
 
         let mut applied = 0;
-        let mut warnings = Vec::new();
+        let mut warnings: Vec<Warning> = Vec::new();
 
         let user_operations = spec.operations.len();
 
-        // Phase -1: Expand hierarchy-targeted operations to direct operations
-        let expanded_ops =
-            expand_hierarchy_operations(&spec.operations, ctx.market, spec.resolution_mode);
+        // Phase -1: Expand hierarchy-targeted operations to direct operations.
+        // Errors fast if the spec contains hierarchy ops but no hierarchy is
+        // attached to the market context. Hierarchy targets that resolve to
+        // zero curves emit a `Warning::HierarchyNoMatch` so the caller can
+        // detect the unintended no-op.
+        let ExpansionOutcome {
+            operations: expanded_ops,
+            warnings: expansion_warnings,
+        } = expand_hierarchy_operations(&spec.operations, ctx.market, spec.resolution_mode)?;
         let expanded_operations = expanded_ops.len();
+        warnings.extend(expansion_warnings);
 
-        // Phase 0: Time Roll Forward
-        let time_roll_count = expanded_ops
-            .iter()
-            .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
-            .count();
-        if time_roll_count > 1 {
-            return Err(crate::error::Error::validation(format!(
-                "Scenario contains {} TimeRollForward operations; only one is allowed per scenario. \
-                 Compose multiple rolls into separate scenario specs.",
-                time_roll_count,
-            )));
-        }
-
-        for op in &expanded_ops {
+        // Phase 0: Time Roll Forward (`spec.validate()` already enforced the
+        // at-most-one invariant; no need to re-count here.)
+        for op in expanded_ops.iter() {
             if let OperationSpec::TimeRollForward {
                 period,
                 apply_shocks,
                 roll_mode,
             } = op
             {
+                let _span = tracing::info_span!("phase_0_time_roll", period = %period).entered();
                 crate::adapters::time_roll::apply_time_roll_forward(ctx, period, *roll_mode)?;
                 applied += 1;
 
@@ -702,134 +786,56 @@ impl ScenarioEngine {
             }
         }
 
-        // Initialize adapters
-        // Optimization: Use stack-allocated array of references instead of Vec<Box<dyn>>
-        // to avoid heap allocation on every call.
-        let vol_adapter = crate::adapters::vol::VolAdapter;
-        let curve_adapter = crate::adapters::curves::CurveAdapter;
-        let base_corr_adapter = crate::adapters::basecorr::BaseCorrAdapter;
-        let fx_adapter = crate::adapters::fx::FxAdapter;
-        let equity_adapter = crate::adapters::equity::EquityAdapter;
-        let instrument_adapter = crate::adapters::instruments::InstrumentAdapter;
-        let statement_adapter = crate::adapters::statements::StatementAdapter;
-        let asset_corr_adapter = crate::adapters::asset_corr::AssetCorrAdapter;
-
-        let adapters: [&dyn crate::adapters::traits::ScenarioAdapter; 8] = [
-            &vol_adapter,
-            &curve_adapter,
-            &base_corr_adapter,
-            &fx_adapter,
-            &equity_adapter,
-            &instrument_adapter,
-            &statement_adapter,
-            &asset_corr_adapter,
-        ];
-
         let has_rate_bindings = ctx.rate_bindings.is_some();
         let mut deferred_stmts = Vec::new();
+        let mut pending_bumps: Vec<MarketBump> = Vec::new();
 
-        // Phase 1: Market data operations & Instrument operations
-        for op in &expanded_ops {
-            if let OperationSpec::TimeRollForward { .. } = op {
-                continue; // handled in Phase 0
-            }
-
-            let mut adapter_effects = None;
-            for adapter in &adapters {
-                if let Some(effects) = adapter.try_generate_effects(op, ctx)? {
-                    adapter_effects = Some(effects);
-                    break;
+        // Phase 1: Generate effects and split into market bumps (intra-op
+        // batched), curve replacements, instrument shocks, and deferred
+        // statement ops. Bumps from the previous iteration are flushed before
+        // generating effects for the next op so adapters always observe a
+        // fully-applied prior-op market state — this preserves the sequential
+        // semantics that downstream cross-curve calibrations depend on.
+        {
+            let _span = tracing::info_span!("phase_1_market", ops = expanded_operations).entered();
+            for op in expanded_ops.iter() {
+                if let OperationSpec::TimeRollForward { .. } = op {
+                    continue; // handled in Phase 0
                 }
+
+                // Apply any bumps queued by the previous iteration so the
+                // adapter's `ctx.market` reads reflect everything done so far.
+                flush_pending_bumps(&mut pending_bumps, ctx.market)?;
+
+                let effects = generate_effects(op, ctx)?;
+                process_effects(
+                    effects,
+                    ctx,
+                    &mut pending_bumps,
+                    &mut deferred_stmts,
+                    &mut warnings,
+                    &mut applied,
+                )?;
             }
 
-            if let Some(effects) = adapter_effects {
-                for effect in effects {
-                    match effect {
-                        crate::adapters::traits::ScenarioEffect::MarketBump(b) => {
-                            // Apply immediately
-                            *ctx.market = ctx.market.bump([b])?;
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::Warning(w) => warnings.push(w),
-                        crate::adapters::traits::ScenarioEffect::UpdateCurve(storage) => {
-                            *ctx.market = std::mem::take(ctx.market).insert(storage);
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {
-                            types,
-                            attrs,
-                            pct,
-                        } => {
-                            let (c, w) = apply_instrument_shock(
-                                types.as_deref(),
-                                attrs.as_ref(),
-                                pct,
-                                "price",
-                                &mut ctx.instruments,
-                                crate::adapters::instruments::apply_instrument_type_price_shock,
-                                crate::adapters::instruments::apply_instrument_attr_price_shock,
-                            );
-                            applied += c;
-                            warnings.extend(w);
-                        }
-                        crate::adapters::traits::ScenarioEffect::InstrumentSpreadShock {
-                            types,
-                            attrs,
-                            bp,
-                        } => {
-                            let (c, w) = apply_instrument_shock(
-                                types.as_deref(),
-                                attrs.as_ref(),
-                                bp,
-                                "spread",
-                                &mut ctx.instruments,
-                                crate::adapters::instruments::apply_instrument_type_spread_shock,
-                                crate::adapters::instruments::apply_instrument_attr_spread_shock,
-                            );
-                            applied += c;
-                            warnings.extend(w);
-                        }
-                        crate::adapters::traits::ScenarioEffect::AssetCorrelationShock {
-                            delta_pts,
-                        }
-                        | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock {
-                            delta_pts,
-                        } => {
-                            let (count, ws) = apply_correlation_effect(&effect, delta_pts, ctx);
-                            applied += count;
-                            warnings.extend(ws);
-                        }
-                        crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
-                        | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
-                        | crate::adapters::traits::ScenarioEffect::RateBinding { .. } => {
-                            // Defer statement operations
-                            deferred_stmts.push(effect);
-                        }
-                    }
-                }
-            } else {
-                // Warning: Operation not handled by any adapter
-                warnings.push(format!("Operation not supported: {:?}", op));
-            }
+            // Flush any remaining bumps before moving on to statements.
+            flush_pending_bumps(&mut pending_bumps, ctx.market)?;
         }
 
-        // Phase 2: Rate bindings update (from context configuration)
+        // Phase 2: Rate bindings update (from context configuration).
         //
-        // A mismatch between the map key and `binding.node_id` used to be
-        // silently patched by the engine (rewriting `binding.node_id` to
-        // match the key and emitting a warning). That behaviour was
-        // footgun-y: the binding spec the caller passed was not the one
-        // applied, and any other field on the binding (curve_id, tenor,
-        // compounding) was still trusted as-is. We now fail hard so the
-        // caller fixes the mismatch upstream.
+        // The map key is authoritative for routing; mismatched binding.node_id
+        // is a hard error so the caller fixes the binding upstream rather than
+        // discovering a silent rewrite later.
         if let Some(bindings) = &ctx.rate_bindings {
+            let _span = tracing::info_span!("phase_2_rate_bindings").entered();
             for (node_id, binding) in bindings {
                 if binding.node_id != *node_id {
                     return Err(crate::error::Error::Validation(format!(
-                        "Rate binding node_id mismatch: map key '{}' does not equal \
+                        "Rate binding node_id mismatch: map key '{node_id}' does not equal \
                          binding.node_id '{}'. The map key is authoritative for routing; \
                          rebuild the binding with node_id set to the map key.",
-                        node_id, binding.node_id
+                        binding.node_id
                     )));
                 }
 
@@ -840,112 +846,110 @@ impl ScenarioEngine {
                     ctx.calendar,
                 ) {
                     Ok(true) => {}
-                    Ok(false) => warnings.push(format!(
-                        "Rate binding {}->{}: node has no forecast values to assign",
-                        node_id, binding.curve_id
-                    )),
-                    Err(e) => warnings.push(format!(
-                        "Rate binding {}->{}: {}",
-                        node_id, binding.curve_id, e
-                    )),
+                    Ok(false) => warnings.push(Warning::RateBindingNoForecastValues {
+                        node_id: node_id.as_str().to_string(),
+                        curve_id: binding.curve_id.as_str().to_string(),
+                    }),
+                    Err(e) => warnings.push(Warning::RateBindingFailed {
+                        node_id: node_id.as_str().to_string(),
+                        curve_id: binding.curve_id.as_str().to_string(),
+                        reason: e.to_string(),
+                    }),
                 }
             }
         }
 
         // Phase 3: Statement Operations (Deferred)
         let mut applied_stmt_ops = 0usize;
-        for effect in deferred_stmts {
-            match effect {
-                crate::adapters::traits::ScenarioEffect::RateBinding { binding } => {
-                    // Apply dynamic rate binding
-                    if let Some(rb) = &mut ctx.rate_bindings {
-                        rb.insert(binding.node_id.clone(), binding.clone());
+        {
+            let _span = tracing::info_span!("phase_3_statements").entered();
+            for effect in deferred_stmts {
+                match effect {
+                    ScenarioEffect::RateBinding { binding } => {
+                        if let Some(rb) = &mut ctx.rate_bindings {
+                            rb.insert(binding.node_id.clone(), binding.clone());
+                        }
+                        match crate::adapters::statements::update_rate_from_binding(
+                            &binding,
+                            ctx.model,
+                            ctx.market,
+                            ctx.calendar,
+                        ) {
+                            Ok(true) => {
+                                applied += 1;
+                                applied_stmt_ops += 1;
+                            }
+                            Ok(false) => {
+                                applied += 1;
+                                applied_stmt_ops += 1;
+                                warnings.push(Warning::RateBindingNoForecastValues {
+                                    node_id: binding.node_id.as_str().to_string(),
+                                    curve_id: binding.curve_id.as_str().to_string(),
+                                });
+                            }
+                            Err(e) => warnings.push(Warning::RateBindingFailed {
+                                node_id: binding.node_id.as_str().to_string(),
+                                curve_id: binding.curve_id.as_str().to_string(),
+                                reason: e.to_string(),
+                            }),
+                        }
                     }
-                    // Update immediately
-                    match crate::adapters::statements::update_rate_from_binding(
-                        &binding,
-                        ctx.model,
-                        ctx.market,
-                        ctx.calendar,
-                    ) {
-                        Ok(true) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                        }
-                        Ok(false) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                            warnings.push(format!(
-                                "Dynamic rate binding {}->{}: node has no forecast values to assign",
-                                binding.node_id, binding.curve_id
-                            ));
-                        }
-                        Err(e) => warnings.push(format!(
-                            "Dynamic rate binding {}->{}: {}",
-                            binding.node_id, binding.curve_id, e
-                        )),
-                    }
-                }
-                crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
-                    match crate::adapters::statements::apply_forecast_percent(
-                        ctx.model,
-                        node_id.as_str(),
-                        pct,
-                    ) {
-                        Ok(true) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                        }
-                        Ok(false) => {
-                            warnings.push(format!(
-                                "Statement node '{}' has no forecast values to modify",
-                                node_id,
-                            ));
-                        }
-                        Err(e) => warnings.push(format!(
-                            "Statement forecast percent for node {}: {}",
+                    ScenarioEffect::StmtForecastPercent { node_id, pct } => {
+                        match crate::adapters::statements::apply_forecast_percent(
+                            ctx.model,
                             node_id.as_str(),
-                            e
-                        )),
+                            pct,
+                        ) {
+                            Ok(true) => {
+                                applied += 1;
+                                applied_stmt_ops += 1;
+                            }
+                            Ok(false) => warnings.push(Warning::StatementNodeNoValues {
+                                node_id: node_id.as_str().to_string(),
+                                op: "forecast_percent".to_string(),
+                            }),
+                            Err(e) => warnings.push(Warning::StatementOpFailed {
+                                node_id: node_id.as_str().to_string(),
+                                op: "forecast_percent".to_string(),
+                                reason: e.to_string(),
+                            }),
+                        }
                     }
-                }
-                crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
-                    match crate::adapters::statements::apply_forecast_assign(
-                        ctx.model,
-                        node_id.as_str(),
-                        value,
-                        None,
-                    ) {
-                        Ok(true) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                        }
-                        Ok(false) => {
-                            warnings.push(format!(
-                                "Statement node '{}' has no forecast values to modify",
-                                node_id,
-                            ));
-                        }
-                        Err(e) => warnings.push(format!(
-                            "Statement forecast assign for node {}: {}",
+                    ScenarioEffect::StmtForecastAssign { node_id, value } => {
+                        match crate::adapters::statements::apply_forecast_assign(
+                            ctx.model,
                             node_id.as_str(),
-                            e
-                        )),
+                            value,
+                            None,
+                        ) {
+                            Ok(true) => {
+                                applied += 1;
+                                applied_stmt_ops += 1;
+                            }
+                            Ok(false) => warnings.push(Warning::StatementNodeNoValues {
+                                node_id: node_id.as_str().to_string(),
+                                op: "forecast_assign".to_string(),
+                            }),
+                            Err(e) => warnings.push(Warning::StatementOpFailed {
+                                node_id: node_id.as_str().to_string(),
+                                op: "forecast_assign".to_string(),
+                                reason: e.to_string(),
+                            }),
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
         }
 
-        // Phase 4: Re-evaluate statements only if statement work was performed
+        // Phase 4: Re-evaluate statements only if statement work was performed.
         if applied_stmt_ops > 0 || has_rate_bindings {
+            let _span = tracing::info_span!("phase_4_reevaluate").entered();
             match crate::adapters::statements::reevaluate_model(ctx.model) {
-                Ok(eval_warnings) => warnings.extend(
-                    eval_warnings
-                        .into_iter()
-                        .map(|w| format!("Model evaluation: {}", w)),
-                ),
-                Err(e) => warnings.push(format!("Model re-evaluation: {}", e)),
+                Ok(eval_warnings) => warnings.extend(eval_warnings),
+                Err(e) => warnings.push(Warning::ModelReevaluationFailed {
+                    reason: e.to_string(),
+                }),
             }
         }
 
@@ -959,97 +963,224 @@ impl ScenarioEngine {
     }
 }
 
+/// Process a single op's effects, threading them through `pending_bumps`,
+/// `deferred_stmts`, and the running counters. Extracted from `apply` to keep
+/// the main pipeline readable; the dispatch is otherwise identical to the
+/// inline match.
+fn process_effects(
+    effects: Vec<ScenarioEffect>,
+    ctx: &mut ExecutionContext,
+    pending_bumps: &mut Vec<MarketBump>,
+    deferred_stmts: &mut Vec<ScenarioEffect>,
+    warnings: &mut Vec<Warning>,
+    applied: &mut usize,
+) -> Result<()> {
+    for effect in effects {
+        match effect {
+            ScenarioEffect::MarketBump(b) => {
+                // Within a single op's effects, two bumps targeting the same
+                // curve/surface/FX pair must compose sequentially rather than
+                // collapse into one batch entry; flush before queueing if so.
+                if would_conflict_with_pending(pending_bumps, &b) {
+                    flush_pending_bumps(pending_bumps, ctx.market)?;
+                }
+                pending_bumps.push(b);
+                *applied += 1;
+            }
+            ScenarioEffect::Warning(w) => warnings.push(w),
+            ScenarioEffect::UpdateCurve(storage) => {
+                // Flush any pending bumps so the curve replacement observes
+                // the bumped market state in the same order as the original
+                // per-effect application.
+                flush_pending_bumps(pending_bumps, ctx.market)?;
+                *ctx.market = std::mem::take(ctx.market).insert(storage);
+                *applied += 1;
+            }
+            ScenarioEffect::InstrumentPriceShock { types, attrs, pct } => {
+                flush_pending_bumps(pending_bumps, ctx.market)?;
+                let (c, w) = apply_instrument_shock(
+                    types.as_deref(),
+                    attrs.as_ref(),
+                    pct,
+                    "price",
+                    &mut ctx.instruments,
+                    crate::adapters::instruments::apply_instrument_type_price_shock,
+                    crate::adapters::instruments::apply_instrument_attr_price_shock,
+                );
+                *applied += c;
+                warnings.extend(w);
+            }
+            ScenarioEffect::InstrumentSpreadShock { types, attrs, bp } => {
+                flush_pending_bumps(pending_bumps, ctx.market)?;
+                let (c, w) = apply_instrument_shock(
+                    types.as_deref(),
+                    attrs.as_ref(),
+                    bp,
+                    "spread",
+                    &mut ctx.instruments,
+                    crate::adapters::instruments::apply_instrument_type_spread_shock,
+                    crate::adapters::instruments::apply_instrument_attr_spread_shock,
+                );
+                *applied += c;
+                warnings.extend(w);
+            }
+            ScenarioEffect::AssetCorrelationShock { delta_pts } => {
+                flush_pending_bumps(pending_bumps, ctx.market)?;
+                let (count, ws) =
+                    apply_correlation_effect(CorrelationKind::Asset, delta_pts, ctx);
+                *applied += count;
+                warnings.extend(ws);
+            }
+            ScenarioEffect::PrepayDefaultCorrelationShock { delta_pts } => {
+                flush_pending_bumps(pending_bumps, ctx.market)?;
+                let (count, ws) =
+                    apply_correlation_effect(CorrelationKind::PrepayDefault, delta_pts, ctx);
+                *applied += count;
+                warnings.extend(ws);
+            }
+            stmt @ (ScenarioEffect::StmtForecastPercent { .. }
+            | ScenarioEffect::StmtForecastAssign { .. }
+            | ScenarioEffect::RateBinding { .. }) => {
+                deferred_stmts.push(stmt);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Flush any accumulated [`MarketBump`]s through `MarketContext::bump` in a
+/// single batched call. No-op when the buffer is empty.
+fn flush_pending_bumps(
+    pending: &mut Vec<MarketBump>,
+    market: &mut finstack_core::market_data::context::MarketContext,
+) -> Result<()> {
+    if pending.is_empty() {
+        return Ok(());
+    }
+    let drained: Vec<MarketBump> = std::mem::take(pending);
+    *market = market.bump(drained)?;
+    Ok(())
+}
+
+/// Returns `true` when applying `incoming` would collide with a pending bump.
+///
+/// `MarketContext::bump_observed` keys [`MarketBump::Curve`] effects in a
+/// `HashMap<CurveId, BumpSpec>`, so two bumps targeting the same curve in a
+/// single batch would overwrite each other instead of composing
+/// `pre * (1+a) * (1+b)`. To preserve the established sequential semantics,
+/// we flush the pending batch whenever a new bump would land on the same
+/// target as an already-queued one.
+fn would_conflict_with_pending(pending: &[MarketBump], incoming: &MarketBump) -> bool {
+    pending.iter().any(|p| match (p, incoming) {
+        (MarketBump::Curve { id: a, .. }, MarketBump::Curve { id: b, .. }) => a == b,
+        (
+            MarketBump::FxPct {
+                base: ba,
+                quote: qa,
+                ..
+            },
+            MarketBump::FxPct {
+                base: bb,
+                quote: qb,
+                ..
+            },
+        ) => ba == bb && qa == qb,
+        (
+            MarketBump::VolBucketPct { surface_id: a, .. },
+            MarketBump::VolBucketPct { surface_id: b, .. },
+        ) => a == b,
+        (
+            MarketBump::BaseCorrBucketPts { surface_id: a, .. },
+            MarketBump::BaseCorrBucketPts { surface_id: b, .. },
+        ) => a == b,
+        // A `Curve` bump on the same id as a `VolBucketPct` is also a logical
+        // conflict (both target a vol surface) — flush to be safe.
+        (MarketBump::Curve { id: a, .. }, MarketBump::VolBucketPct { surface_id: b, .. })
+        | (MarketBump::VolBucketPct { surface_id: a, .. }, MarketBump::Curve { id: b, .. })
+        | (MarketBump::Curve { id: a, .. }, MarketBump::BaseCorrBucketPts { surface_id: b, .. })
+        | (MarketBump::BaseCorrBucketPts { surface_id: a, .. }, MarketBump::Curve { id: b, .. }) => {
+            a == b
+        }
+        _ => false,
+    })
+}
+
 /// Function that applies an instrument shock filtered by instrument type.
 type TypeShockFn = fn(
     &mut [Box<DynInstrument>],
     &[finstack_valuations::pricer::InstrumentType],
     f64,
-) -> crate::error::Result<(usize, Vec<String>)>;
+) -> (usize, Vec<Warning>);
 
 /// Function that applies an instrument shock filtered by attributes.
 type AttrShockFn = fn(
     &mut [Box<DynInstrument>],
     &indexmap::IndexMap<String, String>,
     f64,
-) -> crate::error::Result<(usize, Vec<String>)>;
+) -> (usize, Vec<Warning>);
 
 /// Apply an instrument shock (price or spread) dispatching by type and attribute filters.
 fn apply_instrument_shock(
     types: Option<&[finstack_valuations::pricer::InstrumentType]>,
     attrs: Option<&indexmap::IndexMap<String, String>>,
     value: f64,
-    kind: &str,
+    kind: &'static str,
     instruments: &mut Option<&mut Vec<Box<DynInstrument>>>,
     type_fn: TypeShockFn,
     attr_fn: AttrShockFn,
-) -> (usize, Vec<String>) {
+) -> (usize, Vec<Warning>) {
     let mut applied = 0;
-    let mut warnings = Vec::new();
+    let mut warnings: Vec<Warning> = Vec::new();
 
     if let Some(ts) = types {
         if let Some(instruments) = instruments.as_mut() {
-            match type_fn(instruments, ts, value) {
-                Ok((c, w)) => {
-                    applied += c;
-                    warnings.extend(w);
-                }
-                Err(e) => warnings.push(format!("Instrument {} shock error: {}", kind, e)),
-            }
+            let (c, w) = type_fn(instruments, ts, value);
+            applied += c;
+            warnings.extend(w);
         } else {
-            warnings.push(format!(
-                "Instrument type {} shock requested but no instruments provided",
-                kind
-            ));
+            warnings.push(Warning::InstrumentShockNoPortfolio {
+                shock_kind: kind.to_string(),
+                filter: "type".to_string(),
+            });
         }
     }
 
     if let Some(ats) = attrs {
         if let Some(instruments) = instruments.as_mut() {
-            match attr_fn(instruments, ats, value) {
-                Ok((count, w)) => {
-                    applied += count;
-                    warnings.extend(w);
-                }
-                Err(e) => warnings.push(format!("Instrument {} shock error: {}", kind, e)),
-            }
+            let (count, w) = attr_fn(instruments, ats, value);
+            applied += count;
+            warnings.extend(w);
         } else {
-            warnings.push(format!(
-                "Instrument attribute {} shock requested but no instruments provided",
-                kind
-            ));
+            warnings.push(Warning::InstrumentShockNoPortfolio {
+                shock_kind: kind.to_string(),
+                filter: "attr".to_string(),
+            });
         }
     }
 
     (applied, warnings)
 }
 
+/// Which structured-credit correlation parameter a shock targets.
+#[derive(Debug, Clone, Copy)]
+enum CorrelationKind {
+    /// Asset correlation (clamped to `[0, 0.99]`).
+    Asset,
+    /// Prepay-default correlation (clamped to `[-0.99, 0.99]`).
+    PrepayDefault,
+}
+
 /// Apply a correlation shock effect to StructuredCredit instruments via downcast.
-///
-/// Handles [`ScenarioEffect::AssetCorrelationShock`] and
-/// [`ScenarioEffect::PrepayDefaultCorrelationShock`]; any other variant is a
-/// no-op so the caller can pass it through a generic dispatch loop.
-///
-/// Clamping is detected at the primitive field level (via
-/// [`CorrelationStructure::bump_asset_with_clamp_info`]) so warnings fire only
-/// when a correlation value is actually clamped, not whenever the aggregate
-/// `asset_correlation()` accessor moves less than `delta` (which is normal for
-/// sectored structures).
 fn apply_correlation_effect(
-    effect: &crate::adapters::traits::ScenarioEffect,
+    kind: CorrelationKind,
     delta_pts: f64,
     ctx: &mut ExecutionContext,
-) -> (usize, Vec<String>) {
-    use crate::adapters::traits::ScenarioEffect;
+) -> (usize, Vec<Warning>) {
     use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 
     let instruments = match ctx.instruments.as_mut() {
         Some(insts) => insts,
-        None => {
-            return (
-                0,
-                vec!["Correlation shock requested but no instruments provided".to_string()],
-            );
-        }
+        None => return (0, vec![Warning::CorrelationShockNoPortfolio]),
     };
 
     let mut count = 0usize;
@@ -1063,28 +1194,23 @@ fn apply_correlation_effect(
             continue;
         };
 
-        let (new_corr, clamp_info) = match effect {
-            ScenarioEffect::AssetCorrelationShock { .. } => {
-                corr.bump_asset_with_clamp_info(delta_pts)
-            }
-            ScenarioEffect::PrepayDefaultCorrelationShock { .. } => {
-                corr.bump_prepay_default_with_clamp_info(delta_pts)
-            }
-            _ => continue,
+        let (new_corr, clamp_info) = match kind {
+            CorrelationKind::Asset => corr.bump_asset_with_clamp_info(delta_pts),
+            CorrelationKind::PrepayDefault => corr.bump_prepay_default_with_clamp_info(delta_pts),
         };
 
         if let Some(info) = clamp_info {
-            warnings.push(format!("Correlation bump for '{}': {info}", sc.id));
+            warnings.push(Warning::CorrelationClamped {
+                instrument_id: sc.id.to_string(),
+                detail: info,
+            });
         }
         sc.credit_model.correlation_structure = Some(new_corr);
         count += 1;
     }
 
     if count == 0 {
-        warnings.push(
-            "Correlation shock: no StructuredCredit instruments with correlation structure found"
-                .to_string(),
-        );
+        warnings.push(Warning::CorrelationShockNoMatch);
     }
 
     (count, warnings)
@@ -1096,6 +1222,7 @@ mod tests {
     use crate::spec::OperationSpec;
 
     #[test]
+    #[allow(deprecated)]
     fn compose_preserves_source_ids_and_names() {
         let engine = ScenarioEngine::new();
         let composed = engine.compose(vec![
@@ -1129,13 +1256,6 @@ mod tests {
         assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
     }
 
-    // ========================================================================
-    // Compose-time TimeRoll dedup
-    // ========================================================================
-
-    /// Two scenarios each carrying a `TimeRollForward` must not silently
-    /// compose into one invalid scenario; `try_compose` catches the
-    /// conflict at compose time.
     #[test]
     fn try_compose_rejects_two_time_rolls() {
         use crate::spec::TimeRollMode;
@@ -1170,16 +1290,11 @@ mod tests {
             .try_compose(vec![s1, s2])
             .expect_err("duplicate TimeRollForward must error at compose time");
         let msg = format!("{err}");
-        assert!(
-            msg.contains("TimeRollForward"),
-            "error message must name the duplicated operation: {msg}"
-        );
+        assert!(msg.contains("TimeRollForward"));
     }
 
-    /// `try_compose` is a drop-in replacement for `compose` when the
-    /// inputs are compose-valid: it returns the same `ScenarioSpec` as
-    /// the permissive variant.
     #[test]
+    #[allow(deprecated)]
     fn try_compose_agrees_with_compose_on_valid_inputs() {
         let engine = ScenarioEngine::new();
         let scenarios = vec![
@@ -1213,5 +1328,96 @@ mod tests {
         assert_eq!(permissive.id, strict.id);
         assert_eq!(permissive.operations.len(), strict.operations.len());
         assert_eq!(permissive.resolution_mode, strict.resolution_mode);
+    }
+
+    #[test]
+    fn apply_rejects_hierarchy_op_without_hierarchy() {
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::hierarchy::HierarchyTarget;
+        use finstack_statements::FinancialModelSpec;
+        use time::macros::date;
+
+        let mut market = MarketContext::new();
+        let mut model = FinancialModelSpec::new("test", vec![]);
+        let scenario = ScenarioSpec {
+            id: "h_no_attach".into(),
+            name: None,
+            description: None,
+            operations: vec![OperationSpec::HierarchyEquityPricePct {
+                target: HierarchyTarget {
+                    path: vec!["equities".into(), "us".into()],
+                    tag_filter: None,
+                },
+                pct: -10.0,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let engine = ScenarioEngine::new();
+        let mut ctx = ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of: date!(2025 - 01 - 01),
+        };
+        let err = engine
+            .apply(&scenario, &mut ctx)
+            .expect_err("hierarchy op without hierarchy must error");
+        assert!(err.to_string().contains("hierarchy"));
+    }
+
+    #[test]
+    fn apply_emits_warning_when_hierarchy_target_matches_no_curves() {
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::hierarchy::{
+            HierarchyTarget, MarketDataHierarchy,
+        };
+        use finstack_statements::FinancialModelSpec;
+        use time::macros::date;
+
+        // Empty hierarchy attached, but the target path has no curves.
+        let hierarchy = MarketDataHierarchy::default();
+        let mut market = MarketContext::new();
+        market.set_hierarchy(hierarchy);
+        let mut model = FinancialModelSpec::new("test", vec![]);
+        let scenario = ScenarioSpec {
+            id: "h_empty".into(),
+            name: None,
+            description: None,
+            operations: vec![OperationSpec::HierarchyEquityPricePct {
+                target: HierarchyTarget {
+                    path: vec!["equities".into(), "us".into()],
+                    tag_filter: None,
+                },
+                pct: -10.0,
+            }],
+            priority: 0,
+            resolution_mode: Default::default(),
+        };
+
+        let engine = ScenarioEngine::new();
+        let mut ctx = ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of: date!(2025 - 01 - 01),
+        };
+        let report = engine.apply(&scenario, &mut ctx).expect("apply should succeed");
+
+        assert_eq!(report.operations_applied, 0);
+        assert_eq!(report.expanded_operations, 0);
+        assert!(
+            report.warnings.iter().any(|w| matches!(
+                w,
+                Warning::HierarchyNoMatch { op_kind, .. } if op_kind == "HierarchyEquityPricePct"
+            )),
+            "expected HierarchyNoMatch warning, got {:?}",
+            report.warnings
+        );
     }
 }

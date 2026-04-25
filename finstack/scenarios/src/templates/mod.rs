@@ -16,7 +16,6 @@
 
 mod builder;
 mod json;
-mod loader;
 mod metadata;
 mod registry;
 
@@ -26,7 +25,7 @@ pub use registry::{RegisteredTemplate, TemplateRegistry};
 
 /// Register built-in templates into a registry.
 fn register_builtins(registry: &mut TemplateRegistry) -> crate::Result<()> {
-    let documents = loader::load_embedded_documents()?;
+    let documents = json::load_embedded_documents()?;
 
     for document in documents {
         registry.register_json_document(document)?;

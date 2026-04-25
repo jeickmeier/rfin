@@ -13,15 +13,20 @@
 //! # Conventions
 //!
 //! - Percent shocks use percentage-point inputs (`5.0 = +5%`).
-//! - Curve and spread shocks quoted in `bp` use additive basis points.
+//! - Curve and spread shocks quoted in `bp` use additive basis points (1 bp = 1e-4).
 //! - Time-roll operations distinguish business-day-aware, calendar-day, and
 //!   approximate day-count semantics via [`TimeRollMode`].
 //! - Hierarchy-targeted operations expand to direct market-data identifiers at
 //!   execution time; [`ScenarioSpec::resolution_mode`] determines whether
 //!   overlapping hierarchy matches accumulate or collapse to the most specific
 //!   match.
+//! - Volatility-index curves use a separate variant
+//!   ([`OperationSpec::VolIndexParallelPts`] / [`OperationSpec::VolIndexNodePts`])
+//!   so that "points" semantics never collide with "basis points" semantics on
+//!   rate curves.
 
 use finstack_core::market_data::hierarchy::ResolutionMode;
+use finstack_core::types::CurveId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -115,7 +120,7 @@ impl ScenarioSpec {
 /// applied to market data, instruments, statements, or the valuation horizon.
 /// Units are encoded in the variant name and field docs:
 /// - `Pct` fields use percentage points (`5.0 = +5%`)
-/// - `Bp` fields use additive basis points
+/// - `Bp` fields use additive basis points (1 bp = 1e-4)
 /// - `Pts` fields use absolute correlation or volatility points in decimal form
 ///
 /// Hierarchy-targeted variants are resolved into direct identifiers during
@@ -148,6 +153,10 @@ pub enum OperationSpec {
 
     /// Equity price percent shock.
     ///
+    /// `pct` may be `<= -100`: stocks can be stressed to zero or below in
+    /// tail-risk scenarios, since downstream pricers handle non-positive prices
+    /// (default events, fair-value floors).
+    ///
     /// # Example
     /// ```rust
     /// use finstack_scenarios::OperationSpec;
@@ -165,6 +174,8 @@ pub enum OperationSpec {
     },
 
     /// Instrument price shock by exact attribute match.
+    ///
+    /// `pct` may be `<= -100`: legitimate write-down stress.
     ///
     /// # Example
     /// ```rust
@@ -199,17 +210,14 @@ pub enum OperationSpec {
 
     /// Parallel shift to a curve (additive in basis points).
     ///
-    /// For rate curves (Discount, Forward, Hazard, ParCDS), `bp` uses the standard
-    /// fixed-income convention where `1 bp = 0.0001` in fractional rate space.
+    /// For rate-style curves ([`CurveKind::Discount`], [`CurveKind::Forward`],
+    /// [`CurveKind::ParCDS`], [`CurveKind::Inflation`], [`CurveKind::Commodity`]),
+    /// `bp` uses the standard fixed-income convention where `1 bp = 0.0001` in
+    /// fractional rate space.
     ///
-    /// **WARNING — non-standard convention for [`CurveKind::VolIndex`]:** `bp`
-    /// is re-scaled by `bp / 100`, so `100 bp` corresponds to `1.0` absolute
-    /// vol-index point (e.g. +1.0 VIX point). This is **100× larger** than the
-    /// rate interpretation — a `50 bp` shock on a VIX curve moves the index by
-    /// `0.5` points, not `0.005`. The adapter emits a warning in
-    /// [`crate::engine::ApplicationReport::warnings`] so the convention is
-    /// auditable. If you want a strict-bp interpretation on VolIndex, divide
-    /// your `bp` input by 100 before submitting the operation.
+    /// **Volatility index curves use a separate variant.** Use
+    /// [`OperationSpec::VolIndexParallelPts`] for VIX/VSTOXX-style curves where
+    /// shocks are quoted in absolute index points.
     ///
     /// # Example
     /// ```rust
@@ -226,26 +234,22 @@ pub enum OperationSpec {
         /// Type of curve (Discount, Forward, Hazard, etc.).
         curve_kind: CurveKind,
         /// Curve identifier.
-        curve_id: String,
+        curve_id: CurveId,
         /// Optional explicit discount curve identifier when an operation must pair
         /// `curve_id` with a discounting curve (some forward/hazard bumps need one).
         /// If `None`, adapters apply engine default resolution; set this when multiple
         /// curves could match or you need deterministic selection.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        discount_curve_id: Option<String>,
+        discount_curve_id: Option<CurveId>,
         /// Basis point shift (additive).
         bp: f64,
     },
 
     /// Node-specific basis point shifts for curve shaping.
     ///
-    /// For rate curves (Discount, Forward, Hazard, ParCDS), `bp` values use the
-    /// standard fixed-income convention where `1 bp = 0.0001` in fractional rate
-    /// space.
-    ///
-    /// **WARNING — non-standard convention for [`CurveKind::VolIndex`]:** same
-    /// `bp / 100` rescaling as [`OperationSpec::CurveParallelBp`] applies — see
-    /// that variant's docs for details.
+    /// For rate-style curves, `bp` values use the standard fixed-income
+    /// convention where `1 bp = 0.0001` in fractional rate space. Use
+    /// [`OperationSpec::VolIndexNodePts`] for vol-index curves.
     ///
     /// # Example
     /// ```rust
@@ -266,14 +270,50 @@ pub enum OperationSpec {
         /// Type of curve (Discount, Forward, Hazard, etc.).
         curve_kind: CurveKind,
         /// Curve identifier.
-        curve_id: String,
+        curve_id: CurveId,
         /// Optional explicit discount curve identifier when an operation must pair
         /// `curve_id` with a discounting curve (some forward/hazard bumps need one).
         /// If `None`, adapters apply engine default resolution; set this when multiple
         /// curves could match or you need deterministic selection.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        discount_curve_id: Option<String>,
+        discount_curve_id: Option<CurveId>,
         /// Vector of (tenor, basis_point_shift) pairs.
+        nodes: Vec<(String, f64)>,
+        /// How to handle tenors not in the curve.
+        #[serde(default)]
+        match_mode: TenorMatchMode,
+    },
+
+    /// Parallel shock to a volatility-index curve in absolute index points.
+    ///
+    /// `points` is in absolute vol-index points (e.g. `+0.5` lifts every knot
+    /// of a VIX curve by 0.5 vol points). This is intentionally distinct from
+    /// the basis-point semantics used by [`OperationSpec::CurveParallelBp`].
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::OperationSpec;
+    ///
+    /// let op = OperationSpec::VolIndexParallelPts {
+    ///     curve_id: "VIX".into(),
+    ///     points: 1.0, // +1.0 vol point on every knot
+    /// };
+    /// ```
+    VolIndexParallelPts {
+        /// Curve identifier.
+        curve_id: CurveId,
+        /// Absolute index-point shift.
+        points: f64,
+    },
+
+    /// Node-specific shock to a volatility-index curve in absolute index points.
+    ///
+    /// Each `(tenor, points)` entry shifts the matching knot by `points`
+    /// absolute vol-index points.
+    VolIndexNodePts {
+        /// Curve identifier.
+        curve_id: CurveId,
+        /// Vector of (tenor, points) pairs in absolute vol-index points.
         nodes: Vec<(String, f64)>,
         /// How to handle tenors not in the curve.
         #[serde(default)]
@@ -293,7 +333,7 @@ pub enum OperationSpec {
     /// ```
     BaseCorrParallelPts {
         /// Surface identifier.
-        surface_id: String,
+        surface_id: CurveId,
         /// Absolute shift in correlation points.
         points: f64,
     },
@@ -318,7 +358,7 @@ pub enum OperationSpec {
     /// ```
     BaseCorrBucketPts {
         /// Surface identifier.
-        surface_id: String,
+        surface_id: CurveId,
         /// Optional detachment points in basis points (e.g., 300 for 3%).
         detachment_bps: Option<Vec<i32>>,
         /// Reserved maturity filters for future term-structured base correlation.
@@ -331,6 +371,9 @@ pub enum OperationSpec {
     },
 
     /// Parallel percent shift to volatility surface.
+    ///
+    /// `pct` may be `<= -100`: vol-to-zero is sometimes used in degenerate
+    /// stress (post-shock arbitrage detection emits a warning).
     ///
     /// # Example
     /// ```rust
@@ -346,7 +389,7 @@ pub enum OperationSpec {
         /// Type of volatility surface (Equity, FX, IR, etc.).
         surface_kind: VolSurfaceKind,
         /// Surface identifier.
-        surface_id: String,
+        surface_id: CurveId,
         /// Percentage change in volatility.
         pct: f64,
     },
@@ -369,7 +412,7 @@ pub enum OperationSpec {
         /// Type of volatility surface (Equity, FX, IR, etc.).
         surface_kind: VolSurfaceKind,
         /// Surface identifier.
-        surface_id: String,
+        surface_id: CurveId,
         /// Optional tenor strings (e.g., "1M", "3M").
         tenors: Option<Vec<String>>,
         /// Optional strike levels.
@@ -477,6 +520,8 @@ pub enum OperationSpec {
     },
 
     /// Instrument price shock by type.
+    ///
+    /// `pct` may be `<= -100`: legitimate write-down stress.
     ///
     /// # Example
     /// ```rust
@@ -588,7 +633,7 @@ pub enum OperationSpec {
         /// Propagated to each expanded [`OperationSpec::CurveParallelBp`].
         /// If `None`, the adapter applies heuristic resolution.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        discount_curve_id: Option<String>,
+        discount_curve_id: Option<CurveId>,
     },
 
     /// Hierarchy-targeted vol-surface parallel shift.
@@ -699,9 +744,6 @@ pub enum CurveKind {
     Inflation,
     /// Commodity forward curve.
     Commodity,
-    /// Volatility index curve (VIX, VSTOXX, etc.).
-    #[serde(rename = "vol_index")]
-    VolIndex,
 }
 
 /// Labels which category of volatility surface an operation represents.
@@ -821,7 +863,7 @@ pub struct RateBindingSpec {
     pub node_id: NodeId,
 
     /// Curve ID to extract rate from.
-    pub curve_id: String,
+    pub curve_id: CurveId,
 
     /// Tenor for rate extraction (e.g., "3M", "1Y").
     pub tenor: String,
@@ -890,13 +932,12 @@ impl ScenarioSpec {
             .count();
         if time_roll_count > 1 {
             return Err(crate::error::Error::Validation(format!(
-                "Scenario contains {} TimeRollForward operations; at most one is allowed",
-                time_roll_count
+                "Scenario contains {time_roll_count} TimeRollForward operations; at most one is allowed"
             )));
         }
         for (i, op) in self.operations.iter().enumerate() {
             op.validate()
-                .map_err(|e| crate::error::Error::Validation(format!("Operation {}: {}", i, e)))?;
+                .map_err(|e| crate::error::Error::Validation(format!("Operation {i}: {e}")))?;
         }
         Ok(())
     }
@@ -918,8 +959,11 @@ impl OperationSpec {
     /// # Errors
     ///
     /// Returns [`crate::error::Error::Validation`] if any identifier is empty,
-    /// any numeric field is non-finite, a percentage shock is less than or equal
-    /// to `-100%`, or the variant violates its own structural rules.
+    /// any numeric field is non-finite, or the variant violates its own
+    /// structural rules. FX shocks additionally reject `pct <= -100` because
+    /// driving a spot rate to zero would propagate NaNs through triangulation;
+    /// other percent shocks (equity, instrument price, vol) accept any finite
+    /// `pct` value.
     pub fn validate(&self) -> crate::error::Result<()> {
         match self {
             OperationSpec::MarketFxPct { base, quote, pct } => {
@@ -941,7 +985,6 @@ impl OperationSpec {
                     ));
                 }
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::InstrumentPricePctByAttr { attrs, pct } => {
                 if attrs.is_empty() {
@@ -953,7 +996,6 @@ impl OperationSpec {
                     ));
                 }
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::CurveParallelBp {
                 curve_id,
@@ -961,9 +1003,9 @@ impl OperationSpec {
                 bp,
                 ..
             } => {
-                check_id(curve_id, "curve_id")?;
+                check_id(curve_id.as_str(), "curve_id")?;
                 if let Some(discount_curve_id) = discount_curve_id {
-                    check_id(discount_curve_id, "discount_curve_id")?;
+                    check_id(discount_curve_id.as_str(), "discount_curve_id")?;
                 }
                 check_finite(*bp, "bp")?;
             }
@@ -973,47 +1015,43 @@ impl OperationSpec {
                 nodes,
                 ..
             } => {
-                check_id(curve_id, "curve_id")?;
+                check_id(curve_id.as_str(), "curve_id")?;
                 if let Some(discount_curve_id) = discount_curve_id {
-                    check_id(discount_curve_id, "discount_curve_id")?;
+                    check_id(discount_curve_id.as_str(), "discount_curve_id")?;
                 }
-                if nodes.is_empty() {
-                    return Err(crate::error::Error::Validation(
-                        "Curve nodes cannot be empty".into(),
-                    ));
-                }
-                for (tenor, bp) in nodes {
-                    if tenor.trim().is_empty() {
-                        return Err(crate::error::Error::Validation(
-                            "Curve node tenor cannot be empty".into(),
-                        ));
-                    }
-                    check_finite(*bp, "bp")?;
-                }
+                check_nodes(nodes)?;
+            }
+            OperationSpec::VolIndexParallelPts { curve_id, points } => {
+                check_id(curve_id.as_str(), "curve_id")?;
+                check_finite(*points, "points")?;
+            }
+            OperationSpec::VolIndexNodePts {
+                curve_id, nodes, ..
+            } => {
+                check_id(curve_id.as_str(), "curve_id")?;
+                check_nodes(nodes)?;
             }
             OperationSpec::BaseCorrParallelPts { surface_id, points } => {
-                check_id(surface_id, "surface_id")?;
+                check_id(surface_id.as_str(), "surface_id")?;
                 check_corr_delta(*points, "points")?;
             }
             OperationSpec::BaseCorrBucketPts {
                 surface_id, points, ..
             } => {
-                check_id(surface_id, "surface_id")?;
+                check_id(surface_id.as_str(), "surface_id")?;
                 check_corr_delta(*points, "points")?;
             }
             OperationSpec::VolSurfaceParallelPct {
                 surface_id, pct, ..
             } => {
-                check_id(surface_id, "surface_id")?;
+                check_id(surface_id.as_str(), "surface_id")?;
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::VolSurfaceBucketPct {
                 surface_id, pct, ..
             } => {
-                check_id(surface_id, "surface_id")?;
+                check_id(surface_id.as_str(), "surface_id")?;
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::StmtForecastPercent { node_id, pct } => {
                 check_id(node_id.as_str(), "node_id")?;
@@ -1025,7 +1063,7 @@ impl OperationSpec {
             }
             OperationSpec::RateBinding { binding } => {
                 check_id(binding.node_id.as_str(), "node_id")?;
-                check_id(&binding.curve_id, "curve_id")?;
+                check_id(binding.curve_id.as_str(), "curve_id")?;
                 if binding.tenor.trim().is_empty() {
                     return Err(crate::error::Error::Validation(
                         "RateBinding tenor cannot be empty".into(),
@@ -1045,7 +1083,6 @@ impl OperationSpec {
             }
             OperationSpec::InstrumentPricePctByType { pct, .. } => {
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::InstrumentSpreadBpByType { bp, .. } => {
                 check_finite(*bp, "bp")?;
@@ -1069,7 +1106,7 @@ impl OperationSpec {
                 }
                 check_finite(*bp, "bp")?;
                 if let Some(dcid) = discount_curve_id {
-                    check_id(dcid, "discount_curve_id")?;
+                    check_id(dcid.as_str(), "discount_curve_id")?;
                 }
             }
             OperationSpec::HierarchyVolSurfaceParallelPct { target, pct, .. } => {
@@ -1079,7 +1116,6 @@ impl OperationSpec {
                     ));
                 }
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::HierarchyEquityPricePct { target, pct } => {
                 if target.path.is_empty() {
@@ -1088,7 +1124,6 @@ impl OperationSpec {
                     ));
                 }
                 check_finite(*pct, "pct")?;
-                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
                 if target.path.is_empty() {
@@ -1113,8 +1148,7 @@ impl OperationSpec {
 fn check_finite(val: f64, name: &str) -> crate::error::Result<()> {
     if !val.is_finite() {
         Err(crate::error::Error::Validation(format!(
-            "Value '{}' must be finite",
-            name
+            "Value '{name}' must be finite"
         )))
     } else {
         Ok(())
@@ -1124,8 +1158,7 @@ fn check_finite(val: f64, name: &str) -> crate::error::Result<()> {
 fn check_id(id: &str, name: &str) -> crate::error::Result<()> {
     if id.trim().is_empty() {
         Err(crate::error::Error::Validation(format!(
-            "Identifier '{}' cannot be empty",
-            name
+            "Identifier '{name}' cannot be empty"
         )))
     } else {
         Ok(())
@@ -1135,12 +1168,28 @@ fn check_id(id: &str, name: &str) -> crate::error::Result<()> {
 fn check_pct_floor(val: f64, name: &str) -> crate::error::Result<()> {
     if val <= -100.0 {
         Err(crate::error::Error::Validation(format!(
-            "Percentage '{}' must be greater than -100% (got {:.1}%)",
-            name, val
+            "Percentage '{name}' must be greater than -100% (got {val:.1}%)"
         )))
     } else {
         Ok(())
     }
+}
+
+fn check_nodes(nodes: &[(String, f64)]) -> crate::error::Result<()> {
+    if nodes.is_empty() {
+        return Err(crate::error::Error::Validation(
+            "Curve nodes cannot be empty".into(),
+        ));
+    }
+    for (tenor, bp) in nodes {
+        if tenor.trim().is_empty() {
+            return Err(crate::error::Error::Validation(
+                "Curve node tenor cannot be empty".into(),
+            ));
+        }
+        check_finite(*bp, "bp")?;
+    }
+    Ok(())
 }
 
 /// Correlation shocks are quoted as additive points (1.0 = +100 pts). A Δρ

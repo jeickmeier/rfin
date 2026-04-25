@@ -138,10 +138,10 @@ fn test_very_large_shock() {
 }
 
 #[test]
-fn test_negative_100_percent_shock() {
-    // `-100%` is on the percentage floor (see `check_pct_floor`): a full-loss
-    // shock would collapse prices to zero or below and propagate NaN through
-    // downstream pricing. The engine now rejects it at validation time.
+fn test_negative_100_percent_shock_on_equity_is_accepted() {
+    // Equity shocks at or below -100% are legitimate tail-risk stress (default
+    // events, fair-value floors). The engine accepts them; only FX shocks are
+    // rejected at -100% to prevent NaN propagation through triangulation.
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new()
         .insert_price("SPY", MarketScalar::Price(Money::new(100.0, Currency::USD)));
@@ -169,17 +169,16 @@ fn test_negative_100_percent_shock() {
         as_of: base_date,
     };
 
-    let err = engine
+    let report = engine
         .apply(&scenario, &mut ctx)
-        .expect_err("-100% shock must be rejected by validation");
-    assert!(err.to_string().contains("greater than -100%"));
+        .expect("equity -100% shock must be accepted (relaxed pct floor)");
+    assert_eq!(report.operations_applied, 1);
 }
 
 #[test]
-fn test_shock_beyond_negative_100_percent() {
-    // `-150%` would drive price negative. The engine must reject this at
-    // validation time; downstream pricing of a negative equity price is
-    // meaningless.
+fn test_shock_beyond_negative_100_percent_on_equity_is_accepted() {
+    // Equity stress can model a "wipeout to negative" (write-down beyond zero)
+    // for risk-system testing; downstream pricers handle negative prices.
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new()
         .insert_price("SPY", MarketScalar::Price(Money::new(100.0, Currency::USD)));
@@ -207,9 +206,49 @@ fn test_shock_beyond_negative_100_percent() {
         as_of: base_date,
     };
 
+    let report = engine
+        .apply(&scenario, &mut ctx)
+        .expect("equity -150% shock must be accepted (relaxed pct floor)");
+    assert_eq!(report.operations_applied, 1);
+}
+
+#[test]
+fn test_negative_100_percent_fx_shock_is_rejected() {
+    // FX shocks remain rejected at <= -100% because driving a spot rate to
+    // zero would propagate NaNs through triangulation. This is the one
+    // category where the strict `check_pct_floor` still applies.
+    use finstack_core::currency::Currency;
+
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "fx_full_loss".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::MarketFxPct {
+            base: Currency::EUR,
+            quote: Currency::USD,
+            pct: -100.0,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
     let err = engine
         .apply(&scenario, &mut ctx)
-        .expect_err("-150% shock must be rejected by validation");
+        .expect_err("FX -100% shock must still be rejected by validation");
     assert!(err.to_string().contains("greater than -100%"));
 }
 

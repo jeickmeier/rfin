@@ -221,6 +221,20 @@ impl MarketContext {
         })
     }
 
+    /// Iterate over all stored discount curves without cloning the context.
+    ///
+    /// Yields `(curve_id, Arc<DiscountCurve>)` pairs in arbitrary order. Use this
+    /// when you need to scan discount curves (e.g. for currency-prefix matching)
+    /// in a hot path where materializing a [`MarketContextState`](super::MarketContextState)
+    /// would be wasteful.
+    pub fn iter_discount_curves(
+        &self,
+    ) -> impl Iterator<Item = (&CurveId, Arc<DiscountCurve>)> + '_ {
+        self.curves
+            .iter()
+            .filter_map(|(id, storage)| storage.discount().map(|c| (id, Arc::clone(c))))
+    }
+
     /// Clone a volatility surface by identifier.
     ///
     /// Returns the strike-grid surface stored under `id`. Use

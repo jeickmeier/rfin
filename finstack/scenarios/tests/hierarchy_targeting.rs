@@ -534,7 +534,7 @@ fn compose_preserves_resolution_mode_when_inputs_agree() {
         resolution_mode: ResolutionMode::Cumulative,
     };
 
-    let composed = ScenarioEngine::new().compose(vec![s1, s2]);
+    let composed = ScenarioEngine::new().try_compose(vec![s1, s2]).expect("compose should succeed");
     assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
 }
 
@@ -560,7 +560,7 @@ fn compose_with_mixed_resolution_modes_defaults_to_cumulative() {
         resolution_mode: ResolutionMode::Cumulative,
     };
 
-    let composed = ScenarioEngine::new().compose(vec![most_specific, cumulative]);
+    let composed = ScenarioEngine::new().try_compose(vec![most_specific, cumulative]).expect("compose should succeed");
     assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
 }
 

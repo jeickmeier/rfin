@@ -227,6 +227,10 @@ impl ScenarioSpecBuilder {
             .into_iter()
             .map(ScenarioSpecBuilder::into_spec_without_validation)
             .collect();
+        // The builder-level compose mirrors the deprecated permissive API on
+        // the engine: it does not validate. Callers can validate by calling
+        // [`ScenarioSpecBuilder::build`] on the result.
+        #[allow(deprecated)]
         let composed = ScenarioEngine::new().compose(specs);
 
         Self {
@@ -307,9 +311,11 @@ impl ScenarioSpecBuilder {
         for operation in &mut self.operations {
             match operation {
                 OperationSpec::CurveParallelBp { curve_id, .. }
-                | OperationSpec::CurveNodeBp { curve_id, .. } => {
+                | OperationSpec::CurveNodeBp { curve_id, .. }
+                | OperationSpec::VolIndexParallelPts { curve_id, .. }
+                | OperationSpec::VolIndexNodePts { curve_id, .. } => {
                     if let Some(replacement) = self.curve_overrides.get(curve_id.as_str()) {
-                        *curve_id = replacement.clone();
+                        *curve_id = replacement.as_str().into();
                     }
                 }
                 OperationSpec::VolSurfaceParallelPct { surface_id, .. }
@@ -317,7 +323,7 @@ impl ScenarioSpecBuilder {
                 | OperationSpec::BaseCorrParallelPts { surface_id, .. }
                 | OperationSpec::BaseCorrBucketPts { surface_id, .. } => {
                     if let Some(replacement) = self.curve_overrides.get(surface_id.as_str()) {
-                        *surface_id = replacement.clone();
+                        *surface_id = replacement.as_str().into();
                     }
                 }
                 OperationSpec::EquityPricePct { ids, .. } => {

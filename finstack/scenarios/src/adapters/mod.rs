@@ -1,8 +1,9 @@
 //! Adapter modules that implement the mechanics of each `OperationSpec`.
 //!
-//! Scenario operations are intentionally small data structures. The functions
-//! exported from these submodules contain the business logic for applying
-//! shocks to market data, financial statements, instruments, and time.
+//! The engine dispatches each [`OperationSpec`](crate::spec::OperationSpec)
+//! variant via a centralized `match` to the appropriate free function in the
+//! submodules below. There is no polymorphic adapter trait — the enum is
+//! closed and the dispatch is exhaustive at compile time.
 
 pub mod asset_corr;
 pub mod basecorr;

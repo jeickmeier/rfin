@@ -1,8 +1,8 @@
 //! Template registry for stress test template metadata and builder factories.
 
 use super::{
-    json::JsonTemplateDocument, loader::parse_template_document, register_builtins, AssetClass,
-    ScenarioSpecBuilder, Severity, TemplateMetadata,
+    json::{parse_template_document, JsonTemplateDocument},
+    register_builtins, AssetClass, ScenarioSpecBuilder, Severity, TemplateMetadata,
 };
 use crate::{Error, Result, ScenarioSpec};
 use indexmap::IndexMap;
@@ -558,7 +558,7 @@ mod tests {
             description: Some(format!("Description for {id}")),
             operations: vec![OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
-                curve_id: curve_id.to_string(),
+                curve_id: curve_id.into(),
                 discount_curve_id: None,
                 bp,
             }],
