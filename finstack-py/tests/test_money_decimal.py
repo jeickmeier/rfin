@@ -50,17 +50,17 @@ def test_decimal_subclass_uses_decimal_path_not_float() -> None:
 
 
 def test_decimal_infinity_rejected() -> None:
-    with pytest.raises(ValueError, match="got infinity"):
+    with pytest.raises(ValueError, match='Invalid Decimal value "Infinity"'):
         Money(Decimal("Infinity"), "USD")
 
 
 def test_decimal_negative_infinity_rejected() -> None:
-    with pytest.raises(ValueError, match="got -infinity"):
+    with pytest.raises(ValueError, match='Invalid Decimal value "-Infinity"'):
         Money(Decimal("-Infinity"), "USD")
 
 
 def test_decimal_nan_rejected() -> None:
-    with pytest.raises(ValueError, match="got NaN"):
+    with pytest.raises(ValueError, match='Invalid Decimal value "NaN"'):
         Money(Decimal("NaN"), "USD")
 
 

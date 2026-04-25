@@ -331,14 +331,15 @@ class TestFxMatrixParity:
         result = fx.rate(usd, usd, date(2024, 1, 1), FxConversionPolicy.CASHFLOW_DATE)
         assert result.rate == pytest.approx(1.0, abs=1e-10)
 
-    def test_triangulation_unsupported(self) -> None:
-        """Cross triangulation (EUR→GBP via USD) should fail."""
+    def test_triangulation_via_usd_pivot(self) -> None:
+        """Cross triangulation (EUR->GBP via USD) returns the implied rate."""
         fx = FxMatrix()
         usd, eur, gbp = Currency("USD"), Currency("EUR"), Currency("GBP")
         fx.set_quote(eur, usd, 1.10)
         fx.set_quote(gbp, usd, 1.25)
-        with pytest.raises(Exception, match=r"FX:|not found|Resource"):
-            fx.rate(eur, gbp, date(2024, 1, 1), FxConversionPolicy.CASHFLOW_DATE)
+        result = fx.rate(eur, gbp, date(2024, 1, 1), FxConversionPolicy.CASHFLOW_DATE)
+        assert result.rate == pytest.approx(1.10 / 1.25, abs=1e-10)
+        assert result.triangulated is True
 
     def test_zero_rate_raises(self) -> None:
         """Setting a zero FX rate should raise."""
