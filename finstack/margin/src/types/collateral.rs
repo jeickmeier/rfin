@@ -191,15 +191,26 @@ impl MaturityConstraints {
     }
 
     /// Check if a given remaining maturity satisfies the constraints.
+    ///
+    /// Boundary comparisons use a small tolerance (~1.4 minutes of a
+    /// year) to avoid IEEE 754 rounding error rejecting an instrument
+    /// that exactly matches the registry boundary. The tolerance is
+    /// tight enough that daily-bucketed schedules (the typical case)
+    /// never see boundary leak: 2.7e-6 years × 365 days/year ≈ 0.001
+    /// days = ~1.4 minutes.
     #[must_use]
     pub fn is_satisfied(&self, remaining_years: f64) -> bool {
+        // 2.7e-6 years ≈ 1.4 minutes — well below any operational
+        // boundary used in eligibility schedules, comfortably above
+        // f64 round-trip error from `time::Duration` ↔ year fractions.
+        const TOLERANCE_YEARS: f64 = 2.7e-6;
         if let Some(min) = self.min_remaining_years {
-            if remaining_years < min {
+            if remaining_years < min - TOLERANCE_YEARS {
                 return false;
             }
         }
         if let Some(max) = self.max_remaining_years {
-            if remaining_years > max {
+            if remaining_years > max + TOLERANCE_YEARS {
                 return false;
             }
         }

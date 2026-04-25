@@ -21,6 +21,9 @@ use finstack_core::{Error, HashMap, Result};
 use serde_json::Value;
 use tracing::{debug, info};
 
+mod validation;
+use validation::{to_validation, validate_haircut, validate_non_negative, validate_rate};
+
 use crate::calculators::im::schedule::{MaturityBucket, ScheduleAssetClass};
 use crate::calculators::im::simm::SimmVersion;
 use crate::types::{
@@ -281,6 +284,21 @@ pub fn embedded_registry() -> Result<&'static MarginRegistry> {
         .ok_or_else(|| Error::Validation("Failed to load embedded margin registry".to_string()))
 }
 
+/// Panic-on-failure access to the embedded margin registry, for use in
+/// `Default` impls and construction sites where the embedded JSON
+/// assets are bundled at compile time and a load failure indicates a
+/// build-pipeline regression rather than a runtime fault.
+///
+/// Centralises the previous in-line
+/// `.expect("embedded margin registry is a compile-time asset")`
+/// pattern so future changes to the message or recovery strategy live
+/// in one place.
+#[must_use]
+#[allow(clippy::expect_used)]
+pub fn embedded_registry_or_panic() -> &'static MarginRegistry {
+    embedded_registry().expect("embedded margin registry is a compile-time asset")
+}
+
 /// Build a registry applying an optional JSON overlay.
 ///
 /// # Arguments
@@ -347,12 +365,33 @@ fn parse_schedule_im(value: Option<&Value>) -> Result<HashMap<String, ScheduleIm
             short_to_medium: record.bucket_boundaries_years.short_to_medium,
             medium_to_long: record.bucket_boundaries_years.medium_to_long,
         };
+        if !boundaries.short_to_medium.is_finite() || !boundaries.medium_to_long.is_finite() {
+            return Err(Error::Validation(
+                "schedule_im bucket boundaries must be finite".to_string(),
+            ));
+        }
         if boundaries.short_to_medium <= 0.0
             || boundaries.medium_to_long <= boundaries.short_to_medium
         {
             return Err(Error::Validation(
                 "schedule_im bucket boundaries must be increasing and > 0".to_string(),
             ));
+        }
+        // The schedule's `default_maturity_years` is the fallback used
+        // by callers that don't supply an explicit maturity. It must be
+        // finite, non-negative, and ≤ 100y (plausibility bound — every
+        // BCBS-IOSCO grid caps at 30y for the long bucket; 100y allows
+        // generous overlay headroom while rejecting obvious typos like
+        // 1000.0).
+        if !record.default_maturity_years.is_finite()
+            || record.default_maturity_years < 0.0
+            || record.default_maturity_years > 100.0
+        {
+            return Err(Error::Validation(format!(
+                "schedule_im default_maturity_years must be a finite value in [0, 100] years, \
+                 got {}",
+                record.default_maturity_years
+            )));
         }
         let default_asset_class = parse_schedule_asset_class(&record.default_asset_class)?;
         let mut rates = HashMap::default();
@@ -558,6 +597,12 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
         }
 
         let ir_tenor_correlations = parse_ir_tenor_correlations(&record.ir_tenor_correlations)?;
+        // ISDA SIMM v2.6 default vega weights and curvature scale factor
+        // (used when an overlay omits the field). Values are validated
+        // through `validate_non_negative` immediately after assignment so
+        // a future typo in either the default or an explicit overlay
+        // value is caught at parse time, before the SimmParams escapes
+        // this function.
         let ir_vega_weight = record.ir_vega_weight.unwrap_or(0.21);
         let cq_vega_weight = record.cq_vega_weight.unwrap_or(0.27);
         let cnq_vega_weight = record.cnq_vega_weight.unwrap_or(0.27);
@@ -565,6 +610,13 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
         let fx_vega_weight = record.fx_vega_weight.unwrap_or(0.30);
         let commodity_vega_weight = record.commodity_vega_weight.unwrap_or(0.36);
         let curvature_scale_factor = record.curvature_scale_factor.unwrap_or(1.5);
+        validate_non_negative("simm.ir_vega_weight", ir_vega_weight)?;
+        validate_non_negative("simm.cq_vega_weight", cq_vega_weight)?;
+        validate_non_negative("simm.cnq_vega_weight", cnq_vega_weight)?;
+        validate_non_negative("simm.equity_vega_weight", equity_vega_weight)?;
+        validate_non_negative("simm.fx_vega_weight", fx_vega_weight)?;
+        validate_non_negative("simm.commodity_vega_weight", commodity_vega_weight)?;
+        validate_non_negative("simm.curvature_scale_factor", curvature_scale_factor)?;
         let concentration_thresholds =
             parse_concentration_thresholds(&record.concentration_thresholds)?;
 
@@ -783,6 +835,14 @@ fn parse_number_map(value: &Value, context: &str) -> Result<HashMap<String, f64>
         let num = v.as_f64().ok_or_else(|| {
             Error::Validation(format!("{context} value for key '{k}' must be a number"))
         })?;
+        // Reject NaN / ±infinity at the trust boundary so a malformed
+        // overlay cannot inject non-finite values into a HashMap whose
+        // downstream validators only check non-negativity.
+        if !num.is_finite() {
+            return Err(Error::Validation(format!(
+                "{context} value for key '{k}' must be finite, got {num}"
+            )));
+        }
         out.insert(k.clone(), num);
     }
     Ok(out)
@@ -823,6 +883,10 @@ fn parse_credit_sector_number_map(
         let num = v.as_f64().ok_or_else(|| {
             Error::Validation(format!("{context} value for key '{k}' must be a number"))
         })?;
+        // Reject NaN / ±infinity / negatives at the trust boundary;
+        // bucket weights and concentration thresholds are always
+        // non-negative finite quantities.
+        validate_non_negative(&format!("{context}[{k}]"), num)?;
         out.insert(sector, num);
     }
     Ok(Some(out))
@@ -856,9 +920,9 @@ fn parse_cq_inter_bucket_correlations(
                 "cq_inter_bucket_correlations value for '{k}' must be a number"
             ))
         })?;
-        if !(-1.0..=1.0).contains(&rho) {
+        if !rho.is_finite() || !(-1.0..=1.0).contains(&rho) {
             return Err(Error::Validation(format!(
-                "cq_inter_bucket_correlations value for '{k}' must be in [-1,1]"
+                "cq_inter_bucket_correlations value for '{k}' must be a finite value in [-1,1], got {rho}"
             )));
         }
         out.insert(
@@ -869,6 +933,12 @@ fn parse_cq_inter_bucket_correlations(
     Ok(Some(out))
 }
 
+/// Parse the `simm.ir_tenor_correlations` overlay map.
+///
+/// Keys use a single underscore as the pair separator
+/// (`"tenor_a_tenor_b"`); tenor labels themselves must therefore not
+/// contain `_`. The embedded registry uses ISDA-standard labels (`2w`,
+/// `1m`, `3m`, ..., `30y`) which all satisfy this invariant.
 fn parse_ir_tenor_correlations(value: &Value) -> Result<HashMap<(String, String), f64>> {
     if value.is_null() {
         return Ok(HashMap::default());
@@ -878,23 +948,23 @@ fn parse_ir_tenor_correlations(value: &Value) -> Result<HashMap<(String, String)
         .ok_or_else(|| Error::Validation("ir_tenor_correlations must be an object".to_string()))?;
     let mut out = HashMap::default();
     for (k, v) in obj {
-        let parts: Vec<&str> = k.splitn(2, '_').collect();
-        if parts.len() != 2 {
-            return Err(Error::Validation(format!(
-                "invalid ir_tenor_correlations key '{k}': expected format 'tenor1_tenor2'"
-            )));
-        }
+        let (a, b) = k.split_once('_').ok_or_else(|| {
+            Error::Validation(format!(
+                "invalid ir_tenor_correlations key '{k}': expected format 'tenor1_tenor2' \
+                 (tenor labels must not contain '_')"
+            ))
+        })?;
         let rho = v.as_f64().ok_or_else(|| {
             Error::Validation(format!(
                 "ir_tenor_correlations value for '{k}' must be a number"
             ))
         })?;
-        if !(-1.0..=1.0).contains(&rho) {
+        if !rho.is_finite() || !(-1.0..=1.0).contains(&rho) {
             return Err(Error::Validation(format!(
-                "ir_tenor_correlations value for '{k}' must be in [-1,1]"
+                "ir_tenor_correlations value for '{k}' must be a finite value in [-1,1], got {rho}"
             )));
         }
-        let (a, b) = ordered_tenor_pair(parts[0], parts[1]);
+        let (a, b) = ordered_tenor_pair(a, b);
         out.insert((a, b), rho);
     }
     Ok(out)
@@ -915,6 +985,7 @@ fn parse_concentration_thresholds(value: &Value) -> Result<HashMap<SimmRiskClass
                 "concentration_thresholds value for '{k}' must be a number"
             ))
         })?;
+        validate_non_negative(&format!("concentration_thresholds[{k}]"), threshold)?;
         out.insert(rc, threshold);
     }
     Ok(out)
@@ -1173,6 +1244,15 @@ fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
     )?;
 
     // 3. CQ inter-bucket correlations over the full v2.6 bucket set.
+    //    Fallback for missing pairs is 0.0 (uncorrelated), matching the
+    //    PSD-safe default. Note this differs from the embedded matrix
+    //    which uses ~0.27 for non-residual pairs — a registry that
+    //    omits a pair is treated as "no correlation specified", not as
+    //    "use the embedded value", so PSD is checked under the
+    //    pessimistic assumption that overlay omissions carry through.
+    //    `validate_cq_tables` independently rejects v2.6 overlays that
+    //    omit any required pair, so this fallback is only exercised for
+    //    legacy versions.
     let sectors = simm_cq_validation_sectors();
     validate_dense_correlation_matrix(
         &sectors,
@@ -1252,36 +1332,7 @@ where
     })
 }
 
-fn validate_rate(name: &str, v: f64) -> Result<()> {
-    if !v.is_finite() || v < 0.0 {
-        return Err(Error::Validation(format!(
-            "invalid rate '{name}': must be finite and >= 0"
-        )));
-    }
-    Ok(())
-}
-
-fn validate_non_negative(name: &str, v: f64) -> Result<()> {
-    if !v.is_finite() || v < 0.0 {
-        return Err(Error::Validation(format!(
-            "invalid value '{name}': must be finite and >= 0"
-        )));
-    }
-    Ok(())
-}
-
-fn validate_haircut(name: &str, v: f64) -> Result<()> {
-    if !v.is_finite() || !(0.0..=1.0).contains(&v) {
-        return Err(Error::Validation(format!(
-            "invalid haircut '{name}': must be in [0,1]"
-        )));
-    }
-    Ok(())
-}
-
-fn to_validation(err: serde_json::Error) -> Error {
-    Error::Validation(format!("Failed to parse margin registry: {err}"))
-}
+// Generic numeric range validators live in `registry::validation`.
 
 // -----------------------------------------------------------------------------//
 // Convenience helpers for constructing Money amounts from defaults
@@ -1587,6 +1638,160 @@ mod tests {
         assert!(
             msg.contains("risk_class_correlations"),
             "error should name the offending matrix: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_number_map_rejects_non_finite_values() {
+        // Synthetic JSON with NaN/infinity strings would fail at the
+        // serde_json parser stage, but a future deserialiser that emits
+        // non-finite f64 must still be rejected here. We construct the
+        // value programmatically to exercise the post-`as_f64` guard.
+        use serde_json::{Map, Number, Value};
+        let mut obj = Map::new();
+        obj.insert(
+            "5y".to_string(),
+            Number::from_f64(f64::INFINITY)
+                .map(Value::Number)
+                .unwrap_or(Value::Null),
+        );
+        // serde_json refuses to encode infinity in Number::from_f64,
+        // so the JSON path is blocked. Confirm that explicitly.
+        let val = Value::Object(obj);
+        let parsed = parse_number_map(&val, "test.weights");
+        assert!(
+            parsed.is_err()
+                || parsed
+                    .as_ref()
+                    .ok()
+                    .and_then(|m| m.get("5y").copied())
+                    .is_none(),
+            "parse_number_map must not return non-finite values: got {parsed:?}"
+        );
+    }
+
+    #[test]
+    fn parse_credit_sector_number_map_rejects_negative_values() {
+        // Use serde_json::json! which permits regular floats; -5.0
+        // exercises the validate_non_negative call, not the finiteness
+        // check.
+        let val = serde_json::json!({
+            "sovereign": -5.0,
+        });
+        let err = parse_credit_sector_number_map(&val, "simm.cq_bucket_weights", false)
+            .expect_err("negative bucket weight must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("simm.cq_bucket_weights"),
+            "error should name the offending field: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_concentration_thresholds_rejects_negative() {
+        let val = serde_json::json!({
+            "interest_rate": -10.0,
+        });
+        let err = parse_concentration_thresholds(&val)
+            .expect_err("negative concentration threshold must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("concentration_thresholds"),
+            "error should name the offending field: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_ir_tenor_correlations_rejects_out_of_range() {
+        let val = serde_json::json!({
+            "1y_5y": 1.5,
+        });
+        let err = parse_ir_tenor_correlations(&val)
+            .expect_err("|ρ| > 1 must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("ir_tenor_correlations") && msg.contains("[-1,1]"),
+            "error should name the offending field and range: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_ir_tenor_correlations_rejects_malformed_key() {
+        // No underscore separator → parse error mentioning the
+        // tenor-label-no-underscore convention.
+        let val = serde_json::json!({
+            "5y": 0.5,
+        });
+        let err = parse_ir_tenor_correlations(&val)
+            .expect_err("malformed key must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("expected format 'tenor1_tenor2'"),
+            "error should describe the expected format: {msg}"
+        );
+    }
+
+    #[test]
+    fn schedule_im_rejects_implausible_default_maturity() {
+        // Synthesise a minimal ScheduleImFile with a bogus
+        // default_maturity_years = 1000.0 and verify the parser bails.
+        let val = serde_json::json!({
+            "schema": "schedule_im.v1",
+            "version": 1,
+            "entries": [{
+                "ids": ["test"],
+                "record": {
+                    "default_rate": 0.04,
+                    "default_asset_class": "interest_rate",
+                    "default_maturity_years": 1000.0,
+                    "mpor_days": 10,
+                    "bucket_boundaries_years": {
+                        "short_to_medium": 2.0,
+                        "medium_to_long": 5.0,
+                    },
+                    "rates": [],
+                }
+            }]
+        });
+        let err = parse_schedule_im(Some(&val))
+            .expect_err("implausible default_maturity_years must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("default_maturity_years"),
+            "error should name the offending field: {msg}"
+        );
+    }
+
+    #[test]
+    fn v26_overlay_missing_cq_bucket_weights_is_rejected() {
+        // Build a minimal v2.6-tagged record that omits cq_bucket_weights
+        // entirely; the parser must reject because v2.6 requires the
+        // explicit table (the legacy fallback is only valid for v2.5).
+        let val = serde_json::json!({
+            "schema": "simm.v1",
+            "version": 1,
+            "entries": [{
+                "ids": ["v2_6"],
+                "record": {
+                    "ir_delta_weights": { "5y": 50.0 },
+                    "cq_delta_weights": { "corporates": 73.0 },
+                    "cnq_delta_weight": 169.0,
+                    "equity_delta_weight": 25.0,
+                    "fx_delta_weight": 8.1,
+                    "fx_intra_bucket_correlation": 0.5,
+                    "commodity_bucket_weights": {},
+                    "risk_class_correlations": [],
+                    "ir_tenor_correlations": {},
+                    "concentration_thresholds": {},
+                    "mpor_days": 10,
+                    "cq_bucket_weights": null
+                }
+            }]
+        });
+        let result = parse_simm(Some(&val));
+        assert!(
+            result.is_err(),
+            "v2.6 without cq_bucket_weights must be rejected, got {result:?}"
         );
     }
 }

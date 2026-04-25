@@ -56,23 +56,19 @@ use finstack_core::Result;
 /// ```
 #[derive(Debug, Clone)]
 pub struct HaircutImCalculator {
-    /// Eligible collateral schedule with haircuts
+    /// Eligible collateral schedule with haircuts.
     eligible_collateral: EligibleCollateralSchedule,
 
-    /// Default collateral asset class to assume
+    /// Default collateral asset class to assume.
     default_asset_class: CollateralAssetClass,
 
-    /// Policy flag: whether FX add-ons should be applied when a currency
-    /// mismatch exists. This is a configuration knob distinct from the
-    /// runtime state represented by [`Self::currency_mismatch`].
-    apply_fx_addon: bool,
-
-    /// Runtime flag: whether the posted collateral's currency differs from
-    /// the exposure currency. Defaults to `false`; callers that detect an FX
-    /// mismatch must flip this via [`Self::with_currency_mismatch`]. The FX
-    /// add-on is only applied when both this flag and `apply_fx_addon` are
-    /// `true`.
-    currency_mismatch: bool,
+    /// Posted collateral currency, if different from the exposure
+    /// currency. The FX add-on is applied iff this is set *and* differs
+    /// from the instrument's MTM currency at calculation time. Replaces
+    /// the previous two-flag (`apply_fx_addon`, `currency_mismatch`)
+    /// builder state with a single explicit value: there is no way to
+    /// configure "apply FX add-on but currencies match" by accident.
+    posted_collateral_currency: Option<finstack_core::currency::Currency>,
 }
 
 impl HaircutImCalculator {
@@ -82,8 +78,7 @@ impl HaircutImCalculator {
         Self {
             eligible_collateral,
             default_asset_class: CollateralAssetClass::GovernmentBonds,
-            apply_fx_addon: false,
-            currency_mismatch: false,
+            posted_collateral_currency: None,
         }
     }
 
@@ -105,19 +100,15 @@ impl HaircutImCalculator {
         Ok(Self::new(EligibleCollateralSchedule::bcbs_standard()?))
     }
 
-    /// Set whether to apply FX haircut addon.
+    /// Declare the posted collateral currency. The FX add-on is applied
+    /// at calculation time when this currency differs from the
+    /// instrument's MTM currency.
     #[must_use]
-    pub fn with_fx_addon(mut self, apply: bool) -> Self {
-        self.apply_fx_addon = apply;
-        self
-    }
-
-    /// Set whether the posted collateral's currency differs from the
-    /// exposure currency. Only consulted when [`Self::with_fx_addon`] is
-    /// also `true`.
-    #[must_use]
-    pub fn with_currency_mismatch(mut self, mismatch: bool) -> Self {
-        self.currency_mismatch = mismatch;
+    pub fn with_posted_collateral_currency(
+        mut self,
+        currency: finstack_core::currency::Currency,
+    ) -> Self {
+        self.posted_collateral_currency = Some(currency);
         self
     }
 
@@ -129,6 +120,10 @@ impl HaircutImCalculator {
     }
 
     /// Calculate haircut IM for a given collateral value and asset class.
+    ///
+    /// `currency_mismatch` is the explicit caller-provided indicator
+    /// that the posted collateral currency differs from the exposure
+    /// currency; the FX add-on is applied iff true.
     pub fn calculate_for_collateral(
         &self,
         collateral_value: Money,
@@ -140,7 +135,7 @@ impl HaircutImCalculator {
             None => asset_class.standard_haircut()?,
         };
 
-        let total_haircut = if currency_mismatch && self.apply_fx_addon {
+        let total_haircut = if currency_mismatch {
             haircut + asset_class.fx_addon()?
         } else {
             haircut
@@ -168,10 +163,16 @@ impl ImCalculator for HaircutImCalculator {
         let mtm = instrument.mtm_for_vm(context, as_of)?;
         let collateral_value = Money::new(mtm.amount().abs(), mtm.currency());
 
+        // Derive the FX-addon flag from the actual currency pair instead
+        // of carrying it as builder state.
+        let currency_mismatch = self
+            .posted_collateral_currency
+            .is_some_and(|c| c != mtm.currency());
+
         let im_amount = self.calculate_for_collateral(
             collateral_value,
             &self.default_asset_class,
-            self.currency_mismatch,
+            currency_mismatch,
         )?;
 
         let mut breakdown = finstack_core::HashMap::default();
@@ -212,9 +213,7 @@ mod tests {
 
     #[test]
     fn fx_addon_applied() {
-        let calc = HaircutImCalculator::bcbs_standard()
-            .expect("registry should load")
-            .with_fx_addon(true);
+        let calc = HaircutImCalculator::bcbs_standard().expect("registry should load");
 
         let collateral = Money::new(10_000_000.0, Currency::USD);
 
@@ -268,29 +267,46 @@ mod tests {
         let context = MarketContext::new();
         let as_of: Date = date!(2025 - 01 - 01);
 
-        let base_calc = HaircutImCalculator::bcbs_standard()
+        // No posted-collateral-currency declared → no FX addon, even
+        // for an FX-sensitive asset class like cash.
+        let calc_no_decl = HaircutImCalculator::bcbs_standard()
             .expect("registry should load")
-            .with_default_asset_class(CollateralAssetClass::Cash)
-            .with_fx_addon(true);
-
-        let im_same_ccy = base_calc
-            .clone()
+            .with_default_asset_class(CollateralAssetClass::Cash);
+        let im_same_ccy = calc_no_decl
             .calculate(&instrument, &context, as_of)
             .expect("calculation ok");
         assert_eq!(
             im_same_ccy.amount.amount(),
             0.0,
-            "with_fx_addon=true but currency_mismatch=false must not apply FX addon"
+            "no posted-collateral-currency declared → no FX addon"
         );
 
-        let im_mismatch = base_calc
-            .with_currency_mismatch(true)
+        // Posted collateral currency matches MTM → no FX addon.
+        let calc_match = HaircutImCalculator::bcbs_standard()
+            .expect("registry should load")
+            .with_default_asset_class(CollateralAssetClass::Cash)
+            .with_posted_collateral_currency(Currency::USD);
+        let im_match = calc_match
+            .calculate(&instrument, &context, as_of)
+            .expect("calculation ok");
+        assert_eq!(
+            im_match.amount.amount(),
+            0.0,
+            "posted USD == MTM USD → no FX addon"
+        );
+
+        // Posted collateral currency differs → FX addon applied.
+        let calc_mismatch = HaircutImCalculator::bcbs_standard()
+            .expect("registry should load")
+            .with_default_asset_class(CollateralAssetClass::Cash)
+            .with_posted_collateral_currency(Currency::EUR);
+        let im_mismatch = calc_mismatch
             .calculate(&instrument, &context, as_of)
             .expect("calculation ok");
         assert_eq!(
             im_mismatch.amount.amount(),
             800_000.0,
-            "currency_mismatch=true with_fx_addon=true must apply 8% FX addon to cash"
+            "posted EUR ≠ MTM USD → 8% FX addon applied to cash"
         );
     }
 

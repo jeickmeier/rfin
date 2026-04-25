@@ -38,12 +38,15 @@ pub const EQUITY_VEGA_RISK_WEIGHT: f64 = 0.78;
 /// Equity curvature risk weight scale.
 pub const EQUITY_CURVATURE_RISK_WEIGHT: f64 = 0.5;
 
+use std::sync::LazyLock;
+
+use finstack_core::HashMap;
+
+static EQUITY_RW_BY_BUCKET: LazyLock<HashMap<u8, f64>> =
+    LazyLock::new(|| EQUITY_RISK_WEIGHTS.iter().copied().collect());
+
 /// Look up an equity risk weight by bucket.
 #[must_use]
 pub fn equity_risk_weight(bucket: u8) -> f64 {
-    EQUITY_RISK_WEIGHTS
-        .iter()
-        .find(|(b, _)| *b == bucket)
-        .map(|(_, w)| *w)
-        .unwrap_or(55.0) // Default for unmapped buckets
+    EQUITY_RW_BY_BUCKET.get(&bucket).copied().unwrap_or(55.0)
 }

@@ -26,17 +26,26 @@ pub(super) type BucketResult = (f64, f64);
 ///
 /// `rho_kl = 1` when `k == l`, otherwise `intra_rho`. Callers must pre-scale
 /// `intra_rho` for the active correlation scenario.
+///
+/// Computed in `O(n)` using the closed-form identity for a uniform
+/// off-diagonal correlation:
+///
+/// ```text
+/// Σ_ij ρ_ij · ws_i · ws_j
+///   = Σ_i ws_i² + ρ · Σ_{i≠j} ws_i · ws_j
+///   = Σ_i ws_i² + ρ · [(Σ_i ws_i)² - Σ_i ws_i²]
+///   = (1 - ρ) · Σ_i ws_i² + ρ · (Σ_i ws_i)²
+/// ```
 pub(super) fn intra_bucket_uniform(entries: &[f64], intra_rho: f64) -> BucketResult {
-    let mut k_squared = 0.0;
-    for (i, ws_i) in entries.iter().enumerate() {
-        for (j, ws_j) in entries.iter().enumerate() {
-            let rho = if i == j { 1.0 } else { intra_rho };
-            k_squared += rho * ws_i * ws_j;
-        }
+    let mut sum_ws = 0.0;
+    let mut sum_ws_sq = 0.0;
+    for &ws in entries {
+        sum_ws += ws;
+        sum_ws_sq += ws * ws;
     }
+    let k_squared = (1.0 - intra_rho) * sum_ws_sq + intra_rho * sum_ws * sum_ws;
     let k_b = k_squared.max(0.0).sqrt();
-    let s_b: f64 = entries.iter().sum();
-    (k_b, s_b)
+    (k_b, sum_ws)
 }
 
 /// Apply [`intra_bucket_uniform`] across every bucket in a map.

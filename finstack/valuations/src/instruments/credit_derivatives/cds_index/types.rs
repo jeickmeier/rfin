@@ -158,8 +158,9 @@ pub struct CDSIndex {
     pub pricing_overrides: PricingOverrides,
     /// Optional OTC margin specification for VM/IM.
     ///
-    /// CDS indices are typically cleared through ICE Clear Credit.
-    /// Use `OtcMarginSpec::ice_clear_credit()` for standard cleared indices.
+    /// CDS indices are typically cleared through ICE Clear Credit. Use
+    /// `OtcMarginSpec::cleared("ICE", Currency::USD)` for standard
+    /// cleared indices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin_spec: Option<OtcMarginSpec>,
     /// Attributes for tagging and selection

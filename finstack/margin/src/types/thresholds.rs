@@ -134,6 +134,25 @@ impl VmParameters {
         let threshold = self.threshold.amount();
         let ia = self.independent_amount.amount();
 
+        // Reject NaN/infinity at the boundary so a corrupted overlay or
+        // upstream miscalculation cannot silently propagate non-finite
+        // margin numbers into a CSA call.
+        if !exp.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM exposure must be finite, got {exp}"
+            )));
+        }
+        if !threshold.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM threshold must be finite, got {threshold}"
+            )));
+        }
+        if !ia.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "VM independent amount must be finite, got {ia}"
+            )));
+        }
+
         let abs_excess = (exp.abs() - threshold).max(0.0);
         let signed_excess = if abs_excess == 0.0 {
             0.0

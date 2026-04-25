@@ -279,23 +279,19 @@ fn fx_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
         return 0.0;
     }
 
-    // FX has a single bucket with uniform risk weight.
-    let weighted: Vec<f64> = sens
-        .fx_delta
-        .values()
-        .map(|d| d * fx::FX_DELTA_RISK_WEIGHT)
-        .collect();
-
+    // FX is a single bucket with a uniform off-diagonal correlation. Use
+    // the closed-form `Σ_ij ρ_ij · ws_i · ws_j = (1-ρ)·Σws² + ρ·(Σws)²`
+    // to compute K_b in O(n) instead of O(n²).
     let rho = scenario.scale_correlation(fx::FX_INTER_PAIR_CORRELATION);
-
-    let mut sum = 0.0;
-    for (i, ws_i) in weighted.iter().enumerate() {
-        for (j, ws_j) in weighted.iter().enumerate() {
-            let corr = if i == j { 1.0 } else { rho };
-            sum += corr * ws_i * ws_j;
-        }
+    let mut sum_ws = 0.0;
+    let mut sum_ws_sq = 0.0;
+    for d in sens.fx_delta.values() {
+        let ws = d * fx::FX_DELTA_RISK_WEIGHT;
+        sum_ws += ws;
+        sum_ws_sq += ws * ws;
     }
-    sum.max(0.0).sqrt()
+    let k_squared = (1.0 - rho) * sum_ws_sq + rho * sum_ws * sum_ws;
+    k_squared.max(0.0).sqrt()
 }
 
 // ---------------------------------------------------------------------------
@@ -303,12 +299,21 @@ fn fx_delta(sens: &FrtbSensitivities, scenario: CorrelationScenario) -> f64 {
 // ---------------------------------------------------------------------------
 
 /// GIRR risk weight lookup by tenor label.
+///
+/// Falls back to `1.1` (the FRTB d457 default at the long end of the
+/// curve) for unknown tenors, with a single `tracing::warn!` so an
+/// upstream typo or registry mismatch is visible rather than silently
+/// producing the fallback.
 fn girr_risk_weight(tenor: &str) -> f64 {
-    girr::GIRR_DELTA_RISK_WEIGHTS
-        .iter()
-        .find(|(t, _)| *t == tenor)
-        .map(|(_, w)| *w)
-        .unwrap_or(1.1) // Default to 1.1 for unknown tenors
+    static GIRR_RW_BY_TENOR: std::sync::LazyLock<finstack_core::HashMap<&'static str, f64>> =
+        std::sync::LazyLock::new(|| girr::GIRR_DELTA_RISK_WEIGHTS.iter().copied().collect());
+    GIRR_RW_BY_TENOR.get(tenor).copied().unwrap_or_else(|| {
+        tracing::warn!(
+            tenor,
+            "GIRR risk weight: unknown tenor label, falling back to 1.1"
+        );
+        1.1
+    })
 }
 
 /// CSR-specific delta aggregation with full intra-bucket `rho = rho_name * rho_tenor`.

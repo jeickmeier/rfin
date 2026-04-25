@@ -336,7 +336,14 @@ fn compute_fva_internal(
     Ok(fva)
 }
 
-/// Compute unilateral CVA from an exposure profile.
+/// Compute **unilateral** Credit Valuation Adjustment (CVA).
+///
+/// > **Important — semantics:** this is the *unilateral* form. It assumes
+/// > the institution itself does not default, so it does not weight the
+/// > expected loss by the institution's own survival probability. For
+/// > the bilateral first-to-default form (joint survival weighting), call
+/// > [`compute_bilateral_xva`] instead. Mixing unilateral CVA with
+/// > unilateral DVA double-counts default risk.
 ///
 /// Uses midpoint/trapezoidal numerical integration for O(Δt²) accuracy:
 ///
@@ -403,7 +410,13 @@ pub fn compute_cva(
     )
 }
 
-/// Compute Debit Valuation Adjustment (DVA).
+/// Compute **unilateral** Debit Valuation Adjustment (DVA).
+///
+/// > **Important — semantics:** this is the *unilateral* form. It assumes
+/// > the counterparty does not default, so it does not weight the
+/// > expected gain by the counterparty's survival probability. For
+/// > the bilateral first-to-default form, call [`compute_bilateral_xva`]
+/// > instead.
 ///
 /// DVA is the mirror image of CVA: it captures the expected gain to the
 /// institution from its own default on positions where the counterparty

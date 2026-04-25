@@ -178,33 +178,6 @@ impl OtcMarginSpec {
         Ok(Self::bilateral_simm(CsaSpec::eur_regulatory()?))
     }
 
-    /// Create a spec for LCH SwapClear cleared IRS.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the embedded margin registry cannot be loaded.
-    pub fn lch_swapclear(currency: Currency) -> Result<Self> {
-        Self::cleared("LCH", currency)
-    }
-
-    /// Create a spec for CME cleared derivatives.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the embedded margin registry cannot be loaded.
-    pub fn cme_cleared(currency: Currency) -> Result<Self> {
-        Self::cleared("CME", currency)
-    }
-
-    /// Create a spec for ICE Clear Credit (cleared CDS).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the embedded margin registry cannot be loaded.
-    pub fn ice_clear_credit() -> Result<Self> {
-        Self::cleared("ICE", Currency::USD)
-    }
-
     /// Create a margin spec for cleared derivatives using overrides from a config.
     pub fn cleared_from_config(
         ccp: impl Into<String>,
@@ -277,7 +250,7 @@ mod tests {
 
     #[test]
     fn cleared_spec() {
-        let spec = OtcMarginSpec::lch_swapclear(Currency::USD).expect("registry should load");
+        let spec = OtcMarginSpec::cleared("LCH", Currency::USD).expect("registry should load");
         assert!(spec.is_cleared());
         assert!(!spec.is_bilateral());
         assert_eq!(spec.im_methodology, ImMethodology::ClearingHouse);
@@ -287,7 +260,7 @@ mod tests {
 
     #[test]
     fn ice_clear_credit_spec() {
-        let spec = OtcMarginSpec::ice_clear_credit().expect("registry should load");
+        let spec = OtcMarginSpec::cleared("ICE", Currency::USD).expect("registry should load");
         assert!(spec.is_cleared());
         assert_eq!(spec.ccp(), Some("ICE"));
         assert_eq!(spec.base_currency(), Currency::USD);

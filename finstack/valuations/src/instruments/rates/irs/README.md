@@ -901,7 +901,7 @@ swap.margin_spec = Some(OtcMarginSpec {
 // Check netting set
 let netting_set = swap.netting_set_id().expect("has margin spec");
 assert!(netting_set.is_cleared());
-assert_eq!(netting_set.ccp_id, Some("LCH".to_string()));
+assert_eq!(netting_set.ccp_id(), Some("LCH"));
 ```
 
 ### Calculating Margin Requirements
