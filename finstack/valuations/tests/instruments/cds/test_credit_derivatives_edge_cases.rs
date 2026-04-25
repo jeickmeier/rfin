@@ -107,14 +107,19 @@ fn test_recovery01_at_lower_boundary() {
     // At low recovery (0.5%), we can only bump up effectively, so this tests the forward difference path
 }
 
-/// Test Recovery01 with recovery rate at upper boundary (near 100%)
+/// Test Recovery01 with recovery rate close to (but below) the 1.0 boundary.
+/// Recovery01 bumps recovery internally, so the base value must leave room
+/// for an upward bump while staying strictly less than 1.0 (the
+/// `validate_recovery_rate` upper bound — see legs validation in
+/// `instruments/common/validation.rs`).
 #[test]
 fn test_recovery01_at_upper_boundary() {
     let base = base_date();
     let maturity = Date::from_calendar_date(2030, Month::March, 20).unwrap();
 
-    // Recovery rate at upper boundary: 0.99 (99%)
-    let recovery = 0.99;
+    // Recovery rate near the upper boundary: 0.95 (95%). Recovery01 finite
+    // differences must stay strictly below 1.0 after bumping.
+    let recovery = 0.95;
     let cds = crate::finstack_test_utils::cds_buy_protection(
         "CDS-HIGH-RECOVERY",
         Money::new(10_000_000.0, Currency::USD),

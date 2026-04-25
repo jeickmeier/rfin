@@ -11,12 +11,24 @@ __all__ = [
     "PortfolioValuation",
     "aggregate_full_cashflows",
     "aggregate_metrics",
+    "almgren_chriss_impact",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",
+    "days_to_liquidate",
+    "evaluate_risk_budget",
+    "historical_var_decomposition",
+    "kyle_lambda",
+    "liquidity_tier",
+    "lvar_bangia",
     "optimize_portfolio",
+    "parametric_es_decomposition",
+    "parametric_var_decomposition",
     "parse_portfolio_spec",
     "portfolio_result_get_metric",
     "portfolio_result_total_value",
+    "replay_portfolio",
+    "roll_effective_spread",
+    "amihud_illiquidity",
     "value_portfolio",
 ]
 
@@ -193,3 +205,58 @@ def optimize_portfolio(spec_json: str, market: MarketContext | str) -> str:
     to pretty-print if desired.
     """
     ...
+
+def replay_portfolio(
+    portfolio: Portfolio | str,
+    snapshots_json: str,
+    config_json: str,
+) -> str: ...
+def parametric_var_decomposition(
+    position_ids: list[str],
+    weights: list[float],
+    covariance: list[list[float]],
+    confidence: float = 0.95,
+) -> dict[str, object]: ...
+def parametric_es_decomposition(
+    position_ids: list[str],
+    weights: list[float],
+    covariance: list[list[float]],
+    confidence: float = 0.95,
+) -> dict[str, object]: ...
+def historical_var_decomposition(
+    position_ids: list[str],
+    position_pnls: list[list[float]],
+    confidence: float = 0.95,
+) -> dict[str, object]: ...
+def evaluate_risk_budget(
+    position_ids: list[str],
+    actual_var: list[float],
+    target_var_pct: list[float],
+    portfolio_var: float,
+    utilization_threshold: float = 1.20,
+) -> dict[str, object]: ...
+def roll_effective_spread(returns: list[float]) -> float: ...
+def amihud_illiquidity(returns: list[float], volumes: list[float]) -> float: ...
+def days_to_liquidate(
+    position_value: float,
+    avg_daily_volume: float,
+    participation_rate: float,
+) -> float: ...
+def liquidity_tier(days_to_liquidate: float) -> str: ...
+def lvar_bangia(
+    var: float,
+    spread_mean: float,
+    spread_vol: float,
+    confidence: float,
+    position_value: float,
+) -> dict[str, float]: ...
+def almgren_chriss_impact(
+    position_size: float,
+    avg_daily_volume: float,
+    volatility: float,
+    execution_horizon_days: float,
+    permanent_impact_coef: float,
+    temporary_impact_coef: float,
+    reference_price: float | None = None,
+) -> dict[str, float]: ...
+def kyle_lambda(volumes: list[float], returns: list[float]) -> float: ...

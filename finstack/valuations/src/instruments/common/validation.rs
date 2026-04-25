@@ -174,18 +174,27 @@ pub(crate) fn require_if_some<T, U>(
     require(a.is_none() || b.is_some(), message)
 }
 
-/// Validate that a recovery rate is within valid bounds \[0, 1\].
+/// Validate that a recovery rate is within valid bounds \[0, 1\).
 ///
 /// # Errors
-/// Returns an error if recovery rate is outside the valid range.
+///
+/// Returns an error if recovery rate is not finite or is not in `[0.0, 1.0)`.
+///
+/// `R = 1.0` is rejected because LGD = (1 - R) = 0 makes the protection-leg
+/// integrand vanish identically, which breaks hazard-curve bootstrapping
+/// (no spread-to-hazard inversion is possible) and produces meaningless
+/// tranche pricing. ISDA's standard convention also reserves `R < 1`.
 #[inline]
 pub(crate) fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
-    require_with((0.0..=1.0).contains(&recovery_rate), || {
-        format!(
-            "Recovery rate must be between 0.0 and 1.0, got {}",
-            recovery_rate
-        )
-    })
+    require_with(
+        recovery_rate.is_finite() && (0.0..1.0).contains(&recovery_rate),
+        || {
+            format!(
+                "Recovery rate must be a finite value in [0.0, 1.0), got {recovery_rate}. \
+                 R = 1.0 implies zero LGD, which makes protection legs degenerate."
+            )
+        },
+    )
 }
 
 /// Validate that dates are strictly increasing.

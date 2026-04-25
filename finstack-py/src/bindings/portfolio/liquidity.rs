@@ -201,15 +201,18 @@ fn lvar_bangia<'py>(
 ///     Permanent impact coefficient gamma. Non-negative.
 /// temporary_impact_coef : float
 ///     Temporary impact coefficient eta. Strictly positive.
+/// reference_price : float | None, default ``None``
+///     Optional arrival/decision price used for notional and cost-bps scaling.
+///     When omitted, the helper keeps the historical normalized unit-price
+///     convention.
 ///
 /// Returns
 /// -------
 /// dict
 ///     ``{permanent_impact, temporary_impact, total_impact, expected_cost_bps}``
-///     where impacts are expressed as currency costs and ``expected_cost_bps``
-///     is the total as basis points of notional value (mid price computed
-///     internally as a placeholder of 100.0; the bps figure scales with
-///     size * mid).
+///     where impacts are expressed in model cost units and
+///     ``expected_cost_bps`` is scaled by ``abs(position_size) *
+///     reference_price`` when a reference price is supplied.
 #[pyfunction]
 #[pyo3(signature = (
     position_size,
@@ -218,7 +221,9 @@ fn lvar_bangia<'py>(
     execution_horizon_days,
     permanent_impact_coef,
     temporary_impact_coef,
+    reference_price = None,
 ))]
+#[allow(clippy::too_many_arguments)]
 fn almgren_chriss_impact<'py>(
     py: Python<'py>,
     position_size: f64,
@@ -227,6 +232,7 @@ fn almgren_chriss_impact<'py>(
     execution_horizon_days: f64,
     permanent_impact_coef: f64,
     temporary_impact_coef: f64,
+    reference_price: Option<f64>,
 ) -> PyResult<Bound<'py, PyDict>> {
     if !avg_daily_volume.is_finite() || avg_daily_volume <= 0.0 {
         return Err(PyValueError::new_err(
@@ -238,20 +244,26 @@ fn almgren_chriss_impact<'py>(
             "volatility must be finite and positive",
         ));
     }
+    if let Some(price) = reference_price {
+        if !price.is_finite() || price <= 0.0 {
+            return Err(PyValueError::new_err(
+                "reference_price must be finite and positive",
+            ));
+        }
+    }
 
     // Delta fixed at 0.5 (standard square-root market impact).
     let model = AlmgrenChrissModel::new(permanent_impact_coef, temporary_impact_coef, 0.5)
         .map_err(display_to_py)?;
 
-    // Use a unit-price liquidity profile so cost_bps is computed relative to
-    // a canonical notional. Callers can rescale externally if needed. We pick
-    // a mid of 1.0 so that `notional = |Q| * 1.0 = |Q|`, and all returned
-    // currency figures are directly comparable to `position_size`.
+    // Use the supplied arrival/decision price for notional scaling. When it is
+    // omitted, preserve the historical unit-price convention.
+    let mid = reference_price.unwrap_or(1.0);
     let profile = LiquidityProfile::new(
         "AC_CALIBRATION",
-        1.0,
-        0.999,
-        1.001,
+        mid,
+        mid * 0.999,
+        mid * 1.001,
         avg_daily_volume,
         1.0,
         0.0,
@@ -264,7 +276,7 @@ fn almgren_chriss_impact<'py>(
         daily_volatility: volatility,
         profile,
         risk_aversion: None,
-        reference_price: None,
+        reference_price,
     };
     let est = model.estimate_cost(&params).map_err(display_to_py)?;
 

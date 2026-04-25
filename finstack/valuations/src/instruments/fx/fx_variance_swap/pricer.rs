@@ -306,14 +306,39 @@ pub(crate) fn remaining_forward_variance(
         if let Some(variance) = carr_madan_forward_variance(strikes, fwd, r_d, t, vol_fn, bs_fn) {
             return Ok(variance);
         }
+        tracing::warn!(
+            target = "finstack.fx_variance_swap",
+            instrument_id = %inst.id(),
+            t,
+            num_strikes = strikes.len(),
+            "Carr-Madan forward-variance replication failed (likely too few strikes or \
+             non-finite Black-Scholes prices); falling back to ATM-vol² approximation"
+        );
     }
 
     let vol_atm = surface.value_clamped(t, fwd.max(1e-12));
     if vol_atm.is_finite() && vol_atm > 0.0 {
+        tracing::warn!(
+            target = "finstack.fx_variance_swap",
+            instrument_id = %inst.id(),
+            vol_atm,
+            "Using ATM-vol² ({}) as forward variance — this ignores the smile and \
+             produces a flat-vol approximation only.",
+            vol_atm * vol_atm
+        );
         return Ok(vol_atm * vol_atm);
     }
 
-    Ok(inst.strike_variance)
+    Err(finstack_core::Error::Calibration {
+        message: format!(
+            "FX variance swap '{}': both Carr-Madan replication and the ATM-vol² fallback \
+             failed (vol_atm={vol_atm}). Cannot compute forward variance from the supplied \
+             vol surface; check that the surface has sufficient strikes around the forward \
+             {fwd} at maturity {t:.4}y.",
+            inst.id()
+        ),
+        category: "fx_variance_swap_replication".to_string(),
+    })
 }
 
 impl Default for SimpleFxVarianceSwapDiscountingPricer {

@@ -36,7 +36,9 @@ use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::Result;
+use finstack_core::{Error as CoreError, Result};
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+use finstack_monte_carlo::traits::RandomStream;
 
 /// Configuration for Monte Carlo OAS calculation.
 #[derive(Debug, Clone)]
@@ -126,35 +128,23 @@ fn simulate_rate_paths(
     };
 
     let mut paths = Vec::with_capacity(num_paths);
+    let base_rng = PhiloxRng::new(seed);
+    let mut normals = vec![0.0f64; num_steps];
 
     for path_idx in 0..num_paths {
-        // Simple deterministic seeded RNG (Xoshiro-like)
-        let mut state = seed
-            .wrapping_add(path_idx as u64)
-            .wrapping_mul(6364136223846793005);
+        // Each path gets an independent counter-based substream — deterministic
+        // across runs and platforms, statistically sound (Philox4x32-10).
+        let mut rng = base_rng.substream(path_idx as u64);
+        rng.fill_std_normals(&mut normals);
 
         let mut rates = Vec::with_capacity(num_steps + 1);
         rates.push(initial_rate);
 
         let mut r = initial_rate;
 
-        for _step in 0..num_steps {
-            // Generate standard normal via Box-Muller
-            state = state
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let u1 = (state >> 11) as f64 / (1u64 << 53) as f64;
-            state = state
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let u2 = (state >> 11) as f64 / (1u64 << 53) as f64;
-
-            let u1_safe = u1.max(1e-15);
-            let z = (-2.0 * u1_safe.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
-
+        for &z in &normals {
             // Exact HW1F step
             r = r * exp_kappa_dt + drift_coeff + std_dev * z;
-
             rates.push(r);
         }
 
@@ -184,13 +174,18 @@ fn rate_adjusted_smm(base_smm: f64, current_rate: f64, base_rate: f64, sensitivi
 ///
 /// Projects monthly cashflows using rate-dependent prepayment and
 /// discounts each cashflow at the path's short rate + OAS.
+///
+/// # Errors
+///
+/// Returns `Error::Validation` when the prepayment model returns an
+/// out-of-range or non-finite SMM.
 fn price_on_path(
     mbs: &AgencyMbsPassthrough,
     path: &RatePath,
     base_rate: f64,
     oas: f64,
     prepay_sensitivity: f64,
-) -> f64 {
+) -> Result<f64> {
     let monthly_coupon_rate = mbs.pass_through_rate / 12.0;
     let monthly_mortgage_rate = mbs.wac / 12.0;
     let dt = 1.0 / 12.0;
@@ -215,10 +210,12 @@ fn price_on_path(
 
         // Seasoning for base PSA SMM
         let seasoning = mbs.seasoning_months(mbs.issue_date) + month as u32 + 1;
-        // CPR is always non-negative for valid MBS prepayment models,
-        // so the Result is always Ok. Use unwrap_or(0.0) as a conservative
-        // fallback to avoid panic in Monte Carlo hot path.
-        let base_smm = mbs.prepayment_model.smm(seasoning).unwrap_or(0.0);
+        let base_smm = mbs.prepayment_model.smm(seasoning)?;
+        if !base_smm.is_finite() || !(0.0..=1.0).contains(&base_smm) {
+            return Err(CoreError::Validation(format!(
+                "MBS prepayment model returned invalid SMM={base_smm} at seasoning {seasoning} months on MC path; expected finite value in [0.0, 1.0]"
+            )));
+        }
 
         // Rate-adjusted SMM
         let smm = rate_adjusted_smm(base_smm, current_rate, base_rate, prepay_sensitivity);
@@ -252,7 +249,7 @@ fn price_on_path(
         balance = (balance - scheduled_principal - prepayment).max(0.0);
     }
 
-    pv
+    Ok(pv)
 }
 
 /// Calculate Monte Carlo OAS for an agency MBS.
@@ -331,12 +328,25 @@ pub(crate) fn calculate_mc_oas(
         config.seed,
     );
 
+    // Capture pricing errors raised by price_on_path so they propagate
+    // through the f64-only Brent objective rather than being silently coerced
+    // to NaN. The first non-zero error is preserved across iterations.
+    let pricing_error: std::cell::RefCell<Option<CoreError>> = std::cell::RefCell::new(None);
+
     // Objective: average price across paths minus market price
     let objective = |oas: f64| -> f64 {
-        let total: f64 = paths
-            .iter()
-            .map(|path| price_on_path(mbs, path, initial_rate, oas, config.prepay_rate_sensitivity))
-            .sum();
+        let mut total = 0.0_f64;
+        for path in &paths {
+            match price_on_path(mbs, path, initial_rate, oas, config.prepay_rate_sensitivity) {
+                Ok(pv) => total += pv,
+                Err(e) => {
+                    if pricing_error.borrow().is_none() {
+                        *pricing_error.borrow_mut() = Some(e);
+                    }
+                    return f64::NAN;
+                }
+            }
+        }
         let avg_price = total / config.num_paths as f64;
         avg_price - market_price
     };
@@ -350,16 +360,32 @@ pub(crate) fn calculate_mc_oas(
 
     let result = solver.solve(objective, 0.0);
 
-    // Compute final statistics at the solved OAS
-    let oas = match &result {
-        Ok(oas) => *oas,
-        Err(_) => 0.0,
-    };
+    // Surface a captured pricing error before reporting the solver outcome.
+    if let Some(err) = pricing_error.borrow_mut().take() {
+        return Err(err);
+    }
 
-    let path_prices: Vec<f64> = paths
-        .iter()
-        .map(|path| price_on_path(mbs, path, initial_rate, oas, config.prepay_rate_sensitivity))
-        .collect();
+    // Solver failure is now informative: the underlying pricing succeeded but
+    // no OAS bracketed the target market price (likely far-from-feasible
+    // bounds, or a market price outside the model's reachable PV range).
+    let oas = result.map_err(|e| {
+        CoreError::Validation(format!(
+            "MC OAS Brent solver failed to converge within bounds [-10%, 20%]: {e}. \
+             Check that market price {market_price_pct} pct is within the model's reachable PV range."
+        ))
+    })?;
+
+    // Recompute path prices at the converged OAS for statistics.
+    let mut path_prices = Vec::with_capacity(config.num_paths);
+    for path in &paths {
+        path_prices.push(price_on_path(
+            mbs,
+            path,
+            initial_rate,
+            oas,
+            config.prepay_rate_sensitivity,
+        )?);
+    }
 
     let avg_price = path_prices.iter().sum::<f64>() / config.num_paths as f64;
 
@@ -378,7 +404,7 @@ pub(crate) fn calculate_mc_oas(
         market_price,
         price_error: avg_price - market_price,
         num_paths: config.num_paths,
-        converged: result.is_ok(),
+        converged: true,
         price_std_error: std_error,
     })
 }
@@ -487,11 +513,14 @@ mod tests {
         };
 
         let paths = simulate_rate_paths(0.04, config.hw_kappa, config.hw_sigma, 0.04, 64, 360, 42);
-        let avg_price: f64 = paths
+        let total: f64 = paths
             .iter()
-            .map(|path| price_on_path(&mbs, path, 0.04, 0.0, config.prepay_rate_sensitivity))
-            .sum::<f64>()
-            / 64.0;
+            .map(|path| {
+                price_on_path(&mbs, path, 0.04, 0.0, config.prepay_rate_sensitivity)
+                    .expect("test fixture is well-formed")
+            })
+            .sum();
+        let avg_price: f64 = total / 64.0;
 
         let market_price_pct = avg_price / mbs.current_face.amount() * 100.0;
 

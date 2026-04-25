@@ -193,7 +193,10 @@ fn test_zero_recovery_rate() {
 }
 
 #[test]
-fn test_full_recovery_rate() {
+fn test_full_recovery_rate_is_rejected() {
+    // R = 1.0 means LGD = 0, which makes the protection-leg integrand vanish
+    // identically and breaks hazard-curve bootstrapping. We reject it at
+    // pricing time rather than silently producing meaningless zero PVs.
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -206,7 +209,7 @@ fn test_full_recovery_rate() {
 
     let hazard = HazardCurve::builder("CORP")
         .base_date(as_of)
-        .recovery_rate(1.0) // Full recovery
+        .recovery_rate(0.4)
         .knots([(0.0, 0.02), (10.0, 0.02)])
         .build()
         .unwrap();
@@ -225,12 +228,22 @@ fn test_full_recovery_rate() {
     .expect("CDS construction should succeed");
     cds.protection.recovery_rate = 1.0;
 
-    // With full recovery, protection leg should be worth zero
-    let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
-
+    // Pricing must surface a structured error rather than silently degenerate.
+    let registry = finstack_valuations::pricer::standard_registry();
+    let err = registry
+        .price_with_metrics(
+            &cds,
+            finstack_valuations::pricer::ModelKey::HazardRate,
+            &market,
+            as_of,
+            &[MetricId::ProtectionLegPv],
+            Default::default(),
+        )
+        .expect_err("R=1.0 must be rejected at pricing time");
+    let msg = format!("{err}");
     assert!(
-        protection_pv.abs() < 1.0,
-        "Full recovery should give near-zero protection value"
+        msg.contains("Recovery rate") && msg.contains("[0.0, 1.0)"),
+        "expected recovery-rate validation error, got: {msg}"
     );
 }
 

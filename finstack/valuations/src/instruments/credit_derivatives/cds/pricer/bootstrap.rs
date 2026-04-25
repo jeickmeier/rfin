@@ -291,9 +291,15 @@ impl CDSBootstrapper {
         current_tenor: f64,
         base_date: Date,
     ) -> Result<f64> {
+        // Capture the first underlying pricing/curve-construction error so that
+        // a solver convergence failure can be reported with its root cause
+        // rather than as an opaque "did not converge".
+        let last_inner_error: std::cell::RefCell<Option<finstack_core::Error>> =
+            std::cell::RefCell::new(None);
+
         // Objective function: ParSpread(h) - TargetSpread = 0
+        // f64::NAN signals an invalid region to Brent's bracketing solver.
         let objective = |h: f64| -> f64 {
-            // Create temp hazard curve with existing knots + trial point
             let surv = match self.create_temp_hazard_curve(
                 existing_knots,
                 current_tenor,
@@ -302,11 +308,21 @@ impl CDSBootstrapper {
                 cds.protection.recovery_rate,
             ) {
                 Ok(curve) => curve,
-                Err(_) => return f64::NAN, // Signal invalid region to solver
+                Err(e) => {
+                    if last_inner_error.borrow().is_none() {
+                        *last_inner_error.borrow_mut() = Some(e);
+                    }
+                    return f64::NAN;
+                }
             };
             match pricer.par_spread(cds, disc, &surv, base_date) {
                 Ok(spread) => spread - target_spread_bps,
-                Err(_) => f64::NAN, // Signal invalid region to solver
+                Err(e) => {
+                    if last_inner_error.borrow().is_none() {
+                        *last_inner_error.borrow_mut() = Some(e);
+                    }
+                    f64::NAN
+                }
             }
         };
 
@@ -332,7 +348,30 @@ impl CDSBootstrapper {
             ..Default::default()
         };
 
-        solver.solve(objective, initial_guess.clamp(bracket_min, bracket_max))
+        match solver.solve(objective, initial_guess.clamp(bracket_min, bracket_max)) {
+            Ok(h) => Ok(h),
+            Err(solver_err) => {
+                if let Some(inner) = last_inner_error.borrow_mut().take() {
+                    Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "CDS hazard-rate bootstrap failed at tenor {current_tenor:.4}y \
+                             (target spread {target_spread_bps} bp): solver did not converge \
+                             ({solver_err}); first underlying error: {inner}"
+                        ),
+                        category: "cds_hazard_bootstrap".to_string(),
+                    })
+                } else {
+                    Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "CDS hazard-rate bootstrap solver did not converge at tenor \
+                             {current_tenor:.4}y (target spread {target_spread_bps} bp): \
+                             {solver_err}"
+                        ),
+                        category: "cds_hazard_bootstrap".to_string(),
+                    })
+                }
+            }
+        }
     }
 
     fn create_temp_hazard_curve(

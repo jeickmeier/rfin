@@ -361,7 +361,7 @@ impl CliquetOptionMcPricer {
             inst.notional.currency(),
             initial_spot,
             payoff_type,
-        );
+        )?;
 
         let merged_cfg = self.merged_path_config(inst);
         let engine_config = McEngineConfig {

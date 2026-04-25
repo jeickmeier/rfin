@@ -504,10 +504,15 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             })?;
 
         if fx_barrier.use_gobet_miri {
-            tracing::warn!(
-                "Analytical barrier pricer uses continuous monitoring; discrete monitoring flag \
-                 is ignored. Use Monte Carlo pricer for discrete barrier monitoring."
-            );
+            return Err(PricingError::model_failure_with_context(
+                "Discrete barrier monitoring (use_gobet_miri = true) requires the Monte Carlo \
+                 pricer; the analytical Black-Scholes barrier pricer assumes continuous \
+                 monitoring and would silently mis-price under discrete observation. \
+                 Switch to ModelKey::FxBarrierMonteCarlo, or set use_gobet_miri = false to \
+                 confirm continuous-monitoring pricing is intended."
+                    .to_string(),
+                PricingErrorContext::default(),
+            ));
         }
 
         let (fx_spot, t) =
@@ -612,31 +617,31 @@ impl FxBarrierOptionVannaVolgaPricer {
         }
     }
 
-    /// Resolve the three-pillar smile quotes to use for a given instrument
-    /// and sampled ATM vol.
+    /// Resolve the three-pillar smile quotes for a given instrument.
     ///
     /// Precedence:
     ///
-    /// 1. `self.quotes` if explicitly bound via `with_quotes`.
-    /// 2. Degenerate symmetric-smile fallback — both 25Δ vols equal to
-    ///    ATM, 25Δ strikes offset ±10 % from the instrument strike. The
-    ///    VV correction collapses to zero in this regime and the price
-    ///    matches the analytical BS path, which is the safe default for
-    ///    instruments that haven't yet had explicit smile quotes wired
-    ///    in. Production FX books MUST call `with_quotes(...)` at pricer
-    ///    construction time with real 25Δ market data.
-    fn resolve_quotes(&self, fx_barrier: &FxBarrierOption, sigma: f64) -> VannaVolgaQuotes {
+    /// 1. Pricer-bound `self.quotes` (set via `with_quotes`).
+    /// 2. Otherwise: returns `Err` — there is no statistically meaningful
+    ///    "default" Vanna-Volga smile, and silently collapsing to the BS
+    ///    path would produce a price that ignores the smile model the
+    ///    caller explicitly requested via `ModelKey::FxBarrierVannaVolga`.
+    ///    Production callers must construct the pricer with real 25Δ
+    ///    market quotes via `with_quotes(...)`.
+    fn resolve_quotes(&self, fx_barrier: &FxBarrierOption) -> PricingResult<VannaVolgaQuotes> {
         if let Some(q) = self.quotes {
-            return q;
+            return Ok(q);
         }
-        VannaVolgaQuotes {
-            vol_25d_put: sigma,
-            vol_atm: sigma,
-            vol_25d_call: sigma,
-            strike_25d_put: fx_barrier.strike * 0.90,
-            strike_atm: fx_barrier.strike,
-            strike_25d_call: fx_barrier.strike * 1.10,
-        }
+        Err(PricingError::model_failure_with_context(
+            format!(
+                "Vanna-Volga pricing requires three-pillar smile quotes (25Δ put, ATM, 25Δ call) \
+                 but none are bound on the pricer. Construct the pricer with `with_quotes(...)`, \
+                 or use ModelKey::FxBarrierBSContinuous if no smile correction is desired. \
+                 Instrument id: {}",
+                fx_barrier.id()
+            ),
+            PricingErrorContext::default(),
+        ))
     }
 
     /// Price an FX barrier option with Vanna-Volga smile adjustment.
@@ -648,10 +653,13 @@ impl FxBarrierOptionVannaVolgaPricer {
         as_of: Date,
     ) -> PricingResult<Money> {
         if fx_barrier.use_gobet_miri {
-            tracing::warn!(
-                "Analytical barrier pricer uses continuous monitoring; discrete monitoring flag \
-                 is ignored. Use Monte Carlo pricer for discrete barrier monitoring."
-            );
+            return Err(PricingError::model_failure_with_context(
+                "Discrete barrier monitoring (use_gobet_miri = true) requires the Monte Carlo \
+                 pricer; the Vanna-Volga analytical pricer assumes continuous monitoring and \
+                 would silently mis-price under discrete observation."
+                    .to_string(),
+                PricingErrorContext::default(),
+            ));
         }
 
         let (fx_spot, t) =
@@ -697,8 +705,9 @@ impl FxBarrierOptionVannaVolgaPricer {
             analytical_barrier_type,
         );
 
-        // Apply Vanna-Volga correction with resolved smile quotes.
-        let quotes = self.resolve_quotes(fx_barrier, sigma);
+        // Apply Vanna-Volga correction with resolved smile quotes — fails loudly
+        // when no quotes are bound, rather than silently collapsing to BS.
+        let quotes = self.resolve_quotes(fx_barrier)?;
         let vv_params = BarrierParams::new(
             fx_spot,
             fx_barrier.strike,
@@ -1013,7 +1022,7 @@ mod tests {
     /// price. This keeps the pricer registration safe for instruments
     /// that haven't yet had smile data wired in.
     #[test]
-    fn vanna_volga_degenerates_to_bs_without_explicit_quotes() {
+    fn vanna_volga_errors_without_explicit_quotes() {
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
         let expiry = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
@@ -1069,22 +1078,22 @@ mod tests {
         let bs = FxBarrierOptionAnalyticalPricer::new();
         let vv = FxBarrierOptionVannaVolgaPricer::new();
 
-        let bs_pv = bs
+        // BS still prices fine — no smile required.
+        let _bs_pv = bs
             .price_dyn(&option, &market, as_of)
             .expect("bs price")
             .value;
-        let vv_pv = vv
-            .price_dyn(&option, &market, as_of)
-            .expect("vv price")
-            .value;
 
-        // With a symmetric fallback smile (25Δ vols == ATM), the VV
-        // correction is zero and the two pricers must agree.
+        // VV without bound smile quotes must fail loudly rather than silently
+        // collapsing to BS, which would ignore the smile model the caller
+        // explicitly requested via ModelKey::FxBarrierVannaVolga.
+        let err = vv
+            .price_dyn(&option, &market, as_of)
+            .expect_err("VV must error without bound smile quotes");
+        let msg = format!("{err}");
         assert!(
-            (bs_pv.amount() - vv_pv.amount()).abs() / bs_pv.amount().abs().max(1.0) < 1e-9,
-            "VV with symmetric fallback must match BS: bs={} vv={}",
-            bs_pv.amount(),
-            vv_pv.amount()
+            msg.contains("Vanna-Volga") && msg.contains("smile quotes"),
+            "expected smile-quote error, got: {msg}"
         );
     }
 }

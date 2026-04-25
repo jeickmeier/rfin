@@ -6,6 +6,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::Error as CoreError;
 use finstack_monte_carlo::traits::PathState;
 use finstack_monte_carlo::traits::Payoff;
 
@@ -108,32 +109,41 @@ impl AutocallablePayoff {
         currency: Currency,
         initial_spot: f64,
         df_ratios: Vec<f64>,
-    ) -> Self {
-        assert_eq!(
-            observation_dates.len(),
-            autocall_barriers.len(),
-            "Observation dates and barriers must have same length"
-        );
-        assert_eq!(
-            observation_dates.len(),
-            coupons.len(),
-            "Observation dates and coupons must have same length"
-        );
-        assert_eq!(
-            observation_dates.len(),
-            df_ratios.len(),
-            "Observation dates and discount factor ratios must have same length"
-        );
-
-        // Verify observation dates are sorted
+    ) -> finstack_core::Result<Self> {
+        if observation_dates.len() != autocall_barriers.len() {
+            return Err(CoreError::Validation(format!(
+                "AutocallablePayoff: observation_dates ({}) and autocall_barriers ({}) must have the same length",
+                observation_dates.len(),
+                autocall_barriers.len()
+            )));
+        }
+        if observation_dates.len() != coupons.len() {
+            return Err(CoreError::Validation(format!(
+                "AutocallablePayoff: observation_dates ({}) and coupons ({}) must have the same length",
+                observation_dates.len(),
+                coupons.len()
+            )));
+        }
+        if observation_dates.len() != df_ratios.len() {
+            return Err(CoreError::Validation(format!(
+                "AutocallablePayoff: observation_dates ({}) and df_ratios ({}) must have the same length",
+                observation_dates.len(),
+                df_ratios.len()
+            )));
+        }
         for i in 1..observation_dates.len() {
-            assert!(
-                observation_dates[i - 1] < observation_dates[i],
-                "Observation dates must be sorted"
-            );
+            if observation_dates[i - 1] >= observation_dates[i] {
+                return Err(CoreError::Validation(format!(
+                    "AutocallablePayoff: observation_dates must be strictly increasing (index {} = {} >= index {} = {})",
+                    i - 1,
+                    observation_dates[i - 1],
+                    i,
+                    observation_dates[i]
+                )));
+            }
         }
 
-        Self {
+        Ok(Self {
             observation_dates,
             autocall_barriers,
             coupons,
@@ -150,7 +160,7 @@ impl AutocallablePayoff {
             min_spot_observed: f64::INFINITY,
             max_spot_observed: f64::NEG_INFINITY,
             final_spot: 0.0, // Will be set when at maturity
-        }
+        })
     }
 }
 
@@ -274,7 +284,8 @@ mod tests {
             Currency::USD,
             100.0,                    // Initial spot
             vec![1.0, 1.0, 1.0, 1.0], // df_ratios
-        );
+        )
+        .expect("test fixture is well-formed");
 
         assert_eq!(payoff.observation_dates.len(), 4);
         assert_eq!(payoff.initial_spot, 100.0);
@@ -299,7 +310,8 @@ mod tests {
             Currency::USD,
             100.0,
             vec![1.0, 1.0],
-        );
+        )
+        .expect("test fixture is well-formed");
 
         // Simulate first observation date with spot above barrier
         let mut state = PathState::new(10, 0.25);
@@ -332,7 +344,8 @@ mod tests {
             Currency::USD,
             100.0,
             vec![1.0],
-        );
+        )
+        .expect("test fixture is well-formed");
 
         // Not autocalled, final spot is below initial
         let mut state = PathState::new(100, 1.0);
@@ -373,7 +386,8 @@ mod tests {
             Currency::USD,
             100.0,
             vec![1.0],
-        );
+        )
+        .expect("test fixture is well-formed");
 
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 106.0);
@@ -400,7 +414,8 @@ mod tests {
             Currency::USD,
             100.0,
             vec![1.0],
-        );
+        )
+        .expect("test fixture is well-formed");
 
         let mut state = PathState::new(100, 1.0);
         state.set(state_keys::SPOT, 55.0);
@@ -429,7 +444,8 @@ mod tests {
             Currency::USD,
             100.0,
             vec![1.0],
-        );
+        )
+        .expect("test fixture is well-formed");
 
         let mut state = PathState::new(100, 1.0);
         state.set(state_keys::SPOT, 150.0);

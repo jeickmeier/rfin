@@ -159,7 +159,7 @@ impl AutocallableMcPricer {
             inst.notional.currency(),
             initial_spot,
             df_ratios,
-        );
+        )?;
 
         // Derive deterministic seed from instrument ID and scenario
 

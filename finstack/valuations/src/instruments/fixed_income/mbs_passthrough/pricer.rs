@@ -121,7 +121,14 @@ pub fn generate_cashflows(
         projected_count += 1;
 
         let seasoning = mbs.seasoning_months(period_end);
-        let smm = mbs.prepayment_model.smm(seasoning)?.min(0.9999);
+        let raw_smm = mbs.prepayment_model.smm(seasoning)?;
+        if !raw_smm.is_finite() || !(0.0..=1.0).contains(&raw_smm) {
+            return Err(finstack_core::Error::Validation(format!(
+                "MBS prepayment model returned invalid SMM={raw_smm} at seasoning {seasoning} months; expected finite value in [0.0, 1.0]"
+            )));
+        }
+        // Clamp to [0, 0.9999] to avoid degenerate (1 - SMM) -> 0 in cashflow math.
+        let smm = raw_smm.clamp(0.0, 0.9999);
 
         let remaining_months = mbs.wam.saturating_sub(seasoning);
         let remaining_months = if remaining_months == 0 {

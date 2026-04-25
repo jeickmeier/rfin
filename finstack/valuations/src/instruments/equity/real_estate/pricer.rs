@@ -59,6 +59,11 @@ pub(crate) fn compute_npv_dcf(
         None
     };
 
+    debug_assert!(
+        discount_curve.is_some() || discount_rate.is_some(),
+        "discount_curve and discount_rate cannot both be None after construction"
+    );
+
     let horizon = if let Some(sale_date) = asset.sale_date {
         if sale_date < as_of {
             return Err(CoreError::Validation(
@@ -93,7 +98,9 @@ pub(crate) fn compute_npv_dcf(
             } else if let Some(rate) = discount_rate {
                 Ok(amount / (1.0 + rate).powf(t))
             } else {
-                unreachable!("discount_curve and discount_rate cannot both be None");
+                Err(CoreError::Validation(
+                    "DCF requires either a discount curve or a discount rate".into(),
+                ))
             }
         })
         .collect::<finstack_core::Result<Vec<f64>>>()?
@@ -108,7 +115,9 @@ pub(crate) fn compute_npv_dcf(
             } else if let Some(rate) = discount_rate {
                 amount / (1.0 + rate).powf(t)
             } else {
-                unreachable!("discount_curve and discount_rate cannot both be None");
+                return Err(CoreError::Validation(
+                    "DCF requires either a discount curve or a discount rate".into(),
+                ));
             }
         }
         None => 0.0,

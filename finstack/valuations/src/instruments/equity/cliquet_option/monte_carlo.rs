@@ -5,6 +5,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::Error as CoreError;
 use finstack_monte_carlo::traits::PathState;
 use finstack_monte_carlo::traits::Payoff;
 
@@ -88,23 +89,30 @@ impl CliquetCallPayoff {
         currency: Currency,
         initial_spot: f64,
         payoff_type: CliquetPayoffType,
-    ) -> Self {
-        // Verify reset dates are sorted
+    ) -> finstack_core::Result<Self> {
         for i in 1..reset_dates.len() {
-            assert!(
-                reset_dates[i - 1] < reset_dates[i],
-                "Reset dates must be sorted"
-            );
+            if reset_dates[i - 1] >= reset_dates[i] {
+                return Err(CoreError::Validation(format!(
+                    "CliquetCallPayoff: reset_dates must be strictly increasing (index {} = {} >= index {} = {})",
+                    i - 1,
+                    reset_dates[i - 1],
+                    i,
+                    reset_dates[i]
+                )));
+            }
+        }
+        if local_cap < local_floor {
+            return Err(CoreError::Validation(format!(
+                "CliquetCallPayoff: local_cap ({local_cap}) must be >= local_floor ({local_floor})"
+            )));
+        }
+        if global_cap < global_floor {
+            return Err(CoreError::Validation(format!(
+                "CliquetCallPayoff: global_cap ({global_cap}) must be >= global_floor ({global_floor})"
+            )));
         }
 
-        // Basic validation
-        assert!(local_cap >= local_floor, "Local cap must be >= local floor");
-        assert!(
-            global_cap >= global_floor,
-            "Global cap must be >= global floor"
-        );
-
-        Self {
+        Ok(Self {
             reset_dates,
             local_cap,
             local_floor,
@@ -116,7 +124,7 @@ impl CliquetCallPayoff {
             reset_spots: Vec::new(),
             next_reset_idx: 0,
             payoff_type,
-        }
+        })
     }
 
     /// Compute cliquet return from reset spots.
@@ -208,7 +216,8 @@ mod tests {
             Currency::USD,
             100.0,
             CliquetPayoffType::Additive,
-        );
+        )
+        .expect("test fixture is well-formed");
 
         assert_eq!(cliquet.reset_dates.len(), 5);
         assert_eq!(cliquet.local_cap, 0.10);
@@ -230,7 +239,8 @@ mod tests {
             Currency::USD,
             100.0,
             CliquetPayoffType::Additive,
-        );
+        )
+        .expect("test fixture is well-formed");
 
         // Simulate resets: 100 -> 110 -> 115
         cliquet.reset_spots = vec![110.0, 115.0];
@@ -255,7 +265,8 @@ mod tests {
             Currency::USD,
             100.0,
             CliquetPayoffType::Additive,
-        );
+        )
+        .expect("test fixture is well-formed");
 
         // Simulate: 100 -> 150 (hit cap) -> 100 (drop 33%, hit floor)
         cliquet.reset_spots = vec![150.0, 100.0];
@@ -280,7 +291,8 @@ mod tests {
             Currency::USD,
             100.0,
             CliquetPayoffType::Additive,
-        );
+        )
+        .expect("test fixture is well-formed");
 
         // Simulate 4 periods each hitting local cap: 4 * 10% = 40%, but capped at 30%
         cliquet.reset_spots = vec![110.0, 121.0, 133.1, 146.41];
@@ -304,7 +316,8 @@ mod tests {
             Currency::USD,
             100.0,
             CliquetPayoffType::Additive,
-        );
+        )
+        .expect("test fixture is well-formed");
 
         cliquet.reset_spots = vec![110.0];
         cliquet.next_reset_idx = 1;

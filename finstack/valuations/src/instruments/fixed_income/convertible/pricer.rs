@@ -785,9 +785,10 @@ fn extract_equity_state(
     let spot = match &spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Price(money) => {
             if money.currency() != bond.notional.currency() {
-                return Err(Error::internal(
-                    "convertible parity implied vol solver failed to bracket the root",
-                ));
+                return Err(Error::CurrencyMismatch {
+                    expected: bond.notional.currency(),
+                    actual: money.currency(),
+                });
             }
             money.amount()
         }

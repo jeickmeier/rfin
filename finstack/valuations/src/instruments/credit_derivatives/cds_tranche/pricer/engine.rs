@@ -18,11 +18,8 @@ use finstack_core::Result;
 
 impl CDSTranchePricer {
     #[inline]
-    pub(super) fn select_quadrature(&self) -> GaussHermiteQuadrature {
-        GaussHermiteQuadrature::new(self.params.quadrature_order as usize).unwrap_or_else(|_| {
-            GaussHermiteQuadrature::new(7)
-                .unwrap_or_else(|_| unreachable!("7 is a valid Gauss-Hermite order"))
-        })
+    pub(super) fn select_quadrature(&self) -> Result<GaussHermiteQuadrature> {
+        GaussHermiteQuadrature::new(self.params.quadrature_order as usize)
     }
 
     pub(super) fn build_copula(&self) -> Box<dyn Copula> {

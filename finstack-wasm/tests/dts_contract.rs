@@ -6,6 +6,12 @@ fn index_dts() -> String {
     fs::read_to_string(manifest_dir.join("index.d.ts")).expect("read finstack-wasm/index.d.ts")
 }
 
+fn benchmark_script() -> String {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    fs::read_to_string(manifest_dir.join("benchmarks/bench.mjs"))
+        .expect("read finstack-wasm/benchmarks/bench.mjs")
+}
+
 #[test]
 fn analytics_dts_matches_runtime_hotspots() {
     let dts = index_dts();
@@ -35,6 +41,24 @@ fn cashflows_dts_matches_json_bridge_surface() {
     assert!(dts.contains("accruedInterest("));
     assert!(dts.contains("bondFromCashflows("));
     assert!(dts.contains("export declare const cashflows: CashflowsNamespace;"));
+}
+
+#[test]
+fn portfolio_cashflow_api_uses_full_cashflow_name_everywhere() {
+    let dts = index_dts();
+    let bench = benchmark_script();
+
+    assert!(dts.contains("aggregateFullCashflows(specJson: string, marketJson: string): string;"));
+    assert!(!dts.contains("aggregateCashflows("));
+    assert!(bench.contains("aggregateFullCashflows"));
+    assert!(!bench.contains("aggregateCashflows"));
+}
+
+#[test]
+fn portfolio_dts_exposes_reference_price_for_almgren_chriss() {
+    let dts = index_dts();
+
+    assert!(dts.contains("referencePrice?: number | null"));
 }
 
 #[test]

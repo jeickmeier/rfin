@@ -574,6 +574,7 @@ pub fn almgren_chriss_impact(
     execution_horizon_days: f64,
     permanent_impact_coef: f64,
     temporary_impact_coef: f64,
+    reference_price: Option<f64>,
 ) -> Result<String, JsValue> {
     use finstack_portfolio::liquidity::{
         AlmgrenChrissModel, LiquidityProfile, MarketImpactModel, TradeParams,
@@ -585,14 +586,20 @@ pub fn almgren_chriss_impact(
     if !volatility.is_finite() || volatility <= 0.0 {
         return Err(to_js_err("volatility must be finite and positive"));
     }
+    if let Some(price) = reference_price {
+        if !price.is_finite() || price <= 0.0 {
+            return Err(to_js_err("reference_price must be finite and positive"));
+        }
+    }
 
     let model = AlmgrenChrissModel::new(permanent_impact_coef, temporary_impact_coef, 0.5)
         .map_err(to_js_err)?;
+    let mid = reference_price.unwrap_or(1.0);
     let profile = LiquidityProfile::new(
         "AC_CALIBRATION",
-        1.0,
-        0.999,
-        1.001,
+        mid,
+        mid * 0.999,
+        mid * 1.001,
         avg_daily_volume,
         1.0,
         0.0,
@@ -604,7 +611,7 @@ pub fn almgren_chriss_impact(
         daily_volatility: volatility,
         profile,
         risk_aversion: None,
-        reference_price: None,
+        reference_price,
     };
     let est = model.estimate_cost(&params).map_err(to_js_err)?;
     let out = serde_json::json!({
@@ -791,5 +798,21 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse json");
         assert!(parsed["steps"].is_array());
         assert_eq!(parsed["steps"].as_array().expect("array").len(), 2);
+    }
+
+    #[test]
+    fn almgren_chriss_impact_uses_reference_price_for_bps() {
+        let default_json = almgren_chriss_impact(10_000.0, 1_000_000.0, 0.02, 1.0, 0.0, 0.01, None)
+            .expect("default reference price");
+        let priced_json =
+            almgren_chriss_impact(10_000.0, 1_000_000.0, 0.02, 1.0, 0.0, 0.01, Some(100.0))
+                .expect("explicit reference price");
+
+        let default: serde_json::Value = serde_json::from_str(&default_json).expect("json");
+        let priced: serde_json::Value = serde_json::from_str(&priced_json).expect("json");
+        let default_bps = default["expected_cost_bps"].as_f64().expect("default bps");
+        let priced_bps = priced["expected_cost_bps"].as_f64().expect("priced bps");
+
+        assert!((priced_bps - default_bps / 100.0).abs() < 1e-12);
     }
 }

@@ -1352,7 +1352,6 @@ export interface PortfolioNamespace {
     portfolio: Portfolio,
     marketJson: string
   ): string;
-  aggregateCashflows(specJson: string, marketJson: string): string;
   applyScenarioAndRevalue(
     specJson: string,
     scenarioJson: string,
@@ -1360,6 +1359,60 @@ export interface PortfolioNamespace {
   ): ScenarioRevalueResult;
   /** Optimize portfolio weights using the LP-based optimizer. */
   optimizePortfolio(specJson: string, marketJson: string): string;
+  replayPortfolio(
+    specJson: string,
+    snapshotsJson: string,
+    configJson: string
+  ): string;
+  parametricVarDecomposition(
+    positionIdsJson: string,
+    weightsJson: string,
+    covarianceJson: string,
+    confidence: number
+  ): string;
+  parametricEsDecomposition(
+    positionIdsJson: string,
+    weightsJson: string,
+    covarianceJson: string,
+    confidence: number
+  ): string;
+  historicalVarDecomposition(
+    positionIdsJson: string,
+    positionPnlsJson: string,
+    confidence: number
+  ): string;
+  evaluateRiskBudget(
+    positionIdsJson: string,
+    actualVarJson: string,
+    targetVarPctJson: string,
+    portfolioVar: number,
+    utilizationThreshold: number
+  ): string;
+  rollEffectiveSpread(returnsJson: string): number;
+  amihudIlliquidity(returnsJson: string, volumesJson: string): number;
+  daysToLiquidate(
+    positionValue: number,
+    avgDailyVolume: number,
+    participationRate: number
+  ): number;
+  liquidityTier(daysToLiquidate: number): string;
+  lvarBangia(
+    varValue: number,
+    spreadMean: number,
+    spreadVol: number,
+    confidence: number,
+    positionValue: number
+  ): string;
+  almgrenChrissImpact(
+    positionSize: number,
+    avgDailyVolume: number,
+    volatility: number,
+    executionHorizonDays: number,
+    permanentImpactCoef: number,
+    temporaryImpactCoef: number,
+    referencePrice?: number | null
+  ): string;
+  kyleLambda(volumesJson: string, returnsJson: string): number;
 }
 
 export declare const portfolio: PortfolioNamespace;

@@ -760,8 +760,8 @@ async function main() {
     w.valuePortfolio(PORTFOLIO_SPEC_JSON, MARKET_CONTEXT_JSON, false);
   });
 
-  benchTry('portfolio', 'aggregateCashflows', 200, () => {
-    w.aggregateCashflows(PORTFOLIO_SPEC_JSON, MARKET_CONTEXT_JSON);
+  benchTry('portfolio', 'aggregateFullCashflows', 200, () => {
+    w.aggregateFullCashflows(PORTFOLIO_SPEC_JSON, MARKET_CONTEXT_JSON);
   });
 
   let sampleValuationJson = '';

@@ -113,10 +113,41 @@ fn explicit_position_mutators_keep_lookup_index_in_sync() {
     assert_eq!(portfolio.positions().len(), 1);
     assert!(portfolio.get_position("P1").is_some());
 
-    portfolio.set_positions(vec![pos2]);
+    portfolio.set_positions(vec![pos2]).unwrap();
     assert_eq!(portfolio.positions().len(), 1);
     assert!(portfolio.get_position("P1").is_none());
     assert!(portfolio.get_position("P2").is_some());
+}
+
+#[test]
+fn set_positions_rejects_duplicate_position_ids() {
+    let as_of = base_date();
+    let maturity = as_of + time::Duration::days(1);
+
+    let dep = Deposit::builder()
+        .id("D".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start_date(as_of)
+        .maturity(maturity)
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD".into())
+        .build()
+        .unwrap();
+
+    let pos = Position::new("P1", "E", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
+
+    let mut portfolio = Portfolio::builder("P")
+        .base_ccy(Currency::USD)
+        .as_of(as_of)
+        .entity(Entity::new("E"))
+        .build()
+        .unwrap();
+
+    let err = portfolio
+        .set_positions(vec![pos.clone(), pos])
+        .expect_err("duplicate position IDs should be rejected");
+    assert!(err.to_string().contains("Duplicate position ID: P1"));
+    assert!(portfolio.positions().is_empty());
 }
 
 #[test]

@@ -174,9 +174,27 @@ impl Portfolio {
     /// # Arguments
     ///
     /// * `positions` - Complete replacement position vector.
-    pub fn set_positions(&mut self, positions: Vec<Position>) {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] if the replacement vector contains
+    /// duplicate position IDs. The portfolio is left unchanged on error.
+    pub fn set_positions(&mut self, positions: Vec<Position>) -> Result<()> {
+        use finstack_core::HashSet;
+
+        let mut seen_ids = HashSet::default();
+        for position in &positions {
+            if !seen_ids.insert(&position.position_id) {
+                return Err(Error::validation(format!(
+                    "Duplicate position ID: {}",
+                    position.position_id
+                )));
+            }
+        }
+
         self.positions = positions;
         self.rebuild_index();
+        Ok(())
     }
 
     /// Get a position by identifier (O(1) via index).

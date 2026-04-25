@@ -28,7 +28,7 @@ impl CDSTranchePricer {
         let correlation = self.smooth_correlation_boundary(correlation);
 
         // Quadrature setup
-        let quad = self.select_quadrature();
+        let quad = self.select_quadrature()?;
 
         // Build heterogeneous vectors: PD, LGD, and Weight per issuer
         let mut pd_i: Vec<f64> = Vec::with_capacity(index_data.num_constituents as usize);
@@ -320,7 +320,7 @@ impl CDSTranchePricer {
 
         let sqrt_rho = correlation.sqrt();
         let sqrt_1mr = (1.0 - correlation).sqrt();
-        let quad = self.select_quadrature();
+        let quad = self.select_quadrature()?;
 
         if use_gaussian {
             let integrand = |factors: &[f64]| {
@@ -463,7 +463,7 @@ impl CDSTranchePricer {
         weight_i: &[f64],
         copula: Option<&dyn Copula>,
     ) -> Result<f64> {
-        let quad = self.select_quadrature();
+        let quad = self.select_quadrature()?;
         let use_gaussian = copula.is_none();
         if use_gaussian {
             let integrand = |factors: &[f64]| -> f64 {

@@ -185,20 +185,33 @@ impl AgencyPrepaymentModel {
 /// Convert CPR (constant prepayment rate) to SMM (single monthly mortality).
 ///
 /// SMM = 1 - (1 - CPR)^(1/12)
-pub fn cpr_to_smm(cpr: f64) -> f64 {
-    1.0 - (1.0 - cpr).powf(1.0 / 12.0)
+///
+/// # Errors
+///
+/// Returns `Error::Validation` if `cpr` is not in `[0.0, 1.0]` or is non-finite.
+pub fn cpr_to_smm(cpr: f64) -> finstack_core::Result<f64> {
+    if !cpr.is_finite() || !(0.0..=1.0).contains(&cpr) {
+        return Err(finstack_core::Error::Validation(format!(
+            "cpr_to_smm: CPR must be a finite value in [0.0, 1.0], got {cpr}"
+        )));
+    }
+    Ok(1.0 - (1.0 - cpr).powf(1.0 / 12.0))
 }
 
 /// Convert SMM (single monthly mortality) to CPR (constant prepayment rate).
 ///
 /// CPR = 1 - (1 - SMM)^12
-pub fn smm_to_cpr(smm: f64) -> f64 {
-    // SMM is a monthly mortality rate and must be non-negative.
-    debug_assert!(
-        smm >= 0.0,
-        "smm_to_cpr: SMM must be non-negative, got {smm}"
-    );
-    1.0 - (1.0 - smm).powi(12)
+///
+/// # Errors
+///
+/// Returns `Error::Validation` if `smm` is not in `[0.0, 1.0]` or is non-finite.
+pub fn smm_to_cpr(smm: f64) -> finstack_core::Result<f64> {
+    if !smm.is_finite() || !(0.0..=1.0).contains(&smm) {
+        return Err(finstack_core::Error::Validation(format!(
+            "smm_to_cpr: SMM must be a finite value in [0.0, 1.0], got {smm}"
+        )));
+    }
+    Ok(1.0 - (1.0 - smm).powi(12))
 }
 
 #[cfg(test)]
@@ -215,7 +228,7 @@ mod tests {
 
         // At 30 months: 6% CPR (terminal PSA)
         let smm_30 = model.smm(30).expect("smm(30)");
-        let expected_smm_30 = cpr_to_smm(0.06);
+        let expected_smm_30 = cpr_to_smm(0.06).expect("valid CPR");
         assert!((smm_30 - expected_smm_30).abs() < 1e-6);
 
         // At 60 months: still 6% CPR (post-ramp)
@@ -229,7 +242,7 @@ mod tests {
 
         // At 30 months: 12% CPR (200% PSA)
         let smm_30 = model.smm(30).expect("smm(30)");
-        let expected = cpr_to_smm(0.12);
+        let expected = cpr_to_smm(0.12).expect("valid CPR");
         assert!((smm_30 - expected).abs() < 1e-6);
     }
 
@@ -240,7 +253,7 @@ mod tests {
         // Should be constant regardless of seasoning
         let smm_0 = model.smm(0).expect("smm(0)");
         let smm_30 = model.smm(30).expect("smm(30)");
-        let expected = cpr_to_smm(0.08);
+        let expected = cpr_to_smm(0.08).expect("valid CPR");
 
         assert!((smm_0 - expected).abs() < 1e-6);
         assert!((smm_30 - expected).abs() < 1e-6);
@@ -271,14 +284,24 @@ mod tests {
     fn test_cpr_smm_conversion() {
         // 6% CPR
         let cpr = 0.06;
-        let smm = cpr_to_smm(cpr);
-        let cpr_back = smm_to_cpr(smm);
+        let smm = cpr_to_smm(cpr).expect("valid CPR");
+        let cpr_back = smm_to_cpr(smm).expect("valid SMM");
 
         assert!((cpr_back - cpr).abs() < 1e-10);
 
         // SMM should be approximately CPR/12 for small rates
         // 6%/12 = 0.5%
         assert!((smm - 0.005).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cpr_smm_rejects_negative_and_out_of_range() {
+        assert!(cpr_to_smm(-0.01).is_err());
+        assert!(cpr_to_smm(1.01).is_err());
+        assert!(cpr_to_smm(f64::NAN).is_err());
+        assert!(smm_to_cpr(-0.01).is_err());
+        assert!(smm_to_cpr(1.01).is_err());
+        assert!(smm_to_cpr(f64::NAN).is_err());
     }
 
     #[test]

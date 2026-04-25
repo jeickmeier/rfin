@@ -219,7 +219,7 @@ impl CDSTranchePricer {
             let correlation = self.smooth_correlation_boundary(correlation);
 
             if self.params.copula_spec.is_gaussian() {
-                let quad = self.select_quadrature();
+                let quad = self.select_quadrature()?;
                 let default_threshold = standard_normal_inv_cdf(default_prob);
                 let integrand = |z: f64| {
                     let p = self.conditional_default_probability_enhanced(
