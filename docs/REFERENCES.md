@@ -442,6 +442,43 @@ risk calculation with a standard reference.
 - Cornish, E. A., and Fisher, R. A. "Moments and Cumulants in the Specification
   of Distributions." Canonical reference for the Cornish-Fisher expansion.
 
+<a id="bollerslev1986"></a>
+
+### Bollerslev 1986
+
+- Bollerslev, T. "Generalized Autoregressive Conditional Heteroskedasticity."
+  Canonical reference for the symmetric GARCH(1,1) volatility model.
+
+<a id="nelson1991"></a>
+
+### Nelson 1991
+
+- Nelson, D. B. "Conditional Heteroskedasticity in Asset Returns: A New
+  Approach." Canonical reference for EGARCH volatility dynamics.
+
+<a id="glosten1993"></a>
+
+### Glosten Jagannathan Runkle 1993
+
+- Glosten, L. R., Jagannathan, R., and Runkle, D. E. "On the Relation between
+  the Expected Value and the Volatility of the Nominal Excess Return on Stocks."
+  Canonical reference for GJR-GARCH asymmetric volatility dynamics.
+
+<a id="ljungBox1978"></a>
+
+### Ljung Box 1978
+
+- Ljung, G. M., and Box, G. E. P. "On a Measure of Lack of Fit in Time Series
+  Models." Canonical reference for the Ljung-Box serial-correlation test.
+
+<a id="engle1982Arch"></a>
+
+### Engle 1982 ARCH
+
+- Engle, R. F. "Autoregressive Conditional Heteroscedasticity with Estimates of
+  the Variance of United Kingdom Inflation." Canonical reference for ARCH and
+  ARCH-LM testing.
+
 <a id="chekhlov2005"></a>
 
 ### Chekhlov Uryasev Zabarankin 2005

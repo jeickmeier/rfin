@@ -41,6 +41,52 @@ pub const STANDARD_HORIZONS: &[usize] = &[1, 5, 21, 63, 252];
 /// When `terminal_residual` is provided, the 1-step forecast uses the
 /// observable last demeaned residual; otherwise it uses the iterated
 /// conditional expectation from the terminal variance.
+///
+/// # Arguments
+///
+/// * `fit` - Fitted GARCH-family model.
+/// * `horizons` - Forecast horizons in periods.
+/// * `trading_days_per_year` - Annualization factor for volatility outputs.
+/// * `terminal_residual` - Optional last demeaned residual `r_t - mu`.
+///
+/// # Returns
+///
+/// One [`VarianceForecast`] per requested horizon.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::timeseries::{
+///     forecast_garch_fit, GarchFamily, GarchFit, GarchParams, InnovationDist,
+/// };
+///
+/// let fit = GarchFit {
+///     model: "GARCH(1,1)".to_string(),
+///     params: GarchParams {
+///         omega: 0.00001,
+///         alpha: 0.10,
+///         beta: 0.85,
+///         gamma: None,
+///         dist: InnovationDist::Gaussian,
+///         family: GarchFamily::Garch11,
+///         mean: 0.0,
+///     },
+///     std_errors: None,
+///     log_likelihood: -100.0,
+///     n_obs: 100,
+///     n_params: 3,
+///     aic: 206.0,
+///     bic: 214.0,
+///     hqic: 209.0,
+///     conditional_variances: vec![0.0002; 100],
+///     standardized_residuals: vec![0.0; 100],
+///     terminal_variance: 0.0003,
+///     converged: true,
+///     iterations: 50,
+/// };
+/// let forecasts = forecast_garch_fit(&fit, &[1, 5], 252.0, Some(0.01));
+/// assert_eq!(forecasts.len(), 2);
+/// ```
 #[must_use]
 pub fn forecast_garch_fit(
     fit: &GarchFit,
@@ -65,6 +111,36 @@ pub fn forecast_garch_fit(
 ///
 /// Produces forecasts at the 5 standard horizons (1D, 1W, 1M, 3M, 1Y)
 /// plus any custom horizons provided.
+///
+/// # Arguments
+///
+/// * `model` - GARCH-family model implementation used for forecasting.
+/// * `fit` - Fitted model state.
+/// * `trading_days_per_year` - Annualization factor for volatility outputs.
+/// * `custom_horizons` - Optional extra horizons in periods.
+///
+/// # Returns
+///
+/// A [`VolTermStructure`] containing standard horizons plus unique custom
+/// horizons, sorted ascending.
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_analytics::timeseries::{
+///     vol_term_structure, Garch11, GarchModel, InnovationDist,
+/// };
+///
+/// let returns = vec![
+///     0.004, -0.006, 0.002, 0.009, -0.011, 0.003, -0.004, 0.006, -0.008,
+///     0.005, 0.002, -0.003, 0.007, -0.010, 0.004, 0.006, -0.002, 0.001,
+///     -0.005, 0.008,
+/// ];
+/// let fit = Garch11.fit(&returns, InnovationDist::Gaussian, None)?;
+/// let ts = vol_term_structure(&Garch11, &fit, 252.0, Some(&[10, 126]));
+/// assert!(ts.forecasts.iter().any(|f| f.horizon == 126));
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn vol_term_structure(
     model: &dyn GarchModel,
     fit: &GarchFit,

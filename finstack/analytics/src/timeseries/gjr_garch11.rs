@@ -12,9 +12,7 @@
 //!
 //! # References
 //!
-//! - Glosten, L. R., Jagannathan, R., & Runkle, D. E. (1993). "On the Relation
-//!   between the Expected Value and the Volatility of the Nominal Excess Return
-//!   on Stocks." Journal of Finance, 48(5), 1779-1801.
+//! - Glosten, Jagannathan & Runkle (1993): see docs/REFERENCES.md#glosten1993
 
 use super::forecast::VarianceForecast;
 use super::garch::{GarchFit, GarchModel, GarchParams};

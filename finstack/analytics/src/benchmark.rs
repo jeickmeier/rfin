@@ -207,7 +207,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 /// tracking error is zero and mean active return is also zero. When the
 /// tracking error is zero but mean active return is nonzero, returns
 /// `+∞` or `-∞` matching the sign of the excess (consistent with
-/// [`crate::risk_metrics::return_based::sharpe`]). When `annualize` is
+/// [`crate::risk_metrics::sharpe`]). When `annualize` is
 /// `true`, returns [`f64::NAN`] if `ann_factor` is not finite or is `<= 0`.
 ///
 /// # Examples

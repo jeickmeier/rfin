@@ -352,9 +352,9 @@ fn compute_pv(
     amount * df * (sp + recovery_term)
 }
 
-/// Signed year fraction from `as_of` to `date` under `dc`. Matches the
-/// convention used by `periodized_pv_credit_adjusted` so PV results
-/// reconcile byte-for-byte.
+/// Signed year fraction from `as_of` to `date` under `dc`. Negative when the
+/// cashflow date precedes `as_of`, matching the credit-adjusted PV aggregation
+/// convention used elsewhere in the cashflow pipeline.
 fn signed_year_fraction(
     as_of: Date,
     date: Date,

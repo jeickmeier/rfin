@@ -13,8 +13,7 @@
 //!
 //! # References
 //!
-//! - Nelson, D. B. (1991). "Conditional Heteroskedasticity in Asset Returns:
-//!   A New Approach." Econometrica, 59(2), 347-370.
+//! - Nelson (1991): see docs/REFERENCES.md#nelson1991
 
 use super::forecast::VarianceForecast;
 use super::garch::{GarchFit, GarchModel, GarchParams};

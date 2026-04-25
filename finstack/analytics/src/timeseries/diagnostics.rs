@@ -5,11 +5,8 @@
 //!
 //! # References
 //!
-//! - Ljung, G. M., & Box, G. E. P. (1978). "On a Measure of Lack of Fit in
-//!   Time Series Models." Biometrika, 65(2), 297-303.
-//! - Engle, R. F. (1982). "Autoregressive Conditional Heteroscedasticity
-//!   with Estimates of the Variance of United Kingdom Inflation."
-//!   Econometrica, 50(4), 987-1007.
+//! - Ljung & Box (1978): see docs/REFERENCES.md#ljungBox1978
+//! - Engle (1982): see docs/REFERENCES.md#engle1982Arch
 
 /// Ljung-Box test for serial correlation in a series.
 ///

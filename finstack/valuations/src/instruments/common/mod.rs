@@ -34,9 +34,6 @@ pub(crate) mod models;
 // Common pricing patterns and infrastructure
 pub(crate) mod pricing;
 
-// Periodized present value calculations
-pub(crate) mod period_pv;
-
 // Enriched per-flow cashflow export with DF/SP/PV columns.
 pub mod cashflow_export;
 

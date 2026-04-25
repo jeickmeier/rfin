@@ -23,9 +23,11 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 
 ## Module Structure
 
-- **`mod.rs`**
-  - Public entrypoint for the analytics module.
-  - Re-exports all public types and functions so callers can use `finstack_analytics::*` without importing sub-modules directly.
+- **`lib.rs`**
+  - Public entrypoint for the analytics crate.
+  - Re-exports the high-level `Performance` facade and core result types.
+  - Standalone functions remain in domain modules such as `risk_metrics`,
+    `benchmark`, `drawdown`, `returns`, `aggregation`, and `lookback`.
 
 - **`performance.rs`**
   - `Performance`: stateful orchestrator holding pre-computed returns, drawdowns, and benchmark data for a universe of tickers.
@@ -236,12 +238,11 @@ pub struct PeriodStats {
 
 ```rust
 use finstack_analytics::Performance;
-use finstack_core::dates::PeriodKind;
-use time::{Date, Month};
+use finstack_core::dates::{Date, Duration, Month, PeriodKind};
 
 let dates: Vec<Date> = (0..252)
     .map(|i| Date::from_calendar_date(2024, Month::January, 1).unwrap()
-        + time::Duration::days(i))
+        + Duration::days(i))
     .collect();
 
 // Two tickers: benchmark SPY + portfolio ALPHA
@@ -272,7 +273,7 @@ let betas = perf.beta();
 let start = Date::from_calendar_date(2024, Month::April, 1).unwrap();
 let end   = Date::from_calendar_date(2024, Month::September, 30).unwrap();
 perf.reset_date_range(start, end);
-let h2_cagr = perf.cagr(); // recalculated over H1 only
+let windowed_cagr = perf.cagr(); // recalculated over the active window
 # Ok::<(), finstack_core::Error>(())
 ```
 
@@ -281,9 +282,9 @@ let h2_cagr = perf.cagr(); // recalculated over H1 only
 All functions in the `risk_metrics/` module tree can be used independently:
 
 ```rust
-use finstack_analytics::{sharpe, sortino, calmar, value_at_risk, expected_shortfall};
-use finstack_analytics::{cagr, volatility};
-use time::{Date, Month};
+use finstack_analytics::risk_metrics::{
+    expected_shortfall, sharpe, sortino, value_at_risk, volatility,
+};
 
 let returns = vec![0.01, -0.005, 0.02, -0.01, 0.015, 0.008, -0.003];
 let ann = 252.0_f64;
@@ -301,8 +302,10 @@ assert!(es <= var); // ES is always at least as bad as VaR
 ### 3. Drawdown Analysis
 
 ```rust
-use finstack_analytics::{to_drawdown_series, drawdown_details, mean_episode_drawdown};
-use time::{Date, Month};
+use finstack_analytics::drawdown::{
+    drawdown_details, mean_episode_drawdown, to_drawdown_series,
+};
+use finstack_core::dates::{Date, Month};
 
 let returns = vec![0.05, -0.12, 0.03, -0.08, 0.10, -0.20, 0.15];
 let dates: Vec<Date> = (1..=7)
@@ -330,20 +333,20 @@ let avg_dd = mean_episode_drawdown(&dd_series, 3);
 ### 4. Period Aggregation and Kelly Criterion
 
 ```rust
-use finstack_analytics::{group_by_period, period_stats};
+use finstack_analytics::aggregation::{group_by_period, period_stats_from_grouped};
 use finstack_core::dates::PeriodKind;
-use time::{Date, Month};
+use finstack_core::dates::{Date, Duration, Month};
 
 // Daily returns + dates
 let dates: Vec<Date> = (0..60)
     .map(|i| Date::from_calendar_date(2024, Month::January, 1).unwrap()
-        + time::Duration::days(i))
+        + Duration::days(i))
     .collect();
 let returns: Vec<f64> = (0..60).map(|i| (i as f64 % 7.0 - 3.0) * 0.005).collect();
 
 // Compound daily returns into monthly buckets
 let monthly = group_by_period(&dates, &returns, PeriodKind::Monthly, None);
-let stats = period_stats(&monthly);
+let stats = period_stats_from_grouped(&monthly);
 
 println!("Win rate:      {:.0}%", stats.win_rate * 100.0);
 println!("Kelly:         {:.2}", stats.kelly_criterion);
@@ -355,13 +358,12 @@ println!("Worst month:   {:.1}%", stats.worst * 100.0);
 ### 5. Lookback Selectors (MTD / QTD / YTD)
 
 ```rust
-use finstack_analytics::{mtd_select, qtd_select, ytd_select};
-use finstack_analytics::comp_total;
-use time::{Date, Month};
+use finstack_analytics::{lookback::{mtd_select, ytd_select}, returns::comp_total};
+use finstack_core::dates::{Date, Duration, Month};
 
 let dates: Vec<Date> = (0..252)
     .map(|i| Date::from_calendar_date(2024, Month::January, 1).unwrap()
-        + time::Duration::days(i))
+        + Duration::days(i))
     .collect();
 let returns: Vec<f64> = vec![0.001; 252];
 
@@ -378,8 +380,8 @@ println!("MTD: {:.2}%  YTD: {:.2}%", mtd_ret * 100.0, ytd_ret * 100.0);
 ### 6. Benchmark Alignment and Greeks
 
 ```rust
-use finstack_analytics::{greeks, rolling_greeks};
-use time::{Date, Month};
+use finstack_analytics::benchmark::{greeks, rolling_greeks};
+use finstack_core::dates::{Date, Month};
 
 let portfolio: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.002).collect();
 let benchmark: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();

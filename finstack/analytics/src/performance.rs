@@ -28,6 +28,45 @@ use super::risk_metrics::{
 ///
 /// Holds pre-computed returns, drawdowns, and benchmark data for a universe of
 /// tickers. Methods delegate to the pure-function sub-modules.
+///
+/// The facade follows one shape convention throughout: scalar methods return
+/// one value per ticker in the same order as `ticker_names`, while per-ticker
+/// rolling and episode methods take a zero-based ticker index.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::Performance;
+/// use finstack_core::dates::{Date, Month, PeriodKind};
+///
+/// let dates: Vec<Date> = (1..=6)
+///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
+///     .collect();
+/// let benchmark = vec![100.0, 101.0, 99.0, 102.0, 101.0, 103.0];
+/// let portfolio = vec![100.0, 103.0, 100.0, 104.0, 102.0, 106.0];
+///
+/// let mut perf = Performance::new(
+///     dates,
+///     vec![benchmark, portfolio],
+///     vec!["SPY".to_string(), "ALPHA".to_string()],
+///     Some("SPY"),
+///     PeriodKind::Daily,
+/// )?;
+///
+/// let sharpe = perf.sharpe(0.02);
+/// let beta = perf.beta();
+/// let rolling = perf.rolling_sharpe(1, 3, 0.02);
+/// assert_eq!(sharpe.len(), 2);
+/// assert_eq!(beta.len(), 2);
+/// assert_eq!(rolling.values.len(), 3);
+///
+/// perf.reset_date_range(
+///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 6).unwrap(),
+/// );
+/// assert_eq!(perf.cagr().len(), 2);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Performance {
     price_dates: Vec<Date>,
@@ -66,7 +105,17 @@ impl Performance {
     /// # Returns
     ///
     /// A fully initialized [`Performance`] instance, or an error if
-    /// `prices` or `dates` is empty.
+    /// validation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::InputError::Invalid`] when:
+    ///
+    /// * `prices` or `dates` is empty.
+    /// * `ticker_names.len() != prices.len()`.
+    /// * any price column length differs from `dates.len()`.
+    /// * `benchmark_ticker` is supplied but not found in `ticker_names`.
+    /// * derived returns are non-finite or below `-1.0`.
     ///
     /// # Examples
     ///
@@ -329,7 +378,35 @@ impl Performance {
 
     // ── Scalar metrics per ticker ──
 
-    /// CAGR for each ticker.
+    /// Compound annual growth rate for each ticker.
+    ///
+    /// Uses the active date window and annualizes from the actual holding
+    /// period implied by the price-date grid.
+    ///
+    /// # Returns
+    ///
+    /// One CAGR per ticker in column order. Returns `0.0` per ticker if the
+    /// active range has no valid holding period.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use finstack_analytics::Performance;
+    /// # use finstack_core::dates::{Date, Month, PeriodKind};
+    /// # let dates: Vec<Date> = (1..=4)
+    /// #     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
+    /// #     .collect();
+    /// # let perf = Performance::new(
+    /// #     dates,
+    /// #     vec![vec![100.0, 101.0, 102.0, 103.0]],
+    /// #     vec!["SPY".to_string()],
+    /// #     None,
+    /// #     PeriodKind::Daily,
+    /// # )?;
+    /// let cagr = perf.cagr();
+    /// assert_eq!(cagr.len(), 1);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn cagr(&self) -> Vec<f64> {
         let Some((start, end)) = self.active_holding_period() else {
             return vec![0.0; self.ticker_names.len()];
@@ -415,7 +492,31 @@ impl Performance {
         self.map_tickers(|i| calmar(cagrs[i], max_drawdown(self.active_drawdown_values(i))))
     }
 
-    /// Max drawdown for each ticker.
+    /// Maximum drawdown for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One non-positive maximum drawdown per ticker in column order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use finstack_analytics::Performance;
+    /// # use finstack_core::dates::{Date, Month, PeriodKind};
+    /// # let dates: Vec<Date> = (1..=4)
+    /// #     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
+    /// #     .collect();
+    /// # let perf = Performance::new(
+    /// #     dates,
+    /// #     vec![vec![100.0, 105.0, 99.0, 106.0]],
+    /// #     vec!["SPY".to_string()],
+    /// #     None,
+    /// #     PeriodKind::Daily,
+    /// # )?;
+    /// let max_dd = perf.max_drawdown();
+    /// assert!(max_dd[0] <= 0.0);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn max_drawdown(&self) -> Vec<f64> {
         self.map_tickers(|i| max_drawdown(self.active_drawdown_values(i)))
     }
@@ -699,6 +800,11 @@ impl Performance {
     // ── Batch 3: Drawdown-family ratios ──
 
     /// Recovery factor for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One recovery factor per ticker in column order, computed as total
+    /// compounded return divided by absolute maximum drawdown.
     pub fn recovery_factor(&self) -> Vec<f64> {
         self.map_tickers(|i| {
             let total_ret = comp_total(self.active_returns(i));
@@ -739,6 +845,10 @@ impl Performance {
     }
 
     /// Pain index for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One non-negative pain index per ticker in column order.
     pub fn pain_index(&self) -> Vec<f64> {
         self.map_tickers(|i| pain_index(self.active_drawdown_values(i)))
     }
@@ -794,12 +904,22 @@ impl Performance {
 
     // ── Series outputs ──
 
-    /// Cumulative returns for each ticker.
+    /// Cumulative compounded returns for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One cumulative-return path per ticker in column order, computed over
+    /// the active return window.
     pub fn cumulative_returns(&self) -> Vec<Vec<f64>> {
         self.map_tickers(|i| comp_sum(self.active_returns(i)))
     }
 
     /// Drawdown series for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One drawdown path per ticker in column order. Values are non-positive
+    /// fractions such as `-0.25` for a 25% drawdown.
     pub fn drawdown_series(&self) -> Vec<Vec<f64>> {
         self.map_tickers(|i| self.active_drawdown_values(i).to_vec())
     }
@@ -1095,7 +1215,12 @@ impl Performance {
 
     // ── Outperformance ──
 
-    /// Cumulative outperformance (portfolio cumulative return − benchmark cumulative return).
+    /// Cumulative outperformance versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One relative cumulative return path per ticker, computed as
+    /// `(1 + portfolio_cumulative) / (1 + benchmark_cumulative) - 1`.
     pub fn cumulative_returns_outperformance(&self) -> Vec<Vec<f64>> {
         let bench_cum = comp_sum(self.active_bench());
         self.map_tickers(|i| {
@@ -1108,7 +1233,12 @@ impl Performance {
         })
     }
 
-    /// Drawdown difference (portfolio drawdown minus benchmark drawdown).
+    /// Drawdown difference versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One path per ticker, computed as ticker drawdown minus benchmark
+    /// drawdown over the active window.
     pub fn drawdown_difference(&self) -> Vec<Vec<f64>> {
         let bench_dd = self.active_bench_drawdown_values();
         self.map_tickers(|i| {
@@ -1155,19 +1285,35 @@ impl Performance {
 
     // ── Accessors ──
 
-    /// Active date vector (adjusted for return computation).
+    /// Active date vector adjusted for return computation.
+    ///
+    /// # Returns
+    ///
+    /// The return-aligned date grid after applying any active date window.
     pub fn dates(&self) -> &[Date] {
         &self.dates
     }
     /// Ticker names in column order.
+    ///
+    /// # Returns
+    ///
+    /// The names supplied at construction time.
     pub fn ticker_names(&self) -> &[String] {
         &self.ticker_names
     }
     /// Index of the benchmark ticker.
+    ///
+    /// # Returns
+    ///
+    /// The zero-based index of the active benchmark ticker.
     pub fn benchmark_idx(&self) -> usize {
         self.benchmark_idx
     }
     /// Observation frequency.
+    ///
+    /// # Returns
+    ///
+    /// The frequency used to annualize facade-level metrics.
     pub fn freq(&self) -> PeriodKind {
         self.freq
     }

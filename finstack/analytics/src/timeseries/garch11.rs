@@ -8,8 +8,7 @@
 //!
 //! # References
 //!
-//! - Bollerslev, T. (1986). "Generalized Autoregressive Conditional
-//!   Heteroskedasticity." Journal of Econometrics, 31(3), 307-327.
+//! - Bollerslev (1986): see docs/REFERENCES.md#bollerslev1986
 
 use super::forecast::VarianceForecast;
 use super::garch::{GarchFit, GarchModel, GarchParams};

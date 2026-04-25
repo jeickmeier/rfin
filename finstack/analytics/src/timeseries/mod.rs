@@ -10,21 +10,36 @@
 //! - [`Egarch11`] - Exponential GARCH (Nelson, 1991) with leverage via log-variance
 //! - [`GjrGarch11`] - GJR-GARCH (Glosten, Jagannathan & Runkle, 1993) with asymmetric threshold
 //!
-//! # Quick Start
+//! # Quick start
 //!
-//! ```ignore
-//! use finstack_analytics::timeseries::*;
+//! ```no_run
+//! use finstack_analytics::timeseries::{
+//!     auto_garch, vol_term_structure, Garch11, GarchModel, InnovationDist,
+//! };
 //!
-//! // Fit GARCH(1,1) with Gaussian innovations
+//! let log_returns = vec![
+//!     0.004, -0.006, 0.002, 0.009, -0.011, 0.003, -0.004, 0.006, -0.008,
+//!     0.005, 0.002, -0.003, 0.007, -0.010, 0.004, 0.006, -0.002, 0.001,
+//!     -0.005, 0.008,
+//! ];
+//!
+//! // Fit GARCH(1,1) with Gaussian innovations.
 //! let fit = Garch11.fit(&log_returns, InnovationDist::Gaussian, None)?;
 //! println!("{}", fit.summary());
 //!
-//! // Forecast volatility term structure
+//! // Forecast a volatility term structure at standard horizons.
 //! let ts = vol_term_structure(&Garch11, &fit, 252.0, None);
 //!
-//! // Auto-select best model by BIC
+//! // Auto-select the best standard model by BIC.
 //! let best = auto_garch(&log_returns, InnovationDist::Gaussian, None)?;
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
+//!
+//! # References
+//!
+//! - Bollerslev (1986): see docs/REFERENCES.md#bollerslev1986
+//! - Nelson (1991): see docs/REFERENCES.md#nelson1991
+//! - Glosten, Jagannathan & Runkle (1993): see docs/REFERENCES.md#glosten1993
 
 mod diagnostics;
 mod egarch11;
@@ -42,7 +57,7 @@ pub use egarch11::Egarch11;
 pub use forecast::{
     forecast_garch_fit, vol_term_structure, VarianceForecast, VolTermStructure, STANDARD_HORIZONS,
 };
-pub use garch::{FitConfig, GarchFit, GarchModel, GarchParams};
+pub use garch::{FitConfig, GarchFamily, GarchFit, GarchModel, GarchParams};
 pub use garch11::Garch11;
 pub use gjr_garch11::GjrGarch11;
 pub use innovations::InnovationDist;
@@ -59,6 +74,25 @@ pub use innovations::InnovationDist;
 ///
 /// # Returns
 /// Vector of `GarchFit` sorted by BIC ascending.
+///
+/// # Errors
+///
+/// Returns an error if every candidate model fails to fit the input series.
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_analytics::timeseries::{compare_garch_models, InnovationDist};
+///
+/// let returns = vec![
+///     0.004, -0.006, 0.002, 0.009, -0.011, 0.003, -0.004, 0.006, -0.008,
+///     0.005, 0.002, -0.003, 0.007, -0.010, 0.004, 0.006, -0.002, 0.001,
+///     -0.005, 0.008,
+/// ];
+/// let ranked = compare_garch_models(&returns, InnovationDist::Gaussian, None)?;
+/// assert!(!ranked.is_empty());
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn compare_garch_models(
     returns: &[f64],
     dist: InnovationDist,
@@ -93,6 +127,36 @@ pub fn compare_garch_models(
 /// Fit the best GARCH model by BIC from the standard set.
 ///
 /// Equivalent to `compare_garch_models(...)?[0]` but returns just the best fit.
+///
+/// # Arguments
+///
+/// * `returns` - Log return series.
+/// * `dist` - Innovation distribution to use for all candidate models.
+/// * `config` - Optional fitting configuration.
+///
+/// # Returns
+///
+/// The lowest-BIC [`GarchFit`] among the standard GARCH, EGARCH, and GJR-GARCH
+/// models that successfully fit the input.
+///
+/// # Errors
+///
+/// Returns an error if all candidate models fail to fit.
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_analytics::timeseries::{auto_garch, InnovationDist};
+///
+/// let returns = vec![
+///     0.004, -0.006, 0.002, 0.009, -0.011, 0.003, -0.004, 0.006, -0.008,
+///     0.005, 0.002, -0.003, 0.007, -0.010, 0.004, 0.006, -0.002, 0.001,
+///     -0.005, 0.008,
+/// ];
+/// let fit = auto_garch(&returns, InnovationDist::Gaussian, None)?;
+/// assert!(fit.n_obs >= 10);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn auto_garch(
     returns: &[f64],
     dist: InnovationDist,

@@ -9,9 +9,11 @@ The crate is intentionally **pure-function-first**:
 - Every metric is available as a standalone function over `&[f64]`.
 - The `Performance` facade adds date windowing, benchmark state, caching, and
   per-ticker batch evaluation over a panel of price series.
-- Common APIs are re-exported at the crate root, so users can write
-  `use finstack_analytics::{Performance, value_at_risk, to_drawdown_series};`
-  without importing every submodule directly.
+- The high-level `Performance` facade and core result types are re-exported at
+  the crate root. Standalone functions live in their domain modules, so users
+  can write imports such as
+  `use finstack_analytics::{Performance, risk_metrics::value_at_risk};`
+  without depending on private module paths.
 
 ## What This Crate Covers
 
@@ -94,7 +96,6 @@ let mut perf = Performance::new(
     vec!["SPY".to_string(), "ALPHA".to_string()],
     Some("SPY"),
     PeriodKind::Daily,
-    false,
 )
 .expect("price matrix should be aligned and valid");
 
@@ -125,8 +126,11 @@ want allocation-light, composable building blocks.
 
 ```rust
 use finstack_analytics::{
-    comp_total, expected_shortfall, group_by_period, period_stats, sortino,
-    to_drawdown_series, tracking_error, value_at_risk,
+    aggregation::{group_by_period, period_stats_from_grouped},
+    benchmark::tracking_error,
+    drawdown::to_drawdown_series,
+    returns::comp_total,
+    risk_metrics::{expected_shortfall, sortino, value_at_risk},
 };
 use finstack_core::dates::{Date, Month, PeriodKind};
 
@@ -138,13 +142,13 @@ let dates: Vec<Date> = (1..=6)
 
 let total = comp_total(&returns);
 let sortino = sortino(&returns, true, 252.0, 0.0);
-let var_95 = value_at_risk(&returns, 0.95, None);
-let es_95 = expected_shortfall(&returns, 0.95, None);
+let var_95 = value_at_risk(&returns, 0.95);
+let es_95 = expected_shortfall(&returns, 0.95);
 let drawdown = to_drawdown_series(&returns);
 let tracking_err = tracking_error(&returns, &benchmark, true, 252.0);
 
 let monthly = group_by_period(&dates, &returns, PeriodKind::Monthly, None);
-let stats = period_stats(&monthly);
+let stats = period_stats_from_grouped(&monthly);
 
 assert!(total.is_finite());
 assert!(sortino.is_finite() || sortino.is_infinite());

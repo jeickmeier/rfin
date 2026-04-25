@@ -233,7 +233,6 @@ pub use exotics::{
 // === Common Functionality ===
 pub use common_impl::dependencies::{FxPair, MarketDependencies};
 pub use common_impl::discountable::Discountable;
-pub use common_impl::period_pv::PeriodizedPvExt;
 pub use common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
 pub use common_impl::traits::{
     Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,

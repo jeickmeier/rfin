@@ -40,7 +40,7 @@ fn default_mean() -> f64 {
 /// the correct formula.
 ///
 /// Deserialising older snapshots that lack the `family` field defaults to
-/// [`GarchFamily::Garch11`].
+/// [`crate::timeseries::GarchFamily::Garch11`].
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GarchParams {
     /// Intercept (omega).
@@ -344,9 +344,41 @@ pub trait GarchModel: Send + Sync {
     ///
     /// The default implementation wires the model-specific hooks
     /// ([`Self::has_gamma`], [`Self::parameter_bounds`],
-    /// [`Self::is_stationary`]) into the shared [`fit_garch_mle`]
+    /// [`Self::is_stationary`]) into the shared `fit_garch_mle`
     /// driver. Models override only when they need non-standard
     /// initial-value or optimizer strategies.
+    ///
+    /// # Arguments
+    ///
+    /// * `returns` - Log return series.
+    /// * `dist` - Innovation distribution for the standardized residuals.
+    /// * `config` - Optional optimizer and initialization configuration.
+    ///
+    /// # Returns
+    ///
+    /// A [`GarchFit`] containing estimated parameters, diagnostics, and
+    /// forecast state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when there are fewer than 10 observations, variance is
+    /// zero or non-finite, no stationary initial point is found, or the
+    /// optimizer cannot produce a finite likelihood.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use finstack_analytics::timeseries::{Garch11, GarchModel, InnovationDist};
+    ///
+    /// let returns = vec![
+    ///     0.004, -0.006, 0.002, 0.009, -0.011, 0.003, -0.004, 0.006, -0.008,
+    ///     0.005, 0.002, -0.003, 0.007, -0.010, 0.004, 0.006, -0.002, 0.001,
+    ///     -0.005, 0.008,
+    /// ];
+    /// let fit = Garch11.fit(&returns, InnovationDist::Gaussian, None)?;
+    /// assert_eq!(fit.model, "GARCH(1,1)");
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     fn fit(
         &self,
         returns: &[f64],
