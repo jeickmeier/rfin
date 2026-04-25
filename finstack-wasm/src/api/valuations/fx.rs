@@ -285,8 +285,6 @@ macro_rules! fx_option_class {
                 as_of: &str,
                 model: Option<String>,
             ) -> Result<JsValue, JsValue> {
-                // Single dispatch into the pricing engine; previously this was
-                // 8 separate calls, each round-tripping JSON.
                 let pairs = metric_values_present(
                     &self.json,
                     market_json,

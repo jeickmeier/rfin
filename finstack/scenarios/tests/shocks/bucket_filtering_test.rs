@@ -297,7 +297,7 @@ fn test_basecorr_bucket_filtering_reports_clamp_and_no_match() {
         clamp_report
             .warnings
             .iter()
-            .any(|warning| warning.contains("clamped")),
+            .any(|warning| warning.to_string().contains("clamped")),
         "expected clamp warning, got {:?}",
         clamp_report.warnings
     );
@@ -321,7 +321,7 @@ fn test_basecorr_bucket_filtering_reports_clamp_and_no_match() {
         no_match_report
             .warnings
             .iter()
-            .any(|warning| warning.contains("matched no detachment")),
+            .any(|warning| warning.to_string().contains("matched no detachment")),
         "expected no-match warning, got {:?}",
         no_match_report.warnings
     );

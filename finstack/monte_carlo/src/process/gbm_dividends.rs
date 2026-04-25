@@ -188,8 +188,7 @@ mod tests {
 
     #[test]
     fn test_num_factors_one_per_gbm_subinterval_budget() {
-        let empty =
-            GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), vec![]).unwrap();
+        let empty = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2).unwrap(), vec![]).unwrap();
         assert_eq!(empty.num_factors(), 1);
 
         let one_div = GbmWithDividends::new(

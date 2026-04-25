@@ -186,8 +186,7 @@ mod tests {
             NettingSetId::bilateral("multi-word counterparty", "CSA with spaces"),
         ] {
             let serialized = serde_json::to_string(&original).expect("serialize");
-            let recovered: NettingSetId =
-                serde_json::from_str(&serialized).expect("deserialize");
+            let recovered: NettingSetId = serde_json::from_str(&serialized).expect("deserialize");
             assert_eq!(recovered, original, "round-trip for {original:?}");
         }
     }

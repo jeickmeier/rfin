@@ -90,10 +90,6 @@ pub fn bump_hazard_spreads(
                     // irregular pillars such as 7Y or 25Y.
                     if (tenor_years - target_t).abs() < 0.1 {
                         bumped_spread += bp;
-                        // Assuming we want to apply multiple bumps if they overlap,
-                        // or just the first match?
-                        // Usually buckets are distinct. Let's allow sum if multiple match?
-                        // No, best to break or just sum. Sum is safer for complex requests.
                     }
                 }
             }

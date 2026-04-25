@@ -40,6 +40,8 @@ use crate::traits::{Discretization, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
+const MIN_SPOT_FOR_BUMP: f64 = 1.0e-12;
+
 /// Guard that the supplied RNG supports deterministic splitting, which is a
 /// prerequisite for CRN across bump-and-revalue calls.
 fn require_splittable_rng<R: RandomStream>(rng: &R, routine: &str) -> Result<()> {
@@ -61,6 +63,10 @@ fn require_splittable_rng<R: RandomStream>(rng: &R, routine: &str) -> Result<()>
 /// for near-zero spots (rates, FX implied yields, etc.).
 fn bump_amount(initial_spot: f64, bump_size: f64) -> f64 {
     (initial_spot.abs() * bump_size).max(1e-8)
+}
+
+fn bumped_down_spot(initial_spot: f64, h: f64) -> f64 {
+    (initial_spot - h).max(MIN_SPOT_FOR_BUMP)
 }
 
 /// Compute delta using central finite differences with CRN.
@@ -129,7 +135,7 @@ where
         discount_factor,
     )?;
 
-    let initial_down = vec![(initial_spot - h).max(1e-12)];
+    let initial_down = vec![bumped_down_spot(initial_spot, h)];
     let result_down = engine.price(
         rng,
         process,
@@ -205,7 +211,7 @@ where
         discount_factor,
     )?;
 
-    let initial_down = vec![(initial_spot - h).max(1e-12)];
+    let initial_down = vec![bumped_down_spot(initial_spot, h)];
     let result_down = engine.price(
         rng,
         process,
@@ -297,8 +303,9 @@ where
     ];
     let mut work = vec![0.0; work_size];
 
-    let mut per_state_values: Vec<Vec<f64>> =
-        (0..n_states).map(|_| Vec::with_capacity(cfg.num_paths)).collect();
+    let mut per_state_values: Vec<Vec<f64>> = (0..n_states)
+        .map(|_| Vec::with_capacity(cfg.num_paths))
+        .collect();
 
     for path_id in 0..cfg.num_paths {
         let base_split = rng.split(path_id as u64).ok_or_else(|| {
@@ -382,10 +389,18 @@ where
 
     let initial_states = vec![
         vec![initial_spot + h],
-        vec![(initial_spot - h).max(1e-12)],
+        vec![bumped_down_spot(initial_spot, h)],
     ];
-    let per_state =
-        paired_per_path_payoffs(engine, rng, process, disc, &initial_states, payoff, currency, discount_factor)?;
+    let per_state = paired_per_path_payoffs(
+        engine,
+        rng,
+        process,
+        disc,
+        &initial_states,
+        payoff,
+        currency,
+        discount_factor,
+    )?;
 
     let v_up = &per_state[0];
     let v_down = &per_state[1];
@@ -434,10 +449,18 @@ where
     let initial_states = vec![
         vec![initial_spot + h],
         vec![initial_spot],
-        vec![(initial_spot - h).max(1e-12)],
+        vec![bumped_down_spot(initial_spot, h)],
     ];
-    let per_state =
-        paired_per_path_payoffs(engine, rng, process, disc, &initial_states, payoff, currency, discount_factor)?;
+    let per_state = paired_per_path_payoffs(
+        engine,
+        rng,
+        process,
+        disc,
+        &initial_states,
+        payoff,
+        currency,
+        discount_factor,
+    )?;
 
     let v_up = &per_state[0];
     let v_base = &per_state[1];
@@ -516,11 +539,27 @@ mod tests {
         let call = EuropeanCall::new(100.0, 1.0, 50);
 
         let (_, se_indep) = finite_diff_delta(
-            &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD, 1.0, 0.01,
+            &engine,
+            &rng,
+            &gbm,
+            &disc,
+            100.0,
+            &call,
+            Currency::USD,
+            1.0,
+            0.01,
         )
         .expect("ok");
         let (delta_crn, se_crn) = finite_diff_delta_crn(
-            &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD, 1.0, 0.01,
+            &engine,
+            &rng,
+            &gbm,
+            &disc,
+            100.0,
+            &call,
+            Currency::USD,
+            1.0,
+            0.01,
         )
         .expect("ok");
 
@@ -549,7 +588,15 @@ mod tests {
         let call = EuropeanCall::new(100.0, 1.0, 50);
 
         let (gamma_crn, se_crn) = finite_diff_gamma_crn(
-            &engine, &rng, &gbm, &disc, 100.0, &call, Currency::USD, 1.0, 0.01,
+            &engine,
+            &rng,
+            &gbm,
+            &disc,
+            100.0,
+            &call,
+            Currency::USD,
+            1.0,
+            0.01,
         )
         .expect("ok");
         assert!(gamma_crn > 0.0);

@@ -104,9 +104,7 @@ where
     // accumulate path-history state (rough Heston Volterra integrand,
     // step counters, etc.) start every path from a known clean state without
     // resorting to fragile float-based path-boundary detection.
-    for w in work.iter_mut() {
-        *w = 0.0;
-    }
+    work.fill(0.0);
 
     let mut path_state = PathState::new(0, 0.0);
     process.populate_path_state(state, &mut path_state);

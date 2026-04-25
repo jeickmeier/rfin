@@ -19,8 +19,6 @@ export const valuations = {
     cdsIndexExampleJson: wasm.cdsIndexExampleJson,
     cdsTrancheExampleJson: wasm.cdsTrancheExampleJson,
     cdsOptionExampleJson: wasm.cdsOptionExampleJson,
-    fromJson: wasm.validateInstrumentJson,
-    toJson: wasm.validateInstrumentJson,
     validate: wasm.validateInstrumentJson,
     priceInstrument: wasm.priceInstrument,
     priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,

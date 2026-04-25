@@ -292,8 +292,6 @@ macro_rules! fx_option_class {
                 model: &str,
             ) -> PyResult<Bound<'py, PyDict>> {
                 let out = PyDict::new(py);
-                // Single dispatch into the pricing engine; previously this was
-                // 8 separate calls, each round-tripping JSON.
                 let pairs = metric_values_present(
                     &self.json,
                     market,

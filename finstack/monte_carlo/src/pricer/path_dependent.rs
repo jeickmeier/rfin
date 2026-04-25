@@ -892,9 +892,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_zero_paths() {
         let cfg = PathDependentPricerConfig::new(0);
-        let err = cfg
-            .validate()
-            .expect_err("zero paths must be rejected");
+        let err = cfg.validate().expect_err("zero paths must be rejected");
         assert!(err.to_string().contains("num_paths"));
     }
 

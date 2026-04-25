@@ -95,15 +95,7 @@ pub(crate) fn evaluate_function(
         // compensated summation stays well-defined. Empty finite set → NaN.
         Function::Sum => {
             require_min_args("sum", args, 1, node_id)?;
-
-            let mut values = Vec::with_capacity(args.len());
-            for arg in args {
-                let value = evaluate_expr(arg, context, node_id)?;
-                if value.is_finite() {
-                    values.push(value);
-                }
-            }
-
+            let values = finite_arg_values(args, context, node_id)?;
             if values.is_empty() {
                 Ok(f64::NAN)
             } else {
@@ -113,15 +105,7 @@ pub(crate) fn evaluate_function(
 
         Function::Mean => {
             require_min_args("mean", args, 1, node_id)?;
-
-            let mut values = Vec::with_capacity(args.len());
-            for arg in args {
-                let value = evaluate_expr(arg, context, node_id)?;
-                if value.is_finite() {
-                    values.push(value);
-                }
-            }
-
+            let values = finite_arg_values(args, context, node_id)?;
             if values.is_empty() {
                 Ok(f64::NAN)
             } else {
@@ -146,6 +130,21 @@ pub(crate) fn evaluate_function(
             evaluate_expr(&args[args.len() - 1], context, node_id)
         }
     }
+}
+
+fn finite_arg_values(
+    args: &[Expr],
+    context: &mut EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<Vec<f64>> {
+    let mut values = Vec::with_capacity(args.len());
+    for arg in args {
+        let value = evaluate_expr(arg, context, node_id)?;
+        if value.is_finite() {
+            values.push(value);
+        }
+    }
+    Ok(values)
 }
 
 /// Rank of `args[0]` among its historical observations.

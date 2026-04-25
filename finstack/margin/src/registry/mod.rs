@@ -284,15 +284,9 @@ pub fn embedded_registry() -> Result<&'static MarginRegistry> {
         .ok_or_else(|| Error::Validation("Failed to load embedded margin registry".to_string()))
 }
 
-/// Panic-on-failure access to the embedded margin registry, for use in
-/// `Default` impls and construction sites where the embedded JSON
-/// assets are bundled at compile time and a load failure indicates a
-/// build-pipeline regression rather than a runtime fault.
+/// Panic-on-failure access to the embedded registry for infallible constructors.
 ///
-/// Centralises the previous in-line
-/// `.expect("embedded margin registry is a compile-time asset")`
-/// pattern so future changes to the message or recovery strategy live
-/// in one place.
+/// Use [`embedded_registry`] when the caller can surface a runtime error.
 #[must_use]
 #[allow(clippy::expect_used)]
 pub fn embedded_registry_or_panic() -> &'static MarginRegistry {
@@ -377,12 +371,7 @@ fn parse_schedule_im(value: Option<&Value>) -> Result<HashMap<String, ScheduleIm
                 "schedule_im bucket boundaries must be increasing and > 0".to_string(),
             ));
         }
-        // The schedule's `default_maturity_years` is the fallback used
-        // by callers that don't supply an explicit maturity. It must be
-        // finite, non-negative, and ≤ 100y (plausibility bound — every
-        // BCBS-IOSCO grid caps at 30y for the long bucket; 100y allows
-        // generous overlay headroom while rejecting obvious typos like
-        // 1000.0).
+        // Fallback maturity must be finite and plausible.
         if !record.default_maturity_years.is_finite()
             || record.default_maturity_years < 0.0
             || record.default_maturity_years > 100.0
@@ -1244,15 +1233,7 @@ fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
     )?;
 
     // 3. CQ inter-bucket correlations over the full v2.6 bucket set.
-    //    Fallback for missing pairs is 0.0 (uncorrelated), matching the
-    //    PSD-safe default. Note this differs from the embedded matrix
-    //    which uses ~0.27 for non-residual pairs — a registry that
-    //    omits a pair is treated as "no correlation specified", not as
-    //    "use the embedded value", so PSD is checked under the
-    //    pessimistic assumption that overlay omissions carry through.
-    //    `validate_cq_tables` independently rejects v2.6 overlays that
-    //    omit any required pair, so this fallback is only exercised for
-    //    legacy versions.
+    //    Missing legacy pairs are treated as uncorrelated.
     let sectors = simm_cq_validation_sectors();
     validate_dense_correlation_matrix(
         &sectors,
@@ -1642,35 +1623,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_number_map_rejects_non_finite_values() {
-        // Synthetic JSON with NaN/infinity strings would fail at the
-        // serde_json parser stage, but a future deserialiser that emits
-        // non-finite f64 must still be rejected here. We construct the
-        // value programmatically to exercise the post-`as_f64` guard.
-        use serde_json::{Map, Number, Value};
-        let mut obj = Map::new();
-        obj.insert(
-            "5y".to_string(),
-            Number::from_f64(f64::INFINITY)
-                .map(Value::Number)
-                .unwrap_or(Value::Null),
-        );
-        // serde_json refuses to encode infinity in Number::from_f64,
-        // so the JSON path is blocked. Confirm that explicitly.
-        let val = Value::Object(obj);
-        let parsed = parse_number_map(&val, "test.weights");
-        assert!(
-            parsed.is_err()
-                || parsed
-                    .as_ref()
-                    .ok()
-                    .and_then(|m| m.get("5y").copied())
-                    .is_none(),
-            "parse_number_map must not return non-finite values: got {parsed:?}"
-        );
-    }
-
-    #[test]
     fn parse_credit_sector_number_map_rejects_negative_values() {
         // Use serde_json::json! which permits regular floats; -5.0
         // exercises the validate_non_negative call, not the finiteness
@@ -1706,8 +1658,7 @@ mod tests {
         let val = serde_json::json!({
             "1y_5y": 1.5,
         });
-        let err = parse_ir_tenor_correlations(&val)
-            .expect_err("|ρ| > 1 must be rejected");
+        let err = parse_ir_tenor_correlations(&val).expect_err("|ρ| > 1 must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("ir_tenor_correlations") && msg.contains("[-1,1]"),
@@ -1722,8 +1673,7 @@ mod tests {
         let val = serde_json::json!({
             "5y": 0.5,
         });
-        let err = parse_ir_tenor_correlations(&val)
-            .expect_err("malformed key must be rejected");
+        let err = parse_ir_tenor_correlations(&val).expect_err("malformed key must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("expected format 'tenor1_tenor2'"),

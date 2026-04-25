@@ -490,7 +490,7 @@ impl NewtonSolver {
             last_fx = fx;
 
             if !fx.is_finite() {
-                tracing::warn!(
+                tracing::debug!(
                     algorithm = "newton",
                     iteration,
                     last_x = x,
@@ -516,7 +516,7 @@ impl NewtonSolver {
             last_fpx = fpx;
 
             if !fpx.is_finite() {
-                tracing::warn!(
+                tracing::debug!(
                     algorithm = "newton",
                     iteration,
                     last_x = x,
@@ -537,7 +537,7 @@ impl NewtonSolver {
             // Reject when derivative is too small (absolute OR relative to function value)
             // to prevent divergent Newton steps where f/f' overflows
             if fpx.abs() < self.min_derivative || fpx.abs() < self.min_derivative_rel * fx.abs() {
-                tracing::warn!(
+                tracing::debug!(
                     algorithm = "newton",
                     iteration,
                     last_x = x,
@@ -570,7 +570,7 @@ impl NewtonSolver {
             x = x_new;
         }
 
-        tracing::warn!(
+        tracing::debug!(
             algorithm = "newton",
             iterations = self.max_iterations,
             last_x = x,
@@ -855,7 +855,7 @@ impl BrentSolver {
             return Ok((a, b));
         }
 
-        tracing::warn!(
+        tracing::debug!(
             algorithm = "brent_bracket_search",
             iterations = expansion_iterations,
             initial_guess,
@@ -956,7 +956,7 @@ impl BrentSolver {
         }
         // Require a valid bracket
         if flo.signum() == fhi.signum() {
-            tracing::warn!(
+            tracing::debug!(
                 algorithm = "brent",
                 lo,
                 hi,
@@ -1065,7 +1065,7 @@ impl BrentSolver {
         }
 
         // Max iterations reached without convergence - return error
-        tracing::warn!(
+        tracing::debug!(
             algorithm = "brent",
             iterations = self.max_iterations,
             last_x = b,

@@ -35,12 +35,12 @@ fn extract_money(obj: &Bound<'_, PyAny>) -> PyResult<Money> {
         .map_err(|_| PyTypeError::new_err("expected Money"))
 }
 
-/// Convert a Python ``decimal.Decimal`` (or any object whose ``str()`` yields a
-/// decimal literal) into a `rust_decimal::Decimal` without going through
-/// `f64`. Returns a Python `ValueError` if the string cannot be parsed
-/// (catches NaN/Infinity inputs from the Python side, since
-/// `rust_decimal::Decimal::from_str` rejects those).
+/// Convert a Python ``decimal.Decimal`` into a `rust_decimal::Decimal` without
+/// going through `f64`.
 fn decimal_from_py(obj: &Bound<'_, PyAny>) -> PyResult<rust_decimal::Decimal> {
+    if !is_python_decimal(obj)? {
+        return Err(PyTypeError::new_err("expected decimal.Decimal"));
+    }
     let s: String = obj.str()?.extract()?;
     rust_decimal::Decimal::from_str(&s)
         .map_err(|e| PyValueError::new_err(format!("Invalid Decimal value {s:?}: {e}")))
@@ -50,8 +50,8 @@ fn decimal_from_py(obj: &Bound<'_, PyAny>) -> PyResult<rust_decimal::Decimal> {
 ///
 /// Uses the Python `isinstance` check rather than a string compare on
 /// `type(obj).__name__`, so `MyDecimal(Decimal)` subclasses and any third-party
-/// `Decimal`-named classes are distinguished correctly. We import the type
-/// once per call; PyO3 caches `import` lookups internally.
+/// `Decimal`-named classes are distinguished correctly. The import resolves
+/// through CPython's module cache after the first call.
 fn is_python_decimal(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
     let py = obj.py();
     let decimal_module = PyModule::import(py, "decimal")?;
@@ -78,9 +78,8 @@ impl PyMoney {
     /// Construct from a finite ``amount`` and a [`PyCurrency`] or ISO code string.
     ///
     /// ``amount`` may be a Python ``float``, ``int``, or ``decimal.Decimal``.
-    /// When given a ``Decimal``, the value is parsed without going through
-    /// ``f64``, preserving full precision for hedge-fund-grade notionals.
-    /// Floats and ints follow standard IEEE 754 rounding.
+    /// ``Decimal`` inputs are parsed without going through ``f64``. Floats and
+    /// ints follow standard IEEE 754 rounding.
     #[new]
     #[pyo3(text_signature = "(amount, currency)")]
     fn new(amount: &Bound<'_, PyAny>, currency: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -100,10 +99,7 @@ impl PyMoney {
 
     /// Construct from a ``decimal.Decimal`` amount, preserving full precision.
     ///
-    /// Unlike the regular constructor's ``float`` path, this never round-trips
-    /// through ``f64``, so it is the recommended entry point when the caller
-    /// already has a high-precision value (e.g., a portfolio notional carried
-    /// as ``Decimal`` to avoid IEEE 754 drift).
+    /// This requires an actual ``decimal.Decimal`` instance.
     #[classmethod]
     #[pyo3(text_signature = "(cls, amount, currency)")]
     fn from_decimal(

@@ -111,10 +111,6 @@ use crate::money::Money;
 /// let pv = flows.npv(&curve, base, None)?;
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
-// API STABILITY: this trait is implemented via a single `impl<T> Discountable for T`
-// blanket below (line ~410) and therefore covers every `T: AsRef<[(Date, Money)]>`
-// the user passes — Vec, slice, BTreeMap-converted iterators, etc. The "1 impl"
-// count is misleading. Keep.
 pub trait Discountable {
     /// Output type for the NPV calculation.
     type PVOutput;

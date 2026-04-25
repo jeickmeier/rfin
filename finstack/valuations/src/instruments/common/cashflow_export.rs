@@ -381,12 +381,6 @@ fn compute_pv(
     amount * df * (sp + recovery_term)
 }
 
-// Removed: local `signed_year_fraction` helper. The canonical method
-// `finstack_core::DayCount::signed_year_fraction(start, end, ctx)` provides
-// identical semantics (negative when `end < start`, zero on equality, positive
-// when `end > start`) and propagates day-count failures via `Result`. Callers
-// in this file now use it directly.
-
 // ---------------------------------------------------------------------------
 // Silence unused imports when built without dependent instruments in scope.
 // ---------------------------------------------------------------------------

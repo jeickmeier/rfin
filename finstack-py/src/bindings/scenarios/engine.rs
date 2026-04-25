@@ -5,6 +5,16 @@ use crate::errors::display_to_py;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+fn set_warning_items(
+    dict: &Bound<'_, PyDict>,
+    warnings: &[finstack_scenarios::Warning],
+) -> PyResult<()> {
+    let warning_strs: Vec<String> = warnings.iter().map(ToString::to_string).collect();
+    dict.set_item("warnings", warning_strs)?;
+    let warnings_json = serde_json::to_string(warnings).map_err(display_to_py)?;
+    dict.set_item("warnings_json", warnings_json)
+}
+
 /// Apply a scenario to a market context and financial model.
 ///
 /// Parameters
@@ -68,18 +78,7 @@ fn apply_scenario<'py>(
     dict.set_item("operations_applied", report.operations_applied)?;
     dict.set_item("user_operations", report.user_operations)?;
     dict.set_item("expanded_operations", report.expanded_operations)?;
-    // Warnings are surfaced under two keys:
-    //   - `warnings`:       `list[str]` (rendered Display form, useful for
-    //                       logs and human-readable summaries).
-    //   - `warnings_json`:  `str` (JSON-encoded `Vec<Warning>` matching the
-    //                       WASM binding; parse with `json.loads(...)` for
-    //                       structured pattern-matching on `kind`).
-    // Both views describe the same warnings; choose whichever fits the
-    // caller's needs.
-    let warning_strs: Vec<String> = report.warnings.iter().map(ToString::to_string).collect();
-    dict.set_item("warnings", warning_strs)?;
-    let warnings_json = serde_json::to_string(&report.warnings).map_err(display_to_py)?;
-    dict.set_item("warnings_json", warnings_json)?;
+    set_warning_items(&dict, &report.warnings)?;
 
     Ok(dict)
 }
@@ -137,18 +136,7 @@ fn apply_scenario_to_market<'py>(
     dict.set_item("operations_applied", report.operations_applied)?;
     dict.set_item("user_operations", report.user_operations)?;
     dict.set_item("expanded_operations", report.expanded_operations)?;
-    // Warnings are surfaced under two keys:
-    //   - `warnings`:       `list[str]` (rendered Display form, useful for
-    //                       logs and human-readable summaries).
-    //   - `warnings_json`:  `str` (JSON-encoded `Vec<Warning>` matching the
-    //                       WASM binding; parse with `json.loads(...)` for
-    //                       structured pattern-matching on `kind`).
-    // Both views describe the same warnings; choose whichever fits the
-    // caller's needs.
-    let warning_strs: Vec<String> = report.warnings.iter().map(ToString::to_string).collect();
-    dict.set_item("warnings", warning_strs)?;
-    let warnings_json = serde_json::to_string(&report.warnings).map_err(display_to_py)?;
-    dict.set_item("warnings_json", warnings_json)?;
+    set_warning_items(&dict, &report.warnings)?;
 
     Ok(dict)
 }

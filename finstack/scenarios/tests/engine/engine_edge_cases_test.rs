@@ -202,7 +202,7 @@ fn test_warnings_missing_equity() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 0);
     assert!(!report.warnings.is_empty());
-    assert!(report.warnings[0].contains("NONEXISTENT"));
+    assert!(report.warnings[0].to_string().contains("NONEXISTENT"));
 }
 
 #[test]
@@ -241,8 +241,12 @@ fn test_warnings_attribute_based_operations() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.warnings.len(), 2);
-    assert!(report.warnings[0].contains("no instruments provided"));
-    assert!(report.warnings[1].contains("no instruments provided"));
+    assert!(report.warnings[0]
+        .to_string()
+        .contains("no instruments provided"));
+    assert!(report.warnings[1]
+        .to_string()
+        .contains("no instruments provided"));
 }
 
 #[test]
@@ -276,7 +280,10 @@ fn test_stmt_forecast_percent_missing_node_warns() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 0);
     assert!(
-        report.warnings.iter().any(|w| w.contains("NOPE")),
+        report
+            .warnings
+            .iter()
+            .any(|w| w.to_string().contains("NOPE")),
         "expected warning about missing node, got {:?}",
         report.warnings
     );
@@ -329,7 +336,7 @@ fn test_rate_binding_missing_curve() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert!(!report.warnings.is_empty());
-    assert!(report.warnings[0].contains("NONEXISTENT_CURVE"));
+    assert!(report.warnings[0].to_string().contains("NONEXISTENT_CURVE"));
 }
 
 #[test]
@@ -376,7 +383,7 @@ fn test_rate_binding_missing_node() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert!(!report.warnings.is_empty());
-    assert!(report.warnings[0].contains("NONEXISTENT_NODE"));
+    assert!(report.warnings[0].to_string().contains("NONEXISTENT_NODE"));
 }
 
 #[test]

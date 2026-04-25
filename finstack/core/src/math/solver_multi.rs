@@ -188,14 +188,6 @@ pub struct LmSolution {
 /// parameters simultaneously, essential for calibrating complex models
 /// like SABR volatility surfaces.
 ///
-// API STABILITY: today there is only one in-tree implementor
-// (`LevenbergMarquardtSolver`). The trait is *not* object-safe (its methods
-// have generic type parameters) so it cannot back `Box<dyn MultiSolver>` —
-// see `valuations/src/calibration/config.rs::create_lm_solver` which
-// returns the concrete type and explicitly comments on this. The trait
-// remains as a documented integration point for future solvers
-// (`TrustRegionSolver`, `GaussNewtonSolver`, etc.); deletion would force
-// every callsite to depend on the concrete LM type. Keep.
 pub trait MultiSolver: Send + Sync {
     /// Minimize objective function starting from initial guess.
     ///

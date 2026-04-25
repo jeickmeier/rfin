@@ -198,18 +198,6 @@ pub enum Warning {
     },
 }
 
-impl Warning {
-    /// Returns `true` if the rendered ([`Display`](fmt::Display)) form of
-    /// this warning contains the given substring. Convenience for assertions
-    /// and ad-hoc filtering; structured callers should pattern-match on the
-    /// variant instead.
-    #[inline]
-    #[must_use]
-    pub fn contains(&self, needle: &str) -> bool {
-        self.to_string().contains(needle)
-    }
-}
-
 impl fmt::Display for Warning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

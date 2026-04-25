@@ -776,9 +776,8 @@ impl HistoricalPositionDecomposer {
             })
             .collect();
 
-        // Sort ascending by portfolio P&L (worst first). All inputs are finite
-        // by the pre-flight check above, so `partial_cmp` never returns None.
-        portfolio_pnls.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort ascending by portfolio P&L (worst first).
+        portfolio_pnls.sort_by(|a, b| a.1.total_cmp(&b.1));
 
         // Number of tail scenarios = floor((1 - confidence) * n_scenarios).
         // The C2 guard above ensures this is >= 1.
@@ -1588,7 +1587,7 @@ mod tests {
                 (s, pnl)
             })
             .collect();
-        portfolio_pnls.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        portfolio_pnls.sort_by(|a, b| a.1.total_cmp(&b.1));
         let n_tail = ((1.0 - confidence) * n_scenarios as f64).floor() as usize;
         let mut serial_ces = vec![0.0_f64; n];
         for &(s, _) in &portfolio_pnls[..n_tail] {

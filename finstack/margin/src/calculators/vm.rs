@@ -132,24 +132,20 @@ impl VmCalculator {
 
     fn add_month_clamped(&self, date: Date) -> Date {
         let (y, m, d) = date.to_calendar_date();
-        let m_num = m as i32;
-        let mut target_year = y;
-        let mut target_month = m_num + 1;
-        if target_month > 12 {
-            target_month = 1;
-            target_year += 1;
-        }
-        // Invariant: target_month ∈ [1, 12] by construction above, so the
-        // u8 cast and Month conversion are infallible. We assert that
-        // explicitly rather than swallowing a hypothetical failure into a
-        // silent fallback.
-        debug_assert!(
-            (1..=12).contains(&target_month),
-            "target_month outside [1,12]: {target_month}"
-        );
-        #[allow(clippy::expect_used)] // proven unreachable by the assert above
-        let month = Month::try_from(target_month as u8)
-            .expect("target_month is in [1, 12] by construction");
+        let (target_year, month) = match m {
+            Month::January => (y, Month::February),
+            Month::February => (y, Month::March),
+            Month::March => (y, Month::April),
+            Month::April => (y, Month::May),
+            Month::May => (y, Month::June),
+            Month::June => (y, Month::July),
+            Month::July => (y, Month::August),
+            Month::August => (y, Month::September),
+            Month::September => (y, Month::October),
+            Month::October => (y, Month::November),
+            Month::November => (y, Month::December),
+            Month::December => (y + 1, Month::January),
+        };
         // d is in [1, 31] from `to_calendar_date`. Walk it down until
         // the (year, month, day) triple is valid, e.g. Feb 30 → Feb 28.
         for day in (1..=d).rev() {
@@ -159,7 +155,7 @@ impl VmCalculator {
         }
         // Every month has at least one valid day, so the loop above
         // always returns. Reaching this point would indicate a logic bug.
-        unreachable!("no valid day found in {target_year}-{target_month:02}");
+        unreachable!("no valid day found in {target_year}-{month}");
     }
 
     /// Create a new VM calculator with the given CSA specification.

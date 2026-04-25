@@ -285,6 +285,7 @@ fn extrapolation_warning_includes_both_bounds_and_curve_id() {
     let warning = report
         .warnings
         .iter()
+        .map(ToString::to_string)
         .find(|w| w.contains("extrapolates"))
         .expect("above-range extrapolation must produce a warning");
     assert!(

@@ -1,10 +1,7 @@
 //! Python bindings for Monte Carlo Greek estimators.
 //!
-//! Exposes finite-difference deltas and gammas with both the conservative
-//! independence-bound stderr and the tighter common-random-number (CRN)
-//! paired stderr. The CRN variants compute true paired standard errors per
-//! path and are 1–2 orders of magnitude tighter than the independence
-//! bound for smooth payoffs — preferred for hedge-ratio sizing.
+//! Exposes finite-difference deltas and gammas with independent-path and
+//! common-random-number standard errors.
 //!
 //! All functions release the GIL during the underlying Monte Carlo runs.
 
@@ -37,21 +34,14 @@ fn parse_option(name: &str) -> PyResult<OptionType> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn build_engine(
-    num_paths: usize,
-    seed: u64,
-    expiry: f64,
-    num_steps: usize,
-    use_parallel: bool,
-) -> PyResult<McEngine> {
+fn build_engine(num_paths: usize, seed: u64, expiry: f64, num_steps: usize) -> PyResult<McEngine> {
     let time_grid = TimeGrid::uniform(expiry, num_steps).map_err(core_to_py)?;
     Ok(McEngine::new(McEngineConfig {
         num_paths,
         seed,
         time_grid,
         target_ci_half_width: None,
-        use_parallel,
+        use_parallel: false,
         chunk_size: 1000,
         path_capture: finstack_monte_carlo::engine::PathCaptureConfig::default(),
         antithetic: false,
@@ -60,9 +50,8 @@ fn build_engine(
 
 /// Finite-difference delta for a vanilla European option under GBM.
 ///
-/// Reports the conservative independence-bound stderr by default (fast,
-/// safe upper bound). For hedge-ratio sizing, prefer
-/// [`finite_diff_delta_crn`] which returns the tighter paired CRN stderr.
+/// Reports the conservative independence-bound stderr. Use [`fd_delta_crn`]
+/// for paired common-random-number stderr.
 ///
 /// Returns `(delta, stderr)`.
 #[pyfunction]
@@ -89,7 +78,7 @@ fn fd_delta(
 ) -> PyResult<(f64, f64)> {
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps, false)?;
+    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();
@@ -111,15 +100,9 @@ fn fd_delta(
     .map_err(core_to_py)
 }
 
-/// Finite-difference delta with **paired CRN stderr** (preferred).
+/// Finite-difference delta with paired common-random-number stderr.
 ///
-/// Reports the true paired standard error of `(V_up_i − V_down_i) / 2h`.
-/// CRN makes this 1–2 orders of magnitude tighter than the independence
-/// bound returned by [`fd_delta`] for smooth payoffs — use this for
-/// risk-budget and hedge-ratio sizing.
-///
-/// Always runs serially (paired stderr requires deterministic per-path
-/// pairing). Returns `(delta, stderr)`.
+/// Returns `(delta, stderr)`.
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
@@ -144,7 +127,7 @@ fn fd_delta_crn(
 ) -> PyResult<(f64, f64)> {
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps, false)?;
+    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();
@@ -168,8 +151,7 @@ fn fd_delta_crn(
 
 /// Finite-difference gamma (independence-bound stderr).
 ///
-/// See [`fd_gamma_crn`] for a tighter paired CRN stderr suitable for
-/// hedge-ratio sizing. Returns `(gamma, stderr)`.
+/// Returns `(gamma, stderr)`.
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
@@ -194,7 +176,7 @@ fn fd_gamma(
 ) -> PyResult<(f64, f64)> {
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps, false)?;
+    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();
@@ -216,11 +198,9 @@ fn fd_gamma(
     .map_err(core_to_py)
 }
 
-/// Finite-difference gamma with **paired CRN stderr** (preferred).
+/// Finite-difference gamma with paired common-random-number stderr.
 ///
-/// Returns `(gamma, stderr)` where `stderr` is the per-path paired
-/// standard error of `(V_up_i − 2 V_base_i + V_down_i) / h²`. Always
-/// runs serially.
+/// Returns `(gamma, stderr)`.
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
@@ -245,7 +225,7 @@ fn fd_gamma_crn(
 ) -> PyResult<(f64, f64)> {
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps, false)?;
+    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();

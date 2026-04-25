@@ -1165,8 +1165,6 @@ export interface CreditDerivativesNamespace {
   cdsIndexExampleJson(): string;
   cdsTrancheExampleJson(): string;
   cdsOptionExampleJson(): string;
-  fromJson(instrumentJson: string): string;
-  toJson(instrumentJson: string): string;
   validate(instrumentJson: string): string;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(

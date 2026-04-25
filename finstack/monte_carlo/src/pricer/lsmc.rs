@@ -21,11 +21,10 @@
 //!
 //! For mission-critical pricing the standard remedy is to fit the regression
 //! on one independent path set ("training") and apply the frozen exercise
-//! policy to a separate path set ("pricing"). That two-pass pattern is not
-//! implemented here; consumers who need an unbiased estimate should run the
-//! pricer twice with disjoint seeds and manually apply the policy from the
-//! first run to the second run's paths, or complement this estimator with
-//! an Andersen-Broadie dual upper bound to bracket the true value.
+//! policy to a separate path set ("pricing"). Use
+//! [`LsmcPricer::price_unbiased`] for that two-pass workflow, or complement
+//! this estimator with an Andersen-Broadie dual upper bound to bracket the true
+//! value.
 
 use super::super::results::MoneyEstimate;
 use super::lsq::{regression_coefficients_with_basis, regression_with_basis};
@@ -51,9 +50,8 @@ use finstack_core::Result;
 #[derive(Debug, Clone)]
 pub struct ExercisePolicy {
     /// Per-exercise-step regression coefficients in (step, coefficients) pairs,
-    /// sorted by descending step (matches the backward-induction order). Only
-    /// dates strictly inside `(0, num_steps)` are stored; terminal exercise is
-    /// always applied.
+    /// sorted by ascending step for forward replay. Only dates strictly inside
+    /// `(0, num_steps)` are stored; terminal exercise is always applied.
     pub coefficients_by_date: Vec<(usize, Vec<f64>)>,
     /// Number of basis functions used during fitting; the same basis must be
     /// passed to [`LsmcPricer::price_with_policy`].
@@ -61,6 +59,13 @@ pub struct ExercisePolicy {
     /// Number of simulation steps in the training run; the pricing run must
     /// agree.
     pub num_steps: usize,
+}
+
+#[derive(Clone, Copy)]
+struct PolicyTiming {
+    discount_rate: f64,
+    time_to_maturity: f64,
+    num_steps: usize,
 }
 
 /// Immediate exercise payoff function.
@@ -304,7 +309,13 @@ impl LsmcPricer {
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
 
         if self.config.use_parallel {
-            return self.generate_paths_parallel(process, initial_spot, &time_grid, num_steps, seed);
+            return self.generate_paths_parallel(
+                process,
+                initial_spot,
+                &time_grid,
+                num_steps,
+                seed,
+            );
         }
 
         self.generate_paths_serial(process, initial_spot, &time_grid, num_steps, seed)
@@ -627,9 +638,11 @@ impl LsmcPricer {
             exercise,
             basis,
             policy,
-            discount_rate,
-            time_to_maturity,
-            num_steps,
+            PolicyTiming {
+                discount_rate,
+                time_to_maturity,
+                num_steps,
+            },
         );
 
         let mut stats = OnlineStats::new();
@@ -807,6 +820,8 @@ impl LsmcPricer {
             }
         }
 
+        coefficients_by_date.sort_by_key(|(step, _)| *step);
+
         Ok(ExercisePolicy {
             coefficients_by_date,
             num_basis: basis.num_basis(),
@@ -827,19 +842,13 @@ impl LsmcPricer {
         exercise: &E,
         basis: &B,
         policy: &ExercisePolicy,
-        discount_rate: f64,
-        time_to_maturity: f64,
-        num_steps: usize,
+        timing: PolicyTiming,
     ) -> Vec<f64>
     where
         E: ImmediateExercise,
         B: BasisFunctions + ?Sized,
     {
-        let dt = time_to_maturity / num_steps as f64;
-
-        // Sort policy ascending so we can walk paths forward.
-        let mut policy_dates: Vec<&(usize, Vec<f64>)> = policy.coefficients_by_date.iter().collect();
-        policy_dates.sort_by_key(|(step, _)| *step);
+        let dt = timing.time_to_maturity / timing.num_steps as f64;
 
         let mut basis_vals = vec![0.0; basis.num_basis()];
         let mut present_values = Vec::with_capacity(paths.len());
@@ -848,9 +857,9 @@ impl LsmcPricer {
             let mut exercised = false;
             let mut path_pv = 0.0;
 
-            for (step, coeffs) in &policy_dates {
+            for (step, coeffs) in &policy.coefficients_by_date {
                 let s = *step;
-                if s == 0 || s >= num_steps {
+                if s == 0 || s >= timing.num_steps {
                     continue;
                 }
                 let spot = path[s];
@@ -865,15 +874,15 @@ impl LsmcPricer {
                 }
                 if immediate > continuation {
                     let t = s as f64 * dt;
-                    path_pv = immediate * (-discount_rate * t).exp();
+                    path_pv = immediate * (-timing.discount_rate * t).exp();
                     exercised = true;
                     break;
                 }
             }
 
             if !exercised {
-                let terminal = exercise.exercise_value(path[num_steps]);
-                path_pv = terminal * (-discount_rate * time_to_maturity).exp();
+                let terminal = exercise.exercise_value(path[timing.num_steps]);
+                path_pv = terminal * (-timing.discount_rate * timing.time_to_maturity).exp();
             }
 
             present_values.push(path_pv);

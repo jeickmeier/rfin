@@ -317,7 +317,10 @@ fn test_shock_nonexistent_statement_node() {
         .apply(&scenario, &mut ctx)
         .expect("apply completes; missing statement nodes surface as warnings");
     assert!(
-        report.warnings.iter().any(|w| w.contains("NONEXISTENT")),
+        report
+            .warnings
+            .iter()
+            .any(|w| w.to_string().contains("NONEXISTENT")),
         "expected warning for missing statement node, got {:?}",
         report.warnings
     );

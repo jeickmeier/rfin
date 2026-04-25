@@ -78,13 +78,8 @@ impl FxMatrix {
     /// ```
     pub fn new(provider: Arc<dyn FxProvider>) -> Self {
         let mut config = FxConfig::default();
-        // Defensive: clamp cache_capacity to at least 1 so we can never panic
-        // here. `try_with_config` rejects zero outright; this constructor
-        // accepts whatever default ships and produces a valid matrix.
         let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or_else(|| {
             config.cache_capacity = 1;
-            // SAFETY of choice: 1 is non-zero by definition; this branch only
-            // fires if a future change weakens the default invariant.
             NonZeroUsize::MIN
         });
         Self {

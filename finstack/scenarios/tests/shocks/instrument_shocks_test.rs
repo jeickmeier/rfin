@@ -319,7 +319,9 @@ fn test_instrument_attr_price_shock_no_matches() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 0);
     assert_eq!(report.warnings.len(), 1);
-    assert!(report.warnings[0].contains("No instruments matched attribute filter"));
+    assert!(report.warnings[0]
+        .to_string()
+        .contains("No instruments matched attribute filter"));
 }
 
 #[test]
@@ -439,7 +441,9 @@ fn test_instrument_shock_without_instruments_provided() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 0);
     assert!(!report.warnings.is_empty(), "Should have warning");
-    assert!(report.warnings[0].contains("no instruments provided"));
+    assert!(report.warnings[0]
+        .to_string()
+        .contains("no instruments provided"));
 }
 
 #[test]
@@ -606,7 +610,7 @@ fn test_attr_filter_ignores_tags_uses_meta_only() {
         report
             .warnings
             .iter()
-            .any(|w| w.contains("No instruments matched")),
+            .any(|w| w.to_string().contains("No instruments matched")),
         "expected no match when only tags overlap: {:?}",
         report.warnings
     );

@@ -28,10 +28,11 @@ macro_rules! credit_derivative_wrapper {
 
             #[staticmethod]
             fn from_json(json: &str) -> PyResult<Self> {
-                if let Ok(inner) = serde_json::from_str::<$rust_ty>(json) {
+                let value: serde_json::Value = serde_json::from_str(json).map_err(display_to_py)?;
+                if let Ok(inner) = serde_json::from_value::<$rust_ty>(value.clone()) {
                     return Ok(Self { inner });
                 }
-                match serde_json::from_str::<InstrumentJson>(json).map_err(display_to_py)? {
+                match serde_json::from_value::<InstrumentJson>(value).map_err(display_to_py)? {
                     InstrumentJson::$variant(inner) => Ok(Self { inner }),
                     _ => Err(display_to_py(format!("JSON is not a {}", $py_name))),
                 }

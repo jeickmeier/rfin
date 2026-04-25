@@ -60,9 +60,11 @@ impl PyEuropeanPricer {
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
         let pricer = self.build_pricer();
-        py.detach(|| pricer.price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy))
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        py.detach(|| {
+            pricer.price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 
     /// Price a European put option under GBM.
@@ -85,9 +87,11 @@ impl PyEuropeanPricer {
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
         let pricer = self.build_pricer();
-        py.detach(|| pricer.price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy))
-            .map(PyMonteCarloResult::from_inner)
-            .map_err(core_to_py)
+        py.detach(|| {
+            pricer.price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
+        })
+        .map(PyMonteCarloResult::from_inner)
+        .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {
@@ -515,7 +519,14 @@ impl PyLsmcPricer {
         let basis = self.build_basis(strike)?;
         py.detach(|| {
             pricer.price_unbiased(
-                &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
+                &process,
+                spot,
+                expiry,
+                num_steps,
+                &exercise,
+                &basis,
+                ccy,
+                rate,
                 pricing_seed,
             )
         })
@@ -560,7 +571,14 @@ impl PyLsmcPricer {
         let basis = self.build_basis(strike)?;
         py.detach(|| {
             pricer.price_unbiased(
-                &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
+                &process,
+                spot,
+                expiry,
+                num_steps,
+                &exercise,
+                &basis,
+                ccy,
+                rate,
                 pricing_seed,
             )
         })

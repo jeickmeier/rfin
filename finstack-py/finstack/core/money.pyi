@@ -62,8 +62,7 @@ class Money:
         amount : float | int | decimal.Decimal
             Finite monetary amount. ``Decimal`` inputs preserve full precision
             (no IEEE 754 round-trip); ``float``/``int`` follow standard IEEE 754
-            semantics. Use ``Decimal`` for hedge-fund-grade notionals where
-            precision matters.
+            semantics. Use ``Decimal`` when exact decimal precision matters.
         currency : Currency | str
             Currency object or ISO-4217 alphabetic code string.
 

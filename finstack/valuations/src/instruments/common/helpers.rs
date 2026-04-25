@@ -48,23 +48,6 @@ pub fn year_fraction(dc: DayCount, start: Date, end: Date) -> finstack_core::Res
     dc.year_fraction(start, end, DayCountContext::default())
 }
 
-// Removed: `signed_year_fraction(dc, start, end) -> f64`
-//
-// This was a silent-zero wrapper around `DayCount::signed_year_fraction(start,
-// end, ctx) -> Result<f64>`. Two problems:
-//   1. Hiding the `Result` swallowed day-count failures everywhere it was
-//      called, including the cashflow-export path where errors should bubble.
-//   2. It also duplicated `finstack_core::DayCount::signed_year_fraction` (the
-//      canonical method).
-//
-// Inflation-lag callers genuinely want a silent zero on error (CPI lookups
-// degrade to the anchor on day-count failure), but they should opt into that
-// at the call site:
-//
-//     dc.signed_year_fraction(start, end, DayCountContext::default()).unwrap_or(0.0)
-//
-// All other callers should propagate via `?`.
-
 /// Schedule → PV helper that uses the curve's own day count convention.
 ///
 /// This variant ensures consistency between:
@@ -207,10 +190,7 @@ pub mod mc_defaults {
     /// allowed to allocate. Enforced by [`resolve_mc_paths`] to prevent a
     /// malformed `pricing_overrides.model_config.mc_paths` (or a typo) from
     /// taking down a pricing service via OOM.
-    ///
-    /// 5M paths × 8 bytes × ~10 floats per path state ≈ 400 MB — already a
-    /// concern in a multi-tenant pricing host; the cap is set conservatively
-    /// to reject anything obviously larger.
+    /// The cap is set conservatively for multi-tenant pricing hosts.
     pub const MAX_MC_PATHS: usize = 5_000_000;
 }
 

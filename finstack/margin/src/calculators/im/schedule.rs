@@ -441,8 +441,7 @@ impl ScheduleImCalculator {
         // non-negative `|mtm|` values, so it is always >= 0, but we
         // still use compensated summation for numerical consistency.
         let signed_mtm_sum: f64 = neumaier_sum(positions.iter().map(|(mtm, _)| mtm.amount()));
-        let gross_mtm_sum: f64 =
-            neumaier_sum(positions.iter().map(|(mtm, _)| mtm.amount().abs()));
+        let gross_mtm_sum: f64 = neumaier_sum(positions.iter().map(|(mtm, _)| mtm.amount().abs()));
         let gross_notional_sum: f64 = neumaier_sum(
             positions
                 .iter()
