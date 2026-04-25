@@ -23,6 +23,22 @@ pub fn year_fraction(dc: DayCount, start: Date, end: Date) -> finstack_core::Res
     dc.year_fraction(start, end, DayCountContext::default())
 }
 
+/// Compute a signed year fraction using `dc`.
+///
+/// Returns a positive value when `end >= start` and a negative value when
+/// `end < start`. This preserves the existing fallback behavior used by
+/// inflation curve lookups: day-count errors are treated as a zero interval.
+#[inline]
+pub(crate) fn signed_year_fraction(dc: DayCount, start: Date, end: Date) -> f64 {
+    if end >= start {
+        dc.year_fraction(start, end, DayCountContext::default())
+            .unwrap_or(0.0)
+    } else {
+        -dc.year_fraction(end, start, DayCountContext::default())
+            .unwrap_or(0.0)
+    }
+}
+
 /// Schedule → PV helper that uses the curve's own day count convention.
 ///
 /// This variant ensures consistency between:

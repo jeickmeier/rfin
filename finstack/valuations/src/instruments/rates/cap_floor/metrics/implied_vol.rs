@@ -13,10 +13,9 @@
 use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
 };
-use crate::instruments::rates::cap_floor::pricing::black::{
-    price_caplet_floorlet, CapletFloorletInputs,
-};
-use crate::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use crate::instruments::rates::cap_floor::pricing::black::price_caplet_floorlet;
+use crate::instruments::rates::cap_floor::pricing::payoff::CapletFloorletInputs;
+use crate::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
@@ -32,7 +31,7 @@ pub(crate) struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &InterestRateOption = context.instrument_as()?;
+        let option: &CapFloor = context.instrument_as()?;
         let strike = option.strike_f64()?;
 
         // Implied vol is only well-defined for single-period caplets/floorlets.

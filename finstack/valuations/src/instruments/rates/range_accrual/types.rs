@@ -315,7 +315,7 @@ impl crate::instruments::common_impl::traits::Instrument for RangeAccrual {
     impl_instrument_base!(crate::pricer::InstrumentType::RangeAccrual);
 
     fn default_model(&self) -> crate::pricer::ModelKey {
-        crate::pricer::ModelKey::MonteCarloGBM
+        crate::pricer::ModelKey::StaticReplication
     }
 
     fn market_dependencies(
@@ -361,6 +361,39 @@ impl crate::instruments::common_impl::traits::CurveDependencies for RangeAccrual
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
+    }
+}
+
+impl crate::instruments::common_impl::traits::EquityDependencies for RangeAccrual {
+    fn equity_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::EquityInstrumentDeps> {
+        crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
+            .spot(self.spot_id.as_str())
+            .vol_surface(self.vol_surface_id.as_str())
+            .build()
+    }
+}
+
+impl crate::metrics::HasPricingOverrides for RangeAccrual {
+    fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides {
+        &mut self.pricing_overrides
+    }
+}
+
+impl crate::metrics::HasExpiry for RangeAccrual {
+    fn expiry(&self) -> finstack_core::dates::Date {
+        self.observation_dates
+            .last()
+            .copied()
+            .or(self.payment_date)
+            .unwrap_or(Date::MIN)
+    }
+}
+
+impl crate::metrics::HasDayCount for RangeAccrual {
+    fn day_count(&self) -> finstack_core::dates::DayCount {
+        self.day_count
     }
 }
 

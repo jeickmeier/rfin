@@ -174,7 +174,7 @@ fn test_payment_delay_sensitivity() {
         .insert(fwd)
         .insert_series(fixings);
 
-    let mut irs = InterestRateSwap::example().unwrap();
+    let mut irs = InterestRateSwap::example_standard().unwrap();
     irs.fixed.discount_curve_id = "DISC".into();
     irs.float.discount_curve_id = "DISC".into();
     irs.float.forward_curve_id = "FWD".into();

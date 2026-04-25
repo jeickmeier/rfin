@@ -8,7 +8,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
@@ -57,7 +57,7 @@ fn test_black_model_symmetry() {
     let start = date!(2024 - 01 - 01);
     let end = date!(2024 - 04 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -117,7 +117,7 @@ fn test_vega_gamma_relation() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2025 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_RELATIONS".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -180,7 +180,7 @@ fn test_delta_by_finite_difference() {
     let start = date!(2024 - 03 - 01); // Future start to get t_fix > 0
     let end = date!(2024 - 06 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_FD".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -271,7 +271,7 @@ fn test_vega_by_finite_difference() {
     let start = date!(2024 - 01 - 01);
     let end = date!(2024 - 04 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_VEGA_FD".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -364,7 +364,7 @@ fn test_numerical_stability_extreme_params() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2054 - 01 - 01); // 30 year cap
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_EXTREME".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(100_000_000.0, Currency::USD), // $100MM

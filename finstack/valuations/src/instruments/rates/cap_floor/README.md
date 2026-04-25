@@ -15,11 +15,11 @@
 ## Usage Example
 
 ```rust
-use finstack_valuations::instruments::rates::cap_floor::InterestRateOption;
+use finstack_valuations::instruments::rates::cap_floor::CapFloor;
 use finstack_core::{currency::Currency, dates::*, money::Money, types::CurveId};
 use time::Month;
 
-let cap = InterestRateOption::new_cap(
+let cap = CapFloor::new_cap(
     "CAP-1Y",
     Money::new(10_000_000.0, Currency::USD),
     0.035,

@@ -76,9 +76,13 @@ fn test_bermudan_price_positive() {
     let curve = test_discount_curve();
 
     let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-    let model =
-        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
-            .expect("Calibration should succeed");
+    let model = CalibratedHullWhiteModel::calibrate(
+        HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+        50,
+        &curve,
+        ttm,
+    )
+    .expect("Calibration should succeed");
 
     let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
         .expect("Valid valuator");
@@ -107,9 +111,13 @@ fn test_bermudan_payer_vs_receiver() {
 
     let curve = test_discount_curve();
     let ttm = payer.time_to_maturity(as_of).expect("Valid ttm");
-    let model =
-        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
-            .expect("Calibration should succeed");
+    let model = CalibratedHullWhiteModel::calibrate(
+        HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+        50,
+        &curve,
+        ttm,
+    )
+    .expect("Calibration should succeed");
 
     let payer_valuator =
         BermudanSwaptionTreeValuator::new(&payer, &model, &curve, as_of).expect("Valid valuator");
@@ -146,9 +154,13 @@ fn test_bermudan_strike_sensitivity() {
 
     let curve = test_discount_curve();
     let ttm = low_strike.time_to_maturity(as_of).expect("Valid ttm");
-    let model =
-        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
-            .expect("Calibration should succeed");
+    let model = CalibratedHullWhiteModel::calibrate(
+        HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+        50,
+        &curve,
+        ttm,
+    )
+    .expect("Calibration should succeed");
 
     let low_price = BermudanSwaptionTreeValuator::new(&low_strike, &model, &curve, as_of)
         .expect("Valid valuator")
@@ -193,9 +205,13 @@ fn test_bermudan_more_exercise_dates_higher_value() {
 
     let curve = test_discount_curve();
     let ttm = early_swaption.time_to_maturity(as_of).expect("Valid ttm");
-    let model =
-        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
-            .expect("Calibration should succeed");
+    let model = CalibratedHullWhiteModel::calibrate(
+        HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+        50,
+        &curve,
+        ttm,
+    )
+    .expect("Calibration should succeed");
 
     let early_price = BermudanSwaptionTreeValuator::new(&early_swaption, &model, &curve, as_of)
         .expect("Valid valuator")

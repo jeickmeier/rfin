@@ -3,34 +3,11 @@
 //! This pricing path is used when cap/floor volatility is quoted in normal terms
 //! (absolute rate units), which is common in low/negative-rate environments.
 
+use super::payoff::CapletFloorletInputs;
 use crate::instruments::common_impl::models::volatility::normal::{bachelier_price, d_bachelier};
 use crate::instruments::common_impl::parameters::OptionType;
-use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
-
-/// Inputs for normal (Bachelier) caplet/floorlet pricing.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct CapletFloorletInputs {
-    /// True for caplet, false for floorlet
-    pub(crate) is_cap: bool,
-    /// Notional amount
-    pub(crate) notional: f64,
-    /// Strike rate (as decimal)
-    pub(crate) strike: f64,
-    /// Forward rate (as decimal)
-    pub(crate) forward: f64,
-    /// Discount factor to payment date
-    pub(crate) discount_factor: f64,
-    /// Normal volatility (absolute rate units, annualized)
-    pub(crate) volatility: f64,
-    /// Time to fixing date in years
-    pub(crate) time_to_fixing: f64,
-    /// Accrual year fraction for the period
-    pub(crate) accrual_year_fraction: f64,
-    /// Currency for the cashflow
-    pub(crate) currency: Currency,
-}
 
 /// Price a caplet/floorlet using Bachelier's normal model.
 pub(crate) fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Result<Money> {

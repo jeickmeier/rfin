@@ -8,7 +8,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
@@ -55,7 +55,7 @@ fn test_zero_vol_itm_cap() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_ZERO_VOL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -99,7 +99,7 @@ fn test_zero_vol_otm_cap() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_ZERO_VOL_OTM".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -147,7 +147,7 @@ fn test_very_high_strike() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_HIGH_STRIKE".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -192,7 +192,7 @@ fn test_very_low_strike_floor() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let floor = InterestRateOption {
+    let floor = CapFloor {
         id: "FLOOR_LOW_STRIKE".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -237,7 +237,7 @@ fn test_very_short_maturity() {
     let start = date!(2024 - 01 - 01);
     let end = date!(2024 - 01 - 08); // 1 week
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_SHORT".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -282,7 +282,7 @@ fn test_expired_cap() {
     let start = date!(2022 - 01 - 01); // Past
     let end = date!(2023 - 01 - 01); // Past but still after start
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_EXPIRED".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -332,7 +332,7 @@ fn test_zero_notional() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_ZERO_NOTIONAL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(0.0, Currency::USD),
@@ -386,7 +386,7 @@ fn test_very_high_vol() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_HIGH_VOL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),

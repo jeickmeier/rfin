@@ -2,11 +2,12 @@
 //!
 //! This module provides two pricing methods:
 //!
-//! 1. **Static Replication (Default)**: Uses digital call spread replication to price
-//!    the range accrual analytically. Captures volatility skew/smile naturally.
+//! 1. **Static Replication (Default, `ModelKey::StaticReplication`)**: Uses digital
+//!    call spread replication to price the range accrual analytically. Captures
+//!    volatility skew/smile naturally.
 //!
-//! 2. **Monte Carlo**: Path-dependent simulation for complex cases or when explicitly
-//!    requested via `mc_seed_scenario` override.
+//! 2. **Monte Carlo (`ModelKey::MonteCarloGBM`)**: Path-dependent simulation for
+//!    complex cases.
 //!
 //! Both methods support:
 //! - Absolute or relative bounds (via `BoundsType`)
@@ -253,20 +254,47 @@ impl Pricer for RangeAccrualMcPricer {
     }
 }
 
+/// Range accrual static replication pricer.
+pub struct RangeAccrualStaticReplicationPricer;
+
+impl Pricer for RangeAccrualStaticReplicationPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::RangeAccrual, ModelKey::StaticReplication)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<ValuationResult> {
+        let range_accrual = instrument
+            .as_any()
+            .downcast_ref::<RangeAccrual>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::RangeAccrual, instrument.key())
+            })?;
+
+        let pv = npv_analytic(range_accrual, market, as_of).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+
+        Ok(ValuationResult::stamped(range_accrual.id(), as_of, pv))
+    }
+}
+
 /// Present value using Monte Carlo.
 pub(crate) fn compute_pv(
     inst: &RangeAccrual,
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<Money> {
-    // If explicit model choice is not MC, prefer Analytic Static Replication
-    // (Currently assuming Analytic is the "Standard" for simple range accruals)
-    // We can add a flag in PricingOverrides if the user wants to force MC.
-    // For now, we route to Analytic by default as it is more accurate for skew.
-
-    // Check if forced MC (future feature? or infer from overrides?)
-    // If 'mc_seed_scenario' is set, user likely expects MC.
     if inst.pricing_overrides.metrics.mc_seed_scenario.is_some() {
+        tracing::warn!(
+            instrument_id = %inst.id,
+            "range_accrual mc_seed_scenario override forcing MonteCarloGBM is deprecated; \
+             price with ModelKey::MonteCarloGBM instead"
+        );
         let pricer = RangeAccrualMcPricer::new();
         pricer.price_internal(inst, curves, as_of)
     } else {

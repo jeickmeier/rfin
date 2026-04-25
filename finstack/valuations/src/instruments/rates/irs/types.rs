@@ -12,11 +12,11 @@ use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, StubK
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::market::conventions::ids::IndexId;
@@ -350,7 +350,7 @@ impl InterestRateSwap {
     /// ```
     /// use finstack_valuations::instruments::rates::irs::InterestRateSwap;
     ///
-    /// let swap = InterestRateSwap::example()?;
+    /// let swap = InterestRateSwap::example_standard()?;
     /// swap.validate()?; // Passes for valid swap
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
@@ -462,15 +462,15 @@ impl InterestRateSwap {
         })?;
 
         // Validate fixed rate is within reasonable bounds
-        let rate_f64 = self.fixed.rate.to_f64().unwrap_or(0.0);
-        if rate_f64.abs() > MAX_RATE_MAGNITUDE {
-            return Err(finstack_core::Error::Validation(format!(
-                "Invalid fixed rate: {:.2}% exceeds maximum allowed magnitude ({:.0}%). \
-                 This may indicate a units error (rate should be decimal, e.g., 0.05 for 5%).",
-                rate_f64 * 100.0,
-                MAX_RATE_MAGNITUDE * 100.0
-            )));
-        }
+        let rate_f64 = decimal_to_f64(self.fixed.rate, "fixed rate")?;
+        validation::validate_rate_magnitude(
+            rate_f64,
+            MAX_RATE_MAGNITUDE,
+            "fixed rate",
+            100.0,
+            "%",
+            "This may indicate a units error (rate should be decimal, e.g., 0.05 for 5%).",
+        )?;
 
         // Warn-level check: legs should typically have matching date ranges
         if self.fixed.start != self.float.start || self.fixed.end != self.float.end {
@@ -483,136 +483,6 @@ impl InterestRateSwap {
         }
 
         Ok(())
-    }
-
-    /// Create a minimal example IRS for testing and documentation.
-    ///
-    /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
-    ///
-    /// **Note:** This example uses simplified defaults (`reset_lag_days: 0`,
-    /// `payment_lag_days: 0`, no calendar) to avoid requiring historical fixings
-    /// or calendar data. For an ISDA-standard USD swap with proper market
-    /// conventions, use [`example_standard()`](Self::example_standard).
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
-    pub fn example() -> finstack_core::Result<Self> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-
-        let swap = Self::builder()
-            .id(InstrumentId::new("IRS-5Y-USD"))
-            .notional(Money::new(10_000_000.0, Currency::USD))
-            .side(PayReceive::PayFixed)
-            .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
-                discount_curve_id: CurveId::new("USD-OIS"),
-                rate: Decimal::try_from(0.03_f64).expect("valid literal"),
-                frequency: Tenor::semi_annual(),
-                day_count: DayCount::Thirty360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: StubKind::None,
-                start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
-                })?,
-                end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
-                })?,
-                par_method: None,
-                compounding_simple: true,
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
-            .float(crate::instruments::common_impl::parameters::FloatLegSpec {
-                discount_curve_id: CurveId::new("USD-OIS"),
-                forward_curve_id: CurveId::new("USD-SOFR-3M"),
-                spread_bp: Decimal::ZERO,
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: StubKind::None,
-                // Use 0 for example to avoid requiring historical fixings
-                reset_lag_days: 0,
-                start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
-                })?,
-                end: Date::from_calendar_date(2029, time::Month::January, 1).map_err(|e| {
-                    finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
-                })?,
-                compounding: Default::default(),
-                fixing_calendar_id: None,
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
-            .build()?;
-
-        // Validate the swap parameters
-        swap.validate()?;
-
-        Ok(swap)
-    }
-
-    /// Create a SOFR OIS swap with compounded-in-arrears floating leg.
-    ///
-    /// Returns a 5-year pay-fixed SOFR OIS swap with overnight compounding
-    /// per ISDA 2021 and ARRC conventions:
-    /// - **Fixed leg:** Annual, ACT/360, 3.5% coupon
-    /// - **Float leg:** Annual, ACT/360, SOFR compounded-in-arrears (2-day lookback)
-    /// - **Notional:** $10M USD
-    /// - **Calendar:** USNY
-    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
-    pub fn example_sofr_ois() -> finstack_core::Result<Self> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-
-        let start = Date::from_calendar_date(2024, time::Month::March, 1).map_err(|e| {
-            finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
-        })?;
-        let end = Date::from_calendar_date(2029, time::Month::March, 1).map_err(|e| {
-            finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
-        })?;
-
-        let swap = Self::builder()
-            .id(InstrumentId::new("OIS-5Y-SOFR"))
-            .notional(Money::new(10_000_000.0, Currency::USD))
-            .side(PayReceive::PayFixed)
-            .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
-                discount_curve_id: CurveId::new("USD-OIS"),
-                rate: Decimal::try_from(0.035_f64).expect("valid literal"),
-                frequency: Tenor::annual(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("usny".to_string()),
-                stub: StubKind::ShortFront,
-                start,
-                end,
-                par_method: None,
-                compounding_simple: true,
-                payment_lag_days: 2,
-                end_of_month: false,
-            })
-            .float(crate::instruments::common_impl::parameters::FloatLegSpec {
-                discount_curve_id: CurveId::new("USD-OIS"),
-                forward_curve_id: CurveId::new("USD-SOFR"),
-                spread_bp: Decimal::ZERO,
-                frequency: Tenor::annual(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("usny".to_string()),
-                stub: StubKind::ShortFront,
-                reset_lag_days: 0,
-                fixing_calendar_id: Some("usny".to_string()),
-                start,
-                end,
-                compounding:
-                    crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
-                        lookback_days: 2,
-                        observation_shift: None,
-                    },
-                payment_lag_days: 2,
-                end_of_month: false,
-            })
-            .build()?;
-
-        swap.validate()?;
-        Ok(swap)
     }
 
     /// Create an ISDA-standard USD 5Y IRS for testing and documentation.
@@ -765,15 +635,30 @@ mod tests {
     fn validate_accepts_extreme_but_valid_rate() {
         // Decimal doesn't have NaN/Infinity, so we just test that validation works
         // for extreme but valid values
-        let swap = InterestRateSwap::example().expect("example swap");
+        let swap = InterestRateSwap::example_standard().expect("example swap");
         // Should pass validation
         assert!(swap.validate().is_ok(), "Valid swap should pass validation");
     }
 
     #[test]
+    fn validate_rejects_extreme_fixed_rate_without_silent_default() {
+        let mut swap = InterestRateSwap::example_standard().expect("example swap");
+        swap.fixed.rate = Decimal::MAX;
+
+        let err = swap
+            .validate()
+            .expect_err("extreme fixed rate should be rejected");
+        let message = err.to_string();
+        assert!(
+            message.contains("fixed rate") && message.contains("exceeds maximum allowed magnitude"),
+            "unexpected error: {message}"
+        );
+    }
+
+    #[test]
     fn validate_allows_small_negative_as_convention_sentinel() {
         // Small negative values (like -1) are allowed as sentinels for "use convention default"
-        let mut swap = InterestRateSwap::example().expect("example swap");
+        let mut swap = InterestRateSwap::example_standard().expect("example swap");
         swap.fixed.payment_lag_days = -1;
         assert!(
             swap.validate().is_ok(),
@@ -784,7 +669,7 @@ mod tests {
     #[test]
     fn validate_rejects_large_negative_payment_delay() {
         // Large negative values are rejected as likely unit mistakes
-        let mut swap = InterestRateSwap::example().expect("example swap");
+        let mut swap = InterestRateSwap::example_standard().expect("example swap");
         swap.fixed.payment_lag_days = -100;
         assert!(
             swap.validate().is_err(),

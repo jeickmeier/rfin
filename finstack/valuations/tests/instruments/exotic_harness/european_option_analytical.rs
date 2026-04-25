@@ -67,7 +67,7 @@ fn short_rate_european_call_matches_analytical() {
     let expected = notional * ((mu - strike) * norm_cdf(d) + sig_r * normal_pdf(d));
 
     let pricer = RateExoticHw1fMcPricer {
-        hw_params: HullWhiteParams::new(kappa, sigma),
+        hw_params: HullWhiteParams::new(kappa, sigma).expect("valid HW params"),
         r0,
         theta: 0.0,
         event_times: vec![t],

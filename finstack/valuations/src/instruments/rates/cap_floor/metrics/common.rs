@@ -3,7 +3,7 @@
 //! Provides a DRY aggregation helper to iterate caplets/floorlets and sum
 //! contributions for a given functional form (e.g., delta/gamma/vega/theta).
 
-use crate::instruments::rates::cap_floor::InterestRateOption;
+use crate::instruments::rates::cap_floor::CapFloor;
 use crate::metrics::MetricContext;
 
 const MIN_EFFECTIVE_FIXING_TIME: f64 = 1e-6;
@@ -19,7 +19,7 @@ const MIN_EFFECTIVE_FIXING_TIME: f64 = 1e-6;
 /// `accrual_start`. This ensures Greeks are computed on the same dates as
 /// pricing, which matters for indices with non-zero reset lags (e.g., SOFR 2-day lookback).
 pub(crate) fn aggregate_over_caplets<FN>(
-    option: &InterestRateOption,
+    option: &CapFloor,
     context: &MetricContext,
     mut f: FN,
 ) -> finstack_core::Result<f64>

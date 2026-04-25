@@ -1,12 +1,167 @@
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::cap_floor::InterestRateOption;
+use crate::instruments::rates::cap_floor::pricing::payoff::CapletFloorletInputs;
+use crate::instruments::rates::cap_floor::{CapFloor, CapFloorVolType, RateOptionType};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
+use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 
-// ========================= NEW SIMPLIFIED PRICER =========================
+/// Minimum time-to-fixing for vol surface lookup (in years).
+///
+/// When a caplet is at or past its fixing date (`t_fix <= 0`), the vol surface lookup
+/// still requires a positive time input. This constant provides a small floor (~31.5 seconds)
+/// to avoid numerical issues while still returning a near-expiry volatility.
+///
+/// The choice of 1e-6 years is small enough to not materially affect the volatility lookup
+/// but large enough to avoid potential division-by-zero or log(0) issues in vol surface
+/// interpolation. For seasoned caplets, the Black formula will use intrinsic value anyway,
+/// so the exact vol returned is not critical.
+const MIN_VOL_LOOKUP_TIME: f64 = 1e-6;
+
+/// Resolve the effective vol type.
+///
+/// `Auto` selects a compatible model based on forward/strike sign. Explicit
+/// model selections remain explicit and should fail if their domain
+/// assumptions are violated.
+fn resolve_vol_type(vol_type: CapFloorVolType, forward: f64, strike: f64) -> CapFloorVolType {
+    match vol_type {
+        CapFloorVolType::Auto => {
+            if forward > 0.0 && strike > 0.0 {
+                CapFloorVolType::Lognormal
+            } else {
+                CapFloorVolType::Normal
+            }
+        }
+        CapFloorVolType::Lognormal => CapFloorVolType::Lognormal,
+        CapFloorVolType::ShiftedLognormal => CapFloorVolType::ShiftedLognormal,
+        other => other,
+    }
+}
+
+fn cap_floor_fixing_series_id(forward_curve_id: &CurveId) -> String {
+    finstack_core::market_data::fixings::fixing_series_id(forward_curve_id.as_str())
+}
+
+fn historical_cap_floor_fixing(
+    curves: &MarketContext,
+    forward_curve_id: &CurveId,
+    fixing_date: Date,
+) -> finstack_core::Result<f64> {
+    let fixings_id = cap_floor_fixing_series_id(forward_curve_id);
+    let series = curves.get_series(&fixings_id).map_err(|_| {
+        finstack_core::Error::Validation(format!(
+            "Seasoned cap/floor requires historical fixing series '{}' for fixing date {}. \
+             Fixed-but-unpaid coupons must be valued off observed fixings, not the live forward curve.",
+            fixings_id, fixing_date
+        ))
+    })?;
+    series.value_on_exact(fixing_date)
+}
+
+pub(crate) fn price_cap_floor(
+    cap_floor: &CapFloor,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<Money> {
+    use crate::instruments::common_impl::pricing::time::{
+        rate_period_on_dates, relative_df_discount_curve,
+    };
+    use crate::instruments::rates::cap_floor::pricing::{black, normal};
+
+    let disc_curve = curves.get_discount(cap_floor.discount_curve_id.as_ref())?;
+    let fwd_curve = curves.get_forward(cap_floor.forward_curve_id.as_ref())?;
+    let vol_surface = curves.get_surface(cap_floor.vol_surface_id.as_str())?;
+    let strike = cap_floor.strike_f64()?;
+
+    let mut total_pv = Money::new(0.0, cap_floor.notional.currency());
+    let dc_ctx = DayCountContext::default();
+    let periods = cap_floor.pricing_periods()?;
+    if periods.is_empty() {
+        return Ok(total_pv);
+    }
+
+    let is_cap = matches!(
+        cap_floor.rate_option_type,
+        RateOptionType::Caplet | RateOptionType::Cap
+    );
+    for period in periods {
+        let pay = period.payment_date;
+        if pay <= as_of {
+            continue;
+        }
+
+        let fixing_date = period.reset_date.unwrap_or(period.accrual_start);
+        let is_fixed_unpaid = fixing_date < as_of;
+        let t_fix = if is_fixed_unpaid {
+            0.0
+        } else {
+            cap_floor
+                .day_count
+                .year_fraction(as_of, fixing_date, dc_ctx)?
+        };
+        let effective_t_fix = if is_fixed_unpaid {
+            0.0
+        } else {
+            t_fix.max(MIN_VOL_LOOKUP_TIME)
+        };
+
+        let forward = if is_fixed_unpaid {
+            historical_cap_floor_fixing(curves, &cap_floor.forward_curve_id, fixing_date)?
+        } else {
+            rate_period_on_dates(fwd_curve.as_ref(), period.accrual_start, period.accrual_end)?
+        };
+        let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
+        let sigma = if effective_t_fix > 0.0 {
+            vol_surface.value_clamped(effective_t_fix, strike)
+        } else {
+            0.0
+        };
+        let tau = period.accrual_year_fraction;
+
+        let inputs = || CapletFloorletInputs {
+            is_cap,
+            notional: cap_floor.notional.amount(),
+            strike,
+            forward,
+            discount_factor: df,
+            volatility: sigma,
+            time_to_fixing: effective_t_fix,
+            accrual_year_fraction: tau,
+            currency: cap_floor.notional.currency(),
+        };
+        let vol_shift = cap_floor.resolved_vol_shift();
+        let resolved = resolve_vol_type(cap_floor.vol_type, forward, strike);
+        let leg_pv = match resolved {
+            CapFloorVolType::Lognormal => {
+                if forward > 0.0 {
+                    black::price_caplet_floorlet(inputs())?
+                } else {
+                    normal::price_caplet_floorlet(inputs())?
+                }
+            }
+            CapFloorVolType::ShiftedLognormal => {
+                black::price_caplet_floorlet(CapletFloorletInputs {
+                    strike: strike + vol_shift,
+                    forward: forward + vol_shift,
+                    ..inputs()
+                })?
+            }
+            CapFloorVolType::Normal => normal::price_caplet_floorlet(inputs())?,
+            CapFloorVolType::Auto => {
+                return Err(finstack_core::Error::Validation(
+                    "internal error: cap/floor vol_type resolved to Auto".to_string(),
+                ));
+            }
+        };
+        total_pv = total_pv.checked_add(leg_pv)?;
+    }
+
+    Ok(total_pv)
+}
 
 /// New simplified Cap/Floor pricer supporting multiple models.
 pub(crate) struct SimpleCapFloorBlackPricer {
@@ -47,14 +202,12 @@ impl Pricer for SimpleCapFloorBlackPricer {
         // Type-safe downcasting
         let cap_floor = instrument
             .as_any()
-            .downcast_ref::<InterestRateOption>()
+            .downcast_ref::<CapFloor>()
             .ok_or_else(|| {
                 PricingError::type_mismatch(InstrumentType::CapFloor, instrument.key())
             })?;
 
-        // Use the provided as_of date for consistency
-        // Compute present value using the instrument's npv method
-        let pv = cap_floor.value(market, as_of).map_err(|e| {
+        let pv = price_cap_floor(cap_floor, market, as_of).map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 

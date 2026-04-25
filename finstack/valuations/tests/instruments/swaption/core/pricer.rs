@@ -8,8 +8,8 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::swaption::{BermudanSchedule, BermudanSwaption};
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams, SABRParameters,
-    SimpleSwaptionBlackPricer,
+    BermudanSwaptionPricer, BermudanSwaptionPricerConfig, CalibratedHullWhiteModel,
+    HullWhiteParams, SABRParameters, SimpleSwaptionBlackPricer,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::{ModelKey, Pricer};
@@ -151,8 +151,10 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
         CalibratedHullWhiteModel::calibrate(HullWhiteParams::default(), 50, disc.as_ref(), ttm)
             .unwrap();
 
-    let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
-        .with_calibrated_model(model);
+    let pricer = BermudanSwaptionPricer::tree_with_config(BermudanSwaptionPricerConfig {
+        pre_calibrated_model: Some(model),
+        ..Default::default()
+    });
     let result = pricer.price_dyn(&swaption, &market, as_of).unwrap();
 
     let used_cached = result.measures.get("used_cached_model").copied().unwrap();
@@ -185,7 +187,7 @@ fn test_bermudan_pricer_expired_returns_zero() {
     .expect("valid literal strike");
 
     let market = create_flat_market(as_of, 0.03, 0.2);
-    let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default());
+    let pricer = BermudanSwaptionPricer::tree();
     let result = pricer.price_dyn(&swaption, &market, as_of).unwrap();
 
     assert_approx_eq(result.value.amount(), 0.0, 1e-12, "expired bermudan pv");
@@ -216,7 +218,7 @@ fn test_bermudan_tree_pricer_rejects_mixed_curves() {
     .expect("valid literal strike");
 
     let market = create_flat_market(as_of, 0.03, 0.2);
-    let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default());
+    let pricer = BermudanSwaptionPricer::tree();
     let err = pricer
         .price_dyn(&swaption, &market, as_of)
         .expect_err("mixed-curve Bermudan tree pricer should reject pricing");

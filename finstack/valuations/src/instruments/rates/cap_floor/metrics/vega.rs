@@ -1,6 +1,6 @@
 //! Vega calculator for interest rate options (caps/floors/caplets/floorlets).
 
-use crate::instruments::rates::cap_floor::{CapFloorVolType, InterestRateOption};
+use crate::instruments::rates::cap_floor::{CapFloor, CapFloorVolType};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -16,7 +16,7 @@ pub(crate) struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &InterestRateOption = context.instrument_as()?;
+        let option: &CapFloor = context.instrument_as()?;
         let strike = option.strike_f64()?;
         let vol_type = option.vol_type;
         let vol_shift = option.resolved_vol_shift();

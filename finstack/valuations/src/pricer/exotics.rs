@@ -104,6 +104,13 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         crate::instruments::rates::cms_swap::pricer::CmsSwapPricer::new(),
     );
 
+    // CMS Spread Option - Gaussian copula with SABR marginals
+    registry.register(
+        InstrumentType::CmsSpreadOption,
+        ModelKey::StaticReplication,
+        crate::instruments::rates::cms_spread_option::CmsSpreadOptionPricer::new(),
+    );
+
     // Cliquet Option
 
     registry.register(
@@ -116,26 +123,59 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
 
     registry.register(
         InstrumentType::RangeAccrual,
+        ModelKey::StaticReplication,
+        crate::instruments::rates::range_accrual::pricer::RangeAccrualStaticReplicationPricer,
+    );
+    registry.register(
+        InstrumentType::RangeAccrual,
         ModelKey::MonteCarloGBM,
         crate::instruments::rates::range_accrual::pricer::RangeAccrualMcPricer::default(),
     );
 
+    // TARN - Hull-White 1F Monte Carlo
+    registry.register(
+        InstrumentType::Tarn,
+        ModelKey::MonteCarloHullWhite1F,
+        crate::instruments::rates::tarn::TarnPricer::default(),
+    );
+
+    // Snowball / Inverse Floater
+    registry.register(
+        InstrumentType::Snowball,
+        ModelKey::MonteCarloHullWhite1F,
+        crate::instruments::rates::snowball::SnowballHw1fMcPricer::default(),
+    );
+    registry.register(
+        InstrumentType::Snowball,
+        ModelKey::Discounting,
+        crate::instruments::rates::snowball::SnowballDiscountingPricer,
+    );
+
+    // Callable Range Accrual - Hull-White 1F LSMC
+    registry.register(
+        InstrumentType::CallableRangeAccrual,
+        ModelKey::MonteCarloHullWhite1F,
+        crate::instruments::rates::callable_range_accrual::CallableRangeAccrualPricer::default(),
+    );
+
     // Bermudan Swaption LSMC (Hull-White 1F Monte Carlo).
     //
-    // Registered with `.require_calibration()`: uncalibrated
+    // Registered with `enforce_calibration`: uncalibrated
     // `HullWhiteParams::default()` (κ=3%, σ=1%) produces 10–30% errors
     // on early-exercise premia. Callers must supply calibrated params
-    // via `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree via
-    // `with_calibrated_model(...)`; otherwise pricing returns
+    // via `HullWhiteParams::new(κ, σ)` or a pre-calibrated tree on
+    // `BermudanSwaptionPricerConfig`; otherwise pricing returns
     // `PricingError::ModelFailure`.
 
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::MonteCarloHullWhite1F,
-        crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::lsmc_pricer(
-            crate::instruments::rates::swaption::pricer::HullWhiteParams::default(),
-        )
-        .require_calibration(),
+        crate::instruments::rates::swaption::BermudanSwaptionPricer::lsmc_with_config(
+            crate::instruments::rates::swaption::BermudanSwaptionPricerConfig {
+                enforce_calibration: true,
+                ..Default::default()
+            },
+        ),
     );
 
     // Bermudan Swaption - Hull-White 1F Tree. See note on the LSMC
@@ -143,10 +183,12 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::BermudanSwaption,
         ModelKey::HullWhite1F,
-        crate::instruments::rates::swaption::pricer::BermudanSwaptionPricer::tree_pricer(
-            crate::instruments::rates::swaption::pricer::HullWhiteParams::default(),
-        )
-        .require_calibration(),
+        crate::instruments::rates::swaption::BermudanSwaptionPricer::tree_with_config(
+            crate::instruments::rates::swaption::BermudanSwaptionPricerConfig {
+                enforce_calibration: true,
+                ..Default::default()
+            },
+        ),
     );
 
     // Barrier Option - PDE Crank-Nicolson 1D
@@ -190,25 +232,7 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
 
     // -- Exotic Rate Products --
     //
-    // The following instrument types do not have a registered pricer in this
-    // function:
-    //
-    //   * TARN
-    //   * Snowball / Inverse Floater
-    //   * CMS Spread Option
-    //   * Callable Range Accrual
-    //
-    // Each of these requires a Monte-Carlo, LSMC, or static-replication
-    // model that has not been implemented yet. An earlier revision attached
-    // a `ModelKey::Discounting` placeholder that routed to
-    // `GenericInstrumentPricer::discounting`, which in turn returned
-    // `Err(Error::Validation("…MC pricer required…"))`. Advertising a
-    // `Discounting` model key for these products was misleading because it
-    // implied a working discounting-only fallback.
-    //
-    // Leaving the registry empty for these `(instrument, model)` pairs
-    // produces a clean "no pricer registered" error from the registry. When
-    // a real MC/LSM/replication pricer lands, register it here under its
-    // actual model key (e.g. `ModelKey::MonteCarloGBM`,
-    // `ModelKey::MonteCarloHullWhite1F`, or `ModelKey::StaticReplication`).
+    // All JSON-tagged exotic rate products now have explicit model
+    // registrations. Avoid adding placeholder `Discounting` routes for
+    // products whose economics require a stochastic or replication model.
 }

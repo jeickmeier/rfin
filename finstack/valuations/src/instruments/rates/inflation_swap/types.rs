@@ -4,6 +4,8 @@ use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::helpers::signed_year_fraction;
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
@@ -14,7 +16,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::{CalendarId, CurveId, InstrumentId, Rate};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 /// Zero-coupon Inflation Swap instrument.
@@ -239,40 +240,6 @@ impl InflationSwap {
         Ok(i_maturity_projected / i_start)
     }
 
-    /// Compute signed year fraction (positive if end > start, negative if end < start).
-    ///
-    /// This is needed for inflation curve lookups where dates may be before the base date.
-    ///
-    /// # Day Count Convention
-    ///
-    /// Uses `Act365F` (Actual/365 Fixed) regardless of the instrument's `day_count` field because:
-    ///
-    /// 1. **Inflation curves use time in years**: Inflation curve knots are expressed in
-    ///    year fractions from the base date. Using a consistent day count ensures proper
-    ///    interpolation alignment.
-    ///
-    /// 2. **Market convention**: Inflation curves are typically constructed with Act365F
-    ///    or Act/Act, making Act365F a reasonable default for curve time calculations.
-    ///
-    /// 3. **Separation of concerns**: The instrument's `day_count` field controls fixed leg
-    ///    accrual calculation, while inflation curve lookups use curve-native conventions.
-    ///
-    /// Note: The instrument's `day_count` field is used for fixed leg compounding
-    /// (see `pv_fixed_leg`), while this function is used only for inflation curve lookups.
-    #[allow(dead_code)]
-    fn signed_year_fraction(start: Date, end: Date) -> f64 {
-        if end >= start {
-            DayCount::Act365F
-                .year_fraction(start, end, finstack_core::dates::DayCountContext::default())
-                .unwrap_or(0.0)
-        } else {
-            // Negative year fraction for dates before the base
-            -DayCount::Act365F
-                .year_fraction(end, start, finstack_core::dates::DayCountContext::default())
-                .unwrap_or(0.0)
-        }
-    }
-
     fn curve_cpi_value(
         curve: &finstack_core::market_data::term_structures::InflationCurve,
         fallback_base: Date,
@@ -281,7 +248,7 @@ impl InflationSwap {
         let default_anchor =
             Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         if curve.base_date() == default_anchor {
-            let t = Self::signed_year_fraction(fallback_base, lookup_date);
+            let t = signed_year_fraction(DayCount::Act365F, fallback_base, lookup_date);
             Ok(curve.cpi(t))
         } else {
             curve.cpi_on_date(lookup_date)
@@ -327,11 +294,7 @@ impl InflationSwap {
             finstack_core::dates::DayCountContext::default(),
         )?;
 
-        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "InflationSwap fixed_rate could not be converted to f64".to_string(),
-            )
-        })?;
+        let fixed_rate = decimal_to_f64(self.fixed_rate, "InflationSwap fixed_rate")?;
         let fixed_payment = self.notional * ((1.0 + fixed_rate).powf(tau_accrual) - 1.0);
 
         // Use curve's day count for discounting (market standard)
@@ -353,11 +316,7 @@ impl InflationSwap {
             self.maturity,
             finstack_core::dates::DayCountContext::default(),
         )?;
-        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "InflationSwap fixed_rate could not be converted to f64".to_string(),
-            )
-        })?;
+        let fixed_rate = decimal_to_f64(self.fixed_rate, "InflationSwap fixed_rate")?;
         Ok(self.notional * ((1.0 + fixed_rate).powf(tau_accrual) - 1.0))
     }
 
@@ -666,23 +625,6 @@ impl YoYInflationSwap {
         crate::instruments::common_impl::helpers::apply_inflation_lag(date, lag)
     }
 
-    /// Compute signed year fraction for inflation curve lookups.
-    ///
-    /// Uses Act365F for inflation curve time calculations (see `InflationSwap::signed_year_fraction`
-    /// for detailed rationale). The instrument's `day_count` field is used for fixed leg accrual only.
-    #[allow(dead_code)]
-    fn signed_year_fraction(start: Date, end: Date) -> f64 {
-        if end >= start {
-            DayCount::Act365F
-                .year_fraction(start, end, DayCountContext::default())
-                .unwrap_or(0.0)
-        } else {
-            -DayCount::Act365F
-                .year_fraction(end, start, DayCountContext::default())
-                .unwrap_or(0.0)
-        }
-    }
-
     fn cpi_value(
         &self,
         curves: &MarketContext,
@@ -756,11 +698,7 @@ impl YoYInflationSwap {
             let cpi_end = self.cpi_value(curves, as_of, end)?;
 
             let inflation_leg = self.notional.amount() * (cpi_end / cpi_start - 1.0);
-            let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "YoYInflationSwap fixed_rate could not be converted to f64".to_string(),
-                )
-            })?;
+            let fixed_rate = decimal_to_f64(self.fixed_rate, "YoYInflationSwap fixed_rate")?;
             let fixed_leg = self.notional.amount() * fixed_rate * accrual;
 
             let net = match self.side {
@@ -837,11 +775,7 @@ impl YoYInflationSwap {
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         let mut flows = Vec::new();
-        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "YoYInflationSwap fixed_rate could not be converted to f64".to_string(),
-            )
-        })?;
+        let fixed_rate = decimal_to_f64(self.fixed_rate, "YoYInflationSwap fixed_rate")?;
 
         for (start, end, pay) in self.schedule()? {
             let accrual = self

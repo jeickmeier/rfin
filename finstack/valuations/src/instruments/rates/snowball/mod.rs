@@ -16,6 +16,8 @@
 //! - [`SnowballVariant`] for variant selection
 
 pub(crate) mod metrics;
+pub(crate) mod pricer;
 pub(crate) mod types;
 
+pub use pricer::{SnowballDiscountingPricer, SnowballHw1fMcPricer};
 pub use types::{Snowball, SnowballVariant};

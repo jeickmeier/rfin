@@ -23,10 +23,9 @@
 
 #![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
+use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
-use crate::instruments::rates::swaption::{
-    BermudanSwaption, CalibratedHullWhiteModel, HullWhiteParams,
-};
+use crate::instruments::rates::swaption::{BermudanSwaption, CalibratedHullWhiteModel};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
@@ -152,7 +151,7 @@ impl BermudanDeltaCalculator {
 
         validate_hw_greek_params(self.kappa, sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
-            HullWhiteParams::new(self.kappa, sigma),
+            HullWhiteParams::new(self.kappa, sigma)?,
             self.tree_steps,
             disc,
             ttm,
@@ -286,7 +285,7 @@ impl BermudanVegaCalculator {
 
         validate_hw_greek_params(self.kappa, sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
-            HullWhiteParams::new(self.kappa, sigma),
+            HullWhiteParams::new(self.kappa, sigma)?,
             self.tree_steps,
             disc,
             ttm,
@@ -409,7 +408,7 @@ impl BermudanGammaCalculator {
 
         validate_hw_greek_params(self.kappa, sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
-            HullWhiteParams::new(self.kappa, sigma),
+            HullWhiteParams::new(self.kappa, sigma)?,
             self.tree_steps,
             disc,
             ttm,
@@ -605,7 +604,7 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
 
         validate_hw_greek_params(self.kappa, self.sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
-            HullWhiteParams::new(self.kappa, self.sigma),
+            HullWhiteParams::new(self.kappa, self.sigma)?,
             self.tree_steps,
             disc.as_ref(),
             ttm,
@@ -733,9 +732,13 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
 
-        let model =
-            CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 30, &curve, ttm)
-                .expect("Valid model");
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+            30,
+            &curve,
+            ttm,
+        )
+        .expect("Valid model");
         let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
             .expect("Valid valuator");
 

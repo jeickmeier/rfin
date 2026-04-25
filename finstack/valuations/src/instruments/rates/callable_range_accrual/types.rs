@@ -2,72 +2,12 @@
 
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
-use crate::instruments::common_impl::validation;
-use crate::instruments::rates::range_accrual::BoundsType;
+use crate::instruments::rates::range_accrual::{BoundsType, RangeAccrual};
 use crate::instruments::rates::shared::bermudan_call::BermudanCallProvision;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, PriceId};
-
-/// Core range accrual parameters extracted for reuse in callable wrapper.
-///
-/// Mirrors the essential fields from [`crate::instruments::rates::range_accrual::RangeAccrual`]
-/// without the instrument-level metadata (id, attributes, overrides).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct RangeAccrualSpec {
-    /// Underlying ticker.
-    pub underlying_ticker: String,
-    /// Observation dates (must be sorted ascending).
-    #[schemars(with = "Vec<String>")]
-    pub observation_dates: Vec<Date>,
-    /// Lower bound of accrual range.
-    pub lower_bound: f64,
-    /// Upper bound of accrual range.
-    pub upper_bound: f64,
-    /// Bounds interpretation.
-    #[serde(default)]
-    pub bounds_type: BoundsType,
-    /// Coupon rate when in range.
-    pub coupon_rate: f64,
-    /// Notional.
-    pub notional: Money,
-    /// Day count convention.
-    pub day_count: DayCount,
-    /// Spot price identifier.
-    pub spot_id: PriceId,
-}
-
-impl RangeAccrualSpec {
-    /// Validate the range accrual spec parameters.
-    pub fn validate(&self) -> finstack_core::Result<()> {
-        validation::require_with(!self.observation_dates.is_empty(), || {
-            "RangeAccrualSpec requires at least one observation date".to_string()
-        })?;
-
-        validation::validate_sorted_strict(
-            &self.observation_dates,
-            "RangeAccrualSpec observation_dates",
-        )?;
-
-        validation::require_with(self.lower_bound < self.upper_bound, || {
-            format!(
-                "RangeAccrualSpec lower_bound ({}) must be strictly less than upper_bound ({})",
-                self.lower_bound, self.upper_bound
-            )
-        })?;
-
-        validation::require_with(self.coupon_rate >= 0.0, || {
-            format!(
-                "RangeAccrualSpec coupon_rate ({}) must be non-negative",
-                self.coupon_rate
-            )
-        })?;
-
-        Ok(())
-    }
-}
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Callable Range Accrual.
 ///
@@ -92,14 +32,10 @@ impl RangeAccrualSpec {
 pub struct CallableRangeAccrual {
     /// Unique instrument identifier.
     pub id: InstrumentId,
-    /// Underlying range accrual specification (observation dates, bounds, coupon).
-    pub range_accrual: RangeAccrualSpec,
+    /// Underlying range accrual leg.
+    pub range_accrual: RangeAccrual,
     /// Bermudan call provision.
     pub call_provision: BermudanCallProvision,
-    /// Discount curve ID.
-    pub discount_curve_id: CurveId,
-    /// Volatility surface ID for the reference rate.
-    pub vol_surface_id: CurveId,
     /// Pricing overrides.
     pub pricing_overrides: PricingOverrides,
     /// Attributes.
@@ -145,20 +81,28 @@ impl CallableRangeAccrual {
 
         CallableRangeAccrual {
             id: InstrumentId::new("CALLABLE-RA-SOFR-1Y"),
-            range_accrual: RangeAccrualSpec {
-                underlying_ticker: "SOFR".to_string(),
-                observation_dates,
-                lower_bound: 0.04,
-                upper_bound: 0.06,
-                bounds_type: BoundsType::Absolute,
-                coupon_rate: 0.065,
-                notional: Money::new(1_000_000.0, Currency::USD),
-                day_count: DayCount::Act360,
-                spot_id: "SOFR-RATE".into(),
-            },
+            range_accrual: RangeAccrual::builder()
+                .id(InstrumentId::new("CALLABLE-RA-SOFR-1Y-RANGE"))
+                .underlying_ticker("SOFR".to_string())
+                .observation_dates(observation_dates)
+                .lower_bound(0.04)
+                .upper_bound(0.06)
+                .bounds_type(BoundsType::Absolute)
+                .coupon_rate(0.065)
+                .notional(Money::new(1_000_000.0, Currency::USD))
+                .day_count(DayCount::Act360)
+                .discount_curve_id(CurveId::new("USD-OIS"))
+                .spot_id("SOFR-RATE".into())
+                .vol_surface_id(CurveId::new("SOFR-VOL"))
+                .div_yield_id_opt(None)
+                .pricing_overrides(PricingOverrides::default())
+                .attributes(Attributes::new())
+                .payment_date_opt(None)
+                .past_fixings_in_range_opt(None)
+                .total_past_observations_opt(None)
+                .build()
+                .expect("example range accrual leg should build"),
             call_provision: BermudanCallProvision::new(call_dates, 1.0, 1),
-            discount_curve_id: CurveId::new("USD-OIS"),
-            vol_surface_id: CurveId::new("SOFR-VOL"),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -216,7 +160,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CallableRang
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::traits::InstrumentCurves> {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
-            .discount(self.discount_curve_id.clone())
+            .discount(self.range_accrual.discount_curve_id.clone())
             .build()
     }
 }

@@ -19,6 +19,8 @@
 //!   cumulative coupon tracker used during MC simulation
 
 pub(crate) mod metrics;
+pub(crate) mod pricer;
 pub(crate) mod types;
 
+pub use pricer::TarnPricer;
 pub use types::Tarn;

@@ -1,8 +1,8 @@
 //! Interest rate option metrics module.
 //!
-//! Provides metric calculators specific to `InterestRateOption`, split into
+//! Provides metric calculators specific to `CapFloor`, split into
 //! focused files. The calculators compose with the shared metrics framework
-//! and are registered via `register_interest_rate_option_metrics`.
+//! and are registered via `register_cap_floor_metrics`.
 //!
 //! Exposed metrics:
 //! - Delta
@@ -24,8 +24,8 @@ mod vega;
 
 use crate::metrics::MetricRegistry;
 
-/// Register all InterestRateOption metrics with the registry
-pub(crate) fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
+/// Register all CapFloor metrics with the registry
+pub(crate) fn register_cap_floor_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
@@ -35,14 +35,14 @@ pub(crate) fn register_interest_rate_option_metrics(registry: &mut MetricRegistr
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::rates::cap_floor::InterestRateOption,
+                crate::instruments::rates::cap_floor::CapFloor,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (ForwardPv01, forward_pv01::ForwardPv01Calculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::rates::cap_floor::InterestRateOption,
+                crate::instruments::rates::cap_floor::CapFloor,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }

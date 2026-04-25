@@ -90,7 +90,7 @@
 //!
 //! - [`InterestRateSwap`] for vanilla IRS
 //! - [`Swaption`] for European swaptions
-//! - [`InterestRateOption`] for caps and floors
+//! - [`CapFloor`] for caps and floors
 //! - [`crate::calibration`] for curve calibration
 
 /// Basis swap module - Floating vs floating swaps.
@@ -136,8 +136,8 @@ pub mod xccy_swap;
 
 // Re-export primary types
 pub use basis_swap::BasisSwap;
-pub use callable_range_accrual::{CallableRangeAccrual, RangeAccrualSpec};
-pub use cap_floor::{InterestRateOption, RateOptionType};
+pub use callable_range_accrual::CallableRangeAccrual;
+pub use cap_floor::{CapFloor, InterestRateOption, RateOptionType};
 pub use cms_option::CmsOption;
 pub use cms_spread_option::{CmsSpreadOption, CmsSpreadOptionType};
 pub use cms_swap::CmsSwap;
@@ -151,6 +151,6 @@ pub use irs::InterestRateSwap;
 pub use range_accrual::RangeAccrual;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
 pub use snowball::{Snowball, SnowballVariant};
-pub use swaption::Swaption;
+pub use swaption::{BermudanSwaption, Swaption};
 pub use tarn::Tarn;
 pub use xccy_swap::XccySwap;

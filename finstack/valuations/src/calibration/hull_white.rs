@@ -46,6 +46,7 @@ use finstack_core::math::special_functions::norm_cdf;
 use std::collections::BTreeMap;
 
 use crate::calibration::CalibrationReport;
+use crate::instruments::common_impl::models::trees::HullWhiteTreeConfig;
 
 /// Hull-White one-factor model parameters.
 ///
@@ -63,6 +64,19 @@ pub struct HullWhiteParams {
     pub kappa: f64,
     /// Short rate volatility (σ > 0).
     pub sigma: f64,
+}
+
+impl Default for HullWhiteParams {
+    /// Returns generic default parameters for testing and initialization.
+    ///
+    /// These defaults (κ=3%, σ=1%) are not calibrated and should not be used
+    /// for production pricing without an explicit calibration decision.
+    fn default() -> Self {
+        Self {
+            kappa: 0.03,
+            sigma: 0.01,
+        }
+    }
 }
 
 impl HullWhiteParams {
@@ -83,6 +97,17 @@ impl HullWhiteParams {
             )));
         }
         Ok(Self { kappa, sigma })
+    }
+
+    /// Returns true when these parameters are the generic uncalibrated defaults.
+    #[must_use]
+    pub fn is_uncalibrated_default(&self) -> bool {
+        (self.kappa - 0.03).abs() < f64::EPSILON && (self.sigma - 0.01).abs() < f64::EPSILON
+    }
+
+    /// Create tree configuration with the specified number of steps.
+    pub(crate) fn tree_config(&self, steps: usize) -> HullWhiteTreeConfig {
+        HullWhiteTreeConfig::new(self.kappa, self.sigma, steps)
     }
 
     /// B function: B(t₁, t₂) = (1 − e^{−κ(t₂−t₁)}) / κ

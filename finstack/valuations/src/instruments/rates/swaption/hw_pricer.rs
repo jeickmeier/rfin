@@ -25,12 +25,12 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and
 //!   Practice*, Chapter 4.
 
+use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::swaption::types::Swaption;
-use crate::instruments::rates::swaption::HullWhiteParams;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

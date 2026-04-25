@@ -5,7 +5,7 @@ use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{Bps, CalendarId, CurveId, InstrumentId, Rate};
+use finstack_core::types::{Bps, CalendarId, CurveId, InstrumentId};
 use finstack_core::{Error, Result};
 use finstack_margin::RepoMarginSpec;
 use rust_decimal::prelude::ToPrimitive;
@@ -322,50 +322,6 @@ impl Repo {
             .build()
     }
 
-    /// Create a standard overnight repo using a typed repo rate.
-    pub fn overnight_rate(
-        id: impl Into<String>,
-        cash_amount: Money,
-        collateral: CollateralSpec,
-        repo_rate: Rate,
-        start_date: Date,
-        calendar_id: impl Into<String>,
-        discount_curve_id: impl Into<CurveId>,
-    ) -> Result<Self> {
-        use finstack_core::dates::calendar::calendar_by_id;
-
-        let cal_id = calendar_id.into();
-        let calendar = calendar_by_id(&cal_id).ok_or_else(|| {
-            Error::Input(finstack_core::InputError::NotFound {
-                id: format!("calendar:{}", cal_id),
-            })
-        })?;
-
-        let adj_start = adjust(start_date, BusinessDayConvention::Following, calendar)?;
-        let maturity = adj_start.add_business_days(1, calendar)?;
-
-        let repo_rate = Decimal::try_from(repo_rate.as_decimal())
-            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
-
-        Repo::builder()
-            .id(id.into().into())
-            .cash_amount(cash_amount)
-            .collateral(collateral)
-            .repo_rate(repo_rate)
-            .start_date(adj_start)
-            .maturity(maturity)
-            .haircut(0.02)
-            .repo_type(RepoType::Overnight)
-            .triparty(false)
-            .day_count(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some(cal_id.into()))
-            .discount_curve_id(discount_curve_id.into())
-            .margin_spec_opt(None)
-            .attributes(Attributes::default())
-            .build()
-    }
-
     /// Create a term repo with specified maturity.
     pub fn term(
         id: impl Into<String>,
@@ -398,38 +354,6 @@ impl Repo {
             .build()
     }
 
-    /// Create a term repo using a typed repo rate.
-    pub fn term_rate(
-        id: impl Into<String>,
-        cash_amount: Money,
-        collateral: CollateralSpec,
-        repo_rate: Rate,
-        start_date: Date,
-        maturity: Date,
-        discount_curve_id: impl Into<CurveId>,
-    ) -> Result<Self> {
-        let repo_rate = Decimal::try_from(repo_rate.as_decimal())
-            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
-
-        Repo::builder()
-            .id(id.into().into())
-            .cash_amount(cash_amount)
-            .collateral(collateral)
-            .repo_rate(repo_rate)
-            .start_date(start_date)
-            .maturity(maturity)
-            .haircut(0.02)
-            .repo_type(RepoType::Term)
-            .triparty(false)
-            .day_count(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".into()))
-            .discount_curve_id(discount_curve_id.into())
-            .margin_spec_opt(None)
-            .attributes(Attributes::default())
-            .build()
-    }
-
     /// Create an open repo with an initial maturity (can be rolled/terminated later).
     pub fn open(
         id: impl Into<String>,
@@ -441,38 +365,6 @@ impl Repo {
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
         let repo_rate = Decimal::try_from(repo_rate)
-            .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
-
-        Repo::builder()
-            .id(id.into().into())
-            .cash_amount(cash_amount)
-            .collateral(collateral)
-            .repo_rate(repo_rate)
-            .start_date(start_date)
-            .maturity(initial_maturity)
-            .haircut(0.02)
-            .repo_type(RepoType::Open)
-            .triparty(false)
-            .day_count(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".into()))
-            .discount_curve_id(discount_curve_id.into())
-            .margin_spec_opt(None)
-            .attributes(Attributes::default())
-            .build()
-    }
-
-    /// Create an open repo using a typed repo rate.
-    pub fn open_rate(
-        id: impl Into<String>,
-        cash_amount: Money,
-        collateral: CollateralSpec,
-        repo_rate: Rate,
-        start_date: Date,
-        initial_maturity: Date,
-        discount_curve_id: impl Into<CurveId>,
-    ) -> Result<Self> {
-        let repo_rate = Decimal::try_from(repo_rate.as_decimal())
             .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
 
         Repo::builder()

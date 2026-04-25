@@ -24,6 +24,7 @@
 // Using generic pricer implementation to eliminate boilerplate
 
 // Re-export shared swap leg pricing utilities for internal use
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 pub(crate) use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use crate::instruments::common_impl::pricing::swap_legs::LegPeriod;
 
@@ -34,24 +35,10 @@ use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::math::NeumaierAccumulator;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use rust_decimal::prelude::ToPrimitive;
 
 use crate::instruments::rates::irs::FloatingLegCompounding;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
-
-/// Convert Decimal to f64 with proper error handling.
-///
-/// Returns an error if the Decimal value cannot be represented as f64,
-/// rather than silently defaulting to 0.0 which could mask configuration errors.
-fn decimal_to_f64(value: rust_decimal::Decimal, field_name: &str) -> finstack_core::Result<f64> {
-    value.to_f64().ok_or_else(|| {
-        finstack_core::Error::Validation(format!(
-            "{} value {} cannot be converted to f64",
-            field_name, value
-        ))
-    })
-}
 
 impl InterestRateSwap {
     /// Returns true if this swap is configured as *single-curve* compounded RFR:
@@ -301,7 +288,7 @@ impl InterestRateSwap {
 /// # use time::Month;
 ///
 /// # fn example() -> finstack_core::Result<()> {
-/// let irs = InterestRateSwap::example()?;
+/// let irs = InterestRateSwap::example_standard()?;
 /// // Build market context with required curves
 /// let mut context = MarketContext::new();
 /// // ... add USD-OIS and USD-SOFR-3M curves ...
@@ -377,7 +364,8 @@ mod tests {
     #[test]
     fn is_single_curve_ois_classification() {
         // Start from the example vanilla IRS (term-rate style)
-        let mut irs = InterestRateSwap::example().expect("Example should construct successfully");
+        let mut irs =
+            InterestRateSwap::example_standard().expect("Example should construct successfully");
         assert!(
             !irs.is_single_curve_ois(),
             "Vanilla term-rate IRS with Simple compounding must not be OIS"

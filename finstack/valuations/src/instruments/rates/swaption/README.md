@@ -28,7 +28,7 @@ let pv = swaption.value(&market_context, as_of_date)?;
 
 ```rust
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSwaption, BermudanSwaptionPricer, HullWhiteParams,
+    BermudanSwaption, BermudanSwaptionPricer, BermudanSwaptionPricerConfig, HullWhiteParams,
 };
 
 // Create a 10NC2 Bermudan swaption (10-year swap, callable after 2 years)
@@ -36,8 +36,11 @@ let swaption = BermudanSwaption::example();
 
 // Create pricer with Hull-White tree
 // Note: For production, calibrate HW parameters to co-terminal Europeans
-let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
-    .with_tree_steps(100);
+let pricer = BermudanSwaptionPricer::tree_with_config(BermudanSwaptionPricerConfig {
+    hw_params: HullWhiteParams::default(),
+    tree_steps: 100,
+    ..Default::default()
+});
 
 let result = pricer.price_dyn(&swaption, &market_context, as_of_date)?;
 ```

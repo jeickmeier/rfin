@@ -70,7 +70,7 @@ impl ExerciseBoundaryPayoff for SwaptionProxy {
 #[test]
 fn lsmc_proxy_price_is_nonnegative_and_stable() {
     let pricer = RateExoticHw1fLsmcPricer {
-        hw_params: HullWhiteParams::new(0.05, 0.012),
+        hw_params: HullWhiteParams::new(0.05, 0.012).expect("valid HW params"),
         r0: 0.025,
         theta: 0.0,
         event_times: vec![1.0, 2.0, 3.0, 4.0],

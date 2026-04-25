@@ -30,7 +30,7 @@
 //! # use time::Month;
 //!
 //! # fn example() -> finstack_core::Result<()> {
-//! let irs = InterestRateSwap::example()?;
+//! let irs = InterestRateSwap::example_standard()?;
 //! // Build market context with required curves
 //! let mut context = MarketContext::new();
 //! // ... add USD-OIS and USD-SOFR-3M curves ...

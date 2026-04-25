@@ -6,8 +6,8 @@
 //!
 //! 1. **Forward pass.** For each path the harness runs the full simulation
 //!    and records per-path the deterministic PV reported by
-//!    [`finstack_monte_carlo::traits::Payoff::value`], as well as the short-rate and the inactive flag
-//!    at each exercise date.
+//!    [`finstack_monte_carlo::traits::Payoff::value`], as well as the short-rate,
+//!    exercise value, and inactive flag at each exercise date.
 //! 2. **Backward pass.** Starting from maturity, the harness regresses
 //!    continuation values via [`finstack_monte_carlo::pricer::lsq::solve_least_squares`] against the
 //!    [`standard_basis`] (ITM + active paths only) and rolls the per-path
@@ -29,9 +29,9 @@
 //! seeking an unbiased estimate should run training and pricing on disjoint
 //! path sets or complement this estimator with a dual upper bound.
 
-use crate::instruments::rates::shared::exercise::{standard_basis, ExerciseBoundaryPayoff};
+use crate::calibration::hull_white::HullWhiteParams;
+use crate::instruments::rates::shared::exercise::ExerciseBoundaryPayoff;
 use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
-use crate::instruments::rates::swaption::pricer::HullWhiteParams;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use finstack_monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;
@@ -113,12 +113,14 @@ impl RateExoticHw1fLsmcPricer {
         let n_paths = self.config.effective_path_count();
         let n_ex = self.exercise_times.len();
         let base_rng = PhiloxRng::new(self.config.seed);
+        let basis_payoff = payoff_factory();
 
         // Map exercise-date index -> position within event_step_indices.
         let exercise_event_pos = exercise_event_indices;
 
         let mut deterministic_pv = vec![0.0_f64; n_paths];
         let mut exercise_short_rates = vec![0.0_f64; n_paths * n_ex];
+        let mut exercise_values = vec![0.0_f64; n_paths * n_ex];
         let mut exercise_inactive = vec![false; n_paths * n_ex];
 
         let mut path_cursor: usize = 0;
@@ -166,6 +168,9 @@ impl RateExoticHw1fLsmcPricer {
                         {
                             let flat = path_cursor * n_ex + next_exercise;
                             exercise_short_rates[flat] = r;
+                            exercise_values[flat] = payoff
+                                .intrinsic_at(next_exercise, r, self.currency)
+                                .amount();
                             exercise_inactive[flat] = payoff.is_path_inactive();
                             next_exercise += 1;
                         }
@@ -183,12 +188,11 @@ impl RateExoticHw1fLsmcPricer {
 
         for ex_idx in (0..n_ex).rev() {
             let t_ex = self.exercise_times[ex_idx];
-            let call_value = self.call_prices[ex_idx] * self.notional;
 
-            // Collect ITM + active paths for regression.
-            let mut itm_paths: Vec<usize> = Vec::new();
-            let mut itm_basis: Vec<f64> = Vec::new();
-            let mut itm_continuation: Vec<f64> = Vec::new();
+            // Regress continuation over active paths, then apply issuer exercise.
+            let mut active_paths: Vec<usize> = Vec::new();
+            let mut active_basis: Vec<f64> = Vec::new();
+            let mut active_continuation: Vec<f64> = Vec::new();
             let mut num_basis: usize = 0;
 
             for (p, &cf) in cashflow.iter().enumerate() {
@@ -196,47 +200,54 @@ impl RateExoticHw1fLsmcPricer {
                 if exercise_inactive[flat] {
                     continue;
                 }
-                let exercise_value = call_value;
+                let exercise_value = exercise_values[flat];
                 if exercise_value <= 0.0 {
                     continue;
                 }
                 let r = exercise_short_rates[flat];
-                let basis = standard_basis(t_ex, r);
+                let basis = basis_payoff.continuation_basis(ex_idx, t_ex, r);
                 if num_basis == 0 {
                     num_basis = basis.len();
                 }
-                itm_paths.push(p);
-                itm_basis.extend(basis);
-                itm_continuation.push(cf);
+                active_paths.push(p);
+                active_basis.extend(basis);
+                active_continuation.push(cf);
             }
 
             if num_basis == 0 {
-                num_basis = standard_basis(t_ex, 0.0).len();
+                num_basis = basis_payoff.continuation_basis(ex_idx, t_ex, 0.0).len();
             }
 
-            if itm_paths.len() > num_basis + 2 {
-                let coeffs =
-                    solve_least_squares(&itm_basis, &itm_continuation, itm_paths.len(), num_basis)?;
-                for (k, &p) in itm_paths.iter().enumerate() {
+            if active_paths.len() > num_basis + 2 {
+                let coeffs = solve_least_squares(
+                    &active_basis,
+                    &active_continuation,
+                    active_paths.len(),
+                    num_basis,
+                )?;
+                for (k, &p) in active_paths.iter().enumerate() {
                     let offset = k * num_basis;
-                    let basis_row = &itm_basis[offset..offset + num_basis];
+                    let basis_row = &active_basis[offset..offset + num_basis];
                     let mut cont_hat = 0.0_f64;
                     for (b, c) in basis_row.iter().zip(coeffs.iter()) {
                         cont_hat += b * c;
                     }
-                    if call_value > cont_hat {
-                        cashflow[p] = call_value;
+                    let flat = p * n_ex + ex_idx;
+                    let exercise_value = exercise_values[flat];
+                    if exercise_value < cont_hat {
+                        cashflow[p] = exercise_value;
                     }
                 }
             } else {
-                // Fallback: pathwise optimal exercise against realized cashflow.
+                // Fallback: pathwise issuer exercise against realized cashflow.
                 for (p, cf) in cashflow.iter_mut().enumerate() {
                     let flat = p * n_ex + ex_idx;
                     if exercise_inactive[flat] {
                         continue;
                     }
-                    if call_value > *cf {
-                        *cf = call_value;
+                    let exercise_value = exercise_values[flat];
+                    if exercise_value > 0.0 && exercise_value < *cf {
+                        *cf = exercise_value;
                     }
                 }
             }
@@ -321,7 +332,7 @@ fn build_grid_with_exercise_map(
     min_steps: usize,
 ) -> Result<GridWithExerciseMap> {
     let (grid, event_step_indices) =
-        super::hw1f_mc::__test_only_build_event_aligned_grid(event_times, maturity, min_steps)?;
+        super::hw1f_mc::build_event_aligned_grid(event_times, maturity, min_steps)?;
     let mut exercise_event_indices = Vec::with_capacity(exercise_times.len());
     for &t in exercise_times {
         let pos = event_times
@@ -338,6 +349,7 @@ fn build_grid_with_exercise_map(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::rates::shared::standard_basis;
     use finstack_core::money::Money;
     use finstack_monte_carlo::traits::Payoff;
 
@@ -365,7 +377,7 @@ mod tests {
     #[test]
     fn noexercise_equals_par() {
         let pricer = RateExoticHw1fLsmcPricer {
-            hw_params: HullWhiteParams::new(0.05, 0.001),
+            hw_params: HullWhiteParams::new(0.05, 0.001).expect("valid HW params"),
             r0: 0.03,
             theta: 0.0,
             event_times: vec![1.0, 2.0],

@@ -153,5 +153,6 @@ mod choice_tests {
                 ModelKey::MonteCarloGBM
             ))
             .is_some());
+
     }
 }

@@ -21,12 +21,12 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CalendarId, CurveId, InstrumentId, Rate};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::market::conventions::ids::IndexId;
@@ -349,12 +349,8 @@ impl Deposit {
 
         // Warn about extreme rates (don't fail, as they may be intentional)
         if let Some(r) = self.quote_rate {
-            let r_f64 = r.to_f64().ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "Deposit quote_rate could not be converted to f64".to_string(),
-                )
-            })?;
-            if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&r_f64) {
+            let r_f64 = decimal_to_f64(r, "Deposit quote_rate")?;
+            if validation::rate_outside_range(r_f64, MIN_REASONABLE_RATE, MAX_REASONABLE_RATE) {
                 tracing::warn!(
                     deposit_id = %self.id,
                     quote_rate = r_f64,
@@ -471,11 +467,7 @@ impl CashflowProvider for Deposit {
                 id: "deposit quote_rate".to_string(),
             })
         })?;
-        let r = r.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "Deposit quote_rate could not be converted to f64".to_string(),
-            )
-        })?;
+        let r = decimal_to_f64(r, "Deposit quote_rate")?;
         let redemption = self.notional * (1.0 + r * yf);
         let flows = vec![
             crate::cashflow::primitives::CashFlow {
@@ -518,6 +510,7 @@ mod tests {
     use crate::instruments::common_impl::traits::Attributes;
     use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
+    use rust_decimal::prelude::ToPrimitive;
     use time::macros::date;
 
     #[test]

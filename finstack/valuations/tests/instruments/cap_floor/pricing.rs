@@ -9,7 +9,7 @@ use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use rust_decimal::Decimal;
@@ -50,8 +50,8 @@ fn build_flat_vol_surface(vol: f64, _base_date: Date, surface_id: &str) -> VolSu
         .unwrap()
 }
 
-fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
-    InterestRateOption {
+fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> CapFloor {
+    CapFloor {
         id: "CAP_TEST".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -76,8 +76,8 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
     }
 }
 
-fn create_standard_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
-    InterestRateOption {
+fn create_standard_floor(as_of: Date, end: Date, strike: f64) -> CapFloor {
+    CapFloor {
         id: "FLOOR_TEST".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -276,7 +276,7 @@ fn test_caplet_single_period_pricing() {
     let start = date!(2024 - 01 - 01);
     let end = date!(2024 - 04 - 01); // Single 3M period
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -418,7 +418,7 @@ fn test_fixing_vs_payment_date_timing() {
     let payment_date = date!(2024 - 06 - 01); // End of period = payment date
 
     // Forward-starting caplet
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_TIMING".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -495,7 +495,7 @@ fn test_seasoned_caplet_uses_historical_fixing_after_reset() {
     let as_of = date!(2024 - 02 - 15);
     let payment_date = date!(2024 - 04 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_SEASONED".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -556,7 +556,7 @@ fn test_single_period_cap_matches_caplet_with_resolved_lags() {
     let strike = 0.05;
     let notional = Money::new(1_000_000.0, Currency::USD);
 
-    let cap = InterestRateOption::new_cap(
+    let cap = CapFloor::new_cap(
         "ONE_PERIOD_CAP",
         notional,
         strike,
@@ -569,7 +569,7 @@ fn test_single_period_cap_matches_caplet_with_resolved_lags() {
         "USD_CAP_VOL",
     )
     .expect("valid strike");
-    let caplet = InterestRateOption::new_caplet(
+    let caplet = CapFloor::new_caplet(
         "ONE_PERIOD_CAPLET",
         notional,
         strike,
@@ -603,7 +603,7 @@ fn test_caplet_after_payment_date_is_zero() {
     let fixing_date = date!(2024 - 03 - 01);
     let payment_date = date!(2024 - 06 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_EXPIRED".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),

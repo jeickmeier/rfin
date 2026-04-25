@@ -11,7 +11,7 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{
-    CapFloorVolType, InterestRateOption, RateOptionType,
+    CapFloor, CapFloorVolType, RateOptionType,
 };
 use finstack_valuations::instruments::ExerciseStyle;
 use finstack_valuations::instruments::Instrument;
@@ -58,13 +58,13 @@ fn make_caplet(
     strike: f64,
     vol_type: CapFloorVolType,
     is_cap: bool,
-) -> InterestRateOption {
+) -> CapFloor {
     let rate_option_type = if is_cap {
         RateOptionType::Caplet
     } else {
         RateOptionType::Floorlet
     };
-    InterestRateOption {
+    CapFloor {
         id: "TEST-AUTO".into(),
         rate_option_type,
         notional: Money::new(1_000_000.0, Currency::EUR),

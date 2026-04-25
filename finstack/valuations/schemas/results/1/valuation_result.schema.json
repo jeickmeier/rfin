@@ -1023,6 +1023,95 @@
         }
       ]
     },
+    "StochasticPricingResult": {
+      "description": "Stochastic pricing result for a structured credit deal.",
+      "properties": {
+        "clean_price": {
+          "description": "Clean price (as percentage of notional)",
+          "format": "double",
+          "type": "number"
+        },
+        "dirty_price": {
+          "description": "Dirty price (including accrued interest)",
+          "format": "double",
+          "type": "number"
+        },
+        "es_confidence": {
+          "description": "ES confidence level used",
+          "format": "double",
+          "type": "number"
+        },
+        "expected_loss": {
+          "$ref": "#/$defs/Money",
+          "description": "Expected loss (probability-weighted average loss)"
+        },
+        "expected_shortfall": {
+          "$ref": "#/$defs/Money",
+          "description": "Expected shortfall (tail risk metric)"
+        },
+        "npv": {
+          "$ref": "#/$defs/Money",
+          "description": "Net present value of the deal"
+        },
+        "num_paths": {
+          "description": "Number of scenario paths",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pricing_mode": {
+          "description": "Pricing mode used",
+          "type": "string"
+        },
+        "pv_confidence_interval": {
+          "description": "95% confidence interval for the mean PV",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "format": "double",
+              "type": "number"
+            },
+            {
+              "format": "double",
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        "pv_std_error": {
+          "description": "Standard error of the mean PV estimate",
+          "format": "double",
+          "type": "number"
+        },
+        "tranche_results": {
+          "description": "Tranche-level results",
+          "items": {
+            "$ref": "#/$defs/TranchePricingResult"
+          },
+          "type": "array"
+        },
+        "unexpected_loss": {
+          "$ref": "#/$defs/Money",
+          "description": "Unexpected loss (loss standard deviation)"
+        }
+      },
+      "required": [
+        "npv",
+        "clean_price",
+        "dirty_price",
+        "expected_loss",
+        "unexpected_loss",
+        "expected_shortfall",
+        "es_confidence",
+        "pv_std_error",
+        "pv_confidence_interval",
+        "num_paths",
+        "pricing_mode",
+        "tranche_results"
+      ],
+      "type": "object"
+    },
     "ToleranceConfig": {
       "description": "Numerical tolerance configuration for floating-point comparisons.\n\nProvides configurable epsilon values for zero-checks in rate calculations\nand generic floating-point comparisons. These defaults are chosen to balance\nnumerical stability with practical precision requirements.\n\n# Examples\n```rust\nuse finstack_core::config::ToleranceConfig;\n\nlet mut tol = ToleranceConfig::default();\nassert_eq!(tol.rate_epsilon, 1e-12);\n\n// Customize for stricter rate comparisons\ntol.rate_epsilon = 1e-14;\n```",
       "properties": {
@@ -1264,6 +1353,96 @@
           "type": "object"
         }
       ]
+    },
+    "TranchePricingResult": {
+      "description": "Tranche-level pricing result.",
+      "properties": {
+        "attachment": {
+          "description": "Attachment point (percentage)",
+          "format": "double",
+          "type": "number"
+        },
+        "average_life": {
+          "description": "Average life (years)",
+          "format": "double",
+          "type": "number"
+        },
+        "credit_duration": {
+          "description": "Credit duration (price sensitivity to credit spread)",
+          "format": "double",
+          "type": "number"
+        },
+        "detachment": {
+          "description": "Detachment point (percentage)",
+          "format": "double",
+          "type": "number"
+        },
+        "expected_loss": {
+          "$ref": "#/$defs/Money",
+          "description": "Expected loss"
+        },
+        "expected_shortfall": {
+          "$ref": "#/$defs/Money",
+          "description": "Expected shortfall"
+        },
+        "npv": {
+          "$ref": "#/$defs/Money",
+          "description": "Net present value"
+        },
+        "seniority": {
+          "description": "Tranche seniority level",
+          "type": "string"
+        },
+        "spread": {
+          "description": "Weighted average spread to LIBOR/SOFR",
+          "format": "double",
+          "type": "number"
+        },
+        "tranche_id": {
+          "description": "Tranche identifier",
+          "type": "string"
+        },
+        "unexpected_loss": {
+          "$ref": "#/$defs/Money",
+          "description": "Unexpected loss"
+        }
+      },
+      "required": [
+        "tranche_id",
+        "seniority",
+        "npv",
+        "expected_loss",
+        "unexpected_loss",
+        "expected_shortfall",
+        "attachment",
+        "detachment",
+        "average_life",
+        "spread",
+        "credit_duration"
+      ],
+      "type": "object"
+    },
+    "ValuationDetails": {
+      "description": "Model-specific typed valuation details.\n\nThese details are for rich structured outputs that do not fit the scalar\n`measures` map while still belonging in the standard valuation envelope.",
+      "oneOf": [
+        {
+          "description": "Scenario-waterfall structured credit stochastic pricing result.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/StochasticPricingResult"
+            },
+            "type": {
+              "const": "structured_credit_stochastic",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        }
+      ]
     }
   },
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1282,6 +1461,17 @@
         "object",
         "null"
       ]
+    },
+    "details": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValuationDetails"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional rich model-specific pricing detail."
     },
     "explanation": {
       "anyOf": [
@@ -1309,6 +1499,13 @@
     "meta": {
       "$ref": "#/$defs/ResultsMeta",
       "description": "Calculation metadata and policy stamps.\n\nContains:\n- Numeric mode (Decimal vs f64)\n- Rounding context and precision\n- FX policy for cross-currency calculations\n- Calculation timing information"
+    },
+    "schema_version": {
+      "default": 1,
+      "description": "Wire-format schema version (see `VALUATION_RESULT_SCHEMA_VERSION`).\n\nWritten into every serialized payload so downstream consumers can\ndetect schema mismatches when reading persisted results. Defaults to\nthe current version on deserialization of pre-versioning payloads.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
     },
     "value": {
       "$ref": "#/$defs/Money",

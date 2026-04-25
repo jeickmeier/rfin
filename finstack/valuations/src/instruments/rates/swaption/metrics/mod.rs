@@ -77,7 +77,7 @@ pub(crate) fn register_swaption_metrics(registry: &mut MetricRegistry) {
 #[allow(dead_code)]
 pub(crate) fn register_bermudan_swaption_metrics(
     registry: &mut MetricRegistry,
-    hw_params: crate::instruments::rates::swaption::HullWhiteParams,
+    hw_params: crate::calibration::hull_white::HullWhiteParams,
 ) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {

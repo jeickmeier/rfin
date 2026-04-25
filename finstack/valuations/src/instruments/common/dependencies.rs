@@ -173,8 +173,9 @@ impl MarketDependencies {
             InstrumentJson::InflationCapFloor(i) => Self::from_curve_dependencies(i),
             InstrumentJson::ForwardRateAgreement(i) => Self::from_curve_dependencies(i),
             InstrumentJson::Swaption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::BermudanSwaption(i) => Self::from_curve_dependencies(i),
             InstrumentJson::InterestRateFuture(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::InterestRateOption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CapFloor(i) => Self::from_curve_dependencies(i),
             InstrumentJson::CmsSwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::CmsOption(i) => Self::from_curve_dependencies(i),
             InstrumentJson::IrFutureOption(i) => Self::from_curve_dependencies(i),
@@ -304,7 +305,7 @@ impl MarketDependencies {
             InstrumentJson::Tarn(i) => Self::from_curve_dependencies(i),
             InstrumentJson::Snowball(i) => Self::from_curve_dependencies(i),
             InstrumentJson::CmsSpreadOption(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::CallableRangeAccrual(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CallableRangeAccrual(i) => Self::from_curve_dependencies(i.as_ref()),
 
             // Total Return Swaps
             InstrumentJson::TrsEquity(i) => Self::from_curve_dependencies(i),

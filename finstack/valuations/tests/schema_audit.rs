@@ -56,7 +56,7 @@ mod schema_roundtrip {
     test_roundtrip!(boxed: structured_credit, StructuredCredit, StructuredCredit::example());
 
     // Rates
-    test_roundtrip!(plain: interest_rate_swap, InterestRateSwap, InterestRateSwap::example().expect("irs"));
+    test_roundtrip!(plain: interest_rate_swap, InterestRateSwap, InterestRateSwap::example_standard().expect("irs"));
     test_roundtrip!(plain: basis_swap, BasisSwap, BasisSwap::example().expect("bs"));
     test_roundtrip!(plain: xccy_swap, XccySwap, XccySwap::example());
     test_roundtrip!(plain: inflation_swap, InflationSwap, InflationSwap::example());
@@ -64,14 +64,16 @@ mod schema_roundtrip {
     test_roundtrip!(plain: inflation_cap_floor, InflationCapFloor, InflationCapFloor::example());
     test_roundtrip!(plain: forward_rate_agreement, ForwardRateAgreement, ForwardRateAgreement::example().expect("fra"));
     test_roundtrip!(plain: swaption, Swaption, Swaption::example());
+    test_roundtrip!(plain: bermudan_swaption, BermudanSwaption, BermudanSwaption::example());
     test_roundtrip!(plain: interest_rate_future, InterestRateFuture, InterestRateFuture::example().expect("irf"));
-    test_roundtrip!(plain: interest_rate_option, InterestRateOption, InterestRateOption::example().expect("iro"));
+    test_roundtrip!(plain: cap_floor, CapFloor, CapFloor::example().expect("cap floor"));
     test_roundtrip!(plain: cms_option, CmsOption, CmsOption::example());
     test_roundtrip!(plain: cms_swap, CmsSwap, CmsSwap::example());
     test_roundtrip!(plain: ir_future_option, IrFutureOption, IrFutureOption::example().expect("irfo"));
     test_roundtrip!(plain: deposit, Deposit, Deposit::example().expect("dep"));
     test_roundtrip!(plain: repo, Repo, Repo::example());
     test_roundtrip!(plain: range_accrual, RangeAccrual, RangeAccrual::example());
+    test_roundtrip!(boxed: callable_range_accrual, CallableRangeAccrual, CallableRangeAccrual::example());
 
     // Credit
     test_roundtrip!(plain: credit_default_swap, CreditDefaultSwap, CreditDefaultSwap::example());

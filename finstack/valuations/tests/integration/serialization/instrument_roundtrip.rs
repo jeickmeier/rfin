@@ -60,7 +60,7 @@ fn all_examples_roundtrip() {
     assert_roundtrip(&id, json_loader::InstrumentJson::DollarRoll(ex));
     //
     // Rates
-    let ex = InterestRateSwap::example().expect("Example should construct");
+    let ex = InterestRateSwap::example_standard().expect("Example should construct");
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::InterestRateSwap(ex));
     let ex = InflationSwap::example();

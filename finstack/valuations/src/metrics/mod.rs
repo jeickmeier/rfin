@@ -73,7 +73,7 @@
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = date!(2025-01-01);
-//! let swap = InterestRateSwap::example()?;
+//! let swap = InterestRateSwap::example_standard()?;
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Dv01]; // Parallel DV01
 //!
@@ -402,7 +402,7 @@ pub fn standard_registry() -> &'static MetricRegistry {
         crate::instruments::rates::ir_future_option::metrics::register_ir_future_option_metrics(&mut registry);
         crate::instruments::rates::inflation_swap::metrics::register_inflation_swap_metrics(&mut registry);
         crate::instruments::rates::inflation_cap_floor::metrics::register_inflation_cap_floor_metrics(&mut registry);
-        crate::instruments::rates::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
+        crate::instruments::rates::cap_floor::metrics::register_cap_floor_metrics(&mut registry);
         crate::instruments::rates::swaption::metrics::register_swaption_metrics(&mut registry);
         crate::instruments::rates::xccy_swap::metrics::register_xccy_swap_metrics(&mut registry);
         crate::instruments::rates::repo::metrics::register_repo_metrics(&mut registry);

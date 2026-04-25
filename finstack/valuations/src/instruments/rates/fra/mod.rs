@@ -59,8 +59,6 @@
 //! - Plan-driven calibration in `calibration::api` (Forward step) for curve construction
 
 pub(crate) mod metrics;
-/// FRA pricer implementation
-pub(crate) mod pricer;
 mod types;
 
 pub use types::{ConventionFraParams, ForwardRateAgreement};

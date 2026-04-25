@@ -30,10 +30,18 @@ macro_rules! build_schema_cache {
     ) => {{
         let mut cache = std::collections::BTreeMap::new();
         $(
-            cache.insert($tag, try_include_schema!($schema_path));
+            let schema = try_include_schema!($schema_path);
+            cache.insert($tag, schema.clone());
+            $(
+                cache.insert($alias, schema.clone());
+            )*
         )*
         $(
-            cache.insert($boxed_tag, try_include_schema!($boxed_schema_path));
+            let schema = try_include_schema!($boxed_schema_path);
+            cache.insert($boxed_tag, schema.clone());
+            $(
+                cache.insert($boxed_alias, schema.clone());
+            )*
         )*
         cache
     }};
@@ -339,6 +347,8 @@ mod tests {
         assert_eq!(bond["title"], "Bond");
         let swap = instrument_schema("interest_rate_swap").expect("irs");
         assert_eq!(swap["title"], "Interest Rate Swap");
+        let cap_floor_alias = instrument_schema("interest_rate_option").expect("cap/floor alias");
+        assert_eq!(cap_floor_alias["title"], "Cap Floor");
     }
 
     #[test]

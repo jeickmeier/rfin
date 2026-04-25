@@ -6,6 +6,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
@@ -16,7 +17,6 @@ use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CalendarId, CurveId, InstrumentId, Rate};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
 
@@ -209,11 +209,7 @@ impl ForwardRateAgreement {
             format!("FRA notional must be positive, got {}", amount)
         })?;
 
-        let _ = self.fixed_rate.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "FRA fixed_rate could not be converted to f64".to_string(),
-            )
-        })?;
+        let _ = decimal_to_f64(self.fixed_rate, "FRA fixed_rate")?;
 
         if let Some(observed) = self.observed_fixing {
             validation::validate_f64_finite(observed, "FRA observed_fixing")?;
@@ -434,7 +430,7 @@ impl ForwardRateAgreement {
         };
 
         // Warn if forward rate is outside reasonable bounds (likely data error)
-        if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&forward_rate) {
+        if validation::rate_outside_range(forward_rate, MIN_REASONABLE_RATE, MAX_REASONABLE_RATE) {
             tracing::warn!(
                 instrument_id = %self.id.as_str(),
                 forward_rate,
@@ -446,11 +442,7 @@ impl ForwardRateAgreement {
 
         // Market-standard FRA settlement at period start includes the
         // settlement discounting adjustment 1 / (1 + F × τ).
-        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "FRA fixed_rate could not be converted to f64".to_string(),
-            )
-        })?;
+        let fixed_rate = decimal_to_f64(self.fixed_rate, "FRA fixed_rate")?;
         let rate_diff = forward_rate - fixed_rate;
         let denom = 1.0_f64 + forward_rate * tau;
 
@@ -772,6 +764,7 @@ mod tests {
 mod serde_tests {
     use super::*;
     use finstack_core::currency::Currency;
+    use rust_decimal::prelude::ToPrimitive;
 
     #[test]
     fn fra_deserialize_defaults_side_to_pay_fixed() {

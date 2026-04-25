@@ -8,7 +8,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
@@ -50,8 +50,8 @@ fn build_flat_vol_surface(vol: f64, _base_date: Date, surface_id: &str) -> VolSu
         .unwrap()
 }
 
-fn create_standard_cap(_as_of: Date, start: Date, end: Date, strike: f64) -> InterestRateOption {
-    InterestRateOption {
+fn create_standard_cap(_as_of: Date, start: Date, end: Date, strike: f64) -> CapFloor {
+    CapFloor {
         id: "CAP_TEST".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -123,7 +123,7 @@ fn test_floor_forward_pv01() {
     let start = date!(2024 - 03 - 01); // Forward-starting
     let end = date!(2029 - 03 - 01);
 
-    let floor = InterestRateOption {
+    let floor = CapFloor {
         id: "FLOOR_TEST".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),

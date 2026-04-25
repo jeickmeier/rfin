@@ -222,6 +222,68 @@ crate::impl_empty_cashflow_provider!(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::PricingOptions;
+    use crate::pricer::{standard_registry, ModelKey};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::surfaces::VolCube;
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+    use finstack_core::math::volatility::sabr::SabrParams;
+    use time::Month;
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid date")
+    }
+
+    fn sabr_cube(id: &str, alpha: f64, forward: f64) -> VolCube {
+        let params = SabrParams::new(alpha, 0.5, -0.20, 0.40).expect("valid SABR params");
+        VolCube::builder(id)
+            .expiries(&[0.25, 1.0, 5.0])
+            .tenors(&[2.0, 10.0])
+            .node(params, forward)
+            .node(params, forward)
+            .node(params, forward)
+            .node(params, forward)
+            .node(params, forward)
+            .node(params, forward)
+            .build()
+            .expect("vol cube")
+    }
+
+    fn market(as_of: Date, alpha: f64) -> MarketContext {
+        let discount = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (30.0, (-0.035_f64 * 30.0).exp())])
+            .build()
+            .expect("discount curve");
+        let forward = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 0.025), (2.0, 0.030), (10.0, 0.045), (30.0, 0.055)])
+            .build()
+            .expect("forward curve");
+
+        MarketContext::new()
+            .insert(discount)
+            .insert(forward)
+            .insert_vol_cube(sabr_cube("USD-SWAPTION-VOL-10Y", alpha, 0.045))
+            .insert_vol_cube(sabr_cube("USD-SWAPTION-VOL-2Y", alpha, 0.030))
+    }
+
+    fn price_amount(opt: &CmsSpreadOption, market: &MarketContext, as_of: Date) -> f64 {
+        standard_registry()
+            .price_with_metrics(
+                opt,
+                ModelKey::StaticReplication,
+                market,
+                as_of,
+                &[],
+                PricingOptions::default(),
+            )
+            .expect("cms spread option price")
+            .value
+            .amount()
+    }
 
     #[test]
     fn example_validates() {
@@ -268,5 +330,54 @@ mod tests {
         let deser: CmsSpreadOption = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deser.id, opt.id);
         assert!((deser.strike - opt.strike).abs() < 1e-12);
+    }
+
+    #[test]
+    fn static_replication_pricer_returns_positive_price() {
+        let as_of = date(2025, Month::January, 1);
+        let market = market(as_of, 0.030);
+        let mut opt = CmsSpreadOption::example();
+        opt.expiry_date = date(2026, Month::January, 1);
+        opt.payment_date = date(2026, Month::January, 5);
+        opt.strike = 0.005;
+        opt.spread_correlation = 0.50;
+
+        let amount = price_amount(&opt, &market, as_of);
+
+        assert!(amount > 0.0);
+    }
+
+    #[test]
+    fn lower_correlation_increases_curve_spread_option_value() {
+        let as_of = date(2025, Month::January, 1);
+        let market = market(as_of, 0.035);
+        let mut low_corr = CmsSpreadOption::example();
+        low_corr.expiry_date = date(2026, Month::January, 1);
+        low_corr.payment_date = date(2026, Month::January, 5);
+        low_corr.strike = 0.010;
+        low_corr.spread_correlation = 0.0;
+
+        let mut high_corr = low_corr.clone();
+        high_corr.spread_correlation = 0.95;
+
+        let low_corr_value = price_amount(&low_corr, &market, as_of);
+        let high_corr_value = price_amount(&high_corr, &market, as_of);
+
+        assert!(low_corr_value > high_corr_value);
+    }
+
+    #[test]
+    fn higher_sabr_volatility_increases_option_value() {
+        let as_of = date(2025, Month::January, 1);
+        let mut opt = CmsSpreadOption::example();
+        opt.expiry_date = date(2026, Month::January, 1);
+        opt.payment_date = date(2026, Month::January, 5);
+        opt.strike = 0.010;
+        opt.spread_correlation = 0.50;
+
+        let low_vol = price_amount(&opt, &market(as_of, 0.015), as_of);
+        let high_vol = price_amount(&opt, &market(as_of, 0.060), as_of);
+
+        assert!(high_vol > low_vol);
     }
 }

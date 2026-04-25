@@ -10,8 +10,8 @@
 //! HW1F process + exact discretization, RNG streams with antithetic
 //! variates, and cross-path averaging with 95% CIs.
 
+use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
-use crate::instruments::rates::swaption::pricer::HullWhiteParams;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use finstack_monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;
@@ -169,7 +169,7 @@ impl RateExoticHw1fMcPricer {
 /// The grid inserts `min_steps_between_events` sub-steps between consecutive
 /// events (or more, proportional to the gap), so each event time lies on a
 /// node of the returned [`TimeGrid`].
-fn build_event_aligned_grid(
+pub(super) fn build_event_aligned_grid(
     event_times: &[f64],
     maturity: f64,
     min_steps_between: usize,
@@ -209,19 +209,6 @@ fn build_event_aligned_grid(
     Ok((grid, event_indices))
 }
 
-/// Test-only re-export of the event-aligned grid builder used by LSMC.
-///
-/// Not part of the public API; exists to avoid duplicating grid construction
-/// between the MC and LSMC harnesses.
-#[doc(hidden)]
-pub fn __test_only_build_event_aligned_grid(
-    event_times: &[f64],
-    maturity: f64,
-    min_steps_between: usize,
-) -> Result<(TimeGrid, Vec<usize>)> {
-    build_event_aligned_grid(event_times, maturity, min_steps_between)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,7 +234,7 @@ mod tests {
     #[test]
     fn trivial_payoff_equals_one() {
         let pricer = RateExoticHw1fMcPricer {
-            hw_params: HullWhiteParams::new(0.05, 0.01),
+            hw_params: HullWhiteParams::new(0.05, 0.01).expect("valid HW params"),
             r0: 0.03,
             theta: 0.0,
             event_times: vec![1.0],

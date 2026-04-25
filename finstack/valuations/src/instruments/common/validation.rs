@@ -154,6 +154,41 @@ pub(crate) fn validate_f64_abs_le(
     })
 }
 
+/// Validate that a rate-like value is finite and within `±max_abs`.
+#[inline]
+pub(crate) fn validate_rate_magnitude(
+    value: f64,
+    max_abs: f64,
+    context: &str,
+    display_scale: f64,
+    display_units: &str,
+    guidance: &str,
+) -> finstack_core::Result<()> {
+    validate_f64_finite(value, context)?;
+    require_with(value.abs() <= max_abs, || {
+        let guidance = if guidance.is_empty() {
+            String::new()
+        } else {
+            format!(" {guidance}")
+        };
+        format!(
+            "Invalid {}: {:.2}{} exceeds maximum allowed magnitude ({:.0}{}).{}",
+            context,
+            value * display_scale,
+            display_units,
+            max_abs * display_scale,
+            display_units,
+            guidance
+        )
+    })
+}
+
+/// Return true when a rate-like value is outside an inclusive range.
+#[inline]
+pub(crate) fn rate_outside_range(value: f64, min: f64, max: f64) -> bool {
+    !(min..=max).contains(&value)
+}
+
 /// Require that both options are either set or unset.
 #[inline]
 pub(crate) fn require_both_or_none<T, U>(
@@ -252,6 +287,14 @@ mod tests {
     fn validate_f64_abs_le_rejects_large_values() {
         assert!(validate_f64_abs_le(2.0, 1.0, "test", None).is_err());
         assert!(validate_f64_abs_le(0.5, 1.0, "test", None).is_ok());
+    }
+
+    #[test]
+    fn validate_rate_magnitude_rejects_large_values() {
+        assert!(validate_rate_magnitude(2.0, 1.0, "test rate", 100.0, "%", "").is_err());
+        assert!(validate_rate_magnitude(0.5, 1.0, "test rate", 100.0, "%", "").is_ok());
+        assert!(rate_outside_range(2.0, -1.0, 1.0));
+        assert!(!rate_outside_range(0.5, -1.0, 1.0));
     }
 
     #[test]

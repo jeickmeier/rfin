@@ -748,7 +748,7 @@ mod tests {
     #[test]
     fn test_my_new_feature() {
         // Arrange
-        let swap = InterestRateSwap::example().unwrap();
+        let swap = InterestRateSwap::example_standard().unwrap();
 
         // Act
         let result = my_new_function(&swap);

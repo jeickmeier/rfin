@@ -104,7 +104,7 @@
 //! | `InterestRateSwap` | Plain vanilla IRS |
 //! | `BasisSwap` | Floating-for-floating swaps |
 //! | `Swaption` | Options on swaps |
-//! | `InterestRateOption` | Caps, floors, collars |
+//! | `CapFloor` | Caps, floors, collars |
 //! | `Deposit` | Money market deposits |
 //! | `Repo` | Repurchase agreements |
 //!
@@ -193,11 +193,11 @@ pub use fixed_income::{
 
 // Rates
 pub use rates::{
-    BasisSwap, CallableRangeAccrual, CmsOption, CmsSpreadOption, CmsSpreadOptionType, CmsSwap,
-    CollateralSpec, CollateralType, Deposit, ForwardRateAgreement, InflationCapFloor,
-    InflationCapFloorType, InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap,
-    IrFutureOption, RangeAccrual, RangeAccrualSpec, RateOptionType, Repo, RepoType, Snowball,
-    SnowballVariant, Swaption, Tarn, XccySwap, YoYInflationSwap,
+    BasisSwap, BermudanSwaption, CallableRangeAccrual, CapFloor, CmsOption, CmsSpreadOption,
+    CmsSpreadOptionType, CmsSwap, CollateralSpec, CollateralType, Deposit, ForwardRateAgreement,
+    InflationCapFloor, InflationCapFloorType, InflationSwap, InterestRateFuture,
+    InterestRateOption, InterestRateSwap, IrFutureOption, RangeAccrual, RateOptionType, Repo,
+    RepoType, Snowball, SnowballVariant, Swaption, Tarn, XccySwap, YoYInflationSwap,
 };
 
 // Credit Derivatives

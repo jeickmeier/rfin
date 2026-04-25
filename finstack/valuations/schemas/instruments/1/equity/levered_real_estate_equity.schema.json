@@ -2195,6 +2195,178 @@
               ],
               "type": "object"
             },
+            "BermudanSchedule": {
+              "description": "Bermudan exercise schedule specification.\n\nDefines the exercise dates and constraints for a Bermudan swaption.\nExercise dates are typically aligned with swap coupon dates.",
+              "properties": {
+                "exercise_dates": {
+                  "description": "Exercise dates (must be sorted, typically on swap coupon dates)",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "lockout_end": {
+                  "description": "Lockout period end (no exercise before this date)",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "notice_days": {
+                  "description": "Notice period in business days before exercise",
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "exercise_dates",
+                "notice_days"
+              ],
+              "type": "object"
+            },
+            "BermudanSwaption": {
+              "additionalProperties": false,
+              "description": "Bermudan swaption with multiple exercise dates.\n\nA Bermudan swaption gives the holder the right to enter into an interest rate\nswap at any of a set of predetermined exercise dates. This is the most common\ntype of exotic swaption in the market, used extensively for:\n\n- Callable bond hedging\n- Mortgage prepayment risk management\n- Structured product hedging\n\n# Pricing Methods\n\nBermudan swaptions require numerical methods for pricing:\n- **Hull-White Tree**: Industry standard, calibrated to swaption volatility\n- **LSMC**: Longstaff-Schwartz Monte Carlo for validation\n\n# Example\n\n```rust,no_run\nuse finstack_valuations::instruments::rates::swaption::{\n    BermudanSwaption, BermudanSchedule, BermudanType, SwaptionSettlement,\n};\n\n// Create a 10NC2 (10-year swap, callable after 2 years)\nlet swaption = BermudanSwaption::example();\n```",
+              "properties": {
+                "attributes": {
+                  "$ref": "#/$defs/Attributes",
+                  "default": {},
+                  "description": "Attributes for scenario selection and grouping\nAttributes for scenario selection and tagging"
+                },
+                "bermudan_schedule": {
+                  "$ref": "#/$defs/BermudanSchedule",
+                  "description": "Bermudan exercise schedule"
+                },
+                "bermudan_type": {
+                  "$ref": "#/$defs/BermudanType",
+                  "description": "Co-terminal or non-co-terminal exercise"
+                },
+                "calendar_id": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Id"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Holiday calendar ID for schedule generation.\n\nControls business day adjustment for the underlying swap schedule.\nWhen `None`, uses weekends-only calendar. For production use, set to\nthe appropriate currency calendar (e.g., `\"nyse\"` for USD)."
+                },
+                "day_count": {
+                  "$ref": "#/$defs/DayCount",
+                  "description": "Day count convention for fixed leg"
+                },
+                "discount_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Discount curve ID for present value calculations"
+                },
+                "fixed_freq": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Fixed leg payment frequency"
+                },
+                "float_freq": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Floating leg payment frequency"
+                },
+                "forward_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Forward curve ID for floating rate projections"
+                },
+                "id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Unique instrument identifier"
+                },
+                "notional": {
+                  "$ref": "#/$defs/Money",
+                  "description": "Notional amount of underlying swap"
+                },
+                "option_type": {
+                  "$ref": "#/$defs/OptionType",
+                  "description": "Option type (payer = Call, receiver = Put)"
+                },
+                "pricing_overrides": {
+                  "$ref": "#/$defs/PricingOverrides",
+                  "default": {
+                    "adaptive_bumps": false,
+                    "call_friction_cents": null,
+                    "credit_spread_bump_bp": null,
+                    "mc_seed_scenario": null,
+                    "mean_reversion": null,
+                    "rate_bump_bp": null,
+                    "rho_bump_decimal": null,
+                    "spot_bump_pct": null,
+                    "theta_period": null,
+                    "tree_steps": null,
+                    "tree_volatility": null,
+                    "use_gobet_miri": false,
+                    "vega_bump_decimal": null,
+                    "vol_bump_pct": null,
+                    "vol_surface_extrapolation": "error",
+                    "ytm_bump_decimal": null
+                  },
+                  "description": "Pricing overrides (manual price, yield, spread)"
+                },
+                "settlement": {
+                  "$ref": "#/$defs/SwaptionSettlement",
+                  "description": "Settlement method (physical or cash)"
+                },
+                "strike": {
+                  "description": "Strike (fixed rate on underlying swap)",
+                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                },
+                "swap_end": {
+                  "description": "Underlying swap end date (final payment)",
+                  "type": "string"
+                },
+                "swap_start": {
+                  "description": "Underlying swap start date (first accrual start)",
+                  "type": "string"
+                },
+                "vol_surface_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Volatility surface ID for calibration"
+                }
+              },
+              "required": [
+                "id",
+                "option_type",
+                "notional",
+                "strike",
+                "swap_start",
+                "swap_end",
+                "fixed_freq",
+                "float_freq",
+                "day_count",
+                "settlement",
+                "discount_curve_id",
+                "forward_curve_id",
+                "vol_surface_id",
+                "bermudan_schedule",
+                "bermudan_type"
+              ],
+              "type": "object"
+            },
+            "BermudanType": {
+              "description": "Co-terminal vs non-co-terminal Bermudan exercise.\n\nThis distinction affects pricing methodology and calibration:\n- Co-terminal: All exercise dates lead to the same swap end date\n- Non-co-terminal: Each exercise date may have a different remaining swap tenor",
+              "oneOf": [
+                {
+                  "const": "CoTerminal",
+                  "description": "All exercise dates lead to same swap end date (most common)",
+                  "type": "string"
+                },
+                {
+                  "const": "NonCoTerminal",
+                  "description": "Exercise dates may have different swap end dates",
+                  "type": "string"
+                }
+              ]
+            },
             "Bond": {
               "description": "Bond instrument with fixed, floating, or amortizing cashflows.\n\nCashflow sign convention (holder view):\n- All contractual cashflows **received by a long holder** (coupons,\n  amortization, final redemption) are represented as **positive** amounts.\n- Cash outflows for the holder (e.g., purchase price, funding, short\n  positions) are represented as **negative** amounts and are handled at\n  trade level rather than in the bond's contractual schedule.\n\nSupports call/put schedules, quoted prices for yield-to-maturity calculations,\nand custom cashflow schedule overrides. Uses a clean `CashflowSpec` that wraps\nthe canonical builder coupon specs for maximum flexibility and parity.",
               "properties": {
@@ -3268,10 +3440,6 @@
                   "$ref": "#/$defs/BermudanCallProvision",
                   "description": "Bermudan call provision."
                 },
-                "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve ID."
-                },
                 "id": {
                   "$ref": "#/$defs/Id",
                   "description": "Unique instrument identifier."
@@ -3281,21 +3449,152 @@
                   "description": "Pricing overrides."
                 },
                 "range_accrual": {
-                  "$ref": "#/$defs/RangeAccrualSpec",
-                  "description": "Underlying range accrual specification (observation dates, bounds, coupon)."
-                },
-                "vol_surface_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Volatility surface ID for the reference rate."
+                  "$ref": "#/$defs/RangeAccrual",
+                  "description": "Underlying range accrual leg."
                 }
               },
               "required": [
                 "id",
                 "range_accrual",
                 "call_provision",
-                "discount_curve_id",
-                "vol_surface_id",
                 "pricing_overrides",
+                "attributes"
+              ],
+              "type": "object"
+            },
+            "CapFloor": {
+              "additionalProperties": false,
+              "description": "Interest rate option instrument",
+              "properties": {
+                "attributes": {
+                  "$ref": "#/$defs/Attributes",
+                  "description": "Attributes for scenario selection and tagging"
+                },
+                "bdc": {
+                  "$ref": "#/$defs/BusinessDayConvention",
+                  "default": "modified_following",
+                  "description": "Schedule business day convention"
+                },
+                "calendar_id": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Id"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Optional holiday calendar identifier for schedule and roll conventions"
+                },
+                "day_count": {
+                  "$ref": "#/$defs/DayCount",
+                  "description": "Day count convention"
+                },
+                "discount_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Discount curve identifier"
+                },
+                "exercise_style": {
+                  "$ref": "#/$defs/ExerciseStyle",
+                  "default": "european",
+                  "description": "Exercise style (defaults to European; caps/floors are virtually always European)"
+                },
+                "forward_curve_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Forward curve identifier"
+                },
+                "frequency": {
+                  "$ref": "#/$defs/Tenor",
+                  "description": "Payment frequency for caps/floors"
+                },
+                "id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Unique instrument identifier"
+                },
+                "maturity": {
+                  "description": "End date of underlying period",
+                  "type": "string"
+                },
+                "notional": {
+                  "$ref": "#/$defs/Money",
+                  "description": "Notional amount"
+                },
+                "pricing_overrides": {
+                  "$ref": "#/$defs/PricingOverrides",
+                  "default": {
+                    "adaptive_bumps": false,
+                    "call_friction_cents": null,
+                    "credit_spread_bump_bp": null,
+                    "mc_seed_scenario": null,
+                    "mean_reversion": null,
+                    "rate_bump_bp": null,
+                    "rho_bump_decimal": null,
+                    "spot_bump_pct": null,
+                    "theta_period": null,
+                    "tree_steps": null,
+                    "tree_volatility": null,
+                    "use_gobet_miri": false,
+                    "vega_bump_decimal": null,
+                    "vol_bump_pct": null,
+                    "vol_surface_extrapolation": "error",
+                    "ytm_bump_decimal": null
+                  },
+                  "description": "Additional attributes"
+                },
+                "rate_option_type": {
+                  "$ref": "#/$defs/RateOptionType",
+                  "description": "Option type"
+                },
+                "settlement": {
+                  "$ref": "#/$defs/SettlementType",
+                  "default": "cash",
+                  "description": "Settlement type (defaults to Cash; caps/floors are virtually always cash-settled)"
+                },
+                "start_date": {
+                  "description": "Start date of underlying period",
+                  "type": "string"
+                },
+                "strike": {
+                  "description": "Strike (as decimal, e.g., 0.05 for 5%)",
+                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                },
+                "stub": {
+                  "$ref": "#/$defs/StubKind",
+                  "default": "ShortFront",
+                  "description": "Schedule stub convention"
+                },
+                "vol_shift": {
+                  "default": 0.0,
+                  "description": "Displacement shift for shifted-lognormal pricing (default: 0.0 = no shift).\n\nWhen `vol_type = ShiftedLognormal`, rates and strikes are shifted by this amount:\n`F' = F + vol_shift`, `K' = K + vol_shift`.\n\nTypical values are 0.01–0.03 (1%–3%) to push rates into positive territory\nin low-rate environments. A shift of 0.0 is equivalent to plain lognormal.\n\n**Validation**: Must be ≥ 0.0. The shifted forward `F + vol_shift` must be\npositive for the Black model to be well-defined.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "vol_surface_id": {
+                  "$ref": "#/$defs/Id",
+                  "description": "Volatility surface identifier"
+                },
+                "vol_type": {
+                  "$ref": "#/$defs/CapFloorVolType",
+                  "default": "lognormal",
+                  "description": "Volatility type convention (lognormal/Black or normal/Bachelier).\n\n**Critical**: This must match the convention of your vol surface data.\nUsing lognormal vol with a normal surface (or vice versa) will produce\nincorrect prices.\n\n- `Lognormal` (default): Standard Black model, requires positive rates/strikes\n- `Normal`: Bachelier model, handles negative rates"
+                }
+              },
+              "required": [
+                "id",
+                "rate_option_type",
+                "notional",
+                "strike",
+                "start_date",
+                "maturity",
+                "frequency",
+                "day_count",
+                "discount_curve_id",
+                "forward_curve_id",
+                "vol_surface_id",
                 "attributes"
               ],
               "type": "object"
@@ -4771,7 +5070,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional market convention for this commodity.\n\nWhen set, provides default settlement days and calendar if not\nexplicitly specified. See [`CommodityConvention`] for available options."
+                  "description": "Optional market convention for this commodity.\n\nWhen set, provides default settlement days and calendar if not\nexplicitly specified. See `CommodityConvention` for available options."
                 },
                 "currency": {
                   "$ref": "#/$defs/Currency",
@@ -6415,6 +6714,109 @@
                   "const": "NR",
                   "description": "NR — Not rated",
                   "type": "string"
+                }
+              ]
+            },
+            "CreditSpreadProcessSpec": {
+              "description": "Credit spread process specification.",
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "CIR process for stochastic credit spread/hazard rate.\n\nModels credit spread as: dλ_t = κ(θ - λ_t)dt + σ√λ_t dW_t",
+                  "properties": {
+                    "Cir": {
+                      "properties": {
+                        "initial": {
+                          "description": "Initial credit spread",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "kappa": {
+                          "description": "Mean reversion speed (κ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "sigma": {
+                          "description": "Volatility (σ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "theta": {
+                          "description": "Long-term mean (θ)",
+                          "format": "double",
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kappa",
+                        "theta",
+                        "sigma",
+                        "initial"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "Cir"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "description": "Constant credit spread (no dynamics).",
+                  "properties": {
+                    "Constant": {
+                      "format": "double",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "Constant"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "description": "Market-anchored credit spread process calibrated to a hazard curve and CDS option vol.\n\nThe mean level is anchored to the time-average spread implied by the input hazard\ncurve (over tenor T chosen as facility maturity by default). The initial spread is set\nto the first-segment spread, and the volatility is scaled from the CDS index option\nimplied volatility.",
+                  "properties": {
+                    "MarketAnchored": {
+                      "properties": {
+                        "hazard_curve_id": {
+                          "$ref": "#/$defs/Id",
+                          "description": "Hazard curve identifier in `MarketContext` used to anchor spreads."
+                        },
+                        "implied_vol": {
+                          "description": "Annualized CDS (index) option implied volatility for spreads.",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "kappa": {
+                          "description": "Mean reversion speed (κ) of the CIR process.",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "tenor_years": {
+                          "default": null,
+                          "description": "Optional tenor in years; if None, uses facility maturity horizon.",
+                          "format": "double",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hazard_curve_id",
+                        "kappa",
+                        "implied_vol"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "MarketAnchored"
+                  ],
+                  "type": "object"
                 }
               ]
             },
@@ -11318,6 +11720,7 @@
               "description": "Tagged union of all instrument types.\n\nThis enum enables JSON deserialization of any supported instrument type\nvia a type discriminator field. All instruments can be losslessly\ndeserialized from JSON without additional programmatic parameters.\n\n# JSON Format\n\n```json\n{\n  \"type\": \"bond\",\n  \"spec\": {\n    \"id\": \"BOND-001\",\n    \"notional\": { \"amount\": 1000000.0, \"ccy\": \"USD\" },\n    // ... other Bond fields\n  }\n}\n```",
               "oneOf": [
                 {
+                  "additionalProperties": false,
                   "description": "Fixed or floating rate bond",
                   "properties": {
                     "spec": {
@@ -11335,6 +11738,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Convertible bond (hybrid debt-equity)",
                   "properties": {
                     "spec": {
@@ -11352,6 +11756,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Inflation-linked bond",
                   "properties": {
                     "spec": {
@@ -11369,6 +11774,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Term loan",
                   "properties": {
                     "spec": {
@@ -11386,6 +11792,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Revolving credit facility",
                   "properties": {
                     "spec": {
@@ -11403,6 +11810,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Bond future",
                   "properties": {
                     "spec": {
@@ -11420,6 +11828,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Agency MBS passthrough",
                   "properties": {
                     "spec": {
@@ -11437,6 +11846,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Agency TBA forward",
                   "properties": {
                     "spec": {
@@ -11454,6 +11864,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Agency CMO tranche",
                   "properties": {
                     "spec": {
@@ -11471,6 +11882,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Dollar roll",
                   "properties": {
                     "spec": {
@@ -11488,6 +11900,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Interest rate swap",
                   "properties": {
                     "spec": {
@@ -11505,6 +11918,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Basis swap",
                   "properties": {
                     "spec": {
@@ -11522,6 +11936,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Cross-currency swap",
                   "properties": {
                     "spec": {
@@ -11539,6 +11954,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Inflation swap",
                   "properties": {
                     "spec": {
@@ -11556,6 +11972,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Year-on-year inflation swap",
                   "properties": {
                     "spec": {
@@ -11573,6 +11990,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Inflation cap/floor",
                   "properties": {
                     "spec": {
@@ -11590,6 +12008,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Forward rate agreement (FRA)",
                   "properties": {
                     "spec": {
@@ -11607,6 +12026,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Swaption (option on swap)",
                   "properties": {
                     "spec": {
@@ -11624,6 +12044,25 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
+                  "description": "Bermudan swaption",
+                  "properties": {
+                    "spec": {
+                      "$ref": "#/$defs/BermudanSwaption"
+                    },
+                    "type": {
+                      "const": "bermudan_swaption",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "spec"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
                   "description": "Interest rate future",
                   "properties": {
                     "spec": {
@@ -11641,13 +12080,14 @@
                   "type": "object"
                 },
                 {
-                  "description": "Interest rate option (cap/floor)",
+                  "additionalProperties": false,
+                  "description": "Cap/floor option",
                   "properties": {
                     "spec": {
-                      "$ref": "#/$defs/InterestRateOption"
+                      "$ref": "#/$defs/CapFloor"
                     },
                     "type": {
-                      "const": "interest_rate_option",
+                      "const": "cap_floor",
                       "type": "string"
                     }
                   },
@@ -11658,6 +12098,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Constant maturity swap (CMS) swap",
                   "properties": {
                     "spec": {
@@ -11675,6 +12116,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Constant maturity swap (CMS) option",
                   "properties": {
                     "spec": {
@@ -11692,6 +12134,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Interest rate future option",
                   "properties": {
                     "spec": {
@@ -11709,6 +12152,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Money market deposit",
                   "properties": {
                     "spec": {
@@ -11726,6 +12170,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Repurchase agreement",
                   "properties": {
                     "spec": {
@@ -11743,6 +12188,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Credit default swap (single-name CDS)",
                   "properties": {
                     "spec": {
@@ -11760,6 +12206,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "CDS index (CDX, iTraxx)",
                   "properties": {
                     "spec": {
@@ -11777,6 +12224,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "CDS tranche (synthetic CDO)",
                   "properties": {
                     "spec": {
@@ -11794,6 +12242,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "CDS option",
                   "properties": {
                     "spec": {
@@ -11811,6 +12260,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Equity spot position",
                   "properties": {
                     "spec": {
@@ -11828,6 +12278,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Vanilla equity option",
                   "properties": {
                     "spec": {
@@ -11845,6 +12296,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Asian option (path-dependent average)",
                   "properties": {
                     "spec": {
@@ -11862,6 +12314,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Barrier option (knock-in/out)",
                   "properties": {
                     "spec": {
@@ -11879,6 +12332,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Lookback option",
                   "properties": {
                     "spec": {
@@ -11896,6 +12350,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Variance swap",
                   "properties": {
                     "spec": {
@@ -11913,6 +12368,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Equity index future",
                   "properties": {
                     "spec": {
@@ -11930,6 +12386,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Volatility index future",
                   "properties": {
                     "spec": {
@@ -11947,6 +12404,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Volatility index option",
                   "properties": {
                     "spec": {
@@ -11964,6 +12422,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX spot position",
                   "properties": {
                     "spec": {
@@ -11981,6 +12440,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX swap (forward)",
                   "properties": {
                     "spec": {
@@ -11998,6 +12458,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX forward (outright)",
                   "properties": {
                     "spec": {
@@ -12015,6 +12476,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Non-deliverable forward",
                   "properties": {
                     "spec": {
@@ -12032,6 +12494,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Vanilla FX option",
                   "properties": {
                     "spec": {
@@ -12049,6 +12512,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX digital (binary) option",
                   "properties": {
                     "spec": {
@@ -12066,6 +12530,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX touch/no-touch option",
                   "properties": {
                     "spec": {
@@ -12083,6 +12548,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX barrier option",
                   "properties": {
                     "spec": {
@@ -12100,6 +12566,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "FX variance swap",
                   "properties": {
                     "spec": {
@@ -12117,6 +12584,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Quanto option (cross-currency)",
                   "properties": {
                     "spec": {
@@ -12134,6 +12602,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Commodity option",
                   "properties": {
                     "spec": {
@@ -12151,6 +12620,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Commodity Asian option",
                   "properties": {
                     "spec": {
@@ -12168,6 +12638,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Commodity forward",
                   "properties": {
                     "spec": {
@@ -12185,6 +12656,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Commodity swap",
                   "properties": {
                     "spec": {
@@ -12202,6 +12674,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Commodity swaption",
                   "properties": {
                     "spec": {
@@ -12219,6 +12692,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Commodity spread option",
                   "properties": {
                     "spec": {
@@ -12236,6 +12710,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Autocallable note",
                   "properties": {
                     "spec": {
@@ -12253,6 +12728,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Cliquet/ratchet option",
                   "properties": {
                     "spec": {
@@ -12270,6 +12746,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Range accrual note",
                   "properties": {
                     "spec": {
@@ -12287,6 +12764,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Target Redemption Note (TARN)",
                   "properties": {
                     "spec": {
@@ -12304,6 +12782,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Snowball / Inverse Floater note",
                   "properties": {
                     "spec": {
@@ -12321,6 +12800,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "CMS Spread Option",
                   "properties": {
                     "spec": {
@@ -12338,6 +12818,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Callable Range Accrual",
                   "properties": {
                     "spec": {
@@ -12355,6 +12836,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Equity total return swap",
                   "properties": {
                     "spec": {
@@ -12372,6 +12854,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Fixed income index total return swap",
                   "properties": {
                     "spec": {
@@ -12389,6 +12872,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Structured credit (ABS, RMBS, CMBS, CLO)",
                   "properties": {
                     "spec": {
@@ -12406,6 +12890,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Multi-asset basket",
                   "properties": {
                     "spec": {
@@ -12423,6 +12908,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Private markets fund",
                   "properties": {
                     "spec": {
@@ -12440,6 +12926,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Real estate asset",
                   "properties": {
                     "spec": {
@@ -12457,6 +12944,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Levered real estate equity",
                   "properties": {
                     "spec": {
@@ -12474,6 +12962,7 @@
                   "type": "object"
                 },
                 {
+                  "additionalProperties": false,
                   "description": "Discounted cash flow (DCF) valuation",
                   "properties": {
                     "spec": {
@@ -12606,142 +13095,51 @@
               ],
               "type": "object"
             },
-            "InterestRateOption": {
-              "additionalProperties": false,
-              "description": "Interest rate option instrument",
-              "properties": {
-                "attributes": {
-                  "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and tagging"
-                },
-                "bdc": {
-                  "$ref": "#/$defs/BusinessDayConvention",
-                  "default": "modified_following",
-                  "description": "Schedule business day convention"
-                },
-                "calendar_id": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/Id"
-                    },
-                    {
-                      "type": "null"
+            "InterestRateProcessSpec": {
+              "description": "Interest rate process specification (for floating rates).",
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "Hull-White 1-factor model for short rate.\n\nModels short rate as: dr_t = κ[θ(t) - r_t]dt + σ dW_t",
+                  "properties": {
+                    "HullWhite1F": {
+                      "properties": {
+                        "initial": {
+                          "description": "Initial short rate",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "kappa": {
+                          "description": "Mean reversion speed (κ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "sigma": {
+                          "description": "Volatility (σ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "theta": {
+                          "description": "Constant mean reversion level (θ)",
+                          "format": "double",
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kappa",
+                        "sigma",
+                        "initial",
+                        "theta"
+                      ],
+                      "type": "object"
                     }
-                  ],
-                  "description": "Optional holiday calendar identifier for schedule and roll conventions"
-                },
-                "day_count": {
-                  "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention"
-                },
-                "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve identifier"
-                },
-                "exercise_style": {
-                  "$ref": "#/$defs/ExerciseStyle",
-                  "default": "european",
-                  "description": "Exercise style (defaults to European; caps/floors are virtually always European)"
-                },
-                "forward_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Forward curve identifier"
-                },
-                "frequency": {
-                  "$ref": "#/$defs/Tenor",
-                  "description": "Payment frequency for caps/floors"
-                },
-                "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier"
-                },
-                "maturity": {
-                  "description": "End date of underlying period",
-                  "type": "string"
-                },
-                "notional": {
-                  "$ref": "#/$defs/Money",
-                  "description": "Notional amount"
-                },
-                "pricing_overrides": {
-                  "$ref": "#/$defs/PricingOverrides",
-                  "default": {
-                    "adaptive_bumps": false,
-                    "call_friction_cents": null,
-                    "credit_spread_bump_bp": null,
-                    "mc_seed_scenario": null,
-                    "mean_reversion": null,
-                    "rate_bump_bp": null,
-                    "rho_bump_decimal": null,
-                    "spot_bump_pct": null,
-                    "theta_period": null,
-                    "tree_steps": null,
-                    "tree_volatility": null,
-                    "use_gobet_miri": false,
-                    "vega_bump_decimal": null,
-                    "vol_bump_pct": null,
-                    "vol_surface_extrapolation": "error",
-                    "ytm_bump_decimal": null
                   },
-                  "description": "Additional attributes"
-                },
-                "rate_option_type": {
-                  "$ref": "#/$defs/RateOptionType",
-                  "description": "Option type"
-                },
-                "settlement": {
-                  "$ref": "#/$defs/SettlementType",
-                  "default": "cash",
-                  "description": "Settlement type (defaults to Cash; caps/floors are virtually always cash-settled)"
-                },
-                "start_date": {
-                  "description": "Start date of underlying period",
-                  "type": "string"
-                },
-                "strike": {
-                  "description": "Strike (as decimal, e.g., 0.05 for 5%)",
-                  "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
-                  "type": [
-                    "string",
-                    "number"
-                  ]
-                },
-                "stub": {
-                  "$ref": "#/$defs/StubKind",
-                  "default": "ShortFront",
-                  "description": "Schedule stub convention"
-                },
-                "vol_shift": {
-                  "default": 0.0,
-                  "description": "Displacement shift for shifted-lognormal pricing (default: 0.0 = no shift).\n\nWhen `vol_type = ShiftedLognormal`, rates and strikes are shifted by this amount:\n`F' = F + vol_shift`, `K' = K + vol_shift`.\n\nTypical values are 0.01–0.03 (1%–3%) to push rates into positive territory\nin low-rate environments. A shift of 0.0 is equivalent to plain lognormal.\n\n**Validation**: Must be ≥ 0.0. The shifted forward `F + vol_shift` must be\npositive for the Black model to be well-defined.",
-                  "format": "double",
-                  "type": "number"
-                },
-                "vol_surface_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Volatility surface identifier"
-                },
-                "vol_type": {
-                  "$ref": "#/$defs/CapFloorVolType",
-                  "default": "lognormal",
-                  "description": "Volatility type convention (lognormal/Black or normal/Bachelier).\n\n**Critical**: This must match the convention of your vol surface data.\nUsing lognormal vol with a normal surface (or vice versa) will produce\nincorrect prices.\n\n- `Lognormal` (default): Standard Black model, requires positive rates/strikes\n- `Normal`: Bachelier model, handles negative rates"
+                  "required": [
+                    "HullWhite1F"
+                  ],
+                  "type": "object"
                 }
-              },
-              "required": [
-                "id",
-                "rate_option_type",
-                "notional",
-                "strike",
-                "start_date",
-                "maturity",
-                "frequency",
-                "day_count",
-                "discount_curve_id",
-                "forward_curve_id",
-                "vol_surface_id",
-                "attributes"
-              ],
-              "type": "object"
+              ]
             },
             "InterestRateSwap": {
               "additionalProperties": false,
@@ -13311,6 +13709,63 @@
                   ]
                 }
               },
+              "type": "object"
+            },
+            "McConfig": {
+              "description": "Advanced Monte Carlo configuration for revolving credit facilities.\n\nEnables multi-factor modeling with credit risk, interest rate dynamics,\ncorrelation between factors, and default modeling.",
+              "properties": {
+                "correlation_matrix": {
+                  "description": "Correlation matrix (3x3) between [utilization, rate, credit].\n\nMust be symmetric, positive definite, with ones on diagonal.\nIf None, factors are assumed independent.",
+                  "items": {
+                    "items": {
+                      "format": "double",
+                      "type": "number"
+                    },
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "credit_spread_process": {
+                  "$ref": "#/$defs/CreditSpreadProcessSpec",
+                  "description": "Credit spread process specification."
+                },
+                "interest_rate_process": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/InterestRateProcessSpec"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Interest rate process specification (for floating rates).\n\nIf None, assumes fixed rate (no stochastic dynamics)."
+                },
+                "recovery_rate": {
+                  "description": "Recovery rate on default (e.g., 0.4 for 40% recovery).\n\nUsed when propagating credit risk from market-anchored stochastic specs to\nthe deterministic fallback in `value()`. The path generator itself uses\n`RevolvingCredit::recovery_rate` for hazard-to-spread mapping, so these\nvalues should be kept consistent. When constructing `McConfig`, set this\nto the same value as `RevolvingCredit::recovery_rate`.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "util_credit_corr": {
+                  "default": null,
+                  "description": "Optional utilization–credit correlation used when `correlation_matrix` is None.\n\nIf provided, builds a 3×3 matrix with:\n  [ [1, 0, rho], [0, 1, 0], [rho, 0, 1] ]\nrepresenting correlation between utilization and credit, with the rate\nfactor uncorrelated (kept fixed in 2‑factor mode).",
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "recovery_rate",
+                "credit_spread_process"
+              ],
               "type": "object"
             },
             "Metadata": {
@@ -14327,7 +14782,7 @@
                   ]
                 },
                 "cds_quote_bp": {
-                  "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `cds_quote_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
+                  "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `quoted_spread_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
                   "format": "double",
                   "type": [
                     "number",
@@ -14982,66 +15437,6 @@
                 "vol_surface_id",
                 "pricing_overrides",
                 "attributes"
-              ],
-              "type": "object"
-            },
-            "RangeAccrualSpec": {
-              "additionalProperties": false,
-              "description": "Core range accrual parameters extracted for reuse in callable wrapper.\n\nMirrors the essential fields from [`crate::instruments::rates::range_accrual::RangeAccrual`]\nwithout the instrument-level metadata (id, attributes, overrides).",
-              "properties": {
-                "bounds_type": {
-                  "$ref": "#/$defs/BoundsType",
-                  "default": "absolute",
-                  "description": "Bounds interpretation."
-                },
-                "coupon_rate": {
-                  "description": "Coupon rate when in range.",
-                  "format": "double",
-                  "type": "number"
-                },
-                "day_count": {
-                  "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention."
-                },
-                "lower_bound": {
-                  "description": "Lower bound of accrual range.",
-                  "format": "double",
-                  "type": "number"
-                },
-                "notional": {
-                  "$ref": "#/$defs/Money",
-                  "description": "Notional."
-                },
-                "observation_dates": {
-                  "description": "Observation dates (must be sorted ascending).",
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "spot_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Spot price identifier."
-                },
-                "underlying_ticker": {
-                  "description": "Underlying ticker.",
-                  "type": "string"
-                },
-                "upper_bound": {
-                  "description": "Upper bound of accrual range.",
-                  "format": "double",
-                  "type": "number"
-                }
-              },
-              "required": [
-                "underlying_ticker",
-                "observation_dates",
-                "lower_bound",
-                "upper_bound",
-                "coupon_rate",
-                "notional",
-                "day_count",
-                "spot_id"
               ],
               "type": "object"
             },
@@ -16648,6 +17043,17 @@
                   "default": false,
                   "description": "Use antithetic variance reduction when simulating paths (default: false).",
                   "type": "boolean"
+                },
+                "mc_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/McConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Advanced Monte Carlo configuration (optional).\n\nWhen present, enables multi-factor modeling with credit spread\nand interest rate dynamics, correlation, and default modeling."
                 },
                 "num_paths": {
                   "description": "Number of Monte Carlo paths to simulate.",

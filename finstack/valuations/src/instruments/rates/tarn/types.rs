@@ -44,6 +44,9 @@ pub struct Tarn {
     /// Floor on each period's coupon (typically 0.0).
     pub coupon_floor: f64,
     /// Target cumulative coupon level (triggers early redemption).
+    ///
+    /// A zero target is allowed and represents redemption at the first
+    /// future coupon date without coupon accrual.
     pub target_coupon: f64,
     /// Notional amount.
     pub notional: Money,
@@ -71,7 +74,7 @@ impl Tarn {
     /// - At least two coupon dates (need a period to accrue)
     /// - Coupon dates are sorted ascending
     /// - Fixed rate is finite
-    /// - Target coupon is positive
+    /// - Target coupon is non-negative
     /// - Coupon floor is finite and non-negative by convention
     pub fn validate(&self) -> finstack_core::Result<()> {
         validation::require_with(self.coupon_dates.len() >= 2, || {
@@ -84,12 +87,15 @@ impl Tarn {
             format!("TARN fixed_rate ({}) must be finite", self.fixed_rate)
         })?;
 
-        validation::require_with(self.target_coupon > 0.0, || {
-            format!(
-                "TARN target_coupon ({}) must be positive",
-                self.target_coupon
-            )
-        })?;
+        validation::require_with(
+            self.target_coupon >= 0.0 && self.target_coupon.is_finite(),
+            || {
+                format!(
+                    "TARN target_coupon ({}) must be non-negative and finite",
+                    self.target_coupon
+                )
+            },
+        )?;
 
         validation::require_with(
             self.coupon_floor >= 0.0 && self.coupon_floor.is_finite(),

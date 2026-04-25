@@ -37,8 +37,9 @@ use crate::cashflow::builder::{
 };
 use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::pricing::swap_legs::{FloatingLegParams, LegPeriod};
-use rust_decimal::prelude::ToPrimitive;
+use crate::instruments::common_impl::validation;
 use rust_decimal::Decimal;
 
 // Re-export from common parameters
@@ -388,21 +389,22 @@ impl BasisSwap {
             ));
         }
 
-        let max_spread_bp = Decimal::from(5000);
-        if leg.spread_bp.abs() > max_spread_bp {
-            return Err(finstack_core::Error::Validation(format!(
-                "BasisSwap leg spread {}bp exceeds maximum threshold of ±{}bp. \
-                 Spread is in basis points (e.g., Decimal::from(5) for 5bp). \
-                 If this is intentional for stress testing, consider using a dedicated stress API.",
-                leg.spread_bp, max_spread_bp
-            )));
-        }
+        let spread_bp = decimal_to_f64(leg.spread_bp, "BasisSwap leg spread_bp")?;
+        validation::validate_rate_magnitude(
+            spread_bp,
+            5000.0,
+            "BasisSwap leg spread",
+            1.0,
+            "bp",
+            "Spread is in basis points (e.g., Decimal::from(5) for 5bp). \
+             If this is intentional for stress testing, consider using a dedicated stress API.",
+        )?;
 
-        let typical_spread_bp = Decimal::from(500);
-        if leg.spread_bp.abs() > typical_spread_bp {
+        let typical_spread_bp = 500.0;
+        if spread_bp.abs() > typical_spread_bp {
             tracing::warn!(
                 instrument_id = %self.id.as_str(),
-                spread_bp = %leg.spread_bp,
+                spread_bp,
                 "BasisSwap leg spread {}bp is outside typical market range (±500bp). \
                  Verify this is intentional and not a unit conversion error.",
                 leg.spread_bp
@@ -447,7 +449,7 @@ impl BasisSwap {
             .collect();
 
         let params = FloatingLegParams::full(
-            leg.spread_bp.to_f64().unwrap_or_default(),
+            decimal_to_f64(leg.spread_bp, "BasisSwap leg spread_bp")?,
             1.0,
             true,
             None,

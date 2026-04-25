@@ -7,10 +7,12 @@
 //! # See Also
 //!
 //! - [`CallableRangeAccrual`] for instrument definition
-//! - [`RangeAccrualSpec`] for the underlying range accrual parameters
+//! - [`crate::instruments::rates::range_accrual::RangeAccrual`] for the underlying range accrual leg
 //! - [`crate::instruments::rates::shared::bermudan_call::BermudanCallProvision`]
 
 pub(crate) mod metrics;
+pub(crate) mod pricer;
 pub(crate) mod types;
 
-pub use types::{CallableRangeAccrual, RangeAccrualSpec};
+pub use pricer::CallableRangeAccrualPricer;
+pub use types::CallableRangeAccrual;

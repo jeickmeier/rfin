@@ -231,7 +231,7 @@ fn price_with_metrics_standalone_returns_base_value_when_no_metrics_or_hedges() 
 
 #[test]
 fn hedge_helpers_track_attached_swaps() {
-    let swap = finstack_valuations::instruments::rates::irs::InterestRateSwap::example()
+    let swap = finstack_valuations::instruments::rates::irs::InterestRateSwap::example_standard()
         .expect("example hedge swap");
     let mut sc = build_sc("ABS-HEDGED", 1_000_000.0);
     assert!(!sc.has_hedges());

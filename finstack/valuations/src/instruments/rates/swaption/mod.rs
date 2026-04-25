@@ -101,6 +101,8 @@
 //! - [`crate::instruments::rates::swaption::SimpleSwaptionBlackPricer`] for Black model pricer
 //! - [`crate::instruments::rates::swaption::VolatilityModel`] for selecting Black vs Normal
 
+/// Bermudan swaption pricing orchestration.
+pub(crate) mod bermudan;
 /// Bermudan swaption pricer using Cheyette + rough stochastic volatility
 pub(crate) mod cheyette_rough_pricer;
 /// Hull-White 1-factor tree pricer for European swaptions
@@ -117,11 +119,13 @@ pub(crate) mod pricer;
 pub(crate) mod pricing;
 pub(crate) mod types;
 
-pub use parameters::SwaptionParams;
-pub use pricer::{
-    BermudanPricingMethod, BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams,
-    SimpleSwaptionBlackPricer,
+pub use crate::calibration::hull_white::HullWhiteParams;
+pub use bermudan::{
+    BermudanPricingMethod, BermudanSwaptionPricer, BermudanSwaptionPricerConfig,
+    CalibratedHullWhiteModel,
 };
+pub use parameters::SwaptionParams;
+pub use pricer::SimpleSwaptionBlackPricer;
 pub use pricing::BermudanSwaptionTreeValuator;
 pub use types::{
     BermudanSchedule, BermudanSwaption, BermudanType, CashSettlementMethod, GreekInputs,

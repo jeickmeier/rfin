@@ -44,7 +44,6 @@
 //! - Plan-driven calibration in `calibration::api` (Discount step) for curve bootstrap
 
 pub(crate) mod metrics;
-pub(crate) mod pricer;
 mod types;
 
 pub use metrics::register_deposit_metrics;

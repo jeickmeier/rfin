@@ -51,8 +51,6 @@
 //! - Multi-curve calibration in [`calibration`](crate::calibration)
 
 pub(crate) mod metrics;
-/// Basis swap pricer implementation
-pub(crate) mod pricer;
 mod types;
 
 pub use types::{BasisSwap, BasisSwapLeg};

@@ -30,13 +30,13 @@ use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::Result;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{
     periods::{build_periods, BuildPeriodsParams},
     CashFlowSchedule, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional,
 };
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
 
 fn default_rfr_calendar(currency: finstack_core::currency::Currency) -> Option<&'static str> {
@@ -358,12 +358,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
             acc
         };
 
-        let spread_bp = float.spread_bp.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "float leg spread_bp value {} cannot be converted to f64",
-                float.spread_bp
-            ))
-        })?;
+        let spread_bp = decimal_to_f64(float.spread_bp, "float leg spread_bp")?;
         let interest = irs.notional.amount() * (compound_factor - 1.0);
         let spread_contrib = irs.notional.amount()
             * spread_bp
@@ -422,7 +417,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 /// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
 ///
 /// # fn example() -> finstack_core::Result<()> {
-/// let irs = InterestRateSwap::example()?;
+/// let irs = InterestRateSwap::example_standard()?;
 /// let schedule = cashflow::fixed_leg_schedule(&irs)?;
 ///
 /// // Schedule contains fixed coupon flows
@@ -700,7 +695,7 @@ mod tests {
 
     #[test]
     fn irs_leg_schedules_do_not_emit_notional_flows() {
-        let irs = InterestRateSwap::example().expect("example IRS");
+        let irs = InterestRateSwap::example_standard().expect("example IRS");
         let fixed = fixed_leg_schedule(&irs).expect("fixed schedule");
         assert!(
             fixed

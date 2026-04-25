@@ -44,7 +44,6 @@ use crate::instruments::rates::irs::{FloatingLegCompounding, ParRateMethod};
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::DiscountCurve;
 
 /// Returns true if the DiscountRatio identity is valid for this IRS configuration.
 ///
@@ -84,8 +83,6 @@ impl MetricCalculator for ParRateCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
-        let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
-
         let method = irs.fixed.par_method.unwrap_or(ParRateMethod::ForwardBased);
 
         // For compounded swaps, we always use the forward-based (PV-based) method
@@ -95,17 +92,18 @@ impl MetricCalculator for ParRateCalculator {
             FloatingLegCompounding::CompoundedInArrears { .. }
                 | FloatingLegCompounding::CompoundedWithObservationShift { .. }
         ) {
-            return par_rate_pv_based(irs, context, &disc);
+            return par_rate_pv_based(irs, context);
         }
 
         match method {
-            ParRateMethod::ForwardBased => par_rate_pv_based(irs, context, &disc),
+            ParRateMethod::ForwardBased => par_rate_pv_based(irs, context),
             ParRateMethod::DiscountRatio => {
                 let as_of = context.as_of;
                 if !discount_ratio_allowed(irs, as_of) {
                     // Safer default: fall back to PV-based par rate when identity prerequisites do not hold.
-                    return par_rate_pv_based(irs, context, &disc);
+                    return par_rate_pv_based(irs, context);
                 }
+                let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
                 let fixed = irs.resolved_fixed_leg();
                 let sched = crate::cashflow::builder::build_dates(
                     fixed.start,
@@ -162,11 +160,7 @@ impl MetricCalculator for ParRateCalculator {
 /// Par rate calculation based on PV of the floating leg.
 ///
 /// Refactored to reuse the pricer's own floating leg PV logic for perfect consistency.
-fn par_rate_pv_based(
-    irs: &InterestRateSwap,
-    ctx: &MetricContext,
-    disc: &DiscountCurve,
-) -> finstack_core::Result<f64> {
+fn par_rate_pv_based(irs: &InterestRateSwap, ctx: &MetricContext) -> finstack_core::Result<f64> {
     let as_of = ctx.as_of;
     let annuity = ctx.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
 
@@ -178,26 +172,7 @@ fn par_rate_pv_based(
         )));
     }
 
-    // Look up historical fixings for seasoned swaps
-    let fixings = finstack_core::market_data::fixings::get_fixing_series(
-        &ctx.curves,
-        irs.float.forward_curve_id.as_str(),
-    )
-    .ok();
-
-    // Reuse the pricer's PV logic based on compounding type
-    let pv_float = match irs.float.compounding {
-        FloatingLegCompounding::Simple => irs.pv_float_leg(&ctx.curves, as_of)?,
-        FloatingLegCompounding::CompoundedInArrears { .. }
-        | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
-            let proj = if irs.is_single_curve_ois() {
-                ctx.curves.get_forward(&irs.float.forward_curve_id).ok()
-            } else {
-                Some(ctx.curves.get_forward(&irs.float.forward_curve_id)?)
-            };
-            irs.pv_compounded_float_leg(disc, proj.as_deref(), as_of, fixings)?
-        }
-    };
+    let pv_float = irs.pv_float_leg(&ctx.curves, as_of)?;
 
     // Par rate = float_pv / (notional * annuity)
     Ok(pv_float / (irs.notional.amount() * annuity))

@@ -5,8 +5,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::InterestRateOptionParams;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use rust_decimal::Decimal;
 use time::Month;
@@ -17,18 +16,19 @@ fn test_cap_creation_basic() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let params =
-        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360)
-            .expect("valid strike");
-    let cap = InterestRateOption::new(
+    let cap = CapFloor::new_cap(
         "USD_CAP_3%",
-        &params,
+        notional,
+        0.03,
         start,
         end,
+        Tenor::quarterly(),
+        DayCount::Act360,
         "USD-OIS",
         "USD-LIBOR-3M",
         "USD-CAP-VOL",
-    );
+    )
+    .expect("valid strike");
 
     assert_eq!(cap.id, "USD_CAP_3%".into());
     assert_eq!(cap.rate_option_type, RateOptionType::Cap);
@@ -47,18 +47,19 @@ fn test_floor_creation_basic() {
     let start = Date::from_calendar_date(2025, Month::March, 15).unwrap();
     let end = Date::from_calendar_date(2028, Month::March, 15).unwrap();
 
-    let params =
-        InterestRateOptionParams::floor(notional, 0.01, Tenor::semi_annual(), DayCount::Thirty360)
-            .expect("valid strike");
-    let floor = InterestRateOption::new(
+    let floor = CapFloor::new_floor(
         "EUR_FLOOR_1%",
-        &params,
+        notional,
+        0.01,
         start,
         end,
+        Tenor::semi_annual(),
+        DayCount::Thirty360,
         "EUR-OIS",
         "EUR-EURIBOR-6M",
         "EUR-CAP-VOL",
-    );
+    )
+    .expect("valid strike");
 
     assert_eq!(floor.id, "EUR_FLOOR_1%".into());
     assert_eq!(floor.rate_option_type, RateOptionType::Floor);
@@ -77,7 +78,7 @@ fn test_cap_new_cap_helper() {
     let start = Date::from_calendar_date(2025, Month::June, 1).unwrap();
     let end = Date::from_calendar_date(2027, Month::June, 1).unwrap();
 
-    let cap = InterestRateOption::new_cap(
+    let cap = CapFloor::new_cap(
         "GBP_CAP",
         notional,
         0.04,
@@ -102,7 +103,7 @@ fn test_floor_new_floor_helper() {
     let start = Date::from_calendar_date(2026, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2031, Month::January, 1).unwrap();
 
-    let floor = InterestRateOption::new_floor(
+    let floor = CapFloor::new_floor(
         "JPY_FLOOR",
         notional,
         0.005,
@@ -129,7 +130,7 @@ fn test_caplet_creation() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional,
@@ -163,7 +164,7 @@ fn test_floorlet_creation() {
     let start = Date::from_calendar_date(2025, Month::March, 1).unwrap();
     let end = Date::from_calendar_date(2025, Month::September, 1).unwrap();
 
-    let floorlet = InterestRateOption {
+    let floorlet = CapFloor {
         id: "FLOORLET_TEST".into(),
         rate_option_type: RateOptionType::Floorlet,
         notional,
@@ -196,18 +197,19 @@ fn test_custom_calendar() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let params =
-        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360)
-            .expect("valid strike");
-    let mut cap = InterestRateOption::new(
+    let mut cap = CapFloor::new_cap(
         "CAP_WITH_CALENDAR",
-        &params,
+        notional,
+        0.03,
         start,
         end,
+        Tenor::quarterly(),
+        DayCount::Act360,
         "USD-OIS",
         "USD-LIBOR-3M",
         "USD-CAP-VOL",
-    );
+    )
+    .expect("valid strike");
     cap.calendar_id = Some("US_NERC".into());
 
     assert_eq!(cap.calendar_id.as_deref(), Some("US_NERC"));
@@ -227,17 +229,19 @@ fn test_different_day_counts() {
     ];
 
     for dc in day_counts {
-        let params = InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), dc)
-            .expect("valid strike");
-        let cap = InterestRateOption::new(
+        let cap = CapFloor::new_cap(
             "CAP_DC_TEST",
-            &params,
+            notional,
+            0.03,
             start,
             end,
+            Tenor::quarterly(),
+            dc,
             "USD-OIS",
             "USD-LIBOR-3M",
             "USD-CAP-VOL",
-        );
+        )
+        .expect("valid strike");
 
         assert_eq!(cap.day_count, dc);
     }
@@ -257,17 +261,19 @@ fn test_different_frequencies() {
     ];
 
     for freq in frequencies {
-        let params = InterestRateOptionParams::cap(notional, 0.03, freq, DayCount::Act360)
-            .expect("valid strike");
-        let cap = InterestRateOption::new(
+        let cap = CapFloor::new_cap(
             "CAP_FREQ_TEST",
-            &params,
+            notional,
+            0.03,
             start,
             end,
+            freq,
+            DayCount::Act360,
             "USD-OIS",
             "USD-LIBOR-3M",
             "USD-CAP-VOL",
-        );
+        )
+        .expect("valid strike");
 
         assert_eq!(cap.frequency, freq);
     }
@@ -279,7 +285,7 @@ fn test_new_caplet_rejects_nan_strike() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-    let result = InterestRateOption::new_caplet(
+    let result = CapFloor::new_caplet(
         "CAPLET-NAN",
         notional,
         f64::NAN,
@@ -299,7 +305,7 @@ fn test_new_caplet_rejects_infinite_strike() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-    let result = InterestRateOption::new_caplet(
+    let result = CapFloor::new_caplet(
         "CAPLET-INF",
         notional,
         f64::INFINITY,
@@ -319,7 +325,7 @@ fn test_new_floorlet_rejects_nan_strike() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-    let result = InterestRateOption::new_floorlet(
+    let result = CapFloor::new_floorlet(
         "FLOORLET-NAN",
         notional,
         f64::NAN,
@@ -339,7 +345,7 @@ fn test_new_caplet_accepts_valid_strike() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-    let result = InterestRateOption::new_caplet(
+    let result = CapFloor::new_caplet(
         "CAPLET-OK",
         notional,
         0.05,

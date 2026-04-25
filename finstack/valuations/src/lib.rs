@@ -250,7 +250,7 @@
 //! - `Bond`: Fixed and floating-rate bonds, callable/putable, amortizing
 //! - `InterestRateSwap`: Plain vanilla and basis swaps
 //! - `Swaption`: European and Bermudan swaptions
-//! - `InterestRateOption`: Interest rate caps and floors
+//! - `CapFloor`: Interest rate caps and floors
 //! - `Deposit`: Money market deposits
 //! - `ForwardRateAgreement`: FRAs
 //! - `InterestRateFuture`: Futures contracts

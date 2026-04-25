@@ -43,7 +43,12 @@ pub struct InstrumentEnvelope {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
-#[serde(tag = "type", content = "spec", rename_all = "snake_case")]
+#[serde(
+    tag = "type",
+    content = "spec",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 #[non_exhaustive]
 pub enum InstrumentJson {
     // Fixed Income
@@ -85,10 +90,12 @@ pub enum InstrumentJson {
     ForwardRateAgreement(ForwardRateAgreement),
     /// Swaption (option on swap)
     Swaption(Swaption),
+    /// Bermudan swaption
+    BermudanSwaption(BermudanSwaption),
     /// Interest rate future
     InterestRateFuture(InterestRateFuture),
-    /// Interest rate option (cap/floor)
-    InterestRateOption(InterestRateOption),
+    /// Cap/floor option
+    CapFloor(CapFloor),
     /// Constant maturity swap (CMS) swap
     CmsSwap(CmsSwap),
     /// Constant maturity swap (CMS) option
@@ -185,7 +192,7 @@ pub enum InstrumentJson {
     /// CMS Spread Option
     CmsSpreadOption(CmsSpreadOption),
     /// Callable Range Accrual
-    CallableRangeAccrual(CallableRangeAccrual),
+    CallableRangeAccrual(Box<CallableRangeAccrual>),
 
     // Total Return Swaps
     /// Equity total return swap
@@ -231,8 +238,9 @@ macro_rules! with_instrument_json_registry {
             plain: InflationCapFloor(InflationCapFloor) => "inflation_cap_floor" @ "../schemas/instruments/1/rates/inflation_cap_floor.schema.json";
             plain: ForwardRateAgreement(ForwardRateAgreement) => "forward_rate_agreement" @ "../schemas/instruments/1/rates/forward_rate_agreement.schema.json";
             plain: Swaption(Swaption) => "swaption" @ "../schemas/instruments/1/rates/swaption.schema.json";
+            plain: BermudanSwaption(BermudanSwaption) => "bermudan_swaption" @ "../schemas/instruments/1/rates/bermudan_swaption.schema.json";
             plain: InterestRateFuture(InterestRateFuture) => "interest_rate_future" @ "../schemas/instruments/1/rates/interest_rate_future.schema.json";
-            plain: InterestRateOption(InterestRateOption) => "interest_rate_option" @ "../schemas/instruments/1/rates/interest_rate_option.schema.json";
+            plain: CapFloor(CapFloor) => "cap_floor" @ "../schemas/instruments/1/rates/cap_floor.schema.json", "interest_rate_option";
             plain: CmsSwap(CmsSwap) => "cms_swap" @ "../schemas/instruments/1/rates/cms_swap.schema.json";
             plain: CmsOption(CmsOption) => "cms_option" @ "../schemas/instruments/1/rates/cms_option.schema.json";
             plain: IrFutureOption(IrFutureOption) => "ir_future_option" @ "../schemas/instruments/1/rates/ir_future_option.schema.json";
@@ -273,13 +281,13 @@ macro_rules! with_instrument_json_registry {
             plain: Tarn(Tarn) => "tarn" @ "../schemas/instruments/1/rates/tarn.schema.json";
             plain: Snowball(Snowball) => "snowball" @ "../schemas/instruments/1/rates/snowball.schema.json";
             plain: CmsSpreadOption(CmsSpreadOption) => "cms_spread_option" @ "../schemas/instruments/1/rates/cms_spread_option.schema.json";
-            plain: CallableRangeAccrual(CallableRangeAccrual) => "callable_range_accrual" @ "../schemas/instruments/1/rates/callable_range_accrual.schema.json";
             plain: TrsEquity(EquityTotalReturnSwap) => "trs_equity" @ "../schemas/instruments/1/equity/trs_equity.schema.json", "equity_trs";
             plain: TrsFixedIncomeIndex(FIIndexTotalReturnSwap) => "trs_fixed_income_index" @ "../schemas/instruments/1/fixed_income/trs_fixed_income_index.schema.json", "fi_trs", "fixed_income_trs";
             plain: Basket(Basket) => "basket" @ "../schemas/instruments/1/exotics/basket.schema.json";
             plain: PrivateMarketsFund(PrivateMarketsFund) => "private_markets_fund" @ "../schemas/instruments/1/equity/private_markets_fund.schema.json";
             plain: RealEstateAsset(RealEstateAsset) => "real_estate_asset" @ "../schemas/instruments/1/equity/real_estate_asset.schema.json";
             plain: DiscountedCashFlow(DiscountedCashFlow) => "discounted_cash_flow" @ "../schemas/instruments/1/equity/discounted_cash_flow.schema.json";
+            boxed: CallableRangeAccrual(CallableRangeAccrual) => "callable_range_accrual" @ "../schemas/instruments/1/rates/callable_range_accrual.schema.json";
             boxed: BondFuture(BondFuture) => "bond_future" @ "../schemas/instruments/1/fixed_income/bond_future.schema.json";
             boxed: StructuredCredit(StructuredCredit) => "structured_credit" @ "../schemas/instruments/1/fixed_income/structured_credit.schema.json";
             boxed: LeveredRealEstateEquity(crate::instruments::equity::real_estate::LeveredRealEstateEquity) => "levered_real_estate_equity" @ "../schemas/instruments/1/equity/levered_real_estate_equity.schema.json";
@@ -377,6 +385,7 @@ impl InstrumentJson {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TaggedInstrumentValue {
     #[serde(rename = "type")]
     ty: String,
@@ -425,8 +434,9 @@ fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<Instrument
         // Rates Derivatives
         "forward_rate_agreement" => parse_spec(spec, InstrumentJson::ForwardRateAgreement),
         "swaption" => parse_spec(spec, InstrumentJson::Swaption),
+        "bermudan_swaption" => parse_spec(spec, InstrumentJson::BermudanSwaption),
         "interest_rate_future" => parse_spec(spec, InstrumentJson::InterestRateFuture),
-        "interest_rate_option" => parse_spec(spec, InstrumentJson::InterestRateOption),
+        "cap_floor" | "interest_rate_option" => parse_spec(spec, InstrumentJson::CapFloor),
         "cms_swap" => parse_spec(spec, InstrumentJson::CmsSwap),
         "cms_option" => parse_spec(spec, InstrumentJson::CmsOption),
         "ir_future_option" => parse_spec(spec, InstrumentJson::IrFutureOption),
@@ -475,7 +485,9 @@ fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<Instrument
         "tarn" | "target_redemption_note" => parse_spec(spec, InstrumentJson::Tarn),
         "snowball" | "inverse_floater" => parse_spec(spec, InstrumentJson::Snowball),
         "cms_spread_option" => parse_spec(spec, InstrumentJson::CmsSpreadOption),
-        "callable_range_accrual" => parse_spec(spec, InstrumentJson::CallableRangeAccrual),
+        "callable_range_accrual" => parse_spec::<CallableRangeAccrual>(spec, |i| {
+            InstrumentJson::CallableRangeAccrual(Box::new(i))
+        }),
 
         // Total Return Swaps
         "trs_equity" | "equity_trs" => parse_spec(spec, InstrumentJson::TrsEquity),
@@ -528,7 +540,9 @@ fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<Instrument
                 // Rates Derivatives
                 "forward_rate_agreement",
                 "swaption",
+                "bermudan_swaption",
                 "interest_rate_future",
+                "cap_floor",
                 "interest_rate_option",
                 "cms_swap",
                 "cms_option",
@@ -1369,10 +1383,10 @@ mod tests {
     }
 
     #[test]
-    fn test_interest_rate_option_defaults_when_optional_fields_omitted() {
+    fn test_cap_floor_defaults_when_optional_fields_omitted() {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
-        let option = InterestRateOption::new_cap(
+        let option = CapFloor::new_cap(
             InstrumentId::new("IROPT-DEFAULTS"),
             Money::new(1_000_000.0, Currency::USD),
             0.03,
@@ -1385,20 +1399,30 @@ mod tests {
             CurveId::new("USD-CAPFLOOR-VOL"),
         )
         .expect("valid strike");
-        let mut json = serde_json::to_value(InstrumentJson::InterestRateOption(option))
-            .expect("InterestRateOption JSON serialization should succeed");
+        let mut json = serde_json::to_value(InstrumentJson::CapFloor(option))
+            .expect("CapFloor JSON serialization should succeed");
+        assert_eq!(
+            json.pointer("/type").and_then(serde_json::Value::as_str),
+            Some("cap_floor")
+        );
         remove_spec_key(&mut json, "stub");
         remove_spec_key(&mut json, "bdc");
 
-        let deserialized: InstrumentJson = serde_json::from_value(json)
-            .expect("InterestRateOption JSON deserialization should succeed");
+        let deserialized: InstrumentJson = serde_json::from_value(json.clone())
+            .expect("CapFloor JSON deserialization should succeed");
         match deserialized {
-            InstrumentJson::InterestRateOption(i) => {
+            InstrumentJson::CapFloor(i) => {
                 assert_eq!(i.stub, StubKind::ShortFront);
                 assert_eq!(i.bdc, BusinessDayConvention::ModifiedFollowing);
             }
-            _ => panic!("Expected InterestRateOption variant"),
+            _ => panic!("Expected CapFloor variant"),
         }
+
+        let mut legacy_json = json;
+        legacy_json["type"] = serde_json::Value::String("interest_rate_option".into());
+        let legacy: InstrumentJson = serde_json::from_value(legacy_json)
+            .expect("legacy interest_rate_option tag should deserialize as CapFloor");
+        assert!(matches!(legacy, InstrumentJson::CapFloor(_)));
     }
 
     #[test]

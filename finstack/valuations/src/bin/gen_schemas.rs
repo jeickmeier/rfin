@@ -271,14 +271,16 @@ fn main() {
     gen_schema!("inflation_cap_floor", InflationCapFloor, "rates");
     gen_schema!("forward_rate_agreement", ForwardRateAgreement, "rates");
     gen_schema!("swaption", Swaption, "rates");
+    gen_schema!("bermudan_swaption", BermudanSwaption, "rates");
     gen_schema!("interest_rate_future", InterestRateFuture, "rates");
-    gen_schema!("interest_rate_option", InterestRateOption, "rates");
+    gen_schema!("cap_floor", CapFloor, "rates");
     gen_schema!("cms_option", CmsOption, "rates");
     gen_schema!("cms_swap", CmsSwap, "rates");
     gen_schema!("ir_future_option", IrFutureOption, "rates");
     gen_schema!("deposit", Deposit, "rates");
     gen_schema!("repo", Repo, "rates");
     gen_schema!("range_accrual", RangeAccrual, "rates");
+    gen_schema!("callable_range_accrual", CallableRangeAccrual, "rates");
 
     // --- Credit Derivatives ---
     gen_schema!(
@@ -339,7 +341,7 @@ fn main() {
     gen_schema!("lookback_option", LookbackOption, "exotics");
     gen_schema!("basket", Basket, "exotics");
 
-    println!("\nDone! Updated 65 instrument schema files.");
+    println!("\nDone! Updated 67 instrument schema files.");
 
     // =========================================================================
     // Non-instrument schemas (calibration, attribution, cashflow, margin, results)

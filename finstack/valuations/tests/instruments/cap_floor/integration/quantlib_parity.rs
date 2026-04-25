@@ -11,7 +11,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
@@ -61,7 +61,7 @@ fn test_quantlib_parity_atm_cap() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "ATM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -114,7 +114,7 @@ fn test_quantlib_parity_cap_floor_parity() {
     let end = date!(2029 - 01 - 01);
     let strike = 0.05;
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_PARITY".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -138,7 +138,7 @@ fn test_quantlib_parity_cap_floor_parity() {
         attributes: Default::default(),
     };
 
-    let floor = InterestRateOption {
+    let floor = CapFloor {
         id: "FLOOR_PARITY".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -196,7 +196,7 @@ fn test_quantlib_parity_vol_sensitivity() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_VEGA".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -266,7 +266,7 @@ fn test_quantlib_parity_caplet_pricing() {
     let start = date!(2024 - 03 - 01); // Forward starting
     let end = date!(2024 - 06 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -318,7 +318,7 @@ fn test_quantlib_parity_moneyness() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let itm_cap = InterestRateOption {
+    let itm_cap = CapFloor {
         id: "ITM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -342,7 +342,7 @@ fn test_quantlib_parity_moneyness() {
         attributes: Default::default(),
     };
 
-    let atm_cap = InterestRateOption {
+    let atm_cap = CapFloor {
         id: "ATM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -366,7 +366,7 @@ fn test_quantlib_parity_moneyness() {
         attributes: Default::default(),
     };
 
-    let otm_cap = InterestRateOption {
+    let otm_cap = CapFloor {
         id: "OTM_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -426,7 +426,7 @@ fn test_quantlib_parity_delta_sign() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_DELTA".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -450,7 +450,7 @@ fn test_quantlib_parity_delta_sign() {
         attributes: Default::default(),
     };
 
-    let floor = InterestRateOption {
+    let floor = CapFloor {
         id: "FLOOR_DELTA".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -526,7 +526,7 @@ fn test_quantlib_parity_gamma_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_GAMMA".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -550,7 +550,7 @@ fn test_quantlib_parity_gamma_positive() {
         attributes: Default::default(),
     };
 
-    let floor = InterestRateOption {
+    let floor = CapFloor {
         id: "FLOOR_GAMMA".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -623,7 +623,7 @@ fn test_quantlib_parity_time_to_maturity() {
     // Reference: QuantLib's general pricing behavior
     let as_of = date!(2024 - 01 - 01);
 
-    let short_cap = InterestRateOption {
+    let short_cap = CapFloor {
         id: "SHORT_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -647,7 +647,7 @@ fn test_quantlib_parity_time_to_maturity() {
         attributes: Default::default(),
     };
 
-    let long_cap = InterestRateOption {
+    let long_cap = CapFloor {
         id: "LONG_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -700,7 +700,7 @@ fn test_quantlib_parity_zero_vol_itm() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_ZERO_VOL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -753,7 +753,7 @@ fn test_quantlib_parity_frequency_impact() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let quarterly_cap = InterestRateOption {
+    let quarterly_cap = CapFloor {
         id: "QUARTERLY_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -777,7 +777,7 @@ fn test_quantlib_parity_frequency_impact() {
         attributes: Default::default(),
     };
 
-    let annual_cap = InterestRateOption {
+    let annual_cap = CapFloor {
         id: "ANNUAL_CAP".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),

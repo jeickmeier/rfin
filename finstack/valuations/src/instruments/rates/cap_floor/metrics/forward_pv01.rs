@@ -1,7 +1,7 @@
 //! Forward curve PV01 for interest rate options (per 1bp parallel bump of forward curve).
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::cap_floor::InterestRateOption;
+use crate::instruments::rates::cap_floor::CapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;
@@ -11,7 +11,7 @@ pub(crate) struct ForwardPv01Calculator;
 
 impl MetricCalculator for ForwardPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &InterestRateOption = context.instrument_as()?;
+        let option: &CapFloor = context.instrument_as()?;
 
         // Base PV from context
         let base = context.base_value.amount();

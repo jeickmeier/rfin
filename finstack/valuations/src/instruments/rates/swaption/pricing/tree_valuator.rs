@@ -515,9 +515,13 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-        let model =
-            CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
-                .expect("Calibration should succeed");
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+            50,
+            &curve,
+            ttm,
+        )
+        .expect("Calibration should succeed");
 
         let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of);
         assert!(valuator.is_ok(), "Valuator creation should succeed");
@@ -530,9 +534,13 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-        let model =
-            CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
-                .expect("Calibration should succeed");
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(0.03, 0.01).expect("valid HW params"),
+            50,
+            &curve,
+            ttm,
+        )
+        .expect("Calibration should succeed");
 
         let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
             .expect("Valuator creation should succeed");

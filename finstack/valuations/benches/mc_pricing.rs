@@ -11,7 +11,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSchedule, BermudanSwaption, BermudanSwaptionPricer, HullWhiteParams,
+    BermudanSchedule, BermudanSwaption, BermudanSwaptionPricer, BermudanSwaptionPricerConfig,
 };
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::Pricer;
@@ -81,9 +81,12 @@ fn bench_bermudan_lsmc(c: &mut Criterion) {
             BenchmarkId::from_parameter(num_paths),
             &num_paths,
             |b, &n| {
-                let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
-                    .with_mc_paths(n)
-                    .with_seed(42);
+                let pricer =
+                    BermudanSwaptionPricer::lsmc_with_config(BermudanSwaptionPricerConfig {
+                        mc_paths: n,
+                        mc_seed: 42,
+                        ..Default::default()
+                    });
                 b.iter(|| {
                     let result = pricer
                         .price_dyn(black_box(&swaption), black_box(&market), as_of)

@@ -201,4 +201,51 @@ mod tests {
         assert!(cloned.get_pricer(key).is_some());
         assert!(standard_registry().get_pricer(key).is_none());
     }
+
+    #[test]
+    fn standard_registry_exposes_range_accrual_analytic_and_mc_models() {
+        let registry = standard_registry();
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::RangeAccrual,
+                ModelKey::StaticReplication,
+            ))
+            .is_some());
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::RangeAccrual,
+                ModelKey::MonteCarloGBM,
+            ))
+            .is_some());
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::Tarn,
+                ModelKey::MonteCarloHullWhite1F,
+            ))
+            .is_some());
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::Snowball,
+                ModelKey::MonteCarloHullWhite1F,
+            ))
+            .is_some());
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::Snowball,
+                ModelKey::Discounting,
+            ))
+            .is_some());
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::CallableRangeAccrual,
+                ModelKey::MonteCarloHullWhite1F,
+            ))
+            .is_some());
+        assert!(registry
+            .get_pricer(PricerKey::new(
+                InstrumentType::CmsSpreadOption,
+                ModelKey::StaticReplication,
+            ))
+            .is_some());
+    }
 }

@@ -14,7 +14,7 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::cap_floor::{
-    CapFloorVolType, InterestRateOption, RateOptionType,
+    CapFloor, CapFloorVolType, RateOptionType,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
@@ -57,8 +57,8 @@ fn build_normal_vol_surface(vol: f64, _base_date: Date, surface_id: &str) -> Vol
         .unwrap()
 }
 
-fn create_normal_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
-    InterestRateOption {
+fn create_normal_cap(as_of: Date, end: Date, strike: f64) -> CapFloor {
+    CapFloor {
         id: "CAP_NORMAL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -82,8 +82,8 @@ fn create_normal_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption 
     }
 }
 
-fn create_normal_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
-    InterestRateOption {
+fn create_normal_floor(as_of: Date, end: Date, strike: f64) -> CapFloor {
+    CapFloor {
         id: "FLOOR_NORMAL".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -235,7 +235,7 @@ fn normal_delta_matches_finite_difference() {
     let start = date!(2024 - 03 - 01);
     let end = date!(2024 - 06 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_NORMAL_FD".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -301,7 +301,7 @@ fn normal_vega_matches_finite_difference() {
     let start = date!(2024 - 01 - 01);
     let end = date!(2024 - 04 - 01);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_NORMAL_VEGA_FD".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -380,7 +380,7 @@ fn normal_greeks_with_negative_forward() {
     let start = date!(2024 - 03 - 01);
     let end = date!(2027 - 03 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "CAP_NEG_FWD".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(1_000_000.0, Currency::USD),

@@ -8,7 +8,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
@@ -57,7 +57,7 @@ fn test_implied_vol_requires_market_price() {
     let end = date!(2024 - 06 - 01);
 
     // Caplet without market price
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -107,8 +107,8 @@ fn test_implied_vol_requires_market_price() {
     }
 }
 
-/// Implied vol calculation for InterestRateOption requires a market price
-/// passed through pricing overrides on the MetricContext. Since InterestRateOption
+/// Implied vol calculation for CapFloor requires a market price
+/// passed through pricing overrides on the MetricContext. Since CapFloor
 /// does not carry pricing_overrides at the struct level, the implied vol metric
 /// needs overrides to be set externally (e.g., via the pricing engine).
 /// This test verifies that the metric fails gracefully when no market price is available.
@@ -127,7 +127,7 @@ fn test_implied_vol_fails_without_market_price_override() {
         .insert(fwd_curve)
         .insert_surface(vol_surface);
 
-    let caplet = InterestRateOption {
+    let caplet = CapFloor {
         id: "CAPLET_TEST".into(),
         rate_option_type: RateOptionType::Caplet,
         notional: Money::new(1_000_000.0, Currency::USD),
@@ -151,7 +151,7 @@ fn test_implied_vol_fails_without_market_price_override() {
         attributes: Default::default(),
     };
 
-    // InterestRateOption does not carry pricing_overrides, so implied vol
+    // CapFloor does not carry pricing_overrides, so implied vol
     // requires the market price to be provided through the MetricContext.
     // Without it, the metric should fail.
     let result = caplet.price_with_metrics(

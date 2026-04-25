@@ -277,6 +277,109 @@
                 }
               ]
             },
+            "CreditSpreadProcessSpec": {
+              "description": "Credit spread process specification.",
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "CIR process for stochastic credit spread/hazard rate.\n\nModels credit spread as: dλ_t = κ(θ - λ_t)dt + σ√λ_t dW_t",
+                  "properties": {
+                    "Cir": {
+                      "properties": {
+                        "initial": {
+                          "description": "Initial credit spread",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "kappa": {
+                          "description": "Mean reversion speed (κ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "sigma": {
+                          "description": "Volatility (σ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "theta": {
+                          "description": "Long-term mean (θ)",
+                          "format": "double",
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kappa",
+                        "theta",
+                        "sigma",
+                        "initial"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "Cir"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "description": "Constant credit spread (no dynamics).",
+                  "properties": {
+                    "Constant": {
+                      "format": "double",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "Constant"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "description": "Market-anchored credit spread process calibrated to a hazard curve and CDS option vol.\n\nThe mean level is anchored to the time-average spread implied by the input hazard\ncurve (over tenor T chosen as facility maturity by default). The initial spread is set\nto the first-segment spread, and the volatility is scaled from the CDS index option\nimplied volatility.",
+                  "properties": {
+                    "MarketAnchored": {
+                      "properties": {
+                        "hazard_curve_id": {
+                          "$ref": "#/$defs/Id",
+                          "description": "Hazard curve identifier in `MarketContext` used to anchor spreads."
+                        },
+                        "implied_vol": {
+                          "description": "Annualized CDS (index) option implied volatility for spreads.",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "kappa": {
+                          "description": "Mean reversion speed (κ) of the CIR process.",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "tenor_years": {
+                          "default": null,
+                          "description": "Optional tenor in years; if None, uses facility maturity horizon.",
+                          "format": "double",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hazard_curve_id",
+                        "kappa",
+                        "implied_vol"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "MarketAnchored"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
             "Currency": {
               "description": "ISO 4217 currency enumeration",
               "oneOf": [
@@ -1378,6 +1481,109 @@
               "description": "A phantom-typed identifier that prevents mixing different kinds of IDs.\n\nThis type wraps a string identifier with a phantom type parameter to ensure\ntype safety at compile time. Different `Id<T>` types with different `T`\ncannot be compared or mixed accidentally, preventing entire classes of bugs.\n\n# Type Parameters\n\n* `T` - Phantom type tag that distinguishes this ID from IDs with different tags\n\n# Invariants\n\n- Storage uses `Arc<str>` for efficient cloning\n- The phantom marker has zero size and runtime cost\n- Two `Id<T>` values are equal if their string values are equal\n- IDs with different type tags (`Id<A>` vs `Id<B>`) cannot be compared\n\n# Examples\n\n```rust\nuse finstack_core::types::{CurveId, InstrumentId};\n\n// Create IDs with different type tags\nlet curve = CurveId::from(\"USD-SOFR\");\nlet bond = InstrumentId::from(\"ISIN:US912828XG60\");\n\n// Can compare IDs of the same type\nassert_eq!(curve, CurveId::from(\"USD-SOFR\"));\nassert_ne!(curve, CurveId::from(\"EUR-ESTR\"));\n\n// Cannot compare IDs of different types (compile error):\n// let _ = curve == bond;  // Error: mismatched types\n```\n\n# Thread Safety\n\n`Id<T>` is `Send + Sync` as it wraps an `Arc<str>`. Multiple threads can\nsafely share and clone IDs with minimal synchronization overhead.",
               "type": "string"
             },
+            "InterestRateProcessSpec": {
+              "description": "Interest rate process specification (for floating rates).",
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "description": "Hull-White 1-factor model for short rate.\n\nModels short rate as: dr_t = κ[θ(t) - r_t]dt + σ dW_t",
+                  "properties": {
+                    "HullWhite1F": {
+                      "properties": {
+                        "initial": {
+                          "description": "Initial short rate",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "kappa": {
+                          "description": "Mean reversion speed (κ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "sigma": {
+                          "description": "Volatility (σ)",
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "theta": {
+                          "description": "Constant mean reversion level (θ)",
+                          "format": "double",
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kappa",
+                        "sigma",
+                        "initial",
+                        "theta"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "HullWhite1F"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "McConfig": {
+              "description": "Advanced Monte Carlo configuration for revolving credit facilities.\n\nEnables multi-factor modeling with credit risk, interest rate dynamics,\ncorrelation between factors, and default modeling.",
+              "properties": {
+                "correlation_matrix": {
+                  "description": "Correlation matrix (3x3) between [utilization, rate, credit].\n\nMust be symmetric, positive definite, with ones on diagonal.\nIf None, factors are assumed independent.",
+                  "items": {
+                    "items": {
+                      "format": "double",
+                      "type": "number"
+                    },
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "credit_spread_process": {
+                  "$ref": "#/$defs/CreditSpreadProcessSpec",
+                  "description": "Credit spread process specification."
+                },
+                "interest_rate_process": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/InterestRateProcessSpec"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Interest rate process specification (for floating rates).\n\nIf None, assumes fixed rate (no stochastic dynamics)."
+                },
+                "recovery_rate": {
+                  "description": "Recovery rate on default (e.g., 0.4 for 40% recovery).\n\nUsed when propagating credit risk from market-anchored stochastic specs to\nthe deterministic fallback in `value()`. The path generator itself uses\n`RevolvingCredit::recovery_rate` for hazard-to-spread mapping, so these\nvalues should be kept consistent. When constructing `McConfig`, set this\nto the same value as `RevolvingCredit::recovery_rate`.",
+                  "format": "double",
+                  "type": "number"
+                },
+                "util_credit_corr": {
+                  "default": null,
+                  "description": "Optional utilization–credit correlation used when `correlation_matrix` is None.\n\nIf provided, builds a 3×3 matrix with:\n  [ [1, 0, rho], [0, 1, 0], [rho, 0, 1] ]\nrepresenting correlation between utilization and credit, with the rate\nfactor uncorrelated (kept fixed in 2‑factor mode).",
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "recovery_rate",
+                "credit_spread_process"
+              ],
+              "type": "object"
+            },
             "Money": {
               "additionalProperties": false,
               "description": "Currency-tagged monetary amount with safe arithmetic.\n\nValues are stored using a fixed-point representation derived from ISO 4217\ndecimal places.\n\nWhen you need configurable rounding during ingestion, use\n[`Money::new_with_config`].\n\n# Examples\n```rust\nuse finstack_core::money::Money;\nuse finstack_core::currency::Currency;\n\nlet notional = Money::new(1_000_000.0, Currency::EUR);\nassert_eq!(notional.currency(), Currency::EUR);\nassert_eq!(notional.amount(), 1_000_000.0);\n```",
@@ -1515,7 +1721,7 @@
                   ]
                 },
                 "cds_quote_bp": {
-                  "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `cds_quote_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
+                  "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `quoted_spread_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
                   "format": "double",
                   "type": [
                     "number",
@@ -1871,6 +2077,17 @@
                   "default": false,
                   "description": "Use antithetic variance reduction when simulating paths (default: false).",
                   "type": "boolean"
+                },
+                "mc_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/McConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Advanced Monte Carlo configuration (optional).\n\nWhen present, enables multi-factor modeling with credit spread\nand interest rate dynamics, correlation, and default modeling."
                 },
                 "num_paths": {
                   "description": "Number of Monte Carlo paths to simulate.",

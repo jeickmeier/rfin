@@ -8,7 +8,7 @@
 //! - Positive Rho means the instrument gains value when rates go up
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::cap_floor::InterestRateOption;
+use crate::instruments::rates::cap_floor::CapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
@@ -18,7 +18,7 @@ pub(crate) struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &InterestRateOption = context.instrument_as()?;
+        let option: &CapFloor = context.instrument_as()?;
 
         // Base PV
         let base = context.base_value.amount();

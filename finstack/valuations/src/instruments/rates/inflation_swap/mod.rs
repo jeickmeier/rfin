@@ -59,8 +59,6 @@
 //! - Plan-driven calibration in `calibration::api` (Inflation step)
 
 pub(crate) mod metrics;
-/// Inflation swap pricer implementation
-pub(crate) mod pricer;
 mod types;
 
 pub use types::{InflationSwap, InflationSwapBuilder, YoYInflationSwap, YoYInflationSwapBuilder};

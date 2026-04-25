@@ -69,11 +69,11 @@
 //!
 //! # Examples
 //!
-//! See [`InterestRateOption`] for construction and usage examples.
+//! See [`CapFloor`] for construction and usage examples.
 //!
 //! # See Also
 //!
-//! - [`InterestRateOption`] for cap/floor instrument struct
+//! - [`CapFloor`] for cap/floor instrument struct
 //! - [`RateOptionType`] for cap vs floor distinction
 //! - cap/floor metrics module for risk metrics (DV01, vega)
 
@@ -84,4 +84,4 @@ pub(crate) mod pricing;
 mod types;
 
 pub use parameters::InterestRateOptionParams;
-pub use types::{CapFloorVolType, InterestRateOption, RateOptionType};
+pub use types::{CapFloor, CapFloorVolType, InterestRateOption, RateOptionType};

@@ -25,11 +25,11 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and Practice*,
 //!   Chapter 3: One-factor Short-Rate Models, Section 3.3.2.
 
+use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::cap_floor::types::{InterestRateOption, RateOptionType};
-use crate::instruments::rates::swaption::HullWhiteParams;
+use crate::instruments::rates::cap_floor::types::{CapFloor, RateOptionType};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
@@ -71,7 +71,7 @@ impl Pricer for CapFloorHullWhitePricer {
     ) -> Result<ValuationResult, PricingError> {
         let cap_floor = instrument
             .as_any()
-            .downcast_ref::<InterestRateOption>()
+            .downcast_ref::<CapFloor>()
             .ok_or_else(|| {
                 PricingError::type_mismatch(InstrumentType::CapFloor, instrument.key())
             })?;
@@ -84,7 +84,7 @@ impl CapFloorHullWhitePricer {
     /// Core pricing routine.
     fn price_internal(
         &self,
-        cap_floor: &InterestRateOption,
+        cap_floor: &CapFloor,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {

@@ -1083,7 +1083,7 @@
                   ]
                 },
                 "cds_quote_bp": {
-                  "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `cds_quote_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
+                  "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `quoted_spread_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
                   "format": "double",
                   "type": [
                     "number",
@@ -1547,7 +1547,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional market convention for this commodity.\n\nWhen set, provides default settlement days and calendar if not\nexplicitly specified. See [`CommodityConvention`] for available options."
+              "description": "Optional market convention for this commodity.\n\nWhen set, provides default settlement days and calendar if not\nexplicitly specified. See `CommodityConvention` for available options."
             },
             "currency": {
               "$ref": "#/$defs/Currency",

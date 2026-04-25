@@ -28,34 +28,10 @@
 //! - Black, F. (1976). "The pricing of commodity contracts."
 //!   *Journal of Financial Economics*, 3(1-2), 167-179.
 
+use super::payoff::CapletFloorletInputs;
 use crate::instruments::common_impl::models::{d1_black76, d1_d2_black76};
-use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
-
-/// Inputs for Black caplet/floorlet pricing
-/// Inputs for pricing a single caplet or floorlet using Black (1976) model.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct CapletFloorletInputs {
-    /// True for caplet, false for floorlet
-    pub(crate) is_cap: bool,
-    /// Notional amount
-    pub(crate) notional: f64,
-    /// Strike rate (as decimal)
-    pub(crate) strike: f64,
-    /// Forward rate (as decimal)
-    pub(crate) forward: f64,
-    /// Discount factor to payment date
-    pub(crate) discount_factor: f64,
-    /// Black volatility (annualized)
-    pub(crate) volatility: f64,
-    /// Time to fixing date in years
-    pub(crate) time_to_fixing: f64,
-    /// Accrual year fraction for the period
-    pub(crate) accrual_year_fraction: f64,
-    /// Currency for the cashflow
-    pub(crate) currency: Currency,
-}
 
 /// Compute intrinsic value of a caplet/floorlet.
 ///

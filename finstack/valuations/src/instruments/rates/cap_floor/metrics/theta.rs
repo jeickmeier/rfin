@@ -3,7 +3,7 @@
 //! Computes theta via a bump-and-reprice approach: reprice the instrument
 //! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
-use crate::instruments::rates::cap_floor::InterestRateOption;
+use crate::instruments::rates::cap_floor::CapFloor;
 use crate::metrics::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -13,7 +13,7 @@ pub(crate) struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &InterestRateOption = context.instrument_as()?;
+        let option: &CapFloor = context.instrument_as()?;
 
         // Get theta period from pricing overrides, default to "1D"
         let period_str = context

@@ -30,11 +30,13 @@
 //! The lag is applied to both CPI lookups and the fixing date used for volatility.
 
 use crate::impl_instrument_base;
-use crate::instruments::common_impl::models::volatility::normal::bachelier_price;
-use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::common_impl::helpers::signed_year_fraction;
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
-use crate::instruments::rates::cap_floor::pricing::black as black_ir;
+use crate::instruments::rates::cap_floor::pricing::{
+    black as black_ir, normal as normal_ir, payoff::CapletFloorletInputs,
+};
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
 use finstack_core::dates::{
@@ -44,7 +46,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 /// Inflation option type.
@@ -70,14 +71,6 @@ impl InflationCapFloorType {
             self,
             InflationCapFloorType::Cap | InflationCapFloorType::Caplet
         )
-    }
-
-    fn option_type(self) -> OptionType {
-        if self.is_cap() {
-            OptionType::Call
-        } else {
-            OptionType::Put
-        }
     }
 }
 
@@ -214,9 +207,7 @@ impl InflationCapFloor {
     }
 
     pub(crate) fn strike_f64(&self) -> finstack_core::Result<f64> {
-        self.strike
-            .to_f64()
-            .ok_or(finstack_core::InputError::ConversionOverflow.into())
+        decimal_to_f64(self.strike, "InflationCapFloor strike")
     }
 
     /// Minimum reasonable CPI value for developed market indices.
@@ -238,18 +229,6 @@ impl InflationCapFloor {
         )
     }
 
-    fn signed_year_fraction(start: Date, end: Date) -> f64 {
-        if end >= start {
-            DayCount::Act365F
-                .year_fraction(start, end, DayCountContext::default())
-                .unwrap_or(0.0)
-        } else {
-            -DayCount::Act365F
-                .year_fraction(end, start, DayCountContext::default())
-                .unwrap_or(0.0)
-        }
-    }
-
     fn cpi_value(
         &self,
         curves: &MarketContext,
@@ -266,7 +245,7 @@ impl InflationCapFloor {
         // Fall back to curve projection with lag adjustment
         let lagged_date = self.lagged_fixing_date(curves, date);
         let curve = curves.get_inflation_curve(self.inflation_index_id.as_str())?;
-        let t = Self::signed_year_fraction(as_of, lagged_date);
+        let t = signed_year_fraction(DayCount::Act365F, as_of, lagged_date);
         let value = curve.cpi(t);
         Self::validate_cpi_value(value, date)
     }
@@ -394,7 +373,7 @@ impl InflationCapFloor {
 
             // Time-to-fixing uses ACT/365F (standard option market convention)
             // regardless of the instrument's accrual day count
-            let t_fix = Self::signed_year_fraction(as_of, fixing_date);
+            let t_fix = signed_year_fraction(DayCount::Act365F, as_of, fixing_date);
 
             let t_pay = disc
                 .day_count()
@@ -417,18 +396,17 @@ impl InflationCapFloor {
             };
 
             let leg_pv = match model {
-                ModelKey::Normal => {
-                    let annuity = df * self.notional.amount() * accrual;
-                    let premium = bachelier_price(
-                        self.option_type.option_type(),
-                        forward_rate,
-                        strike,
-                        sigma,
-                        t_fix,
-                        annuity,
-                    );
-                    Money::new(premium, self.notional.currency())
-                }
+                ModelKey::Normal => normal_ir::price_caplet_floorlet(CapletFloorletInputs {
+                    is_cap: self.option_type.is_cap(),
+                    notional: self.notional.amount(),
+                    strike,
+                    forward: forward_rate,
+                    discount_factor: df,
+                    volatility: sigma,
+                    time_to_fixing: t_fix,
+                    accrual_year_fraction: accrual,
+                    currency: self.notional.currency(),
+                })?,
                 _ => {
                     // Black-76 model requires positive forward and strike
                     if t_fix > 0.0 && forward_rate <= 0.0 {
@@ -445,7 +423,7 @@ impl InflationCapFloor {
                             strike * 100.0
                         )));
                     }
-                    black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                    black_ir::price_caplet_floorlet(CapletFloorletInputs {
                         is_cap: self.option_type.is_cap(),
                         notional: self.notional.amount(),
                         strike,

@@ -172,6 +172,214 @@ mod tests {
         serde_json::to_string(&InstrumentJson::Bond(bond)).expect("serialize")
     }
 
+    pub(crate) fn bermudan_swaption_json() -> String {
+        use finstack_valuations::instruments::rates::swaption::BermudanSwaption;
+        use finstack_valuations::instruments::InstrumentJson;
+
+        serde_json::to_string(&InstrumentJson::BermudanSwaption(
+            BermudanSwaption::example(),
+        ))
+        .expect("serialize")
+    }
+
+    pub(crate) fn tarn_json() -> String {
+        use finstack_core::dates::{Date, DayCount, Tenor};
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use finstack_valuations::instruments::rates::tarn::Tarn;
+        use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
+        use time::Month;
+
+        let mut pricing_overrides = PricingOverrides::default();
+        pricing_overrides.model_config.mc_paths = Some(32);
+        pricing_overrides.model_config.mean_reversion = Some(0.05);
+        pricing_overrides.model_config.tree_volatility = Some(1e-12);
+
+        let tarn = Tarn {
+            id: InstrumentId::new("TARN-WASM-E2E"),
+            fixed_rate: 0.06,
+            coupon_floor: 0.0,
+            target_coupon: 1.0,
+            notional: Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+            coupon_dates: vec![
+                Date::from_calendar_date(2025, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2025, Month::July, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::July, 1).expect("date"),
+            ],
+            floating_tenor: Tenor::semi_annual(),
+            floating_index_id: CurveId::new("USD-SOFR-6M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            day_count: DayCount::Act365F,
+            pricing_overrides,
+            attributes: Default::default(),
+        };
+        serde_json::to_string(&InstrumentJson::Tarn(tarn)).expect("serialize")
+    }
+
+    pub(crate) fn snowball_json() -> String {
+        use finstack_core::dates::{Date, DayCount, Tenor};
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use finstack_valuations::instruments::rates::snowball::{Snowball, SnowballVariant};
+        use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
+        use time::Month;
+
+        let mut pricing_overrides = PricingOverrides::default();
+        pricing_overrides.model_config.mc_paths = Some(32);
+        pricing_overrides.model_config.mean_reversion = Some(0.05);
+        pricing_overrides.model_config.tree_volatility = Some(1e-12);
+
+        let snowball = Snowball {
+            id: InstrumentId::new("SNOWBALL-WASM-E2E"),
+            variant: SnowballVariant::Snowball,
+            initial_coupon: 0.03,
+            fixed_rate: 0.05,
+            leverage: 1.0,
+            coupon_floor: 0.0,
+            coupon_cap: None,
+            notional: Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+            coupon_dates: vec![
+                Date::from_calendar_date(2025, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2025, Month::July, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::July, 1).expect("date"),
+            ],
+            floating_index_id: CurveId::new("USD-SOFR-6M"),
+            floating_tenor: Tenor::semi_annual(),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            callable: None,
+            day_count: DayCount::Act365F,
+            pricing_overrides,
+            attributes: Default::default(),
+        };
+        serde_json::to_string(&InstrumentJson::Snowball(snowball)).expect("serialize")
+    }
+
+    pub(crate) fn inverse_floater_json() -> String {
+        use finstack_core::dates::{Date, DayCount, Tenor};
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use finstack_valuations::instruments::rates::snowball::{Snowball, SnowballVariant};
+        use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
+        use time::Month;
+
+        let inverse_floater = Snowball {
+            id: InstrumentId::new("INV-FLOATER-WASM-E2E"),
+            variant: SnowballVariant::InverseFloater,
+            initial_coupon: 0.0,
+            fixed_rate: 0.08,
+            leverage: 1.5,
+            coupon_floor: 0.0,
+            coupon_cap: Some(0.10),
+            notional: Money::new(500_000.0, finstack_core::currency::Currency::USD),
+            coupon_dates: vec![
+                Date::from_calendar_date(2025, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2025, Month::July, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::July, 1).expect("date"),
+            ],
+            floating_index_id: CurveId::new("USD-SOFR-6M"),
+            floating_tenor: Tenor::semi_annual(),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            callable: None,
+            day_count: DayCount::Act365F,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Default::default(),
+        };
+        serde_json::to_string(&InstrumentJson::Snowball(inverse_floater)).expect("serialize")
+    }
+
+    pub(crate) fn callable_range_accrual_json() -> String {
+        use finstack_core::dates::{Date, DayCount};
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use finstack_valuations::instruments::rates::callable_range_accrual::CallableRangeAccrual;
+        use finstack_valuations::instruments::rates::range_accrual::{BoundsType, RangeAccrual};
+        use finstack_valuations::instruments::rates::shared::bermudan_call::BermudanCallProvision;
+        use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
+        use time::Month;
+
+        let mut pricing_overrides = PricingOverrides::default();
+        pricing_overrides.model_config.mc_paths = Some(8);
+        pricing_overrides.model_config.mean_reversion = Some(0.05);
+        pricing_overrides.model_config.tree_volatility = Some(1e-12);
+
+        let range_accrual = RangeAccrual::builder()
+            .id(InstrumentId::new("RA-WASM-E2E"))
+            .underlying_ticker("SOFR".to_string())
+            .observation_dates(vec![
+                Date::from_calendar_date(2025, Month::July, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::January, 1).expect("date"),
+                Date::from_calendar_date(2026, Month::July, 1).expect("date"),
+            ])
+            .lower_bound(0.02)
+            .upper_bound(0.04)
+            .bounds_type(BoundsType::Absolute)
+            .coupon_rate(0.06)
+            .notional(Money::new(
+                1_000_000.0,
+                finstack_core::currency::Currency::USD,
+            ))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SOFR-RATE".into())
+            .vol_surface_id(CurveId::new("SOFR-VOL"))
+            .div_yield_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Default::default())
+            .payment_date_opt(None)
+            .past_fixings_in_range_opt(None)
+            .total_past_observations_opt(None)
+            .build()
+            .expect("range accrual");
+
+        let callable = CallableRangeAccrual {
+            id: InstrumentId::new("CALLABLE-RA-WASM-E2E"),
+            range_accrual,
+            call_provision: BermudanCallProvision::new(
+                vec![Date::from_calendar_date(2025, Month::July, 1).expect("date")],
+                1.0,
+                0,
+            ),
+            pricing_overrides,
+            attributes: Default::default(),
+        };
+        serde_json::to_string(&InstrumentJson::CallableRangeAccrual(Box::new(callable)))
+            .expect("serialize")
+    }
+
+    pub(crate) fn cms_spread_option_json() -> String {
+        use finstack_core::dates::{Date, DayCount, Tenor, TenorUnit};
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use finstack_valuations::instruments::rates::cms_spread_option::{
+            CmsSpreadOption, CmsSpreadOptionType,
+        };
+        use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
+        use time::Month;
+
+        let option = CmsSpreadOption {
+            id: InstrumentId::new("CMS-SPREAD-WASM-E2E"),
+            long_cms_tenor: Tenor::new(10, TenorUnit::Years),
+            short_cms_tenor: Tenor::new(2, TenorUnit::Years),
+            strike: 0.005,
+            option_type: CmsSpreadOptionType::Call,
+            notional: Money::new(10_000_000.0, finstack_core::currency::Currency::USD),
+            expiry_date: Date::from_calendar_date(2026, Month::January, 1).expect("date"),
+            payment_date: Date::from_calendar_date(2026, Month::January, 5).expect("date"),
+            long_vol_surface_id: CurveId::new("USD-SWAPTION-VOL-10Y"),
+            short_vol_surface_id: CurveId::new("USD-SWAPTION-VOL-2Y"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            spread_correlation: 0.5,
+            day_count: DayCount::Act365F,
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Default::default(),
+        };
+        serde_json::to_string(&InstrumentJson::CmsSpreadOption(option)).expect("serialize")
+    }
+
     pub(crate) fn market_context_json() -> String {
         use finstack_core::market_data::context::MarketContext;
         use finstack_core::market_data::term_structures::DiscountCurve;
@@ -185,11 +393,98 @@ mod tests {
         serde_json::to_string(&ctx).expect("serialize")
     }
 
+    pub(crate) fn tarn_market_context_json() -> String {
+        use finstack_core::dates::DayCount;
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::scalars::MarketScalar;
+        use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+        let base = time::Date::from_calendar_date(2025, time::Month::January, 1).expect("date");
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (6.0, (-0.02_f64 * 6.0).exp())])
+            .build()
+            .expect("discount curve");
+        let fwd = ForwardCurve::builder("USD-SOFR-6M", 0.5)
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 0.03), (6.0, 0.03)])
+            .build()
+            .expect("forward curve");
+        let ctx = MarketContext::new()
+            .insert(disc)
+            .insert(fwd)
+            .insert_price("SOFR-RATE", MarketScalar::Unitless(0.03));
+        serde_json::to_string(&ctx).expect("serialize")
+    }
+
+    pub(crate) fn cms_spread_market_context_json() -> String {
+        use finstack_core::dates::DayCount;
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::surfaces::VolCube;
+        use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+        use finstack_core::math::volatility::sabr::SabrParams;
+
+        fn sabr_cube(id: &str, alpha: f64, forward: f64) -> VolCube {
+            let params = SabrParams::new(alpha, 0.5, -0.20, 0.40).expect("valid SABR params");
+            VolCube::builder(id)
+                .expiries(&[0.25, 1.0, 5.0])
+                .tenors(&[2.0, 10.0])
+                .node(params, forward)
+                .node(params, forward)
+                .node(params, forward)
+                .node(params, forward)
+                .node(params, forward)
+                .node(params, forward)
+                .build()
+                .expect("vol cube")
+        }
+
+        let base = time::Date::from_calendar_date(2025, time::Month::January, 1).expect("date");
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (30.0, (-0.035_f64 * 30.0).exp())])
+            .build()
+            .expect("discount curve");
+        let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 0.025), (2.0, 0.030), (10.0, 0.045), (30.0, 0.055)])
+            .build()
+            .expect("forward curve");
+        let ctx = MarketContext::new()
+            .insert(disc)
+            .insert(fwd)
+            .insert_vol_cube(sabr_cube("USD-SWAPTION-VOL-10Y", 0.035, 0.045))
+            .insert_vol_cube(sabr_cube("USD-SWAPTION-VOL-2Y", 0.035, 0.030));
+        serde_json::to_string(&ctx).expect("serialize")
+    }
+
+    fn amount_from_result(parsed: &serde_json::Value) -> f64 {
+        parsed["value"]["amount"]
+            .as_f64()
+            .or_else(|| {
+                parsed["value"]["amount"]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok())
+            })
+            .expect("amount")
+    }
+
     #[test]
     fn validate_instrument_json_bond() {
         let json = bond_instrument_json();
         let canonical = validate_instrument_json(&json).expect("validate");
         assert!(!canonical.is_empty());
+    }
+
+    #[test]
+    fn validate_instrument_json_bermudan_swaption() {
+        let json = bermudan_swaption_json();
+        let canonical = validate_instrument_json(&json).expect("validate");
+        let parsed: serde_json::Value = serde_json::from_str(&canonical).expect("json");
+        assert_eq!(parsed["type"], "bermudan_swaption");
     }
 
     #[test]
@@ -199,6 +494,65 @@ mod tests {
         let result = price_instrument(&inst, &mkt, "2024-01-01", "discounting").expect("price");
         let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
         assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn price_instrument_tarn_hull_white_mc() {
+        let inst = tarn_json();
+        let mkt = tarn_market_context_json();
+        let result = price_instrument(&inst, &mkt, "2025-01-01", "monte_carlo_hull_white_1f")
+            .expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        let amount = amount_from_result(&parsed);
+        assert!(amount > 0.0);
+        assert_eq!(parsed["measures"]["mc_num_paths"], 32.0);
+    }
+
+    #[test]
+    fn price_instrument_snowball_hull_white_mc() {
+        let inst = snowball_json();
+        let mkt = tarn_market_context_json();
+        let result = price_instrument(&inst, &mkt, "2025-01-01", "monte_carlo_hull_white_1f")
+            .expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(amount_from_result(&parsed) > 0.0);
+        assert_eq!(parsed["measures"]["mc_num_paths"], 32.0);
+    }
+
+    #[test]
+    fn price_instrument_inverse_floater_discounting() {
+        let inst = inverse_floater_json();
+        let mkt = tarn_market_context_json();
+        let result = price_instrument(&inst, &mkt, "2025-01-01", "discounting").expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(amount_from_result(&parsed) > 0.0);
+    }
+
+    #[test]
+    fn price_instrument_callable_range_accrual_hull_white_mc() {
+        let inst = callable_range_accrual_json();
+        let mkt = tarn_market_context_json();
+        let result = price_instrument(&inst, &mkt, "2025-01-01", "monte_carlo_hull_white_1f")
+            .expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(amount_from_result(&parsed) > 0.0);
+        assert_eq!(parsed["measures"]["mc_num_paths"], 8.0);
+    }
+
+    #[test]
+    fn price_instrument_cms_spread_option_static_replication() {
+        let inst = cms_spread_option_json();
+        let mkt = cms_spread_market_context_json();
+        let result =
+            price_instrument(&inst, &mkt, "2025-01-01", "static_replication").expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
+        assert!(amount_from_result(&parsed) > 0.0);
+        assert!(
+            parsed["measures"]["cms_spread_forward"]
+                .as_f64()
+                .expect("cms spread forward")
+                > 0.0
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::{CapFloor, RateOptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{ExerciseStyle, SettlementType};
 use finstack_valuations::metrics::MetricId;
@@ -69,7 +69,7 @@ fn test_realistic_usd_cap_pricing() {
     let start = as_of + Duration::days(2);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "USD_CAP_5Y_5%".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
@@ -118,7 +118,7 @@ fn test_realistic_otm_floor_pricing() {
     let start = as_of + Duration::days(2);
     let end = date!(2027 - 01 - 01);
 
-    let floor = InterestRateOption {
+    let floor = CapFloor {
         id: "USD_FLOOR_3Y_3%".into(),
         rate_option_type: RateOptionType::Floor,
         notional: Money::new(5_000_000.0, Currency::USD),
@@ -164,7 +164,7 @@ fn test_all_greeks_with_realistic_market() {
     let start = as_of + Duration::days(2);
     let end = date!(2029 - 01 - 01);
 
-    let cap = InterestRateOption {
+    let cap = CapFloor {
         id: "USD_CAP_GREEKS".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
@@ -233,7 +233,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
     let start = as_of + Duration::days(2);
     let end = date!(2029 - 01 - 01);
 
-    let quarterly_cap = InterestRateOption {
+    let quarterly_cap = CapFloor {
         id: "CAP_QUARTERLY".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),
@@ -257,7 +257,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
         attributes: Default::default(),
     };
 
-    let semi_annual_cap = InterestRateOption {
+    let semi_annual_cap = CapFloor {
         id: "CAP_SEMIANNUAL".into(),
         rate_option_type: RateOptionType::Cap,
         notional: Money::new(10_000_000.0, Currency::USD),

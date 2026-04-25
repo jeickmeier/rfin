@@ -9,11 +9,7 @@
 //! 3. `HullWhiteParams::default()` when neither overrides nor surface are
 //!    provided, with a `tracing::warn!` log.
 
-// NOTE: swaption::pricer::HullWhiteParams is used (not
-// calibration::hull_white's) because this type has `impl Default` and
-// an infallible `new`, which the precedence-resolver needs. Converging
-// the two is tracked as a follow-up.
-use crate::instruments::rates::swaption::pricer::HullWhiteParams;
+use crate::calibration::hull_white::HullWhiteParams;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
@@ -56,7 +52,7 @@ pub fn resolve_hw1f_params(
                     "hw1f_sigma override must be positive and finite, got {s}"
                 )));
             }
-            return Ok(HullWhiteParams::new(k, s));
+            return HullWhiteParams::new(k, s);
         }
     }
 
