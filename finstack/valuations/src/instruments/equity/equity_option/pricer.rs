@@ -667,6 +667,17 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::EquityOption, self.model)
     }
 
+    #[tracing::instrument(
+        name = "equity_option.black.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(
+            pricer = ?self.key(),
+            inst_id = %instrument.id(),
+            as_of = %as_of,
+        ),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -691,7 +702,8 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         let pv = compute_pv(equity_option, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
+                crate::pricer::PricingErrorContext::from_instrument(equity_option)
+                    .model(self.model),
             )
         })?;
 
@@ -735,6 +747,13 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
         )
     }
 
+    #[tracing::instrument(
+        name = "equity_option.heston_fourier.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -754,7 +773,8 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
         let inputs = collect_inputs_extended(equity_option, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
+                crate::pricer::PricingErrorContext::from_instrument(equity_option)
+                    .model(crate::pricer::ModelKey::HestonFourier),
             )
         })?;
         let (spot, r, q, _sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
@@ -774,56 +794,12 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             ));
         }
 
-        // Fetch Heston parameters from market data or use defaults
-        // Priority: instrument overrides > market scalars > defaults
-        let kappa = market
-            .get_price("HESTON_KAPPA")
-            .ok()
-            .and_then(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                _ => None,
-            })
-            .unwrap_or(2.0);
-
-        let theta = market
-            .get_price("HESTON_THETA")
-            .ok()
-            .and_then(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                _ => None,
-            })
-            .unwrap_or(0.04);
-
-        let sigma_v = market
-            .get_price("HESTON_SIGMA_V")
-            .ok()
-            .and_then(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                _ => None,
-            })
-            .unwrap_or(0.3);
-
-        let rho = market
-            .get_price("HESTON_RHO")
-            .ok()
-            .and_then(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                _ => None,
-            })
-            .unwrap_or(-0.7);
-
-        let v0 = market
-            .get_price("HESTON_V0")
-            .ok()
-            .and_then(|s| match s {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                _ => None,
-            })
-            .unwrap_or(0.04);
-
+        // Heston parameters: source from market scalars (HESTON_KAPPA, etc.)
+        // and fall back to centralized defaults. Validation (positive
+        // κ/θ/σᵥ/v₀, ρ ∈ (−1, 1)) is enforced by `HestonParams::from_market`.
         let err_ctx = crate::pricer::PricingErrorContext::from_instrument(equity_option)
             .model(crate::pricer::ModelKey::HestonFourier);
-        let params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0)
+        let params = HestonParams::from_market(market, r, q)
             .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx))?;
 
         let price = match equity_option.option_type {

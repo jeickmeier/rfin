@@ -40,13 +40,12 @@ impl EquityOptionRoughHestonMcPricer {
 
 impl Default for EquityOptionRoughHestonMcPricer {
     fn default() -> Self {
-        Self::new(100_000, 100)
+        use crate::instruments::common_impl::helpers::mc_defaults;
+        Self::new(
+            mc_defaults::DEFAULT_MC_PATHS,
+            mc_defaults::DEFAULT_ROUGH_VOL_STEPS,
+        )
     }
-}
-
-/// Extract a unitless scalar from market data, falling back to a default.
-fn get_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
-    crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
 }
 
 impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
@@ -57,6 +56,18 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
         )
     }
 
+    #[tracing::instrument(
+        name = "equity_option.rough_heston_mc.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(
+            inst_id = %instrument.id(),
+            as_of = %as_of,
+            num_paths = self.num_paths,
+            num_steps = self.num_steps,
+        ),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -76,7 +87,8 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
         let inputs = collect_inputs_extended(equity_option, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
+                crate::pricer::PricingErrorContext::from_instrument(equity_option)
+                    .model(crate::pricer::ModelKey::MonteCarloRoughHeston),
             )
         })?;
         let (spot, r, q, _sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
@@ -96,22 +108,17 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
             ));
         }
 
-        // Fetch rough Heston parameters
-        let v0 = get_scalar(market, "ROUGH_HESTON_V0", 0.04);
-        let kappa = get_scalar(market, "ROUGH_HESTON_KAPPA", 2.0);
-        let theta = get_scalar(market, "ROUGH_HESTON_THETA", 0.04);
-        let sigma_v = get_scalar(market, "ROUGH_HESTON_SIGMA_V", 0.3);
-        let rho = get_scalar(market, "ROUGH_HESTON_RHO", -0.7);
-        let hurst = get_scalar(market, "ROUGH_HESTON_HURST", 0.1);
+        // Source rough-Heston scalars from a single shared lookup.
+        let s = crate::instruments::equity::equity_option::rough_heston_market::RoughHestonScalars::from_market(market);
 
         let err_ctx = crate::pricer::PricingErrorContext::from_instrument(equity_option)
             .model(crate::pricer::ModelKey::MonteCarloRoughHeston);
 
         // Build process
-        let hurst_exp = finstack_core::math::fractional::HurstExponent::new(hurst)
+        let hurst_exp = finstack_core::math::fractional::HurstExponent::new(s.hurst)
             .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx.clone()))?;
         let params = finstack_monte_carlo::process::rough_heston::RoughHestonParams::new(
-            r, q, hurst_exp, kappa, theta, sigma_v, rho, v0,
+            r, q, hurst_exp, s.kappa, s.theta, s.sigma_v, s.rho, s.v0,
         )
         .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx.clone()))?;
         let process = finstack_monte_carlo::process::rough_heston::RoughHestonProcess::new(params);
@@ -123,7 +130,7 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
             .map(|i| t * i as f64 / self.num_steps as f64)
             .collect();
         let disc = finstack_monte_carlo::discretization::rough_heston::RoughHestonHybrid::new(
-            &times, hurst,
+            &times, s.hurst,
         )
         .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx.clone()))?;
 
@@ -135,9 +142,18 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
                 finstack_monte_carlo::seed::derive_seed(&equity_option.id, "base")
             };
 
+        // Resolve and cap the path count via the workspace helper before
+        // allocating, so a malicious or typo'd `mc_paths` override can't OOM
+        // the host.
+        let num_paths = crate::instruments::common_impl::helpers::resolve_mc_paths(
+            equity_option.pricing_overrides.model_config.mc_paths,
+            self.num_paths,
+        )
+        .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx.clone()))?;
+
         // Build engine and payoff
         let engine = finstack_monte_carlo::engine::McEngine::builder()
-            .num_paths(self.num_paths)
+            .num_paths(num_paths)
             .seed(seed_val)
             .time_grid(time_grid)
             .parallel(false)
@@ -146,7 +162,7 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
 
         let ccy = option_currency(equity_option);
         let discount_factor = (-r * t).exp();
-        let initial_state = [spot, v0];
+        let initial_state = [spot, s.v0];
         let rng = finstack_monte_carlo::rng::philox::PhiloxRng::new(seed_val);
 
         let result = match equity_option.option_type {

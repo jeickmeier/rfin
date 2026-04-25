@@ -775,6 +775,16 @@ impl<'a> EquityWaterfallEngine<'a> {
                         CatchUpMode::Partial => (remaining_amount * gp_share).min(needed_gp_gross),
                     };
 
+                    // Holdback flow: `gp_carry_cum` and `remaining_amount`
+                    // both move by the GROSS carry, but only `to_gp_paid`
+                    // (post-holdback) is recorded on the ledger row. The
+                    // held-back portion (`to_gp_gross - to_gp_paid`) is not
+                    // an on-balance line item here; it is implicitly released
+                    // to GP at periodic clawback settlement, where
+                    // `apply_clawback` reconciles via
+                    //   delta_gp = (target_share × profit) − Σ ledger.to_gp
+                    // and pays the difference (positive δ → GP receives the
+                    // accumulated holdback; negative δ → clawback from GP).
                     let to_gp_paid = to_gp_gross * (1.0 - holdback_pct);
                     gp_carry_cum += to_gp_gross;
                     remaining_amount -= to_gp_gross;

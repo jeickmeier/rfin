@@ -73,6 +73,13 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         PricerKey::new(InstrumentType::PrivateMarketsFund, ModelKey::Discounting)
     }
 
+    #[tracing::instrument(
+        name = "pe_fund.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %_as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -82,13 +89,16 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         let fund =
             expect_inst::<PrivateMarketsFund>(instrument, InstrumentType::PrivateMarketsFund)?;
 
+        let err_ctx =
+            || PricingErrorContext::from_instrument(fund).model(ModelKey::Discounting);
+
         let as_of = if let Some(ref discount_curve_id) = fund.discount_curve_id {
             let disc = market
                 .get_discount(discount_curve_id.as_str())
                 .map_err(|e| {
                     PricingError::model_failure_with_context(
                         e.to_string(),
-                        PricingErrorContext::default(),
+                        err_ctx().curve_id(discount_curve_id.as_str()),
                     )
                 })?;
             disc.base_date()
@@ -101,13 +111,13 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
                     PricingError::model_failure_with_context(
                         "Private markets fund requires at least one event to derive valuation date"
                             .to_string(),
-                        PricingErrorContext::default(),
+                        err_ctx(),
                     )
                 })?
         };
 
         let pv = compute_pv(fund, market).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), err_ctx())
         })?;
 
         Ok(ValuationResult::stamped(fund.id(), as_of, pv))

@@ -116,6 +116,13 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
         )
     }
 
+    #[tracing::instrument(
+        name = "spot_equity.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -137,7 +144,8 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
         let pv = EquityPricer.pv(equity, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
+                crate::pricer::PricingErrorContext::from_instrument(equity)
+                    .model(crate::pricer::ModelKey::Discounting),
             )
         })?;
 

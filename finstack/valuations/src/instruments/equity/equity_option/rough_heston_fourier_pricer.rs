@@ -42,11 +42,6 @@ impl Default for EquityOptionRoughHestonFourierPricer {
     }
 }
 
-/// Extract a unitless scalar from market data, falling back to a default.
-fn get_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
-    crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
-}
-
 impl crate::pricer::Pricer for EquityOptionRoughHestonFourierPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(
@@ -55,6 +50,13 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonFourierPricer {
         )
     }
 
+    #[tracing::instrument(
+        name = "equity_option.rough_heston_fourier.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -74,7 +76,8 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonFourierPricer {
         let inputs = collect_inputs_extended(equity_option, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
+                crate::pricer::PricingErrorContext::from_instrument(equity_option)
+                    .model(crate::pricer::ModelKey::RoughHestonFourier),
             )
         })?;
         let (spot, r, q, _sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
@@ -94,19 +97,14 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonFourierPricer {
             ));
         }
 
-        // Fetch rough Heston parameters from market scalars
-        let v0 = get_scalar(market, "ROUGH_HESTON_V0", 0.04);
-        let kappa = get_scalar(market, "ROUGH_HESTON_KAPPA", 2.0);
-        let theta = get_scalar(market, "ROUGH_HESTON_THETA", 0.04);
-        let sigma_v = get_scalar(market, "ROUGH_HESTON_SIGMA_V", 0.3);
-        let rho = get_scalar(market, "ROUGH_HESTON_RHO", -0.7);
-        let hurst = get_scalar(market, "ROUGH_HESTON_HURST", 0.1);
+        // Source rough-Heston scalars from a single shared lookup.
+        let s = crate::instruments::equity::equity_option::rough_heston_market::RoughHestonScalars::from_market(market);
 
         let err_ctx = crate::pricer::PricingErrorContext::from_instrument(equity_option)
             .model(crate::pricer::ModelKey::RoughHestonFourier);
 
         let params = finstack_core::math::volatility::rough_heston::RoughHestonFourierParams::new(
-            v0, kappa, theta, sigma_v, rho, hurst,
+            s.v0, s.kappa, s.theta, s.sigma_v, s.rho, s.hurst,
         )
         .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx))?;
 

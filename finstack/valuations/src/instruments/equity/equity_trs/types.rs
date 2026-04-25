@@ -54,7 +54,8 @@ use time::macros::date;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = EquityTotalReturnSwap::validate)]
+#[serde(deny_unknown_fields, try_from = "EquityTotalReturnSwapUnchecked")]
 pub struct EquityTotalReturnSwap {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -107,6 +108,55 @@ pub struct EquityTotalReturnSwap {
     pub pricing_overrides: crate::instruments::PricingOverrides,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
+}
+
+/// Mirror of `EquityTotalReturnSwap` used by serde to apply `validate()`
+/// after deserialization. Not part of the public API.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct EquityTotalReturnSwapUnchecked {
+    id: InstrumentId,
+    notional: Money,
+    underlying: EquityUnderlyingParams,
+    financing: FinancingLegSpec,
+    schedule: TrsScheduleSpec,
+    side: TrsSide,
+    initial_level: Option<f64>,
+    #[serde(default)]
+    margin_spec: Option<OtcMarginSpec>,
+    #[serde(default)]
+    dividend_tax_rate: f64,
+    #[serde(default)]
+    #[schemars(with = "Vec<(String, f64)>")]
+    discrete_dividends: Vec<(Date, f64)>,
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    attributes: Attributes,
+}
+
+impl TryFrom<EquityTotalReturnSwapUnchecked> for EquityTotalReturnSwap {
+    type Error = finstack_core::Error;
+
+    fn try_from(
+        value: EquityTotalReturnSwapUnchecked,
+    ) -> std::result::Result<Self, Self::Error> {
+        let inst = Self {
+            id: value.id,
+            notional: value.notional,
+            underlying: value.underlying,
+            financing: value.financing,
+            schedule: value.schedule,
+            side: value.side,
+            initial_level: value.initial_level,
+            margin_spec: value.margin_spec,
+            dividend_tax_rate: value.dividend_tax_rate,
+            discrete_dividends: value.discrete_dividends,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        inst.validate()?;
+        Ok(inst)
+    }
 }
 
 impl EquityTotalReturnSwap {
@@ -206,14 +256,30 @@ impl EquityTotalReturnSwap {
 
     /// Validates the equity TRS configuration.
     ///
-    /// Checks for common configuration errors:
-    /// - Dividend tax rate set without dividend yield ID
-    ///
     /// # Errors
     ///
-    /// Returns an error if validation fails.
-    fn validate(&self) -> Result<()> {
-        // Warn if dividend_tax_rate is set but no dividend yield is provided
+    /// Returns an error if:
+    /// - `notional.amount()` is non-finite
+    /// - `dividend_tax_rate` is non-finite or outside `[0.0, 1.0]`
+    /// - `dividend_tax_rate > 0` but no dividend source is set
+    ///   (neither `underlying.div_yield_id` nor `discrete_dividends`)
+    /// - `discrete_dividends` contains a non-finite or negative amount, or
+    ///   non-strictly-increasing ex-dates
+    pub fn validate(&self) -> Result<()> {
+        if !self.notional.amount().is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "EquityTRS notional amount must be finite".into(),
+            ));
+        }
+        if !self.dividend_tax_rate.is_finite()
+            || !(0.0..=1.0).contains(&self.dividend_tax_rate)
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "EquityTRS '{}' dividend_tax_rate must be in [0.0, 1.0], got {}",
+                self.id.as_str(),
+                self.dividend_tax_rate
+            )));
+        }
         if self.dividend_tax_rate > 0.0
             && self.underlying.div_yield_id.is_none()
             && self.discrete_dividends.is_empty()
@@ -225,6 +291,24 @@ impl EquityTotalReturnSwap {
                 self.id.as_str(),
                 self.dividend_tax_rate * 100.0
             )));
+        }
+        for (i, (date, amount)) in self.discrete_dividends.iter().enumerate() {
+            if !amount.is_finite() || *amount < 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "EquityTRS '{}' discrete_dividends[{}] amount = {} on {} must be finite and non-negative",
+                    self.id.as_str(), i, amount, date
+                )));
+            }
+        }
+        for window in self.discrete_dividends.windows(2) {
+            if window[0].0 >= window[1].0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "EquityTRS '{}' discrete_dividends ex-dates must be strictly increasing; got {} >= {}",
+                    self.id.as_str(),
+                    window[0].0,
+                    window[1].0
+                )));
+            }
         }
         Ok(())
     }
@@ -415,5 +499,77 @@ impl crate::instruments::common_impl::traits::CurveDependencies for EquityTotalR
             .discount(self.financing.discount_curve_id.clone())
             .forward(self.financing.forward_curve_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod validation_tests {
+    use super::*;
+
+    fn base() -> EquityTotalReturnSwap {
+        EquityTotalReturnSwap::example().expect("example builds")
+    }
+
+    #[test]
+    fn validate_accepts_default_example() {
+        let trs = base();
+        assert!(trs.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_negative_dividend_tax_rate() {
+        let mut trs = base();
+        trs.dividend_tax_rate = -0.01;
+        let err = trs.validate().expect_err("negative tax rate");
+        assert!(err.to_string().contains("dividend_tax_rate"));
+    }
+
+    #[test]
+    fn validate_rejects_dividend_tax_rate_above_one() {
+        let mut trs = base();
+        trs.dividend_tax_rate = 1.5;
+        let err = trs.validate().expect_err("> 1.0 tax rate");
+        assert!(err.to_string().contains("dividend_tax_rate"));
+    }
+
+    #[test]
+    fn validate_rejects_non_finite_dividend_tax_rate() {
+        let mut trs = base();
+        trs.dividend_tax_rate = f64::NAN;
+        let err = trs.validate().expect_err("NaN tax rate");
+        assert!(err.to_string().contains("dividend_tax_rate"));
+    }
+
+    #[test]
+    fn validate_rejects_unsorted_discrete_dividends() {
+        let mut trs = base();
+        trs.discrete_dividends = vec![
+            (date!(2024 - 06 - 15), 1.0),
+            (date!(2024 - 03 - 15), 1.0),
+        ];
+        let err = trs.validate().expect_err("unsorted dividends");
+        assert!(err.to_string().contains("strictly increasing"));
+    }
+
+    #[test]
+    fn validate_rejects_negative_dividend_amount() {
+        let mut trs = base();
+        trs.discrete_dividends = vec![(date!(2024 - 06 - 15), -0.5)];
+        let err = trs.validate().expect_err("negative dividend");
+        assert!(err.to_string().contains("non-negative"));
+    }
+
+    #[test]
+    fn builder_rejects_invalid_dividend_tax_rate() {
+        // The builder uses `validate` post-build via the macro attribute.
+        let bad = EquityTotalReturnSwap::example().map(|mut t| {
+            t.dividend_tax_rate = 2.0;
+            t
+        });
+        // The example builds fine; bypassing builder via mutation requires
+        // a follow-up validate call to re-check.
+        let trs = bad.expect("base example builds");
+        assert!(trs.validate().is_err());
     }
 }

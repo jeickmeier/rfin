@@ -266,8 +266,13 @@ fn test_npv_at_maturity_with_low_realized_vol() {
 }
 
 #[test]
-fn test_npv_at_maturity_without_prices_is_zero() {
-    // Arrange
+fn test_npv_at_maturity_without_prices_errors() {
+    // After the round-3 hardening, a fully-realized variance swap with no
+    // historical price data in the market context returns an error rather
+    // than silently marking to zero realised variance.
+    //
+    // Previously this test asserted `pv == 0`, which exercised the silent
+    // bug where an empty price series collapsed realised variance to zero.
     let swap = sample_swap(PayReceive::Receive);
     let ctx = MarketContext::new().insert(
         finstack_core::market_data::term_structures::DiscountCurve::builder(DISC_ID)
@@ -278,10 +283,17 @@ fn test_npv_at_maturity_without_prices_is_zero() {
     );
 
     // Act
-    let pv = swap.value(&ctx, swap.maturity).unwrap();
+    let err = swap
+        .value(&ctx, swap.maturity)
+        .expect_err("missing historical data at maturity must error");
 
     // Assert
-    assert_eq!(pv.amount(), 0.0);
+    let msg = err.to_string();
+    assert!(
+        msg.contains("no historical price data") || msg.contains("realised variance"),
+        "expected data-availability error, got: {}",
+        msg
+    );
 }
 
 // ============================================================================

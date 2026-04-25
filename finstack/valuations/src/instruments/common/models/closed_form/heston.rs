@@ -34,10 +34,29 @@
 //! - Carr & Madan (1999) - "Option valuation using the fast Fourier transform"
 //! - Albrecher et al. (2007) - "The Little Heston Trap"
 
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::gauss_legendre_integrate_composite;
 use num_complex::Complex;
 use std::f64::consts::PI;
 use tracing::warn;
+
+/// Default Heston parameters used when no market scalar is supplied.
+///
+/// These are conservative, broadly representative SPX-style values. They are
+/// the single source of truth for Heston defaults across all equity option
+/// pricers (Fourier, PDE, Monte Carlo).
+pub mod heston_defaults {
+    /// Default mean reversion speed of variance (κ).
+    pub const KAPPA: f64 = 2.0;
+    /// Default long-run variance level (θ).
+    pub const THETA: f64 = 0.04;
+    /// Default vol-of-vol (σᵥ).
+    pub const SIGMA_V: f64 = 0.3;
+    /// Default spot/variance correlation (ρ); negative for equity (leverage effect).
+    pub const RHO: f64 = -0.7;
+    /// Default initial variance (v₀).
+    pub const V0: f64 = 0.04;
+}
 
 const HESTON_G_DENOM_EPS: f64 = 1e-8;
 const HESTON_EXPONENT_REAL_LIMIT: f64 = 700.0;
@@ -137,6 +156,30 @@ impl HestonParams {
         }
 
         Ok(params)
+    }
+
+    /// Build `HestonParams` for a given (r, q) pair, sourcing
+    /// (κ, θ, σᵥ, ρ, v₀) from the market context's named scalars
+    /// (`HESTON_KAPPA`, `HESTON_THETA`, `HESTON_SIGMA_V`, `HESTON_RHO`,
+    /// `HESTON_V0`) and falling back to [`heston_defaults`] when a scalar is
+    /// missing or has the wrong type.
+    ///
+    /// This is the single entry point used by the Fourier, PDE, and Monte
+    /// Carlo equity-option pricers, ensuring all three see identical
+    /// parameters when invoked on the same market.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same validation errors as [`Self::new`] (positive κ, θ,
+    /// σᵥ, v₀; ρ ∈ (−1, 1); finite r, q).
+    pub fn from_market(market: &MarketContext, r: f64, q: f64) -> finstack_core::Result<Self> {
+        use crate::instruments::common_impl::helpers::get_unitless_scalar;
+        let kappa = get_unitless_scalar(market, "HESTON_KAPPA", heston_defaults::KAPPA);
+        let theta = get_unitless_scalar(market, "HESTON_THETA", heston_defaults::THETA);
+        let sigma_v = get_unitless_scalar(market, "HESTON_SIGMA_V", heston_defaults::SIGMA_V);
+        let rho = get_unitless_scalar(market, "HESTON_RHO", heston_defaults::RHO);
+        let v0 = get_unitless_scalar(market, "HESTON_V0", heston_defaults::V0);
+        Self::new(r, q, kappa, theta, sigma_v, rho, v0)
     }
 }
 
@@ -851,6 +894,52 @@ fn black_scholes_call(spot: f64, strike: f64, time: f64, r: f64, q: f64, vol: f6
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+
+    #[test]
+    fn from_market_uses_defaults_when_market_is_empty() {
+        let market = MarketContext::new();
+        let params = HestonParams::from_market(&market, 0.05, 0.02).expect("valid defaults");
+        assert_eq!(params.r, 0.05);
+        assert_eq!(params.q, 0.02);
+        assert_eq!(params.kappa, heston_defaults::KAPPA);
+        assert_eq!(params.theta, heston_defaults::THETA);
+        assert_eq!(params.sigma_v, heston_defaults::SIGMA_V);
+        assert_eq!(params.rho, heston_defaults::RHO);
+        assert_eq!(params.v0, heston_defaults::V0);
+    }
+
+    #[test]
+    fn from_market_overrides_defaults_with_market_scalars() {
+        let market = MarketContext::new()
+            .insert_price("HESTON_KAPPA", MarketScalar::Unitless(1.5))
+            .insert_price("HESTON_THETA", MarketScalar::Unitless(0.06))
+            .insert_price("HESTON_SIGMA_V", MarketScalar::Unitless(0.4))
+            .insert_price("HESTON_RHO", MarketScalar::Unitless(-0.5))
+            .insert_price("HESTON_V0", MarketScalar::Unitless(0.05));
+        let params = HestonParams::from_market(&market, 0.03, 0.01).expect("valid market");
+        assert_eq!(params.kappa, 1.5);
+        assert_eq!(params.theta, 0.06);
+        assert_eq!(params.sigma_v, 0.4);
+        assert_eq!(params.rho, -0.5);
+        assert_eq!(params.v0, 0.05);
+    }
+
+    #[test]
+    fn from_market_rejects_rho_at_boundary() {
+        let market = MarketContext::new().insert_price("HESTON_RHO", MarketScalar::Unitless(1.0));
+        let err = HestonParams::from_market(&market, 0.0, 0.0).expect_err("rho=1 invalid");
+        assert!(err.to_string().contains("rho"));
+    }
+
+    #[test]
+    fn from_market_rejects_negative_kappa() {
+        let market =
+            MarketContext::new().insert_price("HESTON_KAPPA", MarketScalar::Unitless(-0.1));
+        let err = HestonParams::from_market(&market, 0.0, 0.0).expect_err("negative kappa");
+        assert!(err.to_string().contains("kappa"));
+    }
 
     /// Test that ψ_j(0) ≈ 1 for both probability characteristic functions.
     #[test]

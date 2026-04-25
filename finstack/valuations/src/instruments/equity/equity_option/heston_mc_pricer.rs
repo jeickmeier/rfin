@@ -4,6 +4,7 @@
 //! using Monte Carlo simulation with the QE (Quadratic Exponential) discretization
 //! scheme.
 
+use crate::instruments::common_impl::models::closed_form::heston::HestonParams as ClosedFormHestonParams;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::equity_option::pricer::collect_inputs_extended;
 use crate::instruments::equity::equity_option::types::EquityOption;
@@ -36,15 +37,11 @@ pub(crate) struct EquityOptionHestonMcPricer {
 impl EquityOptionHestonMcPricer {
     /// Create a new Heston MC pricer with default configuration.
     pub(crate) fn new() -> Self {
+        use crate::instruments::common_impl::helpers::mc_defaults;
         Self {
-            num_paths: 100_000,
-            steps_per_year: 252.0,
+            num_paths: mc_defaults::DEFAULT_MC_PATHS,
+            steps_per_year: mc_defaults::DEFAULT_STEPS_PER_YEAR,
         }
-    }
-
-    /// Extract a Heston parameter from market scalars with a fallback default.
-    fn heston_scalar(market: &MarketContext, key: &str, default: f64) -> f64 {
-        crate::instruments::common_impl::helpers::get_unitless_scalar(market, key, default)
     }
 
     /// Price an equity option using Heston Monte Carlo.
@@ -70,14 +67,20 @@ impl EquityOptionHestonMcPricer {
             return Ok((Money::new(intrinsic * inst.notional.amount(), ccy), 0.0));
         }
 
-        // Fetch Heston parameters from market scalars (same pattern as Fourier pricer)
-        let kappa = Self::heston_scalar(market, "HESTON_KAPPA", 2.0);
-        let theta = Self::heston_scalar(market, "HESTON_THETA", 0.04);
-        let sigma_v = Self::heston_scalar(market, "HESTON_SIGMA_V", 0.3);
-        let rho = Self::heston_scalar(market, "HESTON_RHO", -0.7);
-        let v0 = Self::heston_scalar(market, "HESTON_V0", 0.04);
-
-        let heston_params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0)?;
+        // Heston parameters: source from market scalars and fall back to
+        // centralized defaults; validation (positive κ/θ/σᵥ/v₀, ρ ∈ (−1, 1))
+        // is enforced by `from_market`. We then convert to the MC engine's
+        // own `HestonParams` struct.
+        let cf_params = ClosedFormHestonParams::from_market(market, r, q)?;
+        let heston_params = HestonParams::new(
+            cf_params.r,
+            cf_params.q,
+            cf_params.kappa,
+            cf_params.theta,
+            cf_params.sigma_v,
+            cf_params.rho,
+            cf_params.v0,
+        )?;
         let process = HestonProcess::new(heston_params);
         let discretization = QeHeston::new();
 
@@ -86,12 +89,10 @@ impl EquityOptionHestonMcPricer {
         let time_grid = TimeGrid::uniform(t, num_steps)?;
         let maturity_step = time_grid.num_steps();
 
-        let num_paths = inst
-            .pricing_overrides
-            .model_config
-            .mc_paths
-            .filter(|&n| n > 0)
-            .unwrap_or(self.num_paths);
+        let num_paths = crate::instruments::common_impl::helpers::resolve_mc_paths(
+            inst.pricing_overrides.model_config.mc_paths,
+            self.num_paths,
+        )?;
 
         // Derive deterministic seed
         let seed_val = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
@@ -110,7 +111,7 @@ impl EquityOptionHestonMcPricer {
         let discount_factor = (-r * t).exp();
 
         // Initial state: [spot, v0]
-        let initial_state = [spot, v0];
+        let initial_state = [spot, cf_params.v0];
 
         let result = match inst.option_type {
             crate::instruments::common_impl::parameters::OptionType::Call => {
@@ -154,6 +155,17 @@ impl Pricer for EquityOptionHestonMcPricer {
         PricerKey::new(InstrumentType::EquityOption, ModelKey::MonteCarloHeston)
     }
 
+    #[tracing::instrument(
+        name = "equity_option.heston_mc.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(
+            inst_id = %instrument.id(),
+            as_of = %as_of,
+            num_paths = self.num_paths,
+        ),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -172,7 +184,8 @@ impl Pricer for EquityOptionHestonMcPricer {
             .map_err(|e| {
                 PricingError::model_failure_with_context(
                     e.to_string(),
-                    PricingErrorContext::default(),
+                    PricingErrorContext::from_instrument(equity_option)
+                        .model(ModelKey::MonteCarloHeston),
                 )
             })?;
 

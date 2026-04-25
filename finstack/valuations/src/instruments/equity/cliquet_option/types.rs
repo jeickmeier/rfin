@@ -17,7 +17,8 @@ use time::macros::date;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = CliquetOption::validate)]
+#[serde(deny_unknown_fields, try_from = "CliquetOptionUnchecked")]
 pub struct CliquetOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -47,7 +48,11 @@ pub struct CliquetOption {
     pub spot_id: PriceId,
     /// Volatility surface ID
     pub vol_surface_id: CurveId,
-    /// Optional dividend yield curve ID
+    /// Optional dividend yield curve ID.
+    ///
+    /// `Some(id)`: lookup MUST succeed (a missing or non-unitless scalar
+    /// returns an error). `None`: no implicit default; treated as zero
+    /// continuous dividend yield. Set explicitly for index underlyings.
     pub div_yield_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
@@ -79,6 +84,63 @@ pub enum CliquetPayoffType {
     Multiplicative,
 }
 
+/// Mirror of `CliquetOption` used by serde to apply `validate()` after
+/// deserialization. Not part of the public API.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct CliquetOptionUnchecked {
+    id: InstrumentId,
+    underlying_ticker: crate::instruments::equity::spot::Ticker,
+    #[schemars(with = "Vec<String>")]
+    reset_dates: Vec<Date>,
+    #[schemars(with = "String")]
+    expiry: Date,
+    local_cap: f64,
+    local_floor: f64,
+    global_cap: f64,
+    global_floor: f64,
+    notional: Money,
+    day_count: finstack_core::dates::DayCount,
+    discount_curve_id: CurveId,
+    spot_id: PriceId,
+    vol_surface_id: CurveId,
+    #[serde(default)]
+    div_yield_id: Option<CurveId>,
+    #[serde(default)]
+    pricing_overrides: PricingOverrides,
+    attributes: Attributes,
+    #[serde(default)]
+    payoff_type: CliquetPayoffType,
+}
+
+impl TryFrom<CliquetOptionUnchecked> for CliquetOption {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: CliquetOptionUnchecked) -> std::result::Result<Self, Self::Error> {
+        let opt = Self {
+            id: value.id,
+            underlying_ticker: value.underlying_ticker,
+            reset_dates: value.reset_dates,
+            expiry: value.expiry,
+            local_cap: value.local_cap,
+            local_floor: value.local_floor,
+            global_cap: value.global_cap,
+            global_floor: value.global_floor,
+            notional: value.notional,
+            day_count: value.day_count,
+            discount_curve_id: value.discount_curve_id,
+            spot_id: value.spot_id,
+            vol_surface_id: value.vol_surface_id,
+            div_yield_id: value.div_yield_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+            payoff_type: value.payoff_type,
+        };
+        opt.validate()?;
+        Ok(opt)
+    }
+}
+
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common_impl::traits::CurveDependencies for CliquetOption {
     fn curve_dependencies(
@@ -91,6 +153,59 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CliquetOptio
 }
 
 impl CliquetOption {
+    /// Validate structural invariants required by the pricing engine.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `reset_dates` is empty (the schedule needs at least one observation)
+    /// - `reset_dates` are not strictly increasing
+    /// - any reset date is strictly after `expiry`
+    /// - `local_floor > local_cap` or `global_floor > global_cap`
+    /// - `notional.amount()` is not finite
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.reset_dates.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "CliquetOption requires at least one reset_dates entry".into(),
+            ));
+        }
+        for window in self.reset_dates.windows(2) {
+            if window[0] >= window[1] {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CliquetOption reset_dates must be strictly increasing; got {} >= {}",
+                    window[0], window[1]
+                )));
+            }
+        }
+        // Safe: reset_dates is non-empty (checked above).
+        if let Some(&last_reset) = self.reset_dates.last() {
+            if last_reset > self.expiry {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CliquetOption last reset date {} is after expiry {}",
+                    last_reset, self.expiry
+                )));
+            }
+        }
+        if self.local_floor > self.local_cap {
+            return Err(finstack_core::Error::Validation(format!(
+                "CliquetOption local_floor ({}) must be <= local_cap ({})",
+                self.local_floor, self.local_cap
+            )));
+        }
+        if self.global_floor > self.global_cap {
+            return Err(finstack_core::Error::Validation(format!(
+                "CliquetOption global_floor ({}) must be <= global_cap ({})",
+                self.global_floor, self.global_cap
+            )));
+        }
+        if !self.notional.amount().is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "CliquetOption notional amount must be finite".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Create a canonical example cliquet option (quarterly resets with local/global caps).
     pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
@@ -172,3 +287,111 @@ crate::impl_empty_cashflow_provider!(
     CliquetOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod validation_tests {
+    use super::*;
+    use crate::instruments::Attributes;
+    use crate::metrics::HasExpiry;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCount;
+
+    #[test]
+    fn builder_rejects_empty_reset_dates() {
+        let result = CliquetOption::builder()
+            .id(InstrumentId::new("CLIQ-EMPTY"))
+            .underlying_ticker("SPX".to_string())
+            .reset_dates(vec![])
+            .expiry(date!(2024 - 12 - 31))
+            .local_cap(0.05)
+            .local_floor(0.0)
+            .global_cap(0.20)
+            .global_floor(0.0)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build();
+        assert!(result.is_err(), "empty reset_dates must be rejected");
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("reset_dates"),
+            "error message should mention reset_dates: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn builder_rejects_reset_dates_after_expiry() {
+        let result = CliquetOption::builder()
+            .id(InstrumentId::new("CLIQ-PAST-EXPIRY"))
+            .underlying_ticker("SPX".to_string())
+            .reset_dates(vec![date!(2025 - 01 - 01)])
+            .expiry(date!(2024 - 12 - 31))
+            .local_cap(0.05)
+            .local_floor(0.0)
+            .global_cap(0.20)
+            .global_floor(0.0)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build();
+        assert!(
+            result.is_err(),
+            "reset_dates after expiry must be rejected"
+        );
+    }
+
+    #[test]
+    fn builder_rejects_unsorted_reset_dates() {
+        let result = CliquetOption::builder()
+            .id(InstrumentId::new("CLIQ-UNSORTED"))
+            .underlying_ticker("SPX".to_string())
+            .reset_dates(vec![date!(2024 - 06 - 30), date!(2024 - 03 - 30)])
+            .expiry(date!(2024 - 12 - 31))
+            .local_cap(0.05)
+            .local_floor(0.0)
+            .global_cap(0.20)
+            .global_floor(0.0)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build();
+        assert!(
+            result.is_err(),
+            "unsorted reset_dates must be rejected"
+        );
+    }
+
+    #[test]
+    fn has_expiry_returns_explicit_expiry_field() {
+        // After construction the explicit expiry, not the last reset date,
+        // is the contract maturity.
+        let opt = CliquetOption::example().expect("example builds");
+        assert_eq!(HasExpiry::expiry(&opt), opt.expiry);
+    }
+
+    #[test]
+    fn has_expiry_does_not_panic_on_empty_reset_dates() {
+        // Construct via builder (validated) then mutate to simulate corrupted
+        // state from an unsanitised JSON path. expiry() must not panic.
+        let mut opt = CliquetOption::example().expect("example builds");
+        opt.reset_dates.clear();
+        let _ = HasExpiry::expiry(&opt);
+    }
+}

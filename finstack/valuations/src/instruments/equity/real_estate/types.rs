@@ -57,7 +57,8 @@ pub enum RealEstateValuationMethod {
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = RealEstateAsset::validate)]
+#[serde(deny_unknown_fields, try_from = "RealEstateAssetUnchecked")]
 pub struct RealEstateAsset {
     /// Unique instrument identifier.
     pub id: InstrumentId,
@@ -162,7 +163,229 @@ pub struct RealEstateAsset {
     pub attributes: Attributes,
 }
 
+/// Mirror of `RealEstateAsset` used by serde to apply `validate()` after
+/// deserialization. Not part of the public API.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct RealEstateAssetUnchecked {
+    id: InstrumentId,
+    currency: Currency,
+    #[schemars(with = "String")]
+    valuation_date: Date,
+    valuation_method: RealEstateValuationMethod,
+    #[serde(default)]
+    property_type: Option<RealEstatePropertyType>,
+    #[schemars(with = "Vec<(String, f64)>")]
+    noi_schedule: Vec<(Date, f64)>,
+    #[serde(default)]
+    #[schemars(with = "Option<Vec<(String, f64)>>")]
+    capex_schedule: Option<Vec<(Date, f64)>>,
+    #[serde(default)]
+    discount_rate: Option<f64>,
+    #[serde(default)]
+    cap_rate: Option<f64>,
+    #[serde(default)]
+    stabilized_noi: Option<f64>,
+    #[serde(default)]
+    terminal_cap_rate: Option<f64>,
+    #[serde(default)]
+    terminal_growth_rate: Option<f64>,
+    #[serde(default)]
+    #[schemars(with = "Option<String>")]
+    sale_date: Option<Date>,
+    #[serde(default)]
+    sale_price: Option<Money>,
+    #[serde(default)]
+    purchase_price: Option<Money>,
+    #[serde(default)]
+    acquisition_cost: Option<f64>,
+    #[serde(default)]
+    acquisition_costs: Vec<Money>,
+    #[serde(default)]
+    disposition_cost_pct: Option<f64>,
+    #[serde(default)]
+    disposition_costs: Vec<Money>,
+    #[serde(default)]
+    appraisal_value: Option<Money>,
+    day_count: DayCount,
+    discount_curve_id: CurveId,
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    #[serde(default)]
+    attributes: Attributes,
+}
+
+impl TryFrom<RealEstateAssetUnchecked> for RealEstateAsset {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: RealEstateAssetUnchecked) -> std::result::Result<Self, Self::Error> {
+        let inst = Self {
+            id: value.id,
+            currency: value.currency,
+            valuation_date: value.valuation_date,
+            valuation_method: value.valuation_method,
+            property_type: value.property_type,
+            noi_schedule: value.noi_schedule,
+            capex_schedule: value.capex_schedule,
+            discount_rate: value.discount_rate,
+            cap_rate: value.cap_rate,
+            stabilized_noi: value.stabilized_noi,
+            terminal_cap_rate: value.terminal_cap_rate,
+            terminal_growth_rate: value.terminal_growth_rate,
+            sale_date: value.sale_date,
+            sale_price: value.sale_price,
+            purchase_price: value.purchase_price,
+            acquisition_cost: value.acquisition_cost,
+            acquisition_costs: value.acquisition_costs,
+            disposition_cost_pct: value.disposition_cost_pct,
+            disposition_costs: value.disposition_costs,
+            appraisal_value: value.appraisal_value,
+            day_count: value.day_count,
+            discount_curve_id: value.discount_curve_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        inst.validate()?;
+        Ok(inst)
+    }
+}
+
 impl RealEstateAsset {
+    /// Validate structural invariants required by both DCF and DirectCap pricers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `noi_schedule` is empty (both methods need at least one NOI point)
+    /// - `noi_schedule` is not strictly date-increasing, or contains
+    ///   non-finite NOI amounts
+    /// - `capex_schedule` (when set) is unsorted or contains non-finite values
+    /// - `discount_rate`, `cap_rate`, `terminal_cap_rate` are set but non-finite
+    /// - `cap_rate` or `terminal_cap_rate` are ≤ 0 (would divide-by-zero or
+    ///   produce negative valuations)
+    /// - `terminal_growth_rate` is set but outside `[-1.0, 0.20]` (sanity band:
+    ///   prevents `1 + g <= 0` and unreasonably high terminal growth)
+    /// - `disposition_cost_pct` is set but outside `[0.0, 1.0)`
+    /// - `valuation_method == DirectCap` but neither `cap_rate` nor a way to
+    ///   derive cap (sale_price + NOI) is set
+    /// - `valuation_method == Dcf` but neither `discount_rate` nor a curve-based
+    ///   discount is available (cannot detect the latter at construction; only
+    ///   the discount_rate-set case is checked here)
+    /// - `sale_date` (when set) is on or before `valuation_date`
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.noi_schedule.is_empty() {
+            return Err(finstack_core::Error::Validation(format!(
+                "RealEstateAsset '{}' noi_schedule must contain at least one entry",
+                self.id.as_str()
+            )));
+        }
+        for (i, (date, amount)) in self.noi_schedule.iter().enumerate() {
+            if !amount.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' noi_schedule[{}] amount on {} must be finite, got {}",
+                    self.id.as_str(),
+                    i,
+                    date,
+                    amount
+                )));
+            }
+        }
+        for window in self.noi_schedule.windows(2) {
+            if window[0].0 >= window[1].0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' noi_schedule dates must be strictly increasing; got {} >= {}",
+                    self.id.as_str(),
+                    window[0].0,
+                    window[1].0
+                )));
+            }
+        }
+        if let Some(capex) = &self.capex_schedule {
+            for (i, (date, amount)) in capex.iter().enumerate() {
+                if !amount.is_finite() {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "RealEstateAsset '{}' capex_schedule[{}] amount on {} must be finite, got {}",
+                        self.id.as_str(), i, date, amount
+                    )));
+                }
+            }
+            for window in capex.windows(2) {
+                if window[0].0 >= window[1].0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "RealEstateAsset '{}' capex_schedule dates must be strictly increasing; got {} >= {}",
+                        self.id.as_str(),
+                        window[0].0,
+                        window[1].0
+                    )));
+                }
+            }
+        }
+        if let Some(dr) = self.discount_rate {
+            if !dr.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' discount_rate must be finite, got {}",
+                    self.id.as_str(),
+                    dr
+                )));
+            }
+        }
+        if let Some(cr) = self.cap_rate {
+            if !cr.is_finite() || cr <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' cap_rate must be finite and positive, got {}",
+                    self.id.as_str(),
+                    cr
+                )));
+            }
+        }
+        if let Some(tcr) = self.terminal_cap_rate {
+            if !tcr.is_finite() || tcr <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' terminal_cap_rate must be finite and positive, got {}",
+                    self.id.as_str(),
+                    tcr
+                )));
+            }
+        }
+        if let Some(g) = self.terminal_growth_rate {
+            if !g.is_finite() || !(-1.0..=0.20).contains(&g) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' terminal_growth_rate must be in [-1.0, 0.20], got {}",
+                    self.id.as_str(),
+                    g
+                )));
+            }
+        }
+        if let Some(dc) = self.disposition_cost_pct {
+            if !dc.is_finite() || !(0.0..1.0).contains(&dc) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' disposition_cost_pct must be in [0.0, 1.0), got {}",
+                    self.id.as_str(),
+                    dc
+                )));
+            }
+        }
+        if matches!(self.valuation_method, RealEstateValuationMethod::DirectCap)
+            && self.cap_rate.is_none()
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "RealEstateAsset '{}' uses DirectCap method but cap_rate is not set",
+                self.id.as_str()
+            )));
+        }
+        if let Some(sd) = self.sale_date {
+            if sd <= self.valuation_date {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RealEstateAsset '{}' sale_date {} must be after valuation_date {}",
+                    self.id.as_str(),
+                    sd,
+                    self.valuation_date
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Create a representative office building DCF valuation example.
     ///
     /// 5-year NOI schedule at $100K/year, 8% discount rate, 5.5% terminal
@@ -342,5 +565,86 @@ mod tests {
         assert_eq!(schedule.flows[0].amount.amount(), 100.0);
         assert_eq!(schedule.flows[1].date, noi2);
         assert!(schedule.flows[2].amount.amount() > 100.0);
+    }
+
+    fn build_dcf_asset() -> RealEstateAsset {
+        let valuation_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let n1 = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
+        let n2 = Date::from_calendar_date(2027, time::Month::January, 1).unwrap();
+        RealEstateAsset::builder()
+            .id(InstrumentId::new("RE-VALID"))
+            .currency(Currency::USD)
+            .valuation_date(valuation_date)
+            .valuation_method(RealEstateValuationMethod::Dcf)
+            .noi_schedule(vec![(n1, 100.0), (n2, 100.0)])
+            .discount_rate_opt(Some(0.08))
+            .terminal_cap_rate_opt(Some(0.055))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Default::default())
+            .build()
+            .expect("base asset builds")
+    }
+
+    #[test]
+    fn validate_rejects_empty_noi_schedule() {
+        let mut asset = build_dcf_asset();
+        asset.noi_schedule.clear();
+        assert!(asset.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_unsorted_noi_schedule() {
+        let mut asset = build_dcf_asset();
+        let n1 = Date::from_calendar_date(2027, time::Month::January, 1).unwrap();
+        let n2 = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
+        asset.noi_schedule = vec![(n1, 100.0), (n2, 100.0)];
+        let err = asset.validate().expect_err("unsorted NOI must error");
+        assert!(err.to_string().contains("strictly increasing"));
+    }
+
+    #[test]
+    fn validate_rejects_zero_terminal_cap_rate() {
+        let mut asset = build_dcf_asset();
+        asset.terminal_cap_rate = Some(0.0);
+        let err = asset.validate().expect_err("zero terminal_cap_rate must error");
+        assert!(err.to_string().contains("terminal_cap_rate"));
+    }
+
+    #[test]
+    fn validate_rejects_negative_terminal_cap_rate() {
+        let mut asset = build_dcf_asset();
+        asset.terminal_cap_rate = Some(-0.05);
+        assert!(asset.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_directcap_without_cap_rate() {
+        let mut asset = build_dcf_asset();
+        asset.valuation_method = RealEstateValuationMethod::DirectCap;
+        asset.cap_rate = None;
+        let err = asset.validate().expect_err("DirectCap needs cap_rate");
+        assert!(err.to_string().contains("DirectCap"));
+    }
+
+    #[test]
+    fn validate_rejects_terminal_growth_above_band() {
+        let mut asset = build_dcf_asset();
+        asset.terminal_growth_rate = Some(1.5);
+        assert!(asset.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_disposition_cost_pct_at_one() {
+        let mut asset = build_dcf_asset();
+        asset.disposition_cost_pct = Some(1.0);
+        assert!(asset.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_sale_date_on_or_before_valuation_date() {
+        let mut asset = build_dcf_asset();
+        asset.sale_date = Some(asset.valuation_date);
+        assert!(asset.validate().is_err());
     }
 }

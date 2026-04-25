@@ -47,7 +47,7 @@ impl EquityOptionPdePricer {
         as_of: Date,
     ) -> Result<Money, PricingError> {
         let inputs = collect_inputs_extended(inst, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D))
         })?;
         let spot = inputs.spot;
         let r = inputs.r;
@@ -87,7 +87,7 @@ impl EquityOptionPdePricer {
             .map_err(|e| {
                 PricingError::model_failure_with_context(
                     e.to_string(),
-                    PricingErrorContext::default(),
+                    PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D),
                 )
             })?;
 
@@ -122,7 +122,7 @@ impl EquityOptionPdePricer {
                 .build(),
         }
         .map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeCrankNicolson1D))
         })?;
 
         let solution = solver.solve(&pde, t);
@@ -137,6 +137,13 @@ impl Pricer for EquityOptionPdePricer {
         PricerKey::new(InstrumentType::EquityOption, ModelKey::PdeCrankNicolson1D)
     }
 
+    #[tracing::instrument(
+        name = "equity_option.pde1d.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
