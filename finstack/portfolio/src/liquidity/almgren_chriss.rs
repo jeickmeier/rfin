@@ -199,17 +199,21 @@ impl MarketImpactModel for AlmgrenChrissModel {
         let risk_aversion = params.risk_aversion.unwrap_or(1e-6);
         let sigma = params.daily_volatility * params.effective_reference_price();
 
-        // For linear temporary impact (delta=1), the optimal trajectory
-        // has an analytical solution. For general delta, we use the
-        // linear solution as an approximation (exact only when delta=1).
-        // Warn so callers aren't surprised when delta != 1.
+        // The closed-form `sinh` schedule used below is the optimal solution
+        // for *linear* temporary impact (delta = 1) only. For general `delta`
+        // the optimal trajectory requires solving a non-linear ODE; using the
+        // linear schedule as an approximation can produce sub-optimal plans
+        // (often by 10-20% for `delta` near 0.5). Reject the call so callers
+        // either change the model's `delta` or drop down to `estimate_cost`,
+        // which uses the true `delta` for cost reporting.
         if (self.delta - 1.0).abs() > 1e-12 {
-            tracing::warn!(
-                delta = self.delta,
-                "Almgren-Chriss optimal_trajectory uses the delta=1 closed-form \
-                 as an approximation; expected-cost is computed with the true \
-                 delta but the schedule itself is only optimal for delta=1."
-            );
+            return Err(Error::invalid_input(format!(
+                "Almgren-Chriss optimal_trajectory is only defined for delta = 1 \
+                 (linear temporary impact); model has delta = {delta}. Either set \
+                 the model's delta to 1.0 to opt into the closed-form schedule, or \
+                 use estimate_cost for cost reporting under the true delta.",
+                delta = self.delta
+            )));
         }
 
         // kappa = sqrt(risk_aversion * sigma^2 / eta)
@@ -386,7 +390,9 @@ mod tests {
 
     #[test]
     fn trajectory_sums_to_quantity() -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        // Closed-form trajectory is only defined for delta = 1 (linear impact);
+        // see `optimal_trajectory` rejection contract.
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 1.0)?;
         let params = test_params(50_000.0)?;
         let traj = model.optimal_trajectory(&params, 10)?;
 
@@ -427,9 +433,39 @@ mod tests {
 
     #[test]
     fn trajectory_rejects_zero_buckets() -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 1.0)?;
         let params = test_params(10_000.0)?;
         assert!(model.optimal_trajectory(&params, 0).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn trajectory_rejects_non_linear_delta(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // delta != 1 => closed-form sinh schedule is not optimal; the function
+        // must error out instead of returning a sub-optimal plan silently.
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 0.5)?;
+        let params = test_params(10_000.0)?;
+        assert!(model.optimal_trajectory(&params, 5).is_err());
+        Ok(())
+    }
+
+    /// `optimal_trajectory` rejects `delta != 1` using a strict tolerance
+    /// (`abs(delta - 1) > 1e-12`). The constructor caps `delta` at 1.0
+    /// inclusive, so the realistic boundary case is `delta = 1.0 - eps` for
+    /// a small `eps` — it must still be accepted by the trajectory.
+    #[test]
+    fn trajectory_accepts_delta_near_unity_within_tolerance(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // 1.0 - 1e-13 is within 1e-12 of 1.0 and must be accepted.
+        let model = AlmgrenChrissModel::new(0.001, 0.01, 1.0_f64 - 1e-13)?;
+        let params = test_params(10_000.0)?;
+        let traj = model.optimal_trajectory(&params, 4)?;
+        let total: f64 = traj.quantities.iter().sum();
+        assert!(
+            (total - 10_000.0).abs() < 1e-6,
+            "near-unity delta should still trade the full quantity, got {total}"
+        );
         Ok(())
     }
 

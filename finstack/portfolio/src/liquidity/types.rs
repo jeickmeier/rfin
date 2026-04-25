@@ -272,6 +272,28 @@ pub struct LiquidityConfig {
     ///
     /// Default: 0.99 (99% VaR).
     pub confidence_level: f64,
+
+    /// Coefficient for the size-dependent endogenous spread-widening term in
+    /// LVaR cost reporting:
+    ///
+    /// ```text
+    /// endogenous_cost = endogenous_spread_coef * spread * sqrt(shares / ADV) / mid * |PV|
+    /// ```
+    ///
+    /// This is a calibration parameter, not a published constant: Bangia et al.
+    /// (1999) do not specify a size-dependent term, and the square-root form is
+    /// imported from market-impact literature (Almgren-Chriss, Kyle). Calibrate
+    /// to your venue / instrument universe; the historical default of `0.1`
+    /// is a placeholder that should not be treated as authoritative.
+    ///
+    /// Set to `0.0` to disable the endogenous term entirely (only the Bangia
+    /// exogenous + spread-vol terms remain in `lvar_bangia`). Default: 0.1.
+    #[serde(default = "default_endogenous_spread_coef")]
+    pub endogenous_spread_coef: f64,
+}
+
+fn default_endogenous_spread_coef() -> f64 {
+    0.1
 }
 
 impl Default for LiquidityConfig {
@@ -282,6 +304,7 @@ impl Default for LiquidityConfig {
             risk_aversion: 1e-6,
             holding_period: 1.0,
             confidence_level: 0.99,
+            endogenous_spread_coef: default_endogenous_spread_coef(),
         }
     }
 }
@@ -446,6 +469,32 @@ mod tests {
         let json = serde_json::to_string(&c)?;
         let c2: LiquidityConfig = serde_json::from_str(&json)?;
         assert_eq!(c, c2);
+        Ok(())
+    }
+
+    /// Legacy `LiquidityConfig` JSON predates the `endogenous_spread_coef`
+    /// field; deserializing such a payload must succeed and fall back to the
+    /// documented default (0.1) so existing on-disk configs keep loading
+    /// after the field was added.
+    #[test]
+    fn serde_legacy_config_uses_endogenous_default(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let legacy_json = r#"{
+            "participation_rate": 0.10,
+            "tier_thresholds": [1.0, 5.0, 20.0, 60.0],
+            "risk_aversion": 1e-6,
+            "holding_period": 1.0,
+            "confidence_level": 0.99
+        }"#;
+        let parsed: LiquidityConfig = serde_json::from_str(legacy_json)?;
+        assert!(
+            (parsed.endogenous_spread_coef - 0.1).abs() < 1e-12,
+            "missing endogenous_spread_coef must default to 0.1, got {}",
+            parsed.endogenous_spread_coef
+        );
+        // The remaining fields should match the legacy values verbatim.
+        assert!((parsed.participation_rate - 0.10).abs() < 1e-12);
+        assert!((parsed.confidence_level - 0.99).abs() < 1e-12);
         Ok(())
     }
 }

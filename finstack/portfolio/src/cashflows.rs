@@ -50,23 +50,56 @@ fn add_years_clamped(date: Date, years: i32) -> Option<Date> {
     None
 }
 
+/// Default threshold (in years) past which spot-equivalent FX is flagged as
+/// economically unjustifiable for cashflow conversion. Override at call
+/// sites that have a different mandate (e.g. ALM books with 50-year
+/// liabilities) by passing a different value through
+/// [`should_warn_far_future_fx_conversion_with_horizon`].
+pub const DEFAULT_FAR_FUTURE_FX_HORIZON_YEARS: i32 = 30;
+
 /// Decide whether to warn about spot-equivalent FX being used beyond the
-/// caller's valuation horizon.
+/// caller's valuation horizon, using the default 30-year mandate.
 ///
 /// `as_of` is the analytical "today" of the run (typically the portfolio's
 /// valuation date). Payments beyond `as_of + 30Y` are flagged because
 /// spot-equivalent FX becomes economically unjustifiable at those tenors and
-/// callers should derive forward FX from the relevant discount curves instead.
+/// callers should derive forward FX from the relevant discount curves
+/// instead.
 fn should_warn_far_future_fx_conversion(
     as_of: Date,
     payment_date: Date,
     from_ccy: Currency,
     base_ccy: Currency,
 ) -> bool {
+    should_warn_far_future_fx_conversion_with_horizon(
+        as_of,
+        payment_date,
+        from_ccy,
+        base_ccy,
+        DEFAULT_FAR_FUTURE_FX_HORIZON_YEARS,
+    )
+}
+
+/// Like [`should_warn_far_future_fx_conversion`] but with a caller-supplied
+/// horizon. Use this for ALM / LDI books that legitimately price cashflows
+/// further out than the 30-year default mandate.
+///
+/// Returns `false` (no warning) when:
+/// - the source and base currencies match, so no FX is needed; or
+/// - `as_of + horizon_years` overflows the supported date range, in which
+///   case no useful threshold can be computed (callers see no warning
+///   rather than a panic).
+pub fn should_warn_far_future_fx_conversion_with_horizon(
+    as_of: Date,
+    payment_date: Date,
+    from_ccy: Currency,
+    base_ccy: Currency,
+    horizon_years: i32,
+) -> bool {
     if from_ccy == base_ccy {
         return false;
     }
-    let Some(threshold) = add_years_clamped(as_of, 30) else {
+    let Some(threshold) = add_years_clamped(as_of, horizon_years) else {
         return false;
     };
     payment_date > threshold

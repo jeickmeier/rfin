@@ -117,39 +117,13 @@ impl CandidatePosition {
         }
     }
 
-    /// Add a text attribute to the candidate.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - Attribute key.
-    /// * `value` - Attribute value.
-    ///
-    /// # Returns
-    ///
-    /// The updated candidate for fluent chaining.
-    pub fn with_text_attribute(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.attributes
-            .insert(key.into(), AttributeValue::Text(value.into()));
-        self
-    }
-
-    /// Add a numeric attribute to the candidate.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - Attribute key.
-    /// * `value` - Numeric value.
-    ///
-    /// # Returns
-    ///
-    /// The updated candidate for fluent chaining.
-    pub fn with_numeric_attribute(mut self, key: impl Into<String>, value: f64) -> Self {
-        self.attributes
-            .insert(key.into(), AttributeValue::Number(value));
-        self
-    }
-
     /// Add an attribute to the candidate.
+    ///
+    /// Accepts any value convertible into [`AttributeValue`] — `&str`/`String`
+    /// for text attributes (e.g. ratings, sectors) and `f64` for numeric
+    /// attributes (e.g. credit scores, ESG scores). This single method
+    /// replaces the earlier `with_text_attribute` / `with_numeric_attribute`
+    /// pair.
     ///
     /// # Arguments
     ///

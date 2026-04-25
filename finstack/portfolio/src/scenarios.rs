@@ -21,7 +21,16 @@ use std::sync::Arc;
 /// 3. Applies the scenario using the engine
 /// 4. Returns the modified portfolio and market data
 ///
-/// The original portfolio and market are left untouched.
+/// # Aliasing contract
+///
+/// The input `portfolio` and `market` references are **never mutated**: the
+/// function works on owned clones. The values returned in the result tuple
+/// are **fresh `Portfolio` and `MarketContext` instances** distinct from the
+/// inputs — re-using the original `market` after the call therefore continues
+/// to see pre-scenario data, and re-using the returned `MarketContext` sees
+/// post-scenario data. Callers that want to chain multiple scenario passes
+/// must thread the *returned* market into the next call; threading the
+/// original is silently a no-op for stacked scenarios.
 ///
 /// # Arguments
 ///
@@ -31,7 +40,8 @@ use std::sync::Arc;
 ///
 /// # Returns
 ///
-/// [`Result`] containing the modified portfolio, market, and application report.
+/// [`Result`] containing the modified portfolio, the modified market data
+/// (a fresh clone — see "Aliasing contract" above), and the application report.
 ///
 /// # Errors
 ///

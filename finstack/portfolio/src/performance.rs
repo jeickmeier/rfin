@@ -125,6 +125,23 @@ pub struct LinkedReturn {
 /// Geometrically link sub-period returns. GIPS 2020 §2.A.6.b.i.
 ///
 /// Returns `None` if any sub-period return is non-finite.
+///
+/// # `horizon_years` convention
+///
+/// `horizon_years` is the elapsed time covered by the full sequence of
+/// sub-periods, expressed as a **fraction of a 365-day calendar year**
+/// (i.e. an annualization base of 365 calendar days). The function does
+/// not assume a trading-day calendar and does *not* know about 252 / 360 /
+/// 365.25 conventions — callers that report on a trading-day basis must
+/// convert (e.g. `trading_days / 252` for ACT/252-quoted strategies)
+/// before passing the value here.
+///
+/// Recommended computation at the call site:
+/// `(end_date - start_date).whole_days() as f64 / 365.0`. This matches
+/// GIPS guidance for periods longer than one year and keeps results
+/// comparable across calendar regimes. Pass `0.0` (or any non-positive
+/// value) to skip annualization and return only the cumulative figure;
+/// the `annualised` field will then mirror `cumulative`.
 #[must_use]
 pub fn twrr_linked(periods: &[f64], horizon_years: f64) -> Option<LinkedReturn> {
     if periods.iter().any(|r| !r.is_finite()) {

@@ -119,11 +119,14 @@ impl MarketImpactModel for KyleLambdaModel {
         let total_cost = self.lambda * q * q * 0.5;
         let total_cost_abs = total_cost.abs();
 
-        // In the linear model, all impact is "permanent" in the sense
-        // that it's a linear function of cumulative order flow.
-        // We split heuristically: 60% permanent, 40% temporary.
-        let permanent_impact = 0.6 * total_cost_abs;
-        let temporary_impact = 0.4 * total_cost_abs;
+        // Kyle's linear model has a single, fully-permanent impact term —
+        // there is no separate transient component to recover from. We
+        // therefore report the full cost as `permanent_impact` and zero
+        // `temporary_impact` rather than splitting heuristically. Callers who
+        // need a permanent/temporary decomposition should use the
+        // Almgren-Chriss model, which separates the two by construction.
+        let permanent_impact = total_cost_abs;
+        let temporary_impact = 0.0;
 
         let reference_price = params.effective_reference_price();
         let notional = q.abs() * reference_price;

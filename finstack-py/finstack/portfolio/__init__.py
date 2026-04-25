@@ -1,6 +1,47 @@
 """Portfolio construction, valuation, optimization, cashflows, scenarios, and metrics.
 
 Bindings for the ``finstack-portfolio`` Rust crate.
+
+Stability tiers
+---------------
+
+The exports below fall into three stability tiers. Treat the tier as a
+contract about how disruptive future changes are likely to be.
+
+**Stable** — covered by golden tests and meant to round-trip across releases:
+
+* ``Portfolio``, ``PortfolioValuation``, ``PortfolioResult``,
+  ``PortfolioCashflows`` (the typed handles)
+* ``parse_portfolio_spec``, ``build_portfolio_from_spec``
+* ``value_portfolio``, ``aggregate_full_cashflows``,
+  ``apply_scenario_and_revalue``
+* ``aggregate_metrics``, ``portfolio_result_total_value``,
+  ``portfolio_result_get_metric``
+* ``replay_portfolio``
+
+**Stable, JSON-shape may evolve** — function signatures stable, but the
+returned/accepted JSON payload structure can grow new fields (additive,
+non-breaking) between releases:
+
+* ``optimize_portfolio`` (``PortfolioOptimizationSpec`` /
+  ``PortfolioOptimizationResult`` JSON)
+* ``parametric_var_decomposition``, ``parametric_es_decomposition``,
+  ``historical_var_decomposition``, ``evaluate_risk_budget``
+
+**Experimental** — calibration constants and convenience defaults still
+under review; signatures or default coefficients may change:
+
+* ``lvar_bangia`` — endogenous-cost coefficient currently a placeholder
+  (see ``LiquidityConfig::endogenous_spread_coef`` in the Rust crate).
+* ``almgren_chriss_impact`` — fixes ``delta`` at 0.5; the underlying
+  ``optimal_trajectory`` accepts only ``delta = 1`` (linear impact).
+* ``kyle_lambda``, ``roll_effective_spread``, ``amihud_illiquidity``,
+  ``days_to_liquidate``, ``liquidity_tier`` — small free functions, may be
+  re-grouped or renamed.
+
+Bindings should be considered cross-version-compatible only within a single
+``finstack-portfolio`` minor release; pin the upstream version when
+exporting to downstream services.
 """
 
 from __future__ import annotations

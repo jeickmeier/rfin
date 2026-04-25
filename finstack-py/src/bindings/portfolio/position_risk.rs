@@ -8,8 +8,9 @@
 
 use crate::errors::core_to_py;
 use finstack_portfolio::factor_model::{
-    DecompositionConfig, HistoricalPositionDecomposer, ParametricPositionDecomposer,
-    PositionRiskDecomposition, RiskBudget,
+    flatten_square_matrix as core_flatten_square_matrix, DecompositionConfig,
+    HistoricalPositionDecomposer, ParametricPositionDecomposer, PositionRiskDecomposition,
+    RiskBudget,
 };
 use finstack_portfolio::types::PositionId;
 use indexmap::IndexMap;
@@ -21,26 +22,11 @@ use pyo3::types::{PyDict, PyList};
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Flatten a row-major nested `Vec<Vec<f64>>` into a contiguous `Vec<f64>`
-/// after checking squareness against `n`.
+/// Forward to the shared `factor_model::flatten_square_matrix` and remap the
+/// `core::Error::Validation` shape into a `PyValueError` so the same matrix
+/// validation diagnostics surface from both the Python and WASM bindings.
 fn flatten_square_matrix(matrix: Vec<Vec<f64>>, n: usize, label: &str) -> PyResult<Vec<f64>> {
-    if matrix.len() != n {
-        return Err(PyValueError::new_err(format!(
-            "{label} must have {n} rows, got {}",
-            matrix.len()
-        )));
-    }
-    let mut flat = Vec::with_capacity(n * n);
-    for (i, row) in matrix.into_iter().enumerate() {
-        if row.len() != n {
-            return Err(PyValueError::new_err(format!(
-                "{label} row {i} must have {n} columns, got {}",
-                row.len()
-            )));
-        }
-        flat.extend(row);
-    }
-    Ok(flat)
+    core_flatten_square_matrix(matrix, n, label).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Convert `Vec<String>` position ids to the Rust newtype.
