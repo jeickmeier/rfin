@@ -165,6 +165,15 @@ impl CDSOptionPricer {
     /// has absolute quadrature error below 0.1 bp of upfront — well inside
     /// the Black-model uncertainty on σ and R.
     ///
+    /// **Validity regime**: the 0.1 bp bound was characterised for
+    /// `T_expiry ≤ 2y` AND `h(s) ≤ 3%` over the integration window (i.e. CDX.IG
+    /// or iTraxx Main). For HY indices (CDX.HY, iTraxx Crossover) where local
+    /// hazard can hit 5–10%, or expiries beyond ~3y, the integrand develops
+    /// non-trivial curvature and the fixed-step midpoint rule degrades. In
+    /// those regimes consider raising `STEPS` or moving to an adaptive scheme;
+    /// the current constant is sized for the IG single-name and main-index use
+    /// case which dominates trading volume.
+    ///
     /// # References
     /// - Pedersen, C. (2003). "Valuation of Portfolio Credit Default
     ///   Swaptions." Lehman Brothers.

@@ -29,7 +29,7 @@ pub(super) fn haz_t(surv: &HazardCurve, date: Date) -> Result<f64> {
 /// mapping uses actual day counts), and a reasonable approximation for other
 /// conventions. The resulting date is used only for discounting on actual dates.
 #[inline]
-pub(super) fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
+pub(crate) fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
     let t = t.max(0.0);
     let days_per_year = match surv.day_count() {
         DayCount::Act360 => 360.0,

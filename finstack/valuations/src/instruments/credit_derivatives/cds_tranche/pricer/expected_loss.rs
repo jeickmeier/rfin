@@ -251,8 +251,7 @@ impl CDSTranchePricer {
                 };
                 Ok(expected_loss)
             } else {
-                let copula = self.build_copula();
-                let copula_ref = copula.as_ref();
+                let copula_ref = self.copula();
                 let default_threshold = self.default_threshold_for_copula(default_prob);
                 let expected_loss = copula_ref.integrate_fn(&|factors| {
                     let p = self.conditional_default_prob_copula(

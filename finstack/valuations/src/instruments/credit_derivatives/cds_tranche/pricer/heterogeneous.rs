@@ -122,8 +122,7 @@ impl CDSTranchePricer {
                 return Ok(expected_loss);
             }
 
-            let copula = self.build_copula();
-            let copula_ref = copula.as_ref();
+            let copula_ref = self.copula();
             let expected_loss = copula_ref.integrate_fn(&|factors| {
                 let p = self.conditional_default_prob_copula(
                     copula_ref,
@@ -231,8 +230,7 @@ impl CDSTranchePricer {
             return Ok(el);
         }
 
-        let copula = self.build_copula();
-        let copula_ref = copula.as_ref();
+        let copula_ref = self.copula();
 
         // Integrand over common factor Z using heterogeneous LGD and weights
         let integrand = |factors: &[f64]| -> f64 {
@@ -306,12 +304,11 @@ impl CDSTranchePricer {
         let max_points = (k / grid_step).ceil() as usize + 2;
 
         let use_gaussian = self.params.copula_spec.is_gaussian();
-        let copula = if use_gaussian {
+        let copula_ref: Option<&dyn Copula> = if use_gaussian {
             None
         } else {
-            Some(self.build_copula())
+            Some(self.copula())
         };
-        let copula_ref = copula.as_ref().map(|model| model.as_ref());
 
         if max_points > self.params.max_grid_points {
             // Performance guard: fall back to SPA approximation with heterogeneous vectors
@@ -322,12 +319,19 @@ impl CDSTranchePricer {
         let sqrt_1mr = (1.0 - correlation).sqrt();
         let quad = self.select_quadrature()?;
 
+        // The convolution loop allocates two PMF buffers of `max_points` once per
+        // integrand evaluation and ping-pongs between them, replacing the
+        // previous per-issuer `vec![0.0f64; ...]` (was N×K allocations per
+        // quadrature point; now 2). Each `accumulate_issuer_pmf` call zeros only
+        // the active prefix of the destination buffer.
         if use_gaussian {
             let integrand = |factors: &[f64]| {
                 let z = factors.first().copied().unwrap_or(0.0);
-                // Start with delta at 0 loss
-                let mut pmf = vec![0.0f64; 1];
-                pmf[0] = 1.0;
+                let mut buf_a = vec![0.0f64; max_points];
+                let mut buf_b = vec![0.0f64; max_points];
+                buf_a[0] = 1.0;
+                let mut pmf_len = 1usize;
+                let mut pmf_in_a = true;
 
                 for i in 0..thresholds.len() {
                     let th = thresholds[i];
@@ -337,47 +341,21 @@ impl CDSTranchePricer {
                     let cthr = (th - sqrt_rho * z) / sqrt_1mr;
                     let p = norm_cdf(cthr).clamp(0.0, 1.0);
 
-                    // Per-issuer loss contribution
-                    let loss_exact = weight * lgd / grid_step;
-                    let loss_floor = loss_exact.floor() as usize;
-                    let frac = loss_exact - loss_floor as f64;
-
-                    let new_len = pmf.len() + loss_floor + 2;
-                    let mut next = vec![0.0f64; new_len.min(max_points)];
-
-                    for (j, &mass) in pmf.iter().enumerate() {
-                        // No default case
-                        if j < next.len() {
-                            next[j] += mass * (1.0 - p);
-                        }
-
-                        // Default case: distribute mass between floor and ceiling bins
-                        let j_floor = j + loss_floor;
-                        let j_ceil = j_floor + 1;
-
-                        if j_floor < next.len() {
-                            next[j_floor] += mass * p * (1.0 - frac);
-                        }
-                        if j_ceil < next.len() && frac > 0.0 {
-                            next[j_ceil] += mass * p * frac;
-                        } else if j_floor < next.len() && frac > 0.0 {
-                            next[j_floor] += mass * p * frac;
-                        }
-                    }
-
-                    pmf = next;
-                    if pmf.len() > max_points {
-                        pmf.truncate(max_points);
-                    }
+                    let new_len = if pmf_in_a {
+                        accumulate_issuer_pmf(
+                            &buf_a, pmf_len, &mut buf_b, max_points, weight, lgd, grid_step, p,
+                        )
+                    } else {
+                        accumulate_issuer_pmf(
+                            &buf_b, pmf_len, &mut buf_a, max_points, weight, lgd, grid_step, p,
+                        )
+                    };
+                    pmf_len = new_len;
+                    pmf_in_a = !pmf_in_a;
                 }
 
-                // Compute E[min(L, K)] from pmf
-                let mut terms: Vec<f64> = Vec::with_capacity(pmf.len());
-                for (i, mass) in pmf.iter().enumerate() {
-                    let l = (i as f64) * grid_step;
-                    terms.push(mass * l.min(k));
-                }
-                finstack_core::math::neumaier_sum(terms.iter().copied())
+                let active = if pmf_in_a { &buf_a } else { &buf_b };
+                expected_loss_capped(&active[..pmf_len], grid_step, k)
             };
 
             let value = if !(self.params.adaptive_integration_low
@@ -396,9 +374,11 @@ impl CDSTranchePricer {
             Error::Validation("Copula must be set for non-Gaussian convolution.".to_string())
         })?;
         let integrand = |factors: &[f64]| {
-            // Start with delta at 0 loss
-            let mut pmf = vec![0.0f64; 1];
-            pmf[0] = 1.0;
+            let mut buf_a = vec![0.0f64; max_points];
+            let mut buf_b = vec![0.0f64; max_points];
+            buf_a[0] = 1.0;
+            let mut pmf_len = 1usize;
+            let mut pmf_in_a = true;
 
             for i in 0..thresholds.len() {
                 let th = thresholds[i];
@@ -407,47 +387,21 @@ impl CDSTranchePricer {
 
                 let p = self.conditional_default_prob_copula(copula_ref, th, factors, correlation);
 
-                // Per-issuer loss contribution
-                let loss_exact = weight * lgd / grid_step;
-                let loss_floor = loss_exact.floor() as usize;
-                let frac = loss_exact - loss_floor as f64;
-
-                let new_len = pmf.len() + loss_floor + 2;
-                let mut next = vec![0.0f64; new_len.min(max_points)];
-
-                for (j, &mass) in pmf.iter().enumerate() {
-                    // No default case
-                    if j < next.len() {
-                        next[j] += mass * (1.0 - p);
-                    }
-
-                    // Default case: distribute mass between floor and ceiling bins
-                    let j_floor = j + loss_floor;
-                    let j_ceil = j_floor + 1;
-
-                    if j_floor < next.len() {
-                        next[j_floor] += mass * p * (1.0 - frac);
-                    }
-                    if j_ceil < next.len() && frac > 0.0 {
-                        next[j_ceil] += mass * p * frac;
-                    } else if j_floor < next.len() && frac > 0.0 {
-                        next[j_floor] += mass * p * frac;
-                    }
-                }
-
-                pmf = next;
-                if pmf.len() > max_points {
-                    pmf.truncate(max_points);
-                }
+                let new_len = if pmf_in_a {
+                    accumulate_issuer_pmf(
+                        &buf_a, pmf_len, &mut buf_b, max_points, weight, lgd, grid_step, p,
+                    )
+                } else {
+                    accumulate_issuer_pmf(
+                        &buf_b, pmf_len, &mut buf_a, max_points, weight, lgd, grid_step, p,
+                    )
+                };
+                pmf_len = new_len;
+                pmf_in_a = !pmf_in_a;
             }
 
-            // Compute E[min(L, K)] from pmf
-            let mut terms: Vec<f64> = Vec::with_capacity(pmf.len());
-            for (i, mass) in pmf.iter().enumerate() {
-                let l = (i as f64) * grid_step;
-                terms.push(mass * l.min(k));
-            }
-            finstack_core::math::neumaier_sum(terms.iter().copied())
+            let active = if pmf_in_a { &buf_a } else { &buf_b };
+            expected_loss_capped(&active[..pmf_len], grid_step, k)
         };
 
         Ok(copula_ref.integrate_fn(&integrand))
@@ -605,4 +559,79 @@ impl CDSTranchePricer {
 
         norm_cdf(conditional_threshold)
     }
+}
+
+/// Convolve a single issuer's loss contribution into the destination PMF buffer.
+///
+/// Reads the active prefix `src[..src_len]`, writes the new active prefix into
+/// `dst[..returned_len]`, and zeros only what it touches in `dst` so the buffer
+/// can be reused without reallocating between issuers.
+///
+/// `loss_exact = weight * lgd / grid_step` is split into floor + frac bins to
+/// preserve fractional loss contributions when the issuer's loss does not align
+/// with the grid. Mass conservation: each input mass `m` is distributed as
+/// `m*(1-p)` to no-default bin, `m*p*(1-frac)` to floor bin, `m*p*frac` to ceil
+/// bin (or floor if ceil is past the grid).
+#[inline]
+#[allow(clippy::too_many_arguments)] // hot-path numerical helper; grouping into a struct would add allocation
+fn accumulate_issuer_pmf(
+    src: &[f64],
+    src_len: usize,
+    dst: &mut [f64],
+    max_points: usize,
+    weight: f64,
+    lgd: f64,
+    grid_step: f64,
+    p: f64,
+) -> usize {
+    let loss_exact = weight * lgd / grid_step;
+    let loss_floor = loss_exact.floor() as usize;
+    let frac = loss_exact - loss_floor as f64;
+
+    let new_len = (src_len + loss_floor + 2).min(max_points).min(dst.len());
+
+    // Zero only the active prefix that we're about to write.
+    for slot in dst[..new_len].iter_mut() {
+        *slot = 0.0;
+    }
+
+    for j in 0..src_len {
+        let mass = src[j];
+        if mass == 0.0 {
+            continue;
+        }
+
+        if j < new_len {
+            dst[j] += mass * (1.0 - p);
+        }
+
+        let j_floor = j + loss_floor;
+        let j_ceil = j_floor + 1;
+
+        if j_floor < new_len {
+            dst[j_floor] += mass * p * (1.0 - frac);
+        }
+        if j_ceil < new_len && frac > 0.0 {
+            dst[j_ceil] += mass * p * frac;
+        } else if j_floor < new_len && frac > 0.0 {
+            // Ceil falls off the grid; collapse the fractional piece into floor
+            // to preserve total mass.
+            dst[j_floor] += mass * p * frac;
+        }
+    }
+
+    new_len
+}
+
+/// Compute `E[min(L, k)]` from a PMF where bin `i` represents loss `i * grid_step`.
+///
+/// Uses Neumaier compensated summation to maintain accuracy when the PMF has
+/// many bins (up to `max_grid_points`, which can be 200K).
+#[inline]
+fn expected_loss_capped(pmf: &[f64], grid_step: f64, k: f64) -> f64 {
+    finstack_core::math::neumaier_sum(
+        pmf.iter()
+            .enumerate()
+            .map(|(i, &mass)| mass * ((i as f64) * grid_step).min(k)),
+    )
 }

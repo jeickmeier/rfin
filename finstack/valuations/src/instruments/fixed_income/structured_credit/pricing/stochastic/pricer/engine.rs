@@ -164,14 +164,19 @@ impl StochasticPricer {
             for suffix_index in 0..mc_paths {
                 let path_index = prefix_index * mc_paths + suffix_index;
                 let mut rng = Pcg64Rng::new(self.path_seed(path_index));
-                let mut factors = prefix.clone();
-                factors.extend((0..suffix_months).map(|_| {
-                    if has_stochastic_rates {
+                // Pre-size to exact total length so neither the prefix copy nor
+                // the suffix push triggers a Vec re-grow. Each path needs its
+                // own owned Vec because `factor_sets` is consumed by a parallel
+                // iterator below.
+                let mut factors = Vec::with_capacity(prefix.len() + suffix_months);
+                factors.extend_from_slice(&prefix);
+                for _ in 0..suffix_months {
+                    factors.push(if has_stochastic_rates {
                         rng.normal(0.0, 1.0)
                     } else {
                         0.0
-                    }
-                }));
+                    });
+                }
                 factor_sets.push(factors);
             }
         }

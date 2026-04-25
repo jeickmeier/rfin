@@ -21,13 +21,15 @@ use crate::cashflow::traits::{
 };
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
+use crate::instruments::credit_derivatives::cds::pricer::{
+    date_from_hazard_time, CDSPricer, CDSPricerConfig,
+};
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use crate::instruments::credit_derivatives::cds_index::{
     CDSIndex, ConstituentResult, IndexParSpreadResult, IndexPricing, IndexResult, ParSpreadMethod,
 };
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
@@ -816,20 +818,6 @@ impl CDSIndexPricer {
         )
     }
 
-    fn date_from_hazard_time(survival: &HazardCurve, t: f64) -> Date {
-        let t = t.max(0.0);
-        let days_per_year = match survival.day_count() {
-            DayCount::Act360 => 360.0,
-            DayCount::Act365F => 365.0,
-            DayCount::Act365L | DayCount::ActAct | DayCount::ActActIsma => 365.25,
-            DayCount::Thirty360 | DayCount::ThirtyE360 => 360.0,
-            DayCount::Bus252 => 252.0,
-            _ => 365.25,
-        };
-        let days = (t * days_per_year).round() as i64;
-        survival.base_date() + Duration::days(days)
-    }
-
     fn midpoint_default_date(
         survival: &HazardCurve,
         start_date: Date,
@@ -845,10 +833,7 @@ impl CDSIndexPricer {
             end_date,
             finstack_core::dates::DayCountContext::default(),
         )?;
-        Ok(Self::date_from_hazard_time(
-            survival,
-            0.5 * (t_start + t_end),
-        ))
+        Ok(date_from_hazard_time(survival, 0.5 * (t_start + t_end)))
     }
 
     fn settlement_date_with_delay(

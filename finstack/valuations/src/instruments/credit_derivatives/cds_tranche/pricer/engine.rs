@@ -22,27 +22,34 @@ impl CDSTranchePricer {
         GaussHermiteQuadrature::new(self.params.quadrature_order as usize)
     }
 
-    pub(super) fn build_copula(&self) -> Box<dyn Copula> {
-        match &self.params.copula_spec {
-            CopulaSpec::Gaussian => Box::new(GaussianCopula::with_quadrature_order(
-                self.params.quadrature_order,
-            )),
-            CopulaSpec::StudentT { degrees_of_freedom } => {
-                Box::new(StudentTCopula::with_quadrature_order(
-                    *degrees_of_freedom,
+    /// Return the cached copula instance, building it on first call.
+    ///
+    /// The copula is determined entirely by `self.params.copula_spec` at
+    /// pricer-construction time, so a single instance can be reused across
+    /// every EL/integrand evaluation for the lifetime of this pricer.
+    pub(super) fn copula(&self) -> &dyn Copula {
+        self.copula_cache
+            .get_or_init(|| match &self.params.copula_spec {
+                CopulaSpec::Gaussian => Box::new(GaussianCopula::with_quadrature_order(
                     self.params.quadrature_order,
-                ))
-            }
-            CopulaSpec::RandomFactorLoading { loading_volatility } => {
-                Box::new(RandomFactorLoadingCopula::with_quadrature_order(
-                    *loading_volatility,
-                    self.params.quadrature_order,
-                ))
-            }
-            CopulaSpec::MultiFactor { num_factors } => {
-                Box::new(MultiFactorCopula::new(*num_factors))
-            }
-        }
+                )),
+                CopulaSpec::StudentT { degrees_of_freedom } => {
+                    Box::new(StudentTCopula::with_quadrature_order(
+                        *degrees_of_freedom,
+                        self.params.quadrature_order,
+                    ))
+                }
+                CopulaSpec::RandomFactorLoading { loading_volatility } => {
+                    Box::new(RandomFactorLoadingCopula::with_quadrature_order(
+                        *loading_volatility,
+                        self.params.quadrature_order,
+                    ))
+                }
+                CopulaSpec::MultiFactor { num_factors } => {
+                    Box::new(MultiFactorCopula::new(*num_factors))
+                }
+            })
+            .as_ref()
     }
 
     pub(super) fn default_threshold_for_copula(&self, default_prob: f64) -> f64 {
@@ -71,12 +78,16 @@ impl CDSTranchePricer {
     pub fn new() -> Self {
         Self {
             params: CDSTranchePricerConfig::default(),
+            copula_cache: std::sync::OnceLock::new(),
         }
     }
 
     /// Create a new model with custom parameters.
     pub fn with_params(params: CDSTranchePricerConfig) -> Self {
-        Self { params }
+        Self {
+            params,
+            copula_cache: std::sync::OnceLock::new(),
+        }
     }
 
     /// Price a CDS tranche using the Gaussian Copula model.
