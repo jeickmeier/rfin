@@ -54,15 +54,11 @@
 //! - [`crate::instruments::fx::fx_option`] for FX options
 
 pub(crate) mod metrics;
-pub(crate) mod parameters;
-/// FX swap pricer implementation
-pub(crate) mod pricer;
 /// Shared pricing helper for CIP forward and PV calculations
 pub(crate) mod pricing_helper;
 mod types;
 
 pub use crate::instruments::common_impl::parameters::FxUnderlyingParams;
-pub use parameters::FxSwapParams;
 pub use types::FxSwap;
 
 // Builder provided by FinancialBuilder derive

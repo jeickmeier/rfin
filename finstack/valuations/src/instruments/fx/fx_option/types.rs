@@ -47,7 +47,6 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
-use time::macros::date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -176,9 +175,11 @@ impl FxOption {
 
     /// Create a canonical example FX option for testing and documentation.
     ///
-    /// Returns a 6-month EUR/USD call option.
+    /// Returns an EUR/USD call expiring on the project-wide stable example
+    /// epoch (`crate::instruments::common_impl::EXAMPLE_FAR_EXPIRY`). The
+    /// example is intentionally future-dated so docs and demos hit the live
+    /// pricing path rather than the expired-option intrinsic-only branch.
     pub fn example() -> finstack_core::Result<Self> {
-        // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("FXOPT-EURUSD-CALL"))
             .base_currency(Currency::EUR)
@@ -186,7 +187,7 @@ impl FxOption {
             .strike(1.12)
             .option_type(OptionType::Call)
             .exercise_style(ExerciseStyle::European)
-            .expiry(date!(2024 - 06 - 21))
+            .expiry(crate::instruments::common_impl::example_constants::FAR_EXPIRY)
             .day_count(DayCount::Act365F)
             .notional(Money::new(1_000_000.0, Currency::EUR))
             .settlement(SettlementType::Cash)

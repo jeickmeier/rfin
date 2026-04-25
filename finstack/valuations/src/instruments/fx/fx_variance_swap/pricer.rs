@@ -1,3 +1,4 @@
+use crate::instruments::common_impl::helpers::zero_rate_from_df;
 use crate::instruments::common_impl::models::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::pricing::variance_replication::carr_madan_forward_variance;
@@ -29,9 +30,14 @@ pub(crate) fn compute_pv(
 
     let dom = context.get_discount(inst.domestic_discount_curve_id.as_str())?;
 
+    // Compute observation dates once per pricing call. Each branch below would
+    // otherwise rebuild this 1-3 times via the helper functions.
+    let obs_dates = observation_dates(inst);
+
     if as_of >= inst.maturity {
         let realized_var = if inst.realized_var_method.requires_ohlc() {
-            let (open, high, low, close) = get_historical_ohlc(inst, context, as_of)?;
+            let (open, high, low, close) =
+                get_historical_ohlc_with_dates(inst, context, as_of, &obs_dates)?;
             if close.is_empty() {
                 return Ok(Money::new(0.0, inst.notional.currency()));
             }
@@ -44,7 +50,7 @@ pub(crate) fn compute_pv(
                 annualization_factor(inst),
             )?
         } else {
-            let prices = get_historical_prices(inst, context, as_of)?;
+            let prices = get_historical_prices_with_dates(inst, context, as_of, &obs_dates)?;
             if prices.is_empty() {
                 return Ok(Money::new(0.0, inst.notional.currency()));
             }
@@ -66,9 +72,9 @@ pub(crate) fn compute_pv(
         return Ok(undiscounted * dom.df(t.max(0.0)));
     }
 
-    let realized = partial_realized_variance(inst, context, as_of)?;
+    let realized = partial_realized_variance_with_dates(inst, context, as_of, &obs_dates)?;
     let forward = remaining_forward_variance(inst, context, as_of)?;
-    let w = realized_fraction_by_observations(inst, as_of);
+    let w = realized_fraction_by_observations_with_dates(inst, as_of, &obs_dates);
     let expected_var = realized * w + forward * (1.0 - w);
     let undiscounted = inst.payoff(expected_var);
     let t = inst
@@ -149,7 +155,14 @@ pub(crate) fn annualization_factor(inst: &FxVarianceSwap) -> f64 {
 }
 
 pub(crate) fn realized_fraction_by_observations(inst: &FxVarianceSwap, as_of: Date) -> f64 {
-    let all = observation_dates(inst);
+    realized_fraction_by_observations_with_dates(inst, as_of, &observation_dates(inst))
+}
+
+fn realized_fraction_by_observations_with_dates(
+    inst: &FxVarianceSwap,
+    as_of: Date,
+    all: &[Date],
+) -> f64 {
     if all.is_empty() {
         return 0.0;
     }
@@ -169,15 +182,21 @@ pub(crate) fn get_historical_prices(
     context: &MarketContext,
     as_of: Date,
 ) -> Result<Vec<f64>> {
+    get_historical_prices_with_dates(inst, context, as_of, &observation_dates(inst))
+}
+
+fn get_historical_prices_with_dates(
+    inst: &FxVarianceSwap,
+    context: &MarketContext,
+    as_of: Date,
+    obs_dates: &[Date],
+) -> Result<Vec<f64>> {
     let close_id_owned = inst
         .close_series_id
         .clone()
         .unwrap_or_else(|| inst.series_id());
     if let Ok(series) = context.get_series(&close_id_owned) {
-        let dates: Vec<Date> = observation_dates(inst)
-            .into_iter()
-            .filter(|&d| d <= as_of)
-            .collect();
+        let dates: Vec<Date> = obs_dates.iter().copied().filter(|&d| d <= as_of).collect();
         if dates.len() >= 2 {
             return series.values_on(&dates);
         }
@@ -190,10 +209,11 @@ pub(crate) fn get_historical_prices(
 /// Load aligned OHLC histories from the market context for OHLC-based estimators.
 ///
 /// Returns `Err(Validation)` if any required series ID is missing.
-pub(crate) fn get_historical_ohlc(
+fn get_historical_ohlc_with_dates(
     inst: &FxVarianceSwap,
     context: &MarketContext,
     as_of: Date,
+    obs_dates: &[Date],
 ) -> Result<OhlcVecs> {
     let default_close = inst
         .close_series_id
@@ -222,10 +242,7 @@ pub(crate) fn get_historical_ohlc(
         ))
     })?;
 
-    let dates: Vec<Date> = observation_dates(inst)
-        .into_iter()
-        .filter(|&d| d <= as_of)
-        .collect();
+    let dates: Vec<Date> = obs_dates.iter().copied().filter(|&d| d <= as_of).collect();
 
     if dates.len() < 2 {
         return Ok((vec![], vec![], vec![], vec![]));
@@ -244,8 +261,18 @@ pub(crate) fn partial_realized_variance(
     context: &MarketContext,
     as_of: Date,
 ) -> Result<f64> {
+    partial_realized_variance_with_dates(inst, context, as_of, &observation_dates(inst))
+}
+
+fn partial_realized_variance_with_dates(
+    inst: &FxVarianceSwap,
+    context: &MarketContext,
+    as_of: Date,
+    obs_dates: &[Date],
+) -> Result<f64> {
     if inst.realized_var_method.requires_ohlc() {
-        let (open, high, low, close) = get_historical_ohlc(inst, context, as_of)?;
+        let (open, high, low, close) =
+            get_historical_ohlc_with_dates(inst, context, as_of, obs_dates)?;
         if close.len() < 2 {
             return Ok(0.0);
         }
@@ -258,7 +285,7 @@ pub(crate) fn partial_realized_variance(
             annualization_factor(inst),
         );
     }
-    let prices = get_historical_prices(inst, context, as_of)?;
+    let prices = get_historical_prices_with_dates(inst, context, as_of, obs_dates)?;
     if prices.len() < 2 {
         return Ok(0.0);
     }
@@ -295,8 +322,8 @@ pub(crate) fn remaining_forward_variance(
     let df_dom = dom.df(t_dom.max(0.0));
     let df_for = for_curve.df(t_for.max(0.0));
 
-    let r_d = -df_dom.ln() / t;
-    let r_f = -df_for.ln() / t;
+    let r_d = zero_rate_from_df(df_dom, t, "FxVarianceSwap domestic discount")?;
+    let r_f = zero_rate_from_df(df_for, t, "FxVarianceSwap foreign discount")?;
     let fwd = spot * ((r_d - r_f) * t).exp();
     let strikes = surface.strikes();
     {
@@ -306,25 +333,25 @@ pub(crate) fn remaining_forward_variance(
         if let Some(variance) = carr_madan_forward_variance(strikes, fwd, r_d, t, vol_fn, bs_fn) {
             return Ok(variance);
         }
-        tracing::warn!(
+        // `debug` rather than `warn`: this branch fires on every PV when the
+        // surface is sparse (a known steady-state, not an alert). Use the
+        // `finstack.fx_variance_swap` target for selective enablement.
+        tracing::debug!(
             target = "finstack.fx_variance_swap",
             instrument_id = %inst.id(),
             t,
             num_strikes = strikes.len(),
-            "Carr-Madan forward-variance replication failed (likely too few strikes or \
-             non-finite Black-Scholes prices); falling back to ATM-vol² approximation"
+            "Carr-Madan forward-variance replication failed; falling back to ATM-vol²"
         );
     }
 
     let vol_atm = surface.value_clamped(t, fwd.max(1e-12));
     if vol_atm.is_finite() && vol_atm > 0.0 {
-        tracing::warn!(
+        tracing::debug!(
             target = "finstack.fx_variance_swap",
             instrument_id = %inst.id(),
             vol_atm,
-            "Using ATM-vol² ({}) as forward variance — this ignores the smile and \
-             produces a flat-vol approximation only.",
-            vol_atm * vol_atm
+            "Using ATM-vol² fallback for forward variance"
         );
         return Ok(vol_atm * vol_atm);
     }

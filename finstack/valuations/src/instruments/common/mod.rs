@@ -17,6 +17,19 @@ pub(crate) mod dependencies;
 // NPV calculation interface
 pub(crate) mod discountable;
 
+/// Stable date constants for `example()` constructors. Defined once so all
+/// instrument examples can rotate forward together.
+pub(crate) mod example_constants {
+    use finstack_core::dates::Date;
+    use time::macros::date;
+
+    /// Far-future expiry used by long-dated examples (FX options, equity
+    /// options, etc.). Currently `2030-06-21`. When this approaches the
+    /// present, bump to the next round date and regenerate any docs that
+    /// pin numeric outputs against examples.
+    pub const FAR_EXPIRY: Date = date!(2030 - 06 - 21);
+}
+
 // Shared utilities and helper functions
 pub(crate) mod helpers;
 pub(crate) mod numeric;

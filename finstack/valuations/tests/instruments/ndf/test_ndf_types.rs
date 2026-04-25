@@ -108,7 +108,7 @@ fn test_ndf_with_fixing_rate() {
     let ndf = Ndf::example();
     assert!(!ndf.is_fixed());
 
-    let fixed_ndf = ndf.with_fixing_rate(7.30);
+    let fixed_ndf = ndf.with_fixing_rate(7.30).expect("valid rate");
     assert!(fixed_ndf.is_fixed());
     assert_eq!(fixed_ndf.fixing_rate, Some(7.30));
 }

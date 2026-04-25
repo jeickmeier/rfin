@@ -38,7 +38,7 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::FxOption,
         ModelKey::Black76,
-        crate::instruments::fx::fx_option::pricer::SimpleFxOptionBlackPricer::default(),
+        crate::instruments::fx::fx_option::pricer::SimpleFxOptionBlackPricer,
     );
 
     // FX Variance Swap
@@ -86,13 +86,13 @@ pub(crate) fn register_fx_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::FxDigitalOption,
         ModelKey::Black76,
-        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::default(),
+        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer,
     );
 
     // FX Touch Option
     registry.register(
         InstrumentType::FxTouchOption,
         ModelKey::Black76,
-        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::default(),
+        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer,
     );
 }

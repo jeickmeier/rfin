@@ -15,7 +15,6 @@ mod fx01;
 mod fx_delta;
 mod ir01_domestic;
 mod ir01_foreign;
-// dv01, risk_bucketed_dv01 and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
 

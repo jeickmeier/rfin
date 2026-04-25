@@ -157,6 +157,38 @@ pub(crate) fn bump_scalar_price(
     Ok(bumped)
 }
 
+/// Compute a central finite difference of an instrument's PV with respect to
+/// a single scalar price (typically a spot rate / underlying level), using a
+/// **relative** bump.
+///
+/// Returns `(PV(s * (1 + h)) - PV(s * (1 - h))) / (2 * s * h)`. Returns `0.0`
+/// if the implied bump width is non-positive (e.g. when `s == 0`).
+///
+/// Used by FX/equity delta calculators that share the "look up scalar, bump
+/// up/down by relative %, central difference" pattern.
+pub(crate) fn central_diff_scalar_relative<I>(
+    inst: &I,
+    market: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+    scalar_id: &str,
+    bump_pct: f64,
+) -> finstack_core::Result<f64>
+where
+    I: crate::instruments::common_impl::traits::Instrument + ?Sized,
+{
+    let scalar = market.get_price(scalar_id)?;
+    let current = scalar_numeric_value(scalar);
+    let bump_size = current * bump_pct;
+    if !bump_size.is_finite() || bump_size <= 0.0 {
+        return Ok(0.0);
+    }
+    let up = bump_scalar_price(market, scalar_id, bump_pct)?;
+    let down = bump_scalar_price(market, scalar_id, -bump_pct)?;
+    let pv_up = inst.value(&up, as_of)?.amount();
+    let pv_dn = inst.value(&down, as_of)?.amount();
+    Ok(central_diff_by_width(pv_up, pv_dn, 2.0 * bump_size))
+}
+
 /// Helper to bump a discount curve with parallel shift.
 ///
 /// Creates a new MarketContext with a bumped discount curve using a parallel shift.

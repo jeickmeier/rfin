@@ -6,14 +6,12 @@
 //! repository standards. Metrics live under `metrics/` and are registered
 //! via the instrument metrics module.
 
-use crate::instruments::common_impl::parameters::FxUnderlyingParams;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use super::parameters::FxSwapParams;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
@@ -244,30 +242,6 @@ impl FxSwap {
             .quote_calendar_id_opt(quote_calendar_id)
             .attributes(Attributes::new())
             .build()
-    }
-
-    /// Create a new FX swap using parameter structs
-    pub fn new(
-        id: InstrumentId,
-        swap_params: &FxSwapParams,
-        underlying_params: &FxUnderlyingParams,
-    ) -> Self {
-        Self {
-            id,
-            base_currency: underlying_params.base_currency,
-            quote_currency: underlying_params.quote_currency,
-            near_date: swap_params.near_date,
-            far_date: swap_params.far_date,
-            base_notional: swap_params.base_notional,
-            domestic_discount_curve_id: underlying_params.domestic_discount_curve_id.to_owned(),
-            foreign_discount_curve_id: underlying_params.foreign_discount_curve_id.to_owned(),
-            near_rate: swap_params.near_rate,
-            far_rate: swap_params.far_rate,
-            base_calendar_id: None,
-            quote_calendar_id: None,
-            pricing_overrides: crate::instruments::PricingOverrides::default(),
-            attributes: Attributes::new(),
-        }
     }
 
     // Builder entrypoint is provided via derive

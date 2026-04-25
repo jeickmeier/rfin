@@ -156,11 +156,7 @@ impl FxVarianceSwap {
         let scalar = context.get_price(&spot_id).map_err(|_| {
             finstack_core::Error::Input(finstack_core::InputError::NotFound { id: spot_id })
         })?;
-        let spot = match scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
-        Ok(spot)
+        Ok(crate::metrics::scalar_numeric_value(scalar))
     }
 
     /// Calculate payoff given realized variance.

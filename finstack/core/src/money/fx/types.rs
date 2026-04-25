@@ -151,8 +151,11 @@ impl Default for FxConfig {
     fn default() -> Self {
         Self {
             pivot_currency: Currency::USD,
-            enable_triangulation: false, // Disabled by default - simpler
-            cache_capacity: 256,         // Smaller cache - simpler
+            // Triangulation is on by default: most FX deployments need cross
+            // rates through a pivot (typically USD). Disable explicitly for
+            // strict-direct-quote setups.
+            enable_triangulation: true,
+            cache_capacity: 256,
         }
     }
 }

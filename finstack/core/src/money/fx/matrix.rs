@@ -8,9 +8,21 @@ use parking_lot::Mutex;
 use crate::currency::Currency;
 use crate::dates::Date;
 
-use super::cache::{Pair, QueryKey};
 use super::provider::{reciprocal_rate_or_err, validate_fx_rate, FxProvider, FxRate};
 use super::types::{FxConfig, FxConversionPolicy, FxMatrixState, FxQuery, FxRateResult};
+
+/// Pair key for the explicit-quote cache.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct Pair(Currency, Currency);
+
+/// Query-sensitive key for the provider-observed quote cache.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct QueryKey {
+    from: Currency,
+    to: Currency,
+    on: Date,
+    policy: FxConversionPolicy,
+}
 
 /// Simplified FX matrix that stores quotes and computes cross rates on demand.
 ///
@@ -65,13 +77,21 @@ impl FxMatrix {
     /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
     pub fn new(provider: Arc<dyn FxProvider>) -> Self {
-        let capacity = NonZeroUsize::new(FxConfig::default().cache_capacity)
-            .unwrap_or_else(|| unreachable!("default FxConfig.cache_capacity is non-zero"));
+        let mut config = FxConfig::default();
+        // Defensive: clamp cache_capacity to at least 1 so we can never panic
+        // here. `try_with_config` rejects zero outright; this constructor
+        // accepts whatever default ships and produces a valid matrix.
+        let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or_else(|| {
+            config.cache_capacity = 1;
+            // SAFETY of choice: 1 is non-zero by definition; this branch only
+            // fires if a future change weakens the default invariant.
+            NonZeroUsize::MIN
+        });
         Self {
             provider,
             quotes: Mutex::new(LruCache::new(capacity)),
             observed_quotes: Mutex::new(LruCache::new(capacity)),
-            config: FxConfig::default(),
+            config,
         }
     }
 

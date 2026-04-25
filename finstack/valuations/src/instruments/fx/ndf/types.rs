@@ -693,9 +693,16 @@ impl Ndf {
     }
 
     /// Set the observed fixing rate (transitions NDF to post-fixing mode).
-    pub fn with_fixing_rate(mut self, fixing_rate: f64) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns a `Validation` error if the fixing rate is non-finite or
+    /// non-positive. Direct field assignment to `fixing_rate` bypasses this
+    /// guard; prefer this constructor.
+    pub fn with_fixing_rate(mut self, fixing_rate: f64) -> Result<Self> {
+        Self::validate_rate("fixing_rate", fixing_rate)?;
         self.fixing_rate = Some(fixing_rate);
-        self
+        Ok(self)
     }
 
     /// Check if NDF is in post-fixing mode.
@@ -1002,9 +1009,22 @@ mod tests {
 
     #[test]
     fn test_ndf_with_fixing_rate() {
-        let ndf = Ndf::example().with_fixing_rate(7.30);
+        let ndf = Ndf::example().with_fixing_rate(7.30).expect("valid rate");
         assert!(ndf.is_fixed());
         assert_eq!(ndf.fixing_rate, Some(7.30));
+    }
+
+    #[test]
+    fn test_ndf_with_fixing_rate_rejects_non_positive() {
+        let err = Ndf::example()
+            .with_fixing_rate(0.0)
+            .expect_err("zero rate should fail");
+        assert!(err.to_string().contains("fixing_rate"));
+
+        let err = Ndf::example()
+            .with_fixing_rate(f64::NAN)
+            .expect_err("NaN rate should fail");
+        assert!(err.to_string().contains("fixing_rate"));
     }
 
     #[test]

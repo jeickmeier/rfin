@@ -150,8 +150,6 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxBarrierO
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common_impl::traits::Instrument;
-
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -160,31 +158,19 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxBarrierO
         if t <= 0.0 {
             return Ok(0.0);
         }
-
         let spot_id = self.fx_spot_id.as_ref().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "FxBarrierOption delta requires fx_spot_id for finite-difference spot bumps"
                     .to_string(),
             )
         })?;
-        let spot_scalar = market.get_price(spot_id)?;
-        let current_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
-        let bump_size = current_spot * crate::metrics::bump_sizes::SPOT;
-        if bump_size <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let up =
-            crate::metrics::bump_scalar_price(market, spot_id, crate::metrics::bump_sizes::SPOT)?;
-        let pv_up = self.value(&up, as_of)?.amount();
-        let down =
-            crate::metrics::bump_scalar_price(market, spot_id, -crate::metrics::bump_sizes::SPOT)?;
-        let pv_down = self.value(&down, as_of)?.amount();
-
-        Ok((pv_up - pv_down) / (2.0 * bump_size))
+        crate::metrics::central_diff_scalar_relative(
+            self,
+            market,
+            as_of,
+            spot_id,
+            crate::metrics::bump_sizes::SPOT,
+        )
     }
 }
 
@@ -214,10 +200,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxBarrierO
             )
         })?;
         let spot_scalar = market.get_price(spot_id)?;
-        let current_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
+        let current_spot = crate::metrics::scalar_numeric_value(spot_scalar);
         let bump_size = current_spot * crate::metrics::bump_sizes::SPOT;
         if bump_size <= 0.0 {
             return Ok(0.0);
@@ -315,10 +298,7 @@ impl crate::instruments::common_impl::traits::OptionVannaProvider for FxBarrierO
             )
         })?;
         let spot_scalar = market.get_price(spot_id)?;
-        let current_spot = match spot_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
+        let current_spot = crate::metrics::scalar_numeric_value(spot_scalar);
 
         let spot_bump = current_spot * crate::metrics::bump_sizes::SPOT;
         if spot_bump <= 0.0 {

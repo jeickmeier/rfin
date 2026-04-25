@@ -1,5 +1,6 @@
 //! FX digital option pricer implementation.
 
+use crate::instruments::common_impl::helpers::zero_rate_from_df;
 use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
@@ -128,24 +129,16 @@ impl FxDigitalOptionCalculator {
         let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
         let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
 
-        let t_disc_for = foreign_disc.day_count().year_fraction(
-            as_of,
-            inst.expiry,
-            DayCountContext::default(),
-        )?;
         let t_vol = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
-        let t_disc_dom = domestic_disc.day_count().year_fraction(
-            as_of,
-            inst.expiry,
-            DayCountContext::default(),
-        )?;
 
-        let df_d = domestic_disc.df(t_disc_dom);
-        let df_f = foreign_disc.df(t_disc_for);
-        let r_d = if t_vol > 0.0 { -df_d.ln() / t_vol } else { 0.0 };
-        let r_f = if t_vol > 0.0 { -df_f.ln() / t_vol } else { 0.0 };
+        // Date-based DF lookups; the resulting `r = -ln(df) / t_vol` then
+        // reconstructs the same DF in BS via `exp(-r * t_vol)`.
+        let df_d = domestic_disc.df_between_dates(as_of, inst.expiry)?;
+        let df_f = foreign_disc.df_between_dates(as_of, inst.expiry)?;
+        let r_d = zero_rate_from_df(df_d, t_vol, "FxDigitalOption domestic discount")?;
+        let r_f = zero_rate_from_df(df_f, t_vol, "FxDigitalOption foreign discount")?;
 
         let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
             finstack_core::InputError::NotFound {
@@ -426,33 +419,13 @@ fn greeks_digital(
 }
 
 /// FX digital option pricer using Garman-Kohlhagen adapted closed-form.
-pub struct SimpleFxDigitalOptionPricer {
-    model: ModelKey,
-}
-
-impl SimpleFxDigitalOptionPricer {
-    /// Create a new FX digital option pricer with default model.
-    pub fn new() -> Self {
-        Self {
-            model: ModelKey::Black76,
-        }
-    }
-
-    /// Create an FX digital option pricer with specified model key.
-    pub fn with_model(model: ModelKey) -> Self {
-        Self { model }
-    }
-}
-
-impl Default for SimpleFxDigitalOptionPricer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Always dispatches at [`ModelKey::Black76`].
+#[derive(Default)]
+pub struct SimpleFxDigitalOptionPricer;
 
 impl Pricer for SimpleFxDigitalOptionPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::FxDigitalOption, self.model)
+        PricerKey::new(InstrumentType::FxDigitalOption, ModelKey::Black76)
     }
 
     fn price_dyn(

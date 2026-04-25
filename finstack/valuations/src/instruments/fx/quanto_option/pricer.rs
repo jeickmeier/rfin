@@ -36,10 +36,7 @@ fn collect_quanto_inputs(
     let r_for = for_curve.zero(t);
 
     let spot_scalar = curves.get_price(&inst.spot_id)?;
-    let spot = match spot_scalar {
-        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-    };
+    let spot = crate::metrics::scalar_numeric_value(spot_scalar);
 
     let q = crate::instruments::common_impl::helpers::resolve_optional_dividend_yield(
         curves,
@@ -70,8 +67,11 @@ fn collect_quanto_inputs(
 }
 
 fn payoff_scale(inst: &QuantoOption) -> finstack_core::Result<f64> {
-    inst.validate()?;
-
+    // `inst.validate()` already ran at construction (builder + serde
+    // `try_from` go through `validate`). Greek calculators that bump
+    // instrument fields directly (e.g. `Correlation01Calculator`) validate
+    // the bumped field locally. Re-running the full validation on every
+    // pricing call cost ~3-4x for vanna/volga which call `value()` 4x.
     match (inst.underlying_quantity, inst.payoff_fx_rate) {
         (Some(quantity), Some(fx_rate)) => Ok(quantity * fx_rate),
         (None, None) => Ok(inst.notional.amount() / inst.equity_strike.amount()),

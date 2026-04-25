@@ -97,6 +97,10 @@ impl FxBarrierCall {
     }
 
     /// Create a standard FX barrier (no quanto adjustment).
+    ///
+    /// `use_gobet_miri` defaults to `false` to match the
+    /// `FxBarrierOption::use_gobet_miri` instrument default. Callers that need
+    /// discrete-monitoring correction should call `Self::new` directly.
     #[allow(clippy::too_many_arguments)]
     pub fn standard(
         strike: f64,
@@ -117,7 +121,7 @@ impl FxBarrierCall {
             maturity_step,
             sigma,
             dt,
-            true, // Use Gobet-Miri by default
+            false, // continuous monitoring; matches FxBarrierOption default
             base_currency,
             quote_currency,
             0.0, // No quanto adjustment

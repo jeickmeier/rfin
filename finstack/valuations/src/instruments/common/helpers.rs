@@ -12,6 +12,31 @@ use finstack_core::money::Money;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
+/// Convert a discount factor to an effective continuously-compounded zero rate.
+///
+/// Returns `r` such that `exp(-r * t) = df`. Returns `Ok(0.0)` at expiry
+/// (`t <= 0`), which is the correct mathematical limit and matches the
+/// behaviour required by callers that short-circuit on `t <= 0` before using
+/// the returned rate.
+///
+/// # Errors
+///
+/// Returns a `Validation` error when `df` is not finite or non-positive.
+/// `df <= 0` would yield `NaN` or `+inf` from `ln`, masking a corrupted curve
+/// or extreme rate environment.
+#[inline]
+pub(crate) fn zero_rate_from_df(df: f64, t: f64, context: &str) -> finstack_core::Result<f64> {
+    if t <= 0.0 {
+        return Ok(0.0);
+    }
+    if !df.is_finite() || df <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "{context}: discount factor must be finite and > 0, got {df:.6e} for t={t:.6}"
+        )));
+    }
+    Ok(-df.ln() / t)
+}
+
 /// Compute year fraction between two dates using the given day-count convention.
 ///
 /// This is the canonical helper for all instrument code that needs a plain

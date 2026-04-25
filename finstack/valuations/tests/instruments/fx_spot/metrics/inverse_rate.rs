@@ -67,7 +67,9 @@ fn test_inverse_rate_various_rates() {
 }
 
 #[test]
-fn test_inverse_rate_zero_notional_returns_zero() {
+fn test_inverse_rate_zero_notional_errors() {
+    // Zero base notional makes the inverse rate ill-defined; the calculator
+    // surfaces a Validation error rather than silently returning zero.
     let fx = sample_eurusd()
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
@@ -76,8 +78,14 @@ fn test_inverse_rate_zero_notional_returns_zero() {
     let mut ctx = create_context(fx, test_date());
     let calc = InverseRateCalculator;
 
-    let inv_rate = calc.calculate(&mut ctx).unwrap();
-    assert_approx_eq(inv_rate, 0.0, EPSILON, "Zero notional returns zero");
+    let err = calc
+        .calculate(&mut ctx)
+        .expect_err("zero notional should not silently return 0");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("base notional"),
+        "expected base-notional error, got: {msg}"
+    );
 }
 
 #[test]
