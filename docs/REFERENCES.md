@@ -249,6 +249,14 @@ risk calculation with a standard reference.
   Measuring Counterparty Credit Risk Exposures* (BCBS 279). Canonical reference
   for Effective EPE and counterparty-credit-risk exposure terminology.
 
+<a id="bcbs-frtb-minimum-capital-requirements"></a>
+
+### BCBS FRTB Minimum Capital Requirements
+
+- Basel Committee on Banking Supervision. *Minimum Capital Requirements for
+  Market Risk* (BCBS d457). Canonical reference for FRTB standardized-approach
+  delta, vega, curvature, default-risk, and residual-risk add-on calculations.
+
 <a id="gregory-xva-challenge"></a>
 
 ### Gregory XVA Challenge

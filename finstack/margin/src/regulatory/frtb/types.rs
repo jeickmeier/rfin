@@ -182,7 +182,7 @@ pub struct DrcPosition {
     /// Issuer identifier.
     pub issuer: String,
     /// Signed JTD *notional* (positive = long, negative = short). Does
-    /// **not** include the LGD multiplier — [`drc_charge`] applies LGD.
+    /// **not** include the LGD multiplier — [`super::drc::drc_charge`] applies LGD.
     pub jtd_amount: f64,
     /// Credit rating bucket (1-based per FRTB specification).
     pub rating_bucket: u8,

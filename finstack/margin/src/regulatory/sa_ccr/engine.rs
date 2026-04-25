@@ -36,6 +36,24 @@ impl SaCcrEngine {
     /// so that direction / supervisory-delta / option-type inconsistencies
     /// surface as a validation error rather than a silently reversed add-on
     /// contribution.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Netting-set collateral, threshold, MTA, NICA, and MPOR terms.
+    /// * `trades` - Derivative trades in the netting set.
+    ///
+    /// # Returns
+    ///
+    /// [`EadResult`] with replacement cost, PFE, multiplier, add-on breakdown,
+    /// alpha, and a reporting maturity factor.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any trade fails [`SaCcrTrade::validate`].
+    ///
+    /// # References
+    ///
+    /// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
     pub fn calculate_ead(
         &self,
         config: &SaCcrNettingSetConfig,

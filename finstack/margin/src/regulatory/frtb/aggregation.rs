@@ -110,6 +110,22 @@ pub(super) fn inter_bucket(bucket_results: &[BucketResult], gamma: f64) -> f64 {
 ///
 /// The final capital charge picks the maximum across scenarios:
 ///   `Capital = max(SBA_agg_low, SBA_agg_medium, SBA_agg_high) + DRC + RRAO`
+///
+/// # Arguments
+///
+/// * `delta_charges` - Per-risk-class delta charges for one correlation scenario.
+/// * `vega_charges` - Per-risk-class vega charges for the same scenario.
+/// * `curvature_charges` - Per-risk-class curvature charges for the same scenario.
+///
+/// # Returns
+///
+/// The total SBA charge for one scenario before adding DRC/RRAO and before
+/// taking the maximum across correlation scenarios.
+///
+/// # References
+///
+/// - BCBS FRTB Minimum Capital Requirements:
+///   `docs/REFERENCES.md#bcbs-frtb-minimum-capital-requirements`
 pub fn aggregate_sba(
     delta_charges: &HashMap<FrtbRiskClass, f64>,
     vega_charges: &HashMap<FrtbRiskClass, f64>,

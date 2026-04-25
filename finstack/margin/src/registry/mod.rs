@@ -249,9 +249,9 @@ pub struct SimmParams {
     pub cq_concentration_thresholds: HashMap<SimmCreditSector, f64>,
     /// Commodity inter-bucket correlation matrix (17×17, row-major).
     ///
-    /// Per ISDA SIMM v2.6 Table 11. Populated at registry load from
-    /// [`crate::calculators::im::simm::DEFAULT_COMMODITY_INTER_BUCKET_CORR`]
-    /// and PSD-validated via `validate_simm_correlations_psd`. Bucket
+    /// Per ISDA SIMM v2.6 Table 11. Populated at registry load from the
+    /// default SIMM commodity correlation table and PSD-validated via
+    /// `validate_simm_correlations_psd`. Bucket
     /// 16 ("Other" / residual) is zero-correlated with every other
     /// bucket per the specification.
     pub commodity_inter_bucket_correlations: Vec<f64>,

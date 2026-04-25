@@ -339,15 +339,15 @@ pub fn compute_exposure_profile(
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use finstack_margin::xva::exposure::compute_stochastic_exposure_profile;
 /// use finstack_margin::xva::types::{StochasticExposureConfig, XvaConfig};
 ///
 /// #
 /// # fn example<P, D>(process: &P, discretization: &D) -> finstack_core::Result<()>
 /// # where
-/// #     P: finstack_monte_carlo::core::StochasticProcess,
-/// #     D: finstack_monte_carlo::discretization::Discretization<P>,
+/// #     P: finstack_monte_carlo::StochasticProcess,
+/// #     D: finstack_monte_carlo::Discretization<P>,
 /// # {
 /// let xva_config = XvaConfig {
 ///     time_grid: vec![0.25, 0.5, 1.0],

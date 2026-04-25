@@ -43,6 +43,23 @@ use super::types::{CorrelationScenario, FrtbRiskClass, FrtbSensitivities};
 use finstack_core::HashMap;
 
 /// Compute the curvature risk charge for a single risk class.
+///
+/// # Arguments
+///
+/// * `risk_class` - FRTB risk class to calculate.
+/// * `sensitivities` - Curvature inputs as `(CVR_up, CVR_down)` pairs using
+///   the loss-positive convention documented in [`super::types::FrtbSensitivities`].
+/// * `scenario` - Low, medium, or high correlation scenario applied to the
+///   prescribed curvature correlations.
+///
+/// # Returns
+///
+/// The non-negative curvature risk charge for `risk_class` under `scenario`.
+///
+/// # References
+///
+/// - BCBS FRTB Minimum Capital Requirements:
+///   `docs/REFERENCES.md#bcbs-frtb-minimum-capital-requirements`
 pub fn curvature_charge(
     risk_class: FrtbRiskClass,
     sensitivities: &FrtbSensitivities,

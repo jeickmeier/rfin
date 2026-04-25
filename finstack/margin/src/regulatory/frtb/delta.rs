@@ -22,6 +22,43 @@ use finstack_core::HashMap;
 /// 4. Alternative formula (MAR21.6): if `Delta² < 0`, replace every `S_b`
 ///    with `S_b_capped = max(-K_b, min(S_b, K_b))` and recompute. The
 ///    alternative value is guaranteed non-negative.
+///
+/// # Arguments
+///
+/// * `risk_class` - FRTB risk class to calculate.
+/// * `sensitivities` - Bucketed sensitivities using the scale convention
+///   documented in [`super::types::FrtbSensitivities`].
+/// * `scenario` - Low, medium, or high correlation scenario applied to the
+///   prescribed correlation tables.
+///
+/// # Returns
+///
+/// The non-negative delta risk charge for `risk_class` under `scenario`.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::currency::Currency;
+/// use finstack_margin::regulatory::frtb::delta::delta_charge;
+/// use finstack_margin::regulatory::frtb::{
+///     CorrelationScenario, FrtbRiskClass, FrtbSensitivities,
+/// };
+///
+/// let mut sensitivities = FrtbSensitivities::new(Currency::USD);
+/// sensitivities.add_girr_delta(Currency::USD, "5y", 1_000_000.0);
+///
+/// let charge = delta_charge(
+///     FrtbRiskClass::Girr,
+///     &sensitivities,
+///     CorrelationScenario::Medium,
+/// );
+/// assert!(charge >= 0.0);
+/// ```
+///
+/// # References
+///
+/// - BCBS FRTB Minimum Capital Requirements:
+///   `docs/REFERENCES.md#bcbs-frtb-minimum-capital-requirements`
 pub fn delta_charge(
     risk_class: FrtbRiskClass,
     sensitivities: &FrtbSensitivities,

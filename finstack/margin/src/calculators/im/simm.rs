@@ -1012,6 +1012,26 @@ impl SimmCalculator {
     /// preserved for bucketing but the returned margin amounts are all reported
     /// in `currency`.
     ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_margin::{SimmCalculator, SimmSensitivities, SimmVersion};
+    ///
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let calc = SimmCalculator::new(SimmVersion::V2_6)?;
+    /// let mut sensitivities = SimmSensitivities::new(Currency::USD);
+    /// sensitivities.add_ir_delta(Currency::USD, "5y", 50_000.0);
+    ///
+    /// let (total, breakdown) =
+    ///     calc.calculate_from_sensitivities(&sensitivities, Currency::USD);
+    ///
+    /// assert!(total >= 0.0);
+    /// assert!(breakdown.contains_key("IR_Delta"));
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # References
     ///
     /// - ISDA SIMM: `docs/REFERENCES.md#isda-simm`

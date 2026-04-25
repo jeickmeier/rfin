@@ -55,8 +55,22 @@ fn trade_maturity_factor(config: &SaCcrNettingSetConfig, trade: &SaCcrTrade) -> 
 /// Compute the add-on for a single asset class.
 ///
 /// Per-trade maturity factors are derived from `config` so unmargined
-/// netting sets with mixed maturities are handled correctly (see
-/// [`trade_maturity_factor`]).
+/// netting sets with mixed maturities are handled correctly.
+///
+/// # Arguments
+///
+/// * `asset_class` - SA-CCR asset class whose trades should be included.
+/// * `trades` - Netting-set trades; trades from other asset classes are ignored.
+/// * `config` - Netting-set collateral and margin-agreement terms used for
+///   maturity-factor selection.
+///
+/// # Returns
+///
+/// The non-negative add-on for `asset_class`.
+///
+/// # References
+///
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 pub fn asset_class_add_on(
     asset_class: SaCcrAssetClass,
     trades: &[SaCcrTrade],
@@ -132,6 +146,19 @@ fn ir_add_on(trades: &[SaCcrTrade], config: &SaCcrNettingSetConfig) -> f64 {
 /// end-offset (years from as-of to trade end). Floored at a small
 /// positive value so in-flight trades (`S = 0`) with nearly-matured tails
 /// don't collapse to zero effective notional.
+///
+/// # Arguments
+///
+/// * `start_years` - Forward-start offset in years, floored at zero.
+/// * `end_years` - Maturity offset in years, floored at `start_years`.
+///
+/// # Returns
+///
+/// Supervisory duration in years.
+///
+/// # References
+///
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 #[must_use]
 pub fn supervisory_duration(start_years: f64, end_years: f64) -> f64 {
     let r = IR_SUPERVISORY_DISCOUNT_RATE;

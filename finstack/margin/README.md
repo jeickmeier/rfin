@@ -13,7 +13,7 @@ The crate covers three related workflows:
 - Calculation engines for variation margin, haircut-based repo IM, SIMM,
   BCBS-IOSCO schedule IM, CCP proxy IM, and margin-oriented metrics.
 - XVA exposure profiling and valuation adjustments (CVA, DVA, FVA, bilateral
-  XVA), with optional stochastic exposure under the `mc` feature.
+  XVA), including deterministic profiles and stochastic exposure hooks.
 
 ## What This Crate Owns
 
@@ -68,8 +68,8 @@ The typical integration flow is:
 1. Attach an `OtcMarginSpec` or `RepoMarginSpec` to your instrument model.
 2. Implement `Marginable` in the consumer crate so the margin engine can obtain
    an id, netting-set id, SIMM sensitivities, and current MTM.
-3. Use `InitialMarginMetric`, `VariationMarginMetric`, or the lower-level
-   calculators directly.
+3. Use `metrics::InitialMarginMetric`, `metrics::VariationMarginMetric`, or the
+   lower-level calculators directly.
 4. If you need XVA, implement `xva::Valuable` and compute an exposure profile
    before calling the CVA/DVA/FVA functions.
 5. Override embedded defaults only when you have house-specific schedules,
@@ -77,15 +77,16 @@ The typical integration flow is:
 
 ## Feature Flags
 
-| Flag | Purpose |
-|------|---------|
-| `mc` | Enables stochastic XVA exposure simulation via `finstack-monte-carlo` in addition to the always-available deterministic exposure engine. |
+`finstack-margin` currently exposes no crate-specific feature flags. Its margin
+calculators, deterministic XVA engine, and stochastic exposure helper are
+compiled by default.
 
-Without `mc`, the crate still supports:
+The crate supports:
 
 - all margin and collateral types
 - all IM and VM calculators
 - deterministic exposure profiles
+- stochastic exposure profiles using `finstack-monte-carlo`
 - CVA, DVA, FVA, and bilateral XVA on deterministic exposures
 
 ## Module Map
@@ -93,7 +94,6 @@ Without `mc`, the crate still supports:
 | Module | Purpose |
 |--------|---------|
 | `calculators` | VM and IM engines |
-| `config` | Thin wrapper for config-driven registry resolution |
 | `constants` | Shared heuristics and constants used by the crate |
 | `metrics` | Margin analytics and instrument-level metric adapters |
 | `registry` | Embedded data, overlay merging, and typed registry resolution |
@@ -172,9 +172,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_margin::{
-    InitialMarginMetric, Marginable, OtcMarginSpec, SimmSensitivities, VariationMarginMetric,
-};
+use finstack_margin::{Marginable, OtcMarginSpec, SimmSensitivities};
+use finstack_margin::metrics::{InitialMarginMetric, VariationMarginMetric};
 use time::Month;
 
 struct ExampleTrade {
@@ -360,16 +359,17 @@ plus the typed parsing and validation in `registry`.
 
 - `ScheduleImCalculator::calculate_for_notional(...)` is the closest path to the
   regulatory schedule formula.
-- The trait-driven `ImCalculator::calculate(...)` fallback uses
-  `instrument.mtm_for_vm(...).abs()` as a proxy exposure base because
-  `Marginable` does not currently expose regulatory notional.
+- The trait-driven `ImCalculator::calculate(...)` path requires
+  `Marginable::im_exposure_base(...)` for a regulatory notional or other
+  methodology-approved exposure base. It fails closed instead of using current
+  MTM as a pseudo-notional.
 
 ### Cleared IM
 
 - `ClearingHouseImCalculator` can consume external CCP margin values through
   `CcpMarginInputSource`.
 - Without an external source, the built-in fallback is a conservative proxy:
-  absolute current MTM times a registry-backed CCP rate.
+  `Marginable::im_exposure_base(...)` times a registry-backed CCP rate.
 
 ### Repo IM
 
@@ -394,13 +394,14 @@ Under deterministic exposure:
 - margin period of risk is not modeled directly
 - carry / theta / future market scenarios are not simulated
 
-With the `mc` feature enabled, the crate also exposes stochastic exposure types
-and Monte Carlo-based exposure simulation hooks via `finstack-monte-carlo`.
+The crate also exposes stochastic exposure types and Monte Carlo-based exposure
+simulation hooks via `finstack-monte-carlo`.
 
 ## Known Limits
 
-- `ScheduleImCalculator` and `ClearingHouseImCalculator` use MTM-based proxy
-  exposures when invoked through the generic `Marginable` interface.
+- Schedule IM, cleared-IM proxy, and internal-model proxy paths require
+  `Marginable::im_exposure_base(...)` or an external IM source when invoked
+  through the generic `Marginable` interface.
 - `InternalModelImCalculator` is an extension point, not a production internal
   VaR / ES implementation.
 - `Marginable` and `xva::Valuable` are intentionally narrow traits; full
@@ -412,12 +413,6 @@ and Monte Carlo-based exposure simulation hooks via `finstack-monte-carlo`.
 
 ```bash
 cargo test -p finstack-margin
-```
-
-If you are working on XVA with Monte Carlo enabled:
-
-```bash
-cargo test -p finstack-margin --features mc
 ```
 
 ## References

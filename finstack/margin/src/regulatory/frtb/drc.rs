@@ -53,6 +53,20 @@ pub const DRC_LGD: &[(DrcSeniority, f64)] = &[
 ///
 /// Total DRC is the simple sum of per-bucket charges — there is no
 /// further netting between buckets per MAR22.23.
+///
+/// # Arguments
+///
+/// * `positions` - Trading-book jump-to-default positions with signed JTD
+///   notionals, rating buckets, sector buckets, seniority, and P&L adjustment.
+///
+/// # Returns
+///
+/// The total default risk charge. Returns `0.0` for an empty position set.
+///
+/// # References
+///
+/// - BCBS FRTB Minimum Capital Requirements:
+///   `docs/REFERENCES.md#bcbs-frtb-minimum-capital-requirements`
 pub fn drc_charge(positions: &[DrcPosition]) -> f64 {
     if positions.is_empty() {
         return 0.0;

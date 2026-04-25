@@ -394,7 +394,7 @@ impl ScheduleImCalculator {
     /// Cleared Derivatives* (March 2015, revised July 2020), §3.3
     /// ("Gross and Net Notional").
     ///
-    /// The gross-only path [`calculate_for_notional`] can overstate the
+    /// The gross-only path [`Self::calculate_for_notional`] can overstate the
     /// requirement by up to 60% for well-offset netting sets; this
     /// method should be preferred for any book that nets.
     ///

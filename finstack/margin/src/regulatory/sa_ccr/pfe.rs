@@ -17,6 +17,19 @@ const MULTIPLIER_FLOOR: f64 = 0.05;
 /// The per-asset-class add-ons compute their own per-trade maturity
 /// factors from `config` (see [`super::add_on::asset_class_add_on`]), so
 /// this function no longer collapses MF to a netting-set-level scalar.
+///
+/// # Arguments
+///
+/// * `config` - Netting-set collateral and margin-agreement terms.
+/// * `trades` - Derivative trades in the netting set.
+///
+/// # Returns
+///
+/// Tuple of `(multiplier, add_on_aggregate, add_on_by_asset_class)`.
+///
+/// # References
+///
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 pub fn pfe(
     config: &SaCcrNettingSetConfig,
     trades: &[SaCcrTrade],
@@ -46,6 +59,19 @@ pub fn pfe(
 /// Recognizes excess collateral by scaling AddOn below 1.0
 /// when the netting set is over-collateralized (V - C < 0).
 /// Floor of 5% prevents the multiplier from reaching zero.
+///
+/// # Arguments
+///
+/// * `v_minus_c` - Net current exposure after collateral.
+/// * `add_on` - Aggregate add-on before multiplier.
+///
+/// # Returns
+///
+/// PFE multiplier in `[0.05, 1.0]`.
+///
+/// # References
+///
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 pub fn multiplier(v_minus_c: f64, add_on: f64) -> f64 {
     if add_on <= 0.0 {
         return MULTIPLIER_FLOOR;

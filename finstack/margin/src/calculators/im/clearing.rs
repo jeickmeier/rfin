@@ -351,7 +351,8 @@ impl ClearingHouseImCalculator {
     ///
     /// # Arguments
     ///
-    /// * `exposure_base` - Absolute exposure proxy to scale, typically current MtM
+    /// * `exposure_base` - CCP-approved exposure base to scale, such as scan-risk
+    ///   base, regulatory notional, or another house-defined proxy
     ///
     /// # Returns
     ///

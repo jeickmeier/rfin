@@ -19,6 +19,19 @@ use super::types::{SaCcrNettingSetConfig, SaCcrTrade};
 ///   The second term captures the minimum possible exposure given the
 ///   margin agreement mechanics, and it subtracts NICA (not the full C)
 ///   because NICA is already offsetting the threshold.
+///
+/// # Arguments
+///
+/// * `config` - Netting-set collateral and margin-agreement terms.
+/// * `trades` - Derivative trades whose current MtM values form `V`.
+///
+/// # Returns
+///
+/// Non-negative replacement cost for the netting set.
+///
+/// # References
+///
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 pub fn replacement_cost(config: &SaCcrNettingSetConfig, trades: &[SaCcrTrade]) -> f64 {
     let v: f64 = trades.iter().map(|t| t.mtm).sum();
     let c = config.collateral + config.nica; // total net collateral

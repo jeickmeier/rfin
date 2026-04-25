@@ -11,6 +11,23 @@ use finstack_core::HashMap;
 
 /// Compute the vega risk charge for a single risk class under one
 /// correlation scenario.
+///
+/// # Arguments
+///
+/// * `risk_class` - FRTB risk class to calculate.
+/// * `sensitivities` - Vega sensitivities using the scale convention
+///   documented in [`super::types::FrtbSensitivities`].
+/// * `scenario` - Low, medium, or high correlation scenario applied to the
+///   prescribed vega correlations.
+///
+/// # Returns
+///
+/// The non-negative vega risk charge for `risk_class` under `scenario`.
+///
+/// # References
+///
+/// - BCBS FRTB Minimum Capital Requirements:
+///   `docs/REFERENCES.md#bcbs-frtb-minimum-capital-requirements`
 pub fn vega_charge(
     risk_class: FrtbRiskClass,
     sensitivities: &FrtbSensitivities,
