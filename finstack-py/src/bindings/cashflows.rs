@@ -54,7 +54,9 @@ fn validate_cashflow_schedule(schedule_json: &str) -> PyResult<String> {
 /// Returns
 /// -------
 /// str
-///     JSON array of `{date, amount, currency, kind}` entries.
+///     JSON array of `{date, amount}` entries, where `amount` is itself
+///     `{amount, currency}`. `CFKind` and accrual metadata are intentionally
+///     omitted; parse the full schedule JSON if you need flow classification.
 #[pyfunction]
 #[pyo3(text_signature = "(schedule_json)")]
 fn dated_flows(schedule_json: &str) -> PyResult<String> {
@@ -87,6 +89,10 @@ fn accrued_interest(schedule_json: &str, as_of: &str, config_json: Option<&str>)
 }
 
 /// Construct a tagged Bond instrument JSON from a cashflow schedule.
+///
+/// Convenience wrapper that crosses crates: it materializes a
+/// `finstack_valuations::instruments::fixed_income::bond::Bond` from the
+/// supplied schedule and wraps it in the tagged `InstrumentJson` envelope.
 ///
 /// Parameters
 /// ----------

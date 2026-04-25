@@ -31,7 +31,9 @@ pub fn validate_cashflow_schedule(schedule_json: &str) -> Result<String, JsValue
 /// Extract dated flows from a cashflow schedule JSON string.
 ///
 /// @param schedule_json - JSON-encoded `CashFlowSchedule`.
-/// @returns JSON array of `{date, amount, currency, kind}` entries.
+/// @returns JSON array of `{date, amount}` entries, where `amount` is itself
+///   `{amount, currency}`. `CFKind` and accrual metadata are intentionally
+///   omitted; parse the full schedule JSON if you need flow classification.
 /// @throws If the schedule JSON is malformed.
 #[wasm_bindgen(js_name = datedFlows)]
 pub fn dated_flows(schedule_json: &str) -> Result<String, JsValue> {
@@ -56,6 +58,10 @@ pub fn accrued_interest(
 }
 
 /// Create tagged Bond instrument JSON from a cashflow schedule JSON string.
+///
+/// Convenience wrapper that crosses crates: it materializes a
+/// `finstack_valuations::instruments::fixed_income::bond::Bond` from the
+/// supplied schedule and wraps it in the tagged `InstrumentJson` envelope.
 ///
 /// @param instrument_id - Identifier for the Bond instrument.
 /// @param schedule_json - JSON-encoded `CashFlowSchedule`.

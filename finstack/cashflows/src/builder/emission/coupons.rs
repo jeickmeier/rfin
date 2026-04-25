@@ -143,11 +143,15 @@ fn rate_when_projection_fails(
 ///
 /// Processes all fixed coupon schedules for the given date, computing coupon
 /// amounts based on outstanding balances and splitting into cash/PIK according
-/// to the coupon type.
+/// to the coupon type. Cash and PIK flows are appended directly into the
+/// provided `out_flows` buffer to avoid per-date allocations.
 ///
-/// Returns `pik_to_add`, the total PIK amount to capitalize into the
-/// outstanding balance. Cash and PIK flows are appended directly into
-/// the provided `out_flows` buffer to avoid per-date allocations.
+/// # Returns
+///
+/// `pik_to_add` — the total PIK coupon amount (across every fixed schedule
+/// processed on date `d`) that the caller must capitalize into the outstanding
+/// balance for subsequent periods. Cash flows are pushed into `out_flows` as a
+/// side effect; the return value is exclusively the PIK leg.
 pub(crate) fn emit_fixed_coupons_on(
     d: Date,
     fixed_schedules: &[FixedSchedule],
@@ -442,10 +446,14 @@ fn sample_overnight_rates(
 /// Processes all floating coupon schedules for the given date, looking up forward
 /// rates from the optional market context and computing coupon amounts based on
 /// `forward_rate * gearing + margin`. Splits into cash/PIK according to coupon type.
+/// Cash and PIK flows are appended directly into the provided `out_flows` buffer.
 ///
-/// Returns `pik_to_add`, the total PIK amount to capitalize into the
-/// outstanding balance. Cash and PIK flows are appended directly into
-/// the provided `out_flows` buffer.
+/// # Returns
+///
+/// `pik_to_add` — the total PIK coupon amount (across every floating schedule
+/// processed on date `d`) that the caller must capitalize into the outstanding
+/// balance for subsequent periods. Cash flows are pushed into `out_flows` as a
+/// side effect; the return value is exclusively the PIK leg.
 pub(crate) fn emit_float_coupons_on(
     d: Date,
     float_schedules: &[FloatSchedule],

@@ -67,12 +67,19 @@ fn build_dates_with_meta(
     Ok(index_period_schedule(schedule))
 }
 
+/// Compiled fixed-coupon schedule: spec, payment dates, period lookup, and
+/// the set of stub (first/last) dates. Produced by
+/// [`compute_coupon_schedules`] and consumed by the emission pipeline.
 pub(crate) type FixedSchedule = (
     FixedCouponSpec,
     Vec<Date>,
     finstack_core::HashMap<Date, SchedulePeriod>,
     finstack_core::HashSet<Date>,
 );
+
+/// Compiled floating-coupon schedule: spec, payment dates, and period lookup.
+/// Produced by [`compute_coupon_schedules`] and consumed by the emission
+/// pipeline.
 pub(crate) type FloatSchedule = (
     FloatingCouponSpec,
     Vec<Date>,
@@ -104,7 +111,9 @@ pub(super) struct PeriodicFee {
     pub(super) accrual_basis: FeeAccrualBasis,
 }
 
+/// Convenience alias for a list of compiled periodic-fee schedules.
 pub(super) type PeriodicFees = Vec<PeriodicFee>;
+/// Convenience alias for a list of one-off `(date, amount)` fixed fees.
 pub(super) type FixedFees = Vec<(Date, Money)>;
 
 pub(super) fn build_fee_schedules(

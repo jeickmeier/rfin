@@ -3,7 +3,28 @@
 use super::*;
 
 impl CashFlowBuilder {
-    /// Adds/overrides a payment split (cash/PIK/split) over a window (PIK toggle support).
+    /// Adds (or overrides) a payment split over a single date window.
+    ///
+    /// The lower-level primitive behind [`payment_split_program`](Self::payment_split_program).
+    /// Pushes a single payment-program piece covering `[start, end)` and uses
+    /// `split` as the coupon settlement type within that window. Subsequent
+    /// calls add additional pieces; later windows take precedence on overlap
+    /// during compilation.
+    ///
+    /// Prefer [`payment_split_program`](Self::payment_split_program) for
+    /// PIK-toggle scheduling, which sequences windows from a single
+    /// boundary-step list. Use this method only when you need to wire up
+    /// non-contiguous or hand-crafted payment windows.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - Inclusive start of the payment window.
+    /// * `end` - Exclusive end of the payment window.
+    /// * `split` - Coupon settlement type (Cash / PIK / Split) for the window.
+    ///
+    /// # Returns
+    ///
+    /// Mutable builder reference for fluent chaining.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn add_payment_window(&mut self, start: Date, end: Date, split: CouponType) -> &mut Self {
         self.payment_program.push(PaymentProgramPiece {

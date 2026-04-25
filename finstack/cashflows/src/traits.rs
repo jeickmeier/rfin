@@ -1,4 +1,15 @@
-//! Cashflow-related traits and aliases.
+//! Cashflow-related traits and helpers.
+//!
+//! This module owns [`CashflowProvider`], the canonical contract that lets
+//! instruments expose a [`crate::builder::CashFlowSchedule`] without coupling
+//! callers to instrument-specific types. Pricing, accrual, risk, and reporting
+//! code consume this trait so that any instrument that can emit a schedule
+//! plugs into the same downstream pipeline.
+//!
+//! It also provides two free functions —
+//! [`schedule_from_dated_flows`] and [`schedule_from_classified_flows`] —
+//! that wrap an ad-hoc list of dated cashflows into a canonical schedule via
+//! the shared [`ScheduleBuildOpts`] options bag.
 
 use crate::builder::schedule::{CashFlowMeta, CashFlowSchedule, CashflowRepresentation};
 use crate::builder::Notional;
@@ -129,6 +140,12 @@ pub trait CashflowProvider: Send + Sync {
     /// [`CashflowProvider::cashflow_schedule`] into a `Vec<(Date, Money)>`.
     /// Schedule signs represent instrument economics; position direction
     /// determines the portfolio-level sign.
+    ///
+    /// # Errors
+    ///
+    /// Forwards any error returned by [`CashflowProvider::cashflow_schedule`].
+    /// Override this method only if you want to bypass schedule construction
+    /// and produce dated flows by some other means.
     fn dated_cashflows(
         &self,
         curves: &MarketContext,
@@ -215,6 +232,69 @@ pub fn schedule_from_dated_flows(
 /// Build a [`CashFlowSchedule`] from pre-classified [`CashFlow`] values.
 ///
 /// Preserves the supplied [`CFKind`] on each flow; `opts.kind` is ignored.
+/// Use this constructor when callers already carry classified flows (PIK,
+/// Recovery, DefaultedNotional, etc.) and want them surfaced verbatim in the
+/// resulting schedule. For raw `(Date, Money)` pairs use
+/// [`schedule_from_dated_flows`] instead.
+///
+/// # Arguments
+///
+/// * `flows` - Pre-classified [`CashFlow`] values; each flow's [`CFKind`] is
+///   preserved as-is.
+/// * `day_count` - Day count convention attached to the schedule. **Must be
+///   explicitly specified** to avoid incorrect downstream yield/accrual
+///   calculations.
+/// * `opts` - See [`ScheduleBuildOpts`]. The `kind` field is ignored because
+///   the supplied `CashFlow`s already carry classifications.
+///
+/// # Returns
+///
+/// A [`CashFlowSchedule`] whose flows are deterministically sorted by the
+/// canonical schedule ordering and whose metadata reflects `opts.meta` (or
+/// `opts.representation` if `meta` is absent).
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::{schedule_from_classified_flows, ScheduleBuildOpts};
+/// use finstack_cashflows::primitives::{CashFlow, CFKind};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::money::Money;
+/// use time::Month;
+///
+/// let date = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
+/// let flows = vec![
+///     CashFlow {
+///         date,
+///         reset_date: None,
+///         amount: Money::new(50_000.0, Currency::USD),
+///         kind: CFKind::Fixed,
+///         accrual_factor: 0.5,
+///         rate: Some(0.05),
+///     },
+///     CashFlow {
+///         date,
+///         reset_date: None,
+///         amount: Money::new(10_000.0, Currency::USD),
+///         kind: CFKind::PIK,
+///         accrual_factor: 0.5,
+///         rate: Some(0.01),
+///     },
+/// ];
+/// let schedule = schedule_from_classified_flows(
+///     flows,
+///     DayCount::Act365F,
+///     ScheduleBuildOpts {
+///         notional_hint: Some(Money::new(1_000_000.0, Currency::USD)),
+///         ..Default::default()
+///     },
+/// );
+/// assert_eq!(schedule.flows.len(), 2);
+/// // Original CFKind values are preserved; opts.kind is ignored on this constructor.
+/// assert_eq!(schedule.flows[0].kind, CFKind::Fixed);
+/// assert_eq!(schedule.flows[1].kind, CFKind::PIK);
+/// ```
 pub fn schedule_from_classified_flows(
     flows: Vec<CashFlow>,
     day_count: DayCount,

@@ -26,10 +26,12 @@ use super::{decimal_to_f64, f64_to_decimal};
 /// Uses `Decimal` arithmetic throughout for consistency with the periodic fee
 /// emission path, avoiding f64 precision differences for large notionals.
 ///
-/// # Panics (debug builds only)
+/// # Panics
 ///
-/// Asserts that all f64 inputs are finite. In release builds, non-finite inputs
-/// produce no cashflow (returns `vec![]`) rather than silently producing zero fees.
+/// In **debug builds only**, asserts that `base_amount`, `fee_bp`, and
+/// `year_fraction` are all finite via `debug_assert!`. In release builds the
+/// non-finite branch returns `None` (no cashflow emitted) rather than
+/// silently producing a zero fee.
 fn emit_fee_generic(
     d: Date,
     base_amount: f64,

@@ -46,6 +46,12 @@ fn init_optional_column<T>(enabled: bool, capacity: usize, existing: &mut Option
 /// - 0.0 if dates are equal
 /// - Positive year fraction if cf_date > base
 /// - Negative year fraction if cf_date < base (historical cashflow)
+///
+/// # References
+///
+/// - ISDA 2006 Definitions §4.16 (Day Count Fractions). Sign convention for
+///   pre-base dates follows the standard "discount-back" treatment used by
+///   `finstack_core::cashflow::npv`.
 fn compute_discount_time(
     cf_date: Date,
     base: Date,
@@ -107,6 +113,13 @@ fn compute_notional_columns(
 /// - `spread` is the difference between the all-in rate and base rate
 ///
 /// Both are `None` if the cashflow is not a floating rate reset or if no forward curve is provided.
+///
+/// # References
+///
+/// - ISDA 2021 IBOR Fallbacks Supplement, §7. Spreads are quoted as simple
+///   additive spreads over the index, consistent with the affine-rate model
+///   used by `FloatingRateSpec`.
+/// - Andersen & Piterbarg, *Interest Rate Modeling, Vol I* (2010), §6.3.
 fn compute_floating_decomposition(
     cf: &finstack_core::cashflow::CashFlow,
     fwd: Option<&std::sync::Arc<finstack_core::market_data::term_structures::ForwardCurve>>,

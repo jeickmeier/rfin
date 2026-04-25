@@ -930,11 +930,70 @@ export declare const margin: MarginNamespace;
 
 // --- cashflows -------------------------------------------------------------
 
+/**
+ * JSON bridge to the Rust `finstack-cashflows` crate.
+ *
+ * All methods accept and return JSON strings that mirror the canonical Rust
+ * serde model. Refer to `api/cashflows.rs` for parameter and return-shape
+ * details; the docstrings there are kept in sync with the underlying Rust
+ * implementation.
+ */
 export interface CashflowsNamespace {
+  /**
+   * Build a cashflow schedule from a `CashflowScheduleBuildSpec` JSON string.
+   *
+   * @param specJson    JSON-encoded `CashflowScheduleBuildSpec`.
+   * @param marketJson  Optional JSON-encoded market context for floating-rate lookups.
+   * @returns           JSON-encoded `CashFlowSchedule`.
+   * @throws            If the spec or market JSON is malformed, or schedule construction fails.
+   */
   buildCashflowSchedule(specJson: string, marketJson?: string | null): string;
+
+  /**
+   * Validate a cashflow schedule JSON string and return it canonicalized.
+   *
+   * @param scheduleJson JSON-encoded `CashFlowSchedule`.
+   * @returns            Canonicalized JSON-encoded `CashFlowSchedule`.
+   * @throws             If the schedule JSON is malformed or fails validation.
+   */
   validateCashflowSchedule(scheduleJson: string): string;
+
+  /**
+   * Extract dated flows from a cashflow schedule.
+   *
+   * @param scheduleJson JSON-encoded `CashFlowSchedule`.
+   * @returns            JSON array of `{date, amount}` entries, where `amount`
+   *                     is itself `{amount, currency}`. `CFKind` and accrual
+   *                     metadata are intentionally omitted.
+   * @throws             If the schedule JSON is malformed.
+   */
   datedFlows(scheduleJson: string): string;
+
+  /**
+   * Compute accrued interest for a schedule as of a given date.
+   *
+   * @param scheduleJson JSON-encoded `CashFlowSchedule`.
+   * @param asOf         ISO-8601 date (YYYY-MM-DD) for the accrual snapshot.
+   * @param configJson   Optional JSON-encoded `AccrualConfig` overriding defaults.
+   * @returns            Accrued interest in the schedule's settlement currency.
+   * @throws             If any JSON input is malformed or the accrual computation fails.
+   */
   accruedInterest(scheduleJson: string, asOf: string, configJson?: string | null): number;
+
+  /**
+   * Construct a tagged Bond instrument JSON from a cashflow schedule.
+   *
+   * Convenience wrapper that crosses crates: it materializes a
+   * `finstack_valuations::instruments::fixed_income::bond::Bond` from the
+   * supplied schedule and wraps it in the tagged `InstrumentJson` envelope.
+   *
+   * @param instrumentId    Identifier for the Bond instrument.
+   * @param scheduleJson    JSON-encoded `CashFlowSchedule`.
+   * @param discountCurveId Identifier of the discount curve used for pricing.
+   * @param quotedClean     Optional clean quoted price used to calibrate yield on construction.
+   * @returns               JSON-encoded tagged `InstrumentJson::Bond`.
+   * @throws                If the schedule JSON is malformed or bond construction fails.
+   */
   bondFromCashflows(
     instrumentId: string,
     scheduleJson: string,

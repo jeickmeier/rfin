@@ -46,6 +46,20 @@ pub fn kind_rank(kind: CFKind) -> u8 {
 }
 
 /// Sort flows deterministically using schedule ordering semantics.
+///
+/// Multi-key ordering, applied in priority order:
+///
+/// 1. **Date** — earliest first.
+/// 2. **Kind rank** — see [`kind_rank`]. Coupons sort before fees, fees before
+///    amortization, amortization before prepayment, etc.
+/// 3. **Currency** — lexicographic on the ISO code.
+/// 4. **Amount** — `f64::total_cmp`, so signed values sort consistently and
+///    NaN handling is well-defined.
+/// 5. **Reset date** — `Option<Date>` ordering, with `None` first.
+///
+/// This is the canonical order downstream consumers
+/// (`outstanding_by_date`, `pv_by_period`, accrual, dataframe export, etc.)
+/// rely on. The sort is stable across runs and across `Vec` reorderings.
 pub fn sort_flows(flows: &mut [CashFlow]) {
     flows.sort_by(|a, b| {
         use core::cmp::Ordering;
@@ -346,7 +360,50 @@ impl CashFlowSchedule {
 
     /// Get an iterator over interest-like coupon cashflows.
     ///
-    /// Includes `Fixed`, `FloatReset`, `InflationCoupon`, and `Stub` kinds.
+    /// Filters the schedule via [`CFKind::is_interest_like`] — currently
+    /// `Fixed`, `FloatReset`, `InflationCoupon`, and `Stub`. PIK, fees,
+    /// amortization, recovery, and notional flows are excluded.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+    /// use finstack_cashflows::primitives::{CashFlow, CFKind};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, DayCount};
+    /// use finstack_core::money::Money;
+    /// use time::Month;
+    ///
+    /// let date = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
+    /// let flows = vec![
+    ///     CashFlow {
+    ///         date,
+    ///         reset_date: None,
+    ///         amount: Money::new(50_000.0, Currency::USD),
+    ///         kind: CFKind::Fixed,
+    ///         accrual_factor: 0.5,
+    ///         rate: Some(0.05),
+    ///     },
+    ///     CashFlow {
+    ///         date,
+    ///         reset_date: None,
+    ///         amount: Money::new(100_000.0, Currency::USD),
+    ///         kind: CFKind::Amortization,
+    ///         accrual_factor: 0.0,
+    ///         rate: None,
+    ///     },
+    /// ];
+    /// let schedule = CashFlowSchedule {
+    ///     flows,
+    ///     notional: Notional::par(1_000_000.0, Currency::USD),
+    ///     day_count: DayCount::Act365F,
+    ///     meta: CashFlowMeta::default(),
+    /// };
+    ///
+    /// let coupons: Vec<_> = schedule.coupons().collect();
+    /// assert_eq!(coupons.len(), 1);
+    /// assert_eq!(coupons[0].kind, CFKind::Fixed);
+    /// ```
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows.iter().filter(|cf| cf.kind.is_interest_like())
     }
@@ -485,6 +542,35 @@ impl CashFlowSchedule {
 }
 
 /// Merge multiple schedules into one deterministic composite schedule.
+///
+/// Concatenates flows from every input schedule, deduplicates the union of
+/// their `meta.calendar_ids`, and reduces remaining metadata fields with the
+/// rules listed below. The combined flow list is then re-sorted via
+/// [`sort_flows`] so the resulting schedule is in canonical order.
+///
+/// # Arguments
+///
+/// * `schedules` - Iterable of [`CashFlowSchedule`] values to combine.
+/// * `notional` - Notional stamped on the merged schedule. The caller is
+///   responsible for choosing a notional that makes sense for the composite
+///   (this function does not aggregate input notionals).
+/// * `day_count` - Day count convention attached to the merged schedule.
+///
+/// # Returns
+///
+/// A single [`CashFlowSchedule`] containing every input flow, sorted, with
+/// merged metadata.
+///
+/// # Metadata merge rules
+///
+/// - `representation`: collapses to the common value if every input agrees,
+///   otherwise falls back to [`CashflowRepresentation::default()`]
+///   (`Contractual`).
+/// - `calendar_ids`: union of all inputs, sorted and deduplicated.
+/// - `facility_limit`: kept only if every input agrees; mismatches → `None`.
+/// - `issue_date`: kept only if every input agrees; mismatches → `None`.
+///
+/// Empty input yields an empty schedule with default metadata.
 pub fn merge_cashflow_schedules<I>(
     schedules: I,
     notional: Notional,

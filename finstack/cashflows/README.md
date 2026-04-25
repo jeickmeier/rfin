@@ -38,15 +38,27 @@ is not the canonical path for this package README.
 ## Main Entry Points
 
 - `finstack_cashflows::builder`
-  Schedule construction, schedule specs, and `CashFlowSchedule`.
+  Schedule construction, schedule specs, and `CashFlowSchedule`. Includes
+  schedule-inspection methods (`weighted_average_life`, `coupons`,
+  `outstanding_path_per_flow`, `outstanding_by_date`,
+  `merge_cashflow_schedules`, `normalize_public`) and ten market-convention
+  presets on `ScheduleParams` (USD/EUR/GBP/JPY swaps and bonds, including
+  `jpy_tona_swap`).
 - `finstack_cashflows::aggregation`
-  Currency-preserving nominal aggregation helpers.
+  Currency-preserving nominal aggregation helpers, plus the
+  [`RecoveryTiming`] enum that controls how the recovery leg on
+  surviving principal flows is placed in time (`AtPaymentDate` vs
+  `AtDefaultIntegrated`).
 - `finstack_cashflows::accrual`
   Schedule-driven accrued interest configuration and calculations.
 - `finstack_cashflows::traits`
-  `CashflowProvider` and `schedule_from_dated_flows`.
+  `CashflowProvider`, `schedule_from_dated_flows`, and
+  `schedule_from_classified_flows` (for callers that already carry
+  pre-classified flows).
 - `finstack_cashflows::primitives`
   Re-exports from `finstack_core::cashflow`, including `CashFlow` and `CFKind`.
+
+[`RecoveryTiming`]: https://docs.rs/finstack-cashflows/latest/finstack_cashflows/aggregation/enum.RecoveryTiming.html
 
 ## Quick Start
 
@@ -175,6 +187,7 @@ let float_spec = FloatingCouponSpec {
         end_of_month: false,
         payment_lag_days: 0,
         overnight_compounding: None,
+        overnight_basis: None,
         fallback: Default::default(),
     },
     freq: Tenor::quarterly(),
@@ -350,6 +363,55 @@ impl CashflowProvider for FixedBondLike {
     }
 }
 ```
+
+### Inspect a Schedule
+
+`CashFlowSchedule` exposes several inspection helpers that downstream desks
+typically reach for after building a schedule. All accessors operate on the
+canonical sorted flow list and respect the schedule's currency invariants.
+
+```rust,no_run
+use finstack_cashflows::builder::{CashFlowSchedule, merge_cashflow_schedules};
+use finstack_core::dates::Date;
+
+fn inspect(schedule: &CashFlowSchedule, as_of: Date) -> finstack_core::Result<()> {
+    // Weighted Average Life (Act/365F regardless of schedule day count).
+    let wal_years = schedule.weighted_average_life(as_of)?;
+
+    // Iterate interest-like coupons only (excludes PIK, fees, principal).
+    let coupon_count = schedule.coupons().count();
+
+    // Two outstanding-balance views — pick by use case:
+    // - per_flow: simple amortization view, ignores notional draws/repays.
+    // - by_date:  full balance tracker including draws/repays (RCFs, etc.).
+    let per_flow = schedule.outstanding_path_per_flow()?;
+    let by_date  = schedule.outstanding_by_date()?;
+
+    let _ = (wal_years, coupon_count, per_flow, by_date);
+    Ok(())
+}
+
+// Compose multiple legs into a single deterministic composite schedule.
+// Metadata fields (calendar IDs, issue date, facility limit, representation)
+// are merged conservatively — see `merge_cashflow_schedules` rustdoc for the
+// exact rules.
+fn compose(legs: Vec<CashFlowSchedule>) -> CashFlowSchedule {
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCount;
+    use finstack_cashflows::builder::Notional;
+    merge_cashflow_schedules(
+        legs,
+        Notional::par(0.0, Currency::USD),
+        DayCount::Act365F,
+    )
+}
+```
+
+For the `CashflowProvider` boundary, callers commonly need to re-stamp a
+schedule as future-only and `Projected` before handing it downstream.
+[`CashFlowSchedule::normalize_public`](https://docs.rs/finstack-cashflows/latest/finstack_cashflows/builder/schedule/struct.CashFlowSchedule.html#method.normalize_public)
+performs the canonical `filter_future + omit_pure_pik + re-sort + tag`
+pipeline in a single call.
 
 ## Hidden Integration Helpers
 
