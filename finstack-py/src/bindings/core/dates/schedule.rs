@@ -206,7 +206,33 @@ impl PySchedule {
     }
 }
 
-/// Fluent builder for constructing date schedules.
+/// Builder for constructing date schedules.
+///
+/// Unlike the Rust [`finstack_core::dates::ScheduleBuilder`], the Python
+/// binding mutates the builder **in place**: each setter method returns
+/// ``None`` rather than ``self``. Call setters sequentially on the same
+/// instance, then call ``build()``.
+///
+/// # Example
+///
+/// ```text
+/// from datetime import date
+/// from finstack.core.dates import (
+///     ScheduleBuilder,
+///     StubKind,
+///     BusinessDayConvention,
+///     ScheduleErrorPolicy,
+/// )
+///
+/// builder = ScheduleBuilder(date(2025, 1, 15), date(2030, 1, 15))
+/// builder.frequency("3M")
+/// builder.stub_rule(StubKind.SHORT_FRONT)
+/// builder.adjust_with(BusinessDayConvention.MODIFIED_FOLLOWING, "usny")
+/// builder.end_of_month(False)
+/// builder.error_policy(ScheduleErrorPolicy.STRICT)
+/// schedule = builder.build()
+/// assert len(schedule) >= 20  # ~quarterly periods over 5 years
+/// ```
 #[pyclass(
     name = "ScheduleBuilder",
     module = "finstack.core.dates",

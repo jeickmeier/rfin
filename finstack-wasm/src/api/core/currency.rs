@@ -5,7 +5,21 @@ use finstack_core::currency::Currency as RustCurrency;
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 
-/// ISO 4217 currency code wrapper for JavaScript.
+/// ISO-4217 currency code wrapper for JavaScript.
+///
+/// Currencies parse from three-letter alphabetic codes (case-insensitive).
+/// They expose the alphabetic code, the ISO numeric code, and the number of
+/// decimal places (minor units) for the currency.
+///
+/// @example
+/// ```javascript
+/// import init, { core } from "finstack-wasm";
+/// await init();
+/// const usd = new core.Currency("USD");
+/// usd.code;     // "USD"
+/// usd.numeric;  // 840
+/// usd.decimals; // 2
+/// ```
 #[wasm_bindgen(js_name = Currency)]
 pub struct Currency {
     #[wasm_bindgen(skip)]
@@ -14,7 +28,18 @@ pub struct Currency {
 
 #[wasm_bindgen(js_class = Currency)]
 impl Currency {
-    /// Parses a case-insensitive ISO currency code (e.g. `"USD"`).
+    /// Parse a case-insensitive ISO-4217 alphabetic currency code.
+    ///
+    /// @param code - Three-letter ISO-4217 code (e.g. `"USD"`, `"eur"`,
+    /// `"GBP"`). Leading and trailing whitespace is trimmed.
+    /// @returns Constructed `Currency`.
+    /// @throws If `code` is not a recognized ISO-4217 alphabetic code.
+    ///
+    /// @example
+    /// ```javascript
+    /// const eur = new core.Currency("eur"); // case-insensitive
+    /// eur.code; // "EUR"
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(code: &str) -> Result<Currency, JsValue> {
         RustCurrency::from_str(code.trim())
@@ -22,25 +47,33 @@ impl Currency {
             .map_err(to_js_err)
     }
 
-    /// Three-letter currency code.
+    /// Three-letter ISO-4217 alphabetic code.
+    ///
+    /// @returns The uppercase alphabetic code (e.g. `"USD"`).
     #[wasm_bindgen(getter, js_name = code)]
     pub fn code(&self) -> String {
         self.inner.to_string()
     }
 
-    /// ISO 4217 numeric code.
+    /// ISO-4217 numeric code.
+    ///
+    /// @returns Numeric code (e.g. `840` for USD, `978` for EUR).
     #[wasm_bindgen(getter, js_name = numeric)]
     pub fn numeric(&self) -> u16 {
         self.inner as u16
     }
 
     /// Number of decimal places (minor units) for this currency.
+    ///
+    /// @returns Decimal-place count (e.g. `2` for USD, `0` for JPY).
     #[wasm_bindgen(getter, js_name = decimals)]
     pub fn decimals(&self) -> u8 {
         self.inner.decimals()
     }
 
     /// Human-readable code (same as `code`).
+    ///
+    /// @returns The uppercase alphabetic ISO-4217 code.
     #[wasm_bindgen(js_name = toString)]
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
@@ -48,12 +81,19 @@ impl Currency {
     }
 
     /// Serialize to a JSON string.
+    ///
+    /// @returns A JSON string (the ISO-4217 alphabetic code in quotes).
+    /// @throws If serialization fails (should not happen for valid `Currency`).
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
         serde_json::to_string(&self.inner).map_err(to_js_err)
     }
 
-    /// Deserialize from a JSON string.
+    /// Deserialize from a JSON string produced by `Currency.toJson`.
+    ///
+    /// @param json - A JSON string containing a quoted ISO-4217 code.
+    /// @returns The parsed `Currency`.
+    /// @throws If `json` is malformed or contains an unknown code.
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json: &str) -> Result<Currency, JsValue> {
         let inner: RustCurrency = serde_json::from_str(json).map_err(to_js_err)?;

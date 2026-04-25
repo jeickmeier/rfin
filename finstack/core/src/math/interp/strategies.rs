@@ -321,6 +321,12 @@ fn log_segment_slope(
 /// Builds a natural cubic spline in log-discount space so that the resulting
 /// instantaneous forward curve is piecewise quadratic and C²-continuous.
 /// This matches the “smooth forward” construction commonly used by Bloomberg.
+///
+/// # References
+///
+/// - de Boor, C. *A Practical Guide to Splines*. Canonical reference for the
+///   underlying natural cubic spline construction. See
+///   [De Boor Splines](../../../../docs/REFERENCES.md#de-boor-splines).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PiecewiseQuadraticForwardStrategy {
     /// Knot locations (copied for boundary evaluation).
@@ -544,6 +550,12 @@ impl PiecewiseQuadraticForwardStrategy {
 /// Implements the Piecewise Cubic Hermite Interpolating Polynomial with
 /// Fritsch-Carlson slope selection. Preserves monotonicity of input data,
 /// ensuring no spurious oscillations. Requires monotone input discount factors.
+///
+/// # References
+///
+/// - Fritsch, F. N., & Carlson, R. E. (1980). "Monotone Piecewise Cubic
+///   Interpolation." *SIAM Journal on Numerical Analysis*, 17(2), 238-246.
+///   See [Fritsch-Carlson 1980](../../../../docs/REFERENCES.md#fritsch-carlson-1980).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CubicHermiteStrategy {
     /// First-derivative values at each knot (PCHIP slopes).

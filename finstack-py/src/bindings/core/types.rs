@@ -97,22 +97,27 @@ impl PyRate {
         self.inner.as_bps()
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!("Rate(decimal={:?})", self.inner.as_decimal())
     }
 
+    /// Return ``str(self)``.
     fn __str__(&self) -> String {
         self.inner.to_string()
     }
 
+    /// Add two rates: ``Rate(a) + Rate(b) == Rate(a + b)``.
     fn __add__(&self, other: PyRef<Self>) -> PyResult<Self> {
         Ok(Self::from_inner(self.inner + other.inner))
     }
 
+    /// Subtract two rates: ``Rate(a) - Rate(b) == Rate(a - b)``.
     fn __sub__(&self, other: PyRef<Self>) -> PyResult<Self> {
         Ok(Self::from_inner(self.inner - other.inner))
     }
 
+    /// Multiply by a scalar ``float``.
     fn __mul__(&self, rhs: f64) -> PyResult<Self> {
         let p = self.inner.as_decimal() * rhs;
         Rate::try_from_decimal(p)
@@ -120,6 +125,7 @@ impl PyRate {
             .map_err(core_to_py)
     }
 
+    /// Divide by a scalar ``float``; raises ``ValueError`` on zero divisor.
     fn __truediv__(&self, rhs: f64) -> PyResult<Self> {
         if rhs == 0.0 {
             return Err(core_to_py(Error::Validation(
@@ -132,6 +138,7 @@ impl PyRate {
             .map_err(core_to_py)
     }
 
+    /// Unary negation.
     fn __neg__(&self) -> PyResult<Self> {
         Ok(Self::from_inner(-self.inner))
     }
@@ -191,26 +198,32 @@ impl PyBps {
         self.inner.as_bps()
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!("Bps({})", self.inner.as_bps())
     }
 
+    /// Return ``str(self)``.
     fn __str__(&self) -> String {
         self.inner.to_string()
     }
 
+    /// Add two basis-point values.
     fn __add__(&self, other: PyRef<Self>) -> Self {
         Self::from_inner(self.inner + other.inner)
     }
 
+    /// Subtract two basis-point values.
     fn __sub__(&self, other: PyRef<Self>) -> Self {
         Self::from_inner(self.inner - other.inner)
     }
 
+    /// Multiply basis points by an integer scalar.
     fn __mul__(&self, rhs: i32) -> Self {
         Self::from_inner(self.inner * rhs)
     }
 
+    /// Divide basis points by an integer scalar; raises ``ValueError`` on zero.
     fn __truediv__(&self, rhs: i32) -> PyResult<Self> {
         if rhs == 0 {
             return Err(core_to_py(Error::Validation(
@@ -220,6 +233,7 @@ impl PyBps {
         Ok(Self::from_inner(self.inner / rhs))
     }
 
+    /// Unary negation.
     fn __neg__(&self) -> Self {
         Self::from_inner(-self.inner)
     }
@@ -283,10 +297,12 @@ impl PyPercentage {
         self.inner.as_percent()
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!("Percentage(percent={:?})", self.inner.as_percent())
     }
 
+    /// Return ``str(self)``.
     fn __str__(&self) -> String {
         self.inner.to_string()
     }
@@ -455,10 +471,12 @@ impl PyCreditRating {
         self.inner.warf().map_err(core_to_py)
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!("CreditRating({})", self.inner)
     }
 
+    /// Return ``str(self)``.
     fn __str__(&self) -> String {
         self.inner.to_string()
     }
@@ -501,10 +519,12 @@ impl PyCurveId {
         self.inner.as_str()
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!("CurveId({:?})", self.inner.as_str())
     }
 
+    /// Return ``str(self)`` — the underlying identifier string.
     fn __str__(&self) -> String {
         self.inner.as_str().to_string()
     }
@@ -547,10 +567,12 @@ impl PyInstrumentId {
         self.inner.as_str()
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!("InstrumentId({:?})", self.inner.as_str())
     }
 
+    /// Return ``str(self)`` — the underlying identifier string.
     fn __str__(&self) -> String {
         self.inner.as_str().to_string()
     }
@@ -611,6 +633,7 @@ impl PyAttributes {
         self.inner.meta.len()
     }
 
+    /// Return ``repr(self)``.
     fn __repr__(&self) -> String {
         format!(
             "Attributes(tags={}, meta_keys={})",
@@ -619,6 +642,7 @@ impl PyAttributes {
         )
     }
 
+    /// Number of metadata entries; ``len(attrs) == len(attrs.meta_keys())``.
     fn __len__(&self) -> usize {
         self.inner.meta.len()
     }

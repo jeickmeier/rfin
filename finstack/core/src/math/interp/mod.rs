@@ -23,9 +23,15 @@
 //! # References
 //!
 //! - Hagan, P. S., & West, G. (2006). "Interpolation Methods for Curve Construction."
-//!   *Applied Mathematical Finance*, 13(2), 89-129.
+//!   *Applied Mathematical Finance*, 13(2), 89-129. See
+//!   [Hagan-West Monotone Convex](../../../../docs/REFERENCES.md#hagan-west-monotone-convex).
 //! - Hagan, P. S., & West, G. (2008). "Methods for Constructing a Yield Curve."
 //!   *Wilmott Magazine*, May 2008.
+//! - Fritsch, F. N., & Carlson, R. E. (1980). "Monotone Piecewise Cubic
+//!   Interpolation." See
+//!   [Fritsch-Carlson 1980](../../../../docs/REFERENCES.md#fritsch-carlson-1980).
+//! - de Boor, C. *A Practical Guide to Splines*. See
+//!   [De Boor Splines](../../../../docs/REFERENCES.md#de-boor-splines).
 
 /// Generic interpolator container with strategy pattern.
 mod generic;

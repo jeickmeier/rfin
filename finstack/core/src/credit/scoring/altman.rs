@@ -101,6 +101,45 @@ pub struct AltmanZDoublePrimeInput {
 /// # Errors
 ///
 /// Returns [`CreditScoringError::NonFiniteInput`] if any input ratio is NaN or infinite.
+///
+/// # Examples
+///
+/// A healthy public manufacturing firm scores in the Safe zone:
+///
+/// ```
+/// use finstack_core::credit::scoring::{altman_z_score, AltmanZScoreInput, ScoringZone};
+///
+/// let healthy = AltmanZScoreInput {
+///     working_capital_to_total_assets: 0.20,
+///     retained_earnings_to_total_assets: 0.30,
+///     ebit_to_total_assets: 0.15,
+///     market_equity_to_total_liabilities: 1.50,
+///     sales_to_total_assets: 1.00,
+/// };
+/// let result = altman_z_score(&healthy)?;
+/// assert!(result.score > 2.99);
+/// assert_eq!(result.zone, ScoringZone::Safe);
+/// assert!(result.implied_pd < 0.05);
+/// # Ok::<_, finstack_core::credit::scoring::CreditScoringError>(())
+/// ```
+///
+/// A distressed firm with weak earnings and leverage scores in Distress:
+///
+/// ```
+/// use finstack_core::credit::scoring::{altman_z_score, AltmanZScoreInput, ScoringZone};
+///
+/// let distressed = AltmanZScoreInput {
+///     working_capital_to_total_assets: -0.10,
+///     retained_earnings_to_total_assets: -0.20,
+///     ebit_to_total_assets: -0.05,
+///     market_equity_to_total_liabilities: 0.20,
+///     sales_to_total_assets: 0.50,
+/// };
+/// let result = altman_z_score(&distressed)?;
+/// assert!(result.score < 1.81);
+/// assert_eq!(result.zone, ScoringZone::Distress);
+/// # Ok::<_, finstack_core::credit::scoring::CreditScoringError>(())
+/// ```
 pub fn altman_z_score(input: &AltmanZScoreInput) -> Result<ScoringResult, CreditScoringError> {
     check_finite(
         "working_capital_to_total_assets",
@@ -146,6 +185,27 @@ pub fn altman_z_score(input: &AltmanZScoreInput) -> Result<ScoringResult, Credit
 /// # Errors
 ///
 /// Returns [`CreditScoringError::NonFiniteInput`] if any input ratio is NaN or infinite.
+///
+/// # Examples
+///
+/// A healthy private manufacturing firm. Note that X4 uses *book* equity
+/// (rather than market equity) since private firms have no market price:
+///
+/// ```
+/// use finstack_core::credit::scoring::{altman_z_prime, AltmanZPrimeInput, ScoringZone};
+///
+/// let healthy = AltmanZPrimeInput {
+///     working_capital_to_total_assets: 0.30,
+///     retained_earnings_to_total_assets: 0.40,
+///     ebit_to_total_assets: 0.20,
+///     book_equity_to_total_liabilities: 2.00,
+///     sales_to_total_assets: 1.20,
+/// };
+/// let result = altman_z_prime(&healthy)?;
+/// assert!(result.score > 2.90);
+/// assert_eq!(result.zone, ScoringZone::Safe);
+/// # Ok::<_, finstack_core::credit::scoring::CreditScoringError>(())
+/// ```
 pub fn altman_z_prime(input: &AltmanZPrimeInput) -> Result<ScoringResult, CreditScoringError> {
     check_finite(
         "working_capital_to_total_assets",
@@ -191,6 +251,26 @@ pub fn altman_z_prime(input: &AltmanZPrimeInput) -> Result<ScoringResult, Credit
 /// # Errors
 ///
 /// Returns [`CreditScoringError::NonFiniteInput`] if any input ratio is NaN or infinite.
+///
+/// # Examples
+///
+/// The Z''-Score drops the Sales/Total Assets ratio (X5) to remove industry bias,
+/// making it suitable for non-manufacturing and emerging-market firms:
+///
+/// ```
+/// use finstack_core::credit::scoring::{altman_z_double_prime, AltmanZDoublePrimeInput, ScoringZone};
+///
+/// let healthy = AltmanZDoublePrimeInput {
+///     working_capital_to_total_assets: 0.20,
+///     retained_earnings_to_total_assets: 0.30,
+///     ebit_to_total_assets: 0.15,
+///     book_equity_to_total_liabilities: 1.20,
+/// };
+/// let result = altman_z_double_prime(&healthy)?;
+/// assert!(result.score > 2.60);
+/// assert_eq!(result.zone, ScoringZone::Safe);
+/// # Ok::<_, finstack_core::credit::scoring::CreditScoringError>(())
+/// ```
 pub fn altman_z_double_prime(
     input: &AltmanZDoublePrimeInput,
 ) -> Result<ScoringResult, CreditScoringError> {

@@ -129,6 +129,92 @@ uv run ty check finstack-py/finstack
 uv run pytest finstack-py/tests
 ```
 
+### Parity contract
+
+`finstack-py/parity_contract.toml` is the authoritative spec for the
+Python-visible API surface that parity tests pin. When you add or rename a
+binding, update the contract in the same change. The parity tests under
+`finstack-py/tests/parity/` enforce that:
+
+- Every entry in the contract resolves to an importable Python symbol.
+- Names match Rust source 1:1 (per `AGENTS.md` naming-strategy rules).
+- Public behaviour matches the Rust reference implementation on the cases
+  the contract pins.
+
+## Type Discovery
+
+Python types live alongside their Rust counterparts. A few common entry
+points:
+
+| Concept | Python module | Key types |
+|---------|---------------|-----------|
+| Money / currency | `finstack.core.money`, `finstack.core.currency` | `Money`, `Currency` |
+| Rates and bps | `finstack.core.types` | `Rate`, `Bps`, `Percentage` |
+| Credit ratings | `finstack.core.types` | `CreditRating` |
+| Dates and calendars | `finstack.core.dates` | `Tenor`, `DayCount`, `Schedule`, `ScheduleBuilder`, `BusinessDayConvention` |
+| Configuration | `finstack.core.config` | `FinstackConfig`, `RoundingMode`, `ToleranceConfig` |
+| Discount and forward curves | `finstack.core.market_data` | `DiscountCurve`, `ForwardCurve`, `MarketContext` |
+| Credit scoring | `finstack.core.credit.scoring` | `altman_z_score`, `ohlson_o_score`, `ScoringResult` |
+| Pricers and metrics | `finstack.valuations` | `price_instrument`, instrument types |
+| Performance and risk | `finstack.analytics` | `value_at_risk`, drawdown, return-series helpers |
+
+For the full surface, browse `finstack-py/finstack/**/*.pyi` — every public
+import has a stub with type annotations and docstrings.
+
+## Common Pitfalls
+
+A few things that surprise users coming from the Rust side or other
+financial Python libraries:
+
+### Decimal vs `float`
+
+Per `INVARIANTS.md` §1, the Rust workspace uses `rust_decimal::Decimal` at
+the money/accounting boundary (`finstack-core::money`) and `f64` everywhere
+else (rates, vols, returns, derivative prices). The Python bindings expose
+`f64` for ergonomic interop. If your downstream code needs exact
+`decimal.Decimal` arithmetic, convert at your boundary:
+
+```python
+from decimal import Decimal
+from finstack.core.money import Money
+
+m = Money(123.45, "USD")
+d = Decimal(m.format(decimals=2, show_currency=False))
+```
+
+### Builder pattern: in-place mutation
+
+Rust builders use fluent self-return (`builder.frequency(x).stub_rule(y).build()`).
+Python builders **mutate in place and return `None`** — chaining will fail.
+Call setters sequentially on the same instance:
+
+```python
+b = ScheduleBuilder(start, end)
+b.frequency("3M")               # returns None
+b.stub_rule(StubKind.SHORT_FRONT)
+schedule = b.build()
+```
+
+### Errors are `ValueError`
+
+All fallible bindings raise `ValueError` (with the underlying Rust error
+chain flattened into the message). The error-mapping helper lives at
+`finstack-py/src/errors.rs`. There are no domain-specific exception
+classes; check `str(exc)` if you need to discriminate.
+
+### Naming follows Rust 1:1
+
+Rust `snake_case` ↔ Python `snake_case` — no rename. If you find yourself
+hunting for a Python name that "should" exist, search the Rust source first
+— odds are the name is identical and the answer is in `finstack/<crate>/src/`.
+
+## Documentation Style
+
+For contributors adding or editing bindings, see
+[`finstack-py/DOCS_STYLE.md`](DOCS_STYLE.md). It covers PyO3 docstring
+conventions, `.pyi` NumPy-style format, financial conventions, and the
+in-place-mutation contract for Python builders.
+
 ## Relationship To Rust And WASM
 
 The Python package is one binding surface for the same Rust workspace described

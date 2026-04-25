@@ -68,6 +68,22 @@ pub enum ValidationPolicy {
 }
 
 /// Extrapolation policy for evaluation outside the knot range.
+///
+/// All [`InterpolationStrategy`](super::traits::InterpolationStrategy)
+/// implementations honour this policy at both ends of the knot range.
+/// Choose based on what behaviour the downstream pricer expects:
+///
+/// - `FlatZero` (default): hold the boundary value constant. Safe for
+///   discount factors and survival probabilities.
+/// - `FlatForward`: extend the boundary slope. Useful for forward-rate
+///   curves where extrapolated rates should track the local term-structure
+///   slope.
+/// - `Nan`: refuse to extrapolate; return `NaN` and require the caller to
+///   detect and handle out-of-range queries explicitly. Recommended for
+///   production risk systems.
+///
+/// `#[non_exhaustive]` so that future policies (e.g. linear-zero,
+/// asymptotic) can be added without breaking downstream code.
 #[derive(
     Copy,
     Clone,

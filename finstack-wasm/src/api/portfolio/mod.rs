@@ -176,7 +176,7 @@ pub fn aggregate_full_cashflows(spec_json: &str, market_json: &str) -> Result<St
 }
 
 /// Aggregate the full classified cashflow ladder for an already-built
-/// [`Portfolio`] handle.
+/// [`WasmPortfolio`] handle.
 ///
 /// Skips the per-call `PortfolioSpec` parse + `Portfolio::from_spec` rebuild.
 /// For batched or chained workflows (repeated cashflow builds across market

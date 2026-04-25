@@ -383,6 +383,29 @@ risk calculation with a standard reference.
 - Kahan, W. "Further Remarks on Reducing Truncation Errors." Canonical reference
   for compensated summation.
 
+<a id="brent-1973"></a>
+
+### Brent 1973
+
+- Brent, R. P. *Algorithms for Minimization Without Derivatives*. Canonical
+  reference for Brent's method of bracketed root-finding combining bisection,
+  secant, and inverse quadratic interpolation.
+
+<a id="de-boor-splines"></a>
+
+### De Boor Splines
+
+- de Boor, C. *A Practical Guide to Splines*. Canonical reference for B-spline
+  and cubic-spline interpolation, knot insertion, and end-condition handling.
+
+<a id="fritsch-carlson-1980"></a>
+
+### Fritsch Carlson 1980
+
+- Fritsch, F. N., and Carlson, R. E. "Monotone Piecewise Cubic Interpolation."
+  Canonical reference for shape-preserving (monotone) cubic Hermite
+  interpolation.
+
 ## Performance Analytics, Portfolio Construction, And Risk Reporting
 
 <a id="grinoldKahn1999ActivePortfolio"></a>

@@ -1043,6 +1043,15 @@ mod tests {
 // -----------------------------------------------------------------------------
 
 /// Seniority level for credit exposures.
+///
+/// Used to tag a hazard curve with the seniority of the issuer's debt
+/// observed by the curve. Drives the recovery-rate prior in default
+/// modelling and selects the right LGD prior in
+/// [`crate::credit::lgd::seniority`].
+///
+/// Order is **not** total — `SeniorSecured` is strictly senior to `Senior`,
+/// `Subordinated`, and `Junior`, but the relative ordering of `Subordinated`
+/// vs. `Junior` is jurisdiction-dependent. Do not rely on `Ord` semantics.
 #[derive(
     Clone,
     Copy,
@@ -1097,6 +1106,12 @@ impl core::str::FromStr for Seniority {
 }
 
 /// Interpolation method for reporting par spreads stored on the curve.
+///
+/// Applies only to *par-spread* readouts (the spreads quoted at calibration
+/// pillars), not to the underlying hazard rates. Hazard interpolation always
+/// follows piecewise-constant survival. Use `LogLinear` when spreads span
+/// multiple decades (e.g. high-yield issuers) so interpolation stays in
+/// log-space; otherwise the default `Linear` is fine.
 #[derive(
     Clone,
     Copy,
