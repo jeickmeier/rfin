@@ -49,7 +49,11 @@ impl EquityOptionRoughBergomiMcPricer {
 
 impl Default for EquityOptionRoughBergomiMcPricer {
     fn default() -> Self {
-        Self::new(100_000, 100)
+        use crate::instruments::common_impl::helpers::mc_defaults;
+        Self::new(
+            mc_defaults::DEFAULT_MC_PATHS,
+            mc_defaults::DEFAULT_ROUGH_VOL_STEPS,
+        )
     }
 }
 
@@ -124,6 +128,18 @@ impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
         )
     }
 
+    #[tracing::instrument(
+        name = "equity_option.rough_bergomi_mc.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(
+            inst_id = %instrument.id(),
+            as_of = %as_of,
+            num_paths = self.num_paths,
+            num_steps = self.num_steps,
+        ),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -143,7 +159,8 @@ impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
         let inputs = collect_inputs_extended(equity_option, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_with_context(
                 e.to_string(),
-                crate::pricer::PricingErrorContext::default(),
+                crate::pricer::PricingErrorContext::from_instrument(equity_option)
+                    .model(crate::pricer::ModelKey::MonteCarloRoughBergomi),
             )
         })?;
         let (spot, r, q, sigma, t) = (inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol);
@@ -214,6 +231,15 @@ impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
             };
         let mut rng = finstack_monte_carlo::rng::philox::PhiloxRng::new(seed_val);
 
+        // Resolve and cap the path count via the workspace helper before
+        // allocating, so a malicious or typo'd `mc_paths` override can't OOM
+        // the host.
+        let num_paths = crate::instruments::common_impl::helpers::resolve_mc_paths(
+            equity_option.pricing_overrides.model_config.mc_paths,
+            self.num_paths,
+        )
+        .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx.clone()))?;
+
         let mean_pv = match equity_option.option_type {
             OptionType::Call => {
                 let payoff = finstack_monte_carlo::payoff::vanilla::EuropeanCall::new(
@@ -222,7 +248,7 @@ impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
                     self.num_steps,
                 );
                 simulate_rbergomi(
-                    self.num_paths,
+                    num_paths,
                     &mut rng,
                     &time_grid,
                     &process,
@@ -242,7 +268,7 @@ impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
                     self.num_steps,
                 );
                 simulate_rbergomi(
-                    self.num_paths,
+                    num_paths,
                     &mut rng,
                     &time_grid,
                     &process,

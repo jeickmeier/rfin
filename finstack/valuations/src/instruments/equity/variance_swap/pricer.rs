@@ -253,13 +253,14 @@ pub(crate) fn get_historical_prices(
         .close_series_id
         .as_deref()
         .unwrap_or(&inst.underlying_ticker);
+    let past_dates: Vec<Date> = observation_dates(inst)
+        .into_iter()
+        .filter(|&d| d <= as_of)
+        .collect();
+
     if let Ok(series) = context.get_series(close_id) {
-        let dates: Vec<Date> = observation_dates(inst)
-            .into_iter()
-            .filter(|&d| d <= as_of)
-            .collect();
-        if dates.len() >= 2 {
-            return series.values_on(&dates);
+        if past_dates.len() >= 2 {
+            return series.values_on(&past_dates);
         }
     }
     if let Ok(scalar) = context.get_price(&inst.underlying_ticker) {
@@ -267,10 +268,27 @@ pub(crate) fn get_historical_prices(
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
         };
-        Ok(vec![spot])
-    } else {
-        Ok(vec![])
+        return Ok(vec![spot]);
     }
+
+    // Only acceptable in two cases: (a) the swap hasn't accrued any past
+    // observations yet, or (b) it has accrued ≤ 1, in which case realised
+    // variance is 0 by definition. Otherwise this is a data-availability
+    // failure and must error rather than silently mark the swap to zero
+    // realised variance.
+    if past_dates.len() >= 2 {
+        return Err(finstack_core::Error::Validation(format!(
+            "VarianceSwap '{}' has {} past observation dates but no historical price \
+             data is available (looked for series '{}' and spot scalar '{}'). \
+             Provide the time series to compute realised variance, or remove past \
+             observations before pricing.",
+            inst.id.as_str(),
+            past_dates.len(),
+            close_id,
+            inst.underlying_ticker.as_str()
+        )));
+    }
+    Ok(vec![])
 }
 
 /// Load aligned OHLC histories from the market context for OHLC-based estimators.
@@ -355,6 +373,25 @@ pub(crate) fn partial_realized_variance(
     )
 }
 
+/// Forward (remaining) variance from `as_of` to `maturity`.
+///
+/// # Fallback cascade
+///
+/// Sourced market data is checked in priority order. Each successful step
+/// **stops** the cascade and returns immediately. Lower-priority fallbacks
+/// emit a `tracing::warn!` so operators can see the dispersion in market
+/// data quality.
+///
+/// 1. **Carr–Madan replication** from a vol surface (preferred). Uses the
+///    full smile via OTM put/call strip.
+/// 2. **ATM variance + local-smile convexity** (`smile_convexity_adjusted_variance`).
+///    Used when Carr-Madan can't replicate (e.g. sparse strikes); logged at WARN.
+/// 3. **Scalar implied vol** under key `{ticker}_IMPL_VOL`. Crude — squared
+///    to a flat variance; logged at WARN.
+/// 4. **Strike variance from the contract itself** (`inst.strike_variance`).
+///    This is a last-resort sentinel that prices the swap at zero (mark-to-market
+///    equals strike). Logged at WARN with the instrument id so it's visible
+///    in production logs.
 pub(crate) fn remaining_forward_variance(
     inst: &VarianceSwap,
     context: &MarketContext,
@@ -406,9 +443,11 @@ pub(crate) fn remaining_forward_variance(
                         let vol_atm = surface.value_clamped(t.max(1e-8), fwd);
                         tracing::warn!(
                             instrument_id = %inst.id,
+                            surface_id = %sid,
                             vol_atm = vol_atm,
                             fallback_variance = fallback_variance,
-                            "Carr-Madan replication failed; falling back to ATM variance plus local smile convexity"
+                            "VarianceSwap forward variance: Carr-Madan replication failed; \
+                             falling back to ATM variance plus local smile convexity (level 2/4)"
                         );
                         return Ok(fallback_variance);
                     }
@@ -422,8 +461,25 @@ pub(crate) fn remaining_forward_variance(
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
             finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
         };
-        Ok(vol * vol)
+        let fallback_variance = vol * vol;
+        tracing::warn!(
+            instrument_id = %inst.id,
+            ticker = %inst.underlying_ticker,
+            vol = vol,
+            fallback_variance = fallback_variance,
+            "VarianceSwap forward variance: no vol surface available; falling back to \
+             scalar {ticker}_IMPL_VOL (level 3/4)",
+            ticker = inst.underlying_ticker.as_str()
+        );
+        Ok(fallback_variance)
     } else {
+        tracing::warn!(
+            instrument_id = %inst.id,
+            ticker = %inst.underlying_ticker,
+            strike_variance = inst.strike_variance,
+            "VarianceSwap forward variance: no surface or scalar implied vol found; \
+             falling back to contract strike_variance (level 4/4 — swap will mark to zero)"
+        );
         Ok(inst.strike_variance)
     }
 }
@@ -439,6 +495,13 @@ impl Pricer for SimpleVarianceSwapDiscountingPricer {
         PricerKey::new(InstrumentType::VarianceSwap, ModelKey::Discounting)
     }
 
+    #[tracing::instrument(
+        name = "variance_swap.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -453,7 +516,10 @@ impl Pricer for SimpleVarianceSwapDiscountingPricer {
             })?;
 
         let pv = compute_pv(swap, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(swap).model(ModelKey::Discounting),
+            )
         })?;
 
         Ok(ValuationResult::stamped(swap.id(), as_of, pv))
@@ -481,14 +547,37 @@ mod tests {
 
     #[test]
     fn variance_swap_pricer_compute_pv_matches_instrument_value() {
+        // Use as_of strictly before start_date so the swap has no past
+        // observations; this exercises the pricer/instrument parity check
+        // without requiring historical price data.
         let swap = VarianceSwap::example().expect("example swap");
-        let as_of = date!(2025 - 01 - 01);
+        let as_of = date!(2023 - 12 - 31); // before example's start_date 2024-01-01
         let market = build_market(as_of);
 
         let via_pricer = compute_pv(&swap, &market, as_of).expect("pricer pv");
         let via_instrument = swap.value(&market, as_of).expect("instrument pv");
 
         assert_eq!(via_pricer, via_instrument);
+    }
+
+    /// Regression: when the swap has accrued past observations but no
+    /// historical price data is in the market context, the pricer must
+    /// error rather than silently mark to zero realised variance.
+    #[test]
+    fn pricer_errors_when_past_observations_have_no_data() {
+        let swap = VarianceSwap::example().expect("example swap");
+        // as_of well after start_date so past_dates.len() >= 2
+        let as_of = date!(2024 - 06 - 01);
+        let market = build_market(as_of); // intentionally no series provided
+
+        let err = compute_pv(&swap, &market, as_of)
+            .expect_err("missing historical data must error, not silently mark to zero");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("no historical price data") || msg.contains("realised variance"),
+            "expected explicit data-availability error, got: {}",
+            msg
+        );
     }
 
     #[test]

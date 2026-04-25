@@ -333,6 +333,13 @@ impl Pricer for RealEstateAssetDiscountingPricer {
         PricerKey::new(InstrumentType::RealEstateAsset, ModelKey::Discounting)
     }
 
+    #[tracing::instrument(
+        name = "real_estate.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -347,7 +354,10 @@ impl Pricer for RealEstateAssetDiscountingPricer {
             })?;
 
         let value = compute_pv(asset, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(asset).model(ModelKey::Discounting),
+            )
         })?;
 
         Ok(ValuationResult::stamped(asset.id(), as_of, value))

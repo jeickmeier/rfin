@@ -94,6 +94,7 @@ mod types;
 pub(crate) mod heston_mc_pricer;
 pub(crate) mod rough_bergomi_mc_pricer;
 pub(crate) mod rough_heston_fourier_pricer;
+pub(crate) mod rough_heston_market;
 pub(crate) mod rough_heston_mc_pricer;
 
 pub use parameters::{EquityOptionMarketData, EquityOptionParams};

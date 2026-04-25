@@ -200,7 +200,8 @@ pub struct DilutionSecurity {
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = DiscountedCashFlow::validate)]
+#[serde(deny_unknown_fields, try_from = "DiscountedCashFlowUnchecked")]
 pub struct DiscountedCashFlow {
     /// Unique identifier for the DCF.
     pub id: InstrumentId,
@@ -256,7 +257,180 @@ pub struct DiscountedCashFlow {
     pub attributes: Attributes,
 }
 
+/// Mirror of `DiscountedCashFlow` used by serde to apply `validate()` after
+/// deserialization. Not part of the public API.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct DiscountedCashFlowUnchecked {
+    id: InstrumentId,
+    currency: Currency,
+    #[schemars(with = "Vec<(String, f64)>")]
+    flows: Vec<(Date, f64)>,
+    wacc: f64,
+    terminal_value: TerminalValueSpec,
+    net_debt: f64,
+    #[schemars(with = "String")]
+    valuation_date: Date,
+    discount_curve_id: CurveId,
+    #[serde(default)]
+    mid_year_convention: bool,
+    #[serde(default)]
+    equity_bridge: Option<EquityBridge>,
+    #[serde(default)]
+    shares_outstanding: Option<f64>,
+    #[serde(default)]
+    dilution_securities: Vec<DilutionSecurity>,
+    #[serde(default)]
+    valuation_discounts: Option<ValuationDiscounts>,
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    attributes: Attributes,
+}
+
+impl TryFrom<DiscountedCashFlowUnchecked> for DiscountedCashFlow {
+    type Error = finstack_core::Error;
+
+    fn try_from(value: DiscountedCashFlowUnchecked) -> std::result::Result<Self, Self::Error> {
+        let inst = Self {
+            id: value.id,
+            currency: value.currency,
+            flows: value.flows,
+            wacc: value.wacc,
+            terminal_value: value.terminal_value,
+            net_debt: value.net_debt,
+            valuation_date: value.valuation_date,
+            discount_curve_id: value.discount_curve_id,
+            mid_year_convention: value.mid_year_convention,
+            equity_bridge: value.equity_bridge,
+            shares_outstanding: value.shares_outstanding,
+            dilution_securities: value.dilution_securities,
+            valuation_discounts: value.valuation_discounts,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        inst.validate()?;
+        Ok(inst)
+    }
+}
+
 impl DiscountedCashFlow {
+    /// Validate structural invariants required by the DCF pricer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `wacc` is non-finite or `wacc <= -1.0` (would yield `(1+wacc) <= 0`,
+    ///   producing infinite / NaN present values)
+    /// - `wacc` is outside the conservative sanity band `(-0.5, 1.0)` — this
+    ///   catches typical typos (e.g. `wacc = 10` instead of `0.10`) before
+    ///   they silently drive valuations to ~0
+    /// - `net_debt` is non-finite
+    /// - any explicit `flows` amount is non-finite
+    /// - `flows` are not sorted by date (strictly increasing)
+    /// - any flow date is on or before `valuation_date`
+    /// - `shares_outstanding` is set but non-positive or non-finite
+    /// - any `dilution_securities` entry has non-finite or negative quantity
+    ///   or non-finite exercise price
+    /// - the embedded `valuation_discounts` (when set) fails its own
+    ///   `validate()` (each discount in `[0, 1]`)
+    ///
+    /// Terminal-value-specific checks (Gordon Growth requires
+    /// `wacc > growth_rate`; H-Model requires the same plus
+    /// `high_growth_rate >= stable_growth_rate`) are enforced inside
+    /// [`Self::calculate_terminal_value`] at pricing time, since they cross
+    /// `wacc` with the terminal-value variant.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if !self.wacc.is_finite() {
+            return Err(CoreError::Validation(format!(
+                "DCF '{}' wacc must be finite, got {}",
+                self.id.as_str(),
+                self.wacc
+            )));
+        }
+        if self.wacc <= -1.0 {
+            return Err(CoreError::Validation(format!(
+                "DCF '{}' wacc = {} would make (1 + wacc) <= 0; must be > -1.0",
+                self.id.as_str(),
+                self.wacc
+            )));
+        }
+        if !(-0.5..1.0).contains(&self.wacc) {
+            return Err(CoreError::Validation(format!(
+                "DCF '{}' wacc = {} is outside the sanity band (-0.5, 1.0); \
+                 typical WACC is 0.05 - 0.20 (5% - 20%). Did you mean {}?",
+                self.id.as_str(),
+                self.wacc,
+                self.wacc / 100.0
+            )));
+        }
+        if !self.net_debt.is_finite() {
+            return Err(CoreError::Validation(format!(
+                "DCF '{}' net_debt must be finite, got {}",
+                self.id.as_str(),
+                self.net_debt
+            )));
+        }
+        for (i, (date, amount)) in self.flows.iter().enumerate() {
+            if !amount.is_finite() {
+                return Err(CoreError::Validation(format!(
+                    "DCF '{}' flows[{}] amount on {} must be finite, got {}",
+                    self.id.as_str(),
+                    i,
+                    date,
+                    amount
+                )));
+            }
+        }
+        for window in self.flows.windows(2) {
+            if window[0].0 >= window[1].0 {
+                return Err(CoreError::Validation(format!(
+                    "DCF '{}' flow dates must be strictly increasing; got {} >= {}",
+                    self.id.as_str(),
+                    window[0].0,
+                    window[1].0
+                )));
+            }
+        }
+        for (i, (date, _)) in self.flows.iter().enumerate() {
+            if *date <= self.valuation_date {
+                return Err(CoreError::Validation(format!(
+                    "DCF '{}' flows[{}] date {} must be strictly after valuation_date {}",
+                    self.id.as_str(),
+                    i,
+                    date,
+                    self.valuation_date
+                )));
+            }
+        }
+        if let Some(shares) = self.shares_outstanding {
+            if !shares.is_finite() || shares <= 0.0 {
+                return Err(CoreError::Validation(format!(
+                    "DCF '{}' shares_outstanding must be finite and positive, got {}",
+                    self.id.as_str(),
+                    shares
+                )));
+            }
+        }
+        for (i, sec) in self.dilution_securities.iter().enumerate() {
+            if !sec.quantity.is_finite() || sec.quantity < 0.0 {
+                return Err(CoreError::Validation(format!(
+                    "DCF '{}' dilution_securities[{}] quantity must be finite and non-negative, got {}",
+                    self.id.as_str(), i, sec.quantity
+                )));
+            }
+            if !sec.exercise_price.is_finite() || sec.exercise_price < 0.0 {
+                return Err(CoreError::Validation(format!(
+                    "DCF '{}' dilution_securities[{}] exercise_price must be finite and non-negative, got {}",
+                    self.id.as_str(), i, sec.exercise_price
+                )));
+            }
+        }
+        if let Some(d) = &self.valuation_discounts {
+            d.validate()?;
+        }
+        Ok(())
+    }
+
     /// Create a representative tech company DCF example.
     ///
     /// 5-year FCF projections ($5M-$8M), 10% WACC, Gordon Growth terminal
@@ -583,6 +757,63 @@ mod tests {
             pricing_overrides: crate::instruments::PricingOverrides::default(),
             attributes: Attributes::default(),
         }
+    }
+
+    #[test]
+    fn validate_accepts_simple_dcf() {
+        assert!(build_simple_dcf_gordon().validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_non_finite_wacc() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.wacc = f64::NAN;
+        assert!(dcf.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_wacc_at_minus_one() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.wacc = -1.0;
+        let err = dcf.validate().expect_err("wacc=-1 must error");
+        assert!(err.to_string().contains("(1 + wacc) <= 0"));
+    }
+
+    #[test]
+    fn validate_rejects_wacc_above_sanity_band() {
+        // 10 (1000%) is a typical typo for 0.10; the sanity band catches it.
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.wacc = 10.0;
+        let err = dcf.validate().expect_err("wacc=10 must error");
+        assert!(err.to_string().contains("sanity band"));
+    }
+
+    #[test]
+    fn validate_rejects_unsorted_flows() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.flows = vec![
+            (Date::from_calendar_date(2027, Month::January, 1).unwrap(), 100.0),
+            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 100.0),
+        ];
+        let err = dcf.validate().expect_err("unsorted must error");
+        assert!(err.to_string().contains("strictly increasing"));
+    }
+
+    #[test]
+    fn validate_rejects_flow_on_or_before_valuation_date() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.flows = vec![(dcf.valuation_date, 100.0)];
+        let err = dcf.validate().expect_err("flow on valuation_date must error");
+        assert!(err.to_string().contains("strictly after valuation_date"));
+    }
+
+    #[test]
+    fn validate_rejects_non_positive_shares_outstanding() {
+        let mut dcf = build_simple_dcf_gordon();
+        dcf.shares_outstanding = Some(0.0);
+        assert!(dcf.validate().is_err());
+        dcf.shares_outstanding = Some(-100.0);
+        assert!(dcf.validate().is_err());
     }
 
     #[test]

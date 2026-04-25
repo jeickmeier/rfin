@@ -61,6 +61,13 @@ impl Pricer for DcfPricer {
         PricerKey::new(InstrumentType::DCF, ModelKey::Discounting)
     }
 
+    #[tracing::instrument(
+        name = "dcf_equity.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -73,7 +80,10 @@ impl Pricer for DcfPricer {
             .ok_or_else(|| PricingError::type_mismatch(InstrumentType::DCF, instrument.key()))?;
 
         let equity_value = compute_pv(dcf, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(dcf).model(ModelKey::Discounting),
+            )
         })?;
 
         Ok(ValuationResult::stamped(dcf.id(), as_of, equity_value))

@@ -128,9 +128,20 @@ pub struct EquityOption {
     /// continuous dividend yield (e.g., 0.02 for 2%). This is used in the BSM model
     /// as the `q` parameter: `d1 = (ln(S/K) + (r - q + σ²/2)T) / (σ√T)`.
     ///
-    /// **Important**: If this field is set, the lookup must succeed. A failed lookup
-    /// will return an error rather than silently defaulting to zero, preventing
-    /// market data configuration errors from affecting P&L.
+    /// # Semantics by value
+    ///
+    /// - **`Some(id)`** — the lookup MUST succeed. A missing market scalar
+    ///   (or a non-unitless type) returns a hard error rather than silently
+    ///   defaulting to zero, preventing market-data configuration errors
+    ///   from quietly distorting P&L.
+    /// - **`None`** — there is *no implicit default curve*. The pricer treats
+    ///   the underlying as having **zero continuous dividend yield**. This is
+    ///   correct for non-dividend-paying single stocks; for index options
+    ///   (typically ~2% yield) callers should set `div_yield_id` explicitly.
+    ///
+    /// If `discrete_dividends` is non-empty, an escrowed-dividend adjustment
+    /// is applied to spot and `q` is set to 0 internally regardless of
+    /// `div_yield_id`.
     pub div_yield_id: Option<CurveId>,
     /// Optional discrete dividend schedule for more accurate pricing.
     ///

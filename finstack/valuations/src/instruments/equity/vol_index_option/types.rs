@@ -89,7 +89,8 @@ use time::macros::date;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(deny_unknown_fields)]
+#[builder(validate = VolatilityIndexOption::validate)]
+#[serde(deny_unknown_fields, try_from = "VolatilityIndexOptionUnchecked")]
 pub struct VolatilityIndexOption {
     /// Unique identifier.
     pub id: InstrumentId,
@@ -167,6 +168,61 @@ impl VolIndexOptionSpecs {
     }
 }
 
+/// Mirror of `VolatilityIndexOption` used by serde to apply `validate()`
+/// after deserialization. Not part of the public API.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct VolatilityIndexOptionUnchecked {
+    id: InstrumentId,
+    notional: Money,
+    strike: f64,
+    option_type: OptionType,
+    #[serde(default)]
+    exercise_style: ExerciseStyle,
+    #[schemars(with = "String")]
+    expiry: Date,
+    #[serde(default)]
+    #[schemars(with = "Option<String>")]
+    settlement_date: Option<Date>,
+    #[serde(default)]
+    contract_specs: VolIndexOptionSpecs,
+    day_count: DayCount,
+    discount_curve_id: CurveId,
+    vol_index_curve_id: CurveId,
+    vol_of_vol_surface_id: CurveId,
+    #[serde(default)]
+    pricing_overrides: crate::instruments::PricingOverrides,
+    #[serde(default)]
+    attributes: Attributes,
+}
+
+impl TryFrom<VolatilityIndexOptionUnchecked> for VolatilityIndexOption {
+    type Error = finstack_core::Error;
+
+    fn try_from(
+        value: VolatilityIndexOptionUnchecked,
+    ) -> std::result::Result<Self, Self::Error> {
+        let inst = Self {
+            id: value.id,
+            notional: value.notional,
+            strike: value.strike,
+            option_type: value.option_type,
+            exercise_style: value.exercise_style,
+            expiry: value.expiry,
+            settlement_date: value.settlement_date,
+            contract_specs: value.contract_specs,
+            day_count: value.day_count,
+            discount_curve_id: value.discount_curve_id,
+            vol_index_curve_id: value.vol_index_curve_id,
+            vol_of_vol_surface_id: value.vol_of_vol_surface_id,
+            pricing_overrides: value.pricing_overrides,
+            attributes: value.attributes,
+        };
+        inst.validate()?;
+        Ok(inst)
+    }
+}
+
 impl VolatilityIndexOption {
     /// Create a canonical example VIX call option for testing.
     pub fn example() -> finstack_core::Result<Self> {
@@ -185,6 +241,44 @@ impl VolatilityIndexOption {
             .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
             .attributes(Attributes::new())
             .build()
+    }
+
+    /// Validate structural invariants required by the Black-model pricer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `strike` is non-positive or non-finite (Black formula needs `ln(F/K)`)
+    /// - `notional.amount()` is non-finite
+    /// - `contract_specs.multiplier` is non-positive or non-finite
+    /// - `settlement_date` is set but earlier than `expiry`
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if !self.strike.is_finite() || self.strike <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "VolatilityIndexOption strike must be finite and positive, got {}",
+                self.strike
+            )));
+        }
+        if !self.notional.amount().is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "VolatilityIndexOption notional amount must be finite".into(),
+            ));
+        }
+        if !self.contract_specs.multiplier.is_finite() || self.contract_specs.multiplier <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "VolatilityIndexOption contract_specs.multiplier must be finite and positive, got {}",
+                self.contract_specs.multiplier
+            )));
+        }
+        if let Some(settle) = self.settlement_date {
+            if settle < self.expiry {
+                return Err(finstack_core::Error::Validation(format!(
+                    "VolatilityIndexOption settlement_date {} must be on or after expiry {}",
+                    settle, self.expiry
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// Create a VIX call option.
@@ -694,5 +788,48 @@ mod tests {
             serde_json::from_str(&json).expect("json deserialization");
         assert_eq!(option.id, recovered.id);
         assert!((option.strike - recovered.strike).abs() < 1e-10);
+    }
+
+    fn base_builder() -> super::VolatilityIndexOptionBuilder {
+        VolatilityIndexOption::builder()
+            .id(InstrumentId::new("VIX-TEST"))
+            .notional(Money::new(10_000.0, Currency::USD))
+            .strike(20.0)
+            .option_type(OptionType::Call)
+            .expiry(date!(2025 - 03 - 19))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_index_curve_id(CurveId::new("VIX"))
+            .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
+    }
+
+    #[test]
+    fn builder_rejects_zero_strike() {
+        let result = base_builder().strike(0.0).build();
+        assert!(result.is_err(), "zero strike must be rejected");
+    }
+
+    #[test]
+    fn builder_rejects_negative_strike() {
+        let result = base_builder().strike(-1.0).build();
+        assert!(result.is_err(), "negative strike must be rejected");
+    }
+
+    #[test]
+    fn builder_rejects_non_finite_strike() {
+        let result = base_builder().strike(f64::NAN).build();
+        assert!(result.is_err(), "NaN strike must be rejected");
+    }
+
+    #[test]
+    fn builder_rejects_settlement_before_expiry() {
+        let result = base_builder()
+            .expiry(date!(2025 - 03 - 19))
+            .settlement_date_opt(Some(date!(2025 - 03 - 18)))
+            .build();
+        assert!(
+            result.is_err(),
+            "settlement_date earlier than expiry must be rejected"
+        );
     }
 }

@@ -38,18 +38,34 @@ pub(crate) fn compute_pv_raw(
     price_fair_value(future, market, as_of)
 }
 
-fn entry_contracts(future: &EquityIndexFuture) -> f64 {
-    let px = future.entry_price.unwrap_or(1.0).max(1e-12);
-    future.num_contracts(px)
+/// Resolve the entry price for an open position, erroring if absent.
+///
+/// `EquityIndexFuture::entry_price` is `Option<f64>` so that an unfilled
+/// order can be represented in the data model. Once you ask the pricer for
+/// PV, however, the entry price is mandatory: PV is mark-to-market minus
+/// entry, so a missing entry would silently default to zero and book the
+/// full quoted price as P&L.
+fn require_entry_price(future: &EquityIndexFuture) -> finstack_core::Result<f64> {
+    future.entry_price.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "EquityIndexFuture '{}' has no entry_price; PV requires it. \
+             Set `entry_price` to the trade fill, or remove the position from valuation.",
+            future.id.as_str()
+        ))
+    })
+}
+
+fn entry_contracts(future: &EquityIndexFuture, entry_price: f64) -> f64 {
+    future.num_contracts(entry_price.max(1e-12))
 }
 
 pub(crate) fn price_quoted(
     future: &EquityIndexFuture,
     quoted_price: f64,
 ) -> finstack_core::Result<f64> {
-    let entry = future.entry_price.unwrap_or(0.0);
+    let entry = require_entry_price(future)?;
     let price_diff = quoted_price - entry;
-    let contracts = entry_contracts(future);
+    let contracts = entry_contracts(future, entry);
     let pv = price_diff * future.contract_specs.multiplier * contracts * future.position_sign();
     Ok(pv)
 }
@@ -60,9 +76,9 @@ pub(crate) fn price_fair_value(
     as_of: Date,
 ) -> finstack_core::Result<f64> {
     let fair_value = fair_forward(future, market, as_of)?;
-    let entry = future.entry_price.unwrap_or(0.0);
+    let entry = require_entry_price(future)?;
     let price_diff = fair_value - entry;
-    let contracts = entry_contracts(future);
+    let contracts = entry_contracts(future, entry);
     let pv = price_diff * future.contract_specs.multiplier * contracts * future.position_sign();
     Ok(pv)
 }
@@ -165,6 +181,13 @@ impl Pricer for EquityIndexFutureDiscountingPricer {
         PricerKey::new(InstrumentType::EquityIndexFuture, ModelKey::Discounting)
     }
 
+    #[tracing::instrument(
+        name = "equity_index_future.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -180,7 +203,10 @@ impl Pricer for EquityIndexFutureDiscountingPricer {
             })?;
 
         let pv = compute_pv(future, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(future).model(ModelKey::Discounting),
+            )
         })?;
 
         // Return stamped result
@@ -382,5 +408,70 @@ mod tests {
         let via_instrument = future.value(&market, as_of).expect("instrument pv");
 
         assert_eq!(via_pricer, via_instrument);
+    }
+
+    /// Regression: previously, a missing `entry_price` silently defaulted to
+    /// 0.0, booking the full quoted price as P&L. The pricer must now reject.
+    #[test]
+    fn pricer_errors_when_entry_price_missing_with_quoted_price() {
+        use crate::instruments::common_impl::traits::Attributes;
+        use crate::instruments::equity::equity_index_future::EquityFutureSpecs;
+
+        let future = EquityIndexFuture::builder()
+            .id(InstrumentId::new("ES-NO-ENTRY"))
+            .underlying_ticker("SPX".to_string())
+            .notional(Money::new(2_250_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
+            .last_trading_date(
+                Date::from_calendar_date(2025, Month::June, 19).expect("valid date"),
+            )
+            .entry_price_opt(None)
+            .quoted_price_opt(Some(4550.0))
+            .position(Position::Long)
+            .contract_specs(EquityFutureSpecs::sp500_emini())
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .attributes(Attributes::new())
+            .build()
+            .expect("future should build (entry_price is optional in the data model)");
+
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let err = compute_pv(&future, &create_test_market(), as_of)
+            .expect_err("PV with missing entry_price must fail");
+        assert!(
+            err.to_string().contains("no entry_price"),
+            "error message should explain entry_price requirement: {}",
+            err
+        );
+    }
+
+    /// Same regression — fair-value path (no quoted_price) must also reject.
+    #[test]
+    fn pricer_errors_when_entry_price_missing_with_fair_value() {
+        use crate::instruments::common_impl::traits::Attributes;
+        use crate::instruments::equity::equity_index_future::EquityFutureSpecs;
+
+        let future = EquityIndexFuture::builder()
+            .id(InstrumentId::new("ES-NO-ENTRY-FAIR"))
+            .underlying_ticker("SPX".to_string())
+            .notional(Money::new(2_250_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::June, 20).expect("valid date"))
+            .last_trading_date(
+                Date::from_calendar_date(2025, Month::June, 19).expect("valid date"),
+            )
+            .entry_price_opt(None)
+            .quoted_price_opt(None)
+            .position(Position::Long)
+            .contract_specs(EquityFutureSpecs::sp500_emini())
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .attributes(Attributes::new())
+            .build()
+            .expect("future should build");
+
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let err = compute_pv(&future, &create_test_market(), as_of)
+            .expect_err("fair-value PV without entry must fail");
+        assert!(err.to_string().contains("no entry_price"));
     }
 }

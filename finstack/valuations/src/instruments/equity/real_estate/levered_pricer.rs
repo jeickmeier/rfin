@@ -209,6 +209,13 @@ impl Pricer for LeveredRealEstateDiscountingPricer {
         )
     }
 
+    #[tracing::instrument(
+        name = "real_estate.levered.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -225,7 +232,10 @@ impl Pricer for LeveredRealEstateDiscountingPricer {
                 )
             })?;
         let pv = compute_pv(inst, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(inst).model(ModelKey::Discounting),
+            )
         })?;
         Ok(ValuationResult::stamped(inst.id(), as_of, pv))
     }

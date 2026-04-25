@@ -31,16 +31,6 @@ impl AutocallableMcPricer {
         }
     }
 
-    fn merged_path_config(&self, inst: &Autocallable) -> PathDependentPricerConfig {
-        let mut c = self.config.clone();
-        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
-            if n > 0 {
-                c.num_paths = n;
-            }
-        }
-        c
-    }
-
     fn convert_final_payoff_type(ft: FinalPayoffType) -> McFinalPayoffType {
         match ft {
             FinalPayoffType::CapitalProtection { floor } => {
@@ -165,7 +155,10 @@ impl AutocallableMcPricer {
 
         use finstack_monte_carlo::seed;
 
-        let base_cfg = self.merged_path_config(inst);
+        let base_cfg = crate::instruments::common_impl::helpers::merged_path_config(
+            &self.config,
+            &inst.pricing_overrides,
+        )?;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
             seed::derive_seed(&inst.id, scenario)
@@ -201,6 +194,13 @@ impl Pricer for AutocallableMcPricer {
         PricerKey::new(InstrumentType::Autocallable, ModelKey::MonteCarloGBM)
     }
 
+    #[tracing::instrument(
+        name = "autocallable.mc.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -219,7 +219,8 @@ impl Pricer for AutocallableMcPricer {
             .map_err(|e| {
                 PricingError::model_failure_with_context(
                     e.to_string(),
-                    PricingErrorContext::default(),
+                    PricingErrorContext::from_instrument(autocallable)
+                        .model(ModelKey::MonteCarloGBM),
                 )
             })?;
 

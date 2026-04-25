@@ -9,9 +9,9 @@ crate::impl_equity_exotic_traits!(@mc_daycount CliquetOption);
 
 impl HasExpiry for CliquetOption {
     fn expiry(&self) -> finstack_core::dates::Date {
-        self.reset_dates
-            .last()
-            .copied()
-            .unwrap_or(self.reset_dates[0])
+        // Return the explicit expiry field. This stays consistent with
+        // `Instrument::expiry` and never panics when `reset_dates` is empty
+        // (e.g. corrupted state from a path that bypasses builder validation).
+        self.expiry
     }
 }

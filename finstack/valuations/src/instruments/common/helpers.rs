@@ -183,6 +183,90 @@ pub fn resolve_optional_dividend_yield(
     }
 }
 
+/// Workspace-wide Monte Carlo defaults and resource limits.
+///
+/// These are the single source of truth for MC pricers across the
+/// equity / exotics / commodities / FX modules; per-pricer overrides go
+/// through [`resolve_mc_paths`] so the upper bound is always enforced.
+pub mod mc_defaults {
+    /// Default Monte Carlo path count when no instrument override is supplied.
+    pub const DEFAULT_MC_PATHS: usize = 100_000;
+
+    /// Default time-grid resolution (steps per year) for daily-discretised
+    /// path-dependent pricers.
+    pub const DEFAULT_STEPS_PER_YEAR: f64 = 252.0;
+
+    /// Default Monte Carlo step count for rough-volatility pricers
+    /// (rough Heston, rough Bergomi). These models discretise fractional
+    /// Brownian motion and a fixed step count is more meaningful than a
+    /// time-density.
+    pub const DEFAULT_ROUGH_VOL_STEPS: usize = 100;
+
+    /// Hard ceiling on the number of MC paths a single pricer call is
+    /// allowed to allocate. Enforced by [`resolve_mc_paths`] to prevent a
+    /// malformed `pricing_overrides.model_config.mc_paths` (or a typo) from
+    /// taking down a pricing service via OOM.
+    ///
+    /// 5M paths × 8 bytes × ~10 floats per path state ≈ 400 MB — already a
+    /// concern in a multi-tenant pricing host; the cap is set conservatively
+    /// to reject anything obviously larger.
+    pub const MAX_MC_PATHS: usize = 5_000_000;
+}
+
+/// Resolve the effective Monte Carlo path count for a pricer call.
+///
+/// - If `override_paths` is `Some(n)` with `0 < n <= MAX_MC_PATHS`, returns `n`.
+/// - If `override_paths` is `Some(n)` with `n > MAX_MC_PATHS`, returns an
+///   error rather than silently clamping (silent clamps mask data errors and
+///   distort variance estimates).
+/// - If `override_paths` is `Some(0)` or `None`, returns `default`.
+///
+/// This is the single entry point all MC pricers should use to honour the
+/// per-instrument `pricing_overrides.model_config.mc_paths` knob.
+///
+/// # Errors
+///
+/// Returns `Validation` when the override exceeds `MAX_MC_PATHS`.
+#[inline]
+pub fn resolve_mc_paths(
+    override_paths: Option<usize>,
+    default: usize,
+) -> finstack_core::Result<usize> {
+    let n = match override_paths {
+        Some(n) if n > 0 => n,
+        _ => default,
+    };
+    if n > mc_defaults::MAX_MC_PATHS {
+        return Err(finstack_core::Error::Validation(format!(
+            "Monte Carlo path count {} exceeds workspace cap MAX_MC_PATHS = {}; \
+             reduce `pricing_overrides.model_config.mc_paths` or raise the cap.",
+            n,
+            mc_defaults::MAX_MC_PATHS
+        )));
+    }
+    Ok(n)
+}
+
+/// Apply the per-instrument `mc_paths` override (if any) to a base
+/// `PathDependentPricerConfig`, enforcing [`mc_defaults::MAX_MC_PATHS`].
+///
+/// Centralizes the merge logic shared by all path-dependent MC pricers
+/// (autocallable, cliquet, …).
+///
+/// # Errors
+///
+/// Returns `Validation` when the override exceeds `MAX_MC_PATHS`.
+#[inline]
+pub fn merged_path_config(
+    base: &finstack_monte_carlo::pricer::path_dependent::PathDependentPricerConfig,
+    overrides: &crate::instruments::PricingOverrides,
+) -> finstack_core::Result<finstack_monte_carlo::pricer::path_dependent::PathDependentPricerConfig>
+{
+    let mut c = base.clone();
+    c.num_paths = resolve_mc_paths(overrides.model_config.mc_paths, c.num_paths)?;
+    Ok(c)
+}
+
 /// Extract a unitless market scalar with a fallback default.
 ///
 /// Commonly used to fetch model parameters (e.g. Heston kappa, rough vol Hurst
@@ -363,6 +447,50 @@ mod tests {
     use finstack_core::types::CurveId;
     use std::any::Any;
     use std::sync::Arc;
+
+    #[test]
+    fn resolve_mc_paths_uses_default_when_override_missing() {
+        let n = resolve_mc_paths(None, 50_000).expect("default returned");
+        assert_eq!(n, 50_000);
+    }
+
+    #[test]
+    fn resolve_mc_paths_uses_default_when_override_is_zero() {
+        let n = resolve_mc_paths(Some(0), 50_000).expect("zero falls back");
+        assert_eq!(n, 50_000);
+    }
+
+    #[test]
+    fn resolve_mc_paths_honours_positive_override() {
+        let n = resolve_mc_paths(Some(123_456), 50_000).expect("override honoured");
+        assert_eq!(n, 123_456);
+    }
+
+    #[test]
+    fn resolve_mc_paths_rejects_override_above_cap() {
+        let too_many = mc_defaults::MAX_MC_PATHS + 1;
+        let err = resolve_mc_paths(Some(too_many), 50_000)
+            .expect_err("override above cap must error");
+        let msg = err.to_string();
+        assert!(msg.contains("MAX_MC_PATHS"));
+        assert!(msg.contains(&too_many.to_string()));
+    }
+
+    #[test]
+    fn resolve_mc_paths_accepts_override_at_cap() {
+        let at_cap = mc_defaults::MAX_MC_PATHS;
+        let n = resolve_mc_paths(Some(at_cap), 50_000).expect("exact cap is allowed");
+        assert_eq!(n, at_cap);
+    }
+
+    #[test]
+    fn resolve_mc_paths_rejects_default_above_cap() {
+        let too_many = mc_defaults::MAX_MC_PATHS + 1;
+        // Even when the default itself exceeds the cap (a programmer bug),
+        // we surface it rather than silently allocating.
+        let err = resolve_mc_paths(None, too_many).expect_err("default above cap must error");
+        assert!(err.to_string().contains("MAX_MC_PATHS"));
+    }
     use time::macros::date;
     use time::Duration;
 

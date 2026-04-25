@@ -15,6 +15,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
+use crate::instruments::common_impl::models::closed_form::heston::HestonParams as ClosedFormHestonParams;
 use crate::instruments::common_impl::models::pde::{Grid1D, Grid2D, HestonPde, Solver2D};
 use crate::instruments::common_impl::parameters::OptionType;
 
@@ -43,8 +44,6 @@ impl Default for EquityOptionHestonPdePricer {
     }
 }
 
-use crate::instruments::common_impl::helpers::get_unitless_scalar;
-
 impl EquityOptionHestonPdePricer {
     /// Price the equity option via the 2D Heston PDE.
     fn price_internal(
@@ -54,7 +53,7 @@ impl EquityOptionHestonPdePricer {
         as_of: Date,
     ) -> Result<Money, PricingError> {
         let inputs = collect_inputs_extended(inst, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D))
         })?;
         let spot = inputs.spot;
         let r = inputs.r;
@@ -70,39 +69,24 @@ impl EquityOptionHestonPdePricer {
             return Ok(Money::new(intrinsic * inst.notional.amount(), ccy));
         }
 
-        // Fetch Heston parameters from market data (same convention as Fourier pricer)
-        let kappa = get_unitless_scalar(market, "HESTON_KAPPA", 2.0);
-        let theta_v = get_unitless_scalar(market, "HESTON_THETA", 0.04);
-        let sigma_v = get_unitless_scalar(market, "HESTON_SIGMA_V", 0.3);
-        let rho = get_unitless_scalar(market, "HESTON_RHO", -0.7);
-        let v0 = get_unitless_scalar(market, "HESTON_V0", 0.04);
-
-        // Validate Heston parameters
-        if kappa <= 0.0 || theta_v <= 0.0 || sigma_v <= 0.0 || v0 <= 0.0 {
-            return Err(PricingError::model_failure_with_context(
-                format!(
-                    "Invalid Heston parameters: kappa={kappa}, theta={theta_v}, \
-                     sigma_v={sigma_v}, v0={v0} — all must be positive"
-                ),
-                PricingErrorContext::default(),
-            ));
-        }
-        if rho <= -1.0 || rho >= 1.0 {
-            return Err(PricingError::model_failure_with_context(
-                format!("Invalid Heston correlation rho={rho} — must be in (-1, 1)"),
-                PricingErrorContext::default(),
-            ));
-        }
+        // Heston parameters: source from market scalars and fall back to
+        // centralized defaults; validation (positive κ/θ/σᵥ/v₀, ρ ∈ (−1, 1))
+        // is enforced by `HestonParams::from_market`.
+        let cf_params = ClosedFormHestonParams::from_market(market, r, q).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D))
+        })?;
+        let theta_v = cf_params.theta;
+        let v0 = cf_params.v0;
 
         let is_call = matches!(inst.option_type, OptionType::Call);
 
         let pde = HestonPde {
-            r,
-            q,
-            kappa,
-            theta_v,
-            sigma_v,
-            rho,
+            r: cf_params.r,
+            q: cf_params.q,
+            kappa: cf_params.kappa,
+            theta_v: cf_params.theta,
+            sigma_v: cf_params.sigma_v,
+            rho: cf_params.rho,
             strike: inst.strike,
             is_call,
         };
@@ -114,7 +98,7 @@ impl EquityOptionHestonPdePricer {
             .map_err(|e| {
                 PricingError::model_failure_with_context(
                     e.to_string(),
-                    PricingErrorContext::default(),
+                    PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D),
                 )
             })?;
 
@@ -125,7 +109,7 @@ impl EquityOptionHestonPdePricer {
             .map_err(|e| {
                 PricingError::model_failure_with_context(
                     e.to_string(),
-                    PricingErrorContext::default(),
+                    PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D),
                 )
             })?;
 
@@ -138,7 +122,7 @@ impl EquityOptionHestonPdePricer {
             .map_err(|e| {
                 PricingError::model_failure_with_context(
                     e.to_string(),
-                    PricingErrorContext::default(),
+                    PricingErrorContext::from_instrument(inst).model(ModelKey::PdeAdi2D),
                 )
             })?;
 
@@ -154,6 +138,13 @@ impl Pricer for EquityOptionHestonPdePricer {
         PricerKey::new(InstrumentType::EquityOption, ModelKey::PdeAdi2D)
     }
 
+    #[tracing::instrument(
+        name = "equity_option.heston_pde2d.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,

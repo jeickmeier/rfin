@@ -44,8 +44,9 @@ fn test_get_historical_prices_falls_back_to_spot_scalar() {
 }
 
 #[test]
-fn test_get_historical_prices_returns_empty_if_no_data() {
-    // Arrange
+fn test_get_historical_prices_errors_when_past_observations_lack_data() {
+    // Arrange: market with no series and no spot; valuing at maturity so
+    // the swap has accrued past observations.
     let swap = sample_swap(PayReceive::Receive);
     let ctx = MarketContext::new().insert(
         finstack_core::market_data::term_structures::DiscountCurve::builder(DISC_ID)
@@ -56,7 +57,35 @@ fn test_get_historical_prices_returns_empty_if_no_data() {
     );
 
     // Act
-    let extracted = swap.get_historical_prices(&ctx, swap.maturity).unwrap();
+    let err = swap
+        .get_historical_prices(&ctx, swap.maturity)
+        .expect_err("missing historical data must error, not silently mark to zero realised variance");
+
+    // Assert
+    let msg = err.to_string();
+    assert!(
+        msg.contains("no historical price data") || msg.contains("realised variance"),
+        "expected explicit data-availability error, got: {}",
+        msg
+    );
+}
+
+#[test]
+fn test_get_historical_prices_returns_empty_before_swap_starts() {
+    // Arrange: market with no series and no spot, but valuing BEFORE the
+    // swap starts so there are no past observations.
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = MarketContext::new().insert(
+        finstack_core::market_data::term_structures::DiscountCurve::builder(DISC_ID)
+            .base_date(swap.start_date)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .build()
+            .unwrap(),
+    );
+
+    // Act: as_of one day before start_date — no past observations expected
+    let pre_start = swap.start_date - time::Duration::days(1);
+    let extracted = swap.get_historical_prices(&ctx, pre_start).unwrap();
 
     // Assert
     assert!(extracted.is_empty());

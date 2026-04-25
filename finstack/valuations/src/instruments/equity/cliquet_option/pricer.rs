@@ -124,16 +124,6 @@ impl CliquetOptionMcPricer {
         }
     }
 
-    fn merged_path_config(&self, inst: &CliquetOption) -> PathDependentPricerConfig {
-        let mut c = self.config.clone();
-        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
-            if n > 0 {
-                c.num_paths = n;
-            }
-        }
-        c
-    }
-
     /// Price a cliquet option using Monte Carlo.
     fn price_internal(
         &self,
@@ -219,51 +209,48 @@ impl CliquetOptionMcPricer {
             check_points.push(t);
         }
 
+        // Hoist loop-invariant year fractions out of the per-period loop:
+        // disc_curve.df(t) takes a curve-time relative to base_date, so we
+        // need t_curve = year_fraction(base_date, as_of) + period_offset.
+        let t_base_to_as_of = disc_curve.day_count().year_fraction(
+            disc_curve.base_date(),
+            as_of,
+            DayCountContext::default(),
+        )?;
+        let df_base_to_as_of = disc_curve.df(t_base_to_as_of);
+
         for &curr_t in &check_points {
             if curr_t <= prev_t {
                 continue;
             }
 
-            // Forward Rate
-            // df(prev_t) / df(curr_t) = exp(r * (curr_t - prev_t))
-            // r = ln(df_prev / df_curr) / dt
-            let t_prev_curve = disc_curve.day_count().year_fraction(
-                disc_curve.base_date(),
-                as_of,
-                DayCountContext::default(),
-            )? + prev_t;
-            let t_curr_curve = disc_curve.day_count().year_fraction(
-                disc_curve.base_date(),
-                as_of,
-                DayCountContext::default(),
-            )? + curr_t;
-
-            let df_prev = disc_curve.df(t_prev_curve);
-            let df_curr = disc_curve.df(t_curr_curve);
+            let df_prev = disc_curve.df(t_base_to_as_of + prev_t);
+            let df_curr = disc_curve.df(t_base_to_as_of + curr_t);
             let dt = curr_t - prev_t;
 
-            let fwd_r = if dt > 1e-6 && df_curr > 0.0 {
-                (df_prev / df_curr).ln() / dt
-            } else {
-                0.0 // Fallback
-            };
+            // Forward rate over [prev_t, curr_t] using df_prev / df_curr.
+            // Reject degenerate curve data instead of silently using r=0.
+            if df_curr <= 0.0 || !df_curr.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CliquetOption: discount factor at t={} is non-positive ({}); \
+                     curve '{}' is degenerate or extrapolated past its valid range",
+                    curr_t, df_curr, inst.discount_curve_id
+                )));
+            }
+            if dt <= 1e-6 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "CliquetOption: degenerate time step dt={} between periods at \
+                     t_prev={} and t_curr={}; check that reset_dates are distinct",
+                    dt, prev_t, curr_t
+                )));
+            }
+            let fwd_r = (df_prev / df_curr).ln() / dt;
 
-            // Forward Volatility
-            // Look up volatility at the Forward price, not initial spot.
-            // F(0, t) = S_0 * exp(-q*t) / DF(t) (approximated if r is stochastic, but here deterministic)
-            // F(0, t) = S_0 * exp(-q*t) / df_curr (where df_curr is P(0, t))
-            // Actually, we need F(0, curr_t) for the volatility lookup at curr_t
-            // This is the standard ATM Forward Volatility.
-            let forward_price = if df_curr > 0.0 {
-                initial_spot * (-div_yield * curr_t).exp() / df_curr
-                    * disc_curve.df(disc_curve.day_count().year_fraction(
-                        disc_curve.base_date(),
-                        as_of,
-                        DayCountContext::default(),
-                    )?)
-            } else {
-                initial_spot
-            };
+            // ATM forward price for vol surface lookup:
+            //   F(0, curr_t) = S_0 * exp(-q*curr_t) / DF(as_of, curr_t)
+            //   DF(as_of, curr_t) = df_curr / df_base_to_as_of
+            let forward_price =
+                initial_spot * (-div_yield * curr_t).exp() / df_curr * df_base_to_as_of;
 
             let vol_curr = if let Some(iv) = inst.pricing_overrides.market_quotes.implied_volatility
             {
@@ -274,7 +261,7 @@ impl CliquetOptionMcPricer {
             let var_curr = vol_curr * vol_curr * curr_t;
 
             let fwd_var = var_curr - prev_var;
-            let fwd_sigma = if fwd_var > 0.0 && dt > 1e-6 {
+            let fwd_sigma = if fwd_var > 0.0 {
                 (fwd_var / dt).sqrt()
             } else {
                 vol_curr
@@ -363,7 +350,10 @@ impl CliquetOptionMcPricer {
             payoff_type,
         )?;
 
-        let merged_cfg = self.merged_path_config(inst);
+        let merged_cfg = crate::instruments::common_impl::helpers::merged_path_config(
+            &self.config,
+            &inst.pricing_overrides,
+        )?;
         let engine_config = McEngineConfig {
             num_paths: merged_cfg.num_paths,
             seed,
@@ -380,11 +370,9 @@ impl CliquetOptionMcPricer {
         let disc = PiecewiseExactGbm::new();
         let initial_state = vec![initial_spot];
 
-        let maturity_date = inst
-            .reset_dates
-            .last()
-            .copied()
-            .unwrap_or(inst.reset_dates[0]);
+        // Use the contract expiry rather than indexing reset_dates so this
+        // remains panic-free if reset_dates is somehow empty here.
+        let maturity_date = inst.reset_dates.last().copied().unwrap_or(inst.expiry);
         let discount_factor = disc_curve.df_between_dates(as_of, maturity_date)?;
 
         let result = engine.price(
@@ -412,6 +400,13 @@ impl Pricer for CliquetOptionMcPricer {
         PricerKey::new(InstrumentType::CliquetOption, ModelKey::MonteCarloGBM)
     }
 
+    #[tracing::instrument(
+        name = "cliquet_option.mc.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common_impl::traits::Instrument,
@@ -426,7 +421,10 @@ impl Pricer for CliquetOptionMcPricer {
             })?;
 
         let pv = self.price_internal(cliquet, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(cliquet).model(ModelKey::MonteCarloGBM),
+            )
         })?;
 
         Ok(ValuationResult::stamped(cliquet.id(), as_of, pv))

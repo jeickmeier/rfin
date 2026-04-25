@@ -226,6 +226,13 @@ impl Pricer for VolIndexOptionDiscountingPricer {
         PricerKey::new(InstrumentType::VolatilityIndexOption, ModelKey::Discounting)
     }
 
+    #[tracing::instrument(
+        name = "vol_index_option.discounting.price_dyn",
+        level = "debug",
+        skip(self, instrument, market),
+        fields(inst_id = %instrument.id(), as_of = %as_of),
+        err,
+    )]
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -239,7 +246,10 @@ impl Pricer for VolIndexOptionDiscountingPricer {
                 PricingError::type_mismatch(InstrumentType::VolatilityIndexOption, instrument.key())
             })?;
         let pv = compute_pv(option, market, as_of).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+            PricingError::model_failure_with_context(
+                e.to_string(),
+                PricingErrorContext::from_instrument(option).model(ModelKey::Discounting),
+            )
         })?;
         Ok(ValuationResult::stamped(option.id(), as_of, pv))
     }
