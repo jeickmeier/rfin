@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core" }
+finstack-analytics = { path = "../analytics" }
 finstack-cashflows = { path = "../cashflows" }
 finstack-margin = { path = "../margin" }
 finstack-monte-carlo = { path = "../monte_carlo", default-features = false }

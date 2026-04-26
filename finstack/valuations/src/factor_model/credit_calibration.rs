@@ -42,10 +42,9 @@
 //!
 //! # Determinism note on OLS
 //!
-//! We do not depend on the `finstack-analytics` crate (would require a new
-//! `Cargo.toml` dependency, prohibited by the PR contract). Instead the OLS
-//! slope `β = Cov(y, x) / Var(x)` is computed in-place by [`ols_slope`], which
-//! mirrors the math used by `finstack_analytics::benchmark::beta`.
+//! The OLS slope `β = Cov(y, x) / Var(x)` is delegated to
+//! `finstack_analytics::benchmark::beta`, which implements the same math
+//! and is deterministic for the same input slice.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -64,7 +63,7 @@ use finstack_core::factor_model::{
     MarketMapping, MatchingConfig, PricingMode,
 };
 use finstack_core::market_data::bumps::BumpUnits;
-use finstack_core::types::{CurveId, IssuerId};
+use finstack_core::types::IssuerId;
 
 use crate::error::{Error, Result};
 
@@ -920,8 +919,9 @@ fn apply_shrinkage(rule: &BetaShrinkage, beta_fit: f64) -> f64 {
 /// OLS slope on aligned valid pairs of `(y_i, x_i)` where `y` is a sparse
 /// `Option<f64>` series and `x` is dense.
 ///
-/// Returns `None` if fewer than 3 valid pairs are available, matching the
-/// `n < 3` early-out semantics of `finstack_analytics::benchmark::beta`.
+/// Collects valid pairs, then delegates to
+/// `finstack_analytics::benchmark::beta`.  Returns `None` if fewer than 3
+/// valid pairs are available (mirrors the `n < 3` `NaN` return of `beta`).
 fn ols_slope(y: &[Option<f64>], x: &[f64]) -> Option<f64> {
     let mut xs = Vec::new();
     let mut ys = Vec::new();
@@ -931,13 +931,18 @@ fn ols_slope(y: &[Option<f64>], x: &[f64]) -> Option<f64> {
             ys.push(*v);
         }
     }
-    if xs.len() < 3 {
-        return None;
+    let result = finstack_analytics::benchmark::beta(&ys, &xs);
+    if result.beta.is_nan() {
+        None
+    } else {
+        Some(result.beta)
     }
-    ols_slope_dense(&ys, &xs)
 }
 
 /// OLS slope when both series are sparse; align on positions where both are `Some`.
+///
+/// Delegates to `finstack_analytics::benchmark::beta` after collecting the
+/// valid pairs.  Returns `None` when fewer than 3 joint observations exist.
 fn ols_slope_owned(y: &[Option<f64>], x: &[Option<f64>]) -> Option<f64> {
     let mut xs = Vec::new();
     let mut ys = Vec::new();
@@ -947,34 +952,11 @@ fn ols_slope_owned(y: &[Option<f64>], x: &[Option<f64>]) -> Option<f64> {
             xs.push(*xv);
         }
     }
-    if xs.len() < 3 {
-        return None;
-    }
-    ols_slope_dense(&ys, &xs)
-}
-
-/// Plain `Cov(y, x) / Var(x)` slope on dense aligned series.
-fn ols_slope_dense(y: &[f64], x: &[f64]) -> Option<f64> {
-    let n = y.len();
-    if n != x.len() || n < 3 {
-        return None;
-    }
-    let nf = n as f64;
-    let mean_x = x.iter().sum::<f64>() / nf;
-    let mean_y = y.iter().sum::<f64>() / nf;
-    let mut cov = 0.0;
-    let mut var_x = 0.0;
-    for i in 0..n {
-        let dx = x[i] - mean_x;
-        cov += dx * (y[i] - mean_y);
-        var_x += dx * dx;
-    }
-    if var_x <= 0.0 {
-        // Zero variance benchmark — slope is undefined; signal with None
-        // and let the caller fall back to 1.0.
+    let result = finstack_analytics::benchmark::beta(&ys, &xs);
+    if result.beta.is_nan() {
         None
     } else {
-        Some(cov / var_x)
+        Some(result.beta)
     }
 }
 
@@ -1197,15 +1179,14 @@ fn assemble_factor_model_config(
     // Build factor definitions (every factor is Credit / CurveParallel placeholder).
     let mut factors = Vec::with_capacity(factor_id_order.len());
     for fid in factor_id_order {
-        // The placeholder market mapping is a CurveParallel on a curve named
-        // after the factor itself. PR-7+ wires real market mappings; for
-        // PR-4 the artifact only needs the structure for serde to round-trip.
-        let curve_id = CurveId::new(fid.as_str().to_owned());
+        // PR-4: empty curve_ids is an honest no-op. PR-8a (waterfall + parallel
+        // attribution) will replace this with real curve mappings via the credit
+        // hierarchical matcher.
         factors.push(FactorDefinition {
             id: fid.clone(),
             factor_type: FactorType::Credit,
             market_mapping: MarketMapping::CurveParallel {
-                curve_ids: vec![curve_id],
+                curve_ids: vec![],
                 units: BumpUnits::RateBp,
             },
             description: None,
