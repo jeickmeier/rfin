@@ -34,15 +34,21 @@ impl fmt::Display for PricingMode {
     }
 }
 
+impl crate::parse::NormalizedEnum for PricingMode {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("delta_based", Self::DeltaBased),
+        ("deltabased", Self::DeltaBased),
+        ("full_repricing", Self::FullRepricing),
+        ("fullrepricing", Self::FullRepricing),
+    ];
+}
+
 impl FromStr for PricingMode {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match crate::parse::normalize_label(s).as_str() {
-            "delta_based" | "deltabased" => Ok(Self::DeltaBased),
-            "full_repricing" | "fullrepricing" => Ok(Self::FullRepricing),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 

@@ -301,19 +301,26 @@ impl std::fmt::Display for RealizedVarMethod {
     }
 }
 
+impl crate::parse::NormalizedEnum for RealizedVarMethod {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("close_to_close", Self::CloseToClose),
+        ("close", Self::CloseToClose),
+        ("closetoclose", Self::CloseToClose),
+        ("parkinson", Self::Parkinson),
+        ("garman_klass", Self::GarmanKlass),
+        ("garmanklass", Self::GarmanKlass),
+        ("rogers_satchell", Self::RogersSatchell),
+        ("rogerssatchell", Self::RogersSatchell),
+        ("yang_zhang", Self::YangZhang),
+        ("yangzhang", Self::YangZhang),
+    ];
+}
+
 impl std::str::FromStr for RealizedVarMethod {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = crate::parse::normalize_label(s);
-        match n.as_str() {
-            "close_to_close" | "close" | "closetoclose" => Ok(RealizedVarMethod::CloseToClose),
-            "parkinson" => Ok(RealizedVarMethod::Parkinson),
-            "garman_klass" | "garmanklass" => Ok(RealizedVarMethod::GarmanKlass),
-            "rogers_satchell" | "rogerssatchell" => Ok(RealizedVarMethod::RogersSatchell),
-            "yang_zhang" | "yangzhang" => Ok(RealizedVarMethod::YangZhang),
-            other => Err(format!("unknown RealizedVarMethod: {other}")),
-        }
+        crate::parse::parse_normalized_enum(s)
     }
 }
 

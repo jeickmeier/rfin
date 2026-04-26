@@ -150,17 +150,22 @@ impl std::fmt::Display for ExtrapolationPolicy {
     }
 }
 
+impl crate::parse::NormalizedEnum for ExtrapolationPolicy {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("flat_zero", Self::FlatZero),
+        ("flatzero", Self::FlatZero),
+        ("flat", Self::FlatZero),
+        ("flat_forward", Self::FlatForward),
+        ("flatforward", Self::FlatForward),
+        ("none", Self::None),
+    ];
+}
+
 impl std::str::FromStr for ExtrapolationPolicy {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = crate::parse::normalize_label(s);
-        match n.as_str() {
-            "flat_zero" | "flatzero" | "flat" => Ok(ExtrapolationPolicy::FlatZero),
-            "flat_forward" | "flatforward" => Ok(ExtrapolationPolicy::FlatForward),
-            "none" => Ok(ExtrapolationPolicy::None),
-            other => Err(format!("unknown ExtrapolationPolicy: {other}")),
-        }
+        crate::parse::parse_normalized_enum(s)
     }
 }
 
@@ -181,21 +186,28 @@ impl std::fmt::Display for InterpStyle {
     }
 }
 
+impl crate::parse::NormalizedEnum for InterpStyle {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("linear", Self::Linear),
+        ("log_linear", Self::LogLinear),
+        ("loglinear", Self::LogLinear),
+        ("flat_fwd", Self::LogLinear),
+        ("flat_forward", Self::LogLinear),
+        ("monotone_convex", Self::MonotoneConvex),
+        ("monotoneconvex", Self::MonotoneConvex),
+        ("cubic_hermite", Self::CubicHermite),
+        ("cubichermite", Self::CubicHermite),
+        ("piecewise_quadratic_forward", Self::PiecewiseQuadraticForward),
+        ("piecewise_quadratic", Self::PiecewiseQuadraticForward),
+        ("pqf", Self::PiecewiseQuadraticForward),
+    ];
+}
+
 impl std::str::FromStr for InterpStyle {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = crate::parse::normalize_label(s);
-        match n.as_str() {
-            "linear" => Ok(InterpStyle::Linear),
-            "log_linear" | "loglinear" | "flat_fwd" | "flat_forward" => Ok(InterpStyle::LogLinear),
-            "monotone_convex" | "monotoneconvex" => Ok(InterpStyle::MonotoneConvex),
-            "cubic_hermite" | "cubichermite" => Ok(InterpStyle::CubicHermite),
-            "piecewise_quadratic_forward" | "piecewise_quadratic" | "pqf" => {
-                Ok(InterpStyle::PiecewiseQuadraticForward)
-            }
-            other => Err(format!("unknown InterpStyle: {other}")),
-        }
+        crate::parse::parse_normalized_enum(s)
     }
 }
 

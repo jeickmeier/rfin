@@ -31,18 +31,24 @@ impl fmt::Display for CurveType {
     }
 }
 
+impl crate::parse::NormalizedEnum for CurveType {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("discount", Self::Discount),
+        ("forward", Self::Forward),
+        ("hazard", Self::Hazard),
+        ("credit", Self::Hazard),
+        ("inflation", Self::Inflation),
+        ("base_correlation", Self::BaseCorrelation),
+        ("basecorrelation", Self::BaseCorrelation),
+    ];
+}
+
 impl FromStr for CurveType {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match crate::parse::normalize_label(s).as_str() {
-            "discount" => Ok(Self::Discount),
-            "forward" => Ok(Self::Forward),
-            "hazard" | "credit" => Ok(Self::Hazard),
-            "inflation" => Ok(Self::Inflation),
-            "base_correlation" | "basecorrelation" => Ok(Self::BaseCorrelation),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 
@@ -79,20 +85,31 @@ impl fmt::Display for DependencyType {
     }
 }
 
+impl crate::parse::NormalizedEnum for DependencyType {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("discount", Self::Discount),
+        ("forward", Self::Forward),
+        ("credit", Self::Credit),
+        ("spot", Self::Spot),
+        ("price", Self::Spot),
+        ("scalar", Self::Spot),
+        ("vol", Self::Vol),
+        ("volsurface", Self::Vol),
+        ("vol_surface", Self::Vol),
+        ("volatility", Self::Vol),
+        ("fx", Self::Fx),
+        ("series", Self::Series),
+        ("dividend", Self::Series),
+        ("div", Self::Series),
+    ];
+}
+
 impl FromStr for DependencyType {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match crate::parse::normalize_label(s).as_str() {
-            "discount" => Ok(Self::Discount),
-            "forward" => Ok(Self::Forward),
-            "credit" => Ok(Self::Credit),
-            "spot" | "price" | "scalar" => Ok(Self::Spot),
-            "vol" | "volsurface" | "vol_surface" | "volatility" => Ok(Self::Vol),
-            "fx" => Ok(Self::Fx),
-            "series" | "dividend" | "div" => Ok(Self::Series),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 

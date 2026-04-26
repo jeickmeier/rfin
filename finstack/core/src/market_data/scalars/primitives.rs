@@ -58,16 +58,19 @@ impl std::fmt::Display for SeriesInterpolation {
     }
 }
 
+impl crate::parse::NormalizedEnum for SeriesInterpolation {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("step", Self::Step),
+        ("linear", Self::Linear),
+    ];
+}
+
 impl std::str::FromStr for SeriesInterpolation {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let normalized = crate::parse::normalize_label(s);
-        match normalized.as_str() {
-            "step" => Ok(Self::Step),
-            "linear" => Ok(Self::Linear),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 

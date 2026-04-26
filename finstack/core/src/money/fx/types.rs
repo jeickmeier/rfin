@@ -23,9 +23,16 @@ pub enum FxConversionPolicy {
     Custom,
 }
 
-/// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
-fn normalize_label(s: &str) -> String {
-    s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
+impl crate::parse::NormalizedEnum for FxConversionPolicy {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("cashflow_date", Self::CashflowDate),
+        ("cashflow", Self::CashflowDate),
+        ("period_end", Self::PeriodEnd),
+        ("end", Self::PeriodEnd),
+        ("period_average", Self::PeriodAverage),
+        ("average", Self::PeriodAverage),
+        ("custom", Self::Custom),
+    ];
 }
 
 impl std::fmt::Display for FxConversionPolicy {
@@ -43,13 +50,8 @@ impl std::str::FromStr for FxConversionPolicy {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match normalize_label(s).as_str() {
-            "cashflow_date" | "cashflow" => Ok(Self::CashflowDate),
-            "period_end" | "end" => Ok(Self::PeriodEnd),
-            "period_average" | "average" => Ok(Self::PeriodAverage),
-            "custom" => Ok(Self::Custom),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 
