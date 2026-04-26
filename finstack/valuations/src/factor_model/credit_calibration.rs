@@ -55,6 +55,9 @@ use finstack_core::factor_model::credit_hierarchy::{
     GenericFactorSpec, IdiosyncraticVolModel, IssuerBetaMode, IssuerBetaOverride, IssuerBetaPolicy,
     IssuerBetaRow, IssuerBetas, IssuerTags, LevelAnchor, LevelsAtAnchor, VolState,
 };
+
+use crate::correlation::nearest_correlation::{nearest_correlation_matrix, NearestCorrelationOpts};
+use crate::correlation::validate_correlation_matrix;
 use finstack_core::factor_model::matching::{
     bucket_factor_id, CreditHierarchicalConfig, CREDIT_GENERIC_FACTOR_ID,
 };
@@ -283,15 +286,7 @@ impl CreditCalibrator {
                 ));
             }
         }
-        match self.config.covariance_strategy {
-            CovarianceStrategy::Diagonal => {}
-            CovarianceStrategy::Ridge { .. } | CovarianceStrategy::FullSampleRepaired => {
-                return Err(validation_err(
-                    "PR-4 calibrator supports CovarianceStrategy::Diagonal only; \
-                     Ridge/FullSampleRepaired are deferred to PR-5b",
-                ));
-            }
-        }
+        // All CovarianceStrategy variants are now supported (PR-5b).
 
         // -- Structural validation of inputs. -------------------------------
         let dates = &inputs.history_panel.dates;
@@ -436,17 +431,18 @@ impl CreditCalibrator {
         // BTreeMap iteration is already sorted by issuer_id, but be defensive.
         issuer_betas.sort_by(|a, b| a.issuer_id.as_str().cmp(b.issuer_id.as_str()));
 
-        // -- 9. Static correlation = identity. ------------------------------
+        // -- 9. Correlation matrix and covariance assembly. -----------------
         let factor_id_order =
             build_factor_id_order(&self.config.hierarchy, &peel_outcome.factor_returns);
-        let static_correlation = FactorCorrelationMatrix::identity(factor_id_order.clone());
 
         // -- 10. Assemble FactorModelConfig. --------------------------------
-        let config = assemble_factor_model_config(
+        let (static_correlation, config) = assemble_factor_model_config(
             &factor_id_order,
             &factor_variances,
+            &peel_outcome.factor_returns,
             &self.config.hierarchy,
             &issuer_betas,
+            self.config.covariance_strategy,
         )?;
 
         // -- 11. Diagnostics. -----------------------------------------------
@@ -1337,12 +1333,17 @@ fn build_factor_id_order(
     order
 }
 
+/// Assemble `(FactorCorrelationMatrix, FactorModelConfig)` for a given strategy.
+///
+/// Returns the static correlation matrix and the covariance-embedded config.
 fn assemble_factor_model_config(
     factor_id_order: &[FactorId],
     factor_variances: &BTreeMap<FactorId, f64>,
+    factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,
     hierarchy: &CreditHierarchySpec,
     issuer_betas: &[IssuerBetaRow],
-) -> Result<FactorModelConfig> {
+    strategy: CovarianceStrategy,
+) -> Result<(FactorCorrelationMatrix, FactorModelConfig)> {
     // Build factor definitions (every factor is Credit / CurveParallel placeholder).
     let mut factors = Vec::with_capacity(factor_id_order.len());
     for fid in factor_id_order {
@@ -1360,17 +1361,72 @@ fn assemble_factor_model_config(
         });
     }
 
-    // Diagonal covariance: data is a flat n*n vector with σ² on the diagonal.
-    // `factor_variances` values are already annualized variances (not std devs);
-    // they are placed directly on the diagonal of Σ.
     let n = factor_id_order.len();
-    let mut data = vec![0.0_f64; n * n];
-    for (i, fid) in factor_id_order.iter().enumerate() {
-        let var = factor_variances.get(fid).copied().unwrap_or(0.0);
-        // Floor at 0.0 to keep PSD even when sample variance is exactly zero.
-        data[i * n + i] = var.max(0.0);
-    }
-    let covariance = FactorCovarianceMatrix::new(factor_id_order.to_vec(), data)
+
+    // Per-factor standard deviations (sqrt of annualized variances).
+    let stds: Vec<f64> = factor_id_order
+        .iter()
+        .map(|fid| {
+            let var = factor_variances.get(fid).copied().unwrap_or(0.0).max(0.0);
+            var.sqrt()
+        })
+        .collect();
+
+    let (static_correlation, cov_data) = match strategy {
+        CovarianceStrategy::Diagonal => {
+            // Identity correlation; Σ = diag(σ²).
+            let corr = FactorCorrelationMatrix::identity(factor_id_order.to_vec());
+            let mut data = vec![0.0_f64; n * n];
+            for (i, fid) in factor_id_order.iter().enumerate() {
+                let var = factor_variances.get(fid).copied().unwrap_or(0.0);
+                data[i * n + i] = var.max(0.0);
+            }
+            (corr, data)
+        }
+        CovarianceStrategy::Ridge { alpha } => {
+            // Sample correlation ρ; Σ = D·ρ·D + α·I.
+            let rho_flat = sample_correlation_flat(factor_id_order, factor_returns);
+            let corr_data = flat_to_row_major(&rho_flat, n);
+            let corr =
+                FactorCorrelationMatrix::new(factor_id_order.to_vec(), corr_data).map_err(|e| {
+                    validation_err(format!(
+                        "Ridge: sample correlation is not a valid correlation matrix: {e}"
+                    ))
+                })?;
+            // Σ = D·ρ·D + α·I (row-major flat).
+            let mut data = d_rho_d(&stds, &rho_flat, n);
+            for i in 0..n {
+                data[i * n + i] += alpha;
+            }
+            (corr, data)
+        }
+        CovarianceStrategy::FullSampleRepaired => {
+            // Sample correlation ρ; repair if not PSD; Σ = D·ρ_repaired·D.
+            let rho_flat = sample_correlation_flat(factor_id_order, factor_returns);
+            // Check if already PSD; repair if not.
+            let rho_repaired = if validate_correlation_matrix(&rho_flat, n).is_ok() {
+                rho_flat
+            } else {
+                nearest_correlation_matrix(&rho_flat, n, NearestCorrelationOpts::default())
+                    .map_err(|e| {
+                        validation_err(format!(
+                            "FullSampleRepaired: nearest_correlation_matrix failed: {e}"
+                        ))
+                    })?
+            };
+            let corr_data = flat_to_row_major(&rho_repaired, n);
+            let corr =
+                FactorCorrelationMatrix::new(factor_id_order.to_vec(), corr_data).map_err(|e| {
+                    validation_err(format!(
+                        "FullSampleRepaired: repaired correlation is not valid: {e}"
+                    ))
+                })?;
+            let data = d_rho_d(&stds, &rho_repaired, n);
+            (corr, data)
+        }
+    };
+
+    let covariance = FactorCovarianceMatrix::new(factor_id_order.to_vec(), cov_data)
         .map_err(|e| validation_err(format!("FactorCovarianceMatrix::new failed: {e}")))?;
 
     let matching = MatchingConfig::CreditHierarchical(CreditHierarchicalConfig {
@@ -1379,7 +1435,7 @@ fn assemble_factor_model_config(
         issuer_betas: issuer_betas.to_vec(),
     });
 
-    Ok(FactorModelConfig {
+    let config = FactorModelConfig {
         factors,
         covariance,
         matching,
@@ -1387,7 +1443,98 @@ fn assemble_factor_model_config(
         risk_measure: Default::default(),
         bump_size: None,
         unmatched_policy: None,
-    })
+    };
+
+    Ok((static_correlation, config))
+}
+
+/// Compute the flat (row-major) sample correlation matrix over the factor return
+/// series. For each pair `(i, j)` only dates where BOTH factors have `Some(_)`
+/// are used (pairwise complete observation).
+///
+/// If a factor has fewer than 2 valid observations, all off-diagonal entries in
+/// its row/column are set to 0.0 (i.e. the factor is treated as uncorrelated).
+fn sample_correlation_flat(
+    factor_id_order: &[FactorId],
+    factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,
+) -> Vec<f64> {
+    let n = factor_id_order.len();
+    if n == 0 {
+        return vec![];
+    }
+
+    // Materialise each factor's series (missing factors get an empty series).
+    let empty: Vec<Option<f64>> = vec![];
+    let series: Vec<&Vec<Option<f64>>> = factor_id_order
+        .iter()
+        .map(|fid| factor_returns.get(fid).unwrap_or(&empty))
+        .collect();
+
+    // Compute per-factor mean over valid observations (for demeaned covariance).
+    let means: Vec<f64> = series
+        .iter()
+        .map(|s| {
+            let valid: Vec<f64> = s.iter().filter_map(|v| *v).collect();
+            if valid.is_empty() {
+                0.0
+            } else {
+                valid.iter().sum::<f64>() / (valid.len() as f64)
+            }
+        })
+        .collect();
+
+    // Flat row-major result — diagonal = 1.0, off-diagonal filled below.
+    let mut rho = vec![0.0_f64; n * n];
+    for i in 0..n {
+        rho[i * n + i] = 1.0;
+    }
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            // Pairwise: use only dates where both are Some.
+            let mut cov_ij = 0.0_f64;
+            let mut var_i = 0.0_f64;
+            let mut var_j = 0.0_f64;
+            let mut count = 0usize;
+            for (vi_opt, vj_opt) in series[i].iter().zip(series[j].iter()) {
+                if let (Some(vi), Some(vj)) = (*vi_opt, *vj_opt) {
+                    let di = vi - means[i];
+                    let dj = vj - means[j];
+                    cov_ij += di * dj;
+                    var_i += di * di;
+                    var_j += dj * dj;
+                    count += 1;
+                }
+            }
+            let corr = if count >= 2 && var_i > 0.0 && var_j > 0.0 {
+                (cov_ij / (var_i * var_j).sqrt()).clamp(-1.0, 1.0)
+            } else {
+                0.0
+            };
+            rho[i * n + j] = corr;
+            rho[j * n + i] = corr;
+        }
+    }
+
+    rho
+}
+
+/// Convert flat row-major `n×n` matrix into `Vec<Vec<f64>>` (row-per-Vec).
+fn flat_to_row_major(flat: &[f64], n: usize) -> Vec<Vec<f64>> {
+    (0..n).map(|i| flat[i * n..(i + 1) * n].to_vec()).collect()
+}
+
+/// Compute `Σ = D · ρ · D` from standard deviations and flat correlation matrix.
+///
+/// Returns flat row-major `n×n` covariance matrix.
+fn d_rho_d(stds: &[f64], rho_flat: &[f64], n: usize) -> Vec<f64> {
+    let mut out = vec![0.0_f64; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            out[i * n + j] = stds[i] * rho_flat[i * n + j] * stds[j];
+        }
+    }
+    out
 }
 
 fn build_factor_histories(

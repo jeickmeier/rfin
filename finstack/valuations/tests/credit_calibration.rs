@@ -626,17 +626,22 @@ fn rejects_garch_vol_model() {
     assert!(CreditCalibrator::new(cfg).calibrate(inputs).is_err());
 }
 
+/// PR-5b: Ridge covariance is now supported (replaces the old rejection test).
 #[test]
-fn rejects_ridge_covariance() {
+fn ridge_covariance_accepted() {
     let cfg = CreditCalibrationConfig {
         covariance_strategy: CovarianceStrategy::Ridge { alpha: 0.1 },
+        min_bucket_size_per_level: BucketSizeThresholds { per_level: vec![1] },
         ..config_with(
             IssuerBetaPolicy::GloballyOff,
             vec![HierarchyDimension::Rating],
         )
     };
     let inputs = fixture_panel().into_inputs();
-    assert!(CreditCalibrator::new(cfg).calibrate(inputs).is_err());
+    assert!(
+        CreditCalibrator::new(cfg).calibrate(inputs).is_ok(),
+        "Ridge covariance strategy must succeed in PR-5b"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1185,4 +1190,360 @@ fn peer_proxy_with_no_issuer_beta_anywhere_uses_zero() {
             row.issuer_id.as_str()
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// PR-5b Test 1: Ridge covariance adds alpha to diagonal
+// ---------------------------------------------------------------------------
+
+/// Verify that `CovarianceStrategy::Ridge { alpha }` produces Σ where:
+/// - off-diagonal entries equal D·ρ·D (sample covariance off-diagonals)
+/// - diagonal entries equal D·ρ·D diagonal + alpha
+#[test]
+fn ridge_covariance_adds_alpha_to_diagonal() {
+    let alpha = 0.25_f64;
+    let cfg_ridge = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::Ridge { alpha },
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::Dynamic {
+                min_history: 12,
+                overrides: BTreeMap::new(),
+            },
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+    // Baseline with alpha=0 to get the unridged D·ρ·D covariance.
+    let cfg_zero = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::Ridge { alpha: 0.0 },
+        ..cfg_ridge.clone()
+    };
+
+    let model_ridge = CreditCalibrator::new(cfg_ridge)
+        .calibrate(fixture_panel().into_inputs())
+        .expect("ridge calibration succeeds");
+    let model_zero = CreditCalibrator::new(cfg_zero)
+        .calibrate(fixture_panel().into_inputs())
+        .expect("zero-alpha ridge calibration succeeds");
+
+    let cov_ridge = &model_ridge.config.covariance;
+    let cov_zero = &model_zero.config.covariance;
+
+    let n = cov_ridge.factor_ids().len();
+    assert!(n > 0, "at least one factor must exist");
+
+    let data_ridge = cov_ridge.as_slice();
+    let data_zero = cov_zero.as_slice();
+
+    for i in 0..n {
+        for j in 0..n {
+            let val_ridge = data_ridge[i * n + j];
+            let val_zero = data_zero[i * n + j];
+            if i == j {
+                let diff = val_ridge - val_zero;
+                assert!(
+                    (diff - alpha).abs() < 1e-12,
+                    "diagonal [{i}]: ridge - zero should equal alpha={alpha}; got diff={diff}"
+                );
+            } else {
+                // Off-diagonal must be unchanged.
+                assert!(
+                    (val_ridge - val_zero).abs() < 1e-12,
+                    "off-diagonal [{i}][{j}]: ridge and zero should be equal; ridge={val_ridge} zero={val_zero}"
+                );
+            }
+        }
+    }
+
+    // The static_correlation must record Pearson ρ (not identity).
+    let corr = &model_ridge.static_correlation;
+    assert_eq!(
+        corr.factor_ids.len(),
+        n,
+        "static_correlation must have same factor count"
+    );
+
+    // For a highly correlated fixture the correlation matrix should NOT be identity
+    // (at least one off-diagonal entry should deviate from 0.0).
+    let has_nonzero_offdiag = corr.data.iter().enumerate().any(|(i, row)| {
+        row.iter()
+            .enumerate()
+            .any(|(j, &v)| i != j && v.abs() > 1e-6)
+    });
+    assert!(
+        has_nonzero_offdiag,
+        "Ridge static_correlation should be sample Pearson ρ, not identity"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5b Test 2: FullSampleRepaired covariance is PSD
+// ---------------------------------------------------------------------------
+
+/// Fixture where n_factors > n_obs makes naive sample covariance non-PSD.
+/// Verify that `CovarianceStrategy::FullSampleRepaired` produces a covariance
+/// matrix with all non-negative eigenvalues.
+#[test]
+fn full_sample_repaired_covariance_is_psd() {
+    use finstack_core::math::linalg::symmetric_eigen;
+
+    // Build a very sparse panel: 3 dates → 2 return observations, but 6
+    // factors from a 2-level hierarchy. n_factors=7 (generic+6 buckets) > n_obs=2
+    // causes the sample correlation to be rank-deficient and non-PSD.
+    let n = 3usize; // 3 dates → 2 returns
+    let as_of = d(2024, Month::March, 31);
+    let dates = monthly_dates(n, as_of);
+    let generic_values: Vec<f64> = vec![0.0, 1.0, -0.5];
+
+    let issuer_specs = [
+        ("ISSUER-A", "IG", "EU"),
+        ("ISSUER-B", "IG", "NA"),
+        ("ISSUER-C", "IG", "APAC"),
+        ("ISSUER-D", "HY", "EU"),
+        ("ISSUER-E", "HY", "NA"),
+        ("ISSUER-F", "HY", "APAC"),
+    ];
+
+    let mut spreads: BTreeMap<IssuerId, Vec<Option<f64>>> = BTreeMap::new();
+    let mut tags: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
+    let mut asof_spreads: BTreeMap<IssuerId, f64> = BTreeMap::new();
+
+    for (idx, (id, rating, region)) in issuer_specs.iter().enumerate() {
+        let issuer_id = IssuerId::new(*id);
+        // Deterministic series with slight variation to avoid exact collinearity
+        let series: Vec<Option<f64>> = (0..n)
+            .map(|i| {
+                Some(
+                    100.0
+                        + (idx as f64) * 10.0
+                        + generic_values[i]
+                        + 0.01 * ((idx * n + i) as f64).sin(),
+                )
+            })
+            .collect();
+        asof_spreads.insert(issuer_id.clone(), series[n - 1].unwrap());
+        spreads.insert(issuer_id.clone(), series);
+        tags.insert(issuer_id, tags_for(rating, region));
+    }
+
+    let inputs = CreditCalibrationInputs {
+        history_panel: HistoryPanel { dates, spreads },
+        issuer_tags: IssuerTagPanel { tags },
+        generic_factor: GenericFactorSeries {
+            spec: GenericFactorSpec {
+                name: "CDX".to_owned(),
+                series_id: "cdx".to_owned(),
+            },
+            values: generic_values,
+        },
+        as_of,
+        asof_spreads,
+        idiosyncratic_overrides: BTreeMap::new(),
+    };
+
+    let cfg = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::FullSampleRepaired,
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::GloballyOff,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("FullSampleRepaired calibration must succeed");
+
+    model.validate().expect("model must validate");
+
+    // Extract the covariance data and verify all eigenvalues ≥ 0.
+    let cov = &model.config.covariance;
+    let n_f = cov.factor_ids().len();
+    assert!(n_f > 0, "at least one factor must be present");
+
+    let (eigenvalues, _) =
+        symmetric_eigen(cov.as_slice(), n_f).expect("symmetric_eigen must succeed on covariance");
+
+    let min_eig = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
+    assert!(
+        min_eig >= -1e-10,
+        "FullSampleRepaired covariance must have all eigenvalues ≥ 0; min = {min_eig}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5b Test 3: Ridge covariance preserves determinism
+// ---------------------------------------------------------------------------
+
+#[test]
+fn ridge_covariance_preserves_determinism() {
+    let cfg = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::Ridge { alpha: 0.05 },
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::Dynamic {
+                min_history: 12,
+                overrides: BTreeMap::new(),
+            },
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let model_a = CreditCalibrator::new(cfg.clone())
+        .calibrate(fixture_panel().into_inputs())
+        .expect("calibration A");
+    let model_b = CreditCalibrator::new(cfg)
+        .calibrate(fixture_panel().into_inputs())
+        .expect("calibration B");
+
+    let json_a = serde_json::to_string(&model_a).expect("serialize A");
+    let json_b = serde_json::to_string(&model_b).expect("serialize B");
+    assert_eq!(
+        json_a, json_b,
+        "Ridge calibration must be bit-identical for same inputs"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5b Test 4: FullSampleRepaired preserves determinism
+// ---------------------------------------------------------------------------
+
+#[test]
+fn full_sample_repaired_preserves_determinism() {
+    let cfg = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::FullSampleRepaired,
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::Dynamic {
+                min_history: 12,
+                overrides: BTreeMap::new(),
+            },
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let model_a = CreditCalibrator::new(cfg.clone())
+        .calibrate(fixture_panel().into_inputs())
+        .expect("calibration A");
+    let model_b = CreditCalibrator::new(cfg)
+        .calibrate(fixture_panel().into_inputs())
+        .expect("calibration B");
+
+    let json_a = serde_json::to_string(&model_a).expect("serialize A");
+    let json_b = serde_json::to_string(&model_b).expect("serialize B");
+    assert_eq!(
+        json_a, json_b,
+        "FullSampleRepaired calibration must be bit-identical for same inputs"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5b Test 5: Golden artifact regression test
+// ---------------------------------------------------------------------------
+
+/// Generate (or regenerate) the golden artifact file.
+/// Run manually with: `cargo test -p finstack-valuations --test credit_calibration generate_golden_artifact -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn generate_golden_artifact() {
+    let golden_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/golden/credit_factor_model_v1.json"
+    );
+
+    let cfg = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::Diagonal,
+        vol_model: VolModelChoice::Sample,
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::Dynamic {
+                min_history: 12,
+                overrides: BTreeMap::new(),
+            },
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(fixture_panel().into_inputs())
+        .expect("golden fixture calibration must succeed");
+
+    let json = serde_json::to_string_pretty(&model).expect("serialize to pretty JSON");
+    std::fs::create_dir_all(std::path::Path::new(golden_path).parent().unwrap())
+        .expect("create golden dir");
+    std::fs::write(golden_path, &json).expect("write golden file");
+    println!("Golden file written to {golden_path}");
+}
+
+/// Calibrate with the canonical fixture (Diagonal + Sample), serialize to
+/// pretty-printed JSON, and compare byte-for-byte against the checked-in
+/// golden file at `tests/golden/credit_factor_model_v1.json`.
+///
+/// On first run after generating the golden file, this test confirms the
+/// file matches a fresh calibration. On subsequent runs it catches any
+/// accidental changes to the serialization or calibration math.
+#[test]
+fn golden_credit_factor_model_matches_checked_in_json() {
+    let golden_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/golden/credit_factor_model_v1.json"
+    );
+
+    let cfg = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::Diagonal,
+        vol_model: VolModelChoice::Sample,
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::Dynamic {
+                min_history: 12,
+                overrides: BTreeMap::new(),
+            },
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(fixture_panel().into_inputs())
+        .expect("golden fixture calibration must succeed");
+
+    let produced = serde_json::to_string_pretty(&model).expect("serialize to pretty JSON");
+
+    // Read the checked-in golden file. If it doesn't exist yet, the test fails
+    // with a clear message telling the developer how to bootstrap it.
+    let golden = std::fs::read_to_string(golden_path).unwrap_or_else(|e| {
+        panic!(
+            "Golden file not found at {golden_path}: {e}\n\
+             Bootstrap it by running:\n  \
+             cargo test -p finstack-valuations --test credit_calibration \
+             golden_credit_factor_model_matches_checked_in_json -- --nocapture\n\
+             and writing the produced JSON to that path."
+        )
+    });
+
+    // Parse both as serde_json::Value for stable comparison regardless of
+    // trailing whitespace or insignificant formatting differences; then
+    // re-serialize to canonical pretty form for a clean diff on failure.
+    let produced_val: serde_json::Value =
+        serde_json::from_str(&produced).expect("produced JSON is valid");
+    let golden_val: serde_json::Value =
+        serde_json::from_str(&golden).expect("golden JSON is valid");
+
+    assert_eq!(
+        serde_json::to_string_pretty(&produced_val).expect("re-serialize produced"),
+        serde_json::to_string_pretty(&golden_val).expect("re-serialize golden"),
+        "Calibration output does not match golden file at {golden_path}.\n\
+         If this change is intentional, regenerate the golden file."
+    );
 }
