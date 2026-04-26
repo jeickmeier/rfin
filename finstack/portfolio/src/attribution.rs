@@ -179,108 +179,88 @@ struct PositionAttributionData {
     inst_ccy: Currency,
 }
 
+#[derive(Copy, Clone)]
+enum FactorBucket {
+    TotalPnl = 0,
+    Carry = 1,
+    RatesCurvesPnl = 2,
+    CreditCurvesPnl = 3,
+    InflationCurvesPnl = 4,
+    CorrelationsPnl = 5,
+    FxPnl = 6,
+    FxTranslationPnl = 7,
+    VolPnl = 8,
+    ModelParamsPnl = 9,
+    MarketScalarsPnl = 10,
+    Residual = 11,
+}
+
+const N_BUCKETS: usize = 12;
+
 /// Private helper that aggregates portfolio-level factor P&L buckets using
-/// Neumaier summation. Holding all accumulators in a single struct with a
-/// fixed builder method makes the final field ordering impossible to mismatch.
+/// Neumaier summation. An enum-keyed array eliminates per-field duplication
+/// and makes the bucket-to-output mapping a single point of truth.
 struct FactorAccumulator {
-    total_pnl: NeumaierAccumulator,
-    carry: NeumaierAccumulator,
-    rates_curves_pnl: NeumaierAccumulator,
-    credit_curves_pnl: NeumaierAccumulator,
-    inflation_curves_pnl: NeumaierAccumulator,
-    correlations_pnl: NeumaierAccumulator,
-    fx_pnl: NeumaierAccumulator,
-    fx_translation_pnl: NeumaierAccumulator,
-    vol_pnl: NeumaierAccumulator,
-    model_params_pnl: NeumaierAccumulator,
-    market_scalars_pnl: NeumaierAccumulator,
-    residual: NeumaierAccumulator,
+    buckets: [NeumaierAccumulator; N_BUCKETS],
 }
 
 impl FactorAccumulator {
     fn new() -> Self {
         Self {
-            total_pnl: NeumaierAccumulator::new(),
-            carry: NeumaierAccumulator::new(),
-            rates_curves_pnl: NeumaierAccumulator::new(),
-            credit_curves_pnl: NeumaierAccumulator::new(),
-            inflation_curves_pnl: NeumaierAccumulator::new(),
-            correlations_pnl: NeumaierAccumulator::new(),
-            fx_pnl: NeumaierAccumulator::new(),
-            fx_translation_pnl: NeumaierAccumulator::new(),
-            vol_pnl: NeumaierAccumulator::new(),
-            model_params_pnl: NeumaierAccumulator::new(),
-            market_scalars_pnl: NeumaierAccumulator::new(),
-            residual: NeumaierAccumulator::new(),
+            buckets: [NeumaierAccumulator::new(); N_BUCKETS],
         }
     }
 
-    /// Add the converted per-position factor P&L to each bucket.
-    ///
-    /// Applies `convert` to each field of `pos_attr` and adds the resulting
-    /// amount to the matching accumulator. Does **not** touch
-    /// `fx_translation_pnl` — that is handled by [`add_fx_translation`] for
-    /// cross-currency positions.
-    ///
-    /// Add order (must be preserved for Neumaier numerical stability):
-    /// total_pnl, carry, rates_curves_pnl, credit_curves_pnl,
-    /// inflation_curves_pnl, correlations_pnl, fx_pnl, vol_pnl,
-    /// model_params_pnl, market_scalars_pnl, residual.
+    fn add(&mut self, b: FactorBucket, x: f64) {
+        self.buckets[b as usize].add(x);
+    }
+
+    fn total(&self, b: FactorBucket) -> f64 {
+        self.buckets[b as usize].current()
+    }
+
     fn add_converted(
         &mut self,
         pos_attr: &PnlAttribution,
         convert: &impl Fn(Money) -> Result<Money>,
     ) -> Result<()> {
-        self.total_pnl.add(convert(pos_attr.total_pnl)?.amount());
-        self.carry.add(convert(pos_attr.carry)?.amount());
-        self.rates_curves_pnl
-            .add(convert(pos_attr.rates_curves_pnl)?.amount());
-        self.credit_curves_pnl
-            .add(convert(pos_attr.credit_curves_pnl)?.amount());
-        self.inflation_curves_pnl
-            .add(convert(pos_attr.inflation_curves_pnl)?.amount());
-        self.correlations_pnl
-            .add(convert(pos_attr.correlations_pnl)?.amount());
-        self.fx_pnl.add(convert(pos_attr.fx_pnl)?.amount());
-        self.vol_pnl.add(convert(pos_attr.vol_pnl)?.amount());
-        self.model_params_pnl
-            .add(convert(pos_attr.model_params_pnl)?.amount());
-        self.market_scalars_pnl
-            .add(convert(pos_attr.market_scalars_pnl)?.amount());
-        self.residual.add(convert(pos_attr.residual)?.amount());
+        self.add(FactorBucket::TotalPnl, convert(pos_attr.total_pnl)?.amount());
+        self.add(FactorBucket::Carry, convert(pos_attr.carry)?.amount());
+        self.add(FactorBucket::RatesCurvesPnl, convert(pos_attr.rates_curves_pnl)?.amount());
+        self.add(FactorBucket::CreditCurvesPnl, convert(pos_attr.credit_curves_pnl)?.amount());
+        self.add(FactorBucket::InflationCurvesPnl, convert(pos_attr.inflation_curves_pnl)?.amount());
+        self.add(FactorBucket::CorrelationsPnl, convert(pos_attr.correlations_pnl)?.amount());
+        self.add(FactorBucket::FxPnl, convert(pos_attr.fx_pnl)?.amount());
+        self.add(FactorBucket::VolPnl, convert(pos_attr.vol_pnl)?.amount());
+        self.add(FactorBucket::ModelParamsPnl, convert(pos_attr.model_params_pnl)?.amount());
+        self.add(FactorBucket::MarketScalarsPnl, convert(pos_attr.market_scalars_pnl)?.amount());
+        self.add(FactorBucket::Residual, convert(pos_attr.residual)?.amount());
         Ok(())
     }
 
-    /// Add the FX translation amount to both `fx_translation_pnl` and
-    /// `total_pnl`, preserving the current ordering where the converted
-    /// `pos_attr.total_pnl` is added first (via `add_converted`) and the
-    /// translation amount is added afterwards.
     fn add_fx_translation(&mut self, amount: f64) {
-        self.fx_translation_pnl.add(amount);
-        self.total_pnl.add(amount);
+        self.add(FactorBucket::FxTranslationPnl, amount);
+        self.add(FactorBucket::TotalPnl, amount);
     }
 
-    /// Finalize: build the `PortfolioAttribution` struct. Centralizing the
-    /// construction here means each accumulator maps to its single correct
-    /// field in one place.
     fn into_portfolio_attribution(
         self,
         base_ccy: Currency,
         by_position: IndexMap<PositionId, PnlAttribution>,
     ) -> PortfolioAttribution {
         PortfolioAttribution {
-            total_pnl: Money::new(self.total_pnl.total(), base_ccy),
-            carry: Money::new(self.carry.total(), base_ccy),
-            rates_curves_pnl: Money::new(self.rates_curves_pnl.total(), base_ccy),
-            credit_curves_pnl: Money::new(self.credit_curves_pnl.total(), base_ccy),
-            inflation_curves_pnl: Money::new(self.inflation_curves_pnl.total(), base_ccy),
-            correlations_pnl: Money::new(self.correlations_pnl.total(), base_ccy),
-            fx_pnl: Money::new(self.fx_pnl.total(), base_ccy),
-            fx_translation_pnl: Money::new(self.fx_translation_pnl.total(), base_ccy),
-            vol_pnl: Money::new(self.vol_pnl.total(), base_ccy),
-            model_params_pnl: Money::new(self.model_params_pnl.total(), base_ccy),
-            market_scalars_pnl: Money::new(self.market_scalars_pnl.total(), base_ccy),
-            residual: Money::new(self.residual.total(), base_ccy),
+            total_pnl: Money::new(self.total(FactorBucket::TotalPnl), base_ccy),
+            carry: Money::new(self.total(FactorBucket::Carry), base_ccy),
+            rates_curves_pnl: Money::new(self.total(FactorBucket::RatesCurvesPnl), base_ccy),
+            credit_curves_pnl: Money::new(self.total(FactorBucket::CreditCurvesPnl), base_ccy),
+            inflation_curves_pnl: Money::new(self.total(FactorBucket::InflationCurvesPnl), base_ccy),
+            correlations_pnl: Money::new(self.total(FactorBucket::CorrelationsPnl), base_ccy),
+            fx_pnl: Money::new(self.total(FactorBucket::FxPnl), base_ccy),
+            fx_translation_pnl: Money::new(self.total(FactorBucket::FxTranslationPnl), base_ccy),
+            vol_pnl: Money::new(self.total(FactorBucket::VolPnl), base_ccy),
+            model_params_pnl: Money::new(self.total(FactorBucket::ModelParamsPnl), base_ccy),
+            market_scalars_pnl: Money::new(self.total(FactorBucket::MarketScalarsPnl), base_ccy),
+            residual: Money::new(self.total(FactorBucket::Residual), base_ccy),
             by_position,
             rates_detail: None,
             credit_detail: None,
@@ -753,6 +733,32 @@ impl PortfolioAttribution {
 mod tests {
     use super::*;
     use time::macros::date;
+
+    #[test]
+    fn factor_bucket_indices_are_unique_and_cover_n_buckets() {
+        let buckets = [
+            FactorBucket::TotalPnl,
+            FactorBucket::Carry,
+            FactorBucket::RatesCurvesPnl,
+            FactorBucket::CreditCurvesPnl,
+            FactorBucket::InflationCurvesPnl,
+            FactorBucket::CorrelationsPnl,
+            FactorBucket::FxPnl,
+            FactorBucket::FxTranslationPnl,
+            FactorBucket::VolPnl,
+            FactorBucket::ModelParamsPnl,
+            FactorBucket::MarketScalarsPnl,
+            FactorBucket::Residual,
+        ];
+        assert_eq!(buckets.len(), N_BUCKETS);
+        let mut seen = [false; N_BUCKETS];
+        for b in buckets {
+            let idx = b as usize;
+            assert!(!seen[idx], "duplicate index {idx}");
+            seen[idx] = true;
+        }
+        assert!(seen.iter().all(|&v| v), "gap in bucket indices");
+    }
 
     fn sample_position_attr(
         position_id: &str,
