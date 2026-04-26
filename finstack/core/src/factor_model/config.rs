@@ -345,6 +345,12 @@ impl FactorModelConfig {
     ///
     /// Returns [`crate::Error::Validation`] when any factor ID emitted by the
     /// matching config is not declared in [`Self::factors`].
+    ///
+    /// # Limitations
+    ///
+    /// This validation only enumerates factor IDs for issuers known to the calibrated
+    /// `issuer_betas`. If a runtime issuer with full tags is treated as `BucketOnly`,
+    /// its bucket factor IDs are not checked here.
     pub fn validate_matching_factor_ids(&self) -> crate::Result<()> {
         use std::collections::BTreeSet;
         let known: BTreeSet<&FactorId> = self.factors.iter().map(|f| &f.id).collect();

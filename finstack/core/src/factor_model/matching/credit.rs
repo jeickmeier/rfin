@@ -36,8 +36,8 @@ use serde::{Deserialize, Serialize};
 /// Reserved key in [`Attributes::meta`] used to thread the issuer identifier
 /// from the position into the matcher.
 ///
-/// The matcher reads this key first, then falls back to `"issuer_id"` (no
-/// namespace) and finally to no issuer at all (treated as `BucketOnly`).
+/// Set this key on the instrument's [`Attributes`] before calling the matcher.
+/// If the key is absent the issuer is treated as unknown (`BucketOnly`).
 pub const ISSUER_ID_META_KEY: &str = "credit::issuer_id";
 
 /// Canonical factor ID for the generic credit (PC) factor.
@@ -73,6 +73,12 @@ impl CreditHierarchicalConfig {
     /// `credit::level{idx}::{dim_path}::{val_path}` that appears for any
     /// known issuer in `issuer_betas`. The list is deduplicated and sorted
     /// for stable output.
+    ///
+    /// # Limitations
+    ///
+    /// This method only enumerates factor IDs for issuers known to the calibrated
+    /// `issuer_betas`. If a runtime issuer with full tags is treated as `BucketOnly`,
+    /// its bucket factor IDs are not checked here.
     #[must_use]
     pub fn enumerate_factor_ids(&self) -> Vec<FactorId> {
         use std::collections::BTreeSet;
@@ -144,9 +150,7 @@ impl FactorMatcher for CreditHierarchicalMatcher {
             return Ok(None);
         }
 
-        let issuer_id_str = attributes
-            .get_meta(ISSUER_ID_META_KEY)
-            .or_else(|| attributes.get_meta("issuer_id"));
+        let issuer_id_str = attributes.get_meta(ISSUER_ID_META_KEY);
 
         // Look up calibrated betas if available; otherwise fall back to 1.0.
         let row = issuer_id_str
