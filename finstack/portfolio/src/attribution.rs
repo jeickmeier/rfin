@@ -224,16 +224,37 @@ impl FactorAccumulator {
         pos_attr: &PnlAttribution,
         convert: &impl Fn(Money) -> Result<Money>,
     ) -> Result<()> {
-        self.add(FactorBucket::TotalPnl, convert(pos_attr.total_pnl)?.amount());
+        self.add(
+            FactorBucket::TotalPnl,
+            convert(pos_attr.total_pnl)?.amount(),
+        );
         self.add(FactorBucket::Carry, convert(pos_attr.carry)?.amount());
-        self.add(FactorBucket::RatesCurvesPnl, convert(pos_attr.rates_curves_pnl)?.amount());
-        self.add(FactorBucket::CreditCurvesPnl, convert(pos_attr.credit_curves_pnl)?.amount());
-        self.add(FactorBucket::InflationCurvesPnl, convert(pos_attr.inflation_curves_pnl)?.amount());
-        self.add(FactorBucket::CorrelationsPnl, convert(pos_attr.correlations_pnl)?.amount());
+        self.add(
+            FactorBucket::RatesCurvesPnl,
+            convert(pos_attr.rates_curves_pnl)?.amount(),
+        );
+        self.add(
+            FactorBucket::CreditCurvesPnl,
+            convert(pos_attr.credit_curves_pnl)?.amount(),
+        );
+        self.add(
+            FactorBucket::InflationCurvesPnl,
+            convert(pos_attr.inflation_curves_pnl)?.amount(),
+        );
+        self.add(
+            FactorBucket::CorrelationsPnl,
+            convert(pos_attr.correlations_pnl)?.amount(),
+        );
         self.add(FactorBucket::FxPnl, convert(pos_attr.fx_pnl)?.amount());
         self.add(FactorBucket::VolPnl, convert(pos_attr.vol_pnl)?.amount());
-        self.add(FactorBucket::ModelParamsPnl, convert(pos_attr.model_params_pnl)?.amount());
-        self.add(FactorBucket::MarketScalarsPnl, convert(pos_attr.market_scalars_pnl)?.amount());
+        self.add(
+            FactorBucket::ModelParamsPnl,
+            convert(pos_attr.model_params_pnl)?.amount(),
+        );
+        self.add(
+            FactorBucket::MarketScalarsPnl,
+            convert(pos_attr.market_scalars_pnl)?.amount(),
+        );
         self.add(FactorBucket::Residual, convert(pos_attr.residual)?.amount());
         Ok(())
     }
@@ -253,7 +274,10 @@ impl FactorAccumulator {
             carry: Money::new(self.total(FactorBucket::Carry), base_ccy),
             rates_curves_pnl: Money::new(self.total(FactorBucket::RatesCurvesPnl), base_ccy),
             credit_curves_pnl: Money::new(self.total(FactorBucket::CreditCurvesPnl), base_ccy),
-            inflation_curves_pnl: Money::new(self.total(FactorBucket::InflationCurvesPnl), base_ccy),
+            inflation_curves_pnl: Money::new(
+                self.total(FactorBucket::InflationCurvesPnl),
+                base_ccy,
+            ),
             correlations_pnl: Money::new(self.total(FactorBucket::CorrelationsPnl), base_ccy),
             fx_pnl: Money::new(self.total(FactorBucket::FxPnl), base_ccy),
             fx_translation_pnl: Money::new(self.total(FactorBucket::FxTranslationPnl), base_ccy),

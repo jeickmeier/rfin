@@ -731,7 +731,11 @@ impl ScenarioEngine {
 fn apply_market_phase(
     expanded_ops: &[OperationSpec],
     ctx: &mut ExecutionContext,
-) -> Result<(usize, Vec<String>, Vec<crate::adapters::traits::ScenarioEffect>)> {
+) -> Result<(
+    usize,
+    Vec<String>,
+    Vec<crate::adapters::traits::ScenarioEffect>,
+)> {
     let vol_adapter = crate::adapters::vol::VolAdapter;
     let curve_adapter = crate::adapters::curves::CurveAdapter;
     let base_corr_adapter = crate::adapters::basecorr::BaseCorrAdapter;

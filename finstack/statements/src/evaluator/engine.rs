@@ -277,8 +277,7 @@ impl Evaluator {
             // Add to historical context for next period (move, not clone)
             std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results);
             if has_cs {
-                let period_snapshot =
-                    build_cs_period_snapshot(&cs_cashflows_accum, period.id);
+                let period_snapshot = build_cs_period_snapshot(&cs_cashflows_accum, period.id);
                 std::sync::Arc::make_mut(&mut historical_cs).insert(period.id, period_snapshot);
             }
 

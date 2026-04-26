@@ -14,7 +14,12 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
 }
 
 /// Shared range builder: `[period_start - offset_days, ref_date]` inclusive.
-fn select_range(dates: &[Date], period_start: Date, ref_date: Date, offset_days: i64) -> Range<usize> {
+fn select_range(
+    dates: &[Date],
+    period_start: Date,
+    ref_date: Date,
+    offset_days: i64,
+) -> Range<usize> {
     let adj_start = period_start - Duration::days(offset_days);
     let lo = lower_bound(dates, adj_start);
     let hi = lower_bound(dates, ref_date + Duration::days(1));
