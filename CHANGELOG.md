@@ -11,6 +11,27 @@ stability contract and schema-version policy.
 
 ## [Unreleased]
 
+### Added — Credit factor hierarchy decomposition (opt-in, non-breaking)
+
+A hierarchical credit factor model that decomposes every issuer's spread into a sequence of common factors (user-designated generic + configurable bucket levels) plus an issuer-specific adder residual. All consumers take `Option<&CreditFactorModel>` and fall back to today's behavior when absent.
+
+**New types:** `CreditFactorModel`, `CreditCalibrator`, `CreditCalibrationInputs`, `CreditCalibrationConfig`, `CreditHierarchySpec`, `HierarchyDimension`, `IssuerTags`, `IssuerBetaPolicy`, `IssuerBetaMode`, `IssuerBetaRow`, `LevelsAtAnchor`, `VolState`, `FactorHistories`, `CalibrationDiagnostics`, `FactorCovarianceForecast`, `VolHorizon`, `CreditVolReport`, `CreditFactorAttribution`, `LevelPnl`, `CreditCarryDecomposition`, `LevelCarry`, `SourceLine`.
+
+**New free functions:** `decompose_levels`, `decompose_period`.
+
+**Extended types:**
+- `PnlAttribution`: adds `credit_factor_detail`, `credit_carry_decomposition` (both `Option`, default `None`).
+- `CarryDetail`: `coupon_income` and `roll_down` are now `Option<SourceLine>` (custom Deserialize accepts both legacy `Money` and new `SourceLine` shapes).
+- `RiskDecomposition`: adds `position_residual_contributions` (default empty).
+- `MarketMapping`: new `CreditHierarchical` matcher variant.
+- `AttributionSpec`: adds `credit_factor_model`, `credit_factor_detail_options`.
+
+**New schemas:** `factor_model/credit_factor_model.schema.json` (`finstack.credit_factor_model/1`), `factor_model/credit_calibration_inputs.schema.json`, `factor_model/credit_calibration_config.schema.json`. Attribution schemas extended additively — old payloads still validate.
+
+**`CreditFactorModelRef` semantics:** Currently only the `Inline(Box<CreditFactorModel>)` variant is implemented. A path-based variant (`FilePath(PathBuf)`) is documented as a future v2 enhancement; callers that need to avoid embedding large artifacts in the spec should pre-load and pass the inline form.
+
+**Deferred to v2:** term-structure level factors, PCA-derived generic, multivariate / DCC GARCH, online covariance updating, Ledoit-Wolf shrinkage, FRTB regulatory adapters, `CreditFactorModelRef::FilePath` variant.
+
 ### `finstack_scenarios` — production-readiness audit follow-ups
 
 **Breaking changes:**
