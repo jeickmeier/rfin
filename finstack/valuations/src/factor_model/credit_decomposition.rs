@@ -27,7 +27,6 @@ use finstack_core::dates::Date;
 use finstack_core::factor_model::credit_hierarchy::{
     CreditFactorModel, HierarchyDimension, IssuerBetaRow, IssuerBetas, IssuerTags,
 };
-use finstack_core::factor_model::matching::dimension_key;
 use finstack_core::types::IssuerId;
 
 // ---------------------------------------------------------------------------
@@ -101,36 +100,45 @@ pub struct PeriodDecomposition {
 // ---------------------------------------------------------------------------
 
 /// Failure modes for the decomposition routines.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum DecompositionError {
     /// An issuer appeared in `observed_spreads` but had no
     /// [`IssuerBetaRow`] in the model and no entry in `runtime_tags`.
+    #[error(
+        "issuer {issuer_id:?} is not in CreditFactorModel.issuer_betas and no \
+         runtime_tags entry was supplied"
+    )]
     UnknownIssuer {
         /// The issuer that could not be resolved.
         issuer_id: IssuerId,
     },
     /// An issuer (model-resident or runtime-supplied) was missing the tag for
     /// a hierarchy dimension.
+    #[error("issuer {issuer_id:?} is missing the tag for dimension {dimension:?}")]
     MissingTag {
         /// The issuer with the missing tag.
         issuer_id: IssuerId,
-        /// Canonical key (per [`dimension_key`]) of the missing dimension.
+        /// Canonical key (per [`finstack_core::factor_model::credit_hierarchy::dimension_key`]) of the missing dimension.
         dimension: String,
     },
     /// The model is internally inconsistent — typically `IssuerBetas.levels`
     /// or `LevelsAtAnchor.by_level` does not match `hierarchy.levels.len()`.
+    #[error("CreditFactorModel is inconsistent: {reason}")]
     ModelInconsistent {
         /// Free-form diagnostic explaining the mismatch.
         reason: String,
     },
     /// The two snapshots passed to [`decompose_period`] disagree on the number
     /// of hierarchy levels or on the dimension assigned to each level.
+    #[error("snapshot shape mismatch: {reason}")]
     SnapshotShapeMismatch {
         /// Free-form diagnostic explaining the mismatch.
         reason: String,
     },
     /// The two snapshots passed to [`decompose_period`] are out of order
     /// (`from.date > to.date`).
+    #[error("decompose_period requires from.date <= to.date, got from={from:?} to={to:?}")]
     DateMismatchInPeriod {
         /// Earlier-but-supplied-second date.
         from: Date,
@@ -138,39 +146,6 @@ pub enum DecompositionError {
         to: Date,
     },
 }
-
-impl std::fmt::Display for DecompositionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::UnknownIssuer { issuer_id } => write!(
-                f,
-                "issuer {:?} is not in CreditFactorModel.issuer_betas and no \
-                 runtime_tags entry was supplied",
-                issuer_id.as_str()
-            ),
-            Self::MissingTag {
-                issuer_id,
-                dimension,
-            } => write!(
-                f,
-                "issuer {:?} is missing the tag for dimension {dimension:?}",
-                issuer_id.as_str()
-            ),
-            Self::ModelInconsistent { reason } => {
-                write!(f, "CreditFactorModel is inconsistent: {reason}")
-            }
-            Self::SnapshotShapeMismatch { reason } => {
-                write!(f, "snapshot shape mismatch: {reason}")
-            }
-            Self::DateMismatchInPeriod { from, to } => write!(
-                f,
-                "decompose_period requires from.date <= to.date, got from={from:?} to={to:?}"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for DecompositionError {}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -183,25 +158,6 @@ fn index_issuer_betas(model: &CreditFactorModel) -> BTreeMap<&IssuerId, &IssuerB
         idx.insert(&row.issuer_id, row);
     }
     idx
-}
-
-/// Build the dotted bucket path for an issuer at hierarchy level `k`,
-/// reading tag values straight from `tags`. Returns the dimension key of the
-/// missing tag if any tag along levels `0..=k` is absent.
-fn bucket_path(
-    levels: &[HierarchyDimension],
-    tags: &IssuerTags,
-    k: usize,
-) -> Result<String, String> {
-    let mut parts = Vec::with_capacity(k + 1);
-    for dim in levels.iter().take(k + 1) {
-        let key = dimension_key(dim);
-        match tags.0.get(&key) {
-            Some(value) => parts.push(value.clone()),
-            None => return Err(key),
-        }
-    }
-    Ok(parts.join("."))
 }
 
 /// Default unit-beta values used when an issuer is decomposed under
@@ -243,6 +199,11 @@ fn unit_betas(num_levels: usize) -> IssuerBetas {
 /// - A hierarchy bucket present in `model.anchor_state` but with no current
 ///   issuers is omitted from the output (rather than emitting `0.0`),
 ///   so that callers can distinguish "no data" from "data, value 0".
+///
+/// Note: `decompose_levels` only processes `observed_spreads`; an issuer in
+/// `observed_spreads` is always in some bucket of size ≥ 1 (its own residual).
+/// The §5.4 "β=0 fallback for empty bucket" applies at attribution time
+/// (PR-7/8), not here.
 ///
 /// # Errors
 ///
@@ -317,9 +278,16 @@ pub fn decompose_levels(
     for (issuer, r) in &resolved {
         let mut paths = Vec::with_capacity(num_levels);
         for k in 0..num_levels {
-            match bucket_path(&model.hierarchy.levels, r.tags, k) {
-                Ok(p) => paths.push(p),
-                Err(missing_key) => {
+            match model.hierarchy.bucket_path(r.tags, k) {
+                Some(p) => paths.push(p),
+                None => {
+                    // Find the first missing dimension key for the diagnostic.
+                    use finstack_core::factor_model::credit_hierarchy::dimension_key;
+                    let missing_key = model.hierarchy.levels[..=k]
+                        .iter()
+                        .find(|dim| !r.tags.0.contains_key(&dimension_key(dim)))
+                        .map(dimension_key)
+                        .unwrap_or_else(|| format!("level_{k}"));
                     return Err(DecompositionError::MissingTag {
                         issuer_id: (*issuer).clone(),
                         dimension: missing_key,

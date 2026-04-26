@@ -64,6 +64,26 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 // ---------------------------------------------------------------------------
+// dimension_key helper — lives here so CreditHierarchySpec can use it
+// ---------------------------------------------------------------------------
+
+/// Canonical lowercase key used to read a [`HierarchyDimension`] from a tag map.
+///
+/// - `Rating` → `"rating"`
+/// - `Region` → `"region"`
+/// - `Sector` → `"sector"`
+/// - `Custom(name)` → `name` (the caller-chosen string, used verbatim).
+#[must_use]
+pub fn dimension_key(dim: &HierarchyDimension) -> String {
+    match dim {
+        HierarchyDimension::Rating => "rating".to_owned(),
+        HierarchyDimension::Region => "region".to_owned(),
+        HierarchyDimension::Sector => "sector".to_owned(),
+        HierarchyDimension::Custom(name) => name.clone(),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Date range (no DateRange exists yet in finstack-core)
 // ---------------------------------------------------------------------------
 
@@ -167,6 +187,33 @@ pub enum HierarchyDimension {
 pub struct CreditHierarchySpec {
     /// Ordered hierarchy levels, broadest first.
     pub levels: Vec<HierarchyDimension>,
+}
+
+impl CreditHierarchySpec {
+    /// Build the dotted bucket path for an issuer at hierarchy level `k`.
+    ///
+    /// Reads the tag value for each dimension in `self.levels[0..=k]` from
+    /// `tags`, then joins them with `"."`.
+    ///
+    /// - For `k = 0` returns `Some("<tag_for_dim_0>")`.
+    /// - For `k = 1` returns `Some("<tag_for_dim_0>.<tag_for_dim_1>")`.
+    /// - For `k = self.levels.len() - 1` returns the full dotted path.
+    ///
+    /// Returns `None` if `k >= self.levels.len()` or if any tag for
+    /// dimensions `0..=k` is missing from `tags`.
+    #[must_use]
+    pub fn bucket_path(&self, tags: &IssuerTags, k: usize) -> Option<String> {
+        if k >= self.levels.len() {
+            return None;
+        }
+        let mut parts = Vec::with_capacity(k + 1);
+        for dim in self.levels.iter().take(k + 1) {
+            let key = dimension_key(dim);
+            let value = tags.0.get(&key)?;
+            parts.push(value.clone());
+        }
+        Some(parts.join("."))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1030,5 +1077,88 @@ mod tests {
             data: vec![vec![0.5]], // diagonal != 1.0
         };
         assert!(model.validate().is_err());
+    }
+
+    // ------------------------------------------------------------------
+    // CreditHierarchySpec::bucket_path — unit tests (Fix A)
+    // ------------------------------------------------------------------
+
+    fn tags_rrs(rating: &str, region: &str, sector: &str) -> IssuerTags {
+        let mut m = BTreeMap::new();
+        m.insert("rating".to_owned(), rating.to_owned());
+        m.insert("region".to_owned(), region.to_owned());
+        m.insert("sector".to_owned(), sector.to_owned());
+        IssuerTags(m)
+    }
+
+    fn spec_rating_region_sector() -> CreditHierarchySpec {
+        CreditHierarchySpec {
+            levels: vec![
+                HierarchyDimension::Rating,
+                HierarchyDimension::Region,
+                HierarchyDimension::Sector,
+            ],
+        }
+    }
+
+    #[test]
+    fn bucket_path_full_tags_all_levels() {
+        let spec = spec_rating_region_sector();
+        let tags = tags_rrs("IG", "EU", "FIN");
+        // Level 0: just rating value
+        assert_eq!(spec.bucket_path(&tags, 0), Some("IG".to_owned()));
+        // Level 1: rating.region
+        assert_eq!(spec.bucket_path(&tags, 1), Some("IG.EU".to_owned()));
+        // Level 2: full path
+        assert_eq!(spec.bucket_path(&tags, 2), Some("IG.EU.FIN".to_owned()));
+    }
+
+    #[test]
+    fn bucket_path_missing_tag_at_level_1_returns_none() {
+        let spec = spec_rating_region_sector();
+        // Tags has rating and sector, but no region.
+        let mut m = BTreeMap::new();
+        m.insert("rating".to_owned(), "IG".to_owned());
+        m.insert("sector".to_owned(), "FIN".to_owned());
+        let tags = IssuerTags(m);
+        // Level 0 still works (only needs rating).
+        assert_eq!(spec.bucket_path(&tags, 0), Some("IG".to_owned()));
+        // Level 1 requires region — returns None.
+        assert_eq!(spec.bucket_path(&tags, 1), None);
+        // Level 2 also requires region — returns None.
+        assert_eq!(spec.bucket_path(&tags, 2), None);
+    }
+
+    #[test]
+    fn bucket_path_custom_dimension_uses_verbatim_key() {
+        let spec = CreditHierarchySpec {
+            levels: vec![
+                HierarchyDimension::Rating,
+                HierarchyDimension::Custom("Currency".to_owned()),
+            ],
+        };
+        let mut m = BTreeMap::new();
+        m.insert("rating".to_owned(), "HY".to_owned());
+        m.insert("Currency".to_owned(), "USD".to_owned()); // exact key used verbatim
+        let tags = IssuerTags(m);
+        assert_eq!(spec.bucket_path(&tags, 0), Some("HY".to_owned()));
+        assert_eq!(spec.bucket_path(&tags, 1), Some("HY.USD".to_owned()));
+    }
+
+    #[test]
+    fn bucket_path_k_beyond_levels_returns_none() {
+        let spec = spec_rating_region_sector();
+        let tags = tags_rrs("IG", "EU", "FIN");
+        // k == levels.len() is out of bounds.
+        assert_eq!(spec.bucket_path(&tags, 3), None);
+        assert_eq!(spec.bucket_path(&tags, 99), None);
+    }
+
+    #[test]
+    fn bucket_path_empty_hierarchy_returns_none() {
+        let spec = CreditHierarchySpec { levels: vec![] };
+        let tags = tags_rrs("IG", "EU", "FIN");
+        // Any k is out of bounds for an empty hierarchy.
+        assert_eq!(spec.bucket_path(&tags, 0), None);
     }
 }

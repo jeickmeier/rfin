@@ -22,7 +22,7 @@
 use super::filter::DependencyFilter;
 use super::matchers::{FactorMatchEntry, FactorMatchError, FactorMatchResult, FactorMatcher};
 use crate::factor_model::credit_hierarchy::{
-    CreditHierarchySpec, HierarchyDimension, IssuerBetaRow, IssuerTags,
+    dimension_key, CreditHierarchySpec, HierarchyDimension, IssuerBetaRow, IssuerTags,
 };
 use crate::factor_model::dependency::MarketDependency;
 use crate::factor_model::types::FactorId;
@@ -222,22 +222,6 @@ impl FactorMatcher for CreditHierarchicalMatcher {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Canonical lowercase key used to read a [`HierarchyDimension`] from a tag map.
-///
-/// - `Rating` → `"rating"`
-/// - `Region` → `"region"`
-/// - `Sector` → `"sector"`
-/// - `Custom(name)` → `name` (the caller-chosen string, used verbatim).
-#[must_use]
-pub fn dimension_key(dim: &HierarchyDimension) -> String {
-    match dim {
-        HierarchyDimension::Rating => "rating".to_owned(),
-        HierarchyDimension::Region => "region".to_owned(),
-        HierarchyDimension::Sector => "sector".to_owned(),
-        HierarchyDimension::Custom(name) => name.clone(),
-    }
-}
-
 /// Dotted dimension-name path through the first `level_idx + 1` levels of
 /// the hierarchy spec, e.g. `"Rating.Region"` for level index 1.
 fn dimension_path(spec: &CreditHierarchySpec, level_idx: usize) -> String {
@@ -254,19 +238,6 @@ fn dimension_path(spec: &CreditHierarchySpec, level_idx: usize) -> String {
         .join(".")
 }
 
-/// Dotted tag-value path through the first `level_idx + 1` levels of the
-/// hierarchy spec, reading values from `tags`. Returns `None` if any tag is
-/// missing.
-fn value_path(spec: &CreditHierarchySpec, tags: &IssuerTags, level_idx: usize) -> Option<String> {
-    let mut parts = Vec::with_capacity(level_idx + 1);
-    for dim in spec.levels.iter().take(level_idx + 1) {
-        let key = dimension_key(dim);
-        let value = tags.0.get(&key)?;
-        parts.push(value.clone());
-    }
-    Some(parts.join("."))
-}
-
 /// Builds the canonical factor ID `credit::level{idx}::{dim_path}::{val_path}`
 /// for the given hierarchy level. Returns `None` if any required tag is missing.
 #[must_use]
@@ -279,7 +250,7 @@ pub fn bucket_factor_id(
         return None;
     }
     let dim_path = dimension_path(spec, level_idx);
-    let val_path = value_path(spec, tags, level_idx)?;
+    let val_path = spec.bucket_path(tags, level_idx)?;
     Some(FactorId::new(format!(
         "credit::level{level_idx}::{dim_path}::{val_path}"
     )))
